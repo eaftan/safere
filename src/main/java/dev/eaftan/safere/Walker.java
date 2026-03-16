@@ -52,7 +52,6 @@ abstract class Walker<T> {
    * @param nChildArgs number of children
    * @return the result for this node
    */
-  @SuppressWarnings("unchecked")
   protected T postVisit(Regexp re, T parentArg, T preArg, Object[] childArgs, int nChildArgs) {
     return preArg;
   }

@@ -194,7 +194,6 @@ final class Simplifier {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     protected Regexp postVisit(
         Regexp re, Regexp parentArg, Regexp preArg, Object[] childArgs, int nChildArgs) {
       if (nChildArgs == 0) {
@@ -458,7 +457,6 @@ final class Simplifier {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     protected Regexp postVisit(
         Regexp re, Regexp parentArg, Regexp preArg, Object[] childArgs, int nChildArgs) {
       switch (re.op) {
