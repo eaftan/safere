@@ -117,21 +117,48 @@ public final class Regexp {
 
   /** Creates a STAR node matching the sub-expression zero or more times. */
   public static Regexp star(Regexp sub, int flags) {
-    Regexp re = new Regexp(RegexpOp.STAR, flags);
-    re.subs = new Regexp[] {sub};
-    return re;
+    return starPlusOrQuest(RegexpOp.STAR, sub, flags);
   }
 
   /** Creates a PLUS node matching the sub-expression one or more times. */
   public static Regexp plus(Regexp sub, int flags) {
-    Regexp re = new Regexp(RegexpOp.PLUS, flags);
-    re.subs = new Regexp[] {sub};
-    return re;
+    return starPlusOrQuest(RegexpOp.PLUS, sub, flags);
   }
 
   /** Creates a QUEST node matching the sub-expression zero or one times. */
   public static Regexp quest(Regexp sub, int flags) {
-    Regexp re = new Regexp(RegexpOp.QUEST, flags);
+    return starPlusOrQuest(RegexpOp.QUEST, sub, flags);
+  }
+
+  /**
+   * Creates a STAR, PLUS, or QUEST node, squashing nested quantifiers when possible. Mirrors RE2's
+   * {@code Regexp::StarPlusOrQuest()}.
+   */
+  private static Regexp starPlusOrQuest(RegexpOp op, Regexp sub, int flags) {
+    // Squash **, ++, ??
+    if (op == sub.op && flags == sub.flags) {
+      return sub;
+    }
+    // Squash *+, *?, +*, +?, ?*, ?+ — all become STAR.
+    if ((sub.op == RegexpOp.STAR || sub.op == RegexpOp.PLUS || sub.op == RegexpOp.QUEST)
+        && flags == sub.flags) {
+      if (sub.op == RegexpOp.STAR) {
+        return sub;
+      }
+      Regexp re = new Regexp(RegexpOp.STAR, flags);
+      re.subs = new Regexp[] {sub.subs[0]};
+      return re;
+    }
+    return rawQuantifier(op, sub, flags);
+  }
+
+  /**
+   * Creates a STAR, PLUS, or QUEST node without any squashing. Used by the SimplifyWalker's
+   * PostVisit which (like the C++ code) creates nodes directly rather than through the squashing
+   * factory.
+   */
+  static Regexp rawQuantifier(RegexpOp op, Regexp sub, int flags) {
+    Regexp re = new Regexp(op, flags);
     re.subs = new Regexp[] {sub};
     return re;
   }
@@ -219,6 +246,11 @@ public final class Regexp {
     return subs[0];
   }
 
+  /** Returns the number of sub-expressions. */
+  public int nsub() {
+    return (subs != null) ? subs.length : 0;
+  }
+
   /** Returns true if the {@link ParseFlags#NON_GREEDY} flag is set. */
   public boolean nonGreedy() {
     return (flags & ParseFlags.NON_GREEDY) != 0;
@@ -231,57 +263,302 @@ public final class Regexp {
 
   @Override
   public String toString() {
-    // Minimal toString for debugging; a full implementation will come in Phase 4.
-    return switch (op) {
-      case NO_MATCH -> "[nomatch]";
-      case EMPTY_MATCH -> "[empty]";
-      case LITERAL -> Utils.runeToString(rune);
-      case LITERAL_STRING -> {
-        StringBuilder sb = new StringBuilder();
-        for (int r : runes) {
-          sb.appendCodePoint(r);
-        }
-        yield sb.toString();
-      }
-      case CONCAT -> {
-        StringBuilder sb = new StringBuilder();
-        for (Regexp sub : subs) {
-          sb.append(sub);
-        }
-        yield sb.toString();
-      }
-      case ALTERNATE -> {
-        StringBuilder sb = new StringBuilder("(?:");
-        for (int i = 0; i < subs.length; i++) {
-          if (i > 0) {
-            sb.append('|');
+    StringBuilder sb = new StringBuilder();
+    ToStringWalker w = new ToStringWalker(sb);
+    w.walkExponential(this, PREC_TOPLEVEL, 100_000);
+    if (w.stoppedEarly()) {
+      sb.append(" [truncated]");
+    }
+    return sb.toString();
+  }
+
+  // Precedence levels for toString(), matching RE2's tostring.cc.
+  private static final int PREC_ATOM = 0;
+  private static final int PREC_UNARY = 1;
+  private static final int PREC_CONCAT = 2;
+  private static final int PREC_ALTERNATE = 3;
+  private static final int PREC_EMPTY = 4;
+  private static final int PREC_PAREN = 5;
+  private static final int PREC_TOPLEVEL = 6;
+
+  /** Walker that generates a string representation by accumulating into a StringBuilder. */
+  private static final class ToStringWalker extends Walker<Integer> {
+    private final StringBuilder sb;
+
+    ToStringWalker(StringBuilder sb) {
+      this.sb = sb;
+    }
+
+    @Override
+    protected Integer shortVisit(Regexp re, Integer parentArg) {
+      return 0;
+    }
+
+    @Override
+    protected Integer preVisit(Regexp re, Integer parentArg, boolean[] stop) {
+      int prec = parentArg;
+      int nprec = PREC_ATOM;
+
+      switch (re.op) {
+        case NO_MATCH:
+        case EMPTY_MATCH:
+        case LITERAL:
+        case ANY_CHAR:
+        case ANY_BYTE:
+        case BEGIN_LINE:
+        case END_LINE:
+        case BEGIN_TEXT:
+        case END_TEXT:
+        case WORD_BOUNDARY:
+        case NO_WORD_BOUNDARY:
+        case CHAR_CLASS:
+        case HAVE_MATCH:
+          nprec = PREC_ATOM;
+          break;
+        case CONCAT:
+        case LITERAL_STRING:
+          if (prec < PREC_CONCAT) {
+            sb.append("(?:");
           }
-          sb.append(subs[i]);
-        }
-        sb.append(')');
-        yield sb.toString();
+          nprec = PREC_CONCAT;
+          break;
+        case ALTERNATE:
+          if (prec < PREC_ALTERNATE) {
+            sb.append("(?:");
+          }
+          nprec = PREC_ALTERNATE;
+          break;
+        case CAPTURE:
+          sb.append('(');
+          if (re.cap == 0) {
+            throw new IllegalStateException("CAPTURE with cap == 0");
+          }
+          if (re.name != null) {
+            sb.append("?P<").append(re.name).append('>');
+          }
+          nprec = PREC_PAREN;
+          break;
+        case STAR:
+        case PLUS:
+        case QUEST:
+        case REPEAT:
+          if (prec < PREC_UNARY) {
+            sb.append("(?:");
+          }
+          nprec = PREC_ATOM;
+          break;
+        default:
+          break;
       }
-      case STAR -> subs[0] + "*";
-      case PLUS -> subs[0] + "+";
-      case QUEST -> subs[0] + "?";
-      case REPEAT -> {
-        if (max == -1) {
-          yield subs[0] + "{" + min + ",}";
-        } else {
-          yield subs[0] + "{" + min + "," + max + "}";
-        }
+      return nprec;
+    }
+
+    @Override
+    protected Integer postVisit(
+        Regexp re, Integer parentArg, Integer preArg, Object[] childArgs, int nChildArgs) {
+      int prec = parentArg;
+      switch (re.op) {
+        case NO_MATCH:
+          sb.append("[^\\x00-\\x{10ffff}]");
+          break;
+        case EMPTY_MATCH:
+          if (prec < PREC_EMPTY) {
+            sb.append("(?:)");
+          }
+          break;
+        case LITERAL:
+          appendLiteral(sb, re.rune, (re.flags & ParseFlags.FOLD_CASE) != 0);
+          break;
+        case LITERAL_STRING:
+          for (int r : re.runes) {
+            appendLiteral(sb, r, (re.flags & ParseFlags.FOLD_CASE) != 0);
+          }
+          if (prec < PREC_CONCAT) {
+            sb.append(')');
+          }
+          break;
+        case CONCAT:
+          if (prec < PREC_CONCAT) {
+            sb.append(')');
+          }
+          break;
+        case ALTERNATE:
+          // Children appended '|' after themselves; remove the trailing one.
+          if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '|') {
+            sb.setLength(sb.length() - 1);
+          }
+          if (prec < PREC_ALTERNATE) {
+            sb.append(')');
+          }
+          break;
+        case STAR:
+          sb.append('*');
+          if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
+            sb.append('?');
+          }
+          if (prec < PREC_UNARY) {
+            sb.append(')');
+          }
+          break;
+        case PLUS:
+          sb.append('+');
+          if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
+            sb.append('?');
+          }
+          if (prec < PREC_UNARY) {
+            sb.append(')');
+          }
+          break;
+        case QUEST:
+          sb.append('?');
+          if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
+            sb.append('?');
+          }
+          if (prec < PREC_UNARY) {
+            sb.append(')');
+          }
+          break;
+        case REPEAT:
+          if (re.max == -1) {
+            sb.append('{').append(re.min).append(",}");
+          } else if (re.min == re.max) {
+            sb.append('{').append(re.min).append('}');
+          } else {
+            sb.append('{').append(re.min).append(',').append(re.max).append('}');
+          }
+          if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
+            sb.append('?');
+          }
+          if (prec < PREC_UNARY) {
+            sb.append(')');
+          }
+          break;
+        case ANY_CHAR:
+          sb.append('.');
+          break;
+        case ANY_BYTE:
+          sb.append("\\C");
+          break;
+        case BEGIN_LINE:
+          sb.append('^');
+          break;
+        case END_LINE:
+          sb.append('$');
+          break;
+        case BEGIN_TEXT:
+          sb.append("(?-m:^)");
+          break;
+        case END_TEXT:
+          if ((re.flags & ParseFlags.WAS_DOLLAR) != 0) {
+            sb.append("(?-m:$)");
+          } else {
+            sb.append("\\z");
+          }
+          break;
+        case WORD_BOUNDARY:
+          sb.append("\\b");
+          break;
+        case NO_WORD_BOUNDARY:
+          sb.append("\\B");
+          break;
+        case CHAR_CLASS:
+          appendCharClass(sb, re.charClass);
+          break;
+        case CAPTURE:
+          sb.append(')');
+          break;
+        case HAVE_MATCH:
+          sb.append("(?HaveMatch:").append(re.matchId).append(')');
+          break;
+        default:
+          sb.append("[").append(re.op).append("]");
+          break;
       }
-      case CAPTURE -> "(" + subs[0] + ")";
-      case ANY_CHAR -> ".";
-      case BEGIN_LINE -> "^";
-      case END_LINE -> "$";
-      case WORD_BOUNDARY -> "\\b";
-      case NO_WORD_BOUNDARY -> "\\B";
-      case BEGIN_TEXT -> "\\A";
-      case END_TEXT -> "\\z";
-      case CHAR_CLASS -> charClass.toString();
-      case HAVE_MATCH -> "[match " + matchId + "]";
-      default -> "[" + op + "]";
-    };
+
+      // If the parent is an alternation, append | separator.
+      if (prec == PREC_ALTERNATE) {
+        sb.append('|');
+      }
+      return 0;
+    }
+  }
+
+  /** Appends a literal code point, escaping metacharacters as needed. */
+  private static void appendLiteral(StringBuilder sb, int r, boolean foldCase) {
+    if (r != 0 && r < 0x80 && "(){}[]*+?|.^$\\".indexOf((char) r) >= 0) {
+      sb.append('\\');
+      sb.appendCodePoint(r);
+    } else if (foldCase && 'a' <= r && r <= 'z') {
+      int upper = r - ('a' - 'A');
+      sb.append('[');
+      sb.append((char) upper);
+      sb.append((char) r);
+      sb.append(']');
+    } else {
+      appendCCRange(sb, r, r);
+    }
+  }
+
+  /** Appends a full character class, using negation heuristic based on 0xFFFE membership. */
+  private static void appendCharClass(StringBuilder sb, CharClass cc) {
+    if (cc.numRanges() == 0) {
+      sb.append("[^\\x00-\\x{10ffff}]");
+      return;
+    }
+    sb.append('[');
+    boolean negated = cc.contains(0xFFFE);
+    CharClass display = cc;
+    if (negated) {
+      display = cc.negate();
+      sb.append('^');
+    }
+    for (int i = 0; i < display.numRanges(); i++) {
+      appendCCRange(sb, display.lo(i), display.hi(i));
+    }
+    sb.append(']');
+  }
+
+  /** Appends a character class range [lo, hi]. */
+  private static void appendCCRange(StringBuilder sb, int lo, int hi) {
+    if (lo > hi) {
+      return;
+    }
+    appendCCChar(sb, lo);
+    if (lo < hi) {
+      sb.append('-');
+      appendCCChar(sb, hi);
+    }
+  }
+
+  /** Appends a single code point formatted for use inside a character class. */
+  private static void appendCCChar(StringBuilder sb, int r) {
+    if (0x20 <= r && r <= 0x7E) {
+      if ("[]^-\\".indexOf((char) r) >= 0) {
+        sb.append('\\');
+      }
+      sb.append((char) r);
+      return;
+    }
+    switch (r) {
+      case '\r':
+        sb.append("\\r");
+        return;
+      case '\t':
+        sb.append("\\t");
+        return;
+      case '\n':
+        sb.append("\\n");
+        return;
+      case '\f':
+        sb.append("\\f");
+        return;
+      default:
+        break;
+    }
+    if (r < 0x100) {
+      sb.append(String.format("\\x%02x", r));
+    } else {
+      sb.append(String.format("\\x{%x}", r));
+    }
   }
 }

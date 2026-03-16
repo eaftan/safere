@@ -95,7 +95,7 @@ Port the recursive-descent parser from `parse.cc`.
 - Proper error reporting with `PatternSyntaxException`
 - Unit tests for parser
 
-### Phase 4: Simplifier & Walker
+### Phase 4: Simplifier & Walker ✅
 Port the AST simplification pass and the non-recursive tree walker.
 
 - `Simplifier` — collapse nested quantifiers, character class simplification

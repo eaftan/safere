@@ -57,7 +57,7 @@ class RegexpTest {
     Regexp re = Regexp.alternate(new Regexp[] {a, b}, 0);
     assertThat(re.op).isEqualTo(RegexpOp.ALTERNATE);
     assertThat(re.subs.length).isEqualTo(2);
-    assertThat(re.toString()).isEqualTo("(?:a|b)");
+    assertThat(re.toString()).isEqualTo("a|b");
   }
 
   @Test
@@ -132,7 +132,7 @@ class RegexpTest {
   void anchors() {
     assertThat(Regexp.beginLine(0).toString()).isEqualTo("^");
     assertThat(Regexp.endLine(0).toString()).isEqualTo("$");
-    assertThat(Regexp.beginText(0).toString()).isEqualTo("\\A");
+    assertThat(Regexp.beginText(0).toString()).isEqualTo("(?-m:^)");
     assertThat(Regexp.endText(0).toString()).isEqualTo("\\z");
     assertThat(Regexp.wordBoundary(0).toString()).isEqualTo("\\b");
     assertThat(Regexp.noWordBoundary(0).toString()).isEqualTo("\\B");
@@ -144,7 +144,7 @@ class RegexpTest {
     Regexp re = Regexp.charClass(cc, 0);
     assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
     assertThat(re.charClass).isNotNull();
-    assertThat(re.toString()).contains("0x61-0x7A");
+    assertThat(re.toString()).contains("a-z");
   }
 
   @Test

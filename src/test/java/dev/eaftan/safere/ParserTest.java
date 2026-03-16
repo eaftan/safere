@@ -153,19 +153,19 @@ class ParserTest {
     @Test
     void multipleEscapedPunctuation() {
       Regexp re = parse("\\.\\^\\$\\\\");
-      assertThat(re.toString()).isEqualTo(".^$\\");
+      assertThat(re.toString()).isEqualTo("\\.\\^\\$\\\\");
     }
 
     @Test
     void literalFlag_entirePatternAsLiteral() {
       Regexp re = parse("a.b*c", ParseFlags.LITERAL);
-      assertThat(re.toString()).isEqualTo("a.b*c");
+      assertThat(re.toString()).isEqualTo("a\\.b\\*c");
     }
 
     @Test
     void literalFlag_specialCharsNotInterpreted() {
       Regexp re = parse("[abc]+", ParseFlags.LITERAL);
-      assertThat(re.toString()).isEqualTo("[abc]+");
+      assertThat(re.toString()).isEqualTo("\\[abc\\]\\+");
     }
 
     @Test
@@ -999,7 +999,7 @@ class ParserTest {
     @Test
     void quotedLiteral_specialChars() {
       Regexp re = parse("\\Q+|*?{[\\E");
-      assertThat(re.toString()).isEqualTo("+|*?{[");
+      assertThat(re.toString()).isEqualTo("\\+\\|\\*\\?\\{\\[");
     }
 
     @Test
@@ -1410,7 +1410,7 @@ class ParserTest {
     void commaNotRepeat() {
       // a{,2} is not a valid repeat syntax → treated as literal.
       Regexp re = parse("a{,2}");
-      assertThat(re.toString()).isEqualTo("a{,2}");
+      assertThat(re.toString()).isEqualTo("a\\{,2\\}");
     }
 
     @Test
