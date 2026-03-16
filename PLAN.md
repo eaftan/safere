@@ -103,7 +103,7 @@ Port the AST simplification pass and the non-recursive tree walker.
 - `Regexp.toString()` — AST back to string (useful for testing)
 - Unit tests for simplification
 
-### Phase 5: Compiler
+### Phase 5: Compiler ✅
 Port the Thompson NFA compiler from `compile.cc`.
 
 - `Compiler` class — convert Regexp AST → Prog bytecode
