@@ -3,6 +3,8 @@
 
 package dev.eaftan.safere;
 
+import java.util.List;
+
 /**
  * Compiles a {@link Regexp} AST into a {@link Prog} (bytecode program) via Thompson NFA
  * construction. Each node in the AST is compiled into a {@link Frag} (instruction fragment) and
@@ -509,7 +511,7 @@ final class Compiler extends Walker<Compiler.Frag> {
 
   @Override
   protected Frag postVisit(
-      Regexp re, Frag parentArg, Frag preArg, Object[] childArgs, int nChildArgs) {
+      Regexp re, Frag parentArg, Frag preArg, List<Frag> childArgs) {
     if (failed) {
       return Frag.NO_MATCH;
     }
@@ -530,29 +532,29 @@ final class Compiler extends Walker<Compiler.Frag> {
         return match(re.matchId);
 
       case CONCAT: {
-        Frag f = (Frag) childArgs[0];
-        for (int i = 1; i < nChildArgs; i++) {
-          f = cat(f, (Frag) childArgs[i]);
+        Frag f = childArgs.get(0);
+        for (int i = 1; i < childArgs.size(); i++) {
+          f = cat(f, childArgs.get(i));
         }
         return f;
       }
 
       case ALTERNATE: {
-        Frag f = (Frag) childArgs[0];
-        for (int i = 1; i < nChildArgs; i++) {
-          f = alt(f, (Frag) childArgs[i]);
+        Frag f = childArgs.get(0);
+        for (int i = 1; i < childArgs.size(); i++) {
+          f = alt(f, childArgs.get(i));
         }
         return f;
       }
 
       case STAR:
-        return star((Frag) childArgs[0], re.nonGreedy());
+        return star(childArgs.get(0), re.nonGreedy());
 
       case PLUS:
-        return plus((Frag) childArgs[0], re.nonGreedy());
+        return plus(childArgs.get(0), re.nonGreedy());
 
       case QUEST:
-        return quest((Frag) childArgs[0], re.nonGreedy());
+        return quest(childArgs.get(0), re.nonGreedy());
 
       case LITERAL:
         return literal(re.rune, re.foldCase());
@@ -576,9 +578,9 @@ final class Compiler extends Walker<Compiler.Frag> {
 
       case CAPTURE:
         if (re.cap < 0) {
-          return (Frag) childArgs[0];
+          return childArgs.get(0);
         }
-        return capture((Frag) childArgs[0], re.cap);
+        return capture(childArgs.get(0), re.cap);
 
       case BEGIN_LINE:
         return emptyWidth(reversed ? EmptyOp.END_LINE : EmptyOp.BEGIN_LINE);

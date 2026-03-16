@@ -96,6 +96,9 @@ Public API (drop-in for `java.util.regex`):
 - **No `@SuppressWarnings`**: Do not add `@SuppressWarnings` annotations
   without explicit approval from the project owner. Fix the underlying
   issue instead.
+- **Avoid `Object` arrays**: Use typed collections (`List<T>`, etc.) instead
+  of `Object[]` to maintain type safety. Primitive arrays (e.g., `int[]`)
+  are fine for performance reasons.
 
 ## Benchmarking (Phase 10)
 

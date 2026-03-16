@@ -5,6 +5,7 @@ package dev.eaftan.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Walker}. */
@@ -22,10 +23,10 @@ class WalkerTest {
 
     @Override
     protected Integer postVisit(
-        Regexp re, Integer parentArg, Integer preArg, Object[] childArgs, int nChildArgs) {
+        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
       int count = 1;
-      for (int i = 0; i < nChildArgs; i++) {
-        count += (Integer) childArgs[i];
+      for (int i = 0; i < childArgs.size(); i++) {
+        count += childArgs.get(i);
       }
       return count;
     }
@@ -93,11 +94,11 @@ class WalkerTest {
 
       @Override
       protected String postVisit(
-          Regexp re, String parentArg, String preArg, Object[] childArgs, int nChildArgs) {
+          Regexp re, String parentArg, String preArg, List<String> childArgs) {
         // Concatenate child results.
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < nChildArgs; i++) {
-          sb.append((String) childArgs[i]);
+        for (String childArg : childArgs) {
+          sb.append(childArg);
         }
         return sb.toString();
       }

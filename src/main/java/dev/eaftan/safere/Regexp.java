@@ -4,6 +4,7 @@
 package dev.eaftan.safere;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * A node in the regular expression abstract syntax tree (AST). Each node has a {@link RegexpOp}
@@ -355,7 +356,7 @@ public final class Regexp {
 
     @Override
     protected Integer postVisit(
-        Regexp re, Integer parentArg, Integer preArg, Object[] childArgs, int nChildArgs) {
+        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
       int prec = parentArg;
       switch (re.op) {
         case NO_MATCH:

@@ -4,6 +4,8 @@
 package dev.eaftan.safere;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Non-recursive tree walker for {@link Regexp} ASTs. Uses an explicit stack to avoid stack overflow
@@ -47,12 +49,11 @@ abstract class Walker<T> {
    * @param re the node being visited
    * @param parentArg the accumulated argument from the parent
    * @param preArg the value returned by preVisit
-   * @param childArgs array of values returned by children's postVisit; use {@code (T) childArgs[i]}
-   *     to access elements. May be null if there are no children.
-   * @param nChildArgs number of children
+   * @param childArgs list of values returned by children's postVisit. Empty if there are no
+   *     children. Mutable — implementations may modify it (e.g., for coalescing).
    * @return the result for this node
    */
-  protected T postVisit(Regexp re, T parentArg, T preArg, Object[] childArgs, int nChildArgs) {
+  protected T postVisit(Regexp re, T parentArg, T preArg, List<T> childArgs) {
     return preArg;
   }
 
@@ -94,7 +95,6 @@ abstract class Walker<T> {
     return walkInternal(re, topArg, false);
   }
 
-  @SuppressWarnings("unchecked")
   private T walkInternal(Regexp re, T topArg, boolean useCopy) {
     stoppedEarly = false;
     stack.clear();
@@ -120,11 +120,7 @@ abstract class Walker<T> {
             return t;
           }
           WalkState<T> parent = stack.get(stack.size() - 1);
-          if (parent.childArgs != null) {
-            parent.childArgs[parent.n] = t;
-          } else {
-            parent.childArg = t;
-          }
+          parent.childArgs.add(t);
           parent.n++;
           continue;
         }
@@ -137,38 +133,20 @@ abstract class Walker<T> {
             return t;
           }
           WalkState<T> parent = stack.get(stack.size() - 1);
-          if (parent.childArgs != null) {
-            parent.childArgs[parent.n] = t;
-          } else {
-            parent.childArg = t;
-          }
+          parent.childArgs.add(t);
           parent.n++;
           continue;
         }
         s.n = 0;
-        if (nsub == 1) {
-          s.childArgs = null; // use childArg field
-        } else if (nsub > 1) {
-          s.childArgs = new Object[nsub];
-        }
+        s.childArgs = new ArrayList<>(nsub);
         // Fall through to child processing.
       }
 
       // Process children.
       if (nsub > 0 && s.n < nsub) {
         if (useCopy && s.n > 0 && re.subs[s.n - 1] == re.subs[s.n]) {
-          T prev;
-          if (nsub == 1) {
-            prev = s.childArg;
-          } else {
-            prev = (T) s.childArgs[s.n - 1];
-          }
-          T copied = copy(prev);
-          if (nsub == 1) {
-            s.childArg = copied;
-          } else {
-            s.childArgs[s.n] = copied;
-          }
+          T prev = s.childArgs.get(s.n - 1);
+          s.childArgs.add(copy(prev));
           s.n++;
           continue;
         }
@@ -177,26 +155,13 @@ abstract class Walker<T> {
       }
 
       // All children done (or no children). Call postVisit.
-      Object[] args;
-      if (nsub == 0) {
-        args = null;
-      } else if (nsub == 1) {
-        args = new Object[] {s.childArg};
-      } else {
-        args = s.childArgs;
-      }
-      T t = postVisit(re, s.parentArg, s.preArg, args, nsub);
+      T t = postVisit(re, s.parentArg, s.preArg, s.childArgs);
       stack.remove(stack.size() - 1);
       if (stack.isEmpty()) {
         return t;
       }
       WalkState<T> parent = stack.get(stack.size() - 1);
-      int parentNsub = (parent.re.subs != null) ? parent.re.subs.length : 0;
-      if (parentNsub == 1) {
-        parent.childArg = t;
-      } else if (parent.childArgs != null) {
-        parent.childArgs[parent.n] = t;
-      }
+      parent.childArgs.add(t);
       parent.n++;
     }
   }
@@ -207,8 +172,7 @@ abstract class Walker<T> {
     int n; // -1 means need preVisit; >= 0 is index of next child to process
     final T parentArg;
     T preArg;
-    T childArg; // Used when nsub == 1 to avoid allocating an array.
-    Object[] childArgs; // Used when nsub > 1.
+    List<T> childArgs = Collections.emptyList();
 
     WalkState(Regexp re, T parentArg) {
       this.re = re;

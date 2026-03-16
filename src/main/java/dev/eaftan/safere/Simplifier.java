@@ -4,6 +4,7 @@
 package dev.eaftan.safere;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Simplifies a {@link Regexp} AST so that it uses only basic operators ({@link RegexpOp#STAR},
@@ -195,65 +196,59 @@ final class Simplifier {
 
     @Override
     protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, Object[] childArgs, int nChildArgs) {
-      if (nChildArgs == 0) {
+        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+      if (childArgs.isEmpty()) {
         return re;
       }
 
       if (re.op != RegexpOp.CONCAT) {
-        if (!childArgsChanged(re, childArgs, nChildArgs)) {
+        if (!childArgsChanged(re, childArgs)) {
           return re;
         }
         // Something changed. Build a new node.
-        Regexp[] newSubs = new Regexp[nChildArgs];
-        for (int i = 0; i < nChildArgs; i++) {
-          newSubs[i] = (Regexp) childArgs[i];
-        }
+        Regexp[] newSubs = childArgs.toArray(new Regexp[0]);
         return copyWithNewSubs(re, newSubs);
       }
 
       // CONCAT: check if any adjacent pair can coalesce.
       boolean canCoalesce = false;
-      for (int i = 0; i + 1 < nChildArgs; i++) {
-        if (canCoalesce((Regexp) childArgs[i], (Regexp) childArgs[i + 1])) {
+      for (int i = 0; i + 1 < childArgs.size(); i++) {
+        if (canCoalesce(childArgs.get(i), childArgs.get(i + 1))) {
           canCoalesce = true;
           break;
         }
       }
 
       if (!canCoalesce) {
-        if (!childArgsChanged(re, childArgs, nChildArgs)) {
+        if (!childArgsChanged(re, childArgs)) {
           return re;
         }
-        Regexp[] newSubs = new Regexp[nChildArgs];
-        for (int i = 0; i < nChildArgs; i++) {
-          newSubs[i] = (Regexp) childArgs[i];
-        }
+        Regexp[] newSubs = childArgs.toArray(new Regexp[0]);
         return Regexp.concat(newSubs, re.flags);
       }
 
       // Do the coalescing in-place on childArgs.
-      for (int i = 0; i + 1 < nChildArgs; i++) {
-        if (canCoalesce((Regexp) childArgs[i], (Regexp) childArgs[i + 1])) {
-          Regexp[] pair = doCoalesce((Regexp) childArgs[i], (Regexp) childArgs[i + 1]);
-          childArgs[i] = pair[0];
-          childArgs[i + 1] = pair[1];
+      for (int i = 0; i + 1 < childArgs.size(); i++) {
+        if (canCoalesce(childArgs.get(i), childArgs.get(i + 1))) {
+          Regexp[] pair = doCoalesce(childArgs.get(i), childArgs.get(i + 1));
+          childArgs.set(i, pair[0]);
+          childArgs.set(i + 1, pair[1]);
         }
       }
 
       // Count empty matches left by coalescing.
       int emptyCount = 0;
-      for (int i = 0; i < nChildArgs; i++) {
-        if (((Regexp) childArgs[i]).op == RegexpOp.EMPTY_MATCH) {
+      for (int i = 0; i < childArgs.size(); i++) {
+        if (childArgs.get(i).op == RegexpOp.EMPTY_MATCH) {
           emptyCount++;
         }
       }
 
       // Build new CONCAT without the empty matches.
-      Regexp[] newSubs = new Regexp[nChildArgs - emptyCount];
-      for (int i = 0, j = 0; i < nChildArgs; i++) {
-        if (((Regexp) childArgs[i]).op != RegexpOp.EMPTY_MATCH) {
-          newSubs[j++] = (Regexp) childArgs[i];
+      Regexp[] newSubs = new Regexp[childArgs.size() - emptyCount];
+      for (int i = 0, j = 0; i < childArgs.size(); i++) {
+        if (childArgs.get(i).op != RegexpOp.EMPTY_MATCH) {
+          newSubs[j++] = childArgs.get(i);
         }
       }
       if (newSubs.length == 1) {
@@ -264,9 +259,9 @@ final class Simplifier {
   }
 
   /** Returns true if the child args differ from the original subs. */
-  private static boolean childArgsChanged(Regexp re, Object[] childArgs, int n) {
-    for (int i = 0; i < n; i++) {
-      if (childArgs[i] != re.subs[i]) {
+  private static boolean childArgsChanged(Regexp re, List<Regexp> childArgs) {
+    for (int i = 0; i < childArgs.size(); i++) {
+      if (childArgs.get(i) != re.subs[i]) {
         return true;
       }
     }
@@ -458,7 +453,7 @@ final class Simplifier {
 
     @Override
     protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, Object[] childArgs, int nChildArgs) {
+        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       switch (re.op) {
         case NO_MATCH:
         case EMPTY_MATCH:
@@ -477,13 +472,10 @@ final class Simplifier {
 
         case CONCAT:
         case ALTERNATE: {
-          if (!childArgsChanged(re, childArgs, nChildArgs)) {
+          if (!childArgsChanged(re, childArgs)) {
             return re;
           }
-          Regexp[] newSubs = new Regexp[nChildArgs];
-          for (int i = 0; i < nChildArgs; i++) {
-            newSubs[i] = (Regexp) childArgs[i];
-          }
+          Regexp[] newSubs = childArgs.toArray(new Regexp[0]);
           if (re.op == RegexpOp.CONCAT) {
             return Regexp.concat(newSubs, re.flags);
           } else {
@@ -492,7 +484,7 @@ final class Simplifier {
         }
 
         case CAPTURE: {
-          Regexp newsub = (Regexp) childArgs[0];
+          Regexp newsub = childArgs.get(0);
           if (newsub == re.subs[0]) {
             return re;
           }
@@ -502,7 +494,7 @@ final class Simplifier {
         case STAR:
         case PLUS:
         case QUEST: {
-          Regexp newsub = (Regexp) childArgs[0];
+          Regexp newsub = childArgs.get(0);
           // Repeat of empty string is still empty string.
           if (newsub.op == RegexpOp.EMPTY_MATCH) {
             return newsub;
@@ -520,7 +512,7 @@ final class Simplifier {
         }
 
         case REPEAT: {
-          Regexp newsub = (Regexp) childArgs[0];
+          Regexp newsub = childArgs.get(0);
           if (newsub.op == RegexpOp.EMPTY_MATCH) {
             return newsub;
           }
