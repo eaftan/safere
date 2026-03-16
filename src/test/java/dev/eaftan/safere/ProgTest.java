@@ -3,8 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +13,7 @@ class ProgTest {
   @Test
   void emptyProgram() {
     Prog prog = new Prog();
-    assertEquals(0, prog.size());
+    assertThat(prog.size()).isEqualTo(0);
   }
 
   @Test
@@ -23,10 +22,10 @@ class ProgTest {
     int i0 = prog.allocInst();
     int i1 = prog.allocInst();
     int i2 = prog.allocInst();
-    assertEquals(0, i0);
-    assertEquals(1, i1);
-    assertEquals(2, i2);
-    assertEquals(3, prog.size());
+    assertThat(i0).isEqualTo(0);
+    assertThat(i1).isEqualTo(1);
+    assertThat(i2).isEqualTo(2);
+    assertThat(prog.size()).isEqualTo(3);
   }
 
   @Test
@@ -34,8 +33,8 @@ class ProgTest {
     Prog prog = new Prog();
     int idx = prog.allocInst();
     prog.inst(idx).initMatch(42);
-    assertEquals(InstOp.MATCH, prog.inst(idx).op);
-    assertEquals(42, prog.inst(idx).arg);
+    assertThat(prog.inst(idx).op).isEqualTo(InstOp.MATCH);
+    assertThat(prog.inst(idx).arg).isEqualTo(42);
   }
 
   @Test
@@ -45,15 +44,15 @@ class ProgTest {
     prog.allocInst();
     prog.setStart(0);
     prog.setStartUnanchored(1);
-    assertEquals(0, prog.start());
-    assertEquals(1, prog.startUnanchored());
+    assertThat(prog.start()).isEqualTo(0);
+    assertThat(prog.startUnanchored()).isEqualTo(1);
   }
 
   @Test
   void numCaptures() {
     Prog prog = new Prog();
     prog.setNumCaptures(3);
-    assertEquals(3, prog.numCaptures());
+    assertThat(prog.numCaptures()).isEqualTo(3);
   }
 
   @Test
@@ -61,8 +60,8 @@ class ProgTest {
     Prog prog = new Prog();
     prog.setAnchorStart(true);
     prog.setAnchorEnd(true);
-    assertTrue(prog.anchorStart());
-    assertTrue(prog.anchorEnd());
+    assertThat(prog.anchorStart()).isTrue();
+    assertThat(prog.anchorEnd()).isTrue();
   }
 
   @Test
@@ -75,8 +74,8 @@ class ProgTest {
     prog.inst(i1).initMatch(0);
 
     String dump = prog.dump();
-    assertTrue(dump.contains("char"));
-    assertTrue(dump.contains("match"));
+    assertThat(dump).contains("char");
+    assertThat(dump).contains("match");
   }
 
   @Test
@@ -87,7 +86,7 @@ class ProgTest {
     prog.setStart(0);
     prog.setNumCaptures(1);
     String s = prog.toString();
-    assertTrue(s.contains("size=2"));
-    assertTrue(s.contains("captures=1"));
+    assertThat(s).contains("size=2");
+    assertThat(s).contains("captures=1");
   }
 }

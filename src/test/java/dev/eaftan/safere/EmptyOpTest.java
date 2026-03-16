@@ -3,9 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -14,12 +12,12 @@ class EmptyOpTest {
 
   @Test
   void flagsArePowersOfTwo() {
-    assertEquals(1, EmptyOp.BEGIN_LINE);
-    assertEquals(2, EmptyOp.END_LINE);
-    assertEquals(4, EmptyOp.BEGIN_TEXT);
-    assertEquals(8, EmptyOp.END_TEXT);
-    assertEquals(16, EmptyOp.WORD_BOUNDARY);
-    assertEquals(32, EmptyOp.NON_WORD_BOUNDARY);
+    assertThat(EmptyOp.BEGIN_LINE).isEqualTo(1);
+    assertThat(EmptyOp.END_LINE).isEqualTo(2);
+    assertThat(EmptyOp.BEGIN_TEXT).isEqualTo(4);
+    assertThat(EmptyOp.END_TEXT).isEqualTo(8);
+    assertThat(EmptyOp.WORD_BOUNDARY).isEqualTo(16);
+    assertThat(EmptyOp.NON_WORD_BOUNDARY).isEqualTo(32);
   }
 
   @Test
@@ -31,8 +29,8 @@ class EmptyOpTest {
             | EmptyOp.END_TEXT
             | EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY;
-    assertEquals(combined, EmptyOp.ALL_FLAGS);
-    assertEquals(63, EmptyOp.ALL_FLAGS);
+    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(combined);
+    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(63);
   }
 
   @Test
@@ -48,7 +46,9 @@ class EmptyOpTest {
     };
     for (int i = 0; i < flags.length; i++) {
       for (int j = i + 1; j < flags.length; j++) {
-        assertEquals(0, flags[i] & flags[j], "Flags " + i + " and " + j + " overlap");
+        assertThat(flags[i] & flags[j])
+            .withFailMessage("Flags " + i + " and " + j + " overlap")
+            .isEqualTo(0);
       }
     }
   }

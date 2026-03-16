@@ -3,9 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,24 +13,24 @@ class RegexpOpTest {
   @Test
   void allOpsAreDefined() {
     // 21 operators as defined in RE2's regexp.h
-    assertEquals(21, RegexpOp.values().length);
+    assertThat(RegexpOp.values().length).isEqualTo(21);
   }
 
   @Test
   void firstOpIsNoMatch() {
-    assertEquals(RegexpOp.NO_MATCH, RegexpOp.values()[0]);
+    assertThat(RegexpOp.values()[0]).isEqualTo(RegexpOp.NO_MATCH);
   }
 
   @Test
   void lastOpIsHaveMatch() {
-    assertEquals(RegexpOp.HAVE_MATCH, RegexpOp.values()[RegexpOp.values().length - 1]);
+    assertThat(RegexpOp.values()[RegexpOp.values().length - 1]).isEqualTo(RegexpOp.HAVE_MATCH);
   }
 
   @Test
   void valueOfRoundTrips() {
     for (RegexpOp op : RegexpOp.values()) {
-      assertNotNull(op.name());
-      assertEquals(op, RegexpOp.valueOf(op.name()));
+      assertThat(op.name()).isNotNull();
+      assertThat(RegexpOp.valueOf(op.name())).isEqualTo(op);
     }
   }
 }

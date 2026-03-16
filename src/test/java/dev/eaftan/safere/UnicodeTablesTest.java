@@ -3,10 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -17,102 +14,103 @@ class UnicodeTablesTest {
 
   @Test
   void perlGroups_hasThreeEntries() {
-    assertEquals(3, UnicodeTables.PERL_GROUPS.size());
+    assertThat(UnicodeTables.PERL_GROUPS.size()).isEqualTo(3);
   }
 
   @Test
   void perlDigit_matchesZeroToNine() {
     int[][] ranges = UnicodeTables.PERL_GROUPS.get("\\d");
-    assertNotNull(ranges);
-    assertEquals(1, ranges.length);
-    assertArrayEquals(new int[] {0x30, 0x39}, ranges[0]);
+    assertThat(ranges).isNotNull();
+    assertThat(ranges.length).isEqualTo(1);
+    assertThat(ranges[0]).isEqualTo(new int[] {0x30, 0x39});
   }
 
   @Test
   void perlSpace_matchesWhitespace() {
     int[][] ranges = UnicodeTables.PERL_GROUPS.get("\\s");
-    assertNotNull(ranges);
-    assertTrue(ranges.length >= 2);
+    assertThat(ranges).isNotNull();
+    assertThat(ranges.length >= 2).isTrue();
     // Should include tab (0x09) and space (0x20)
-    assertTrue(containsCodePoint(ranges, 0x09));
-    assertTrue(containsCodePoint(ranges, 0x20));
+    assertThat(containsCodePoint(ranges, 0x09)).isTrue();
+    assertThat(containsCodePoint(ranges, 0x20)).isTrue();
   }
 
   @Test
   void perlWord_matchesWordChars() {
     int[][] ranges = UnicodeTables.PERL_GROUPS.get("\\w");
-    assertNotNull(ranges);
-    assertTrue(containsCodePoint(ranges, '0'));
-    assertTrue(containsCodePoint(ranges, '9'));
-    assertTrue(containsCodePoint(ranges, 'A'));
-    assertTrue(containsCodePoint(ranges, 'Z'));
-    assertTrue(containsCodePoint(ranges, '_'));
-    assertTrue(containsCodePoint(ranges, 'a'));
-    assertTrue(containsCodePoint(ranges, 'z'));
+    assertThat(ranges).isNotNull();
+    assertThat(containsCodePoint(ranges, '0')).isTrue();
+    assertThat(containsCodePoint(ranges, '9')).isTrue();
+    assertThat(containsCodePoint(ranges, 'A')).isTrue();
+    assertThat(containsCodePoint(ranges, 'Z')).isTrue();
+    assertThat(containsCodePoint(ranges, '_')).isTrue();
+    assertThat(containsCodePoint(ranges, 'a')).isTrue();
+    assertThat(containsCodePoint(ranges, 'z')).isTrue();
   }
 
   // --- POSIX groups ---
 
   @Test
   void posixGroups_hasFourteenEntries() {
-    assertEquals(14, UnicodeTables.POSIX_GROUPS.size());
+    assertThat(UnicodeTables.POSIX_GROUPS.size()).isEqualTo(14);
   }
 
   @Test
   void posixDigit_matchesZeroToNine() {
     int[][] ranges = UnicodeTables.POSIX_GROUPS.get("[:digit:]");
-    assertNotNull(ranges);
-    assertEquals(1, ranges.length);
-    assertArrayEquals(new int[] {0x30, 0x39}, ranges[0]);
+    assertThat(ranges).isNotNull();
+    assertThat(ranges.length).isEqualTo(1);
+    assertThat(ranges[0]).isEqualTo(new int[] {0x30, 0x39});
   }
 
   @Test
   void posixAscii_matchesFullRange() {
     int[][] ranges = UnicodeTables.POSIX_GROUPS.get("[:ascii:]");
-    assertNotNull(ranges);
-    assertEquals(1, ranges.length);
-    assertArrayEquals(new int[] {0x00, 0x7F}, ranges[0]);
+    assertThat(ranges).isNotNull();
+    assertThat(ranges.length).isEqualTo(1);
+    assertThat(ranges[0]).isEqualTo(new int[] {0x00, 0x7F});
   }
 
   @Test
   void posixUpper_matchesUppercase() {
     int[][] ranges = UnicodeTables.POSIX_GROUPS.get("[:upper:]");
-    assertNotNull(ranges);
-    assertEquals(1, ranges.length);
-    assertArrayEquals(new int[] {0x41, 0x5A}, ranges[0]);
+    assertThat(ranges).isNotNull();
+    assertThat(ranges.length).isEqualTo(1);
+    assertThat(ranges[0]).isEqualTo(new int[] {0x41, 0x5A});
   }
 
   // --- Case folding ---
 
   @Test
   void caseFold_hasExpectedSize() {
-    assertEquals(372, UnicodeTables.CASE_FOLD.length);
+    assertThat(UnicodeTables.CASE_FOLD.length).isEqualTo(372);
   }
 
   @Test
   void caseFold_firstEntryIsUppercaseAscii() {
     // A-Z folds to a-z by adding 32
-    assertArrayEquals(new int[] {65, 90, 32}, UnicodeTables.CASE_FOLD[0]);
+    assertThat(UnicodeTables.CASE_FOLD[0]).isEqualTo(new int[] {65, 90, 32});
   }
 
   @Test
   void caseFold_entriesHaveThreeElements() {
     for (int[] entry : UnicodeTables.CASE_FOLD) {
-      assertEquals(3, entry.length, "CaseFold entry should have {lo, hi, delta}");
+      assertThat(entry.length).as("CaseFold entry should have {lo, hi, delta}").isEqualTo(3);
     }
   }
 
   @Test
   void caseFold_rangesAreOrdered() {
     for (int i = 1; i < UnicodeTables.CASE_FOLD.length; i++) {
-      assertTrue(
-          UnicodeTables.CASE_FOLD[i][0] > UnicodeTables.CASE_FOLD[i - 1][1],
-          "CaseFold ranges should be non-overlapping and ordered: entry "
-              + i
-              + " lo="
-              + UnicodeTables.CASE_FOLD[i][0]
-              + " <= prev hi="
-              + UnicodeTables.CASE_FOLD[i - 1][1]);
+      assertThat(UnicodeTables.CASE_FOLD[i][0] > UnicodeTables.CASE_FOLD[i - 1][1])
+          .withFailMessage(
+              "CaseFold ranges should be non-overlapping and ordered: entry "
+                  + i
+                  + " lo="
+                  + UnicodeTables.CASE_FOLD[i][0]
+                  + " <= prev hi="
+                  + UnicodeTables.CASE_FOLD[i - 1][1])
+          .isTrue();
     }
   }
 
@@ -120,73 +118,82 @@ class UnicodeTablesTest {
 
   @Test
   void toLower_hasExpectedSize() {
-    assertEquals(208, UnicodeTables.TO_LOWER.length);
+    assertThat(UnicodeTables.TO_LOWER.length).isEqualTo(208);
   }
 
   @Test
   void toLower_firstEntryIsUppercaseAscii() {
     // A-Z maps to a-z by adding 32
-    assertArrayEquals(new int[] {65, 90, 32}, UnicodeTables.TO_LOWER[0]);
+    assertThat(UnicodeTables.TO_LOWER[0]).isEqualTo(new int[] {65, 90, 32});
   }
 
   // --- Unicode groups ---
 
   @Test
   void unicodeGroups_hasExpectedSize() {
-    assertEquals(199, UnicodeTables.UNICODE_GROUPS.size());
+    assertThat(UnicodeTables.UNICODE_GROUPS.size()).isEqualTo(199);
   }
 
   @Test
   void unicodeGroups_containsMajorScripts() {
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Arabic"));
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Latin"));
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Greek"));
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Han"));
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Cyrillic"));
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Hiragana"));
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Katakana"));
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Arabic")).isNotNull();
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Latin")).isNotNull();
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Greek")).isNotNull();
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Han")).isNotNull();
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Cyrillic")).isNotNull();
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Hiragana")).isNotNull();
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Katakana")).isNotNull();
   }
 
   @Test
   void unicodeGroups_containsGeneralCategories() {
     // Major categories
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("L")); // Letter
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("N")); // Number
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("P")); // Punctuation
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("S")); // Symbol
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Z")); // Separator
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("C")); // Other
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("L")).isNotNull(); // Letter
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("N")).isNotNull(); // Number
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("P")).isNotNull(); // Punctuation
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("S")).isNotNull(); // Symbol
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Z")).isNotNull(); // Separator
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("C")).isNotNull(); // Other
 
     // Subcategories
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Lu")); // Uppercase Letter
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Ll")); // Lowercase Letter
-    assertNotNull(UnicodeTables.UNICODE_GROUPS.get("Nd")); // Decimal Digit
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Lu")).isNotNull(); // Uppercase Letter
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Ll")).isNotNull(); // Lowercase Letter
+    assertThat(UnicodeTables.UNICODE_GROUPS.get("Nd")).isNotNull(); // Decimal Digit
   }
 
   @Test
   void unicodeGroups_latinContainsAsciiLetters() {
     int[][] latin = UnicodeTables.UNICODE_GROUPS.get("Latin");
-    assertNotNull(latin);
-    assertTrue(containsCodePoint(latin, 'A'));
-    assertTrue(containsCodePoint(latin, 'Z'));
-    assertTrue(containsCodePoint(latin, 'a'));
-    assertTrue(containsCodePoint(latin, 'z'));
+    assertThat(latin).isNotNull();
+    assertThat(containsCodePoint(latin, 'A')).isTrue();
+    assertThat(containsCodePoint(latin, 'Z')).isTrue();
+    assertThat(containsCodePoint(latin, 'a')).isTrue();
+    assertThat(containsCodePoint(latin, 'z')).isTrue();
   }
 
   @Test
   void unicodeGroups_rangesAreValid() {
     for (var entry : UnicodeTables.UNICODE_GROUPS.entrySet()) {
       for (int[] range : entry.getValue()) {
-        assertEquals(2, range.length, "Range in " + entry.getKey() + " should have {lo, hi}");
-        assertTrue(
-            range[0] <= range[1],
-            "Range in " + entry.getKey() + ": lo=" + range[0] + " > hi=" + range[1]);
-        assertTrue(
-            range[0] >= 0,
-            "Range in " + entry.getKey() + ": lo=" + range[0] + " is negative");
-        assertTrue(
-            range[1] <= 0x10FFFF,
-            "Range in " + entry.getKey() + ": hi=" + range[1] + " exceeds max code point");
+        assertThat(range.length)
+            .withFailMessage(
+                "Range in " + entry.getKey() + " should have {lo, hi}")
+            .isEqualTo(2);
+        assertThat(range[0] <= range[1])
+            .withFailMessage(
+                "Range in " + entry.getKey()
+                    + ": lo=" + range[0] + " > hi=" + range[1])
+            .isTrue();
+        assertThat(range[0] >= 0)
+            .withFailMessage(
+                "Range in " + entry.getKey()
+                    + ": lo=" + range[0] + " is negative")
+            .isTrue();
+        assertThat(range[1] <= 0x10FFFF)
+            .withFailMessage(
+                "Range in " + entry.getKey()
+                    + ": hi=" + range[1] + " exceeds max code point")
+            .isTrue();
       }
     }
   }
@@ -195,10 +202,10 @@ class UnicodeTablesTest {
 
   @Test
   void sentinelValues() {
-    assertEquals(1, UnicodeTables.EVEN_ODD);
-    assertEquals(-1, UnicodeTables.ODD_EVEN);
-    assertEquals(1 << 30, UnicodeTables.EVEN_ODD_SKIP);
-    assertEquals((1 << 30) + 1, UnicodeTables.ODD_EVEN_SKIP);
+    assertThat(UnicodeTables.EVEN_ODD).isEqualTo(1);
+    assertThat(UnicodeTables.ODD_EVEN).isEqualTo(-1);
+    assertThat(UnicodeTables.EVEN_ODD_SKIP).isEqualTo(1 << 30);
+    assertThat(UnicodeTables.ODD_EVEN_SKIP).isEqualTo((1 << 30) + 1);
   }
 
   // --- Helper ---

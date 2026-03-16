@@ -77,7 +77,7 @@ Unicode data tables.
 - `UnicodeTables` class — Perl groups, Unicode categories/scripts, case folding
 - `Utils` class — utility methods (isalnum, runeToString, etc.)
 
-### Phase 2: Core Data Structures
+### Phase 2: Core Data Structures ✅
 Implement the AST and compiled program representations.
 
 - `Regexp` class — AST node with op, subs, runes, flags, charclass, etc.

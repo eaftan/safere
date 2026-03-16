@@ -3,9 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,93 +13,93 @@ class InstTest {
   @Test
   void defaultIssFail() {
     Inst inst = new Inst();
-    assertEquals(InstOp.FAIL, inst.op);
+    assertThat(inst.op).isEqualTo(InstOp.FAIL);
   }
 
   @Test
   void initAlt() {
     Inst inst = new Inst();
     inst.initAlt(3, 5);
-    assertEquals(InstOp.ALT, inst.op);
-    assertEquals(3, inst.out);
-    assertEquals(5, inst.out1);
+    assertThat(inst.op).isEqualTo(InstOp.ALT);
+    assertThat(inst.out).isEqualTo(3);
+    assertThat(inst.out1).isEqualTo(5);
   }
 
   @Test
   void initCharRange() {
     Inst inst = new Inst();
     inst.initCharRange('a', 'z', false, 7);
-    assertEquals(InstOp.CHAR_RANGE, inst.op);
-    assertEquals('a', inst.lo);
-    assertEquals('z', inst.hi);
-    assertFalse(inst.foldCase);
-    assertEquals(7, inst.out);
+    assertThat(inst.op).isEqualTo(InstOp.CHAR_RANGE);
+    assertThat(inst.lo).isEqualTo('a');
+    assertThat(inst.hi).isEqualTo('z');
+    assertThat(inst.foldCase).isFalse();
+    assertThat(inst.out).isEqualTo(7);
   }
 
   @Test
   void initCapture() {
     Inst inst = new Inst();
     inst.initCapture(2, 10);
-    assertEquals(InstOp.CAPTURE, inst.op);
-    assertEquals(2, inst.arg);
-    assertEquals(10, inst.out);
+    assertThat(inst.op).isEqualTo(InstOp.CAPTURE);
+    assertThat(inst.arg).isEqualTo(2);
+    assertThat(inst.out).isEqualTo(10);
   }
 
   @Test
   void initEmptyWidth() {
     Inst inst = new Inst();
     inst.initEmptyWidth(EmptyOp.BEGIN_LINE | EmptyOp.END_LINE, 4);
-    assertEquals(InstOp.EMPTY_WIDTH, inst.op);
-    assertEquals(EmptyOp.BEGIN_LINE | EmptyOp.END_LINE, inst.arg);
-    assertEquals(4, inst.out);
+    assertThat(inst.op).isEqualTo(InstOp.EMPTY_WIDTH);
+    assertThat(inst.arg).isEqualTo(EmptyOp.BEGIN_LINE | EmptyOp.END_LINE);
+    assertThat(inst.out).isEqualTo(4);
   }
 
   @Test
   void initMatch() {
     Inst inst = new Inst();
     inst.initMatch(0);
-    assertEquals(InstOp.MATCH, inst.op);
-    assertEquals(0, inst.arg);
+    assertThat(inst.op).isEqualTo(InstOp.MATCH);
+    assertThat(inst.arg).isEqualTo(0);
   }
 
   @Test
   void initNop() {
     Inst inst = new Inst();
     inst.initNop(42);
-    assertEquals(InstOp.NOP, inst.op);
-    assertEquals(42, inst.out);
+    assertThat(inst.op).isEqualTo(InstOp.NOP);
+    assertThat(inst.out).isEqualTo(42);
   }
 
   @Test
   void matchesChar_inRange() {
     Inst inst = new Inst();
     inst.initCharRange('a', 'z', false, 0);
-    assertTrue(inst.matchesChar('a'));
-    assertTrue(inst.matchesChar('m'));
-    assertTrue(inst.matchesChar('z'));
-    assertFalse(inst.matchesChar('A'));
-    assertFalse(inst.matchesChar('0'));
+    assertThat(inst.matchesChar('a')).isTrue();
+    assertThat(inst.matchesChar('m')).isTrue();
+    assertThat(inst.matchesChar('z')).isTrue();
+    assertThat(inst.matchesChar('A')).isFalse();
+    assertThat(inst.matchesChar('0')).isFalse();
   }
 
   @Test
   void matchesChar_foldCase() {
     Inst inst = new Inst();
     inst.initCharRange('A', 'Z', true, 0);
-    assertTrue(inst.matchesChar('A'));
-    assertTrue(inst.matchesChar('a')); // case-folded match
+    assertThat(inst.matchesChar('A')).isTrue();
+    assertThat(inst.matchesChar('a')).isTrue(); // case-folded match
   }
 
   @Test
   void toStringFormats() {
     Inst alt = new Inst();
     alt.initAlt(1, 2);
-    assertTrue(alt.toString().contains("alt"));
+    assertThat(alt.toString()).contains("alt");
 
     Inst match = new Inst();
     match.initMatch(0);
-    assertTrue(match.toString().contains("match"));
+    assertThat(match.toString()).contains("match");
 
     Inst fail = new Inst();
-    assertEquals("fail", fail.toString());
+    assertThat(fail.toString()).isEqualTo("fail");
   }
 }

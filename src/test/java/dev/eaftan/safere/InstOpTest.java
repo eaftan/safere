@@ -3,7 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -13,18 +13,18 @@ class InstOpTest {
   @Test
   void allOpsAreDefined() {
     // 8 opcodes as defined in RE2's prog.h
-    assertEquals(8, InstOp.values().length);
+    assertThat(InstOp.values().length).isEqualTo(8);
   }
 
   @Test
   void orderMatchesRe2() {
-    assertEquals(0, InstOp.ALT.ordinal());
-    assertEquals(1, InstOp.ALT_MATCH.ordinal());
-    assertEquals(2, InstOp.CHAR_RANGE.ordinal());
-    assertEquals(3, InstOp.CAPTURE.ordinal());
-    assertEquals(4, InstOp.EMPTY_WIDTH.ordinal());
-    assertEquals(5, InstOp.MATCH.ordinal());
-    assertEquals(6, InstOp.NOP.ordinal());
-    assertEquals(7, InstOp.FAIL.ordinal());
+    assertThat(InstOp.ALT.ordinal()).isEqualTo(0);
+    assertThat(InstOp.ALT_MATCH.ordinal()).isEqualTo(1);
+    assertThat(InstOp.CHAR_RANGE.ordinal()).isEqualTo(2);
+    assertThat(InstOp.CAPTURE.ordinal()).isEqualTo(3);
+    assertThat(InstOp.EMPTY_WIDTH.ordinal()).isEqualTo(4);
+    assertThat(InstOp.MATCH.ordinal()).isEqualTo(5);
+    assertThat(InstOp.NOP.ordinal()).isEqualTo(6);
+    assertThat(InstOp.FAIL.ordinal()).isEqualTo(7);
   }
 }

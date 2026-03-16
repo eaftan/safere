@@ -3,8 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
@@ -13,26 +12,26 @@ class ParseFlagsTest {
 
   @Test
   void flagsArePowersOfTwo() {
-    assertEquals(0, ParseFlags.NONE);
-    assertEquals(1, ParseFlags.FOLD_CASE);
-    assertEquals(2, ParseFlags.LITERAL);
-    assertEquals(4, ParseFlags.CLASS_NL);
-    assertEquals(8, ParseFlags.DOT_NL);
-    assertEquals(16, ParseFlags.ONE_LINE);
-    assertEquals(32, ParseFlags.LATIN1);
-    assertEquals(64, ParseFlags.NON_GREEDY);
-    assertEquals(128, ParseFlags.PERL_CLASSES);
-    assertEquals(256, ParseFlags.PERL_B);
-    assertEquals(512, ParseFlags.PERL_X);
-    assertEquals(1024, ParseFlags.UNICODE_GROUPS);
-    assertEquals(2048, ParseFlags.NEVER_NL);
-    assertEquals(4096, ParseFlags.NEVER_CAPTURE);
-    assertEquals(8192, ParseFlags.WAS_DOLLAR);
+    assertThat(ParseFlags.NONE).isEqualTo(0);
+    assertThat(ParseFlags.FOLD_CASE).isEqualTo(1);
+    assertThat(ParseFlags.LITERAL).isEqualTo(2);
+    assertThat(ParseFlags.CLASS_NL).isEqualTo(4);
+    assertThat(ParseFlags.DOT_NL).isEqualTo(8);
+    assertThat(ParseFlags.ONE_LINE).isEqualTo(16);
+    assertThat(ParseFlags.LATIN1).isEqualTo(32);
+    assertThat(ParseFlags.NON_GREEDY).isEqualTo(64);
+    assertThat(ParseFlags.PERL_CLASSES).isEqualTo(128);
+    assertThat(ParseFlags.PERL_B).isEqualTo(256);
+    assertThat(ParseFlags.PERL_X).isEqualTo(512);
+    assertThat(ParseFlags.UNICODE_GROUPS).isEqualTo(1024);
+    assertThat(ParseFlags.NEVER_NL).isEqualTo(2048);
+    assertThat(ParseFlags.NEVER_CAPTURE).isEqualTo(4096);
+    assertThat(ParseFlags.WAS_DOLLAR).isEqualTo(8192);
   }
 
   @Test
   void matchNlCombinesClassNlAndDotNl() {
-    assertEquals(ParseFlags.CLASS_NL | ParseFlags.DOT_NL, ParseFlags.MATCH_NL);
+    assertThat(ParseFlags.MATCH_NL).isEqualTo(ParseFlags.CLASS_NL | ParseFlags.DOT_NL);
   }
 
   @Test
@@ -44,19 +43,19 @@ class ParseFlagsTest {
             | ParseFlags.PERL_B
             | ParseFlags.PERL_X
             | ParseFlags.UNICODE_GROUPS;
-    assertEquals(expected, ParseFlags.LIKE_PERL);
+    assertThat(ParseFlags.LIKE_PERL).isEqualTo(expected);
   }
 
   @Test
   void allFlagsCoversAllBits() {
-    assertEquals((1 << 14) - 1, ParseFlags.ALL_FLAGS);
+    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 14) - 1);
   }
 
   @Test
   void likePerlIncludesPerlFeatures() {
-    assertTrue((ParseFlags.LIKE_PERL & ParseFlags.PERL_CLASSES) != 0);
-    assertTrue((ParseFlags.LIKE_PERL & ParseFlags.PERL_B) != 0);
-    assertTrue((ParseFlags.LIKE_PERL & ParseFlags.PERL_X) != 0);
-    assertTrue((ParseFlags.LIKE_PERL & ParseFlags.UNICODE_GROUPS) != 0);
+    assertThat((ParseFlags.LIKE_PERL & ParseFlags.PERL_CLASSES) != 0).isTrue();
+    assertThat((ParseFlags.LIKE_PERL & ParseFlags.PERL_B) != 0).isTrue();
+    assertThat((ParseFlags.LIKE_PERL & ParseFlags.PERL_X) != 0).isTrue();
+    assertThat((ParseFlags.LIKE_PERL & ParseFlags.UNICODE_GROUPS) != 0).isTrue();
   }
 }

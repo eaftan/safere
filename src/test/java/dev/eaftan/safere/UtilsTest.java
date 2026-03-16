@@ -3,9 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -16,119 +14,119 @@ class UtilsTest {
 
   @Test
   void isValidRune_validCodePoints() {
-    assertTrue(Utils.isValidRune(0)); // NUL
-    assertTrue(Utils.isValidRune('A'));
-    assertTrue(Utils.isValidRune(0x7F)); // DEL
-    assertTrue(Utils.isValidRune(0x80)); // First non-ASCII
-    assertTrue(Utils.isValidRune(0xFFFF)); // Last BMP
-    assertTrue(Utils.isValidRune(0x10000)); // First supplementary
-    assertTrue(Utils.isValidRune(0x10FFFF)); // Max code point
+    assertThat(Utils.isValidRune(0)).isTrue(); // NUL
+    assertThat(Utils.isValidRune('A')).isTrue();
+    assertThat(Utils.isValidRune(0x7F)).isTrue(); // DEL
+    assertThat(Utils.isValidRune(0x80)).isTrue(); // First non-ASCII
+    assertThat(Utils.isValidRune(0xFFFF)).isTrue(); // Last BMP
+    assertThat(Utils.isValidRune(0x10000)).isTrue(); // First supplementary
+    assertThat(Utils.isValidRune(0x10FFFF)).isTrue(); // Max code point
   }
 
   @Test
   void isValidRune_invalidCodePoints() {
-    assertFalse(Utils.isValidRune(-1));
-    assertFalse(Utils.isValidRune(0x110000)); // Beyond max
-    assertFalse(Utils.isValidRune(0xD800)); // Surrogate start
-    assertFalse(Utils.isValidRune(0xDBFF)); // High surrogate end
-    assertFalse(Utils.isValidRune(0xDC00)); // Low surrogate start
-    assertFalse(Utils.isValidRune(0xDFFF)); // Surrogate end
+    assertThat(Utils.isValidRune(-1)).isFalse();
+    assertThat(Utils.isValidRune(0x110000)).isFalse(); // Beyond max
+    assertThat(Utils.isValidRune(0xD800)).isFalse(); // Surrogate start
+    assertThat(Utils.isValidRune(0xDBFF)).isFalse(); // High surrogate end
+    assertThat(Utils.isValidRune(0xDC00)).isFalse(); // Low surrogate start
+    assertThat(Utils.isValidRune(0xDFFF)).isFalse(); // Surrogate end
   }
 
   @ParameterizedTest
   @ValueSource(ints = {'0', '5', '9', 'a', 'z', 'A', 'Z'})
   void isAlnum_trueForAlnumChars(int r) {
-    assertTrue(Utils.isAlnum(r));
+    assertThat(Utils.isAlnum(r)).isTrue();
   }
 
   @ParameterizedTest
   @ValueSource(ints = {'!', ' ', '@', '[', '{', 0x00, 0xFF})
   void isAlnum_falseForNonAlnumChars(int r) {
-    assertFalse(Utils.isAlnum(r));
+    assertThat(Utils.isAlnum(r)).isFalse();
   }
 
   @Test
   void isWordChar_includesUnderscore() {
-    assertTrue(Utils.isWordChar('_'));
-    assertTrue(Utils.isWordChar('a'));
-    assertTrue(Utils.isWordChar('0'));
-    assertFalse(Utils.isWordChar('-'));
-    assertFalse(Utils.isWordChar(' '));
+    assertThat(Utils.isWordChar('_')).isTrue();
+    assertThat(Utils.isWordChar('a')).isTrue();
+    assertThat(Utils.isWordChar('0')).isTrue();
+    assertThat(Utils.isWordChar('-')).isFalse();
+    assertThat(Utils.isWordChar(' ')).isFalse();
   }
 
   @Test
   void unhex_validDigits() {
-    assertEquals(0, Utils.unhex('0'));
-    assertEquals(9, Utils.unhex('9'));
-    assertEquals(10, Utils.unhex('A'));
-    assertEquals(15, Utils.unhex('F'));
-    assertEquals(10, Utils.unhex('a'));
-    assertEquals(15, Utils.unhex('f'));
+    assertThat(Utils.unhex('0')).isEqualTo(0);
+    assertThat(Utils.unhex('9')).isEqualTo(9);
+    assertThat(Utils.unhex('A')).isEqualTo(10);
+    assertThat(Utils.unhex('F')).isEqualTo(15);
+    assertThat(Utils.unhex('a')).isEqualTo(10);
+    assertThat(Utils.unhex('f')).isEqualTo(15);
   }
 
   @Test
   void unhex_invalidChars() {
-    assertEquals(-1, Utils.unhex('G'));
-    assertEquals(-1, Utils.unhex('g'));
-    assertEquals(-1, Utils.unhex(' '));
-    assertEquals(-1, Utils.unhex('/'));
-    assertEquals(-1, Utils.unhex(':'));
+    assertThat(Utils.unhex('G')).isEqualTo(-1);
+    assertThat(Utils.unhex('g')).isEqualTo(-1);
+    assertThat(Utils.unhex(' ')).isEqualTo(-1);
+    assertThat(Utils.unhex('/')).isEqualTo(-1);
+    assertThat(Utils.unhex(':')).isEqualTo(-1);
   }
 
   @Test
   void toLower_convertsUppercase() {
-    assertEquals('a', Utils.toLower('A'));
-    assertEquals('z', Utils.toLower('Z'));
+    assertThat(Utils.toLower('A')).isEqualTo('a');
+    assertThat(Utils.toLower('Z')).isEqualTo('z');
   }
 
   @Test
   void toLower_leavesOthersUnchanged() {
-    assertEquals('a', Utils.toLower('a'));
-    assertEquals('0', Utils.toLower('0'));
-    assertEquals('!', Utils.toLower('!'));
+    assertThat(Utils.toLower('a')).isEqualTo('a');
+    assertThat(Utils.toLower('0')).isEqualTo('0');
+    assertThat(Utils.toLower('!')).isEqualTo('!');
   }
 
   @Test
   void toUpper_convertsLowercase() {
-    assertEquals('A', Utils.toUpper('a'));
-    assertEquals('Z', Utils.toUpper('z'));
+    assertThat(Utils.toUpper('a')).isEqualTo('A');
+    assertThat(Utils.toUpper('z')).isEqualTo('Z');
   }
 
   @Test
   void runeToString_ascii() {
-    assertEquals("A", Utils.runeToString('A'));
-    assertEquals("0", Utils.runeToString('0'));
+    assertThat(Utils.runeToString('A')).isEqualTo("A");
+    assertThat(Utils.runeToString('0')).isEqualTo("0");
   }
 
   @Test
   void runeToString_supplementary() {
     // U+1F600 = 😀 (grinning face)
-    assertEquals("\uD83D\uDE00", Utils.runeToString(0x1F600));
+    assertThat(Utils.runeToString(0x1F600)).isEqualTo("\uD83D\uDE00");
   }
 
   @Test
   void runeCount_ascii() {
-    assertEquals(5, Utils.runeCount("hello"));
+    assertThat(Utils.runeCount("hello")).isEqualTo(5);
   }
 
   @Test
   void runeCount_supplementary() {
     // "A😀B" = 3 code points but 4 chars
-    assertEquals(3, Utils.runeCount("A\uD83D\uDE00B"));
+    assertThat(Utils.runeCount("A\uD83D\uDE00B")).isEqualTo(3);
   }
 
   @Test
   void runeAt_ascii() {
-    assertEquals('h', Utils.runeAt("hello", 0));
-    assertEquals('o', Utils.runeAt("hello", 4));
+    assertThat(Utils.runeAt("hello", 0)).isEqualTo('h');
+    assertThat(Utils.runeAt("hello", 4)).isEqualTo('o');
   }
 
   @Test
   void runeAt_supplementary() {
     // "A😀B" — code point index 1 is the emoji
     String s = "A\uD83D\uDE00B";
-    assertEquals('A', Utils.runeAt(s, 0));
-    assertEquals(0x1F600, Utils.runeAt(s, 1));
-    assertEquals('B', Utils.runeAt(s, 2));
+    assertThat(Utils.runeAt(s, 0)).isEqualTo('A');
+    assertThat(Utils.runeAt(s, 1)).isEqualTo(0x1F600);
+    assertThat(Utils.runeAt(s, 2)).isEqualTo('B');
   }
 }

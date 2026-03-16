@@ -3,7 +3,7 @@
 
 package dev.eaftan.safere;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,7 +25,9 @@ class LicenseHeaderTest {
   void allJavaFilesHaveLicenseHeader() throws IOException {
     Path root = Paths.get("").toAbsolutePath();
     Path srcDir = root.resolve("src");
-    assertTrue(Files.isDirectory(srcDir), "src/ directory not found at " + root);
+    assertThat(Files.isDirectory(srcDir))
+        .withFailMessage("src/ directory not found at " + root)
+        .isTrue();
 
     List<Path> violations;
     try (Stream<Path> files = Files.walk(srcDir)) {
@@ -36,10 +38,11 @@ class LicenseHeaderTest {
               .toList();
     }
 
-    assertTrue(
-        violations.isEmpty(),
-        "The following files are missing the license header:\n"
-            + String.join("\n", violations.stream().map(Path::toString).toList()));
+    assertThat(violations.isEmpty())
+        .withFailMessage(
+            "The following files are missing the license header:\n"
+                + String.join("\n", violations.stream().map(Path::toString).toList()))
+        .isTrue();
   }
 
   private static boolean hasLicenseHeader(Path path) {
