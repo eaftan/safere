@@ -86,7 +86,7 @@ Implement the AST and compiled program representations.
 - `Inst` class — single bytecode instruction
 - `RE2Flags` — parse flags (FOLD_CASE, LITERAL, DOT_NL, etc.)
 
-### Phase 3: Parser
+### Phase 3: Parser ✅
 Port the recursive-descent parser from `parse.cc`.
 
 - `Parser` class — the big one (~2500 lines C++)
