@@ -68,9 +68,15 @@ Public API (drop-in for `java.util.regex`):
 - `Pattern` — compiled regex (replaces `java.util.regex.Pattern`)
 - `Matcher` — match state (replaces `java.util.regex.Matcher`)
 
+## Progress Tracking
+
+- When a phase is completed, mark it with ✅ in `PLAN.md`
+  (e.g., `### Phase 1: Project Skeleton & Unicode Tables ✅`)
+
 ## Testing
 
 - Use JUnit 6 (6.0.3) with `org.junit.jupiter.api.*` imports
+- Use AssertJ (`org.assertj.core.api.Assertions.*`) for all assertions
 - Test class naming: `FooTest.java` for `Foo.java`
 - Use `@Test`, `@ParameterizedTest`, `@DisplayName` as appropriate
 - Aim for high coverage; JaCoCo is configured in the build
