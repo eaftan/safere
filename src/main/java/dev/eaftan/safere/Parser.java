@@ -3,9 +3,6 @@
 
 package dev.eaftan.safere;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.regex.PatternSyntaxException;
 
 /**
@@ -39,15 +36,6 @@ public final class Parser {
     StackEntry(Regexp re) {
       this.re = re;
     }
-  }
-
-  // A mutable Regexp wrapper so we can mutate op/fields in place (for stack entries).
-  // For simplicity we track pseudo-op via a separate field on StackEntry and encode
-  // the pseudo-op in the Regexp's op field using sentinel RegexpOp values won't work
-  // since RegexpOp is an enum. Instead, we use a tag integer.
-  private int tag(StackEntry e) {
-    if (e == null || e.re == null) return 0;
-    return e.re.op == RegexpOp.NO_MATCH && e.re.matchId < 0 ? e.re.matchId : 0;
   }
 
   // Parse state
@@ -953,7 +941,6 @@ public final class Parser {
     if (pos + 1 >= pattern.length() || pattern.charAt(pos) != '\\') return null;
 
     char c2 = pattern.charAt(pos + 1);
-    String name = "\\" + c2;
     String posName; // the positive version
     boolean negate;
     switch (c2) {

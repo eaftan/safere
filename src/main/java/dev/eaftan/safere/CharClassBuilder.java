@@ -133,7 +133,6 @@ public final class CharClassBuilder {
    */
   public CharClassBuilder negate() {
     TreeSet<Range> negated = new TreeSet<>();
-    int negatedRunes = 0;
     int next = 0;
 
     for (Range r : ranges) {
