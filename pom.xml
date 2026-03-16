@@ -55,7 +55,7 @@
         <configuration>
           <release>21</release>
           <compilerArgs>
-            <arg>-Xlint:all</arg>
+            <arg>-Xlint</arg>
             <arg>-Werror</arg>
           </compilerArgs>
         </configuration>
