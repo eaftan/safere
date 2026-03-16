@@ -1,0 +1,21 @@
+# Build output
+target/
+
+# RE2 C++ reference (local only)
+re2-reference/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor swap files
+*.swp
+*~
