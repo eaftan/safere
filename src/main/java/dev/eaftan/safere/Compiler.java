@@ -508,7 +508,6 @@ final class Compiler extends Walker<Compiler.Frag> {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   protected Frag postVisit(
       Regexp re, Frag parentArg, Frag preArg, Object[] childArgs, int nChildArgs) {
     if (failed) {

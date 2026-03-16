@@ -93,6 +93,9 @@ Public API (drop-in for `java.util.regex`):
   recursion, for Regexp tree traversal. Deeply nested regexes must not cause
   `StackOverflowError`.
 - **No `\C`**: RE2's "match any byte" is not applicable to Java strings.
+- **No `@SuppressWarnings`**: Do not add `@SuppressWarnings` annotations
+  without explicit approval from the project owner. Fix the underlying
+  issue instead.
 
 ## Benchmarking (Phase 10)
 
