@@ -36,6 +36,9 @@ final class Dfa {
   /** Result of a DFA search. */
   record SearchResult(boolean matched, int pos) {}
 
+  /** Result of a multi-match DFA search. */
+  record ManyMatchResult(boolean matched, int[] matchIds) {}
+
   /** Flag bit: this state contains a MATCH instruction. */
   private static final int FLAG_MATCH = 1 << 8;
 
@@ -206,6 +209,29 @@ final class Dfa {
       }
     }
     return false;
+  }
+
+  /** Collects all match IDs (MATCH instruction arg values) from a DFA state's NFA instructions. */
+  private int[] collectMatchIds(int[] insts) {
+    int count = 0;
+    for (int id : insts) {
+      Inst ip = prog.inst(id);
+      if (ip.op == InstOp.MATCH) {
+        count++;
+      }
+    }
+    if (count == 0) {
+      return new int[0];
+    }
+    int[] ids = new int[count];
+    int idx = 0;
+    for (int id : insts) {
+      Inst ip = prog.inst(id);
+      if (ip.op == InstOp.MATCH) {
+        ids[idx++] = ip.arg;
+      }
+    }
+    return ids;
   }
 
   /** Gets or creates a cached state. Returns null if the state budget is exceeded. */
@@ -413,6 +439,106 @@ final class Dfa {
     }
 
     return new SearchResult(matched, matchEnd);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Multi-match search (for PatternSet)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Searches for all matching patterns in a multi-pattern program.
+   *
+   * <p>Unlike {@link #search}, this method does not stop at the first match. It processes the
+   * entire text and collects the match IDs (from {@link Inst#arg}) of all MATCH instructions
+   * reached. This is used by {@link PatternSet} to determine which patterns matched.
+   *
+   * @param prog the compiled multi-pattern program (built with HAVE_MATCH markers)
+   * @param text the input text
+   * @param anchored whether to anchor the search at the start
+   * @return multi-match result, or {@code null} if the DFA exceeded its state budget
+   */
+  static ManyMatchResult searchMany(Prog prog, String text, boolean anchored) {
+    return searchMany(prog, text, anchored, DEFAULT_MAX_STATES);
+  }
+
+  /** Multi-match search with explicit state budget. */
+  static ManyMatchResult searchMany(Prog prog, String text, boolean anchored, int maxStates) {
+    Dfa dfa = new Dfa(prog, maxStates);
+    return dfa.doSearchMany(text, anchored);
+  }
+
+  /**
+   * Multi-match DFA search loop. Processes the entire text and collects all match IDs from match
+   * states reached along the way.
+   */
+  private ManyMatchResult doSearchMany(String text, boolean anchored) {
+    int textLen = text.length();
+    boolean needEndMatch = prog.anchorEnd();
+
+    State s = startState(text, 0, anchored);
+    if (s == null) {
+      return null;
+    }
+
+    // Use a bitset to track which match IDs have been seen.
+    java.util.BitSet seen = new java.util.BitSet();
+
+    // Check if start state is already a match.
+    if (s.isMatch()) {
+      if (!needEndMatch || textLen == 0) {
+        for (int id : collectMatchIds(s.insts)) {
+          seen.set(id);
+        }
+      }
+    }
+
+    if (s != deadState) {
+      int pos = 0;
+      while (pos <= textLen) {
+        int cp;
+        int nextPos;
+        if (pos < textLen) {
+          cp = text.codePointAt(pos);
+          nextPos = pos + Character.charCount(cp);
+        } else {
+          cp = -1;
+          nextPos = textLen + 1;
+        }
+
+        int cls = classOf(cp);
+        State ns = s.next[cls];
+        if (ns == null) {
+          ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
+        s = ns;
+
+        if (s == deadState) {
+          break;
+        }
+
+        if (s.isMatch()) {
+          int endPos = Math.min(nextPos, textLen);
+          if (!needEndMatch || endPos == textLen) {
+            for (int id : collectMatchIds(s.insts)) {
+              seen.set(id);
+            }
+          }
+        }
+
+        if (pos >= textLen) {
+          break;
+        }
+        pos = nextPos;
+      }
+    }
+
+    boolean matched = !seen.isEmpty();
+    int[] matchIds = seen.stream().toArray();
+    return new ManyMatchResult(matched, matchIds);
   }
 
   private Dfa() {
