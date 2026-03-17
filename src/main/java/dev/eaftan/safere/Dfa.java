@@ -99,21 +99,47 @@ final class Dfa {
   /** Total number of equivalence classes (intervals between boundaries + 1 for end-of-text). */
   private final int numClasses;
 
+  /**
+   * Fast ASCII-to-class lookup table. For code points 0–127, {@code asciiClassMap[cp]} gives the
+   * equivalence class index directly, avoiding binary search. -1 means "not populated" (should not
+   * happen for valid ASCII).
+   */
+  private final int[] asciiClassMap;
+
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
   private final State deadState = new State(new int[0], 0, 0);
 
+  /** Pre-allocated visited array for {@link #expand}, reused across calls. */
+  private final boolean[] expandVisited;
+
+  /**
+   * Pre-allocated stack array for {@link #expand}. Sized to the program length (worst case: every
+   * instruction pushed once).
+   */
+  private final int[] expandStack;
+
+  /**
+   * Pre-allocated frontier array for {@link #expand}. Sized to the program length (worst case:
+   * every instruction is a frontier instruction).
+   */
+  private final int[] expandFrontier;
+
   // ---------------------------------------------------------------------------
   // Construction
   // ---------------------------------------------------------------------------
 
-  private Dfa(Prog prog, int maxStates) {
+  Dfa(Prog prog, int maxStates) {
     this.prog = prog;
     this.maxStates = maxStates;
     this.boundaries = buildBoundaries(prog);
     this.numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
+    this.asciiClassMap = buildAsciiClassMap(boundaries);
+    this.expandVisited = new boolean[prog.size()];
+    this.expandStack = new int[prog.size()];
+    this.expandFrontier = new int[prog.size()];
   }
 
   /**
@@ -137,10 +163,26 @@ final class Dfa {
     return bounds.stream().mapToInt(Integer::intValue).toArray();
   }
 
+  /**
+   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence class
+   * indices. This avoids binary search for the most common characters.
+   */
+  private static int[] buildAsciiClassMap(int[] boundaries) {
+    int[] map = new int[128];
+    for (int cp = 0; cp < 128; cp++) {
+      int idx = Arrays.binarySearch(boundaries, cp);
+      map[cp] = (idx >= 0) ? idx : (-idx - 1) - 1;
+    }
+    return map;
+  }
+
   /** Maps a code point (or -1 for end-of-text) to its equivalence class index. */
   private int classOf(int cp) {
     if (cp < 0) {
       return numClasses - 1;
+    }
+    if (cp < 128) {
+      return asciiClassMap[cp];
     }
     int idx = Arrays.binarySearch(boundaries, cp);
     if (idx >= 0) {
@@ -163,14 +205,19 @@ final class Dfa {
    * fire).
    */
   private int[] expand(List<Integer> seeds, int emptyFlags) {
-    boolean[] visited = new boolean[prog.size()];
-    List<Integer> frontier = new ArrayList<>();
+    boolean[] visited = expandVisited;
+    int[] stack = expandStack;
+    int[] frontier = expandFrontier;
+    int stackTop = 0;
+    int frontierSize = 0;
 
-    // Use seeds list as initial stack (copy to avoid mutation issues).
-    List<Integer> stack = new ArrayList<>(seeds);
+    // Push seeds onto stack.
+    for (int i = 0; i < seeds.size(); i++) {
+      stack[stackTop++] = seeds.get(i);
+    }
 
-    while (!stack.isEmpty()) {
-      int id = stack.remove(stack.size() - 1);
+    while (stackTop > 0) {
+      int id = stack[--stackTop];
       if (id == 0 || id >= prog.size() || visited[id]) {
         continue;
       }
@@ -180,27 +227,30 @@ final class Dfa {
       switch (ip.op) {
         case FAIL -> {}
         case ALT, ALT_MATCH -> {
-          stack.add(ip.out);
-          stack.add(ip.out1);
+          stack[stackTop++] = ip.out;
+          stack[stackTop++] = ip.out1;
         }
-        case NOP -> stack.add(ip.out);
-        case CAPTURE -> stack.add(ip.out);
+        case NOP -> stack[stackTop++] = ip.out;
+        case CAPTURE -> stack[stackTop++] = ip.out;
         case EMPTY_WIDTH -> {
           if ((ip.arg & ~emptyFlags) == 0) {
-            stack.add(ip.out);
+            stack[stackTop++] = ip.out;
           } else {
-            // Keep unsatisfied empty-width assertions in frontier so they can be re-checked
-            // when context changes (e.g., at end-of-text).
-            frontier.add(id);
+            frontier[frontierSize++] = id;
           }
         }
-        case CHAR_RANGE, MATCH -> frontier.add(id);
+        case CHAR_RANGE, MATCH -> frontier[frontierSize++] = id;
         default -> {}
       }
     }
 
-    frontier.sort(null);
-    return frontier.stream().mapToInt(Integer::intValue).toArray();
+    // Clear visited flags for next call.
+    for (int i = 0; i < prog.size(); i++) {
+      visited[i] = false;
+    }
+
+    Arrays.sort(frontier, 0, frontierSize);
+    return Arrays.copyOf(frontier, frontierSize);
   }
 
   /** Returns true if any instruction ID in the sorted array is a MATCH instruction. */
@@ -340,7 +390,7 @@ final class Dfa {
   // ---------------------------------------------------------------------------
 
   /**
-   * Searches for a match using the DFA.
+   * Searches for a match using the DFA, starting from position 0.
    *
    * @param prog the compiled program
    * @param text the input text
@@ -350,29 +400,61 @@ final class Dfa {
    *     back to NFA)
    */
   static SearchResult search(Prog prog, String text, boolean anchored, boolean longest) {
-    return search(prog, text, anchored, longest, DEFAULT_MAX_STATES);
+    return search(prog, text, 0, anchored, longest, DEFAULT_MAX_STATES);
   }
 
-  /** Search with explicit state budget. */
+  /** Search with explicit state budget, starting from position 0. */
   static SearchResult search(
       Prog prog, String text, boolean anchored, boolean longest, int maxStates) {
+    return search(prog, text, 0, anchored, longest, maxStates);
+  }
+
+  /**
+   * Search with explicit start position and state budget.
+   *
+   * @param prog the compiled program
+   * @param text the input text
+   * @param startPos the char index in {@code text} at which to begin searching
+   * @param anchored whether to anchor the search at {@code startPos}
+   * @param longest whether to find the longest match (vs. earliest/first match)
+   * @param maxStates maximum DFA state budget
+   * @return search result, or {@code null} if the DFA exceeded its state budget
+   */
+  static SearchResult search(
+      Prog prog, String text, int startPos, boolean anchored, boolean longest, int maxStates) {
     Dfa dfa = new Dfa(prog, maxStates);
-    return dfa.doSearch(text, anchored, longest);
+    return dfa.doSearch(text, startPos, anchored, longest);
+  }
+
+  /**
+   * Main DFA search loop, starting from position 0.
+   *
+   * @see #doSearch(String, int, boolean, boolean)
+   */
+  SearchResult doSearch(String text, boolean anchored, boolean longest) {
+    return doSearch(text, 0, anchored, longest);
   }
 
   /**
    * Main DFA search loop.
    *
-   * <p>Iterates over each code point in the text, following transitions. When a match state is
-   * reached, records the position. In earliest-match mode, returns immediately. In longest-match
-   * mode, continues to find the longest match.
+   * <p>Iterates over each code point in the text starting from {@code startPos}, following
+   * transitions. When a match state is reached, records the position. In earliest-match mode,
+   * returns immediately. In longest-match mode, continues to find the longest match.
+   *
+   * @param text the full input text
+   * @param startPos the char index in {@code text} at which to begin searching
+   * @param anchored whether to anchor the search at {@code startPos}
+   * @param longest whether to find the longest match
+   * @return search result with positions relative to {@code text}, or {@code null} if the DFA
+   *     exceeded its state budget
    */
-  private SearchResult doSearch(String text, boolean anchored, boolean longest) {
+  SearchResult doSearch(String text, int startPos, boolean anchored, boolean longest) {
     int textLen = text.length();
     // If the compiled program requires end-of-text matching (stripped $), enforce it.
     boolean needEndMatch = prog.anchorEnd();
 
-    State s = startState(text, 0, anchored);
+    State s = startState(text, startPos, anchored);
     if (s == null) {
       return null;
     }
@@ -382,11 +464,11 @@ final class Dfa {
 
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
-      if (!needEndMatch || textLen == 0) {
+      if (!needEndMatch || textLen == startPos) {
         matched = true;
-        matchEnd = 0;
+        matchEnd = startPos;
         if (!longest && !needEndMatch) {
-          return new SearchResult(true, 0);
+          return new SearchResult(true, startPos);
         }
       }
     }
@@ -395,20 +477,34 @@ final class Dfa {
       return new SearchResult(matched, matchEnd);
     }
 
-    int pos = 0;
+    int pos = startPos;
     while (pos <= textLen) {
       int cp;
       int nextPos;
+      int cls;
       if (pos < textLen) {
-        cp = text.codePointAt(pos);
-        nextPos = pos + Character.charCount(cp);
+        char ch = text.charAt(pos);
+        if (ch < 128) {
+          // ASCII fast path: no surrogate handling, use pre-computed class map.
+          cp = ch;
+          nextPos = pos + 1;
+          cls = asciiClassMap[ch];
+        } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen) {
+          cp = Character.toCodePoint(ch, text.charAt(pos + 1));
+          nextPos = pos + 2;
+          cls = classOf(cp);
+        } else {
+          cp = ch;
+          nextPos = pos + 1;
+          cls = classOf(cp);
+        }
       } else {
         cp = -1;
         nextPos = textLen + 1;
+        cls = numClasses - 1;
       }
 
       // Try cached transition first.
-      int cls = classOf(cp);
       State ns = s.next.get(cls);
       if (ns == null) {
         ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
@@ -473,7 +569,7 @@ final class Dfa {
    * Multi-match DFA search loop. Processes the entire text and collects all match IDs from match
    * states reached along the way.
    */
-  private ManyMatchResult doSearchMany(String text, boolean anchored) {
+  ManyMatchResult doSearchMany(String text, boolean anchored) {
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
 
@@ -499,15 +595,28 @@ final class Dfa {
       while (pos <= textLen) {
         int cp;
         int nextPos;
+        int cls;
         if (pos < textLen) {
-          cp = text.codePointAt(pos);
-          nextPos = pos + Character.charCount(cp);
+          char ch = text.charAt(pos);
+          if (ch < 128) {
+            cp = ch;
+            nextPos = pos + 1;
+            cls = asciiClassMap[ch];
+          } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen) {
+            cp = Character.toCodePoint(ch, text.charAt(pos + 1));
+            nextPos = pos + 2;
+            cls = classOf(cp);
+          } else {
+            cp = ch;
+            nextPos = pos + 1;
+            cls = classOf(cp);
+          }
         } else {
           cp = -1;
           nextPos = textLen + 1;
+          cls = numClasses - 1;
         }
 
-        int cls = classOf(cp);
         State ns = s.next.get(cls);
         if (ns == null) {
           ns = computeNext(s, cp, text, Math.min(nextPos, textLen));

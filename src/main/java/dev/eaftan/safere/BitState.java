@@ -41,7 +41,7 @@ final class BitState {
   }
 
   /**
-   * Searches for a match using bit-state backtracking.
+   * Searches for a match using bit-state backtracking, starting from position 0.
    *
    * @param prog the compiled program
    * @param text the input text
@@ -53,6 +53,45 @@ final class BitState {
    */
   static int[] search(Prog prog, String text, boolean anchored, boolean longest,
       boolean endMatch, int nsubmatch) {
+    return search(prog, text, 0, text.length(), anchored, longest, endMatch, nsubmatch);
+  }
+
+  /**
+   * Searches for a match using bit-state backtracking, starting from the specified position.
+   *
+   * @param prog the compiled program
+   * @param text the full input text
+   * @param startPos the char index in {@code text} at which to begin searching
+   * @param anchored if true, match must start at {@code startPos}
+   * @param longest if true, find the longest match; otherwise find the first (greedy) match
+   * @param endMatch if true, match must extend to end of text
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are
+   *     char indices into the full text.
+   */
+  static int[] search(Prog prog, String text, int startPos, boolean anchored, boolean longest,
+      boolean endMatch, int nsubmatch) {
+    return search(prog, text, startPos, text.length(), anchored, longest, endMatch, nsubmatch);
+  }
+
+  /**
+   * Searches for a match using bit-state backtracking, with bounded search range.
+   *
+   * @param prog the compiled program
+   * @param text the full input text
+   * @param startPos the char index in {@code text} at which to begin searching
+   * @param searchLimit upper bound on where to try start positions; only positions up to this
+   *     index are tried. The inner search may still match characters beyond this position. Use
+   *     {@code text.length()} for unbounded search.
+   * @param anchored if true, match must start at {@code startPos}
+   * @param longest if true, find the longest match; otherwise find the first (greedy) match
+   * @param endMatch if true, match must extend to end of text
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are
+   *     char indices into the full text.
+   */
+  static int[] search(Prog prog, String text, int startPos, int searchLimit, boolean anchored,
+      boolean longest, boolean endMatch, int nsubmatch) {
     int textLen = text.length();
     int maxLen = maxTextSize(prog);
     if (maxLen < 0 || textLen > maxLen) {
@@ -63,15 +102,15 @@ final class BitState {
     BitState bs = new BitState(prog, text, ncap, longest, endMatch);
 
     // For unanchored search, try each start position until a match is found.
-    int limit = anchored ? 1 : textLen + 1;
-    for (int startPos = 0; startPos < limit; startPos++) {
-      if (bs.trySearch(prog.start(), startPos)) {
+    int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
+    for (int searchStart = startPos; searchStart < limit; searchStart++) {
+      if (bs.trySearch(prog.start(), searchStart)) {
         return bs.bestMatch;
       }
       // Advance to next code point boundary.
-      if (startPos < textLen) {
-        int cp = text.codePointAt(startPos);
-        startPos += Character.charCount(cp) - 1; // loop increment adds 1
+      if (searchStart < textLen) {
+        int cp = text.codePointAt(searchStart);
+        searchStart += Character.charCount(cp) - 1; // loop increment adds 1
       }
     }
     return null;

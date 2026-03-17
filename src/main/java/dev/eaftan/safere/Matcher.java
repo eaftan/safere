@@ -28,12 +28,22 @@ import java.util.regex.MatchResult;
  */
 public final class Matcher implements MatchResult {
 
+  private static final int DEFAULT_MAX_DFA_STATES = 10_000;
+
   private final Pattern parentPattern;
   private String text;
   private int[] groups;
   private boolean hasMatch;
   private int searchFrom;
   private int appendPos;
+
+  /**
+   * Cached DFA instance, lazily initialized on first use. The DFA state graph is a property of the
+   * compiled program (not the input text), so it persists across {@code reset()} and multiple
+   * {@code find()}/{@code matches()} calls. This avoids rebuilding the equivalence class boundaries
+   * and state cache on every search.
+   */
+  private Dfa dfa;
 
   /**
    * Creates a new matcher that will match the given input against the given pattern.
@@ -44,6 +54,14 @@ public final class Matcher implements MatchResult {
   Matcher(Pattern pattern, CharSequence input) {
     this.parentPattern = pattern;
     this.text = input.toString();
+  }
+
+  /** Returns the cached DFA instance, creating it on first use. */
+  private Dfa dfa() {
+    if (dfa == null) {
+      dfa = new Dfa(parentPattern.prog(), DEFAULT_MAX_DFA_STATES);
+    }
+    return dfa;
   }
 
   // ---------------------------------------------------------------------------
@@ -68,7 +86,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if a full match exists.
-    Dfa.SearchResult dfaResult = Dfa.search(prog, text, true, true);
+    Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
     if (dfaResult != null && !dfaResult.matched()) {
       hasMatch = false;
       return false;
@@ -80,7 +98,7 @@ public final class Matcher implements MatchResult {
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
     groups = searchWithBitStateOrNfa(
-        prog, text, true, false, true, prog.numCaptures());
+        prog, text, 0, text.length(), true, false, true, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -106,7 +124,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    Dfa.SearchResult dfaResult = Dfa.search(prog, text, true, false);
+    Dfa.SearchResult dfaResult = dfa().doSearch(text, true, false);
     if (dfaResult != null && !dfaResult.matched()) {
       hasMatch = false;
       return false;
@@ -114,7 +132,7 @@ public final class Matcher implements MatchResult {
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
     groups = searchWithBitStateOrNfa(
-        prog, text, true, false, false, prog.numCaptures());
+        prog, text, 0, text.length(), true, false, false, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -188,18 +206,21 @@ public final class Matcher implements MatchResult {
     }
 
     Prog prog = parentPattern.prog();
-    String searchText = text.substring(effectiveStart);
 
-    // Fast path: use DFA to check if a match exists in the remaining text.
-    Dfa.SearchResult dfaResult = Dfa.search(prog, searchText, false, false);
+    // Fast path: use cached DFA to check if a match exists in the remaining text.
+    // Pass the full text with start offset to avoid substring allocation for the DFA check.
+    Dfa.SearchResult dfaResult = dfa().doSearch(text, effectiveStart, false, false);
     if (dfaResult != null && !dfaResult.matched()) {
       hasMatch = false;
       return false;
     }
 
-    // DFA says match (or bailed out) — try BitState, then NFA for captures.
+    // DFA says match (or bailed out) — extract captures with BitState, then NFA.
+    // Pass a substring to BitState/NFA: their bitmap/allocation costs are proportional to text
+    // length, so shorter text significantly reduces per-call overhead for repeated find().
+    String searchText = text.substring(effectiveStart);
     int[] result = searchWithBitStateOrNfa(
-        prog, searchText, false, false, false, prog.numCaptures());
+        prog, searchText, 0, searchText.length(), false, false, false, prog.numCaptures());
     if (result == null) {
       hasMatch = false;
       return false;
@@ -228,13 +249,26 @@ public final class Matcher implements MatchResult {
   /**
    * Tries BitState first (for small texts), falls back to NFA. This is the final capture-extraction
    * step after DFA/OnePass have been tried or are not applicable.
+   *
+   * @param prog the compiled program
+   * @param text the full input text
+   * @param startPos the char index at which to begin searching
+   * @param searchLimit upper bound on match end position; the capture engines only try start
+   *     positions up to this index. Use {@code text.length()} for unbounded search.
+   * @param anchored whether the search is anchored at {@code startPos}
+   * @param longest whether to find the longest match
+   * @param endMatch whether the match must extend to the end of the text
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions relative to {@code text}, or null if no match
    */
-  private static int[] searchWithBitStateOrNfa(Prog prog, String text, boolean anchored,
-      boolean longest, boolean endMatch, int nsubmatch) {
+  private static int[] searchWithBitStateOrNfa(Prog prog, String text, int startPos,
+      int searchLimit, boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
     // Try BitState if the text is small enough.
     int maxBitStateLen = BitState.maxTextSize(prog);
     if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
-      int[] result = BitState.search(prog, text, anchored, longest, endMatch, nsubmatch);
+      int[] result =
+          BitState.search(prog, text, startPos, searchLimit, anchored, longest, endMatch,
+              nsubmatch);
       if (result != null) {
         return result;
       }
@@ -250,7 +284,7 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
-    return Nfa.search(prog, text, nfaAnchor, nfaKind, nsubmatch);
+    return Nfa.search(prog, text, startPos, searchLimit, nfaAnchor, nfaKind, nsubmatch);
   }
 
   // ---------------------------------------------------------------------------

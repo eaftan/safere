@@ -73,7 +73,7 @@ final class Nfa {
   }
 
   /**
-   * Searches for a match in the given text.
+   * Searches for a match in the given text, starting from position 0.
    *
    * @param prog the compiled program
    * @param text the input text to search
@@ -85,6 +85,43 @@ final class Nfa {
    *     is the end. -1 means the group did not participate.
    */
   static int[] search(Prog prog, String text, Anchor anchor, MatchKind kind, int nsubmatch) {
+    return search(prog, text, 0, text.length(), anchor, kind, nsubmatch);
+  }
+
+  /**
+   * Searches for a match in the given text, starting from the specified position.
+   *
+   * @param prog the compiled program
+   * @param text the full input text to search
+   * @param startPos the char index in {@code text} at which to begin searching
+   * @param anchor whether to anchor the match at {@code startPos}
+   * @param kind the match semantics (first, longest, or full)
+   * @param nsubmatch number of submatch groups to track (including group 0 for the full match)
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
+   *     indices into the full text.
+   */
+  static int[] search(
+      Prog prog, String text, int startPos, Anchor anchor, MatchKind kind, int nsubmatch) {
+    return search(prog, text, startPos, text.length(), anchor, kind, nsubmatch);
+  }
+
+  /**
+   * Searches for a match in the given text, with bounded search range.
+   *
+   * @param prog the compiled program
+   * @param text the full input text to search
+   * @param startPos the char index in {@code text} at which to begin searching
+   * @param searchLimit upper bound on where to try new thread starts; only positions up to this
+   *     index start new NFA threads. Active threads may still advance beyond this position. Use
+   *     {@code text.length()} for unbounded search.
+   * @param anchor whether to anchor the match at {@code startPos}
+   * @param kind the match semantics (first, longest, or full)
+   * @param nsubmatch number of submatch groups to track (including group 0 for the full match)
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
+   *     indices into the full text.
+   */
+  static int[] search(Prog prog, String text, int startPos, int searchLimit, Anchor anchor,
+      MatchKind kind, int nsubmatch) {
     if (prog.start() == 0) {
       return null;
     }
@@ -105,7 +142,7 @@ final class Nfa {
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
     Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch);
-    nfa.doSearch(text, anchored);
+    nfa.doSearch(text, startPos, searchLimit, anchored);
 
     if (!nfa.matched) {
       return null;
@@ -124,25 +161,33 @@ final class Nfa {
   }
 
   /**
-   * Main search loop. Iterates over each position in the text (plus one past the end), stepping
-   * the NFA. At each position, starts a new thread if appropriate, then advances all existing
-   * threads by one character.
+   * Main search loop. Iterates over each position in the text starting from {@code startPos} (plus
+   * one past the end), stepping the NFA. At each position, starts a new thread if appropriate, then
+   * advances all existing threads by one character.
+   *
+   * @param text the full input text
+   * @param startPos the char index at which to begin searching
+   * @param searchLimit upper bound on positions where new threads are started; active threads may
+   *     still advance beyond this position
+   * @param anchored whether to anchor the search at {@code startPos}
    */
-  private void doSearch(String text, boolean anchored) {
+  private void doSearch(String text, int startPos, int searchLimit, boolean anchored) {
     int textLen = text.length();
 
     // The set of instruction IDs in each queue, for deduplication in addToThreadq.
     Set<Integer> runqSet = new HashSet<>();
     Set<Integer> nextqSet = new HashSet<>();
 
-    int pos = 0;
+    int pos = startPos;
     while (true) {
       int cp = (pos < textLen) ? text.codePointAt(pos) : -1;
       int nextPos = (pos < textLen) ? pos + Character.charCount(cp) : textLen + 1;
 
       // Start a new thread if there have not been any matches
       // (no point starting new threads to the right of an existing match).
-      if (!matched && (!anchored || pos == 0)) {
+      // Also don't start threads past searchLimit — the DFA has already determined
+      // there's no match starting beyond that position.
+      if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
         int[] cap = new int[ncapture];
         Arrays.fill(cap, -1);
         cap[0] = pos;
