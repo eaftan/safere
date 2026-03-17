@@ -155,7 +155,7 @@ Port OnePass and BitState engines, add optimizations.
 - Prefix acceleration (literal prefix → fast skip)
 - `RE2.Set` — match against multiple patterns simultaneously
 
-### Phase 10: Cleanup
+### Phase 10: Code Cleanup
 Review all code, refactor and polish to match best practices.
 
 - Review package structure, consider refactoring into a better
@@ -163,7 +163,15 @@ Review all code, refactor and polish to match best practices.
 - Review each file, looking for ways to improve code quality
 - Implement high-impact code quality improvements
 
-### Phase 11: Benchmarks and optimization
+### Phase 11: Review and expand tests
+Review all tests, measure and improve coverage, add tests for weird edge
+cases.
+
+- Measure coverage and drive it up to a target of >=75%.
+- Review all tests, consider any conditions we haven't tested for, and add them.
+- Add additional tests to cover weird edge cases.
+
+### Phase 12: Benchmarks and optimization
 Write benchmarks and do a round of optimizations.
 
 - Write a benchmark suite comparing against `java.util.regex`, RE2/J, and C++ RE2 (via JNI or
@@ -171,7 +179,7 @@ Write benchmarks and do a round of optimizations.
 - Optimize any low-hanging fruit
 - Produce a markdown report on performance of this library vs. the above alternatives
 
-### Phase 12: Document everything
+### Phase 13: Document everything
 Documentation.
 
 - Javadoc for all public APIs
