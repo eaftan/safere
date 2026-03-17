@@ -52,6 +52,64 @@ class PatternTest {
   }
 
   @Nested
+  @DisplayName("Unsupported features")
+  class UnsupportedFeatures {
+    @Test
+    void lookaheadRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?=a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void negativeLookaheadRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?!a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void lookbehindRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?<=a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void negativeLookbehindRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?<!a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void atomicGroupRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void backreferenceRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(a)\\1"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void possessivePlusRejected() {
+      assertThatThrownBy(() -> Pattern.compile("a++"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void possessiveStarRejected() {
+      assertThatThrownBy(() -> Pattern.compile("a*+"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void possessiveQuestRejected() {
+      assertThatThrownBy(() -> Pattern.compile("a?+"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+  }
+
+  @Nested
   @DisplayName("compile(regex, flags)")
   class CompileWithFlags {
     @Test
