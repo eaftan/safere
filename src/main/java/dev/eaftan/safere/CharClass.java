@@ -12,7 +12,7 @@ package dev.eaftan.safere;
  *
  * <p>Use {@link CharClassBuilder} to construct a CharClass incrementally.
  */
-public final class CharClass {
+final class CharClass {
 
   /** An empty character class that matches nothing. */
   public static final CharClass EMPTY = new CharClass(new int[0], 0);

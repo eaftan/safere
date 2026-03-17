@@ -9,7 +9,7 @@ package dev.eaftan.safere;
  *
  * <p>These correspond to RE2's ParseFlags enum in regexp.h.
  */
-public final class ParseFlags {
+final class ParseFlags {
 
   /** No flags set. */
   public static final int NONE = 0;

@@ -9,7 +9,7 @@ package dev.eaftan.safere;
  *
  * <p>These correspond to RE2's RegexpOp enum in regexp.h.
  */
-public enum RegexpOp {
+enum RegexpOp {
   /** Matches no strings. */
   NO_MATCH,
 

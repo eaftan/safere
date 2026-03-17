@@ -9,7 +9,7 @@ package dev.eaftan.safere;
  *
  * <p>These correspond to RE2's EmptyOp enum in prog.h.
  */
-public final class EmptyOp {
+final class EmptyOp {
 
   /** {@code ^} — beginning of line. */
   public static final int BEGIN_LINE = 1 << 0;

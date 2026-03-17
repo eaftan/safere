@@ -24,7 +24,7 @@ package dev.eaftan.safere;
  *   <li>{@link InstOp#FAIL}: Unconditional failure
  * </ul>
  */
-public final class Inst {
+final class Inst {
 
   /** The opcode for this instruction. */
   public InstOp op;

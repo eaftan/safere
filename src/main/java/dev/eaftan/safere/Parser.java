@@ -13,7 +13,7 @@ import java.util.regex.PatternSyntaxException;
  * collating classes), Perl extensions (when enabled via flags), Unicode character properties, and
  * named captures.
  */
-public final class Parser {
+final class Parser {
 
   // Maximum repeat count to prevent excessive expansion.
   private static final int MAX_REPEAT = 1000;

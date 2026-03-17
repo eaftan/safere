@@ -14,7 +14,7 @@ import java.util.TreeSet;
  * <p>Once construction is complete, call {@link #build()} to produce an immutable {@link
  * CharClass}.
  */
-public final class CharClassBuilder {
+final class CharClassBuilder {
 
   /**
    * A single inclusive range of Unicode code points. Ranges are ordered by lo, then by hi. Adjacent

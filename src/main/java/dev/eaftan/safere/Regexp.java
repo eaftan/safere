@@ -33,7 +33,7 @@ import java.util.List;
  *   <tr><td>All others</td><td>No additional fields</td></tr>
  * </table>
  */
-public final class Regexp {
+final class Regexp {
 
   /** The operator for this node. */
   public final RegexpOp op;

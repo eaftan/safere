@@ -4,7 +4,7 @@
 package dev.eaftan.safere;
 
 /** Utility methods for Unicode code point handling and character classification. */
-public final class Utils {
+final class Utils {
 
   /** The maximum valid Unicode code point. */
   public static final int MAX_RUNE = 0x10FFFF;

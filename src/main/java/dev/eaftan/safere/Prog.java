@@ -13,7 +13,7 @@ import java.util.List;
  * <p>A Prog is produced by compiling a {@link Regexp} AST via Thompson NFA construction. Each
  * instruction represents a state in the NFA.
  */
-public final class Prog {
+final class Prog {
 
   private final List<Inst> instructions = new ArrayList<>();
   private int start;

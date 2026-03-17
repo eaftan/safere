@@ -15,7 +15,7 @@ import java.util.Map;
  * <p>Each character class is represented as an {@code int[][]} where each element is a
  * {@code {lo, hi}} pair representing an inclusive range of Unicode code points.
  */
-public final class UnicodeTables {
+final class UnicodeTables {
   private UnicodeTables() {}
 
   // Perl character classes

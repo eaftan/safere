@@ -9,7 +9,7 @@ package dev.eaftan.safere;
  *
  * <p>These correspond to RE2's InstOp enum in prog.h.
  */
-public enum InstOp {
+enum InstOp {
   /** Branch: choose between two successors ({@code out} and {@code out1}). */
   ALT,
 
