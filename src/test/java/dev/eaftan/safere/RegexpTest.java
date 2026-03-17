@@ -174,4 +174,143 @@ class RegexpTest {
     assertThat(re.nonGreedy()).isTrue();
     assertThat(re.foldCase()).isFalse();
   }
+
+  // ---------------------------------------------------------------------------
+  // toString coverage
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void toStringNoMatch() {
+    Regexp re = Regexp.noMatch(0);
+    assertThat(re.toString()).contains("[^");
+  }
+
+  @Test
+  void toStringEmptyMatch() {
+    Regexp re = Regexp.emptyMatch(0);
+    // At top-level precedence, EMPTY_MATCH renders as the empty string.
+    assertThat(re.toString()).isEmpty();
+  }
+
+  @Test
+  void toStringHaveMatch() {
+    Regexp re = Regexp.haveMatch(5, 0);
+    assertThat(re.toString()).contains("HaveMatch").contains("5");
+  }
+
+  @Test
+  void toStringEndTextWithDollarFlag() {
+    Regexp re = Regexp.endText(ParseFlags.WAS_DOLLAR);
+    assertThat(re.toString()).isEqualTo("(?-m:$)");
+  }
+
+  @Test
+  void toStringNonGreedyStar() {
+    Regexp re = Regexp.star(Regexp.literal('a', 0), ParseFlags.NON_GREEDY);
+    assertThat(re.toString()).isEqualTo("a*?");
+  }
+
+  @Test
+  void toStringNonGreedyPlus() {
+    Regexp re = Regexp.plus(Regexp.literal('a', 0), ParseFlags.NON_GREEDY);
+    assertThat(re.toString()).isEqualTo("a+?");
+  }
+
+  @Test
+  void toStringNonGreedyQuest() {
+    Regexp re = Regexp.quest(Regexp.literal('a', 0), ParseFlags.NON_GREEDY);
+    assertThat(re.toString()).isEqualTo("a??");
+  }
+
+  @Test
+  void toStringNonGreedyRepeat() {
+    Regexp re =
+        Regexp.repeat(Regexp.literal('a', 0), ParseFlags.NON_GREEDY, 2, 5);
+    assertThat(re.toString()).isEqualTo("a{2,5}?");
+  }
+
+  @Test
+  void toStringExactRepeat() {
+    Regexp re = Regexp.repeat(Regexp.literal('a', 0), 0, 3, 3);
+    assertThat(re.toString()).isEqualTo("a{3}");
+  }
+
+  @Test
+  void toStringConcatNeedsParen() {
+    // Concat inside a quantifier needs (?:...) wrapping.
+    Regexp ab =
+        Regexp.concat(
+            List.of(Regexp.literal('a', 0), Regexp.literal('b', 0)), 0);
+    Regexp star = Regexp.star(ab, 0);
+    assertThat(star.toString()).isEqualTo("(?:ab)*");
+  }
+
+  @Test
+  void toStringNamedCapture() {
+    Regexp re = Regexp.capture(Regexp.literal('a', 0), 0, 1, "foo");
+    assertThat(re.toString()).isEqualTo("(?P<foo>a)");
+  }
+
+  @Test
+  void toStringFoldCaseLiteral() {
+    Regexp re = Regexp.literal('a', ParseFlags.FOLD_CASE);
+    assertThat(re.toString()).isEqualTo("[Aa]");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Quantifier squashing
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void starOfStarIsIdentity() {
+    Regexp a = Regexp.literal('a', 0);
+    Regexp star1 = Regexp.star(a, 0);
+    Regexp star2 = Regexp.star(star1, 0);
+    assertThat(star2).isSameAs(star1);
+  }
+
+  @Test
+  void plusOfStarBecomesStar() {
+    Regexp a = Regexp.literal('a', 0);
+    Regexp star = Regexp.star(a, 0);
+    Regexp result = Regexp.plus(star, 0);
+    assertThat(result.op).isEqualTo(RegexpOp.STAR);
+  }
+
+  @Test
+  void questOfPlusBecomesStar() {
+    Regexp a = Regexp.literal('a', 0);
+    Regexp plus = Regexp.plus(a, 0);
+    Regexp result = Regexp.quest(plus, 0);
+    assertThat(result.op).isEqualTo(RegexpOp.STAR);
+    assertThat(result.sub().rune).isEqualTo('a');
+  }
+
+  @Test
+  void plusOfPlusIsIdentity() {
+    Regexp a = Regexp.literal('a', 0);
+    Regexp plus1 = Regexp.plus(a, 0);
+    Regexp plus2 = Regexp.plus(plus1, 0);
+    assertThat(plus2).isSameAs(plus1);
+  }
+
+  @Test
+  void questOfQuestIsIdentity() {
+    Regexp a = Regexp.literal('a', 0);
+    Regexp q1 = Regexp.quest(a, 0);
+    Regexp q2 = Regexp.quest(q1, 0);
+    assertThat(q2).isSameAs(q1);
+  }
+
+  @Test
+  void nsubNullSubs() {
+    Regexp re = Regexp.literal('a', 0);
+    assertThat(re.nsub()).isEqualTo(0);
+  }
+
+  @Test
+  void subNullSubsThrows() {
+    Regexp re = Regexp.literal('a', 0);
+    assertThatThrownBy(re::sub).isInstanceOf(IllegalStateException.class);
+  }
 }

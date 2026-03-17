@@ -280,4 +280,87 @@ class SimplifierTest {
     Regexp b = Parser.parse("a+c*", FLAGS);
     assertThat(Simplifier.equal(a, b)).isFalse();
   }
+
+  // ---------------------------------------------------------------------------
+  // Simplify repeat edge cases
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void simplifyRepeatExactZero() {
+    // a{0} should simplify to empty match.
+    Regexp re = Parser.parse("a{0}", FLAGS);
+    Regexp simplified = Simplifier.simplify(re);
+    assertThat(simplified.op).isEqualTo(RegexpOp.EMPTY_MATCH);
+  }
+
+  @Test
+  void simplifyRepeatFourOrMore() {
+    // a{4,} should simplify to aaaa+
+    Regexp re = Parser.parse("a{4,}", FLAGS);
+    Regexp simplified = Simplifier.simplify(re);
+    String s = simplified.toString();
+    assertThat(s).contains("a").contains("+");
+  }
+
+  @Test
+  void simplifyRepeatRangeMinMax() {
+    // a{2,5} should simplify without REPEAT node.
+    Regexp re = Parser.parse("a{2,5}", FLAGS);
+    Regexp simplified = Simplifier.simplify(re);
+    assertThat(simplified.toString()).doesNotContain("{");
+  }
+
+  @Test
+  void simplifyRepeatZeroToN() {
+    // a{0,3} should simplify to (a(a(a)?)?)?
+    Regexp re = Parser.parse("a{0,3}", FLAGS);
+    Regexp simplified = Simplifier.simplify(re);
+    assertThat(simplified.toString()).doesNotContain("{");
+    assertThat(simplified.toString()).contains("?");
+  }
+
+  @Test
+  void simplifyRepeatExactOne() {
+    // a{1} should simplify to just a
+    assertThat(simplify("a{1}")).isEqualTo("a");
+  }
+
+  @Test
+  void simplifyRepeatEmptyWidthOp() {
+    // ^{3,} — empty-width op repetition capped at min=1 → ^{1,} → ^+
+    String result = simplify("^{3,}");
+    assertThat(result).isEqualTo("^+");
+  }
+
+  @Test
+  void simplifyRepeatEmptyWidthOpZero() {
+    // ^{0,5} — empty-width op capped to {0,1} → ^?
+    String result = simplify("^{0,5}");
+    assertThat(result).isEqualTo("^?");
+  }
+
+  @Test
+  void simplifyQuantifierOfEmptyMatch() {
+    // (?:){3} — repeat of empty match simplifies to empty match
+    Regexp re = Parser.parse("(?:){3}", FLAGS);
+    Regexp simplified = Simplifier.simplify(re);
+    assertThat(simplified.op).isEqualTo(RegexpOp.EMPTY_MATCH);
+  }
+
+  @Test
+  void simplifyCharClassEmpty() {
+    // [^\x00-\x{10ffff}] — empty char class → NO_MATCH
+    // We can't directly construct this through the parser, but we can verify
+    // that full char class simplifies to ANY_CHAR through a pattern.
+    String result = simplify("[\\s\\S]");
+    assertThat(result).isEqualTo(".");
+  }
+
+  @Test
+  void simplifyRepeatOfNonGreedy() {
+    // a{2,3}? — non-greedy repeat
+    String result = simplify("a{2,3}?");
+    assertThat(result).doesNotContain("{");
+    assertThat(result).contains("?");
+  }
 }

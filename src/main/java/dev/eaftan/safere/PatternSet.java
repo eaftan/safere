@@ -53,15 +53,21 @@ public final class PatternSet {
   private final Prog prog;
   private final int size;
   private final List<String> patterns;
+  private final int maxDfaStates;
 
   /** Parse flags for pattern set patterns: Perl-compatible without captures. */
   private static final int SET_PARSE_FLAGS = ParseFlags.LIKE_PERL | ParseFlags.NEVER_CAPTURE;
 
-  private PatternSet(Anchor anchor, Prog prog, int size, List<String> patterns) {
+  /** Default maximum number of DFA states before falling back to NFA. */
+  static final int DEFAULT_MAX_DFA_STATES = 10_000;
+
+  private PatternSet(
+      Anchor anchor, Prog prog, int size, List<String> patterns, int maxDfaStates) {
     this.anchor = anchor;
     this.prog = prog;
     this.size = size;
     this.patterns = patterns;
+    this.maxDfaStates = maxDfaStates;
   }
 
   /**
@@ -108,7 +114,7 @@ public final class PatternSet {
     boolean anchored = (anchor != Anchor.UNANCHORED);
 
     // Try DFA multi-match first.
-    Dfa.ManyMatchResult dfaResult = Dfa.searchMany(prog, text, anchored);
+    Dfa.ManyMatchResult dfaResult = Dfa.searchMany(prog, text, anchored, maxDfaStates);
     if (dfaResult != null) {
       if (!dfaResult.matched()) {
         return Collections.emptyList();
@@ -232,7 +238,52 @@ public final class PatternSet {
         prog.setAnchorEnd(true);
       }
 
-      return new PatternSet(anchor, prog, size, List.copyOf(patterns));
+      return new PatternSet(
+          anchor, prog, size, List.copyOf(patterns), DEFAULT_MAX_DFA_STATES);
+    }
+
+    /**
+     * Compiles all added patterns with a custom DFA state budget. Package-private for testing.
+     *
+     * @param maxDfaStates maximum number of DFA states before falling back to NFA
+     * @return the compiled {@link PatternSet}
+     */
+    PatternSet compile(int maxDfaStates) {
+      if (compiled) {
+        throw new IllegalStateException("compile() has already been called");
+      }
+      if (patterns.isEmpty()) {
+        throw new IllegalStateException("No patterns have been added");
+      }
+      compiled = true;
+
+      int parseFlags = SET_PARSE_FLAGS;
+      int size = patterns.size();
+
+      List<Regexp> tagged = new ArrayList<>(size);
+      for (int i = 0; i < size; i++) {
+        Regexp re = Parser.parse(patterns.get(i), parseFlags);
+        Regexp haveMatch = Regexp.haveMatch(i, parseFlags);
+        tagged.add(Regexp.concat(List.of(re, haveMatch), parseFlags));
+      }
+
+      Regexp combined;
+      if (size == 1) {
+        combined = tagged.getFirst();
+      } else {
+        combined = Regexp.alternate(tagged, parseFlags);
+      }
+
+      Prog prog = Compiler.compile(combined);
+
+      if (anchor == Anchor.ANCHOR_START || anchor == Anchor.ANCHOR_BOTH) {
+        prog.setAnchorStart(true);
+      }
+      if (anchor == Anchor.ANCHOR_BOTH) {
+        prog.setAnchorEnd(true);
+      }
+
+      return new PatternSet(anchor, prog, size, List.copyOf(patterns), maxDfaStates);
     }
   }
 }

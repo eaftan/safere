@@ -156,6 +156,13 @@ Port OnePass and BitState engines, add optimizations.
 - `RE2.Set` — match against multiple patterns simultaneously
 
 ### Phase 10: Code Cleanup ✅
+
+- Made 12 internal classes package-private
+- Deduplicated constants (surrogate bounds, parse flags)
+- Improved Javadoc on magic numbers and inner classes
+- Replaced String[] return from extractPrefix with PrefixResult record
+- Replaced all object arrays (Regexp[], State[]) with typed List collections
+- Introduced CoalescePair record in Simplifier
 Review all code, refactor and polish to match best practices.
 
 - Review package structure, consider refactoring into a better

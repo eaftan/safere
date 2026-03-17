@@ -114,4 +114,31 @@ class WalkerTest {
     String result = w.walk(re, "");
     assertThat(result).isEqualTo("found:a");
   }
+
+  @Test
+  void walkExponentialShortVisitOnBudgetExhaustion() {
+    // A deep tree that should exhaust a low budget.
+    Regexp re = Parser.parse("((((((a))))))", FLAGS);
+    CountWalker w = new CountWalker();
+    w.walkExponential(re, 0, 2);
+    assertThat(w.stoppedEarly()).isTrue();
+  }
+
+  @Test
+  void walkNullRegexp() {
+    CountWalker w = new CountWalker();
+    int result = w.walk(null, 42);
+    assertThat(result).isEqualTo(42);
+  }
+
+  @Test
+  void walkCopyPathWithSharedChildren() {
+    // Create a concat with identical (same object) children.
+    Regexp shared = Regexp.literal('a', 0);
+    Regexp re = Regexp.concat(List.of(shared, shared), 0);
+    CountWalker w = new CountWalker();
+    int result = w.walk(re, 0);
+    // CONCAT(1) + LITERAL(1) + copied LITERAL(1) = 3
+    assertThat(result).isEqualTo(3);
+  }
 }

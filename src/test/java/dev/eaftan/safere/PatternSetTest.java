@@ -310,4 +310,156 @@ class PatternSetTest {
       assertThat(set.match("world")).isEmpty();
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Builder edge cases
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void compileEmptyBuilderThrows() {
+    PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+    assertThatThrownBy(b::compile).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void compileAlreadyCompiledThrows() {
+    PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+    b.add("abc");
+    b.compile();
+    assertThatThrownBy(b::compile).isInstanceOf(IllegalStateException.class);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Anchor-mode coverage (non-fallback paths)
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("Anchor mode coverage")
+  class AnchorModeCoverage {
+
+    @Test
+    void unanchoredMultipleOverlapping() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("[a-z]+");
+      b.add("abc");
+      b.add("xyz");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("abc")).containsExactly(0, 1);
+      assertThat(set.match("xyz")).containsExactly(0, 2);
+      assertThat(set.match("abcxyz")).containsExactly(0, 1, 2);
+      assertThat(set.match("123")).isEmpty();
+    }
+
+    @Test
+    void anchorStartPartialMatch() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_START);
+      b.add("foo");
+      b.add("bar");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("foobar")).containsExactly(0);
+      assertThat(set.match("barfoo")).containsExactly(1);
+      assertThat(set.match("xfoo")).isEmpty();
+    }
+
+    @Test
+    void anchorBothNoPartial() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_BOTH);
+      b.add("foo");
+      b.add("foobar");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("foo")).containsExactly(0);
+      assertThat(set.match("foobar")).containsExactly(1);
+      assertThat(set.match("foob")).isEmpty();
+    }
+
+    @Test
+    void matchesConvenience() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("hello");
+      PatternSet set = b.compile();
+
+      assertThat(set.matches("say hello")).isTrue();
+      assertThat(set.matches("goodbye")).isFalse();
+    }
+
+    @Test
+    void sizeAndPatternAccessors() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("alpha");
+      b.add("beta");
+      PatternSet set = b.compile();
+
+      assertThat(set.size()).isEqualTo(2);
+      assertThat(set.pattern(0)).isEqualTo("alpha");
+      assertThat(set.pattern(1)).isEqualTo("beta");
+    }
+
+    @Test
+    void addAfterCompileThrows() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("x");
+      b.compile();
+      assertThatThrownBy(() -> b.add("y")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void invalidPatternThrows() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      assertThatThrownBy(() -> b.add("[invalid"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // DFA fallback (matchFallback)
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("DFA fallback")
+  class FallbackTests {
+
+    @Test
+    void fallbackUnanchored() {
+      // Use maxDfaStates=1 to force immediate DFA bailout → NFA fallback
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("foo");
+      b.add("bar");
+      b.add("[0-9]+");
+      PatternSet set = b.compile(1);
+      List<Integer> matches = set.match("foobar123");
+      assertThat(matches).containsExactly(0, 1, 2);
+    }
+
+    @Test
+    void fallbackAnchorStart() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_START);
+      b.add("foo");
+      b.add("bar");
+      PatternSet set = b.compile(1);
+      List<Integer> matches = set.match("foobar");
+      assertThat(matches).containsExactly(0);
+    }
+
+    @Test
+    void fallbackAnchorBoth() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_BOTH);
+      b.add("hello");
+      b.add("world");
+      PatternSet set = b.compile(1);
+      assertThat(set.match("hello")).containsExactly(0);
+      assertThat(set.match("world")).containsExactly(1);
+      assertThat(set.match("other")).isEmpty();
+    }
+
+    @Test
+    void fallbackNoMatch() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("xyz");
+      PatternSet set = b.compile(1);
+      assertThat(set.match("abc")).isEmpty();
+    }
+  }
 }

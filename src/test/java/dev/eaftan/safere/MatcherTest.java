@@ -507,4 +507,99 @@ class MatcherTest {
     assertThat(m.group(1)).isEqualTo("a");
     assertThat(m.group(2)).isNull();
   }
+
+  // ---------------------------------------------------------------------------
+  // appendReplacement error paths
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void appendReplacementTrailingBackslash() {
+    Pattern p = Pattern.compile("a");
+    Matcher m = p.matcher("a");
+    m.find();
+    StringBuilder sb = new StringBuilder();
+    assertThatThrownBy(() -> m.appendReplacement(sb, "\\"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void appendReplacementTrailingDollar() {
+    Pattern p = Pattern.compile("a");
+    Matcher m = p.matcher("a");
+    m.find();
+    StringBuilder sb = new StringBuilder();
+    assertThatThrownBy(() -> m.appendReplacement(sb, "$"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void appendReplacementInvalidGroupRef() {
+    Pattern p = Pattern.compile("a");
+    Matcher m = p.matcher("a");
+    m.find();
+    StringBuilder sb = new StringBuilder();
+    assertThatThrownBy(() -> m.appendReplacement(sb, "$9"))
+        .isInstanceOf(IndexOutOfBoundsException.class);
+  }
+
+  @Test
+  void appendReplacementUnclosedNameRef() {
+    Pattern p = Pattern.compile("a");
+    Matcher m = p.matcher("a");
+    m.find();
+    StringBuilder sb = new StringBuilder();
+    assertThatThrownBy(() -> m.appendReplacement(sb, "${name"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  // ---------------------------------------------------------------------------
+  // toMatchResult with non-participating groups
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void toMatchResultNonParticipatingGroup() {
+    Pattern p = Pattern.compile("(a)|(b)");
+    Matcher m = p.matcher("a");
+    assertThat(m.matches()).isTrue();
+    MatchResult mr = m.toMatchResult();
+    assertThat(mr.group(1)).isEqualTo("a");
+    assertThat(mr.group(2)).isNull();
+    assertThat(mr.start(2)).isEqualTo(-1);
+    assertThat(mr.end(2)).isEqualTo(-1);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Empty match behavior
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void findEmptyMatchAtEndOfText() {
+    Pattern p = Pattern.compile("a*");
+    Matcher m = p.matcher("a");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group()).isEqualTo("a");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group()).isEqualTo("");
+    assertThat(m.find()).isFalse();
+  }
+
+  @Test
+  void replaceAllEmptyMatches() {
+    Pattern p = Pattern.compile("a*");
+    Matcher m = p.matcher("b");
+    String result = m.replaceAll("x");
+    assertThat(result).isEqualTo("xbx");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Named group in replacement
+  // ---------------------------------------------------------------------------
+
+  @Test
+  void replaceFirstNamedGroupRef() {
+    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Matcher m = p.matcher("hello world");
+    String result = m.replaceFirst("${word}!");
+    assertThat(result).isEqualTo("hello! world");
+  }
 }
