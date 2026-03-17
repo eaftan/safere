@@ -121,7 +121,7 @@ that handles all cases correctly.
 - Support for all anchoring modes (unanchored, anchored start, full match)
 - Integration tests: can now match simple patterns end-to-end
 
-### Phase 7: Public API & End-to-End Testing
+### Phase 7: Public API & End-to-End Testing ✅
 Build the user-facing API and comprehensive test suite.
 
 - `Pattern` class — drop-in for `java.util.regex.Pattern`
