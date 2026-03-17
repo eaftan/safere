@@ -88,7 +88,7 @@ public final class Pattern implements Serializable {
   private final int flags;
   private final transient Prog prog;
   private final transient Regexp ast;
-  private final Map<String, Integer> namedGroups;
+  private final transient Map<String, Integer> namedGroups;
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups) {
