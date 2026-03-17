@@ -108,7 +108,7 @@ abstract class Walker<T> {
     for (;;) {
       WalkState<T> s = stack.get(stack.size() - 1);
       re = s.re;
-      int nsub = (re.subs != null) ? re.subs.length : 0;
+      int nsub = (re.subs != null) ? re.subs.size() : 0;
 
       if (s.n == -1) {
         // Need to call preVisit.
@@ -144,13 +144,13 @@ abstract class Walker<T> {
 
       // Process children.
       if (nsub > 0 && s.n < nsub) {
-        if (useCopy && s.n > 0 && re.subs[s.n - 1] == re.subs[s.n]) {
+        if (useCopy && s.n > 0 && re.subs.get(s.n - 1) == re.subs.get(s.n)) {
           T prev = s.childArgs.get(s.n - 1);
           s.childArgs.add(copy(prev));
           s.n++;
           continue;
         }
-        stack.add(new WalkState<>(re.subs[s.n], s.preArg));
+        stack.add(new WalkState<>(re.subs.get(s.n), s.preArg));
         continue;
       }
 

@@ -3,6 +3,7 @@
 
 package dev.eaftan.safere;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -142,7 +143,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         return true;
       case CONCAT:
         if (re.nsub() > 0) {
-          return isAnchorStartImpl(re.subs[0], depth + 1);
+          return isAnchorStartImpl(re.subs.getFirst(), depth + 1);
         }
         return false;
       case CAPTURE:
@@ -164,10 +165,9 @@ final class Compiler extends Walker<Compiler.Frag> {
       case BEGIN_TEXT:
         return Regexp.emptyMatch(re.flags);
       case CONCAT:
-        if (re.nsub() > 0 && isAnchorStartImpl(re.subs[0], depth + 1)) {
-          Regexp[] newSubs = new Regexp[re.nsub()];
-          newSubs[0] = stripAnchorStartImpl(re.subs[0], depth + 1);
-          System.arraycopy(re.subs, 1, newSubs, 1, re.nsub() - 1);
+        if (re.nsub() > 0 && isAnchorStartImpl(re.subs.getFirst(), depth + 1)) {
+          List<Regexp> newSubs = new ArrayList<>(re.subs);
+          newSubs.set(0, stripAnchorStartImpl(re.subs.getFirst(), depth + 1));
           return Regexp.concat(newSubs, re.flags);
         }
         return re;
@@ -195,7 +195,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         return true;
       case CONCAT:
         if (re.nsub() > 0) {
-          return isAnchorEndImpl(re.subs[re.nsub() - 1], depth + 1);
+          return isAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
         }
         return false;
       case CAPTURE:
@@ -217,11 +217,10 @@ final class Compiler extends Walker<Compiler.Frag> {
       case END_TEXT:
         return Regexp.emptyMatch(re.flags);
       case CONCAT:
-        if (re.nsub() > 0 && isAnchorEndImpl(re.subs[re.nsub() - 1], depth + 1)) {
-          Regexp[] newSubs = new Regexp[re.nsub()];
+        if (re.nsub() > 0 && isAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1)) {
+          List<Regexp> newSubs = new ArrayList<>(re.subs);
           int last = re.nsub() - 1;
-          System.arraycopy(re.subs, 0, newSubs, 0, last);
-          newSubs[last] = stripAnchorEndImpl(re.subs[last], depth + 1);
+          newSubs.set(last, stripAnchorEndImpl(re.subs.get(last), depth + 1));
           return Regexp.concat(newSubs, re.flags);
         }
         return re;

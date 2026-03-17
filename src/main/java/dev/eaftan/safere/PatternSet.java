@@ -206,17 +206,17 @@ public final class PatternSet {
       int size = patterns.size();
 
       // Build tagged regexps: each pattern is concatenated with a HAVE_MATCH marker.
-      Regexp[] tagged = new Regexp[size];
+      List<Regexp> tagged = new ArrayList<>(size);
       for (int i = 0; i < size; i++) {
         Regexp re = Parser.parse(patterns.get(i), parseFlags);
         Regexp haveMatch = Regexp.haveMatch(i, parseFlags);
-        tagged[i] = Regexp.concat(new Regexp[] {re, haveMatch}, parseFlags);
+        tagged.add(Regexp.concat(List.of(re, haveMatch), parseFlags));
       }
 
       // Combine all tagged patterns into a single alternation.
       Regexp combined;
       if (size == 1) {
-        combined = tagged[0];
+        combined = tagged.getFirst();
       } else {
         combined = Regexp.alternate(tagged, parseFlags);
       }

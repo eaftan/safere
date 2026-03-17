@@ -3,6 +3,7 @@
 
 package dev.eaftan.safere;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -80,9 +81,9 @@ final class Simplifier {
       switch (a.op) {
         case ALTERNATE:
         case CONCAT:
-          for (int i = 0; i < a.subs.length; i++) {
-            Regexp a2 = a.subs[i];
-            Regexp b2 = b.subs[i];
+          for (int i = 0; i < a.subs.size(); i++) {
+            Regexp a2 = a.subs.get(i);
+            Regexp b2 = b.subs.get(i);
             if (!topEqual(a2, b2)) {
               return false;
             }
@@ -95,8 +96,8 @@ final class Simplifier {
         case QUEST:
         case REPEAT:
         case CAPTURE:
-          Regexp a2 = a.subs[0];
-          Regexp b2 = b.subs[0];
+          Regexp a2 = a.subs.get(0);
+          Regexp b2 = b.subs.get(0);
           if (!topEqual(a2, b2)) {
             return false;
           }
@@ -146,7 +147,7 @@ final class Simplifier {
 
       case ALTERNATE:
       case CONCAT:
-        return a.subs.length == b.subs.length;
+        return a.subs.size() == b.subs.size();
 
       case STAR:
       case PLUS:
@@ -206,8 +207,7 @@ final class Simplifier {
           return re;
         }
         // Something changed. Build a new node.
-        Regexp[] newSubs = childArgs.toArray(new Regexp[0]);
-        return copyWithNewSubs(re, newSubs);
+        return copyWithNewSubs(re, childArgs);
       }
 
       // CONCAT: check if any adjacent pair can coalesce.
@@ -223,36 +223,27 @@ final class Simplifier {
         if (!childArgsChanged(re, childArgs)) {
           return re;
         }
-        Regexp[] newSubs = childArgs.toArray(new Regexp[0]);
-        return Regexp.concat(newSubs, re.flags);
+        return Regexp.concat(childArgs, re.flags);
       }
 
       // Do the coalescing in-place on childArgs.
       for (int i = 0; i + 1 < childArgs.size(); i++) {
         if (canCoalesce(childArgs.get(i), childArgs.get(i + 1))) {
-          Regexp[] pair = doCoalesce(childArgs.get(i), childArgs.get(i + 1));
-          childArgs.set(i, pair[0]);
-          childArgs.set(i + 1, pair[1]);
+          CoalescePair pair = doCoalesce(childArgs.get(i), childArgs.get(i + 1));
+          childArgs.set(i, pair.first);
+          childArgs.set(i + 1, pair.second);
         }
       }
 
-      // Count empty matches left by coalescing.
-      int emptyCount = 0;
+      // Build new CONCAT without the empty matches left by coalescing.
+      List<Regexp> newSubs = new ArrayList<>(childArgs.size());
       for (int i = 0; i < childArgs.size(); i++) {
-        if (childArgs.get(i).op == RegexpOp.EMPTY_MATCH) {
-          emptyCount++;
-        }
-      }
-
-      // Build new CONCAT without the empty matches.
-      Regexp[] newSubs = new Regexp[childArgs.size() - emptyCount];
-      for (int i = 0, j = 0; i < childArgs.size(); i++) {
         if (childArgs.get(i).op != RegexpOp.EMPTY_MATCH) {
-          newSubs[j++] = childArgs.get(i);
+          newSubs.add(childArgs.get(i));
         }
       }
-      if (newSubs.length == 1) {
-        return newSubs[0];
+      if (newSubs.size() == 1) {
+        return newSubs.getFirst();
       }
       return Regexp.concat(newSubs, re.flags);
     }
@@ -261,7 +252,7 @@ final class Simplifier {
   /** Returns true if the child args differ from the original subs. */
   private static boolean childArgsChanged(Regexp re, List<Regexp> childArgs) {
     for (int i = 0; i < childArgs.size(); i++) {
-      if (childArgs.get(i) != re.subs[i]) {
+      if (childArgs.get(i) != re.subs.get(i)) {
         return true;
       }
     }
@@ -269,18 +260,18 @@ final class Simplifier {
   }
 
   /** Creates a copy of {@code re} with new sub-expressions, preserving op-specific fields. */
-  private static Regexp copyWithNewSubs(Regexp re, Regexp[] newSubs) {
+  private static Regexp copyWithNewSubs(Regexp re, List<Regexp> newSubs) {
     switch (re.op) {
       case REPEAT:
-        return Regexp.repeat(newSubs[0], re.flags, re.min, re.max);
+        return Regexp.repeat(newSubs.getFirst(), re.flags, re.min, re.max);
       case CAPTURE:
-        return Regexp.capture(newSubs[0], re.flags, re.cap, re.name);
+        return Regexp.capture(newSubs.getFirst(), re.flags, re.cap, re.name);
       case STAR:
-        return Regexp.star(newSubs[0], re.flags);
+        return Regexp.star(newSubs.getFirst(), re.flags);
       case PLUS:
-        return Regexp.plus(newSubs[0], re.flags);
+        return Regexp.plus(newSubs.getFirst(), re.flags);
       case QUEST:
-        return Regexp.quest(newSubs[0], re.flags);
+        return Regexp.quest(newSubs.getFirst(), re.flags);
       case ALTERNATE:
         return Regexp.alternate(newSubs, re.flags);
       case CONCAT:
@@ -300,7 +291,7 @@ final class Simplifier {
         && r1.op != RegexpOp.QUEST && r1.op != RegexpOp.REPEAT) {
       return false;
     }
-    Regexp r1sub = r1.subs[0];
+    Regexp r1sub = r1.subs.getFirst();
     if (r1sub.op != RegexpOp.LITERAL && r1sub.op != RegexpOp.CHAR_CLASS
         && r1sub.op != RegexpOp.ANY_CHAR && r1sub.op != RegexpOp.ANY_BYTE) {
       return false;
@@ -309,7 +300,7 @@ final class Simplifier {
     // r2 is a quantifier of the same thing.
     if ((r2.op == RegexpOp.STAR || r2.op == RegexpOp.PLUS
             || r2.op == RegexpOp.QUEST || r2.op == RegexpOp.REPEAT)
-        && equal(r1sub, r2.subs[0])
+        && equal(r1sub, r2.subs.getFirst())
         && ((r1.flags & ParseFlags.NON_GREEDY) == (r2.flags & ParseFlags.NON_GREEDY))) {
       return true;
     }
@@ -331,14 +322,17 @@ final class Simplifier {
     return false;
   }
 
+  /** A pair of coalesced regexp results. */
+  private record CoalescePair(Regexp first, Regexp second) {}
+
   /**
-   * Coalesces r1 and r2 into a single repeat. Returns a 2-element array: the first element
+   * Coalesces r1 and r2 into a single repeat. Returns a {@link CoalescePair}: the first element
    * replaces r1's position, the second replaces r2's position. One of them will typically be
    * EMPTY_MATCH.
    */
-  private static Regexp[] doCoalesce(Regexp r1, Regexp r2) {
+  private static CoalescePair doCoalesce(Regexp r1, Regexp r2) {
     int min, max;
-    Regexp operand = r1.subs[0];
+    Regexp operand = r1.subs.getFirst();
 
     switch (r1.op) {
       case STAR:
@@ -392,7 +386,7 @@ final class Simplifier {
         }
         return leaveEmpty(operand, r1.flags, min, max);
       case LITERAL_STRING: {
-        int r = r1.subs[0].rune;
+        int r = r1.subs.getFirst().rune;
         int n = 1;
         while (n < r2.runes.length && r2.runes[n] == r) {
           n++;
@@ -408,7 +402,7 @@ final class Simplifier {
         Regexp nre = Regexp.repeat(operand, r1.flags, min, max);
         int[] remainRunes = Arrays.copyOfRange(r2.runes, n, r2.runes.length);
         Regexp remainder = Regexp.literalString(remainRunes, r2.flags);
-        return new Regexp[] {nre, remainder};
+        return new CoalescePair(nre, remainder);
       }
       default:
         throw new IllegalArgumentException("Bad r2 op: " + r2.op);
@@ -416,13 +410,12 @@ final class Simplifier {
   }
 
   /**
-   * Returns [EMPTY_MATCH, REPEAT(operand, min, max)]. The first element replaces r1 (empty
-   * placeholder), and the second replaces r2 (the coalesced repeat).
+   * Returns a {@link CoalescePair} of [EMPTY_MATCH, REPEAT(operand, min, max)]. The first element
+   * replaces r1 (empty placeholder), and the second replaces r2 (the coalesced repeat).
    */
-  private static Regexp[] leaveEmpty(Regexp operand, int flags, int min, int max) {
-    return new Regexp[] {
-      Regexp.emptyMatch(ParseFlags.NONE), Regexp.repeat(operand, flags, min, max)
-    };
+  private static CoalescePair leaveEmpty(Regexp operand, int flags, int min, int max) {
+    return new CoalescePair(
+        Regexp.emptyMatch(ParseFlags.NONE), Regexp.repeat(operand, flags, min, max));
   }
 
   // ---------------------------------------------------------------------------
@@ -475,17 +468,16 @@ final class Simplifier {
           if (!childArgsChanged(re, childArgs)) {
             return re;
           }
-          Regexp[] newSubs = childArgs.toArray(new Regexp[0]);
           if (re.op == RegexpOp.CONCAT) {
-            return Regexp.concat(newSubs, re.flags);
+            return Regexp.concat(childArgs, re.flags);
           } else {
-            return Regexp.alternate(newSubs, re.flags);
+            return Regexp.alternate(childArgs, re.flags);
           }
         }
 
         case CAPTURE: {
           Regexp newsub = childArgs.get(0);
-          if (newsub == re.subs[0]) {
+          if (newsub == re.subs.getFirst()) {
             return re;
           }
           return Regexp.capture(newsub, re.flags, re.cap, re.name);
@@ -499,7 +491,7 @@ final class Simplifier {
           if (newsub.op == RegexpOp.EMPTY_MATCH) {
             return newsub;
           }
-          if (newsub == re.subs[0]) {
+          if (newsub == re.subs.getFirst()) {
             return re;
           }
           // Idempotent squashing: e.g. STAR(STAR(x)) → STAR(x).
@@ -569,14 +561,14 @@ final class Simplifier {
       case CHAR_CLASS:
         return !re.charClass.isEmpty() && !isFull(re.charClass);
       case CAPTURE:
-        return computeSimple(re.subs[0]);
+        return computeSimple(re.subs.getFirst());
       case STAR:
       case PLUS:
       case QUEST:
-        if (!computeSimple(re.subs[0])) {
+        if (!computeSimple(re.subs.getFirst())) {
           return false;
         }
-        RegexpOp subOp = re.subs[0].op;
+        RegexpOp subOp = re.subs.getFirst().op;
         return subOp != RegexpOp.STAR
             && subOp != RegexpOp.PLUS
             && subOp != RegexpOp.QUEST
@@ -636,11 +628,11 @@ final class Simplifier {
         return starPlusOrQuest(RegexpOp.PLUS, re, flags);
       }
       // General case: x{4,} is xxxx+
-      Regexp[] subs = new Regexp[min];
+      List<Regexp> subs = new ArrayList<>(min);
       for (int i = 0; i < min - 1; i++) {
-        subs[i] = re;
+        subs.add(re);
       }
-      subs[min - 1] = starPlusOrQuest(RegexpOp.PLUS, re, flags);
+      subs.add(starPlusOrQuest(RegexpOp.PLUS, re, flags));
       return Regexp.concat(subs, flags);
     }
 
@@ -658,9 +650,9 @@ final class Simplifier {
     // x{2,5} = xx(x(x(x)?)?)?
     Regexp nre = null;
     if (min > 0) {
-      Regexp[] subs = new Regexp[min];
+      List<Regexp> subs = new ArrayList<>(min);
       for (int i = 0; i < min; i++) {
-        subs[i] = re;
+        subs.add(re);
       }
       nre = Regexp.concat(subs, flags);
     }
@@ -669,12 +661,12 @@ final class Simplifier {
       Regexp suf = starPlusOrQuest(RegexpOp.QUEST, re, flags);
       for (int i = min + 1; i < max; i++) {
         suf = starPlusOrQuest(RegexpOp.QUEST,
-            Regexp.concat(new Regexp[] {re, suf}, flags), flags);
+            Regexp.concat(List.of(re, suf), flags), flags);
       }
       if (nre == null) {
         nre = suf;
       } else {
-        nre = Regexp.concat(new Regexp[] {nre, suf}, flags);
+        nre = Regexp.concat(List.of(nre, suf), flags);
       }
     }
 
@@ -725,7 +717,7 @@ final class Simplifier {
       if (sub.op == RegexpOp.STAR) {
         return sub;
       }
-      return Regexp.star(sub.subs[0], flags);
+      return Regexp.star(sub.subs.getFirst(), flags);
     }
     switch (op) {
       case STAR:

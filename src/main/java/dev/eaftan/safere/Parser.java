@@ -3,6 +3,9 @@
 
 package dev.eaftan.safere;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.PatternSyntaxException;
 
 /**
@@ -424,7 +427,7 @@ final class Parser {
         || stacktop.re.op == RegexpOp.QUEST)
         && fl == stacktop.re.flags) {
       // Replace with star. Since Regexp is immutable, rebuild.
-      Regexp sub = stacktop.re.subs[0];
+      Regexp sub = stacktop.re.subs.getFirst();
       stacktop.re = Regexp.star(sub, fl);
       return;
     }
@@ -597,7 +600,7 @@ final class Parser {
     int n = 0;
     for (StackEntry e = stacktop; e != null && !isMarker(e); e = e.down) {
       if (e.re.op == op && e.re.subs != null) {
-        n += e.re.subs.length;
+        n += e.re.subs.size();
       } else {
         n++;
       }
@@ -613,23 +616,24 @@ final class Parser {
     }
 
     // Construct op (alternation or concatenation), flattening op of op.
-    Regexp[] subs = new Regexp[n];
-    int i = n;
+    // We build the list in reverse order (walking the stack from top), then reverse.
+    List<Regexp> subs = new ArrayList<>(n);
     StackEntry next;
     for (StackEntry e = stacktop; e != null && !isMarker(e); e = next) {
       next = e.down;
       if (e.re.op == op && e.re.subs != null) {
-        for (int k = e.re.subs.length - 1; k >= 0; k--) {
-          subs[--i] = e.re.subs[k];
+        for (int k = e.re.subs.size() - 1; k >= 0; k--) {
+          subs.add(e.re.subs.get(k));
         }
       } else {
-        subs[--i] = e.re;
+        subs.add(e.re);
       }
       if (next == null || isMarker(next)) {
         stacktop = next;
         break;
       }
     }
+    Collections.reverse(subs);
 
     Regexp re = op == RegexpOp.CONCAT
         ? Regexp.concat(subs, flags)

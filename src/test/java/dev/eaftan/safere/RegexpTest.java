@@ -6,6 +6,7 @@ package dev.eaftan.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Regexp}. */
@@ -44,9 +45,9 @@ class RegexpTest {
   void concat() {
     Regexp a = Regexp.literal('a', 0);
     Regexp b = Regexp.literal('b', 0);
-    Regexp re = Regexp.concat(new Regexp[] {a, b}, 0);
+    Regexp re = Regexp.concat(List.of(a, b), 0);
     assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-    assertThat(re.subs.length).isEqualTo(2);
+    assertThat(re.subs.size()).isEqualTo(2);
     assertThat(re.toString()).isEqualTo("ab");
   }
 
@@ -54,9 +55,9 @@ class RegexpTest {
   void alternate() {
     Regexp a = Regexp.literal('a', 0);
     Regexp b = Regexp.literal('b', 0);
-    Regexp re = Regexp.alternate(new Regexp[] {a, b}, 0);
+    Regexp re = Regexp.alternate(List.of(a, b), 0);
     assertThat(re.op).isEqualTo(RegexpOp.ALTERNATE);
-    assertThat(re.subs.length).isEqualTo(2);
+    assertThat(re.subs.size()).isEqualTo(2);
     assertThat(re.toString()).isEqualTo("a|b");
   }
 
@@ -156,7 +157,7 @@ class RegexpTest {
 
   @Test
   void sub_throwsForWrongArity() {
-    Regexp re = Regexp.concat(new Regexp[] {Regexp.literal('a', 0), Regexp.literal('b', 0)}, 0);
+    Regexp re = Regexp.concat(List.of(Regexp.literal('a', 0), Regexp.literal('b', 0)), 0);
     assertThatThrownBy(re::sub).isInstanceOf(IllegalStateException.class);
   }
 

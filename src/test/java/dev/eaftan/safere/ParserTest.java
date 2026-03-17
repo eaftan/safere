@@ -700,10 +700,10 @@ class ParserTest {
       Regexp inner = re.sub();
       assertThat(inner.op).isEqualTo(RegexpOp.CONCAT);
       assertThat(inner.subs).hasSize(2);
-      assertThat(inner.subs[0].op).isEqualTo(RegexpOp.CAPTURE);
-      assertThat(inner.subs[0].cap).isEqualTo(2);
-      assertThat(inner.subs[1].op).isEqualTo(RegexpOp.CAPTURE);
-      assertThat(inner.subs[1].cap).isEqualTo(3);
+      assertThat(inner.subs.get(0).op).isEqualTo(RegexpOp.CAPTURE);
+      assertThat(inner.subs.get(0).cap).isEqualTo(2);
+      assertThat(inner.subs.get(1).op).isEqualTo(RegexpOp.CAPTURE);
+      assertThat(inner.subs.get(1).cap).isEqualTo(3);
     }
 
     @Test
@@ -717,10 +717,10 @@ class ParserTest {
     void multipleCaptures() {
       Regexp re = parse("(a)(b)");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-      assertThat(re.subs[0].op).isEqualTo(RegexpOp.CAPTURE);
-      assertThat(re.subs[0].cap).isEqualTo(1);
-      assertThat(re.subs[1].op).isEqualTo(RegexpOp.CAPTURE);
-      assertThat(re.subs[1].cap).isEqualTo(2);
+      assertThat(re.subs.get(0).op).isEqualTo(RegexpOp.CAPTURE);
+      assertThat(re.subs.get(0).cap).isEqualTo(1);
+      assertThat(re.subs.get(1).op).isEqualTo(RegexpOp.CAPTURE);
+      assertThat(re.subs.get(1).cap).isEqualTo(2);
     }
   }
 
@@ -912,10 +912,10 @@ class ParserTest {
       Regexp re = parse("a.b");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
       assertThat(re.subs).hasSize(3);
-      assertThat(re.subs[0].op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.subs.get(0).op).isEqualTo(RegexpOp.LITERAL);
       // Dot is CHAR_CLASS (excluding \n) when DOT_NL is off.
-      assertThat(re.subs[1].op).isIn(RegexpOp.ANY_CHAR, RegexpOp.CHAR_CLASS);
-      assertThat(re.subs[2].op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.subs.get(1).op).isIn(RegexpOp.ANY_CHAR, RegexpOp.CHAR_CLASS);
+      assertThat(re.subs.get(2).op).isEqualTo(RegexpOp.LITERAL);
     }
 
     @Test
@@ -1054,8 +1054,8 @@ class ParserTest {
     void caseInsensitive_turnedOff() {
       Regexp re = parse("(?i)a(?-i)b");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-      assertThat(re.subs[0].foldCase()).isTrue();
-      assertThat(re.subs[1].foldCase()).isFalse();
+      assertThat(re.subs.get(0).foldCase()).isTrue();
+      assertThat(re.subs.get(1).foldCase()).isFalse();
     }
 
     @Test
@@ -1087,7 +1087,7 @@ class ParserTest {
     void combinedFlags() {
       Regexp re = parse("(?is)a.b");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-      assertThat(re.subs[0].foldCase()).isTrue();
+      assertThat(re.subs.get(0).foldCase()).isTrue();
     }
 
     @Test
@@ -1467,8 +1467,8 @@ class ParserTest {
     void dotConcatPattern() {
       Regexp re = parse("a.");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-      assertThat(re.subs[0].op).isEqualTo(RegexpOp.LITERAL);
-      assertThat(re.subs[1].op).isIn(RegexpOp.ANY_CHAR, RegexpOp.CHAR_CLASS);
+      assertThat(re.subs.get(0).op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.subs.get(1).op).isIn(RegexpOp.ANY_CHAR, RegexpOp.CHAR_CLASS);
     }
   }
 }

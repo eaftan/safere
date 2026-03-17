@@ -431,7 +431,7 @@ public final class Pattern implements Serializable {
         continue;
       }
       if (node.op == RegexpOp.CONCAT && node.nsub() > 0) {
-        node = node.subs[0];
+        node = node.subs.getFirst();
         continue;
       }
       break;

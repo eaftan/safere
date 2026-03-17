@@ -42,7 +42,7 @@ final class Regexp {
   public final int flags;
 
   /** Sub-expressions (children). Used by CONCAT, ALTERNATE, STAR, PLUS, QUEST, REPEAT, CAPTURE. */
-  public Regexp[] subs;
+  public List<Regexp> subs;
 
   /**
    * A single Unicode code point. Used by LITERAL. The code point may be case-folded if {@link
@@ -103,16 +103,16 @@ final class Regexp {
   }
 
   /** Creates a CONCAT node matching the concatenation of the given sub-expressions in order. */
-  public static Regexp concat(Regexp[] subs, int flags) {
+  public static Regexp concat(List<Regexp> subs, int flags) {
     Regexp re = new Regexp(RegexpOp.CONCAT, flags);
-    re.subs = Arrays.copyOf(subs, subs.length);
+    re.subs = List.copyOf(subs);
     return re;
   }
 
   /** Creates an ALTERNATE node matching any one of the given sub-expressions. */
-  public static Regexp alternate(Regexp[] subs, int flags) {
+  public static Regexp alternate(List<Regexp> subs, int flags) {
     Regexp re = new Regexp(RegexpOp.ALTERNATE, flags);
-    re.subs = Arrays.copyOf(subs, subs.length);
+    re.subs = List.copyOf(subs);
     return re;
   }
 
@@ -147,7 +147,7 @@ final class Regexp {
         return sub;
       }
       Regexp re = new Regexp(RegexpOp.STAR, flags);
-      re.subs = new Regexp[] {sub.subs[0]};
+      re.subs = List.of(sub.subs.get(0));
       return re;
     }
     return rawQuantifier(op, sub, flags);
@@ -160,7 +160,7 @@ final class Regexp {
    */
   static Regexp rawQuantifier(RegexpOp op, Regexp sub, int flags) {
     Regexp re = new Regexp(op, flags);
-    re.subs = new Regexp[] {sub};
+    re.subs = List.of(sub);
     return re;
   }
 
@@ -170,7 +170,7 @@ final class Regexp {
    */
   public static Regexp repeat(Regexp sub, int flags, int min, int max) {
     Regexp re = new Regexp(RegexpOp.REPEAT, flags);
-    re.subs = new Regexp[] {sub};
+    re.subs = List.of(sub);
     re.min = min;
     re.max = max;
     return re;
@@ -182,7 +182,7 @@ final class Regexp {
    */
   public static Regexp capture(Regexp sub, int flags, int cap, String name) {
     Regexp re = new Regexp(RegexpOp.CAPTURE, flags);
-    re.subs = new Regexp[] {sub};
+    re.subs = List.of(sub);
     re.cap = cap;
     re.name = name;
     return re;
@@ -241,15 +241,15 @@ final class Regexp {
 
   /** Returns the single sub-expression, or throws if there isn't exactly one. */
   public Regexp sub() {
-    if (subs == null || subs.length != 1) {
+    if (subs == null || subs.size() != 1) {
       throw new IllegalStateException(op + " does not have exactly one sub-expression");
     }
-    return subs[0];
+    return subs.getFirst();
   }
 
   /** Returns the number of sub-expressions. */
   public int nsub() {
-    return (subs != null) ? subs.length : 0;
+    return (subs != null) ? subs.size() : 0;
   }
 
   /** Returns true if the {@link ParseFlags#NON_GREEDY} flag is set. */

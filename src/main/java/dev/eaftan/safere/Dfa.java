@@ -5,6 +5,7 @@ package dev.eaftan.safere;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,12 +58,12 @@ final class Dfa {
   private static final class State {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE and MATCH only)
     final int flags;
-    final State[] next; // transitions indexed by equivalence class; null = not yet computed
+    final List<State> next; // transitions indexed by equivalence class; null = not yet computed
 
     State(int[] insts, int flags, int numClasses) {
       this.insts = insts;
       this.flags = flags;
-      this.next = new State[numClasses];
+      this.next = new ArrayList<>(Collections.nCopies(numClasses, null));
     }
 
     boolean isMatch() {
@@ -408,13 +409,13 @@ final class Dfa {
 
       // Try cached transition first.
       int cls = classOf(cp);
-      State ns = s.next[cls];
+      State ns = s.next.get(cls);
       if (ns == null) {
         ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next[cls] = ns;
+        s.next.set(cls, ns);
       }
       s = ns;
 
@@ -507,13 +508,13 @@ final class Dfa {
         }
 
         int cls = classOf(cp);
-        State ns = s.next[cls];
+        State ns = s.next.get(cls);
         if (ns == null) {
           ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next[cls] = ns;
+          s.next.set(cls, ns);
         }
         s = ns;
 
