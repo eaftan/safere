@@ -150,7 +150,12 @@ final class DFA {
 
   /**
    * Starting from a set of instruction IDs, follows all empty transitions (ALT, NOP, CAPTURE,
-   * EMPTY_WIDTH) and returns the sorted frontier of CHAR_RANGE and MATCH instruction IDs.
+   * EMPTY_WIDTH) and returns the sorted frontier of CHAR_RANGE, MATCH, and unsatisfied EMPTY_WIDTH
+   * instruction IDs.
+   *
+   * <p>Unsatisfied EMPTY_WIDTH instructions are retained in the frontier so they can be re-checked
+   * when context changes (e.g., at end-of-text, the EndText flag becomes true and {@code $} can
+   * fire).
    */
   private int[] expand(List<Integer> seeds, int emptyFlags) {
     boolean[] visited = new boolean[prog.size()];
@@ -178,6 +183,10 @@ final class DFA {
         case EMPTY_WIDTH -> {
           if ((ip.arg & ~emptyFlags) == 0) {
             stack.add(ip.out);
+          } else {
+            // Keep unsatisfied empty-width assertions in frontier so they can be re-checked
+            // when context changes (e.g., at end-of-text).
+            frontier.add(id);
           }
         }
         case CHAR_RANGE, MATCH -> frontier.add(id);
@@ -246,10 +255,36 @@ final class DFA {
    * resulting state.
    */
   private State computeNext(State s, int cp, String text, int nextPos) {
+    // At end of text, re-expand the current instruction set with end-of-text empty flags.
+    // This allows empty-width assertions like $ to fire.
+    if (cp < 0) {
+      int emptyFlags = NFA.emptyFlags(text, nextPos);
+      // Re-expand from the successors of EMPTY_WIDTH instructions that now pass.
+      List<Integer> seeds = new ArrayList<>();
+      for (int id : s.insts) {
+        Inst ip = prog.inst(id);
+        if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & ~emptyFlags) == 0) {
+          seeds.add(ip.out);
+        }
+      }
+      if (seeds.isEmpty()) {
+        return deadState;
+      }
+      int[] nextInsts = expand(seeds, emptyFlags);
+      if (nextInsts.length == 0) {
+        return deadState;
+      }
+      int flags = emptyFlags & 0xFF;
+      if (hasMatch(nextInsts)) {
+        flags |= FLAG_MATCH;
+      }
+      return getOrCreate(nextInsts, flags);
+    }
+
     List<Integer> successors = new ArrayList<>();
     for (int id : s.insts) {
       Inst ip = prog.inst(id);
-      if (ip.op == InstOp.CHAR_RANGE && cp >= 0 && ip.matchesChar(cp)) {
+      if (ip.op == InstOp.CHAR_RANGE && ip.matchesChar(cp)) {
         successors.add(ip.out);
       }
     }
