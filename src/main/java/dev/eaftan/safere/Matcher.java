@@ -59,19 +59,26 @@ public final class Matcher implements MatchResult {
     searchFrom = 0;
     Prog prog = parentPattern.prog();
 
-    // Fast path: use DFA to check if a full match exists.
+    // Fast path: try one-pass engine (anchored, with captures, O(n) time).
+    OnePass onePass = parentPattern.onePass();
+    if (onePass != null) {
+      groups = onePass.search(text, true, prog.numCaptures());
+      hasMatch = (groups != null);
+      return hasMatch;
+    }
+
+    // Medium path: use DFA to check if a full match exists.
     Dfa.SearchResult dfaResult = Dfa.search(prog, text, true, true);
     if (dfaResult != null && !dfaResult.matched()) {
       hasMatch = false;
       return false;
     }
     if (dfaResult != null && dfaResult.pos() != text.length()) {
-      // Anchored match didn't cover the entire text.
       hasMatch = false;
       return false;
     }
 
-    // DFA says match (or bailed out) — run NFA for captures.
+    // Slow path: run NFA for captures.
     groups = Nfa.search(
         prog, text, Nfa.Anchor.ANCHORED,
         Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
@@ -91,14 +98,22 @@ public final class Matcher implements MatchResult {
     searchFrom = 0;
     Prog prog = parentPattern.prog();
 
-    // Fast path: use DFA to check if an anchored match exists.
+    // Fast path: try one-pass engine (anchored, with captures, O(n) time).
+    OnePass onePass = parentPattern.onePass();
+    if (onePass != null) {
+      groups = onePass.search(text, false, prog.numCaptures());
+      hasMatch = (groups != null);
+      return hasMatch;
+    }
+
+    // Medium path: use DFA to check if an anchored match exists.
     Dfa.SearchResult dfaResult = Dfa.search(prog, text, true, false);
     if (dfaResult != null && !dfaResult.matched()) {
       hasMatch = false;
       return false;
     }
 
-    // DFA says match (or bailed out) — run NFA for captures.
+    // Slow path: run NFA for captures.
     groups = Nfa.search(
         prog, text, Nfa.Anchor.ANCHORED,
         Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());

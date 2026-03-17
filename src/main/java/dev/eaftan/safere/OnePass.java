@@ -1,0 +1,360 @@
+// Copyright (c) 2025 Eddie Aftandilian. Licensed under the MIT License.
+// See LICENSE file in the project root for details.
+
+package dev.eaftan.safere;
+
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeSet;
+
+/**
+ * One-pass NFA execution engine. For patterns where the NFA is deterministic (at most one possible
+ * path for any input), this engine extracts submatch boundaries in a single linear pass over the
+ * input text — no backtracking, no thread management.
+ *
+ * <p>A pattern is "one-pass" if, after following all epsilon transitions from any state:
+ *
+ * <ol>
+ *   <li>At most one CHAR_RANGE instruction matches any given input code point.
+ *   <li>At most one MATCH instruction is reachable.
+ *   <li>No instruction is reachable via two different epsilon paths.
+ * </ol>
+ *
+ * <p>One-pass matching only works for <b>anchored</b> searches. For unanchored searches, use the
+ * DFA to find the match region first, then run OnePass on that region.
+ *
+ * <p>This is a port of RE2's {@code onepass.cc}, adapted for Java's Unicode code point model.
+ */
+final class OnePass {
+
+  /** Maximum number of capture groups the one-pass engine supports (including group 0). */
+  static final int MAX_CAPTURE_GROUPS = 6;
+
+  private static final int MAX_CAP_REGS = 2 * MAX_CAPTURE_GROUPS;
+
+  // -------------------------------------------------------------------------
+  // Action encoding: each action is packed into a single int.
+  //
+  //   bits  0-7 : empty-width flags required for this transition
+  //   bits  8-17: capture mask (which capture registers to set)
+  //   bits 18-30: next state index
+  //
+  // Special value: NO_ACTION (-1) means no valid transition.
+  // -------------------------------------------------------------------------
+
+  private static final int EMPTY_BITS = 8;
+  private static final int CAP_SHIFT = EMPTY_BITS;
+  private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS;
+  private static final int EMPTY_MASK = (1 << EMPTY_BITS) - 1;
+  private static final int CAP_REG_MASK = (1 << MAX_CAP_REGS) - 1;
+  private static final int NO_ACTION = -1;
+
+  private static int encodeAction(int nextState, int capMask, int emptyFlags) {
+    return (nextState << INDEX_SHIFT) | ((capMask & CAP_REG_MASK) << CAP_SHIFT) | (emptyFlags & EMPTY_MASK);
+  }
+
+  private static int actionNextState(int action) {
+    return action >>> INDEX_SHIFT;
+  }
+
+  private static int actionCapMask(int action) {
+    return (action >>> CAP_SHIFT) & CAP_REG_MASK;
+  }
+
+  private static int actionEmptyFlags(int action) {
+    return action & EMPTY_MASK;
+  }
+
+  // -------------------------------------------------------------------------
+  // Instance fields
+  // -------------------------------------------------------------------------
+
+  /** Transition table: {@code actions[state][eqClass]} = encoded action. */
+  private final int[][] actions;
+
+  /** Match actions: {@code matchAction[state]} = encoded action when at a match state. */
+  private final int[] matchAction;
+
+  /** Sorted code point boundaries defining equivalence classes. */
+  private final int[] boundaries;
+
+  private OnePass(int[][] actions, int[] matchAction, int[] boundaries) {
+    this.actions = actions;
+    this.matchAction = matchAction;
+    this.boundaries = boundaries;
+  }
+
+  // -------------------------------------------------------------------------
+  // Building the one-pass automaton
+  // -------------------------------------------------------------------------
+
+  /**
+   * Attempts to build a one-pass automaton from the compiled program. Returns {@code null} if the
+   * pattern is not one-pass or exceeds the capture group limit.
+   */
+  static OnePass build(Prog prog) {
+    if (prog.start() == 0) {
+      return null;
+    }
+    if (prog.numCaptures() > MAX_CAPTURE_GROUPS) {
+      return null;
+    }
+    // Reject patterns with case-folding CHAR_RANGE instructions; the equivalence class
+    // overlap check doesn't account for fold-case semantics.
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.op == InstOp.CHAR_RANGE && inst.foldCase) {
+        return null;
+      }
+    }
+
+    int[] boundaries = buildBoundaries(prog);
+    int numClasses = boundaries.length;
+
+    // State table. States are identified by instruction IDs.
+    // nodeMap: instruction ID -> state index.
+    Map<Integer, Integer> nodeMap = new HashMap<>();
+    int stateCount = 0;
+
+    // Pre-allocate generously; we'll trim later.
+    int maxStates = prog.size();
+    int[][] actions = new int[maxStates][numClasses];
+    int[] matchActions = new int[maxStates];
+    for (int[] row : actions) {
+      Arrays.fill(row, NO_ACTION);
+    }
+    Arrays.fill(matchActions, NO_ACTION);
+
+    // BFS: process each state (instruction ID).
+    Deque<Integer> worklist = new ArrayDeque<>();
+    int startInst = prog.start();
+    nodeMap.put(startInst, stateCount++);
+    worklist.add(startInst);
+
+    while (!worklist.isEmpty()) {
+      int instId = worklist.poll();
+      int stateIndex = nodeMap.get(instId);
+
+      // Compute epsilon closure from instId.
+      // Each entry is a frontier instruction (CHAR_RANGE or MATCH) plus accumulated conditions.
+      boolean[] visited = new boolean[prog.size()];
+      Deque<int[]> stack = new ArrayDeque<>();
+      // stack entries: [instId, capMask, emptyFlags]
+      stack.push(new int[] {instId, 0, 0});
+
+      while (!stack.isEmpty()) {
+        int[] entry = stack.pop();
+        int id = entry[0];
+        int capMask = entry[1];
+        int emptyFlags = entry[2];
+
+        if (id == 0 || id >= prog.size()) {
+          continue;
+        }
+        if (visited[id]) {
+          // Same instruction reachable via two epsilon paths -> not one-pass.
+          return null;
+        }
+        visited[id] = true;
+
+        Inst ip = prog.inst(id);
+        switch (ip.op) {
+          case FAIL -> {}
+          case ALT, ALT_MATCH -> {
+            stack.push(new int[] {ip.out, capMask, emptyFlags});
+            stack.push(new int[] {ip.out1, capMask, emptyFlags});
+          }
+          case NOP -> stack.push(new int[] {ip.out, capMask, emptyFlags});
+          case CAPTURE -> {
+            int reg = ip.arg;
+            int newCapMask = (reg < MAX_CAP_REGS) ? (capMask | (1 << reg)) : capMask;
+            stack.push(new int[] {ip.out, newCapMask, emptyFlags});
+          }
+          case EMPTY_WIDTH -> {
+            int newEmpty = emptyFlags | ip.arg;
+            stack.push(new int[] {ip.out, capMask, newEmpty});
+          }
+          case CHAR_RANGE -> {
+            // For each equivalence class this CHAR_RANGE covers, set transition.
+            for (int cls = 0; cls < numClasses; cls++) {
+              int classLo = boundaries[cls];
+              int classHi = (cls + 1 < boundaries.length) ? boundaries[cls + 1] - 1
+                  : Character.MAX_CODE_POINT;
+              // Check overlap.
+              if (ip.lo > classHi || ip.hi < classLo) {
+                continue;
+              }
+
+              // Get or create state for ip.out.
+              int nextState;
+              if (nodeMap.containsKey(ip.out)) {
+                nextState = nodeMap.get(ip.out);
+              } else {
+                if (stateCount >= maxStates) {
+                  return null; // too many states
+                }
+                nextState = stateCount++;
+                nodeMap.put(ip.out, nextState);
+                worklist.add(ip.out);
+              }
+
+              int action = encodeAction(nextState, capMask, emptyFlags);
+              if (actions[stateIndex][cls] != NO_ACTION && actions[stateIndex][cls] != action) {
+                // Two different transitions for the same equivalence class -> not one-pass.
+                return null;
+              }
+              actions[stateIndex][cls] = action;
+            }
+          }
+          case MATCH -> {
+            int action = encodeAction(0, capMask, emptyFlags);
+            if (matchActions[stateIndex] != NO_ACTION && matchActions[stateIndex] != action) {
+              // Two match paths with different conditions -> not one-pass.
+              return null;
+            }
+            matchActions[stateIndex] = action;
+          }
+          default -> {}
+        }
+      }
+    }
+
+    // Trim tables to actual state count.
+    int[][] trimmedActions = Arrays.copyOf(actions, stateCount);
+    int[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
+    return new OnePass(trimmedActions, trimmedMatch, boundaries);
+  }
+
+  /** Builds sorted code point boundaries from all CHAR_RANGE instructions. */
+  private static int[] buildBoundaries(Prog prog) {
+    TreeSet<Integer> bounds = new TreeSet<>();
+    bounds.add(0);
+    bounds.add(0x110000);
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.op == InstOp.CHAR_RANGE) {
+        bounds.add(inst.lo);
+        if (inst.hi < 0x10FFFF) {
+          bounds.add(inst.hi + 1);
+        }
+      }
+    }
+    return bounds.stream().mapToInt(Integer::intValue).toArray();
+  }
+
+  // -------------------------------------------------------------------------
+  // Search
+  // -------------------------------------------------------------------------
+
+  /**
+   * Searches for a match in the given text using the one-pass automaton.
+   *
+   * <p>Only supports anchored matching (starts at position 0). For unanchored matching, use the
+   * DFA to find the match region first.
+   *
+   * @param text the input text
+   * @param endMatch if true, the match must cover the entire text
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
+   */
+  int[] search(String text, boolean endMatch, int nsubmatch) {
+    int textLen = text.length();
+    int ncap = 2 * Math.max(nsubmatch, 1);
+    int[] cap = new int[ncap];
+    Arrays.fill(cap, -1);
+    cap[0] = 0; // match start is always 0 (anchored)
+
+    int state = 0;
+    boolean matched = false;
+    int[] bestCap = null;
+
+    int pos = 0;
+    while (pos <= textLen) {
+      // Check match condition at current state BEFORE consuming next character.
+      int matchAct = matchAction[state];
+      if (matchAct != NO_ACTION) {
+        int reqEmpty = actionEmptyFlags(matchAct);
+        int curEmpty = Nfa.emptyFlags(text, pos);
+        if ((reqEmpty & ~curEmpty) == 0) {
+          // Match found. Apply match captures.
+          applyCaptures(matchAct, pos, cap);
+          if (cap.length > 1) {
+            cap[1] = pos; // match end
+          }
+          matched = true;
+          bestCap = cap.clone();
+          // In first-match mode we could stop early, but for correctness with greedy
+          // quantifiers, continue to find the longest match.
+        }
+      }
+
+      // Done if we've reached end of text.
+      if (pos >= textLen) {
+        break;
+      }
+
+      // Consume next code point.
+      int cp = text.codePointAt(pos);
+      int nextPos = pos + Character.charCount(cp);
+      int cls = classOf(cp);
+
+      // Look up transition.
+      int action = (cls >= 0 && cls < actions[state].length) ? actions[state][cls] : NO_ACTION;
+      if (action == NO_ACTION) {
+        break; // dead
+      }
+
+      // Check empty-width conditions.
+      int reqEmpty = actionEmptyFlags(action);
+      if (reqEmpty != 0) {
+        int curEmpty = Nfa.emptyFlags(text, pos);
+        if ((reqEmpty & ~curEmpty) != 0) {
+          break; // empty conditions not satisfied
+        }
+      }
+
+      // Apply transition captures.
+      applyCaptures(action, pos, cap);
+
+      // Advance to next state.
+      state = actionNextState(action);
+      pos = nextPos;
+    }
+
+    if (!matched) {
+      return null;
+    }
+    if (endMatch && bestCap[1] != textLen) {
+      return null;
+    }
+    return Arrays.copyOf(bestCap, ncap);
+  }
+
+  /** Maps a code point to its equivalence class index. */
+  private int classOf(int cp) {
+    int idx = Arrays.binarySearch(boundaries, cp);
+    if (idx >= 0) {
+      return idx;
+    }
+    return (-idx - 1) - 1;
+  }
+
+  /** Applies capture register updates from an action at the given position. */
+  private static void applyCaptures(int action, int pos, int[] cap) {
+    int mask = actionCapMask(action);
+    for (int reg = 0; mask != 0 && reg < cap.length; reg++) {
+      if ((mask & (1 << reg)) != 0) {
+        cap[reg] = pos;
+        mask &= ~(1 << reg);
+      }
+    }
+  }
+
+  /** Prevents instantiation via no-arg constructor. */
+  private OnePass() {
+    throw new AssertionError("non-instantiable");
+  }
+}

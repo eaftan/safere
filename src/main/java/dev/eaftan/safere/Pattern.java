@@ -89,14 +89,16 @@ public final class Pattern implements Serializable {
   private final transient Prog prog;
   private final transient Regexp ast;
   private final transient Map<String, Integer> namedGroups;
+  private final transient OnePass onePass;
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
-      Map<String, Integer> namedGroups) {
+      Map<String, Integer> namedGroups, OnePass onePass) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
     this.ast = ast;
     this.namedGroups = namedGroups;
+    this.onePass = onePass;
   }
 
   /**
@@ -128,7 +130,8 @@ public final class Pattern implements Serializable {
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
     Map<String, Integer> named = extractNamedGroups(re);
-    return new Pattern(regex, flags, compiled, re, named);
+    OnePass op = OnePass.build(compiled);
+    return new Pattern(regex, flags, compiled, re, named, op);
   }
 
   /**
@@ -284,6 +287,11 @@ public final class Pattern implements Serializable {
   /** Returns the compiled program. */
   Prog prog() {
     return prog;
+  }
+
+  /** Returns the one-pass automaton, or {@code null} if the pattern is not one-pass. */
+  OnePass onePass() {
+    return onePass;
   }
 
   /** Returns the parsed AST. */
