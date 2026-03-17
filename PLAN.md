@@ -170,13 +170,14 @@ Review all code, refactor and polish to match best practices.
 - Review each file, looking for ways to improve code quality
 - Implement high-impact code quality improvements
 
-### Phase 11: Review and expand tests
-Review all tests, measure and improve coverage, add tests for weird edge
-cases.
+### Phase 11: Review and expand tests ✅
 
-- Measure coverage and drive it up to a target of >=75%.
-- Review all tests, consider any conditions we haven't tested for, and add them.
-- Add additional tests to cover weird edge cases.
+- Measured baseline: 93.2% line coverage, ~74% branch coverage
+- Added 53 tests across 6 test files (1707 → 1760 tests)
+- Final coverage: 94.1% line, 77.0% branch
+- Added configurable DFA budget to PatternSet for testability
+- Key gaps filled: PatternSet fallback (100%), Regexp toString,
+  Simplifier repeat edge cases, Matcher error paths, Walker copy path
 
 ### Phase 12: Benchmarks and optimization
 Write benchmarks and do a round of optimizations.
