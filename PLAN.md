@@ -138,7 +138,7 @@ Build the user-facing API and comprehensive test suite.
 - Comprehensive test suite ported from RE2's tests
 - Performance smoke tests
 
-### Phase 8: DFA Execution Engine
+### Phase 8: DFA Execution Engine ✅
 Port the lazy DFA from `dfa.cc` for fast boolean/location matching.
 
 - `DFA` class — lazy DFA state construction
