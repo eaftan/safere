@@ -136,9 +136,9 @@ public final class Pattern implements Serializable {
     Prog compiled = Compiler.compile(re);
     Map<String, Integer> named = extractNamedGroups(re);
     OnePass op = OnePass.build(compiled);
-    String[] prefixResult = extractPrefix(re);
-    String prefix = prefixResult[0];
-    boolean prefixFoldCase = "true".equals(prefixResult[1]);
+    PrefixResult prefixResult = extractPrefix(re);
+    String prefix = prefixResult.prefix();
+    boolean prefixFoldCase = prefixResult.foldCase();
     return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase);
   }
 
@@ -409,16 +409,19 @@ public final class Pattern implements Serializable {
     return Collections.unmodifiableMap(map);
   }
 
+  /** Result of prefix extraction: a literal string prefix and whether it is case-folded. */
+  private record PrefixResult(String prefix, boolean foldCase) {}
+
   /**
-   * Extracts a literal prefix from the simplified AST for prefix acceleration. Returns a 2-element
-   * array: {@code [prefix, "true"/"false"]} where prefix is the literal string that every match
-   * must start with, or {@code null} if no fixed prefix exists.
+   * Extracts a literal prefix from the simplified AST for prefix acceleration. Returns a {@link
+   * PrefixResult} containing the literal string that every match must start with (or {@code null}
+   * if no fixed prefix exists) and whether the prefix is case-folded.
    *
    * <p>This looks for patterns that begin with literal characters (possibly inside a CONCAT or
-   * CAPTURE). The prefix is used by {@link Matcher#doFind()} to skip ahead using
-   * {@link String#indexOf} before running the full engine.
+   * CAPTURE). The prefix is used by {@link Matcher#doFind()} to skip ahead using {@link
+   * String#indexOf} before running the full engine.
    */
-  private static String[] extractPrefix(Regexp re) {
+  private static PrefixResult extractPrefix(Regexp re) {
     Regexp node = re;
 
     // See through leading captures and concat wrappers.
@@ -434,7 +437,7 @@ public final class Pattern implements Serializable {
       break;
     }
     if (node == null) {
-      return new String[] {null, "false"};
+      return new PrefixResult(null, false);
     }
 
     // Check for literal or literal string.
@@ -447,15 +450,15 @@ public final class Pattern implements Serializable {
         sb.appendCodePoint(r);
       }
     } else {
-      return new String[] {null, "false"};
+      return new PrefixResult(null, false);
     }
 
     if (sb.isEmpty()) {
-      return new String[] {null, "false"};
+      return new PrefixResult(null, false);
     }
 
     String prefix = foldCase ? sb.toString().toLowerCase() : sb.toString();
-    return new String[] {prefix, String.valueOf(foldCase)};
+    return new PrefixResult(prefix, foldCase);
   }
 
   /** Deserialization: recompile the pattern from the stored string and flags. */

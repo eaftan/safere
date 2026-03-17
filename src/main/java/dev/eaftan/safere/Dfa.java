@@ -123,12 +123,12 @@ final class Dfa {
   private static int[] buildBoundaries(Prog prog) {
     TreeSet<Integer> bounds = new TreeSet<>();
     bounds.add(0);
-    bounds.add(0x110000);
+    bounds.add(Utils.MAX_RUNE + 1);
     for (int i = 0; i < prog.size(); i++) {
       Inst inst = prog.inst(i);
       if (inst.op == InstOp.CHAR_RANGE) {
         bounds.add(inst.lo);
-        if (inst.hi < 0x10FFFF) {
+        if (inst.hi < Utils.MAX_RUNE) {
           bounds.add(inst.hi + 1);
         }
       }

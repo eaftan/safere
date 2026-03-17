@@ -77,7 +77,10 @@ final class CharClass {
     return new CharClassBuilder(this).negate().build();
   }
 
-  /** Returns the underlying flat ranges array. For internal use. */
+  /**
+   * Returns the underlying flat ranges array directly (no defensive copy). Callers must not modify
+   * the returned array.
+   */
   int[] flatRanges() {
     return ranges;
   }

@@ -25,7 +25,6 @@ final class Compiler extends Walker<Compiler.Frag> {
   /** Maximum number of instructions allowed by default. */
   private static final int DEFAULT_MAX_INST = 100_000;
 
-  private static final int MAX_UNICODE = 0x10FFFF;
 
   private final Prog prog;
   private boolean failed;
@@ -482,7 +481,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    */
   private Frag anyCodePoint() {
     Frag lo = charRange(0, Utils.MIN_SURROGATE - 1, false);
-    Frag hi = charRange(Utils.MAX_SURROGATE + 1, MAX_UNICODE, false);
+    Frag hi = charRange(Utils.MAX_SURROGATE + 1, Utils.MAX_RUNE, false);
     return alt(lo, hi);
   }
 
