@@ -419,12 +419,14 @@ class DFATest {
   class Budget {
     @Test
     void exceedBudgetReturnsNull() {
-      Regexp re = Parser.parse("a*b*c*d*e*f*g*h*", FLAGS);
+      // Use a non-nullable pattern so the DFA can't match at the start state.
+      // The many character classes force multiple distinct DFA states.
+      Regexp re = Parser.parse("[a-m]+[n-z]+", FLAGS);
       Prog prog = Compiler.compile(re);
       // Use a very small budget to force exhaustion.
-      DFA.SearchResult r = DFA.search(prog, "abcdefgh", false, false, 5);
-      // Should return null (bail out) or a result — either is acceptable.
-      // The key is that it doesn't crash.
+      DFA.SearchResult r = DFA.search(prog, "abcdefghijklmnopqrstuvwxyz", false, false, 2);
+      // Budget too small — should return null to signal fallback to NFA.
+      assertThat(r).isNull();
     }
 
     @Test
