@@ -112,7 +112,7 @@ Port the Thompson NFA compiler from `compile.cc`.
 - Character class compilation (ranges → CharRange instructions, or byte ranges)
 - Unit tests for compilation
 
-### Phase 6: NFA Execution Engine
+### Phase 6: NFA Execution Engine ✅
 Port the Pike VM (NFA simulator) from `nfa.cc`. This is the baseline engine
 that handles all cases correctly.
 
