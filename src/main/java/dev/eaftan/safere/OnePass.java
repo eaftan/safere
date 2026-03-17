@@ -30,7 +30,11 @@ import java.util.TreeSet;
  */
 final class OnePass {
 
-  /** Maximum number of capture groups the one-pass engine supports (including group 0). */
+  /**
+   * Maximum number of capture groups the one-pass engine supports (including group 0). This limit
+   * exists because capture group tracking is encoded in a bitmask within each action integer.
+   * Matches RE2's {@code kMaxCap}.
+   */
   static final int MAX_CAPTURE_GROUPS = 6;
 
   private static final int MAX_CAP_REGS = 2 * MAX_CAPTURE_GROUPS;

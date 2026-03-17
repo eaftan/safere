@@ -15,7 +15,7 @@ import java.util.regex.PatternSyntaxException;
  */
 final class Parser {
 
-  // Maximum repeat count to prevent excessive expansion.
+  // Maximum repeat count to prevent excessive AST expansion. Matches RE2's kMaxRepeat.
   private static final int MAX_REPEAT = 1000;
 
   // Pseudo-ops used only on the parse stack (never in the final AST).

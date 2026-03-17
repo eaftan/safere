@@ -54,6 +54,9 @@ public final class PatternSet {
   private final int size;
   private final List<String> patterns;
 
+  /** Parse flags for pattern set patterns: Perl-compatible without captures. */
+  private static final int SET_PARSE_FLAGS = ParseFlags.LIKE_PERL | ParseFlags.NEVER_CAPTURE;
+
   private PatternSet(Anchor anchor, Prog prog, int size, List<String> patterns) {
     this.anchor = anchor;
     this.prog = prog;
@@ -176,7 +179,7 @@ public final class PatternSet {
         throw new IllegalStateException("Cannot add patterns after compile()");
       }
       // Validate the pattern by parsing it.
-      int parseFlags = ParseFlags.LIKE_PERL | ParseFlags.NEVER_CAPTURE;
+      int parseFlags = SET_PARSE_FLAGS;
       Parser.parse(pattern, parseFlags);
 
       int index = patterns.size();
@@ -199,7 +202,7 @@ public final class PatternSet {
       }
       compiled = true;
 
-      int parseFlags = ParseFlags.LIKE_PERL | ParseFlags.NEVER_CAPTURE;
+      int parseFlags = SET_PARSE_FLAGS;
       int size = patterns.size();
 
       // Build tagged regexps: each pattern is concatenated with a HAVE_MATCH marker.

@@ -51,7 +51,8 @@ final class Dfa {
 
   /**
    * A DFA state: a set of NFA instruction IDs (the "frontier" of consuming/accepting instructions)
-   * plus position-dependent flags.
+   * plus position-dependent flags. States are cached and shared across transitions to avoid
+   * recomputation.
    */
   private static final class State {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE and MATCH only)

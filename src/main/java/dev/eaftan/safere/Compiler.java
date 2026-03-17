@@ -25,9 +25,6 @@ final class Compiler extends Walker<Compiler.Frag> {
   /** Maximum number of instructions allowed by default. */
   private static final int DEFAULT_MAX_INST = 100_000;
 
-  /** Surrogate range boundaries (Java chars use UTF-16, but we work with code points). */
-  private static final int MIN_SURROGATE = 0xD800;
-  private static final int MAX_SURROGATE = 0xDFFF;
   private static final int MAX_UNICODE = 0x10FFFF;
 
   private final Prog prog;
@@ -484,8 +481,8 @@ final class Compiler extends Walker<Compiler.Frag> {
    * surrogates. This produces [0-0xD7FF] | [0xE000-0x10FFFF].
    */
   private Frag anyCodePoint() {
-    Frag lo = charRange(0, MIN_SURROGATE - 1, false);
-    Frag hi = charRange(MAX_SURROGATE + 1, MAX_UNICODE, false);
+    Frag lo = charRange(0, Utils.MIN_SURROGATE - 1, false);
+    Frag hi = charRange(Utils.MAX_SURROGATE + 1, MAX_UNICODE, false);
     return alt(lo, hi);
   }
 
