@@ -78,10 +78,9 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
-    // Slow path: run NFA for captures.
-    groups = Nfa.search(
-        prog, text, Nfa.Anchor.ANCHORED,
-        Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+    // Slow path: try BitState (faster than NFA for small texts), then NFA.
+    groups = searchWithBitStateOrNfa(
+        prog, text, true, false, true, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -113,10 +112,9 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
-    // Slow path: run NFA for captures.
-    groups = Nfa.search(
-        prog, text, Nfa.Anchor.ANCHORED,
-        Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
+    // Slow path: try BitState (faster than NFA for small texts), then NFA.
+    groups = searchWithBitStateOrNfa(
+        prog, text, true, false, false, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -180,10 +178,9 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
-    // DFA says match (or bailed out) — run NFA for captures.
-    int[] result = Nfa.search(
-        prog, searchText, Nfa.Anchor.UNANCHORED,
-        Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
+    // DFA says match (or bailed out) — try BitState, then NFA for captures.
+    int[] result = searchWithBitStateOrNfa(
+        prog, searchText, false, false, false, prog.numCaptures());
     if (result == null) {
       hasMatch = false;
       return false;
@@ -195,6 +192,34 @@ public final class Matcher implements MatchResult {
     }
     hasMatch = true;
     return true;
+  }
+
+  /**
+   * Tries BitState first (for small texts), falls back to NFA. This is the final capture-extraction
+   * step after DFA/OnePass have been tried or are not applicable.
+   */
+  private static int[] searchWithBitStateOrNfa(Prog prog, String text, boolean anchored,
+      boolean longest, boolean endMatch, int nsubmatch) {
+    // Try BitState if the text is small enough.
+    int maxBitStateLen = BitState.maxTextSize(prog);
+    if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
+      int[] result = BitState.search(prog, text, anchored, longest, endMatch, nsubmatch);
+      if (result != null) {
+        return result;
+      }
+    }
+
+    // Fall back to general NFA.
+    Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
+    Nfa.MatchKind nfaKind;
+    if (endMatch) {
+      nfaKind = Nfa.MatchKind.FULL_MATCH;
+    } else if (longest) {
+      nfaKind = Nfa.MatchKind.LONGEST_MATCH;
+    } else {
+      nfaKind = Nfa.MatchKind.FIRST_MATCH;
+    }
+    return Nfa.search(prog, text, nfaAnchor, nfaKind, nsubmatch);
   }
 
   // ---------------------------------------------------------------------------

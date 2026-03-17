@@ -341,6 +341,8 @@ final class Dfa {
    */
   private SearchResult doSearch(String text, boolean anchored, boolean longest) {
     int textLen = text.length();
+    // If the compiled program requires end-of-text matching (stripped $), enforce it.
+    boolean needEndMatch = prog.anchorEnd();
 
     State s = startState(text, 0, anchored);
     if (s == null) {
@@ -352,10 +354,12 @@ final class Dfa {
 
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
-      matched = true;
-      matchEnd = 0;
-      if (!longest) {
-        return new SearchResult(true, 0);
+      if (!needEndMatch || textLen == 0) {
+        matched = true;
+        matchEnd = 0;
+        if (!longest && !needEndMatch) {
+          return new SearchResult(true, 0);
+        }
       }
     }
 
@@ -392,10 +396,13 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        matched = true;
-        matchEnd = Math.min(nextPos, textLen);
-        if (!longest) {
-          return new SearchResult(true, matchEnd);
+        int endPos = Math.min(nextPos, textLen);
+        if (!needEndMatch || endPos == textLen) {
+          matched = true;
+          matchEnd = endPos;
+          if (!longest && !needEndMatch) {
+            return new SearchResult(true, matchEnd);
+          }
         }
       }
 

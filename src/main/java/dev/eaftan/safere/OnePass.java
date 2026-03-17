@@ -81,10 +81,14 @@ final class OnePass {
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
 
-  private OnePass(int[][] actions, int[] matchAction, int[] boundaries) {
+  /** Whether the program requires end-of-text matching (stripped trailing {@code $}). */
+  private final boolean anchorEnd;
+
+  private OnePass(int[][] actions, int[] matchAction, int[] boundaries, boolean anchorEnd) {
     this.actions = actions;
     this.matchAction = matchAction;
     this.boundaries = boundaries;
+    this.anchorEnd = anchorEnd;
   }
 
   // -------------------------------------------------------------------------
@@ -225,7 +229,7 @@ final class OnePass {
     // Trim tables to actual state count.
     int[][] trimmedActions = Arrays.copyOf(actions, stateCount);
     int[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
-    return new OnePass(trimmedActions, trimmedMatch, boundaries);
+    return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd());
   }
 
   /** Builds sorted code point boundaries from all CHAR_RANGE instructions. */
@@ -328,6 +332,10 @@ final class OnePass {
       return null;
     }
     if (endMatch && bestCap[1] != textLen) {
+      return null;
+    }
+    // The compiler strips trailing $ and sets anchorEnd; enforce it here.
+    if (anchorEnd && bestCap[1] != textLen) {
       return null;
     }
     return Arrays.copyOf(bestCap, ncap);
