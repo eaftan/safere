@@ -168,8 +168,27 @@ public final class Matcher implements MatchResult {
       hasMatch = false;
       return false;
     }
+
+    // Prefix acceleration: if the pattern starts with a literal prefix, skip ahead to where
+    // that prefix first appears instead of searching from the current position.
+    int effectiveStart = searchFrom;
+    String prefix = parentPattern.prefix();
+    if (prefix != null) {
+      int idx;
+      if (parentPattern.prefixFoldCase()) {
+        idx = indexOfIgnoreCase(text, prefix, searchFrom);
+      } else {
+        idx = text.indexOf(prefix, searchFrom);
+      }
+      if (idx < 0) {
+        hasMatch = false;
+        return false;
+      }
+      effectiveStart = idx;
+    }
+
     Prog prog = parentPattern.prog();
-    String searchText = text.substring(searchFrom);
+    String searchText = text.substring(effectiveStart);
 
     // Fast path: use DFA to check if a match exists in the remaining text.
     Dfa.SearchResult dfaResult = Dfa.search(prog, searchText, false, false);
@@ -188,10 +207,22 @@ public final class Matcher implements MatchResult {
     // Adjust positions to be relative to the original text.
     groups = new int[result.length];
     for (int i = 0; i < result.length; i++) {
-      groups[i] = (result[i] == -1) ? -1 : result[i] + searchFrom;
+      groups[i] = (result[i] == -1) ? -1 : result[i] + effectiveStart;
     }
     hasMatch = true;
     return true;
+  }
+
+  /** Case-insensitive indexOf using Unicode case folding. */
+  private static int indexOfIgnoreCase(String text, String prefix, int fromIndex) {
+    int prefixLen = prefix.length();
+    int limit = text.length() - prefixLen;
+    for (int i = fromIndex; i <= limit; i++) {
+      if (text.regionMatches(true, i, prefix, 0, prefixLen)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /**

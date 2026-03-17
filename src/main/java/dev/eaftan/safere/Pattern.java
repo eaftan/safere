@@ -90,15 +90,20 @@ public final class Pattern implements Serializable {
   private final transient Regexp ast;
   private final transient Map<String, Integer> namedGroups;
   private final transient OnePass onePass;
+  private final transient String prefix;
+  private final transient boolean prefixFoldCase;
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
-      Map<String, Integer> namedGroups, OnePass onePass) {
+      Map<String, Integer> namedGroups, OnePass onePass,
+      String prefix, boolean prefixFoldCase) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
     this.ast = ast;
     this.namedGroups = namedGroups;
     this.onePass = onePass;
+    this.prefix = prefix;
+    this.prefixFoldCase = prefixFoldCase;
   }
 
   /**
@@ -131,7 +136,10 @@ public final class Pattern implements Serializable {
     Prog compiled = Compiler.compile(re);
     Map<String, Integer> named = extractNamedGroups(re);
     OnePass op = OnePass.build(compiled);
-    return new Pattern(regex, flags, compiled, re, named, op);
+    String[] prefixResult = extractPrefix(re);
+    String prefix = prefixResult[0];
+    boolean prefixFoldCase = "true".equals(prefixResult[1]);
+    return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase);
   }
 
   /**
@@ -294,6 +302,19 @@ public final class Pattern implements Serializable {
     return onePass;
   }
 
+  /**
+   * Returns the literal prefix for this pattern, or {@code null} if the pattern has no fixed
+   * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.
+   */
+  String prefix() {
+    return prefix;
+  }
+
+  /** Returns whether the prefix should be matched case-insensitively. */
+  boolean prefixFoldCase() {
+    return prefixFoldCase;
+  }
+
   /** Returns the parsed AST. */
   Regexp ast() {
     return ast;
@@ -386,6 +407,55 @@ public final class Pattern implements Serializable {
       }
     }
     return Collections.unmodifiableMap(map);
+  }
+
+  /**
+   * Extracts a literal prefix from the simplified AST for prefix acceleration. Returns a 2-element
+   * array: {@code [prefix, "true"/"false"]} where prefix is the literal string that every match
+   * must start with, or {@code null} if no fixed prefix exists.
+   *
+   * <p>This looks for patterns that begin with literal characters (possibly inside a CONCAT or
+   * CAPTURE). The prefix is used by {@link Matcher#doFind()} to skip ahead using
+   * {@link String#indexOf} before running the full engine.
+   */
+  private static String[] extractPrefix(Regexp re) {
+    Regexp node = re;
+
+    // See through leading captures and concat wrappers.
+    while (node != null) {
+      if (node.op == RegexpOp.CAPTURE) {
+        node = node.sub();
+        continue;
+      }
+      if (node.op == RegexpOp.CONCAT && node.nsub() > 0) {
+        node = node.subs[0];
+        continue;
+      }
+      break;
+    }
+    if (node == null) {
+      return new String[] {null, "false"};
+    }
+
+    // Check for literal or literal string.
+    boolean foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
+    StringBuilder sb = new StringBuilder();
+    if (node.op == RegexpOp.LITERAL) {
+      sb.appendCodePoint(node.rune);
+    } else if (node.op == RegexpOp.LITERAL_STRING && node.runes != null) {
+      for (int r : node.runes) {
+        sb.appendCodePoint(r);
+      }
+    } else {
+      return new String[] {null, "false"};
+    }
+
+    if (sb.isEmpty()) {
+      return new String[] {null, "false"};
+    }
+
+    String prefix = foldCase ? sb.toString().toLowerCase() : sb.toString();
+    return new String[] {prefix, String.valueOf(foldCase)};
   }
 
   /** Deserialization: recompile the pattern from the stored string and flags. */
