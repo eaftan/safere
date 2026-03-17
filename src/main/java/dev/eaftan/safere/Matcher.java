@@ -8,7 +8,11 @@ import java.util.regex.MatchResult;
 /**
  * An engine that performs match operations on a {@linkplain CharSequence character sequence} by
  * interpreting a {@link Pattern}. This class is a drop-in replacement for
- * {@link java.util.regex.Matcher} backed by a linear-time NFA engine.
+ * {@link java.util.regex.Matcher} backed by a linear-time matching engine.
+ *
+ * <p>Matching uses a two-phase engine cascade: the DFA quickly determines whether a match exists
+ * (and where it ends), then the NFA extracts capture group positions. If the DFA exceeds its state
+ * budget, the NFA handles the entire search.
  *
  * <p>A matcher is created from a pattern by invoking the pattern's {@link Pattern#matcher matcher}
  * method. Once created, a matcher can be used to perform three different kinds of match operations:
@@ -54,6 +58,20 @@ public final class Matcher implements MatchResult {
   public boolean matches() {
     searchFrom = 0;
     Prog prog = parentPattern.prog();
+
+    // Fast path: use DFA to check if a full match exists.
+    Dfa.SearchResult dfaResult = Dfa.search(prog, text, true, true);
+    if (dfaResult != null && !dfaResult.matched()) {
+      hasMatch = false;
+      return false;
+    }
+    if (dfaResult != null && dfaResult.pos() != text.length()) {
+      // Anchored match didn't cover the entire text.
+      hasMatch = false;
+      return false;
+    }
+
+    // DFA says match (or bailed out) — run NFA for captures.
     groups = Nfa.search(
         prog, text, Nfa.Anchor.ANCHORED,
         Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
@@ -72,6 +90,15 @@ public final class Matcher implements MatchResult {
   public boolean lookingAt() {
     searchFrom = 0;
     Prog prog = parentPattern.prog();
+
+    // Fast path: use DFA to check if an anchored match exists.
+    Dfa.SearchResult dfaResult = Dfa.search(prog, text, true, false);
+    if (dfaResult != null && !dfaResult.matched()) {
+      hasMatch = false;
+      return false;
+    }
+
+    // DFA says match (or bailed out) — run NFA for captures.
     groups = Nfa.search(
         prog, text, Nfa.Anchor.ANCHORED,
         Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
@@ -122,7 +149,7 @@ public final class Matcher implements MatchResult {
     return doFind();
   }
 
-  /** Runs the NFA search from {@link #searchFrom} and stores the result. */
+  /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
     if (searchFrom > text.length()) {
       hasMatch = false;
@@ -130,6 +157,15 @@ public final class Matcher implements MatchResult {
     }
     Prog prog = parentPattern.prog();
     String searchText = text.substring(searchFrom);
+
+    // Fast path: use DFA to check if a match exists in the remaining text.
+    Dfa.SearchResult dfaResult = Dfa.search(prog, searchText, false, false);
+    if (dfaResult != null && !dfaResult.matched()) {
+      hasMatch = false;
+      return false;
+    }
+
+    // DFA says match (or bailed out) — run NFA for captures.
     int[] result = Nfa.search(
         prog, searchText, Nfa.Anchor.UNANCHORED,
         Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
