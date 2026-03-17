@@ -146,7 +146,7 @@ Port the lazy DFA from `dfa.cc` for fast boolean/location matching.
 - ByteMap optimization (character equivalence classes)
 - Integration with engine selection in RE2 class
 
-### Phase 9: Additional Engines & Optimizations
+### Phase 9: Additional Engines & Optimizations ✅
 Port OnePass and BitState engines, add optimizations.
 
 - `OnePass` class — fast path for non-ambiguous patterns with captures
