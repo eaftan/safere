@@ -44,6 +44,18 @@
       <version>3.27.7</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-core</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-generator-annprocess</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -58,7 +70,28 @@
             <arg>-Xlint</arg>
             <arg>-Werror</arg>
           </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.openjdk.jmh</groupId>
+              <artifactId>jmh-generator-annprocess</artifactId>
+              <version>1.37</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
+        <executions>
+          <execution>
+            <id>default-testCompile</id>
+            <phase>test-compile</phase>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+            <configuration>
+              <compilerArgs>
+                <arg>-Xlint</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
