@@ -9,8 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-/** Tests for {@link NFA}. End-to-end tests: parse → compile → match. */
-class NFATest {
+/** Tests for {@link Nfa}. End-to-end tests: parse → compile → match. */
+class NfaTest {
 
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
@@ -20,32 +20,32 @@ class NFATest {
   private static int[] search(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    return NFA.search(
-        prog, text, NFA.Anchor.UNANCHORED, NFA.MatchKind.FIRST_MATCH, prog.numCaptures());
+    return Nfa.search(
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
   }
 
   /** Search with full-match semantics. */
   private static int[] fullMatch(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    return NFA.search(
-        prog, text, NFA.Anchor.UNANCHORED, NFA.MatchKind.FULL_MATCH, prog.numCaptures());
+    return Nfa.search(
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
   }
 
   /** Search with longest-match semantics. */
   private static int[] longestMatch(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    return NFA.search(
-        prog, text, NFA.Anchor.UNANCHORED, NFA.MatchKind.LONGEST_MATCH, prog.numCaptures());
+    return Nfa.search(
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.LONGEST_MATCH, prog.numCaptures());
   }
 
   /** Search with anchored semantics. */
   private static int[] anchoredSearch(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    return NFA.search(
-        prog, text, NFA.Anchor.ANCHORED, NFA.MatchKind.FIRST_MATCH, prog.numCaptures());
+    return Nfa.search(
+        prog, text, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
   }
 
   @Nested
@@ -483,40 +483,40 @@ class NFATest {
   class EmptyFlags {
     @Test
     void beginOfText() {
-      int flags = NFA.emptyFlags("abc", 0);
+      int flags = Nfa.emptyFlags("abc", 0);
       assertThat(flags & EmptyOp.BEGIN_TEXT).isNotZero();
       assertThat(flags & EmptyOp.BEGIN_LINE).isNotZero();
     }
 
     @Test
     void endOfText() {
-      int flags = NFA.emptyFlags("abc", 3);
+      int flags = Nfa.emptyFlags("abc", 3);
       assertThat(flags & EmptyOp.END_TEXT).isNotZero();
       assertThat(flags & EmptyOp.END_LINE).isNotZero();
     }
 
     @Test
     void midText() {
-      int flags = NFA.emptyFlags("abc", 1);
+      int flags = Nfa.emptyFlags("abc", 1);
       assertThat(flags & EmptyOp.BEGIN_TEXT).isZero();
       assertThat(flags & EmptyOp.END_TEXT).isZero();
     }
 
     @Test
     void afterNewline() {
-      int flags = NFA.emptyFlags("a\nb", 2);
+      int flags = Nfa.emptyFlags("a\nb", 2);
       assertThat(flags & EmptyOp.BEGIN_LINE).isNotZero();
     }
 
     @Test
     void wordBoundary() {
-      int flags = NFA.emptyFlags("foo bar", 3);
+      int flags = Nfa.emptyFlags("foo bar", 3);
       assertThat(flags & EmptyOp.WORD_BOUNDARY).isNotZero();
     }
 
     @Test
     void nonWordBoundary() {
-      int flags = NFA.emptyFlags("foo", 1);
+      int flags = Nfa.emptyFlags("foo", 1);
       assertThat(flags & EmptyOp.NON_WORD_BOUNDARY).isNotZero();
     }
   }

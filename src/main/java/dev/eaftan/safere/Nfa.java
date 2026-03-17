@@ -21,12 +21,12 @@ import java.util.Set;
  * <pre>
  *   Regexp re = Parser.parse("(\\w+)@(\\w+)", flags);
  *   Prog prog = Compiler.compile(re);
- *   int[] result = NFA.search(prog, "user@host", Anchor.UNANCHORED,
+ *   int[] result = Nfa.search(prog, "user@host", Anchor.UNANCHORED,
  *                             MatchKind.FIRST_MATCH, prog.numCaptures());
  *   // result[0..1] = full match, result[2..3] = group 1, etc.
  * </pre>
  */
-final class NFA {
+final class Nfa {
 
   /** Anchor mode for matching. */
   enum Anchor {
@@ -61,7 +61,7 @@ final class NFA {
   private List<Thread> runq;
   private List<Thread> nextq;
 
-  private NFA(Prog prog, int ncapture, boolean longest, boolean endmatch) {
+  private Nfa(Prog prog, int ncapture, boolean longest, boolean endmatch) {
     this.prog = prog;
     this.ncapture = ncapture;
     this.longest = longest;
@@ -104,7 +104,7 @@ final class NFA {
     // We always need at least capture[0..1] to track the match boundaries.
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
-    NFA nfa = new NFA(prog, ncapture, longestMode, endmatch);
+    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch);
     nfa.doSearch(text, anchored);
 
     if (!nfa.matched) {
@@ -421,7 +421,7 @@ final class NFA {
         || ('0' <= c && c <= '9') || c == '_';
   }
 
-  private NFA() {
+  private Nfa() {
     throw new AssertionError("non-instantiable");
   }
 }

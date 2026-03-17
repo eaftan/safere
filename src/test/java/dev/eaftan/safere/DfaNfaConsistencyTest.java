@@ -318,12 +318,12 @@ class DfaNfaConsistencyTest {
     Prog prog = Compiler.compile(re);
 
     // Run DFA.
-    DFA.SearchResult dfaResult = DFA.search(prog, tc.input(), anchored, longest);
+    Dfa.SearchResult dfaResult = Dfa.search(prog, tc.input(), anchored, longest);
 
     // Run NFA with matching settings.
-    NFA.Anchor nfaAnchor = anchored ? NFA.Anchor.ANCHORED : NFA.Anchor.UNANCHORED;
-    NFA.MatchKind nfaKind = longest ? NFA.MatchKind.LONGEST_MATCH : NFA.MatchKind.FIRST_MATCH;
-    int[] nfaResult = NFA.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
+    Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
+    Nfa.MatchKind nfaKind = longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH;
+    int[] nfaResult = Nfa.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
 
     if (dfaResult == null) {
       // DFA bailed out due to budget -- skip consistency check.
@@ -347,11 +347,11 @@ class DfaNfaConsistencyTest {
     Regexp re = Parser.parse(tc.pattern(), FLAGS);
     Prog prog = Compiler.compile(re);
 
-    DFA.SearchResult dfaResult = DFA.search(prog, tc.input(), anchored, longest);
+    Dfa.SearchResult dfaResult = Dfa.search(prog, tc.input(), anchored, longest);
 
-    NFA.Anchor nfaAnchor = anchored ? NFA.Anchor.ANCHORED : NFA.Anchor.UNANCHORED;
-    NFA.MatchKind nfaKind = longest ? NFA.MatchKind.LONGEST_MATCH : NFA.MatchKind.FIRST_MATCH;
-    int[] nfaResult = NFA.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
+    Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
+    Nfa.MatchKind nfaKind = longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH;
+    int[] nfaResult = Nfa.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
 
     if (dfaResult == null) {
       return;

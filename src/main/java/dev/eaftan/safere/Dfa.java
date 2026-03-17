@@ -31,7 +31,7 @@ import java.util.TreeSet;
  *   <li>Single-threaded (no lock-free atomic transitions).
  * </ul>
  */
-final class DFA {
+final class Dfa {
 
   /** Result of a DFA search. */
   record SearchResult(boolean matched, int pos) {}
@@ -104,7 +104,7 @@ final class DFA {
   // Construction
   // ---------------------------------------------------------------------------
 
-  private DFA(Prog prog, int maxStates) {
+  private Dfa(Prog prog, int maxStates) {
     this.prog = prog;
     this.maxStates = maxStates;
     this.boundaries = buildBoundaries(prog);
@@ -238,7 +238,7 @@ final class DFA {
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags = NFA.emptyFlags(text, pos);
+    int emptyFlags = Nfa.emptyFlags(text, pos);
     int[] insts = expand(List.of(startInst), emptyFlags);
     int flags = emptyFlags & 0xFF;
     if (hasMatch(insts)) {
@@ -258,7 +258,7 @@ final class DFA {
     // At end of text, re-expand the current instruction set with end-of-text empty flags.
     // This allows empty-width assertions like $ to fire.
     if (cp < 0) {
-      int emptyFlags = NFA.emptyFlags(text, nextPos);
+      int emptyFlags = Nfa.emptyFlags(text, nextPos);
       // Re-expand from the successors of EMPTY_WIDTH instructions that now pass.
       List<Integer> seeds = new ArrayList<>();
       for (int id : s.insts) {
@@ -293,7 +293,7 @@ final class DFA {
       return deadState;
     }
 
-    int emptyFlags = NFA.emptyFlags(text, nextPos);
+    int emptyFlags = Nfa.emptyFlags(text, nextPos);
     int[] nextInsts = expand(successors, emptyFlags);
 
     if (nextInsts.length == 0) {
@@ -328,7 +328,7 @@ final class DFA {
   /** Search with explicit state budget. */
   static SearchResult search(
       Prog prog, String text, boolean anchored, boolean longest, int maxStates) {
-    DFA dfa = new DFA(prog, maxStates);
+    Dfa dfa = new Dfa(prog, maxStates);
     return dfa.doSearch(text, anchored, longest);
   }
 
@@ -408,7 +408,7 @@ final class DFA {
     return new SearchResult(matched, matchEnd);
   }
 
-  private DFA() {
+  private Dfa() {
     throw new AssertionError("non-instantiable");
   }
 }

@@ -54,9 +54,9 @@ public final class Matcher implements MatchResult {
   public boolean matches() {
     searchFrom = 0;
     Prog prog = parentPattern.prog();
-    groups = NFA.search(
-        prog, text, NFA.Anchor.ANCHORED,
-        NFA.MatchKind.FULL_MATCH, prog.numCaptures());
+    groups = Nfa.search(
+        prog, text, Nfa.Anchor.ANCHORED,
+        Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -72,9 +72,9 @@ public final class Matcher implements MatchResult {
   public boolean lookingAt() {
     searchFrom = 0;
     Prog prog = parentPattern.prog();
-    groups = NFA.search(
-        prog, text, NFA.Anchor.ANCHORED,
-        NFA.MatchKind.FIRST_MATCH, prog.numCaptures());
+    groups = Nfa.search(
+        prog, text, Nfa.Anchor.ANCHORED,
+        Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -130,9 +130,9 @@ public final class Matcher implements MatchResult {
     }
     Prog prog = parentPattern.prog();
     String searchText = text.substring(searchFrom);
-    int[] result = NFA.search(
-        prog, searchText, NFA.Anchor.UNANCHORED,
-        NFA.MatchKind.FIRST_MATCH, prog.numCaptures());
+    int[] result = Nfa.search(
+        prog, searchText, Nfa.Anchor.UNANCHORED,
+        Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
     if (result == null) {
       hasMatch = false;
       return false;

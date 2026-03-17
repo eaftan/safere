@@ -10,42 +10,42 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link DFA}.
+ * Tests for {@link Dfa}.
  *
  * <p>Many tests verify that the DFA produces the same match/no-match result as the NFA. The DFA
  * only reports match boundaries (not capture groups), so tests focus on match detection and end
  * position.
  */
-class DFATest {
+class DfaTest {
 
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
           | ParseFlags.UNICODE_GROUPS;
 
   /** Compiles a pattern and searches with the DFA (unanchored, first match). */
-  private static DFA.SearchResult search(String pattern, String text) {
+  private static Dfa.SearchResult search(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    return DFA.search(prog, text, false, false);
+    return Dfa.search(prog, text, false, false);
   }
 
   /** Compiles a pattern and searches with the DFA (anchored, longest match = full match). */
-  private static DFA.SearchResult fullMatch(String pattern, String text) {
+  private static Dfa.SearchResult fullMatch(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    DFA.SearchResult r = DFA.search(prog, text, true, true);
+    Dfa.SearchResult r = Dfa.search(prog, text, true, true);
     if (r != null && r.matched() && r.pos() != text.length()) {
       // Match didn't cover the entire text — not a full match.
-      return new DFA.SearchResult(false, r.pos());
+      return new Dfa.SearchResult(false, r.pos());
     }
     return r;
   }
 
   /** Compiles a pattern and searches with the DFA (unanchored, longest match). */
-  private static DFA.SearchResult longestMatch(String pattern, String text) {
+  private static Dfa.SearchResult longestMatch(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
-    return DFA.search(prog, text, false, true);
+    return Dfa.search(prog, text, false, true);
   }
 
   // ---------------------------------------------------------------------------
@@ -57,37 +57,37 @@ class DFATest {
   class Literals {
     @Test
     void singleChar() {
-      DFA.SearchResult r = search("a", "a");
+      Dfa.SearchResult r = search("a", "a");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void multiChar() {
-      DFA.SearchResult r = search("abc", "xabcy");
+      Dfa.SearchResult r = search("abc", "xabcy");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void noMatch() {
-      DFA.SearchResult r = search("abc", "def");
+      Dfa.SearchResult r = search("abc", "def");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void emptyPattern() {
-      DFA.SearchResult r = search("", "hello");
+      Dfa.SearchResult r = search("", "hello");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void emptyText() {
-      DFA.SearchResult r = search("", "");
+      Dfa.SearchResult r = search("", "");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void atEnd() {
-      DFA.SearchResult r = search("xyz", "abcxyz");
+      Dfa.SearchResult r = search("xyz", "abcxyz");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(6);
     }
@@ -98,25 +98,25 @@ class DFATest {
   class CharClasses {
     @Test
     void digitClass() {
-      DFA.SearchResult r = search("\\d+", "abc123def");
+      Dfa.SearchResult r = search("\\d+", "abc123def");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void wordClass() {
-      DFA.SearchResult r = search("\\w+", "hello");
+      Dfa.SearchResult r = search("\\w+", "hello");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void range() {
-      DFA.SearchResult r = search("[a-z]+", "HELLO world");
+      Dfa.SearchResult r = search("[a-z]+", "HELLO world");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void negatedClass() {
-      DFA.SearchResult r = search("[^0-9]+", "123abc456");
+      Dfa.SearchResult r = search("[^0-9]+", "123abc456");
       assertThat(r.matched()).isTrue();
     }
   }
@@ -126,45 +126,45 @@ class DFATest {
   class Quantifiers {
     @Test
     void star() {
-      DFA.SearchResult r = fullMatch("a*", "aaa");
+      Dfa.SearchResult r = fullMatch("a*", "aaa");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(3);
     }
 
     @Test
     void plus() {
-      DFA.SearchResult r = fullMatch("a+", "aaa");
+      Dfa.SearchResult r = fullMatch("a+", "aaa");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(3);
     }
 
     @Test
     void plusNoMatch() {
-      DFA.SearchResult r = fullMatch("a+", "");
+      Dfa.SearchResult r = fullMatch("a+", "");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void quest() {
-      DFA.SearchResult r = fullMatch("a?", "a");
+      Dfa.SearchResult r = fullMatch("a?", "a");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void questEmpty() {
-      DFA.SearchResult r = fullMatch("a?", "");
+      Dfa.SearchResult r = fullMatch("a?", "");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void repeat() {
-      DFA.SearchResult r = fullMatch("a{3}", "aaa");
+      Dfa.SearchResult r = fullMatch("a{3}", "aaa");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void repeatRange() {
-      DFA.SearchResult r = fullMatch("a{2,4}", "aaa");
+      Dfa.SearchResult r = fullMatch("a{2,4}", "aaa");
       assertThat(r.matched()).isTrue();
     }
   }
@@ -174,19 +174,19 @@ class DFATest {
   class Alternation {
     @Test
     void firstAlt() {
-      DFA.SearchResult r = search("cat|dog", "I have a cat");
+      Dfa.SearchResult r = search("cat|dog", "I have a cat");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void secondAlt() {
-      DFA.SearchResult r = search("cat|dog", "I have a dog");
+      Dfa.SearchResult r = search("cat|dog", "I have a dog");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void noAlt() {
-      DFA.SearchResult r = search("cat|dog", "I have a bird");
+      Dfa.SearchResult r = search("cat|dog", "I have a bird");
       assertThat(r.matched()).isFalse();
     }
   }
@@ -196,31 +196,31 @@ class DFATest {
   class Anchors {
     @Test
     void startAnchor() {
-      DFA.SearchResult r = search("^hello", "hello world");
+      Dfa.SearchResult r = search("^hello", "hello world");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void startAnchorFail() {
-      DFA.SearchResult r = search("^hello", "say hello");
+      Dfa.SearchResult r = search("^hello", "say hello");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void endAnchor() {
-      DFA.SearchResult r = search("world$", "hello world");
+      Dfa.SearchResult r = search("world$", "hello world");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void endAnchorFail() {
-      DFA.SearchResult r = search("world$", "world cup");
+      Dfa.SearchResult r = search("world$", "world cup");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void fullAnchor() {
-      DFA.SearchResult r = search("^abc$", "abc");
+      Dfa.SearchResult r = search("^abc$", "abc");
       assertThat(r.matched()).isTrue();
     }
   }
@@ -230,19 +230,19 @@ class DFATest {
   class Dot {
     @Test
     void dotMatchesChar() {
-      DFA.SearchResult r = fullMatch("a.c", "abc");
+      Dfa.SearchResult r = fullMatch("a.c", "abc");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void dotDoesNotMatchNewline() {
-      DFA.SearchResult r = fullMatch("a.c", "a\nc");
+      Dfa.SearchResult r = fullMatch("a.c", "a\nc");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void dotPlus() {
-      DFA.SearchResult r = fullMatch(".+", "hello");
+      Dfa.SearchResult r = fullMatch(".+", "hello");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(5);
     }
@@ -253,19 +253,19 @@ class DFATest {
   class WordBoundary {
     @Test
     void wordBoundaryMatch() {
-      DFA.SearchResult r = search("\\bfoo\\b", "foo bar");
+      Dfa.SearchResult r = search("\\bfoo\\b", "foo bar");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void wordBoundaryNoMatch() {
-      DFA.SearchResult r = search("\\bfoo\\b", "foobar");
+      Dfa.SearchResult r = search("\\bfoo\\b", "foobar");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void wordBoundaryInMiddle() {
-      DFA.SearchResult r = search("\\bbar\\b", "foo bar baz");
+      Dfa.SearchResult r = search("\\bbar\\b", "foo bar baz");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(7);
     }
@@ -276,27 +276,27 @@ class DFATest {
   class MatchModes {
     @Test
     void fullMatchSuccess() {
-      DFA.SearchResult r = fullMatch("abc", "abc");
+      Dfa.SearchResult r = fullMatch("abc", "abc");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(3);
     }
 
     @Test
     void fullMatchFailure() {
-      DFA.SearchResult r = fullMatch("abc", "abcd");
+      Dfa.SearchResult r = fullMatch("abc", "abcd");
       assertThat(r.matched()).isFalse();
     }
 
     @Test
     void longestMatchGreedy() {
-      DFA.SearchResult r = longestMatch("a+", "aaa");
+      Dfa.SearchResult r = longestMatch("a+", "aaa");
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(3);
     }
 
     @Test
     void firstMatchShortest() {
-      DFA.SearchResult r = search("a+", "aaa");
+      Dfa.SearchResult r = search("a+", "aaa");
       assertThat(r.matched()).isTrue();
       // First match should still match (may not return the shortest match
       // since DFA with .*? prefix finds leftmost).
@@ -308,13 +308,13 @@ class DFATest {
   class Unicode {
     @Test
     void supplementaryPlane() {
-      DFA.SearchResult r = search(".", "😀");
+      Dfa.SearchResult r = search(".", "😀");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void unicodeLetters() {
-      DFA.SearchResult r = search("[à-ÿ]+", "café");
+      Dfa.SearchResult r = search("[à-ÿ]+", "café");
       assertThat(r.matched()).isTrue();
     }
   }
@@ -324,19 +324,19 @@ class DFATest {
   class Complex {
     @Test
     void emailLike() {
-      DFA.SearchResult r = search("[a-z]+@[a-z]+\\.[a-z]+", "user@example.com");
+      Dfa.SearchResult r = search("[a-z]+@[a-z]+\\.[a-z]+", "user@example.com");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void ipAddress() {
-      DFA.SearchResult r = search("\\d+\\.\\d+\\.\\d+\\.\\d+", "ip is 192.168.1.1 here");
+      Dfa.SearchResult r = search("\\d+\\.\\d+\\.\\d+\\.\\d+", "ip is 192.168.1.1 here");
       assertThat(r.matched()).isTrue();
     }
 
     @Test
     void alternationWithQuantifiers() {
-      DFA.SearchResult r = fullMatch("(ab|cd)+", "ababcdab");
+      Dfa.SearchResult r = fullMatch("(ab|cd)+", "ababcdab");
       assertThat(r.matched()).isTrue();
     }
   }
@@ -351,7 +351,7 @@ class DFATest {
       Regexp re = Parser.parse("(a|b)(c|d)(e|f)(g|h)(i|j)", FLAGS);
       Prog prog = Compiler.compile(re);
       // Budget of 2 is too small for this pattern.
-      DFA.SearchResult r = DFA.search(prog, "acegi", false, false, 2);
+      Dfa.SearchResult r = Dfa.search(prog, "acegi", false, false, 2);
       // Budget exceeded -- should return null to signal fallback to NFA.
       assertThat(r).isNull();
     }
@@ -364,7 +364,7 @@ class DFATest {
       String text = "a".repeat(n);
       Regexp re = Parser.parse(pattern, FLAGS);
       Prog prog = Compiler.compile(re);
-      DFA.SearchResult r = DFA.search(prog, text, true, true);
+      Dfa.SearchResult r = Dfa.search(prog, text, true, true);
       // May bail out (return null) due to state explosion, which is fine.
       // The important thing is it completes quickly, not exponentially.
       if (r != null) {
