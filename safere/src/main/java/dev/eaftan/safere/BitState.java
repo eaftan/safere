@@ -165,16 +165,27 @@ final class BitState {
     this.jobCount = 0;
   }
 
-  /** Returns true if (instId, pos) has been visited; marks it as visited if not. */
+  /**
+   * Returns true if (instId, pos) should be explored; marks ALT instructions as visited.
+   *
+   * <p>Only ALT/ALT_MATCH instructions use the visited bitmap. These are the only instructions
+   * that branch (two outgoing edges) and can form cycles in the epsilon graph. All other
+   * instruction types are safe to revisit:
+   *
+   * <ul>
+   *   <li>MATCH — terminal, no outgoing edges
+   *   <li>FAIL — terminal, no outgoing edges
+   *   <li>CAPTURE, NOP, EMPTY_WIDTH — epsilon with a single outgoing edge, cannot form cycles
+   *   <li>CHAR_RANGE — consumes input (advances position), cannot form cycles
+   * </ul>
+   *
+   * <p>This ensures that when multiple paths through the program reach the same continuation
+   * instruction (e.g., quest skip vs body exit in unrolled counted repetitions), the path with
+   * correct capture state is not blocked by the visited bitmap.
+   */
   private boolean shouldVisit(int instId, int pos) {
     InstOp op = prog.inst(instId).op;
-    // MATCH is terminal — always allow so we record the best match from any path.
-    // CAPTURE is an epsilon transition (single outgoing edge) that cannot form
-    // cycles in the instruction graph (cycles require ALT, which remains checked).
-    // Allowing CAPTURE revisits ensures captures are properly set when both a
-    // quest's skip and a plus's exit resolve to the same CAPTURE instruction,
-    // as happens with the quest(plus(...)) compilation of star-of-nullable.
-    if (op == InstOp.MATCH || op == InstOp.CAPTURE) {
+    if (op != InstOp.ALT && op != InstOp.ALT_MATCH) {
       return true;
     }
     int bit = instId * textSlots + pos;
