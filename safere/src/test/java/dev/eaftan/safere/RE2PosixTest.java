@@ -282,30 +282,30 @@ class RE2PosixTest {
   }
 
   /**
-   * Check if a pattern has nullable groups in repetitions — a known area where SafeRE's subgroup
-   * capture positions differ from the POSIX/RE2 expected behavior. Also covers patterns that
-   * require POSIX leftmost-longest semantics (SafeRE uses leftmost-first like RE2/Go).
+   * Check if a pattern has a known behavioral difference from POSIX/RE2 expected results. These
+   * fall into three categories:
+   *
+   * <ol>
+   *   <li>Nullable subgroup with required literal — e.g. {@code (a*)*(x)} where the last group
+   *       iteration's capture is not correctly restored (issue #7, Category B).
+   *   <li>POSIX leftmost-longest vs leftmost-first — e.g. {@code (a|ab|c|bcd)*} where POSIX picks
+   *       longer alternates. SafeRE uses leftmost-first like RE2/Go (by design).
+   *   <li>Nullable {@code .?} counted repetition — e.g. {@code X(.?){0,8}Y} where POSIX expects
+   *       the last empty iteration's capture position to be set.
+   * </ol>
    */
-  private static boolean hasNullableGroupInRepetition(String pattern) {
-    // Patterns like (a*)*, (a*|b)*, (^)*, ([a]*)*, ([^b]*)*, ((a*|b))*, (a*)+, (a*){2}
-    // Also covers a* inside alternation: (a*|b)*, ((a*|b))*
-    if (pattern.matches(".*\\(?\\([^)]*[*][^)]*\\)\\)?[*+{].*")) {
-      return true;
-    }
-    if (pattern.matches(".*\\(\\^\\)[*+{].*")) {
-      return true;
-    }
-    // ((..)|(.)) repetition patterns from repetition.dat
-    if (pattern.matches(".*\\(\\([^)]*\\)\\|\\([^)]*\\)\\).*[*+{].*")) {
-      return true;
-    }
-    if (pattern.contains("(..)|(.)")
-        || pattern.contains("X(.?){")) {
+  private static boolean hasKnownDifference(String pattern) {
+    // (a*)*(x) — nullable subgroup before required literal
+    if (pattern.equals("(a*)*(x)") || pattern.equals("(a*)+(x)")
+        || pattern.equals("(a*){2}(x)")) {
       return true;
     }
     // POSIX leftmost-longest patterns: (a|ab|c|bcd) where alternates are prefixes
-    // SafeRE uses leftmost-first (RE2/Go) semantics, not POSIX longest-match
     if (pattern.contains("(a|ab|c|bcd)") || pattern.contains("(ab|a|c|bcd)")) {
+      return true;
+    }
+    // X(.?){N,M}Y — POSIX captures last empty iteration at a different position
+    if (pattern.matches("X\\(\\.\\?\\)\\{\\d+,\\d+\\}Y")) {
       return true;
     }
     return false;
@@ -337,7 +337,7 @@ class RE2PosixTest {
     if (found && tc.expectMatch()) {
       // Skip detailed verification for patterns with known SafeRE differences
       boolean knownDifference =
-          hasNullableGroupInRepetition(tc.pattern());
+          hasKnownDifference(tc.pattern());
       Assumptions.assumeFalse(
           knownDifference,
           "SafeRE bug: pattern has known behavioral difference from POSIX/RE2");

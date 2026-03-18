@@ -167,6 +167,13 @@ final class BitState {
 
   /** Returns true if (instId, pos) has been visited; marks it as visited if not. */
   private boolean shouldVisit(int instId, int pos) {
+    // Always allow visiting MATCH instructions — they are terminal and we need
+    // to record the match state from the path that has captures set, not just
+    // the first path that discovers MATCH.  This mirrors RE2 C++ bitstate.cc
+    // which omits the ShouldVisit() check for kInstMatch.
+    if (prog.inst(instId).op == InstOp.MATCH) {
+      return true;
+    }
     int bit = instId * textSlots + pos;
     int word = bit / 64;
     long mask = 1L << (bit % 64);
