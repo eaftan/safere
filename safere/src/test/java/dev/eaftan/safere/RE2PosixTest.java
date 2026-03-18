@@ -283,11 +283,9 @@ class RE2PosixTest {
 
   /**
    * Check if a pattern has a known behavioral difference from POSIX/RE2 expected results. These
-   * fall into three categories:
+   * fall into two categories:
    *
    * <ol>
-   *   <li>Nullable subgroup with required literal — e.g. {@code (a*)*(x)} where the last group
-   *       iteration's capture is not correctly restored (issue #7, Category B).
    *   <li>POSIX leftmost-longest vs leftmost-first — e.g. {@code (a|ab|c|bcd)*} where POSIX picks
    *       longer alternates. SafeRE uses leftmost-first like RE2/Go (by design).
    *   <li>Nullable {@code .?} counted repetition — e.g. {@code X(.?){0,8}Y} where POSIX expects
@@ -295,11 +293,6 @@ class RE2PosixTest {
    * </ol>
    */
   private static boolean hasKnownDifference(String pattern) {
-    // (a*)*(x) — nullable subgroup before required literal
-    if (pattern.equals("(a*)*(x)") || pattern.equals("(a*)+(x)")
-        || pattern.equals("(a*){2}(x)")) {
-      return true;
-    }
     // POSIX leftmost-longest patterns: (a|ab|c|bcd) where alternates are prefixes
     if (pattern.contains("(a|ab|c|bcd)") || pattern.contains("(ab|a|c|bcd)")) {
       return true;

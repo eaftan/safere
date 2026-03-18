@@ -167,11 +167,14 @@ final class BitState {
 
   /** Returns true if (instId, pos) has been visited; marks it as visited if not. */
   private boolean shouldVisit(int instId, int pos) {
-    // Always allow visiting MATCH instructions — they are terminal and we need
-    // to record the match state from the path that has captures set, not just
-    // the first path that discovers MATCH.  This mirrors RE2 C++ bitstate.cc
-    // which omits the ShouldVisit() check for kInstMatch.
-    if (prog.inst(instId).op == InstOp.MATCH) {
+    InstOp op = prog.inst(instId).op;
+    // MATCH is terminal — always allow so we record the best match from any path.
+    // CAPTURE is an epsilon transition (single outgoing edge) that cannot form
+    // cycles in the instruction graph (cycles require ALT, which remains checked).
+    // Allowing CAPTURE revisits ensures captures are properly set when both a
+    // quest's skip and a plus's exit resolve to the same CAPTURE instruction,
+    // as happens with the quest(plus(...)) compilation of star-of-nullable.
+    if (op == InstOp.MATCH || op == InstOp.CAPTURE) {
       return true;
     }
     int bit = instId * textSlots + pos;
