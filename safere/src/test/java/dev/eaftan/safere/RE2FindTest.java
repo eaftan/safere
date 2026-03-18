@@ -4,10 +4,8 @@
 package dev.eaftan.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -211,16 +209,9 @@ class RE2FindTest {
         Arguments.of(tc("(|a)*", "aa", 3, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2)));
   }
 
-  // Patterns where SafeRE's first-match behavior differs from RE2 (known bugs).
-  // SafeRE matches (|a)* greedily ("aa") instead of empty-first ("") like RE2.
-  private static final Set<String> KNOWN_BUG_PATTERNS = Set.of("(|a)*");
-
   @ParameterizedTest(name = "{0}")
   @MethodSource("findTests")
   void testFirstMatchSubgroups(FindTestCase tc) {
-    assumeFalse(
-        KNOWN_BUG_PATTERNS.contains(tc.pattern()),
-        "SafeRE bug: nullable alternation in repetition matches differently from RE2");
     Pattern p = Pattern.compile(tc.pattern());
     Matcher m = p.matcher(tc.text());
 
@@ -242,9 +233,6 @@ class RE2FindTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("findTests")
   void testFirstMatchPositions(FindTestCase tc) {
-    assumeFalse(
-        KNOWN_BUG_PATTERNS.contains(tc.pattern()),
-        "SafeRE bug: nullable alternation in repetition matches differently from RE2");
     Pattern p = Pattern.compile(tc.pattern());
     Matcher m = p.matcher(tc.text());
 
@@ -273,9 +261,6 @@ class RE2FindTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("findTests")
   void testFindFirst(FindTestCase tc) {
-    assumeFalse(
-        KNOWN_BUG_PATTERNS.contains(tc.pattern()),
-        "SafeRE bug: nullable alternation in repetition matches differently from RE2");
     Pattern p = Pattern.compile(tc.pattern());
     Matcher m = p.matcher(tc.text());
 

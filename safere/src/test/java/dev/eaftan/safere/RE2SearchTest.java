@@ -4,7 +4,6 @@
 package dev.eaftan.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -219,15 +218,6 @@ class RE2SearchTest {
     return tests.stream();
   }
 
-  /** Check if a pattern is a known SafeRE bug that should be skipped. */
-  private static boolean isKnownBug(String pattern) {
-    // SafeRE bug: nullable alternation in repetition (|a)* matches greedily
-    if (pattern.contains("(?:|a)*") || pattern.contains("(?:(|a)*)")) {
-      return true;
-    }
-    return false;
-  }
-
   @ParameterizedTest(name = "{0}")
   @MethodSource("searchTests")
   void testMatches(SearchTestCase tc) {
@@ -247,7 +237,6 @@ class RE2SearchTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("searchTests")
   void testFind(SearchTestCase tc) {
-    assumeFalse(isKnownBug(tc.pattern()), "SafeRE bug: " + tc.pattern());
     Pattern p;
     try {
       p = Pattern.compile(tc.pattern());

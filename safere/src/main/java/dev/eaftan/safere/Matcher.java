@@ -312,7 +312,12 @@ public final class Matcher implements MatchResult {
     // Only attempt after the first find() call to avoid penalizing single-find workloads with
     // cold reverse DFA construction costs (~3000ns). The reverse DFA is lazily constructed on the
     // second call and cached for all subsequent calls.
-    if (!skipDfa && fwdResult != null && findCallCount > 0) {
+    //
+    // Skip when the forward DFA detected an empty match (earlyEnd == effectiveStart): the
+    // sandwich uses longest-match for the final forward pass, which would incorrectly expand an
+    // empty match into a longer one for nullable patterns like (|a)*.
+    if (!skipDfa && fwdResult != null && findCallCount > 0
+        && fwdResult.pos() > effectiveStart) {
       int earlyEnd = fwdResult.pos();
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {
