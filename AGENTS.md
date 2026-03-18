@@ -41,7 +41,8 @@ Follow the [Google Java Style Guide](https://google.github.io/styleguide/javagui
 ```
 src/main/java/dev/eaftan/safere/   # Library source
 src/test/java/dev/eaftan/safere/   # Tests
-re2-reference/                      # C++ RE2 reference (read-only)
+re2-reference/                     # C++ RE2 reference (read-only)
+re2j-reference/                    # RE2/J (Java) reference (read-only) 
 ```
 
 ## Architecture
