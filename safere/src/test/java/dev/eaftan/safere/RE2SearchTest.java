@@ -225,10 +225,6 @@ class RE2SearchTest {
     if (pattern.contains("\\b")) {
       return true;
     }
-    // SafeRE bug: case-insensitive char range [@-A] doesn't include 'a'
-    if (pattern.contains("(?i)") && pattern.contains("[@-A]")) {
-      return true;
-    }
     // SafeRE bug: nullable alternation in repetition (|a)* matches greedily
     if (pattern.contains("(?:|a)*") || pattern.contains("(?:(|a)*)")) {
       return true;

@@ -1143,6 +1143,8 @@ final class Parser {
    * Look up the case fold entry containing r. Returns the index into CASE_FOLD, or -1 if none
    * contains r. If r is between entries, returns the index of the next entry after r.
    */
+  private static final int CASE_FOLD_NOT_FOUND = Integer.MIN_VALUE;
+
   private static int lookupCaseFold(int r) {
     int[][] cf = UnicodeTables.CASE_FOLD;
     int lo = 0;
@@ -1162,7 +1164,7 @@ final class Parser {
     if (lo < cf.length) {
       return -(lo + 1); // negative to indicate "not found, but next is at lo"
     }
-    return -1; // no entry at all
+    return CASE_FOLD_NOT_FOUND;
   }
 
   /** Returns the result of applying the fold to rune r given the fold entry at index idx. */
@@ -1192,9 +1194,7 @@ final class Parser {
     int[][] cf = UnicodeTables.CASE_FOLD;
     int idx = lookupCaseFold(r);
     if (idx < 0) {
-      if (idx == -1) return r; // no entry at all
-      // idx is -(lo+1), meaning the entry at lo is after r, so r has no fold.
-      return r;
+      return r; // no fold for this rune
     }
     return applyFold(cf[idx], r);
   }
@@ -1216,7 +1216,7 @@ final class Parser {
     while (r <= hi) {
       int idx = lookupCaseFold(r);
       if (idx < 0) {
-        if (idx == -1) break; // no more entries
+        if (idx == CASE_FOLD_NOT_FOUND) break; // no more entries
         // -(lo+1) means entry at that index is above r
         int nextIdx = -(idx + 1);
         if (nextIdx >= cf.length) break;
