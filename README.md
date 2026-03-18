@@ -210,11 +210,14 @@ For `find()` on long texts, SafeRE uses a three-DFA sandwich (like RE2):
 Requires Java 21+ and Maven.
 
 ```bash
-# Build
-mvn compile
+# Build everything (library + benchmarks)
+mvn install
+
+# Build library only
+mvn install -pl safere
 
 # Run tests (1760 tests)
-mvn test
+mvn test -pl safere
 
 # Package
 mvn package
@@ -222,45 +225,46 @@ mvn package
 
 ## Benchmarks
 
-SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite
-comparing against `java.util.regex`.
+SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
+`safere-benchmarks` module, comparing against `java.util.regex`.
 
 ### Running Benchmarks
 
-```bash
-# Build first
-mvn compile test-compile
+First build the uber-jar:
 
+```bash
+mvn package
+```
+
+Then run with `java -jar`:
+
+```bash
 # Run the main comparison benchmark (matching performance)
-mvn exec:java \
-  -Dexec.mainClass="org.openjdk.jmh.Main" \
-  -Dexec.classpathScope=test \
-  -Dexec.args="-f 0 -wi 3 -i 5 -t 1 -tu ns RegexBenchmark"
+java -jar safere-benchmarks/target/benchmarks.jar RegexBenchmark
 
 # Run compilation benchmarks
-mvn exec:java \
-  -Dexec.mainClass="org.openjdk.jmh.Main" \
-  -Dexec.classpathScope=test \
-  -Dexec.args="-f 0 -wi 3 -i 5 -t 1 -tu us CompileBenchmark"
+java -jar safere-benchmarks/target/benchmarks.jar CompileBenchmark
 
 # Run pathological pattern benchmarks (SafeRE only)
-mvn exec:java \
-  -Dexec.mainClass="org.openjdk.jmh.Main" \
-  -Dexec.classpathScope=test \
-  -Dexec.args="-f 0 -wi 3 -i 5 -t 1 -tu us PathologicalBenchmark"
+java -jar safere-benchmarks/target/benchmarks.jar PathologicalBenchmark
 
 # Run pathological comparison (SafeRE vs JDK — warning: JDK will be slow!)
-mvn exec:java \
-  -Dexec.mainClass="org.openjdk.jmh.Main" \
-  -Dexec.classpathScope=test \
-  -Dexec.args="-f 0 -wi 2 -i 3 -t 1 -tu us PathologicalComparisonBenchmark"
+java -jar safere-benchmarks/target/benchmarks.jar PathologicalComparisonBenchmark
+
+# List all available benchmarks
+java -jar safere-benchmarks/target/benchmarks.jar -l
 ```
 
 ### JMH Options
 
+```bash
+java -jar safere-benchmarks/target/benchmarks.jar RegexBenchmark \
+  -f 1 -wi 3 -i 5 -t 1 -tu ns
+```
+
 | Option | Description |
 |---|---|
-| `-f 0` | No fork (faster but noisier; use `-f 1` for stable results) |
+| `-f 1` | 1 fork (default; use `-f 0` for faster but noisier results) |
 | `-wi 3` | 3 warmup iterations |
 | `-i 5` | 5 measurement iterations |
 | `-t 1` | 1 thread |

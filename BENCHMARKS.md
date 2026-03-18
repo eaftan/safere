@@ -5,7 +5,7 @@ pathological patterns that demonstrate backtracking blowup.
 
 **Environment:**
 - JDK: OpenJDK 25.0.2 (targeting Java 21)
-- JMH: 1.37, no fork (`-f 0`), 3 warmup × 2s, 5 measurement × 2s
+- JMH: 1.37, forked JVM via uber-jar (`java -jar safere-benchmarks/target/benchmarks.jar`)
 - Machine: Linux (shared environment — results are indicative, not precise)
 
 ## Matching Performance (ns/op, lower is better)
