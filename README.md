@@ -88,6 +88,46 @@ compile time** with a clear error:
 - **Possessive quantifiers** (`*+`, `++`, `?+`)
 - **Atomic groups** (`(?>...)`)
 
+## Semantic Differences from POSIX and java.util.regex
+
+SafeRE follows RE2/Go semantics, which differ from POSIX and
+`java.util.regex` in a few cases:
+
+### Leftmost-first alternation (vs POSIX leftmost-longest)
+
+POSIX specifies **leftmost-longest** semantics for alternation: among all
+possible matches starting at the same position, the one that matches the
+longest string wins. SafeRE (like RE2) uses **leftmost-first**: the first
+alternate in the pattern that matches wins.
+
+```
+Pattern:  (a|ab|c|bcd)*
+Input:    "abcd"
+
+POSIX:    group 0 = "abcd",  group 1 = "bcd"   (longest alternates)
+SafeRE:   group 0 = "abc",   group 1 = "c"     (first alternates)
+```
+
+This is the same behavior as RE2, RE2/Go, and RE2/J. It also matches the
+behavior of most Perl-compatible engines.
+
+### Nullable subgroup capture in repetitions
+
+When a capturing group inside a repetition can match the empty string, POSIX
+and `java.util.regex` may record different group positions on the final
+(empty-match) iteration:
+
+```
+Pattern:  (a*)*(x)
+Input:    "ax"
+
+java.util.regex:  group 1 = (1,1)   (last iteration: empty match at pos 1)
+SafeRE:           group 1 = (1,1)   (same — captures the empty match)
+POSIX:            group 1 = (0,1)   (records the iteration that matched "a")
+```
+
+SafeRE agrees with `java.util.regex` and RE2/Go here, differing from POSIX.
+
 ## Flags
 
 SafeRE supports the same flag constants as `java.util.regex.Pattern`:
