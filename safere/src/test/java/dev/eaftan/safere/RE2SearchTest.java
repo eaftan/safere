@@ -221,10 +221,6 @@ class RE2SearchTest {
 
   /** Check if a pattern is a known SafeRE bug that should be skipped. */
   private static boolean isKnownBug(String pattern) {
-    // SafeRE bug: \b word boundary doesn't work correctly with find()
-    if (pattern.contains("\\b")) {
-      return true;
-    }
     // SafeRE bug: nullable alternation in repetition (|a)* matches greedily
     if (pattern.contains("(?:|a)*") || pattern.contains("(?:(|a)*)")) {
       return true;

@@ -123,14 +123,19 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if a full match exists.
-    Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
-    if (dfaResult != null && !dfaResult.matched()) {
-      hasMatch = false;
-      return false;
-    }
-    if (dfaResult != null && dfaResult.pos() != text.length()) {
-      hasMatch = false;
-      return false;
+    // Skip DFA for word boundary patterns — the DFA transition cache is incorrect for \b/\B
+    // because word-boundary context depends on both previous and next characters, but transitions
+    // are cached per (state, character-class) without encoding the previous character's word status.
+    if (!prog.hasWordBoundary()) {
+      Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
+      if (dfaResult != null && !dfaResult.matched()) {
+        hasMatch = false;
+        return false;
+      }
+      if (dfaResult != null && dfaResult.pos() != text.length()) {
+        hasMatch = false;
+        return false;
+      }
     }
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
@@ -181,10 +186,13 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    Dfa.SearchResult dfaResult = dfa().doSearch(text, true, false);
-    if (dfaResult != null && !dfaResult.matched()) {
-      hasMatch = false;
-      return false;
+    // Skip DFA for word boundary patterns (see matches() for explanation).
+    if (!prog.hasWordBoundary()) {
+      Dfa.SearchResult dfaResult = dfa().doSearch(text, true, false);
+      if (dfaResult != null && !dfaResult.matched()) {
+        hasMatch = false;
+        return false;
+      }
     }
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
@@ -282,14 +290,19 @@ public final class Matcher implements MatchResult {
     }
 
     Prog prog = parentPattern.prog();
+    boolean skipDfa = prog.hasWordBoundary();
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
-    Dfa.SearchResult fwdResult = dfa().doSearch(text, effectiveStart, false, false);
-    if (fwdResult != null && !fwdResult.matched()) {
-      findCallCount++;
-      hasMatch = false;
-      return false;
+    // Skip DFA for word boundary patterns (see matches() for explanation).
+    Dfa.SearchResult fwdResult = null;
+    if (!skipDfa) {
+      fwdResult = dfa().doSearch(text, effectiveStart, false, false);
+      if (fwdResult != null && !fwdResult.matched()) {
+        findCallCount++;
+        hasMatch = false;
+        return false;
+      }
     }
 
     // Three-DFA sandwich (like RE2): forward DFA found earliest match end above. Now use the
@@ -299,7 +312,7 @@ public final class Matcher implements MatchResult {
     // Only attempt after the first find() call to avoid penalizing single-find workloads with
     // cold reverse DFA construction costs (~3000ns). The reverse DFA is lazily constructed on the
     // second call and cached for all subsequent calls.
-    if (fwdResult != null && findCallCount > 0) {
+    if (!skipDfa && fwdResult != null && findCallCount > 0) {
       int earlyEnd = fwdResult.pos();
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {

@@ -111,6 +111,25 @@ final class Prog {
   }
 
   /**
+   * Returns true if the program contains EMPTY_WIDTH instructions with {@link EmptyOp#WORD_BOUNDARY}
+   * or {@link EmptyOp#NON_WORD_BOUNDARY} flags. The DFA cannot correctly cache transitions for these
+   * assertions because the word-boundary context depends on both the previous and next characters,
+   * but the DFA transition cache keys only on (state, character-class).
+   *
+   * <p>When this returns true, callers should bypass the DFA and use NFA/BitState instead.
+   */
+  public boolean hasWordBoundary() {
+    for (int i = 0; i < instructions.size(); i++) {
+      Inst ip = instructions.get(i);
+      if (ip.op == InstOp.EMPTY_WIDTH
+          && (ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Returns a human-readable dump of the program, useful for debugging.
    *
    * <p>Example output:

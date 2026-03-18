@@ -98,6 +98,14 @@ final class BitState {
       return null; // text too large for BitState
     }
 
+    // Honour the program's anchor flags (the compiler strips ^ and $ and sets flags instead).
+    if (prog.anchorStart()) {
+      anchored = true;
+    }
+    if (prog.anchorEnd()) {
+      endMatch = true;
+    }
+
     int ncap = 2 * Math.max(nsubmatch, 1);
     BitState bs = new BitState(prog, text, ncap, longest, endMatch);
 
