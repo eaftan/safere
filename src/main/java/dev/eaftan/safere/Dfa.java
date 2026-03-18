@@ -540,6 +540,126 @@ final class Dfa {
   }
 
   // ---------------------------------------------------------------------------
+  // Reverse search
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Reverse DFA search: scans backward through text from {@code endPos} to find match start. Used
+   * with a reversed program to find where the leftmost match begins after the forward DFA has
+   * determined where it ends.
+   *
+   * <p>This enables a critical optimization: instead of running the expensive NFA/BitState engine
+   * on the entire remaining text, we can narrow the search to just {@code [matchStart, matchEnd]}.
+   *
+   * @param text the full input text
+   * @param endPos the position to start scanning backward from (exclusive upper bound of the
+   *     match)
+   * @param startLimit the earliest position to scan back to (inclusive), typically 0 or the
+   *     prefix-acceleration start
+   * @param anchored if true, the reverse match must start at {@code endPos} (meaning the forward
+   *     match ends exactly there)
+   * @param longest if true, find the longest reverse match (earliest start position)
+   * @return search result where {@code pos} is the match start position, or {@code null} if the
+   *     DFA exceeded its state budget
+   */
+  SearchResult doSearchReverse(String text, int endPos, int startLimit,
+      boolean anchored, boolean longest) {
+    // The reversed program's "start of text" corresponds to endPos (the right edge of the match
+    // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
+    // endPos backward to startLimit, feeding characters in reverse order.
+    boolean needEndMatch = prog.anchorEnd();
+
+    // Compute empty flags at the reverse start position (= endPos in the original text).
+    State s = startState(text, endPos, anchored);
+    if (s == null) {
+      return null;
+    }
+
+    boolean matched = false;
+    int matchStart = -1;
+
+    // Check if start state is already a match (e.g., empty pattern).
+    if (s.isMatch()) {
+      if (!needEndMatch || endPos == startLimit) {
+        matched = true;
+        matchStart = endPos;
+        if (!longest && !needEndMatch) {
+          return new SearchResult(true, matchStart);
+        }
+      }
+    }
+
+    if (s == deadState) {
+      return new SearchResult(matched, matchStart);
+    }
+
+    int pos = endPos;
+    while (pos >= startLimit) {
+      int cp;
+      int prevPos;
+      int cls;
+      if (pos > startLimit) {
+        // Read the code point just before pos (scanning backward).
+        char ch = text.charAt(pos - 1);
+        if (ch < 128) {
+          // ASCII fast path.
+          cp = ch;
+          prevPos = pos - 1;
+          cls = asciiClassMap[ch];
+        } else if (Character.isLowSurrogate(ch) && pos - 2 >= startLimit
+            && Character.isHighSurrogate(text.charAt(pos - 2))) {
+          // Surrogate pair: the low surrogate is at pos-1, high at pos-2.
+          cp = Character.toCodePoint(text.charAt(pos - 2), ch);
+          prevPos = pos - 2;
+          cls = classOf(cp);
+        } else {
+          cp = ch;
+          prevPos = pos - 1;
+          cls = classOf(cp);
+        }
+      } else {
+        // Reached the start limit — present end-of-text to the reversed DFA.
+        cp = -1;
+        prevPos = startLimit - 1;
+        cls = numClasses - 1;
+      }
+
+      // Try cached transition first.
+      State ns = s.next.get(cls);
+      if (ns == null) {
+        ns = computeNext(s, cp, text, Math.max(prevPos, startLimit));
+        if (ns == null) {
+          return null; // budget exceeded
+        }
+        s.next.set(cls, ns);
+      }
+      s = ns;
+
+      if (s == deadState) {
+        break;
+      }
+
+      if (s.isMatch()) {
+        int startPos = Math.max(prevPos, startLimit);
+        if (!needEndMatch || startPos == startLimit) {
+          matched = true;
+          matchStart = startPos;
+          if (!longest && !needEndMatch) {
+            return new SearchResult(true, matchStart);
+          }
+        }
+      }
+
+      if (pos <= startLimit) {
+        break;
+      }
+      pos = prevPos;
+    }
+
+    return new SearchResult(matched, matchStart);
+  }
+
+  // ---------------------------------------------------------------------------
   // Multi-match search (for PatternSet)
   // ---------------------------------------------------------------------------
 

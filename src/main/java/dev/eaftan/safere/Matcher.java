@@ -46,6 +46,15 @@ public final class Matcher implements MatchResult {
   private Dfa dfa;
 
   /**
+   * Cached reverse DFA instance for match-start bounding, lazily initialized. Construction is
+   * deferred until the second {@code find()} call to avoid penalizing single-find workloads.
+   */
+  private Dfa reverseDfa;
+
+  /** Number of {@code doFind()} calls made so far. Used to gate reverse DFA construction. */
+  private int findCallCount;
+
+  /**
    * Creates a new matcher that will match the given input against the given pattern.
    *
    * @param pattern the pattern to use
@@ -64,6 +73,14 @@ public final class Matcher implements MatchResult {
     return dfa;
   }
 
+  /** Returns the cached reverse DFA instance, creating it on first use. */
+  private Dfa reverseDfa() {
+    if (reverseDfa == null && parentPattern.reverseProg() != null) {
+      reverseDfa = new Dfa(parentPattern.reverseProg(), DEFAULT_MAX_DFA_STATES);
+    }
+    return reverseDfa;
+  }
+
   // ---------------------------------------------------------------------------
   // Core matching methods
   // ---------------------------------------------------------------------------
@@ -75,6 +92,26 @@ public final class Matcher implements MatchResult {
    */
   public boolean matches() {
     searchFrom = 0;
+
+    // Literal fast path: for fully literal patterns with no user capture groups.
+    String literal = parentPattern.literalMatch();
+    if (literal != null && parentPattern.numGroups() == 0) {
+      boolean matched;
+      if (parentPattern.prefixFoldCase()) {
+        matched = text.length() == literal.length()
+            && text.regionMatches(true, 0, literal, 0, literal.length());
+      } else {
+        matched = text.equals(literal);
+      }
+      if (matched) {
+        groups = new int[]{0, text.length()};
+        hasMatch = true;
+      } else {
+        hasMatch = false;
+      }
+      return hasMatch;
+    }
+
     Prog prog = parentPattern.prog();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
@@ -113,6 +150,26 @@ public final class Matcher implements MatchResult {
    */
   public boolean lookingAt() {
     searchFrom = 0;
+
+    // Literal fast path: for fully literal patterns with no user capture groups.
+    String literal = parentPattern.literalMatch();
+    if (literal != null && parentPattern.numGroups() == 0) {
+      boolean matched;
+      if (parentPattern.prefixFoldCase()) {
+        matched = text.length() >= literal.length()
+            && text.regionMatches(true, 0, literal, 0, literal.length());
+      } else {
+        matched = text.startsWith(literal);
+      }
+      if (matched) {
+        groups = new int[]{0, literal.length()};
+        hasMatch = true;
+      } else {
+        hasMatch = false;
+      }
+      return hasMatch;
+    }
+
     Prog prog = parentPattern.prog();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
@@ -187,6 +244,25 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
+    // Literal fast path: for fully literal patterns with no user capture groups,
+    // use String.indexOf() directly.
+    String literal = parentPattern.literalMatch();
+    if (literal != null && parentPattern.numGroups() == 0) {
+      int idx;
+      if (parentPattern.prefixFoldCase()) {
+        idx = indexOfIgnoreCase(text, literal, searchFrom);
+      } else {
+        idx = text.indexOf(literal, searchFrom);
+      }
+      if (idx < 0) {
+        hasMatch = false;
+        return false;
+      }
+      groups = new int[]{idx, idx + literal.length()};
+      hasMatch = true;
+      return true;
+    }
+
     // Prefix acceleration: if the pattern starts with a literal prefix, skip ahead to where
     // that prefix first appears instead of searching from the current position.
     int effectiveStart = searchFrom;
@@ -208,19 +284,61 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
-    // Pass the full text with start offset to avoid substring allocation for the DFA check.
-    Dfa.SearchResult dfaResult = dfa().doSearch(text, effectiveStart, false, false);
-    if (dfaResult != null && !dfaResult.matched()) {
+    // Use longest=false for a quick existence check — this returns the earliest match end.
+    Dfa.SearchResult fwdResult = dfa().doSearch(text, effectiveStart, false, false);
+    if (fwdResult != null && !fwdResult.matched()) {
+      findCallCount++;
       hasMatch = false;
       return false;
     }
 
-    // DFA says match (or bailed out) — extract captures with BitState, then NFA.
-    // Pass a substring to BitState/NFA: their bitmap/allocation costs are proportional to text
-    // length, so shorter text significantly reduces per-call overhead for repeated find().
+    // Three-DFA sandwich (like RE2): forward DFA found earliest match end above. Now use the
+    // reverse DFA to find match start, then a second forward DFA pass (anchored, longest) to find
+    // the actual match end. This lets NFA/BitState run on a tight [start, end] range.
+    //
+    // Only attempt after the first find() call to avoid penalizing single-find workloads with
+    // cold reverse DFA construction costs (~3000ns). The reverse DFA is lazily constructed on the
+    // second call and cached for all subsequent calls.
+    if (fwdResult != null && findCallCount > 0) {
+      int earlyEnd = fwdResult.pos();
+      Dfa revDfa = reverseDfa();
+      if (revDfa != null) {
+        // Step 2: Reverse DFA backward from earliest match end to find match start.
+        Dfa.SearchResult revResult =
+            revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+        if (revResult != null && revResult.matched()) {
+          int matchStart = revResult.pos();
+          // Step 3: Forward DFA anchored at matchStart with longest=true to find actual end.
+          Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
+          if (fwdLongest != null && fwdLongest.matched()) {
+            int matchEnd = fwdLongest.pos();
+            // Step 4: NFA/BitState on tight [matchStart, matchEnd] for captures.
+            String searchText = text.substring(matchStart, matchEnd);
+            int[] result = searchWithBitStateOrNfa(
+                prog, searchText, 0, searchText.length(),
+                true, false, true, prog.numCaptures());
+            if (result != null) {
+              groups = new int[result.length];
+              for (int i = 0; i < result.length; i++) {
+                groups[i] = (result[i] == -1) ? -1 : result[i] + matchStart;
+              }
+              findCallCount++;
+              hasMatch = true;
+              return true;
+            }
+          }
+          // If anchored forward DFA fails, fall through to full search.
+        }
+        // If reverse DFA bails out, fall through to full search.
+      }
+    }
+
+    // Fallback: DFA bailed out or reverse DFA unavailable — extract captures with
+    // BitState/NFA on the substring from effectiveStart.
     String searchText = text.substring(effectiveStart);
     int[] result = searchWithBitStateOrNfa(
         prog, searchText, 0, searchText.length(), false, false, false, prog.numCaptures());
+    findCallCount++;
     if (result == null) {
       hasMatch = false;
       return false;

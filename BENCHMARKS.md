@@ -12,12 +12,12 @@ pathological patterns that demonstrate backtracking blowup.
 
 | Benchmark | SafeRE | JDK | Ratio | Change |
 |---|--:|--:|---|---|
-| Literal match (`"hello"`) | 43 | 23 | 1.9× slower | — |
-| Char class match (`[a-zA-Z]+`) | 382 | 133 | 2.9× slower | ↑ 19% faster |
-| Alternation find (`foo\|bar\|…` ×8) | 13,805 | 857 | 16.1× slower | ↑ 51% faster |
-| Capture groups (`(\d{4})-(\d{2})-(\d{2})`) | 100 | 112 | **1.1× faster** | — |
-| Find -ing words in prose (~350 chars) | 75,219 | 5,616 | 13.4× slower | — |
-| Email pattern find | 8,184 | 555 | 14.7× slower | ↑ 35% faster |
+| Literal match (`"hello"`) | 3 | 25 | **9× faster** | ↑ literal fast path |
+| Char class match (`[a-zA-Z]+`) | 395 | 149 | 2.6× slower | ↑ 19% faster |
+| Alternation find (`foo\|bar\|…` ×8) | 14,232 | 1,042 | 13.7× slower | ↑ 51% faster |
+| Capture groups (`(\d{4})-(\d{2})-(\d{2})`) | 101 | 114 | **1.1× faster** | — |
+| Find -ing words in prose (~350 chars) | 38,229 | 5,940 | 6.4× slower | ↑ 49% faster |
+| Email pattern find | 8,301 | 891 | 9.3× slower | ↑ 35% faster |
 
 *"Change" column compares to the initial baseline before optimizations.*
 
@@ -60,10 +60,12 @@ Growth is linear: 10× increase in n → ~7× increase in time.
 
 ## Analysis
 
-**Normal patterns:** SafeRE is 2–16× slower than `java.util.regex` on common
-workloads. The optimization round closed the gap significantly: alternation find
-improved 51% (30× → 16× vs JDK), email find improved 35% (20× → 15× vs JDK),
-and char class matching improved 19%.
+**Normal patterns:** SafeRE is 3–14× slower than `java.util.regex` on common
+find workloads, but **9× faster** for literal matching thanks to the
+`String.indexOf()` fast path. The optimization rounds closed the gap
+substantially: find-in-text improved 49% (via reverse DFA bounding),
+alternation find improved 51%, email find improved 35%, and char class
+improved 19%.
 
 **Pathological patterns:** SafeRE delivers on its core promise — **guaranteed
 linear time**. On `a?{20}a{20}`, SafeRE is 260,000× faster than the JDK,
@@ -72,7 +74,7 @@ completes in under 0.2 µs.
 
 **Compilation:** SafeRE is ~10–20× slower to compile patterns. This is because
 SafeRE performs more work upfront (parse → simplify → compile → build OnePass
-automaton), while the JDK defers much of its work to match time.
+automaton + reverse program), while the JDK defers much of its work to match time.
 
 ## Optimizations Applied
 
@@ -86,17 +88,19 @@ automaton), while the JDK defers much of its work to match time.
    parameter, eliminating substring creation for the DFA check.
 5. **Search limit support** — BitState and NFA accept a `searchLimit` parameter
    bounding where new search threads start.
+6. **Literal fast path** — Fully literal patterns bypass all regex engines and use
+   `String.indexOf()` / `String.equals()` directly (9× faster than JDK).
+7. **Reverse DFA bounding** — Three-DFA sandwich: forward DFA finds match end,
+   reverse DFA finds match start, then NFA runs on just the match range. Reduces
+   BitState allocation from ~34KB to <1KB for typical find-in-text workloads.
+   Gated behind a call counter to avoid penalizing single-find workloads.
 
 ## Remaining Opportunities
 
-- **BitState allocation** — BitState allocates bitmaps proportional to text length.
-  For repeated `find()` on long texts, this is the dominant cost. A cached/reusable
-  BitState instance per Matcher would help.
-- **Reverse DFA** — RE2 uses a reverse DFA to find match start after the forward
-  DFA finds match end. This would allow bounded capture extraction on a small
-  substring, avoiding the full-text BitState cost.
 - **Compilation** — Pattern compilation is 10–20× slower than JDK. Opportunities
   include caching parsed Regexp trees and lazy OnePass/DFA construction.
+- **BitState caching** — A reusable BitState instance per Matcher would further
+  reduce allocation on repeated `find()` calls.
 
 ---
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-18*

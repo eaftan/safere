@@ -92,10 +92,13 @@ public final class Pattern implements Serializable {
   private final transient OnePass onePass;
   private final transient String prefix;
   private final transient boolean prefixFoldCase;
+  private final transient Prog reverseProg;
+  private final transient String literalMatch;
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, OnePass onePass,
-      String prefix, boolean prefixFoldCase) {
+      String prefix, boolean prefixFoldCase, Prog reverseProg,
+      String literalMatch) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -104,6 +107,8 @@ public final class Pattern implements Serializable {
     this.onePass = onePass;
     this.prefix = prefix;
     this.prefixFoldCase = prefixFoldCase;
+    this.reverseProg = reverseProg;
+    this.literalMatch = literalMatch;
   }
 
   /**
@@ -134,12 +139,15 @@ public final class Pattern implements Serializable {
     int parseFlags = toParseFlags(flags);
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
+    Prog reverseProg = Compiler.compile(re, true);
     Map<String, Integer> named = extractNamedGroups(re);
     OnePass op = OnePass.build(compiled);
     PrefixResult prefixResult = extractPrefix(re);
     String prefix = prefixResult.prefix();
     boolean prefixFoldCase = prefixResult.foldCase();
-    return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase);
+    String literalMatch = extractLiteralMatch(re);
+    return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
+        reverseProg, literalMatch);
   }
 
   /**
@@ -315,6 +323,28 @@ public final class Pattern implements Serializable {
     return prefixFoldCase;
   }
 
+  /**
+   * Returns the reverse-compiled program for backward DFA matching, or {@code null} if reverse
+   * compilation failed.
+   */
+  Prog reverseProg() {
+    return reverseProg;
+  }
+
+  /**
+   * Returns the full literal string for patterns that are entirely literal (no metacharacters),
+   * or {@code null} if the pattern is not fully literal. For case-insensitive patterns, returns
+   * the lowercase version.
+   */
+  String literalMatch() {
+    return literalMatch;
+  }
+
+  /** Returns {@code true} if this pattern is a simple literal with no metacharacters. */
+  boolean isLiteral() {
+    return literalMatch != null;
+  }
+
   /** Returns the parsed AST. */
   Regexp ast() {
     return ast;
@@ -459,6 +489,76 @@ public final class Pattern implements Serializable {
 
     String prefix = foldCase ? sb.toString().toLowerCase() : sb.toString();
     return new PrefixResult(prefix, foldCase);
+  }
+
+  /**
+   * Extracts a literal match string from the AST if the pattern is entirely literal (no
+   * metacharacters, no quantifiers, no alternation). Sees through CAPTURE wrappers (group 0 is
+   * implicit) and handles LITERAL, LITERAL_STRING, and CONCAT of literals.
+   *
+   * @return the literal string to match, or {@code null} if the pattern is not fully literal
+   */
+  private static String extractLiteralMatch(Regexp re) {
+    Regexp node = re;
+
+    // Unwrap outer CAPTURE (group 0).
+    while (node != null && node.op == RegexpOp.CAPTURE) {
+      node = node.sub();
+    }
+    if (node == null) {
+      return null;
+    }
+
+    boolean foldCase = (node.flags & ParseFlags.FOLD_CASE) != 0;
+    StringBuilder sb = new StringBuilder();
+
+    switch (node.op) {
+      case LITERAL -> sb.appendCodePoint(node.rune);
+      case LITERAL_STRING -> {
+        if (node.runes != null) {
+          for (int r : node.runes) {
+            sb.appendCodePoint(r);
+          }
+        }
+      }
+      case CONCAT -> {
+        for (Regexp child : node.subs) {
+          // Each child must be LITERAL or LITERAL_STRING (not wrapped in CAPTURE etc.)
+          Regexp c = child;
+          while (c != null && c.op == RegexpOp.CAPTURE) {
+            c = c.sub();
+          }
+          if (c == null) {
+            return null;
+          }
+          boolean childFoldCase = (c.flags & ParseFlags.FOLD_CASE) != 0;
+          if (childFoldCase != foldCase) {
+            return null;
+          }
+          if (c.op == RegexpOp.LITERAL) {
+            sb.appendCodePoint(c.rune);
+          } else if (c.op == RegexpOp.LITERAL_STRING && c.runes != null) {
+            for (int r : c.runes) {
+              sb.appendCodePoint(r);
+            }
+          } else {
+            return null;
+          }
+        }
+      }
+      case EMPTY_MATCH -> {
+        // Empty pattern matches empty string.
+        return "";
+      }
+      default -> {
+        return null;
+      }
+    }
+
+    if (sb.isEmpty()) {
+      return "";
+    }
+    return foldCase ? sb.toString().toLowerCase() : sb.toString();
   }
 
   /** Deserialization: recompile the pattern from the stored string and flags. */
