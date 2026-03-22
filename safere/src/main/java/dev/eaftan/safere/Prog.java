@@ -3,6 +3,7 @@
 
 package dev.eaftan.safere;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -157,5 +158,91 @@ final class Prog {
     return String.format(
         "Prog{size=%d, start=%d, startUnanchored=%d, captures=%d}",
         size(), start, startUnanchored, numCaptures);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Epsilon-cycle analysis for BitState
+  // ---------------------------------------------------------------------------
+
+  private boolean[] epsilonCycleAlts;
+
+  /**
+   * Returns a boolean array indexed by instruction ID. An entry is {@code true} if that instruction
+   * is an ALT/ALT_MATCH that participates in an epsilon cycle — a path back to itself through only
+   * epsilon transitions (ALT, NOP, CAPTURE, EMPTY_WIDTH). Only these ALT instructions need the
+   * BitState visited bitmap to prevent infinite loops; other ALTs can be safely revisited from
+   * different DFS paths.
+   *
+   * <p>The result is computed once and cached.
+   */
+  boolean[] epsilonCycleAlts() {
+    if (epsilonCycleAlts == null) {
+      epsilonCycleAlts = computeEpsilonCycleAlts();
+    }
+    return epsilonCycleAlts;
+  }
+
+  private boolean[] computeEpsilonCycleAlts() {
+    int n = instructions.size();
+    boolean[] inCycle = new boolean[n];
+
+    for (int i = 0; i < n; i++) {
+      Inst inst = instructions.get(i);
+      if (inst.op != InstOp.ALT && inst.op != InstOp.ALT_MATCH) {
+        continue;
+      }
+      if (canReachSelfViaEpsilon(i)) {
+        inCycle[i] = true;
+      }
+    }
+    return inCycle;
+  }
+
+  /**
+   * Returns true if instruction {@code target} can reach itself via a path that consists entirely of
+   * epsilon transitions (ALT, ALT_MATCH, NOP, CAPTURE, EMPTY_WIDTH). CHAR_RANGE and MATCH consume
+   * input or terminate, so they break any epsilon path.
+   */
+  private boolean canReachSelfViaEpsilon(int target) {
+    int n = instructions.size();
+    boolean[] visited = new boolean[n];
+    ArrayDeque<Integer> stack = new ArrayDeque<>();
+
+    // Seed with epsilon successors of target (don't count target itself as a starting node).
+    addEpsilonSuccessors(target, visited, stack);
+
+    while (!stack.isEmpty()) {
+      int id = stack.pop();
+      if (id == target) {
+        return true;
+      }
+      addEpsilonSuccessors(id, visited, stack);
+    }
+    return false;
+  }
+
+  private void addEpsilonSuccessors(int id, boolean[] visited, ArrayDeque<Integer> stack) {
+    Inst inst = instructions.get(id);
+    switch (inst.op) {
+      case ALT, ALT_MATCH -> {
+        if (inst.out > 0 && !visited[inst.out]) {
+          visited[inst.out] = true;
+          stack.push(inst.out);
+        }
+        if (inst.out1 > 0 && !visited[inst.out1]) {
+          visited[inst.out1] = true;
+          stack.push(inst.out1);
+        }
+      }
+      case NOP, CAPTURE, EMPTY_WIDTH -> {
+        if (inst.out > 0 && !visited[inst.out]) {
+          visited[inst.out] = true;
+          stack.push(inst.out);
+        }
+      }
+      default -> {
+        // CHAR_RANGE, MATCH, FAIL: not epsilon transitions.
+      }
+    }
   }
 }

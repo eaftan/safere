@@ -139,6 +139,9 @@ final class BitState {
   private final long[] visited;
   private final int textSlots; // textLen + 1
 
+  /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
+  private final boolean[] cycleAlts;
+
   /** Current capture registers. */
   private final int[] cap;
 
@@ -160,6 +163,7 @@ final class BitState {
     this.endMatch = endMatch || prog.anchorEnd();
     this.ncap = ncap;
     this.textSlots = textLen + 1;
+    this.cycleAlts = prog.epsilonCycleAlts();
 
     int totalBits = prog.size() * textSlots;
     this.visited = new long[(totalBits + 63) / 64];
@@ -174,28 +178,36 @@ final class BitState {
   }
 
   /**
-   * Returns true if (instId, pos) should be explored; marks ALT instructions as visited.
+   * Returns true if (instId, pos) should be explored; marks epsilon-cycle ALTs as visited.
    *
-   * <p>Only ALT/ALT_MATCH instructions use the visited bitmap. These are the only instructions
-   * that branch (two outgoing edges) and can form cycles in the epsilon graph. All other
-   * instruction types are safe to revisit:
+   * <p>Only ALT/ALT_MATCH instructions that participate in epsilon cycles use the visited bitmap.
+   * An epsilon cycle is a path from an ALT back to itself through only epsilon transitions (ALT,
+   * NOP, CAPTURE, EMPTY_WIDTH) — without any CHAR_RANGE to consume input. Only these can cause
+   * infinite loops.
+   *
+   * <p>Non-cycle ALTs can be safely revisited. This is critical for nested quantifiers where an
+   * inner repetition (e.g., {@code .+?}) and an outer repetition (e.g., {@code *}) share the same
+   * ALT entry instruction. If the visited bitmap blocked the shared ALT, the outer repetition could
+   * not re-enter its body, causing a premature match.
+   *
+   * <p>All other instruction types are always revisitable:
    *
    * <ul>
    *   <li>MATCH — terminal, no outgoing edges
    *   <li>FAIL — terminal, no outgoing edges
-   *   <li>CAPTURE, NOP, EMPTY_WIDTH — epsilon with a single outgoing edge, cannot form cycles
+   *   <li>CAPTURE, NOP, EMPTY_WIDTH — epsilon with a single outgoing edge, cannot form cycles alone
    *   <li>CHAR_RANGE — consumes input (advances position), cannot form cycles
    * </ul>
-   *
-   * <p>This ensures that when multiple paths through the program reach the same continuation
-   * instruction (e.g., quest skip vs body exit in unrolled counted repetitions), the path with
-   * correct capture state is not blocked by the visited bitmap.
    */
   private boolean shouldVisit(int instId, int pos) {
     InstOp op = prog.inst(instId).op;
     if (op != InstOp.ALT && op != InstOp.ALT_MATCH) {
       return true;
     }
+    if (!cycleAlts[instId]) {
+      return true; // non-cycle ALT: safe to revisit
+    }
+    // Cycle ALT: use visited bitmap to prevent infinite epsilon loops.
     int bit = instId * textSlots + pos;
     int word = bit / 64;
     long mask = 1L << (bit % 64);
