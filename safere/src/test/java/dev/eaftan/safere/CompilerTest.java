@@ -5,6 +5,8 @@ package dev.eaftan.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Compiler}. */
@@ -23,376 +25,389 @@ class CompilerTest {
     return Compiler.compile(re);
   }
 
-  // ---- Simple literals ----
+  // ---------------------------------------------------------------------------
+  // Literals
+  // ---------------------------------------------------------------------------
 
-  @Test
-  void compileSingleLiteral() {
-    Prog prog = compile("a");
-    assertThat(prog).isNotNull();
-    assertThat(prog.size()).isGreaterThan(1);
-    // Should contain a CHAR_RANGE for 'a' and a MATCH
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
+  @Nested
+  @DisplayName("Literals")
+  class Literals {
 
-  @Test
-  void compileTwoLiterals() {
-    Prog prog = compile("ab");
-    assertThat(prog).isNotNull();
-    // At least two CHAR_RANGE instructions (one for 'a', one for 'b') + MATCH
-    int charRangeCount = countInstOp(prog, InstOp.CHAR_RANGE);
-    assertThat(charRangeCount).isGreaterThanOrEqualTo(2);
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
-
-  @Test
-  void compileThreeLiterals() {
-    Prog prog = compile("abc");
-    assertThat(prog).isNotNull();
-    int charRangeCount = countInstOp(prog, InstOp.CHAR_RANGE);
-    assertThat(charRangeCount).isGreaterThanOrEqualTo(3);
-  }
-
-  // ---- Alternation ----
-
-  @Test
-  void compileAlternation() {
-    Prog prog = compile("a|b");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
-
-  @Test
-  void compileMultiAlternation() {
-    Prog prog = compile("a|b|c");
-    assertThat(prog).isNotNull();
-    // Should have at least one ALT for the multiple branches
-    assertHasInstOp(prog, InstOp.ALT);
-  }
-
-  // ---- Quantifiers ----
-
-  @Test
-  void compileStar() {
-    Prog prog = compile("a*");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compileStarNonGreedy() {
-    Prog prog = compile("a*?");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compilePlus() {
-    Prog prog = compile("a+");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compilePlusNonGreedy() {
-    Prog prog = compile("a+?");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compileQuest() {
-    Prog prog = compile("a?");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compileQuestNonGreedy() {
-    Prog prog = compile("a??");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  // ---- Character classes ----
-
-  @Test
-  void compileCharClassRange() {
-    Prog prog = compile("[a-z]");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    // Should have a CHAR_RANGE covering 'a' to 'z'
-    assertHasCharRange(prog, 'a', 'z');
-  }
-
-  @Test
-  void compileCharClassEnumeration() {
-    Prog prog = compile("[abc]");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compileNegatedCharClass() {
-    Prog prog = compile("[^a]");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    // Should have multiple ranges for negation
-    int count = countInstOp(prog, InstOp.CHAR_RANGE);
-    assertThat(count).isGreaterThanOrEqualTo(1);
-  }
-
-  // ---- Captures ----
-
-  @Test
-  void compileSingleCapture() {
-    Prog prog = compile("(a)");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CAPTURE);
-    // Capture instructions come in pairs (start and end)
-    int captureCount = countInstOp(prog, InstOp.CAPTURE);
-    assertThat(captureCount).isEqualTo(2);
-    assertThat(prog.numCaptures()).isEqualTo(2);
-  }
-
-  @Test
-  void compileMultiCapture() {
-    Prog prog = compile("(a)(b)");
-    assertThat(prog).isNotNull();
-    int captureCount = countInstOp(prog, InstOp.CAPTURE);
-    assertThat(captureCount).isEqualTo(4); // 2 pairs
-    assertThat(prog.numCaptures()).isEqualTo(3); // group 0 (full match) + groups 1,2
-  }
-
-  @Test
-  void compileNonCapturingGroup() {
-    Prog prog = compile("(?:a)");
-    assertThat(prog).isNotNull();
-    // Should NOT have CAPTURE instructions
-    int captureCount = countInstOp(prog, InstOp.CAPTURE);
-    assertThat(captureCount).isEqualTo(0);
-  }
-
-  // ---- Empty width assertions ----
-
-  @Test
-  void compileBeginLine() {
-    Prog prog = compile("^a");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.EMPTY_WIDTH);
-  }
-
-  @Test
-  void compileEndLine() {
-    Prog prog = compile("a$");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.EMPTY_WIDTH);
-  }
-
-  @Test
-  void compileWordBoundary() {
-    Prog prog = compile("\\ba\\b");
-    assertThat(prog).isNotNull();
-    int emptyCount = countInstOp(prog, InstOp.EMPTY_WIDTH);
-    assertThat(emptyCount).isGreaterThanOrEqualTo(2);
-  }
-
-  // ---- Any char ----
-
-  @Test
-  void compileAnyChar() {
-    Prog prog = compile(".");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  @Test
-  void compileAnyCharWithDotNl() {
-    Prog prog = compile(".", DEFAULT_FLAGS | ParseFlags.DOT_NL);
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-  }
-
-  // ---- Complex patterns ----
-
-  @Test
-  void compileComplexPattern() {
-    Prog prog = compile("a(b|c)*d");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.ALT);
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    assertHasInstOp(prog, InstOp.CAPTURE);
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
-
-  @Test
-  void compileDigitsAndDot() {
-    Prog prog = compile("(\\d+\\.\\d+)");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CAPTURE);
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
-
-  // ---- Empty pattern ----
-
-  @Test
-  void compileEmptyPattern() {
-    Prog prog = compile("");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
-
-  // ---- Anchor detection ----
-
-  @Test
-  void anchoredStartPattern() {
-    // \A is BEGIN_TEXT, which anchors at start.
-    Prog prog = compile("\\Aabc");
-    assertThat(prog).isNotNull();
-    assertThat(prog.anchorStart()).isTrue();
-    // Start and startUnanchored should be the same when anchored at start
-    assertThat(prog.start()).isEqualTo(prog.startUnanchored());
-  }
-
-  @Test
-  void anchoredEndPattern() {
-    Prog prog = compile("abc\\z");
-    assertThat(prog).isNotNull();
-    assertThat(prog.anchorEnd()).isTrue();
-  }
-
-  @Test
-  void fullyAnchoredPattern() {
-    Prog prog = compile("\\Aabc\\z");
-    assertThat(prog).isNotNull();
-    assertThat(prog.anchorStart()).isTrue();
-    assertThat(prog.anchorEnd()).isTrue();
-  }
-
-  @Test
-  void unanchoredPatternHasDotStar() {
-    Prog prog = compile("abc");
-    assertThat(prog).isNotNull();
-    assertThat(prog.anchorStart()).isFalse();
-    // start and startUnanchored should differ because there's a dotstar prefix
-    assertThat(prog.startUnanchored()).isNotEqualTo(prog.start());
-  }
-
-  // ---- Instruction count ----
-
-  @Test
-  void reasonableInstructionCount() {
-    Prog prog = compile("a");
-    assertThat(prog).isNotNull();
-    // Single literal 'a' should not produce a huge number of instructions
-    // Fail + dotstar loop (ALT, CHAR_RANGE×2) + CHAR_RANGE for 'a' + MATCH = ~6-8 is reasonable
-    assertThat(prog.size()).isLessThan(20);
-  }
-
-  @Test
-  void largerPatternReasonableSize() {
-    Prog prog = compile("[a-zA-Z_][a-zA-Z0-9_]*");
-    assertThat(prog).isNotNull();
-    assertThat(prog.size()).isLessThan(100);
-  }
-
-  // ---- Repeated quantifiers ----
-
-  @Test
-  void compileFixedRepeat() {
-    // After simplification, a{3} becomes aaa
-    Prog prog = compile("a{3}");
-    assertThat(prog).isNotNull();
-    int charRangeCount = countInstOp(prog, InstOp.CHAR_RANGE);
-    assertThat(charRangeCount).isGreaterThanOrEqualTo(3);
-  }
-
-  @Test
-  void compileBoundedRepeat() {
-    Prog prog = compile("a{2,4}");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    assertHasInstOp(prog, InstOp.MATCH);
-  }
-
-  // ---- Program dump ----
-
-  @Test
-  void dumpContainsMeaningfulOutput() {
-    Prog prog = compile("a");
-    assertThat(prog).isNotNull();
-    String dump = prog.dump();
-    assertThat(dump).isNotEmpty();
-    assertThat(dump).contains("match");
-  }
-
-  // ---- Case-insensitive ----
-
-  @Test
-  void compileCaseInsensitive() {
-    Prog prog = compile("(?i)abc");
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    // Should have foldCase CHAR_RANGE instructions
-    boolean hasFoldCase = false;
-    for (int i = 0; i < prog.size(); i++) {
-      Inst inst = prog.inst(i);
-      if (inst.op == InstOp.CHAR_RANGE && inst.foldCase) {
-        hasFoldCase = true;
-        break;
-      }
+    @Test
+    void compileSingleLiteral() {
+      Prog prog = compile("a");
+      assertThat(prog).isNotNull();
+      assertThat(prog.size()).isGreaterThan(1);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      assertHasInstOp(prog, InstOp.MATCH);
     }
-    assertThat(hasFoldCase).isTrue();
+
+    @Test
+    void compileTwoLiterals() {
+      Prog prog = compile("ab");
+      assertThat(prog).isNotNull();
+      int charRangeCount = countInstOp(prog, InstOp.CHAR_RANGE);
+      assertThat(charRangeCount).isGreaterThanOrEqualTo(2);
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
+
+    @Test
+    void compileThreeLiterals() {
+      Prog prog = compile("abc");
+      assertThat(prog).isNotNull();
+      int charRangeCount = countInstOp(prog, InstOp.CHAR_RANGE);
+      assertThat(charRangeCount).isGreaterThanOrEqualTo(3);
+    }
+
+    @Test
+    void compileEmptyPattern() {
+      Prog prog = compile("");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
   }
 
-  // ---- Unicode characters ----
+  // ---------------------------------------------------------------------------
+  // Alternation
+  // ---------------------------------------------------------------------------
 
-  @Test
-  void compileUnicodeCharacter() {
-    // Compile a pattern with a non-ASCII Unicode character
-    Prog prog = compile("\\x{1F600}"); // emoji
-    assertThat(prog).isNotNull();
-    assertHasInstOp(prog, InstOp.CHAR_RANGE);
-    assertHasInstOp(prog, InstOp.MATCH);
+  @Nested
+  @DisplayName("Alternation")
+  class Alternation {
+
+    @Test
+    void compileAlternation() {
+      Prog prog = compile("a|b");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
+
+    @Test
+    void compileMultiAlternation() {
+      Prog prog = compile("a|b|c");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+    }
   }
 
-  // ---- Reversed compilation ----
+  // ---------------------------------------------------------------------------
+  // Quantifiers
+  // ---------------------------------------------------------------------------
 
-  @Test
-  void compileReversed() {
-    Regexp re = Parser.parse("ab", DEFAULT_FLAGS);
-    Prog prog = Compiler.compile(re, true);
-    assertThat(prog).isNotNull();
-    assertThat(prog.reversed()).isTrue();
+  @Nested
+  @DisplayName("Quantifiers")
+  class Quantifiers {
+
+    @Test
+    void compileStar() {
+      Prog prog = compile("a*");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compileStarNonGreedy() {
+      Prog prog = compile("a*?");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compilePlus() {
+      Prog prog = compile("a+");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compilePlusNonGreedy() {
+      Prog prog = compile("a+?");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compileQuest() {
+      Prog prog = compile("a?");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compileQuestNonGreedy() {
+      Prog prog = compile("a??");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compileFixedRepeat() {
+      Prog prog = compile("a{3}");
+      assertThat(prog).isNotNull();
+      int charRangeCount = countInstOp(prog, InstOp.CHAR_RANGE);
+      assertThat(charRangeCount).isGreaterThanOrEqualTo(3);
+    }
+
+    @Test
+    void compileBoundedRepeat() {
+      Prog prog = compile("a{2,4}");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
   }
 
-  // ---- Nested groups ----
+  // ---------------------------------------------------------------------------
+  // Character classes
+  // ---------------------------------------------------------------------------
 
-  @Test
-  void compileNestedGroups() {
-    Prog prog = compile("((a)(b))");
-    assertThat(prog).isNotNull();
-    // 3 capturing groups plus the implicit group 0
-    assertThat(prog.numCaptures()).isEqualTo(4);
+  @Nested
+  @DisplayName("Character classes")
+  class CharClasses {
+
+    @Test
+    void compileCharClassRange() {
+      Prog prog = compile("[a-z]");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      assertHasCharRange(prog, 'a', 'z');
+    }
+
+    @Test
+    void compileCharClassEnumeration() {
+      Prog prog = compile("[abc]");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compileNegatedCharClass() {
+      Prog prog = compile("[^a]");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      int count = countInstOp(prog, InstOp.CHAR_RANGE);
+      assertThat(count).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    void compileAnyChar() {
+      Prog prog = compile(".");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
+
+    @Test
+    void compileAnyCharWithDotNl() {
+      Prog prog = compile(".", DEFAULT_FLAGS | ParseFlags.DOT_NL);
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+    }
   }
 
-  // ---- toString ----
+  // ---------------------------------------------------------------------------
+  // Captures
+  // ---------------------------------------------------------------------------
 
-  @Test
-  void progToStringNotNull() {
-    Prog prog = compile("a+");
-    assertThat(prog).isNotNull();
-    assertThat(prog.toString()).isNotNull();
+  @Nested
+  @DisplayName("Captures")
+  class Captures {
+
+    @Test
+    void compileSingleCapture() {
+      Prog prog = compile("(a)");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CAPTURE);
+      int captureCount = countInstOp(prog, InstOp.CAPTURE);
+      assertThat(captureCount).isEqualTo(2);
+      assertThat(prog.numCaptures()).isEqualTo(2);
+    }
+
+    @Test
+    void compileMultiCapture() {
+      Prog prog = compile("(a)(b)");
+      assertThat(prog).isNotNull();
+      int captureCount = countInstOp(prog, InstOp.CAPTURE);
+      assertThat(captureCount).isEqualTo(4);
+      assertThat(prog.numCaptures()).isEqualTo(3);
+    }
+
+    @Test
+    void compileNonCapturingGroup() {
+      Prog prog = compile("(?:a)");
+      assertThat(prog).isNotNull();
+      int captureCount = countInstOp(prog, InstOp.CAPTURE);
+      assertThat(captureCount).isEqualTo(0);
+    }
+
+    @Test
+    void compileNestedGroups() {
+      Prog prog = compile("((a)(b))");
+      assertThat(prog).isNotNull();
+      assertThat(prog.numCaptures()).isEqualTo(4);
+    }
   }
 
-  // ---- Helper methods ----
+  // ---------------------------------------------------------------------------
+  // Anchors and empty-width assertions
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("Anchors and assertions")
+  class Anchors {
+
+    @Test
+    void compileBeginLine() {
+      Prog prog = compile("^a");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.EMPTY_WIDTH);
+    }
+
+    @Test
+    void compileEndLine() {
+      Prog prog = compile("a$");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.EMPTY_WIDTH);
+    }
+
+    @Test
+    void compileWordBoundary() {
+      Prog prog = compile("\\ba\\b");
+      assertThat(prog).isNotNull();
+      int emptyCount = countInstOp(prog, InstOp.EMPTY_WIDTH);
+      assertThat(emptyCount).isGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    void anchoredStartPattern() {
+      Prog prog = compile("\\Aabc");
+      assertThat(prog).isNotNull();
+      assertThat(prog.anchorStart()).isTrue();
+      assertThat(prog.start()).isEqualTo(prog.startUnanchored());
+    }
+
+    @Test
+    void anchoredEndPattern() {
+      Prog prog = compile("abc\\z");
+      assertThat(prog).isNotNull();
+      assertThat(prog.anchorEnd()).isTrue();
+    }
+
+    @Test
+    void fullyAnchoredPattern() {
+      Prog prog = compile("\\Aabc\\z");
+      assertThat(prog).isNotNull();
+      assertThat(prog.anchorStart()).isTrue();
+      assertThat(prog.anchorEnd()).isTrue();
+    }
+
+    @Test
+    void unanchoredPatternHasDotStar() {
+      Prog prog = compile("abc");
+      assertThat(prog).isNotNull();
+      assertThat(prog.anchorStart()).isFalse();
+      assertThat(prog.startUnanchored()).isNotEqualTo(prog.start());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Complex patterns, flags, and output
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("Complex patterns and flags")
+  class Complex {
+
+    @Test
+    void compileComplexPattern() {
+      Prog prog = compile("a(b|c)*d");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.ALT);
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      assertHasInstOp(prog, InstOp.CAPTURE);
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
+
+    @Test
+    void compileDigitsAndDot() {
+      Prog prog = compile("(\\d+\\.\\d+)");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CAPTURE);
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
+
+    @Test
+    void compileCaseInsensitive() {
+      Prog prog = compile("(?i)abc");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      boolean hasFoldCase = false;
+      for (int i = 0; i < prog.size(); i++) {
+        Inst inst = prog.inst(i);
+        if (inst.op == InstOp.CHAR_RANGE && inst.foldCase) {
+          hasFoldCase = true;
+          break;
+        }
+      }
+      assertThat(hasFoldCase).isTrue();
+    }
+
+    @Test
+    void compileUnicodeCharacter() {
+      Prog prog = compile("\\x{1F600}");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_RANGE);
+      assertHasInstOp(prog, InstOp.MATCH);
+    }
+
+    @Test
+    void compileReversed() {
+      Regexp re = Parser.parse("ab", DEFAULT_FLAGS);
+      Prog prog = Compiler.compile(re, true);
+      assertThat(prog).isNotNull();
+      assertThat(prog.reversed()).isTrue();
+    }
+
+    @Test
+    void reasonableInstructionCount() {
+      Prog prog = compile("a");
+      assertThat(prog).isNotNull();
+      assertThat(prog.size()).isLessThan(20);
+    }
+
+    @Test
+    void largerPatternReasonableSize() {
+      Prog prog = compile("[a-zA-Z_][a-zA-Z0-9_]*");
+      assertThat(prog).isNotNull();
+      assertThat(prog.size()).isLessThan(100);
+    }
+
+    @Test
+    void dumpContainsMeaningfulOutput() {
+      Prog prog = compile("a");
+      assertThat(prog).isNotNull();
+      String dump = prog.dump();
+      assertThat(dump).isNotEmpty();
+      assertThat(dump).contains("match");
+    }
+
+    @Test
+    void progToStringNotNull() {
+      Prog prog = compile("a+");
+      assertThat(prog).isNotNull();
+      assertThat(prog.toString()).isNotNull();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helper methods
+  // ---------------------------------------------------------------------------
 
   private static void assertHasInstOp(Prog prog, InstOp op) {
     boolean found = false;

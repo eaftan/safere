@@ -31,7 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * on match/no-match.
  */
 @DisplayName("DFA vs NFA consistency")
-class DfaNfaConsistencyTest {
+class DfaNfaTest {
 
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
