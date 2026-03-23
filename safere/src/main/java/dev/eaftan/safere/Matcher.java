@@ -352,20 +352,16 @@ public final class Matcher implements MatchResult {
     }
 
     // Fallback: DFA bailed out or reverse DFA unavailable — extract captures with
-    // BitState/NFA on the substring from effectiveStart.
-    String searchText = text.substring(effectiveStart);
+    // BitState/NFA on the full text from effectiveStart. Pass the full text (not a substring)
+    // to avoid O(n) string copy and position-adjustment overhead.
     int[] result = searchWithBitStateOrNfa(
-        prog, searchText, 0, searchText.length(), false, false, false, prog.numCaptures());
+        prog, text, effectiveStart, text.length(), false, false, false, prog.numCaptures());
     findCallCount++;
     if (result == null) {
       hasMatch = false;
       return false;
     }
-    // Adjust positions to be relative to the original text.
-    groups = new int[result.length];
-    for (int i = 0; i < result.length; i++) {
-      groups[i] = (result[i] == -1) ? -1 : result[i] + effectiveStart;
-    }
+    groups = result;
     hasMatch = true;
     return true;
   }
