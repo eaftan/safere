@@ -462,4 +462,76 @@ class PatternSetTest {
       assertThat(set.match("abc")).isEmpty();
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Tests ported from RE2 C++ set_test.cc (P3)
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("RE2 C++ set_test.cc ports")
+  class RE2SetTests {
+
+    @Test
+    @DisplayName("Unanchored with overlapping factored patterns")
+    void unanchoredFactored() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("foo");
+      b.add("foobar");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("foobar")).containsExactly(0, 1);
+      assertThat(set.match("obarfoobaroo")).containsExactly(0, 1);
+      assertThat(set.match("fooba")).containsExactly(0);
+      assertThat(set.match("oobar")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Unanchored with $ (end-of-string) anchor")
+    void unanchoredDollar() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("foo$");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("foo")).containsExactly(0);
+      assertThat(set.match("foobar")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Unanchored with \\b (word boundary)")
+    void unanchoredWordBoundary() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("foo\\b");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("foo")).containsExactly(0);
+      assertThat(set.match("foobar")).isEmpty();
+      assertThat(set.match("foo bar")).containsExactly(0);
+    }
+
+    @Test
+    @DisplayName("Anchored with prefix and digit quantifier")
+    void anchoredPrefix() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_BOTH);
+      b.add("/prefix/\\d*");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("/prefix")).isEmpty();
+      assertThat(set.match("/prefix/")).containsExactly(0);
+      assertThat(set.match("/prefix/42")).containsExactly(0);
+    }
+
+    @Test
+    @DisplayName("Empty set unanchored rejects compile")
+    void emptySetUnanchored() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      assertThatThrownBy(b::compile).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("Empty set anchored rejects compile")
+    void emptySetAnchored() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_BOTH);
+      assertThatThrownBy(b::compile).isInstanceOf(IllegalStateException.class);
+    }
+  }
 }
