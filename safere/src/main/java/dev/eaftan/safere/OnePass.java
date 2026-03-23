@@ -35,41 +35,42 @@ final class OnePass {
    * exists because capture group tracking is encoded in a bitmask within each action integer.
    * Matches RE2's {@code kMaxCap}.
    */
-  static final int MAX_CAPTURE_GROUPS = 6;
+  static final int MAX_CAPTURE_GROUPS = 16;
 
   private static final int MAX_CAP_REGS = 2 * MAX_CAPTURE_GROUPS;
 
   // -------------------------------------------------------------------------
-  // Action encoding: each action is packed into a single int.
+  // Action encoding: each action is packed into a single long.
   //
   //   bits  0-7 : empty-width flags required for this transition
-  //   bits  8-17: capture mask (which capture registers to set)
-  //   bits 18-30: next state index
+  //   bits  8-27: capture mask (which capture registers to set)
+  //   bits 28-63: next state index
   //
-  // Special value: NO_ACTION (-1) means no valid transition.
+  // Special value: NO_ACTION (-1L) means no valid transition.
   // -------------------------------------------------------------------------
 
   private static final int EMPTY_BITS = 8;
   private static final int CAP_SHIFT = EMPTY_BITS;
   private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS;
-  private static final int EMPTY_MASK = (1 << EMPTY_BITS) - 1;
-  private static final int CAP_REG_MASK = (1 << MAX_CAP_REGS) - 1;
-  private static final int NO_ACTION = -1;
+  private static final long EMPTY_MASK = (1L << EMPTY_BITS) - 1;
+  private static final long CAP_REG_MASK = (1L << MAX_CAP_REGS) - 1;
+  private static final long NO_ACTION = -1L;
 
-  private static int encodeAction(int nextState, int capMask, int emptyFlags) {
-    return (nextState << INDEX_SHIFT) | ((capMask & CAP_REG_MASK) << CAP_SHIFT) | (emptyFlags & EMPTY_MASK);
+  private static long encodeAction(int nextState, int capMask, int emptyFlags) {
+    return ((long) nextState << INDEX_SHIFT) | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
+        | (emptyFlags & EMPTY_MASK);
   }
 
-  private static int actionNextState(int action) {
-    return action >>> INDEX_SHIFT;
+  private static int actionNextState(long action) {
+    return (int) (action >>> INDEX_SHIFT);
   }
 
-  private static int actionCapMask(int action) {
-    return (action >>> CAP_SHIFT) & CAP_REG_MASK;
+  private static int actionCapMask(long action) {
+    return (int) ((action >>> CAP_SHIFT) & CAP_REG_MASK);
   }
 
-  private static int actionEmptyFlags(int action) {
-    return action & EMPTY_MASK;
+  private static int actionEmptyFlags(long action) {
+    return (int) (action & EMPTY_MASK);
   }
 
   // -------------------------------------------------------------------------
@@ -77,10 +78,10 @@ final class OnePass {
   // -------------------------------------------------------------------------
 
   /** Transition table: {@code actions[state][eqClass]} = encoded action. */
-  private final int[][] actions;
+  private final long[][] actions;
 
   /** Match actions: {@code matchAction[state]} = encoded action when at a match state. */
-  private final int[] matchAction;
+  private final long[] matchAction;
 
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
@@ -88,7 +89,7 @@ final class OnePass {
   /** Whether the program requires end-of-text matching (stripped trailing {@code $}). */
   private final boolean anchorEnd;
 
-  private OnePass(int[][] actions, int[] matchAction, int[] boundaries, boolean anchorEnd) {
+  private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd) {
     this.actions = actions;
     this.matchAction = matchAction;
     this.boundaries = boundaries;
@@ -129,9 +130,9 @@ final class OnePass {
 
     // Pre-allocate generously; we'll trim later.
     int maxStates = prog.size();
-    int[][] actions = new int[maxStates][numClasses];
-    int[] matchActions = new int[maxStates];
-    for (int[] row : actions) {
+    long[][] actions = new long[maxStates][numClasses];
+    long[] matchActions = new long[maxStates];
+    for (long[] row : actions) {
       Arrays.fill(row, NO_ACTION);
     }
     Arrays.fill(matchActions, NO_ACTION);
@@ -209,7 +210,7 @@ final class OnePass {
                 worklist.add(ip.out);
               }
 
-              int action = encodeAction(nextState, capMask, emptyFlags);
+              long action = encodeAction(nextState, capMask, emptyFlags);
               if (actions[stateIndex][cls] != NO_ACTION && actions[stateIndex][cls] != action) {
                 // Two different transitions for the same equivalence class -> not one-pass.
                 return null;
@@ -218,7 +219,7 @@ final class OnePass {
             }
           }
           case MATCH -> {
-            int action = encodeAction(0, capMask, emptyFlags);
+            long action = encodeAction(0, capMask, emptyFlags);
             if (matchActions[stateIndex] != NO_ACTION && matchActions[stateIndex] != action) {
               // Two match paths with different conditions -> not one-pass.
               return null;
@@ -231,8 +232,8 @@ final class OnePass {
     }
 
     // Trim tables to actual state count.
-    int[][] trimmedActions = Arrays.copyOf(actions, stateCount);
-    int[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
+    long[][] trimmedActions = Arrays.copyOf(actions, stateCount);
+    long[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
     return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd());
   }
 
@@ -282,7 +283,7 @@ final class OnePass {
     int pos = 0;
     while (pos <= textLen) {
       // Check match condition at current state BEFORE consuming next character.
-      int matchAct = matchAction[state];
+      long matchAct = matchAction[state];
       if (matchAct != NO_ACTION) {
         int reqEmpty = actionEmptyFlags(matchAct);
         int curEmpty = Nfa.emptyFlags(text, pos);
@@ -310,7 +311,7 @@ final class OnePass {
       int cls = classOf(cp);
 
       // Look up transition.
-      int action = (cls >= 0 && cls < actions[state].length) ? actions[state][cls] : NO_ACTION;
+      long action = (cls >= 0 && cls < actions[state].length) ? actions[state][cls] : NO_ACTION;
       if (action == NO_ACTION) {
         break; // dead
       }
@@ -355,7 +356,7 @@ final class OnePass {
   }
 
   /** Applies capture register updates from an action at the given position. */
-  private static void applyCaptures(int action, int pos, int[] cap) {
+  private static void applyCaptures(long action, int pos, int[] cap) {
     int mask = actionCapMask(action);
     for (int reg = 0; mask != 0 && reg < cap.length; reg++) {
       if ((mask & (1 << reg)) != 0) {

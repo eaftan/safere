@@ -102,8 +102,15 @@ class OnePassTest {
 
     @Test
     void tooManyCaptures() {
-      // More than 5 capture groups -> not one-pass.
-      assertThat(build("(a)(b)(c)(d)(e)(f)")).isNull();
+      // More than 16 capture groups (including group 0) -> not one-pass.
+      // 16 user groups = 17 total -> exceeds MAX_CAPTURE_GROUPS.
+      assertThat(build("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)(m)(n)(o)(p)")).isNull();
+    }
+
+    @Test
+    void maxCaptures() {
+      // Exactly 16 total captures (15 user groups + group 0) -> still one-pass.
+      assertThat(build("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)(m)(n)(o)")).isNotNull();
     }
 
     @Test
