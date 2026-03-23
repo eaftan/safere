@@ -208,6 +208,80 @@ class UnicodeTablesTest {
     assertThat(UnicodeTables.ODD_EVEN_SKIP).isEqualTo((1 << 30) + 1);
   }
 
+  // --- simpleFold (ported from RE2/J UnicodeTest) ---
+
+  @Test
+  void simpleFold_asciiLettersCaseFold() {
+    // Every lowercase ASCII letter should be in a fold orbit with its uppercase equivalent.
+    for (int r = 'a'; r <= 'z'; r++) {
+      int upper = r - ('a' - 'A');
+      // Follow the fold orbit from lowercase to find uppercase.
+      boolean found = false;
+      int f = r;
+      for (int i = 0; i < 5; i++) {
+        f = Inst.simpleFold(f);
+        if (f == upper) {
+          found = true;
+          break;
+        }
+      }
+      assertThat(found)
+          .as("simpleFold orbit of '%c' should include '%c'", (char) r, (char) upper)
+          .isTrue();
+    }
+  }
+
+  @Test
+  void simpleFold_nonLetterIsIdentity() {
+    // Non-letter code points should fold to themselves.
+    assertThat(Inst.simpleFold('{')).isEqualTo('{');
+    assertThat(Inst.simpleFold('/')).isEqualTo('/');
+    assertThat(Inst.simpleFold('0')).isEqualTo('0');
+  }
+
+  @Test
+  void simpleFold_unicodePairs() {
+    // é (U+00E9) should fold to É (U+00C9) or vice versa.
+    int e_acute_lower = 0x00E9; // é
+    int e_acute_upper = 0x00C9; // É
+    assertThat(Inst.simpleFold(e_acute_lower)).isEqualTo(e_acute_upper);
+    assertThat(Inst.simpleFold(e_acute_upper)).isEqualTo(e_acute_lower);
+  }
+
+  @Test
+  void simpleFold_kelvinSign() {
+    // Kelvin sign (U+212A) is in the fold orbit with 'K' (U+004B) and 'k' (U+006B).
+    int kelvin = 0x212A;
+    int upper_k = 'K';
+    int lower_k = 'k';
+    // Follow the orbit starting from kelvin.
+    int r = kelvin;
+    boolean foundUpperK = false;
+    boolean foundLowerK = false;
+    for (int i = 0; i < 4; i++) {
+      r = Inst.simpleFold(r);
+      if (r == upper_k) {
+        foundUpperK = true;
+      }
+      if (r == lower_k) {
+        foundLowerK = true;
+      }
+    }
+    assertThat(foundUpperK).as("Kelvin sign orbit should include 'K'").isTrue();
+    assertThat(foundLowerK).as("Kelvin sign orbit should include 'k'").isTrue();
+  }
+
+  @Test
+  void caseInsensitiveMatching_unicodePairs() {
+    // Verify case-insensitive matching works for some interesting Unicode pairs.
+    assertThat(Pattern.compile("é", Pattern.CASE_INSENSITIVE).matcher("É").matches()).isTrue();
+    assertThat(Pattern.compile("Ú", Pattern.CASE_INSENSITIVE).matcher("ú").matches()).isTrue();
+    assertThat(Pattern.compile("k", Pattern.CASE_INSENSITIVE).matcher("\u212A").matches())
+        .isTrue();
+    assertThat(Pattern.compile("K", Pattern.CASE_INSENSITIVE).matcher("\u212A").matches())
+        .isTrue();
+  }
+
   // --- Helper ---
 
   private static boolean containsCodePoint(int[][] ranges, int cp) {

@@ -8,9 +8,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Pattern}. */
 class PatternTest {
@@ -378,6 +384,106 @@ class PatternTest {
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("foo");
       assertThat(m.find()).isFalse();
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Tests ported from RE2/J (P1 tests)
+  // -----------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("Compile validation (ported from RE2/J RE2CompileTest)")
+  class CompileValidation {
+
+    /** Patterns that must compile successfully. */
+    @ParameterizedTest(name = "compile(\"{0}\") succeeds")
+    @ValueSource(strings = {
+        "",
+        ".",
+        "^.$",
+        "a",
+        "a*",
+        "a+",
+        "a?",
+        "a|b",
+        "a*|b*",
+        "(a*|b)(c*|d)",
+        "[a-z]",
+        "[a-abc-c\\-\\]\\[]",
+        "[a-z]+",
+        "[abc]",
+        "[^1234]",
+        "[^\n]",
+        "..|.#|..",
+        "\\!\\\\",
+        "abc]",
+        "a??"
+    })
+    void validPatternsCompile(String pattern) {
+      Pattern.compile(pattern); // should not throw
+    }
+
+    /** Patterns that must fail to compile. */
+    @ParameterizedTest(name = "compile(\"{0}\") throws")
+    @ValueSource(strings = {
+        "*",
+        "+",
+        "?",
+        "(abc",
+        "x[a-z",
+        "[z-a]",
+        "abc\\"
+    })
+    void invalidPatternsThrow(String pattern) {
+      assertThatThrownBy(() -> Pattern.compile(pattern))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+  }
+
+  @Nested
+  @DisplayName("groupCount (ported from RE2/J RE2TestNumSubexps)")
+  class GroupCount {
+
+    @ParameterizedTest(name = "compile(\"{0}\").numGroups() == {1}")
+    @CsvSource({
+        "'',         0",
+        "'.*',        0",
+        "'abba',      0",
+        "'ab(b)a',    1",
+        "'ab(.*)a',   1",
+        "'(.*)ab(.*)a',  2",
+        "'(.*)(ab)(.*)a', 3",
+        "'(.*)((a)b)(.*)a', 4",
+        "'(.*)(\\(ab)(.*)a', 3",
+        "'(.*)(\\(a\\)b)(.*)a', 3",
+    })
+    void numGroups(String pattern, int expected) {
+      assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
+    }
+  }
+
+  @Nested
+  @DisplayName("quote() round-trip (ported from RE2/J RE2QuoteMetaTest)")
+  class QuoteRoundTrip {
+
+    static Stream<Arguments> quoteMetaCases() {
+      return Stream.of(
+          Arguments.of("foo", "abcfoodef", "abcxyzdef"),
+          Arguments.of("foo.$", "abcfoo.$def", "abcxyzdef"),
+          Arguments.of(
+              "!@#$%^&*()_+-=[{]}\\|,<.>/?~",
+              "abc!@#$%^&*()_+-=[{]}\\|,<.>/?~def",
+              "abcxyzdef")
+      );
+    }
+
+    @ParameterizedTest(name = "quote(\"{0}\") replaceAll round-trip")
+    @MethodSource("quoteMetaCases")
+    void quoteAndReplace(String metachar, String source, String expected) {
+      String quoted = Pattern.quote(metachar);
+      Pattern p = Pattern.compile(quoted);
+      String replaced = p.matcher(source).replaceAll("xyz");
+      assertThat(replaced).isEqualTo(expected);
     }
   }
 }
