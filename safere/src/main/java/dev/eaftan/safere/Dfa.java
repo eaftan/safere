@@ -5,10 +5,11 @@ package dev.eaftan.safere;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * Lazy DFA execution engine. Builds DFA states on demand from the compiled NFA program using the
@@ -28,9 +29,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  *   <li>Operates on Unicode code points (0–0x10FFFF), not bytes (0–255).
  *   <li>Uses code point equivalence classes (derived from CHAR_RANGE instructions) instead of a
  *       byte-level bytemap.
- *   <li>Thread-safe: the state cache uses {@link ConcurrentHashMap} and transitions use
- *       {@link AtomicReferenceArray}, so a single DFA instance can be shared across threads (e.g.,
- *       cached in {@link Pattern} and used by multiple {@link Matcher} instances concurrently).
+ *   <li>Single-threaded (no lock-free atomic transitions).
  * </ul>
  */
 final class Dfa {
@@ -59,12 +58,12 @@ final class Dfa {
   private static final class State {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE and MATCH only)
     final int flags;
-    final AtomicReferenceArray<State> next; // transitions indexed by equivalence class
+    final List<State> next; // transitions indexed by equivalence class; null = not yet computed
 
     State(int[] insts, int flags, int numClasses) {
       this.insts = insts;
       this.flags = flags;
-      this.next = new AtomicReferenceArray<>(numClasses);
+      this.next = new ArrayList<>(Collections.nCopies(numClasses, null));
     }
 
     boolean isMatch() {
@@ -107,14 +106,26 @@ final class Dfa {
    */
   private final int[] asciiClassMap;
 
-  /** Thread-safe state cache: maps instruction-set + flags to canonical State instance. */
-  private final ConcurrentHashMap<StateKey, State> cache = new ConcurrentHashMap<>();
+  /** State cache: maps instruction-set + flags to canonical State instance. */
+  private final Map<StateKey, State> cache = new HashMap<>();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
   private final State deadState = new State(new int[0], 0, 0);
 
-  /** Program size, cached for work array allocation. */
-  private final int progSize;
+  /** Pre-allocated visited array for {@link #expand}, reused across calls. */
+  private final boolean[] expandVisited;
+
+  /**
+   * Pre-allocated stack array for {@link #expand}. Sized to the program length (worst case: every
+   * instruction pushed once).
+   */
+  private final int[] expandStack;
+
+  /**
+   * Pre-allocated frontier array for {@link #expand}. Sized to the program length (worst case:
+   * every instruction is a frontier instruction).
+   */
+  private final int[] expandFrontier;
 
   // ---------------------------------------------------------------------------
   // Construction
@@ -126,7 +137,9 @@ final class Dfa {
     this.boundaries = buildBoundaries(prog);
     this.numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
     this.asciiClassMap = buildAsciiClassMap(boundaries);
-    this.progSize = prog.size();
+    this.expandVisited = new boolean[prog.size()];
+    this.expandStack = new int[prog.size()];
+    this.expandFrontier = new int[prog.size()];
   }
 
   /**
@@ -191,8 +204,10 @@ final class Dfa {
    * when context changes (e.g., at end-of-text, the EndText flag becomes true and {@code $} can
    * fire).
    */
-  private int[] expand(List<Integer> seeds, int emptyFlags,
-      boolean[] visited, int[] stack, int[] frontier) {
+  private int[] expand(List<Integer> seeds, int emptyFlags) {
+    boolean[] visited = expandVisited;
+    int[] stack = expandStack;
+    int[] frontier = expandFrontier;
     int stackTop = 0;
     int frontierSize = 0;
 
@@ -277,16 +292,16 @@ final class Dfa {
       return deadState;
     }
     StateKey key = new StateKey(insts, flags);
-    State existing = cache.get(key);
-    if (existing != null) {
-      return existing;
+    State s = cache.get(key);
+    if (s != null) {
+      return s;
     }
     if (cache.size() >= maxStates) {
       return null;
     }
-    State s = new State(insts, flags, numClasses);
-    State prev = cache.putIfAbsent(key, s);
-    return (prev != null) ? prev : s;
+    s = new State(insts, flags, numClasses);
+    cache.put(key, s);
+    return s;
   }
 
   /**
@@ -296,14 +311,13 @@ final class Dfa {
    * prefix loop that the compiler generates. This keeps all start positions alive within the DFA
    * state without needing to restart at each position (unlike the NFA).
    */
-  private State startState(String text, int pos, boolean anchored,
-      boolean[] visited, int[] stack, int[] frontier) {
+  private State startState(String text, int pos, boolean anchored) {
     int startInst = anchored ? prog.start() : prog.startUnanchored();
     if (startInst == 0) {
       return deadState;
     }
     int emptyFlags = Nfa.emptyFlags(text, pos);
-    int[] insts = expand(List.of(startInst), emptyFlags, visited, stack, frontier);
+    int[] insts = expand(List.of(startInst), emptyFlags);
     int flags = emptyFlags & 0xFF;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
@@ -318,8 +332,7 @@ final class Dfa {
    * Collects the successor instructions, expands them through empty transitions, and returns the
    * resulting state.
    */
-  private State computeNext(State s, int cp, String text, int nextPos,
-      boolean[] visited, int[] stack, int[] frontier) {
+  private State computeNext(State s, int cp, String text, int nextPos) {
     // At end of text, re-expand the current instruction set with end-of-text empty flags.
     // This allows empty-width assertions like $ to fire.
     if (cp < 0) {
@@ -335,7 +348,7 @@ final class Dfa {
       if (seeds.isEmpty()) {
         return deadState;
       }
-      int[] nextInsts = expand(seeds, emptyFlags, visited, stack, frontier);
+      int[] nextInsts = expand(seeds, emptyFlags);
       if (nextInsts.length == 0) {
         return deadState;
       }
