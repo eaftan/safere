@@ -288,7 +288,7 @@ mvn install
 # Build library only
 mvn install -pl safere
 
-# Run tests (1760 tests)
+# Run tests
 mvn test -pl safere
 
 # Package
