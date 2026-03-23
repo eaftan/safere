@@ -83,6 +83,13 @@ Public API (drop-in for `java.util.regex`):
 - Aim for high coverage; JaCoCo is configured in the build
 - Port test cases from RE2's C++ test suite where applicable
 
+## GitHub Issues
+
+- Do not close an issue until **all** items in it are resolved. If only some
+  items are done, post a progress comment instead.
+- When referencing an issue in a commit message, use `Fixes #N` only if the
+  commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
+
 ## Key Constraints
 
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
