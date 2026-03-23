@@ -115,3 +115,20 @@ Public API (drop-in for `java.util.regex`):
 - Compare against C++ RE2 (via subprocess invocation)
 - Include pathological patterns that demonstrate exponential blowup in
   backtracking engines (e.g., `a?{n}a{n}` matched against `a{n}`)
+- **Always use `./run-benchmarks.sh`** to run benchmarks. This script
+  runs `mvn install` first to ensure the benchmark module picks up the
+  latest safere code. Running `mvn package` alone is NOT sufficient
+  because `mvn exec:java` resolves the safere dependency from
+  `~/.m2/repository`, not from `safere/target/`.
+
+```bash
+# Run all benchmarks
+./run-benchmarks.sh
+
+# Run specific benchmark class(es)
+./run-benchmarks.sh CaptureScalingBenchmark
+./run-benchmarks.sh RegexBenchmark HttpBenchmark
+
+# Override JMH options
+JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
+```

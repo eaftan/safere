@@ -8,6 +8,15 @@ pathological patterns that demonstrate backtracking blowup.
 - JMH: 1.37, no-fork mode (`-f 0`)
 - Machine: Linux (shared environment — results are indicative, not precise)
 
+**Running benchmarks:**
+
+```bash
+# Always use the wrapper script — it runs `mvn install` first to ensure
+# the benchmark module picks up the latest safere code.
+./run-benchmarks.sh                        # all benchmarks
+./run-benchmarks.sh CaptureScalingBenchmark  # specific class
+```
+
 ## Matching Performance (ns/op, lower is better)
 
 | Benchmark | SafeRE | JDK | Ratio |
