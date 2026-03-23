@@ -1,7 +1,17 @@
 # SafeRE
 
-A linear-time regular expression matching library for Java, modeled on
-[RE2](https://github.com/google/re2) by Russ Cox.
+A linear-time regular expression matching library for Java.
+
+SafeRE is built on the work of
+[Russ Cox](https://swtch.com/~rsc/regexp/), whose
+[RE2](https://github.com/google/re2) library proved that regular expression
+matching can be done safely in time linear in the size of the input.  Cox later
+brought these ideas to Go's standard library as the
+[`regexp`](https://pkg.go.dev/regexp) package.
+[Alan Donovan](https://github.com/adonovan) then ported RE2 to Java as
+[RE2/J](https://github.com/google/re2j).  SafeRE continues this lineage,
+re-implementing the core RE2 algorithms in modern Java while providing a
+drop-in replacement for `java.util.regex`.
 
 SafeRE **guarantees linear-time matching** regardless of the pattern or input.
 It achieves this by using finite automata (DFA/NFA) instead of backtracking.
@@ -58,6 +68,28 @@ SafeRE grows linearly. The JDK grows exponentially and hangs at n=25.
   simultaneously in a single pass
 - **Five execution engines** — OnePass, DFA, BitState, NFA, and reverse DFA,
   automatically selected per query
+
+## Comparison with RE2 Family
+
+SafeRE is part of a family of linear-time regex libraries that share RE2's
+core algorithms.  Here is how they compare:
+
+| Feature | [RE2](https://github.com/google/re2) (C++) | [Go `regexp`](https://pkg.go.dev/regexp) | [RE2/J](https://github.com/google/re2j) | **SafeRE** |
+|---|:---:|:---:|:---:|:---:|
+| Language | C++ | Go | Java | Java |
+| Linear-time guarantee | ✅ | ✅ | ✅ | ✅ |
+| Full Unicode support | ✅ | ✅ | ✅ | ✅ |
+| Submatch extraction | ✅ | ✅ | ✅ | ✅ |
+| Named captures | ✅ | ✅ | ✅ | ✅ |
+| DFA engine | ✅ | — | — | ✅ |
+| NFA (Pike VM) engine | ✅ | ✅ | ✅ | ✅ |
+| OnePass engine | ✅ | ✅ | — | ✅ |
+| BitState engine | ✅ | ✅ | — | ✅ |
+| Reverse DFA | ✅ | — | — | ✅ |
+| Literal optimization | ✅ | ✅ | ✅ | ✅ |
+| Multi-pattern matching | ✅ (`RE2::Set`) | — | — | ✅ (`PatternSet`) |
+| Drop-in `java.util.regex` API | — | — | ❌ | ✅ |
+| Java version | — | — | 8+ | 21+ |
 
 ## Supported Syntax
 
@@ -328,7 +360,13 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 
 ## Acknowledgments
 
-- [RE2](https://github.com/google/re2) by Russ Cox — the design and
-  algorithms that SafeRE is based on
+- [RE2](https://github.com/google/re2) by Russ Cox — the C++ library whose
+  design and algorithms SafeRE is based on
+- [Go `regexp`](https://pkg.go.dev/regexp) by Russ Cox — the Go standard
+  library implementation of RE2, which informed SafeRE's semantics and
+  engine selection strategy
+- [RE2/J](https://github.com/google/re2j) by Alan Donovan — the Java port of
+  RE2 that demonstrated these algorithms work well on the JVM.  SafeRE's test
+  suite includes tests ported from RE2/J (see [TESTING.md](TESTING.md))
 - [Regular Expression Matching Can Be Simple And Fast](https://swtch.com/~rsc/regexp/regexp1.html)
   — Russ Cox's article series explaining the theory
