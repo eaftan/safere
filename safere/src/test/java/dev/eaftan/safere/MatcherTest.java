@@ -602,4 +602,170 @@ class MatcherTest {
     String result = m.replaceFirst("${word}!");
     assertThat(result).isEqualTo("hello! world");
   }
+
+  // ---------------------------------------------------------------------------
+  // Tests ported from RE2/J MatcherTest (P2)
+  // ---------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("matches() updates match information for group access")
+  void matchesUpdatesMatchInformation() {
+    Pattern p = Pattern.compile("(\\d+)(\\w+)");
+    Matcher m = p.matcher("123abc");
+    assertThat(m.matches()).isTrue();
+    assertThat(m.group(0)).isEqualTo("123abc");
+    assertThat(m.group(1)).isEqualTo("123");
+    assertThat(m.group(2)).isEqualTo("abc");
+    assertThat(m.start(1)).isEqualTo(0);
+    assertThat(m.end(1)).isEqualTo(3);
+    assertThat(m.start(2)).isEqualTo(3);
+    assertThat(m.end(2)).isEqualTo(6);
+  }
+
+  @Test
+  @DisplayName("alternation with matches() picks the correct branch")
+  void alternationMatches() {
+    Pattern p = Pattern.compile("(a)|(b)|(c)");
+    Matcher m = p.matcher("b");
+    assertThat(m.matches()).isTrue();
+    assertThat(m.group(1)).isNull();
+    assertThat(m.group(2)).isEqualTo("b");
+    assertThat(m.group(3)).isNull();
+    assertThat(m.start(1)).isEqualTo(-1);
+    assertThat(m.start(2)).isEqualTo(0);
+    assertThat(m.start(3)).isEqualTo(-1);
+  }
+
+  @Test
+  @DisplayName("find(int) resets match state to the given position")
+  void findIntResetsState() {
+    Pattern p = Pattern.compile("\\d+");
+    Matcher m = p.matcher("a1b2c3");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group()).isEqualTo("1");
+    // Jump to position 0 — should find "1" again
+    assertThat(m.find(0)).isTrue();
+    assertThat(m.group()).isEqualTo("1");
+    // Jump past "1" and "2"
+    assertThat(m.find(4)).isTrue();
+    assertThat(m.group()).isEqualTo("3");
+  }
+
+  @Test
+  @DisplayName("replaceAll with backreference wrapping")
+  void replaceAllBackrefWrapping() {
+    Pattern p = Pattern.compile("(\\w+):(\\d+)");
+    Matcher m = p.matcher("a:1 b:2");
+    assertThat(m.replaceAll("$2=$1")).isEqualTo("1=a 2=b");
+  }
+
+  @Test
+  @DisplayName("Unicode supplementary code point matching")
+  void unicodeSupplementaryCodePoints() {
+    // U+1F600 = 😀, a supplementary character (surrogate pair in Java)
+    String smiley = "\uD83D\uDE00";
+    Pattern p = Pattern.compile(".");
+    Matcher m = p.matcher(smiley);
+    assertThat(m.matches()).isTrue();
+    assertThat(m.group()).isEqualTo(smiley);
+    assertThat(m.start()).isEqualTo(0);
+    assertThat(m.end()).isEqualTo(2); // 2 Java chars (surrogate pair)
+  }
+
+  @Test
+  @DisplayName("find() with Unicode surrogate pairs in text")
+  void findWithSurrogatePairs() {
+    // "a😀b" = 'a' + surrogate pair + 'b'
+    String text = "a\uD83D\uDE00b";
+    Pattern p = Pattern.compile("b");
+    Matcher m = p.matcher(text);
+    assertThat(m.find()).isTrue();
+    assertThat(m.start()).isEqualTo(3); // 'a'=0, smiley=1,2, 'b'=3
+    assertThat(m.end()).isEqualTo(4);
+  }
+
+  @Test
+  @DisplayName("group access after lookingAt() works correctly")
+  void lookingAtUpdatesGroupInfo() {
+    Pattern p = Pattern.compile("(\\d+)(\\w+)");
+    Matcher m = p.matcher("123abc!!!");
+    assertThat(m.lookingAt()).isTrue();
+    assertThat(m.group(0)).isEqualTo("123abc");
+    assertThat(m.group(1)).isEqualTo("123");
+    assertThat(m.group(2)).isEqualTo("abc");
+  }
+
+  @Test
+  @DisplayName("find() with zero-width assertions and groups")
+  void groupZeroWidthAssertions() {
+    Pattern p = Pattern.compile("(^|[^a-zA-Z])(\\w+)");
+    Matcher m = p.matcher("hello, world");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group(2)).isEqualTo("hello");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group(2)).isEqualTo("world");
+  }
+
+  @Test
+  @DisplayName("appendReplacement with empty capturing group in replacement")
+  void appendReplacementEmptyGroup() {
+    Pattern p = Pattern.compile("(a*)b");
+    Matcher m = p.matcher("b");
+    StringBuilder sb = new StringBuilder();
+    assertThat(m.find()).isTrue();
+    m.appendReplacement(sb, "[$1]");
+    m.appendTail(sb);
+    assertThat(sb.toString()).isEqualTo("[]");
+  }
+
+  @Test
+  @DisplayName("appendReplacement handles multiple matches with groups")
+  void appendReplacementMultipleMatches() {
+    Pattern p = Pattern.compile("(\\d)(\\d)");
+    Matcher m = p.matcher("a12b34c");
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      m.appendReplacement(sb, "$2$1");
+    }
+    m.appendTail(sb);
+    assertThat(sb.toString()).isEqualTo("a21b43c");
+  }
+
+  @Test
+  @DisplayName("reset(CharSequence) allows reuse with different input")
+  void resetCharSequenceReuse() {
+    Pattern p = Pattern.compile("(\\d+)");
+    Matcher m = p.matcher("abc123");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group(1)).isEqualTo("123");
+
+    m.reset("xyz789def");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group(1)).isEqualTo("789");
+  }
+
+  @Test
+  @DisplayName("complex find/group iteration (documented example)")
+  void documentedExample() {
+    Pattern p = Pattern.compile("(\\d+)([a-z]+)");
+    Matcher m = p.matcher("12abc 34def");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group()).isEqualTo("12abc");
+    assertThat(m.group(1)).isEqualTo("12");
+    assertThat(m.group(2)).isEqualTo("abc");
+    assertThat(m.find()).isTrue();
+    assertThat(m.group()).isEqualTo("34def");
+    assertThat(m.group(1)).isEqualTo("34");
+    assertThat(m.group(2)).isEqualTo("def");
+    assertThat(m.find()).isFalse();
+  }
+
+  @Test
+  @DisplayName("replaceFirst with group that did not participate")
+  void replaceFirstNonParticipatingGroup() {
+    Pattern p = Pattern.compile("(a)|(b)");
+    Matcher m = p.matcher("b");
+    // $1 didn't participate (null), should be replaced with empty string
+    assertThat(m.replaceFirst("[$1][$2]")).isEqualTo("[][b]");
+  }
 }
