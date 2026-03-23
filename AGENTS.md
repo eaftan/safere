@@ -115,6 +115,9 @@ Public API (drop-in for `java.util.regex`):
 - Compare against C++ RE2 (via subprocess invocation)
 - Include pathological patterns that demonstrate exponential blowup in
   backtracking engines (e.g., `a?{n}a{n}` matched against `a{n}`)
+- **Do not commit performance optimizations that do not improve benchmark
+  results.** Every optimization must be validated with before/after
+  benchmarks, and only committed if there is a measurable improvement.
 - **Always use `./run-benchmarks.sh`** to run benchmarks. This script
   runs `mvn install` first to ensure the benchmark module picks up the
   latest safere code. Running `mvn package` alone is NOT sufficient
