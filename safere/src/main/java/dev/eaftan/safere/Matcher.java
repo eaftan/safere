@@ -136,6 +136,12 @@ public final class Matcher implements MatchResult {
         hasMatch = false;
         return false;
       }
+      // If DFA confirmed full match and there are no user captures, skip BitState/NFA.
+      if (dfaResult != null && parentPattern.numGroups() == 0) {
+        groups = new int[]{0, text.length()};
+        hasMatch = true;
+        return true;
+      }
     }
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
@@ -192,6 +198,12 @@ public final class Matcher implements MatchResult {
       if (dfaResult != null && !dfaResult.matched()) {
         hasMatch = false;
         return false;
+      }
+      // If DFA confirmed anchored match and there are no user captures, skip BitState/NFA.
+      if (dfaResult != null && dfaResult.matched() && parentPattern.numGroups() == 0) {
+        groups = new int[]{0, dfaResult.pos()};
+        hasMatch = true;
+        return true;
       }
     }
 
@@ -330,6 +342,13 @@ public final class Matcher implements MatchResult {
           Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
           if (fwdLongest != null && fwdLongest.matched()) {
             int matchEnd = fwdLongest.pos();
+            // No user captures — DFA has already determined the match boundaries.
+            if (parentPattern.numGroups() == 0) {
+              groups = new int[]{matchStart, matchEnd};
+              findCallCount++;
+              hasMatch = true;
+              return true;
+            }
             // Step 4: NFA/BitState on tight [matchStart, matchEnd] for captures.
             String searchText = text.substring(matchStart, matchEnd);
             int[] result = searchWithBitStateOrNfa(
