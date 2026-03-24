@@ -49,10 +49,10 @@ eliminates this risk entirely.
 
 | Pattern | SafeRE | JDK | Speedup |
 |---|--:|--:|--:|
-| `a?{10}a{10}` vs `aaaaaaaaaa` | 0.065 µs | 17.7 µs | 272× |
-| `a?{15}a{15}` vs `aaa...` (15) | 0.088 µs | 585.8 µs | 6,657× |
-| `a?{20}a{20}` vs `aaa...` (20) | 0.110 µs | 28,704 µs | **260,945×** |
-| `a?{25}a{25}` vs `aaa...` (25) | 0.126 µs | *(hangs)* | ∞ |
+| `a?{10}a{10}` vs `aaaaaaaaaa` | 0.063 µs | 15.8 µs | 251× |
+| `a?{15}a{15}` vs `aaa...` (15) | 0.084 µs | 613.7 µs | 7,306× |
+| `a?{20}a{20}` vs `aaa...` (20) | 0.105 µs | 27,819 µs | **265,000×** |
+| `a?{25}a{25}` vs `aaa...` (25) | 0.124 µs | *(hangs)* | ∞ |
 
 SafeRE grows linearly. The JDK grows exponentially and hangs at n=25.
 
@@ -249,6 +249,41 @@ List<Integer> matches = set.match("error: connection timeout");
 // matches contains id0
 ```
 
+## Migrating from java.util.regex
+
+SafeRE is designed as a drop-in replacement. In most cases, you only need
+to change your imports:
+
+```java
+// Before
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
+// After
+import dev.eaftan.safere.Pattern;
+import dev.eaftan.safere.Matcher;
+```
+
+### What works unchanged
+
+- `Pattern.compile()`, `Pattern.matches()`, `Pattern.quote()`
+- `Matcher.matches()`, `lookingAt()`, `find()`, `group()`, `start()`, `end()`
+- `replaceFirst()`, `replaceAll()`, `appendReplacement()`, `appendTail()`
+- `split()`, `asPredicate()`, `asMatchPredicate()`
+- All flags: `CASE_INSENSITIVE`, `MULTILINE`, `DOTALL`, `UNICODE_CASE`, etc.
+- Replacement strings: `$1`, `${name}`, `\\`, `\$`
+
+### What to watch for
+
+1. **Backreferences** (`\1`, `\2`) — not supported; will throw
+   `PatternSyntaxException` at compile time.
+2. **Lookahead / lookbehind** (`(?=...)`, `(?<=...)`) — not supported.
+3. **Possessive quantifiers** (`*+`, `++`) — not supported.
+4. **Alternation semantics** — SafeRE uses leftmost-first (like Perl), not
+   leftmost-longest (POSIX). See [Semantic Differences](#semantic-differences-from-posix-and-javautilregex).
+5. **Named captures** use `(?P<name>...)` syntax (RE2-style), not
+   `(?<name>...)` (Java-style). Both are accepted.
+
 ## Architecture
 
 The processing pipeline mirrors RE2:
@@ -277,22 +312,21 @@ For `find()` on long texts, SafeRE uses a three-DFA sandwich (like RE2):
 3. Anchored forward DFA finds the actual match end
 4. NFA extracts captures on just the bounded `[start, end]` range
 
+For a detailed architecture walkthrough, see [DESIGN.md](DESIGN.md).
+
 ## Building
 
 Requires Java 21+ and Maven.
 
 ```bash
-# Build everything (library + benchmarks)
+# Build and install (library + benchmarks)
 mvn install
-
-# Build library only
-mvn install -pl safere
 
 # Run tests
 mvn test -pl safere
 
-# Package
-mvn package
+# Generate Javadoc
+mvn javadoc:javadoc -pl safere
 ```
 
 ## Benchmarks
@@ -302,45 +336,19 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 
 ### Running Benchmarks
 
-First build the uber-jar:
+Always use the wrapper script — it runs `mvn install` first to ensure
+the benchmark module picks up the latest safere code:
 
 ```bash
-mvn package
+# Run all benchmarks
+./run-benchmarks.sh
+
+# Run specific benchmark class(es)
+./run-benchmarks.sh RegexBenchmark SearchScalingBenchmark
+
+# Override JMH options
+JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
 ```
-
-Then run with `java -jar`:
-
-```bash
-# Run the main comparison benchmark (matching performance)
-java -jar safere-benchmarks/target/benchmarks.jar RegexBenchmark
-
-# Run compilation benchmarks
-java -jar safere-benchmarks/target/benchmarks.jar CompileBenchmark
-
-# Run pathological pattern benchmarks (SafeRE only)
-java -jar safere-benchmarks/target/benchmarks.jar PathologicalBenchmark
-
-# Run pathological comparison (SafeRE vs JDK — warning: JDK will be slow!)
-java -jar safere-benchmarks/target/benchmarks.jar PathologicalComparisonBenchmark
-
-# List all available benchmarks
-java -jar safere-benchmarks/target/benchmarks.jar -l
-```
-
-### JMH Options
-
-```bash
-java -jar safere-benchmarks/target/benchmarks.jar RegexBenchmark \
-  -f 1 -wi 3 -i 5 -t 1 -tu ns
-```
-
-| Option | Description |
-|---|---|
-| `-f 1` | 1 fork (default; use `-f 0` for faster but noisier results) |
-| `-wi 3` | 3 warmup iterations |
-| `-i 5` | 5 measurement iterations |
-| `-t 1` | 1 thread |
-| `-tu ns` | Time unit (ns, us, ms, s) |
 
 ### Latest Results
 
@@ -348,11 +356,12 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 
 | Benchmark | SafeRE | JDK | Ratio |
 |---|--:|--:|---|
-| Literal match | 3 ns | 25 ns | **9× faster** |
-| Capture groups | 101 ns | 114 ns | **1.1× faster** |
-| Char class | 395 ns | 149 ns | 2.6× slower |
-| Find in text | 38,229 ns | 5,940 ns | 6.4× slower |
-| Pathological (n=20) | 0.11 µs | 28,704 µs | **260,945× faster** |
+| Literal match | 3 ns | 23 ns | **8× faster** |
+| Capture groups (3) | 105 ns | 115 ns | **1.1× faster** |
+| Capture groups (10) | 311 ns | 364 ns | **1.2× faster** |
+| Find in text (`\b` pattern) | 34,215 ns | 5,615 ns | 6.1× slower |
+| Hard pattern (1 MB) | 4,715 µs | 277,413 µs | **59× faster** |
+| Pathological (n=20) | 0.11 µs | 27,819 µs | **265,000× faster** |
 
 ## License
 
