@@ -135,3 +135,24 @@ Public API (drop-in for `java.util.regex`):
 # Override JMH options
 JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
 ```
+
+- **Run benchmarks in batches, not all at once.** Running the full suite
+  takes a very long time. Run 2–3 benchmark classes per invocation and
+  collect results incrementally. For example:
+
+```bash
+./run-benchmarks.sh RegexBenchmark CompileBenchmark
+./run-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
+./run-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
+./run-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
+```
+
+- **Extract summary tables from JMH output** using grep. JMH prints
+  verbose per-iteration output; the summary table at the end has one
+  header line starting with `Benchmark` and data lines starting with
+  the class name:
+
+```bash
+./run-benchmarks.sh RegexBenchmark 2>&1 \
+  | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
+```

@@ -47,14 +47,15 @@ time complexity on certain patterns. This is a well-known class of
 [ReDoS](https://en.wikipedia.org/wiki/ReDoS) vulnerabilities. SafeRE
 eliminates this risk entirely.
 
-| Pattern | SafeRE | JDK | Speedup |
-|---|--:|--:|--:|
-| `a?{10}a{10}` vs `aaaaaaaaaa` | 0.063 µs | 15.8 µs | 251× |
-| `a?{15}a{15}` vs `aaa...` (15) | 0.084 µs | 613.7 µs | 7,306× |
-| `a?{20}a{20}` vs `aaa...` (20) | 0.105 µs | 27,819 µs | **265,000×** |
-| `a?{25}a{25}` vs `aaa...` (25) | 0.124 µs | *(hangs)* | ∞ |
+| Pattern | SafeRE | RE2/J | JDK | SafeRE vs JDK |
+|---|--:|--:|--:|--:|
+| `a?{10}a{10}` vs `aaaaaaaaaa` | 0.063 µs | 1.77 µs | 15.6 µs | 248× |
+| `a?{15}a{15}` vs `aaa...` (15) | 0.084 µs | 3.85 µs | 674 µs | 8,024× |
+| `a?{20}a{20}` vs `aaa...` (20) | 0.107 µs | 6.95 µs | 27,138 µs | **253,626×** |
+| `a?{25}a{25}` vs `aaa...` (25) | 0.123 µs | 11.50 µs | *(hangs)* | ∞ |
 
-SafeRE grows linearly. The JDK grows exponentially and hangs at n=25.
+SafeRE grows linearly and is 29–93× faster than RE2/J. The JDK grows
+exponentially and hangs at n=25.
 
 ## Features
 
