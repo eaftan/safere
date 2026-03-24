@@ -4,9 +4,12 @@ Comparing SafeRE against `java.util.regex` on common regex workloads and
 pathological patterns that demonstrate backtracking blowup.
 
 **Environment:**
-- JDK: OpenJDK 25.0.2 (targeting Java 21)
+- CPU: Intel Core i7-11700K (8 cores / 16 threads, 3.6 GHz base)
+- RAM: 32 GB
+- OS: Ubuntu 24.04.4 LTS on WSL2 (kernel 6.6.87.2-microsoft-standard-WSL2),
+  Windows 11 host
+- JDK: OpenJDK 25.0.2+10-69 (targeting Java 21)
 - JMH: 1.37, no-fork mode (`-f 0`)
-- Machine: Linux (shared environment — results are indicative, not precise)
 
 **Running benchmarks:**
 
