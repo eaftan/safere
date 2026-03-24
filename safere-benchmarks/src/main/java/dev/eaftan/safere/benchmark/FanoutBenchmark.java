@@ -42,10 +42,12 @@ public class FanoutBenchmark {
   // [\x{80}-\x{10FFFF}] matches any non-ASCII Unicode code point.
   private dev.eaftan.safere.Pattern safeFanout;
   private java.util.regex.Pattern jdkFanout;
+  private com.google.re2j.Pattern re2jFanout;
 
   // Nested quantifier: a?{n}a{n} but with higher n and varying text.
   private dev.eaftan.safere.Pattern safeNested;
   private java.util.regex.Pattern jdkNested;
+  private com.google.re2j.Pattern re2jNested;
 
   private String unicodeText;
   private String asciiText;
@@ -62,6 +64,9 @@ public class FanoutBenchmark {
 
     safeNested = dev.eaftan.safere.Pattern.compile(NESTED_PATTERN);
     jdkNested = java.util.regex.Pattern.compile(NESTED_PATTERN);
+
+    re2jFanout = com.google.re2j.Pattern.compile(FANOUT_PATTERN);
+    re2jNested = com.google.re2j.Pattern.compile(NESTED_PATTERN);
 
     // Generate Unicode text (mix of CJK, emoji, Latin Extended).
     Random rng = new Random(42);
@@ -98,6 +103,11 @@ public class FanoutBenchmark {
     return jdkFanout.matcher(unicodeText).find();
   }
 
+  @Benchmark
+  public boolean fanoutUnicode_re2j() {
+    return re2jFanout.matcher(unicodeText).find();
+  }
+
   // ===== Nested quantifier: find in ASCII text =====
 
   @Benchmark
@@ -108,5 +118,10 @@ public class FanoutBenchmark {
   @Benchmark
   public boolean nestedQuantifier_jdk() {
     return jdkNested.matcher(asciiText).find();
+  }
+
+  @Benchmark
+  public boolean nestedQuantifier_re2j() {
+    return re2jNested.matcher(asciiText).find();
   }
 }

@@ -45,6 +45,7 @@ public class RegexBenchmark {
 
   private dev.eaftan.safere.Pattern safeHello;
   private java.util.regex.Pattern jdkHello;
+  private com.google.re2j.Pattern re2jHello;
   private static final String HELLO_TEXT = "hello";
 
   // ---------------------------------------------------------------------------
@@ -53,6 +54,7 @@ public class RegexBenchmark {
 
   private dev.eaftan.safere.Pattern safeAlpha;
   private java.util.regex.Pattern jdkAlpha;
+  private com.google.re2j.Pattern re2jAlpha;
   private static final String ALPHA_TEXT = "TheQuickBrownFoxJumpsOverTheLazyDog";
 
   // ---------------------------------------------------------------------------
@@ -61,6 +63,7 @@ public class RegexBenchmark {
 
   private dev.eaftan.safere.Pattern safeAlt;
   private java.util.regex.Pattern jdkAlt;
+  private com.google.re2j.Pattern re2jAlt;
   private static final String ALT_TEXT = "the garply went to the baz and met a quux";
 
   // ---------------------------------------------------------------------------
@@ -69,6 +72,7 @@ public class RegexBenchmark {
 
   private dev.eaftan.safere.Pattern safeDate;
   private java.util.regex.Pattern jdkDate;
+  private com.google.re2j.Pattern re2jDate;
   private static final String DATE_TEXT = "2025-12-25";
 
   // ---------------------------------------------------------------------------
@@ -77,6 +81,7 @@ public class RegexBenchmark {
 
   private dev.eaftan.safere.Pattern safeFindIng;
   private java.util.regex.Pattern jdkFindIng;
+  private com.google.re2j.Pattern re2jFindIng;
   private static final String PROSE_TEXT =
       "The morning sun was shining brightly, casting long shadows across the rolling "
           + "hills. Birds were singing their melodious songs while children were playing "
@@ -91,6 +96,7 @@ public class RegexBenchmark {
 
   private dev.eaftan.safere.Pattern safeEmail;
   private java.util.regex.Pattern jdkEmail;
+  private com.google.re2j.Pattern re2jEmail;
   private static final String EMAIL_TEXT = "contact user.name+tag@example.co.uk for info";
 
   @Setup
@@ -98,30 +104,36 @@ public class RegexBenchmark {
     // Literal
     safeHello = dev.eaftan.safere.Pattern.compile("hello");
     jdkHello = java.util.regex.Pattern.compile("hello");
+    re2jHello = com.google.re2j.Pattern.compile("hello");
 
     // Character class
     safeAlpha = dev.eaftan.safere.Pattern.compile("[a-zA-Z]+");
     jdkAlpha = java.util.regex.Pattern.compile("[a-zA-Z]+");
+    re2jAlpha = com.google.re2j.Pattern.compile("[a-zA-Z]+");
 
     // Alternation
     String altPattern = "foo|bar|baz|qux|quux|corge|grault|garply";
     safeAlt = dev.eaftan.safere.Pattern.compile(altPattern);
     jdkAlt = java.util.regex.Pattern.compile(altPattern);
+    re2jAlt = com.google.re2j.Pattern.compile(altPattern);
 
     // Capture
     String datePattern = "(\\d{4})-(\\d{2})-(\\d{2})";
     safeDate = dev.eaftan.safere.Pattern.compile(datePattern);
     jdkDate = java.util.regex.Pattern.compile(datePattern);
+    re2jDate = com.google.re2j.Pattern.compile(datePattern);
 
     // Find -ing words
     String ingPattern = "\\b\\w+ing\\b";
     safeFindIng = dev.eaftan.safere.Pattern.compile(ingPattern);
     jdkFindIng = java.util.regex.Pattern.compile(ingPattern);
+    re2jFindIng = com.google.re2j.Pattern.compile(ingPattern);
 
     // Email
     String emailPattern = "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}";
     safeEmail = dev.eaftan.safere.Pattern.compile(emailPattern);
     jdkEmail = java.util.regex.Pattern.compile(emailPattern);
+    re2jEmail = com.google.re2j.Pattern.compile(emailPattern);
   }
 
   // ===== Literal match =====
@@ -136,6 +148,11 @@ public class RegexBenchmark {
     return jdkHello.matcher(HELLO_TEXT).matches();
   }
 
+  @Benchmark
+  public boolean literalMatch_re2j() {
+    return re2jHello.matcher(HELLO_TEXT).matches();
+  }
+
   // ===== Character class match =====
 
   @Benchmark
@@ -146,6 +163,11 @@ public class RegexBenchmark {
   @Benchmark
   public boolean charClassMatch_jdk() {
     return jdkAlpha.matcher(ALPHA_TEXT).matches();
+  }
+
+  @Benchmark
+  public boolean charClassMatch_re2j() {
+    return re2jAlpha.matcher(ALPHA_TEXT).matches();
   }
 
   // ===== Alternation find =====
@@ -170,6 +192,16 @@ public class RegexBenchmark {
     return count;
   }
 
+  @Benchmark
+  public int alternationFind_re2j() {
+    com.google.re2j.Matcher m = re2jAlt.matcher(ALT_TEXT);
+    int count = 0;
+    while (m.find()) {
+      count++;
+    }
+    return count;
+  }
+
   // ===== Capture groups =====
 
   @Benchmark
@@ -182,6 +214,13 @@ public class RegexBenchmark {
   @Benchmark
   public String captureGroups_jdk() {
     java.util.regex.Matcher m = jdkDate.matcher(DATE_TEXT);
+    m.matches();
+    return m.group(1) + m.group(2) + m.group(3);
+  }
+
+  @Benchmark
+  public String captureGroups_re2j() {
+    com.google.re2j.Matcher m = re2jDate.matcher(DATE_TEXT);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
@@ -208,6 +247,16 @@ public class RegexBenchmark {
     return count;
   }
 
+  @Benchmark
+  public int findInText_re2j() {
+    com.google.re2j.Matcher m = re2jFindIng.matcher(PROSE_TEXT);
+    int count = 0;
+    while (m.find()) {
+      count++;
+    }
+    return count;
+  }
+
   // ===== Email pattern find =====
 
   @Benchmark
@@ -218,5 +267,10 @@ public class RegexBenchmark {
   @Benchmark
   public boolean emailFind_jdk() {
     return jdkEmail.matcher(EMAIL_TEXT).find();
+  }
+
+  @Benchmark
+  public boolean emailFind_re2j() {
+    return re2jEmail.matcher(EMAIL_TEXT).find();
   }
 }

@@ -59,6 +59,11 @@ public class SearchScalingBenchmark {
   private dev.eaftan.safere.Pattern safeHard;
   private java.util.regex.Pattern jdkHard;
 
+  private com.google.re2j.Pattern re2jEasy;
+  private com.google.re2j.Pattern re2jMedium;
+  private com.google.re2j.Pattern re2jHard;
+  private com.google.re2j.Pattern re2jFindIng;
+
   // For the "find in text" scaling tests (existing patterns on larger text).
   private dev.eaftan.safere.Pattern safeFindIng;
   private java.util.regex.Pattern jdkFindIng;
@@ -104,6 +109,11 @@ public class SearchScalingBenchmark {
     scaledProse = sb.toString();
     safeFindIng = dev.eaftan.safere.Pattern.compile("\\b\\w+ing\\b");
     jdkFindIng = java.util.regex.Pattern.compile("\\b\\w+ing\\b");
+
+    re2jEasy = com.google.re2j.Pattern.compile(EASY_PATTERN);
+    re2jMedium = com.google.re2j.Pattern.compile(MEDIUM_PATTERN);
+    re2jHard = com.google.re2j.Pattern.compile(HARD_PATTERN);
+    re2jFindIng = com.google.re2j.Pattern.compile("\\b\\w+ing\\b");
   }
 
   // ===== Easy pattern: failing search =====
@@ -118,6 +128,11 @@ public class SearchScalingBenchmark {
     return jdkEasy.matcher(randomText).find();
   }
 
+  @Benchmark
+  public boolean searchEasyFail_re2j() {
+    return re2jEasy.matcher(randomText).find();
+  }
+
   // ===== Easy pattern: successful search (match at end) =====
 
   @Benchmark
@@ -128,6 +143,11 @@ public class SearchScalingBenchmark {
   @Benchmark
   public boolean searchEasySuccess_jdk() {
     return jdkEasy.matcher(textWithMatch).find();
+  }
+
+  @Benchmark
+  public boolean searchEasySuccess_re2j() {
+    return re2jEasy.matcher(textWithMatch).find();
   }
 
   // ===== Medium pattern: failing search =====
@@ -142,6 +162,11 @@ public class SearchScalingBenchmark {
     return jdkMedium.matcher(randomText).find();
   }
 
+  @Benchmark
+  public boolean searchMediumFail_re2j() {
+    return re2jMedium.matcher(randomText).find();
+  }
+
   // ===== Hard pattern: failing search =====
   // Note: The hard pattern with [ -~]* can cause catastrophic backtracking in JDK.
   // At large sizes the JDK benchmark may be very slow.
@@ -154,6 +179,11 @@ public class SearchScalingBenchmark {
   @Benchmark
   public boolean searchHardFail_jdk() {
     return jdkHard.matcher(randomText).find();
+  }
+
+  @Benchmark
+  public boolean searchHardFail_re2j() {
+    return re2jHard.matcher(randomText).find();
   }
 
   // ===== Find-all in scaled prose (text size scaling for existing pattern) =====
@@ -171,6 +201,16 @@ public class SearchScalingBenchmark {
   @Benchmark
   public int findIngScaled_jdk() {
     java.util.regex.Matcher m = jdkFindIng.matcher(scaledProse);
+    int count = 0;
+    while (m.find()) {
+      count++;
+    }
+    return count;
+  }
+
+  @Benchmark
+  public int findIngScaled_re2j() {
+    com.google.re2j.Matcher m = re2jFindIng.matcher(scaledProse);
     int count = 0;
     while (m.find()) {
       count++;

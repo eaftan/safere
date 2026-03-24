@@ -44,6 +44,11 @@ public class CompileBenchmark {
     return java.util.regex.Pattern.compile(SIMPLE);
   }
 
+  @Benchmark
+  public com.google.re2j.Pattern compileSimple_re2j() {
+    return com.google.re2j.Pattern.compile(SIMPLE);
+  }
+
   // ===== Medium pattern (date-time with captures) =====
 
   @Benchmark
@@ -54,6 +59,11 @@ public class CompileBenchmark {
   @Benchmark
   public java.util.regex.Pattern compileMedium_jdk() {
     return java.util.regex.Pattern.compile(MEDIUM);
+  }
+
+  @Benchmark
+  public com.google.re2j.Pattern compileMedium_re2j() {
+    return com.google.re2j.Pattern.compile(MEDIUM);
   }
 
   // ===== Complex pattern (email) =====
@@ -68,6 +78,11 @@ public class CompileBenchmark {
     return java.util.regex.Pattern.compile(COMPLEX);
   }
 
+  @Benchmark
+  public com.google.re2j.Pattern compileComplex_re2j() {
+    return com.google.re2j.Pattern.compile(COMPLEX);
+  }
+
   // ===== Alternation pattern =====
 
   @Benchmark
@@ -78,5 +93,10 @@ public class CompileBenchmark {
   @Benchmark
   public java.util.regex.Pattern compileAlternation_jdk() {
     return java.util.regex.Pattern.compile(ALTERNATION);
+  }
+
+  @Benchmark
+  public com.google.re2j.Pattern compileAlternation_re2j() {
+    return com.google.re2j.Pattern.compile(ALTERNATION);
   }
 }

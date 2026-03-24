@@ -54,6 +54,12 @@ public class CaptureScalingBenchmark {
   private java.util.regex.Pattern jdk0;
   private static final String PAT_0 = "[0-9]+-[0-9]+-[0-9]+";
 
+  // RE2/J patterns.
+  private com.google.re2j.Pattern re2j0;
+  private com.google.re2j.Pattern re2j1;
+  private com.google.re2j.Pattern re2j3;
+  private com.google.re2j.Pattern re2j10;
+
   @Setup
   public void setup() {
     safe0 = dev.eaftan.safere.Pattern.compile(PAT_0);
@@ -64,6 +70,11 @@ public class CaptureScalingBenchmark {
     jdk3 = java.util.regex.Pattern.compile(PAT_3);
     safe10 = dev.eaftan.safere.Pattern.compile(PAT_10);
     jdk10 = java.util.regex.Pattern.compile(PAT_10);
+
+    re2j0 = com.google.re2j.Pattern.compile(PAT_0);
+    re2j1 = com.google.re2j.Pattern.compile(PAT_1);
+    re2j3 = com.google.re2j.Pattern.compile(PAT_3);
+    re2j10 = com.google.re2j.Pattern.compile(PAT_10);
   }
 
   // ===== 0 groups (baseline) =====
@@ -78,6 +89,11 @@ public class CaptureScalingBenchmark {
     return jdk0.matcher(TEXT_3).matches();
   }
 
+  @Benchmark
+  public boolean capture0_re2j() {
+    return re2j0.matcher(TEXT_3).matches();
+  }
+
   // ===== 1 group =====
 
   @Benchmark
@@ -90,6 +106,13 @@ public class CaptureScalingBenchmark {
   @Benchmark
   public String capture1_jdk() {
     java.util.regex.Matcher m = jdk1.matcher(TEXT_1);
+    m.matches();
+    return m.group(1);
+  }
+
+  @Benchmark
+  public String capture1_re2j() {
+    com.google.re2j.Matcher m = re2j1.matcher(TEXT_1);
     m.matches();
     return m.group(1);
   }
@@ -110,6 +133,13 @@ public class CaptureScalingBenchmark {
     return m.group(1) + m.group(2) + m.group(3);
   }
 
+  @Benchmark
+  public String capture3_re2j() {
+    com.google.re2j.Matcher m = re2j3.matcher(TEXT_3);
+    m.matches();
+    return m.group(1) + m.group(2) + m.group(3);
+  }
+
   // ===== 10 groups =====
 
   @Benchmark
@@ -126,6 +156,17 @@ public class CaptureScalingBenchmark {
   @Benchmark
   public String capture10_jdk() {
     java.util.regex.Matcher m = jdk10.matcher(TEXT_10);
+    m.matches();
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i <= 10; i++) {
+      sb.append(m.group(i));
+    }
+    return sb.toString();
+  }
+
+  @Benchmark
+  public String capture10_re2j() {
+    com.google.re2j.Matcher m = re2j10.matcher(TEXT_10);
     m.matches();
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= 10; i++) {
