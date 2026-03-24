@@ -81,13 +81,13 @@ core algorithms.  Here is how they compare:
 | Full Unicode support | ✅ | ✅ | ✅ | ✅ |
 | Submatch extraction | ✅ | ✅ | ✅ | ✅ |
 | Named captures | ✅ | ✅ | ✅ | ✅ |
-| DFA engine | ✅ | — | — | ✅ |
+| DFA engine | ✅ | ❌ | ❌ | ✅ |
 | NFA (Pike VM) engine | ✅ | ✅ | ✅ | ✅ |
-| OnePass engine | ✅ | ✅ | — | ✅ |
-| BitState engine | ✅ | ✅ | — | ✅ |
-| Reverse DFA | ✅ | — | — | ✅ |
+| OnePass engine | ✅ | ✅ | ❌ | ✅ |
+| BitState engine | ✅ | ✅ | ❌ | ✅ |
+| Reverse DFA | ✅ | ❌ | ❌ | ✅ |
 | Literal optimization | ✅ | ✅ | ✅ | ✅ |
-| Multi-pattern matching | ✅ (`RE2::Set`) | — | — | ✅ (`PatternSet`) |
+| Multi-pattern matching | ✅ (`RE2::Set`) | ❌ | ❌ | ✅ (`PatternSet`) |
 | Drop-in `java.util.regex` API | — | — | ❌ | ✅ |
 | Java version | — | — | 8+ | 21+ |
 
