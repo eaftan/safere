@@ -24,12 +24,12 @@ pathological patterns that demonstrate backtracking blowup.
 
 | Benchmark | SafeRE | JDK | Ratio |
 |---|--:|--:|---|
-| Literal match (`"hello"`) | 3 | 24 | **8× faster** |
-| Char class match (`[a-zA-Z]+`) | 475 | 135 | 3.5× slower |
-| Alternation find (`foo\|bar\|…` ×8) | 13,729 | 857 | 16× slower |
-| Capture groups (`(\d{4})-(\d{2})-(\d{2})`) | 104 | 114 | **1.1× faster** |
-| Find -ing words in prose (~350 chars) | 37,502 | 5,601 | 6.7× slower |
-| Email pattern find | 7,830 | 638 | 12× slower |
+| Literal match (`"hello"`) | 3 | 23 | **8× faster** |
+| Char class match (`[a-zA-Z]+`) | 477 | 130 | 3.7× slower |
+| Alternation find (`foo\|bar\|…` ×8) | 14,000 | 827 | 17× slower |
+| Capture groups (`(\d{4})-(\d{2})-(\d{2})`) | 105 | 115 | **1.1× faster** |
+| Find -ing words in prose (~350 chars) | 34,215 | 5,615 | 6.1× slower |
+| Email pattern find | 9,353 | 601 | 16× slower |
 
 ## Search Scaling (µs/op, lower is better)
 
@@ -41,27 +41,27 @@ through random text that does **not** contain the match (worst-case scan).
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
 | 1 KB | 0.09 | 0.17 | **1.9× faster** |
-| 10 KB | 0.83 | 1.48 | **1.8× faster** |
-| 100 KB | 8.4 | 14.6 | **1.7× faster** |
-| 1 MB | 83.5 | 146.4 | **1.8× faster** |
+| 10 KB | 0.86 | 1.50 | **1.7× faster** |
+| 100 KB | 8.6 | 15.2 | **1.8× faster** |
+| 1 MB | 86.6 | 149.8 | **1.7× faster** |
 
 ### Medium: `[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$` (starts with char class)
 
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 1 KB | 7.0 | 4.0 | 1.7× slower |
-| 10 KB | 45.3 | 41.0 | 1.1× slower |
-| 100 KB | 430 | 415 | ~same |
-| 1 MB | 4,315 | 4,277 | ~same |
+| 1 KB | 7.4 | 4.3 | 1.7× slower |
+| 10 KB | 49.0 | 43.1 | 1.1× slower |
+| 100 KB | 456 | 434 | ~same |
+| 1 MB | 4,631 | 4,425 | ~same |
 
 ### Hard: `[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$` (catastrophic in backtracking engines)
 
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 1 KB | 7.6 | 390 | **51× faster** |
-| 10 KB | 45.7 | 3,062 | **67× faster** |
-| 100 KB | 426 | 27,579 | **65× faster** |
-| 1 MB | 4,306 | 269,417 | **63× faster** |
+| 1 KB | 8.1 | 404 | **50× faster** |
+| 10 KB | 49.5 | 2,948 | **60× faster** |
+| 100 KB | 461 | 28,759 | **62× faster** |
+| 1 MB | 4,715 | 277,413 | **59× faster** |
 
 The Hard pattern has a leading `[ -~]*` that causes O(n²) behavior in the
 JDK's backtracking engine. SafeRE's DFA handles it in linear time.
@@ -70,10 +70,10 @@ JDK's backtracking engine. SafeRE's DFA handles it in linear time.
 
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 1 KB | 6.3 | 0.21 | 30× slower |
-| 10 KB | 7.1 | 1.5 | 4.7× slower |
-| 100 KB | 14.7 | 14.7 | ~same |
-| 1 MB | 90.9 | 147.8 | **1.6× faster** |
+| 1 KB | 9.2 | 0.21 | 45× slower |
+| 10 KB | 9.6 | 1.5 | 6.3× slower |
+| 100 KB | 17.7 | 15.4 | ~same |
+| 1 MB | 96.1 | 153.8 | **1.6× faster** |
 
 SafeRE has higher per-match startup cost but scales better; it overtakes JDK
 around 100 KB.
@@ -82,14 +82,14 @@ around 100 KB.
 
 | Groups | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 0 | 90 | 70 | 1.3× slower |
-| 1 | 114 | 98 | 1.2× slower |
-| 3 | 165 | 119 | 1.4× slower |
-| 10 | 6,378 | 374 | 17× slower |
+| 0 | 88 | 64 | 1.4× slower |
+| 1 | 114 | 89 | 1.3× slower |
+| 3 | 151 | 121 | 1.2× slower |
+| 10 | 311 | 364 | **1.2× faster** |
 
-SafeRE is competitive at low capture counts (1–3 groups). At 10 groups, the
-jump to BitState capture extraction is costly. This is a known optimization
-opportunity.
+SafeRE is competitive at low capture counts (1–3 groups) and now **beats JDK
+at 10 groups** thanks to the OnePass 64-bit action encoding, which raised the
+OnePass capture limit from 6 to 16.
 
 ## HTTP Request Parsing (ns/op, lower is better)
 
@@ -97,9 +97,9 @@ Pattern: `^(?:GET|POST) +([^ ]+) HTTP`
 
 | Input | SafeRE | JDK | Ratio |
 |---|--:|--:|---|
-| Full request (97 chars) | 7,349 | 213 | 34× slower |
-| Small request (18 chars) | 3,007 | 65 | 46× slower |
-| Extract URL (97 chars) | 7,236 | 216 | 34× slower |
+| Full request (97 chars) | 7,212 | 213 | 34× slower |
+| Small request (18 chars) | 3,128 | 65 | 48× slower |
+| Extract URL (97 chars) | 6,854 | 213 | 32× slower |
 
 This anchored pattern with an alternation start and capture group shows
 SafeRE's per-match overhead. The pattern is OnePass-eligible but the
@@ -110,10 +110,10 @@ alternation prevents literal fast-path.
 | Benchmark | SafeRE | JDK | Ratio |
 |---|--:|--:|---|
 | Literal replaceFirst (`"b"→"bb"`) | 38 | 61 | **1.6× faster** |
-| Literal replaceAll | 127 | 166 | **1.3× faster** |
-| Pig Latin replaceAll (backrefs) | 14,974 | 1,124 | 13× slower |
-| Digit replaceAll (`\d+`→`"NUM"`) | 5,366 | 576 | 9.3× slower |
-| Empty-match replaceAll (`a*`) | 2,557 | 109 | 23× slower |
+| Literal replaceAll | 127 | 185 | **1.5× faster** |
+| Pig Latin replaceAll (backrefs) | 16,520 | 1,230 | 13× slower |
+| Digit replaceAll (`\d+`→`"NUM"`) | 5,955 | 647 | 9.2× slower |
+| Empty-match replaceAll (`a*`) | 1,533 | 108 | 14× slower |
 
 SafeRE wins on literal replacements (fast-path). For patterns requiring
 regex engine dispatch, the per-match overhead dominates.
@@ -124,9 +124,9 @@ Matching text against multiple compiled patterns simultaneously.
 
 | Patterns | Unanchored (match) | Unanchored (no match) | Anchored (match) | Anchored (no match) |
 |--:|--:|--:|--:|--:|
-| 4 | 3,643 | 2,615 | 2,134 | 1,750 |
-| 16 | 34,778 | 20,504 | 9,024 | 8,676 |
-| 64 | 119,816 | 93,448 | 41,166 | 41,499 |
+| 4 | 3,835 | 2,770 | 2,406 | 1,837 |
+| 16 | 38,189 | 21,594 | 9,592 | 9,061 |
+| 64 | 132,567 | 104,355 | 43,235 | 42,373 |
 
 Anchored matching is 2–3× faster than unanchored. Scaling is roughly linear
 in pattern count.
@@ -137,9 +137,9 @@ in pattern count.
 
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 1 KB | 10.0 | 1.4 | 7× slower |
-| 10 KB | 359 | 1.4 | 257× slower |
-| 100 KB | 358 | 1.4 | 256× slower |
+| 1 KB | 10.5 | 1.5 | 7× slower |
+| 10 KB | 369 | 1.5 | 246× slower |
+| 100 KB | 362 | 1.5 | 241× slower |
 
 JDK's backtracking engine quickly fails and returns false; SafeRE's DFA
 explores more states. The pattern is a stress test for DFA state explosion.
@@ -148,9 +148,9 @@ explores more states. The pattern is a stress test for DFA state explosion.
 
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 1 KB | 8.0 | 18.2 | **2.3× faster** |
-| 10 KB | 48.5 | 183 | **3.8× faster** |
-| 100 KB | 445 | 1,855 | **4.2× faster** |
+| 1 KB | 8.4 | 19.2 | **2.3× faster** |
+| 10 KB | 50.5 | 191 | **3.8× faster** |
+| 100 KB | 465 | 1,975 | **4.2× faster** |
 
 SafeRE's advantage grows with input size, as expected for a linear-time
 engine vs. backtracking.
@@ -159,10 +159,10 @@ engine vs. backtracking.
 
 | Pattern | SafeRE | JDK | Ratio |
 |---|--:|--:|---|
-| Simple (`hello`) | 2.00 | 0.11 | 18× slower |
-| Medium (datetime with 6 captures) | 7.56 | 0.39 | 20× slower |
-| Complex (email regex) | 8.05 | 0.29 | 28× slower |
-| Alternation (12 alternatives) | 9.79 | 0.49 | 20× slower |
+| Simple (`hello`) | 2.15 | 0.11 | 20× slower |
+| Medium (datetime with 6 captures) | 10.78 | 0.41 | 26× slower |
+| Complex (email regex) | 7.80 | 0.30 | 26× slower |
+| Alternation (12 alternatives) | 9.88 | 0.49 | 20× slower |
 
 ## Pathological Pattern: `a?{n}a{n}` matched against `a{n}`
 
@@ -173,13 +173,13 @@ exhibits O(2^n) behavior. SafeRE's linear-time engines handle it in O(n).
 
 | n | SafeRE |
 |--:|--:|
-| 10 | 0.062 |
-| 15 | 0.083 |
+| 10 | 0.063 |
+| 15 | 0.085 |
 | 20 | 0.103 |
-| 25 | 0.122 |
-| 30 | 0.143 |
-| 50 | 0.232 |
-| 100 | 0.436 |
+| 25 | 0.124 |
+| 30 | 0.144 |
+| 50 | 0.235 |
+| 100 | 0.450 |
 
 Growth is linear: 10× increase in n → ~7× increase in time.
 
@@ -187,10 +187,10 @@ Growth is linear: 10× increase in n → ~7× increase in time.
 
 | n | SafeRE | JDK | Speedup |
 |--:|--:|--:|--:|
-| 10 | 0.066 | 15.8 | 239× |
-| 15 | 0.089 | 664.7 | 7,468× |
-| 20 | 0.111 | 27,459 | 247,378× |
-| 25 | 0.122 | *(hangs)* | ∞ |
+| 10 | 0.063 | 15.8 | 251× |
+| 15 | 0.084 | 613.7 | 7,306× |
+| 20 | 0.105 | 27,819 | 264,943× |
+| 25 | 0.124 | *(hangs)* | ∞ |
 
 ## Find-in-Text Scaling (µs/op, lower is better)
 
@@ -198,30 +198,30 @@ Growth is linear: 10× increase in n → ~7× increase in time.
 
 | Text Size | SafeRE | JDK | Ratio |
 |--:|--:|--:|---|
-| 1 KB | 83 | 12.7 | 6.5× slower |
-| 10 KB | 781 | 127 | 6.1× slower |
-| 100 KB | 10,546 | 1,194 | 8.8× slower |
-| 1 MB | 345,258 | 12,173 | 28× slower |
+| 1 KB | 64 | 13.1 | 4.9× slower |
+| 10 KB | 482 | 128 | 3.8× slower |
+| 100 KB | 4,614 | 1,245 | 3.7× slower |
+| 1 MB | 45,714 | 12,524 | 3.7× slower |
 
-SafeRE's find-all-matches loop has high per-match overhead that compounds
-on text with many matches. This is a known optimization target (BitState
-caching, find-loop specialization).
+SafeRE's find-all-matches loop has per-match overhead that compounds on text
+with many matches, but DFA word-boundary support has significantly improved
+scaling (previously 28× slower at 1 MB, now 3.7×).
 
 ## Analysis
 
 **Where SafeRE wins:**
 - **Literal matching** — 8× faster via `String.indexOf()` fast path
-- **Literal replacement** — 1.3–1.6× faster for simple replacements
-- **Capture groups (≤3)** — Competitive or faster (OnePass engine)
-- **Hard/pathological patterns** — 63–250,000× faster, the core value proposition
+- **Literal replacement** — 1.5–1.6× faster for simple replacements
+- **Capture groups (≤10)** — Competitive or faster (OnePass engine, 64-bit actions)
+- **Hard/pathological patterns** — 59–265,000× faster, the core value proposition
 - **Nested quantifiers** — 2–4× faster, scaling advantage grows with input size
 - **Easy search on large text** — 1.7–1.9× faster (DFA + prefix acceleration)
 
 **Where JDK wins:**
 - **Small-text patterns** — JDK has lower per-match overhead (~30–50ns startup)
-- **Find-all on many matches** — Per-match overhead compounds
+- **Find-all on many matches** — Per-match overhead compounds (3.7× at 1 MB)
 - **Unicode fanout** — DFA state explosion on high-fanout patterns
-- **Compilation** — 18–28× faster (JDK defers work to match time)
+- **Compilation** — 20–26× faster (JDK defers work to match time)
 
 **The tradeoff:** SafeRE trades constant-factor speed on small inputs for
 **guaranteed linear time** and **better scaling** on large inputs and
@@ -245,17 +245,19 @@ of catastrophic backtracking.
    `String.indexOf()` / `String.equals()` directly.
 7. **Reverse DFA bounding** — Three-DFA sandwich: forward DFA finds match end,
    reverse DFA finds match start, then NFA runs on just the match range.
+8. **OnePass 64-bit action encoding** — Raised capture group limit from 6 to 16
+   by switching from 32-bit to 64-bit action words.
+9. **DFA word boundary support** — Native `\b`/`\B` handling in the DFA avoids
+   NFA fallback for word-boundary patterns.
 
 ## Remaining Opportunities
 
-- **Compilation** — Pattern compilation is 18–28× slower than JDK. Opportunities
+- **Compilation** — Pattern compilation is 20–26× slower than JDK. Opportunities
   include caching parsed Regexp trees and lazy OnePass/DFA construction.
 - **BitState caching** — A reusable BitState instance per Matcher would reduce
   allocation on repeated `find()` calls.
-- **10+ capture groups** — The 17× gap at 10 groups suggests BitState dispatch
-  overhead; a specialized capture-extraction path could help.
-- **Find-all loop** — Per-match overhead dominates when there are many matches;
-  a bulk-find mode could amortize engine setup cost.
+- **Find-all loop** — Per-match overhead dominates when there are many matches
+  (3.7× slower at 1 MB); a bulk-find mode could amortize engine setup cost.
 
 ---
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-24*
