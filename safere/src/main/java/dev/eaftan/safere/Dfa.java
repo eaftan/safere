@@ -43,6 +43,16 @@ final class Dfa {
   /** Flag bit: this state contains a MATCH instruction. */
   private static final int FLAG_MATCH = 1 << 8;
 
+  /** Flag bit: last consumed character was a word character (for {@code \b}/\B}). */
+  private static final int FLAG_LAST_WORD = 1 << 9;
+
+  /**
+   * Flag bit: match was triggered by a word-boundary assertion BEFORE consuming the transition
+   * character. The match position should be recorded at the current position, not after the
+   * character.
+   */
+  private static final int FLAG_MATCH_BEFORE = 1 << 10;
+
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
@@ -56,13 +66,20 @@ final class Dfa {
    * recomputation.
    */
   private static final class State {
-    final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE and MATCH only)
+    final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
+    /** Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable. */
+    final int[] wordBoundaryMatchIds;
     final List<State> next; // transitions indexed by equivalence class; null = not yet computed
 
     State(int[] insts, int flags, int numClasses) {
+      this(insts, flags, null, numClasses);
+    }
+
+    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
       this.insts = insts;
       this.flags = flags;
+      this.wordBoundaryMatchIds = wordBoundaryMatchIds;
       this.next = new ArrayList<>(Collections.nCopies(numClasses, null));
     }
 
@@ -146,11 +163,18 @@ final class Dfa {
    * Collects all code point range boundaries from the program's CHAR_RANGE instructions. The
    * boundaries define equivalence classes: code points within the same interval between consecutive
    * boundaries are indistinguishable to the DFA.
+   *
+   * <p>When the program contains word-boundary assertions ({@code \b} or {@code \B}), additional
+   * boundaries are added at the edges of the word-character ranges ({@code [A-Za-z0-9_]}) so that
+   * no equivalence class straddles the word/non-word boundary. This is necessary because the DFA
+   * caches transitions per (state, class) and the word-boundary computation depends on whether the
+   * current character is a word character.
    */
   private static int[] buildBoundaries(Prog prog) {
     TreeSet<Integer> bounds = new TreeSet<>();
     bounds.add(0);
     bounds.add(Utils.MAX_RUNE + 1);
+    boolean hasWordBoundary = false;
     for (int i = 0; i < prog.size(); i++) {
       Inst inst = prog.inst(i);
       if (inst.op == InstOp.CHAR_RANGE) {
@@ -158,7 +182,21 @@ final class Dfa {
         if (inst.hi < Utils.MAX_RUNE) {
           bounds.add(inst.hi + 1);
         }
+      } else if (inst.op == InstOp.EMPTY_WIDTH
+          && (inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
+        hasWordBoundary = true;
       }
+    }
+    if (hasWordBoundary) {
+      // Add boundaries at the edges of word-character ranges [0-9A-Za-z_].
+      bounds.add(0x30);   // '0'
+      bounds.add(0x3A);   // '9' + 1
+      bounds.add(0x41);   // 'A'
+      bounds.add(0x5B);   // 'Z' + 1
+      bounds.add(0x5F);   // '_'
+      bounds.add(0x60);   // '_' + 1
+      bounds.add(0x61);   // 'a'
+      bounds.add(0x7B);   // 'z' + 1
     }
     return bounds.stream().mapToInt(Integer::intValue).toArray();
   }
@@ -288,7 +326,15 @@ final class Dfa {
 
   /** Gets or creates a cached state. Returns null if the state budget is exceeded. */
   private State getOrCreate(int[] insts, int flags) {
-    if (insts.length == 0) {
+    return getOrCreate(insts, flags, null);
+  }
+
+  /**
+   * Gets or creates a cached state with optional word-boundary match IDs. Returns null if the
+   * state budget is exceeded.
+   */
+  private State getOrCreate(int[] insts, int flags, int[] wordBoundaryMatchIds) {
+    if (insts.length == 0 && (flags & FLAG_MATCH) == 0) {
       return deadState;
     }
     StateKey key = new StateKey(insts, flags);
@@ -299,7 +345,7 @@ final class Dfa {
     if (cache.size() >= maxStates) {
       return null;
     }
-    s = new State(insts, flags, numClasses);
+    s = new State(insts, flags, wordBoundaryMatchIds, numClasses);
     cache.put(key, s);
     return s;
   }
@@ -312,6 +358,16 @@ final class Dfa {
    * state without needing to restart at each position (unlike the NFA).
    */
   private State startState(String text, int pos, boolean anchored) {
+    return startState(text, pos, anchored, false);
+  }
+
+  /**
+   * Computes the start state with an explicit "last word" override for reverse searches.
+   *
+   * @param reverseContext if true, FLAG_LAST_WORD is set based on the character AT pos (the char
+   *     to the right of where a reverse scan begins), rather than the character BEFORE pos
+   */
+  private State startState(String text, int pos, boolean anchored, boolean reverseContext) {
     int startInst = anchored ? prog.start() : prog.startUnanchored();
     if (startInst == 0) {
       return deadState;
@@ -321,6 +377,18 @@ final class Dfa {
     int flags = emptyFlags & 0xFF;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
+    }
+    // Track word-character context for \b/\B support in subsequent computeNext() calls.
+    // For forward search: the "last" character is the one before pos.
+    // For reverse search: the "last" character (in reverse direction) is the one at pos.
+    if (reverseContext) {
+      if (pos < text.length() && Nfa.isWordChar(text.codePointAt(pos))) {
+        flags |= FLAG_LAST_WORD;
+      }
+    } else {
+      if (pos > 0 && Nfa.isWordChar(text.codePointBefore(pos))) {
+        flags |= FLAG_LAST_WORD;
+      }
     }
     return getOrCreate(insts, flags);
   }
@@ -334,9 +402,17 @@ final class Dfa {
    */
   private State computeNext(State s, int cp, String text, int nextPos) {
     // At end of text, re-expand the current instruction set with end-of-text empty flags.
-    // This allows empty-width assertions like $ to fire.
+    // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
+      // Compute empty flags for end-of-text, but override word boundary using state context.
       int emptyFlags = Nfa.emptyFlags(text, nextPos);
+      // At end-of-text the "current" character is not a word char.
+      boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+      if (wasWord) {
+        emptyFlags = (emptyFlags | EmptyOp.WORD_BOUNDARY) & ~EmptyOp.NON_WORD_BOUNDARY;
+      } else {
+        emptyFlags = (emptyFlags | EmptyOp.NON_WORD_BOUNDARY) & ~EmptyOp.WORD_BOUNDARY;
+      }
       // Re-expand from the successors of EMPTY_WIDTH instructions that now pass.
       List<Integer> seeds = new ArrayList<>();
       for (int id : s.insts) {
@@ -356,11 +432,70 @@ final class Dfa {
       if (hasMatch(nextInsts)) {
         flags |= FLAG_MATCH;
       }
+      // End-of-text is not a word char, so FLAG_LAST_WORD is not set.
       return getOrCreate(nextInsts, flags);
     }
 
-    List<Integer> successors = new ArrayList<>();
+    // Step 1: Re-evaluate unsatisfied word-boundary EMPTY_WIDTH instructions.
+    // Compute word boundary context BEFORE consuming cp: the boundary sits between
+    // the "last word" char (from state's FLAG_LAST_WORD) and cp.
+    boolean isWord = Nfa.isWordChar(cp);
+    boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+    int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
+        : EmptyOp.NON_WORD_BOUNDARY;
+
+    // Check if any unsatisfied EMPTY_WIDTH instructions are now satisfiable.
+    // If so, re-expand the state to include their successors before consuming cp.
+    List<Integer> reExpandSeeds = null;
     for (int id : s.insts) {
+      Inst ip = prog.inst(id);
+      if (ip.op == InstOp.EMPTY_WIDTH) {
+        int wordFlags = ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
+        int otherFlags = ip.arg & ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
+        if (otherFlags == 0 && wordFlags != 0 && (wordFlags & ~wordBeforeFlags) == 0) {
+          if (reExpandSeeds == null) {
+            reExpandSeeds = new ArrayList<>();
+          }
+          reExpandSeeds.add(ip.out);
+        }
+      }
+    }
+
+    // If word-boundary assertions fired, expand their successors to get additional
+    // CHAR_RANGE and MATCH instructions that are now reachable.
+    int[] expandedInsts = s.insts;
+    boolean hasMatchFromWordBoundary = false;
+    int[] wordBoundaryMatchIds = null;
+    if (reExpandSeeds != null) {
+      // Expand the newly reachable instructions (without word boundary flags since
+      // we can't predict the NEXT word boundary).
+      int[] newInsts = expand(reExpandSeeds, s.flags & 0xFF);
+
+      // Check if the re-expansion revealed any MATCH instructions. Collect their IDs
+      // for PatternSet multi-match before merging with the original state.
+      int wbMatchCount = 0;
+      int[] wbIds = null;
+      for (int id : newInsts) {
+        Inst ip = prog.inst(id);
+        if (ip.op == InstOp.MATCH) {
+          hasMatchFromWordBoundary = true;
+          if (wbIds == null) {
+            wbIds = new int[newInsts.length];
+          }
+          wbIds[wbMatchCount++] = ip.arg;
+        }
+      }
+      if (wbMatchCount > 0) {
+        wordBoundaryMatchIds = Arrays.copyOf(wbIds, wbMatchCount);
+      }
+
+      // Merge with existing instructions.
+      expandedInsts = mergeInsts(s.insts, newInsts);
+    }
+
+    // Step 2: Process CHAR_RANGE transitions against cp using the (possibly expanded) state.
+    List<Integer> successors = new ArrayList<>();
+    for (int id : expandedInsts) {
       Inst ip = prog.inst(id);
       if (ip.op == InstOp.CHAR_RANGE && ip.matchesChar(cp)) {
         successors.add(ip.out);
@@ -368,21 +503,69 @@ final class Dfa {
     }
 
     if (successors.isEmpty()) {
+      // No CHAR_RANGE matched, but if word-boundary expansion revealed a MATCH,
+      // return a match state. FLAG_MATCH_BEFORE indicates the match position should be
+      // recorded at the current position (before consuming cp), not after.
+      if (hasMatchFromWordBoundary) {
+        return getOrCreate(new int[0],
+            FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
+            wordBoundaryMatchIds);
+      }
       return deadState;
     }
 
+    // Compute empty flags at nextPos (after consuming cp). Omit word boundary flags
+    // since they depend on the next character, which we don't know yet. Unsatisfied
+    // \b/\B EMPTY_WIDTH instructions will remain in the frontier for re-evaluation.
     int emptyFlags = Nfa.emptyFlags(text, nextPos);
+    emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
+
     int[] nextInsts = expand(successors, emptyFlags);
 
     if (nextInsts.length == 0) {
+      if (hasMatchFromWordBoundary) {
+        return getOrCreate(new int[0],
+            FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
+            wordBoundaryMatchIds);
+      }
       return deadState;
     }
 
     int flags = emptyFlags & 0xFF;
     if (hasMatch(nextInsts)) {
       flags |= FLAG_MATCH;
+    } else if (hasMatchFromWordBoundary) {
+      flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
     }
-    return getOrCreate(nextInsts, flags);
+    if (isWord) {
+      flags |= FLAG_LAST_WORD;
+    }
+    return getOrCreate(nextInsts, flags, wordBoundaryMatchIds);
+  }
+
+  /** Merges two sorted instruction arrays into a sorted, deduplicated array. */
+  private static int[] mergeInsts(int[] a, int[] b) {
+    int[] merged = new int[a.length + b.length];
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] < b[j]) {
+        merged[k++] = a[i++];
+      } else if (a[i] > b[j]) {
+        merged[k++] = b[j++];
+      } else {
+        merged[k++] = a[i++];
+        j++;
+      }
+    }
+    while (i < a.length) {
+      merged[k++] = a[i++];
+    }
+    while (j < b.length) {
+      merged[k++] = b[j++];
+    }
+    return Arrays.copyOf(merged, k);
   }
 
   // ---------------------------------------------------------------------------
@@ -520,7 +703,10 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        int endPos = Math.min(nextPos, textLen);
+        // FLAG_MATCH_BEFORE indicates the match was triggered by a word-boundary assertion
+        // before consuming the current character. Record the match at pos, not nextPos.
+        int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
+            ? pos : Math.min(nextPos, textLen);
         if (!needEndMatch || endPos == textLen) {
           matched = true;
           matchEnd = endPos;
@@ -570,7 +756,7 @@ final class Dfa {
     boolean needEndMatch = prog.anchorEnd();
 
     // Compute empty flags at the reverse start position (= endPos in the original text).
-    State s = startState(text, endPos, anchored);
+    State s = startState(text, endPos, anchored, true);
     if (s == null) {
       return null;
     }
@@ -640,7 +826,9 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        int startPos = Math.max(prevPos, startLimit);
+        // For reverse search, FLAG_MATCH_BEFORE means the match happened at pos, not prevPos.
+        int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0
+            ? pos : Math.max(prevPos, startLimit);
         if (!needEndMatch || startPos == startLimit) {
           matched = true;
           matchStart = startPos;
@@ -752,10 +940,18 @@ final class Dfa {
         }
 
         if (s.isMatch()) {
-          int endPos = Math.min(nextPos, textLen);
+          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
+              ? pos : Math.min(nextPos, textLen);
           if (!needEndMatch || endPos == textLen) {
+            // Collect match IDs from the state's instructions.
             for (int id : collectMatchIds(s.insts)) {
               seen.set(id);
+            }
+            // Also collect match IDs from word-boundary expansion (if any).
+            if (s.wordBoundaryMatchIds != null) {
+              for (int id : s.wordBoundaryMatchIds) {
+                seen.set(id);
+              }
             }
           }
         }
