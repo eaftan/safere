@@ -149,6 +149,10 @@ JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
 ```
 
+- **NEVER run benchmarks in parallel.** All benchmark runs (Java, C++, Go)
+  must run sequentially, one at a time. Parallel runs compete for CPU,
+  cache, and memory bandwidth, producing inaccurate results.
+
 - **Extract summary tables from JMH output** using grep. JMH prints
   verbose per-iteration output; the summary table at the end has one
   header line starting with `Benchmark` and data lines starting with
