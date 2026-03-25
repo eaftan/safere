@@ -33,26 +33,26 @@ public class CaptureScalingBenchmark {
   // 1 capture group: phone area code.
   private dev.eaftan.safere.Pattern safe1;
   private java.util.regex.Pattern jdk1;
-  private static final String TEXT_1 = "650-253-0001";
-  private static final String PAT_1 = "([0-9]+)-[0-9]+-[0-9]+";
+  private String text1;
+  private String pat1;
 
   // 3 capture groups: phone number (same as RE2's Parse_Digits).
   private dev.eaftan.safere.Pattern safe3;
   private java.util.regex.Pattern jdk3;
-  private static final String TEXT_3 = "650-253-0001";
-  private static final String PAT_3 = "([0-9]+)-([0-9]+)-([0-9]+)";
+  private String text3;
+  private String pat3;
 
   // 10 capture groups: key=value pairs.
   private dev.eaftan.safere.Pattern safe10;
   private java.util.regex.Pattern jdk10;
-  private static final String TEXT_10 = "a=1;b=2;c=3;d=4;e=5";
-  private static final String PAT_10 =
-      "(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+)";
+  private String text10;
+  private String pat10;
 
   // 0 capture groups (baseline): same text, no groups.
   private dev.eaftan.safere.Pattern safe0;
   private java.util.regex.Pattern jdk0;
-  private static final String PAT_0 = "[0-9]+-[0-9]+-[0-9]+";
+  private String pat0;
+  private String text0;
 
   // RE2/J patterns.
   private com.google.re2j.Pattern re2j0;
@@ -62,57 +62,67 @@ public class CaptureScalingBenchmark {
 
   @Setup
   public void setup() {
-    safe0 = dev.eaftan.safere.Pattern.compile(PAT_0);
-    jdk0 = java.util.regex.Pattern.compile(PAT_0);
-    safe1 = dev.eaftan.safere.Pattern.compile(PAT_1);
-    jdk1 = java.util.regex.Pattern.compile(PAT_1);
-    safe3 = dev.eaftan.safere.Pattern.compile(PAT_3);
-    jdk3 = java.util.regex.Pattern.compile(PAT_3);
-    safe10 = dev.eaftan.safere.Pattern.compile(PAT_10);
-    jdk10 = java.util.regex.Pattern.compile(PAT_10);
+    BenchmarkData data = BenchmarkData.get();
+    pat0 = data.getString("captureScaling.capture0.pattern");
+    text0 = data.getString("captureScaling.capture0.text");
+    pat1 = data.getString("captureScaling.capture1.pattern");
+    text1 = data.getString("captureScaling.capture1.text");
+    pat3 = data.getString("captureScaling.capture3.pattern");
+    text3 = data.getString("captureScaling.capture3.text");
+    pat10 = data.getString("captureScaling.capture10.pattern");
+    text10 = data.getString("captureScaling.capture10.text");
 
-    re2j0 = com.google.re2j.Pattern.compile(PAT_0);
-    re2j1 = com.google.re2j.Pattern.compile(PAT_1);
-    re2j3 = com.google.re2j.Pattern.compile(PAT_3);
-    re2j10 = com.google.re2j.Pattern.compile(PAT_10);
+    safe0 = dev.eaftan.safere.Pattern.compile(pat0);
+    jdk0 = java.util.regex.Pattern.compile(pat0);
+    safe1 = dev.eaftan.safere.Pattern.compile(pat1);
+    jdk1 = java.util.regex.Pattern.compile(pat1);
+    safe3 = dev.eaftan.safere.Pattern.compile(pat3);
+    jdk3 = java.util.regex.Pattern.compile(pat3);
+    safe10 = dev.eaftan.safere.Pattern.compile(pat10);
+    jdk10 = java.util.regex.Pattern.compile(pat10);
+
+    re2j0 = com.google.re2j.Pattern.compile(pat0);
+    re2j1 = com.google.re2j.Pattern.compile(pat1);
+    re2j3 = com.google.re2j.Pattern.compile(pat3);
+    re2j10 = com.google.re2j.Pattern.compile(pat10);
   }
 
   // ===== 0 groups (baseline) =====
 
   @Benchmark
   public boolean capture0_safere() {
-    return safe0.matcher(TEXT_3).matches();
+    return safe0.matcher(text0).matches();
   }
 
   @Benchmark
   public boolean capture0_jdk() {
-    return jdk0.matcher(TEXT_3).matches();
+    return jdk0.matcher(text0).matches();
   }
 
   @Benchmark
   public boolean capture0_re2j() {
-    return re2j0.matcher(TEXT_3).matches();
+    return re2j0.matcher(text0).matches();
   }
 
   // ===== 1 group =====
 
   @Benchmark
   public String capture1_safere() {
-    dev.eaftan.safere.Matcher m = safe1.matcher(TEXT_1);
+    dev.eaftan.safere.Matcher m = safe1.matcher(text1);
     m.matches();
     return m.group(1);
   }
 
   @Benchmark
   public String capture1_jdk() {
-    java.util.regex.Matcher m = jdk1.matcher(TEXT_1);
+    java.util.regex.Matcher m = jdk1.matcher(text1);
     m.matches();
     return m.group(1);
   }
 
   @Benchmark
   public String capture1_re2j() {
-    com.google.re2j.Matcher m = re2j1.matcher(TEXT_1);
+    com.google.re2j.Matcher m = re2j1.matcher(text1);
     m.matches();
     return m.group(1);
   }
@@ -121,21 +131,21 @@ public class CaptureScalingBenchmark {
 
   @Benchmark
   public String capture3_safere() {
-    dev.eaftan.safere.Matcher m = safe3.matcher(TEXT_3);
+    dev.eaftan.safere.Matcher m = safe3.matcher(text3);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
 
   @Benchmark
   public String capture3_jdk() {
-    java.util.regex.Matcher m = jdk3.matcher(TEXT_3);
+    java.util.regex.Matcher m = jdk3.matcher(text3);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
 
   @Benchmark
   public String capture3_re2j() {
-    com.google.re2j.Matcher m = re2j3.matcher(TEXT_3);
+    com.google.re2j.Matcher m = re2j3.matcher(text3);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
@@ -144,7 +154,7 @@ public class CaptureScalingBenchmark {
 
   @Benchmark
   public String capture10_safere() {
-    dev.eaftan.safere.Matcher m = safe10.matcher(TEXT_10);
+    dev.eaftan.safere.Matcher m = safe10.matcher(text10);
     m.matches();
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= 10; i++) {
@@ -155,7 +165,7 @@ public class CaptureScalingBenchmark {
 
   @Benchmark
   public String capture10_jdk() {
-    java.util.regex.Matcher m = jdk10.matcher(TEXT_10);
+    java.util.regex.Matcher m = jdk10.matcher(text10);
     m.matches();
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= 10; i++) {
@@ -166,7 +176,7 @@ public class CaptureScalingBenchmark {
 
   @Benchmark
   public String capture10_re2j() {
-    com.google.re2j.Matcher m = re2j10.matcher(TEXT_10);
+    com.google.re2j.Matcher m = re2j10.matcher(text10);
     m.matches();
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= 10; i++) {

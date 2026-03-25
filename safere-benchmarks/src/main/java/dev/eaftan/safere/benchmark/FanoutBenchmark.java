@@ -52,41 +52,41 @@ public class FanoutBenchmark {
   private String unicodeText;
   private String asciiText;
 
-  private static final String FANOUT_PATTERN =
-      "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]";
-  private static final String NESTED_PATTERN = "(?:a?){20}a{20}";
+  private String fanoutPattern;
+  private String nestedPattern;
 
   @Setup
   public void setup() {
-    safeFanout = dev.eaftan.safere.Pattern.compile(FANOUT_PATTERN);
-    jdkFanout = java.util.regex.Pattern.compile(
-        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]");
+    BenchmarkData data = BenchmarkData.get();
+    fanoutPattern = data.getString("fanout.unicodeFanout.pattern");
+    nestedPattern = data.getString("fanout.nestedQuantifier.pattern");
+    int[] codePoints = data.getIntArray("fanout.unicodeFanout.codePoints");
+    int unicodeSeed = data.getInt("fanout.unicodeFanout.seed");
+    String nestedAlphabet = data.getString("fanout.nestedQuantifier.alphabet");
+    int nestedSeed = data.getInt("fanout.nestedQuantifier.seed");
 
-    safeNested = dev.eaftan.safere.Pattern.compile(NESTED_PATTERN);
-    jdkNested = java.util.regex.Pattern.compile(NESTED_PATTERN);
+    safeFanout = dev.eaftan.safere.Pattern.compile(fanoutPattern);
+    jdkFanout = java.util.regex.Pattern.compile(fanoutPattern);
 
-    re2jFanout = com.google.re2j.Pattern.compile(FANOUT_PATTERN);
-    re2jNested = com.google.re2j.Pattern.compile(NESTED_PATTERN);
+    safeNested = dev.eaftan.safere.Pattern.compile(nestedPattern);
+    jdkNested = java.util.regex.Pattern.compile(nestedPattern);
 
-    // Generate Unicode text (mix of CJK, emoji, Latin Extended).
-    Random rng = new Random(42);
+    re2jFanout = com.google.re2j.Pattern.compile(fanoutPattern);
+    re2jNested = com.google.re2j.Pattern.compile(nestedPattern);
+
+    // Generate Unicode text (mix of CJK, Latin Extended, Cyrillic, Hiragana).
+    Random rng = new Random(unicodeSeed);
     StringBuilder sb = new StringBuilder();
-    int[] codePoints = {
-        0x4E00, 0x4E01, 0x4E02, // CJK
-        0x00E9, 0x00F1, 0x00FC, // Latin Extended
-        0x0410, 0x0411, 0x0412, // Cyrillic
-        0x3042, 0x3044, 0x3046, // Hiragana
-    };
     while (sb.length() < textSize) {
       sb.appendCodePoint(codePoints[rng.nextInt(codePoints.length)]);
     }
     unicodeText = sb.toString();
 
-    // Generate ASCII text with 'a' characters for nested quantifier test.
+    // Generate ASCII text for nested quantifier test.
+    rng = new Random(nestedSeed);
     char[] chars = new char[textSize];
-    String alphabet = "abcdefghijklmnopqrstuvwxyz";
     for (int i = 0; i < textSize; i++) {
-      chars[i] = alphabet.charAt(rng.nextInt(alphabet.length()));
+      chars[i] = nestedAlphabet.charAt(rng.nextInt(nestedAlphabet.length()));
     }
     asciiText = new String(chars);
   }

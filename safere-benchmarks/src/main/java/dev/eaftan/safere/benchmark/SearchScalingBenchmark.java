@@ -69,51 +69,57 @@ public class SearchScalingBenchmark {
   private java.util.regex.Pattern jdkFindIng;
   private String scaledProse;
 
-  private static final String EASY_PATTERN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ$";
-  private static final String MEDIUM_PATTERN = "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$";
-  private static final String HARD_PATTERN = "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$";
-  private static final String MATCH_SUFFIX = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-  private static final String PROSE_UNIT =
-      "The morning sun was shining brightly casting long shadows across the rolling "
-          + "hills Birds were singing their melodious songs while children were playing "
-          + "in the sprawling gardens A gentle breeze was blowing through the swaying "
-          + "trees carrying the scent of blooming flowers People were walking along "
-          + "the winding paths enjoying the refreshing air and the stunning views ";
+  private String easyPattern;
+  private String mediumPattern;
+  private String hardPattern;
+  private String matchSuffix;
+  private String findIngPattern;
+  private String proseUnit;
 
   @Setup
   public void setup() {
+    BenchmarkData data = BenchmarkData.get();
+    easyPattern = data.getString("searchScaling.patterns.easy");
+    mediumPattern = data.getString("searchScaling.patterns.medium");
+    hardPattern = data.getString("searchScaling.patterns.hard");
+    matchSuffix = data.getString("searchScaling.matchSuffix");
+    findIngPattern = data.getString("searchScaling.findIngPattern");
+    proseUnit = data.getString("searchScaling.proseUnit");
+
+    int seed = data.getInt("searchScaling.randomText.seed");
+    String alphabet = data.getString("searchScaling.randomText.alphabet");
+    alphabet = alphabet.replace("\\n", "\n");
+
     // Generate random lowercase + digits + space text (no uppercase).
-    Random rng = new Random(42);
+    Random rng = new Random(seed);
     char[] chars = new char[textSize];
-    String alphabet = "abcdefghijklmnopqrstuvwxyz0123456789 \n";
     for (int i = 0; i < textSize; i++) {
       chars[i] = alphabet.charAt(rng.nextInt(alphabet.length()));
     }
     randomText = new String(chars);
-    textWithMatch = randomText + MATCH_SUFFIX;
+    textWithMatch = randomText + matchSuffix;
 
     // Compile search patterns.
-    safeEasy = dev.eaftan.safere.Pattern.compile(EASY_PATTERN);
-    jdkEasy = java.util.regex.Pattern.compile(EASY_PATTERN);
-    safeMedium = dev.eaftan.safere.Pattern.compile(MEDIUM_PATTERN);
-    jdkMedium = java.util.regex.Pattern.compile(MEDIUM_PATTERN);
-    safeHard = dev.eaftan.safere.Pattern.compile(HARD_PATTERN);
-    jdkHard = java.util.regex.Pattern.compile(HARD_PATTERN);
+    safeEasy = dev.eaftan.safere.Pattern.compile(easyPattern);
+    jdkEasy = java.util.regex.Pattern.compile(easyPattern);
+    safeMedium = dev.eaftan.safere.Pattern.compile(mediumPattern);
+    jdkMedium = java.util.regex.Pattern.compile(mediumPattern);
+    safeHard = dev.eaftan.safere.Pattern.compile(hardPattern);
+    jdkHard = java.util.regex.Pattern.compile(hardPattern);
 
     // Build scaled prose by repeating the unit to reach textSize.
-    StringBuilder sb = new StringBuilder(textSize + PROSE_UNIT.length());
+    StringBuilder sb = new StringBuilder(textSize + proseUnit.length());
     while (sb.length() < textSize) {
-      sb.append(PROSE_UNIT);
+      sb.append(proseUnit);
     }
     scaledProse = sb.toString();
-    safeFindIng = dev.eaftan.safere.Pattern.compile("\\b\\w+ing\\b");
-    jdkFindIng = java.util.regex.Pattern.compile("\\b\\w+ing\\b");
+    safeFindIng = dev.eaftan.safere.Pattern.compile(findIngPattern);
+    jdkFindIng = java.util.regex.Pattern.compile(findIngPattern);
 
-    re2jEasy = com.google.re2j.Pattern.compile(EASY_PATTERN);
-    re2jMedium = com.google.re2j.Pattern.compile(MEDIUM_PATTERN);
-    re2jHard = com.google.re2j.Pattern.compile(HARD_PATTERN);
-    re2jFindIng = com.google.re2j.Pattern.compile("\\b\\w+ing\\b");
+    re2jEasy = com.google.re2j.Pattern.compile(easyPattern);
+    re2jMedium = com.google.re2j.Pattern.compile(mediumPattern);
+    re2jHard = com.google.re2j.Pattern.compile(hardPattern);
+    re2jFindIng = com.google.re2j.Pattern.compile(findIngPattern);
   }
 
   // ===== Easy pattern: failing search =====

@@ -38,78 +38,11 @@ public class PatternSetBenchmark {
   private PatternSet unanchoredSet;
   private PatternSet anchoredSet;
 
-  private static final String MATCH_TEXT =
-      "ERROR: connection timeout after 30s to host db-primary.internal:5432";
-  private static final String NO_MATCH_TEXT =
-      "The quick brown fox jumps over the lazy dog near the riverbank";
-
-  // Base patterns — mix of literals, char classes, and quantifiers.
-  private static final String[] BASE_PATTERNS = {
-      "ERROR",
-      "WARNING",
-      "INFO",
-      "DEBUG",
-      "FATAL",
-      "connection\\s+timeout",
-      "\\d+\\.\\d+\\.\\d+\\.\\d+",
-      "host\\s+\\S+",
-      "port\\s*:\\s*\\d+",
-      "after\\s+\\d+s",
-      "[A-Z]{2,}:",
-      "\\w+\\.internal",
-      "db-\\w+",
-      "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
-      "timeout|refused|reset|closed",
-      "\\[\\w+\\]",
-      "status\\s*=\\s*\\d+",
-      "retry\\s+\\d+/\\d+",
-      "latency\\s*>\\s*\\d+ms",
-      "queue\\s+full",
-      "memory\\s+\\d+[kmg]b?",
-      "cpu\\s+\\d+%",
-      "disk\\s+(full|low)",
-      "\\w+Exception",
-      "at\\s+\\w+\\.\\w+\\(",
-      "null\\s*pointer",
-      "stack\\s*overflow",
-      "out\\s+of\\s+memory",
-      "permission\\s+denied",
-      "not\\s+found",
-      "already\\s+exists",
-      "invalid\\s+\\w+",
-      "expired",
-      "unauthorized",
-      "rate\\s+limit",
-      "circuit\\s+breaker",
-      "health\\s+check\\s+failed",
-      "graceful\\s+shutdown",
-      "leader\\s+election",
-      "split\\s+brain",
-      "rebalancing",
-      "partition\\s+\\d+",
-      "offset\\s+\\d+",
-      "consumer\\s+group",
-      "dead\\s+letter",
-      "backpressure",
-      "throttled",
-      "degraded",
-      "failover",
-      "rollback",
-      "checkpoint\\s+\\d+",
-      "snapshot\\s+\\w+",
-      "compaction",
-      "gc\\s+pause\\s+\\d+ms",
-      "safepoint",
-      "jit\\s+compilation",
-      "class\\s+loading",
-      "thread\\s+pool\\s+\\w+",
-      "blocked\\s+thread",
-      "deadlock",
-      "lock\\s+contention",
-      "cache\\s+(hit|miss)",
-      "eviction",
-      "bloom\\s+filter",
-  };
+  private static final BenchmarkData DATA = BenchmarkData.get();
+  private static final String MATCH_TEXT = DATA.getString("patternSet.matchText");
+  private static final String NO_MATCH_TEXT = DATA.getString("patternSet.noMatchText");
+  private static final List<String> BASE_PATTERNS =
+      DATA.getStringList("patternSet.basePatterns");
 
   @Setup
   public void setup() {
@@ -119,7 +52,7 @@ public class PatternSetBenchmark {
         new PatternSet.Builder(PatternSet.Anchor.ANCHOR_START);
 
     for (int i = 0; i < patternCount; i++) {
-      String pat = BASE_PATTERNS[i % BASE_PATTERNS.length];
+      String pat = BASE_PATTERNS.get(i % BASE_PATTERNS.size());
       unanchoredBuilder.add(pat);
       anchoredBuilder.add(pat);
     }

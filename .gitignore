@@ -4,6 +4,12 @@ target/
 # RE2 C++ reference (local only)
 re2-reference/
 
+# RE2/J reference (local only)
+re2j-reference/
+
+# C++ benchmark build artifacts
+safere-benchmarks/cpp/build/
+
 # IDE files
 .idea/
 *.iml

@@ -1,0 +1,171 @@
+{
+  "regex": {
+    "literalMatch": {
+      "pattern": "hello",
+      "text": "hello",
+      "op": "matches"
+    },
+    "charClassMatch": {
+      "pattern": "[a-zA-Z]+",
+      "text": "TheQuickBrownFoxJumpsOverTheLazyDog",
+      "op": "matches"
+    },
+    "alternationFind": {
+      "pattern": "foo|bar|baz|qux|quux|corge|grault|garply",
+      "text": "the garply went to the baz and met a quux",
+      "op": "findAllCount"
+    },
+    "captureGroups": {
+      "pattern": "(\\d{4})-(\\d{2})-(\\d{2})",
+      "text": "2025-12-25",
+      "op": "matchAndExtract",
+      "groups": 3
+    },
+    "findInText": {
+      "pattern": "\\b\\w+ing\\b",
+      "text": "The morning sun was shining brightly, casting long shadows across the rolling hills. Birds were singing their melodious songs while children were playing in the sprawling gardens. A gentle breeze was blowing through the swaying trees, carrying the scent of blooming flowers. People were walking along the winding paths, enjoying the refreshing air and the stunning views of the surrounding countryside. Everything was moving in perfect harmony.",
+      "op": "findAllCount"
+    },
+    "emailFind": {
+      "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}",
+      "text": "contact user.name+tag@example.co.uk for info",
+      "op": "find"
+    }
+  },
+
+  "compile": {
+    "simple": { "pattern": "hello" },
+    "medium": { "pattern": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})" },
+    "complex": { "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}" },
+    "alternation": { "pattern": "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy" }
+  },
+
+  "searchScaling": {
+    "patterns": {
+      "easy": "ABCDEFGHIJKLMNOPQRSTUVWXYZ$",
+      "medium": "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$",
+      "hard": "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+    },
+    "matchSuffix": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "findIngPattern": "\\b\\w+ing\\b",
+    "textSizes": [1024, 10240, 102400, 1048576],
+    "randomText": {
+      "alphabet": "abcdefghijklmnopqrstuvwxyz0123456789 \n",
+      "seed": 42
+    },
+    "proseUnit": "The morning sun was shining brightly casting long shadows across the rolling hills Birds were singing their melodious songs while children were playing in the sprawling gardens A gentle breeze was blowing through the swaying trees carrying the scent of blooming flowers People were walking along the winding paths enjoying the refreshing air and the stunning views "
+  },
+
+  "captureScaling": {
+    "capture0": {
+      "pattern": "[0-9]+-[0-9]+-[0-9]+",
+      "text": "650-253-0001",
+      "groups": 0
+    },
+    "capture1": {
+      "pattern": "([0-9]+)-[0-9]+-[0-9]+",
+      "text": "650-253-0001",
+      "groups": 1
+    },
+    "capture3": {
+      "pattern": "([0-9]+)-([0-9]+)-([0-9]+)",
+      "text": "650-253-0001",
+      "groups": 3
+    },
+    "capture10": {
+      "pattern": "(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+)",
+      "text": "a=1;b=2;c=3;d=4;e=5",
+      "groups": 10
+    }
+  },
+
+  "http": {
+    "pattern": "^(?:GET|POST) +([^ ]+) HTTP",
+    "fullRequest": "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1",
+    "smallRequest": "GET /abc HTTP/1.1"
+  },
+
+  "replace": {
+    "literalReplaceFirst": {
+      "pattern": "b",
+      "text": "ababababab",
+      "replacement": "bb",
+      "op": "replaceFirst"
+    },
+    "literalReplaceAll": {
+      "pattern": "b",
+      "text": "ababababab",
+      "replacement": "bb",
+      "op": "replaceAll"
+    },
+    "pigLatinReplaceAll": {
+      "pattern": "(qu|[b-df-hj-np-tv-z]*)([a-z]+)",
+      "text": "the quick brown fox jumps over the lazy dogs",
+      "replacement": "$2$1ay",
+      "op": "replaceAll"
+    },
+    "digitReplaceAll": {
+      "pattern": "\\d+",
+      "text": "order 12345 shipped on 2025-03-22 tracking 9876543210 weight 42kg price $199",
+      "replacement": "NUM",
+      "op": "replaceAll"
+    },
+    "emptyReplaceAll": {
+      "pattern": "a*",
+      "text": "abc",
+      "replacement": "x",
+      "op": "replaceAll"
+    }
+  },
+
+  "pathological": {
+    "nValues": [10, 15, 20, 25, 30, 50, 100],
+    "nValuesComparison": [10, 15, 20],
+    "note": "Pattern is 'a?' repeated n times followed by 'a' repeated n times. Text is 'a' repeated n times."
+  },
+
+  "fanout": {
+    "unicodeFanout": {
+      "pattern": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
+      "codePoints": [19968, 19969, 19970, 233, 241, 252, 1040, 1041, 1042, 12354, 12356, 12358],
+      "seed": 42
+    },
+    "nestedQuantifier": {
+      "pattern": "(?:a?){20}a{20}",
+      "alphabet": "abcdefghijklmnopqrstuvwxyz",
+      "seed": 42
+    },
+    "textSizes": [1024, 10240, 102400]
+  },
+
+  "patternSet": {
+    "basePatterns": [
+      "ERROR", "WARNING", "INFO", "DEBUG", "FATAL",
+      "connection\\s+timeout", "\\d+\\.\\d+\\.\\d+\\.\\d+",
+      "host\\s+\\S+", "port\\s*:\\s*\\d+", "after\\s+\\d+s",
+      "[A-Z]{2,}:", "\\w+\\.internal", "db-\\w+",
+      "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
+      "timeout|refused|reset|closed", "\\[\\w+\\]",
+      "status\\s*=\\s*\\d+", "retry\\s+\\d+/\\d+",
+      "latency\\s*>\\s*\\d+ms", "queue\\s+full",
+      "memory\\s+\\d+[kmg]b?", "cpu\\s+\\d+%", "disk\\s+(full|low)",
+      "\\w+Exception", "at\\s+\\w+\\.\\w+\\(",
+      "null\\s*pointer", "stack\\s*overflow", "out\\s+of\\s+memory",
+      "permission\\s+denied", "not\\s+found",
+      "already\\s+exists", "invalid\\s+\\w+", "expired",
+      "unauthorized", "rate\\s+limit", "circuit\\s+breaker",
+      "health\\s+check\\s+failed", "graceful\\s+shutdown",
+      "leader\\s+election", "split\\s+brain", "rebalancing",
+      "partition\\s+\\d+", "offset\\s+\\d+", "consumer\\s+group",
+      "dead\\s+letter", "backpressure", "throttled", "degraded",
+      "failover", "rollback", "checkpoint\\s+\\d+", "snapshot\\s+\\w+",
+      "compaction", "gc\\s+pause\\s+\\d+ms", "safepoint",
+      "jit\\s+compilation", "class\\s+loading", "thread\\s+pool\\s+\\w+",
+      "blocked\\s+thread", "deadlock", "lock\\s+contention",
+      "cache\\s+(hit|miss)", "eviction", "bloom\\s+filter"
+    ],
+    "patternCounts": [4, 16, 64],
+    "matchText": "ERROR: connection timeout after 30s to host db-primary.internal:5432",
+    "noMatchText": "The quick brown fox jumps over the lazy dog near the riverbank"
+  }
+}

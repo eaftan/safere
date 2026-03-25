@@ -40,55 +40,49 @@ import org.openjdk.jmh.annotations.Warmup;
 public class RegexBenchmark {
 
   // ---------------------------------------------------------------------------
-  // Literal match: pattern "hello" against "hello"
+  // Literal match
   // ---------------------------------------------------------------------------
 
   private dev.eaftan.safere.Pattern safeHello;
   private java.util.regex.Pattern jdkHello;
   private com.google.re2j.Pattern re2jHello;
-  private static final String HELLO_TEXT = "hello";
+  private String helloText;
 
   // ---------------------------------------------------------------------------
-  // Character class: [a-zA-Z]+ against alphabetic text
+  // Character class
   // ---------------------------------------------------------------------------
 
   private dev.eaftan.safere.Pattern safeAlpha;
   private java.util.regex.Pattern jdkAlpha;
   private com.google.re2j.Pattern re2jAlpha;
-  private static final String ALPHA_TEXT = "TheQuickBrownFoxJumpsOverTheLazyDog";
+  private String alphaText;
 
   // ---------------------------------------------------------------------------
-  // Alternation: foo|bar|baz|qux|quux|corge|grault|garply
+  // Alternation
   // ---------------------------------------------------------------------------
 
   private dev.eaftan.safere.Pattern safeAlt;
   private java.util.regex.Pattern jdkAlt;
   private com.google.re2j.Pattern re2jAlt;
-  private static final String ALT_TEXT = "the garply went to the baz and met a quux";
+  private String altText;
 
   // ---------------------------------------------------------------------------
-  // Capture groups: (\d{4})-(\d{2})-(\d{2})
+  // Capture groups
   // ---------------------------------------------------------------------------
 
   private dev.eaftan.safere.Pattern safeDate;
   private java.util.regex.Pattern jdkDate;
   private com.google.re2j.Pattern re2jDate;
-  private static final String DATE_TEXT = "2025-12-25";
+  private String dateText;
 
   // ---------------------------------------------------------------------------
-  // Find in long text: \b\w+ing\b in prose
+  // Find in long text
   // ---------------------------------------------------------------------------
 
   private dev.eaftan.safere.Pattern safeFindIng;
   private java.util.regex.Pattern jdkFindIng;
   private com.google.re2j.Pattern re2jFindIng;
-  private static final String PROSE_TEXT =
-      "The morning sun was shining brightly, casting long shadows across the rolling "
-          + "hills. Birds were singing their melodious songs while children were playing "
-          + "in the sprawling gardens. A gentle breeze was blowing through the swaying "
-          + "trees, carrying the scent of blooming flowers. People were walking along "
-          + "the winding paths, enjoying the refreshing air and the stunning views of "
-          + "the surrounding countryside. Everything was moving in perfect harmony.";
+  private String proseText;
 
   // ---------------------------------------------------------------------------
   // Email-like pattern
@@ -97,40 +91,50 @@ public class RegexBenchmark {
   private dev.eaftan.safere.Pattern safeEmail;
   private java.util.regex.Pattern jdkEmail;
   private com.google.re2j.Pattern re2jEmail;
-  private static final String EMAIL_TEXT = "contact user.name+tag@example.co.uk for info";
+  private String emailText;
 
   @Setup
   public void setup() {
+    BenchmarkData data = BenchmarkData.get();
+
     // Literal
-    safeHello = dev.eaftan.safere.Pattern.compile("hello");
-    jdkHello = java.util.regex.Pattern.compile("hello");
-    re2jHello = com.google.re2j.Pattern.compile("hello");
+    String helloPattern = data.getString("regex.literalMatch.pattern");
+    helloText = data.getString("regex.literalMatch.text");
+    safeHello = dev.eaftan.safere.Pattern.compile(helloPattern);
+    jdkHello = java.util.regex.Pattern.compile(helloPattern);
+    re2jHello = com.google.re2j.Pattern.compile(helloPattern);
 
     // Character class
-    safeAlpha = dev.eaftan.safere.Pattern.compile("[a-zA-Z]+");
-    jdkAlpha = java.util.regex.Pattern.compile("[a-zA-Z]+");
-    re2jAlpha = com.google.re2j.Pattern.compile("[a-zA-Z]+");
+    String alphaPattern = data.getString("regex.charClassMatch.pattern");
+    alphaText = data.getString("regex.charClassMatch.text");
+    safeAlpha = dev.eaftan.safere.Pattern.compile(alphaPattern);
+    jdkAlpha = java.util.regex.Pattern.compile(alphaPattern);
+    re2jAlpha = com.google.re2j.Pattern.compile(alphaPattern);
 
     // Alternation
-    String altPattern = "foo|bar|baz|qux|quux|corge|grault|garply";
+    String altPattern = data.getString("regex.alternationFind.pattern");
+    altText = data.getString("regex.alternationFind.text");
     safeAlt = dev.eaftan.safere.Pattern.compile(altPattern);
     jdkAlt = java.util.regex.Pattern.compile(altPattern);
     re2jAlt = com.google.re2j.Pattern.compile(altPattern);
 
     // Capture
-    String datePattern = "(\\d{4})-(\\d{2})-(\\d{2})";
+    String datePattern = data.getString("regex.captureGroups.pattern");
+    dateText = data.getString("regex.captureGroups.text");
     safeDate = dev.eaftan.safere.Pattern.compile(datePattern);
     jdkDate = java.util.regex.Pattern.compile(datePattern);
     re2jDate = com.google.re2j.Pattern.compile(datePattern);
 
     // Find -ing words
-    String ingPattern = "\\b\\w+ing\\b";
+    String ingPattern = data.getString("regex.findInText.pattern");
+    proseText = data.getString("regex.findInText.text");
     safeFindIng = dev.eaftan.safere.Pattern.compile(ingPattern);
     jdkFindIng = java.util.regex.Pattern.compile(ingPattern);
     re2jFindIng = com.google.re2j.Pattern.compile(ingPattern);
 
     // Email
-    String emailPattern = "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}";
+    String emailPattern = data.getString("regex.emailFind.pattern");
+    emailText = data.getString("regex.emailFind.text");
     safeEmail = dev.eaftan.safere.Pattern.compile(emailPattern);
     jdkEmail = java.util.regex.Pattern.compile(emailPattern);
     re2jEmail = com.google.re2j.Pattern.compile(emailPattern);
@@ -140,41 +144,41 @@ public class RegexBenchmark {
 
   @Benchmark
   public boolean literalMatch_safere() {
-    return safeHello.matcher(HELLO_TEXT).matches();
+    return safeHello.matcher(helloText).matches();
   }
 
   @Benchmark
   public boolean literalMatch_jdk() {
-    return jdkHello.matcher(HELLO_TEXT).matches();
+    return jdkHello.matcher(helloText).matches();
   }
 
   @Benchmark
   public boolean literalMatch_re2j() {
-    return re2jHello.matcher(HELLO_TEXT).matches();
+    return re2jHello.matcher(helloText).matches();
   }
 
   // ===== Character class match =====
 
   @Benchmark
   public boolean charClassMatch_safere() {
-    return safeAlpha.matcher(ALPHA_TEXT).matches();
+    return safeAlpha.matcher(alphaText).matches();
   }
 
   @Benchmark
   public boolean charClassMatch_jdk() {
-    return jdkAlpha.matcher(ALPHA_TEXT).matches();
+    return jdkAlpha.matcher(alphaText).matches();
   }
 
   @Benchmark
   public boolean charClassMatch_re2j() {
-    return re2jAlpha.matcher(ALPHA_TEXT).matches();
+    return re2jAlpha.matcher(alphaText).matches();
   }
 
   // ===== Alternation find =====
 
   @Benchmark
   public int alternationFind_safere() {
-    dev.eaftan.safere.Matcher m = safeAlt.matcher(ALT_TEXT);
+    dev.eaftan.safere.Matcher m = safeAlt.matcher(altText);
     int count = 0;
     while (m.find()) {
       count++;
@@ -184,7 +188,7 @@ public class RegexBenchmark {
 
   @Benchmark
   public int alternationFind_jdk() {
-    java.util.regex.Matcher m = jdkAlt.matcher(ALT_TEXT);
+    java.util.regex.Matcher m = jdkAlt.matcher(altText);
     int count = 0;
     while (m.find()) {
       count++;
@@ -194,7 +198,7 @@ public class RegexBenchmark {
 
   @Benchmark
   public int alternationFind_re2j() {
-    com.google.re2j.Matcher m = re2jAlt.matcher(ALT_TEXT);
+    com.google.re2j.Matcher m = re2jAlt.matcher(altText);
     int count = 0;
     while (m.find()) {
       count++;
@@ -206,21 +210,21 @@ public class RegexBenchmark {
 
   @Benchmark
   public String captureGroups_safere() {
-    dev.eaftan.safere.Matcher m = safeDate.matcher(DATE_TEXT);
+    dev.eaftan.safere.Matcher m = safeDate.matcher(dateText);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
 
   @Benchmark
   public String captureGroups_jdk() {
-    java.util.regex.Matcher m = jdkDate.matcher(DATE_TEXT);
+    java.util.regex.Matcher m = jdkDate.matcher(dateText);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
 
   @Benchmark
   public String captureGroups_re2j() {
-    com.google.re2j.Matcher m = re2jDate.matcher(DATE_TEXT);
+    com.google.re2j.Matcher m = re2jDate.matcher(dateText);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
@@ -229,7 +233,7 @@ public class RegexBenchmark {
 
   @Benchmark
   public int findInText_safere() {
-    dev.eaftan.safere.Matcher m = safeFindIng.matcher(PROSE_TEXT);
+    dev.eaftan.safere.Matcher m = safeFindIng.matcher(proseText);
     int count = 0;
     while (m.find()) {
       count++;
@@ -239,7 +243,7 @@ public class RegexBenchmark {
 
   @Benchmark
   public int findInText_jdk() {
-    java.util.regex.Matcher m = jdkFindIng.matcher(PROSE_TEXT);
+    java.util.regex.Matcher m = jdkFindIng.matcher(proseText);
     int count = 0;
     while (m.find()) {
       count++;
@@ -249,7 +253,7 @@ public class RegexBenchmark {
 
   @Benchmark
   public int findInText_re2j() {
-    com.google.re2j.Matcher m = re2jFindIng.matcher(PROSE_TEXT);
+    com.google.re2j.Matcher m = re2jFindIng.matcher(proseText);
     int count = 0;
     while (m.find()) {
       count++;
@@ -261,16 +265,16 @@ public class RegexBenchmark {
 
   @Benchmark
   public boolean emailFind_safere() {
-    return safeEmail.matcher(EMAIL_TEXT).find();
+    return safeEmail.matcher(emailText).find();
   }
 
   @Benchmark
   public boolean emailFind_jdk() {
-    return jdkEmail.matcher(EMAIL_TEXT).find();
+    return jdkEmail.matcher(emailText).find();
   }
 
   @Benchmark
   public boolean emailFind_re2j() {
-    return re2jEmail.matcher(EMAIL_TEXT).find();
+    return re2jEmail.matcher(emailText).find();
   }
 }

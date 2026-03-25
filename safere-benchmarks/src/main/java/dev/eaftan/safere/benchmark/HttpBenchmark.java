@@ -29,15 +29,9 @@ import org.openjdk.jmh.annotations.Warmup;
 @State(Scope.Thread)
 public class HttpBenchmark {
 
-  private static final String HTTP_PATTERN = "^(?:GET|POST) +([^ ]+) HTTP";
-
-  // Full HTTP request (same as RE2 C++ benchmark).
-  private static final String FULL_REQUEST =
-      "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhf"
-          + "lkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1";
-
-  // Small HTTP request.
-  private static final String SMALL_REQUEST = "GET /abc HTTP/1.1";
+  private String httpPattern;
+  private String fullRequest;
+  private String smallRequest;
 
   private dev.eaftan.safere.Pattern safeHttp;
   private java.util.regex.Pattern jdkHttp;
@@ -45,28 +39,33 @@ public class HttpBenchmark {
 
   @Setup
   public void setup() {
-    safeHttp = dev.eaftan.safere.Pattern.compile(HTTP_PATTERN);
-    jdkHttp = java.util.regex.Pattern.compile(HTTP_PATTERN);
-    re2jHttp = com.google.re2j.Pattern.compile(HTTP_PATTERN);
+    BenchmarkData data = BenchmarkData.get();
+    httpPattern = data.getString("http.pattern");
+    fullRequest = data.getString("http.fullRequest");
+    smallRequest = data.getString("http.smallRequest");
+
+    safeHttp = dev.eaftan.safere.Pattern.compile(httpPattern);
+    jdkHttp = java.util.regex.Pattern.compile(httpPattern);
+    re2jHttp = com.google.re2j.Pattern.compile(httpPattern);
   }
 
   // ===== Full HTTP request =====
 
   @Benchmark
   public boolean httpFull_safere() {
-    dev.eaftan.safere.Matcher m = safeHttp.matcher(FULL_REQUEST);
+    dev.eaftan.safere.Matcher m = safeHttp.matcher(fullRequest);
     return m.find() && m.group(1) != null;
   }
 
   @Benchmark
   public boolean httpFull_jdk() {
-    java.util.regex.Matcher m = jdkHttp.matcher(FULL_REQUEST);
+    java.util.regex.Matcher m = jdkHttp.matcher(fullRequest);
     return m.find() && m.group(1) != null;
   }
 
   @Benchmark
   public boolean httpFull_re2j() {
-    com.google.re2j.Matcher m = re2jHttp.matcher(FULL_REQUEST);
+    com.google.re2j.Matcher m = re2jHttp.matcher(fullRequest);
     return m.find() && m.group(1) != null;
   }
 
@@ -74,19 +73,19 @@ public class HttpBenchmark {
 
   @Benchmark
   public boolean httpSmall_safere() {
-    dev.eaftan.safere.Matcher m = safeHttp.matcher(SMALL_REQUEST);
+    dev.eaftan.safere.Matcher m = safeHttp.matcher(smallRequest);
     return m.find() && m.group(1) != null;
   }
 
   @Benchmark
   public boolean httpSmall_jdk() {
-    java.util.regex.Matcher m = jdkHttp.matcher(SMALL_REQUEST);
+    java.util.regex.Matcher m = jdkHttp.matcher(smallRequest);
     return m.find() && m.group(1) != null;
   }
 
   @Benchmark
   public boolean httpSmall_re2j() {
-    com.google.re2j.Matcher m = re2jHttp.matcher(SMALL_REQUEST);
+    com.google.re2j.Matcher m = re2jHttp.matcher(smallRequest);
     return m.find() && m.group(1) != null;
   }
 
@@ -94,21 +93,21 @@ public class HttpBenchmark {
 
   @Benchmark
   public String httpExtract_safere() {
-    dev.eaftan.safere.Matcher m = safeHttp.matcher(FULL_REQUEST);
+    dev.eaftan.safere.Matcher m = safeHttp.matcher(fullRequest);
     m.find();
     return m.group(1);
   }
 
   @Benchmark
   public String httpExtract_jdk() {
-    java.util.regex.Matcher m = jdkHttp.matcher(FULL_REQUEST);
+    java.util.regex.Matcher m = jdkHttp.matcher(fullRequest);
     m.find();
     return m.group(1);
   }
 
   @Benchmark
   public String httpExtract_re2j() {
-    com.google.re2j.Matcher m = re2jHttp.matcher(FULL_REQUEST);
+    com.google.re2j.Matcher m = re2jHttp.matcher(fullRequest);
     m.find();
     return m.group(1);
   }

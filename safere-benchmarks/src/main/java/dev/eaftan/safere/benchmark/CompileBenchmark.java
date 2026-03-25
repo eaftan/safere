@@ -11,6 +11,7 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
@@ -25,78 +26,85 @@ import org.openjdk.jmh.annotations.Warmup;
 @State(Scope.Thread)
 public class CompileBenchmark {
 
-  private static final String SIMPLE = "hello";
-  private static final String MEDIUM = "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})";
-  private static final String COMPLEX =
-      "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}";
-  private static final String ALTERNATION =
-      "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy";
+  private String simplePattern;
+  private String mediumPattern;
+  private String complexPattern;
+  private String alternationPattern;
+
+  @Setup
+  public void setup() {
+    BenchmarkData data = BenchmarkData.get();
+    simplePattern = data.getString("compile.simple.pattern");
+    mediumPattern = data.getString("compile.medium.pattern");
+    complexPattern = data.getString("compile.complex.pattern");
+    alternationPattern = data.getString("compile.alternation.pattern");
+  }
 
   // ===== Simple pattern =====
 
   @Benchmark
   public dev.eaftan.safere.Pattern compileSimple_safere() {
-    return dev.eaftan.safere.Pattern.compile(SIMPLE);
+    return dev.eaftan.safere.Pattern.compile(simplePattern);
   }
 
   @Benchmark
   public java.util.regex.Pattern compileSimple_jdk() {
-    return java.util.regex.Pattern.compile(SIMPLE);
+    return java.util.regex.Pattern.compile(simplePattern);
   }
 
   @Benchmark
   public com.google.re2j.Pattern compileSimple_re2j() {
-    return com.google.re2j.Pattern.compile(SIMPLE);
+    return com.google.re2j.Pattern.compile(simplePattern);
   }
 
   // ===== Medium pattern (date-time with captures) =====
 
   @Benchmark
   public dev.eaftan.safere.Pattern compileMedium_safere() {
-    return dev.eaftan.safere.Pattern.compile(MEDIUM);
+    return dev.eaftan.safere.Pattern.compile(mediumPattern);
   }
 
   @Benchmark
   public java.util.regex.Pattern compileMedium_jdk() {
-    return java.util.regex.Pattern.compile(MEDIUM);
+    return java.util.regex.Pattern.compile(mediumPattern);
   }
 
   @Benchmark
   public com.google.re2j.Pattern compileMedium_re2j() {
-    return com.google.re2j.Pattern.compile(MEDIUM);
+    return com.google.re2j.Pattern.compile(mediumPattern);
   }
 
   // ===== Complex pattern (email) =====
 
   @Benchmark
   public dev.eaftan.safere.Pattern compileComplex_safere() {
-    return dev.eaftan.safere.Pattern.compile(COMPLEX);
+    return dev.eaftan.safere.Pattern.compile(complexPattern);
   }
 
   @Benchmark
   public java.util.regex.Pattern compileComplex_jdk() {
-    return java.util.regex.Pattern.compile(COMPLEX);
+    return java.util.regex.Pattern.compile(complexPattern);
   }
 
   @Benchmark
   public com.google.re2j.Pattern compileComplex_re2j() {
-    return com.google.re2j.Pattern.compile(COMPLEX);
+    return com.google.re2j.Pattern.compile(complexPattern);
   }
 
   // ===== Alternation pattern =====
 
   @Benchmark
   public dev.eaftan.safere.Pattern compileAlternation_safere() {
-    return dev.eaftan.safere.Pattern.compile(ALTERNATION);
+    return dev.eaftan.safere.Pattern.compile(alternationPattern);
   }
 
   @Benchmark
   public java.util.regex.Pattern compileAlternation_jdk() {
-    return java.util.regex.Pattern.compile(ALTERNATION);
+    return java.util.regex.Pattern.compile(alternationPattern);
   }
 
   @Benchmark
   public com.google.re2j.Pattern compileAlternation_re2j() {
-    return com.google.re2j.Pattern.compile(ALTERNATION);
+    return com.google.re2j.Pattern.compile(alternationPattern);
   }
 }

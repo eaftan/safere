@@ -33,130 +33,155 @@ public class ReplaceBenchmark {
   private dev.eaftan.safere.Pattern safeLiteral;
   private java.util.regex.Pattern jdkLiteral;
   private com.google.re2j.Pattern re2jLiteral;
-  private static final String LITERAL_TEXT = "ababababab";
+  private String literalReplaceFirstText;
+  private String literalReplaceFirstReplacement;
+  private String literalReplaceAllText;
+  private String literalReplaceAllReplacement;
 
   // Replace with backreference (pig latin from RE2 C++ tests).
   private dev.eaftan.safere.Pattern safePigLatin;
   private java.util.regex.Pattern jdkPigLatin;
   private com.google.re2j.Pattern re2jPigLatin;
-  private static final String PIG_LATIN_TEXT = "the quick brown fox jumps over the lazy dogs";
+  private String pigLatinText;
+  private String pigLatinReplacement;
 
   // replaceAll on text with many matches.
   private dev.eaftan.safere.Pattern safeDigits;
   private java.util.regex.Pattern jdkDigits;
   private com.google.re2j.Pattern re2jDigits;
-  private static final String DIGITS_TEXT =
-      "order 12345 shipped on 2025-03-22 tracking 9876543210 weight 42kg price $199";
+  private String digitsText;
+  private String digitsReplacement;
 
   // Empty-match replacement (tricky edge case).
   private dev.eaftan.safere.Pattern safeEmpty;
   private java.util.regex.Pattern jdkEmpty;
   private com.google.re2j.Pattern re2jEmpty;
-  private static final String EMPTY_TEXT = "abc";
+  private String emptyText;
+  private String emptyReplacement;
 
   @Setup
   public void setup() {
-    safeLiteral = dev.eaftan.safere.Pattern.compile("b");
-    jdkLiteral = java.util.regex.Pattern.compile("b");
+    BenchmarkData data = BenchmarkData.get();
 
-    String pigPattern = "(qu|[b-df-hj-np-tv-z]*)([a-z]+)";
+    String literalReplaceFirstPattern = data.getString("replace.literalReplaceFirst.pattern");
+    literalReplaceFirstText = data.getString("replace.literalReplaceFirst.text");
+    literalReplaceFirstReplacement = data.getString("replace.literalReplaceFirst.replacement");
+
+    String literalReplaceAllPattern = data.getString("replace.literalReplaceAll.pattern");
+    literalReplaceAllText = data.getString("replace.literalReplaceAll.text");
+    literalReplaceAllReplacement = data.getString("replace.literalReplaceAll.replacement");
+
+    safeLiteral = dev.eaftan.safere.Pattern.compile(literalReplaceFirstPattern);
+    jdkLiteral = java.util.regex.Pattern.compile(literalReplaceFirstPattern);
+    re2jLiteral = com.google.re2j.Pattern.compile(literalReplaceFirstPattern);
+
+    String pigPattern = data.getString("replace.pigLatinReplaceAll.pattern");
+    pigLatinText = data.getString("replace.pigLatinReplaceAll.text");
+    pigLatinReplacement = data.getString("replace.pigLatinReplaceAll.replacement");
+
     safePigLatin = dev.eaftan.safere.Pattern.compile(pigPattern);
     jdkPigLatin = java.util.regex.Pattern.compile(pigPattern);
-
-    safeDigits = dev.eaftan.safere.Pattern.compile("\\d+");
-    jdkDigits = java.util.regex.Pattern.compile("\\d+");
-
-    safeEmpty = dev.eaftan.safere.Pattern.compile("a*");
-    jdkEmpty = java.util.regex.Pattern.compile("a*");
-
-    re2jLiteral = com.google.re2j.Pattern.compile("b");
     re2jPigLatin = com.google.re2j.Pattern.compile(pigPattern);
-    re2jDigits = com.google.re2j.Pattern.compile("\\d+");
-    re2jEmpty = com.google.re2j.Pattern.compile("a*");
+
+    String digitPattern = data.getString("replace.digitReplaceAll.pattern");
+    digitsText = data.getString("replace.digitReplaceAll.text");
+    digitsReplacement = data.getString("replace.digitReplaceAll.replacement");
+
+    safeDigits = dev.eaftan.safere.Pattern.compile(digitPattern);
+    jdkDigits = java.util.regex.Pattern.compile(digitPattern);
+    re2jDigits = com.google.re2j.Pattern.compile(digitPattern);
+
+    String emptyPattern = data.getString("replace.emptyReplaceAll.pattern");
+    emptyText = data.getString("replace.emptyReplaceAll.text");
+    emptyReplacement = data.getString("replace.emptyReplaceAll.replacement");
+
+    safeEmpty = dev.eaftan.safere.Pattern.compile(emptyPattern);
+    jdkEmpty = java.util.regex.Pattern.compile(emptyPattern);
+    re2jEmpty = com.google.re2j.Pattern.compile(emptyPattern);
   }
 
   // ===== Simple literal replaceFirst =====
 
   @Benchmark
   public String literalReplaceFirst_safere() {
-    return safeLiteral.matcher(LITERAL_TEXT).replaceFirst("bb");
+    return safeLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
   }
 
   @Benchmark
   public String literalReplaceFirst_jdk() {
-    return jdkLiteral.matcher(LITERAL_TEXT).replaceFirst("bb");
+    return jdkLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
   }
 
   @Benchmark
   public String literalReplaceFirst_re2j() {
-    return re2jLiteral.matcher(LITERAL_TEXT).replaceFirst("bb");
+    return re2jLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
   }
 
   // ===== Simple literal replaceAll =====
 
   @Benchmark
   public String literalReplaceAll_safere() {
-    return safeLiteral.matcher(LITERAL_TEXT).replaceAll("bb");
+    return safeLiteral.matcher(literalReplaceAllText).replaceAll(literalReplaceAllReplacement);
   }
 
   @Benchmark
   public String literalReplaceAll_jdk() {
-    return jdkLiteral.matcher(LITERAL_TEXT).replaceAll("bb");
+    return jdkLiteral.matcher(literalReplaceAllText).replaceAll(literalReplaceAllReplacement);
   }
 
   @Benchmark
   public String literalReplaceAll_re2j() {
-    return re2jLiteral.matcher(LITERAL_TEXT).replaceAll("bb");
+    return re2jLiteral.matcher(literalReplaceAllText).replaceAll(literalReplaceAllReplacement);
   }
 
   // ===== Pig Latin replaceAll (backreference in replacement) =====
 
   @Benchmark
   public String pigLatinReplaceAll_safere() {
-    return safePigLatin.matcher(PIG_LATIN_TEXT).replaceAll("$2$1ay");
+    return safePigLatin.matcher(pigLatinText).replaceAll(pigLatinReplacement);
   }
 
   @Benchmark
   public String pigLatinReplaceAll_jdk() {
-    return jdkPigLatin.matcher(PIG_LATIN_TEXT).replaceAll("$2$1ay");
+    return jdkPigLatin.matcher(pigLatinText).replaceAll(pigLatinReplacement);
   }
 
   @Benchmark
   public String pigLatinReplaceAll_re2j() {
-    return re2jPigLatin.matcher(PIG_LATIN_TEXT).replaceAll("$2$1ay");
+    return re2jPigLatin.matcher(pigLatinText).replaceAll(pigLatinReplacement);
   }
 
   // ===== Digit replacement (many matches) =====
 
   @Benchmark
   public String digitReplaceAll_safere() {
-    return safeDigits.matcher(DIGITS_TEXT).replaceAll("NUM");
+    return safeDigits.matcher(digitsText).replaceAll(digitsReplacement);
   }
 
   @Benchmark
   public String digitReplaceAll_jdk() {
-    return jdkDigits.matcher(DIGITS_TEXT).replaceAll("NUM");
+    return jdkDigits.matcher(digitsText).replaceAll(digitsReplacement);
   }
 
   @Benchmark
   public String digitReplaceAll_re2j() {
-    return re2jDigits.matcher(DIGITS_TEXT).replaceAll("NUM");
+    return re2jDigits.matcher(digitsText).replaceAll(digitsReplacement);
   }
 
   // ===== Empty-match replaceAll (edge case) =====
 
   @Benchmark
   public String emptyReplaceAll_safere() {
-    return safeEmpty.matcher(EMPTY_TEXT).replaceAll("x");
+    return safeEmpty.matcher(emptyText).replaceAll(emptyReplacement);
   }
 
   @Benchmark
   public String emptyReplaceAll_jdk() {
-    return jdkEmpty.matcher(EMPTY_TEXT).replaceAll("x");
+    return jdkEmpty.matcher(emptyText).replaceAll(emptyReplacement);
   }
 
   @Benchmark
   public String emptyReplaceAll_re2j() {
-    return re2jEmpty.matcher(EMPTY_TEXT).replaceAll("x");
+    return re2jEmpty.matcher(emptyText).replaceAll(emptyReplacement);
   }
 }
