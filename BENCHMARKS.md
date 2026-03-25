@@ -12,7 +12,7 @@ workloads and pathological patterns that demonstrate backtracking blowup.
   Windows 11 host
 - JDK: OpenJDK 25.0.2+10-69 (targeting Java 21)
 - JMH: 1.37, no-fork mode (`-f 0`)
-- C++ compiler: g++ 13.3.0, `-O2`
+- C++ compiler: g++ 13.3.0, `-O3` (CMake Release)
 - Go: 1.26.1 linux/amd64
 
 **Cross-language comparison caveats:**

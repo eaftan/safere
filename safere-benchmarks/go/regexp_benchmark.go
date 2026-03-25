@@ -80,8 +80,8 @@ func measure(name string, fn func(), warmupIters int, warmupTime time.Duration,
 		variance += d * d
 	}
 	stddev := math.Sqrt(variance / float64(len(samples)-1))
-	// t-value for 99.9% CI with 4 df ≈ 8.610
-	err := 8.610 * stddev / math.Sqrt(float64(len(samples)))
+	// t-value for 99.9% CI with 9 df ≈ 4.781
+	err := 4.781 * stddev / math.Sqrt(float64(len(samples)))
 
 	return benchResult{
 		Engine:    "go_regexp",
@@ -94,12 +94,12 @@ func measure(name string, fn func(), warmupIters int, warmupTime time.Duration,
 
 // measureNs is a convenience wrapper for ns/op measurements.
 func measureNs(name string, fn func()) benchResult {
-	return measure(name, fn, 3, 2*time.Second, 5, 2*time.Second, "ns/op", 1.0)
+	return measure(name, fn, 5, 2*time.Second, 10, 2*time.Second, "ns/op", 1.0)
 }
 
 // measureUs is a convenience wrapper for µs/op measurements.
 func measureUs(name string, fn func()) benchResult {
-	return measure(name, fn, 3, 2*time.Second, 5, 2*time.Second, "us/op", 1000.0)
+	return measure(name, fn, 5, 2*time.Second, 10, 2*time.Second, "us/op", 1000.0)
 }
 
 func printJSON(r benchResult) {
