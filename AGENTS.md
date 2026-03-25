@@ -123,18 +123,19 @@ Public API (drop-in for `java.util.regex`):
   latest safere code. Running `mvn package` alone is NOT sufficient
   because `mvn exec:java` resolves the safere dependency from
   `~/.m2/repository`, not from `safere/target/`.
-- **Use fork mode (default) for results that go into BENCHMARKS.md.**
-  The default JMH options omit `-f`, letting JMH use its built-in
-  default of 5 forks per benchmark. This starts a fresh JVM for each
-  fork and produces reliable, publishable numbers. Only use no-fork
-  mode (`-f 0`) for quick development iteration:
+- **Use JMH defaults for results that go into BENCHMARKS.md.**
+  The script passes no JMH flags by default, letting JMH use its
+  built-in defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s).
+  This produces reliable, publishable numbers but takes ~8 minutes per
+  benchmark method. Only use reduced settings for quick development
+  iteration:
 
 ```bash
-# Default (fork mode) — use for BENCHMARKS.md updates
+# Default (full JMH defaults) — use for BENCHMARKS.md updates
 ./run-java-benchmarks.sh RegexBenchmark
 
-# No-fork mode — use only for quick development checks
-JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
+# Quick development mode — fast but less reliable
+JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ```
 
 - **Run benchmarks in batches, not all at once.** Running the full suite

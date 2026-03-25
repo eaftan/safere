@@ -46,13 +46,15 @@ All benchmarks use a warmup-then-measure approach, but the settings differ
 between Java and native harnesses to account for their different runtime
 characteristics.
 
-**Java (JMH):** 5 forks × (5 warmup + 5 measurement iterations) × 2s each.
-Each fork starts a **fresh JVM process**, which is critical because the JIT
-compiler is non-deterministic — different runs may make different inlining and
-optimization decisions based on profiling data. Five forks sample this variance
-so results reflect typical JIT behavior rather than one lucky (or unlucky)
-compilation. Warmup lets the JIT reach steady state before measurement begins.
-Total: 25 samples from 5 independent JVMs per benchmark.
+**Java (JMH):** All JMH defaults — 5 forks × (5 warmup × 10s + 5 measurement
+× 10s). Each fork starts a **fresh JVM process**, which is critical because
+the JIT compiler is non-deterministic — different runs may make different
+inlining and optimization decisions based on profiling data. Five forks sample
+this variance so results reflect typical JIT behavior rather than one lucky
+(or unlucky) compilation. The generous warmup (50s per fork) ensures the JIT
+completes tiered compilation (C1 → C2) and reaches steady state before
+measurement begins. Total: 25 samples from 5 independent JVMs, ~8 minutes per
+benchmark method.
 
 **C++ and Go:** 2 warmup + 10 measurement iterations × 2s each, single process.
 Native code has no JIT, so the same binary always runs the same machine code —
@@ -72,8 +74,8 @@ languages.
 
 | Setting | Java (JMH) | C++ | Go |
 |---|---|---|---|
-| Warmup | 5 × 2s per fork | 2 × 2s | 2 × 2s |
-| Measurement | 5 × 2s per fork | 10 × 2s | 10 × 2s |
+| Warmup | 5 × 10s per fork | 2 × 2s | 2 × 2s |
+| Measurement | 5 × 10s per fork | 10 × 2s | 10 × 2s |
 | Forks | 5 (fresh JVM each) | 1 (single process) | 1 (single process) |
 | Total samples | 25 | 10 | 10 |
 | Optimization | JIT (steady-state) | `-O3 -DNDEBUG` | Go default |
