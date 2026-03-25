@@ -268,6 +268,19 @@ public final class Matcher implements MatchResult {
       return true;
     }
 
+    Prog prog = parentPattern.prog();
+
+    // Anchored OnePass fast path: for non-nullable anchored patterns, use OnePass directly on the
+    // first find() call (searchFrom == 0), bypassing DFA construction entirely. This is equivalent
+    // to lookingAt() and avoids the ~500ns DFA cold-start overhead. Only safe for non-nullable
+    // patterns to avoid a leftmost-first ambiguity bug in the OnePass engine.
+    if (parentPattern.canOnePassFind() && searchFrom == 0) {
+      groups = parentPattern.onePass().search(text, false, prog.numCaptures());
+      findCallCount++;
+      hasMatch = (groups != null);
+      return hasMatch;
+    }
+
     // Prefix acceleration: if the pattern starts with a literal prefix, skip ahead to where
     // that prefix first appears instead of searching from the current position.
     int effectiveStart = searchFrom;
@@ -285,8 +298,6 @@ public final class Matcher implements MatchResult {
       }
       effectiveStart = idx;
     }
-
-    Prog prog = parentPattern.prog();
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
@@ -311,38 +322,64 @@ public final class Matcher implements MatchResult {
     // Skip when the forward DFA detected an empty match (earlyEnd == effectiveStart): the
     // sandwich uses longest-match for the final forward pass, which would incorrectly expand an
     // empty match into a longer one for nullable patterns like (|a)*.
+    //
+    // Skip the reverse DFA phase when the pattern is anchored at the start — the match start is
+    // already known to be effectiveStart, so the reverse scan is unnecessary.
     if (fwdResult != null && findCallCount > 0
         && fwdResult.pos() > effectiveStart) {
       int earlyEnd = fwdResult.pos();
-      Dfa revDfa = reverseDfa();
-      if (revDfa != null) {
-        // Step 2: Reverse DFA backward from earliest match end to find match start.
-        Dfa.SearchResult revResult =
-            revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
-        if (revResult != null && revResult.matched()) {
-          int matchStart = revResult.pos();
-          // Step 3: Forward DFA anchored at matchStart with longest=true to find actual end.
-          Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
-          if (fwdLongest != null && fwdLongest.matched()) {
-            int matchEnd = fwdLongest.pos();
-            // Step 4: NFA/BitState on tight [matchStart, matchEnd] for captures.
-            String searchText = text.substring(matchStart, matchEnd);
-            int[] result = searchWithBitStateOrNfa(
-                prog, searchText, 0, searchText.length(),
-                true, false, true, prog.numCaptures());
-            if (result != null) {
-              groups = new int[result.length];
-              for (int i = 0; i < result.length; i++) {
-                groups[i] = (result[i] == -1) ? -1 : result[i] + matchStart;
-              }
-              findCallCount++;
-              hasMatch = true;
-              return true;
+
+      if (prog.anchorStart()) {
+        // Anchored: match start is effectiveStart. Run forward DFA (anchored, longest) to find
+        // actual end, then NFA/BitState on the tight range for captures.
+        Dfa.SearchResult fwdLongest = dfa().doSearch(text, effectiveStart, true, true);
+        if (fwdLongest != null && fwdLongest.matched()) {
+          int matchEnd = fwdLongest.pos();
+          String searchText = text.substring(effectiveStart, matchEnd);
+          int[] result = searchWithBitStateOrNfa(
+              prog, searchText, 0, searchText.length(),
+              true, false, true, prog.numCaptures());
+          if (result != null) {
+            groups = new int[result.length];
+            for (int i = 0; i < result.length; i++) {
+              groups[i] = (result[i] == -1) ? -1 : result[i] + effectiveStart;
             }
+            findCallCount++;
+            hasMatch = true;
+            return true;
           }
-          // If anchored forward DFA fails, fall through to full search.
         }
-        // If reverse DFA bails out, fall through to full search.
+      } else {
+        Dfa revDfa = reverseDfa();
+        if (revDfa != null) {
+          // Step 2: Reverse DFA backward from earliest match end to find match start.
+          Dfa.SearchResult revResult =
+              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+          if (revResult != null && revResult.matched()) {
+            int matchStart = revResult.pos();
+            // Step 3: Forward DFA anchored at matchStart with longest=true to find actual end.
+            Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
+            if (fwdLongest != null && fwdLongest.matched()) {
+              int matchEnd = fwdLongest.pos();
+              // Step 4: NFA/BitState on tight [matchStart, matchEnd] for captures.
+              String searchText = text.substring(matchStart, matchEnd);
+              int[] result = searchWithBitStateOrNfa(
+                  prog, searchText, 0, searchText.length(),
+                  true, false, true, prog.numCaptures());
+              if (result != null) {
+                groups = new int[result.length];
+                for (int i = 0; i < result.length; i++) {
+                  groups[i] = (result[i] == -1) ? -1 : result[i] + matchStart;
+                }
+                findCallCount++;
+                hasMatch = true;
+                return true;
+              }
+            }
+            // If anchored forward DFA fails, fall through to full search.
+          }
+          // If reverse DFA bails out, fall through to full search.
+        }
       }
     }
 

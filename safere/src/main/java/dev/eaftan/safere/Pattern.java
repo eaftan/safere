@@ -94,11 +94,12 @@ public final class Pattern implements Serializable {
   private final transient boolean prefixFoldCase;
   private final transient Prog reverseProg;
   private final transient String literalMatch;
+  private final transient boolean canOnePassFind;
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, OnePass onePass,
       String prefix, boolean prefixFoldCase, Prog reverseProg,
-      String literalMatch) {
+      String literalMatch, boolean canOnePassFind) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -109,6 +110,7 @@ public final class Pattern implements Serializable {
     this.prefixFoldCase = prefixFoldCase;
     this.reverseProg = reverseProg;
     this.literalMatch = literalMatch;
+    this.canOnePassFind = canOnePassFind;
   }
 
   /**
@@ -146,8 +148,15 @@ public final class Pattern implements Serializable {
     String prefix = prefixResult.prefix();
     boolean prefixFoldCase = prefixResult.foldCase();
     String literalMatch = extractLiteralMatch(re);
+    // OnePass can be used directly in find() for anchored patterns that:
+    // (1) cannot match the empty string (nullable patterns have leftmost-first ambiguity), and
+    // (2) do not contain lazy quantifiers (+?, *?, ??, {n,m}?) because OnePass returns
+    //     leftmost-longest match boundaries while find() expects leftmost-first semantics.
+    boolean canOnePassFind = op != null && compiled.anchorStart()
+        && op.search("", false, 0) == null
+        && !hasLazyQuantifiers(re);
     return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
-        reverseProg, literalMatch);
+        reverseProg, literalMatch, canOnePassFind);
   }
 
   /**
@@ -311,6 +320,14 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Returns whether OnePass can be used directly in {@code find()} for this pattern. This is true
+   * when the pattern is anchored at the start, OnePass-eligible, and cannot match the empty string.
+   */
+  boolean canOnePassFind() {
+    return canOnePassFind;
+  }
+
+  /**
    * Returns the literal prefix for this pattern, or {@code null} if the pattern has no fixed
    * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.
    */
@@ -437,6 +454,29 @@ public final class Pattern implements Serializable {
       }
     }
     return Collections.unmodifiableMap(map);
+  }
+
+  /**
+   * Returns {@code true} if the AST contains any lazy (non-greedy) quantifiers ({@code +?},
+   * {@code *?}, {@code ??}, or {@code {n,m}?}). OnePass does not respect lazy vs greedy semantics
+   * for overall match boundaries, so patterns with lazy quantifiers must use the DFA pipeline in
+   * {@code find()}.
+   */
+  private static boolean hasLazyQuantifiers(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.nonGreedy()) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
   }
 
   /** Result of prefix extraction: a literal string prefix and whether it is case-folded. */
