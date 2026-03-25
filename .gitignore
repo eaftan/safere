@@ -10,6 +10,9 @@ re2j-reference/
 # C++ benchmark build artifacts
 safere-benchmarks/cpp/build/
 
+# Go benchmark binary
+safere-benchmarks/go/regexp_benchmark
+
 # IDE files
 .idea/
 *.iml
