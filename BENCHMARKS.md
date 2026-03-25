@@ -40,6 +40,44 @@ the SafeRE vs JDK vs RE2/J comparison is apples-to-apples.
 ./run-go-benchmarks.sh Regex Compile       # specific benchmark groups
 ```
 
+## Methodology
+
+All benchmarks use a warmup-then-measure approach, but the settings differ
+between Java and native harnesses to account for their different runtime
+characteristics.
+
+**Java (JMH):** 5 forks × (5 warmup + 5 measurement iterations) × 2s each.
+Each fork starts a **fresh JVM process**, which is critical because the JIT
+compiler is non-deterministic — different runs may make different inlining and
+optimization decisions based on profiling data. Five forks sample this variance
+so results reflect typical JIT behavior rather than one lucky (or unlucky)
+compilation. Warmup lets the JIT reach steady state before measurement begins.
+Total: 25 samples from 5 independent JVMs per benchmark.
+
+**C++ and Go:** 2 warmup + 10 measurement iterations × 2s each, single process.
+Native code has no JIT, so the same binary always runs the same machine code —
+forks are unnecessary. Warmup is shorter (2 iterations vs 5) because it only
+needs to prime CPU caches, branch predictors, and the memory allocator, all of
+which settle within a few seconds. More measurement iterations (10 vs JMH's 5
+per fork) compensate for the lack of fork-level variance sampling. Total: 10
+samples per benchmark.
+
+**Statistical reporting:** All harnesses report mean ± 99.9% confidence
+interval half-width. Java uses JMH's built-in statistics. C++ and Go use
+Student's t-distribution (t ≈ 4.781 for 9 df at 99.9%).
+
+**Shared test data:** All harnesses read patterns, inputs, and parameters from
+a single `benchmark-data.json` file, ensuring identical workloads across
+languages.
+
+| Setting | Java (JMH) | C++ | Go |
+|---|---|---|---|
+| Warmup | 5 × 2s per fork | 2 × 2s | 2 × 2s |
+| Measurement | 5 × 2s per fork | 10 × 2s | 10 × 2s |
+| Forks | 5 (fresh JVM each) | 1 (single process) | 1 (single process) |
+| Total samples | 25 | 10 | 10 |
+| Optimization | JIT (steady-state) | `-O3 -DNDEBUG` | Go default |
+
 ## Matching Performance (ns/op, lower is better)
 
 | Benchmark | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |

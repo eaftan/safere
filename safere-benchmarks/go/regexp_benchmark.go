@@ -94,12 +94,12 @@ func measure(name string, fn func(), warmupIters int, warmupTime time.Duration,
 
 // measureNs is a convenience wrapper for ns/op measurements.
 func measureNs(name string, fn func()) benchResult {
-	return measure(name, fn, 5, 2*time.Second, 10, 2*time.Second, "ns/op", 1.0)
+	return measure(name, fn, 2, 2*time.Second, 10, 2*time.Second, "ns/op", 1.0)
 }
 
 // measureUs is a convenience wrapper for µs/op measurements.
 func measureUs(name string, fn func()) benchResult {
-	return measure(name, fn, 5, 2*time.Second, 10, 2*time.Second, "us/op", 1000.0)
+	return measure(name, fn, 2, 2*time.Second, 10, 2*time.Second, "us/op", 1000.0)
 }
 
 func printJSON(r benchResult) {

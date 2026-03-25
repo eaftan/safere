@@ -45,7 +45,7 @@ struct BenchResult {
 // of measure_time_sec seconds each.
 BenchResult measure(const std::string& name,
                     const std::function<void()>& fn,
-                    int warmup_iters = 5, double warmup_time_sec = 2.0,
+                    int warmup_iters = 2, double warmup_time_sec = 2.0,
                     int measure_iters = 10, double measure_time_sec = 2.0,
                     const std::string& unit = "ns/op",
                     double unit_divisor = 1.0) {
@@ -273,7 +273,7 @@ void run_compile_benchmarks(const json& data,
       print_json(measure(name, [&]() {
         RE2 re(pattern);
         do_not_optimize(re.ok());
-      }, 5, 2.0, 10, 2.0, "us/op", 1000.0));
+      }, 2, 2.0, 10, 2.0, "us/op", 1000.0));
     }
   };
 
@@ -307,7 +307,7 @@ void run_search_scaling_benchmarks(const json& data,
     auto run = [&](const std::string& name, const std::function<void()>& fn) {
       std::string full_name = name + suffix;
       if (matches_filter(full_name, filters)) {
-        print_json(measure(full_name, fn, 5, 2.0, 10, 2.0, "us/op", 1000.0));
+        print_json(measure(full_name, fn, 2, 2.0, 10, 2.0, "us/op", 1000.0));
       }
     };
 
@@ -477,7 +477,7 @@ void run_pathological_benchmarks(const json& data,
       RE2 re(regex);
       print_json(measure(name, [&]() {
         do_not_optimize(RE2::FullMatch(text, re));
-      }, 5, 2.0, 10, 2.0, "us/op", 1000.0));
+      }, 2, 2.0, 10, 2.0, "us/op", 1000.0));
     }
   }
 }
@@ -508,7 +508,7 @@ void run_fanout_benchmarks(const json& data,
     auto run = [&](const std::string& name, const std::function<void()>& fn) {
       std::string full_name = name + suffix;
       if (matches_filter(full_name, filters)) {
-        print_json(measure(full_name, fn, 5, 2.0, 10, 2.0, "us/op", 1000.0));
+        print_json(measure(full_name, fn, 2, 2.0, 10, 2.0, "us/op", 1000.0));
       }
     };
 
