@@ -124,10 +124,10 @@ Public API (drop-in for `java.util.regex`):
   because `mvn exec:java` resolves the safere dependency from
   `~/.m2/repository`, not from `safere/target/`.
 - **Use fork mode (default) for results that go into BENCHMARKS.md.**
-  The default JMH options use `-f 1` (one fork per benchmark), which
-  starts a fresh JVM for each benchmark class and produces reliable,
-  publishable numbers. Only use no-fork mode (`-f 0`) for quick
-  development iteration:
+  The default JMH options omit `-f`, letting JMH use its built-in
+  default of 5 forks per benchmark. This starts a fresh JVM for each
+  fork and produces reliable, publishable numbers. Only use no-fork
+  mode (`-f 0`) for quick development iteration:
 
 ```bash
 # Default (fork mode) — use for BENCHMARKS.md updates

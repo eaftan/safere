@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_DIR="$SCRIPT_DIR/safere-benchmarks"
 
 # JMH options (can be overridden via JMH_OPTS env var)
-JMH_OPTS="${JMH_OPTS:--f 1 -wi 5 -i 5 -w 2 -r 2}"
+JMH_OPTS="${JMH_OPTS:--wi 5 -i 5 -w 2 -r 2}"
 
 echo "=== Installing safere to local Maven repository ==="
 mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
