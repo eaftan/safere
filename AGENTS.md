@@ -118,7 +118,7 @@ Public API (drop-in for `java.util.regex`):
 - **Do not commit performance optimizations that do not improve benchmark
   results.** Every optimization must be validated with before/after
   benchmarks, and only committed if there is a measurable improvement.
-- **Always use `./run-benchmarks.sh`** to run benchmarks. This script
+- **Always use `./run-java-benchmarks.sh`** to run benchmarks. This script
   runs `mvn install` first to ensure the benchmark module picks up the
   latest safere code. Running `mvn package` alone is NOT sufficient
   because `mvn exec:java` resolves the safere dependency from
@@ -131,10 +131,10 @@ Public API (drop-in for `java.util.regex`):
 
 ```bash
 # Default (fork mode) — use for BENCHMARKS.md updates
-./run-benchmarks.sh RegexBenchmark
+./run-java-benchmarks.sh RegexBenchmark
 
 # No-fork mode — use only for quick development checks
-JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
+JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ```
 
 - **Run benchmarks in batches, not all at once.** Running the full suite
@@ -142,10 +142,10 @@ JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
   collect results incrementally. For example:
 
 ```bash
-./run-benchmarks.sh RegexBenchmark CompileBenchmark
-./run-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
-./run-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
-./run-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
+./run-java-benchmarks.sh RegexBenchmark CompileBenchmark
+./run-java-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
+./run-java-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
+./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
 ```
 
 - **Extract summary tables from JMH output** using grep. JMH prints
@@ -154,6 +154,6 @@ JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
   the class name:
 
 ```bash
-./run-benchmarks.sh RegexBenchmark 2>&1 \
+./run-java-benchmarks.sh RegexBenchmark 2>&1 \
   | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
 ```

@@ -5,9 +5,9 @@
 # Run SafeRE JMH benchmarks.
 #
 # Usage:
-#   ./run-benchmarks.sh                    # run all benchmarks
-#   ./run-benchmarks.sh RegexBenchmark     # run a specific benchmark class
-#   ./run-benchmarks.sh Capture Regex      # run multiple benchmark classes
+#   ./run-java-benchmarks.sh                    # run all benchmarks
+#   ./run-java-benchmarks.sh RegexBenchmark     # run a specific benchmark class
+#   ./run-java-benchmarks.sh Capture Regex      # run multiple benchmark classes
 #
 # IMPORTANT: This script uses `mvn install` (not `mvn package`) to ensure the
 # benchmark module picks up the latest safere code. The benchmarks resolve the

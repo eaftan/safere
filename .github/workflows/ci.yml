@@ -46,7 +46,7 @@ jobs:
         run: mvn install -DskipTests --batch-mode --no-transfer-progress
 
       - name: Smoke test Java benchmarks
-        run: ./run-benchmarks.sh RegexBenchmark
+        run: ./run-java-benchmarks.sh RegexBenchmark
         env:
           JMH_OPTS: "-f 0 -wi 1 -i 1 -w 1 -r 1"
 

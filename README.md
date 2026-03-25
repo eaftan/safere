@@ -343,13 +343,13 @@ the benchmark module picks up the latest safere code:
 
 ```bash
 # Run all Java benchmarks
-./run-benchmarks.sh
+./run-java-benchmarks.sh
 
 # Run specific benchmark class(es)
-./run-benchmarks.sh RegexBenchmark SearchScalingBenchmark
+./run-java-benchmarks.sh RegexBenchmark SearchScalingBenchmark
 
 # Override JMH options
-JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
+JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ```
 
 ### C++ RE2 and Go Benchmarks

@@ -28,8 +28,8 @@ the SafeRE vs JDK vs RE2/J comparison is apples-to-apples.
 
 ```bash
 # Java benchmarks — always use the wrapper script (runs `mvn install` first)
-./run-benchmarks.sh                        # all benchmarks
-./run-benchmarks.sh CaptureScalingBenchmark  # specific class
+./run-java-benchmarks.sh                        # all benchmarks
+./run-java-benchmarks.sh CaptureScalingBenchmark  # specific class
 
 # C++ RE2 benchmarks
 ./run-cpp-benchmarks.sh                    # all C++ benchmarks
