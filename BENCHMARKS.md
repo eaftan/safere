@@ -179,7 +179,7 @@ Pattern: `^(?:GET|POST) +([^ ]+) HTTP`
 | Small request (18 chars) | 2,707 | 50 | 968 | 71 | 228 | 54× slower | 2.8× slower |
 | Extract URL (97 chars) | 6,358 | 92 | 8,481 | 319 | 956 | 69× slower | **1.3× faster** |
 
-JDK dominates on this short anchored pattern. SafeRE beats RE2/J on the
+JDK is fastest on this short anchored pattern. SafeRE beats RE2/J on the
 full request but loses on the small request due to higher startup cost.
 C++ RE2 is close to JDK on the small request (71 vs 50 ns). Go `regexp` is
 ~9× faster than RE2/J on the full request.
@@ -237,10 +237,11 @@ than both SafeRE and RE2/J.
 | 10 KB | 47 | 143 | 3,787 | 10.9 | 2,183 | **3.1× faster** | **81× faster** |
 | 100 KB | 430 | 1,441 | 40,645 | 108 | 21,753 | **3.4× faster** | **95× faster** |
 
-SafeRE crushes both JDK and RE2/J. RE2/J's NFA-only approach is dramatically
-slower than SafeRE's DFA on this high-fanout quantifier pattern. SafeRE is
-within 4× of C++ RE2, showing both use the same algorithmic approach. Go
-`regexp` is similar to RE2/J (NFA-only), both ~50–95× slower than SafeRE.
+SafeRE is significantly faster than both JDK and RE2/J here. RE2/J's NFA-only
+approach is much slower than SafeRE's DFA on this high-fanout quantifier
+pattern. SafeRE is within 4× of C++ RE2, showing both use the same
+algorithmic approach. Go `regexp` is similar to RE2/J (NFA-only), both
+~50–95× slower than SafeRE.
 
 ## Compilation Performance (µs/op, lower is better)
 

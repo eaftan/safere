@@ -193,3 +193,18 @@ JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 - **All harnesses share `benchmark-data.json`.** This ensures identical
   patterns, inputs, and parameters across Java, C++, and Go. Edit the
   JSON file to change workloads; never hardcode values in the harness.
+
+### Writing About Benchmark Results
+
+- **Use professional, neutral language.** Do not use terms like "crushes",
+  "destroys", "demolishes", or other language that puts down other
+  implementations. Every engine makes deliberate design tradeoffs.
+- **State facts and ratios.** Write "SafeRE is 50× faster than RE2/J"
+  rather than "SafeRE crushes RE2/J."
+- **Explain *why* differences exist.** Attribute performance gaps to
+  specific design decisions (e.g., "RE2/J lacks a DFA engine" or "JDK
+  defers compilation work to match time") rather than implying one
+  implementation is poorly written.
+- **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
+  in return (e.g., linear-time guarantees). When it's faster, note what
+  the other engine optimizes for instead.
