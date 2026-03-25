@@ -92,13 +92,19 @@ public final class Pattern implements Serializable {
   private final transient OnePass onePass;
   private final transient String prefix;
   private final transient boolean prefixFoldCase;
-  private final transient Prog reverseProg;
   private final transient String literalMatch;
   private final transient boolean canOnePassFind;
 
+  /**
+   * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
+   * paying the compilation cost for patterns that never need it (e.g., anchored patterns, patterns
+   * used only with {@code matches()} or {@code lookingAt()}).
+   */
+  private transient volatile Prog reverseProg;
+
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, OnePass onePass,
-      String prefix, boolean prefixFoldCase, Prog reverseProg,
+      String prefix, boolean prefixFoldCase,
       String literalMatch, boolean canOnePassFind) {
     this.pattern = pattern;
     this.flags = flags;
@@ -108,7 +114,6 @@ public final class Pattern implements Serializable {
     this.onePass = onePass;
     this.prefix = prefix;
     this.prefixFoldCase = prefixFoldCase;
-    this.reverseProg = reverseProg;
     this.literalMatch = literalMatch;
     this.canOnePassFind = canOnePassFind;
   }
@@ -141,7 +146,6 @@ public final class Pattern implements Serializable {
     int parseFlags = toParseFlags(flags);
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
-    Prog reverseProg = Compiler.compile(re, true);
     Map<String, Integer> named = extractNamedGroups(re);
     OnePass op = OnePass.build(compiled);
     PrefixResult prefixResult = extractPrefix(re);
@@ -156,7 +160,7 @@ public final class Pattern implements Serializable {
         && op.search("", false, 0) == null
         && !hasLazyQuantifiers(re);
     return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
-        reverseProg, literalMatch, canOnePassFind);
+        literalMatch, canOnePassFind);
   }
 
   /**
@@ -341,11 +345,20 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the reverse-compiled program for backward DFA matching, or {@code null} if reverse
-   * compilation failed.
+   * Returns the reverse-compiled program for backward DFA matching. The reverse program is compiled
+   * lazily on first access, since many patterns never need it (anchored patterns, patterns used
+   * only with {@code matches()} or {@code lookingAt()}, single-find workloads).
+   *
+   * <p>Thread-safe via volatile: benign data race at worst compiles twice, but {@link Prog} is
+   * effectively immutable once constructed.
    */
   Prog reverseProg() {
-    return reverseProg;
+    Prog rp = reverseProg;
+    if (rp == null) {
+      rp = Compiler.compile(ast, true);
+      reverseProg = rp;
+    }
+    return rp;
   }
 
   /**
