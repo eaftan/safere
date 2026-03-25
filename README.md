@@ -333,7 +333,8 @@ mvn javadoc:javadoc -pl safere
 ## Benchmarks
 
 SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
-`safere-benchmarks` module, comparing against `java.util.regex`.
+`safere-benchmarks` module, comparing SafeRE against `java.util.regex`, RE2/J,
+and C++ RE2.
 
 ### Running Benchmarks
 
@@ -341,7 +342,7 @@ Always use the wrapper script — it runs `mvn install` first to ensure
 the benchmark module picks up the latest safere code:
 
 ```bash
-# Run all benchmarks
+# Run all Java benchmarks
 ./run-benchmarks.sh
 
 # Run specific benchmark class(es)
@@ -351,18 +352,41 @@ the benchmark module picks up the latest safere code:
 JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-benchmarks.sh RegexBenchmark
 ```
 
+### C++ RE2 Benchmarks
+
+The benchmark suite includes a C++ RE2 harness for cross-language comparison.
+Prerequisites: CMake ≥ 3.14 and a C++17 compiler. RE2 and dependencies are
+fetched automatically via CMake FetchContent.
+
+```bash
+# Build and run all C++ benchmarks
+./run-cpp-benchmarks.sh
+
+# Run specific benchmark groups
+./run-cpp-benchmarks.sh Regex Compile
+```
+
+### Comparing Results
+
+A comparison script merges JMH and C++ results into side-by-side markdown:
+
+```bash
+python3 safere-benchmarks/scripts/compare-benchmarks.py \
+  --jmh jmh-output.txt --json cpp-results.jsonl
+```
+
 ### Latest Results
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 
-| Benchmark | SafeRE | JDK | Ratio |
-|---|--:|--:|---|
-| Literal match | 3 ns | 23 ns | **8× faster** |
-| Capture groups (3) | 105 ns | 115 ns | **1.1× faster** |
-| Capture groups (10) | 311 ns | 364 ns | **1.2× faster** |
-| Find in text (`\b` pattern) | 34,215 ns | 5,615 ns | 6.1× slower |
-| Hard pattern (1 MB) | 4,715 µs | 277,413 µs | **59× faster** |
-| Pathological (n=20) | 0.11 µs | 27,819 µs | **265,000× faster** |
+| Benchmark | SafeRE | JDK | C++ RE2 | SafeRE vs JDK |
+|---|--:|--:|--:|---|
+| Literal match | 3 ns | 23 ns | 41 ns | **8× faster** |
+| Capture groups (3) | 147 ns | 120 ns | 82 ns | 1.2× slower |
+| Capture groups (10) | 302 ns | 374 ns | 373 ns | **1.2× faster** |
+| Hard pattern (1 MB) | 4,271 µs | 267,357 µs | 0.04 µs | **63× faster** |
+| Pathological (n=20) | 0.10 µs | 27,138 µs | 0.07 µs | **253,626× faster** |
+| Literal replaceFirst | 40 ns | 52 ns | 96 ns | **1.3× faster** |
 
 ## License
 
