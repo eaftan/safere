@@ -299,6 +299,28 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
+    // Single-pass engine selection: on the first find() call for small texts, skip the DFA
+    // existence check and go directly to the capture engine. This avoids DFA construction overhead
+    // (~500ns per Matcher) which dominates for short texts. Following C++ RE2's approach
+    // (re2.cc:838-846) where lighter engines are preferred on small inputs. The 256-char threshold
+    // ensures BitState's O(n×m) cost stays well below DFA construction cost; beyond this size,
+    // the DFA's O(n) per-character scan is more efficient.
+    if (findCallCount == 0 && text.length() <= 256) {
+      int maxBitStateLen = BitState.maxTextSize(prog);
+      if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
+        int[] result = searchWithBitStateOrNfa(
+            prog, text, effectiveStart, text.length(), false, false, false, prog.numCaptures());
+        findCallCount++;
+        if (result == null) {
+          hasMatch = false;
+          return false;
+        }
+        groups = result;
+        hasMatch = true;
+        return true;
+      }
+    }
+
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
     Dfa.SearchResult fwdResult;
@@ -331,14 +353,12 @@ public final class Matcher implements MatchResult {
 
       if (prog.anchorStart()) {
         // Anchored: match start is effectiveStart. Run forward DFA (anchored, longest) to find
-        // actual end, then NFA/BitState on the tight range for captures.
+        // actual end, then extract captures on the tight range.
         Dfa.SearchResult fwdLongest = dfa().doSearch(text, effectiveStart, true, true);
         if (fwdLongest != null && fwdLongest.matched()) {
           int matchEnd = fwdLongest.pos();
           String searchText = text.substring(effectiveStart, matchEnd);
-          int[] result = searchWithBitStateOrNfa(
-              prog, searchText, 0, searchText.length(),
-              true, false, true, prog.numCaptures());
+          int[] result = searchSubmatch(prog, searchText, true, prog.numCaptures());
           if (result != null) {
             groups = new int[result.length];
             for (int i = 0; i < result.length; i++) {
@@ -361,11 +381,9 @@ public final class Matcher implements MatchResult {
             Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
             if (fwdLongest != null && fwdLongest.matched()) {
               int matchEnd = fwdLongest.pos();
-              // Step 4: NFA/BitState on tight [matchStart, matchEnd] for captures.
+              // Step 4: Extract captures on tight [matchStart, matchEnd] range.
               String searchText = text.substring(matchStart, matchEnd);
-              int[] result = searchWithBitStateOrNfa(
-                  prog, searchText, 0, searchText.length(),
-                  true, false, true, prog.numCaptures());
+              int[] result = searchSubmatch(prog, searchText, true, prog.numCaptures());
               if (result != null) {
                 groups = new int[result.length];
                 for (int i = 0; i < result.length; i++) {
@@ -408,6 +426,26 @@ public final class Matcher implements MatchResult {
       }
     }
     return -1;
+  }
+
+  /**
+   * Extracts submatch groups from a known match range. Tries OnePass first (single-pass, O(n)),
+   * then falls back to BitState/NFA. This is the capture-extraction step of the DFA sandwich.
+   *
+   * <p>Following C++ RE2's engine priority (re2.cc:885–897): OnePass > BitState > NFA.
+   *
+   * @param prog the compiled program
+   * @param text the match range text (already a substring of the original input)
+   * @param endMatch whether the match must cover the entire text
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions relative to {@code text}, or null if no match
+   */
+  private int[] searchSubmatch(Prog prog, String text, boolean endMatch, int nsubmatch) {
+    if (parentPattern.canOnePassSubmatch()) {
+      return parentPattern.onePass().search(text, endMatch, nsubmatch);
+    }
+    return searchWithBitStateOrNfa(
+        prog, text, 0, text.length(), true, false, endMatch, nsubmatch);
   }
 
   /**

@@ -94,6 +94,7 @@ public final class Pattern implements Serializable {
   private final transient boolean prefixFoldCase;
   private final transient String literalMatch;
   private final transient boolean canOnePassFind;
+  private final transient boolean canOnePassSubmatch;
 
   /**
    * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
@@ -105,7 +106,7 @@ public final class Pattern implements Serializable {
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, OnePass onePass,
       String prefix, boolean prefixFoldCase,
-      String literalMatch, boolean canOnePassFind) {
+      String literalMatch, boolean canOnePassFind, boolean canOnePassSubmatch) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -116,6 +117,7 @@ public final class Pattern implements Serializable {
     this.prefixFoldCase = prefixFoldCase;
     this.literalMatch = literalMatch;
     this.canOnePassFind = canOnePassFind;
+    this.canOnePassSubmatch = canOnePassSubmatch;
   }
 
   /**
@@ -156,11 +158,17 @@ public final class Pattern implements Serializable {
     // (1) cannot match the empty string (nullable patterns have leftmost-first ambiguity), and
     // (2) do not contain lazy quantifiers (+?, *?, ??, {n,m}?) because OnePass returns
     //     leftmost-longest match boundaries while find() expects leftmost-first semantics.
+    boolean hasLazy = hasLazyQuantifiers(re);
     boolean canOnePassFind = op != null && compiled.anchorStart()
         && op.search("", false, 0) == null
-        && !hasLazyQuantifiers(re);
+        && !hasLazy;
+    // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
+    // when captures need to be extracted from a known match range. This avoids BitState/NFA
+    // overhead. Lazy quantifiers are excluded because OnePass returns leftmost-longest capture
+    // group boundaries, which differs from leftmost-first semantics for lazy groups.
+    boolean canOnePassSubmatch = op != null && !hasLazy;
     return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
-        literalMatch, canOnePassFind);
+        literalMatch, canOnePassFind, canOnePassSubmatch);
   }
 
   /**
@@ -329,6 +337,14 @@ public final class Pattern implements Serializable {
    */
   boolean canOnePassFind() {
     return canOnePassFind;
+  }
+
+  /**
+   * Returns whether OnePass can be used for submatch extraction in the sandwich path. This is true
+   * when the pattern is OnePass-eligible and has no lazy quantifiers.
+   */
+  boolean canOnePassSubmatch() {
+    return canOnePassSubmatch;
   }
 
   /**
