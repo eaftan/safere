@@ -144,6 +144,12 @@ final class Dfa {
    */
   private final int[] expandFrontier;
 
+  /** Pre-allocated workspace for seed/successor collection in computeNext(). */
+  private final int[] computeBuf;
+
+  /** Shared empty instruction array to avoid repeated zero-length allocations. */
+  private static final int[] EMPTY_INSTS = new int[0];
+
   // ---------------------------------------------------------------------------
   // Construction
   // ---------------------------------------------------------------------------
@@ -157,6 +163,7 @@ final class Dfa {
     this.expandVisited = new boolean[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
+    this.computeBuf = new int[prog.size()];
   }
 
   /**
@@ -242,7 +249,7 @@ final class Dfa {
    * when context changes (e.g., at end-of-text, the EndText flag becomes true and {@code $} can
    * fire).
    */
-  private int[] expand(List<Integer> seeds, int emptyFlags) {
+  private int[] expand(int[] seeds, int seedCount, int emptyFlags) {
     boolean[] visited = expandVisited;
     int[] stack = expandStack;
     int[] frontier = expandFrontier;
@@ -250,8 +257,8 @@ final class Dfa {
     int frontierSize = 0;
 
     // Push seeds onto stack.
-    for (int i = 0; i < seeds.size(); i++) {
-      stack[stackTop++] = seeds.get(i);
+    for (int i = 0; i < seedCount; i++) {
+      stack[stackTop++] = seeds[i];
     }
 
     while (stackTop > 0) {
@@ -373,7 +380,8 @@ final class Dfa {
       return deadState;
     }
     int emptyFlags = Nfa.emptyFlags(text, pos);
-    int[] insts = expand(List.of(startInst), emptyFlags);
+    computeBuf[0] = startInst;
+    int[] insts = expand(computeBuf, 1, emptyFlags);
     int flags = emptyFlags & 0xFF;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
@@ -414,17 +422,17 @@ final class Dfa {
         emptyFlags = (emptyFlags | EmptyOp.NON_WORD_BOUNDARY) & ~EmptyOp.WORD_BOUNDARY;
       }
       // Re-expand from the successors of EMPTY_WIDTH instructions that now pass.
-      List<Integer> seeds = new ArrayList<>();
+      int seedCount = 0;
       for (int id : s.insts) {
         Inst ip = prog.inst(id);
         if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & ~emptyFlags) == 0) {
-          seeds.add(ip.out);
+          computeBuf[seedCount++] = ip.out;
         }
       }
-      if (seeds.isEmpty()) {
+      if (seedCount == 0) {
         return deadState;
       }
-      int[] nextInsts = expand(seeds, emptyFlags);
+      int[] nextInsts = expand(computeBuf, seedCount, emptyFlags);
       if (nextInsts.length == 0) {
         return deadState;
       }
@@ -446,17 +454,14 @@ final class Dfa {
 
     // Check if any unsatisfied EMPTY_WIDTH instructions are now satisfiable.
     // If so, re-expand the state to include their successors before consuming cp.
-    List<Integer> reExpandSeeds = null;
+    int reExpandCount = 0;
     for (int id : s.insts) {
       Inst ip = prog.inst(id);
       if (ip.op == InstOp.EMPTY_WIDTH) {
         int wordFlags = ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
         int otherFlags = ip.arg & ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
         if (otherFlags == 0 && wordFlags != 0 && (wordFlags & ~wordBeforeFlags) == 0) {
-          if (reExpandSeeds == null) {
-            reExpandSeeds = new ArrayList<>();
-          }
-          reExpandSeeds.add(ip.out);
+          computeBuf[reExpandCount++] = ip.out;
         }
       }
     }
@@ -466,10 +471,10 @@ final class Dfa {
     int[] expandedInsts = s.insts;
     boolean hasMatchFromWordBoundary = false;
     int[] wordBoundaryMatchIds = null;
-    if (reExpandSeeds != null) {
+    if (reExpandCount > 0) {
       // Expand the newly reachable instructions (without word boundary flags since
       // we can't predict the NEXT word boundary).
-      int[] newInsts = expand(reExpandSeeds, s.flags & 0xFF);
+      int[] newInsts = expand(computeBuf, reExpandCount, s.flags & 0xFF);
 
       // Check if the re-expansion revealed any MATCH instructions. Collect their IDs
       // for PatternSet multi-match before merging with the original state.
@@ -494,20 +499,20 @@ final class Dfa {
     }
 
     // Step 2: Process CHAR_RANGE transitions against cp using the (possibly expanded) state.
-    List<Integer> successors = new ArrayList<>();
+    int successorCount = 0;
     for (int id : expandedInsts) {
       Inst ip = prog.inst(id);
       if (ip.op == InstOp.CHAR_RANGE && ip.matchesChar(cp)) {
-        successors.add(ip.out);
+        computeBuf[successorCount++] = ip.out;
       }
     }
 
-    if (successors.isEmpty()) {
+    if (successorCount == 0) {
       // No CHAR_RANGE matched, but if word-boundary expansion revealed a MATCH,
       // return a match state. FLAG_MATCH_BEFORE indicates the match position should be
       // recorded at the current position (before consuming cp), not after.
       if (hasMatchFromWordBoundary) {
-        return getOrCreate(new int[0],
+        return getOrCreate(EMPTY_INSTS,
             FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
             wordBoundaryMatchIds);
       }
@@ -520,11 +525,11 @@ final class Dfa {
     int emptyFlags = Nfa.emptyFlags(text, nextPos);
     emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
 
-    int[] nextInsts = expand(successors, emptyFlags);
+    int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
 
     if (nextInsts.length == 0) {
       if (hasMatchFromWordBoundary) {
-        return getOrCreate(new int[0],
+        return getOrCreate(EMPTY_INSTS,
             FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
             wordBoundaryMatchIds);
       }
