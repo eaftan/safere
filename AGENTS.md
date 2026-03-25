@@ -119,10 +119,10 @@ Public API (drop-in for `java.util.regex`):
   results.** Every optimization must be validated with before/after
   benchmarks, and only committed if there is a measurable improvement.
 - **Always use `./run-java-benchmarks.sh`** to run benchmarks. This script
-  runs `mvn install` first to ensure the benchmark module picks up the
-  latest safere code. Running `mvn package` alone is NOT sufficient
-  because `mvn exec:java` resolves the safere dependency from
-  `~/.m2/repository`, not from `safere/target/`.
+  runs `mvn install` to build a shaded (fat) JAR, then runs it with
+  `java -jar`. This is required for JMH fork mode — forked JVMs need a
+  self-contained classpath. Do NOT use `mvn exec:java`, which breaks fork
+  mode because the forked child cannot find JMH classes.
 - **Use JMH defaults for results that go into BENCHMARKS.md.**
   The script passes no JMH flags by default, letting JMH use its
   built-in defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s).
@@ -162,3 +162,34 @@ JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ./run-java-benchmarks.sh RegexBenchmark 2>&1 \
   | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
 ```
+
+### Benchmarking Best Practices
+
+- **Use fork mode for Java benchmarks.** The runner script uses
+  `java -jar` on the shaded JAR, which supports JMH fork mode. Each
+  fork starts a fresh JVM, eliminating JIT profile pollution between
+  benchmarks. Never use `mvn exec:java` — it breaks fork mode.
+- **Never run benchmarks in parallel.** CPU, cache, and memory bandwidth
+  contention invalidates all measurements. Run one benchmark suite at a
+  time (Java, then C++, then Go).
+- **Run benchmarks in batches.** The full Java suite with default settings
+  takes many hours. Run 2–3 benchmark classes per invocation to get
+  incremental results.
+- **Use JMH defaults for publishable data.** Don't override `-f`, `-wi`,
+  `-i`, `-w`, or `-r` when generating data for BENCHMARKS.md. JMH's
+  defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s) are chosen
+  for statistical rigor.
+- **Use reduced settings only for development.** Quick spot-checks during
+  development can use `JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1"`. Never
+  commit these results to BENCHMARKS.md.
+- **Warmup matters for different reasons across languages:**
+  - Java: JIT compilation (C1 → C2 tiered compilation) needs time to
+    reach steady state. JMH's 50s warmup per fork handles this.
+  - C++/Go: Only CPU cache and branch predictor priming needed (~4s).
+    The native harnesses use 2 × 2s warmup iterations.
+- **More measurement iterations compensate for fewer forks.** C++ and Go
+  run 10 measurement iterations (vs Java's 5 per fork) since they don't
+  have fork-level variance from JIT non-determinism.
+- **All harnesses share `benchmark-data.json`.** This ensures identical
+  patterns, inputs, and parameters across Java, C++, and Go. Edit the
+  JSON file to change workloads; never hardcode values in the harness.
