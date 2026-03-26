@@ -299,13 +299,12 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
-    // Single-pass engine selection: on the first find() call for small texts, skip the DFA
-    // existence check and go directly to the capture engine. This avoids DFA construction overhead
-    // (~500ns per Matcher) which dominates for short texts. Following C++ RE2's approach
-    // (re2.cc:838-846) where lighter engines are preferred on small inputs. The 256-char threshold
-    // ensures BitState's O(n×m) cost stays well below DFA construction cost; beyond this size,
-    // the DFA's O(n) per-character scan is more efficient.
-    if (findCallCount == 0 && text.length() <= 256) {
+    // Skip DFA+sandwich for small texts: when the input is short enough for BitState, use it
+    // directly for all find() calls. On the first call this avoids ~500ns DFA construction; on
+    // subsequent calls it avoids the three-DFA sandwich overhead (reverse DFA + second forward DFA
+    // + substring). For texts ≤256 chars, BitState's O(n×m) cost is comparable to the sandwich's
+    // fixed overhead, and the simpler single-pass search is faster overall.
+    if (text.length() <= 256) {
       int maxBitStateLen = BitState.maxTextSize(prog);
       if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
         int[] result = searchWithBitStateOrNfa(
