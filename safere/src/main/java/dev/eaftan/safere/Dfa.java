@@ -154,12 +154,30 @@ final class Dfa {
   // Construction
   // ---------------------------------------------------------------------------
 
-  Dfa(Prog prog, int maxStates) {
+  /**
+   * Pre-computed immutable DFA setup: equivalence class boundaries and ASCII lookup table. These are
+   * derived solely from the compiled {@link Prog} and can be shared across all DFA instances for the
+   * same program (e.g., across multiple {@link dev.eaftan.safere.Matcher} instances).
+   */
+  record Setup(int[] boundaries, int numClasses, int[] asciiClassMap) {}
+
+  /**
+   * Builds a reusable {@link Setup} from a compiled program. The result is immutable and can be
+   * stored on a {@link dev.eaftan.safere.Pattern} for sharing across matchers.
+   */
+  static Setup buildSetup(Prog prog) {
+    int[] boundaries = buildBoundaries(prog);
+    int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
+    int[] asciiClassMap = buildAsciiClassMap(boundaries);
+    return new Setup(boundaries, numClasses, asciiClassMap);
+  }
+
+  Dfa(Prog prog, int maxStates, Setup setup) {
     this.prog = prog;
     this.maxStates = maxStates;
-    this.boundaries = buildBoundaries(prog);
-    this.numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
-    this.asciiClassMap = buildAsciiClassMap(boundaries);
+    this.boundaries = setup.boundaries;
+    this.numClasses = setup.numClasses;
+    this.asciiClassMap = setup.asciiClassMap;
     this.expandVisited = new boolean[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
@@ -610,7 +628,7 @@ final class Dfa {
    */
   static SearchResult search(
       Prog prog, String text, int startPos, boolean anchored, boolean longest, int maxStates) {
-    Dfa dfa = new Dfa(prog, maxStates);
+    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog));
     return dfa.doSearch(text, startPos, anchored, longest);
   }
 
@@ -874,7 +892,7 @@ final class Dfa {
 
   /** Multi-match search with explicit state budget. */
   static ManyMatchResult searchMany(Prog prog, String text, boolean anchored, int maxStates) {
-    Dfa dfa = new Dfa(prog, maxStates);
+    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog));
     return dfa.doSearchMany(text, anchored);
   }
 

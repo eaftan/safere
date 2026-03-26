@@ -68,7 +68,8 @@ public final class Matcher implements MatchResult {
   /** Returns the cached DFA instance, creating it on first use. */
   private Dfa dfa() {
     if (dfa == null) {
-      dfa = new Dfa(parentPattern.prog(), DEFAULT_MAX_DFA_STATES);
+      dfa = new Dfa(parentPattern.prog(), DEFAULT_MAX_DFA_STATES,
+          parentPattern.forwardDfaSetup());
     }
     return dfa;
   }
@@ -76,7 +77,8 @@ public final class Matcher implements MatchResult {
   /** Returns the cached reverse DFA instance, creating it on first use. */
   private Dfa reverseDfa() {
     if (reverseDfa == null && parentPattern.reverseProg() != null) {
-      reverseDfa = new Dfa(parentPattern.reverseProg(), DEFAULT_MAX_DFA_STATES);
+      reverseDfa = new Dfa(parentPattern.reverseProg(), DEFAULT_MAX_DFA_STATES,
+          parentPattern.reverseDfaSetup());
     }
     return reverseDfa;
   }

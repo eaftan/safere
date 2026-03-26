@@ -96,6 +96,7 @@ public final class Pattern implements Serializable {
   private final transient boolean canOnePassFind;
   private final transient boolean canOnePassSubmatch;
   private final transient boolean[] charClassPrefixAscii;
+  private final transient Dfa.Setup forwardDfaSetup;
 
   /**
    * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
@@ -104,11 +105,14 @@ public final class Pattern implements Serializable {
    */
   private transient volatile Prog reverseProg;
 
+  /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
+  private transient volatile Dfa.Setup reverseDfaSetup;
+
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, OnePass onePass,
       String prefix, boolean prefixFoldCase,
       String literalMatch, boolean canOnePassFind, boolean canOnePassSubmatch,
-      boolean[] charClassPrefixAscii) {
+      boolean[] charClassPrefixAscii, Dfa.Setup forwardDfaSetup) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -121,6 +125,7 @@ public final class Pattern implements Serializable {
     this.canOnePassFind = canOnePassFind;
     this.canOnePassSubmatch = canOnePassSubmatch;
     this.charClassPrefixAscii = charClassPrefixAscii;
+    this.forwardDfaSetup = forwardDfaSetup;
   }
 
   /**
@@ -173,8 +178,10 @@ public final class Pattern implements Serializable {
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(re) : null;
+    // Pre-compute DFA equivalence class setup so it is shared across all Matcher instances.
+    Dfa.Setup fwdSetup = Dfa.buildSetup(compiled);
     return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
-        literalMatch, canOnePassFind, canOnePassSubmatch, ccPrefixAscii);
+        literalMatch, canOnePassFind, canOnePassSubmatch, ccPrefixAscii, fwdSetup);
   }
 
   /**
@@ -387,9 +394,24 @@ public final class Pattern implements Serializable {
     Prog rp = reverseProg;
     if (rp == null) {
       rp = Compiler.compile(ast, true);
+      reverseDfaSetup = Dfa.buildSetup(rp);
       reverseProg = rp;
     }
     return rp;
+  }
+
+  /** Returns the pre-computed DFA setup for the forward program. */
+  Dfa.Setup forwardDfaSetup() {
+    return forwardDfaSetup;
+  }
+
+  /**
+   * Returns the pre-computed DFA setup for the reverse program. Triggers lazy compilation of the
+   * reverse program if not already done.
+   */
+  Dfa.Setup reverseDfaSetup() {
+    reverseProg(); // ensure reverse prog and its setup are computed
+    return reverseDfaSetup;
   }
 
   /**
