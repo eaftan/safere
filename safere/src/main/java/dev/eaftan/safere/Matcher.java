@@ -299,6 +299,19 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
+    // Character-class prefix acceleration: when the pattern starts with a character class (and
+    // no literal prefix exists), scan for the first character that could begin a match. This
+    // avoids running the full engine on text regions where no match can start.
+    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
+    if (ccPrefixAscii != null) {
+      int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
+      if (idx < 0) {
+        hasMatch = false;
+        return false;
+      }
+      effectiveStart = idx;
+    }
+
     // Skip DFA+sandwich for small texts: when the input is short enough for BitState, use it
     // directly for all find() calls. On the first call this avoids ~500ns DFA construction; on
     // subsequent calls it avoids the three-DFA sandwich overhead (reverse DFA + second forward DFA
@@ -421,6 +434,21 @@ public final class Matcher implements MatchResult {
     int limit = text.length() - prefixLen;
     for (int i = fromIndex; i <= limit; i++) {
       if (text.regionMatches(true, i, prefix, 0, prefixLen)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Scans {@code text} for the first character at or after {@code fromIndex} whose code point is
+   * set in the ASCII bitmap. Returns the index, or {@code -1} if no matching character is found.
+   * Non-ASCII characters are skipped (never match).
+   */
+  private static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
+    for (int i = fromIndex; i < text.length(); i++) {
+      char ch = text.charAt(i);
+      if (ch < 128 && asciiMap[ch]) {
         return i;
       }
     }

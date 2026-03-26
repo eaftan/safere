@@ -95,6 +95,7 @@ public final class Pattern implements Serializable {
   private final transient String literalMatch;
   private final transient boolean canOnePassFind;
   private final transient boolean canOnePassSubmatch;
+  private final transient boolean[] charClassPrefixAscii;
 
   /**
    * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
@@ -106,7 +107,8 @@ public final class Pattern implements Serializable {
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, OnePass onePass,
       String prefix, boolean prefixFoldCase,
-      String literalMatch, boolean canOnePassFind, boolean canOnePassSubmatch) {
+      String literalMatch, boolean canOnePassFind, boolean canOnePassSubmatch,
+      boolean[] charClassPrefixAscii) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -118,6 +120,7 @@ public final class Pattern implements Serializable {
     this.literalMatch = literalMatch;
     this.canOnePassFind = canOnePassFind;
     this.canOnePassSubmatch = canOnePassSubmatch;
+    this.charClassPrefixAscii = charClassPrefixAscii;
   }
 
   /**
@@ -167,8 +170,11 @@ public final class Pattern implements Serializable {
     // overhead. Lazy quantifiers are excluded because OnePass returns leftmost-longest capture
     // group boundaries, which differs from leftmost-first semantics for lazy groups.
     boolean canOnePassSubmatch = op != null && !hasLazy;
+    // Extract character-class prefix for acceleration when no literal prefix exists.
+    boolean[] ccPrefixAscii = (prefix == null)
+        ? extractCharClassPrefixAscii(re) : null;
     return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
-        literalMatch, canOnePassFind, canOnePassSubmatch);
+        literalMatch, canOnePassFind, canOnePassSubmatch, ccPrefixAscii);
   }
 
   /**
@@ -358,6 +364,15 @@ public final class Pattern implements Serializable {
   /** Returns whether the prefix should be matched case-insensitively. */
   boolean prefixFoldCase() {
     return prefixFoldCase;
+  }
+
+  /**
+   * Returns a {@code boolean[128]} ASCII bitmap of the character-class prefix, or {@code null} if
+   * the pattern has no character-class prefix. Used for prefix acceleration in
+   * {@link Matcher#doFind()} when no literal prefix exists.
+   */
+  boolean[] charClassPrefixAscii() {
+    return charClassPrefixAscii;
   }
 
   /**
@@ -558,6 +573,70 @@ public final class Pattern implements Serializable {
 
     String prefix = foldCase ? sb.toString().toLowerCase() : sb.toString();
     return new PrefixResult(prefix, foldCase);
+  }
+
+  /**
+   * Extracts a character-class prefix bitmap for ASCII acceleration. Walks the AST (through CAPTURE
+   * and CONCAT wrappers) to find a required character class at the start of the pattern. If found
+   * and the class contains only ASCII code points, returns a {@code boolean[128]} bitmap where
+   * {@code true} entries indicate matching code points. This allows {@link Matcher#doFind()} to
+   * skip ahead to positions where the first character could start a match, avoiding unnecessary
+   * engine invocations.
+   *
+   * <p>Handles bare {@link RegexpOp#CHAR_CLASS}, {@link RegexpOp#PLUS} and
+   * {@link RegexpOp#REPEAT} (with {@code min >= 1}) wrapping a character class, since these all
+   * require at least one character from the class.
+   *
+   * @return a {@code boolean[128]} ASCII bitmap, or {@code null} if no suitable prefix exists
+   */
+  private static boolean[] extractCharClassPrefixAscii(Regexp re) {
+    Regexp node = re;
+
+    // See through leading captures and concat wrappers.
+    while (node != null) {
+      if (node.op == RegexpOp.CAPTURE) {
+        node = node.sub();
+        continue;
+      }
+      if (node.op == RegexpOp.CONCAT && node.nsub() > 0) {
+        node = node.subs.getFirst();
+        continue;
+      }
+      break;
+    }
+    if (node == null) {
+      return null;
+    }
+
+    // See through required quantifiers (PLUS, REPEAT with min >= 1).
+    if (node.op == RegexpOp.PLUS
+        || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
+      node = node.sub();
+    }
+
+    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null) {
+      return null;
+    }
+
+    CharClass cc = node.charClass;
+    if (cc.isEmpty()) {
+      return null;
+    }
+
+    // Only accelerate ASCII-only character classes.
+    for (int i = 0; i < cc.numRanges(); i++) {
+      if (cc.hi(i) >= 128) {
+        return null;
+      }
+    }
+
+    boolean[] bitmap = new boolean[128];
+    for (int i = 0; i < cc.numRanges(); i++) {
+      for (int cp = cc.lo(i); cp <= cc.hi(i); cp++) {
+        bitmap[cp] = true;
+      }
+    }
+    return bitmap;
   }
 
   /**
