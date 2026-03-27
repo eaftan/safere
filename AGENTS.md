@@ -127,14 +127,17 @@ Public API (drop-in for `java.util.regex`):
   The script passes no JMH flags by default, letting JMH use its
   built-in defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s).
   This produces reliable, publishable numbers but takes ~8 minutes per
-  benchmark method. Only use reduced settings for quick development
-  iteration:
+  benchmark method. **Do NOT set `JMH_OPTS` when generating data for
+  BENCHMARKS.md — run the script with no environment overrides.**
+  Only use `JMH_OPTS` for quick development iteration (validating an
+  optimization before committing). These two use cases require
+  different commands:
 
 ```bash
-# Default (full JMH defaults) — use for BENCHMARKS.md updates
+# BENCHMARKS.md updates — NO JMH_OPTS, full JMH defaults
 ./run-java-benchmarks.sh RegexBenchmark
 
-# Quick development mode — fast but less reliable
+# Quick development iteration ONLY — fast but NOT for BENCHMARKS.md
 JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ```
 
