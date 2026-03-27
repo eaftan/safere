@@ -211,3 +211,85 @@ JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 - **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
   in return (e.g., linear-time guarantees). When it's faster, note what
   the other engine optimizes for instead.
+
+## Profiling
+
+Use profiling to identify actual bottlenecks before implementing optimizations.
+**Do not guess** — profile first, optimize second.
+
+### async-profiler
+
+[async-profiler](https://github.com/jvm-profiling-tools/async-profiler) 4.3 is
+installed and on the PATH (`asprof`). It supports CPU, allocation, and lock
+profiling with minimal overhead and no safepoint bias.
+
+**CPU flame graph** — identifies where CPU time is spent:
+
+```bash
+# Attach to a running JVM by PID
+asprof collect -d 30 -e cpu -o flamegraph -f /tmp/cpu-flame.html <pid>
+
+# Or use the JVM agent to profile from start (no PID needed):
+java -agentpath:/home/eaftan/async-profiler-4.3-linux-x64/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/cpu-flame.html \
+  -jar safere-benchmarks/target/safere-benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
+```
+
+**Allocation profiling** — identifies where objects are allocated:
+
+```bash
+asprof collect -d 30 -e alloc -o flamegraph -f /tmp/alloc-flame.html <pid>
+```
+
+**Flat output** — top methods by sample count (quick text summary):
+
+```bash
+asprof collect -d 30 -e cpu -o flat -f /tmp/cpu-flat.txt <pid>
+```
+
+**Filtering to SafeRE code** — use `-I` to include only relevant frames:
+
+```bash
+asprof collect -d 30 -e cpu -o flat -I 'dev.eaftan.safere.*' -f /tmp/safere-cpu.txt <pid>
+```
+
+**Tips:**
+- Always pass `-XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints` to the
+  JVM for accurate line-level profiling. Without these flags, samples are biased
+  toward safepoints.
+- For profiling JMH benchmarks, use `-f 0` (no-fork mode) so async-profiler can
+  attach to the same JVM. Fork mode spawns child JVMs that need separate
+  attachment.
+- Profile for at least 10–30 seconds to get statistically meaningful samples.
+- Use `-t` (threads) to see per-thread breakdown.
+
+### Java Flight Recorder (JFR)
+
+JFR is built into OpenJDK 25 and always available. It's best for allocation
+profiling and event-based analysis.
+
+**Record to file:**
+
+```bash
+java -XX:StartFlightRecording=duration=30s,filename=/tmp/recording.jfr \
+  -jar safere-benchmarks/target/safere-benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
+```
+
+**Attach to running JVM:**
+
+```bash
+jcmd <pid> JFR.start name=profile duration=30s filename=/tmp/recording.jfr
+```
+
+**Analyze JFR files** — use `jfr` CLI tool for text summaries:
+
+```bash
+jfr summary /tmp/recording.jfr
+jfr print --events jdk.ObjectAllocationInNewTLAB /tmp/recording.jfr | head -100
+jfr print --events jdk.ExecutionSample /tmp/recording.jfr | head -100
+```
+
+**Tips:**
+- JFR has lower overhead than async-profiler for allocation tracking.
+- async-profiler is preferred for CPU profiling (no safepoint bias).
+- JFR `.jfr` files can also be opened in JDK Mission Control for visual
+  analysis (not available on this machine, but files can be downloaded).
