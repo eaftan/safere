@@ -84,19 +84,23 @@ languages.
 
 | Benchmark | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |
 |---|--:|--:|--:|--:|--:|---|---|
-| Literal match (`"hello"`) | 3 | 13 | 126 | 41 | 78 | **5× faster** | **50× faster** |
-| Char class match (`[a-zA-Z]+`) | 385 | 25 | 1,320 | 83 | 448 | 15× slower | **3.4× faster** |
-| Alternation find (`foo\|bar\|…` ×8) | 13,420 | 548 | 4,380 | 18 | 1,770 | 24× slower | 3.1× slower |
-| Capture groups (`(\d{4})-(\d{2})-(\d{2})`) | 111 | 90 | 554 | 75 | 242 | 1.2× slower | **5.0× faster** |
-| Find -ing words in prose (~350 chars) | 34,781 | 3,026 | 19,820 | 18 | 12,878 | 11× slower | 1.8× slower |
-| Email pattern find | 9,108 | 395 | 1,959 | 87 | 565 | 23× slower | 4.6× slower |
+| Literal match (`"hello"`) | 3 | 13 | 141 | 41 | 78 | **4× faster** | **47× faster** |
+| Char class match (`[a-zA-Z]+`) | 386 | 27 | 1,363 | 83 | 448 | 14× slower | **3.5× faster** |
+| Alternation find (`foo\|bar\|…` ×8) | 7,652 | 596 | 4,496 | 18 | 1,770 | 13× slower | 1.7× slower |
+| Capture groups (`(\d{4})-(\d{2})-(\d{2})`) | 118 | 90 | 600 | 75 | 242 | 1.3× slower | **5.1× faster** |
+| Find -ing words in prose (~350 chars) | 28,458 | 3,169 | 21,015 | 18 | 12,878 | 9.0× slower | 1.4× slower |
+| Email pattern find | 4,818 | 423 | 1,979 | 87 | 565 | 11× slower | 2.4× slower |
 
 C++ RE2 is the fastest on every benchmark here, as expected for native code
 with a mature DFA. Go `regexp` sits between SafeRE and RE2/J — it's an
 NFA-only implementation like RE2/J, but written in a faster language.
 SafeRE's literal match (3 ns) beats all other engines thanks to the
 `String.equals()` fast path. JDK is significantly faster than SafeRE on
-short-text benchmarks due to lower per-match overhead.
+short-text benchmarks due to lower per-match overhead. Recent optimizations
+(BitState fast path for small texts, DFA setup sharing, engine selection)
+have significantly narrowed the gap: alternation find improved from 24×
+to 13× slower vs JDK, email find from 23× to 11× slower, and find-in-text
+from 11× to 9× slower.
 
 ## Search Scaling (µs/op, lower is better)
 
@@ -114,57 +118,62 @@ measure a different code path.
 
 | Text Size | SafeRE | JDK | RE2/J | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|---|---|
-| 1 KB | 0.09 | 0.16 | 0.10 | 0.09 | **1.8× faster** | ~same |
-| 10 KB | 0.82 | 1.43 | 0.92 | 0.24 | **1.7× faster** | ~same |
-| 100 KB | 8.3 | 14.4 | 8.3 | 2.4 | **1.7× faster** | ~same |
-| 1 MB | 83 | 145 | 87 | 24 | **1.7× faster** | ~same |
+| 1 KB | 0.09 | 0.16 | 0.10 | 0.09 | **1.9× faster** | ~same |
+| 10 KB | 0.82 | 1.42 | 0.83 | 0.24 | **1.7× faster** | ~same |
+| 100 KB | 8.2 | 14.3 | 8.2 | 2.4 | **1.7× faster** | ~same |
+| 1 MB | 82 | 143 | 83 | 24 | **1.7× faster** | ~same |
 
 ### Medium: `[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$` (starts with char class)
 
 | Text Size | SafeRE | JDK | RE2/J | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|---|---|
-| 1 KB | 6.2 | 0.26 | 21.5 | 14 | 24× slower | **3.5× faster** |
-| 10 KB | 43 | 2.5 | 235 | 178 | 17× slower | **5.5× faster** |
-| 100 KB | 421 | 25 | 2,404 | 1,757 | 17× slower | **5.7× faster** |
-| 1 MB | 4,192 | 258 | 24,608 | 18,534 | 16× slower | **5.9× faster** |
+| 1 KB | 0.39 | 0.26 | 22.1 | 14 | 1.5× slower | **57× faster** |
+| 10 KB | 3.8 | 2.5 | 232 | 178 | 1.5× slower | **61× faster** |
+| 100 KB | 38 | 25 | 2,393 | 1,757 | 1.5× slower | **63× faster** |
+| 1 MB | 386 | 254 | 24,576 | 18,534 | 1.5× slower | **64× faster** |
+
+Character-class prefix acceleration now allows SafeRE to scan directly for
+`[XYZ]` before invoking the DFA, reducing the gap with JDK from 16–24× to
+just 1.5×. SafeRE is now **57–64× faster than RE2/J** on this pattern.
 
 ### Hard: `[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$` (catastrophic in backtracking engines)
 
 | Text Size | SafeRE | JDK | RE2/J | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|---|---|
-| 1 KB | 6.6 | 78 | 37 | 19 | **12× faster** | **5.6× faster** |
-| 10 KB | 44 | 443 | 373 | 259 | **10× faster** | **8.5× faster** |
-| 100 KB | 414 | 4,537 | 3,730 | 2,530 | **11× faster** | **9.0× faster** |
-| 1 MB | 4,212 | 44,904 | 38,071 | 25,999 | **11× faster** | **9.0× faster** |
+| 1 KB | 4.7 | 63 | 37 | 19 | **13× faster** | **7.9× faster** |
+| 10 KB | 42 | 460 | 382 | 259 | **11× faster** | **9.1× faster** |
+| 100 KB | 411 | 4,503 | 3,740 | 2,530 | **11× faster** | **9.1× faster** |
+| 1 MB | 4,173 | 44,029 | 37,979 | 25,999 | **11× faster** | **9.1× faster** |
 
 The Hard pattern has a leading `[ -~]*` that causes O(n²) behavior in the
 JDK's backtracking engine. SafeRE, RE2/J, and Go `regexp` all handle it in
 linear time, but SafeRE's DFA is ~9× faster than RE2/J's NFA and ~6× faster
-than Go's NFA.
+than Go's NFA. DFA setup sharing further improved small-text performance
+(1 KB: 6.6 → 4.7 µs).
 
 ### Successful Search (Easy pattern, match at end of text)
 
 | Text Size | SafeRE | JDK | RE2/J | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|---|---|
-| 1 KB | 7.6 | 0.20 | 0.80 | 0.28 | 38× slower | 10× slower |
-| 10 KB | 8.2 | 1.5 | 1.5 | 0.75 | 5.4× slower | 5.3× slower |
-| 100 KB | 16 | 15 | 9.0 | 2.9 | ~same | 1.8× slower |
-| 1 MB | 92 | 153 | 84 | 25 | **1.7× faster** | 1.1× slower |
+| 1 KB | 5.7 | 0.20 | 0.79 | 0.28 | 29× slower | 7.2× slower |
+| 10 KB | 6.1 | 1.5 | 1.5 | 0.75 | 4.1× slower | 4.0× slower |
+| 100 KB | 13 | 15 | 8.9 | 2.9 | **1.1× faster** | 1.5× slower |
+| 1 MB | 88 | 152 | 83 | 25 | **1.7× faster** | 1.1× slower |
 
 SafeRE has higher per-match startup cost but scales well; it overtakes JDK
-around 100 KB.
+around 100 KB. DFA setup sharing improved the 1 KB case from 7.6 to 5.7 µs.
 
 ## Capture Group Scaling (ns/op, lower is better)
 
 | Groups | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|--:|---|---|
-| 0 | 92 | 31 | 401 | 60 | 162 | 3.0× slower | **4.4× faster** |
-| 1 | 105 | 42 | 891 | 67 | 239 | 2.5× slower | **8.5× faster** |
-| 3 | 139 | 78 | 969 | 82 | 304 | 1.8× slower | **7.0× faster** |
-| 10 | 324 | 242 | 1,444 | 373 | 554 | 1.3× slower | **4.5× faster** |
+| 0 | 92 | 31 | 398 | 60 | 162 | 3.0× slower | **4.3× faster** |
+| 1 | 105 | 42 | 877 | 67 | 239 | 2.5× slower | **8.4× faster** |
+| 3 | 143 | 78 | 977 | 82 | 304 | 1.8× slower | **6.8× faster** |
+| 10 | 312 | 233 | 1,418 | 373 | 554 | 1.3× slower | **4.5× faster** |
 
 SafeRE closes the gap with JDK as capture count grows — from 3× slower at
-0 groups to only 1.3× at 10 groups. SafeRE is consistently **4–9× faster
+0 groups to only 1.3× at 10 groups. SafeRE is consistently **4–8× faster
 than RE2/J** on capture extraction. C++ RE2 matches SafeRE at 10 groups —
 both use OnePass engines that scale similarly with group count. Go `regexp`
 is 1.5–2.3× slower than SafeRE, consistent with its NFA-only approach.
@@ -175,28 +184,31 @@ Pattern: `^(?:GET|POST) +([^ ]+) HTTP`
 
 | Input | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |
 |---|--:|--:|--:|--:|--:|---|---|
-| Full request (97 chars) | 6,334 | 93 | 8,528 | 327 | 950 | 68× slower | **1.3× faster** |
-| Small request (18 chars) | 2,707 | 50 | 968 | 71 | 228 | 54× slower | 2.8× slower |
-| Extract URL (97 chars) | 6,358 | 92 | 8,481 | 319 | 956 | 69× slower | **1.3× faster** |
+| Full request (97 chars) | 537 | 89 | 8,261 | 327 | 950 | 6.0× slower | **15× faster** |
+| Small request (18 chars) | 101 | 50 | 933 | 71 | 228 | 2.0× slower | **9.2× faster** |
+| Extract URL (97 chars) | 542 | 95 | 8,262 | 319 | 956 | 5.7× slower | **15× faster** |
 
-JDK is fastest on this short anchored pattern. SafeRE beats RE2/J on the
-full request but loses on the small request due to higher startup cost.
-C++ RE2 is close to JDK on the small request (71 vs 50 ns). Go `regexp` is
-~9× faster than RE2/J on the full request.
+The BitState fast path for small texts (≤256 chars) dramatically improved
+HTTP parsing: full request improved from 6,334 to 537 ns (11.8× faster),
+small request from 2,707 to 101 ns (26.8× faster). SafeRE now beats RE2/J
+by **9–15×** on all HTTP workloads. JDK remains fastest due to lower startup
+overhead on short anchored patterns.
 
 ## Replace Performance (ns/op, lower is better)
 
 | Benchmark | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |
 |---|--:|--:|--:|--:|--:|---|---|
-| Literal replaceFirst (`"b"→"bb"`) | 28 | 42 | 147 | 95 | 578 | **1.5× faster** | **5.3× faster** |
-| Literal replaceAll | 90 | 109 | 753 | 402 | 475 | **1.2× faster** | **8.4× faster** |
-| Pig Latin replaceAll (backrefs) | 14,384 | 929 | 8,090 | 1,919 | 2,800 | 15× slower | 1.8× slower |
-| Digit replaceAll (`\d+`→`"NUM"`) | 5,849 | 299 | 3,185 | 650 | 1,518 | 20× slower | 1.8× slower |
-| Empty-match replaceAll (`a*`) | 1,287 | 82 | 438 | 364 | 336 | 16× slower | 2.9× slower |
+| Literal replaceFirst (`"b"→"bb"`) | 27 | 41 | 151 | 95 | 578 | **1.5× faster** | **5.6× faster** |
+| Literal replaceAll | 89 | 109 | 743 | 402 | 475 | **1.2× faster** | **8.3× faster** |
+| Pig Latin replaceAll (backrefs) | 10,140 | 925 | 8,069 | 1,919 | 2,800 | 11× slower | 1.3× slower |
+| Digit replaceAll (`\d+`→`"NUM"`) | 3,261 | 301 | 3,117 | 650 | 1,518 | 11× slower | ~same |
+| Empty-match replaceAll (`a*`) | 242 | 77 | 415 | 364 | 336 | 3.1× slower | **1.7× faster** |
 
 SafeRE wins on literal replacements — **faster than all other engines**
-(including C++ RE2!) on replaceFirst (28 ns) and replaceAll (90 ns), thanks
-to the `String.indexOf()` fast path. For complex replacements, JDK is fastest.
+(including C++ RE2!) on replaceFirst (27 ns) and replaceAll (89 ns), thanks
+to the `String.indexOf()` fast path. The BitState fast path improved
+pig Latin replaceAll from 14,384 to 10,140 ns and digit replaceAll from
+5,849 to 3,261 ns. For complex replacements, JDK remains fastest.
 Go `regexp` is consistently faster than RE2/J on replacements.
 
 ## PatternSet Multi-Pattern Matching (ns/op)
@@ -206,11 +218,11 @@ feature — neither JDK nor RE2/J has a built-in multi-pattern API).
 
 | Patterns | Unanchored (match) | Unanchored (no match) | Anchored (match) | Anchored (no match) |
 |--:|--:|--:|--:|--:|
-| 4 | 3,739 | 2,727 | 2,199 | 1,827 |
-| 16 | 36,821 | 21,328 | 9,800 | 8,957 |
-| 64 | 130,195 | 99,449 | 43,424 | 42,418 |
+| 4 | 3,040 | 2,264 | 1,882 | 1,460 |
+| 16 | 28,093 | 15,793 | 6,183 | 5,364 |
+| 64 | 99,175 | 69,820 | 19,998 | 19,224 |
 
-Anchored matching is 2–3× faster than unanchored. Scaling is roughly linear
+Anchored matching is 2–5× faster than unanchored. Scaling is roughly linear
 in pattern count.
 
 ## Fanout & Nested Quantifiers (µs/op, lower is better)
@@ -219,9 +231,9 @@ in pattern count.
 
 | Text Size | SafeRE | JDK | RE2/J | C++ RE2 | Go |
 |--:|--:|--:|--:|--:|--:|
-| 1 KB | 10 | 0.86 | 103 | 0.05 | 1.4 |
-| 10 KB | 356 | 0.87 | 108 | 0.05 | 3.7 |
-| 100 KB | 350 | 0.86 | 105 | 0.05 | 3.7 |
+| 1 KB | 8.7 | 0.86 | 108 | 0.05 | 1.4 |
+| 10 KB | 350 | 0.85 | 110 | 0.05 | 3.7 |
+| 100 KB | 344 | 0.88 | 112 | 0.05 | 3.7 |
 
 JDK's backtracking engine quickly fails and returns false; SafeRE's DFA
 explores more states. RE2/J's NFA is even slower than SafeRE here. C++ RE2
@@ -233,30 +245,33 @@ than both SafeRE and RE2/J.
 
 | Text Size | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|--:|---|---|
-| 1 KB | 8.2 | 15 | 381 | 1.1 | 185 | **1.9× faster** | **46× faster** |
-| 10 KB | 47 | 143 | 3,787 | 10.9 | 2,183 | **3.1× faster** | **81× faster** |
-| 100 KB | 430 | 1,441 | 40,645 | 108 | 21,753 | **3.4× faster** | **95× faster** |
+| 1 KB | 6.3 | 15 | 383 | 1.1 | 185 | **2.4× faster** | **61× faster** |
+| 10 KB | 44 | 153 | 3,818 | 10.9 | 2,183 | **3.5× faster** | **87× faster** |
+| 100 KB | 418 | 1,457 | 37,742 | 108 | 21,753 | **3.5× faster** | **90× faster** |
 
 SafeRE is significantly faster than both JDK and RE2/J here. RE2/J's NFA-only
 approach is much slower than SafeRE's DFA on this high-fanout quantifier
 pattern. SafeRE is within 4× of C++ RE2, showing both use the same
 algorithmic approach. Go `regexp` is similar to RE2/J (NFA-only), both
-~50–95× slower than SafeRE.
+~50–90× slower than SafeRE.
 
 ## Compilation Performance (µs/op, lower is better)
 
 | Pattern | SafeRE | JDK | RE2/J | C++ RE2 | Go | vs JDK | vs RE2/J |
 |---|--:|--:|--:|--:|--:|---|---|
-| Simple (`hello`) | 1.72 | 0.10 | 0.27 | 1.57 | 0.91 | 17× slower | 6.4× slower |
-| Medium (datetime with 6 captures) | 10.11 | 0.32 | 2.11 | 6.68 | 6.03 | 31× slower | 4.8× slower |
-| Complex (email regex) | 6.93 | 0.24 | 1.13 | 4.78 | 2.49 | 29× slower | 6.1× slower |
-| Alternation (12 alternatives) | 8.82 | 0.40 | 2.99 | 8.09 | 5.94 | 22× slower | 2.9× slower |
+| Simple (`hello`) | 2.35 | 0.10 | 0.28 | 1.57 | 0.91 | 24× slower | 8.4× slower |
+| Medium (datetime with 6 captures) | 7.90 | 0.32 | 2.14 | 6.68 | 6.03 | 25× slower | 3.7× slower |
+| Complex (email regex) | 7.01 | 0.24 | 1.21 | 4.78 | 2.49 | 29× slower | 5.8× slower |
+| Alternation (12 alternatives) | 9.25 | 0.42 | 3.11 | 8.09 | 5.94 | 22× slower | 3.0× slower |
 
-SafeRE's compilation is slower because it eagerly builds DFA infrastructure,
-OnePass analysis, and other data structures up front. JDK defers most work to
-match time. C++ RE2 is 1.1–1.5× faster than SafeRE at compilation — a small
-gap, indicating SafeRE's compilation logic is algorithmically similar.
+SafeRE's compilation is slower because it eagerly builds DFA infrastructure
+(including the new pre-computed equivalence class setup), OnePass analysis,
+and other data structures up front. JDK defers most work to match time.
+C++ RE2 is 1.1–1.5× faster than SafeRE at compilation — a small gap,
+indicating SafeRE's compilation logic is algorithmically similar.
 Go `regexp` compiles faster than SafeRE (no DFA construction up front).
+The DFA setup pre-computation adds ~0.5 µs to compile time but saves ~1.7 µs
+per Matcher creation, a net win for any pattern used more than once.
 
 ## Pathological Pattern: `a?{n}a{n}` matched against `a{n}`
 
@@ -269,17 +284,17 @@ RE2/J's NFA.
 
 | n | SafeRE | RE2/J | C++ RE2 | Go | SafeRE/RE2/J | SafeRE/C++ |
 |--:|--:|--:|--:|--:|---|---|
-| 10 | 0.062 | 1.82 | 0.054 | 0.88 | **29× faster** | 1.1× slower |
+| 10 | 0.061 | 1.78 | 0.054 | 0.88 | **29× faster** | 1.1× slower |
 | 15 | 0.082 | 3.87 | 0.069 | 1.83 | **47× faster** | 1.2× slower |
-| 20 | 0.112 | 6.90 | 0.073 | 3.08 | **62× faster** | 1.5× slower |
-| 25 | 0.131 | 10.63 | 0.078 | 4.75 | **81× faster** | 1.7× slower |
-| 30 | 0.143 | 15.45 | 0.084 | 6.45 | **108× faster** | 1.7× slower |
-| 50 | 0.232 | 42.36 | 0.110 | 16.8 | **183× faster** | 2.1× slower |
-| 100 | 0.476 | 160.9 | 0.174 | 65.0 | **338× faster** | 2.7× slower |
+| 20 | 0.103 | 6.92 | 0.073 | 3.08 | **67× faster** | 1.4× slower |
+| 25 | 0.126 | 10.95 | 0.078 | 4.75 | **87× faster** | 1.6× slower |
+| 30 | 0.145 | 14.85 | 0.084 | 6.45 | **102× faster** | 1.7× slower |
+| 50 | 0.237 | 39.00 | 0.110 | 16.8 | **165× faster** | 2.2× slower |
+| 100 | 0.448 | 156.6 | 0.174 | 65.0 | **350× faster** | 2.6× slower |
 
 All four linear-time engines scale linearly. SafeRE and C++ RE2 (both
 DFA-based) have the lowest growth rates. Go `regexp` and RE2/J (both
-NFA-only) are 14–338× slower than SafeRE. Go `regexp` is ~2.5× faster
+NFA-only) are 14–350× slower than SafeRE. Go `regexp` is ~2.5× faster
 than RE2/J, reflecting Go's native-code advantage over Java for NFA
 execution.
 
@@ -287,9 +302,9 @@ execution.
 
 | n | SafeRE | RE2/J | JDK | SafeRE vs JDK |
 |--:|--:|--:|--:|--:|
-| 10 | 0.067 | 1.90 | 10.1 | **150×** |
-| 15 | 0.091 | 4.16 | 413 | **4,538×** |
-| 20 | 0.104 | 7.38 | 16,690 | **160,480×** |
+| 10 | 0.061 | 1.74 | 9.6 | **157×** |
+| 15 | 0.082 | 3.81 | 395 | **4,817×** |
+| 20 | 0.104 | 6.78 | 15,624 | **150,231×** |
 | 25 | — | — | *(hangs)* | ∞ |
 
 ## Find-in-Text Scaling (µs/op, lower is better)
@@ -298,58 +313,60 @@ execution.
 
 | Text Size | SafeRE | JDK | RE2/J | Go | vs JDK | vs RE2/J |
 |--:|--:|--:|--:|--:|---|---|
-| 1 KB | 59 | 7.5 | 50 | 32 | 7.9× slower | 1.2× slower |
-| 10 KB | 417 | 70 | 478 | 318 | 5.9× slower | **1.1× faster** |
-| 100 KB | 3,672 | 664 | 4,572 | 4,252 | 5.5× slower | **1.2× faster** |
-| 1 MB | 37,834 | 7,087 | 47,357 | 45,112 | 5.3× slower | **1.3× faster** |
+| 1 KB | 53 | 8.0 | 49 | 32 | 6.6× slower | 1.1× slower |
+| 10 KB | 411 | 75 | 479 | 318 | 5.5× slower | **1.2× faster** |
+| 100 KB | 3,757 | 683 | 4,644 | 4,252 | 5.5× slower | **1.2× faster** |
+| 1 MB | 37,595 | 7,199 | 47,206 | 45,112 | 5.2× slower | **1.3× faster** |
 
 SafeRE is faster than RE2/J and Go at scale, but all three linear-time
 engines are slower than JDK on this find-all-matches workload. DFA word-
-boundary support keeps the gap manageable (5–8× vs JDK rather than 28× in
+boundary support keeps the gap manageable (5–7× vs JDK rather than 28× in
 earlier versions). Go `regexp` is close to RE2/J on this benchmark.
 
 ## Analysis
 
 **Where SafeRE wins (vs Java engines):**
-- **Literal matching** — 5× faster than JDK, 50× faster than RE2/J
+- **Literal matching** — 4× faster than JDK, 47× faster than RE2/J
 - **Literal replacement** — Fastest of all five engines (including C++ RE2!)
-- **Capture groups** — 4–9× faster than RE2/J
+- **Capture groups** — 4–8× faster than RE2/J
 - **Hard/pathological patterns** — 11× faster than JDK, 9× faster than RE2/J
-- **Nested quantifiers** — 2–3× faster than JDK, 46–95× faster than RE2/J
+- **Nested quantifiers** — 2–4× faster than JDK, 61–90× faster than RE2/J
 - **Easy search on large text** — 1.7× faster than JDK, comparable to RE2/J
-- **Pathological `a?{n}a{n}`** — 150–160,000× faster than JDK, 29–338× faster than RE2/J
+- **Medium search** — Now 57–64× faster than RE2/J (with char-class prefix accel)
+- **HTTP parsing** — 9–15× faster than RE2/J (with BitState fast path)
+- **Pathological `a?{n}a{n}`** — 157–150,000× faster than JDK, 29–350× faster than RE2/J
 
 **Where JDK wins:**
-- **Short-text patterns** — Much lower per-match overhead (13–90 ns vs SafeRE's 3–385 ns range)
-- **Medium search patterns** — JDK's JIT optimizes character class search well (16–24× faster)
-- **Find-all on many matches** — Per-match overhead compounds (5–8× at scale)
+- **Short-text patterns** — Lower per-match overhead (13–90 ns vs SafeRE's 3–386 ns range)
+- **Medium search patterns** — JDK's JIT optimizes character class search well (1.5× faster)
+- **Find-all on many matches** — Per-match overhead compounds (5–7× at scale)
 - **Unicode fanout** — DFA state explosion on high-fanout patterns
-- **Compilation** — 17–31× faster (defers work to match time)
-- **HTTP parsing** — 54–69× faster on short anchored patterns
+- **Compilation** — 22–29× faster (defers work to match time)
+- **HTTP parsing** — 2–6× faster on short anchored patterns
 
 **Where RE2/J fits:**
 - RE2/J is generally **slower than both SafeRE and JDK** on matching tasks
 - RE2/J lacks DFA, OnePass, and BitState engines — only has NFA (Pike VM)
 - RE2/J provides linear-time safety like SafeRE, but without the DFA
   performance advantage
-- RE2/J compilation is 3–6× faster than SafeRE but 3–5× slower than JDK
+- RE2/J compilation is 3–8× faster than SafeRE but 3–5× slower than JDK
 
 **SafeRE vs C++ RE2:**
 - C++ RE2 is typically **2–20× faster** on matching due to native code, UTF-8
   encoding (shorter strings), and no GC/JIT overhead
 - **Compilation is close** — SafeRE is only 1.1–1.5× slower than C++ RE2,
   showing the compilation logic is algorithmically equivalent
-- **Pathological patterns** — SafeRE is within 1.1–2.7× of C++ RE2, confirming
+- **Pathological patterns** — SafeRE is within 1.1–2.6× of C++ RE2, confirming
   the DFA implementation is correct and efficient
-- **Literal replacement** — SafeRE is **faster** than C++ RE2 (28 vs 95 ns for
+- **Literal replacement** — SafeRE is **faster** than C++ RE2 (27 vs 95 ns for
   replaceFirst), demonstrating Java's `String.indexOf()` optimization
-- **Nested quantifiers** — SafeRE is within 4× of C++ RE2 (430 vs 108 µs at
+- **Nested quantifiers** — SafeRE is within 4× of C++ RE2 (418 vs 108 µs at
   100 KB), both scaling linearly
 
 **SafeRE vs Go `regexp`:**
 - Go `regexp` is an NFA-only implementation (no DFA), like RE2/J
 - SafeRE **beats Go on DFA-dominated workloads**: pathological (7–136× faster),
-  nested quantifiers (23–51× faster), hard search (2.9–6.2× faster)
+  nested quantifiers (29–52× faster), hard search (2.9–6.2× faster)
 - Go beats SafeRE on short-string matching and compilation (no DFA overhead)
 - Go `regexp` is consistently ~2–3× faster than RE2/J across the board,
   reflecting Go's native-code advantage over Java for NFA execution
@@ -393,19 +410,34 @@ where JDK regex runs in its own application.
    by switching from 32-bit to 64-bit action words.
 9. **DFA word boundary support** — Native `\b`/`\B` handling in the DFA avoids
    NFA fallback for word-boundary patterns.
+10. **Skip reverse DFA for anchored patterns** — Anchored patterns skip reverse
+    program compilation entirely, saving ~2 µs per Pattern.
+11. **Lazy reverse program compilation** — Reverse program is compiled on first
+    access rather than eagerly, avoiding cost for patterns that never need it.
+12. **Pre-allocated DFA computeNext() workspace** — Reuses seed/successor arrays
+    instead of allocating per-transition.
+13. **BitState fast path for small texts** — Texts ≤256 chars skip DFA construction
+    and use BitState directly, avoiding ~500ns DFA overhead per Matcher.
+14. **OnePass submatch in sandwich path** — Uses OnePass for capture extraction
+    when pattern is eligible, avoiding BitState/NFA overhead.
+15. **Character-class prefix acceleration** — Patterns starting with an ASCII
+    character class get a boolean[128] bitmap for fast text scanning, skipping
+    positions that cannot start a match.
+16. **DFA setup sharing** — Equivalence class boundaries and ASCII class map are
+    pre-computed at Pattern.compile() time and shared across all Matcher
+    instances, saving ~1.7 µs per Matcher creation.
 
 ## Remaining Opportunities
 
-- **Compilation** — Pattern compilation is 17–31× slower than JDK. Opportunities
-  include caching parsed Regexp trees and lazy OnePass/DFA construction.
+- **Compilation** — Pattern compilation is 22–29× slower than JDK. Opportunities
+  include caching parsed Regexp trees and lazy OnePass construction.
 - **BitState caching** — A reusable BitState instance per Matcher would reduce
   allocation on repeated `find()` calls.
 - **Find-all loop** — Per-match overhead dominates when there are many matches
-  (5–8× slower than JDK at scale); a bulk-find mode could amortize engine
+  (5–7× slower than JDK at scale); a bulk-find mode could amortize engine
   setup cost.
-- **Medium search** — JDK is 16–24× faster on medium-difficulty search patterns.
-  SafeRE's DFA could benefit from better prefix acceleration for char-class-
-  leading patterns.
+- **DFA state budget tuning** — The default 10,000-state budget may be
+  suboptimal for some pattern/text combinations.
 
 ---
-*Last updated: 2026-03-25 (fork-mode rerun)*
+*Last updated: 2026-03-27 (full JMH defaults, post-optimization round)*
