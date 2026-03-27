@@ -89,14 +89,24 @@ public final class Pattern implements Serializable {
   private final transient Prog prog;
   private final transient Regexp ast;
   private final transient Map<String, Integer> namedGroups;
-  private final transient OnePass onePass;
   private final transient String prefix;
   private final transient boolean prefixFoldCase;
   private final transient String literalMatch;
-  private final transient boolean canOnePassFind;
-  private final transient boolean canOnePassSubmatch;
+  private final transient boolean hasLazy;
   private final transient boolean[] charClassPrefixAscii;
-  private final transient Dfa.Setup forwardDfaSetup;
+
+  /**
+   * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
+   * flags ({@code canOnePassFind}, {@code canOnePassSubmatch}). Computed on first access to avoid
+   * paying the OnePass BFS cost at compile time.
+   */
+  private transient volatile OnePassAnalysis onePassAnalysis;
+
+  /**
+   * Lazily computed DFA equivalence-class setup for the forward program. Shared across all Matcher
+   * instances. Computed on first access to avoid paying the boundary-scan cost at compile time.
+   */
+  private transient volatile Dfa.Setup forwardDfaSetup;
 
   /**
    * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
@@ -108,24 +118,22 @@ public final class Pattern implements Serializable {
   /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
 
+  /** Holder for lazily computed OnePass analysis results. */
+  private record OnePassAnalysis(OnePass onePass, boolean canFind, boolean canSubmatch) {}
+
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
-      Map<String, Integer> namedGroups, OnePass onePass,
-      String prefix, boolean prefixFoldCase,
-      String literalMatch, boolean canOnePassFind, boolean canOnePassSubmatch,
-      boolean[] charClassPrefixAscii, Dfa.Setup forwardDfaSetup) {
+      Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
+      String literalMatch, boolean hasLazy, boolean[] charClassPrefixAscii) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
     this.ast = ast;
     this.namedGroups = namedGroups;
-    this.onePass = onePass;
     this.prefix = prefix;
     this.prefixFoldCase = prefixFoldCase;
     this.literalMatch = literalMatch;
-    this.canOnePassFind = canOnePassFind;
-    this.canOnePassSubmatch = canOnePassSubmatch;
+    this.hasLazy = hasLazy;
     this.charClassPrefixAscii = charClassPrefixAscii;
-    this.forwardDfaSetup = forwardDfaSetup;
   }
 
   /**
@@ -157,31 +165,17 @@ public final class Pattern implements Serializable {
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
     Map<String, Integer> named = extractNamedGroups(re);
-    OnePass op = OnePass.build(compiled);
     PrefixResult prefixResult = extractPrefix(re);
     String prefix = prefixResult.prefix();
     boolean prefixFoldCase = prefixResult.foldCase();
     String literalMatch = extractLiteralMatch(re);
-    // OnePass can be used directly in find() for anchored patterns that:
-    // (1) cannot match the empty string (nullable patterns have leftmost-first ambiguity), and
-    // (2) do not contain lazy quantifiers (+?, *?, ??, {n,m}?) because OnePass returns
-    //     leftmost-longest match boundaries while find() expects leftmost-first semantics.
     boolean hasLazy = hasLazyQuantifiers(re);
-    boolean canOnePassFind = op != null && compiled.anchorStart()
-        && op.search("", false, 0) == null
-        && !hasLazy;
-    // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
-    // when captures need to be extracted from a known match range. This avoids BitState/NFA
-    // overhead. Lazy quantifiers are excluded because OnePass returns leftmost-longest capture
-    // group boundaries, which differs from leftmost-first semantics for lazy groups.
-    boolean canOnePassSubmatch = op != null && !hasLazy;
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(re) : null;
-    // Pre-compute DFA equivalence class setup so it is shared across all Matcher instances.
-    Dfa.Setup fwdSetup = Dfa.buildSetup(compiled);
-    return new Pattern(regex, flags, compiled, re, named, op, prefix, prefixFoldCase,
-        literalMatch, canOnePassFind, canOnePassSubmatch, ccPrefixAscii, fwdSetup);
+    // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
+    return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
+        literalMatch, hasLazy, ccPrefixAscii);
   }
 
   /**
@@ -339,9 +333,35 @@ public final class Pattern implements Serializable {
     return prog;
   }
 
+  /**
+   * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data race
+   * at worst computes twice, but the result is the same since all inputs are immutable.
+   */
+  private OnePassAnalysis onePassAnalysis() {
+    OnePassAnalysis analysis = onePassAnalysis;
+    if (analysis == null) {
+      OnePass op = OnePass.build(prog);
+      // OnePass can be used directly in find() for anchored patterns that:
+      // (1) cannot match the empty string (nullable patterns have leftmost-first ambiguity), and
+      // (2) do not contain lazy quantifiers (+?, *?, ??, {n,m}?) because OnePass returns
+      //     leftmost-longest match boundaries while find() expects leftmost-first semantics.
+      boolean canFind = op != null && prog.anchorStart()
+          && op.search("", false, 0) == null
+          && !hasLazy;
+      // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
+      // when captures need to be extracted from a known match range. Lazy quantifiers are excluded
+      // because OnePass returns leftmost-longest capture group boundaries, which differs from
+      // leftmost-first semantics for lazy groups.
+      boolean canSubmatch = op != null && !hasLazy;
+      analysis = new OnePassAnalysis(op, canFind, canSubmatch);
+      onePassAnalysis = analysis;
+    }
+    return analysis;
+  }
+
   /** Returns the one-pass automaton, or {@code null} if the pattern is not one-pass. */
   OnePass onePass() {
-    return onePass;
+    return onePassAnalysis().onePass();
   }
 
   /**
@@ -349,7 +369,7 @@ public final class Pattern implements Serializable {
    * when the pattern is anchored at the start, OnePass-eligible, and cannot match the empty string.
    */
   boolean canOnePassFind() {
-    return canOnePassFind;
+    return onePassAnalysis().canFind();
   }
 
   /**
@@ -357,7 +377,7 @@ public final class Pattern implements Serializable {
    * when the pattern is OnePass-eligible and has no lazy quantifiers.
    */
   boolean canOnePassSubmatch() {
-    return canOnePassSubmatch;
+    return onePassAnalysis().canSubmatch();
   }
 
   /**
@@ -400,9 +420,18 @@ public final class Pattern implements Serializable {
     return rp;
   }
 
-  /** Returns the pre-computed DFA setup for the forward program. */
+  /**
+   * Returns the DFA equivalence-class setup for the forward program. Lazily computed on first
+   * access so that compile time is not penalized for patterns that may not need DFA matching.
+   * Thread-safe via volatile: benign data race at worst computes twice.
+   */
   Dfa.Setup forwardDfaSetup() {
-    return forwardDfaSetup;
+    Dfa.Setup setup = forwardDfaSetup;
+    if (setup == null) {
+      setup = Dfa.buildSetup(prog);
+      forwardDfaSetup = setup;
+    }
+    return setup;
   }
 
   /**
