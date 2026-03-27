@@ -371,13 +371,10 @@ public final class Matcher implements MatchResult {
         Dfa.SearchResult fwdLongest = dfa().doSearch(text, effectiveStart, true, true);
         if (fwdLongest != null && fwdLongest.matched()) {
           int matchEnd = fwdLongest.pos();
-          String searchText = text.substring(effectiveStart, matchEnd);
-          int[] result = searchSubmatch(prog, searchText, true, prog.numCaptures());
+          int[] result = searchSubmatch(
+              prog, text, effectiveStart, matchEnd, prog.numCaptures());
           if (result != null) {
-            groups = new int[result.length];
-            for (int i = 0; i < result.length; i++) {
-              groups[i] = (result[i] == -1) ? -1 : result[i] + effectiveStart;
-            }
+            groups = result;
             findCallCount++;
             hasMatch = true;
             return true;
@@ -396,13 +393,10 @@ public final class Matcher implements MatchResult {
             if (fwdLongest != null && fwdLongest.matched()) {
               int matchEnd = fwdLongest.pos();
               // Step 4: Extract captures on tight [matchStart, matchEnd] range.
-              String searchText = text.substring(matchStart, matchEnd);
-              int[] result = searchSubmatch(prog, searchText, true, prog.numCaptures());
+              int[] result = searchSubmatch(
+                  prog, text, matchStart, matchEnd, prog.numCaptures());
               if (result != null) {
-                groups = new int[result.length];
-                for (int i = 0; i < result.length; i++) {
-                  groups[i] = (result[i] == -1) ? -1 : result[i] + matchStart;
-                }
+                groups = result;
                 findCallCount++;
                 hasMatch = true;
                 return true;
@@ -458,23 +452,39 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Extracts submatch groups from a known match range. Tries OnePass first (single-pass, O(n)),
-   * then falls back to BitState/NFA. This is the capture-extraction step of the DFA sandwich.
+   * Extracts submatch groups from a known match range. Creates a substring of the match range and
+   * tries OnePass first (single-pass, O(n)), then falls back to BitState/NFA. Positions in the
+   * returned array are adjusted to be relative to the original text.
    *
    * <p>Following C++ RE2's engine priority (re2.cc:885–897): OnePass > BitState > NFA.
    *
    * @param prog the compiled program
-   * @param text the match range text (already a substring of the original input)
-   * @param endMatch whether the match must cover the entire text
+   * @param text the full input text
+   * @param matchStart start of the known match range in {@code text}
+   * @param matchEnd end of the known match range in {@code text}
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions relative to {@code text}, or null if no match
    */
-  private int[] searchSubmatch(Prog prog, String text, boolean endMatch, int nsubmatch) {
+  private int[] searchSubmatch(Prog prog, String text, int matchStart, int matchEnd,
+      int nsubmatch) {
+    String searchText = text.substring(matchStart, matchEnd);
+    int[] result;
     if (parentPattern.canOnePassSubmatch()) {
-      return parentPattern.onePass().search(text, endMatch, nsubmatch);
+      result = parentPattern.onePass().search(searchText, true, nsubmatch);
+    } else {
+      result = searchWithBitStateOrNfa(
+          prog, searchText, 0, searchText.length(), true, false, true, nsubmatch);
     }
-    return searchWithBitStateOrNfa(
-        prog, text, 0, text.length(), true, false, endMatch, nsubmatch);
+    if (result == null) {
+      return null;
+    }
+    // Adjust positions from substring-relative to text-relative.
+    for (int i = 0; i < result.length; i++) {
+      if (result[i] != -1) {
+        result[i] += matchStart;
+      }
+    }
+    return result;
   }
 
   /**

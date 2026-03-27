@@ -3,11 +3,8 @@
 
 package dev.eaftan.safere;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
@@ -70,7 +67,8 @@ final class Dfa {
     final int flags;
     /** Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable. */
     final int[] wordBoundaryMatchIds;
-    final List<State> next; // transitions indexed by equivalence class; null = not yet computed
+    /** Transitions indexed by equivalence class; null entry = not yet computed. */
+    final State[] next;
 
     State(int[] insts, int flags, int numClasses) {
       this(insts, flags, null, numClasses);
@@ -80,7 +78,7 @@ final class Dfa {
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
-      this.next = new ArrayList<>(Collections.nCopies(numClasses, null));
+      this.next = new State[numClasses];
     }
 
     boolean isMatch() {
@@ -146,6 +144,15 @@ final class Dfa {
 
   /** Pre-allocated workspace for seed/successor collection in computeNext(). */
   private final int[] computeBuf;
+
+  /**
+   * Cache of DFA start states indexed by position context. The start state depends on four factors:
+   * whether the search is anchored, whether it's a reverse context, the empty-width flags at the
+   * position (6 bits for BOL/EOL/BOT/EOT/WB/NWB), and whether the previous character was a word
+   * character. This gives at most 2 × 2 × 64 × 2 = 512 combinations. Caching avoids the expensive
+   * {@link #expand} call and its {@code Arrays.copyOf} allocation on every DFA search.
+   */
+  private final State[] startStateByContext = new State[512];
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -398,25 +405,38 @@ final class Dfa {
       return deadState;
     }
     int emptyFlags = Nfa.emptyFlags(text, pos);
+
+    // Determine word-character context for \b/\B support.
+    boolean lastWord;
+    if (reverseContext) {
+      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
+    } else {
+      lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
+    }
+
+    // Check the start state cache. The start state depends only on (anchored, reverseContext,
+    // emptyFlags, lastWord), so positions with identical context share the same start state.
+    int cacheKey = (anchored ? 256 : 0) | (reverseContext ? 128 : 0)
+        | ((emptyFlags & 0x3F) << 1) | (lastWord ? 1 : 0);
+    State cached = startStateByContext[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
     computeBuf[0] = startInst;
     int[] insts = expand(computeBuf, 1, emptyFlags);
     int flags = emptyFlags & 0xFF;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
     }
-    // Track word-character context for \b/\B support in subsequent computeNext() calls.
-    // For forward search: the "last" character is the one before pos.
-    // For reverse search: the "last" character (in reverse direction) is the one at pos.
-    if (reverseContext) {
-      if (pos < text.length() && Nfa.isWordChar(text.codePointAt(pos))) {
-        flags |= FLAG_LAST_WORD;
-      }
-    } else {
-      if (pos > 0 && Nfa.isWordChar(text.codePointBefore(pos))) {
-        flags |= FLAG_LAST_WORD;
-      }
+    if (lastWord) {
+      flags |= FLAG_LAST_WORD;
     }
-    return getOrCreate(insts, flags);
+    State s = getOrCreate(insts, flags);
+    if (s != null) {
+      startStateByContext[cacheKey] = s;
+    }
+    return s;
   }
 
   /**
@@ -711,13 +731,13 @@ final class Dfa {
       }
 
       // Try cached transition first.
-      State ns = s.next.get(cls);
+      State ns = s.next[cls];
       if (ns == null) {
         ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next.set(cls, ns);
+        s.next[cls] = ns;
       }
       s = ns;
 
@@ -834,13 +854,13 @@ final class Dfa {
       }
 
       // Try cached transition first.
-      State ns = s.next.get(cls);
+      State ns = s.next[cls];
       if (ns == null) {
         ns = computeNext(s, cp, text, Math.max(prevPos, startLimit));
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next.set(cls, ns);
+        s.next[cls] = ns;
       }
       s = ns;
 
@@ -948,13 +968,13 @@ final class Dfa {
           cls = numClasses - 1;
         }
 
-        State ns = s.next.get(cls);
+        State ns = s.next[cls];
         if (ns == null) {
           ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next.set(cls, ns);
+          s.next[cls] = ns;
         }
         s = ns;
 
