@@ -47,13 +47,9 @@ public final class Matcher implements MatchResult {
   private Dfa dfa;
 
   /**
-   * Cached reverse DFA instance for match-start bounding, lazily initialized. Construction is
-   * deferred until the second {@code find()} call to avoid penalizing single-find workloads.
+   * Cached reverse DFA instance for match-start bounding, lazily initialized on first use.
    */
   private Dfa reverseDfa;
-
-  /** Number of {@code doFind()} calls made so far. Used to gate reverse DFA construction. */
-  private int findCallCount;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -302,7 +298,6 @@ public final class Matcher implements MatchResult {
     if (prog.anchorStart() && parentPattern.canOnePassPrimary()) {
       groups = parentPattern.onePass().search(text, searchFrom, text.length(), false,
           prog.numCaptures());
-      findCallCount++;
       hasMatch = (groups != null);
       return hasMatch;
     }
@@ -344,7 +339,6 @@ public final class Matcher implements MatchResult {
     if (parentPattern.canOnePassPrimary() && text.length() <= 256) {
       int[] result = parentPattern.onePass().searchUnanchored(
           text, effectiveStart, text.length(), prog.numCaptures());
-      findCallCount++;
       if (result != null) {
         groups = result;
         hasMatch = true;
@@ -365,7 +359,6 @@ public final class Matcher implements MatchResult {
         int[] result = searchWithBitStateOrNfa(
             prog, text, effectiveStart, text.length(), text.length(), false, false, false,
             prog.numCaptures());
-        findCallCount++;
         if (result == null) {
           hasMatch = false;
           return false;
@@ -382,7 +375,6 @@ public final class Matcher implements MatchResult {
     {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
-        findCallCount++;
         hasMatch = false;
         return false;
       }
@@ -390,11 +382,10 @@ public final class Matcher implements MatchResult {
 
     // Three-DFA sandwich (like RE2): forward DFA found earliest match end above. Now use the
     // reverse DFA to find match start, then a second forward DFA pass (anchored, longest) to find
-    // the actual match end. This lets NFA/BitState run on a tight [start, end] range.
+    // the actual match end. With lazy capture extraction, the sandwich returns group(0) without
+    // running BitState/NFA, making it worthwhile even on the first find() call.
     //
-    // Only attempt after the first find() call to avoid penalizing single-find workloads with
-    // cold reverse DFA construction costs (~3000ns). The reverse DFA is lazily constructed on the
-    // second call and cached for all subsequent calls.
+    // The reverse DFA is lazily constructed on first use and cached for subsequent calls.
     //
     // Skip when the forward DFA detected an empty match (earlyEnd == effectiveStart): the
     // sandwich uses longest-match for the final forward pass, which would incorrectly expand an
@@ -402,7 +393,7 @@ public final class Matcher implements MatchResult {
     //
     // Skip the reverse DFA phase when the pattern is anchored at the start — the match start is
     // already known to be effectiveStart, so the reverse scan is unnecessary.
-    if (fwdResult != null && findCallCount > 0
+    if (fwdResult != null
         && fwdResult.pos() > effectiveStart) {
       int earlyEnd = fwdResult.pos();
 
@@ -420,7 +411,6 @@ public final class Matcher implements MatchResult {
           deferredMatchStart = effectiveStart;
           deferredMatchEnd = matchEnd;
           capturesResolved = (nc <= 1);
-          findCallCount++;
           hasMatch = true;
           return true;
         }
@@ -445,7 +435,6 @@ public final class Matcher implements MatchResult {
               deferredMatchStart = matchStart;
               deferredMatchEnd = matchEnd;
               capturesResolved = (nc <= 1);
-              findCallCount++;
               hasMatch = true;
               return true;
             }
@@ -462,7 +451,6 @@ public final class Matcher implements MatchResult {
     int[] result = searchWithBitStateOrNfa(
         prog, text, effectiveStart, text.length(), text.length(), false, false, false,
         prog.numCaptures());
-    findCallCount++;
     if (result == null) {
       hasMatch = false;
       return false;
