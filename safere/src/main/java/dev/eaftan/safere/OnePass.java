@@ -86,6 +86,9 @@ final class OnePass {
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
 
+  /** Direct lookup table mapping ASCII code points (0–127) to equivalence class indices. */
+  private final int[] asciiClassMap;
+
   /** Whether the program requires end-of-text matching (stripped trailing {@code $}). */
   private final boolean anchorEnd;
 
@@ -93,6 +96,7 @@ final class OnePass {
     this.actions = actions;
     this.matchAction = matchAction;
     this.boundaries = boundaries;
+    this.asciiClassMap = buildAsciiClassMap(boundaries);
     this.anchorEnd = anchorEnd;
   }
 
@@ -384,11 +388,27 @@ final class OnePass {
 
   /** Maps a code point to its equivalence class index. */
   private int classOf(int cp) {
+    if (cp < 128 && cp >= 0) {
+      return asciiClassMap[cp];
+    }
     int idx = Arrays.binarySearch(boundaries, cp);
     if (idx >= 0) {
       return idx;
     }
     return (-idx - 1) - 1;
+  }
+
+  /**
+   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence class
+   * indices, avoiding binary search for the most common characters.
+   */
+  private static int[] buildAsciiClassMap(int[] boundaries) {
+    int[] map = new int[128];
+    for (int cp = 0; cp < 128; cp++) {
+      int idx = Arrays.binarySearch(boundaries, cp);
+      map[cp] = (idx >= 0) ? idx : (-idx - 1) - 1;
+    }
+    return map;
   }
 
   /** Applies capture register updates from an action at the given position. */
