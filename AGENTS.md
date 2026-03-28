@@ -142,6 +142,9 @@ Drop-in replacements for `java.util.regex`:
 - **Avoid `Object` arrays**: Use typed collections (`List<T>`, etc.) instead
   of `Object[]` to maintain type safety. Primitive arrays (e.g., `int[]`)
   are fine for performance reasons.
+- **No installing software**: Never install packages, libraries, or tools
+  on the machine. If something is missing, ask the project owner to install
+  it.
 
 ## Benchmarking
 
