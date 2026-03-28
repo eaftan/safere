@@ -146,7 +146,7 @@ public final class Matcher implements MatchResult {
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
     groups = searchWithBitStateOrNfa(
-        prog, text, 0, text.length(), true, false, true, prog.numCaptures());
+        prog, text, 0, text.length(), text.length(), true, false, true, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -203,7 +203,7 @@ public final class Matcher implements MatchResult {
 
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
     groups = searchWithBitStateOrNfa(
-        prog, text, 0, text.length(), true, false, false, prog.numCaptures());
+        prog, text, 0, text.length(), text.length(), true, false, false, prog.numCaptures());
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -347,7 +347,8 @@ public final class Matcher implements MatchResult {
       int maxBitStateLen = BitState.maxTextSize(prog);
       if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
         int[] result = searchWithBitStateOrNfa(
-            prog, text, effectiveStart, text.length(), false, false, false, prog.numCaptures());
+            prog, text, effectiveStart, text.length(), text.length(), false, false, false,
+            prog.numCaptures());
         findCallCount++;
         if (result == null) {
           hasMatch = false;
@@ -437,7 +438,8 @@ public final class Matcher implements MatchResult {
     // BitState/NFA on the full text from effectiveStart. Pass the full text (not a substring)
     // to avoid O(n) string copy and position-adjustment overhead.
     int[] result = searchWithBitStateOrNfa(
-        prog, text, effectiveStart, text.length(), false, false, false, prog.numCaptures());
+        prog, text, effectiveStart, text.length(), text.length(), false, false, false,
+        prog.numCaptures());
     findCallCount++;
     if (result == null) {
       hasMatch = false;
@@ -496,20 +498,9 @@ public final class Matcher implements MatchResult {
       // constraint ensures the match reaches exactly matchEnd within the bounded range.
       return parentPattern.onePass().search(text, matchStart, matchEnd, true, nsubmatch);
     }
-    // Non-OnePass: BitState/NFA still need a substring since they don't support endPos bounds.
-    String searchText = text.substring(matchStart, matchEnd);
-    int[] result = searchWithBitStateOrNfa(
-        prog, searchText, 0, searchText.length(), true, false, true, nsubmatch);
-    if (result == null) {
-      return null;
-    }
-    // Adjust positions from substring-relative to text-relative.
-    for (int i = 0; i < result.length; i++) {
-      if (result[i] != -1) {
-        result[i] += matchStart;
-      }
-    }
-    return result;
+    // BitState/NFA with offset bounds — no substring allocation needed.
+    return searchWithBitStateOrNfa(
+        prog, text, matchStart, matchEnd, matchEnd, true, false, true, nsubmatch);
   }
 
   /**
@@ -521,23 +512,28 @@ public final class Matcher implements MatchResult {
    * @param startPos the char index at which to begin searching
    * @param searchLimit upper bound on match end position; the capture engines only try start
    *     positions up to this index. Use {@code text.length()} for unbounded search.
+   * @param endPos upper bound on character consumption; engines will not read past this position.
+   *     Use {@code text.length()} for unbounded search.
    * @param anchored whether the search is anchored at {@code startPos}
    * @param longest whether to find the longest match
-   * @param endMatch whether the match must extend to the end of the text
+   * @param endMatch whether the match must extend to {@code endPos}
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions relative to {@code text}, or null if no match
    */
   private int[] searchWithBitStateOrNfa(Prog prog, String text, int startPos,
-      int searchLimit, boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
-    // Try BitState if the text is small enough, reusing the cached instance when possible.
+      int searchLimit, int endPos, boolean anchored, boolean longest, boolean endMatch,
+      int nsubmatch) {
+    // Try BitState if the search range is small enough for the visited bitmap.
+    int rangeLen = endPos - startPos;
     int maxBitStateLen = BitState.maxTextSize(prog);
-    if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
+    if (maxBitStateLen >= 0 && rangeLen <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
       int ncap = 2 * Math.max(nsubmatch, 1);
-      // Only reuse the cached instance when searching the Matcher's own text (not a substring).
+      // Only reuse the cached instance when searching the Matcher's own text.
       BitState cached = (text == this.text) ? cachedBitState : null;
-      BitState bs = BitState.getOrCreate(cached, prog, text, ncap, longest, endMatchEffective);
+      BitState bs = BitState.getOrCreate(
+          cached, prog, text, startPos, endPos, ncap, longest, endMatchEffective);
       int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective);
       // Cache the BitState for future reuse on the Matcher's text.
       if (text == this.text) {
