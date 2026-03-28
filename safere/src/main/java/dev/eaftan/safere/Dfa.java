@@ -210,12 +210,12 @@ final class Dfa {
     boolean hasWordBoundary = false;
     for (int i = 0; i < prog.size(); i++) {
       Inst inst = prog.inst(i);
-      if (inst.op == InstOp.CHAR_RANGE) {
+      if (inst.opCode == InstOp.OP_CHAR_RANGE) {
         bounds.add(inst.lo);
         if (inst.hi < Utils.MAX_RUNE) {
           bounds.add(inst.hi + 1);
         }
-      } else if (inst.op == InstOp.EMPTY_WIDTH
+      } else if (inst.opCode == InstOp.OP_EMPTY_WIDTH
           && (inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
         hasWordBoundary = true;
       }
@@ -296,22 +296,22 @@ final class Dfa {
       visitedGen[id] = gen;
 
       Inst ip = prog.inst(id);
-      switch (ip.op) {
-        case FAIL -> {}
-        case ALT, ALT_MATCH -> {
+      switch (ip.opCode) {
+        case InstOp.OP_FAIL -> {}
+        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
           stack[stackTop++] = ip.out;
           stack[stackTop++] = ip.out1;
         }
-        case NOP -> stack[stackTop++] = ip.out;
-        case CAPTURE -> stack[stackTop++] = ip.out;
-        case EMPTY_WIDTH -> {
+        case InstOp.OP_NOP -> stack[stackTop++] = ip.out;
+        case InstOp.OP_CAPTURE -> stack[stackTop++] = ip.out;
+        case InstOp.OP_EMPTY_WIDTH -> {
           if ((ip.arg & ~emptyFlags) == 0) {
             stack[stackTop++] = ip.out;
           } else {
             frontier[frontierSize++] = id;
           }
         }
-        case CHAR_RANGE, MATCH -> frontier[frontierSize++] = id;
+        case InstOp.OP_CHAR_RANGE, InstOp.OP_MATCH -> frontier[frontierSize++] = id;
         default -> {}
       }
     }
@@ -336,7 +336,7 @@ final class Dfa {
   /** Returns true if any instruction ID in the sorted array is a MATCH instruction. */
   private boolean hasMatch(int[] insts) {
     for (int id : insts) {
-      if (prog.inst(id).op == InstOp.MATCH) {
+      if (prog.inst(id).opCode == InstOp.OP_MATCH) {
         return true;
       }
     }
@@ -347,8 +347,7 @@ final class Dfa {
   private int[] collectMatchIds(int[] insts) {
     int count = 0;
     for (int id : insts) {
-      Inst ip = prog.inst(id);
-      if (ip.op == InstOp.MATCH) {
+      if (prog.inst(id).opCode == InstOp.OP_MATCH) {
         count++;
       }
     }
@@ -359,7 +358,7 @@ final class Dfa {
     int idx = 0;
     for (int id : insts) {
       Inst ip = prog.inst(id);
-      if (ip.op == InstOp.MATCH) {
+      if (ip.opCode == InstOp.OP_MATCH) {
         ids[idx++] = ip.arg;
       }
     }
@@ -473,7 +472,7 @@ final class Dfa {
       int seedCount = 0;
       for (int id : s.insts) {
         Inst ip = prog.inst(id);
-        if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & ~emptyFlags) == 0) {
+        if (ip.opCode == InstOp.OP_EMPTY_WIDTH && (ip.arg & ~emptyFlags) == 0) {
           computeBuf[seedCount++] = ip.out;
         }
       }
@@ -505,7 +504,7 @@ final class Dfa {
     int reExpandCount = 0;
     for (int id : s.insts) {
       Inst ip = prog.inst(id);
-      if (ip.op == InstOp.EMPTY_WIDTH) {
+      if (ip.opCode == InstOp.OP_EMPTY_WIDTH) {
         int wordFlags = ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
         int otherFlags = ip.arg & ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
         if (otherFlags == 0 && wordFlags != 0 && (wordFlags & ~wordBeforeFlags) == 0) {
@@ -530,7 +529,7 @@ final class Dfa {
       int[] wbIds = null;
       for (int id : newInsts) {
         Inst ip = prog.inst(id);
-        if (ip.op == InstOp.MATCH) {
+        if (ip.opCode == InstOp.OP_MATCH) {
           hasMatchFromWordBoundary = true;
           if (wbIds == null) {
             wbIds = new int[newInsts.length];
@@ -550,7 +549,7 @@ final class Dfa {
     int successorCount = 0;
     for (int id : expandedInsts) {
       Inst ip = prog.inst(id);
-      if (ip.op == InstOp.CHAR_RANGE && ip.matchesChar(cp)) {
+      if (ip.opCode == InstOp.OP_CHAR_RANGE && ip.matchesChar(cp)) {
         computeBuf[successorCount++] = ip.out;
       }
     }
