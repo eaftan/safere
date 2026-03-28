@@ -336,6 +336,7 @@ final class Nfa {
           break;
 
         case CHAR_RANGE:
+        case CHAR_CLASS:
         case MATCH:
           // These are "real" states: enqueue them with a copy of the capture.
           q.add(new Thread(id, t0.clone()));
@@ -373,6 +374,12 @@ final class Nfa {
       switch (ip.op) {
         case CHAR_RANGE:
           if (cp >= 0 && ip.matchesChar(cp)) {
+            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture);
+          }
+          break;
+
+        case CHAR_CLASS:
+          if (cp >= 0 && ip.matchesCharClass(cp)) {
             addToThreadq(nq, nqSet, ip.out, text, nextPos, capture);
           }
           break;

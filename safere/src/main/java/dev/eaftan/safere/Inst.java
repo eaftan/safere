@@ -22,6 +22,7 @@ package dev.eaftan.safere;
  *   <li>{@link InstOp#MATCH}: Accept with match ID {@code arg}
  *   <li>{@link InstOp#NOP}: No-op, continue to {@code out}
  *   <li>{@link InstOp#FAIL}: Unconditional failure
+ *   <li>{@link InstOp#CHAR_CLASS}: Match a code point against a multi-range character class
  * </ul>
  */
 final class Inst {
@@ -67,6 +68,24 @@ final class Inst {
    * InstOp#CHAR_RANGE}.
    */
   public boolean foldCase;
+
+  /**
+   * Flat array of [lo0, hi0, lo1, hi1, ...] range pairs for {@link InstOp#CHAR_CLASS}. Each pair
+   * defines an inclusive Unicode code point range.
+   */
+  public int[] ranges;
+
+  /**
+   * ASCII bitmap for {@link InstOp#CHAR_CLASS}: bit {@code i} is set if code point {@code i}
+   * matches at least one range. Covers code points 0–63.
+   */
+  public long bitmap0;
+
+  /**
+   * ASCII bitmap for {@link InstOp#CHAR_CLASS}: bit {@code (i - 64)} is set if code point
+   * {@code i} matches at least one range. Covers code points 64–127.
+   */
+  public long bitmap1;
 
   /** Creates an uninitialized instruction (defaults to FAIL). */
   public Inst() {
@@ -126,6 +145,66 @@ final class Inst {
   public void initFail() {
     this.op = InstOp.FAIL;
     this.opCode = InstOp.OP_FAIL;
+  }
+
+  /**
+   * Initializes as a CHAR_CLASS instruction matching code points against multiple ranges.
+   *
+   * @param out successor instruction index
+   * @param ranges flat array of [lo0, hi0, lo1, hi1, ...] range pairs (inclusive)
+   */
+  public void initCharClass(int out, int[] ranges) {
+    this.op = InstOp.CHAR_CLASS;
+    this.opCode = InstOp.OP_CHAR_CLASS;
+    this.out = out;
+    this.ranges = ranges;
+    // Precompute ASCII bitmap for O(1) lookup of code points 0-127.
+    long b0 = 0;
+    long b1 = 0;
+    for (int i = 0; i < ranges.length; i += 2) {
+      int lo = ranges[i];
+      int hi = ranges[i + 1];
+      int start = Math.max(lo, 0);
+      int end = Math.min(hi, 127);
+      for (int cp = start; cp <= end; cp++) {
+        if (cp < 64) {
+          b0 |= 1L << cp;
+        } else {
+          b1 |= 1L << (cp - 64);
+        }
+      }
+    }
+    this.bitmap0 = b0;
+    this.bitmap1 = b1;
+  }
+
+  /**
+   * Returns true if the given code point matches this CHAR_CLASS instruction. Uses the
+   * precomputed ASCII bitmap for code points 0–127, falls back to binary search for non-ASCII.
+   */
+  public boolean matchesCharClass(int cp) {
+    if (cp < 64) {
+      return (bitmap0 & (1L << cp)) != 0;
+    }
+    if (cp < 128) {
+      return (bitmap1 & (1L << (cp - 64))) != 0;
+    }
+    // Binary search for non-ASCII code points.
+    int lo = 0;
+    int hi = (ranges.length >>> 1) - 1;
+    while (lo <= hi) {
+      int mid = (lo + hi) >>> 1;
+      int rLo = ranges[mid * 2];
+      int rHi = ranges[mid * 2 + 1];
+      if (cp < rLo) {
+        hi = mid - 1;
+      } else if (cp > rHi) {
+        lo = mid + 1;
+      } else {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -196,6 +275,17 @@ final class Inst {
       case MATCH -> String.format("match %d", arg);
       case NOP -> String.format("nop -> %d", out);
       case FAIL -> "fail";
+      case CHAR_CLASS -> {
+        StringBuilder sb = new StringBuilder("charclass [");
+        for (int i = 0; i < ranges.length; i += 2) {
+          if (i > 0) {
+            sb.append(',');
+          }
+          sb.append(String.format("0x%X-0x%X", ranges[i], ranges[i + 1]));
+        }
+        sb.append(String.format("] -> %d", out));
+        yield sb.toString();
+      }
     };
   }
 }

@@ -378,6 +378,18 @@ final class BitState {
           }
         }
 
+        case InstOp.OP_CHAR_CLASS -> {
+          if (pos < endPos) {
+            int cp = text.codePointAt(pos);
+            if (ip.matchesCharClass(cp)) {
+              int nextPos = pos + Character.charCount(cp);
+              if (shouldVisit(ip.out, nextPos)) {
+                push(ip.out, nextPos);
+              }
+            }
+          }
+        }
+
         case InstOp.OP_MATCH -> {
           if (endMatch && pos != endPos) {
             break; // must match at the end boundary

@@ -40,11 +40,17 @@ enum InstOp {
   /** No-op. Passes through to the next instruction. Occasionally unavoidable. */
   NOP,
 
-  /** Always fails. Never matches. Occasionally unavoidable. */
-  FAIL;
+  /** Unconditional failure */
+  FAIL,
+
+  /**
+   * Match a code point against a multi-range character class. Stores a flat array of
+   * {@code [lo, hi]} range pairs and optional ASCII bitmap for O(1) lookup.
+   */
+  CHAR_CLASS;
 
   // Int constants for hot-loop switches, avoiding Enum.ordinal() + synthetic switch-map overhead.
-  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., FAIL=7).
+  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., CHAR_CLASS=8).
   static final int OP_ALT = 0;
   static final int OP_ALT_MATCH = 1;
   static final int OP_CHAR_RANGE = 2;
@@ -53,4 +59,5 @@ enum InstOp {
   static final int OP_MATCH = 5;
   static final int OP_NOP = 6;
   static final int OP_FAIL = 7;
+  static final int OP_CHAR_CLASS = 8;
 }

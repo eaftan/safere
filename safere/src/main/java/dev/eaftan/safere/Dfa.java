@@ -215,6 +215,13 @@ final class Dfa {
         if (inst.hi < Utils.MAX_RUNE) {
           bounds.add(inst.hi + 1);
         }
+      } else if (inst.opCode == InstOp.OP_CHAR_CLASS) {
+        for (int j = 0; j < inst.ranges.length; j += 2) {
+          bounds.add(inst.ranges[j]);
+          if (inst.ranges[j + 1] < Utils.MAX_RUNE) {
+            bounds.add(inst.ranges[j + 1] + 1);
+          }
+        }
       } else if (inst.opCode == InstOp.OP_EMPTY_WIDTH
           && (inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
         hasWordBoundary = true;
@@ -311,7 +318,8 @@ final class Dfa {
             frontier[frontierSize++] = id;
           }
         }
-        case InstOp.OP_CHAR_RANGE, InstOp.OP_MATCH -> frontier[frontierSize++] = id;
+        case InstOp.OP_CHAR_RANGE, InstOp.OP_CHAR_CLASS, InstOp.OP_MATCH ->
+            frontier[frontierSize++] = id;
         default -> {}
       }
     }
@@ -545,17 +553,19 @@ final class Dfa {
       expandedInsts = mergeInsts(s.insts, newInsts);
     }
 
-    // Step 2: Process CHAR_RANGE transitions against cp using the (possibly expanded) state.
+    // Step 2: Process CHAR_RANGE/CHAR_CLASS transitions against cp.
     int successorCount = 0;
     for (int id : expandedInsts) {
       Inst ip = prog.inst(id);
       if (ip.opCode == InstOp.OP_CHAR_RANGE && ip.matchesChar(cp)) {
         computeBuf[successorCount++] = ip.out;
+      } else if (ip.opCode == InstOp.OP_CHAR_CLASS && ip.matchesCharClass(cp)) {
+        computeBuf[successorCount++] = ip.out;
       }
     }
 
     if (successorCount == 0) {
-      // No CHAR_RANGE matched, but if word-boundary expansion revealed a MATCH,
+      // No character transition matched, but if word-boundary expansion revealed a MATCH,
       // return a match state. FLAG_MATCH_BEFORE indicates the match position should be
       // recorded at the current position (before consuming cp), not after.
       if (hasMatchFromWordBoundary) {

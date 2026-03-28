@@ -13,7 +13,7 @@ class InstOpTest {
   @Test
   void allOpsAreDefined() {
     // 8 opcodes as defined in RE2's prog.h
-    assertThat(InstOp.values().length).isEqualTo(8);
+    assertThat(InstOp.values().length).isEqualTo(9);
   }
 
   @Test

@@ -620,12 +620,24 @@ final class Compiler extends Walker<Compiler.Frag> {
       return Frag.NO_MATCH;
     }
 
-    // Build an alternation of CHAR_RANGE instructions for each range.
-    Frag f = Frag.NO_MATCH;
-    for (int i = 0; i < cc.numRanges(); i++) {
-      Frag r = charRange(cc.lo(i), cc.hi(i), false);
-      f = alt(f, r);
+    int numRanges = cc.numRanges();
+
+    // Single range: use a simple CHAR_RANGE instruction (no ALT overhead).
+    if (numRanges == 1) {
+      return charRange(cc.lo(0), cc.hi(0), false);
     }
-    return f;
+
+    // Multi-range: emit a single CHAR_CLASS instruction with all ranges and an ASCII bitmap.
+    int[] ranges = new int[numRanges * 2];
+    for (int i = 0; i < numRanges; i++) {
+      ranges[i * 2] = cc.lo(i);
+      ranges[i * 2 + 1] = cc.hi(i);
+    }
+    int id = allocInst();
+    if (id < 0) {
+      return Frag.NO_MATCH;
+    }
+    prog.mutableInst(id).initCharClass(0, ranges);
+    return new Frag(id, PatchList.mk(id << 1), false);
   }
 }

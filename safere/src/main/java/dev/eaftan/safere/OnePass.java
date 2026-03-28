@@ -222,6 +222,40 @@ final class OnePass {
               actions[stateIndex][cls] = action;
             }
           }
+          case CHAR_CLASS -> {
+            // For each range in the character class, set transitions for overlapping classes.
+            for (int ri = 0; ri < ip.ranges.length; ri += 2) {
+              int rLo = ip.ranges[ri];
+              int rHi = ip.ranges[ri + 1];
+              for (int cls = 0; cls < numClasses; cls++) {
+                int classLo = boundaries[cls];
+                int classHi = (cls + 1 < boundaries.length) ? boundaries[cls + 1] - 1
+                    : Character.MAX_CODE_POINT;
+                if (rLo > classHi || rHi < classLo) {
+                  continue;
+                }
+
+                int nextState;
+                if (nodeMap.containsKey(ip.out)) {
+                  nextState = nodeMap.get(ip.out);
+                } else {
+                  if (stateCount >= maxStates) {
+                    return null;
+                  }
+                  nextState = stateCount++;
+                  nodeMap.put(ip.out, nextState);
+                  worklist.add(ip.out);
+                }
+
+                long action = encodeAction(nextState, capMask, emptyFlags);
+                if (actions[stateIndex][cls] != NO_ACTION
+                    && actions[stateIndex][cls] != action) {
+                  return null;
+                }
+                actions[stateIndex][cls] = action;
+              }
+            }
+          }
           case MATCH -> {
             long action = encodeAction(0, capMask, emptyFlags);
             if (matchActions[stateIndex] != NO_ACTION && matchActions[stateIndex] != action) {
@@ -241,7 +275,7 @@ final class OnePass {
     return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd());
   }
 
-  /** Builds sorted code point boundaries from all CHAR_RANGE instructions. */
+  /** Builds sorted code point boundaries from all CHAR_RANGE and CHAR_CLASS instructions. */
   private static int[] buildBoundaries(Prog prog) {
     TreeSet<Integer> bounds = new TreeSet<>();
     bounds.add(0);
@@ -252,6 +286,13 @@ final class OnePass {
         bounds.add(inst.lo);
         if (inst.hi < Utils.MAX_RUNE) {
           bounds.add(inst.hi + 1);
+        }
+      } else if (inst.op == InstOp.CHAR_CLASS) {
+        for (int j = 0; j < inst.ranges.length; j += 2) {
+          bounds.add(inst.ranges[j]);
+          if (inst.ranges[j + 1] < Utils.MAX_RUNE) {
+            bounds.add(inst.ranges[j + 1] + 1);
+          }
         }
       }
     }
