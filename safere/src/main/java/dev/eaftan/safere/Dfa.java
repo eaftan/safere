@@ -127,8 +127,9 @@ final class Dfa {
   /** Sentinel dead state: no instructions, no transitions possible. */
   private final State deadState = new State(new int[0], 0, 0);
 
-  /** Pre-allocated visited array for {@link #expand}, reused across calls. */
-  private final boolean[] expandVisited;
+  /** Pre-allocated visited generation array for {@link #expand}, reused across calls. */
+  private final int[] expandVisitedGen;
+  private int expandGeneration;
 
   /**
    * Pre-allocated stack array for {@link #expand}. Sized to the program length (worst case: every
@@ -185,7 +186,7 @@ final class Dfa {
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.asciiClassMap = setup.asciiClassMap;
-    this.expandVisited = new boolean[prog.size()];
+    this.expandVisitedGen = new int[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
@@ -275,7 +276,8 @@ final class Dfa {
    * fire).
    */
   private int[] expand(int[] seeds, int seedCount, int emptyFlags) {
-    boolean[] visited = expandVisited;
+    int gen = ++expandGeneration;
+    int[] visitedGen = expandVisitedGen;
     int[] stack = expandStack;
     int[] frontier = expandFrontier;
     int stackTop = 0;
@@ -288,10 +290,10 @@ final class Dfa {
 
     while (stackTop > 0) {
       int id = stack[--stackTop];
-      if (id == 0 || id >= prog.size() || visited[id]) {
+      if (id == 0 || id >= prog.size() || visitedGen[id] == gen) {
         continue;
       }
-      visited[id] = true;
+      visitedGen[id] = gen;
 
       Inst ip = prog.inst(id);
       switch (ip.op) {
@@ -314,13 +316,21 @@ final class Dfa {
       }
     }
 
-    // Clear visited flags for next call.
-    for (int i = 0; i < prog.size(); i++) {
-      visited[i] = false;
-    }
-
-    Arrays.sort(frontier, 0, frontierSize);
+    sortSmall(frontier, frontierSize);
     return Arrays.copyOf(frontier, frontierSize);
+  }
+
+  /** Insertion sort for small arrays; faster than Arrays.sort for typical DFA frontier sizes. */
+  private static void sortSmall(int[] a, int len) {
+    for (int i = 1; i < len; i++) {
+      int key = a[i];
+      int j = i - 1;
+      while (j >= 0 && a[j] > key) {
+        a[j + 1] = a[j];
+        j--;
+      }
+      a[j + 1] = key;
+    }
   }
 
   /** Returns true if any instruction ID in the sorted array is a MATCH instruction. */
