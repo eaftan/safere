@@ -41,7 +41,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     this.maxInst = maxInst;
     // Instruction 0 is always the fail instruction (sentinel for PatchList).
     int fail = prog.allocInst();
-    prog.inst(fail).initFail();
+    prog.mutableInst(fail).initFail();
   }
 
   /**
@@ -106,6 +106,9 @@ final class Compiler extends Walker<Compiler.Frag> {
       all = c.cat(c.dotStar(), all);
     }
     c.prog.setStartUnanchored(all.begin);
+
+    // Freeze the instruction list into a flat array for fast indexed access.
+    c.prog.freeze();
 
     // Count captures by scanning instructions.
     int maxCap = 0;
@@ -258,7 +261,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     static void patch(Prog prog, PatchList l, int target) {
       int current = l.head;
       while (current != 0) {
-        Inst ip = prog.inst(current >> 1);
+        Inst ip = prog.mutableInst(current >> 1);
         if ((current & 1) != 0) {
           current = ip.out1;
           ip.out1 = target;
@@ -276,7 +279,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       if (l2.head == 0) {
         return l1;
       }
-      Inst ip = prog.inst(l1.tail >> 1);
+      Inst ip = prog.mutableInst(l1.tail >> 1);
       if ((l1.tail & 1) != 0) {
         ip.out1 = l2.head;
       } else {
@@ -320,7 +323,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
 
     // Elide no-op.
-    Inst begin = prog.inst(a.begin);
+    Inst begin = prog.mutableInst(a.begin);
     if (begin.op == InstOp.NOP
         && a.end.head == (a.begin << 1)
         && begin.out == 0) {
@@ -350,7 +353,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       return Frag.NO_MATCH;
     }
 
-    prog.inst(id).initAlt(a.begin, b.begin);
+    prog.mutableInst(id).initAlt(a.begin, b.begin);
     return new Frag(
         id,
         PatchList.append(prog, a.end, b.end),
@@ -364,10 +367,10 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
     PatchList pl;
     if (nongreedy) {
-      prog.inst(id).initAlt(0, a.begin);
+      prog.mutableInst(id).initAlt(0, a.begin);
       pl = PatchList.mk(id << 1);
     } else {
-      prog.inst(id).initAlt(a.begin, 0);
+      prog.mutableInst(id).initAlt(a.begin, 0);
       pl = PatchList.mk((id << 1) | 1);
     }
     PatchList.patch(prog, a.end, id);
@@ -385,10 +388,10 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
     PatchList pl;
     if (nongreedy) {
-      prog.inst(id).initAlt(0, a.begin);
+      prog.mutableInst(id).initAlt(0, a.begin);
       pl = PatchList.mk(id << 1);
     } else {
-      prog.inst(id).initAlt(a.begin, 0);
+      prog.mutableInst(id).initAlt(a.begin, 0);
       pl = PatchList.mk((id << 1) | 1);
     }
     PatchList.patch(prog, a.end, id);
@@ -405,10 +408,10 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
     PatchList pl;
     if (nongreedy) {
-      prog.inst(id).initAlt(0, a.begin);
+      prog.mutableInst(id).initAlt(0, a.begin);
       pl = PatchList.mk(id << 1);
     } else {
-      prog.inst(id).initAlt(a.begin, 0);
+      prog.mutableInst(id).initAlt(a.begin, 0);
       pl = PatchList.mk((id << 1) | 1);
     }
     return new Frag(id, PatchList.append(prog, pl, a.end), true);
@@ -419,7 +422,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (id < 0) {
       return Frag.NO_MATCH;
     }
-    prog.inst(id).initCharRange(lo, hi, foldCase, 0);
+    prog.mutableInst(id).initCharRange(lo, hi, foldCase, 0);
     return new Frag(id, PatchList.mk(id << 1), false);
   }
 
@@ -428,7 +431,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (id < 0) {
       return Frag.NO_MATCH;
     }
-    prog.inst(id).initNop(0);
+    prog.mutableInst(id).initNop(0);
     return new Frag(id, PatchList.mk(id << 1), true);
   }
 
@@ -437,7 +440,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (id < 0) {
       return Frag.NO_MATCH;
     }
-    prog.inst(id).initMatch(matchId);
+    prog.mutableInst(id).initMatch(matchId);
     return new Frag(id, PatchList.EMPTY, false);
   }
 
@@ -446,7 +449,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (id < 0) {
       return Frag.NO_MATCH;
     }
-    prog.inst(id).initEmptyWidth(emptyFlags, 0);
+    prog.mutableInst(id).initEmptyWidth(emptyFlags, 0);
     return new Frag(id, PatchList.mk(id << 1), true);
   }
 
@@ -463,8 +466,8 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (id2 < 0) {
       return Frag.NO_MATCH;
     }
-    prog.inst(id).initCapture(2 * cap, a.begin);
-    prog.inst(id2).initCapture(2 * cap + 1, 0);
+    prog.mutableInst(id).initCapture(2 * cap, a.begin);
+    prog.mutableInst(id2).initCapture(2 * cap + 1, 0);
     PatchList.patch(prog, a.end, id2);
     return new Frag(id, PatchList.mk(id2 << 1), a.nullable);
   }

@@ -32,7 +32,8 @@ class ProgTest {
   void instReturnsCorrectInstruction() {
     Prog prog = new Prog();
     int idx = prog.allocInst();
-    prog.inst(idx).initMatch(42);
+    prog.mutableInst(idx).initMatch(42);
+    prog.freeze();
     assertThat(prog.inst(idx).op).isEqualTo(InstOp.MATCH);
     assertThat(prog.inst(idx).arg).isEqualTo(42);
   }
@@ -70,8 +71,9 @@ class ProgTest {
     prog.setStart(0);
     int i0 = prog.allocInst();
     int i1 = prog.allocInst();
-    prog.inst(i0).initCharRange('a', 'a', false, 1);
-    prog.inst(i1).initMatch(0);
+    prog.mutableInst(i0).initCharRange('a', 'a', false, 1);
+    prog.mutableInst(i1).initMatch(0);
+    prog.freeze();
 
     String dump = prog.dump();
     assertThat(dump).contains("char");

@@ -17,6 +17,7 @@ import java.util.List;
 final class Prog {
 
   private final List<Inst> instructions = new ArrayList<>();
+  private Inst[] instArray;
   private int start;
   private int startUnanchored;
   private int numCaptures;
@@ -27,18 +28,27 @@ final class Prog {
   /** Creates an empty program. */
   public Prog() {}
 
-  /** Returns the instruction at the given index. */
+  /** Returns the instruction at the given index. Must be called after {@link #freeze()}. */
   public Inst inst(int index) {
+    return instArray[index];
+  }
+
+  /**
+   * Returns the instruction at the given index from the mutable instruction list. Used during
+   * compilation before the program is frozen.
+   */
+  Inst mutableInst(int index) {
     return instructions.get(index);
   }
 
   /** Returns the total number of instructions. */
   public int size() {
-    return instructions.size();
+    return instArray != null ? instArray.length : instructions.size();
   }
 
   /**
-   * Allocates a new instruction at the end of the program and returns its index.
+   * Allocates a new instruction at the end of the program and returns its index. Must be called
+   * before {@link #freeze()}.
    *
    * @return the index of the newly allocated instruction
    */
@@ -46,6 +56,15 @@ final class Prog {
     int index = instructions.size();
     instructions.add(new Inst());
     return index;
+  }
+
+  /**
+   * Freezes the instruction list into a flat array for fast indexed access. Must be called after
+   * all instructions have been allocated and initialized (typically at the end of compilation).
+   * After freezing, {@link #inst(int)} reads directly from the array, avoiding ArrayList overhead.
+   */
+  public void freeze() {
+    instArray = instructions.toArray(new Inst[0]);
   }
 
   /** Returns the start instruction index for anchored matching. */
@@ -120,8 +139,9 @@ final class Prog {
    * <p>When this returns true, callers should bypass the DFA and use NFA/BitState instead.
    */
   public boolean hasWordBoundary() {
-    for (int i = 0; i < instructions.size(); i++) {
-      Inst ip = instructions.get(i);
+    int n = size();
+    for (int i = 0; i < n; i++) {
+      Inst ip = inst(i);
       if (ip.op == InstOp.EMPTY_WIDTH
           && (ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
         return true;
@@ -141,14 +161,15 @@ final class Prog {
    * </pre>
    */
   public String dump() {
+    int n = size();
     StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < instructions.size(); i++) {
+    for (int i = 0; i < n; i++) {
       if (i == start) {
         sb.append('>');
       } else {
         sb.append(' ');
       }
-      sb.append(String.format("%d. %s\n", i, instructions.get(i)));
+      sb.append(String.format("%d. %s\n", i, instArray != null ? instArray[i] : instructions.get(i)));
     }
     return sb.toString();
   }
@@ -183,11 +204,11 @@ final class Prog {
   }
 
   private boolean[] computeEpsilonCycleAlts() {
-    int n = instructions.size();
+    int n = size();
     boolean[] inCycle = new boolean[n];
 
     for (int i = 0; i < n; i++) {
-      Inst inst = instructions.get(i);
+      Inst inst = inst(i);
       if (inst.op != InstOp.ALT && inst.op != InstOp.ALT_MATCH) {
         continue;
       }
@@ -204,7 +225,7 @@ final class Prog {
    * input or terminate, so they break any epsilon path.
    */
   private boolean canReachSelfViaEpsilon(int target) {
-    int n = instructions.size();
+    int n = size();
     boolean[] visited = new boolean[n];
     ArrayDeque<Integer> stack = new ArrayDeque<>();
 
@@ -222,7 +243,7 @@ final class Prog {
   }
 
   private void addEpsilonSuccessors(int id, boolean[] visited, ArrayDeque<Integer> stack) {
-    Inst inst = instructions.get(id);
+    Inst inst = inst(id);
     switch (inst.op) {
       case ALT, ALT_MATCH -> {
         if (inst.out > 0 && !visited[inst.out]) {
