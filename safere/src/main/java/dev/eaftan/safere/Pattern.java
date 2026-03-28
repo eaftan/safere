@@ -493,6 +493,23 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Returns {@code true} when the DFA sandwich correctly identifies the leftmost match
+   * <em>start</em> position, even if the match end may be wrong. This is a weaker guarantee than
+   * {@link #dfaGroupZeroReliable()}: the sandwich can narrow the search range for the submatch
+   * engine, but captures must still be resolved (with {@code endMatch=false}) to determine the
+   * correct match end.
+   *
+   * <p>The DFA start is reliable when the leftmost-starting match also has the earliest end. This
+   * holds for alternation and bounded repeats (where branches differ in length but the leftmost
+   * start is unambiguous), but fails for lazy quantifiers (where {@code .+?X} starting at
+   * position 0 may end later than a fixed match starting at position 1) and for anchors inside
+   * quantifiers (where the reverse DFA mishandles position-dependent assertions).
+   */
+  boolean dfaStartReliable() {
+    return !hasLazy && !hasAnchorInQuant;
+  }
+
+  /**
    * Returns the literal prefix for this pattern, or {@code null} if the pattern has no fixed
    * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.
    */

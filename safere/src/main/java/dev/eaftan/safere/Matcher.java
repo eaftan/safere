@@ -356,13 +356,17 @@ public final class Matcher implements MatchResult {
     // Skip the reverse DFA phase when the pattern is anchored at the start — the match start is
     // already known to be effectiveStart, so the reverse scan is unnecessary.
     //
-    // Skip entirely when the DFA's group(0) boundaries are unreliable (patterns with lazy
-    // quantifiers or alternation). The DFA's leftmost-longest semantics may disagree with RE2's
-    // leftmost-first alternation priority, producing wrong match boundaries. In those cases,
-    // fall through to the BitState/NFA fallback which correctly handles alternation priority.
+    // Skip entirely when the DFA's match start is unreliable (patterns with lazy quantifiers
+    // or anchors inside quantifiers). Lazy quantifiers can make a non-leftmost match end earlier,
+    // causing the DFA to find the wrong start. In those cases, fall through to the BitState/NFA
+    // fallback which correctly handles all semantics.
+    //
+    // For patterns where the DFA start IS reliable but the end may be wrong (alternation, bounded
+    // repeats), the sandwich still narrows the range — capturesResolved is set to false so
+    // resolveCaptures() corrects the end position using the submatch engine.
     if (fwdResult != null
         && fwdResult.pos() > effectiveStart
-        && parentPattern.dfaGroupZeroReliable()) {
+        && parentPattern.dfaStartReliable()) {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
