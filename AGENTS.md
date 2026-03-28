@@ -4,12 +4,14 @@
 
 SafeRE is a linear-time regular expression matching library for Java, modeled on
 Russ Cox's RE2. The C++ RE2 reference implementation is in `re2-reference/`.
+The RE2/J (Java) reference is in `re2j-reference/`.
 
 - **Package**: `dev.eaftan.safere`
-- **Java version**: 21 (LTS)
-- **Build**: Maven
-- **Tests**: JUnit 6 (6.0.3)
+- **Java version**: 21 (LTS) — built and tested with OpenJDK 25
+- **Build**: Maven (`mvn`)
+- **Tests**: JUnit 6 (6.0.3), AssertJ
 - **Coverage**: JaCoCo
+- **Benchmarks**: JMH (Java Microbenchmark Harness)
 
 ## License
 
@@ -18,6 +20,19 @@ MIT License. All source files must include this header:
 ```java
 // Copyright (c) 2025 Eddie Aftandilian. Licensed under the MIT License.
 // See LICENSE file in the project root for details.
+```
+
+## Build & Test
+
+```bash
+# Run tests (quiet output)
+mvn -pl safere test -q
+
+# Install to local repo (needed before benchmarks)
+mvn install -DskipTests -q
+
+# Run benchmarks (see Benchmarking section below)
+./run-java-benchmarks.sh RegexBenchmark
 ```
 
 ## Code Style
@@ -39,10 +54,11 @@ Follow the [Google Java Style Guide](https://google.github.io/styleguide/javagui
 ## Project Structure
 
 ```
-src/main/java/dev/eaftan/safere/   # Library source
-src/test/java/dev/eaftan/safere/   # Tests
-re2-reference/                     # C++ RE2 reference (read-only)
-re2j-reference/                    # RE2/J (Java) reference (read-only) 
+safere/src/main/java/dev/eaftan/safere/   # Library source
+safere/src/test/java/dev/eaftan/safere/   # Tests
+safere-benchmarks/                         # JMH benchmark suite
+re2-reference/                             # C++ RE2 reference (read-only)
+re2j-reference/                            # RE2/J (Java) reference (read-only)
 ```
 
 ## Architecture
@@ -56,18 +72,37 @@ Pattern string → Parse → Simplify → Compile → Execute
                (AST)    (simpler)  (bytecode)   (match)
 ```
 
-Key internal classes:
-- `Regexp` — AST node (operator + children)
-- `CharClass` — sorted Unicode code point ranges
-- `Prog` / `Inst` — compiled bytecode program
-- `Parser` — recursive-descent regex parser
-- `Compiler` — Thompson NFA construction
-- `NFA` — Pike VM execution engine
-- `DFA` — lazy DFA execution engine
+### Key Internal Classes
 
-Public API (drop-in for `java.util.regex`):
+- `Parser` — recursive-descent regex parser → `Regexp` AST
+- `Simplifier` — AST simplification (character class folding, etc.)
+- `Compiler` — Thompson NFA construction → `Prog` / `Inst` bytecode
+- `Regexp` — AST node (operator + children)
+- `CharClass` / `CharClassBuilder` — sorted Unicode code point ranges
+- `Prog` / `Inst` — compiled bytecode program
+
+### Execution Engines (in priority order)
+
+1. **Fast paths** — literal `String.indexOf()`, character-class bitmap scan
+2. **OnePass** — deterministic single-pass matcher for unambiguous patterns
+3. **DFA** — lazy DFA with cached states (forward, reverse, anchored)
+4. **BitState** — NFA with visited-state bitmap for small texts
+5. **NFA** — Pike VM for arbitrarily large texts
+
+Engine selection in `Matcher.doFind()`:
+1. Literal fast path → `String.indexOf()`
+2. Anchored OnePass → direct OnePass if `^` and OnePass-eligible
+3. Prefix acceleration → skip to first literal/charclass prefix match
+4. OnePass for small text → `searchUnanchored()` if text ≤ 256 chars
+5. DFA sandwich → forward DFA, reverse DFA, anchored DFA for match bounds
+6. BitState/NFA fallback → full search with capture extraction
+
+### Public API
+
+Drop-in replacements for `java.util.regex`:
 - `Pattern` — compiled regex (replaces `java.util.regex.Pattern`)
 - `Matcher` — match state (replaces `java.util.regex.Matcher`)
+- `PatternSet` — multi-pattern matching (SafeRE-only feature)
 
 ## Progress Tracking
 
@@ -108,30 +143,15 @@ Public API (drop-in for `java.util.regex`):
   of `Object[]` to maintain type safety. Primitive arrays (e.g., `int[]`)
   are fine for performance reasons.
 
-## Benchmarking (Phase 10)
+## Benchmarking
 
-- Use JMH (Java Microbenchmark Harness)
-- Compare against `java.util.regex` on the same patterns/inputs
-- Compare against C++ RE2 (via subprocess invocation)
-- Include pathological patterns that demonstrate exponential blowup in
-  backtracking engines (e.g., `a?{n}a{n}` matched against `a{n}`)
-- **Do not commit performance optimizations that do not improve benchmark
-  results.** Every optimization must be validated with before/after
-  benchmarks, and only committed if there is a measurable improvement.
-- **Always use `./run-java-benchmarks.sh`** to run benchmarks. This script
-  runs `mvn install` to build a shaded (fat) JAR, then runs it with
-  `java -jar`. This is required for JMH fork mode — forked JVMs need a
-  self-contained classpath. Do NOT use `mvn exec:java`, which breaks fork
-  mode because the forked child cannot find JMH classes.
-- **Use JMH defaults for results that go into BENCHMARKS.md.**
-  The script passes no JMH flags by default, letting JMH use its
-  built-in defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s).
-  This produces reliable, publishable numbers but takes ~8 minutes per
-  benchmark method. **Do NOT set `JMH_OPTS` when generating data for
-  BENCHMARKS.md — run the script with no environment overrides.**
-  Only use `JMH_OPTS` for quick development iteration (validating an
-  optimization before committing). These two use cases require
-  different commands:
+### Running Benchmarks
+
+**Always use `./run-java-benchmarks.sh`** to run benchmarks. This script
+runs `mvn install` to build a shaded (fat) JAR, then runs it with
+`java -jar`. This is required for JMH fork mode — forked JVMs need a
+self-contained classpath. Do NOT use `mvn exec:java`, which breaks fork
+mode because the forked child cannot find JMH classes.
 
 ```bash
 # BENCHMARKS.md updates — NO JMH_OPTS, full JMH defaults
@@ -141,9 +161,8 @@ Public API (drop-in for `java.util.regex`):
 JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ```
 
-- **Run benchmarks in batches, not all at once.** Running the full suite
-  takes a very long time. Run 2–3 benchmark classes per invocation and
-  collect results incrementally. For example:
+**Run benchmarks in batches, not all at once.** Run 2–3 benchmark classes
+per invocation and collect results incrementally:
 
 ```bash
 ./run-java-benchmarks.sh RegexBenchmark CompileBenchmark
@@ -152,65 +171,29 @@ JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
 ```
 
-- **NEVER run benchmarks in parallel.** All benchmark runs (Java, C++, Go)
-  must run sequentially, one at a time. Parallel runs compete for CPU,
-  cache, and memory bandwidth, producing inaccurate results.
-
-- **Extract summary tables from JMH output** using grep. JMH prints
-  verbose per-iteration output; the summary table at the end has one
-  header line starting with `Benchmark` and data lines starting with
-  the class name:
+**Extract summary tables from JMH output** using grep:
 
 ```bash
 ./run-java-benchmarks.sh RegexBenchmark 2>&1 \
   | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
 ```
 
-### Benchmarking Best Practices
+### Key Rules
 
-- **Use fork mode for Java benchmarks.** The runner script uses
-  `java -jar` on the shaded JAR, which supports JMH fork mode. Each
-  fork starts a fresh JVM, eliminating JIT profile pollution between
-  benchmarks. Never use `mvn exec:java` — it breaks fork mode.
-- **Never run benchmarks in parallel.** CPU, cache, and memory bandwidth
-  contention invalidates all measurements. Run one benchmark suite at a
-  time (Java, then C++, then Go).
-- **Run benchmarks in batches.** The full Java suite with default settings
-  takes many hours. Run 2–3 benchmark classes per invocation to get
-  incremental results.
-- **Use JMH defaults for publishable data.** Don't override `-f`, `-wi`,
-  `-i`, `-w`, or `-r` when generating data for BENCHMARKS.md. JMH's
-  defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s) are chosen
-  for statistical rigor.
-- **Use reduced settings only for development.** Quick spot-checks during
-  development can use `JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1"`. Never
-  commit these results to BENCHMARKS.md.
-- **Warmup matters for different reasons across languages:**
-  - Java: JIT compilation (C1 → C2 tiered compilation) needs time to
-    reach steady state. JMH's 50s warmup per fork handles this.
-  - C++/Go: Only CPU cache and branch predictor priming needed (~4s).
-    The native harnesses use 2 × 2s warmup iterations.
-- **More measurement iterations compensate for fewer forks.** C++ and Go
-  run 10 measurement iterations (vs Java's 5 per fork) since they don't
-  have fork-level variance from JIT non-determinism.
+- **NEVER set `JMH_OPTS` when generating data for BENCHMARKS.md.** Use full
+  JMH defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s). `JMH_OPTS`
+  is ONLY for quick development iteration.
+- **NEVER run benchmarks in parallel.** All benchmark runs (Java, C++, Go)
+  must run sequentially, one at a time. Parallel runs compete for CPU,
+  cache, and memory bandwidth, producing inaccurate results.
+- **Do not commit optimizations that do not improve benchmark results.**
+  Every optimization must be validated with before/after benchmarks.
+- **Use fork mode for publishable data.** Each fork starts a fresh JVM,
+  eliminating JIT profile pollution. Use `-f 0` only for quick spot-checks
+  during development.
 - **All harnesses share `benchmark-data.json`.** This ensures identical
   patterns, inputs, and parameters across Java, C++, and Go. Edit the
   JSON file to change workloads; never hardcode values in the harness.
-
-### Writing About Benchmark Results
-
-- **Use professional, neutral language.** Do not use terms like "crushes",
-  "destroys", "demolishes", or other language that puts down other
-  implementations. Every engine makes deliberate design tradeoffs.
-- **State facts and ratios.** Write "SafeRE is 50× faster than RE2/J"
-  rather than "SafeRE crushes RE2/J."
-- **Explain *why* differences exist.** Attribute performance gaps to
-  specific design decisions (e.g., "RE2/J lacks a DFA engine" or "JDK
-  defers compilation work to match time") rather than implying one
-  implementation is poorly written.
-- **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
-  in return (e.g., linear-time guarantees). When it's faster, note what
-  the other engine optimizes for instead.
 
 ### Summary Statistics
 
@@ -236,6 +219,21 @@ and inconsistent under inversion.
 SafeRE is faster. For readability, also express as "SafeRE is N× faster" or
 "SafeRE is N× slower" alongside the raw geomean.
 
+### Writing About Benchmark Results
+
+- **Use professional, neutral language.** Do not use terms like "crushes",
+  "destroys", "demolishes", or other language that puts down other
+  implementations. Every engine makes deliberate design tradeoffs.
+- **State facts and ratios.** Write "SafeRE is 50× faster than RE2/J"
+  rather than "SafeRE crushes RE2/J."
+- **Explain *why* differences exist.** Attribute performance gaps to
+  specific design decisions (e.g., "RE2/J lacks a DFA engine" or "JDK
+  defers compilation work to match time") rather than implying one
+  implementation is poorly written.
+- **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
+  in return (e.g., linear-time guarantees). When it's faster, note what
+  the other engine optimizes for instead.
+
 ## Profiling
 
 Use profiling to identify actual bottlenecks before implementing optimizations.
@@ -255,7 +253,7 @@ asprof collect -d 30 -e cpu -o flamegraph -f /tmp/cpu-flame.html <pid>
 
 # Or use the JVM agent to profile from start (no PID needed):
 java -agentpath:/home/eaftan/async-profiler-4.3-linux-x64/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/cpu-flame.html \
-  -jar safere-benchmarks/target/safere-benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
+  -jar safere-benchmarks/target/benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
 ```
 
 **Allocation profiling** — identifies where objects are allocated:
@@ -295,7 +293,7 @@ profiling and event-based analysis.
 
 ```bash
 java -XX:StartFlightRecording=duration=30s,filename=/tmp/recording.jfr \
-  -jar safere-benchmarks/target/safere-benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
+  -jar safere-benchmarks/target/benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
 ```
 
 **Attach to running JVM:**
