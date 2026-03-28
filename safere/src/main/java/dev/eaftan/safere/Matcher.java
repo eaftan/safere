@@ -543,12 +543,11 @@ public final class Matcher implements MatchResult {
       if (text == this.text) {
         cachedBitState = bs;
       }
-      if (result != null) {
-        return result;
-      }
+      // BitState is a complete engine — if it searched and found no match, NFA won't either.
+      return result;
     }
 
-    // Fall back to general NFA.
+    // Fall back to general NFA (only for texts too large for BitState).
     Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
     Nfa.MatchKind nfaKind;
     if (endMatch) {
