@@ -92,13 +92,33 @@ final class BitState {
    */
   static int[] search(Prog prog, String text, int startPos, int searchLimit, boolean anchored,
       boolean longest, boolean endMatch, int nsubmatch) {
+    return search(null, prog, text, startPos, searchLimit, anchored, longest, endMatch, nsubmatch);
+  }
+
+  /**
+   * Searches using bit-state backtracking, optionally reusing a cached instance to avoid
+   * allocations. If {@code cached} is non-null and its arrays are large enough for the current
+   * text, it is reset and reused; otherwise a new instance is created.
+   *
+   * @param cached a previously created BitState to reuse, or null
+   * @param prog the compiled program
+   * @param text the full input text
+   * @param startPos the char index at which to begin searching
+   * @param searchLimit upper bound on start positions to try
+   * @param anchored if true, match must start at {@code startPos}
+   * @param longest if true, find the longest match
+   * @param endMatch if true, match must extend to end of text
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
+   */
+  static int[] search(BitState cached, Prog prog, String text, int startPos, int searchLimit,
+      boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
     int textLen = text.length();
     int maxLen = maxTextSize(prog);
     if (maxLen < 0 || textLen > maxLen) {
       return null; // text too large for BitState
     }
 
-    // Honour the program's anchor flags (the compiler strips ^ and $ and sets flags instead).
     if (prog.anchorStart()) {
       anchored = true;
     }
@@ -107,18 +127,47 @@ final class BitState {
     }
 
     int ncap = 2 * Math.max(nsubmatch, 1);
-    BitState bs = new BitState(prog, text, ncap, longest, endMatch);
+    BitState bs;
+    if (cached != null && cached.canReuse(prog, text, ncap)) {
+      bs = cached;
+      bs.reset(text, ncap, longest, endMatch);
+    } else {
+      bs = new BitState(prog, text, ncap, longest, endMatch);
+    }
 
-    // For unanchored search, try each start position until a match is found.
+    return bs.doSearch(startPos, searchLimit, anchored);
+  }
+
+  /**
+   * Returns a BitState instance suitable for the given parameters, either by resetting
+   * {@code cached} (if compatible) or by creating a new one.
+   */
+  static BitState getOrCreate(BitState cached, Prog prog, String text, int ncap,
+      boolean longest, boolean endMatch) {
+    if (cached != null && cached.canReuse(prog, text, ncap)) {
+      cached.reset(text, ncap, longest, endMatch);
+      return cached;
+    }
+    return new BitState(prog, text, ncap, longest, endMatch);
+  }
+
+  /**
+   * Runs the bit-state search from the given start position.
+   *
+   * @param startPos the char index at which to begin searching
+   * @param searchLimit upper bound on start positions to try
+   * @param anchored if true, match must start at {@code startPos}
+   * @return submatch positions, or null if no match
+   */
+  int[] doSearch(int startPos, int searchLimit, boolean anchored) {
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
-      if (bs.trySearch(prog.start(), searchStart)) {
-        return bs.bestMatch;
+      if (trySearch(prog.start(), searchStart)) {
+        return bestMatch;
       }
-      // Advance to next code point boundary.
       if (searchStart < textLen) {
         int cp = text.codePointAt(searchStart);
-        searchStart += Character.charCount(cp) - 1; // loop increment adds 1
+        searchStart += Character.charCount(cp) - 1;
       }
     }
     return null;
@@ -129,21 +178,21 @@ final class BitState {
   // -------------------------------------------------------------------------
 
   private final Prog prog;
-  private final String text;
-  private final int textLen;
-  private final boolean longest;
-  private final boolean endMatch;
-  private final int ncap;
+  private String text;
+  private int textLen;
+  private boolean longest;
+  private boolean endMatch;
+  private int ncap;
 
   /** Visited bitmap: bit (instId * (textLen+1) + charPos) tracks whether visited. */
-  private final long[] visited;
-  private final int textSlots; // textLen + 1
+  private long[] visited;
+  private int textSlots; // textLen + 1
 
   /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
   private final boolean[] cycleAlts;
 
   /** Current capture registers. */
-  private final int[] cap;
+  private int[] cap;
 
   /** Best match found so far. */
   private int[] bestMatch;
@@ -339,8 +388,40 @@ final class BitState {
     return matched;
   }
 
-  /** Prevents instantiation via no-arg constructor. */
-  private BitState() {
-    throw new AssertionError("non-instantiable");
+  /**
+   * Returns whether this BitState can be reused for the given parameters. Reuse is possible when
+   * the program is the same and the pre-allocated arrays are large enough.
+   */
+  boolean canReuse(Prog prog, String text, int ncap) {
+    if (this.prog != prog) {
+      return false;
+    }
+    int textLen = text.length();
+    int newTextSlots = textLen + 1;
+    int totalBits = prog.size() * newTextSlots;
+    int requiredVisitedLen = (totalBits + 63) / 64;
+    return visited.length >= requiredVisitedLen
+        && cap.length >= ncap
+        && jobInstId.length >= Math.min(totalBits, 4096);
+  }
+
+  /**
+   * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
+   * reallocating. The caller must verify {@link #canReuse} first.
+   */
+  private void reset(String text, int ncap, boolean longest, boolean endMatch) {
+    this.text = text;
+    this.textLen = text.length();
+    this.longest = longest;
+    this.endMatch = endMatch || prog.anchorEnd();
+    this.ncap = ncap;
+    this.textSlots = textLen + 1;
+    this.bestMatch = null;
+    this.jobCount = 0;
+    // Clear only the portion of the visited bitmap needed for this text size.
+    int totalBits = prog.size() * textSlots;
+    int usedLen = (totalBits + 63) / 64;
+    Arrays.fill(visited, 0, usedLen, 0L);
+    Arrays.fill(cap, 0, ncap, -1);
   }
 }

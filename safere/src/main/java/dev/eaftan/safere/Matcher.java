@@ -55,6 +55,13 @@ public final class Matcher implements MatchResult {
   private int findCallCount;
 
   /**
+   * Cached BitState instance, reused across {@code find()} calls to avoid allocating the visited
+   * bitmap, capture array, and job stack arrays on every match. The instance is valid as long as
+   * the program and text haven't changed.
+   */
+  private BitState cachedBitState;
+
+  /**
    * Creates a new matcher that will match the given input against the given pattern.
    *
    * @param pattern the pattern to use
@@ -520,14 +527,22 @@ public final class Matcher implements MatchResult {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions relative to {@code text}, or null if no match
    */
-  private static int[] searchWithBitStateOrNfa(Prog prog, String text, int startPos,
+  private int[] searchWithBitStateOrNfa(Prog prog, String text, int startPos,
       int searchLimit, boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
-    // Try BitState if the text is small enough.
+    // Try BitState if the text is small enough, reusing the cached instance when possible.
     int maxBitStateLen = BitState.maxTextSize(prog);
     if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
-      int[] result =
-          BitState.search(prog, text, startPos, searchLimit, anchored, longest, endMatch,
-              nsubmatch);
+      boolean anchoredEffective = anchored || prog.anchorStart();
+      boolean endMatchEffective = endMatch || prog.anchorEnd();
+      int ncap = 2 * Math.max(nsubmatch, 1);
+      // Only reuse the cached instance when searching the Matcher's own text (not a substring).
+      BitState cached = (text == this.text) ? cachedBitState : null;
+      BitState bs = BitState.getOrCreate(cached, prog, text, ncap, longest, endMatchEffective);
+      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective);
+      // Cache the BitState for future reuse on the Matcher's text.
+      if (text == this.text) {
+        cachedBitState = bs;
+      }
       if (result != null) {
         return result;
       }
