@@ -55,11 +55,12 @@ public final class Matcher implements MatchResult {
   private int findCallCount;
 
   /**
-   * Cached BitState instance, reused across {@code find()} calls to avoid allocating the visited
-   * bitmap, capture array, and job stack arrays on every match. The instance is valid as long as
-   * the program and text haven't changed.
+   * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
+   * {@code find()} calls. Borrowed on first use, returned on final use within the Matcher's
+   * lifetime.
    */
   private BitState cachedBitState;
+  private boolean bitStateBorrowed;
 
   /**
    * Creates a new matcher that will match the given input against the given pattern.
@@ -523,22 +524,24 @@ public final class Matcher implements MatchResult {
   private int[] searchWithBitStateOrNfa(Prog prog, String text, int startPos,
       int searchLimit, int endPos, boolean anchored, boolean longest, boolean endMatch,
       int nsubmatch) {
-    // Try BitState if the search range is small enough for the visited bitmap.
-    int rangeLen = endPos - startPos;
+    // Try BitState if the full text is small enough for the visited bitmap.
     int maxBitStateLen = BitState.maxTextSize(prog);
-    if (maxBitStateLen >= 0 && rangeLen <= maxBitStateLen) {
+    if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
       int ncap = 2 * Math.max(nsubmatch, 1);
-      // Only reuse the cached instance when searching the Matcher's own text.
-      BitState cached = (text == this.text) ? cachedBitState : null;
-      BitState bs = BitState.getOrCreate(
-          cached, prog, text, startPos, endPos, ncap, longest, endMatchEffective);
-      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective);
-      // Cache the BitState for future reuse on the Matcher's text.
-      if (text == this.text) {
-        cachedBitState = bs;
+      // Borrow from Pattern's thread-local cache on first use.
+      if (cachedBitState == null && !bitStateBorrowed) {
+        cachedBitState = parentPattern.borrowBitState();
+        bitStateBorrowed = true;
       }
+      BitState bs =
+          BitState.getOrCreate(cachedBitState, prog, text, endPos, ncap, longest,
+              endMatchEffective);
+      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective);
+      cachedBitState = bs;
+      // Return to Pattern's cache for reuse by future Matchers.
+      parentPattern.returnBitState(bs);
       // BitState is a complete engine — if it searched and found no match, NFA won't either.
       return result;
     }

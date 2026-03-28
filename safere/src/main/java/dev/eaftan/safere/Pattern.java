@@ -118,6 +118,13 @@ public final class Pattern implements Serializable {
   /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
 
+  /**
+   * Thread-local cached BitState instance. Shared across all Matchers created from this Pattern
+   * within the same thread, enabling reuse even with the common {@code pattern.matcher(t).find()}
+   * idiom where each call creates a new Matcher.
+   */
+  private transient final ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
+
   /** Holder for lazily computed OnePass analysis results. */
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {}
@@ -332,6 +339,18 @@ public final class Pattern implements Serializable {
   /** Returns the compiled program. */
   Prog prog() {
     return prog;
+  }
+
+  /** Returns the thread-local cached BitState, or null if none has been cached yet. */
+  BitState borrowBitState() {
+    BitState bs = cachedBitState.get();
+    cachedBitState.set(null); // take ownership
+    return bs;
+  }
+
+  /** Returns a BitState to the thread-local cache for reuse by future Matchers. */
+  void returnBitState(BitState bs) {
+    cachedBitState.set(bs);
   }
 
   /**

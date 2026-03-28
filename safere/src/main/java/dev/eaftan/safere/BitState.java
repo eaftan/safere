@@ -127,11 +127,10 @@ final class BitState {
     }
 
     int ncap = 2 * Math.max(nsubmatch, 1);
-    int rangeSlots = textLen + 1;
     BitState bs;
-    if (cached != null && cached.canReuse(prog, rangeSlots, ncap)) {
+    if (cached != null && cached.canReuse(prog, text, ncap)) {
       bs = cached;
-      bs.reset(text, 0, textLen, ncap, longest, endMatch);
+      bs.reset(text, textLen, ncap, longest, endMatch);
     } else {
       bs = new BitState(prog, text, ncap, longest, endMatch);
     }
@@ -143,18 +142,14 @@ final class BitState {
    * Returns a BitState instance suitable for the given parameters, either by resetting
    * {@code cached} (if compatible) or by creating a new one.
    */
-  static BitState getOrCreate(BitState cached, Prog prog, String text, int startOffset,
-      int endPos, int ncap, boolean longest, boolean endMatch) {
-    int rangeSlots = endPos - startOffset + 1;
-    if (cached != null && cached.canReuse(prog, rangeSlots, ncap)) {
-      cached.reset(text, startOffset, endPos, ncap, longest, endMatch);
+  static BitState getOrCreate(BitState cached, Prog prog, String text, int endPos, int ncap,
+      boolean longest, boolean endMatch) {
+    if (cached != null && cached.canReuse(prog, text, ncap)) {
+      cached.reset(text, endPos, ncap, longest, endMatch);
       return cached;
     }
-    // Create a new instance sized for the search range, not the full text.
     BitState bs = new BitState(prog, text, ncap, longest, endMatch);
-    bs.startOffset = startOffset;
     bs.endPos = endPos;
-    bs.rangeSlots = rangeSlots;
     return bs;
   }
 
@@ -188,18 +183,21 @@ final class BitState {
   private String text;
   private int textLen;
   private int endPos;
-  private int startOffset;
-  private int rangeSlots;
   private boolean longest;
   private boolean endMatch;
   private int ncap;
 
   /**
-   * Visited bitmap: bit {@code (instId * rangeSlots + (pos - startOffset))} tracks whether
-   * the given (instruction, position) pair has been explored. The bitmap only covers
-   * positions in {@code [startOffset, endPos]}, keeping it compact for bounded searches.
+   * Visited bitmap: bit {@code (instId * textSlots + pos)} tracks whether the given (instruction,
+   * position) pair has been explored. Sized for the full text so the instance can be reused across
+   * searches with different start/end bounds.
    */
   private long[] visited;
+  private int textSlots;
+
+  /** Tracks which words in the visited bitmap were dirtied, for incremental clearing. */
+  private int[] dirtyWords;
+  private int dirtyCount;
 
   /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
   private final boolean[] cycleAlts;
@@ -220,21 +218,20 @@ final class BitState {
     this.text = text;
     this.textLen = text.length();
     this.endPos = textLen;
-    this.startOffset = 0;
-    this.rangeSlots = textLen + 1;
     this.longest = longest;
-    // Enforce end-of-text matching if the caller requests it OR if the program's anchor flags
-    // indicate it (the compiler strips trailing $ and sets anchorEnd instead).
     this.endMatch = endMatch || prog.anchorEnd();
     this.ncap = ncap;
+    this.textSlots = textLen + 1;
     this.cycleAlts = prog.epsilonCycleAlts();
 
-    int totalBits = prog.size() * rangeSlots;
-    this.visited = new long[(totalBits + 63) / 64];
+    int totalBits = prog.size() * textSlots;
+    int visitedLen = (totalBits + 63) / 64;
+    this.visited = new long[visitedLen];
+    this.dirtyWords = new int[Math.min(visitedLen, 4096)];
+    this.dirtyCount = 0;
     this.cap = new int[ncap];
     Arrays.fill(cap, -1);
 
-    // Job stack: max size is bounded by the visited bitmap (each job is visited at most once).
     int maxJobs = Math.min(totalBits, 4096);
     this.jobInstId = new int[maxJobs];
     this.jobPos = new int[maxJobs];
@@ -272,13 +269,20 @@ final class BitState {
       return true; // non-cycle ALT: safe to revisit
     }
     // Cycle ALT: use visited bitmap to prevent infinite epsilon loops.
-    int bit = instId * rangeSlots + (pos - startOffset);
+    int bit = instId * textSlots + pos;
     int word = bit / 64;
     long mask = 1L << (bit % 64);
     if ((visited[word] & mask) != 0) {
       return false; // already visited
     }
     visited[word] |= mask;
+    // Track dirty word for incremental clearing.
+    if (dirtyCount >= 0 && dirtyCount < dirtyWords.length) {
+      dirtyWords[dirtyCount++] = word;
+    } else if (dirtyCount >= 0) {
+      // Overflow — flag that we need a full clear by setting dirtyCount to -1.
+      dirtyCount = -1;
+    }
     return true;
   }
 
@@ -405,13 +409,14 @@ final class BitState {
 
   /**
    * Returns whether this BitState can be reused for the given parameters. Reuse is possible when
-   * the program is the same and the pre-allocated arrays are large enough for the search range.
+   * the program is the same and the pre-allocated arrays are large enough for the full text.
    */
-  boolean canReuse(Prog prog, int rangeSlots, int ncap) {
+  boolean canReuse(Prog prog, String text, int ncap) {
     if (this.prog != prog) {
       return false;
     }
-    int totalBits = prog.size() * rangeSlots;
+    int newTextSlots = text.length() + 1;
+    int totalBits = prog.size() * newTextSlots;
     int requiredVisitedLen = (totalBits + 63) / 64;
     return visited.length >= requiredVisitedLen
         && cap.length >= ncap
@@ -422,22 +427,28 @@ final class BitState {
    * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
    * reallocating. The caller must verify {@link #canReuse} first.
    */
-  private void reset(String text, int startOffset, int endPos, int ncap, boolean longest,
-      boolean endMatch) {
+  private void reset(String text, int endPos, int ncap, boolean longest, boolean endMatch) {
     this.text = text;
     this.textLen = text.length();
     this.endPos = endPos;
-    this.startOffset = startOffset;
-    this.rangeSlots = endPos - startOffset + 1;
     this.longest = longest;
     this.endMatch = endMatch || prog.anchorEnd();
     this.ncap = ncap;
+    this.textSlots = textLen + 1;
     this.bestMatch = null;
     this.jobCount = 0;
-    // Clear only the portion of the visited bitmap needed for this search range.
-    int totalBits = prog.size() * rangeSlots;
-    int usedLen = (totalBits + 63) / 64;
-    Arrays.fill(visited, 0, usedLen, 0L);
+    // Incrementally clear only dirtied bitmap words (much faster than full Arrays.fill).
+    if (dirtyCount > 0) {
+      for (int i = 0; i < dirtyCount; i++) {
+        visited[dirtyWords[i]] = 0L;
+      }
+    } else if (dirtyCount == -1) {
+      // Overflow — must do a full clear.
+      int totalBits = prog.size() * textSlots;
+      int usedLen = (totalBits + 63) / 64;
+      Arrays.fill(visited, 0, usedLen, 0L);
+    }
+    dirtyCount = 0;
     Arrays.fill(cap, 0, ncap, -1);
   }
 }
