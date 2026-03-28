@@ -29,27 +29,12 @@ import java.util.regex.MatchResult;
  */
 public final class Matcher implements MatchResult {
 
-  private static final int DEFAULT_MAX_DFA_STATES = 10_000;
-
   private final Pattern parentPattern;
   private String text;
   private int[] groups;
   private boolean hasMatch;
   private int searchFrom;
   private int appendPos;
-
-  /**
-   * Cached DFA instance, lazily initialized on first use. The DFA state graph is a property of the
-   * compiled program (not the input text), so it persists across {@code reset()} and multiple
-   * {@code find()}/{@code matches()} calls. This avoids rebuilding the equivalence class boundaries
-   * and state cache on every search.
-   */
-  private Dfa dfa;
-
-  /**
-   * Cached reverse DFA instance for match-start bounding, lazily initialized on first use.
-   */
-  private Dfa reverseDfa;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -82,22 +67,15 @@ public final class Matcher implements MatchResult {
     this.text = input.toString();
   }
 
-  /** Returns the cached DFA instance, creating it on first use. */
+  /** Returns the Pattern's thread-local cached forward DFA. */
   private Dfa dfa() {
-    if (dfa == null) {
-      dfa = new Dfa(parentPattern.prog(), DEFAULT_MAX_DFA_STATES,
-          parentPattern.forwardDfaSetup());
-    }
-    return dfa;
+    return parentPattern.forwardDfa();
   }
 
-  /** Returns the cached reverse DFA instance, creating it on first use. */
+
+  /** Returns the Pattern's thread-local cached reverse DFA, or null if unavailable. */
   private Dfa reverseDfa() {
-    if (reverseDfa == null && parentPattern.reverseProg() != null) {
-      reverseDfa = new Dfa(parentPattern.reverseProg(), DEFAULT_MAX_DFA_STATES,
-          parentPattern.reverseDfaSetup());
-    }
-    return reverseDfa;
+    return parentPattern.reverseDfa();
   }
 
   // ---------------------------------------------------------------------------
@@ -228,8 +206,12 @@ public final class Matcher implements MatchResult {
    */
   public boolean find() {
     if (hasMatch) {
-      searchFrom = end();
-      if (start() == end()) {
+      // Resolve deferred captures so groups[0] and groups[1] reflect the correct
+      // match boundaries (the DFA sandwich uses longest-match, which may differ
+      // from RE2's leftmost-first semantics for lazy quantifiers and ambiguous alternation).
+      resolveCaptures();
+      searchFrom = groups[1];
+      if (groups[0] == groups[1]) { // empty match
         if (searchFrom >= text.length()) {
           hasMatch = false;
           return false;
@@ -348,26 +330,6 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
-    // Skip DFA+sandwich for small texts: when the input is short enough for BitState, use it
-    // directly for all find() calls. On the first call this avoids ~500ns DFA construction; on
-    // subsequent calls it avoids the three-DFA sandwich overhead (reverse DFA + second forward DFA
-    // + substring). For texts ≤256 chars, BitState's O(n×m) cost is comparable to the sandwich's
-    // fixed overhead, and the simpler single-pass search is faster overall.
-    if (text.length() <= 256) {
-      int maxBitStateLen = BitState.maxTextSize(prog);
-      if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
-        int[] result = searchWithBitStateOrNfa(
-            prog, text, effectiveStart, text.length(), text.length(), false, false, false,
-            prog.numCaptures());
-        if (result == null) {
-          hasMatch = false;
-          return false;
-        }
-        groups = result;
-        hasMatch = true;
-        return true;
-      }
-    }
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
@@ -393,8 +355,14 @@ public final class Matcher implements MatchResult {
     //
     // Skip the reverse DFA phase when the pattern is anchored at the start — the match start is
     // already known to be effectiveStart, so the reverse scan is unnecessary.
+    //
+    // Skip entirely when the DFA's group(0) boundaries are unreliable (patterns with lazy
+    // quantifiers or alternation). The DFA's leftmost-longest semantics may disagree with RE2's
+    // leftmost-first alternation priority, producing wrong match boundaries. In those cases,
+    // fall through to the BitState/NFA fallback which correctly handles alternation priority.
     if (fwdResult != null
-        && fwdResult.pos() > effectiveStart) {
+        && fwdResult.pos() > effectiveStart
+        && parentPattern.dfaGroupZeroReliable()) {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
@@ -410,7 +378,7 @@ public final class Matcher implements MatchResult {
           groups[1] = matchEnd;
           deferredMatchStart = effectiveStart;
           deferredMatchEnd = matchEnd;
-          capturesResolved = (nc <= 1);
+          capturesResolved = (nc <= 1) && parentPattern.dfaGroupZeroReliable();
           hasMatch = true;
           return true;
         }
@@ -434,7 +402,7 @@ public final class Matcher implements MatchResult {
               groups[1] = matchEnd;
               deferredMatchStart = matchStart;
               deferredMatchEnd = matchEnd;
-              capturesResolved = (nc <= 1);
+              capturesResolved = (nc <= 1) && parentPattern.dfaGroupZeroReliable();
               hasMatch = true;
               return true;
             }
@@ -486,33 +454,6 @@ public final class Matcher implements MatchResult {
     }
     return -1;
   }
-
-  /**
-   * Extracts submatch groups from a known match range. Creates a substring of the match range and
-   * tries OnePass first (single-pass, O(n)), then falls back to BitState/NFA. Positions in the
-   * returned array are adjusted to be relative to the original text.
-   *
-   * <p>Following C++ RE2's engine priority (re2.cc:885–897): OnePass > BitState > NFA.
-   *
-   * @param prog the compiled program
-   * @param text the full input text
-   * @param matchStart start of the known match range in {@code text}
-   * @param matchEnd end of the known match range in {@code text}
-   * @param nsubmatch number of submatch groups to track (including group 0)
-   * @return submatch positions relative to {@code text}, or null if no match
-   */
-  private int[] searchSubmatch(Prog prog, String text, int matchStart, int matchEnd,
-      int nsubmatch) {
-    if (parentPattern.canOnePassSubmatch()) {
-      // OnePass with offset bounds — no substring allocation needed. The endMatch=true
-      // constraint ensures the match reaches exactly matchEnd within the bounded range.
-      return parentPattern.onePass().search(text, matchStart, matchEnd, true, nsubmatch);
-    }
-    // BitState/NFA with offset bounds — no substring allocation needed.
-    return searchWithBitStateOrNfa(
-        prog, text, matchStart, matchEnd, matchEnd, true, false, true, nsubmatch);
-  }
-
   /**
    * Tries BitState first (for small texts), falls back to NFA. This is the final capture-extraction
    * step after DFA/OnePass have been tried or are not applicable.
@@ -661,9 +602,7 @@ public final class Matcher implements MatchResult {
   public int start(int group) {
     checkMatch();
     checkGroup(group);
-    if (group > 0) {
-      resolveCaptures();
-    }
+    resolveCaptures();
     return groups[2 * group];
   }
 
@@ -693,9 +632,7 @@ public final class Matcher implements MatchResult {
   public int end(int group) {
     checkMatch();
     checkGroup(group);
-    if (group > 0) {
-      resolveCaptures();
-    }
+    resolveCaptures();
     return groups[2 * group + 1];
   }
 
@@ -829,18 +766,29 @@ public final class Matcher implements MatchResult {
   // ---------------------------------------------------------------------------
 
   /**
-   * Resolves deferred capture groups. Called lazily when the user requests a capture group
-   * beyond group 0 (e.g., {@code group(1)}, {@code start(2)}) or when a full snapshot is
-   * needed ({@code toMatchResult()}). Runs the submatch engine (OnePass or BitState/NFA)
-   * on the tight [matchStart, matchEnd] range determined by the DFA sandwich.
+   * Resolves deferred capture groups. Called lazily when the user accesses any group
+   * (e.g., {@code group(0)}, {@code start(1)}) or when a full snapshot is needed
+   * ({@code toMatchResult()}). Runs the submatch engine (OnePass or BitState/NFA) anchored
+   * at the DFA-determined match start, bounded by the DFA's match end, but without forcing
+   * the match to extend to that end. This allows alternation priority to determine the actual
+   * match length (e.g., {@code (fo|foo)} matching "fo" rather than "foo").
    */
   private void resolveCaptures() {
     if (capturesResolved) {
       return;
     }
     Prog prog = parentPattern.prog();
-    int[] result = searchSubmatch(
-        prog, text, deferredMatchStart, deferredMatchEnd, prog.numCaptures());
+    // Search anchored at matchStart, bounded by matchEnd, but endMatch=false so alternation
+    // priority determines the actual match length rather than the DFA's longest-match end.
+    int[] result;
+    if (parentPattern.canOnePassSubmatch()) {
+      result = parentPattern.onePass().search(
+          text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures());
+    } else {
+      result = searchWithBitStateOrNfa(
+          prog, text, deferredMatchStart, deferredMatchEnd, deferredMatchEnd,
+          true, false, false, prog.numCaptures());
+    }
     if (result != null) {
       groups = result;
     }

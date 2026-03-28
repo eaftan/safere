@@ -93,6 +93,9 @@ public final class Pattern implements Serializable {
   private final transient boolean prefixFoldCase;
   private final transient String literalMatch;
   private final transient boolean hasLazy;
+  private final transient boolean hasAlternation;
+  private final transient boolean hasBoundedRepeat;
+  private final transient boolean hasAnchorInQuant;
   private final transient boolean[] charClassPrefixAscii;
 
   /**
@@ -125,13 +128,28 @@ public final class Pattern implements Serializable {
    */
   private transient final ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
 
+  /**
+   * Thread-local cached forward DFA. Shared across all Matchers created from this Pattern within
+   * the same thread, so the DFA state cache persists across the common
+   * {@code pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by
+   * NFA instruction sets and flags), so it remains valid for any input text.
+   */
+  private transient final ThreadLocal<Dfa> cachedForwardDfa = new ThreadLocal<>();
+
+  /**
+   * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to
+   * run with a warm state cache across Matcher instances.
+   */
+  private transient final ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
+
   /** Holder for lazily computed OnePass analysis results. */
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {}
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
-      String literalMatch, boolean hasLazy, boolean[] charClassPrefixAscii) {
+      String literalMatch, boolean hasLazy, boolean hasAlternation,
+      boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean[] charClassPrefixAscii) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -141,6 +159,9 @@ public final class Pattern implements Serializable {
     this.prefixFoldCase = prefixFoldCase;
     this.literalMatch = literalMatch;
     this.hasLazy = hasLazy;
+    this.hasAlternation = hasAlternation;
+    this.hasBoundedRepeat = hasBoundedRepeat;
+    this.hasAnchorInQuant = hasAnchorInQuant;
     this.charClassPrefixAscii = charClassPrefixAscii;
   }
 
@@ -178,12 +199,15 @@ public final class Pattern implements Serializable {
     boolean prefixFoldCase = prefixResult.foldCase();
     String literalMatch = extractLiteralMatch(re);
     boolean hasLazy = hasLazyQuantifiers(re);
+    boolean hasAlt = hasAlternation(re);
+    boolean hasBounded = hasBoundedRepeat(re);
+    boolean hasAnchorQuant = hasAnchorInQuantifier(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(re) : null;
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
-        literalMatch, hasLazy, ccPrefixAscii);
+        literalMatch, hasLazy, hasAlt, hasBounded, hasAnchorQuant, ccPrefixAscii);
   }
 
   /**
@@ -353,6 +377,39 @@ public final class Pattern implements Serializable {
     cachedBitState.set(bs);
   }
 
+  /** Maximum number of DFA states before the DFA bails out. */
+  static final int MAX_DFA_STATES = 10_000;
+
+  /**
+   * Returns the thread-local cached forward DFA, creating it on first access. The DFA state cache
+   * persists across Matcher instances, so repeated {@code pattern.matcher(t).find()} calls benefit
+   * from warm DFA transitions.
+   */
+  Dfa forwardDfa() {
+    Dfa dfa = cachedForwardDfa.get();
+    if (dfa == null) {
+      dfa = new Dfa(prog, MAX_DFA_STATES, forwardDfaSetup());
+      cachedForwardDfa.set(dfa);
+    }
+    return dfa;
+  }
+
+  /**
+   * Returns the thread-local cached reverse DFA, creating it on first access. Triggers lazy
+   * compilation of the reverse program if needed.
+   */
+  Dfa reverseDfa() {
+    Dfa dfa = cachedReverseDfa.get();
+    if (dfa == null) {
+      Prog rp = reverseProg();
+      if (rp != null) {
+        dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup());
+        cachedReverseDfa.set(dfa);
+      }
+    }
+    return dfa;
+  }
+
   /**
    * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data race
    * at worst computes twice, but the result is the same since all inputs are immutable.
@@ -413,6 +470,26 @@ public final class Pattern implements Serializable {
    */
   boolean canOnePassSubmatch() {
     return onePassAnalysis().canSubmatch();
+  }
+
+  /**
+   * Returns {@code true} when the DFA's leftmost-longest group(0) boundaries are guaranteed to
+   * match RE2's leftmost-first semantics. The DFA uses POSIX leftmost-longest matching which can
+   * disagree with Perl/RE2 leftmost-first semantics in three cases:
+   *
+   * <ol>
+   *   <li>Lazy quantifiers: prefer shortest match, but the DFA gives longest.
+   *   <li>Alternation: the DFA picks the longest branch, but RE2 picks the first matching branch.
+   *   <li>Bounded repetitions ({@code a{3,4}}): nested inside quantifiers, the DFA may find a
+   *       globally longer match by choosing fewer characters per iteration, while RE2 greedily
+   *       maximizes each iteration.
+   * </ol>
+   *
+   * <p>When this returns {@code false}, the DFA sandwich is skipped and the submatch engine
+   * (BitState/NFA) determines the correct match boundaries.
+   */
+  boolean dfaGroupZeroReliable() {
+    return !hasLazy && !hasAlternation && !hasBoundedRepeat && !hasAnchorInQuant;
   }
 
   /**
@@ -603,6 +680,94 @@ public final class Pattern implements Serializable {
       if (node.subs != null) {
         for (Regexp sub : node.subs) {
           stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns {@code true} if the AST contains any explicit alternation ({@link RegexpOp#ALTERNATE}).
+   * Patterns with alternation may have branches of different match lengths, causing the DFA's
+   * leftmost-longest match to disagree with RE2's leftmost-first alternation priority. When this
+   * flag is set, the submatch engine must resolve the correct group(0) boundaries.
+   */
+  private static boolean hasAlternation(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.ALTERNATE) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns {@code true} if the AST contains a bounded repetition ({@code a{3,4}}, {@code a?}).
+   * Bounded repetitions have min &lt; max with a finite max, creating ambiguity: greedy matching
+   * maximizes each iteration while the DFA maximizes the overall match. For example,
+   * {@code (?:a{3,4})+} on "aaaaaa": greedy gives 4 (one iteration), DFA gives 6 (two iterations
+   * of 3).
+   */
+  private static boolean hasBoundedRepeat(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if ((node.op == RegexpOp.REPEAT || node.op == RegexpOp.QUEST)
+          && node.min < node.max && node.max > 0) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns {@code true} if the AST contains an anchor ({@code ^}, {@code $}, {@code \A},
+   * {@code \z}, {@code \b}, {@code \B}) inside a quantifier ({@code *}, {@code +}, {@code ?},
+   * {@code {n,m}}). The DFA sandwich's reverse pass cannot correctly handle anchors inside
+   * repeats — the reverse program translates {@code ^} into an end-of-text assertion that may
+   * match at a different position than the forward program's start-of-text assertion.
+   */
+  private static boolean hasAnchorInQuantifier(Regexp re) {
+    // Walk the AST, tracking whether we're inside a quantifier.
+    Deque<Object[]> stack = new ArrayDeque<>();
+    stack.push(new Object[]{re, Boolean.FALSE});
+    while (!stack.isEmpty()) {
+      Object[] entry = stack.pop();
+      Regexp node = (Regexp) entry[0];
+      boolean insideQuant = (Boolean) entry[1];
+      if (insideQuant) {
+        switch (node.op) {
+          case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY:
+            return true;
+          default:
+            break;
+        }
+      }
+      boolean childInsideQuant = insideQuant;
+      switch (node.op) {
+        case STAR, PLUS, QUEST, REPEAT:
+          childInsideQuant = true;
+          break;
+        default:
+          break;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(new Object[]{sub, childInsideQuant});
         }
       }
     }
