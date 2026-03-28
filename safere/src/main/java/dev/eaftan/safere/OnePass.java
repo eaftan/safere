@@ -61,16 +61,8 @@ final class OnePass {
         | (emptyFlags & EMPTY_MASK);
   }
 
-  private static int actionNextState(long action) {
-    return (int) (action >>> INDEX_SHIFT);
-  }
-
   private static int actionCapMask(long action) {
     return (int) ((action >>> CAP_SHIFT) & CAP_REG_MASK);
-  }
-
-  private static int actionEmptyFlags(long action) {
-    return (int) (action & EMPTY_MASK);
   }
 
   // -------------------------------------------------------------------------
@@ -347,9 +339,8 @@ final class OnePass {
       // Check match condition at current state BEFORE consuming next character.
       long matchAct = matchAction[state];
       if (matchAct != NO_ACTION) {
-        int reqEmpty = actionEmptyFlags(matchAct);
-        int curEmpty = Nfa.emptyFlags(text, pos);
-        if ((reqEmpty & ~curEmpty) == 0) {
+        int reqEmpty = (int) (matchAct & EMPTY_MASK);
+        if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos)) == 0) {
           applyCaptures(matchAct, pos, cap);
           if (cap.length > 1) {
             cap[1] = pos;
@@ -363,16 +354,33 @@ final class OnePass {
         break;
       }
 
-      int cp = text.codePointAt(pos);
-      int nextPos = pos + Character.charCount(cp);
-      int cls = classOf(cp);
+      // Read next character — ASCII fast path avoids codePointAt/charCount overhead.
+      int cp;
+      int nextPos;
+      int cls;
+      char ch = text.charAt(pos);
+      if (ch < 128) {
+        cp = ch;
+        nextPos = pos + 1;
+        cls = asciiClassMap[cp];
+      } else if (Character.isHighSurrogate(ch) && pos + 1 < endPos
+          && Character.isLowSurrogate(text.charAt(pos + 1))) {
+        cp = Character.toCodePoint(ch, text.charAt(pos + 1));
+        nextPos = pos + 2;
+        cls = classOf(cp);
+      } else {
+        cp = ch;
+        nextPos = pos + 1;
+        cls = classOf(cp);
+      }
 
-      long action = (cls >= 0 && cls < actions[state].length) ? actions[state][cls] : NO_ACTION;
+      long[] stateActions = actions[state];
+      long action = (cls >= 0 && cls < stateActions.length) ? stateActions[cls] : NO_ACTION;
       if (action == NO_ACTION) {
         break;
       }
 
-      int reqEmpty = actionEmptyFlags(action);
+      int reqEmpty = (int) (action & EMPTY_MASK);
       if (reqEmpty != 0) {
         int curEmpty = Nfa.emptyFlags(text, pos);
         if ((reqEmpty & ~curEmpty) != 0) {
@@ -381,7 +389,7 @@ final class OnePass {
       }
 
       applyCaptures(action, pos, cap);
-      state = actionNextState(action);
+      state = (int) (action >>> INDEX_SHIFT);
       pos = nextPos;
     }
 
