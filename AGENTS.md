@@ -212,6 +212,30 @@ JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
   in return (e.g., linear-time guarantees). When it's faster, note what
   the other engine optimizes for instead.
 
+### Summary Statistics
+
+When reporting benchmark results in BENCHMARKS.md, always compute and report
+**geometric mean of the speed ratios** (SafeRE time / competitor time) as the
+single summary statistic. Report two geomeans, against both JDK and RE2/J:
+
+1. **Core workloads geomean** — includes: literalMatch, emailFind, findInText,
+   alternationFind, charClassMatch, captureGroups, pigLatinReplace, httpFull
+   (and any future "everyday usage" benchmarks). This answers: "Is SafeRE
+   competitive for normal use?"
+2. **Pathological/scaling geomean** — includes: pathological, searchHardFail,
+   and other benchmarks that demonstrate linear-time guarantees or scaling
+   behavior. This answers: "Does the linear-time guarantee matter?"
+
+**Why geometric mean:** It is the only mean consistent under inversion
+(geomean(A/B) = 1/geomean(B/A)), treats multiplicative improvements
+symmetrically, and is the standard in systems benchmarking (SPEC, DaCapo,
+Renaissance). Do not use arithmetic mean of ratios — it is biased by outliers
+and inconsistent under inversion.
+
+**Ratio convention:** Express as `SafeRE / competitor` so values < 1.0 mean
+SafeRE is faster. For readability, also express as "SafeRE is N× faster" or
+"SafeRE is N× slower" alongside the raw geomean.
+
 ## Profiling
 
 Use profiling to identify actual bottlenecks before implementing optimizations.
