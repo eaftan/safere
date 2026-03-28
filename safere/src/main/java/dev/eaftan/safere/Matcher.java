@@ -145,6 +145,70 @@ public final class Matcher implements MatchResult {
   }
 
   /**
+   * Returns {@code true} if the replacement string contains no group references ({@code $}) or
+   * escape sequences ({@code \}). When true, {@code replaceAll} can use a fast path that appends
+   * the replacement string directly without per-character scanning.
+   */
+  private static boolean isSimpleReplacement(String replacement) {
+    for (int i = 0; i < replacement.length(); i++) {
+      char c = replacement.charAt(i);
+      if (c == '$' || c == '\\') {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Single-pass replaceAll for patterns that are a single character class under a {@code +}
+   * quantifier (e.g., {@code \d+}, {@code [a-zA-Z]+}). Scans the text once, identifying runs of
+   * matching characters and replacing each run with the replacement string. Completely bypasses
+   * all regex engines.
+   */
+  private String charClassReplaceAll(int[] ranges, String replacement) {
+    long b0 = parentPattern.charClassMatchBitmap0();
+    long b1 = parentPattern.charClassMatchBitmap1();
+    int len = text.length();
+
+    StringBuilder sb = new StringBuilder(len);
+    int copyFrom = 0;
+    int i = 0;
+
+    while (i < len) {
+      int cp = text.codePointAt(i);
+      if (charClassContains(b0, b1, ranges, cp)) {
+        // Found start of a match — append preceding non-match text.
+        sb.append(text, copyFrom, i);
+        // Skip past the entire run of matching characters.
+        do {
+          i += Character.charCount(cp);
+          if (i >= len) {
+            break;
+          }
+          cp = text.codePointAt(i);
+        } while (charClassContains(b0, b1, ranges, cp));
+        sb.append(replacement);
+        copyFrom = i;
+      } else {
+        i += Character.charCount(cp);
+      }
+    }
+    sb.append(text, copyFrom, len);
+    return sb.toString();
+  }
+
+  /** Tests whether a code point belongs to a character class defined by bitmaps and ranges. */
+  private static boolean charClassContains(long b0, long b1, int[] ranges, int cp) {
+    if (cp < 64) {
+      return (b0 & (1L << cp)) != 0;
+    } else if (cp < 128) {
+      return (b1 & (1L << (cp - 64))) != 0;
+    } else {
+      return binarySearchRanges(ranges, cp);
+    }
+  }
+
+  /**
    * Attempts to match the entire input sequence against the pattern.
    *
    * @return {@code true} if the entire input sequence matches this matcher's pattern
@@ -738,6 +802,13 @@ public final class Matcher implements MatchResult {
    * @return the string with all matches replaced
    */
   public String replaceAll(String replacement) {
+    // Character-class fast path: for patterns like \d+, [a-zA-Z]+, etc. with simple
+    // replacement strings (no group references), scan the text in a single pass.
+    int[] ccRanges = parentPattern.charClassMatchRanges();
+    if (ccRanges != null && !parentPattern.charClassMatchAllowEmpty()
+        && isSimpleReplacement(replacement)) {
+      return charClassReplaceAll(ccRanges, replacement);
+    }
     reset();
     StringBuilder sb = new StringBuilder();
     while (find()) {
