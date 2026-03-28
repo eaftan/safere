@@ -3,6 +3,7 @@
 
 package dev.eaftan.safere;
 
+import java.util.Arrays;
 import java.util.regex.MatchResult;
 
 /**
@@ -61,6 +62,18 @@ public final class Matcher implements MatchResult {
    */
   private BitState cachedBitState;
   private boolean bitStateBorrowed;
+
+  /**
+   * Whether all capture groups have been resolved. When the DFA sandwich determines match
+   * boundaries (group 0), inner captures (groups 1+) are deferred until explicitly requested.
+   * This avoids the expensive BitState/NFA submatch extraction in find-all loops that only
+   * check match existence or read group 0.
+   */
+  private boolean capturesResolved = true;
+
+  /** Stashed match boundaries for deferred capture resolution. */
+  private int deferredMatchStart;
+  private int deferredMatchEnd;
 
   /**
    * Creates a new matcher that will match the given input against the given pattern.
@@ -193,7 +206,6 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    // Medium path: use DFA to check if an anchored match exists.
     {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
@@ -258,6 +270,9 @@ public final class Matcher implements MatchResult {
       hasMatch = false;
       return false;
     }
+
+    // Reset deferred-capture state; DFA sandwich path may set it to false.
+    capturesResolved = true;
 
     // Literal fast path: for fully literal patterns with no user capture groups,
     // use String.indexOf() directly.
@@ -393,18 +408,21 @@ public final class Matcher implements MatchResult {
 
       if (prog.anchorStart()) {
         // Anchored: match start is effectiveStart. Run forward DFA (anchored, longest) to find
-        // actual end, then extract captures on the tight range.
+        // actual end, then defer inner captures until requested.
         Dfa.SearchResult fwdLongest = dfa().doSearch(text, effectiveStart, true, true);
         if (fwdLongest != null && fwdLongest.matched()) {
           int matchEnd = fwdLongest.pos();
-          int[] result = searchSubmatch(
-              prog, text, effectiveStart, matchEnd, prog.numCaptures());
-          if (result != null) {
-            groups = result;
-            findCallCount++;
-            hasMatch = true;
-            return true;
-          }
+          int nc = prog.numCaptures();
+          groups = new int[2 * nc];
+          Arrays.fill(groups, -1);
+          groups[0] = effectiveStart;
+          groups[1] = matchEnd;
+          deferredMatchStart = effectiveStart;
+          deferredMatchEnd = matchEnd;
+          capturesResolved = (nc <= 1);
+          findCallCount++;
+          hasMatch = true;
+          return true;
         }
       } else {
         Dfa revDfa = reverseDfa();
@@ -418,15 +436,18 @@ public final class Matcher implements MatchResult {
             Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
             if (fwdLongest != null && fwdLongest.matched()) {
               int matchEnd = fwdLongest.pos();
-              // Step 4: Extract captures on tight [matchStart, matchEnd] range.
-              int[] result = searchSubmatch(
-                  prog, text, matchStart, matchEnd, prog.numCaptures());
-              if (result != null) {
-                groups = result;
-                findCallCount++;
-                hasMatch = true;
-                return true;
-              }
+              // Step 4: Store group(0) boundaries, defer inner captures until requested.
+              int nc = prog.numCaptures();
+              groups = new int[2 * nc];
+              Arrays.fill(groups, -1);
+              groups[0] = matchStart;
+              groups[1] = matchEnd;
+              deferredMatchStart = matchStart;
+              deferredMatchEnd = matchEnd;
+              capturesResolved = (nc <= 1);
+              findCallCount++;
+              hasMatch = true;
+              return true;
             }
             // If anchored forward DFA fails, fall through to full search.
           }
@@ -652,6 +673,9 @@ public final class Matcher implements MatchResult {
   public int start(int group) {
     checkMatch();
     checkGroup(group);
+    if (group > 0) {
+      resolveCaptures();
+    }
     return groups[2 * group];
   }
 
@@ -681,6 +705,9 @@ public final class Matcher implements MatchResult {
   public int end(int group) {
     checkMatch();
     checkGroup(group);
+    if (group > 0) {
+      resolveCaptures();
+    }
     return groups[2 * group + 1];
   }
 
@@ -771,6 +798,7 @@ public final class Matcher implements MatchResult {
     appendPos = 0;
     hasMatch = false;
     groups = null;
+    capturesResolved = true;
     return this;
   }
 
@@ -804,12 +832,32 @@ public final class Matcher implements MatchResult {
    */
   public MatchResult toMatchResult() {
     checkMatch();
+    resolveCaptures();
     return new SnapshotMatchResult(groups.clone(), text, groupCount());
   }
 
   // ---------------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------------
+
+  /**
+   * Resolves deferred capture groups. Called lazily when the user requests a capture group
+   * beyond group 0 (e.g., {@code group(1)}, {@code start(2)}) or when a full snapshot is
+   * needed ({@code toMatchResult()}). Runs the submatch engine (OnePass or BitState/NFA)
+   * on the tight [matchStart, matchEnd] range determined by the DFA sandwich.
+   */
+  private void resolveCaptures() {
+    if (capturesResolved) {
+      return;
+    }
+    Prog prog = parentPattern.prog();
+    int[] result = searchSubmatch(
+        prog, text, deferredMatchStart, deferredMatchEnd, prog.numCaptures());
+    if (result != null) {
+      groups = result;
+    }
+    capturesResolved = true;
+  }
 
   private void checkMatch() {
     if (!hasMatch) {
