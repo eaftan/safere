@@ -99,6 +99,21 @@ public final class Pattern implements Serializable {
   private final transient boolean[] charClassPrefixAscii;
 
   /**
+   * Precomputed character class data for the "repeated character class" fast path in
+   * {@code matches()}. Non-null when the pattern is structurally {@code [class]+},
+   * {@code [class]*}, {@code [class]{n,}}, or similar — a single character class quantified to
+   * cover the entire string. Stored as a flat {@code [lo0, hi0, lo1, hi1, ...]} array of
+   * inclusive Unicode code point ranges plus precomputed ASCII bitmaps for O(1) lookup.
+   *
+   * <p>When non-null, {@code matches()} can bypass the full engine cascade and use a tight
+   * character-scanning loop instead.
+   */
+  private final transient int[] charClassMatchRanges;
+  private final transient long charClassMatchBitmap0;
+  private final transient long charClassMatchBitmap1;
+  private final transient boolean charClassMatchAllowEmpty;
+
+  /**
    * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
    * flags ({@code canOnePassFind}, {@code canOnePassSubmatch}). Computed on first access to avoid
    * paying the OnePass BFS cost at compile time.
@@ -149,7 +164,9 @@ public final class Pattern implements Serializable {
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
       String literalMatch, boolean hasLazy, boolean hasAlternation,
-      boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean[] charClassPrefixAscii) {
+      boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean[] charClassPrefixAscii,
+      int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
+      boolean charClassMatchAllowEmpty) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -163,6 +180,10 @@ public final class Pattern implements Serializable {
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
     this.charClassPrefixAscii = charClassPrefixAscii;
+    this.charClassMatchRanges = charClassMatchRanges;
+    this.charClassMatchBitmap0 = charClassMatchBitmap0;
+    this.charClassMatchBitmap1 = charClassMatchBitmap1;
+    this.charClassMatchAllowEmpty = charClassMatchAllowEmpty;
   }
 
   /**
@@ -205,9 +226,15 @@ public final class Pattern implements Serializable {
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(re) : null;
+    // Detect "repeated character class" pattern for matches() fast path.
+    CharClassMatchInfo ccMatch = extractCharClassMatch(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
-        literalMatch, hasLazy, hasAlt, hasBounded, hasAnchorQuant, ccPrefixAscii);
+        literalMatch, hasLazy, hasAlt, hasBounded, hasAnchorQuant, ccPrefixAscii,
+        ccMatch != null ? ccMatch.ranges : null,
+        ccMatch != null ? ccMatch.bitmap0 : 0,
+        ccMatch != null ? ccMatch.bitmap1 : 0,
+        ccMatch != null && ccMatch.allowEmpty);
   }
 
   /**
@@ -529,6 +556,30 @@ public final class Pattern implements Serializable {
    */
   boolean[] charClassPrefixAscii() {
     return charClassPrefixAscii;
+  }
+
+  /**
+   * Returns the precomputed ranges for the character-class-match fast path, or {@code null} if
+   * the pattern is not a simple repeated character class. When non-null, {@code matches()} can
+   * use a tight scanning loop instead of the full engine cascade.
+   */
+  int[] charClassMatchRanges() {
+    return charClassMatchRanges;
+  }
+
+  /** ASCII bitmap (code points 0–63) for the character-class-match fast path. */
+  long charClassMatchBitmap0() {
+    return charClassMatchBitmap0;
+  }
+
+  /** ASCII bitmap (code points 64–127) for the character-class-match fast path. */
+  long charClassMatchBitmap1() {
+    return charClassMatchBitmap1;
+  }
+
+  /** Whether the character-class-match fast path allows empty input (from {@code *} or {@code ?}). */
+  boolean charClassMatchAllowEmpty() {
+    return charClassMatchAllowEmpty;
   }
 
   /**
@@ -905,6 +956,108 @@ public final class Pattern implements Serializable {
       }
     }
     return bitmap;
+  }
+
+  /** Holds precomputed data for the character-class-match fast path. */
+  private record CharClassMatchInfo(
+      int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
+
+  /**
+   * Detects patterns that are structurally a single character class under a quantifier covering
+   * the entire string — e.g., {@code [a-zA-Z]+}, {@code \d*}, {@code \w{1,}}, {@code [0-9]+}.
+   * When detected, {@code matches()} can use a tight character-scanning loop with precomputed
+   * bitmaps instead of the full engine cascade.
+   *
+   * <p>Sees through the implicit group-0 CAPTURE wrapper. Returns {@code null} if the pattern
+   * has any user capture groups (the fast path only produces group 0).
+   */
+  private static CharClassMatchInfo extractCharClassMatch(Regexp re) {
+    Regexp node = re;
+
+    // Unwrap implicit group-0 capture.
+    if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
+      node = node.sub();
+    }
+
+    // Must be a quantifier: PLUS (min=1), STAR (min=0), or REPEAT (min >= 0, max = -1).
+    boolean allowEmpty;
+    switch (node.op) {
+      case PLUS -> allowEmpty = false;
+      case STAR -> allowEmpty = true;
+      case REPEAT -> {
+        if (node.max != -1) {
+          return null; // bounded repeat like {3,5} — not a "cover entire string" pattern
+        }
+        if (node.min > 1) {
+          return null; // {2,} or higher — would need code point counting; not worth optimizing
+        }
+        allowEmpty = (node.min == 0);
+      }
+      default -> {
+        return null;
+      }
+    }
+
+    Regexp inner = node.sub();
+
+    // The quantified element must be a character class.
+    if (inner.op != RegexpOp.CHAR_CLASS || inner.charClass == null) {
+      return null;
+    }
+
+    // Reject if the original pattern has user capture groups — the fast path only produces
+    // group 0, so it can't provide group(1) etc.
+    if (hasUserCaptures(re)) {
+      return null;
+    }
+
+    CharClass cc = inner.charClass;
+    if (cc.isEmpty()) {
+      return null;
+    }
+
+    // Build flat ranges array and precompute ASCII bitmaps.
+    int numRanges = cc.numRanges();
+    int[] ranges = new int[numRanges * 2];
+    long b0 = 0;
+    long b1 = 0;
+    for (int i = 0; i < numRanges; i++) {
+      int lo = cc.lo(i);
+      int hi = cc.hi(i);
+      ranges[i * 2] = lo;
+      ranges[i * 2 + 1] = hi;
+      int start = Math.max(lo, 0);
+      int end = Math.min(hi, 127);
+      for (int cp = start; cp <= end; cp++) {
+        if (cp < 64) {
+          b0 |= 1L << cp;
+        } else {
+          b1 |= 1L << (cp - 64);
+        }
+      }
+    }
+    return new CharClassMatchInfo(ranges, b0, b1, allowEmpty);
+  }
+
+  /**
+   * Returns {@code true} if the AST contains any CAPTURE node with {@code cap > 0} (user capture
+   * groups, not the implicit group 0).
+   */
+  private static boolean hasUserCaptures(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
   }
 
   /**

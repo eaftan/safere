@@ -83,6 +83,68 @@ public final class Matcher implements MatchResult {
   // ---------------------------------------------------------------------------
 
   /**
+   * Fast path for {@code matches()} when the pattern is a single character class under a
+   * quantifier (e.g., {@code [a-zA-Z]+}, {@code \d*}). Uses precomputed ASCII bitmaps for O(1)
+   * per-character checks and falls back to binary search for non-ASCII code points.
+   */
+  private boolean charClassMatchFastPath(int[] ranges) {
+    long b0 = parentPattern.charClassMatchBitmap0();
+    long b1 = parentPattern.charClassMatchBitmap1();
+    boolean allowEmpty = parentPattern.charClassMatchAllowEmpty();
+
+    int len = text.length();
+    if (len == 0) {
+      if (allowEmpty) {
+        groups = new int[]{0, 0};
+        return true;
+      }
+      return false;
+    }
+
+    // Scan every code point.
+    int i = 0;
+    while (i < len) {
+      int cp = text.codePointAt(i);
+      if (cp < 64) {
+        if ((b0 & (1L << cp)) == 0) {
+          return false;
+        }
+      } else if (cp < 128) {
+        if ((b1 & (1L << (cp - 64))) == 0) {
+          return false;
+        }
+      } else {
+        if (!binarySearchRanges(ranges, cp)) {
+          return false;
+        }
+      }
+      i += Character.charCount(cp);
+    }
+
+    groups = new int[]{0, len};
+    return true;
+  }
+
+  /** Binary search through sorted [lo, hi] ranges to check if {@code cp} is in any range. */
+  private static boolean binarySearchRanges(int[] ranges, int cp) {
+    int lo = 0;
+    int hi = ranges.length / 2 - 1;
+    while (lo <= hi) {
+      int mid = (lo + hi) >>> 1;
+      int rangeLo = ranges[mid * 2];
+      int rangeHi = ranges[mid * 2 + 1];
+      if (cp < rangeLo) {
+        hi = mid - 1;
+      } else if (cp > rangeHi) {
+        lo = mid + 1;
+      } else {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Attempts to match the entire input sequence against the pattern.
    *
    * @return {@code true} if the entire input sequence matches this matcher's pattern
@@ -106,6 +168,13 @@ public final class Matcher implements MatchResult {
       } else {
         hasMatch = false;
       }
+      return hasMatch;
+    }
+
+    // Character-class fast path: for patterns like [a-zA-Z]+, \d+, \w*, etc.
+    int[] ccRanges = parentPattern.charClassMatchRanges();
+    if (ccRanges != null) {
+      hasMatch = charClassMatchFastPath(ccRanges);
       return hasMatch;
     }
 
