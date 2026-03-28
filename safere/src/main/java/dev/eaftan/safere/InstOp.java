@@ -42,4 +42,15 @@ enum InstOp {
 
   /** Always fails. Never matches. Occasionally unavoidable. */
   FAIL;
+
+  // Int constants for hot-loop switches, avoiding Enum.ordinal() + synthetic switch-map overhead.
+  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., FAIL=7).
+  static final int OP_ALT = 0;
+  static final int OP_ALT_MATCH = 1;
+  static final int OP_CHAR_RANGE = 2;
+  static final int OP_CAPTURE = 3;
+  static final int OP_EMPTY_WIDTH = 4;
+  static final int OP_MATCH = 5;
+  static final int OP_NOP = 6;
+  static final int OP_FAIL = 7;
 }

@@ -29,6 +29,12 @@ final class Inst {
   /** The opcode for this instruction. */
   public InstOp op;
 
+  /**
+   * Cached {@code op.ordinal()} for use in hot-loop switches, avoiding the overhead of
+   * {@code Enum.ordinal()} and the synthetic switch-map array lookup on every iteration.
+   */
+  public int opCode;
+
   /** Primary successor instruction index. Used by all opcodes except MATCH and FAIL. */
   public int out;
 
@@ -65,11 +71,13 @@ final class Inst {
   /** Creates an uninitialized instruction (defaults to FAIL). */
   public Inst() {
     this.op = InstOp.FAIL;
+    this.opCode = InstOp.OP_FAIL;
   }
 
   /** Initializes as an ALT instruction branching to {@code out} or {@code out1}. */
   public void initAlt(int out, int out1) {
     this.op = InstOp.ALT;
+    this.opCode = InstOp.OP_ALT;
     this.out = out;
     this.out1 = out1;
   }
@@ -77,6 +85,7 @@ final class Inst {
   /** Initializes as a CHAR_RANGE instruction matching code points in {@code [lo, hi]}. */
   public void initCharRange(int lo, int hi, boolean foldCase, int out) {
     this.op = InstOp.CHAR_RANGE;
+    this.opCode = InstOp.OP_CHAR_RANGE;
     this.lo = lo;
     this.hi = hi;
     this.foldCase = foldCase;
@@ -86,6 +95,7 @@ final class Inst {
   /** Initializes as a CAPTURE instruction for capture register {@code cap}. */
   public void initCapture(int cap, int out) {
     this.op = InstOp.CAPTURE;
+    this.opCode = InstOp.OP_CAPTURE;
     this.arg = cap;
     this.out = out;
   }
@@ -93,6 +103,7 @@ final class Inst {
   /** Initializes as an EMPTY_WIDTH instruction with the given {@link EmptyOp} flags. */
   public void initEmptyWidth(int emptyFlags, int out) {
     this.op = InstOp.EMPTY_WIDTH;
+    this.opCode = InstOp.OP_EMPTY_WIDTH;
     this.arg = emptyFlags;
     this.out = out;
   }
@@ -100,18 +111,21 @@ final class Inst {
   /** Initializes as a MATCH instruction with the given match ID. */
   public void initMatch(int matchId) {
     this.op = InstOp.MATCH;
+    this.opCode = InstOp.OP_MATCH;
     this.arg = matchId;
   }
 
   /** Initializes as a NOP instruction continuing to {@code out}. */
   public void initNop(int out) {
     this.op = InstOp.NOP;
+    this.opCode = InstOp.OP_NOP;
     this.out = out;
   }
 
   /** Initializes as a FAIL instruction. */
   public void initFail() {
     this.op = InstOp.FAIL;
+    this.opCode = InstOp.OP_FAIL;
   }
 
   /**

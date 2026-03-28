@@ -261,12 +261,8 @@ final class BitState {
    * </ul>
    */
   private boolean shouldVisit(int instId, int pos) {
-    InstOp op = prog.inst(instId).op;
-    if (op != InstOp.ALT && op != InstOp.ALT_MATCH) {
-      return true;
-    }
     if (!cycleAlts[instId]) {
-      return true; // non-cycle ALT: safe to revisit
+      return true; // non-cycle or non-ALT instruction: safe to revisit
     }
     // Cycle ALT: use visited bitmap to prevent infinite epsilon loops.
     int bit = instId * textSlots + pos;
@@ -329,10 +325,10 @@ final class BitState {
       }
 
       Inst ip = prog.inst(id);
-      switch (ip.op) {
-        case FAIL -> {}
+      switch (ip.opCode) {
+        case InstOp.OP_FAIL -> {}
 
-        case ALT, ALT_MATCH -> {
+        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
           // Push second alternative first (it will be tried if first fails).
           if (shouldVisit(ip.out1, pos)) {
             push(ip.out1, pos);
@@ -343,13 +339,13 @@ final class BitState {
           }
         }
 
-        case NOP -> {
+        case InstOp.OP_NOP -> {
           if (shouldVisit(ip.out, pos)) {
             push(ip.out, pos);
           }
         }
 
-        case CAPTURE -> {
+        case InstOp.OP_CAPTURE -> {
           int reg = ip.arg;
           if (reg < ncap) {
             // Push restore sentinel: if we backtrack past this, undo the capture.
@@ -361,7 +357,7 @@ final class BitState {
           }
         }
 
-        case EMPTY_WIDTH -> {
+        case InstOp.OP_EMPTY_WIDTH -> {
           int curFlags = Nfa.emptyFlags(text, pos);
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
@@ -370,7 +366,7 @@ final class BitState {
           }
         }
 
-        case CHAR_RANGE -> {
+        case InstOp.OP_CHAR_RANGE -> {
           if (pos < endPos) {
             int cp = text.codePointAt(pos);
             if (ip.matchesChar(cp)) {
@@ -382,7 +378,7 @@ final class BitState {
           }
         }
 
-        case MATCH -> {
+        case InstOp.OP_MATCH -> {
           if (endMatch && pos != endPos) {
             break; // must match at the end boundary
           }
