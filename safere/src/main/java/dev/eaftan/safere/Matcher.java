@@ -272,12 +272,13 @@ public final class Matcher implements MatchResult {
 
     Prog prog = parentPattern.prog();
 
-    // Anchored OnePass fast path: for non-nullable anchored patterns, use OnePass directly on the
-    // first find() call (searchFrom == 0), bypassing DFA construction entirely. This is equivalent
-    // to lookingAt() and avoids the ~500ns DFA cold-start overhead. Only safe for non-nullable
-    // patterns to avoid a leftmost-first ambiguity bug in the OnePass engine.
-    if (parentPattern.canOnePassFind() && searchFrom == 0) {
-      groups = parentPattern.onePass().search(text, false, prog.numCaptures());
+    // Anchored OnePass fast path: for anchored OnePass-eligible patterns, use OnePass directly.
+    // OnePass is a single O(n) pass that finds both match bounds and captures, avoiding the
+    // entire DFA construction and sandwich overhead. Works for any searchFrom position — OnePass
+    // quickly returns null if ^ or \A constraints fail at a non-zero position.
+    if (prog.anchorStart() && parentPattern.canOnePassPrimary()) {
+      groups = parentPattern.onePass().search(text, searchFrom, text.length(), false,
+          prog.numCaptures());
       findCallCount++;
       hasMatch = (groups != null);
       return hasMatch;
@@ -312,6 +313,22 @@ public final class Matcher implements MatchResult {
         return false;
       }
       effectiveStart = idx;
+    }
+
+    // OnePass primary path for small texts: for OnePass-eligible unanchored patterns on short
+    // input, scan with OnePass directly. OnePass is faster than BitState — no visited bitmap
+    // or job stack allocation, deterministic single-pass traversal per start position.
+    if (parentPattern.canOnePassPrimary() && text.length() <= 256) {
+      int[] result = parentPattern.onePass().searchUnanchored(
+          text, effectiveStart, text.length(), prog.numCaptures());
+      findCallCount++;
+      if (result != null) {
+        groups = result;
+        hasMatch = true;
+        return true;
+      }
+      hasMatch = false;
+      return false;
     }
 
     // Skip DFA+sandwich for small texts: when the input is short enough for BitState, use it
@@ -467,14 +484,15 @@ public final class Matcher implements MatchResult {
    */
   private int[] searchSubmatch(Prog prog, String text, int matchStart, int matchEnd,
       int nsubmatch) {
-    String searchText = text.substring(matchStart, matchEnd);
-    int[] result;
     if (parentPattern.canOnePassSubmatch()) {
-      result = parentPattern.onePass().search(searchText, true, nsubmatch);
-    } else {
-      result = searchWithBitStateOrNfa(
-          prog, searchText, 0, searchText.length(), true, false, true, nsubmatch);
+      // OnePass with offset bounds — no substring allocation needed. The endMatch=true
+      // constraint ensures the match reaches exactly matchEnd within the bounded range.
+      return parentPattern.onePass().search(text, matchStart, matchEnd, true, nsubmatch);
     }
+    // Non-OnePass: BitState/NFA still need a substring since they don't support endPos bounds.
+    String searchText = text.substring(matchStart, matchEnd);
+    int[] result = searchWithBitStateOrNfa(
+        prog, searchText, 0, searchText.length(), true, false, true, nsubmatch);
     if (result == null) {
       return null;
     }

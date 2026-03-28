@@ -119,7 +119,8 @@ public final class Pattern implements Serializable {
   private transient volatile Dfa.Setup reverseDfaSetup;
 
   /** Holder for lazily computed OnePass analysis results. */
-  private record OnePassAnalysis(OnePass onePass, boolean canFind, boolean canSubmatch) {}
+  private record OnePassAnalysis(
+      OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {}
 
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
@@ -341,19 +342,22 @@ public final class Pattern implements Serializable {
     OnePassAnalysis analysis = onePassAnalysis;
     if (analysis == null) {
       OnePass op = OnePass.build(prog);
-      // OnePass can be used directly in find() for anchored patterns that:
-      // (1) cannot match the empty string (nullable patterns have leftmost-first ambiguity), and
-      // (2) do not contain lazy quantifiers (+?, *?, ??, {n,m}?) because OnePass returns
-      //     leftmost-longest match boundaries while find() expects leftmost-first semantics.
-      boolean canFind = op != null && prog.anchorStart()
+      // OnePass can be used as the primary matching engine (bypassing DFA entirely) when the
+      // pattern is non-nullable and has no lazy quantifiers. Nullable patterns (e.g., a*|c.)
+      // must be excluded because OnePass returns leftmost-longest semantics, which disagrees
+      // with JDK's leftmost-first (biased) semantics for nullable alternations.
+      boolean canPrimary = op != null
           && op.search("", false, 0) == null
           && !hasLazy;
+      // canFind is canPrimary restricted to anchored patterns (legacy flag).
+      boolean canFind = canPrimary && prog.anchorStart();
       // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
-      // when captures need to be extracted from a known match range. Lazy quantifiers are excluded
-      // because OnePass returns leftmost-longest capture group boundaries, which differs from
+      // when captures need to be extracted from a known match range. Nullable patterns are safe
+      // here because match bounds are already known. Lazy quantifiers are excluded because
+      // OnePass returns leftmost-longest capture group boundaries, which differs from
       // leftmost-first semantics for lazy groups.
       boolean canSubmatch = op != null && !hasLazy;
-      analysis = new OnePassAnalysis(op, canFind, canSubmatch);
+      analysis = new OnePassAnalysis(op, canPrimary, canFind, canSubmatch);
       onePassAnalysis = analysis;
     }
     return analysis;
@@ -365,8 +369,19 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns whether OnePass can be used directly in {@code find()} for this pattern. This is true
-   * when the pattern is anchored at the start, OnePass-eligible, and cannot match the empty string.
+   * Returns whether OnePass can be used as the primary matching engine, bypassing the DFA
+   * entirely. This is true when the pattern is OnePass-eligible, non-nullable, and has no lazy
+   * quantifiers. The non-nullable restriction prevents leftmost-first ambiguity bugs where a
+   * nullable alternative (e.g., {@code a*} in {@code a*|c.}) would incorrectly lose to a longer
+   * alternative under OnePass's longest-match semantics.
+   */
+  boolean canOnePassPrimary() {
+    return onePassAnalysis().canPrimary();
+  }
+
+  /**
+   * Returns whether OnePass can be used directly in {@code find()} for anchored patterns. This is
+   * {@link #canOnePassPrimary()} restricted to patterns anchored at the start.
    */
   boolean canOnePassFind() {
     return onePassAnalysis().canFind();
@@ -374,7 +389,8 @@ public final class Pattern implements Serializable {
 
   /**
    * Returns whether OnePass can be used for submatch extraction in the sandwich path. This is true
-   * when the pattern is OnePass-eligible and has no lazy quantifiers.
+   * when the pattern is OnePass-eligible and has no lazy quantifiers. Nullable patterns are safe
+   * here because match bounds are already determined by the DFA.
    */
   boolean canOnePassSubmatch() {
     return onePassAnalysis().canSubmatch();

@@ -259,10 +259,8 @@ final class OnePass {
   // -------------------------------------------------------------------------
 
   /**
-   * Searches for a match in the given text using the one-pass automaton.
-   *
-   * <p>Only supports anchored matching (starts at position 0). For unanchored matching, use the
-   * DFA to find the match region first.
+   * Searches for a match in the given text starting at position 0. Convenience overload that
+   * delegates to {@link #search(String, int, int, boolean, int)}.
    *
    * @param text the input text
    * @param endMatch if true, the match must cover the entire text
@@ -270,65 +268,74 @@ final class OnePass {
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
   int[] search(String text, boolean endMatch, int nsubmatch) {
-    int textLen = text.length();
+    return search(text, 0, text.length(), endMatch, nsubmatch);
+  }
+
+  /**
+   * Searches for an anchored match in the text starting from {@code startPos}, scanning up to
+   * {@code endPos}. This is equivalent to running OnePass on {@code text.substring(startPos,
+   * endPos)} but avoids the substring allocation. Positions in the returned array are relative to
+   * the original {@code text}.
+   *
+   * <p>Empty-width assertions ({@code \b}, {@code ^}, {@code $}) are evaluated against the full
+   * text, preserving correct boundary semantics even when searching a sub-range.
+   *
+   * @param text the full input text
+   * @param startPos position in {@code text} at which to anchor the match
+   * @param endPos upper scan bound (exclusive); the match cannot consume characters beyond this
+   * @param endMatch if true, the match must extend to exactly {@code endPos}
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions relative to {@code text}, or null if no match
+   */
+  int[] search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
     int ncap = 2 * Math.max(nsubmatch, 1);
     int[] cap = new int[ncap];
     Arrays.fill(cap, -1);
-    cap[0] = 0; // match start is always 0 (anchored)
+    cap[0] = startPos;
 
     int state = 0;
     boolean matched = false;
     int[] bestCap = null;
 
-    int pos = 0;
-    while (pos <= textLen) {
+    int pos = startPos;
+    while (pos <= endPos) {
       // Check match condition at current state BEFORE consuming next character.
       long matchAct = matchAction[state];
       if (matchAct != NO_ACTION) {
         int reqEmpty = actionEmptyFlags(matchAct);
         int curEmpty = Nfa.emptyFlags(text, pos);
         if ((reqEmpty & ~curEmpty) == 0) {
-          // Match found. Apply match captures.
           applyCaptures(matchAct, pos, cap);
           if (cap.length > 1) {
-            cap[1] = pos; // match end
+            cap[1] = pos;
           }
           matched = true;
           bestCap = cap.clone();
-          // In first-match mode we could stop early, but for correctness with greedy
-          // quantifiers, continue to find the longest match.
         }
       }
 
-      // Done if we've reached end of text.
-      if (pos >= textLen) {
+      if (pos >= endPos) {
         break;
       }
 
-      // Consume next code point.
       int cp = text.codePointAt(pos);
       int nextPos = pos + Character.charCount(cp);
       int cls = classOf(cp);
 
-      // Look up transition.
       long action = (cls >= 0 && cls < actions[state].length) ? actions[state][cls] : NO_ACTION;
       if (action == NO_ACTION) {
-        break; // dead
+        break;
       }
 
-      // Check empty-width conditions.
       int reqEmpty = actionEmptyFlags(action);
       if (reqEmpty != 0) {
         int curEmpty = Nfa.emptyFlags(text, pos);
         if ((reqEmpty & ~curEmpty) != 0) {
-          break; // empty conditions not satisfied
+          break;
         }
       }
 
-      // Apply transition captures.
       applyCaptures(action, pos, cap);
-
-      // Advance to next state.
       state = actionNextState(action);
       pos = nextPos;
     }
@@ -336,14 +343,43 @@ final class OnePass {
     if (!matched) {
       return null;
     }
-    if (endMatch && bestCap[1] != textLen) {
+    if (endMatch && bestCap[1] != endPos) {
       return null;
     }
-    // The compiler strips trailing $ and sets anchorEnd; enforce it here.
-    if (anchorEnd && bestCap[1] != textLen) {
+    if (anchorEnd && bestCap[1] != endPos) {
       return null;
     }
     return Arrays.copyOf(bestCap, ncap);
+  }
+
+  /**
+   * Unanchored search: scans from {@code startPos} through the text, trying an anchored OnePass
+   * match at each position. Returns the first (leftmost) match found, with longest-match (greedy)
+   * semantics at that position.
+   *
+   * @param text the full input text
+   * @param startPos first position to try
+   * @param searchLimit upper bound on start positions to try
+   * @param nsubmatch number of submatch groups to track (including group 0)
+   * @return submatch positions relative to {@code text}, or null if no match
+   */
+  int[] searchUnanchored(String text, int startPos, int searchLimit, int nsubmatch) {
+    int textLen = text.length();
+    int limit = Math.min(searchLimit, textLen) + 1;
+    for (int start = startPos; start < limit; start++) {
+      int[] result = search(text, start, textLen, false, nsubmatch);
+      if (result != null) {
+        return result;
+      }
+      // Advance to next code point boundary.
+      if (start < textLen) {
+        int cp = text.codePointAt(start);
+        if (Character.charCount(cp) > 1) {
+          start++; // skip low surrogate; loop increment handles the rest
+        }
+      }
+    }
+    return null;
   }
 
   /** Maps a code point to its equivalence class index. */
