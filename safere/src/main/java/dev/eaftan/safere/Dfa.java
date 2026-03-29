@@ -153,7 +153,7 @@ final class Dfa {
    * character. This gives at most 2 × 2 × 64 × 2 = 512 combinations. Caching avoids the expensive
    * {@link #expand} call and its {@code Arrays.copyOf} allocation on every DFA search.
    */
-  private final State[] startStateByContext = new State[512];
+  private final State[] startStateByContext = new State[1024];
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -472,8 +472,8 @@ final class Dfa {
 
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
     // emptyFlags, lastWord), so positions with identical context share the same start state.
-    int cacheKey = (anchored ? 256 : 0) | (reverseContext ? 128 : 0)
-        | ((emptyFlags & 0x3F) << 1) | (lastWord ? 1 : 0);
+    int cacheKey = (anchored ? 512 : 0) | (reverseContext ? 256 : 0)
+        | ((emptyFlags & 0x7F) << 1) | (lastWord ? 1 : 0);
     State cached = startStateByContext[cacheKey];
     if (cached != null) {
       return cached;
@@ -493,6 +493,31 @@ final class Dfa {
       startStateByContext[cacheKey] = s;
     }
     return s;
+  }
+
+  /**
+   * Returns the lowest position at which text-length-dependent emptyFlags (END_TEXT or DOLLAR_END)
+   * are active. Transitions whose destination is at or beyond this threshold must bypass the
+   * {@code State.next[]} cache, because the cache is keyed by (state, character-class) which is
+   * position-independent, but END_TEXT/DOLLAR_END depend on the absolute position relative to
+   * {@code text.length()}.
+   *
+   * <ul>
+   *   <li>END_TEXT is set at {@code pos == text.length()}.
+   *   <li>DOLLAR_END is set at {@code pos == text.length()} and also at
+   *       {@code pos == text.length() - 1} when the text ends with {@code '\n'}.
+   * </ul>
+   *
+   * <p>For most of the text, transitions are cached normally. Only the last 1–2 character
+   * transitions (near end-of-text) bypass the cache. The end-of-text sentinel ({@code cp < 0})
+   * is always safe to cache because it always represents "at text end".
+   */
+  private static int positionDependentThreshold(String text) {
+    int textLen = text.length();
+    if (textLen > 0 && text.charAt(textLen - 1) == '\n') {
+      return textLen - 1;
+    }
+    return textLen;
   }
 
   /**
@@ -756,8 +781,19 @@ final class Dfa {
    */
   SearchResult doSearch(String text, int startPos, boolean anchored, boolean longest) {
     int textLen = text.length();
-    // If the compiled program requires end-of-text matching (stripped $), enforce it.
+    // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
     boolean needEndMatch = prog.anchorEnd();
+    boolean dollarEnd = prog.dollarAnchorEnd();
+    // $ allows matching before a trailing \n at end of text (JDK default $ behavior).
+    boolean trailingNewline = dollarEnd && textLen > 0 && text.charAt(textLen - 1) == '\n';
+
+    // Position-dependent flag threshold: emptyFlags at positions >= this threshold contain
+    // text-length-dependent flags (END_TEXT at textLen, DOLLAR_END at textLen or textLen-1
+    // when text ends with '\n'). Transitions computed at such positions must NOT be cached
+    // because the same (state, character-class) pair at a different position (in the same or
+    // a different text) would produce a different result. See the class-level comment on
+    // DFA caching invariants.
+    int posDepThreshold = positionDependentThreshold(text);
 
     State s = startState(text, startPos, anchored);
     if (s == null) {
@@ -769,10 +805,11 @@ final class Dfa {
 
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
-      if (!needEndMatch || textLen == startPos) {
+      if (!needEndMatch || textLen == startPos
+          || (trailingNewline && textLen - 1 == startPos)) {
         matched = true;
         matchEnd = startPos;
-        if (!longest && !needEndMatch) {
+        if (!longest && (!needEndMatch || startPos == textLen)) {
           return new SearchResult(true, startPos);
         }
       }
@@ -809,14 +846,27 @@ final class Dfa {
         cls = numClasses - 1;
       }
 
-      // Try cached transition first.
-      State ns = s.next[cls];
-      if (ns == null) {
-        ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
+      // Compute the next state, using the transition cache when safe.
+      // Transitions where the destination position has text-length-dependent emptyFlags
+      // (END_TEXT, DOLLAR_END) must bypass the cache to preserve the invariant that
+      // cached transitions are position-independent. The end-of-text sentinel (cp < 0)
+      // is always safe to cache because it always means "at text end".
+      int effectiveNextPos = Math.min(nextPos, textLen);
+      State ns;
+      if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+        ns = computeNext(s, cp, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next[cls] = ns;
+      } else {
+        ns = s.next[cls];
+        if (ns == null) {
+          ns = computeNext(s, cp, text, effectiveNextPos);
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
       }
       s = ns;
 
@@ -829,10 +879,11 @@ final class Dfa {
         // before consuming the current character. Record the match at pos, not nextPos.
         int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
             ? pos : Math.min(nextPos, textLen);
-        if (!needEndMatch || endPos == textLen) {
+        if (!needEndMatch || endPos == textLen
+            || (trailingNewline && endPos == textLen - 1)) {
           matched = true;
           matchEnd = endPos;
-          if (!longest && !needEndMatch) {
+          if (!longest && (!needEndMatch || endPos == textLen)) {
             return new SearchResult(true, matchEnd);
           }
         }
@@ -876,6 +927,11 @@ final class Dfa {
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
     // endPos backward to startLimit, feeding characters in reverse order.
     boolean needEndMatch = prog.anchorEnd();
+    int textLen = text.length();
+
+    // Position-dependent threshold: same invariant as doSearch — bypass the transition cache
+    // for positions where text-length-dependent emptyFlags (END_TEXT, DOLLAR_END) are active.
+    int posDepThreshold = positionDependentThreshold(text);
 
     // Compute empty flags at the reverse start position (= endPos in the original text).
     State s = startState(text, endPos, anchored, true);
@@ -932,14 +988,23 @@ final class Dfa {
         cls = numClasses - 1;
       }
 
-      // Try cached transition first.
-      State ns = s.next[cls];
-      if (ns == null) {
-        ns = computeNext(s, cp, text, Math.max(prevPos, startLimit));
+      // Bypass cache for position-dependent transitions (same invariant as doSearch).
+      int effectivePrevPos = Math.max(prevPos, startLimit);
+      State ns;
+      if (cp >= 0 && effectivePrevPos >= posDepThreshold) {
+        ns = computeNext(s, cp, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next[cls] = ns;
+      } else {
+        ns = s.next[cls];
+        if (ns == null) {
+          ns = computeNext(s, cp, text, effectivePrevPos);
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
       }
       s = ns;
 
@@ -1002,6 +1067,11 @@ final class Dfa {
   ManyMatchResult doSearchMany(String text, boolean anchored) {
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
+    boolean dollarEnd = prog.dollarAnchorEnd();
+    boolean trailingNewline = dollarEnd && textLen > 0 && text.charAt(textLen - 1) == '\n';
+
+    // Position-dependent threshold: same invariant as doSearch.
+    int posDepThreshold = positionDependentThreshold(text);
 
     State s = startState(text, 0, anchored);
     if (s == null) {
@@ -1013,7 +1083,8 @@ final class Dfa {
 
     // Check if start state is already a match.
     if (s.isMatch()) {
-      if (!needEndMatch || textLen == 0) {
+      if (!needEndMatch || textLen == 0
+          || (trailingNewline && textLen - 1 == 0)) {
         for (int id : collectMatchIds(s.insts)) {
           seen.set(id);
         }
@@ -1047,13 +1118,23 @@ final class Dfa {
           cls = numClasses - 1;
         }
 
-        State ns = s.next[cls];
-        if (ns == null) {
-          ns = computeNext(s, cp, text, Math.min(nextPos, textLen));
+        // Bypass cache for position-dependent transitions (same invariant as doSearch).
+        int effectiveNextPos = Math.min(nextPos, textLen);
+        State ns;
+        if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+          ns = computeNext(s, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next[cls] = ns;
+        } else {
+          ns = s.next[cls];
+          if (ns == null) {
+            ns = computeNext(s, cp, text, effectiveNextPos);
+            if (ns == null) {
+              return null; // budget exceeded
+            }
+            s.next[cls] = ns;
+          }
         }
         s = ns;
 
@@ -1064,7 +1145,8 @@ final class Dfa {
         if (s.isMatch()) {
           int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
               ? pos : Math.min(nextPos, textLen);
-          if (!needEndMatch || endPos == textLen) {
+          if (!needEndMatch || endPos == textLen
+              || (trailingNewline && endPos == textLen - 1)) {
             // Collect match IDs from the state's instructions.
             for (int id : collectMatchIds(s.insts)) {
               seen.set(id);

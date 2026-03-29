@@ -28,9 +28,10 @@ class EmptyOpTest {
             | EmptyOp.BEGIN_TEXT
             | EmptyOp.END_TEXT
             | EmptyOp.WORD_BOUNDARY
-            | EmptyOp.NON_WORD_BOUNDARY;
+            | EmptyOp.NON_WORD_BOUNDARY
+            | EmptyOp.DOLLAR_END;
     assertThat(EmptyOp.ALL_FLAGS).isEqualTo(combined);
-    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(63);
+    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(127);
   }
 
   @Test

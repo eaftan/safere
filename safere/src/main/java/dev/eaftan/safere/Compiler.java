@@ -75,6 +75,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     boolean isAnchorStart = isAnchorStart(sre);
     Regexp stripped = stripAnchorStart(sre);
     boolean isAnchorEnd = isAnchorEnd(stripped);
+    boolean isDollarEnd = isAnchorEnd && isDollarAnchorEnd(stripped);
     stripped = stripAnchorEnd(stripped);
 
     // Walk the AST to produce fragments.
@@ -97,6 +98,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     } else {
       c.prog.setAnchorStart(isAnchorStart);
       c.prog.setAnchorEnd(isAnchorEnd);
+      c.prog.setDollarAnchorEnd(isDollarEnd);
     }
 
     c.prog.setStart(all.begin);
@@ -187,6 +189,27 @@ final class Compiler extends Walker<Compiler.Frag> {
 
   private static boolean isAnchorEnd(Regexp re) {
     return isAnchorEndImpl(re, 0);
+  }
+
+  /**
+   * Returns true if the trailing end anchor is {@code $} (WAS_DOLLAR), meaning the match may
+   * end before a trailing newline. Must only be called when {@link #isAnchorEnd} is true.
+   */
+  private static boolean isDollarAnchorEnd(Regexp re) {
+    return isDollarAnchorEndImpl(re, 0);
+  }
+
+  private static boolean isDollarAnchorEndImpl(Regexp re, int depth) {
+    if (re == null || depth >= 4) {
+      return false;
+    }
+    return switch (re.op) {
+      case END_TEXT -> (re.flags & ParseFlags.WAS_DOLLAR) != 0;
+      case CONCAT -> re.nsub() > 0
+          && isDollarAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
+      case CAPTURE -> isDollarAnchorEndImpl(re.sub(), depth + 1);
+      default -> false;
+    };
   }
 
   private static boolean isAnchorEndImpl(Regexp re, int depth) {
@@ -590,6 +613,10 @@ final class Compiler extends Walker<Compiler.Frag> {
         return emptyWidth(reversed ? EmptyOp.END_TEXT : EmptyOp.BEGIN_TEXT);
 
       case END_TEXT:
+        if (!reversed && (re.flags & ParseFlags.WAS_DOLLAR) != 0) {
+          // $ (not \z): also matches before trailing \n, matching JDK behavior.
+          return emptyWidth(EmptyOp.DOLLAR_END);
+        }
         return emptyWidth(reversed ? EmptyOp.BEGIN_TEXT : EmptyOp.END_TEXT);
 
       case WORD_BOUNDARY:

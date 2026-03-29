@@ -150,6 +150,18 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - After creating a PR, monitor CI and ensure all checks pass. If CI fails,
   debug and fix the problem. The project owner will merge manually.
 
+## Bug Fixing Philosophy
+
+- **Make principled fixes.** Understand the root cause before changing code.
+  Do not add special cases, flags, or if-statements that paper over symptoms.
+  A correct fix addresses the underlying design flaw — if a DFA cache key is
+  missing a dimension, fix the cache key; don't add a post-hoc correction.
+- **Verify the invariant, not just the test.** After a fix, articulate *why*
+  it is correct in general, not just why it makes a specific test pass.  If
+  you can construct a new input that would still break, the fix is wrong.
+- **Prefer fewer moving parts.** A fix that removes a special case is better
+  than one that adds a new special case.  Simpler code has fewer bugs.
+
 ## Key Constraints
 
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive

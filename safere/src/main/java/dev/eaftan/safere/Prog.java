@@ -23,6 +23,12 @@ final class Prog {
   private int numCaptures;
   private boolean anchorStart;
   private boolean anchorEnd;
+  /**
+   * True when the end anchor was {@code $} (not {@code \z}). When true, the match may end
+   * before a trailing {@code \n} at the end of the text, not just at the absolute end. This
+   * mirrors JDK's default (non-MULTILINE) {@code $} behavior.
+   */
+  private boolean dollarAnchorEnd;
   private boolean reversed;
 
   /** Creates an empty program. */
@@ -118,6 +124,19 @@ final class Prog {
   /** Sets whether the pattern is anchored at the end. */
   public void setAnchorEnd(boolean anchorEnd) {
     this.anchorEnd = anchorEnd;
+  }
+
+  /**
+   * Returns true if the end anchor was {@code $} (not {@code \z}), meaning the match may end
+   * before a trailing newline at the end of the text.
+   */
+  public boolean dollarAnchorEnd() {
+    return dollarAnchorEnd;
+  }
+
+  /** Sets whether the end anchor allows a trailing newline. */
+  public void setDollarAnchorEnd(boolean dollarAnchorEnd) {
+    this.dollarAnchorEnd = dollarAnchorEnd;
   }
 
   /** Returns true if this program runs in reverse (for finding match starts). */
