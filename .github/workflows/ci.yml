@@ -23,7 +23,7 @@ jobs:
       - name: Build and test
         run: mvn verify -pl safere --batch-mode --no-transfer-progress
 
-  benchmark-smoke-test:
+  benchmark-smoke-test-java:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,18 +36,17 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      # Java benchmarks: compile and smoke test
       - name: Smoke test Java benchmarks
         run: ./run-java-benchmarks.sh RegexBenchmark
         env:
           JMH_OPTS: "-f 0 -wi 1 -i 1 -w 1 -r 1"
 
-      # C++ RE2 benchmarks: compile and smoke test
+  benchmark-smoke-test-cpp:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Compile C++ RE2 benchmarks
         run: |
           mkdir -p safere-benchmarks/cpp/build
@@ -60,7 +59,17 @@ jobs:
           safere-benchmarks/cpp/build/re2_benchmark \
             --data safere-benchmarks/benchmark-data.json literalMatch
 
-      # Go regexp benchmarks: compile and smoke test
+  benchmark-smoke-test-go:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
       - name: Compile Go benchmarks
         run: cd safere-benchmarks/go && go build -o regexp_benchmark .
 
