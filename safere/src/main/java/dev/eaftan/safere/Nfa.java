@@ -453,6 +453,9 @@ final class Nfa {
       flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE;
     } else if (text.charAt(pos) == '\n') {
       flags |= EmptyOp.END_LINE;
+    } else if (text.charAt(pos) == '\r' && pos + 1 < text.length()
+        && text.charAt(pos + 1) == '\n') {
+      flags |= EmptyOp.END_LINE;
     }
 
     // \b and \B

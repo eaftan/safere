@@ -435,6 +435,28 @@ class PatternTest {
       assertThat(m.start()).isGreaterThan(first);
       assertThat(m.find()).isFalse();
     }
+
+    @Test
+    @DisplayName("$ matches before \\r\\n in MULTILINE mode")
+    void multilineEolCrLf() {
+      // Regression: $ in MULTILINE only matched before \n, not before \r\n.
+      Pattern p = Pattern.compile("^abc$", Pattern.MULTILINE);
+      assertThat(p.matcher("abc\r\ndef").find()).isTrue();
+      assertThat(p.matcher("abc\ndef").find()).isTrue();
+    }
+
+    @Test
+    @DisplayName("MULTILINE + CASE_INSENSITIVE with \\r\\n line endings (WebSocket header)")
+    void multilineCaseInsensitiveCrLf() {
+      String header = "GET / HTTP/1.1\r\nSec-WebSocket-Key: abc123\r\n\r\n";
+      Pattern p = Pattern.compile("^sec-websocket-key:(.*)$",
+          Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
+      Matcher m = p.matcher(header);
+      assertThat(m.find()).isTrue();
+      // SafeRE's . matches \r (only \n is excluded), so the capture includes trailing \r.
+      // JDK's . excludes both \r and \n. Use trim() in real code.
+      assertThat(m.group(1).trim()).isEqualTo("abc123");
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -574,6 +596,56 @@ class PatternTest {
       Pattern p = Pattern.compile(",");
       long count = p.splitAsStream("a,b,c,d").count();
       assertThat(count).isEqualTo(4);
+    }
+  }
+
+  @Nested
+  @DisplayName("nested character classes")
+  class NestedCharClassTests {
+
+    @Test
+    @DisplayName("[[A-F]] matches same as [A-F] (Java-style union)")
+    void nestedCharClassUnion() {
+      Pattern p = Pattern.compile("[[A-F]]");
+      assertThat(p.matcher("A").find()).isTrue();
+      assertThat(p.matcher("C").find()).isTrue();
+      assertThat(p.matcher("G").find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[[A-Fa-f0-9]]{32,} matches hex strings (Docker digest pattern)")
+    void nestedCharClassHexDigest() {
+      Pattern p = Pattern.compile("[[A-Fa-f0-9]]{32,}");
+      Matcher m =
+          p.matcher("6e9f67fa63b0323e9a1e587fd71c561ba48a034504fb804fd26fd8800039835d");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group())
+          .isEqualTo("6e9f67fa63b0323e9a1e587fd71c561ba48a034504fb804fd26fd8800039835d");
+    }
+
+    @Test
+    @DisplayName("[a-z[0-9]] matches both ranges")
+    void nestedCharClassMixedRanges() {
+      Pattern p = Pattern.compile("[a-z[0-9]]");
+      assertThat(p.matcher("m").find()).isTrue();
+      assertThat(p.matcher("5").find()).isTrue();
+      assertThat(p.matcher("A").find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("deeply nested [[[[a-z]]]] works")
+    void deeplyNestedCharClass() {
+      Pattern p = Pattern.compile("[[[[a-z]]]]");
+      assertThat(p.matcher("m").find()).isTrue();
+      assertThat(p.matcher("A").find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[^[A-F]] negates the union")
+    void negatedNestedCharClass() {
+      Pattern p = Pattern.compile("[^[A-F]]");
+      assertThat(p.matcher("A").find()).isFalse();
+      assertThat(p.matcher("G").find()).isTrue();
     }
   }
 }

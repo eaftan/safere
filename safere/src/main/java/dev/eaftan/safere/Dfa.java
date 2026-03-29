@@ -238,6 +238,9 @@ final class Dfa {
       // transitions for newline vs other characters in the same range.
       bounds.add(0x0A);   // '\n'
       bounds.add(0x0B);   // '\n' + 1
+      // '\r' also needs its own class: END_LINE fires before '\r' when '\r\n' follows.
+      bounds.add(0x0D);   // '\r'
+      bounds.add(0x0E);   // '\r' + 1
     }
     if (hasWordBoundary) {
       // Add boundaries at the edges of word-character ranges [0-9A-Za-z_].

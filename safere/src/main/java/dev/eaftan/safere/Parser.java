@@ -744,6 +744,14 @@ final class Parser {
         // PARSE_NOTHING: fall through
       }
 
+      // Look for nested character class like [[A-F]] (Java-style union).
+      // At this point we know pattern.charAt(pos) == '[' and it's not a POSIX class.
+      if (pos < pattern.length() && pattern.charAt(pos) == '[') {
+        Regexp nested = parseCharClass();
+        ccb.addCharClass(nested.charClass);
+        continue;
+      }
+
       // Look for \Q...\E quoted literal sequence inside character class.
       if (pos + 1 < pattern.length()
           && pattern.charAt(pos) == '\\'
