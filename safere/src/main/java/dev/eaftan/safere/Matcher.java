@@ -1634,8 +1634,13 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
     // Search anchored at matchStart, bounded by matchEnd, but endMatch=false so alternation
     // priority determines the actual match length rather than the DFA's longest-match end.
+    //
+    // Skip OnePass for patterns with alternation: OnePass always returns the longest match at
+    // a given position, which picks the wrong alternative when a zero-width branch (like \b)
+    // competes with a consuming branch (like a literal). Fall through to BitState/NFA which
+    // correctly implements first-match alternation priority.
     int[] result;
-    if (parentPattern.canOnePassSubmatch()) {
+    if (parentPattern.canOnePassSubmatch() && !parentPattern.hasAlternation()) {
       result = parentPattern.onePass().search(
           text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures());
     } else {
@@ -1789,3 +1794,4 @@ public final class Matcher implements MatchResult {
     }
   }
 }
+
