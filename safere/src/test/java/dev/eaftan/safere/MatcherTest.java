@@ -665,6 +665,43 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("matcher works with CharSequence that does not override toString()")
+    void customCharSequenceWithoutToString() {
+      // A CharSequence backed by a byte array that does NOT override toString().
+      // This mimics Ghidra's ByteCharSequence pattern.
+      byte[] data = "hello world".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+      CharSequence byteSeq =
+          new CharSequence() {
+            @Override
+            public int length() {
+              return data.length;
+            }
+
+            @Override
+            public char charAt(int index) {
+              return (char) (data[index] & 0xff);
+            }
+
+            @Override
+            public CharSequence subSequence(int start, int end) {
+              throw new UnsupportedOperationException();
+            }
+            // Deliberately no toString() override — falls back to Object.toString()
+          };
+
+      Pattern p = Pattern.compile("world");
+      Matcher m = p.matcher(byteSeq);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("world");
+      assertThat(m.start()).isEqualTo(6);
+
+      // Also test find() returning false when pattern doesn't match
+      Pattern p2 = Pattern.compile("xyz");
+      Matcher m2 = p2.matcher(byteSeq);
+      assertThat(m2.find()).isFalse();
+    }
+
+    @Test
     @DisplayName("pattern() returns the Pattern that created this Matcher")
     void patternAccess() {
       Pattern p = Pattern.compile("abc");

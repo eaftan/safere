@@ -118,6 +118,20 @@ Drop-in replacements for `java.util.regex`:
 - Aim for high coverage; JaCoCo is configured in the build
 - Port test cases from RE2's C++ test suite where applicable
 
+## External Validation
+
+When swapping SafeRE into external projects for validation (#26), **fix every
+bug you find immediately**. Do not just report it and move on. The workflow is:
+
+1. Identify the failure and root-cause it.
+2. Write a regression test in SafeRE that reproduces the bug.
+3. Fix the bug in SafeRE.
+4. Run the SafeRE test suite to confirm the fix and no regressions.
+5. Re-install (`mvn install -DskipTests -q`) and re-run the external
+   project's failing tests to confirm they now pass.
+6. Commit the fix.
+7. Then continue with the rest of the validation.
+
 ## GitHub Issues
 
 - Do not close an issue until **all** items in it are resolved. If only some

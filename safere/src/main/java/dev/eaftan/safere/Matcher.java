@@ -84,8 +84,24 @@ public final class Matcher implements MatchResult {
   Matcher(Pattern pattern, CharSequence input) {
     this.parentPattern = pattern;
     this.inputSequence = input;
-    this.text = input.toString();
+    this.text = charSequenceToString(input);
     this.regionEnd = text.length();
+  }
+
+  /**
+   * Materializes a CharSequence into a String by reading through {@code charAt()}, so that custom
+   * CharSequence implementations that don't override {@code toString()} work correctly.
+   */
+  private static String charSequenceToString(CharSequence cs) {
+    if (cs instanceof String s) {
+      return s;
+    }
+    int len = cs.length();
+    char[] chars = new char[len];
+    for (int i = 0; i < len; i++) {
+      chars[i] = cs.charAt(i);
+    }
+    return new String(chars);
   }
 
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
@@ -1377,7 +1393,7 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher reset() {
-    this.text = inputSequence.toString();
+    this.text = charSequenceToString(inputSequence);
     regionStart = 0;
     regionEnd = text.length();
     searchFrom = 0;
