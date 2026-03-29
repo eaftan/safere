@@ -744,6 +744,25 @@ final class Parser {
         // PARSE_NOTHING: fall through
       }
 
+      // Look for \Q...\E quoted literal sequence inside character class.
+      if (pos + 1 < pattern.length()
+          && pattern.charAt(pos) == '\\'
+          && pattern.charAt(pos + 1) == 'Q') {
+        pos += 2; // skip \Q
+        while (pos < pattern.length()) {
+          if (pos + 1 < pattern.length()
+              && pattern.charAt(pos) == '\\'
+              && pattern.charAt(pos + 1) == 'E') {
+            pos += 2; // skip \E
+            break;
+          }
+          int r = pattern.codePointAt(pos);
+          pos += Character.charCount(r);
+          addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
+        }
+        continue;
+      }
+
       // Look for Unicode character group like \p{Han}
       if (pos + 2 < pattern.length()
           && pattern.charAt(pos) == '\\'

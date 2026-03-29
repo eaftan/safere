@@ -212,6 +212,31 @@ class PatternTest {
       // Should handle the embedded \E properly.
       assertThat(Pattern.matches(quoted, "a\\Eb")).isTrue();
     }
+
+    @Test
+    @DisplayName("\\Q...\\E works inside character classes")
+    void quoteInsideCharacterClass() {
+      // \Q...\E inside [...] should add each char as a literal member of the class
+      Pattern p = Pattern.compile("[\\Qabc\\E]+");
+      Matcher m = p.matcher("xxxcbaxxx");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("cba");
+    }
+
+    @Test
+    @DisplayName("\\Q...\\E with metacharacters inside character class")
+    void quoteMetacharsInsideCharacterClass() {
+      // Pattern.quote produces \Q...\E; inside a char class it should still work
+      String p = "[" + Pattern.quote("\\") + Pattern.quote("/") + Pattern.quote("*") + "]+";
+      Pattern pat = Pattern.compile(p);
+      Matcher m = pat.matcher("hello/world*foo\\bar");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("/");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("*");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("\\");
+    }
   }
 
   @Nested
