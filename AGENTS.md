@@ -145,6 +145,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - When referencing an issue in a commit message, use `Fixes #N` only if the
   commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
 
+## Pull Requests
+
+- Always use **merge commits** (not squash or rebase) when merging PRs.
+
 ## Key Constraints
 
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
