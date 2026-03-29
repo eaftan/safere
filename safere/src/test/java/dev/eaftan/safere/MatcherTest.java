@@ -650,6 +650,21 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("reset() re-reads mutable CharSequence")
+    void resetRereadsMutableCharSequence() {
+      StringBuilder sb = new StringBuilder("a1b2");
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher(sb);
+      m.find();
+      assertThat(m.group()).isEqualTo("1");
+      sb.setLength(0);
+      sb.append("x9y8");
+      m.reset();
+      m.find();
+      assertThat(m.group()).isEqualTo("9");
+    }
+
+    @Test
     @DisplayName("pattern() returns the Pattern that created this Matcher")
     void patternAccess() {
       Pattern p = Pattern.compile("abc");
@@ -1036,6 +1051,45 @@ class MatcherTest {
       assertThat(m.hasTransparentBounds()).isTrue();
       m.useTransparentBounds(false);
       assertThat(m.hasTransparentBounds()).isFalse();
+    }
+  }
+
+  @Nested
+  @DisplayName("Case-insensitive DFA correctness")
+  class CaseInsensitiveDfaTests {
+
+    @Test
+    @DisplayName("matches() works after failed case-insensitive match on reused matcher")
+    void matchesAfterMismatch() {
+      Pattern p = Pattern.compile("birds", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+      Matcher m = p.matcher("Cats");
+      assertThat(m.matches()).isFalse();
+      m.reset("Birds");
+      assertThat(m.matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("sequential case-insensitive matches on reused matcher")
+    void sequentialCaseInsensitiveMatches() {
+      Pattern p = Pattern.compile("birds", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+      Matcher m = p.matcher("");
+      String[] tokens = {"dogs", "cats", "Cats", "Birds", "birds"};
+      boolean[] expected = {false, false, false, true, true};
+      for (int i = 0; i < tokens.length; i++) {
+        m.reset(tokens[i]);
+        assertThat(m.matches()).as("token '%s'", tokens[i]).isEqualTo(expected[i]);
+      }
+    }
+
+    @Test
+    @DisplayName("fresh matcher works after DFA cached non-matching transitions")
+    void freshMatcherAfterDfaCache() {
+      Pattern p = Pattern.compile("birds", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+      // Warm up DFA with non-matching inputs
+      Matcher m1 = p.matcher("Cats");
+      m1.matches();
+      // Fresh matcher on same pattern should still work
+      assertThat(p.matcher("Birds").matches()).isTrue();
     }
   }
 

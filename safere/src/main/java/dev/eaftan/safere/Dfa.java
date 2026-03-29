@@ -212,9 +212,9 @@ final class Dfa {
     for (int i = 0; i < prog.size(); i++) {
       Inst inst = prog.inst(i);
       if (inst.opCode == InstOp.OP_CHAR_RANGE) {
-        bounds.add(inst.lo);
-        if (inst.hi < Utils.MAX_RUNE) {
-          bounds.add(inst.hi + 1);
+        addRangeBoundaries(bounds, inst.lo, inst.hi);
+        if (inst.foldCase) {
+          addCaseFoldBoundaries(bounds, inst.lo, inst.hi);
         }
       } else if (inst.opCode == InstOp.OP_CHAR_CLASS) {
         for (int j = 0; j < inst.ranges.length; j += 2) {
@@ -251,6 +251,30 @@ final class Dfa {
       bounds.add(0x7B);   // 'z' + 1
     }
     return bounds.stream().mapToInt(Integer::intValue).toArray();
+  }
+
+  /** Adds boundaries for a [lo, hi] code point range. */
+  private static void addRangeBoundaries(TreeSet<Integer> bounds, int lo, int hi) {
+    bounds.add(lo);
+    if (hi < Utils.MAX_RUNE) {
+      bounds.add(hi + 1);
+    }
+  }
+
+  /**
+   * Adds boundaries for all case-fold equivalents of each code point in [lo, hi]. When a
+   * CHAR_RANGE instruction has the fold-case flag, characters outside [lo, hi] that fold into
+   * the range must have their own equivalence classes so the DFA doesn't conflate them with
+   * non-matching characters in the same class.
+   */
+  private static void addCaseFoldBoundaries(TreeSet<Integer> bounds, int lo, int hi) {
+    for (int cp = lo; cp <= hi; cp++) {
+      int folded = Inst.simpleFold(cp);
+      while (folded != cp) {
+        addRangeBoundaries(bounds, folded, folded);
+        folded = Inst.simpleFold(folded);
+      }
+    }
   }
 
   /**

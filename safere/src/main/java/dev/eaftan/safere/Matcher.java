@@ -35,6 +35,7 @@ import java.util.stream.StreamSupport;
 public final class Matcher implements MatchResult {
 
   private Pattern parentPattern;
+  private CharSequence inputSequence;
   private String text;
   private int[] groups;
   private boolean hasMatch;
@@ -82,6 +83,7 @@ public final class Matcher implements MatchResult {
    */
   Matcher(Pattern pattern, CharSequence input) {
     this.parentPattern = pattern;
+    this.inputSequence = input;
     this.text = input.toString();
     this.regionEnd = text.length();
   }
@@ -1366,6 +1368,7 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher reset() {
+    this.text = inputSequence.toString();
     regionStart = 0;
     regionEnd = text.length();
     searchFrom = 0;
@@ -1384,7 +1387,7 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher reset(CharSequence input) {
-    this.text = input.toString();
+    this.inputSequence = input;
     return reset();
   }
 
