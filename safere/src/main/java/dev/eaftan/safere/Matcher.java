@@ -4,7 +4,12 @@
 package dev.eaftan.safere;
 
 import java.util.Arrays;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.regex.MatchResult;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * An engine that performs match operations on a {@linkplain CharSequence character sequence} by
@@ -29,12 +34,14 @@ import java.util.regex.MatchResult;
  */
 public final class Matcher implements MatchResult {
 
-  private final Pattern parentPattern;
+  private Pattern parentPattern;
   private String text;
   private int[] groups;
   private boolean hasMatch;
   private int searchFrom;
   private int appendPos;
+  private boolean transparentBounds;
+  private boolean anchoringBounds = true;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -514,6 +521,34 @@ public final class Matcher implements MatchResult {
     return doFind();
   }
 
+  /**
+   * Returns a stream of match results for each subsequence of the input sequence that matches the
+   * pattern. The match results occur in the same order as the matching subsequences in the input.
+   *
+   * <p>Each match result is produced as if by {@link #toMatchResult()}.
+   *
+   * <p>This method does not reset this matcher. Matching starts on a call to
+   * {@link Stream#findFirst()} or similar terminal operation, and continues from the current
+   * position.
+   *
+   * @return a sequential stream of match results
+   */
+  public Stream<MatchResult> results() {
+    Spliterator<MatchResult> spliterator =
+        new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE,
+            Spliterator.ORDERED | Spliterator.NONNULL) {
+          @Override
+          public boolean tryAdvance(java.util.function.Consumer<? super MatchResult> action) {
+            if (!find()) {
+              return false;
+            }
+            action.accept(toMatchResult());
+            return true;
+          }
+        };
+    return StreamSupport.stream(spliterator, false);
+  }
+
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
     if (searchFrom > text.length()) {
@@ -912,6 +947,41 @@ public final class Matcher implements MatchResult {
     return groups[2 * group + 1];
   }
 
+  /**
+   * Returns the start index of the subsequence captured by the given named group.
+   *
+   * @param name the name of a named-capturing group in this matcher's pattern
+   * @return the start index, or {@code -1} if the group did not participate in the match
+   * @throws IllegalStateException if no match has yet been attempted, or if the previous match
+   *     operation failed
+   * @throws IllegalArgumentException if there is no capturing group with the given name
+   */
+  public int start(String name) {
+    Integer idx = parentPattern.namedGroups().get(name);
+    if (idx == null) {
+      throw new IllegalArgumentException("No group with name <" + name + ">");
+    }
+    return start(idx);
+  }
+
+  /**
+   * Returns the offset after the last character of the subsequence captured by the given named
+   * group.
+   *
+   * @param name the name of a named-capturing group in this matcher's pattern
+   * @return the offset after the last character, or {@code -1} if the group did not participate
+   * @throws IllegalStateException if no match has yet been attempted, or if the previous match
+   *     operation failed
+   * @throws IllegalArgumentException if there is no capturing group with the given name
+   */
+  public int end(String name) {
+    Integer idx = parentPattern.namedGroups().get(name);
+    if (idx == null) {
+      throw new IllegalArgumentException("No group with name <" + name + ">");
+    }
+    return end(idx);
+  }
+
   // ---------------------------------------------------------------------------
   // Replacement methods
   // ---------------------------------------------------------------------------
@@ -927,18 +997,7 @@ public final class Matcher implements MatchResult {
    * @return a literal string replacement
    */
   public static String quoteReplacement(String s) {
-    if (s.indexOf('\\') == -1 && s.indexOf('$') == -1) {
-      return s;
-    }
-    StringBuilder sb = new StringBuilder(s.length() + 8);
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-      if (c == '\\' || c == '$') {
-        sb.append('\\');
-      }
-      sb.append(c);
-    }
-    return sb.toString();
+    return java.util.regex.Matcher.quoteReplacement(s);
   }
 
   /**
@@ -953,6 +1012,30 @@ public final class Matcher implements MatchResult {
     StringBuilder sb = new StringBuilder();
     if (find()) {
       appendReplacement(sb, replacement);
+    }
+    appendTail(sb);
+    return sb.toString();
+  }
+
+  /**
+   * Replaces the first subsequence of the input that matches the pattern with the result of
+   * applying the given replacer function to the match result. The replacer function is called with
+   * the match result of the first match.
+   *
+   * @param replacer a function that produces a replacement string from a match result
+   * @return the string with the first match replaced
+   * @throws NullPointerException if the replacer function is null
+   */
+  public String replaceFirst(Function<MatchResult, String> replacer) {
+    if (replacer == null) {
+      throw new NullPointerException("replacer");
+    }
+    reset();
+    StringBuilder sb = new StringBuilder();
+    if (find()) {
+      sb.append(text, appendPos, start());
+      sb.append(replacer.apply(toMatchResult()));
+      appendPos = end();
     }
     appendTail(sb);
     return sb.toString();
@@ -997,6 +1080,30 @@ public final class Matcher implements MatchResult {
       sb.append(text, appendPos, groups[0]);
       applyReplacementTemplate(sb, template);
       appendPos = groups[1];
+    }
+    appendTail(sb);
+    return sb.toString();
+  }
+
+  /**
+   * Replaces every subsequence of the input that matches the pattern with the result of applying
+   * the given replacer function to the match result. The replacer function is called for each
+   * match, and the result is used as the replacement string.
+   *
+   * @param replacer a function that produces a replacement string from a match result
+   * @return the string with all matches replaced
+   * @throws NullPointerException if the replacer function is null
+   */
+  public String replaceAll(Function<MatchResult, String> replacer) {
+    if (replacer == null) {
+      throw new NullPointerException("replacer");
+    }
+    reset();
+    StringBuilder sb = new StringBuilder();
+    while (find()) {
+      sb.append(text, appendPos, start());
+      sb.append(replacer.apply(toMatchResult()));
+      appendPos = end();
     }
     appendTail(sb);
     return sb.toString();
@@ -1117,6 +1224,39 @@ public final class Matcher implements MatchResult {
     return sb;
   }
 
+  /**
+   * Implements a non-terminal append-and-replace step using the legacy {@link StringBuffer} class.
+   * This method behaves identically to {@link #appendReplacement(StringBuilder, String)}.
+   *
+   * @param sb the target string buffer
+   * @param replacement the replacement string
+   * @return this matcher
+   * @throws IllegalStateException if no match has yet been attempted, or if the previous match
+   *     operation failed
+   */
+  public Matcher appendReplacement(StringBuffer sb, String replacement) {
+    checkMatch();
+    // Build into a temporary StringBuilder, then transfer to the StringBuffer.
+    StringBuilder tmp = new StringBuilder();
+    tmp.append(text, appendPos, start());
+    appendReplacementBody(tmp, replacement);
+    sb.append(tmp);
+    appendPos = end();
+    return this;
+  }
+
+  /**
+   * Implements a terminal append-and-replace step using the legacy {@link StringBuffer} class.
+   * Appends the remaining input text after the last match to the string buffer.
+   *
+   * @param sb the target string buffer
+   * @return the string buffer
+   */
+  public StringBuffer appendTail(StringBuffer sb) {
+    sb.append(text, appendPos, text.length());
+    return sb;
+  }
+
   // ---------------------------------------------------------------------------
   // State management
   // ---------------------------------------------------------------------------
@@ -1154,6 +1294,82 @@ public final class Matcher implements MatchResult {
    */
   public Pattern pattern() {
     return parentPattern;
+  }
+
+  /**
+   * Changes the {@link Pattern} that this {@code Matcher} uses to find matches. This method causes
+   * this matcher to lose information about the groups of the last match. The matcher's position in
+   * the input is maintained.
+   *
+   * @param newPattern the new pattern used by this matcher
+   * @return this matcher
+   * @throws IllegalArgumentException if newPattern is null
+   */
+  public Matcher usePattern(Pattern newPattern) {
+    if (newPattern == null) {
+      throw new IllegalArgumentException("Pattern cannot be null");
+    }
+    this.parentPattern = newPattern;
+    // Invalidate cached DFA references since they belong to the old pattern.
+    cachedForwardDfa = null;
+    cachedReverseDfa = null;
+    reverseDfaLookedUp = false;
+    // Return borrowed BitState to old pattern if needed.
+    if (bitStateBorrowed && cachedBitState != null) {
+      bitStateBorrowed = false;
+      cachedBitState = null;
+    }
+    hasMatch = false;
+    groups = null;
+    capturesResolved = true;
+    return this;
+  }
+
+  /**
+   * Sets the transparency of region bounds for this matcher. Transparent bounds allow lookaround
+   * assertions to see beyond the region boundaries. Since SafeRE does not support lookaround
+   * assertions, this method stores the flag but it has no effect on matching behavior.
+   *
+   * @param b a boolean indicating whether to use transparent bounds
+   * @return this matcher
+   */
+  public Matcher useTransparentBounds(boolean b) {
+    transparentBounds = b;
+    return this;
+  }
+
+  /**
+   * Returns whether this matcher is using transparent bounds.
+   *
+   * @return {@code true} if this matcher is using transparent bounds, {@code false} otherwise
+   */
+  public boolean hasTransparentBounds() {
+    return transparentBounds;
+  }
+
+  /**
+   * Sets the anchoring of region bounds for this matcher. Anchoring bounds cause {@code ^} and
+   * {@code $} to match at the region boundaries rather than at the start and end of the entire
+   * input. This is the default behavior.
+   *
+   * <p><b>Note:</b> This method currently stores the flag but region support is not yet
+   * implemented. The flag will take effect once region support is added.
+   *
+   * @param b a boolean indicating whether to use anchoring bounds
+   * @return this matcher
+   */
+  public Matcher useAnchoringBounds(boolean b) {
+    anchoringBounds = b;
+    return this;
+  }
+
+  /**
+   * Returns whether this matcher is using anchoring bounds.
+   *
+   * @return {@code true} if this matcher is using anchoring bounds, {@code false} otherwise
+   */
+  public boolean hasAnchoringBounds() {
+    return anchoringBounds;
   }
 
   /**

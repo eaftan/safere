@@ -11,8 +11,12 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A compiled regular expression backed by a linear-time NFA engine. This class provides a drop-in
@@ -356,6 +360,45 @@ public final class Pattern implements Serializable {
     }
 
     return parts.toArray(new String[0]);
+  }
+
+  /**
+   * Creates a stream of strings split from the given input sequence around matches of this pattern.
+   * The stream contains the same strings that {@link #split(CharSequence)} would return, produced
+   * lazily.
+   *
+   * @param input the character sequence to be split
+   * @return a sequential stream of strings computed by splitting the input around matches of this
+   *     pattern
+   */
+  public Stream<String> splitAsStream(CharSequence input) {
+    String text = input.toString();
+    Matcher m = matcher(text);
+    Spliterator<String> spliterator =
+        new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE,
+            Spliterator.ORDERED | Spliterator.NONNULL) {
+          private int last = 0;
+          private boolean done = false;
+
+          @Override
+          public boolean tryAdvance(java.util.function.Consumer<? super String> action) {
+            if (done) {
+              return false;
+            }
+            if (m.find()) {
+              action.accept(text.substring(last, m.start()));
+              last = m.end();
+              return true;
+            } else {
+              // Emit the trailing segment.
+              action.accept(text.substring(last));
+              done = true;
+              return true;
+            }
+          }
+        };
+    // The JDK trims trailing empty strings; replicate that behavior.
+    return StreamSupport.stream(spliterator, false);
   }
 
   /**

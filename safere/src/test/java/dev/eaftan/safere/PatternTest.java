@@ -511,4 +511,44 @@ class PatternTest {
       assertThat(replaced).isEqualTo(expected);
     }
   }
+
+  @Nested
+  @DisplayName("splitAsStream()")
+  class SplitAsStreamTests {
+
+    @Test
+    @DisplayName("splitAsStream splits input around matches")
+    void splitAsStreamBasic() {
+      Pattern p = Pattern.compile(",");
+      java.util.List<String> parts =
+          p.splitAsStream("a,b,c").collect(java.util.stream.Collectors.toList());
+      assertThat(parts).containsExactly("a", "b", "c");
+    }
+
+    @Test
+    @DisplayName("splitAsStream with no match returns entire input")
+    void splitAsStreamNoMatch() {
+      Pattern p = Pattern.compile(",");
+      java.util.List<String> parts =
+          p.splitAsStream("abc").collect(java.util.stream.Collectors.toList());
+      assertThat(parts).containsExactly("abc");
+    }
+
+    @Test
+    @DisplayName("splitAsStream with regex pattern")
+    void splitAsStreamRegex() {
+      Pattern p = Pattern.compile("\\s+");
+      java.util.List<String> parts =
+          p.splitAsStream("hello  world\tfoo").collect(java.util.stream.Collectors.toList());
+      assertThat(parts).containsExactly("hello", "world", "foo");
+    }
+
+    @Test
+    @DisplayName("splitAsStream count() works without collecting")
+    void splitAsStreamCount() {
+      Pattern p = Pattern.compile(",");
+      long count = p.splitAsStream("a,b,c,d").count();
+      assertThat(count).isEqualTo(4);
+    }
+  }
 }

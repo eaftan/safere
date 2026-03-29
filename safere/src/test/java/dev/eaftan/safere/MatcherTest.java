@@ -763,4 +763,279 @@ class MatcherTest {
     }
 
   }
+
+  @Nested
+  @DisplayName("Named group start/end")
+  class NamedGroupPositionTests {
+
+    @Test
+    @DisplayName("start(String) and end(String) return named group positions")
+    void namedGroupStartEnd() {
+      Pattern p = Pattern.compile("(?P<word>\\w+)@(?P<host>\\w+)");
+      Matcher m = p.matcher("user@host");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start("word")).isEqualTo(0);
+      assertThat(m.end("word")).isEqualTo(4);
+      assertThat(m.start("host")).isEqualTo(5);
+      assertThat(m.end("host")).isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("start(String) throws for unknown group name")
+    void startUnknownNameThrows() {
+      Pattern p = Pattern.compile("(?P<word>\\w+)");
+      Matcher m = p.matcher("hello");
+      m.find();
+      assertThatThrownBy(() -> m.start("missing"))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("end(String) throws for unknown group name")
+    void endUnknownNameThrows() {
+      Pattern p = Pattern.compile("(?P<word>\\w+)");
+      Matcher m = p.matcher("hello");
+      m.find();
+      assertThatThrownBy(() -> m.end("missing"))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("named group that did not participate returns -1")
+    void nonParticipatingNamedGroup() {
+      Pattern p = Pattern.compile("(?P<a>a)|(?P<b>b)");
+      Matcher m = p.matcher("b");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start("a")).isEqualTo(-1);
+      assertThat(m.end("a")).isEqualTo(-1);
+      assertThat(m.start("b")).isEqualTo(0);
+      assertThat(m.end("b")).isEqualTo(1);
+    }
+  }
+
+  @Nested
+  @DisplayName("results() stream")
+  class ResultsStreamTests {
+
+    @Test
+    @DisplayName("results() returns all matches as a stream")
+    void resultsStream() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc 123 def 456 ghi");
+      java.util.List<String> matches =
+          m.results().map(MatchResult::group).collect(java.util.stream.Collectors.toList());
+      assertThat(matches).containsExactly("123", "456");
+    }
+
+    @Test
+    @DisplayName("results() returns empty stream when no matches")
+    void resultsNoMatch() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("no digits here");
+      assertThat(m.results().count()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("results() match results have correct positions")
+    void resultsPositions() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123 abc 456 def");
+      java.util.List<MatchResult> results =
+          m.results().collect(java.util.stream.Collectors.toList());
+      assertThat(results).hasSize(2);
+      assertThat(results.get(0).start()).isEqualTo(4);
+      assertThat(results.get(0).end()).isEqualTo(7);
+      assertThat(results.get(1).start()).isEqualTo(12);
+      assertThat(results.get(1).end()).isEqualTo(15);
+    }
+  }
+
+  @Nested
+  @DisplayName("Functional replacement")
+  class FunctionalReplaceTests {
+
+    @Test
+    @DisplayName("replaceAll(Function) replaces all matches using function")
+    void replaceAllFunction() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("a1b22c333");
+      String result = m.replaceAll(mr -> "[" + mr.group() + "]");
+      assertThat(result).isEqualTo("a[1]b[22]c[333]");
+    }
+
+    @Test
+    @DisplayName("replaceFirst(Function) replaces only first match using function")
+    void replaceFirstFunction() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("a1b22c333");
+      String result = m.replaceFirst(mr -> "[" + mr.group() + "]");
+      assertThat(result).isEqualTo("a[1]b22c333");
+    }
+
+    @Test
+    @DisplayName("replaceAll(Function) with no matches returns original")
+    void replaceAllFunctionNoMatch() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("no digits");
+      String result = m.replaceAll(mr -> "X");
+      assertThat(result).isEqualTo("no digits");
+    }
+
+    @Test
+    @DisplayName("replaceFirst(Function) with no matches returns original")
+    void replaceFirstFunctionNoMatch() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("no digits");
+      String result = m.replaceFirst(mr -> "X");
+      assertThat(result).isEqualTo("no digits");
+    }
+
+    @Test
+    @DisplayName("replaceAll(Function) can access capture groups")
+    void replaceAllFunctionWithGroups() {
+      Pattern p = Pattern.compile("(\\w+)=(\\w+)");
+      Matcher m = p.matcher("a=1 b=2");
+      String result = m.replaceAll(mr -> mr.group(2) + ":" + mr.group(1));
+      assertThat(result).isEqualTo("1:a 2:b");
+    }
+
+    @Test
+    @DisplayName("replaceAll(Function) throws on null replacer")
+    void replaceAllFunctionNullThrows() {
+      Pattern p = Pattern.compile("x");
+      Matcher m = p.matcher("x");
+      assertThatThrownBy(() -> m.replaceAll((java.util.function.Function<MatchResult, String>) null))
+          .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("replaceFirst(Function) throws on null replacer")
+    void replaceFirstFunctionNullThrows() {
+      Pattern p = Pattern.compile("x");
+      Matcher m = p.matcher("x");
+      assertThatThrownBy(
+              () -> m.replaceFirst((java.util.function.Function<MatchResult, String>) null))
+          .isInstanceOf(NullPointerException.class);
+    }
+  }
+
+  @Nested
+  @DisplayName("StringBuffer append methods")
+  class StringBufferAppendTests {
+
+    @Test
+    @DisplayName("appendReplacement and appendTail with StringBuffer")
+    void stringBufferAppendReplacementAndTail() {
+      Pattern p = Pattern.compile("(\\d+)");
+      Matcher m = p.matcher("abc 123 def 456");
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+        m.appendReplacement(sb, "NUM");
+      }
+      m.appendTail(sb);
+      assertThat(sb.toString()).isEqualTo("abc NUM def NUM");
+    }
+
+    @Test
+    @DisplayName("appendReplacement with StringBuffer supports group references")
+    void stringBufferGroupRef() {
+      Pattern p = Pattern.compile("(\\w+)@(\\w+)");
+      Matcher m = p.matcher("user@host");
+      StringBuffer sb = new StringBuffer();
+      m.find();
+      m.appendReplacement(sb, "$2/$1");
+      m.appendTail(sb);
+      assertThat(sb.toString()).isEqualTo("host/user");
+    }
+  }
+
+  @Nested
+  @DisplayName("usePattern()")
+  class UsePatternTests {
+
+    @Test
+    @DisplayName("usePattern swaps pattern and preserves position")
+    void usePatternSwapsPattern() {
+      Pattern p1 = Pattern.compile("\\d+");
+      Pattern p2 = Pattern.compile("[a-z]+");
+      Matcher m = p1.matcher("123abc456def");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      m.usePattern(p2);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+    }
+
+    @Test
+    @DisplayName("usePattern returns this matcher")
+    void usePatternReturnsSelf() {
+      Pattern p1 = Pattern.compile("a");
+      Pattern p2 = Pattern.compile("b");
+      Matcher m = p1.matcher("ab");
+      assertThat(m.usePattern(p2)).isSameAs(m);
+    }
+
+    @Test
+    @DisplayName("usePattern with null throws")
+    void usePatternNullThrows() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThatThrownBy(() -> m.usePattern(null))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("pattern() reflects usePattern change")
+    void patternReflectsChange() {
+      Pattern p1 = Pattern.compile("a");
+      Pattern p2 = Pattern.compile("b");
+      Matcher m = p1.matcher("ab");
+      assertThat(m.pattern()).isSameAs(p1);
+      m.usePattern(p2);
+      assertThat(m.pattern()).isSameAs(p2);
+    }
+  }
+
+  @Nested
+  @DisplayName("Transparent and anchoring bounds")
+  class BoundsTests {
+
+    @Test
+    @DisplayName("default anchoring bounds is true")
+    void defaultAnchoringBounds() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThat(m.hasAnchoringBounds()).isTrue();
+    }
+
+    @Test
+    @DisplayName("useAnchoringBounds stores flag and returns this")
+    void useAnchoringBounds() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThat(m.useAnchoringBounds(false)).isSameAs(m);
+      assertThat(m.hasAnchoringBounds()).isFalse();
+      m.useAnchoringBounds(true);
+      assertThat(m.hasAnchoringBounds()).isTrue();
+    }
+
+    @Test
+    @DisplayName("default transparent bounds is false")
+    void defaultTransparentBounds() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThat(m.hasTransparentBounds()).isFalse();
+    }
+
+    @Test
+    @DisplayName("useTransparentBounds stores flag and returns this")
+    void useTransparentBounds() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThat(m.useTransparentBounds(true)).isSameAs(m);
+      assertThat(m.hasTransparentBounds()).isTrue();
+      m.useTransparentBounds(false);
+      assertThat(m.hasTransparentBounds()).isFalse();
+    }
+  }
 }
