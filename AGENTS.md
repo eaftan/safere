@@ -132,6 +132,12 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 6. Commit the fix.
 7. Then continue with the rest of the validation.
 
+## Pull Requests
+
+- Whenever you create a PR, enable auto-merge on it:
+  `gh pr merge <number> --auto --squash`
+- Do not push directly to `main`. Always create a branch and open a PR.
+
 ## GitHub Issues
 
 - Do not close an issue until **all** items in it are resolved. If only some
