@@ -57,6 +57,11 @@ public class CompileBenchmark {
     return com.google.re2j.Pattern.compile(simplePattern);
   }
 
+  @Benchmark
+  public dev.eaftan.safere.re2ffm.RE2FfmPattern compileSimple_re2ffm() {
+    return dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(simplePattern);
+  }
+
   // ===== Medium pattern (date-time with captures) =====
 
   @Benchmark
@@ -72,6 +77,11 @@ public class CompileBenchmark {
   @Benchmark
   public com.google.re2j.Pattern compileMedium_re2j() {
     return com.google.re2j.Pattern.compile(mediumPattern);
+  }
+
+  @Benchmark
+  public dev.eaftan.safere.re2ffm.RE2FfmPattern compileMedium_re2ffm() {
+    return dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(mediumPattern);
   }
 
   // ===== Complex pattern (email) =====
@@ -91,6 +101,11 @@ public class CompileBenchmark {
     return com.google.re2j.Pattern.compile(complexPattern);
   }
 
+  @Benchmark
+  public dev.eaftan.safere.re2ffm.RE2FfmPattern compileComplex_re2ffm() {
+    return dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(complexPattern);
+  }
+
   // ===== Alternation pattern =====
 
   @Benchmark
@@ -106,5 +121,10 @@ public class CompileBenchmark {
   @Benchmark
   public com.google.re2j.Pattern compileAlternation_re2j() {
     return com.google.re2j.Pattern.compile(alternationPattern);
+  }
+
+  @Benchmark
+  public dev.eaftan.safere.re2ffm.RE2FfmPattern compileAlternation_re2ffm() {
+    return dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(alternationPattern);
   }
 }

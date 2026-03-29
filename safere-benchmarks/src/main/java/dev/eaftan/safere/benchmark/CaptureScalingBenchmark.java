@@ -60,6 +60,12 @@ public class CaptureScalingBenchmark {
   private com.google.re2j.Pattern re2j3;
   private com.google.re2j.Pattern re2j10;
 
+  // RE2-FFM patterns.
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffm0;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffm1;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffm3;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffm10;
+
   @Setup
   public void setup() {
     BenchmarkData data = BenchmarkData.get();
@@ -85,6 +91,11 @@ public class CaptureScalingBenchmark {
     re2j1 = com.google.re2j.Pattern.compile(pat1);
     re2j3 = com.google.re2j.Pattern.compile(pat3);
     re2j10 = com.google.re2j.Pattern.compile(pat10);
+
+    re2ffm0 = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(pat0);
+    re2ffm1 = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(pat1);
+    re2ffm3 = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(pat3);
+    re2ffm10 = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(pat10);
   }
 
   // ===== 0 groups (baseline) =====
@@ -102,6 +113,11 @@ public class CaptureScalingBenchmark {
   @Benchmark
   public boolean capture0_re2j() {
     return re2j0.matcher(text0).matches();
+  }
+
+  @Benchmark
+  public boolean capture0_re2ffm() {
+    return re2ffm0.matcher(text0).matches();
   }
 
   // ===== 1 group =====
@@ -127,6 +143,13 @@ public class CaptureScalingBenchmark {
     return m.group(1);
   }
 
+  @Benchmark
+  public String capture1_re2ffm() {
+    dev.eaftan.safere.re2ffm.RE2FfmMatcher m = re2ffm1.matcher(text1);
+    m.matches();
+    return m.group(1);
+  }
+
   // ===== 3 groups =====
 
   @Benchmark
@@ -146,6 +169,13 @@ public class CaptureScalingBenchmark {
   @Benchmark
   public String capture3_re2j() {
     com.google.re2j.Matcher m = re2j3.matcher(text3);
+    m.matches();
+    return m.group(1) + m.group(2) + m.group(3);
+  }
+
+  @Benchmark
+  public String capture3_re2ffm() {
+    dev.eaftan.safere.re2ffm.RE2FfmMatcher m = re2ffm3.matcher(text3);
     m.matches();
     return m.group(1) + m.group(2) + m.group(3);
   }
@@ -177,6 +207,17 @@ public class CaptureScalingBenchmark {
   @Benchmark
   public String capture10_re2j() {
     com.google.re2j.Matcher m = re2j10.matcher(text10);
+    m.matches();
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i <= 10; i++) {
+      sb.append(m.group(i));
+    }
+    return sb.toString();
+  }
+
+  @Benchmark
+  public String capture10_re2ffm() {
+    dev.eaftan.safere.re2ffm.RE2FfmMatcher m = re2ffm10.matcher(text10);
     m.matches();
     StringBuilder sb = new StringBuilder();
     for (int i = 1; i <= 10; i++) {

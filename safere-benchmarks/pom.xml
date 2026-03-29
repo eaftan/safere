@@ -24,6 +24,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>dev.eaftan</groupId>
+      <artifactId>safere-ffm-re2</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.re2j</groupId>
       <artifactId>re2j</artifactId>
       <version>1.8</version>
@@ -61,7 +66,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <release>21</release>
+          <release>22</release>
           <annotationProcessorPaths>
             <path>
               <groupId>org.openjdk.jmh</groupId>

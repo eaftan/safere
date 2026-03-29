@@ -36,6 +36,7 @@ public class HttpBenchmark {
   private dev.eaftan.safere.Pattern safeHttp;
   private java.util.regex.Pattern jdkHttp;
   private com.google.re2j.Pattern re2jHttp;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmHttp;
 
   @Setup
   public void setup() {
@@ -47,6 +48,7 @@ public class HttpBenchmark {
     safeHttp = dev.eaftan.safere.Pattern.compile(httpPattern);
     jdkHttp = java.util.regex.Pattern.compile(httpPattern);
     re2jHttp = com.google.re2j.Pattern.compile(httpPattern);
+    re2ffmHttp = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(httpPattern);
   }
 
   // ===== Full HTTP request =====
@@ -66,6 +68,12 @@ public class HttpBenchmark {
   @Benchmark
   public boolean httpFull_re2j() {
     com.google.re2j.Matcher m = re2jHttp.matcher(fullRequest);
+    return m.find() && m.group(1) != null;
+  }
+
+  @Benchmark
+  public boolean httpFull_re2ffm() {
+    dev.eaftan.safere.re2ffm.RE2FfmMatcher m = re2ffmHttp.matcher(fullRequest);
     return m.find() && m.group(1) != null;
   }
 
@@ -89,6 +97,12 @@ public class HttpBenchmark {
     return m.find() && m.group(1) != null;
   }
 
+  @Benchmark
+  public boolean httpSmall_re2ffm() {
+    dev.eaftan.safere.re2ffm.RE2FfmMatcher m = re2ffmHttp.matcher(smallRequest);
+    return m.find() && m.group(1) != null;
+  }
+
   // ===== URL extraction (find the path) =====
 
   @Benchmark
@@ -108,6 +122,13 @@ public class HttpBenchmark {
   @Benchmark
   public String httpExtract_re2j() {
     com.google.re2j.Matcher m = re2jHttp.matcher(fullRequest);
+    m.find();
+    return m.group(1);
+  }
+
+  @Benchmark
+  public String httpExtract_re2ffm() {
+    dev.eaftan.safere.re2ffm.RE2FfmMatcher m = re2ffmHttp.matcher(fullRequest);
     m.find();
     return m.group(1);
   }

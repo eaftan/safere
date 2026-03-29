@@ -33,6 +33,7 @@ public class ReplaceBenchmark {
   private dev.eaftan.safere.Pattern safeLiteral;
   private java.util.regex.Pattern jdkLiteral;
   private com.google.re2j.Pattern re2jLiteral;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmLiteral;
   private String literalReplaceFirstText;
   private String literalReplaceFirstReplacement;
   private String literalReplaceAllText;
@@ -42,6 +43,7 @@ public class ReplaceBenchmark {
   private dev.eaftan.safere.Pattern safePigLatin;
   private java.util.regex.Pattern jdkPigLatin;
   private com.google.re2j.Pattern re2jPigLatin;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmPigLatin;
   private String pigLatinText;
   private String pigLatinReplacement;
 
@@ -49,6 +51,7 @@ public class ReplaceBenchmark {
   private dev.eaftan.safere.Pattern safeDigits;
   private java.util.regex.Pattern jdkDigits;
   private com.google.re2j.Pattern re2jDigits;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmDigits;
   private String digitsText;
   private String digitsReplacement;
 
@@ -56,6 +59,7 @@ public class ReplaceBenchmark {
   private dev.eaftan.safere.Pattern safeEmpty;
   private java.util.regex.Pattern jdkEmpty;
   private com.google.re2j.Pattern re2jEmpty;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmEmpty;
   private String emptyText;
   private String emptyReplacement;
 
@@ -74,6 +78,7 @@ public class ReplaceBenchmark {
     safeLiteral = dev.eaftan.safere.Pattern.compile(literalReplaceFirstPattern);
     jdkLiteral = java.util.regex.Pattern.compile(literalReplaceFirstPattern);
     re2jLiteral = com.google.re2j.Pattern.compile(literalReplaceFirstPattern);
+    re2ffmLiteral = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(literalReplaceFirstPattern);
 
     String pigPattern = data.getString("replace.pigLatinReplaceAll.pattern");
     pigLatinText = data.getString("replace.pigLatinReplaceAll.text");
@@ -82,6 +87,7 @@ public class ReplaceBenchmark {
     safePigLatin = dev.eaftan.safere.Pattern.compile(pigPattern);
     jdkPigLatin = java.util.regex.Pattern.compile(pigPattern);
     re2jPigLatin = com.google.re2j.Pattern.compile(pigPattern);
+    re2ffmPigLatin = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(pigPattern);
 
     String digitPattern = data.getString("replace.digitReplaceAll.pattern");
     digitsText = data.getString("replace.digitReplaceAll.text");
@@ -90,6 +96,7 @@ public class ReplaceBenchmark {
     safeDigits = dev.eaftan.safere.Pattern.compile(digitPattern);
     jdkDigits = java.util.regex.Pattern.compile(digitPattern);
     re2jDigits = com.google.re2j.Pattern.compile(digitPattern);
+    re2ffmDigits = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(digitPattern);
 
     String emptyPattern = data.getString("replace.emptyReplaceAll.pattern");
     emptyText = data.getString("replace.emptyReplaceAll.text");
@@ -98,6 +105,7 @@ public class ReplaceBenchmark {
     safeEmpty = dev.eaftan.safere.Pattern.compile(emptyPattern);
     jdkEmpty = java.util.regex.Pattern.compile(emptyPattern);
     re2jEmpty = com.google.re2j.Pattern.compile(emptyPattern);
+    re2ffmEmpty = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(emptyPattern);
   }
 
   // ===== Simple literal replaceFirst =====
@@ -117,6 +125,11 @@ public class ReplaceBenchmark {
     return re2jLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
   }
 
+  @Benchmark
+  public String literalReplaceFirst_re2ffm() {
+    return re2ffmLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
+  }
+
   // ===== Simple literal replaceAll =====
 
   @Benchmark
@@ -132,6 +145,11 @@ public class ReplaceBenchmark {
   @Benchmark
   public String literalReplaceAll_re2j() {
     return re2jLiteral.matcher(literalReplaceAllText).replaceAll(literalReplaceAllReplacement);
+  }
+
+  @Benchmark
+  public String literalReplaceAll_re2ffm() {
+    return re2ffmLiteral.matcher(literalReplaceAllText).replaceAll(literalReplaceAllReplacement);
   }
 
   // ===== Pig Latin replaceAll (backreference in replacement) =====
@@ -151,6 +169,11 @@ public class ReplaceBenchmark {
     return re2jPigLatin.matcher(pigLatinText).replaceAll(pigLatinReplacement);
   }
 
+  @Benchmark
+  public String pigLatinReplaceAll_re2ffm() {
+    return re2ffmPigLatin.matcher(pigLatinText).replaceAll(pigLatinReplacement);
+  }
+
   // ===== Digit replacement (many matches) =====
 
   @Benchmark
@@ -168,6 +191,11 @@ public class ReplaceBenchmark {
     return re2jDigits.matcher(digitsText).replaceAll(digitsReplacement);
   }
 
+  @Benchmark
+  public String digitReplaceAll_re2ffm() {
+    return re2ffmDigits.matcher(digitsText).replaceAll(digitsReplacement);
+  }
+
   // ===== Empty-match replaceAll (edge case) =====
 
   @Benchmark
@@ -183,5 +211,10 @@ public class ReplaceBenchmark {
   @Benchmark
   public String emptyReplaceAll_re2j() {
     return re2jEmpty.matcher(emptyText).replaceAll(emptyReplacement);
+  }
+
+  @Benchmark
+  public String emptyReplaceAll_re2ffm() {
+    return re2ffmEmpty.matcher(emptyText).replaceAll(emptyReplacement);
   }
 }

@@ -18,21 +18,25 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
+RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 
 # JMH options (can be overridden via JMH_OPTS env var)
 # Default: no flags, letting JMH use its built-in defaults
 # (5 forks, 5 warmup iters x 10s, 5 measurement iters x 10s).
 JMH_OPTS="${JMH_OPTS:-}"
 
+# JVM args for FFM native access and native library path.
+JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR"
+
 echo "=== Building safere + benchmark JAR ==="
 mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 
 if [ $# -eq 0 ]; then
   echo "=== Running all benchmarks ==="
-  java -jar "$BENCHMARK_JAR" $JMH_OPTS
+  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $JMH_OPTS
 else
   for bench in "$@"; do
     echo "=== Running $bench ==="
-    java -jar "$BENCHMARK_JAR" $JMH_OPTS "$bench"
+    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $JMH_OPTS "$bench"
   done
 fi
