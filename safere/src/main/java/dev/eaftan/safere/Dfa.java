@@ -538,54 +538,74 @@ final class Dfa {
       return getOrCreate(nextInsts, flags);
     }
 
-    // Step 1: Re-evaluate unsatisfied word-boundary EMPTY_WIDTH instructions.
-    // Compute word boundary context BEFORE consuming cp: the boundary sits between
-    // the "last word" char (from state's FLAG_LAST_WORD) and cp.
+    // Step 1: Re-evaluate unsatisfied EMPTY_WIDTH instructions that are now satisfiable.
+    // Two kinds of assertions fire BEFORE consuming cp and depend on context that can't
+    // be predicted when the state was built:
+    //
+    //   (a) Word boundary (\b, \B): depends on whether cp is a word character, combined
+    //       with the previous character (FLAG_LAST_WORD in the state).
+    //   (b) END_LINE ($): fires when cp == '\n' (or '\r' before '\n'). The DFA caches
+    //       transitions per (state, char-class). END_LINE at position P depends on
+    //       text[P] == '\n', but two positions with the same (state, char-class) may have
+    //       different characters at P. So END_LINE is deferred and re-expanded here when
+    //       the current character is '\n'.
+    //
+    // Both are re-expanded before consuming the character so that MATCH instructions
+    // reached through these assertions are detected at the correct position.
     boolean isWord = Nfa.isWordChar(cp);
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
     int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
         : EmptyOp.NON_WORD_BOUNDARY;
+    boolean endLineHere = (cp == '\n');
 
-    // Check if any unsatisfied EMPTY_WIDTH instructions are now satisfiable.
-    // If so, re-expand the state to include their successors before consuming cp.
+    // Collect successors of unsatisfied EMPTY_WIDTH instructions whose deferred flags
+    // are now satisfiable and that have no other unsatisfied flags.
     int reExpandCount = 0;
+    int deferredMask = EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY | EmptyOp.END_LINE;
     for (int id : s.insts) {
       Inst ip = prog.inst(id);
       if (ip.opCode == InstOp.OP_EMPTY_WIDTH) {
         int wordFlags = ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
-        int otherFlags = ip.arg & ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
-        if (otherFlags == 0 && wordFlags != 0 && (wordFlags & ~wordBeforeFlags) == 0) {
+        int endLineFlag = ip.arg & EmptyOp.END_LINE;
+        int otherFlags = ip.arg & ~deferredMask;
+
+        // The instruction must have at least one deferred flag, no non-deferred flags,
+        // and all deferred flags must be currently satisfiable.
+        boolean hasDeferred = (wordFlags | endLineFlag) != 0;
+        boolean wordOk = wordFlags == 0 || (wordFlags & ~wordBeforeFlags) == 0;
+        boolean lineOk = endLineFlag == 0 || endLineHere;
+        if (otherFlags == 0 && hasDeferred && wordOk && lineOk) {
           computeBuf[reExpandCount++] = ip.out;
         }
       }
     }
 
-    // If word-boundary assertions fired, expand their successors to get additional
+    // If deferred assertions fired, expand their successors to get additional
     // CHAR_RANGE and MATCH instructions that are now reachable.
     int[] expandedInsts = s.insts;
-    boolean hasMatchFromWordBoundary = false;
-    int[] wordBoundaryMatchIds = null;
+    boolean hasMatchFromDeferred = false;
+    int[] deferredMatchIds = null;
     if (reExpandCount > 0) {
-      // Expand the newly reachable instructions (without word boundary flags since
-      // we can't predict the NEXT word boundary).
+      // Expand the newly reachable instructions (without deferred flags since
+      // we can't predict the NEXT word/line boundary).
       int[] newInsts = expand(computeBuf, reExpandCount, s.flags & 0xFF);
 
       // Check if the re-expansion revealed any MATCH instructions. Collect their IDs
       // for PatternSet multi-match before merging with the original state.
-      int wbMatchCount = 0;
-      int[] wbIds = null;
+      int matchCount = 0;
+      int[] matchIds = null;
       for (int id : newInsts) {
         Inst ip = prog.inst(id);
         if (ip.opCode == InstOp.OP_MATCH) {
-          hasMatchFromWordBoundary = true;
-          if (wbIds == null) {
-            wbIds = new int[newInsts.length];
+          hasMatchFromDeferred = true;
+          if (matchIds == null) {
+            matchIds = new int[newInsts.length];
           }
-          wbIds[wbMatchCount++] = ip.arg;
+          matchIds[matchCount++] = ip.arg;
         }
       }
-      if (wbMatchCount > 0) {
-        wordBoundaryMatchIds = Arrays.copyOf(wbIds, wbMatchCount);
+      if (matchCount > 0) {
+        deferredMatchIds = Arrays.copyOf(matchIds, matchCount);
       }
 
       // Merge with existing instructions.
@@ -604,30 +624,31 @@ final class Dfa {
     }
 
     if (successorCount == 0) {
-      // No character transition matched, but if word-boundary expansion revealed a MATCH,
+      // No character transition matched, but if deferred assertion expansion revealed a MATCH,
       // return a match state. FLAG_MATCH_BEFORE indicates the match position should be
       // recorded at the current position (before consuming cp), not after.
-      if (hasMatchFromWordBoundary) {
+      if (hasMatchFromDeferred) {
         return getOrCreate(EMPTY_INSTS,
             FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
-            wordBoundaryMatchIds);
+            deferredMatchIds);
       }
       return deadState;
     }
 
-    // Compute empty flags at nextPos (after consuming cp). Omit word boundary flags
-    // since they depend on the next character, which we don't know yet. Unsatisfied
-    // \b/\B EMPTY_WIDTH instructions will remain in the frontier for re-evaluation.
+    // Compute empty flags at nextPos (after consuming cp). Omit deferred flags:
+    // word boundary (depends on the next character) and END_LINE (depends on what's at
+    // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
+    // remain in the frontier for re-evaluation when the next character arrives.
     int emptyFlags = Nfa.emptyFlags(text, nextPos);
-    emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
+    emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY | EmptyOp.END_LINE);
 
     int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
 
     if (nextInsts.length == 0) {
-      if (hasMatchFromWordBoundary) {
+      if (hasMatchFromDeferred) {
         return getOrCreate(EMPTY_INSTS,
             FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
-            wordBoundaryMatchIds);
+            deferredMatchIds);
       }
       return deadState;
     }
@@ -635,13 +656,13 @@ final class Dfa {
     int flags = emptyFlags & 0xFF;
     if (hasMatch(nextInsts)) {
       flags |= FLAG_MATCH;
-    } else if (hasMatchFromWordBoundary) {
+    } else if (hasMatchFromDeferred) {
       flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
     }
     if (isWord) {
       flags |= FLAG_LAST_WORD;
     }
-    return getOrCreate(nextInsts, flags, wordBoundaryMatchIds);
+    return getOrCreate(nextInsts, flags, deferredMatchIds);
   }
 
   /** Merges two sorted instruction arrays into a sorted, deduplicated array. */

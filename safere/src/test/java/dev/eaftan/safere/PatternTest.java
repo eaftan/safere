@@ -457,6 +457,48 @@ class PatternTest {
       // JDK's . excludes both \r and \n. Use trim() in real code.
       assertThat(m.group(1).trim()).isEqualTo("abc123");
     }
+
+    @Test
+    @DisplayName("MULTILINE $ in long text: DFA transition caching must defer END_LINE")
+    void multilineDollarDfaCaching() {
+      // Regression: the DFA caches transitions per (state, equivalence-class). END_LINE
+      // depends on the character at the NEXT position, which varies for the same
+      // (state, class). When a character class was consumed at a position where the
+      // following char was NOT '\n', the cached transition lacked END_LINE, so a later
+      // encounter at a position followed by '\n' missed the $ match.
+      //
+      // This only manifests when the text is long enough (>256 chars) to bypass OnePass.
+      Pattern p = Pattern.compile("^password: (.*)$", Pattern.MULTILINE);
+
+      // Short text (uses OnePass, was not affected): sanity check.
+      Matcher mShort = p.matcher("line1\npassword: abc\nline3\n");
+      assertThat(mShort.find()).isTrue();
+      assertThat(mShort.group(1)).isEqualTo("abc");
+
+      // Long text (>256 chars, uses DFA): this was the failing case.
+      String longText = "x".repeat(240) + "\npassword: secret-uuid\nsuffix\n";
+      Matcher mLong = p.matcher(longText);
+      assertThat(mLong.find()).isTrue();
+      assertThat(mLong.group(1)).isEqualTo("secret-uuid");
+
+      // Simulated Spring Boot log output with password line buried in long text.
+      String logOutput = "01:04:45.416 [Test worker] INFO org.boot.TomcatWebServer"
+          + " -- Tomcat initialized\n"
+          + "Mar 29, 2026 1:04:45 AM org.apache.coyote.AbstractProtocol init\n"
+          + "INFO: Initializing ProtocolHandler [\"http-nio-auto-1\"]\n"
+          + "01:04:45.998 [Test worker] WARN ... -- \n"
+          + "\n"
+          + "Using generated security password: 2d27188d-396d-49bb-b1da-90a58fa94f61\n"
+          + "\n"
+          + "This generated password is for development use only.\n"
+          + "01:04:46.031 [Test worker] INFO ... AuthenticationManager configured\n"
+          + "01:04:46.162 [Test worker] INFO ... -- Tomcat started on port 40033\n";
+      Pattern pwPattern = Pattern.compile(
+          "^Using generated security password: (.*)$", Pattern.MULTILINE);
+      Matcher mLog = pwPattern.matcher(logOutput);
+      assertThat(mLog.find()).isTrue();
+      assertThat(mLog.group(1)).isEqualTo("2d27188d-396d-49bb-b1da-90a58fa94f61");
+    }
   }
 
   // -----------------------------------------------------------------------
