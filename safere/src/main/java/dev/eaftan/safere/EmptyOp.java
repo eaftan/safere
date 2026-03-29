@@ -29,8 +29,16 @@ final class EmptyOp {
   /** {@code \B} — not a word boundary. */
   public static final int NON_WORD_BOUNDARY = 1 << 5;
 
+  /**
+   * {@code $} without {@code MULTILINE} — end of text or before a trailing {@code \n}. JDK's
+   * {@code $} matches at end-of-input and also just before a final newline at the end of input.
+   * This flag is set at both positions. Distinct from {@link #END_TEXT} ({@code \z}), which
+   * matches only at the absolute end.
+   */
+  public static final int DOLLAR_END = 1 << 6;
+
   /** All flags combined. */
-  public static final int ALL_FLAGS = (1 << 6) - 1;
+  public static final int ALL_FLAGS = (1 << 7) - 1;
 
   private EmptyOp() {} // Non-instantiable.
 }

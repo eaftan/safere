@@ -81,15 +81,23 @@ final class OnePass {
   /** Direct lookup table mapping ASCII code points (0–127) to equivalence class indices. */
   private final int[] asciiClassMap;
 
-  /** Whether the program requires end-of-text matching (stripped trailing {@code $}). */
+  /** Whether the program requires end-of-text matching (stripped trailing {@code $} or \z). */
   private final boolean anchorEnd;
 
-  private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd) {
+  /**
+   * When true, the end anchor was {@code $} (not {@code \z}), meaning the match may end before a
+   * trailing {@code \n} at end of text. Only meaningful when {@link #anchorEnd} is true.
+   */
+  private final boolean dollarAnchorEnd;
+
+  private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd,
+      boolean dollarAnchorEnd) {
     this.actions = actions;
     this.matchAction = matchAction;
     this.boundaries = boundaries;
     this.asciiClassMap = buildAsciiClassMap(boundaries);
     this.anchorEnd = anchorEnd;
+    this.dollarAnchorEnd = dollarAnchorEnd;
   }
 
   // -------------------------------------------------------------------------
@@ -264,7 +272,8 @@ final class OnePass {
     // Trim tables to actual state count.
     long[][] trimmedActions = Arrays.copyOf(actions, stateCount);
     long[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
-    return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd());
+    return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd(),
+        prog.dollarAnchorEnd());
   }
 
   /** Builds sorted code point boundaries from all CHAR_RANGE and CHAR_CLASS instructions. */
@@ -400,7 +409,11 @@ final class OnePass {
       return null;
     }
     if (anchorEnd && bestCap[1] != endPos) {
-      return null;
+      // $ (dollarAnchorEnd) allows the match to end before a trailing \n at end of text.
+      if (!dollarAnchorEnd || bestCap[1] != endPos - 1
+          || endPos == 0 || text.charAt(endPos - 1) != '\n') {
+        return null;
+      }
     }
     return Arrays.copyOf(bestCap, ncap);
   }
