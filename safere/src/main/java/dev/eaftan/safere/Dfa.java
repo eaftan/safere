@@ -208,6 +208,7 @@ final class Dfa {
     bounds.add(0);
     bounds.add(Utils.MAX_RUNE + 1);
     boolean hasWordBoundary = false;
+    boolean hasLineBoundary = false;
     for (int i = 0; i < prog.size(); i++) {
       Inst inst = prog.inst(i);
       if (inst.opCode == InstOp.OP_CHAR_RANGE) {
@@ -222,10 +223,21 @@ final class Dfa {
             bounds.add(inst.ranges[j + 1] + 1);
           }
         }
-      } else if (inst.opCode == InstOp.OP_EMPTY_WIDTH
-          && (inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
-        hasWordBoundary = true;
+      } else if (inst.opCode == InstOp.OP_EMPTY_WIDTH) {
+        if ((inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
+          hasWordBoundary = true;
+        }
+        if ((inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
+          hasLineBoundary = true;
+        }
       }
+    }
+    if (hasLineBoundary) {
+      // '\n' triggers BEGIN_LINE (at the position after it) and END_LINE (at the position
+      // of it). Give '\n' its own equivalence class so the DFA can cache different
+      // transitions for newline vs other characters in the same range.
+      bounds.add(0x0A);   // '\n'
+      bounds.add(0x0B);   // '\n' + 1
     }
     if (hasWordBoundary) {
       // Add boundaries at the edges of word-character ranges [0-9A-Za-z_].

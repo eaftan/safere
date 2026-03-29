@@ -385,6 +385,31 @@ class PatternTest {
       assertThat(m.group()).isEqualTo("foo");
       assertThat(m.find()).isFalse();
     }
+
+    @Test
+    @DisplayName("MULTILINE ^ works on long text (DFA code path)")
+    void multilineBolLongText() {
+      // Regression test: the DFA path didn't give \n its own equivalence class,
+      // so ^ after \n was not detected on text longer than the OnePass threshold.
+      StringBuilder sb = new StringBuilder();
+      sb.append("header line\n");
+      for (int i = 0; i < 200; i++) {
+        sb.append("some padding line ").append(i).append("\n");
+      }
+      sb.append("import foo\n");
+      sb.append("import bar\n");
+      String text = sb.toString();
+
+      Pattern p = Pattern.compile("^import", Pattern.MULTILINE);
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("import");
+      int first = m.start();
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("import");
+      assertThat(m.start()).isGreaterThan(first);
+      assertThat(m.find()).isFalse();
+    }
   }
 
   // -----------------------------------------------------------------------
