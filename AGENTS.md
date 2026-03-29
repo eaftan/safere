@@ -145,6 +145,8 @@ Drop-in replacements for `java.util.regex`:
 - **No installing software**: Never install packages, libraries, or tools
   on the machine. If something is missing, ask the project owner to install
   it.
+- **Regression tests for bugs**: Any time a bug is found, a regression test
+  must be added that fails without the fix and passes with it.
 
 ## Benchmarking
 
