@@ -1038,4 +1038,277 @@ class MatcherTest {
       assertThat(m.hasTransparentBounds()).isFalse();
     }
   }
+
+  @Nested
+  @DisplayName("region()")
+  class RegionTests {
+
+    @Test
+    @DisplayName("find() respects region boundaries")
+    void findRespectsRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc 123 def 456 ghi");
+      m.region(4, 7); // "123"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      assertThat(m.start()).isEqualTo(4);
+      assertThat(m.end()).isEqualTo(7);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("find() does not match outside region")
+    void findDoesNotMatchOutsideRegion() {
+      Pattern p = Pattern.compile("ghi");
+      Matcher m = p.matcher("abc ghi xyz");
+      m.region(0, 5); // "abc g"
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("matches() matches entire region")
+    void matchesEntireRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def");
+      m.region(3, 6); // "123"
+      assertThat(m.matches()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      assertThat(m.start()).isEqualTo(3);
+      assertThat(m.end()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("matches() fails if region doesn't fully match")
+    void matchesFailsPartialRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def");
+      m.region(2, 7); // "c123d"
+      assertThat(m.matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("lookingAt() matches at start of region")
+    void lookingAtRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def456");
+      m.region(3, 9); // "123def"
+      assertThat(m.lookingAt()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      assertThat(m.start()).isEqualTo(3);
+      assertThat(m.end()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("lookingAt() fails if region doesn't start with match")
+    void lookingAtRegionFails() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def");
+      m.region(0, 6); // "abc123" — starts with 'a' not digit
+      assertThat(m.lookingAt()).isFalse();
+    }
+
+    @Test
+    @DisplayName("regionStart() and regionEnd() return bounds")
+    void regionAccessors() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("abcdef");
+      m.region(2, 5);
+      assertThat(m.regionStart()).isEqualTo(2);
+      assertThat(m.regionEnd()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("reset() restores region to full text")
+    void resetRestoresRegion() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("abcdef");
+      m.region(2, 5);
+      m.reset();
+      assertThat(m.regionStart()).isEqualTo(0);
+      assertThat(m.regionEnd()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("region returns this matcher")
+    void regionReturnsSelf() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("abc");
+      assertThat(m.region(0, 2)).isSameAs(m);
+    }
+
+    @Test
+    @DisplayName("region with invalid bounds throws")
+    void regionInvalidBoundsThrows() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("abc");
+      assertThatThrownBy(() -> m.region(-1, 3))
+          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.region(0, 4))
+          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.region(3, 1))
+          .isInstanceOf(IndexOutOfBoundsException.class);
+    }
+
+    @Test
+    @DisplayName("^ matches at region start with anchoring bounds")
+    void caretMatchesAtRegionStart() {
+      Pattern p = Pattern.compile("^\\d+");
+      Matcher m = p.matcher("abc123def");
+      m.region(3, 6); // "123"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+    }
+
+    @Test
+    @DisplayName("$ matches at region end with anchoring bounds")
+    void dollarMatchesAtRegionEnd() {
+      Pattern p = Pattern.compile("\\d+$");
+      Matcher m = p.matcher("abc123def");
+      m.region(3, 6); // "123"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+    }
+
+    @Test
+    @DisplayName("successive find() calls within region")
+    void successiveFindInRegion() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("111aaa222bbb333ccc444");
+      m.region(3, 15); // "aaa222bbb333"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("aaa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("bbb");
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("capture groups work with region")
+    void captureGroupsWithRegion() {
+      Pattern p = Pattern.compile("(\\w+)=(\\w+)");
+      Matcher m = p.matcher("xxx a=1 yyy b=2 zzz");
+      m.region(4, 15); // "a=1 yyy b=2"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isEqualTo("a");
+      assertThat(m.group(2)).isEqualTo("1");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isEqualTo("b");
+      assertThat(m.group(2)).isEqualTo("2");
+    }
+
+    @Test
+    @DisplayName("empty region matches empty pattern")
+    void emptyRegion() {
+      Pattern p = Pattern.compile("");
+      Matcher m = p.matcher("abc");
+      m.region(1, 1); // empty region
+      assertThat(m.matches()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("region at end of text")
+    void regionAtEnd() {
+      Pattern p = Pattern.compile("xyz");
+      Matcher m = p.matcher("abcxyz");
+      m.region(3, 6); // "xyz"
+      assertThat(m.matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("replaceAll within region (after find loop)")
+    void replaceAllWithRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("aa11bb22cc");
+      m.region(2, 8); // "11bb22"
+      // replaceAll resets, which resets region to full text
+      // So this tests that reset() works correctly
+      String result = m.replaceAll("N");
+      assertThat(result).isEqualTo("aaNbbNcc");
+    }
+  }
+
+  @Nested
+  @DisplayName("hitEnd()")
+  class HitEndTests {
+
+    @Test
+    @DisplayName("hitEnd is true when match extends to end of input")
+    void hitEndMatchAtEnd() {
+      Pattern p = Pattern.compile("\\w+");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hitEnd is false when match does not reach end")
+    void hitEndMatchNotAtEnd() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123 abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      assertThat(m.hitEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true when no match found")
+    void hitEndNoMatch() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("no digits");
+      assertThat(m.find()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hitEnd respects region boundaries")
+    void hitEndWithRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def456ghi");
+      m.region(3, 6); // "123"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      assertThat(m.hitEnd()).isTrue(); // match extends to regionEnd
+    }
+
+    @Test
+    @DisplayName("hitEnd false with region when match doesn't reach end")
+    void hitEndFalseWithRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def456ghi");
+      m.region(3, 9); // "123def"
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("123");
+      assertThat(m.hitEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd true with matches()")
+    void hitEndWithMatches() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abc");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hitEnd true with lookingAt() matching to end")
+    void hitEndWithLookingAtToEnd() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abc");
+      assertThat(m.lookingAt()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hitEnd false with lookingAt() not reaching end")
+    void hitEndFalseWithLookingAt() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abcdef");
+      assertThat(m.lookingAt()).isTrue();
+      assertThat(m.hitEnd()).isFalse();
+    }
+  }
 }

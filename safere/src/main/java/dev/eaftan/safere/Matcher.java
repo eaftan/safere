@@ -42,6 +42,9 @@ public final class Matcher implements MatchResult {
   private int appendPos;
   private boolean transparentBounds;
   private boolean anchoringBounds = true;
+  private int regionStart;
+  private int regionEnd;
+  private boolean lastHitEnd;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -80,6 +83,7 @@ public final class Matcher implements MatchResult {
   Matcher(Pattern pattern, CharSequence input) {
     this.parentPattern = pattern;
     this.text = input.toString();
+    this.regionEnd = text.length();
   }
 
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
@@ -360,7 +364,34 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if the entire input sequence matches this matcher's pattern
    */
   public boolean matches() {
-    searchFrom = 0;
+    searchFrom = regionStart;
+
+    // --- Region setup ---
+    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    String savedText = text;
+    if (regionActive) {
+      text = savedText.substring(regionStart, regionEnd);
+    }
+
+    try {
+      return matchesCore();
+    } finally {
+      if (regionActive) {
+        text = savedText;
+        if (groups != null) {
+          for (int i = 0; i < groups.length; i++) {
+            if (groups[i] >= 0) {
+              groups[i] += regionStart;
+            }
+          }
+        }
+      }
+      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
+    }
+  }
+
+  /** Core matches logic, operates on the (possibly substituted) {@code text} field. */
+  private boolean matchesCore() {
 
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
@@ -427,8 +458,34 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a prefix of the input sequence matches this matcher's pattern
    */
   public boolean lookingAt() {
-    searchFrom = 0;
+    searchFrom = regionStart;
 
+    // --- Region setup ---
+    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    String savedText = text;
+    if (regionActive) {
+      text = savedText.substring(regionStart, regionEnd);
+    }
+
+    try {
+      return lookingAtCore();
+    } finally {
+      if (regionActive) {
+        text = savedText;
+        if (groups != null) {
+          for (int i = 0; i < groups.length; i++) {
+            if (groups[i] >= 0) {
+              groups[i] += regionStart;
+            }
+          }
+        }
+      }
+      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
+    }
+  }
+
+  /** Core lookingAt logic, operates on the (possibly substituted) {@code text} field. */
+  private boolean lookingAtCore() {
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
     if (literal != null && parentPattern.numGroups() == 0) {
@@ -491,7 +548,7 @@ public final class Matcher implements MatchResult {
       resolveCaptures();
       searchFrom = groups[1];
       if (groups[0] == groups[1]) { // empty match
-        if (searchFrom >= text.length()) {
+        if (searchFrom >= regionEnd) {
           hasMatch = false;
           return false;
         }
@@ -551,6 +608,44 @@ public final class Matcher implements MatchResult {
 
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
+    // --- Region setup: temporarily substitute text with the region substring ---
+    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    String savedText = text;
+    int savedSearchFrom = searchFrom;
+    if (regionActive) {
+      text = savedText.substring(regionStart, regionEnd);
+      searchFrom = Math.max(0, savedSearchFrom - regionStart);
+    }
+
+    try {
+      return doFindCore(regionActive);
+    } finally {
+      if (regionActive) {
+        text = savedText;
+        searchFrom = savedSearchFrom;
+        if (groups != null) {
+          for (int i = 0; i < groups.length; i++) {
+            if (groups[i] >= 0) {
+              groups[i] += regionStart;
+            }
+          }
+        }
+        if (hasMatch && !capturesResolved) {
+          deferredMatchStart += regionStart;
+          deferredMatchEnd += regionStart;
+        }
+      }
+      // Track hitEnd: true if no match found (engine scanned to end) or match reaches regionEnd.
+      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
+    }
+  }
+
+  /**
+   * Core find logic. When {@code regionActive} is true, the DFA sandwich with deferred captures
+   * is disabled because resolveCaptures() would run on the full text with different empty-width
+   * assertion semantics than the substring the DFA saw.
+   */
+  private boolean doFindCore(boolean regionActive) {
     if (searchFrom > text.length()) {
       hasMatch = false;
       return false;
@@ -671,7 +766,10 @@ public final class Matcher implements MatchResult {
     // For patterns where the DFA start IS reliable but the end may be wrong (alternation, bounded
     // repeats), the sandwich still narrows the range — capturesResolved is set to false so
     // resolveCaptures() corrects the end position using the submatch engine.
-    if (fwdResult != null
+    // Skip when a region is active — deferred capture resolution runs on the full text but the
+    // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
+    if (!regionActive
+        && fwdResult != null
         && fwdResult.pos() > effectiveStart
         && parentPattern.dfaStartReliable()) {
       int earlyEnd = fwdResult.pos();
@@ -1268,11 +1366,14 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher reset() {
+    regionStart = 0;
+    regionEnd = text.length();
     searchFrom = 0;
     appendPos = 0;
     hasMatch = false;
     groups = null;
     capturesResolved = true;
+    lastHitEnd = false;
     return this;
   }
 
@@ -1285,6 +1386,73 @@ public final class Matcher implements MatchResult {
   public Matcher reset(CharSequence input) {
     this.text = input.toString();
     return reset();
+  }
+
+  /**
+   * Sets the limits of this matcher's region. The region is the part of the input sequence that
+   * will be searched to find a match. Invoking this method resets the matcher and sets the region
+   * to start at the character specified by the {@code start} parameter and end at the character
+   * specified by the {@code end} parameter.
+   *
+   * @param start the index to start searching at (inclusive)
+   * @param end the index to end searching at (exclusive)
+   * @return this matcher
+   * @throws IndexOutOfBoundsException if start or end is less than zero, if end is greater than
+   *     the length of the input sequence, or if start is greater than end
+   */
+  public Matcher region(int start, int end) {
+    if (start < 0 || start > text.length()) {
+      throw new IndexOutOfBoundsException(
+          "start=" + start + ", length=" + text.length());
+    }
+    if (end < 0 || end > text.length()) {
+      throw new IndexOutOfBoundsException(
+          "end=" + end + ", length=" + text.length());
+    }
+    if (start > end) {
+      throw new IndexOutOfBoundsException("start=" + start + " > end=" + end);
+    }
+    regionStart = start;
+    regionEnd = end;
+    hasMatch = false;
+    searchFrom = start;
+    appendPos = start;
+    groups = null;
+    capturesResolved = true;
+    lastHitEnd = false;
+    return this;
+  }
+
+  /**
+   * Reports the start index of this matcher's region. Searches by this matcher are limited to
+   * finding matches within {@link #regionStart()} (inclusive) and {@link #regionEnd()} (exclusive).
+   *
+   * @return the starting point of this matcher's region
+   */
+  public int regionStart() {
+    return regionStart;
+  }
+
+  /**
+   * Reports the end index (exclusive) of this matcher's region. Searches by this matcher are
+   * limited to finding matches within {@link #regionStart()} (inclusive) and
+   * {@link #regionEnd()} (exclusive).
+   *
+   * @return the ending point of this matcher's region
+   */
+  public int regionEnd() {
+    return regionEnd;
+  }
+
+  /**
+   * Returns true if the end of input was hit by the search engine in the last match operation
+   * performed by this matcher. When this method returns true, it is possible that more input would
+   * have changed the result of the last search.
+   *
+   * @return true if the end of input was hit in the last match; false otherwise
+   */
+  public boolean hitEnd() {
+    return lastHitEnd;
   }
 
   /**
