@@ -677,6 +677,15 @@ public final class Matcher implements MatchResult {
 
     Prog prog = parentPattern.prog();
 
+    // Anchored start: if the pattern requires a match at the beginning of the text (e.g., ^
+    // without MULTILINE, or \A), there can be no match starting after position 0 (or regionStart
+    // when a region is active). Return false immediately to avoid the DFA matching at every
+    // position because the compiler strips the anchor into prog.anchorStart().
+    if (prog.anchorStart() && searchFrom > 0) {
+      hasMatch = false;
+      return false;
+    }
+
     // Anchored OnePass fast path: for anchored OnePass-eligible patterns, use OnePass directly.
     // OnePass is a single O(n) pass that finds both match bounds and captures, avoiding the
     // entire DFA construction and sandwich overhead. Works for any searchFrom position — OnePass

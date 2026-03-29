@@ -62,14 +62,15 @@ class RE2ReplaceTest {
         // Start and end of a string.
         // Note: SafeRE follows Java empty-match semantics (includes empty matches after
         // non-empty matches at the same position), which differs from RE2/Go behavior.
-        // Expected values below reflect SafeRE/Java semantics.
-        replaceAll("^[a-c]*", "x", "abcdabc", "xxdxx"),
+        // For ^, Java treats it as BEGIN_TEXT (not BEGIN_LINE) without MULTILINE, so ^
+        // only matches at position 0. Expected values below reflect Java semantics.
+        replaceAll("^[a-c]*", "x", "abcdabc", "xdabc"),
         replaceAll("[a-c]*$", "x", "abcdabc", "abcdxx"),
         replaceAll("^[a-c]*$", "x", "abcdabc", "abcdabc"),
-        replaceAll("^[a-c]*", "x", "abc", "xx"),
+        replaceAll("^[a-c]*", "x", "abc", "x"),
         replaceAll("[a-c]*$", "x", "abc", "xx"),
-        replaceAll("^[a-c]*$", "x", "abc", "xx"),
-        replaceAll("^[a-c]*", "x", "dabce", "xdxxex"),
+        replaceAll("^[a-c]*$", "x", "abc", "x"),
+        replaceAll("^[a-c]*", "x", "dabce", "xdabce"),
         replaceAll("[a-c]*$", "x", "dabce", "dabcex"),
         replaceAll("^[a-c]*$", "x", "dabce", "dabce"),
         replaceAll("^[a-c]*", "x", "", "x"),
