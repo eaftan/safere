@@ -15,6 +15,7 @@
 
   <modules>
     <module>safere</module>
+    <module>safere-ffm-re2</module>
     <module>safere-benchmarks</module>
   </modules>
 

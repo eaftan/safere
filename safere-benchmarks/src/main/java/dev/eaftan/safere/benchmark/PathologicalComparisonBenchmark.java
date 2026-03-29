@@ -34,6 +34,7 @@ public class PathologicalComparisonBenchmark {
   private dev.eaftan.safere.Pattern safePattern;
   private java.util.regex.Pattern jdkPattern;
   private com.google.re2j.Pattern re2jPattern;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmPattern;
   private String text;
 
   @Setup
@@ -42,6 +43,7 @@ public class PathologicalComparisonBenchmark {
     safePattern = dev.eaftan.safere.Pattern.compile(regex);
     jdkPattern = java.util.regex.Pattern.compile(regex);
     re2jPattern = com.google.re2j.Pattern.compile(regex);
+    re2ffmPattern = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(regex);
     text = "a".repeat(n);
   }
 
@@ -58,5 +60,10 @@ public class PathologicalComparisonBenchmark {
   @Benchmark
   public boolean pathological_re2j() {
     return re2jPattern.matcher(text).matches();
+  }
+
+  @Benchmark
+  public boolean pathological_re2ffm() {
+    return re2ffmPattern.matcher(text).matches();
   }
 }

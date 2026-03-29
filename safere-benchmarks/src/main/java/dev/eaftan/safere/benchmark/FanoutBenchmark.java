@@ -43,11 +43,13 @@ public class FanoutBenchmark {
   private dev.eaftan.safere.Pattern safeFanout;
   private java.util.regex.Pattern jdkFanout;
   private com.google.re2j.Pattern re2jFanout;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmFanout;
 
   // Nested quantifier: a?{n}a{n} but with higher n and varying text.
   private dev.eaftan.safere.Pattern safeNested;
   private java.util.regex.Pattern jdkNested;
   private com.google.re2j.Pattern re2jNested;
+  private dev.eaftan.safere.re2ffm.RE2FfmPattern re2ffmNested;
 
   private String unicodeText;
   private String asciiText;
@@ -73,6 +75,9 @@ public class FanoutBenchmark {
 
     re2jFanout = com.google.re2j.Pattern.compile(fanoutPattern);
     re2jNested = com.google.re2j.Pattern.compile(nestedPattern);
+
+    re2ffmFanout = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(fanoutPattern);
+    re2ffmNested = dev.eaftan.safere.re2ffm.RE2FfmPattern.compile(nestedPattern);
 
     // Generate Unicode text (mix of CJK, Latin Extended, Cyrillic, Hiragana).
     Random rng = new Random(unicodeSeed);
@@ -108,6 +113,11 @@ public class FanoutBenchmark {
     return re2jFanout.matcher(unicodeText).find();
   }
 
+  @Benchmark
+  public boolean fanoutUnicode_re2ffm() {
+    return re2ffmFanout.matcher(unicodeText).find();
+  }
+
   // ===== Nested quantifier: find in ASCII text =====
 
   @Benchmark
@@ -123,5 +133,10 @@ public class FanoutBenchmark {
   @Benchmark
   public boolean nestedQuantifier_re2j() {
     return re2jNested.matcher(asciiText).find();
+  }
+
+  @Benchmark
+  public boolean nestedQuantifier_re2ffm() {
+    return re2ffmNested.matcher(asciiText).find();
   }
 }

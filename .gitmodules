@@ -1,0 +1,3 @@
+[submodule "safere-ffm-re2/third_party/re2"]
+	path = safere-ffm-re2/third_party/re2
+	url = https://github.com/google/re2.git

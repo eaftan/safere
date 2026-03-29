@@ -31,3 +31,4 @@ Thumbs.db
 
 # Maven shade plugin artifact
 dependency-reduced-pom.xml
+safere-ffm-re2/build/
