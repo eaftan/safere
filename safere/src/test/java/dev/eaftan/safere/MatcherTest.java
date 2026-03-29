@@ -412,6 +412,26 @@ class MatcherTest {
   class ReplaceTests {
 
     @Test
+    @DisplayName("quoteReplacement() escapes dollar signs and backslashes")
+    void quoteReplacement() {
+      assertThat(Matcher.quoteReplacement("hello")).isEqualTo("hello");
+      assertThat(Matcher.quoteReplacement("$1")).isEqualTo("\\$1");
+      assertThat(Matcher.quoteReplacement("a\\b")).isEqualTo("a\\\\b");
+      assertThat(Matcher.quoteReplacement("$foo\\bar$"))
+          .isEqualTo("\\$foo\\\\bar\\$");
+      assertThat(Matcher.quoteReplacement("")).isEqualTo("");
+    }
+
+    @Test
+    @DisplayName("quoteReplacement() result used in replaceAll() is literal")
+    void quoteReplacementInReplace() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("a1b2c3");
+      assertThat(m.replaceAll(Matcher.quoteReplacement("$0")))
+          .isEqualTo("a$0b$0c$0");
+    }
+
+    @Test
     @DisplayName("replaceFirst() replaces only the first match")
     void replaceFirst() {
       Pattern p = Pattern.compile("\\d+");
