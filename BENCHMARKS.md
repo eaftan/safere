@@ -31,6 +31,14 @@ the SafeRE vs JDK vs RE2/J comparison is apples-to-apples.
 ./run-java-benchmarks.sh                        # all benchmarks
 ./run-java-benchmarks.sh CaptureScalingBenchmark  # specific class
 
+# Java memory profiling — allocation rates (bytes/op) via JMH GC profiler
+./run-java-memory-benchmarks.sh                        # all benchmarks with -prof gc
+./run-java-memory-benchmarks.sh RegexBenchmark         # specific class
+
+# Java compiled pattern sizes — standalone measurement
+java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
+  dev.eaftan.safere.benchmark.MemoryBenchmark
+
 # C++ RE2 benchmarks
 ./run-cpp-benchmarks.sh                    # all C++ benchmarks
 ./run-cpp-benchmarks.sh Regex Compile      # specific benchmark groups
@@ -533,4 +541,93 @@ where JDK regex runs in its own application.
   suboptimal for some pattern/text combinations.
 
 ---
-*Last updated: 2026-03-28 (full JMH defaults, post-optimization round 3)*
+
+## Memory Usage
+
+Memory metrics complement the throughput data above. Unlike time-based
+benchmarks, memory measurements are deterministic — they count bytes, not
+time — and are not affected by other processes on the machine.
+
+### Methodology
+
+**Per-match allocation rate** (`gc.alloc.rate.norm`): Measured via JMH's
+built-in GC profiler (`-prof gc`). Reports bytes allocated per operation,
+normalized via TLAB accounting. This is the most actionable memory metric: it
+directly determines GC pressure in production workloads.
+
+**Compiled pattern size**: Measured via the heap-delta technique: allocate 500
+instances of a compiled pattern, force GC, measure heap growth, and divide by
+instance count. Seven trials are run and the median is reported. Run with
+`-Xms256m -Xmx256m` for fixed heap to reduce noise.
+
+**DFA cache growth**: For SafeRE only. Compiles a pattern, measures heap before
+and after matching against a large text (which lazily populates DFA states).
+Multiple trials, median reported.
+
+**Cross-language memory**: C++ RE2 uses `mallinfo2()` heap delta around pattern
+compilation and `RE2::ProgramSize()` for bytecode instruction count. Go uses
+`runtime.MemStats` heap delta. These numbers are not directly comparable to
+Java's due to different allocation strategies (manual vs GC-managed), but
+provide order-of-magnitude context.
+
+### Per-Match Allocation Rate (bytes/op)
+
+_Run `./run-java-memory-benchmarks.sh` with full JMH defaults to populate._
+
+| Benchmark | SafeRE (B/op) | JDK (B/op) | RE2/J (B/op) |
+|---|---|---|---|
+| literalMatch | | | |
+| charClassMatch | | | |
+| alternationFind | | | |
+| captureGroups | | | |
+| findInText | | | |
+| emailFind | | | |
+
+### Compiled Pattern Size (bytes, retained heap)
+
+_Run `MemoryBenchmark` to populate._
+
+| Pattern | SafeRE | JDK | RE2/J |
+|---|---|---|---|
+| simple | | | |
+| medium | | | |
+| complex | | | |
+| alternation | | | |
+
+**Interpretation:** SafeRE patterns are larger than JDK patterns because they
+include a compiled `Prog` (bytecode), pre-built character class bitmaps, and
+other structures needed for linear-time matching. JDK patterns defer most
+compilation work to match time. RE2/J's sizes fall between the two.
+
+### Memory Scaling with Input Size
+
+_Run `./run-java-memory-benchmarks.sh MemoryScalingBenchmark` to populate._
+
+| Text size | SafeRE (B/op) | JDK (B/op) | RE2/J (B/op) |
+|---|---|---|---|
+| 1 KB | | | |
+| 10 KB | | | |
+| 100 KB | | | |
+| 1 MB | | | |
+
+**Key question:** Does bytes/op stay constant as input grows? Constant
+allocation indicates streaming behavior (good). Growing allocation indicates
+input-proportional buffers.
+
+### DFA Cache Growth (SafeRE only)
+
+_Run `MemoryBenchmark` to populate._
+
+| Pattern | Cache growth (bytes) |
+|---|---|
+| simple | |
+| medium | |
+| complex | |
+| alternation | |
+
+SafeRE lazily builds DFA states during matching. The cache is bounded by
+`maxStates` (default 10,000 states). Simple patterns that use the literal
+fast path or OnePass engine may not populate the DFA cache at all.
+
+---
+*Last updated: 2026-03-29 (added memory profiling infrastructure)*

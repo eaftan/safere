@@ -41,6 +41,16 @@ jobs:
         env:
           JMH_OPTS: "-f 0 -wi 1 -i 1 -w 1 -r 1"
 
+      - name: Smoke test Java memory benchmarks (GC profiler)
+        run: ./run-java-memory-benchmarks.sh RegexBenchmark
+        env:
+          JMH_OPTS: "-f 0 -wi 1 -i 1 -w 1 -r 1"
+
+      - name: Smoke test Java memory benchmarks (pattern sizes)
+        run: |
+          java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
+            dev.eaftan.safere.benchmark.MemoryBenchmark
+
   benchmark-smoke-test-cpp:
     runs-on: ubuntu-latest
 
@@ -58,6 +68,11 @@ jobs:
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \
             --data safere-benchmarks/benchmark-data.json literalMatch
+
+      - name: Smoke test C++ RE2 memory benchmarks
+        run: |
+          safere-benchmarks/cpp/build/re2_benchmark \
+            --data safere-benchmarks/benchmark-data.json MemoryBenchmark
 
   benchmark-smoke-test-go:
     runs-on: ubuntu-latest
@@ -77,3 +92,8 @@ jobs:
         run: |
           safere-benchmarks/go/regexp_benchmark \
             --data safere-benchmarks/benchmark-data.json literalMatch
+
+      - name: Smoke test Go memory benchmarks
+        run: |
+          safere-benchmarks/go/regexp_benchmark \
+            --data safere-benchmarks/benchmark-data.json MemoryBenchmark
