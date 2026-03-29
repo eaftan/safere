@@ -17,14 +17,14 @@ set(RE2_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   re2
   GIT_REPOSITORY https://github.com/google/re2.git
-  GIT_TAG        2024-07-02
+  GIT_TAG        2025-11-05
 )
 
 # RE2 requires Abseil.
 FetchContent_Declare(
   abseil-cpp
   GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-  GIT_TAG        20240722.0
+  GIT_TAG        20250814.2
 )
 
 # JSON parser (header-only).

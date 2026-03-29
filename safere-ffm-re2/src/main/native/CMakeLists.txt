@@ -5,18 +5,31 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# RE2 source is at safere-ffm-re2/third_party/re2/ relative to repo root.
-# This CMakeLists.txt is at safere-ffm-re2/src/main/native/.
-get_filename_component(MODULE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
-set(RE2_SOURCE_DIR "${MODULE_ROOT}/third_party/re2")
+# Fetch dependencies (same versions as safere-benchmarks/cpp/).
+include(FetchContent)
 
-# Build RE2 from vendored source as a static library
+set(ABSL_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 set(RE2_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-add_subdirectory(${RE2_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/re2
-                 EXCLUDE_FROM_ALL)
+
+FetchContent_Declare(
+  abseil-cpp
+  GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+  GIT_TAG        20250814.2
+)
+
+FetchContent_Declare(
+  re2
+  GIT_REPOSITORY https://github.com/google/re2.git
+  GIT_TAG        2025-11-05
+)
+
+# Suppress install(EXPORT) errors from RE2.
+set(CMAKE_SKIP_INSTALL_RULES ON)
+
+FetchContent_MakeAvailable(abseil-cpp re2)
 
 # Build our C shim as a shared library, statically linking RE2 into it
 add_library(re2_shim SHARED re2_shim.cpp)
-target_include_directories(re2_shim PRIVATE ${RE2_SOURCE_DIR})
-target_link_libraries(re2_shim PRIVATE re2)
+target_link_libraries(re2_shim PRIVATE re2::re2)
