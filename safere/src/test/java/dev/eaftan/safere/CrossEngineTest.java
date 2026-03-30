@@ -67,8 +67,8 @@ class CrossEngineTest {
         new TestCase("abc", "abc"),
         new TestCase("abc", "xabcy"),
         new TestCase("abc", "def"),
-        new TestCase("", "abc", Divergence.MATCH_DIFFERS),
-        new TestCase("", "", Divergence.MATCH_DIFFERS),
+        new TestCase("", "abc"),
+        new TestCase("", ""),
         new TestCase("hello world", "hello world"),
         new TestCase("hello world", "say hello world now"),
         new TestCase("aaa", "aaaa"),
@@ -103,14 +103,14 @@ class CrossEngineTest {
         new TestCase("\\w+", "hello world"),
 
         // ===== Quantifiers =====
-        new TestCase("a*", "", Divergence.MATCH_DIFFERS),
+        new TestCase("a*", ""),
         new TestCase("a*", "aaa"),
-        new TestCase("a*", "bbb", Divergence.MATCH_DIFFERS),
+        new TestCase("a*", "bbb"),
         new TestCase("a+", "aaa"),
-        new TestCase("a+", "", Divergence.MATCH_DIFFERS),
+        new TestCase("a+", ""),
         new TestCase("a?", "a"),
-        new TestCase("a?", "", Divergence.MATCH_DIFFERS),
-        new TestCase("a?", "b", Divergence.MATCH_DIFFERS),
+        new TestCase("a?", ""),
+        new TestCase("a?", "b"),
         new TestCase("a{3}", "aaa"),
         new TestCase("a{3}", "aa"),
         new TestCase("a{3}", "aaaa"),
@@ -123,10 +123,10 @@ class CrossEngineTest {
         new TestCase("a{1,}", "aaa"),
 
         // ===== Non-greedy quantifiers =====
-        new TestCase("a*?", "aaa", Divergence.MATCH_DIFFERS),
-        new TestCase("a+?", "aaa", Divergence.MATCH_DIFFERS),
-        new TestCase("a??", "a", Divergence.MATCH_DIFFERS),
-        new TestCase("a{2,4}?", "aaaa", Divergence.MATCH_DIFFERS),
+        new TestCase("a*?", "aaa"),
+        new TestCase("a+?", "aaa"),
+        new TestCase("a??", "a"),
+        new TestCase("a{2,4}?", "aaaa"),
 
         // ===== Dot =====
         new TestCase(".", "a"),
@@ -147,11 +147,11 @@ class CrossEngineTest {
         new TestCase("^abc$", "abc"),
         new TestCase("^abc$", "abcx"),
         new TestCase("^abc$", "xabc"),
-        new TestCase("^$", "", Divergence.MATCH_DIFFERS),
+        new TestCase("^$", ""),
         new TestCase("^$", "a"),
-        new TestCase("^", "", Divergence.MATCH_DIFFERS),
-        new TestCase("^", "abc", Divergence.MATCH_DIFFERS),
-        new TestCase("$", "", Divergence.MATCH_DIFFERS),
+        new TestCase("^", ""),
+        new TestCase("^", "abc"),
+        new TestCase("$", ""),
         new TestCase("$", "abc"),
 
         // ===== Alternation =====
@@ -163,7 +163,7 @@ class CrossEngineTest {
         new TestCase("a|b|c", "b"),
         new TestCase("a|b|c", "d"),
         new TestCase("abc|def|ghi", "def"),
-        new TestCase("a|ab", "ab", Divergence.MATCH_DIFFERS),
+        new TestCase("a|ab", "ab"),
 
         // ===== Groups and captures =====
         new TestCase("(a)(b)(c)", "abc"),
@@ -254,10 +254,10 @@ class CrossEngineTest {
         new TestCase("(?>a+)", "aaa", Divergence.SAFERE_REJECTS),
 
         // ===== Edge cases =====
-        new TestCase("(a*)", "", Divergence.MATCH_DIFFERS),
+        new TestCase("(a*)", ""),
         new TestCase("a*b", "b"),
         new TestCase("a*b", "aaab"),
-        new TestCase(".{0}", "abc", Divergence.MATCH_DIFFERS),
+        new TestCase(".{0}", "abc"),
         new TestCase("a{100}", "a".repeat(100)),
         new TestCase("a{100}", "a".repeat(99)),
         new TestCase("a?a?a?aaa", "aaa"),
@@ -282,7 +282,7 @@ class CrossEngineTest {
         new TestCase("\\s+", "one two  three"),
 
         // ===== Nested quantifiers =====
-        new TestCase("(a+)+", "aaa", Divergence.MATCH_DIFFERS),
+        new TestCase("(a+)+", "aaa"),
         new TestCase("((a|b)+)", "abab"),
 
         // ===== Character class edge cases =====
@@ -298,10 +298,10 @@ class CrossEngineTest {
         new TestCase("(?i)abc", "AbC"),
         new TestCase("(?i)abc", "def"),
         new TestCase("(?i)[a-z]+", "HeLLo"),
-        new TestCase("a{0}", "a", Divergence.MATCH_DIFFERS),
-        new TestCase("a{0}", "", Divergence.MATCH_DIFFERS),
+        new TestCase("a{0}", "a"),
+        new TestCase("a{0}", ""),
         new TestCase("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)", "abcdefghij"),
-        new TestCase("x*", "y", Divergence.MATCH_DIFFERS));
+        new TestCase("x*", "y"));
   }
 
   // ---------------------------------------------------------------------------
