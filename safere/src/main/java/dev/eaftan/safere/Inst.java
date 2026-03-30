@@ -148,6 +148,37 @@ final class Inst {
   }
 
   /**
+   * Initializes as a PROGRESS_CHECK instruction with the given loop register index.
+   *
+   * <p>This instruction has two successors and a greediness flag:
+   * <ul>
+   *   <li>{@code out}: body entry (the loop body)
+   *   <li>{@code out1}: loop exit (patched to whatever follows the repetition)
+   * </ul>
+   *
+   * <p>Behavior:
+   * <ul>
+   *   <li><b>First visit</b> (saved == -1): saves position, follows both successors like ALT
+   *   <li><b>Progress</b> (pos != saved): saves position, follows both successors like ALT
+   *       (greedy → prefer body; non-greedy → prefer exit)
+   *   <li><b>Zero-width</b> (pos == saved): follows only exit (terminates the loop)
+   * </ul>
+   *
+   * @param loopReg the loop register index (0-based)
+   * @param bodyOut successor for body entry
+   * @param exitOut successor for loop exit
+   * @param nonGreedy true if the enclosing repetition is non-greedy
+   */
+  public void initProgressCheck(int loopReg, int bodyOut, int exitOut, boolean nonGreedy) {
+    this.op = InstOp.PROGRESS_CHECK;
+    this.opCode = InstOp.OP_PROGRESS_CHECK;
+    this.arg = loopReg;
+    this.out = bodyOut;
+    this.out1 = exitOut;
+    this.foldCase = nonGreedy;
+  }
+
+  /**
    * Initializes as a CHAR_CLASS instruction matching code points against multiple ranges.
    *
    * @param out successor instruction index
@@ -275,6 +306,9 @@ final class Inst {
       case MATCH -> String.format("match %d", arg);
       case NOP -> String.format("nop -> %d", out);
       case FAIL -> "fail";
+      case PROGRESS_CHECK -> String.format(
+          "progress_check reg=%d body=%d exit=%d %s", arg, out, out1,
+          foldCase ? "non-greedy" : "greedy");
       case CHAR_CLASS -> {
         StringBuilder sb = new StringBuilder("charclass [");
         for (int i = 0; i < ranges.length; i += 2) {

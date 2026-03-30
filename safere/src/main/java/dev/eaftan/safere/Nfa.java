@@ -51,6 +51,8 @@ final class Nfa {
 
   private final Prog prog;
   private final int ncapture;
+  /** Total thread array size: ncapture slots for captures + numLoopRegs for progress checks. */
+  private final int threadArraySize;
   private final boolean longest;
   private final boolean endmatch;
 
@@ -64,6 +66,7 @@ final class Nfa {
   private Nfa(Prog prog, int ncapture, boolean longest, boolean endmatch) {
     this.prog = prog;
     this.ncapture = ncapture;
+    this.threadArraySize = ncapture + prog.numLoopRegs();
     this.longest = longest;
     this.endmatch = endmatch;
     this.runq = new ArrayList<>();
@@ -188,7 +191,7 @@ final class Nfa {
       // Also don't start threads past searchLimit — the DFA has already determined
       // there's no match starting beyond that position.
       if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
-        int[] cap = new int[ncapture];
+        int[] cap = new int[threadArraySize];
         Arrays.fill(cap, -1);
         cap[0] = pos;
         // Always use prog.start() (anchored start). Unanchored matching is achieved
@@ -283,9 +286,13 @@ final class Nfa {
       if (id == 0 || visited.contains(id)) {
         continue;
       }
-      visited.add(id);
-
+      // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
+      // via registers. Within one addToThreadq call, it is visited at most twice (once
+      // to save the position, once to detect zero-width and redirect to exit).
       Inst ip = prog.inst(id);
+      if (ip.op != InstOp.PROGRESS_CHECK) {
+        visited.add(id);
+      }
       switch (ip.op) {
         case FAIL:
           break;
@@ -334,6 +341,42 @@ final class Nfa {
             captureStack.add(null);
           }
           break;
+
+        case PROGRESS_CHECK: {
+          int reg = ip.arg;
+          int regIdx = ncapture + reg;
+          int saved = t0[regIdx];
+          if (saved == -1) {
+            // First visit: must enter body at least once (plus semantics).
+            int[] newCap = t0.clone();
+            newCap[regIdx] = pos;
+            stack.add(new int[]{ip.out, -1});
+            captureStack.add(newCap);
+          } else if (saved == pos) {
+            // Zero-width body match: only exit.
+            stack.add(new int[]{ip.out1, -1});
+            captureStack.add(t0);
+          } else {
+            // Progress: push both paths like ALT, respecting greediness.
+            int[] newCap = t0.clone();
+            newCap[regIdx] = pos;
+            boolean nonGreedy = ip.foldCase;
+            if (nonGreedy) {
+              // Non-greedy: prefer exit (push body first = lower pri, exit second = higher pri).
+              stack.add(new int[]{ip.out, -1});
+              captureStack.add(newCap);
+              stack.add(new int[]{ip.out1, -1});
+              captureStack.add(newCap);
+            } else {
+              // Greedy: prefer body (push exit first = lower pri, body second = higher pri).
+              stack.add(new int[]{ip.out1, -1});
+              captureStack.add(newCap);
+              stack.add(new int[]{ip.out, -1});
+              captureStack.add(newCap);
+            }
+          }
+          break;
+        }
 
         case CHAR_RANGE:
         case CHAR_CLASS:

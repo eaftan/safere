@@ -205,6 +205,9 @@ final class BitState {
   /** Current capture registers. */
   private int[] cap;
 
+  /** Current loop progress-check registers. */
+  private int[] loopRegs;
+
   /** Best match found so far. */
   private int[] bestMatch;
 
@@ -231,6 +234,11 @@ final class BitState {
     this.dirtyCount = 0;
     this.cap = new int[ncap];
     Arrays.fill(cap, -1);
+    int nlr = prog.numLoopRegs();
+    this.loopRegs = new int[nlr];
+    if (nlr > 0) {
+      Arrays.fill(loopRegs, -1);
+    }
 
     int maxJobs = Math.min(totalBits, 4096);
     this.jobInstId = new int[maxJobs];
@@ -301,10 +309,13 @@ final class BitState {
   private boolean trySearch(int startInst, int startPos) {
     boolean matched = false;
 
-    // Initialize captures.
+    // Initialize captures and loop registers.
     Arrays.fill(cap, -1);
     if (ncap > 0) {
       cap[0] = startPos;
+    }
+    if (loopRegs.length > 0) {
+      Arrays.fill(loopRegs, -1);
     }
 
     // Seed the search.
@@ -318,9 +329,16 @@ final class BitState {
       int id = jobInstId[jobCount];
       int pos = jobPos[jobCount];
 
-      // Negative IDs are capture-restore sentinels: restore cap[-id-1] to pos.
+      // Negative IDs are restore sentinels: cap or loopReg restore on backtrack.
+      // Capture sentinels use -(reg+1) where reg < ncap.
+      // Loop-reg sentinels use -(ncap+reg+1) where reg is the loop register index.
       if (id < 0) {
-        cap[-id - 1] = pos;
+        int idx = -id - 1;
+        if (idx < ncap) {
+          cap[idx] = pos;
+        } else {
+          loopRegs[idx - ncap] = pos;
+        }
         continue;
       }
 
@@ -362,6 +380,46 @@ final class BitState {
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);
+            }
+          }
+        }
+
+        case InstOp.OP_PROGRESS_CHECK -> {
+          int reg = ip.arg;
+          int saved = loopRegs[reg];
+          if (saved == -1) {
+            // First visit: must enter body at least once (plus semantics).
+            push(-(ncap + reg + 1), saved);
+            loopRegs[reg] = pos;
+            if (shouldVisit(ip.out, pos)) {
+              push(ip.out, pos);
+            }
+          } else if (saved == pos) {
+            // Zero-width body match: only exit.
+            if (shouldVisit(ip.out1, pos)) {
+              push(ip.out1, pos);
+            }
+          } else {
+            // Progress: save and push both paths like ALT.
+            push(-(ncap + reg + 1), saved);
+            loopRegs[reg] = pos;
+            boolean nonGreedy = ip.foldCase;
+            if (nonGreedy) {
+              // Non-greedy: prefer exit. Push body first (lower pri), exit second (higher pri).
+              if (shouldVisit(ip.out, pos)) {
+                push(ip.out, pos);
+              }
+              if (shouldVisit(ip.out1, pos)) {
+                push(ip.out1, pos);
+              }
+            } else {
+              // Greedy: prefer body. Push exit first (lower pri), body second (higher pri).
+              if (shouldVisit(ip.out1, pos)) {
+                push(ip.out1, pos);
+              }
+              if (shouldVisit(ip.out, pos)) {
+                push(ip.out, pos);
+              }
             }
           }
         }
@@ -464,5 +522,8 @@ final class BitState {
     }
     dirtyCount = 0;
     Arrays.fill(cap, 0, ncap, -1);
+    if (loopRegs.length > 0) {
+      Arrays.fill(loopRegs, -1);
+    }
   }
 }

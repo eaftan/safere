@@ -185,6 +185,10 @@ final class OnePass {
             stack.push(new int[] {ip.out1, capMask, emptyFlags});
           }
           case NOP -> stack.push(new int[] {ip.out, capMask, emptyFlags});
+          case PROGRESS_CHECK -> {
+            stack.push(new int[] {ip.out, capMask, emptyFlags});
+            stack.push(new int[] {ip.out1, capMask, emptyFlags});
+          }
           case CAPTURE -> {
             int reg = ip.arg;
             int newCapMask = (reg < MAX_CAP_REGS) ? (capMask | (1 << reg)) : capMask;
