@@ -137,26 +137,22 @@ final class ExhaustiveUtils {
       return 0;
     }
 
-    // Skip patterns with $ and \b/\B in the same pattern — known bug #42 (bug 1).
-    // SafeRE's unanchored search misses earlier \b positions, finding $ at end instead.
-    if (DOLLAR_ASSERTION_ALT.matcher(regexp).find()) {
-      return 0;
-    }
-
-    // Skip patterns with ^ and $ in the same alternation — known bug #42 (bug 3).
-    // SafeRE's findAll misses $ before \n when ^ is also an alternative in the pattern.
-    if (CARET_DOLLAR_ALT.matcher(regexp).find()) {
-      return 0;
-    }
-
-    // Skip patterns with nested repetition and capture groups — known bug #42.
-    // SafeRE and JDK disagree on which iteration's capture to report.
+    // Skip patterns with nested repetition and capture groups — known behavioral difference.
+    // NFA engines start a fresh thread at each position with captures initialized to -1.
+    // When a {0,}/*  repetition matches zero times, captures from earlier (failed) starting
+    // positions are not preserved. JDK's backtracking engine leaks captures from failed attempts
+    // (and is itself inconsistent: `(a)*$` vs `(?:(a))*$` give different g1 results).
+    // This is an inherent NFA vs backtracking difference, not a SafeRE bug.
+    // See https://github.com/eaftan/safere/issues/42 (bug 2).
     if (NESTED_REP_CAPTURE.matcher(regexp).find()) {
       return 0;
     }
 
-    // Skip patterns with $ alternated with \n inside repetition — known bug #42.
-    // SafeRE's zero-width $ + consuming \n in a * loop disagrees with JDK on findAll boundaries.
+    // Skip patterns with $ alternated with \n inside repetition — known behavioral difference.
+    // In `(?:$|\n)+` on "a\n\n", SafeRE's NFA greedily matches $ then \n in a single iteration
+    // of the + loop, consuming both \n characters in one match [1,3). JDK treats $ as zero-width
+    // before each \n individually, producing two matches [1,2) and [2,2). This is a difference in
+    // how zero-width assertions interact with consuming alternatives inside repetition.
     if (regexp.contains("$") && regexp.contains("\\n") && regexp.matches(".*[*+].*")) {
       return 0;
     }
@@ -477,36 +473,20 @@ final class ExhaustiveUtils {
       java.util.regex.Pattern.compile("\\\\[bB].*[*+]|[*+].*\\\\[bB]");
 
   /**
-   * Pattern detecting `$` and `\b` (or `\B`) in the same pattern. SafeRE has a known bug where
-   * unanchored search for `$|\b` (or `\b|$`) skips positions where only `\b` matches, finding `$`
-   * at end-of-text instead of `\b` at an earlier word boundary.
-   * See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 1).
-   */
-  private static final java.util.regex.Pattern DOLLAR_ASSERTION_ALT =
-      java.util.regex.Pattern.compile(
-          "\\$.*\\\\[bB]|\\\\[bB].*\\$");
-
-  /**
    * Pattern detecting capture groups inside zero-or-more repetition ({@code *}, {@code +?},
-   * {@code {N,}}, etc.) anchored by `$`. SafeRE has a known bug where capture groups are not
-   * preserved when the repetition matches zero times at the `$` anchor position, and where nested
-   * repetitions disagree on which iteration's capture to report.
-   * See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a>.
+   * {@code {N,}}, etc.) anchored by {@code $}. NFA engines start a fresh thread at each position
+   * with captures initialized to -1. When a {@code {0,}}/{@code *} repetition matches zero times,
+   * captures from earlier (failed) starting positions are not preserved. JDK's backtracking engine
+   * leaks captures from failed attempts (and is itself inconsistent: {@code (a)*$} vs
+   * {@code (?:(a))*$} give different g1 results). This is an inherent NFA vs backtracking
+   * difference, not a SafeRE bug.
+   *
+   * <p>See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 2).
    */
   private static final java.util.regex.Pattern NESTED_REP_CAPTURE =
       java.util.regex.Pattern.compile(
           "\\([^)]*\\)[^)]*(?:\\{\\d+[,}]|[*+?]).*(?:\\{\\d+[,}]|[*+?])|"
               + "\\([^)]*\\)[^)]*(?:[*+?]|\\{\\d+[,}]).*\\$");
-
-  /**
-   * Pattern detecting `^`/`\A` and `$` as alternatives within a group (e.g., {@code (?:^|$)} or
-   * {@code (?:$|\A)}). SafeRE has a known bug where findAll misses `$` before `\n` when `^` or
-   * `\A` is also an alternative.
-   * See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 3).
-   */
-  private static final java.util.regex.Pattern CARET_DOLLAR_ALT =
-      java.util.regex.Pattern.compile(
-          "\\(\\?*:?(?:\\^|\\\\A)\\).*\\|.*\\$|\\$.*\\|.*\\(\\?*:?(?:\\^|\\\\A)\\)");
 
   /** Escape non-printable characters for error messages. */
   static String escape(String s) {
