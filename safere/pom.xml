@@ -17,6 +17,10 @@
   <name>SafeRE</name>
   <description>Linear-time regular expression matching library for Java</description>
 
+  <properties>
+    <test.parallelism>16</test.parallelism>
+  </properties>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -82,7 +86,7 @@
               junit.jupiter.execution.parallel.mode.default = concurrent
               junit.jupiter.execution.parallel.mode.classes.default = concurrent
               junit.jupiter.execution.parallel.config.strategy = fixed
-              junit.jupiter.execution.parallel.config.fixed.parallelism = 16
+              junit.jupiter.execution.parallel.config.fixed.parallelism = ${test.parallelism}
             </configurationParameters>
           </properties>
         </configuration>

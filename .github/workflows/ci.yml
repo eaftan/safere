@@ -21,7 +21,7 @@ jobs:
           cache: maven
 
       - name: Build and test
-        run: mvn verify -pl safere --batch-mode --no-transfer-progress
+        run: mvn verify -pl safere -Dtest.parallelism=4 --batch-mode --no-transfer-progress
 
   benchmark-smoke-test-java:
     runs-on: ubuntu-latest
