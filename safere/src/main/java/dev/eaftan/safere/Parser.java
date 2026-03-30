@@ -373,11 +373,22 @@ final class Parser {
   private void pushDot() {
     if ((flags & ParseFlags.DOT_NL) != 0 && (flags & ParseFlags.NEVER_NL) == 0) {
       pushSimpleOp(RegexpOp.ANY_CHAR);
-    } else {
-      // Rewrite . into [^\n]
+    } else if ((flags & ParseFlags.UNIX_LINES) != 0) {
+      // UNIX_LINES: . matches everything except \n
       CharClassBuilder ccb = new CharClassBuilder();
       ccb.addRange(0, '\n' - 1);
       ccb.addRange('\n' + 1, runeMax);
+      Regexp re = Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
+      pushRegexp(re);
+    } else {
+      // Default JDK behavior: . matches everything except line terminators
+      // (\n, \r, \u0085, \u2028, \u2029)
+      CharClassBuilder ccb = new CharClassBuilder();
+      ccb.addRange(0, '\n' - 1);             // 0x00–0x09
+      ccb.addRange('\n' + 1, '\r' - 1);      // 0x0B–0x0C
+      ccb.addRange('\r' + 1, '\u0085' - 1);  // 0x0E–0x0084
+      ccb.addRange('\u0085' + 1, '\u2028' - 1); // 0x0086–0x2027
+      ccb.addRange('\u2029' + 1, runeMax);    // 0x202A–max
       Regexp re = Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
       pushRegexp(re);
     }

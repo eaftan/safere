@@ -241,14 +241,18 @@ final class Dfa {
       }
     }
     if (hasLineBoundary) {
-      // '\n' triggers BEGIN_LINE (at the position after it) and END_LINE (at the position
-      // of it). Give '\n' its own equivalence class so the DFA can cache different
-      // transitions for newline vs other characters in the same range.
+      // Line terminator characters trigger BEGIN_LINE (at the position after them) and
+      // END_LINE (at their position). Give each its own equivalence class so the DFA can
+      // cache different transitions for line terminators vs other characters.
       bounds.add(0x0A);   // '\n'
       bounds.add(0x0B);   // '\n' + 1
-      // '\r' also needs its own class: END_LINE fires before '\r' when '\r\n' follows.
       bounds.add(0x0D);   // '\r'
       bounds.add(0x0E);   // '\r' + 1
+      // Additional JDK line terminators: \u0085, \u2028, \u2029
+      bounds.add(0x0085); // NEXT LINE
+      bounds.add(0x0086); // NEXT LINE + 1
+      bounds.add(0x2028); // LINE SEPARATOR
+      bounds.add(0x202A); // PARAGRAPH SEPARATOR + 1 (covers both \u2028 and \u2029)
     }
     if (hasWordBoundary) {
       // Add boundaries at the edges of word-character ranges [0-9A-Za-z_].
@@ -468,7 +472,7 @@ final class Dfa {
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags = Nfa.emptyFlags(text, pos);
+    int emptyFlags = Nfa.emptyFlags(text, pos, prog.unixLines());
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
@@ -512,20 +516,48 @@ final class Dfa {
    *
    * <ul>
    *   <li>END_TEXT is set at {@code pos == text.length()}.
-   *   <li>DOLLAR_END is set at {@code pos == text.length()} and also at
-   *       {@code pos == text.length() - 1} when the text ends with {@code '\n'}.
+   *   <li>DOLLAR_END is set at {@code pos == text.length()} and also before the trailing line
+   *       terminator at end of text. For {@code \r\n} this can be up to 2 characters back.
    * </ul>
    *
-   * <p>For most of the text, transitions are cached normally. Only the last 1–2 character
+   * <p>For most of the text, transitions are cached normally. Only the last 1–3 character
    * transitions (near end-of-text) bypass the cache. The end-of-text sentinel ({@code cp < 0})
    * is always safe to cache because it always represents "at text end".
    */
-  private static int positionDependentThreshold(String text) {
-    int textLen = text.length();
-    if (textLen > 0 && text.charAt(textLen - 1) == '\n') {
-      return textLen - 1;
+  private int positionDependentThreshold(String text) {
+    int len = text.length();
+    if (prog.unixLines()) {
+      return (len > 0 && text.charAt(len - 1) == '\n') ? len - 1 : len;
     }
-    return textLen;
+    if (len >= 2 && text.charAt(len - 2) == '\r' && text.charAt(len - 1) == '\n') {
+      return len - 2;
+    }
+    if (len > 0 && Nfa.isLineTerminator(text.charAt(len - 1))) {
+      return len - 1;
+    }
+    return len;
+  }
+
+  /**
+   * Returns the start position of the trailing line terminator at the end of text, or
+   * {@code text.length()} if no trailing line terminator exists. This is the earliest position
+   * where non-multiline {@code $} can match before a trailing line terminator.
+   */
+  private int trailingLineTermStart(String text) {
+    int len = text.length();
+    if (len == 0) {
+      return len;
+    }
+    if (prog.unixLines()) {
+      return (text.charAt(len - 1) == '\n') ? len - 1 : len;
+    }
+    if (len >= 2 && text.charAt(len - 2) == '\r' && text.charAt(len - 1) == '\n') {
+      return len - 2;
+    }
+    if (Nfa.isLineTerminator(text.charAt(len - 1))) {
+      return len - 1;
+    }
+    return len;
   }
 
   /**
@@ -540,7 +572,7 @@ final class Dfa {
     // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
       // Compute empty flags for end-of-text, but override word boundary using state context.
-      int emptyFlags = Nfa.emptyFlags(text, nextPos);
+      int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines());
       // At end-of-text the "current" character is not a word char.
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
@@ -577,11 +609,11 @@ final class Dfa {
     //
     //   (a) Word boundary (\b, \B): depends on whether cp is a word character, combined
     //       with the previous character (FLAG_LAST_WORD in the state).
-    //   (b) END_LINE ($): fires when cp == '\n' (or '\r' before '\n'). The DFA caches
-    //       transitions per (state, char-class). END_LINE at position P depends on
-    //       text[P] == '\n', but two positions with the same (state, char-class) may have
+    //   (b) END_LINE ($): fires when cp is a line terminator. The DFA caches transitions
+    //       per (state, char-class). END_LINE at position P depends on whether text[P] is
+    //       a line terminator, but two positions with the same (state, char-class) may have
     //       different characters at P. So END_LINE is deferred and re-expanded here when
-    //       the current character is '\n'.
+    //       the current character is a line terminator.
     //
     // Both are re-expanded before consuming the character so that MATCH instructions
     // reached through these assertions are detected at the correct position.
@@ -589,7 +621,7 @@ final class Dfa {
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
     int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
         : EmptyOp.NON_WORD_BOUNDARY;
-    boolean endLineHere = (cp == '\n');
+    boolean endLineHere = prog.unixLines() ? (cp == '\n') : Nfa.isLineTerminator(cp);
 
     // Collect successors of unsatisfied EMPTY_WIDTH instructions whose deferred flags
     // are now satisfiable and that have no other unsatisfied flags.
@@ -678,7 +710,7 @@ final class Dfa {
     // word boundary (depends on the next character) and END_LINE (depends on what's at
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
-    int emptyFlags = Nfa.emptyFlags(text, nextPos);
+    int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines());
     emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY | EmptyOp.END_LINE);
 
     int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
@@ -809,12 +841,13 @@ final class Dfa {
     // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();
-    // $ allows matching before a trailing \n at end of text (JDK default $ behavior).
-    boolean trailingNewline = dollarEnd && textLen > 0 && text.charAt(textLen - 1) == '\n';
+    // $ allows matching before a trailing line terminator at end of text (JDK default $ behavior).
+    // Compute the start position of the trailing line terminator for dollarAnchorEnd matching.
+    int trailingTermStart = dollarEnd ? trailingLineTermStart(text) : textLen;
 
     // Position-dependent flag threshold: emptyFlags at positions >= this threshold contain
-    // text-length-dependent flags (END_TEXT at textLen, DOLLAR_END at textLen or textLen-1
-    // when text ends with '\n'). Transitions computed at such positions must NOT be cached
+    // text-length-dependent flags (END_TEXT at textLen, DOLLAR_END near the end when text ends
+    // with a line terminator). Transitions computed at such positions must NOT be cached
     // because the same (state, character-class) pair at a different position (in the same or
     // a different text) would produce a different result. See the class-level comment on
     // DFA caching invariants.
@@ -831,7 +864,7 @@ final class Dfa {
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
       if (!needEndMatch || textLen == startPos
-          || (trailingNewline && textLen - 1 == startPos)) {
+          || (trailingTermStart < textLen && trailingTermStart == startPos)) {
         matched = true;
         matchEnd = startPos;
         if (!longest && (!needEndMatch || startPos == textLen)) {
@@ -906,7 +939,7 @@ final class Dfa {
         if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
           int endPos = pos;
           if (!needEndMatch || endPos == textLen
-              || (trailingNewline && endPos == textLen - 1)) {
+              || (trailingTermStart < textLen && endPos >= trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
             if (!longest && (!needEndMatch || endPos == textLen)) {
@@ -921,7 +954,7 @@ final class Dfa {
             || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
           int endPos = Math.min(nextPos, textLen);
           if (!needEndMatch || endPos == textLen
-              || (trailingNewline && endPos == textLen - 1)) {
+              || (trailingTermStart < textLen && endPos >= trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
             if (!longest && (!needEndMatch || endPos == textLen)) {
@@ -1109,7 +1142,7 @@ final class Dfa {
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();
-    boolean trailingNewline = dollarEnd && textLen > 0 && text.charAt(textLen - 1) == '\n';
+    int trailingTermStart = dollarEnd ? trailingLineTermStart(text) : textLen;
 
     // Position-dependent threshold: same invariant as doSearch.
     int posDepThreshold = positionDependentThreshold(text);
@@ -1125,7 +1158,7 @@ final class Dfa {
     // Check if start state is already a match.
     if (s.isMatch()) {
       if (!needEndMatch || textLen == 0
-          || (trailingNewline && textLen - 1 == 0)) {
+          || (trailingTermStart < textLen && trailingTermStart == 0)) {
         for (int id : collectMatchIds(s.insts)) {
           seen.set(id);
         }
@@ -1187,7 +1220,7 @@ final class Dfa {
           int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
               ? pos : Math.min(nextPos, textLen);
           if (!needEndMatch || endPos == textLen
-              || (trailingNewline && endPos == textLen - 1)) {
+              || (trailingTermStart < textLen && endPos >= trailingTermStart)) {
             // Collect match IDs from the state's instructions.
             for (int id : collectMatchIds(s.insts)) {
               seen.set(id);

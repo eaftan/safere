@@ -218,6 +218,7 @@ public final class Pattern implements Serializable {
     int parseFlags = toParseFlags(flags);
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
+    compiled.setUnixLines((flags & UNIX_LINES) != 0);
     Map<String, Integer> named = extractNamedGroups(re);
     PrefixResult prefixResult = extractPrefix(re);
     String prefix = prefixResult.prefix();
@@ -755,6 +756,9 @@ public final class Pattern implements Serializable {
     }
     if ((flags & UNICODE_CHARACTER_CLASS) != 0) {
       pf |= ParseFlags.UNICODE_GROUPS;
+    }
+    if ((flags & UNIX_LINES) != 0) {
+      pf |= ParseFlags.UNIX_LINES;
     }
 
     return pf;

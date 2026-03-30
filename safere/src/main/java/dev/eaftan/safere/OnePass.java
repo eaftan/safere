@@ -86,18 +86,22 @@ final class OnePass {
 
   /**
    * When true, the end anchor was {@code $} (not {@code \z}), meaning the match may end before a
-   * trailing {@code \n} at end of text. Only meaningful when {@link #anchorEnd} is true.
+   * trailing line terminator at end of text. Only meaningful when {@link #anchorEnd} is true.
    */
   private final boolean dollarAnchorEnd;
 
+  /** When true, only {@code '\n'} is recognized as a line terminator. */
+  private final boolean unixLines;
+
   private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd,
-      boolean dollarAnchorEnd) {
+      boolean dollarAnchorEnd, boolean unixLines) {
     this.actions = actions;
     this.matchAction = matchAction;
     this.boundaries = boundaries;
     this.asciiClassMap = buildAsciiClassMap(boundaries);
     this.anchorEnd = anchorEnd;
     this.dollarAnchorEnd = dollarAnchorEnd;
+    this.unixLines = unixLines;
   }
 
   // -------------------------------------------------------------------------
@@ -273,7 +277,7 @@ final class OnePass {
     long[][] trimmedActions = Arrays.copyOf(actions, stateCount);
     long[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
     return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd(),
-        prog.dollarAnchorEnd());
+        prog.dollarAnchorEnd(), prog.unixLines());
   }
 
   /** Builds sorted code point boundaries from all CHAR_RANGE and CHAR_CLASS instructions. */
@@ -349,7 +353,7 @@ final class OnePass {
       long matchAct = matchAction[state];
       if (matchAct != NO_ACTION) {
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
-        if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos)) == 0) {
+        if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines)) == 0) {
           applyCaptures(matchAct, pos, cap);
           if (cap.length > 1) {
             cap[1] = pos;
@@ -391,7 +395,7 @@ final class OnePass {
 
       int reqEmpty = (int) (action & EMPTY_MASK);
       if (reqEmpty != 0) {
-        int curEmpty = Nfa.emptyFlags(text, pos);
+        int curEmpty = Nfa.emptyFlags(text, pos, unixLines);
         if ((reqEmpty & ~curEmpty) != 0) {
           break;
         }
@@ -409,9 +413,9 @@ final class OnePass {
       return null;
     }
     if (anchorEnd && bestCap[1] != endPos) {
-      // $ (dollarAnchorEnd) allows the match to end before a trailing \n at end of text.
-      if (!dollarAnchorEnd || bestCap[1] != endPos - 1
-          || endPos == 0 || text.charAt(endPos - 1) != '\n') {
+      // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
+      if (!dollarAnchorEnd
+          || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
         return null;
       }
     }

@@ -126,11 +126,6 @@ final class ExhaustiveUtils {
   static int testPair(String regexp, String text, int flags, List<TestResult> failures) {
     int tests = 0;
 
-    // Skip text with standalone \r (not \r\n) — known JDK vs RE2 behavioral difference
-    if (hasStandaloneCarriageReturn(text)) {
-      return 0;
-    }
-
     // Skip patterns with zero-width assertions (\b, \B) inside quantified groups —
     // known RE2 vs JDK semantic difference in zero-width repetition handling
     if (ZERO_WIDTH_IN_REPETITION.matcher(regexp).find()) {
@@ -445,16 +440,6 @@ final class ExhaustiveUtils {
       generateStringsRecursive(result, current, maxLen, alphabet);
       current.delete(current.length() - ch.length(), current.length());
     }
-  }
-
-  /**
-   * Returns true if the text contains any {@code \r} character. JDK treats {@code \r} (both
-   * standalone and in {@code \r\n}) specially — dot doesn't match it, {@code $} matches before it,
-   * etc. SafeRE (like RE2) only gives special treatment to {@code \n}. This is a known design
-   * difference, not a bug.
-   */
-  private static boolean hasStandaloneCarriageReturn(String text) {
-    return text.indexOf('\r') >= 0;
   }
 
   /**

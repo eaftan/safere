@@ -48,7 +48,7 @@ class ParseFlagsTest {
 
   @Test
   void allFlagsCoversAllBits() {
-    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 14) - 1);
+    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 15) - 1);
   }
 
   @Test
