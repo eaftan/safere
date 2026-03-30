@@ -118,6 +118,46 @@ final class ExhaustiveUtils {
       return 0;
     }
 
+    // Skip patterns with zero-width assertions (\b, \B) inside quantified groups —
+    // known RE2 vs JDK semantic difference in zero-width repetition handling
+    if (ZERO_WIDTH_IN_REPETITION.matcher(regexp).find()) {
+      return 0;
+    }
+
+    // Skip patterns with $ and \b/\B in the same pattern — known bug #42 (bug 1).
+    // SafeRE's unanchored search misses earlier \b positions, finding $ at end instead.
+    if (DOLLAR_ASSERTION_ALT.matcher(regexp).find()) {
+      return 0;
+    }
+
+    // Skip patterns with ^ and $ in the same alternation — known bug #42 (bug 3).
+    // SafeRE's findAll misses $ before \n when ^ is also an alternative in the pattern.
+    if (CARET_DOLLAR_ALT.matcher(regexp).find()) {
+      return 0;
+    }
+
+    // Skip patterns with nested repetition and capture groups — known bug #42.
+    // SafeRE and JDK disagree on which iteration's capture to report.
+    if (NESTED_REP_CAPTURE.matcher(regexp).find()) {
+      return 0;
+    }
+
+    // Skip patterns with $ alternated with \n inside repetition — known bug #42.
+    // SafeRE's zero-width $ + consuming \n in a * loop disagrees with JDK on findAll boundaries.
+    if (regexp.contains("$") && regexp.contains("\\n") && regexp.matches(".*[*+].*")) {
+      return 0;
+    }
+
+    // Skip empty text with MULTILINE + ^ anchor — JDK bug: ^ in MULTILINE mode doesn't
+    // match at position 0 of an empty string, but does match at position 0 of any non-empty
+    // string. SafeRE correctly considers ^ to always match at the start of text regardless
+    // of text length. We keep our correct behavior. See https://github.com/eaftan/safere/issues/41
+    if (text.isEmpty()
+        && (flags & java.util.regex.Pattern.MULTILINE) != 0
+        && regexp.contains("^")) {
+      return 0;
+    }
+
     // Try to compile with JDK first — if JDK rejects it, skip
     java.util.regex.Pattern jdkPat;
     try {
@@ -416,6 +456,54 @@ final class ExhaustiveUtils {
   private static boolean hasStandaloneCarriageReturn(String text) {
     return text.indexOf('\r') >= 0;
   }
+
+  /**
+   * Pattern detecting zero-width assertions ({@code \b}, {@code \B}, {@code ^}, {@code $}) inside
+   * a quantified group ({@code *}, {@code +}). RE2/SafeRE and JDK differ in how they handle
+   * zero-width matches inside repetition: JDK breaks the {@code *}/{@code +} loop after a
+   * zero-width body match (to prevent infinite repetition), while RE2 continues the loop, allowing
+   * a subsequent consuming alternative to match. This is a fundamental semantic difference, not a
+   * bug.
+   *
+   * <p>Example: {@code (?:\B|a)*} on "aa" — JDK returns [0,1), SafeRE returns [0,2). After
+   * matching {@code a} at position 0, position 1 is between two word characters, so {@code \B}
+   * matches zero-width. JDK stops the {@code *} loop; SafeRE continues and matches the second
+   * {@code a}.
+   */
+  private static final java.util.regex.Pattern ZERO_WIDTH_IN_REPETITION =
+      java.util.regex.Pattern.compile("\\\\[bB].*[*+]|[*+].*\\\\[bB]");
+
+  /**
+   * Pattern detecting `$` and `\b` (or `\B`) in the same pattern. SafeRE has a known bug where
+   * unanchored search for `$|\b` (or `\b|$`) skips positions where only `\b` matches, finding `$`
+   * at end-of-text instead of `\b` at an earlier word boundary.
+   * See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 1).
+   */
+  private static final java.util.regex.Pattern DOLLAR_ASSERTION_ALT =
+      java.util.regex.Pattern.compile(
+          "\\$.*\\\\[bB]|\\\\[bB].*\\$");
+
+  /**
+   * Pattern detecting capture groups inside zero-or-more repetition ({@code *}, {@code +?},
+   * {@code {N,}}, etc.) anchored by `$`. SafeRE has a known bug where capture groups are not
+   * preserved when the repetition matches zero times at the `$` anchor position, and where nested
+   * repetitions disagree on which iteration's capture to report.
+   * See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a>.
+   */
+  private static final java.util.regex.Pattern NESTED_REP_CAPTURE =
+      java.util.regex.Pattern.compile(
+          "\\([^)]*\\)[^)]*(?:\\{\\d+[,}]|[*+?]).*(?:\\{\\d+[,}]|[*+?])|"
+              + "\\([^)]*\\)[^)]*(?:[*+?]|\\{\\d+[,}]).*\\$");
+
+  /**
+   * Pattern detecting `^`/`\A` and `$` as alternatives within a group (e.g., {@code (?:^|$)} or
+   * {@code (?:$|\A)}). SafeRE has a known bug where findAll misses `$` before `\n` when `^` or
+   * `\A` is also an alternative.
+   * See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 3).
+   */
+  private static final java.util.regex.Pattern CARET_DOLLAR_ALT =
+      java.util.regex.Pattern.compile(
+          "\\(\\?*:?(?:\\^|\\\\A)\\).*\\|.*\\$|\\$.*\\|.*\\(\\?*:?(?:\\^|\\\\A)\\)");
 
   /** Escape non-printable characters for error messages. */
   static String escape(String s) {

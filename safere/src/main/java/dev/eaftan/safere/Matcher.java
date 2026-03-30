@@ -1794,4 +1794,3 @@ public final class Matcher implements MatchResult {
     }
   }
 }
-

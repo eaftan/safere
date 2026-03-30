@@ -611,9 +611,15 @@ final class Dfa {
     boolean hasMatchFromDeferred = false;
     int[] deferredMatchIds = null;
     if (reExpandCount > 0) {
-      // Expand the newly reachable instructions (without deferred flags since
-      // we can't predict the NEXT word/line boundary).
-      int[] newInsts = expand(computeBuf, reExpandCount, s.flags & 0xFF);
+      // Include the computed deferred flags so that chained assertions of the same
+      // kind (e.g., \b\b or $$) can fire during expansion. Without this, the first
+      // \b fires but expand() wouldn't satisfy the second \b because WORD_BOUNDARY
+      // was stripped from the state's cached emptyFlags.
+      int reExpandEmptyFlags = (s.flags & 0xFF) | wordBeforeFlags;
+      if (endLineHere) {
+        reExpandEmptyFlags |= EmptyOp.END_LINE;
+      }
+      int[] newInsts = expand(computeBuf, reExpandCount, reExpandEmptyFlags);
 
       // Check if the re-expansion revealed any MATCH instructions. Collect their IDs
       // for PatternSet multi-match before merging with the original state.
@@ -927,7 +933,6 @@ final class Dfa {
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
     // endPos backward to startLimit, feeding characters in reverse order.
     boolean needEndMatch = prog.anchorEnd();
-    int textLen = text.length();
 
     // Position-dependent threshold: same invariant as doSearch — bypass the transition cache
     // for positions where text-length-dependent emptyFlags (END_TEXT, DOLLAR_END) are active.
