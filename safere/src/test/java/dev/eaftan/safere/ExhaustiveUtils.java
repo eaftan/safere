@@ -142,8 +142,9 @@ final class ExhaustiveUtils {
     // When a {0,}/*  repetition matches zero times, captures from earlier (failed) starting
     // positions are not preserved. JDK's backtracking engine leaks captures from failed attempts
     // (and is itself inconsistent: `(a)*$` vs `(?:(a))*$` give different g1 results).
-    // This is an inherent NFA vs backtracking difference, not a SafeRE bug.
-    // See https://github.com/eaftan/safere/issues/42 (bug 2).
+    // This is a suspected JDK bug, not a SafeRE bug.
+    // See https://github.com/eaftan/safere/issues/42 (bug 2) and
+    // https://github.com/eaftan/safere/issues/52 for detailed analysis.
     if (NESTED_REP_CAPTURE.matcher(regexp).find()) {
       return 0;
     }
@@ -479,9 +480,10 @@ final class ExhaustiveUtils {
    * captures from earlier (failed) starting positions are not preserved. JDK's backtracking engine
    * leaks captures from failed attempts (and is itself inconsistent: {@code (a)*$} vs
    * {@code (?:(a))*$} give different g1 results). This is an inherent NFA vs backtracking
-   * difference, not a SafeRE bug.
+   * difference — a suspected JDK bug, not a SafeRE bug.
    *
-   * <p>See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 2).
+   * <p>See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 2) and
+   * <a href="https://github.com/eaftan/safere/issues/52">issue #52</a> for detailed analysis.
    */
   private static final java.util.regex.Pattern NESTED_REP_CAPTURE =
       java.util.regex.Pattern.compile(
