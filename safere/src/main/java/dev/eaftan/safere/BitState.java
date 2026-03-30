@@ -358,7 +358,7 @@ final class BitState {
         }
 
         case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags = Nfa.emptyFlags(text, pos);
+          int curFlags = Nfa.emptyFlags(text, pos, prog.unixLines());
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);
@@ -392,14 +392,11 @@ final class BitState {
 
         case InstOp.OP_MATCH -> {
           if (endMatch && pos != endPos) {
-            // $ (dollarAnchorEnd) allows ending before a trailing \n at the actual text end.
-            // Use text.length() (not endPos) because dollarAnchorEnd is a property of the
-            // text boundary, not the search range. When resolveCaptures() narrows the search
-            // range (endPos < text.length()), checking against endPos would wrongly accept
-            // matches at endPos-1 that aren't at the real text boundary.
-            int textLen = text.length();
-            if (!prog.dollarAnchorEnd() || pos != textLen - 1
-                || textLen == 0 || text.charAt(textLen - 1) != '\n') {
+            // $ (dollarAnchorEnd) allows ending before a trailing line terminator at the actual
+            // text end. Use text.length() (not endPos) because dollarAnchorEnd is a property of
+            // the text boundary, not the search range.
+            if (!prog.dollarAnchorEnd()
+                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
               break; // must match at the end boundary
             }
           }

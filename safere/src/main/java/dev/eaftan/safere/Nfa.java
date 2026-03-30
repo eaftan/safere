@@ -328,7 +328,7 @@ final class Nfa {
           break;
 
         case EMPTY_WIDTH:
-          int flags = emptyFlags(text, pos);
+          int flags = emptyFlags(text, pos, prog.unixLines());
           if ((ip.arg & ~flags) == 0) {
             stack.add(new int[]{ip.out, -1});
             captureStack.add(null);
@@ -386,9 +386,9 @@ final class Nfa {
 
         case MATCH: {
           if (endmatch && matchPos != text.length()) {
-            // $ (dollarAnchorEnd) allows ending before a trailing \n at text end.
-            if (!prog.dollarAnchorEnd() || matchPos != text.length() - 1
-                || text.isEmpty() || text.charAt(text.length() - 1) != '\n') {
+            // $ (dollarAnchorEnd) allows ending before a trailing line terminator at text end.
+            if (!prog.dollarAnchorEnd()
+                || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines())) {
               break;
             }
           }
@@ -436,46 +436,102 @@ final class Nfa {
   // ---------------------------------------------------------------------------
 
   /**
+   * Returns true if the code point is a JDK line terminator character: {@code '\n'}, {@code '\r'},
+   * {@code '\u0085'} (NEXT LINE), {@code '\u2028'} (LINE SEPARATOR), or {@code '\u2029'}
+   * (PARAGRAPH SEPARATOR).
+   */
+  static boolean isLineTerminator(int cp) {
+    return cp == '\n' || cp == '\r' || cp == '\u0085' || cp == '\u2028' || cp == '\u2029';
+  }
+
+  /**
+   * Returns true if {@code pos} is at the start of a trailing line terminator sequence that extends
+   * to the end of the text. Used for non-multiline {@code $} (dollarAnchorEnd) matching.
+   *
+   * @param unixLines if true, only {@code '\n'} is recognized as a line terminator
+   */
+  static boolean isAtTrailingLineTerminator(String text, int pos, boolean unixLines) {
+    int len = text.length();
+    if (pos < 0 || pos >= len) {
+      return false;
+    }
+    char ch = text.charAt(pos);
+    if (unixLines) {
+      return ch == '\n' && pos + 1 == len;
+    }
+    if (ch == '\n' && pos + 1 == len) {
+      return true;
+    }
+    if (ch == '\r') {
+      return pos + 1 == len || (pos + 2 == len && text.charAt(pos + 1) == '\n');
+    }
+    return (ch == '\u0085' || ch == '\u2028' || ch == '\u2029') && pos + 1 == len;
+  }
+
+  /**
    * Computes which empty-width assertions hold at the given position in the text.
    *
    * @param text the input text
    * @param pos the position (char index) to check
+   * @param unixLines if true, only {@code '\n'} is recognized as a line terminator; otherwise all
+   *     JDK line terminators are recognized
    * @return a bitmask of {@link EmptyOp} flags
    */
-  static int emptyFlags(String text, int pos) {
+  static int emptyFlags(String text, int pos, boolean unixLines) {
     int flags = 0;
 
     // ^ and \A
-    // BEGIN_LINE is set at the start of text and after '\n', but NOT at end-of-text after a final
-    // '\n'. JDK's MULTILINE ^ does not match at the position past the last '\n' when that position
-    // is the end of the string. For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
-    // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty string
-    // has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
+    // BEGIN_LINE is set at the start of text and after a line terminator, but NOT at
+    // end-of-text after a final line terminator. JDK's MULTILINE ^ does not match at the
+    // position past the last line terminator when that position is the end of the string.
+    // For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
+    // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty
+    // string has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
     if (pos == 0) {
       flags |= EmptyOp.BEGIN_TEXT;
       if (!text.isEmpty()) {
         flags |= EmptyOp.BEGIN_LINE;
       }
-    } else if (pos < text.length() && text.charAt(pos - 1) == '\n') {
-      flags |= EmptyOp.BEGIN_LINE;
+    } else if (pos < text.length()) {
+      char prev = text.charAt(pos - 1);
+      if (unixLines) {
+        if (prev == '\n') {
+          flags |= EmptyOp.BEGIN_LINE;
+        }
+      } else {
+        // After \n: always a new line (whether standalone or part of \r\n).
+        // After \r: new line only if NOT followed by \n (standalone \r).
+        // After \u0085, \u2028, \u2029: always a new line.
+        if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
+          flags |= EmptyOp.BEGIN_LINE;
+        } else if (prev == '\r' && text.charAt(pos) != '\n') {
+          flags |= EmptyOp.BEGIN_LINE;
+        }
+      }
     }
 
     // $ and \z
-    // END_LINE is set before any '\n' or '\r\n' and at end of text (used by MULTILINE $).
+    // END_LINE is set before any line terminator and at end of text (used by MULTILINE $).
     // END_TEXT is set only at end of text (used by \z).
-    // DOLLAR_END is set at end of text and also before the final trailing '\n' at end of text
-    // (used by $ without MULTILINE — JDK's default $ behavior).
+    // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
+    // text (used by $ without MULTILINE — JDK's default $ behavior).
     if (pos == text.length()) {
       flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
-    } else if (text.charAt(pos) == '\n') {
-      flags |= EmptyOp.END_LINE;
-      // Set DOLLAR_END if this '\n' is the last character in text.
-      if (pos + 1 == text.length()) {
-        flags |= EmptyOp.DOLLAR_END;
+    } else {
+      char ch = text.charAt(pos);
+      if (unixLines) {
+        if (ch == '\n') {
+          flags |= EmptyOp.END_LINE;
+          if (pos + 1 == text.length()) {
+            flags |= EmptyOp.DOLLAR_END;
+          }
+        }
+      } else if (isLineTerminator(ch)) {
+        flags |= EmptyOp.END_LINE;
+        if (isAtTrailingLineTerminator(text, pos, false)) {
+          flags |= EmptyOp.DOLLAR_END;
+        }
       }
-    } else if (text.charAt(pos) == '\r' && pos + 1 < text.length()
-        && text.charAt(pos + 1) == '\n') {
-      flags |= EmptyOp.END_LINE;
     }
 
     // \b and \B

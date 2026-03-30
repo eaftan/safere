@@ -844,18 +844,34 @@ public final class Matcher implements MatchResult {
             int matchStart = revResult.pos();
 
             // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
-            // (it can't return early at textLen-1). But the correct leftmost match may end
-            // at textLen-1 (before trailing '\n'). The reverse DFA from textLen only finds
-            // starts for matches ending AT textLen, potentially missing an earlier-starting
-            // match that ends at textLen-1. Check both possibilities and use the leftmost.
-            if (prog.dollarAnchorEnd() && earlyEnd == text.length()
-                && text.length() > 0 && text.charAt(text.length() - 1) == '\n') {
-              Dfa.SearchResult altRevResult =
-                  revDfa.doSearchReverse(
-                      text, earlyEnd - 1, effectiveStart, true, true);
-              if (altRevResult != null && altRevResult.matched()
-                  && altRevResult.pos() < matchStart) {
-                matchStart = altRevResult.pos();
+            // (it can't return early). But the correct leftmost match may end before the
+            // trailing line terminator. The reverse DFA from textLen only finds starts for
+            // matches ending AT textLen, potentially missing an earlier-starting match that
+            // ends before the trailing line terminator. Check all dollar positions.
+            if (prog.dollarAnchorEnd() && earlyEnd == text.length()) {
+              int len = text.length();
+              boolean ul = prog.unixLines();
+              // Try position before trailing \n (or standalone line terminator)
+              if (len > 0 && (ul ? text.charAt(len - 1) == '\n'
+                  : Nfa.isLineTerminator(text.charAt(len - 1)))) {
+                Dfa.SearchResult altRevResult =
+                    revDfa.doSearchReverse(
+                        text, earlyEnd - 1, effectiveStart, true, true);
+                if (altRevResult != null && altRevResult.matched()
+                    && altRevResult.pos() < matchStart) {
+                  matchStart = altRevResult.pos();
+                }
+                // For \r\n, also try position before \r
+                if (!ul && len >= 2 && text.charAt(len - 1) == '\n'
+                    && text.charAt(len - 2) == '\r') {
+                  Dfa.SearchResult altRevResult2 =
+                      revDfa.doSearchReverse(
+                          text, earlyEnd - 2, effectiveStart, true, true);
+                  if (altRevResult2 != null && altRevResult2.matched()
+                      && altRevResult2.pos() < matchStart) {
+                    matchStart = altRevResult2.pos();
+                  }
+                }
               }
             }
 

@@ -483,41 +483,73 @@ class NfaTest {
   class EmptyFlags {
     @Test
     void beginOfText() {
-      int flags = Nfa.emptyFlags("abc", 0);
+      int flags = Nfa.emptyFlags("abc", 0, false);
       assertThat(flags & EmptyOp.BEGIN_TEXT).isNotZero();
       assertThat(flags & EmptyOp.BEGIN_LINE).isNotZero();
     }
 
     @Test
     void endOfText() {
-      int flags = Nfa.emptyFlags("abc", 3);
+      int flags = Nfa.emptyFlags("abc", 3, false);
       assertThat(flags & EmptyOp.END_TEXT).isNotZero();
       assertThat(flags & EmptyOp.END_LINE).isNotZero();
     }
 
     @Test
     void midText() {
-      int flags = Nfa.emptyFlags("abc", 1);
+      int flags = Nfa.emptyFlags("abc", 1, false);
       assertThat(flags & EmptyOp.BEGIN_TEXT).isZero();
       assertThat(flags & EmptyOp.END_TEXT).isZero();
     }
 
     @Test
     void afterNewline() {
-      int flags = Nfa.emptyFlags("a\nb", 2);
+      int flags = Nfa.emptyFlags("a\nb", 2, false);
       assertThat(flags & EmptyOp.BEGIN_LINE).isNotZero();
     }
 
     @Test
     void wordBoundary() {
-      int flags = Nfa.emptyFlags("foo bar", 3);
+      int flags = Nfa.emptyFlags("foo bar", 3, false);
       assertThat(flags & EmptyOp.WORD_BOUNDARY).isNotZero();
     }
 
     @Test
     void nonWordBoundary() {
-      int flags = Nfa.emptyFlags("foo", 1);
+      int flags = Nfa.emptyFlags("foo", 1, false);
       assertThat(flags & EmptyOp.NON_WORD_BOUNDARY).isNotZero();
+    }
+
+    @Test
+    @DisplayName("BEGIN_LINE after standalone \\r")
+    void beginLineAfterCr() {
+      int flags = Nfa.emptyFlags("a\rb", 2, false);
+      assertThat(flags & EmptyOp.BEGIN_LINE).isNotZero();
+    }
+
+    @Test
+    @DisplayName("BEGIN_LINE NOT between \\r and \\n in \\r\\n")
+    void noBeginLineBetweenCrLf() {
+      int flags = Nfa.emptyFlags("a\r\nb", 2, false);
+      assertThat(flags & EmptyOp.BEGIN_LINE).isZero();
+    }
+
+    @Test
+    @DisplayName("END_LINE before standalone \\r")
+    void endLineBeforeCr() {
+      int flags = Nfa.emptyFlags("a\rb", 1, false);
+      assertThat(flags & EmptyOp.END_LINE).isNotZero();
+    }
+
+    @Test
+    @DisplayName("UNIX_LINES: \\r is not a line terminator")
+    void unixLinesCrNotLineTerm() {
+      // After \r: no BEGIN_LINE in UNIX_LINES mode
+      int flags = Nfa.emptyFlags("a\rb", 2, true);
+      assertThat(flags & EmptyOp.BEGIN_LINE).isZero();
+      // Before \r: no END_LINE in UNIX_LINES mode
+      int flags2 = Nfa.emptyFlags("a\rb", 1, true);
+      assertThat(flags2 & EmptyOp.END_LINE).isZero();
     }
   }
 }

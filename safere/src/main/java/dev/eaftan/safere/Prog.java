@@ -30,6 +30,7 @@ final class Prog {
    */
   private boolean dollarAnchorEnd;
   private boolean reversed;
+  private boolean unixLines;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -147,6 +148,19 @@ final class Prog {
   /** Sets whether this program runs in reverse. */
   public void setReversed(boolean reversed) {
     this.reversed = reversed;
+  }
+
+  /**
+   * Returns true if Unix lines mode is active. When true, only {@code '\n'} is recognized as a
+   * line terminator. When false (default), all JDK line terminators are recognized.
+   */
+  public boolean unixLines() {
+    return unixLines;
+  }
+
+  /** Sets whether Unix lines mode is active. */
+  public void setUnixLines(boolean unixLines) {
+    this.unixLines = unixLines;
   }
 
   /**

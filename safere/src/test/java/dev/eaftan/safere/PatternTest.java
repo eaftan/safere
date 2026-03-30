@@ -453,9 +453,68 @@ class PatternTest {
           Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
       Matcher m = p.matcher(header);
       assertThat(m.find()).isTrue();
-      // SafeRE's . matches \r (only \n is excluded), so the capture includes trailing \r.
-      // JDK's . excludes both \r and \n. Use trim() in real code.
+      // . now excludes all line terminators including \r (matching JDK behavior).
       assertThat(m.group(1).trim()).isEqualTo("abc123");
+    }
+
+    @Test
+    @DisplayName(". does not match \\r (issue #54)")
+    void dotDoesNotMatchCr() {
+      // Regression for #54: . should not match \r, matching JDK behavior.
+      Pattern p = Pattern.compile(".");
+      Matcher m = p.matcher("a\rb");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("a");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("b");
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("$ matches before \\r in MULTILINE mode (issue #54)")
+    void multilineEolStandaloneCr() {
+      // Regression for #54: $ in MULTILINE should match before standalone \r.
+      Pattern p = Pattern.compile("$", Pattern.MULTILINE);
+      Matcher m = p.matcher("a\rb");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(3);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("^ matches after \\r in MULTILINE mode (issue #54)")
+    void multilineBolStandaloneCr() {
+      // Regression for #54: ^ in MULTILINE should match after standalone \r.
+      Pattern p = Pattern.compile("^", Pattern.MULTILINE);
+      Matcher m = p.matcher("a\rb");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UNIX_LINES restores \\n-only line terminator behavior (issue #54)")
+    void unixLinesFlag() {
+      // With UNIX_LINES, only \n is a line terminator — \r is treated as ordinary char.
+      Pattern dotPat = Pattern.compile(".", Pattern.UNIX_LINES);
+      Matcher dm = dotPat.matcher("a\rb");
+      assertThat(dm.find()).isTrue();
+      assertThat(dm.group()).isEqualTo("a");
+      assertThat(dm.find()).isTrue();
+      assertThat(dm.group()).isEqualTo("\r");
+      assertThat(dm.find()).isTrue();
+      assertThat(dm.group()).isEqualTo("b");
+
+      Pattern dollarPat = Pattern.compile("$", Pattern.MULTILINE | Pattern.UNIX_LINES);
+      Matcher mm = dollarPat.matcher("a\rb");
+      // $ should only match at end of text, not before \r
+      assertThat(mm.find()).isTrue();
+      assertThat(mm.start()).isEqualTo(3);
+      assertThat(mm.find()).isFalse();
     }
 
     @Test
