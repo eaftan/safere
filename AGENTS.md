@@ -145,6 +145,11 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - When referencing an issue in a commit message, use `Fixes #N` only if the
   commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
 
+## Pull Requests
+
+- After creating a PR, monitor CI and ensure all checks pass. If CI fails,
+  debug and fix the problem. The project owner will merge manually.
+
 ## Key Constraints
 
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
