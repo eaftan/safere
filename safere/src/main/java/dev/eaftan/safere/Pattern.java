@@ -346,9 +346,21 @@ public final class Pattern implements Serializable {
       if (limit > 0 && parts.size() >= limit - 1) {
         break;
       }
+      // JDK 8+: a zero-width match at the beginning of the input never produces
+      // a leading empty substring.
+      if (last == 0 && m.start() == 0 && m.end() == 0) {
+        continue;
+      }
       parts.add(text.substring(last, m.start()));
       last = m.end();
     }
+    // If no match advanced the position, return the entire input as a single element.
+    // This matches JDK behavior: an input that was never actually split is returned as-is,
+    // bypassing trailing-empty-string removal.
+    if (last == 0) {
+      return new String[] {text};
+    }
+
     parts.add(text.substring(last));
 
     // limit == 0: remove trailing empty strings.
