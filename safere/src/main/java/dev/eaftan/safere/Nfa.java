@@ -449,8 +449,13 @@ final class Nfa {
     // BEGIN_LINE is set at the start of text and after '\n', but NOT at end-of-text after a final
     // '\n'. JDK's MULTILINE ^ does not match at the position past the last '\n' when that position
     // is the end of the string. For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
+    // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty string
+    // has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
     if (pos == 0) {
-      flags |= EmptyOp.BEGIN_TEXT | EmptyOp.BEGIN_LINE;
+      flags |= EmptyOp.BEGIN_TEXT;
+      if (!text.isEmpty()) {
+        flags |= EmptyOp.BEGIN_LINE;
+      }
     } else if (pos < text.length() && text.charAt(pos - 1) == '\n') {
       flags |= EmptyOp.BEGIN_LINE;
     }
