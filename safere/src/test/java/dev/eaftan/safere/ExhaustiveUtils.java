@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.PatternSyntaxException;
 
@@ -57,34 +59,45 @@ final class ExhaustiveUtils {
 
   /**
    * Run an exhaustive test with the given configuration. Generates all regexps from atoms+ops, all
-   * strings from alphabet, and compares SafeRE vs JDK for each pair.
+   * strings from alphabet, and compares SafeRE vs JDK for each pair. Regexps are tested in parallel
+   * using the common ForkJoinPool.
    *
    * @return the number of test cases executed
    */
   static int run(Config config) {
-    List<TestResult> failures = new ArrayList<>();
-    int[] testCount = {0};
-
+    List<String> allRegexps = new ArrayList<>();
     generateRegexps(
         config.maxAtoms(),
         config.maxOps(),
         config.atoms(),
         config.ops(),
         config.wrapper(),
-        regexp -> {
-          // For each regexp, generate all strings and test
-          List<String> strings = generateStrings(config.maxStrLen(), config.strAlphabet());
+        allRegexps::add);
 
-          for (String text : strings) {
-            testCount[0] += testPair(regexp, text, config.flags(), failures);
+    List<String> strings = generateStrings(config.maxStrLen(), config.strAlphabet());
+    List<TestResult> failures = Collections.synchronizedList(new ArrayList<>());
+    AtomicInteger testCount = new AtomicInteger();
 
-            // Also test with long text prefix to force DFA path
-            if (config.testLongText()) {
-              String longText = Config.LONG_TEXT_PREFIX + text;
-              testCount[0] += testPair(regexp, longText, config.flags(), failures);
-            }
-          }
-        });
+    allRegexps.parallelStream()
+        .forEach(
+            regexp -> {
+              List<TestResult> localFailures = new ArrayList<>();
+              for (String text : strings) {
+                testCount.addAndGet(testPair(regexp, text, config.flags(), localFailures));
+
+                if (config.testLongText()) {
+                  testCount.addAndGet(
+                      testPair(
+                          regexp,
+                          Config.LONG_TEXT_PREFIX + text,
+                          config.flags(),
+                          localFailures));
+                }
+              }
+              if (!localFailures.isEmpty()) {
+                failures.addAll(localFailures);
+              }
+            });
 
     if (!failures.isEmpty()) {
       int show = Math.min(failures.size(), 50);
@@ -92,14 +105,14 @@ final class ExhaustiveUtils {
       sb.append(
           String.format(
               "%d failures out of %d tests (showing first %d):%n",
-              failures.size(), testCount[0], show));
+              failures.size(), testCount.get(), show));
       for (int i = 0; i < show; i++) {
         sb.append("  ").append(failures.get(i)).append("\n");
       }
       fail(sb.toString());
     }
 
-    return testCount[0];
+    return testCount.get();
   }
 
   /**
