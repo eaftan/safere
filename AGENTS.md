@@ -169,6 +169,12 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 
 ## Key Constraints
 
+- **JDK compatibility**: SafeRE aims to be a drop-in replacement for
+  `java.util.regex`. Match JDK behavior unless (a) the difference is
+  fundamental to SafeRE's approach (e.g., linear-time guarantees require
+  rejecting backreferences) or (b) the JDK's behavior is likely a bug
+  (e.g., JDK is internally inconsistent). When diverging, document the
+  reason.
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
   quantifiers. These features violate linear-time guarantees and must be
   rejected at parse time with a clear error.
