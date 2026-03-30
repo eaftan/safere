@@ -148,16 +148,6 @@ final class ExhaustiveUtils {
       return 0;
     }
 
-    // Skip empty text with MULTILINE + ^ anchor — JDK bug: ^ in MULTILINE mode doesn't
-    // match at position 0 of an empty string, but does match at position 0 of any non-empty
-    // string. SafeRE correctly considers ^ to always match at the start of text regardless
-    // of text length. We keep our correct behavior. See https://github.com/eaftan/safere/issues/41
-    if (text.isEmpty()
-        && (flags & java.util.regex.Pattern.MULTILINE) != 0
-        && regexp.contains("^")) {
-      return 0;
-    }
-
     // Try to compile with JDK first — if JDK rejects it, skip
     java.util.regex.Pattern jdkPat;
     try {
