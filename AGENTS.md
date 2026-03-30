@@ -134,9 +134,17 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 
 ## Pull Requests
 
+- **Never push to a PR (or create one) without first verifying locally that
+  all tests pass** (`mvn -pl safere test`). CI failures waste time and block
+  merges.
+- **Update existing PRs — do not close and reopen.** Push commits (or
+  force-push if rebasing) to the existing branch. Closing and reopening PRs
+  loses review context and clutters the issue tracker.
 - Whenever you create a PR, enable auto-merge on it:
   `gh pr merge <number> --auto --squash`
 - Do not push directly to `main`. Always create a branch and open a PR.
+- After creating a PR, monitor CI and ensure all checks pass. If CI fails,
+  debug and fix the problem locally, then push the fix.
 
 ## GitHub Issues
 
@@ -145,10 +153,17 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - When referencing an issue in a commit message, use `Fixes #N` only if the
   commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
 
-## Pull Requests
+## Bug Fixing Philosophy
 
-- After creating a PR, monitor CI and ensure all checks pass. If CI fails,
-  debug and fix the problem. The project owner will merge manually.
+- **Make principled fixes.** Understand the root cause before changing code.
+  Do not add special cases, flags, or if-statements that paper over symptoms.
+  A correct fix addresses the underlying design flaw — if a DFA cache key is
+  missing a dimension, fix the cache key; don't add a post-hoc correction.
+- **Verify the invariant, not just the test.** After a fix, articulate *why*
+  it is correct in general, not just why it makes a specific test pass.  If
+  you can construct a new input that would still break, the fix is wrong.
+- **Prefer fewer moving parts.** A fix that removes a special case is better
+  than one that adds a new special case.  Simpler code has fewer bugs.
 
 ## Key Constraints
 

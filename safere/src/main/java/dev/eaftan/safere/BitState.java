@@ -392,7 +392,16 @@ final class BitState {
 
         case InstOp.OP_MATCH -> {
           if (endMatch && pos != endPos) {
-            break; // must match at the end boundary
+            // $ (dollarAnchorEnd) allows ending before a trailing \n at the actual text end.
+            // Use text.length() (not endPos) because dollarAnchorEnd is a property of the
+            // text boundary, not the search range. When resolveCaptures() narrows the search
+            // range (endPos < text.length()), checking against endPos would wrongly accept
+            // matches at endPos-1 that aren't at the real text boundary.
+            int textLen = text.length();
+            if (!prog.dollarAnchorEnd() || pos != textLen - 1
+                || textLen == 0 || text.charAt(textLen - 1) != '\n') {
+              break; // must match at the end boundary
+            }
           }
           if (ncap > 1) {
             cap[1] = pos; // match end

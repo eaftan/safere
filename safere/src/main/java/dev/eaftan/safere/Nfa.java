@@ -386,7 +386,11 @@ final class Nfa {
 
         case MATCH: {
           if (endmatch && matchPos != text.length()) {
-            break;
+            // $ (dollarAnchorEnd) allows ending before a trailing \n at text end.
+            if (!prog.dollarAnchorEnd() || matchPos != text.length() - 1
+                || text.isEmpty() || text.charAt(text.length() - 1) != '\n') {
+              break;
+            }
           }
 
           if (longest) {
@@ -442,17 +446,28 @@ final class Nfa {
     int flags = 0;
 
     // ^ and \A
+    // BEGIN_LINE is set at the start of text and after '\n', but NOT at end-of-text after a final
+    // '\n'. JDK's MULTILINE ^ does not match at the position past the last '\n' when that position
+    // is the end of the string. For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
     if (pos == 0) {
       flags |= EmptyOp.BEGIN_TEXT | EmptyOp.BEGIN_LINE;
-    } else if (text.charAt(pos - 1) == '\n') {
+    } else if (pos < text.length() && text.charAt(pos - 1) == '\n') {
       flags |= EmptyOp.BEGIN_LINE;
     }
 
     // $ and \z
+    // END_LINE is set before any '\n' or '\r\n' and at end of text (used by MULTILINE $).
+    // END_TEXT is set only at end of text (used by \z).
+    // DOLLAR_END is set at end of text and also before the final trailing '\n' at end of text
+    // (used by $ without MULTILINE — JDK's default $ behavior).
     if (pos == text.length()) {
-      flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE;
+      flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
     } else if (text.charAt(pos) == '\n') {
       flags |= EmptyOp.END_LINE;
+      // Set DOLLAR_END if this '\n' is the last character in text.
+      if (pos + 1 == text.length()) {
+        flags |= EmptyOp.DOLLAR_END;
+      }
     } else if (text.charAt(pos) == '\r' && pos + 1 < text.length()
         && text.charAt(pos + 1) == '\n') {
       flags |= EmptyOp.END_LINE;

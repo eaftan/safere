@@ -463,6 +463,14 @@ public final class Matcher implements MatchResult {
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
     groups = searchWithBitStateOrNfa(
         prog, text, 0, text.length(), text.length(), true, false, true, prog.numCaptures());
+    // matches() requires the entire text to be consumed. With dollarAnchorEnd, the BitState
+    // may accept a match ending before a trailing \n. In that case, fall back to the NFA
+    // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
+    if (groups != null && groups[1] != text.length()) {
+      groups = Nfa.search(
+          prog, text, 0, text.length(),
+          Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+    }
     hasMatch = (groups != null);
     return hasMatch;
   }
@@ -706,7 +714,13 @@ public final class Matcher implements MatchResult {
     // OnePass is a single O(n) pass that finds both match bounds and captures, avoiding the
     // entire DFA construction and sandwich overhead. Works for any searchFrom position — OnePass
     // quickly returns null if ^ or \A constraints fail at a non-zero position.
-    if (prog.anchorStart() && parentPattern.canOnePassPrimary()) {
+    //
+    // Skip for patterns with alternation: OnePass always returns the longest match at each start
+    // position, which can pick the wrong alternative when a zero-width branch (like \b) competes
+    // with a consuming branch. Fall through to the DFA sandwich, which defers to the NFA for
+    // correct alternation priority.
+    if (prog.anchorStart() && parentPattern.canOnePassPrimary()
+        && !parentPattern.hasAlternation()) {
       groups = parentPattern.onePass().search(text, searchFrom, text.length(), false,
           prog.numCaptures());
       hasMatch = (groups != null);
@@ -747,7 +761,9 @@ public final class Matcher implements MatchResult {
     // OnePass primary path for small texts: for OnePass-eligible unanchored patterns on short
     // input, scan with OnePass directly. OnePass is faster than BitState — no visited bitmap
     // or job stack allocation, deterministic single-pass traversal per start position.
-    if (parentPattern.canOnePassPrimary() && text.length() <= 256) {
+    // Skip for alternation patterns (see anchored path comment above).
+    if (parentPattern.canOnePassPrimary() && text.length() <= 256
+        && !parentPattern.hasAlternation()) {
       int[] result = parentPattern.onePass().searchUnanchored(
           text, effectiveStart, text.length(), prog.numCaptures());
       if (result != null) {
@@ -826,6 +842,23 @@ public final class Matcher implements MatchResult {
               revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
           if (revResult != null && revResult.matched()) {
             int matchStart = revResult.pos();
+
+            // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
+            // (it can't return early at textLen-1). But the correct leftmost match may end
+            // at textLen-1 (before trailing '\n'). The reverse DFA from textLen only finds
+            // starts for matches ending AT textLen, potentially missing an earlier-starting
+            // match that ends at textLen-1. Check both possibilities and use the leftmost.
+            if (prog.dollarAnchorEnd() && earlyEnd == text.length()
+                && text.length() > 0 && text.charAt(text.length() - 1) == '\n') {
+              Dfa.SearchResult altRevResult =
+                  revDfa.doSearchReverse(
+                      text, earlyEnd - 1, effectiveStart, true, true);
+              if (altRevResult != null && altRevResult.matched()
+                  && altRevResult.pos() < matchStart) {
+                matchStart = altRevResult.pos();
+              }
+            }
+
             // Step 3: Forward DFA anchored at matchStart with longest=true to find actual end.
             Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
             if (fwdLongest != null && fwdLongest.matched()) {
@@ -1601,8 +1634,13 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
     // Search anchored at matchStart, bounded by matchEnd, but endMatch=false so alternation
     // priority determines the actual match length rather than the DFA's longest-match end.
+    //
+    // Skip OnePass for patterns with alternation: OnePass always returns the longest match at
+    // a given position, which picks the wrong alternative when a zero-width branch (like \b)
+    // competes with a consuming branch (like a literal). Fall through to BitState/NFA which
+    // correctly implements first-match alternation priority.
     int[] result;
-    if (parentPattern.canOnePassSubmatch()) {
+    if (parentPattern.canOnePassSubmatch() && !parentPattern.hasAlternation()) {
       result = parentPattern.onePass().search(
           text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures());
     } else {
