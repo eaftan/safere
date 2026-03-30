@@ -572,7 +572,8 @@ public final class Pattern implements Serializable {
    * (BitState/NFA) determines the correct match boundaries.
    */
   boolean dfaGroupZeroReliable() {
-    return !hasLazy && !hasAlternation && !hasBoundedRepeat && !hasAnchorInQuant;
+    return !hasLazy && !hasAlternation && !hasBoundedRepeat && !hasAnchorInQuant
+        && prog.numLoopRegs() == 0;
   }
 
   /**

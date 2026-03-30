@@ -31,6 +31,7 @@ final class Prog {
   private boolean dollarAnchorEnd;
   private boolean reversed;
   private boolean unixLines;
+  private int numLoopRegs;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -148,6 +149,16 @@ final class Prog {
   /** Sets whether this program runs in reverse. */
   public void setReversed(boolean reversed) {
     this.reversed = reversed;
+  }
+
+  /** Returns the number of loop progress-check registers allocated by the compiler. */
+  public int numLoopRegs() {
+    return numLoopRegs;
+  }
+
+  /** Sets the number of loop progress-check registers. */
+  public void setNumLoopRegs(int numLoopRegs) {
+    this.numLoopRegs = numLoopRegs;
   }
 
   /**

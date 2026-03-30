@@ -362,6 +362,10 @@ final class Dfa {
         }
         case InstOp.OP_NOP -> stack[stackTop++] = ip.out;
         case InstOp.OP_CAPTURE -> stack[stackTop++] = ip.out;
+        case InstOp.OP_PROGRESS_CHECK -> {
+          stack[stackTop++] = ip.out;
+          stack[stackTop++] = ip.out1;
+        }
         case InstOp.OP_EMPTY_WIDTH -> {
           if ((ip.arg & ~emptyFlags) == 0) {
             stack[stackTop++] = ip.out;

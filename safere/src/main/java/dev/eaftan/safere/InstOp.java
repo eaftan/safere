@@ -47,10 +47,22 @@ enum InstOp {
    * Match a code point against a multi-range character class. Stores a flat array of
    * {@code [lo, hi]} range pairs and optional ASCII bitmap for O(1) lookup.
    */
-  CHAR_CLASS;
+  CHAR_CLASS,
+
+  /**
+   * Loop progress check for zero-width repetition breaking. Emitted at the entry point of each
+   * loop iteration for {@code *}/{@code +} with nullable bodies. On first visit (saved == -1),
+   * saves the current position and continues. On subsequent visits, compares position to saved: if
+   * unchanged (zero-width body match), acts as {@link #FAIL}; if different, updates saved position
+   * and continues to {@code out}.
+   *
+   * <p>The register index is stored in {@link Inst#arg}. Each engine maintains per-thread loop
+   * registers to track positions.
+   */
+  PROGRESS_CHECK;
 
   // Int constants for hot-loop switches, avoiding Enum.ordinal() + synthetic switch-map overhead.
-  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., CHAR_CLASS=8).
+  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., PROGRESS_CHECK=9).
   static final int OP_ALT = 0;
   static final int OP_ALT_MATCH = 1;
   static final int OP_CHAR_RANGE = 2;
@@ -60,4 +72,5 @@ enum InstOp {
   static final int OP_NOP = 6;
   static final int OP_FAIL = 7;
   static final int OP_CHAR_CLASS = 8;
+  static final int OP_PROGRESS_CHECK = 9;
 }

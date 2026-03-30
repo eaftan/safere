@@ -126,9 +126,8 @@ final class ExhaustiveUtils {
   static int testPair(String regexp, String text, int flags, List<TestResult> failures) {
     int tests = 0;
 
-    // Skip patterns with zero-width assertions (\b, \B) inside quantified groups —
-    // known RE2 vs JDK semantic difference in zero-width repetition handling
-    if (ZERO_WIDTH_IN_REPETITION.matcher(regexp).find()) {
+    // Skip text with standalone \r (not \r\n) — known JDK vs RE2 behavioral difference
+    if (hasStandaloneCarriageReturn(text)) {
       return 0;
     }
 
@@ -141,15 +140,6 @@ final class ExhaustiveUtils {
     // See https://github.com/eaftan/safere/issues/42 (bug 2) and
     // https://github.com/eaftan/safere/issues/52 for detailed analysis.
     if (NESTED_REP_CAPTURE.matcher(regexp).find()) {
-      return 0;
-    }
-
-    // Skip patterns with $ alternated with \n inside repetition — known behavioral difference.
-    // In `(?:$|\n)+` on "a\n\n", SafeRE's NFA greedily matches $ then \n in a single iteration
-    // of the + loop, consuming both \n characters in one match [1,3). JDK treats $ as zero-width
-    // before each \n individually, producing two matches [1,2) and [2,2). This is a difference in
-    // how zero-width assertions interact with consuming alternatives inside repetition.
-    if (regexp.contains("$") && regexp.contains("\\n") && regexp.matches(".*[*+].*")) {
       return 0;
     }
 
@@ -443,20 +433,14 @@ final class ExhaustiveUtils {
   }
 
   /**
-   * Pattern detecting zero-width assertions ({@code \b}, {@code \B}, {@code ^}, {@code $}) inside
-   * a quantified group ({@code *}, {@code +}). RE2/SafeRE and JDK differ in how they handle
-   * zero-width matches inside repetition: JDK breaks the {@code *}/{@code +} loop after a
-   * zero-width body match (to prevent infinite repetition), while RE2 continues the loop, allowing
-   * a subsequent consuming alternative to match. This is a fundamental semantic difference, not a
-   * bug.
-   *
-   * <p>Example: {@code (?:\B|a)*} on "aa" — JDK returns [0,1), SafeRE returns [0,2). After
-   * matching {@code a} at position 0, position 1 is between two word characters, so {@code \B}
-   * matches zero-width. JDK stops the {@code *} loop; SafeRE continues and matches the second
-   * {@code a}.
+   * Returns true if the text contains any {@code \r} character. JDK treats {@code \r} (both
+   * standalone and in {@code \r\n}) specially — dot doesn't match it, {@code $} matches before it,
+   * etc. SafeRE (like RE2) only gives special treatment to {@code \n}. This is a known design
+   * difference, not a bug.
    */
-  private static final java.util.regex.Pattern ZERO_WIDTH_IN_REPETITION =
-      java.util.regex.Pattern.compile("\\\\[bB].*[*+]|[*+].*\\\\[bB]");
+  private static boolean hasStandaloneCarriageReturn(String text) {
+    return text.indexOf('\r') >= 0;
+  }
 
   /**
    * Pattern detecting capture groups inside zero-or-more repetition ({@code *}, {@code +?},
