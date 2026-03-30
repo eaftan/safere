@@ -50,6 +50,14 @@ final class Dfa {
    */
   private static final int FLAG_MATCH_BEFORE = 1 << 10;
 
+  /**
+   * Flag bit: when {@link #FLAG_MATCH_BEFORE} is set, indicates that an after-consume match ALSO
+   * exists (from character transitions reaching MATCH). The search loop should try the
+   * before-consume match first (earlier position) and fall back to the after-consume match if the
+   * before-consume match is rejected (e.g., by {@code needEndMatch} requiring end-of-text).
+   */
+  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 11;
+
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
@@ -685,10 +693,21 @@ final class Dfa {
     }
 
     int flags = emptyFlags & 0xFF;
-    if (hasMatch(nextInsts)) {
-      flags |= FLAG_MATCH;
-    } else if (hasMatchFromDeferred) {
+    if (hasMatchFromDeferred) {
+      // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
+      // character and reached a MATCH instruction. This match is at position `pos` (before
+      // the character), which is earlier than any match at `nextPos` (after consuming).
+      // FLAG_MATCH_BEFORE ensures doSearch records the match end at `pos`, preserving
+      // leftmost-first semantics.
       flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
+      if (hasMatch(nextInsts)) {
+        // Character transitions also reach MATCH (match at nextPos). Record this so doSearch
+        // can fall back to the after-consume match when the before-consume match is rejected
+        // (e.g., patterns ending with $ require the match to end at text length).
+        flags |= FLAG_MATCH_AFTER_DEFERRED;
+      }
+    } else if (hasMatch(nextInsts)) {
+      flags |= FLAG_MATCH;
     }
     if (isWord) {
       flags |= FLAG_LAST_WORD;
@@ -881,16 +900,33 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        // FLAG_MATCH_BEFORE indicates the match was triggered by a word-boundary assertion
-        // before consuming the current character. Record the match at pos, not nextPos.
-        int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
-            ? pos : Math.min(nextPos, textLen);
-        if (!needEndMatch || endPos == textLen
-            || (trailingNewline && endPos == textLen - 1)) {
-          matched = true;
-          matchEnd = endPos;
-          if (!longest && (!needEndMatch || endPos == textLen)) {
-            return new SearchResult(true, matchEnd);
+        // FLAG_MATCH_BEFORE indicates a deferred assertion (\b, multiline $) fired before
+        // consuming the current character and reached MATCH. Try the before-consume position
+        // first (it's at an earlier position, preserving leftmost-first semantics).
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          int endPos = pos;
+          if (!needEndMatch || endPos == textLen
+              || (trailingNewline && endPos == textLen - 1)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && (!needEndMatch || endPos == textLen)) {
+              return new SearchResult(true, matchEnd);
+            }
+          }
+        }
+        // Try the after-consume position: either no before-consume match exists, or it was
+        // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
+        // exists (FLAG_MATCH_AFTER_DEFERRED).
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0
+            || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int endPos = Math.min(nextPos, textLen);
+          if (!needEndMatch || endPos == textLen
+              || (trailingNewline && endPos == textLen - 1)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && (!needEndMatch || endPos == textLen)) {
+              return new SearchResult(true, matchEnd);
+            }
           }
         }
       }
