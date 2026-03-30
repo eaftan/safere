@@ -145,6 +145,8 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - Do not push directly to `main`. Always create a branch and open a PR.
 - After creating a PR, monitor CI and ensure all checks pass. If CI fails,
   debug and fix the problem locally, then push the fix.
+- When polling CI status, wait at least 2 minutes between checks. CI jobs
+  take minutes to complete — tight-looping wastes tokens for no benefit.
 
 ## GitHub Issues
 

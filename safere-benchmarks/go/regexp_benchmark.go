@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -510,6 +511,87 @@ func runFanoutBenchmarks(data map[string]any, filters []string) {
 }
 
 // ---------------------------------------------------------------------------
+// Memory benchmarks
+// ---------------------------------------------------------------------------
+
+type memoryResult struct {
+	Engine    string `json:"engine"`
+	Benchmark string `json:"benchmark"`
+	Score     int64  `json:"score"`
+	Error     int    `json:"error"`
+	Unit      string `json:"unit"`
+}
+
+func printMemoryJSON(r memoryResult) {
+	b, _ := json.Marshal(r)
+	fmt.Println(string(b))
+}
+
+// measureCompiledSize measures heap bytes allocated by compiling a regexp
+// pattern, using runtime.MemStats before/after with forced GC.
+func measureCompiledSize(pattern string) int64 {
+	// Warm up.
+	_ = regexp.MustCompile(pattern)
+
+	runtime.GC()
+	runtime.GC()
+	var before runtime.MemStats
+	runtime.ReadMemStats(&before)
+
+	re := regexp.MustCompile(pattern)
+
+	runtime.GC()
+	runtime.GC()
+	var after runtime.MemStats
+	runtime.ReadMemStats(&after)
+
+	// Keep re alive past the measurement.
+	sink = re
+
+	delta := int64(after.TotalAlloc - before.TotalAlloc)
+	if delta < 0 {
+		delta = 0
+	}
+	return delta
+}
+
+func runMemoryBenchmarks(data map[string]any, filters []string) {
+	compileSec := data["compile"]
+	regexSec := data["regex"]
+
+	type patternInfo struct {
+		name    string
+		pattern string
+	}
+
+	patterns := []patternInfo{
+		{"MemoryBenchmark.compileSimple", getString(compileSec, "simple.pattern")},
+		{"MemoryBenchmark.compileMedium", getString(compileSec, "medium.pattern")},
+		{"MemoryBenchmark.compileComplex", getString(compileSec, "complex.pattern")},
+		{"MemoryBenchmark.compileAlternation", getString(compileSec, "alternation.pattern")},
+		{"MemoryBenchmark.literalMatch", getString(regexSec, "literalMatch.pattern")},
+		{"MemoryBenchmark.charClassMatch", getString(regexSec, "charClassMatch.pattern")},
+		{"MemoryBenchmark.alternationFind", getString(regexSec, "alternationFind.pattern")},
+		{"MemoryBenchmark.captureGroups", getString(regexSec, "captureGroups.pattern")},
+		{"MemoryBenchmark.findInText", getString(regexSec, "findInText.pattern")},
+		{"MemoryBenchmark.emailFind", getString(regexSec, "emailFind.pattern")},
+	}
+
+	for _, pi := range patterns {
+		if !matchesFilter(pi.name, filters) {
+			continue
+		}
+		heapBytes := measureCompiledSize(pi.pattern)
+		printMemoryJSON(memoryResult{
+			Engine:    "go_regexp",
+			Benchmark: pi.name + ".heapBytes",
+			Score:     heapBytes,
+			Unit:      "bytes",
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -537,4 +619,5 @@ func main() {
 	runReplaceBenchmarks(data, filters)
 	runPathologicalBenchmarks(data, filters)
 	runFanoutBenchmarks(data, filters)
+	runMemoryBenchmarks(data, filters)
 }

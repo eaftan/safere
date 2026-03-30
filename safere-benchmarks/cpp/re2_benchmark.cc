@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <functional>
+#include <malloc.h>
 #include <random>
 #include <string>
 #include <vector>
@@ -90,6 +91,15 @@ void print_json(const BenchResult& r) {
   printf("{\"engine\":\"re2_cpp\",\"benchmark\":\"%s\","
          "\"score\":%.3f,\"error\":%.3f,\"unit\":\"%s\"}\n",
          r.name.c_str(), r.ns_per_op, r.error, r.unit.c_str());
+  fflush(stdout);
+}
+
+// Print a memory measurement result as JSON.
+void print_memory_json(const std::string& name, long bytes,
+                       const std::string& unit = "bytes") {
+  printf("{\"engine\":\"re2_cpp\",\"benchmark\":\"%s\","
+         "\"score\":%ld,\"error\":0,\"unit\":\"%s\"}\n",
+         name.c_str(), bytes, unit.c_str());
   fflush(stdout);
 }
 
@@ -522,6 +532,68 @@ void run_fanout_benchmarks(const json& data,
 }
 
 // ---------------------------------------------------------------------------
+// Memory benchmarks
+// ---------------------------------------------------------------------------
+
+// Measure the heap allocation for compiling a single RE2 pattern, using
+// mallinfo2() heap delta.  Also reports RE2's ProgramSize() (number of
+// compiled bytecode instructions).
+void run_memory_benchmarks(const json& data,
+                           const std::vector<std::string>& filters) {
+  const auto& compile_sec = data["compile"];
+  const auto& regex_sec = data["regex"];
+
+  struct PatternInfo {
+    std::string name;
+    std::string pattern;
+  };
+
+  std::vector<PatternInfo> patterns = {
+      {"MemoryBenchmark.compileSimple",
+       compile_sec["simple"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.compileMedium",
+       compile_sec["medium"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.compileComplex",
+       compile_sec["complex"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.compileAlternation",
+       compile_sec["alternation"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.literalMatch",
+       regex_sec["literalMatch"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.charClassMatch",
+       regex_sec["charClassMatch"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.alternationFind",
+       regex_sec["alternationFind"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.captureGroups",
+       regex_sec["captureGroups"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.findInText",
+       regex_sec["findInText"]["pattern"].get<std::string>()},
+      {"MemoryBenchmark.emailFind",
+       regex_sec["emailFind"]["pattern"].get<std::string>()},
+  };
+
+  for (const auto& pi : patterns) {
+    if (!matches_filter(pi.name, filters)) continue;
+
+    // Measure heap delta around RE2 compilation using mallinfo2().
+    struct mallinfo2 before = mallinfo2();
+    auto re = std::make_unique<RE2>(pi.pattern);
+    struct mallinfo2 after = mallinfo2();
+
+    long heap_delta = static_cast<long>(after.uordblks) -
+                      static_cast<long>(before.uordblks);
+    print_memory_json(pi.name + ".heapBytes", heap_delta);
+
+    // Report RE2's program size (number of bytecode instructions).
+    if (re->ok()) {
+      print_memory_json(pi.name + ".programSize",
+                        re->ProgramSize(), "instructions");
+      print_memory_json(pi.name + ".reverseProgramSize",
+                        re->ReverseProgramSize(), "instructions");
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -548,6 +620,7 @@ int main(int argc, char* argv[]) {
   run_replace_benchmarks(data, filters);
   run_pathological_benchmarks(data, filters);
   run_fanout_benchmarks(data, filters);
+  run_memory_benchmarks(data, filters);
 
   return 0;
 }
