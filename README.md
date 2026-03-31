@@ -47,14 +47,14 @@ time complexity on certain patterns. This is a well-known class of
 [ReDoS](https://en.wikipedia.org/wiki/ReDoS) vulnerabilities. SafeRE
 eliminates this risk entirely.
 
-| Pattern | SafeRE | RE2/J | JDK | SafeRE vs JDK |
-|---|--:|--:|--:|--:|
-| `a?{10}a{10}` vs `aaaaaaaaaa` | 0.063 µs | 1.77 µs | 15.6 µs | 248× |
-| `a?{15}a{15}` vs `aaa...` (15) | 0.084 µs | 3.85 µs | 674 µs | 8,024× |
-| `a?{20}a{20}` vs `aaa...` (20) | 0.107 µs | 6.95 µs | 27,138 µs | **253,626×** |
-| `a?{25}a{25}` vs `aaa...` (25) | 0.123 µs | 11.50 µs | *(hangs)* | ∞ |
+| Pattern | SafeRE | RE2/J | RE2-FFM | JDK | SafeRE vs JDK |
+|---|--:|--:|--:|--:|--:|
+| `a?{10}a{10}` vs `aaaaaaaaaa` | 0.042 µs | 1.72 µs | 0.068 µs | 9.5 µs | **226×** |
+| `a?{15}a{15}` vs `aaa...` (15) | 0.055 µs | 3.73 µs | 0.082 µs | 388 µs | **6,690×** |
+| `a?{20}a{20}` vs `aaa...` (20) | 0.072 µs | 6.64 µs | 0.092 µs | 15,389 µs | **210,808×** |
+| `a?{25}a{25}` vs `aaa...` (25) | 0.090 µs | 10.15 µs | 0.099 µs | *(hangs)* | ∞ |
 
-SafeRE grows linearly and is 29–93× faster than RE2/J. The JDK grows
+SafeRE grows linearly and is 41–113× faster than RE2/J. The JDK grows
 exponentially and hangs at n=25.
 
 ## Features
@@ -121,45 +121,27 @@ compile time** with a clear error:
 - **Possessive quantifiers** (`*+`, `++`, `?+`)
 - **Atomic groups** (`(?>...)`)
 
-## Semantic Differences from POSIX and java.util.regex
+## Semantic Compatibility with java.util.regex
 
-SafeRE follows RE2/Go semantics, which differ from POSIX and
-`java.util.regex` in a few cases:
+SafeRE aims to match `java.util.regex` behavior exactly, and does so in the
+vast majority of cases.  The only known differences are edge cases where SafeRE
+follows the RE2 family convention or where JDK behavior is suspected to be a
+bug:
 
-### Leftmost-first alternation (vs POSIX leftmost-longest)
+1. **Standalone `\r` edge cases** — SafeRE treats `\r` as a line terminator
+   (like JDK), but there are minor edge cases with standalone `\r` (not part
+   of `\r\n`) where behavior can differ, particularly involving zero-width
+   repetition patterns.
+2. **Nested repetition with captures** — In patterns like `(a)*$`, JDK's
+   backtracking engine leaks captures from failed starting positions.  JDK is
+   itself internally inconsistent here (`(a)*$` vs `(?:(a))*$` give different
+   group 1 results).  SafeRE follows NFA-correct semantics.  See
+   [issue #52](https://github.com/eaftan/safere/issues/52) for details.
 
-POSIX specifies **leftmost-longest** semantics for alternation: among all
-possible matches starting at the same position, the one that matches the
-longest string wins. SafeRE (like RE2) uses **leftmost-first**: the first
-alternate in the pattern that matches wins.
-
-```
-Pattern:  (a|ab|c|bcd)*
-Input:    "abcd"
-
-POSIX:    group 0 = "abcd",  group 1 = "bcd"   (longest alternates)
-SafeRE:   group 0 = "abc",   group 1 = "c"     (first alternates)
-```
-
-This is the same behavior as RE2, RE2/Go, and RE2/J. It also matches the
-behavior of most Perl-compatible engines.
-
-### Nullable subgroup capture in repetitions
-
-When a capturing group inside a repetition can match the empty string, POSIX
-and `java.util.regex` may record different group positions on the final
-(empty-match) iteration:
-
-```
-Pattern:  (a*)*(x)
-Input:    "ax"
-
-java.util.regex:  group 1 = (1,1)   (last iteration: empty match at pos 1)
-SafeRE:           group 1 = (1,1)   (same — captures the empty match)
-POSIX:            group 1 = (0,1)   (records the iteration that matched "a")
-```
-
-SafeRE agrees with `java.util.regex` and RE2/Go here, differing from POSIX.
+Both SafeRE and `java.util.regex` use **leftmost-first** alternation
+semantics (the first alternate that matches wins), which differs from POSIX
+leftmost-longest.  This means SafeRE is a drop-in replacement for
+`java.util.regex` for alternation behavior.
 
 ## Flags
 
@@ -180,64 +162,11 @@ SafeRE supports the same flag constants as `java.util.regex.Pattern`:
 Pattern p = Pattern.compile("hello", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 ```
 
-## API Reference
+## PatternSet: Multi-Pattern Matching
 
-### Pattern
-
-```java
-// Compile
-static Pattern compile(String regex)
-static Pattern compile(String regex, int flags)
-static boolean matches(String regex, CharSequence input)
-static String  quote(String s)
-
-// Use
-Matcher           matcher(CharSequence input)
-String[]          split(CharSequence input)
-String[]          split(CharSequence input, int limit)
-Predicate<String> asPredicate()
-Predicate<String> asMatchPredicate()
-
-// Inspect
-String pattern()
-int    flags()
-```
-
-### Matcher
-
-```java
-// Match operations
-boolean matches()                        // Full match
-boolean lookingAt()                      // Prefix match
-boolean find()                           // Find next match
-boolean find(int start)                  // Find from position
-
-// Match results
-String group()                           // Full match text
-String group(int group)                  // Numbered group
-String group(String name)                // Named group
-int    start() / start(int group)        // Match start position
-int    end()   / end(int group)          // Match end position
-int    groupCount()                      // Number of capture groups
-
-// Replacement
-String        replaceFirst(String replacement)
-String        replaceAll(String replacement)
-Matcher       appendReplacement(StringBuilder sb, String replacement)
-StringBuilder appendTail(StringBuilder sb)
-
-// State
-Matcher     reset()
-Matcher     reset(CharSequence input)
-Pattern     pattern()
-MatchResult toMatchResult()
-```
-
-Replacement strings support `$1`, `$2`, `${name}`, `\\`, and `\$`.
-
-### PatternSet
-
-Match multiple patterns simultaneously in a single pass:
+SafeRE includes `PatternSet`, a SafeRE-only feature that matches multiple
+patterns simultaneously in a single pass (neither `java.util.regex` nor
+RE2/J offers this):
 
 ```java
 PatternSet.Builder builder = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
@@ -280,10 +209,11 @@ import dev.eaftan.safere.Matcher;
    `PatternSyntaxException` at compile time.
 2. **Lookahead / lookbehind** (`(?=...)`, `(?<=...)`) — not supported.
 3. **Possessive quantifiers** (`*+`, `++`) — not supported.
-4. **Alternation semantics** — SafeRE uses leftmost-first (like Perl), not
-   leftmost-longest (POSIX). See [Semantic Differences](#semantic-differences-from-posix-and-javautilregex).
-5. **Named captures** use `(?P<name>...)` syntax (RE2-style), not
+4. **Named captures** use `(?P<name>...)` syntax (RE2-style), not
    `(?<name>...)` (Java-style). Both are accepted.
+
+See [Semantic Compatibility](#semantic-compatibility-with-javautilregex) for
+minor edge-case differences.
 
 ## Architecture
 
@@ -333,23 +263,26 @@ mvn javadoc:javadoc -pl safere
 ## Benchmarks
 
 SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
-`safere-benchmarks` module, comparing SafeRE against `java.util.regex`, RE2/J,
-C++ RE2, and Go `regexp`.
+`safere-benchmarks` module, comparing SafeRE against `java.util.regex` (JDK),
+[RE2/J](https://github.com/google/re2j), RE2-FFM (C++ RE2 via Java
+[FFM API](https://openjdk.org/jeps/454)), C++ RE2, and Go `regexp`.
 
 ### Running Benchmarks
 
-Always use the wrapper script — it runs `mvn install` first to ensure
-the benchmark module picks up the latest safere code:
+Always use the wrapper scripts — they run `mvn install` first to ensure
+the benchmark module picks up the latest SafeRE code:
 
 ```bash
-# Run all Java benchmarks
-./run-java-benchmarks.sh
+# Java benchmarks (throughput)
+./run-java-benchmarks.sh                        # all benchmarks
+./run-java-benchmarks.sh RegexBenchmark         # specific class
 
-# Run specific benchmark class(es)
-./run-java-benchmarks.sh RegexBenchmark SearchScalingBenchmark
+# Java memory profiling (allocation rates via JMH GC profiler)
+./run-java-memory-benchmarks.sh                 # all benchmarks
+./run-java-memory-benchmarks.sh RegexBenchmark  # specific class
 
-# Override JMH options
-JMH_OPTS="-f 0 -wi 3 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
+# Override JMH options (development only — NOT for BENCHMARKS.md)
+JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
 ```
 
 ### C++ RE2 and Go Benchmarks
@@ -381,14 +314,22 @@ python3 safere-benchmarks/scripts/compare-benchmarks.py \
 
 See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 
-| Benchmark | SafeRE | JDK | C++ RE2 | Go | SafeRE vs JDK |
-|---|--:|--:|--:|--:|---|
-| Literal match | 3 ns | 23 ns | 41 ns | 79 ns | **8× faster** |
-| Capture groups (3) | 147 ns | 120 ns | 82 ns | 306 ns | 1.2× slower |
-| Capture groups (10) | 302 ns | 374 ns | 373 ns | 563 ns | **1.2× faster** |
-| Hard pattern (1 MB) | 4,271 µs | 267,357 µs | 0.04 µs | 25,727 µs | **63× faster** |
-| Pathological (n=20) | 0.10 µs | 27,138 µs | 0.07 µs | 3.02 µs | **253,626× faster** |
-| Literal replaceFirst | 40 ns | 52 ns | 96 ns | 583 ns | **1.3× faster** |
+| Benchmark | SafeRE | JDK | RE2/J | RE2-FFM | C++ RE2 | Go | vs JDK |
+|---|--:|--:|--:|--:|--:|--:|---|
+| Literal match | 9 ns | 13 ns | 126 ns | 55 ns | 40 ns | 78 ns | **1.4× faster** |
+| Capture groups (3) | 94 ns | 75 ns | 958 ns | 329 ns | 84 ns | 311 ns | 1.3× slower |
+| Capture groups (10) | 200 ns | 235 ns | 1,398 ns | 737 ns | 367 ns | 600 ns | **1.2× faster** |
+| Hard pattern (1 MB) | 0.019 µs | 43,773 µs | 37,857 µs | 152 µs | 0.048 µs | 25,445 µs | **2.3M× faster** |
+| Pathological (n=20) | 0.072 µs | 15,389 µs | 6.64 µs | 0.092 µs | 0.071 µs | 3.07 µs | **210,808× faster** |
+| Literal replaceFirst | 30 ns | 40 ns | 147 ns | 215 ns | 98 ns | 605 ns | **1.3× faster** |
+
+**Summary (geometric mean of speed ratios):**
+
+| vs | Core workloads | Pathological/scaling |
+|---|---|---|
+| JDK | 1.1× slower | **13,500× faster** |
+| RE2/J | **11.5× faster** | **2,930× faster** |
+| RE2-FFM | **2.1× faster** | **17.3× faster** |
 
 ## License
 
