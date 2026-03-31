@@ -1652,4 +1652,121 @@ class MatcherTest {
       assertThat(m.group(2)).isEqualTo("data");
     }
   }
+
+  @Nested
+  @DisplayName("Atomic \\r\\n line terminator (#77, #78)")
+  class AtomicCrLfTests {
+
+    @Test
+    @DisplayName("find() with $ on \\r\\n does not infinite-loop (#77)")
+    void dollarFindOnCrLfTerminates() {
+      // Before the fix, this never terminated because $ matched between \r and \n,
+      // causing find() to loop without advancing.
+      Pattern p = Pattern.compile("$");
+      Matcher m = p.matcher("\r\n");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("(?m)$ on \\r\\n matches at 0 and 2 only (#78)")
+    void multilineDollarOnCrLf() {
+      Pattern p = Pattern.compile("(?m)$");
+      Matcher m = p.matcher("\r\n");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("(?m)$ on a\\r\\nb matches at 1 and 4 only (#78)")
+    void multilineDollarOnTextWithCrLf() {
+      Pattern p = Pattern.compile("(?m)$");
+      Matcher m = p.matcher("a\r\nb");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(4);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("$ (non-multiline) on \\r\\n matches at end")
+    void dollarNonMultilineOnCrLf() {
+      Pattern p = Pattern.compile("$");
+      Matcher m = p.matcher("\r\n");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("(?m)$ on standalone \\r still matches")
+    void multilineDollarOnStandaloneCr() {
+      Pattern p = Pattern.compile("(?m)$");
+      Matcher m = p.matcher("a\rb");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(3);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("(?m)$ on standalone \\n still matches")
+    void multilineDollarOnStandaloneLf() {
+      Pattern p = Pattern.compile("(?m)$");
+      Matcher m = p.matcher("a\nb");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(3);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("UNIX_LINES: (?m)$ on \\r\\n treats \\n only")
+    void unixLinesMultilineDollarOnCrLf() {
+      Pattern p = Pattern.compile("(?m)$", Pattern.UNIX_LINES);
+      Matcher m = p.matcher("a\r\nb");
+      assertThat(m.find()).isTrue();
+      // In UNIX_LINES, only \n is a line terminator; \r is ordinary.
+      // $ matches before \n (pos 2) and at end (pos 4).
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(4);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("(?:$|\\n)+ on \\r\\n matches correctly (#78)")
+    void dollarOrNewlineOnCrLf() {
+      Pattern p = Pattern.compile("(?m)(?:$|\\n)+");
+      Matcher m = p.matcher("\r\n");
+      assertThat(m.find()).isTrue();
+    }
+
+    @Test
+    @DisplayName("(?:$|\\r)+ on \\r\\n matches correctly (#78)")
+    void dollarOrCrOnCrLf() {
+      Pattern p = Pattern.compile("(?m)(?:$|\\r)+");
+      Matcher m = p.matcher("\r\n");
+      assertThat(m.find()).isTrue();
+    }
+
+    @Test
+    @DisplayName("(?:$|[\\r\\n])+ on \\r\\n matches correctly (#78)")
+    void dollarOrCrLfClassOnCrLf() {
+      Pattern p = Pattern.compile("(?m)(?:$|[\\r\\n])+");
+      Matcher m = p.matcher("\r\n");
+      assertThat(m.find()).isTrue();
+    }
+  }
 }
