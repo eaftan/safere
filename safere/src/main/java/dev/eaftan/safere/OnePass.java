@@ -56,21 +56,31 @@ final class OnePass {
   private static final long CAP_REG_MASK = (1L << MAX_CAP_REGS) - 1;
   private static final long NO_ACTION = -1L;
 
+  /**
+   * Mask covering all "condition" bits in an action (empty-width flags + capture registers). When
+   * {@code (action & CONDITION_MASK) == 0}, both the empty-flags check and the capture application
+   * can be skipped entirely — a single branch instead of two.
+   */
+  private static final long CONDITION_MASK = (1L << INDEX_SHIFT) - 1;
+
   private static long encodeAction(int nextState, int capMask, int emptyFlags) {
     return ((long) nextState << INDEX_SHIFT) | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
         | (emptyFlags & EMPTY_MASK);
-  }
-
-  private static int actionCapMask(long action) {
-    return (int) ((action >>> CAP_SHIFT) & CAP_REG_MASK);
   }
 
   // -------------------------------------------------------------------------
   // Instance fields
   // -------------------------------------------------------------------------
 
-  /** Transition table: {@code actions[state][eqClass]} = encoded action. */
-  private final long[][] actions;
+  /**
+   * Flattened transition table: {@code flatActions[state * numClasses + eqClass]} = encoded action.
+   * Flat layout eliminates one level of indirection vs a {@code long[][]}, improving cache locality
+   * and removing a pointer chase on every character processed.
+   */
+  private final long[] flatActions;
+
+  /** Number of equivalence classes (stride for {@link #flatActions}). */
+  private final int numClasses;
 
   /** Match actions: {@code matchAction[state]} = encoded action when at a match state. */
   private final long[] matchAction;
@@ -93,15 +103,42 @@ final class OnePass {
   /** When true, only {@code '\n'} is recognized as a line terminator. */
   private final boolean unixLines;
 
+  /**
+   * Bitset indicating which states have match actions. Bit {@code s} is set if
+   * {@code matchAction[s] != NO_ACTION}. Used to skip the {@code matchAction[]} array load for
+   * non-match states in the search loop. Only valid when numStates &le; 64; otherwise set to -1L
+   * (all bits set) to force the array check.
+   */
+  private final long matchStateBits;
+
   private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd,
       boolean dollarAnchorEnd, boolean unixLines) {
-    this.actions = actions;
+    int numStates = actions.length;
+    int nc = (numStates > 0) ? actions[0].length : 0;
+    this.numClasses = nc;
+    this.flatActions = new long[numStates * nc];
+    for (int s = 0; s < numStates; s++) {
+      System.arraycopy(actions[s], 0, flatActions, s * nc, nc);
+    }
     this.matchAction = matchAction;
     this.boundaries = boundaries;
     this.asciiClassMap = buildAsciiClassMap(boundaries);
     this.anchorEnd = anchorEnd;
     this.dollarAnchorEnd = dollarAnchorEnd;
     this.unixLines = unixLines;
+
+    // Pre-compute match state bitset.
+    long bits = 0;
+    if (numStates <= 64) {
+      for (int s = 0; s < numStates; s++) {
+        if (matchAction[s] != NO_ACTION) {
+          bits |= (1L << s);
+        }
+      }
+    } else {
+      bits = -1L; // fall back to checking every state
+    }
+    this.matchStateBits = bits;
   }
 
   // -------------------------------------------------------------------------
@@ -349,65 +386,94 @@ final class OnePass {
 
     int state = 0;
     boolean matched = false;
-    int[] bestCap = null;
+    int[] bestCap = new int[ncap];
+
+    int nc = numClasses;
+    long[] fa = flatActions;
+    long[] ma = matchAction;
+    int[] ascMap = asciiClassMap;
+    long msb = matchStateBits;
 
     int pos = startPos;
-    while (pos <= endPos) {
+    // Main loop: process characters from startPos to endPos-1.  The match check at endPos is
+    // handled after the loop to avoid a redundant pos >= endPos comparison on every iteration.
+    while (pos < endPos) {
       // Check match condition at current state BEFORE consuming next character.
-      long matchAct = matchAction[state];
-      if (matchAct != NO_ACTION) {
+      // The bitset test avoids the matchAction[] array load for non-match states.
+      if ((msb & (1L << state)) != 0) {
+        long matchAct = ma[state];
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines)) == 0) {
-          applyCaptures(matchAct, pos, cap);
-          if (cap.length > 1) {
+          int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
+          if (capMask != 0) {
+            applyCaptures(capMask, pos, cap);
+          }
+          if (ncap > 1) {
             cap[1] = pos;
           }
           matched = true;
-          bestCap = cap.clone();
+          System.arraycopy(cap, 0, bestCap, 0, ncap);
         }
       }
 
-      if (pos >= endPos) {
-        break;
-      }
-
       // Read next character — ASCII fast path avoids codePointAt/charCount overhead.
-      int cp;
       int nextPos;
       int cls;
       char ch = text.charAt(pos);
       if (ch < 128) {
-        cp = ch;
         nextPos = pos + 1;
-        cls = asciiClassMap[cp];
+        cls = ascMap[ch];
       } else if (Character.isHighSurrogate(ch) && pos + 1 < endPos
           && Character.isLowSurrogate(text.charAt(pos + 1))) {
-        cp = Character.toCodePoint(ch, text.charAt(pos + 1));
         nextPos = pos + 2;
-        cls = classOf(cp);
+        cls = classOf(Character.toCodePoint(ch, text.charAt(pos + 1)));
       } else {
-        cp = ch;
         nextPos = pos + 1;
-        cls = classOf(cp);
+        cls = classOf(ch);
       }
 
-      long[] stateActions = actions[state];
-      long action = (cls >= 0 && cls < stateActions.length) ? stateActions[cls] : NO_ACTION;
+      // Equivalence classes and state indices are always valid for a well-formed OnePass
+      // automaton, so no bounds check is needed on the flat actions array.
+      long action = fa[state * nc + cls];
       if (action == NO_ACTION) {
         break;
       }
 
-      int reqEmpty = (int) (action & EMPTY_MASK);
-      if (reqEmpty != 0) {
-        int curEmpty = Nfa.emptyFlags(text, pos, unixLines);
-        if ((reqEmpty & ~curEmpty) != 0) {
-          break;
+      // Combined condition check: bits below INDEX_SHIFT encode empty-width flags and capture
+      // registers. When all zero, skip both the empty-flags gate and capture application.
+      long conditions = action & CONDITION_MASK;
+      if (conditions != 0) {
+        int reqEmpty = (int) (conditions & EMPTY_MASK);
+        if (reqEmpty != 0) {
+          int curEmpty = Nfa.emptyFlags(text, pos, unixLines);
+          if ((reqEmpty & ~curEmpty) != 0) {
+            break;
+          }
+        }
+        int capMask = (int) ((conditions >>> CAP_SHIFT) & CAP_REG_MASK);
+        if (capMask != 0) {
+          applyCaptures(capMask, pos, cap);
         }
       }
-
-      applyCaptures(action, pos, cap);
       state = (int) (action >>> INDEX_SHIFT);
       pos = nextPos;
+    }
+
+    // Final match check at endPos (the position after the last character).
+    if (pos == endPos && (msb & (1L << state)) != 0) {
+      long matchAct = ma[state];
+      int reqEmpty = (int) (matchAct & EMPTY_MASK);
+      if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines)) == 0) {
+        int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
+        if (capMask != 0) {
+          applyCaptures(capMask, pos, cap);
+        }
+        if (ncap > 1) {
+          cap[1] = pos;
+        }
+        matched = true;
+        System.arraycopy(cap, 0, bestCap, 0, ncap);
+      }
     }
 
     if (!matched) {
@@ -423,7 +489,7 @@ final class OnePass {
         return null;
       }
     }
-    return Arrays.copyOf(bestCap, ncap);
+    return bestCap;
   }
 
   /**
@@ -481,14 +547,15 @@ final class OnePass {
     return map;
   }
 
-  /** Applies capture register updates from an action at the given position. */
-  private static void applyCaptures(long action, int pos, int[] cap) {
-    int mask = actionCapMask(action);
-    for (int reg = 0; mask != 0 && reg < cap.length; reg++) {
-      if ((mask & (1 << reg)) != 0) {
-        cap[reg] = pos;
-        mask &= ~(1 << reg);
+  /** Applies capture register updates from a pre-extracted capture mask at the given position. */
+  private static void applyCaptures(int mask, int pos, int[] cap) {
+    while (mask != 0) {
+      int reg = Integer.numberOfTrailingZeros(mask);
+      if (reg >= cap.length) {
+        break;
       }
+      cap[reg] = pos;
+      mask &= mask - 1; // clear lowest set bit
     }
   }
 
