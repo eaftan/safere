@@ -98,6 +98,7 @@ public final class Pattern implements Serializable {
   private final transient String literalMatch;
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
+  private final transient boolean hasNullableAlternation;
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
   private final transient boolean[] charClassPrefixAscii;
@@ -168,6 +169,7 @@ public final class Pattern implements Serializable {
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
       String literalMatch, boolean hasLazy, boolean hasAlternation,
+      boolean hasNullableAlternation,
       boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean[] charClassPrefixAscii,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty) {
@@ -181,6 +183,7 @@ public final class Pattern implements Serializable {
     this.literalMatch = literalMatch;
     this.hasLazy = hasLazy;
     this.hasAlternation = hasAlternation;
+    this.hasNullableAlternation = hasNullableAlternation;
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
     this.charClassPrefixAscii = charClassPrefixAscii;
@@ -226,6 +229,7 @@ public final class Pattern implements Serializable {
     String literalMatch = extractLiteralMatch(re);
     boolean hasLazy = hasLazyQuantifiers(re);
     boolean hasAlt = hasAlternation(re);
+    boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
@@ -235,7 +239,8 @@ public final class Pattern implements Serializable {
     CharClassMatchInfo ccMatch = extractCharClassMatch(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
-        literalMatch, hasLazy, hasAlt, hasBounded, hasAnchorQuant, ccPrefixAscii,
+        literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
+        ccPrefixAscii,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -586,6 +591,19 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Returns {@code true} if the pattern contains an alternation where at least one branch can
+   * match zero characters. This is the specific case where OnePass's longest-match semantics
+   * produce incorrect results: a zero-width branch (assertion, nullable repetition) loses to
+   * a consuming branch under longest-match, but should win under first-match (leftmost-first).
+   *
+   * <p>When this returns {@code false}, alternations are safe for OnePass because all branches
+   * must consume at least one character, making longest-match and first-match equivalent.
+   */
+  boolean hasNullableAlternation() {
+    return hasNullableAlternation;
+  }
+
+  /**
    * Returns {@code true} when the DFA sandwich correctly identifies the leftmost match
    * <em>start</em> position, even if the match end may be wrong. This is a weaker guarantee than
    * {@link #dfaGroupZeroReliable()}: the sandwich can narrow the search range for the submatch
@@ -844,6 +862,83 @@ public final class Pattern implements Serializable {
       }
     }
     return false;
+  }
+
+  /**
+   * Returns {@code true} if the AST contains an alternation where at least one branch can match
+   * zero characters (is "nullable"). This detects the case where OnePass's longest-match semantics
+   * differ from first-match: a zero-width branch (assertion, empty match, nullable repetition)
+   * competing with a consuming branch. For alternations where all branches must consume at least
+   * one character (e.g., {@code GET|POST}), OnePass gives correct results.
+   */
+  private static boolean hasNullableAlternation(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.ALTERNATE && node.subs != null) {
+        for (Regexp branch : node.subs) {
+          if (canMatchEmpty(branch)) {
+            return true;
+          }
+        }
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns {@code true} if the given regexp can match the empty string. Used to detect nullable
+   * alternation branches where OnePass's longest-match semantics may differ from first-match.
+   */
+  private static boolean canMatchEmpty(Regexp re) {
+    switch (re.op) {
+      case EMPTY_MATCH:
+      case BEGIN_LINE:
+      case END_LINE:
+      case BEGIN_TEXT:
+      case END_TEXT:
+      case WORD_BOUNDARY:
+      case NO_WORD_BOUNDARY:
+        return true;
+      case STAR:
+      case QUEST:
+        return true; // min=0
+      case REPEAT:
+        return re.min == 0;
+      case PLUS:
+        return re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
+      case CAPTURE:
+        return re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
+      case CONCAT:
+        if (re.subs == null) {
+          return true;
+        }
+        for (Regexp sub : re.subs) {
+          if (!canMatchEmpty(sub)) {
+            return false;
+          }
+        }
+        return true;
+      case ALTERNATE:
+        if (re.subs == null) {
+          return true;
+        }
+        for (Regexp sub : re.subs) {
+          if (canMatchEmpty(sub)) {
+            return true;
+          }
+        }
+        return false;
+      default:
+        // LITERAL, LITERAL_STRING, CHAR_CLASS, ANY_CHAR, etc. — must consume at least one char.
+        return false;
+    }
   }
 
   /**

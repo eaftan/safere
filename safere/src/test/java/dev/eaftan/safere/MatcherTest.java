@@ -1552,4 +1552,104 @@ class MatcherTest {
       assertThat(m.group()).isEqualTo("xyz");
     }
   }
+
+  /**
+   * Tests for the OnePass fast path with alternation patterns. The anchored OnePass fast path
+   * now handles non-nullable alternation (e.g., GET|POST) directly, skipping the DFA sandwich.
+   * Nullable alternation (zero-width vs consuming branches) still falls through to DFA+BitState.
+   */
+  @Nested
+  @DisplayName("OnePass alternation fast path")
+  class OnePassAlternationFastPath {
+
+    @Test
+    @DisplayName("HTTP pattern — anchored with non-nullable alternation uses OnePass")
+    void httpPatternFullRequest() {
+      Pattern p = Pattern.compile("^(?:GET|POST) +([^ ]+) HTTP");
+      Matcher m = p.matcher(
+          "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(0)).isEqualTo(
+          "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP");
+      assertThat(m.group(1)).isEqualTo(
+          "/asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka");
+    }
+
+    @Test
+    @DisplayName("HTTP pattern — POST variant")
+    void httpPatternPost() {
+      Pattern p = Pattern.compile("^(?:GET|POST) +([^ ]+) HTTP");
+      Matcher m = p.matcher("POST /submit HTTP/1.1");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(0)).isEqualTo("POST /submit HTTP");
+      assertThat(m.group(1)).isEqualTo("/submit");
+    }
+
+    @Test
+    @DisplayName("HTTP pattern — small request")
+    void httpPatternSmallRequest() {
+      Pattern p = Pattern.compile("^(?:GET|POST) +([^ ]+) HTTP");
+      Matcher m = p.matcher("GET /abc HTTP/1.1");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(0)).isEqualTo("GET /abc HTTP");
+      assertThat(m.group(1)).isEqualTo("/abc");
+    }
+
+    @Test
+    @DisplayName("HTTP pattern — no match")
+    void httpPatternNoMatch() {
+      Pattern p = Pattern.compile("^(?:GET|POST) +([^ ]+) HTTP");
+      Matcher m = p.matcher("PUT /resource HTTP/1.1");
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("non-nullable alternation with captures — both branches")
+    void nonNullableAlternationCaptures() {
+      Pattern p = Pattern.compile("^(cat|dog) (\\w+)");
+      Matcher m1 = p.matcher("cat fluffy");
+      assertThat(m1.find()).isTrue();
+      assertThat(m1.group(1)).isEqualTo("cat");
+      assertThat(m1.group(2)).isEqualTo("fluffy");
+
+      Matcher m2 = p.matcher("dog rex");
+      assertThat(m2.find()).isTrue();
+      assertThat(m2.group(1)).isEqualTo("dog");
+      assertThat(m2.group(2)).isEqualTo("rex");
+    }
+
+    @Test
+    @DisplayName("nullable alternation — zero-width branch wins via first-match priority")
+    void nullableAlternationZeroWidth() {
+      // \\b is zero-width, \\d is consuming — first-match should pick \\b
+      Pattern p = Pattern.compile("(?:\\b|\\d)");
+      Matcher m = p.matcher("1");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(0)).isEqualTo(""); // \\b matches empty at word boundary
+    }
+
+    @Test
+    @DisplayName("nullable alternation — non-word-boundary vs consuming")
+    void nullableAlternationNonWordBoundary() {
+      Pattern p = Pattern.compile("(?:\\B|a)");
+      Matcher m = p.matcher("ba _");
+      assertThat(m.find()).isTrue();
+      // First match: \\B at position 0 is not a word boundary (start of string before 'b'),
+      // but JDK considers position 0 a word boundary, so \\B fails and 'a' is not at pos 0.
+      // Actual behavior depends on JDK semantics — just verify we match JDK.
+      java.util.regex.Matcher jdkM = java.util.regex.Pattern.compile("(?:\\B|a)").matcher("ba _");
+      assertThat(jdkM.find()).isTrue();
+      assertThat(m.group(0)).isEqualTo(jdkM.group(0));
+    }
+
+    @Test
+    @DisplayName("unanchored non-nullable alternation on small text — uses OnePass")
+    void unanchoredNonNullableSmallText() {
+      Pattern p = Pattern.compile("(GET|POST) (\\w+)");
+      Matcher m = p.matcher("method: GET data");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isEqualTo("GET");
+      assertThat(m.group(2)).isEqualTo("data");
+    }
+  }
 }

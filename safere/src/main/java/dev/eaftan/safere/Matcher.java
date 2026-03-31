@@ -41,6 +41,14 @@ public final class Matcher implements MatchResult {
    */
   private static final int MIN_REVERSE_FIRST_LEN = 1024;
 
+  /**
+   * Maximum text length for the anchored OnePass fast path. For anchored patterns where the OnePass
+   * DFA built successfully, skip the DFA sandwich entirely and use OnePass as the primary engine.
+   * Matches C++ RE2's threshold (re2.cc line 838). For larger texts, the DFA's cached state
+   * transitions are more efficient.
+   */
+  private static final int ONEPASS_ANCHORED_TEXT_LIMIT = 4096;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -717,17 +725,24 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
-    // Anchored OnePass fast path: for anchored OnePass-eligible patterns, use OnePass directly.
-    // OnePass is a single O(n) pass that finds both match bounds and captures, avoiding the
-    // entire DFA construction and sandwich overhead. Works for any searchFrom position — OnePass
-    // quickly returns null if ^ or \A constraints fail at a non-zero position.
+    // Anchored OnePass fast path: for anchored OnePass-eligible patterns on small text, use
+    // OnePass directly. OnePass is a single O(n) pass that finds both match bounds and captures,
+    // avoiding the entire DFA construction and sandwich overhead. Works for any searchFrom
+    // position — OnePass quickly returns null if ^ or \A constraints fail at a non-zero position.
     //
-    // Skip for patterns with alternation: OnePass always returns the longest match at each start
-    // position, which can pick the wrong alternative when a zero-width branch (like \b) competes
-    // with a consuming branch. Fall through to the DFA sandwich, which defers to the NFA for
-    // correct alternation priority.
+    // This path handles patterns with non-nullable alternation (e.g., ^(?:GET|POST) +([^ ]+)
+    // HTTP). When all alternation branches must consume at least one character, OnePass's
+    // longest-match semantics are equivalent to first-match. This matches C++ RE2's behavior
+    // (re2.cc line 838): skip the DFA for small anchored text when OnePass is available.
+    //
+    // Skip for patterns with nullable alternation (a branch that can match zero characters):
+    // OnePass's longest-match semantics prefer the consuming branch over the zero-width branch,
+    // violating first-match alternation priority.
+    //
+    // The text size threshold (4096) matches C++ RE2. For larger texts, the DFA is more efficient.
     if (prog.anchorStart() && parentPattern.canOnePassPrimary()
-        && !parentPattern.hasAlternation()) {
+        && !parentPattern.hasNullableAlternation()
+        && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
       groups = parentPattern.onePass().search(text, searchFrom, text.length(), false,
           prog.numCaptures());
       hasMatch = (groups != null);
@@ -768,9 +783,9 @@ public final class Matcher implements MatchResult {
     // OnePass primary path for small texts: for OnePass-eligible unanchored patterns on short
     // input, scan with OnePass directly. OnePass is faster than BitState — no visited bitmap
     // or job stack allocation, deterministic single-pass traversal per start position.
-    // Skip for alternation patterns (see anchored path comment above).
+    // Skip for nullable alternation (see anchored path comment above).
     if (parentPattern.canOnePassPrimary() && text.length() <= 256
-        && !parentPattern.hasAlternation()) {
+        && !parentPattern.hasNullableAlternation()) {
       int[] result = parentPattern.onePass().searchUnanchored(
           text, effectiveStart, text.length(), prog.numCaptures());
       if (result != null) {
@@ -1745,15 +1760,17 @@ public final class Matcher implements MatchResult {
       return;
     }
     Prog prog = parentPattern.prog();
-    // Search anchored at matchStart, bounded by matchEnd, but endMatch=false so alternation
-    // priority determines the actual match length rather than the DFA's longest-match end.
+    // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
+    // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
+    // captures within that range.
     //
-    // Skip OnePass for patterns with alternation: OnePass always returns the longest match at
-    // a given position, which picks the wrong alternative when a zero-width branch (like \b)
-    // competes with a consuming branch (like a literal). Fall through to BitState/NFA which
-    // correctly implements first-match alternation priority.
+    // Prefer OnePass when available — it's a single deterministic pass with no bitmap or job
+    // stack overhead. Skip for patterns with nullable alternation where OnePass's longest-match
+    // semantics would pick the wrong branch (consuming over zero-width). For non-nullable
+    // alternation (e.g., GET|POST), all branches must consume characters so longest-match
+    // and first-match are equivalent.
     int[] result;
-    if (parentPattern.canOnePassSubmatch() && !parentPattern.hasAlternation()) {
+    if (parentPattern.canOnePassSubmatch() && !parentPattern.hasNullableAlternation()) {
       result = parentPattern.onePass().search(
           text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures());
     } else {
