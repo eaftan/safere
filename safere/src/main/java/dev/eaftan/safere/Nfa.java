@@ -503,7 +503,9 @@ final class Nfa {
       return ch == '\n' && pos + 1 == len;
     }
     if (ch == '\n' && pos + 1 == len) {
-      return true;
+      // Don't treat the \n of an atomic \r\n as a standalone trailing line terminator.
+      // The trailing terminator is the \r\n pair starting at pos-1.
+      return pos == 0 || text.charAt(pos - 1) != '\r';
     }
     if (ch == '\r') {
       return pos + 1 == len || (pos + 2 == len && text.charAt(pos + 1) == '\n');
@@ -570,9 +572,15 @@ final class Nfa {
           }
         }
       } else if (isLineTerminator(ch)) {
-        flags |= EmptyOp.END_LINE;
-        if (isAtTrailingLineTerminator(text, pos, false)) {
-          flags |= EmptyOp.DOLLAR_END;
+        // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
+        // line terminator. END_LINE fires before the \r (the start of the pair), not between
+        // \r and \n.
+        boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
+        if (!isAtomicLF) {
+          flags |= EmptyOp.END_LINE;
+          if (isAtTrailingLineTerminator(text, pos, false)) {
+            flags |= EmptyOp.DOLLAR_END;
+          }
         }
       }
     }

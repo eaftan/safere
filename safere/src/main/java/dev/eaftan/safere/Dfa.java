@@ -625,7 +625,18 @@ final class Dfa {
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
     int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
         : EmptyOp.NON_WORD_BOUNDARY;
-    boolean endLineHere = prog.unixLines() ? (cp == '\n') : Nfa.isLineTerminator(cp);
+    boolean endLineHere;
+    if (prog.unixLines()) {
+      endLineHere = (cp == '\n');
+    } else {
+      endLineHere = Nfa.isLineTerminator(cp);
+      // Don't fire END_LINE at the \n of an atomic \r\n pair. END_LINE fires before the \r
+      // (the start of the pair), not between \r and \n.
+      if (endLineHere && cp == '\n'
+          && nextPos >= 2 && text.charAt(nextPos - 2) == '\r') {
+        endLineHere = false;
+      }
+    }
 
     // Collect successors of unsatisfied EMPTY_WIDTH instructions whose deferred flags
     // are now satisfiable and that have no other unsatisfied flags.
@@ -943,7 +954,7 @@ final class Dfa {
         if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
           int endPos = pos;
           if (!needEndMatch || endPos == textLen
-              || (trailingTermStart < textLen && endPos >= trailingTermStart)) {
+              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
             if (!longest && (!needEndMatch || endPos == textLen)) {
@@ -958,7 +969,7 @@ final class Dfa {
             || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
           int endPos = Math.min(nextPos, textLen);
           if (!needEndMatch || endPos == textLen
-              || (trailingTermStart < textLen && endPos >= trailingTermStart)) {
+              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
             if (!longest && (!needEndMatch || endPos == textLen)) {
@@ -1224,7 +1235,7 @@ final class Dfa {
           int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
               ? pos : Math.min(nextPos, textLen);
           if (!needEndMatch || endPos == textLen
-              || (trailingTermStart < textLen && endPos >= trailingTermStart)) {
+              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             // Collect match IDs from the state's instructions.
             for (int id : collectMatchIds(s.insts)) {
               seen.set(id);

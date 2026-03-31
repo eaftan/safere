@@ -119,9 +119,9 @@ final class ExhaustiveUtils {
    * Test a single (regexp, text, flags) triple. Compares SafeRE vs JDK for matches() and find().
    * Returns the number of test cases executed.
    *
-   * <p>Skips tests where text contains standalone {@code \r} (not part of {@code \r\n}), since JDK
-   * treats {@code \r} as a line terminator but SafeRE (like RE2) does not. This is a known design
-   * difference, not a bug.
+   * <p>Skips tests where text contains standalone {@code \r} (not part of {@code \r\n}). Texts
+   * with {@code \r\n} pairs are now tested correctly — SafeRE treats {@code \r\n} as an atomic
+   * line terminator matching JDK behavior (see issue #78).
    */
   static int testPair(String regexp, String text, int flags, List<TestResult> failures) {
     int tests = 0;
@@ -433,13 +433,19 @@ final class ExhaustiveUtils {
   }
 
   /**
-   * Returns true if the text contains any {@code \r} character. JDK treats {@code \r} (both
-   * standalone and in {@code \r\n}) specially — dot doesn't match it, {@code $} matches before it,
-   * etc. SafeRE (like RE2) only gives special treatment to {@code \n}. This is a known design
-   * difference, not a bug.
+   * Returns true if the text contains a standalone {@code \r} that is not part of a {@code \r\n}
+   * pair. Texts containing only {@code \r\n} pairs are now tested correctly — SafeRE treats
+   * {@code \r\n} as an atomic line terminator matching JDK behavior (see issue #78).
    */
   private static boolean hasStandaloneCarriageReturn(String text) {
-    return text.indexOf('\r') >= 0;
+    int idx = 0;
+    while ((idx = text.indexOf('\r', idx)) >= 0) {
+      if (idx + 1 >= text.length() || text.charAt(idx + 1) != '\n') {
+        return true; // standalone \r (not followed by \n)
+      }
+      idx += 2; // skip past \r\n
+    }
+    return false;
   }
 
   /**

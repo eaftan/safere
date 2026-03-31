@@ -837,17 +837,22 @@ public final class Matcher implements MatchResult {
           boolean ul = prog.unixLines();
           if (textLen > 0 && (ul ? text.charAt(textLen - 1) == '\n'
               : Nfa.isLineTerminator(text.charAt(textLen - 1)))) {
-            Dfa.SearchResult altRev =
-                revDfa.doSearchReverse(text, textLen - 1, effectiveStart, true, true);
-            if (altRev == null) {
-              budgetExceeded = true;
-            } else if (altRev.matched()
-                && (matchStart < 0 || altRev.pos() < matchStart)) {
-              matchStart = altRev.pos();
+            // For \r\n, the trailing terminator starts at textLen-2 (before \r), not
+            // textLen-1 (between \r and \n). Skip the textLen-1 check for \r\n.
+            boolean isAtomicCrLf = !ul && textLen >= 2
+                && text.charAt(textLen - 2) == '\r' && text.charAt(textLen - 1) == '\n';
+            if (!isAtomicCrLf) {
+              Dfa.SearchResult altRev =
+                  revDfa.doSearchReverse(text, textLen - 1, effectiveStart, true, true);
+              if (altRev == null) {
+                budgetExceeded = true;
+              } else if (altRev.matched()
+                  && (matchStart < 0 || altRev.pos() < matchStart)) {
+                matchStart = altRev.pos();
+              }
             }
-            // For \r\n, also try position before \r.
-            if (!budgetExceeded && !ul && textLen >= 2 && text.charAt(textLen - 1) == '\n'
-                && text.charAt(textLen - 2) == '\r') {
+            // For \r\n, try position before \r.
+            if (!budgetExceeded && isAtomicCrLf) {
               Dfa.SearchResult altRev2 =
                   revDfa.doSearchReverse(text, textLen - 2, effectiveStart, true, true);
               if (altRev2 == null) {
@@ -963,19 +968,24 @@ public final class Matcher implements MatchResult {
             if (prog.dollarAnchorEnd() && earlyEnd == text.length()) {
               int len = text.length();
               boolean ul = prog.unixLines();
-              // Try position before trailing \n (or standalone line terminator)
+              // Try position before trailing line terminator.
               if (len > 0 && (ul ? text.charAt(len - 1) == '\n'
                   : Nfa.isLineTerminator(text.charAt(len - 1)))) {
-                Dfa.SearchResult altRevResult =
-                    revDfa.doSearchReverse(
-                        text, earlyEnd - 1, effectiveStart, true, true);
-                if (altRevResult != null && altRevResult.matched()
-                    && altRevResult.pos() < matchStart) {
-                  matchStart = altRevResult.pos();
+                // For \r\n, the trailing terminator starts at len-2 (before \r), not
+                // len-1 (between \r and \n). Skip the earlyEnd-1 check for \r\n.
+                boolean isAtomicCrLf = !ul && len >= 2
+                    && text.charAt(len - 2) == '\r' && text.charAt(len - 1) == '\n';
+                if (!isAtomicCrLf) {
+                  Dfa.SearchResult altRevResult =
+                      revDfa.doSearchReverse(
+                          text, earlyEnd - 1, effectiveStart, true, true);
+                  if (altRevResult != null && altRevResult.matched()
+                      && altRevResult.pos() < matchStart) {
+                    matchStart = altRevResult.pos();
+                  }
                 }
-                // For \r\n, also try position before \r
-                if (!ul && len >= 2 && text.charAt(len - 1) == '\n'
-                    && text.charAt(len - 2) == '\r') {
+                // For \r\n, try position before \r.
+                if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
                   Dfa.SearchResult altRevResult2 =
                       revDfa.doSearchReverse(
                           text, earlyEnd - 2, effectiveStart, true, true);
