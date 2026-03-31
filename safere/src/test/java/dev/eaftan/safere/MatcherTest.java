@@ -1402,4 +1402,154 @@ class MatcherTest {
       assertThat(m.hitEnd()).isFalse();
     }
   }
+
+  @Nested
+  @DisplayName("Reverse-first DFA optimization for end-anchored patterns")
+  class ReverseFirstDfaTests {
+
+    /** Helper to create a string of repeated characters. */
+    private String repeat(char ch, int count) {
+      return String.valueOf(ch).repeat(count);
+    }
+
+    @Test
+    @DisplayName("end-anchored pattern, no match on large text — fast fail")
+    void endAnchoredNoMatch() {
+      Pattern p = Pattern.compile("[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$");
+      // Random lowercase text — pattern can't match because no uppercase letters at end.
+      String text = repeat('a', 2000);
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("end-anchored pattern, match at end of large text")
+    void endAnchoredMatchAtEnd() {
+      Pattern p = Pattern.compile("[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$");
+      String text = repeat('x', 2000) + "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(text);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(text.length());
+    }
+
+    @Test
+    @DisplayName("dollar anchor with trailing newline — match before \\n")
+    void dollarAnchorTrailingNewline() {
+      Pattern p = Pattern.compile("abc$");
+      String text = repeat('x', 2000) + "abc\n";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+      assertThat(m.start()).isEqualTo(2000);
+      assertThat(m.end()).isEqualTo(2003);
+    }
+
+    @Test
+    @DisplayName("dollar anchor with trailing \\r\\n — match before \\r\\n")
+    void dollarAnchorTrailingCrLf() {
+      Pattern p = Pattern.compile("abc$");
+      String text = repeat('x', 2000) + "abc\r\n";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+      assertThat(m.start()).isEqualTo(2000);
+      assertThat(m.end()).isEqualTo(2003);
+    }
+
+    @Test
+    @DisplayName("dollar anchor, no trailing newline — match at absolute end")
+    void dollarAnchorNoNewline() {
+      Pattern p = Pattern.compile("abc$");
+      String text = repeat('x', 2000) + "abc";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+      assertThat(m.start()).isEqualTo(2000);
+      assertThat(m.end()).isEqualTo(2003);
+    }
+
+    @Test
+    @DisplayName("\\\\z anchor — match only at absolute end, not before \\n")
+    void absoluteEndAnchor() {
+      Pattern p = Pattern.compile("abc\\z");
+      String text = repeat('x', 2000) + "abc";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+    }
+
+    @Test
+    @DisplayName("\\\\z anchor with trailing newline — no match")
+    void absoluteEndAnchorNoMatchBeforeNewline() {
+      Pattern p = Pattern.compile("abc\\z");
+      String text = repeat('x', 2000) + "abc\n";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("end-anchored with capture groups")
+    void endAnchoredWithCaptures() {
+      Pattern p = Pattern.compile("(\\w+)@(\\w+)$");
+      // Use non-word chars as padding so \w+ doesn't match them.
+      String text = repeat('-', 2000) + "user@host";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(0)).isEqualTo("user@host");
+      assertThat(m.group(1)).isEqualTo("user");
+      assertThat(m.group(2)).isEqualTo("host");
+    }
+
+    @Test
+    @DisplayName("end-anchored, second find() returns false")
+    void endAnchoredSecondFindFails() {
+      Pattern p = Pattern.compile("abc$");
+      String text = repeat('x', 2000) + "abc";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("char-class prefix + end anchor, no match")
+    void charClassPrefixEndAnchorNoMatch() {
+      Pattern p = Pattern.compile("[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$");
+      String text = repeat('a', 2000);
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("char-class prefix + end anchor, match at end")
+    void charClassPrefixEndAnchorMatch() {
+      Pattern p = Pattern.compile("[XYZ]ABC$");
+      String text = repeat('a', 2000) + "XABC";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("XABC");
+    }
+
+    @Test
+    @DisplayName("end-anchored pattern on text just above threshold")
+    void textJustAboveThreshold() {
+      Pattern p = Pattern.compile("xyz$");
+      String text = repeat('a', 1024) + "xyz";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("xyz");
+      assertThat(m.start()).isEqualTo(1024);
+    }
+
+    @Test
+    @DisplayName("end-anchored pattern on text below threshold — uses normal path")
+    void textBelowThreshold() {
+      Pattern p = Pattern.compile("xyz$");
+      String text = repeat('a', 500) + "xyz";
+      Matcher m = p.matcher(text);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("xyz");
+    }
+  }
 }
