@@ -34,6 +34,13 @@ import java.util.stream.StreamSupport;
  */
 public final class Matcher implements MatchResult {
 
+  /**
+   * Minimum text length for the reverse-first optimization on end-anchored patterns. For shorter
+   * texts, the forward DFA is trivially fast and the one-time cost of lazily compiling the reverse
+   * program and its DFA setup outweighs any scanning savings.
+   */
+  private static final int MIN_REVERSE_FIRST_LEN = 1024;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -775,6 +782,96 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
+
+    // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
+    // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
+    // If the reverse DFA determines no match is possible at the end, we skip the O(n) forward
+    // scan entirely. This makes end-anchored failing searches O(k) where k depends on the
+    // pattern suffix length, matching C++ RE2's reverse DFA optimization.
+    //
+    // Only applied when text exceeds MIN_REVERSE_FIRST_LEN — for short texts, the forward DFA
+    // is trivially fast and the cost of lazily compiling the reverse program and building its
+    // DFA setup outweighs any scanning savings.
+    //
+    // A null result from the reverse DFA means the DFA budget was exceeded — in that case we
+    // must fall through to the normal forward DFA path rather than returning false.
+    if (!regionActive && prog.anchorEnd() && !prog.anchorStart()
+        && text.length() >= MIN_REVERSE_FIRST_LEN
+        && parentPattern.dfaStartReliable()) {
+      Dfa revDfa = reverseDfa();
+      if (revDfa != null) {
+        int textLen = text.length();
+        boolean budgetExceeded = false;
+
+        // Try reverse DFA from end of text (anchored at end position).
+        Dfa.SearchResult revResult =
+            revDfa.doSearchReverse(text, textLen, effectiveStart, true, true);
+        int matchStart;
+        if (revResult == null) {
+          budgetExceeded = true;
+          matchStart = -1;
+        } else {
+          matchStart = revResult.matched() ? revResult.pos() : -1;
+        }
+
+        // For $ (dollarAnchorEnd), also try before trailing line terminator. The $ anchor
+        // can match before a trailing \n, \r\n, or other line terminator. The leftmost match
+        // start may correspond to a match ending before the trailing terminator rather than
+        // at textLen.
+        if (!budgetExceeded && prog.dollarAnchorEnd()) {
+          boolean ul = prog.unixLines();
+          if (textLen > 0 && (ul ? text.charAt(textLen - 1) == '\n'
+              : Nfa.isLineTerminator(text.charAt(textLen - 1)))) {
+            Dfa.SearchResult altRev =
+                revDfa.doSearchReverse(text, textLen - 1, effectiveStart, true, true);
+            if (altRev == null) {
+              budgetExceeded = true;
+            } else if (altRev.matched()
+                && (matchStart < 0 || altRev.pos() < matchStart)) {
+              matchStart = altRev.pos();
+            }
+            // For \r\n, also try position before \r.
+            if (!budgetExceeded && !ul && textLen >= 2 && text.charAt(textLen - 1) == '\n'
+                && text.charAt(textLen - 2) == '\r') {
+              Dfa.SearchResult altRev2 =
+                  revDfa.doSearchReverse(text, textLen - 2, effectiveStart, true, true);
+              if (altRev2 == null) {
+                budgetExceeded = true;
+              } else if (altRev2.matched()
+                  && (matchStart < 0 || altRev2.pos() < matchStart)) {
+                matchStart = altRev2.pos();
+              }
+            }
+          }
+        }
+
+        if (!budgetExceeded) {
+          if (matchStart < 0) {
+            // No match possible at end of text — fail immediately without forward scan.
+            hasMatch = false;
+            return false;
+          }
+
+          // Reverse DFA found a match start. Run forward DFA from there (anchored, longest)
+          // to find the actual match end.
+          Dfa.SearchResult fwdAnchored = dfa().doSearch(text, matchStart, true, true);
+          if (fwdAnchored != null && fwdAnchored.matched()) {
+            int matchEnd = fwdAnchored.pos();
+            int nc = prog.numCaptures();
+            groups = new int[2 * nc];
+            Arrays.fill(groups, -1);
+            groups[0] = matchStart;
+            groups[1] = matchEnd;
+            deferredMatchStart = matchStart;
+            deferredMatchEnd = matchEnd;
+            capturesResolved = (nc <= 1) && parentPattern.dfaGroupZeroReliable();
+            hasMatch = true;
+            return true;
+          }
+        }
+        // DFA budget exceeded or forward DFA disagreed — fall through to normal path.
+      }
+    }
 
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
