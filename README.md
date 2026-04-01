@@ -333,9 +333,21 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 
 ## License
 
-[MIT](LICENSE)
+This project is a Java port of [RE2](https://github.com/google/re2).
+
+RE2 is Copyright (c) 2009 The RE2 Authors. All rights reserved.
+
+This project contains code derived from RE2 and is licensed under
+the BSD 3-Clause License, consistent with the original project.
+
+Modifications and Java port: Copyright (c) 2026 Eddie Aftandilian.
+
+See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
+
+This work builds directly on the design and implementation of RE2 by
+the RE2 authors.
 
 - [RE2](https://github.com/google/re2) by Russ Cox — the C++ library whose
   design and algorithms SafeRE is based on
