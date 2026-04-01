@@ -1,5 +1,7 @@
-// Copyright (c) 2025 Eddie Aftandilian. Licensed under the MIT License.
-// See LICENSE file in the project root for details.
+// This file is part of a Java port of RE2 (https://github.com/google/re2).
+// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
+// Licensed under the BSD 3-Clause License (see LICENSE file).
 
 package dev.eaftan.safere;
 
@@ -17,9 +19,13 @@ import org.junit.jupiter.api.Test;
 class LicenseHeaderTest {
 
   private static final String LINE_1 =
-      "// Copyright (c) 2025 Eddie Aftandilian. Licensed under the MIT License.";
+      "// This file is part of a Java port of RE2 (https://github.com/google/re2).";
   private static final String LINE_2 =
-      "// See LICENSE file in the project root for details.";
+      "// Original RE2 code is Copyright (c) 2009 The RE2 Authors.";
+  private static final String LINE_3 =
+      "// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.";
+  private static final String LINE_4 =
+      "// Licensed under the BSD 3-Clause License (see LICENSE file).";
 
   @Test
   void allJavaFilesHaveLicenseHeader() throws IOException {
@@ -48,9 +54,11 @@ class LicenseHeaderTest {
   private static boolean hasLicenseHeader(Path path) {
     try {
       List<String> lines = Files.readAllLines(path);
-      return lines.size() >= 2
+      return lines.size() >= 4
           && lines.get(0).equals(LINE_1)
-          && lines.get(1).equals(LINE_2);
+          && lines.get(1).equals(LINE_2)
+          && lines.get(2).equals(LINE_3)
+          && lines.get(3).equals(LINE_4);
     } catch (IOException e) {
       return false;
     }
