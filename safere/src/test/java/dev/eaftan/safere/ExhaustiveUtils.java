@@ -118,18 +118,9 @@ final class ExhaustiveUtils {
   /**
    * Test a single (regexp, text, flags) triple. Compares SafeRE vs JDK for matches() and find().
    * Returns the number of test cases executed.
-   *
-   * <p>Skips tests where text contains standalone {@code \r} (not part of {@code \r\n}). Texts
-   * with {@code \r\n} pairs are now tested correctly — SafeRE treats {@code \r\n} as an atomic
-   * line terminator matching JDK behavior (see issue #78).
    */
   static int testPair(String regexp, String text, int flags, List<TestResult> failures) {
     int tests = 0;
-
-    // Skip text with standalone \r (not \r\n) — known JDK vs RE2 behavioral difference
-    if (hasStandaloneCarriageReturn(text)) {
-      return 0;
-    }
 
     // Skip patterns with nested repetition and capture groups — known behavioral difference.
     // NFA engines start a fresh thread at each position with captures initialized to -1.
@@ -430,22 +421,6 @@ final class ExhaustiveUtils {
       generateStringsRecursive(result, current, maxLen, alphabet);
       current.delete(current.length() - ch.length(), current.length());
     }
-  }
-
-  /**
-   * Returns true if the text contains a standalone {@code \r} that is not part of a {@code \r\n}
-   * pair. Texts containing only {@code \r\n} pairs are now tested correctly — SafeRE treats
-   * {@code \r\n} as an atomic line terminator matching JDK behavior (see issue #78).
-   */
-  private static boolean hasStandaloneCarriageReturn(String text) {
-    int idx = 0;
-    while ((idx = text.indexOf('\r', idx)) >= 0) {
-      if (idx + 1 >= text.length() || text.charAt(idx + 1) != '\n') {
-        return true; // standalone \r (not followed by \n)
-      }
-      idx += 2; // skip past \r\n
-    }
-    return false;
   }
 
   /**
