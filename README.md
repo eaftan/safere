@@ -2,16 +2,17 @@
 
 A linear-time regular expression matching library for Java.
 
-SafeRE is built on the work of
-[Russ Cox](https://swtch.com/~rsc/regexp/), whose
-[RE2](https://github.com/google/re2) library proved that regular expression
-matching can be done safely in time linear in the size of the input.  Cox later
-brought these ideas to Go's standard library as the
-[`regexp`](https://pkg.go.dev/regexp) package.
-[Alan Donovan](https://github.com/adonovan) then ported RE2 to Java as
-[RE2/J](https://github.com/google/re2j).  SafeRE continues this lineage,
-re-implementing the core RE2 algorithms in modern Java while providing a
-drop-in replacement for `java.util.regex`.
+SafeRE is a port of [RE2](https://github.com/google/re2) to Java, with
+significant performance optimization work to adapt to the JVM's performance
+characteristics and approach parity with `java.util.regex`.  Unlike RE2, which
+uses POSIX leftmost-longest semantics, SafeRE matches `java.util.regex`
+semantics and provides a drop-in replacement for `java.util.regex.Pattern` and
+`java.util.regex.Matcher`.
+
+An earlier port of RE2 to Java exists as
+[RE2/J](https://github.com/google/re2j).  RE2/J is valuable work, but it is
+substantially slower than `java.util.regex` on common workloads and does not
+provide a drop-in replacement API.  SafeRE addresses both of these gaps.
 
 SafeRE **guarantees linear-time matching** regardless of the pattern or input.
 It achieves this by using finite automata (DFA/NFA) instead of backtracking.
@@ -59,8 +60,8 @@ exponentially and hangs at n=25.
 
 ## Features
 
-- **Drop-in API** — `Pattern`, `Matcher`, and `PatternSet` mirror the
-  `java.util.regex` API
+- **Drop-in API** — `Pattern` and `Matcher` are drop-in replacements for
+  `java.util.regex`
 - **Linear-time guarantee** — No input can cause catastrophic backtracking
 - **Full Unicode** — Operates on Unicode code points, supports `\p{...}`
   properties, Unicode-aware case folding
@@ -121,18 +122,17 @@ compile time** with a clear error:
 - **Possessive quantifiers** (`*+`, `++`, `?+`)
 - **Atomic groups** (`(?>...)`)
 
+Additionally, the `CANON_EQ` flag is not supported.  This flag enables
+matching based on Unicode canonical equivalence (e.g., treating a precomposed
+character the same as its decomposed form).  It is rarely used and adds
+significant implementation complexity.
+
 ## Semantic Compatibility with java.util.regex
 
-SafeRE aims to match `java.util.regex` behavior exactly, and does so in the
-vast majority of cases.  The only known differences are edge cases where SafeRE
-follows the RE2 family convention or where JDK behavior is suspected to be a
-bug:
+SafeRE aims to match `java.util.regex` behavior exactly, and does so in all
+cases that we know of except where JDK behavior is suspected to be a bug:
 
-1. **Standalone `\r` edge cases** — SafeRE treats `\r` as a line terminator
-   (like JDK), but there are minor edge cases with standalone `\r` (not part
-   of `\r\n`) where behavior can differ, particularly involving zero-width
-   repetition patterns.
-2. **Nested repetition with captures** — In patterns like `(a)*$`, JDK's
+1. **Nested repetition with captures** — In patterns like `(a)*$`, JDK's
    backtracking engine leaks captures from failed starting positions.  JDK is
    itself internally inconsistent here (`(a)*$` vs `(?:(a))*$` give different
    group 1 results).  SafeRE follows NFA-correct semantics.  See
@@ -349,13 +349,12 @@ See [LICENSE](LICENSE) for details.
 This work builds directly on the design and implementation of RE2 by
 the RE2 authors.
 
-- [RE2](https://github.com/google/re2) by Russ Cox — the C++ library whose
-  design and algorithms SafeRE is based on
-- [Go `regexp`](https://pkg.go.dev/regexp) by Russ Cox — the Go standard
-  library implementation of RE2, which informed SafeRE's semantics and
-  engine selection strategy
-- [RE2/J](https://github.com/google/re2j) by Alan Donovan — the Java port of
-  RE2 that demonstrated these algorithms work well on the JVM.  SafeRE's test
-  suite includes tests ported from RE2/J (see [TESTING.md](TESTING.md))
-- [Regular Expression Matching Can Be Simple And Fast](https://swtch.com/~rsc/regexp/regexp1.html)
-  — Russ Cox's article series explaining the theory
+- [RE2](https://github.com/google/re2) — the C++ library whose design and
+  algorithms SafeRE is based on
+- [Go `regexp`](https://pkg.go.dev/regexp) — the Go standard library
+  implementation of RE2
+- [RE2/J](https://github.com/google/re2j) — an earlier port of RE2 to Java.
+  SafeRE's test suite includes tests ported from RE2/J
+  (see [TESTING.md](TESTING.md))
+- Russ Cox's [article series on regular expression matching](https://swtch.com/~rsc/regexp/regexp1.html)
+  — explains the theory behind RE2's approach
