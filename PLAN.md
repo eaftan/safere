@@ -20,7 +20,7 @@ Pattern string → Parse → Simplify → Compile → Execute
 
 ### Key Design Decisions
 
-- **Package**: `dev.eaftan.safere`
+- **Package**: `org.safere`
 - **Java version**: Java 21 (LTS), leveraging sealed classes, records, pattern matching, etc.
 - **Code style**: Google Java Style Guide
 - **Build system**: Maven (standard, well-understood), with JaCoCo for coverage

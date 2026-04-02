@@ -4,6 +4,6 @@
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
 /** SafeRE: a linear-time regular expression matching library for Java. */
-module dev.eaftan.safere {
-  exports dev.eaftan.safere;
+module org.safere {
+  exports org.safere;
 }
