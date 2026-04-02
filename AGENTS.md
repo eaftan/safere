@@ -3,10 +3,10 @@
 ## Project Overview
 
 SafeRE is a linear-time regular expression matching library for Java, modeled on
-Russ Cox's RE2. The C++ RE2 reference implementation is in `re2-reference/`.
+[RE2](https://github.com/google/re2).
 The RE2/J (Java) reference is in `re2j-reference/`.
 
-- **Package**: `org.safere`
+- **Package**: `dev.eaftan.safere`
 - **Java version**: 21 (LTS) — built and tested with OpenJDK 25
 - **Build**: Maven (`mvn`)
 - **Tests**: JUnit 6 (6.0.3), AssertJ
@@ -56,11 +56,9 @@ Follow the [Google Java Style Guide](https://google.github.io/styleguide/javagui
 ## Project Structure
 
 ```
-safere/src/main/java/org/safere/   # Library source
-safere/src/test/java/org/safere/   # Tests
+safere/src/main/java/dev/eaftan/safere/   # Library source
+safere/src/test/java/dev/eaftan/safere/   # Tests
 safere-benchmarks/                         # JMH benchmark suite
-re2-reference/                             # C++ RE2 reference (read-only)
-re2j-reference/                            # RE2/J (Java) reference (read-only)
 ```
 
 ## Architecture
@@ -197,6 +195,11 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - **No installing software**: Never install packages, libraries, or tools
   on the machine. If something is missing, ask the project owner to install
   it.
+- **Not a clean-room port**: SafeRE is a port of RE2, using the C++ RE2
+  source as a reference. Never describe it as a "clean-room" port.
+- **No personal names in documentation**: Refer to projects (RE2, RE2/J)
+  rather than individuals. Do not mention people's names in DESIGN.md,
+  README.md, TESTING.md, or other documentation.
 - **Regression tests for bugs**: Any time a bug is found, a regression test
   must be added that fails without the fix and passes with it.
 
@@ -328,7 +331,7 @@ asprof collect -d 30 -e cpu -o flat -f /tmp/cpu-flat.txt <pid>
 **Filtering to SafeRE code** — use `-I` to include only relevant frames:
 
 ```bash
-asprof collect -d 30 -e cpu -o flat -I 'org.safere.*' -f /tmp/safere-cpu.txt <pid>
+asprof collect -d 30 -e cpu -o flat -I 'dev.eaftan.safere.*' -f /tmp/safere-cpu.txt <pid>
 ```
 
 **Tips:**
