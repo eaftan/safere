@@ -9,7 +9,7 @@ guide), see [README.md](README.md).
 
 ## Processing Pipeline
 
-SafeRE follows the same pipeline as Russ Cox's
+SafeRE follows the same pipeline as
 [RE2](https://github.com/google/re2):
 
 ```
@@ -326,9 +326,8 @@ needed.
 
 ## Relationship to RE2
 
-SafeRE is a clean-room port of RE2's architecture to Java.  The C++
-reference implementation is in `re2-reference/` for comparison.  Key
-differences from the C++ version:
+SafeRE is a port of RE2's architecture to Java, using the C++ RE2 source
+as a reference.  Key differences from the C++ version:
 
 | Aspect | RE2 (C++) | SafeRE (Java) |
 |--------|-----------|---------------|

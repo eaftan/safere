@@ -197,6 +197,11 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - **No installing software**: Never install packages, libraries, or tools
   on the machine. If something is missing, ask the project owner to install
   it.
+- **Not a clean-room port**: SafeRE is a port of RE2, using the C++ RE2
+  source as a reference. Never describe it as a "clean-room" port.
+- **No personal names in documentation**: Refer to projects (RE2, RE2/J)
+  rather than individuals. Do not mention people's names in DESIGN.md,
+  README.md, TESTING.md, or other documentation.
 - **Regression tests for bugs**: Any time a bug is found, a regression test
   must be added that fails without the fix and passes with it.
 
