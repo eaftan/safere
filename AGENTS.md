@@ -76,7 +76,7 @@ Pattern string → Parse → Simplify → Compile → Execute
 
 ### Key Internal Classes
 
-- `Parser` — recursive-descent regex parser → `Regexp` AST
+- `Parser` — stack-based operator-precedence regex parser → `Regexp` AST
 - `Simplifier` — AST simplification (character class folding, etc.)
 - `Compiler` — Thompson NFA construction → `Prog` / `Inst` bytecode
 - `Regexp` — AST node (operator + children)
@@ -119,6 +119,8 @@ Drop-in replacements for `java.util.regex`:
 - Use `@Test`, `@ParameterizedTest`, `@DisplayName` as appropriate
 - Aim for high coverage; JaCoCo is configured in the build
 - Port test cases from RE2's C++ test suite where applicable
+- **Do not include test counts in documentation** (DESIGN.md, TESTING.md,
+  etc.) — counts change frequently as tests are added and will go stale.
 
 ## External Validation
 

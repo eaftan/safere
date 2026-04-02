@@ -21,9 +21,10 @@ Pattern string ──► Parse ──► Simplify ──► Compile ──► Ex
 
 ### 1. Parse (`Parser`)
 
-A stack-based operator-precedence parser converts the pattern string into
-a `Regexp` AST.  It supports POSIX extended regex syntax plus Perl
-extensions (`(?:...)`, `(?P<name>...)`, `\d`, `\b`, etc.).
+A stack-based operator-precedence parser (ported from RE2's `parse.cc`)
+converts the pattern string into a `Regexp` AST.  It supports POSIX
+extended regex syntax plus Perl extensions (`(?:...)`, `(?P<name>...)`,
+`\d`, `\b`, etc.).
 
 Key details:
 - Implicit concatenation between adjacent atoms.
@@ -88,17 +89,21 @@ The compiled program (`Prog`) is an ordered list of `Inst` instructions:
 | `MATCH`      | Accept; report match                 | `arg` (match ID)      |
 | `NOP`        | No-op; continue to `out`             | `out`                 |
 | `FAIL`       | Unconditional failure                | —                     |
+| `CHAR_CLASS` | Match code point against multi-range class | ranges, ASCII bitmap, `out` |
+| `PROGRESS_CHECK` | Loop progress check for zero-width repetition | `arg` (register), `out` |
 
 **Capture registers** are numbered in pairs: register `2i` is the start of
 group `i`, register `2i+1` is the end.  Group 0 is the full match.
 
 **Empty-width flags** (`EmptyOp`): `BEGIN_LINE`, `END_LINE`, `BEGIN_TEXT`,
-`END_TEXT`, `WORD_BOUNDARY`, `NON_WORD_BOUNDARY`.
+`END_TEXT`, `WORD_BOUNDARY`, `NON_WORD_BOUNDARY`, `DOLLAR_END`.
+`DOLLAR_END` distinguishes JDK's `$` (which can match before a trailing
+line terminator) from `\z` (absolute end of text).
 
 ## Engine Selection
 
 SafeRE uses a cascade of increasingly general (but slower) engines.  The
-`Matcher` class orchestrates selection:
+`Matcher` class orchestrates selection in `doFindCore()`:
 
 ```
                   ┌─────────────┐
@@ -106,13 +111,34 @@ SafeRE uses a cascade of increasingly general (but slower) engines.  The
                   └──────┬──────┘
                          no
                   ┌──────┴──────┐
-                  │ OnePass?    │──yes──► OnePass (anchored only)
+                  │ Prefix      │──yes──► skip to first prefix match
+                  │ acceleration│
+                  └──────┬──────┘
+                         no match → false
+                  ┌──────┴──────┐
+                  │ Anchored    │──yes──► OnePass (single O(n) pass
+                  │ OnePass?    │         with captures, ≤4096 chars)
                   └──────┬──────┘
                          no
                   ┌──────┴──────┐
-                  │ DFA match?  │──no───► return false (fast reject)
+                  │ Unanchored  │──yes──► OnePass searchUnanchored()
+                  │ OnePass?    │         (≤256 chars)
+                  └──────┬──────┘
+                         no
+                  ┌──────┴──────┐
+                  │ End-anchored│──yes──► Reverse DFA from end
+                  │ long text?  │         (fast reject, ≥1024 chars)
+                  └──────┬──────┘
+                         no
+                  ┌──────┴──────┐
+                  │ Forward DFA │──no───► return false (fast reject)
                   └──────┬──────┘
                         yes
+                  ┌──────┴──────┐
+                  │ DFA sandwich│──────► 3-step DFA for match bounds
+                  │ (if reliable)│        (defers captures)
+                  └──────┬──────┘
+                         │
                   ┌──────┴──────┐
                   │ Text small  │──yes──► BitState (with captures)
                   │ enough?     │
@@ -125,9 +151,22 @@ SafeRE uses a cascade of increasingly general (but slower) engines.  The
 
 ### Literal Fast Path
 
-If the compiled pattern is a plain literal with no metacharacters, the
-`Matcher` bypasses the regex engine entirely and uses `String.indexOf()`
-or direct comparison.
+If the compiled pattern is a plain literal with no metacharacters and no
+capture groups, the `Matcher` bypasses the regex engine entirely and uses
+`String.indexOf()` or direct comparison.
+
+### Prefix Acceleration
+
+Before invoking heavier engines, the matcher can skip ahead in the text:
+
+- **Literal prefix:** If the pattern starts with a fixed literal string
+  (e.g., `"GET"` in `GET\s`), scan forward with `String.indexOf()` to
+  the first occurrence.
+- **Character class prefix:** If the pattern starts with a character class
+  (e.g., `[a-z]+`), use a 128-entry ASCII bitmap for O(1) per-character
+  scanning to find the first potential match start.
+
+Both techniques narrow the search region before any DFA or NFA work.
 
 ### OnePass Engine (`OnePass`)
 
@@ -136,10 +175,17 @@ A deterministic NFA executed in a single linear pass.  A pattern is
 most one `CHAR_RANGE` matches a given code point and at most one `MATCH`
 is reachable.
 
-- **Limit:** 16 capture groups (captures encoded in a 20-bit mask within
+- **Limit:** 16 capture groups (registers encoded in a 32-bit mask within
   a 64-bit action word).
-- **Restriction:** Anchored searches only (used by `matches()` and
-  `lookingAt()`).
+- **Anchored fast path:** Used directly for anchored patterns when text
+  ≤ 4,096 characters, bypassing the DFA entirely.
+- **Unanchored small text:** Also used for unanchored patterns via
+  `searchUnanchored()` when text ≤ 256 characters.
+- **Deferred capture resolution:** After the DFA sandwich narrows the
+  match region, OnePass can extract captures from just the matched slice.
+- **Nullable alternation guard:** Patterns with nullable alternation
+  branches (where a branch can match zero characters) are excluded from
+  OnePass because its longest-match semantics would pick the wrong branch.
 - **Advantage:** Extracts captures in a single O(n) pass with no
   backtracking or thread management.
 
@@ -154,9 +200,11 @@ Key design elements:
 - **Equivalence classes:** Code points are grouped into classes based on
   `CHAR_RANGE` instruction boundaries.  All code points in the same class
   produce identical transitions, dramatically reducing the state space.
-  When the pattern contains `\b`/`\B`, word-character boundaries
-  (`[0-9A-Za-z_]` edges) are added so no class straddles the word/non-word
-  divide.
+  Additional boundaries are added for: word-character edges when the
+  pattern contains `\b`/`\B` (so no class straddles word/non-word);
+  case-fold equivalents when `CHAR_RANGE` instructions have the `foldCase`
+  flag; and line terminator boundaries (`\n`, `\r`, `\u0085`, `\u2028`,
+  `\u2029`) when the pattern contains `BEGIN_LINE`/`END_LINE` assertions.
 - **ASCII fast path:** A 128-entry lookup table maps ASCII code points
   directly to their equivalence class, avoiding binary search for the
   most common characters.
@@ -170,20 +218,33 @@ Key design elements:
   This makes word boundary evaluation deterministic within the cached
   transition framework.
 
-**Sandwich technique** (`Matcher.doFind`): For `find()` calls, the DFA
+**Sandwich technique** (`Matcher.doFindCore`): For `find()` calls, the DFA
 is used in a three-step "sandwich" pattern to narrow down the match region
 before invoking a capture-capable engine:
 
 1. **Forward DFA** — Find the earliest match end.
 2. **Reverse DFA** — Scan backward from the match end to find the match
    start.
-3. **Forward DFA (anchored)** — Re-scan forward from the start to get
-   the precise longest-match end.
-4. **BitState/NFA** — Run on just the `[start, end]` slice to extract
-   captures.
+3. **Forward DFA (anchored, longest)** — Re-scan forward from the start
+   to get the precise longest-match end.
+4. **Deferred capture resolution** — When the user accesses `group(1+)`,
+   run OnePass or BitState/NFA on just the `[start, end]` slice to
+   extract captures.  If only `group(0)` is needed, no capture engine
+   runs at all.
 
 The reverse DFA is built lazily on first use to amortize construction
 cost.
+
+**Reverse-first optimization:** For end-anchored patterns (`$`/`\z`)
+on texts ≥ 1,024 characters, the matcher runs the reverse DFA first
+for fast rejection — if no match reaches the end, the pattern cannot
+match anywhere.
+
+**Reliability guards:** The sandwich is only used when the DFA's start
+position is reliable (`dfaStartReliable` — no lazy quantifiers or
+anchors inside quantifiers).  The `group(0)` end is trusted only when
+`dfaGroupZeroReliable` also holds (additionally, no alternation or
+bounded repeats).
 
 ### BitState Engine (`BitState`)
 
@@ -254,12 +315,14 @@ to NFA.
 ### OnePass Action Encoding
 
 OnePass actions are packed into 64-bit `long` values:
-- Bits 0–7: empty-width flags
-- Bits 8–27: capture mask (20 bits for 2 × 16 registers)
-- Bits 28–63: next state index
+- Bits 0–7: empty-width flags (8 bits)
+- Bits 8–39: capture mask (32 bits for 2 × 16 registers)
+- Bits 40–63: next state index (24 bits)
 
 This limits OnePass to 16 capture groups but avoids object allocation
-during matching.
+during matching.  A combined condition check (`action & CONDITION_MASK`)
+skips both the empty-width gate and capture application when neither is
+needed.
 
 ## Relationship to RE2
 
@@ -295,9 +358,11 @@ safere/src/main/java/dev/eaftan/safere/
 ├── OnePass.java          # One-pass engine
 ├── BitState.java         # BitState backtracking engine
 ├── Nfa.java              # Pike VM engine
-├── CharClass.java        # Unicode character class (sorted ranges)
+├── CharClass.java        # Immutable Unicode character class (sorted ranges)
+├── CharClassBuilder.java # Mutable builder for CharClass construction
+├── Walker.java           # Abstract iterative AST traversal (stack-based)
 ├── EmptyOp.java          # Empty-width assertion flags
-├── Unicode.java          # Unicode tables and properties
+├── UnicodeTables.java    # Unicode tables and properties
 ├── Utils.java            # Shared utilities
 └── ParseFlags.java       # Parser flag constants
 ```
