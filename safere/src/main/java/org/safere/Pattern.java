@@ -103,6 +103,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasNullableAlternation;
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
+  private final transient boolean hasEndConstraint;
   private final transient boolean[] charClassPrefixAscii;
 
   /**
@@ -172,7 +173,8 @@ public final class Pattern implements Serializable {
       Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
       String literalMatch, boolean hasLazy, boolean hasAlternation,
       boolean hasNullableAlternation,
-      boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean[] charClassPrefixAscii,
+      boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean hasEndConstraint,
+      boolean[] charClassPrefixAscii,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty) {
     this.pattern = pattern;
@@ -188,6 +190,7 @@ public final class Pattern implements Serializable {
     this.hasNullableAlternation = hasNullableAlternation;
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
+    this.hasEndConstraint = hasEndConstraint;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.charClassMatchRanges = charClassMatchRanges;
     this.charClassMatchBitmap0 = charClassMatchBitmap0;
@@ -234,6 +237,7 @@ public final class Pattern implements Serializable {
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
+    boolean hasEndConst = hasEndConstraint(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(re) : null;
@@ -242,7 +246,7 @@ public final class Pattern implements Serializable {
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
-        ccPrefixAscii,
+        hasEndConst, ccPrefixAscii,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -364,6 +368,81 @@ public final class Pattern implements Serializable {
     // If no match advanced the position, return the entire input as a single element.
     // This matches JDK behavior: an input that was never actually split is returned as-is,
     // bypassing trailing-empty-string removal.
+    if (last == 0) {
+      return new String[] {text};
+    }
+
+    parts.add(text.substring(last));
+
+    // limit == 0: remove trailing empty strings.
+    if (limit == 0) {
+      int end = parts.size();
+      while (end > 0 && parts.get(end - 1).isEmpty()) {
+        end--;
+      }
+      parts = parts.subList(0, end);
+    }
+
+    return parts.toArray(new String[0]);
+  }
+
+  /**
+   * Splits the given input around matches of this pattern, returning both the substrings between
+   * matches and the matching delimiters, interleaved. The resulting array alternates between
+   * substrings and delimiters: {@code [substring, delimiter, substring, delimiter, ...,
+   * substring]}.
+   *
+   * <p>This is equivalent to {@code splitWithDelimiters(input, 0)}.
+   *
+   * @param input the character sequence to be split
+   * @return the array of strings computed by splitting the input around matches of this pattern,
+   *     with the matching delimiters interleaved
+   * @since 21
+   */
+  public String[] splitWithDelimiters(CharSequence input) {
+    return splitWithDelimiters(input, 0);
+  }
+
+  /**
+   * Splits the given input around matches of this pattern, returning both the substrings between
+   * matches and the matching delimiters, interleaved.
+   *
+   * <p>The {@code limit} parameter controls the number of times the pattern is applied:
+   * <ul>
+   *   <li>If {@code limit > 0}, the pattern is applied at most {@code limit - 1} times, and the
+   *       resulting array will have at most {@code 2 * limit - 1} entries.
+   *   <li>If {@code limit == 0}, the pattern is applied as many times as possible, and trailing
+   *       empty strings are discarded.
+   *   <li>If {@code limit < 0}, the pattern is applied as many times as possible, and trailing
+   *       empty strings are retained.
+   * </ul>
+   *
+   * @param input the character sequence to be split
+   * @param limit the result threshold
+   * @return the array of strings computed by splitting the input around matches of this pattern,
+   *     with the matching delimiters interleaved
+   * @since 21
+   */
+  public String[] splitWithDelimiters(CharSequence input, int limit) {
+    String text = input.toString();
+    Matcher m = matcher(text);
+    List<String> parts = new ArrayList<>();
+    int last = 0;
+
+    while (m.find()) {
+      if (limit > 0 && parts.size() >= 2 * limit - 2) {
+        break;
+      }
+      // JDK 8+: a zero-width match at the beginning of the input never produces
+      // a leading empty substring or empty delimiter.
+      if (last == 0 && m.start() == 0 && m.end() == 0) {
+        continue;
+      }
+      parts.add(text.substring(last, m.start()));
+      parts.add(text.substring(m.start(), m.end()));
+      last = m.end();
+    }
+    // If no match advanced the position, return the entire input as a single element.
     if (last == 0) {
       return new String[] {text};
     }
@@ -728,8 +807,15 @@ public final class Pattern implements Serializable {
     return ast;
   }
 
-  /** Returns an unmodifiable map of named capture groups to their 1-based indices. */
-  Map<String, Integer> namedGroups() {
+  /**
+   * Returns an unmodifiable map of named capturing groups to their 1-based group indices.
+   *
+   * <p>If the pattern has no named capturing groups, an empty map is returned.
+   *
+   * @return an unmodifiable map from group names to group numbers
+   * @since 20
+   */
+  public Map<String, Integer> namedGroups() {
     return namedGroups;
   }
 
@@ -739,6 +825,15 @@ public final class Pattern implements Serializable {
    */
   int numGroups() {
     return prog.numCaptures() - 1;
+  }
+
+  /**
+   * Returns {@code true} if the pattern contains end-of-input or end-of-line assertions
+   * ({@code $}, {@code \z}, {@code \b}, {@code \B}). Used by {@link Matcher#requireEnd()} to
+   * conservatively determine whether more input could invalidate a positive match.
+   */
+  boolean hasEndConstraint() {
+    return hasEndConstraint;
   }
 
   // ---------------------------------------------------------------------------
@@ -958,6 +1053,40 @@ public final class Pattern implements Serializable {
       if ((node.op == RegexpOp.REPEAT || node.op == RegexpOp.QUEST)
           && node.min < node.max && node.max > 0) {
         return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns {@code true} if the AST contains positional assertions that the JDK's
+   * {@code Matcher.requireEnd()} tracks: {@code $} ({@link RegexpOp#END_LINE} in multiline, or
+   * {@link RegexpOp#END_TEXT} with {@link ParseFlags#WAS_DOLLAR} in non-multiline), {@code \b}
+   * ({@link RegexpOp#WORD_BOUNDARY}), or {@code \B} ({@link RegexpOp#NO_WORD_BOUNDARY}).
+   *
+   * <p>Note: {@code \z} ({@link RegexpOp#END_TEXT} without WAS_DOLLAR) is intentionally excluded
+   * because the JDK does not set {@code requireEnd} for it.
+   */
+  private static boolean hasEndConstraint(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      switch (node.op) {
+        case END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY:
+          return true;
+        case END_TEXT:
+          if ((node.flags & ParseFlags.WAS_DOLLAR) != 0) {
+            return true;
+          }
+          break;
+        default:
+          break;
       }
       if (node.subs != null) {
         for (Regexp sub : node.subs) {

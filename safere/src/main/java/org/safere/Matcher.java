@@ -6,6 +6,7 @@
 package org.safere;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.Function;
@@ -63,6 +64,7 @@ public final class Matcher implements MatchResult {
   private int regionStart;
   private int regionEnd;
   private boolean lastHitEnd;
+  private boolean lastRequireEnd;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -422,12 +424,12 @@ public final class Matcher implements MatchResult {
         }
       }
       lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
+      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
     }
   }
 
   /** Core matches logic, operates on the (possibly substituted) {@code text} field. */
   private boolean matchesCore() {
-
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
     if (literal != null && parentPattern.numGroups() == 0) {
@@ -524,6 +526,7 @@ public final class Matcher implements MatchResult {
         }
       }
       lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
+      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
     }
   }
 
@@ -680,6 +683,7 @@ public final class Matcher implements MatchResult {
       }
       // Track hitEnd: true if no match found (engine scanned to end) or match reaches regionEnd.
       lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
+      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
     }
   }
 
@@ -1575,6 +1579,7 @@ public final class Matcher implements MatchResult {
     groups = null;
     capturesResolved = true;
     lastHitEnd = false;
+    lastRequireEnd = false;
     return this;
   }
 
@@ -1654,6 +1659,34 @@ public final class Matcher implements MatchResult {
    */
   public boolean hitEnd() {
     return lastHitEnd;
+  }
+
+  /**
+   * Returns true if more input could change a positive match into a negative one. If this method
+   * returns true, and a match was found, then more input could cause the match to be lost. If this
+   * method returns false and a match was found, then more input might change the match but the
+   * match won't be lost. If a match was not found, then requireEnd has no meaning.
+   *
+   * <p>This is a conservative approximation: it returns {@code true} when the pattern contains
+   * {@code $} or word-boundary assertions ({@code \b}, {@code \B}) and the last match reached the
+   * end of the input region. Like the JDK, {@code \z} does not trigger {@code requireEnd}.
+   *
+   * @return true if more input could change a positive match into a negative one
+   */
+  public boolean requireEnd() {
+    return lastRequireEnd;
+  }
+
+  /**
+   * Returns an unmodifiable map of named capturing groups to their 1-based group indices. This
+   * method overrides the default {@link java.util.regex.MatchResult#namedGroups()} method which
+   * throws {@link UnsupportedOperationException}.
+   *
+   * @return an unmodifiable map from group names to group numbers
+   */
+  @Override
+  public Map<String, Integer> namedGroups() {
+    return parentPattern.namedGroups();
   }
 
   /**

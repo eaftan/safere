@@ -297,6 +297,82 @@ class PatternTest {
   }
 
   @Nested
+  @DisplayName("splitWithDelimiters()")
+  class SplitWithDelimiters {
+    @Test
+    void splitWithDelimitersSimple() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters("a,b,c");
+      assertThat(parts).containsExactly("a", ",", "b", ",", "c");
+    }
+
+    @Test
+    void splitWithDelimitersRegex() {
+      Pattern p = Pattern.compile(":+");
+      String[] parts = p.splitWithDelimiters("boo:::and::foo");
+      assertThat(parts).containsExactly("boo", ":::", "and", "::", "foo");
+    }
+
+    @Test
+    void splitWithDelimitersLimit2() {
+      Pattern p = Pattern.compile(":+");
+      String[] parts = p.splitWithDelimiters("boo:::and::foo", 2);
+      assertThat(parts).containsExactly("boo", ":::", "and::foo");
+    }
+
+    @Test
+    void splitWithDelimitersLimit5() {
+      Pattern p = Pattern.compile(":+");
+      String[] parts = p.splitWithDelimiters("boo:::and::foo", 5);
+      assertThat(parts).containsExactly("boo", ":::", "and", "::", "foo");
+    }
+
+    @Test
+    void splitWithDelimitersNegativeLimit() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters("a,b,,", -1);
+      assertThat(parts).containsExactly("a", ",", "b", ",", "", ",", "");
+    }
+
+    @Test
+    void splitWithDelimitersTrailingEmpty() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters("a,b,,");
+      // limit=0: only the trailing empty substring is removed; delimiters are kept.
+      assertThat(parts).containsExactly("a", ",", "b", ",", "", ",");
+    }
+
+    @Test
+    void splitWithDelimitersNoMatch() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters("abc");
+      assertThat(parts).containsExactly("abc");
+    }
+
+    @Test
+    void splitWithDelimitersLimit1() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters("a,b,c", 1);
+      assertThat(parts).containsExactly("a,b,c");
+    }
+
+    @Test
+    void splitWithDelimitersWhitespace() {
+      Pattern p = Pattern.compile("\\s+");
+      String[] parts = p.splitWithDelimiters("hello   world  foo");
+      assertThat(parts).containsExactly("hello", "   ", "world", "  ", "foo");
+    }
+
+    @Test
+    void splitWithDelimitersMatchAtStart() {
+      // Positive-width match at position 0 produces a leading empty substring.
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters(",a,b", -1);
+      assertThat(parts).containsExactly("", ",", "a", ",", "b");
+    }
+  }
+
+  @Nested
   @DisplayName("asPredicate() / asMatchPredicate()")
   class Predicates {
     @Test
@@ -369,6 +445,13 @@ class PatternTest {
     void numGroupsNoCaptures() {
       Pattern p = Pattern.compile("abc");
       assertThat(p.numGroups()).isZero();
+    }
+    @Test
+    @DisplayName("namedGroups() returns unmodifiable map")
+    void namedGroupsUnmodifiable() {
+      Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
+      assertThatThrownBy(() -> p.namedGroups().put("foo", 99))
+          .isInstanceOf(UnsupportedOperationException.class);
     }
   }
 
