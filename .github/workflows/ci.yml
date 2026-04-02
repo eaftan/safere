@@ -78,7 +78,7 @@ jobs:
       - name: Smoke test Java memory benchmarks (pattern sizes)
         run: |
           java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
-            dev.eaftan.safere.benchmark.MemoryBenchmark
+            org.safere.benchmark.MemoryBenchmark
 
   benchmark-smoke-test-cpp:
     needs: changes

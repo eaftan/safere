@@ -32,4 +32,4 @@ Thumbs.db
 # Maven shade plugin artifact
 dependency-reduced-pom.xml
 safere-ffm-re2/build/
-dev.eaftan.safere.benchmark.*
+org.safere.benchmark.*

@@ -23,8 +23,8 @@ with SafeRE.
 ## Quick Start
 
 ```java
-import dev.eaftan.safere.Pattern;
-import dev.eaftan.safere.Matcher;
+import org.safere.Pattern;
+import org.safere.Matcher;
 
 // Compile a pattern (thread-safe, reusable)
 Pattern p = Pattern.compile("(\\w+)@(\\w+\\.\\w+)");
@@ -190,8 +190,8 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 // After
-import dev.eaftan.safere.Pattern;
-import dev.eaftan.safere.Matcher;
+import org.safere.Pattern;
+import org.safere.Matcher;
 ```
 
 ### What works unchanged

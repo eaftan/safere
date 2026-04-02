@@ -6,7 +6,7 @@ SafeRE is a linear-time regular expression matching library for Java, modeled on
 Russ Cox's RE2. The C++ RE2 reference implementation is in `re2-reference/`.
 The RE2/J (Java) reference is in `re2j-reference/`.
 
-- **Package**: `dev.eaftan.safere`
+- **Package**: `org.safere`
 - **Java version**: 21 (LTS) — built and tested with OpenJDK 25
 - **Build**: Maven (`mvn`)
 - **Tests**: JUnit 6 (6.0.3), AssertJ
@@ -326,7 +326,7 @@ asprof collect -d 30 -e cpu -o flat -f /tmp/cpu-flat.txt <pid>
 **Filtering to SafeRE code** — use `-I` to include only relevant frames:
 
 ```bash
-asprof collect -d 30 -e cpu -o flat -I 'dev.eaftan.safere.*' -f /tmp/safere-cpu.txt <pid>
+asprof collect -d 30 -e cpu -o flat -I 'org.safere.*' -f /tmp/safere-cpu.txt <pid>
 ```
 
 **Tips:**

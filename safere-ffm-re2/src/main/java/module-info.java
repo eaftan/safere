@@ -4,6 +4,6 @@
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
 /** FFM wrapper around C++ RE2 for benchmarking. */
-module dev.eaftan.safere.re2ffm {
-  exports dev.eaftan.safere.re2ffm;
+module org.safere.re2ffm {
+  exports org.safere.re2ffm;
 }

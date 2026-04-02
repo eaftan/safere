@@ -41,7 +41,7 @@ vs RE2/J vs RE2-FFM comparison is apples-to-apples.
 
 # Java compiled pattern sizes — standalone measurement
 java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
-  dev.eaftan.safere.benchmark.MemoryBenchmark
+  org.safere.benchmark.MemoryBenchmark
 
 # C++ RE2 benchmarks
 ./run-cpp-benchmarks.sh                    # all C++ benchmarks
