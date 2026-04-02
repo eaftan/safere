@@ -279,7 +279,7 @@ differences from the C++ version:
 ## Source Layout
 
 ```
-safere/src/main/java/dev/eaftan/safere/
+safere/src/main/java/org/safere/
 ├── Pattern.java          # Public API: compiled regex
 ├── Matcher.java          # Public API: match state, engine orchestration
 ├── PatternSet.java       # Public API: multi-pattern matching
