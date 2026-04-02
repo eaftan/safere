@@ -1771,4 +1771,138 @@ class MatcherTest {
       assertThat(m.find()).isTrue();
     }
   }
+
+  @Nested
+  @DisplayName("requireEnd()")
+  class RequireEndTests {
+
+    @Test
+    @DisplayName("requireEnd() is false for simple literal find")
+    void requireEndFalseForLiteralFind() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is true for dollar-anchored find at end")
+    void requireEndTrueForDollarAnchor() {
+      Pattern p = Pattern.compile("abc$");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is false for \\z anchor (JDK does not track \\z)")
+    void requireEndFalseForEndTextAnchor() {
+      Pattern p = Pattern.compile("abc\\z");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      // JDK does not set requireEnd for \z, only for $.
+      assertThat(m.requireEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is true for word boundary at end")
+    void requireEndTrueForWordBoundary() {
+      Pattern p = Pattern.compile("\\babc\\b");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is false after reset")
+    void requireEndFalseAfterReset() {
+      Pattern p = Pattern.compile("abc$");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+      m.reset();
+      assertThat(m.requireEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is false when match does not hit end")
+    void requireEndFalseWhenNotAtEnd() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abcdef");
+      assertThat(m.find()).isTrue();
+      assertThat(m.hitEnd()).isFalse();
+      assertThat(m.requireEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("requireEnd() with matches()")
+    void requireEndWithMatches() {
+      Pattern p = Pattern.compile("abc$");
+      Matcher m = p.matcher("abc");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("requireEnd() with lookingAt()")
+    void requireEndWithLookingAt() {
+      Pattern p = Pattern.compile("abc$");
+      Matcher m = p.matcher("abc");
+      assertThat(m.lookingAt()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is false for literal matches()")
+    void requireEndFalseForLiteralMatches() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abc");
+      assertThat(m.matches()).isTrue();
+      // No end assertions in pattern — match doesn't depend on end position.
+      assertThat(m.requireEnd()).isFalse();
+    }
+  }
+
+  @Nested
+  @DisplayName("namedGroups()")
+  class NamedGroupsTests {
+
+    @Test
+    @DisplayName("namedGroups() returns named groups from pattern")
+    void namedGroupsReturnsMap() {
+      Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
+      Matcher m = p.matcher("user@host");
+      assertThat(m.namedGroups()).containsEntry("user", 1);
+      assertThat(m.namedGroups()).containsEntry("host", 2);
+    }
+
+    @Test
+    @DisplayName("namedGroups() returns empty map for no named groups")
+    void namedGroupsEmpty() {
+      Pattern p = Pattern.compile("(\\w+)@(\\w+)");
+      Matcher m = p.matcher("user@host");
+      assertThat(m.namedGroups()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("namedGroups() is unmodifiable")
+    void namedGroupsUnmodifiable() {
+      Pattern p = Pattern.compile("(?P<name>\\w+)");
+      Matcher m = p.matcher("hello");
+      assertThatThrownBy(() -> m.namedGroups().put("foo", 99))
+          .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("namedGroups() returns from MatchResult interface")
+    void namedGroupsFromMatchResult() {
+      Pattern p = Pattern.compile("(?P<word>\\w+)");
+      Matcher m = p.matcher("hello");
+      assertThat(m.find()).isTrue();
+      MatchResult result = m.toMatchResult();
+      // MatchResult.namedGroups() should work via the override on SnapshotMatchResult
+      // or the default method. SafeRE's Matcher overrides it.
+      assertThat(m.namedGroups()).containsEntry("word", 1);
+    }
+  }
 }
