@@ -70,7 +70,7 @@ Set up Maven project structure, establish the package, create core enums and
 Unicode data tables.
 
 - Maven `pom.xml` with JUnit 6 (6.0.3), Java 21
-- Package structure: `src/main/java/dev/eaftan/safere/`
+- Package structure: `src/main/java/org/safere/`
 - `RegexpOp` enum (21 operators from `regexp.h`)
 - `Inst.Op` enum (8 opcodes from `prog.h`)
 - `EmptyOp` flags
