@@ -1,5 +1,7 @@
 // This file is part of a Java port of RE2 (https://github.com/google/re2).
 // Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Portions derived from RE2/J (https://github.com/google/re2j),
+// Copyright (c) 2009 The Go Authors.
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 

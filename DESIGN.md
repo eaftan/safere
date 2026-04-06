@@ -327,7 +327,10 @@ needed.
 ## Relationship to RE2
 
 SafeRE is a port of RE2's architecture to Java, using the C++ RE2 source
-as a reference.  Key differences from the C++ version:
+as a reference.  SafeRE also incorporates code from
+[RE2/J](https://github.com/google/re2j), particularly in the parser,
+Java API layer (Pattern/Matcher), and portions of the test suite.
+Key differences from the C++ version:
 
 | Aspect | RE2 (C++) | SafeRE (Java) |
 |--------|-----------|---------------|

@@ -334,11 +334,15 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 ## License
 
 This project is a Java port of [RE2](https://github.com/google/re2).
+It also incorporates code from [RE2/J](https://github.com/google/re2j),
+a Java port of Go's `regexp` package.
 
 RE2 is Copyright (c) 2009 The RE2 Authors. All rights reserved.
 
-This project contains code derived from RE2 and is licensed under
-the BSD 3-Clause License, consistent with the original project.
+RE2/J is Copyright (c) 2009 The Go Authors. All rights reserved.
+
+This project contains code derived from both RE2 and RE2/J and is licensed
+under the BSD 3-Clause License, consistent with both original projects.
 
 Modifications and Java port: Copyright (c) 2026 Eddie Aftandilian.
 
@@ -347,14 +351,14 @@ See [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 This work builds directly on the design and implementation of RE2 by
-the RE2 authors.
+the RE2 authors, and on RE2/J by the Go authors.
 
 - [RE2](https://github.com/google/re2) — the C++ library whose design and
   algorithms SafeRE is based on
 - [Go `regexp`](https://pkg.go.dev/regexp) — the Go standard library
   implementation of RE2
 - [RE2/J](https://github.com/google/re2j) — an earlier port of RE2 to Java.
-  SafeRE's test suite includes tests ported from RE2/J
-  (see [TESTING.md](TESTING.md))
+  SafeRE's parser, Java API layer, and portions of the test suite are
+  derived from RE2/J (see [TESTING.md](TESTING.md))
 - Russ Cox's [article series on regular expression matching](https://swtch.com/~rsc/regexp/regexp1.html)
   — explains the theory behind RE2's approach
