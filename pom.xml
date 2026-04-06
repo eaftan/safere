@@ -12,6 +12,29 @@
 
   <name>SafeRE Parent</name>
   <description>Linear-time regular expression matching library for Java</description>
+  <url>https://safere.org</url>
+
+  <licenses>
+    <license>
+      <name>BSD-3-Clause</name>
+      <url>https://github.com/eaftan/safere/blob/main/LICENSE</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>eaftan</id>
+      <name>Eddie Aftandilian</name>
+      <url>https://github.com/eaftan</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/eaftan/safere.git</connection>
+    <developerConnection>scm:git:git@github.com:eaftan/safere.git</developerConnection>
+    <url>https://github.com/eaftan/safere</url>
+  </scm>
 
   <modules>
     <module>safere</module>
@@ -26,4 +49,69 @@
     <jacoco.version>0.8.12</jacoco.version>
     <jmh.version>1.37</jmh.version>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.11.2</version>
+            <configuration>
+              <source>21</source>
+              <doclint>all,-missing</doclint>
+              <quiet>true</quiet>
+            </configuration>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.7</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.10.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

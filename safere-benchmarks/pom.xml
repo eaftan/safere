@@ -17,6 +17,10 @@
   <name>SafeRE Benchmarks</name>
   <description>JMH benchmarks for SafeRE</description>
 
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.safere</groupId>
