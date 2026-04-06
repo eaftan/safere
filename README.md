@@ -20,6 +20,32 @@ Patterns that require exponential time in `java.util.regex` — such as
 `a?{25}a{25}` matched against `a` repeated 25 times — complete in microseconds
 with SafeRE.
 
+## Installation
+
+SafeRE is available on [Maven Central](https://central.sonatype.com/artifact/org.safere/safere).
+
+**Maven:**
+
+```xml
+<dependency>
+  <groupId>org.safere</groupId>
+  <artifactId>safere</artifactId>
+  <version>0.1.0</version>
+</dependency>
+```
+
+**Gradle (Kotlin DSL):**
+
+```kotlin
+implementation("org.safere:safere:0.1.0")
+```
+
+**Gradle (Groovy DSL):**
+
+```groovy
+implementation 'org.safere:safere:0.1.0'
+```
+
 ## Quick Start
 
 ```java

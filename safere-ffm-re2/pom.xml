@@ -17,6 +17,10 @@
   <name>SafeRE FFM RE2 Wrapper</name>
   <description>Java FFM wrapper around C++ RE2 for benchmarking</description>
 
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
   <build>
     <plugins>
       <!-- Build native shim library via cmake -->
