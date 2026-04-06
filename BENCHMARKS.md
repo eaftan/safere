@@ -469,7 +469,7 @@ making it much slower than SafeRE on find-all-matches workloads at scale
   overhead on anchored patterns, though the gap narrowed from 14× to 3.1× with
   the HTTP/OnePass fast path optimization)
 - **Pig Latin replace** — 1.7× faster (per-match capture extraction cost in multi-match replaceAll)
-- **Empty-match replace** — 3.2× slower
+- **Empty-match replace** — 3.2× faster
 - **Compilation** — 4.9–15× faster (defers work to match time)
 
 **Where RE2/J fits:**
@@ -623,7 +623,7 @@ where JDK regex runs in its own application.
   fundamental: SafeRE uses BitState (multi-state exploration) per match while
   JDK does a single backtracking pass. Compiled replacement templates and
   direct BitState already reduced this from 2.2× to 1.7×.
-- **Empty-match replace** — 3.2× slower than JDK. Empty-match handling requires
+- **Empty-match replace** — 3.2× faster than JDK. Empty-match handling requires
   careful position advancement and is a known gap.
 - **Compilation** — Pattern compilation is 4.9–15× slower than JDK. Opportunities
   include caching parsed Regexp trees.
