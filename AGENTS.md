@@ -15,11 +15,23 @@ The RE2/J (Java) reference is in `re2j-reference/`.
 
 ## License
 
-BSD 3-Clause License (same as RE2). All source files must include this header:
+BSD 3-Clause License (same as RE2 and RE2/J). All source files must
+include a license header. Most files use this header:
 
 ```java
 // This file is part of a Java port of RE2 (https://github.com/google/re2).
 // Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
+// Licensed under the BSD 3-Clause License (see LICENSE file).
+```
+
+Files that incorporate code from RE2/J use this header instead:
+
+```java
+// This file is part of a Java port of RE2 (https://github.com/google/re2).
+// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Portions derived from RE2/J (https://github.com/google/re2j),
+// Copyright (c) 2009 The Go Authors.
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 ```
