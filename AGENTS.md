@@ -104,11 +104,6 @@ Drop-in replacements for `java.util.regex`:
 - `Matcher` — match state (replaces `java.util.regex.Matcher`)
 - `PatternSet` — multi-pattern matching (SafeRE-only feature)
 
-## Progress Tracking
-
-- When a phase is completed, mark it with ✅ in `PLAN.md`
-  (e.g., `### Phase 1: Project Skeleton & Unicode Tables ✅`)
-
 ## Testing
 
 - Use JUnit 6 (6.0.3) with `org.junit.jupiter.api.*` imports
