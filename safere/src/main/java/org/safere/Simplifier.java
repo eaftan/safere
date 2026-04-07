@@ -8,6 +8,7 @@ package org.safere;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Simplifies a {@link Regexp} AST so that it uses only basic operators ({@link RegexpOp#STAR},
@@ -52,6 +53,8 @@ final class Simplifier {
   // ---------------------------------------------------------------------------
 
   /** Returns true if the two regexps are structurally equal. */
+  // Switches mirror the C++ RE2 Regexp::Equal structure and are clearer as statement switches.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   static boolean equal(Regexp a, Regexp b) {
     if (a == b) {
       return true;
@@ -120,6 +123,8 @@ final class Simplifier {
   }
 
   /** Compares top-level structure of two Regexp nodes (not their children). */
+  // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static boolean topEqual(Regexp a, Regexp b) {
     if (a.op != b.op) {
       return false;
@@ -161,10 +166,7 @@ final class Simplifier {
             && a.min == b.min && a.max == b.max;
 
       case CAPTURE:
-        if (a.name == null || b.name == null) {
-          return a.cap == b.cap && a.name == b.name;
-        }
-        return a.cap == b.cap && a.name.equals(b.name);
+        return a.cap == b.cap && Objects.equals(a.name, b.name);
 
       case HAVE_MATCH:
         return a.matchId == b.matchId;
@@ -262,6 +264,8 @@ final class Simplifier {
   }
 
   /** Creates a copy of {@code re} with new sub-expressions, preserving op-specific fields. */
+  // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static Regexp copyWithNewSubs(Regexp re, List<Regexp> newSubs) {
     switch (re.op) {
       case REPEAT:
@@ -332,6 +336,8 @@ final class Simplifier {
    * replaces r1's position, the second replaces r2's position. One of them will typically be
    * EMPTY_MATCH.
    */
+  // Switches assign min/max from two separate enum dispatches; clearer as statement switches.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static CoalescePair doCoalesce(Regexp r1, Regexp r2) {
     int min, max;
     Regexp operand = r1.subs.getFirst();
@@ -447,6 +453,8 @@ final class Simplifier {
     }
 
     @Override
+    // Switch mirrors the C++ RE2 simplify structure and is clearer as a statement switch.
+    @SuppressWarnings("StatementSwitchToExpressionSwitch")
     protected Regexp postVisit(
         Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       switch (re.op) {
@@ -536,6 +544,8 @@ final class Simplifier {
    * Determines whether a Regexp is already "simple" (no REPEAT, no empty/full char classes, no
    * nested quantifiers on quantifiers).
    */
+  // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static boolean computeSimple(Regexp re) {
     switch (re.op) {
       case NO_MATCH:
@@ -708,6 +718,8 @@ final class Simplifier {
    *   <li>Different quantifier ops + same flags → return STAR(x)
    * </ul>
    */
+  // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
+  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static Regexp starPlusOrQuest(RegexpOp op, Regexp sub, int flags) {
     // Squash identical: **, ++, ??
     if (op == sub.op && flags == sub.flags) {

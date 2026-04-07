@@ -49,7 +49,9 @@ final class Nfa {
   }
 
   /** A thread in the NFA: an instruction index paired with a capture array. */
-  private record Thread(int id, int[] capture) {}
+  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
+  @SuppressWarnings("ArrayRecordComponent")
+  private record NfaThread(int id, int[] capture) {}
 
   private final Prog prog;
   private final int ncapture;
@@ -61,9 +63,9 @@ final class Nfa {
   private boolean matched;
   private int[] bestMatch;
 
-  // Thread queues: ordered lists of threads. The order is the thread priority.
-  private List<Thread> runq;
-  private List<Thread> nextq;
+  // NfaThread queues: ordered lists of threads. The order is the thread priority.
+  private List<NfaThread> runq;
+  private List<NfaThread> nextq;
 
   private Nfa(Prog prog, int ncapture, boolean longest, boolean endmatch) {
     this.prog = prog;
@@ -221,7 +223,7 @@ final class Nfa {
       boolean done = step(runq, runqSet, nextq, nextqSet, cp, text, pos, nextPos);
 
       // Swap queues.
-      List<Thread> tmpQ = runq;
+      List<NfaThread> tmpQ = runq;
       runq = nextq;
       nextq = tmpQ;
       nextq.clear();
@@ -258,7 +260,7 @@ final class Nfa {
    * @param t0 the current capture array (shared — will be cloned before mutation)
    */
   private void addToThreadq(
-      List<Thread> q, Set<Integer> visited, int id0, String text, int pos, int[] t0) {
+      List<NfaThread> q, Set<Integer> visited, int id0, String text, int pos, int[] t0) {
     if (id0 == 0) {
       return;
     }
@@ -296,33 +298,32 @@ final class Nfa {
         visited.add(id);
       }
       switch (ip.op) {
-        case FAIL:
-          break;
+        case FAIL -> {}
 
-        case ALT:
+        case ALT -> {
           // Push out1 first (lower priority), then out (higher priority).
           stack.add(new int[]{ip.out1, -1});
           captureStack.add(t0);
           stack.add(new int[]{ip.out, -1});
           captureStack.add(t0);
-          break;
+        }
 
-        case ALT_MATCH:
+        case ALT_MATCH -> {
           // Enqueue this state and also explore the next alt branch.
-          q.add(new Thread(id, t0.clone()));
+          q.add(new NfaThread(id, t0.clone()));
           // Explore the next instruction after this one (the other alt branch).
           stack.add(new int[]{ip.out, -1});
           captureStack.add(t0);
           stack.add(new int[]{ip.out1, -1});
           captureStack.add(t0);
-          break;
+        }
 
-        case NOP:
+        case NOP -> {
           stack.add(new int[]{ip.out, -1});
           captureStack.add(null);
-          break;
+        }
 
-        case CAPTURE:
+        case CAPTURE -> {
           if (ip.arg < ncapture) {
             // Clone the capture and record the current position.
             int[] newCap = t0.clone();
@@ -334,17 +335,17 @@ final class Nfa {
             stack.add(new int[]{ip.out, -1});
             captureStack.add(null);
           }
-          break;
+        }
 
-        case EMPTY_WIDTH:
+        case EMPTY_WIDTH -> {
           int flags = emptyFlags(text, pos, prog.unixLines());
           if ((ip.arg & ~flags) == 0) {
             stack.add(new int[]{ip.out, -1});
             captureStack.add(null);
           }
-          break;
+        }
 
-        case PROGRESS_CHECK: {
+        case PROGRESS_CHECK -> {
           int reg = ip.arg;
           int regIdx = ncapture + reg;
           int saved = t0[regIdx];
@@ -377,18 +378,13 @@ final class Nfa {
               captureStack.add(newCap);
             }
           }
-          break;
         }
 
-        case CHAR_RANGE:
-        case CHAR_CLASS:
-        case MATCH:
+        case CHAR_RANGE, CHAR_CLASS, MATCH ->
           // These are "real" states: enqueue them with a copy of the capture.
-          q.add(new Thread(id, t0.clone()));
-          break;
+          q.add(new NfaThread(id, t0.clone()));
 
-        default:
-          break;
+        default -> {}
       }
     }
   }
@@ -401,12 +397,12 @@ final class Nfa {
    * @return true if the search should stop (first-match found and remaining threads cut off)
    */
   private boolean step(
-      List<Thread> rq, Set<Integer> rqSet, List<Thread> nq, Set<Integer> nqSet,
+      List<NfaThread> rq, Set<Integer> rqSet, List<NfaThread> nq, Set<Integer> nqSet,
       int cp, String text, int matchPos, int nextPos) {
     nq.clear();
     nqSet.clear();
 
-    for (Thread t : rq) {
+    for (NfaThread t : rq) {
       int id = t.id();
       int[] capture = t.capture();
 
@@ -417,58 +413,53 @@ final class Nfa {
 
       Inst ip = prog.inst(id);
       switch (ip.op) {
-        case CHAR_RANGE:
+        case CHAR_RANGE -> {
           if (cp >= 0 && ip.matchesChar(cp)) {
             addToThreadq(nq, nqSet, ip.out, text, nextPos, capture);
           }
-          break;
+        }
 
-        case CHAR_CLASS:
+        case CHAR_CLASS -> {
           if (cp >= 0 && ip.matchesCharClass(cp)) {
             addToThreadq(nq, nqSet, ip.out, text, nextPos, capture);
           }
-          break;
+        }
 
-        case MATCH: {
-          if (endmatch && matchPos != text.length()) {
-            // $ (dollarAnchorEnd) allows ending before a trailing line terminator at text end.
-            if (!prog.dollarAnchorEnd()
-                || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines())) {
-              break;
-            }
-          }
-
-          if (longest) {
-            if (!matched || capture[0] < bestMatch[0]
-                || (capture[0] == bestMatch[0] && matchPos > bestMatch[1])) {
+        case MATCH -> {
+          boolean skip = endmatch && matchPos != text.length()
+              && (!prog.dollarAnchorEnd()
+                  || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines()));
+          if (!skip) {
+            if (longest) {
+              if (!matched || capture[0] < bestMatch[0]
+                  || (capture[0] == bestMatch[0] && matchPos > bestMatch[1])) {
+                System.arraycopy(capture, 0, bestMatch, 0, ncapture);
+                bestMatch[1] = matchPos;
+                matched = true;
+              }
+            } else {
+              // First match mode: this is the best match (leftmost, due to priority).
+              // Cut off threads that can only find worse matches (remaining runq),
+              // but do NOT stop the main loop — threads already in nextq continue.
               System.arraycopy(capture, 0, bestMatch, 0, ncapture);
               bestMatch[1] = matchPos;
               matched = true;
+              // Clear remaining runq entries (they can only find worse matches).
+              // We break out of the for-each loop; rq will be cleared after the loop.
+              return false;
             }
-          } else {
-            // First match mode: this is the best match (leftmost, due to priority).
-            // Cut off threads that can only find worse matches (remaining runq),
-            // but do NOT stop the main loop — threads already in nextq continue.
-            System.arraycopy(capture, 0, bestMatch, 0, ncapture);
-            bestMatch[1] = matchPos;
-            matched = true;
-            // Clear remaining runq entries (they can only find worse matches).
-            // We break out of the for-each loop; rq will be cleared after the loop.
-            return false;
           }
-          break;
         }
 
-        case ALT_MATCH:
+        case ALT_MATCH -> {
           // Optimization: if this is the first thread and we want the match, take it.
           if (longest || rq.indexOf(t) == 0) {
             System.arraycopy(capture, 0, bestMatch, 0, ncapture);
             matched = true;
           }
-          break;
+        }
 
-        default:
-          break;
+        default -> {}
       }
     }
     rq.clear();

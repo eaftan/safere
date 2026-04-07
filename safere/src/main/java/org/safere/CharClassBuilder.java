@@ -6,6 +6,7 @@
 package org.safere;
 
 import java.util.Iterator;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 /**
@@ -164,7 +165,7 @@ final class CharClassBuilder {
     return this;
   }
 
-  private static void addGapSkippingSurrogates(TreeSet<Range> dest, int lo, int hi) {
+  private static void addGapSkippingSurrogates(NavigableSet<Range> dest, int lo, int hi) {
     if (lo > hi) {
       return;
     }

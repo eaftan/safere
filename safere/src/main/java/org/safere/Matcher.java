@@ -1181,6 +1181,7 @@ public final class Matcher implements MatchResult {
    *     operation failed
    * @throws IllegalArgumentException if there is no capturing group with the given name
    */
+  @Override
   public String group(String name) {
     Integer idx = parentPattern.namedGroups().get(name);
     if (idx == null) {
@@ -1258,6 +1259,7 @@ public final class Matcher implements MatchResult {
    *     operation failed
    * @throws IllegalArgumentException if there is no capturing group with the given name
    */
+  @Override
   public int start(String name) {
     Integer idx = parentPattern.namedGroups().get(name);
     if (idx == null) {
@@ -1276,6 +1278,7 @@ public final class Matcher implements MatchResult {
    *     operation failed
    * @throws IllegalArgumentException if there is no capturing group with the given name
    */
+  @Override
   public int end(String name) {
     Integer idx = parentPattern.namedGroups().get(name);
     if (idx == null) {

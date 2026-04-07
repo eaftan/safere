@@ -302,38 +302,25 @@ final class Regexp {
     @Override
     protected Integer preVisit(Regexp re, Integer parentArg, boolean[] stop) {
       int prec = parentArg;
-      int nprec = PREC_ATOM;
+      int nprec;
 
-      switch (re.op) {
-        case NO_MATCH:
-        case EMPTY_MATCH:
-        case LITERAL:
-        case ANY_CHAR:
-        case ANY_BYTE:
-        case BEGIN_LINE:
-        case END_LINE:
-        case BEGIN_TEXT:
-        case END_TEXT:
-        case WORD_BOUNDARY:
-        case NO_WORD_BOUNDARY:
-        case CHAR_CLASS:
-        case HAVE_MATCH:
-          nprec = PREC_ATOM;
-          break;
-        case CONCAT:
-        case LITERAL_STRING:
+      nprec = switch (re.op) {
+        case NO_MATCH, EMPTY_MATCH, LITERAL, ANY_CHAR, ANY_BYTE, BEGIN_LINE, END_LINE,
+             BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY, CHAR_CLASS, HAVE_MATCH ->
+            PREC_ATOM;
+        case CONCAT, LITERAL_STRING -> {
           if (prec < PREC_CONCAT) {
             sb.append("(?:");
           }
-          nprec = PREC_CONCAT;
-          break;
-        case ALTERNATE:
+          yield PREC_CONCAT;
+        }
+        case ALTERNATE -> {
           if (prec < PREC_ALTERNATE) {
             sb.append("(?:");
           }
-          nprec = PREC_ALTERNATE;
-          break;
-        case CAPTURE:
+          yield PREC_ALTERNATE;
+        }
+        case CAPTURE -> {
           sb.append('(');
           if (re.cap == 0) {
             throw new IllegalStateException("CAPTURE with cap == 0");
@@ -341,20 +328,16 @@ final class Regexp {
           if (re.name != null) {
             sb.append("?P<").append(re.name).append('>');
           }
-          nprec = PREC_PAREN;
-          break;
-        case STAR:
-        case PLUS:
-        case QUEST:
-        case REPEAT:
+          yield PREC_PAREN;
+        }
+        case STAR, PLUS, QUEST, REPEAT -> {
           if (prec < PREC_UNARY) {
             sb.append("(?:");
           }
-          nprec = PREC_ATOM;
-          break;
-        default:
-          break;
-      }
+          yield PREC_ATOM;
+        }
+        default -> PREC_ATOM;
+      };
       return nprec;
     }
 
@@ -363,31 +346,27 @@ final class Regexp {
         Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
       int prec = parentArg;
       switch (re.op) {
-        case NO_MATCH:
-          sb.append("[^\\x00-\\x{10ffff}]");
-          break;
-        case EMPTY_MATCH:
+        case NO_MATCH -> sb.append("[^\\x00-\\x{10ffff}]");
+        case EMPTY_MATCH -> {
           if (prec < PREC_EMPTY) {
             sb.append("(?:)");
           }
-          break;
-        case LITERAL:
-          appendLiteral(sb, re.rune, (re.flags & ParseFlags.FOLD_CASE) != 0);
-          break;
-        case LITERAL_STRING:
+        }
+        case LITERAL -> appendLiteral(sb, re.rune, (re.flags & ParseFlags.FOLD_CASE) != 0);
+        case LITERAL_STRING -> {
           for (int r : re.runes) {
             appendLiteral(sb, r, (re.flags & ParseFlags.FOLD_CASE) != 0);
           }
           if (prec < PREC_CONCAT) {
             sb.append(')');
           }
-          break;
-        case CONCAT:
+        }
+        case CONCAT -> {
           if (prec < PREC_CONCAT) {
             sb.append(')');
           }
-          break;
-        case ALTERNATE:
+        }
+        case ALTERNATE -> {
           // Children appended '|' after themselves; remove the trailing one.
           if (sb.length() > 0 && sb.charAt(sb.length() - 1) == '|') {
             sb.setLength(sb.length() - 1);
@@ -395,8 +374,8 @@ final class Regexp {
           if (prec < PREC_ALTERNATE) {
             sb.append(')');
           }
-          break;
-        case STAR:
+        }
+        case STAR -> {
           sb.append('*');
           if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
             sb.append('?');
@@ -404,8 +383,8 @@ final class Regexp {
           if (prec < PREC_UNARY) {
             sb.append(')');
           }
-          break;
-        case PLUS:
+        }
+        case PLUS -> {
           sb.append('+');
           if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
             sb.append('?');
@@ -413,8 +392,8 @@ final class Regexp {
           if (prec < PREC_UNARY) {
             sb.append(')');
           }
-          break;
-        case QUEST:
+        }
+        case QUEST -> {
           sb.append('?');
           if ((re.flags & ParseFlags.NON_GREEDY) != 0) {
             sb.append('?');
@@ -422,8 +401,8 @@ final class Regexp {
           if (prec < PREC_UNARY) {
             sb.append(')');
           }
-          break;
-        case REPEAT:
+        }
+        case REPEAT -> {
           if (re.max == -1) {
             sb.append('{').append(re.min).append(",}");
           } else if (re.min == re.max) {
@@ -437,47 +416,25 @@ final class Regexp {
           if (prec < PREC_UNARY) {
             sb.append(')');
           }
-          break;
-        case ANY_CHAR:
-          sb.append('.');
-          break;
-        case ANY_BYTE:
-          sb.append("\\C");
-          break;
-        case BEGIN_LINE:
-          sb.append('^');
-          break;
-        case END_LINE:
-          sb.append('$');
-          break;
-        case BEGIN_TEXT:
-          sb.append("(?-m:^)");
-          break;
-        case END_TEXT:
+        }
+        case ANY_CHAR -> sb.append('.');
+        case ANY_BYTE -> sb.append("\\C");
+        case BEGIN_LINE -> sb.append('^');
+        case END_LINE -> sb.append('$');
+        case BEGIN_TEXT -> sb.append("(?-m:^)");
+        case END_TEXT -> {
           if ((re.flags & ParseFlags.WAS_DOLLAR) != 0) {
             sb.append("(?-m:$)");
           } else {
             sb.append("\\z");
           }
-          break;
-        case WORD_BOUNDARY:
-          sb.append("\\b");
-          break;
-        case NO_WORD_BOUNDARY:
-          sb.append("\\B");
-          break;
-        case CHAR_CLASS:
-          appendCharClass(sb, re.charClass);
-          break;
-        case CAPTURE:
-          sb.append(')');
-          break;
-        case HAVE_MATCH:
-          sb.append("(?HaveMatch:").append(re.matchId).append(')');
-          break;
-        default:
-          sb.append("[").append(re.op).append("]");
-          break;
+        }
+        case WORD_BOUNDARY -> sb.append("\\b");
+        case NO_WORD_BOUNDARY -> sb.append("\\B");
+        case CHAR_CLASS -> appendCharClass(sb, re.charClass);
+        case CAPTURE -> sb.append(')');
+        case HAVE_MATCH -> sb.append("(?HaveMatch:").append(re.matchId).append(')');
+        default -> sb.append("[").append(re.op).append("]");
       }
 
       // If the parent is an alternation, append | separator.
@@ -545,20 +502,23 @@ final class Regexp {
       return;
     }
     switch (r) {
-      case '\r':
+      case '\r' -> {
         sb.append("\\r");
         return;
-      case '\t':
+      }
+      case '\t' -> {
         sb.append("\\t");
         return;
-      case '\n':
+      }
+      case '\n' -> {
         sb.append("\\n");
         return;
-      case '\f':
+      }
+      case '\f' -> {
         sb.append("\\f");
         return;
-      default:
-        break;
+      }
+      default -> {}
     }
     if (r < 0x100) {
       sb.append(String.format("\\x%02x", r));

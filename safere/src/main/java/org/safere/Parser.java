@@ -455,7 +455,6 @@ final class Parser {
       default -> throw new IllegalStateException("unexpected repeat op: " + op);
     };
     stacktop.re = re;
-    stacktop.down = stacktop.down; // unchanged; sub's old entry is replaced
   }
 
   private void pushRepetition(int min, int max, String opstr, boolean nongreedy) {
