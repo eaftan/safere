@@ -8,6 +8,7 @@ package org.safere;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 /**
@@ -37,6 +38,8 @@ final class Dfa {
   record SearchResult(boolean matched, int pos) {}
 
   /** Result of a multi-match DFA search. */
+  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
+  @SuppressWarnings("ArrayRecordComponent")
   record ManyMatchResult(boolean matched, int[] matchIds) {}
 
   /** Flag bit: this state contains a MATCH instruction. */
@@ -97,6 +100,8 @@ final class Dfa {
   }
 
   /** Cache key for state deduplication. */
+  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
+  @SuppressWarnings("ArrayRecordComponent")
   private record StateKey(int[] insts, int flags) {
     @Override
     public int hashCode() {
@@ -177,6 +182,8 @@ final class Dfa {
    * derived solely from the compiled {@link Prog} and can be shared across all DFA instances for the
    * same program (e.g., across multiple {@link org.safere.Matcher} instances).
    */
+  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
+  @SuppressWarnings("ArrayRecordComponent")
   record Setup(int[] boundaries, int numClasses, int[] asciiClassMap) {}
 
   /**
@@ -271,7 +278,7 @@ final class Dfa {
   }
 
   /** Adds boundaries for a [lo, hi] code point range. */
-  private static void addRangeBoundaries(TreeSet<Integer> bounds, int lo, int hi) {
+  private static void addRangeBoundaries(NavigableSet<Integer> bounds, int lo, int hi) {
     bounds.add(lo);
     if (hi < Utils.MAX_RUNE) {
       bounds.add(hi + 1);
@@ -284,7 +291,7 @@ final class Dfa {
    * the range must have their own equivalence classes so the DFA doesn't conflate them with
    * non-matching characters in the same class.
    */
-  private static void addCaseFoldBoundaries(TreeSet<Integer> bounds, int lo, int hi) {
+  private static void addCaseFoldBoundaries(NavigableSet<Integer> bounds, int lo, int hi) {
     for (int cp = lo; cp <= hi; cp++) {
       int folded = Inst.simpleFold(cp);
       while (folded != cp) {

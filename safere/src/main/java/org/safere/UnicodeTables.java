@@ -19,6 +19,9 @@ import java.util.Map;
  * <p>Each character class is represented as an {@code int[][]} where each element is a
  * {@code {lo, hi}} pair representing an inclusive range of Unicode code points.
  */
+// This class is package-private and all arrays are generated Unicode data tables used for
+// performance-critical character class lookups. They are not exposed to external callers.
+@SuppressWarnings("MutablePublicArray")
 final class UnicodeTables {
   private UnicodeTables() {}
 

@@ -71,11 +71,25 @@
         <version>3.13.0</version>
         <configuration>
           <release>22</release>
+          <compilerArgs>
+            <!-- Error Prone runs as a javac plugin. -XDcompilePolicy=simple tells javac to
+                 compile all files in a single batch (required by Error Prone). -->
+            <arg>-XDcompilePolicy=simple</arg>
+            <!-- Continue compilation past type-checking errors so Error Prone can analyze
+                 code that has downstream errors in later phases. -->
+            <arg>--should-stop=ifError=FLOW</arg>
+            <arg>-Xplugin:ErrorProne</arg>
+          </compilerArgs>
           <annotationProcessorPaths>
             <path>
               <groupId>org.openjdk.jmh</groupId>
               <artifactId>jmh-generator-annprocess</artifactId>
               <version>${jmh.version}</version>
+            </path>
+            <path>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_core</artifactId>
+              <version>${error-prone.version}</version>
             </path>
           </annotationProcessorPaths>
         </configuration>

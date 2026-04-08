@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -151,6 +152,9 @@ public final class Pattern implements Serializable {
    * within the same thread, enabling reuse even with the common {@code pattern.matcher(t).find()}
    * idiom where each call creates a new Matcher.
    */
+  // Per-Pattern ThreadLocals are intentional: each Pattern caches its own DFA/BitState per thread,
+  // so the warm state cache persists across the common pattern.matcher(t).find() idiom.
+  @SuppressWarnings("ThreadLocalUsage")
   private transient final ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
 
   /**
@@ -159,12 +163,16 @@ public final class Pattern implements Serializable {
    * {@code pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by
    * NFA instruction sets and flags), so it remains valid for any input text.
    */
+  // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
+  @SuppressWarnings("ThreadLocalUsage")
   private transient final ThreadLocal<Dfa> cachedForwardDfa = new ThreadLocal<>();
 
   /**
    * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to
    * run with a warm state cache across Matcher instances.
    */
+  // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
+  @SuppressWarnings("ThreadLocalUsage")
   private transient final ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
 
   /** Holder for lazily computed OnePass analysis results. */
@@ -996,48 +1004,39 @@ public final class Pattern implements Serializable {
    * alternation branches where OnePass's longest-match semantics may differ from first-match.
    */
   private static boolean canMatchEmpty(Regexp re) {
-    switch (re.op) {
-      case EMPTY_MATCH:
-      case BEGIN_LINE:
-      case END_LINE:
-      case BEGIN_TEXT:
-      case END_TEXT:
-      case WORD_BOUNDARY:
-      case NO_WORD_BOUNDARY:
-        return true;
-      case STAR:
-      case QUEST:
-        return true; // min=0
-      case REPEAT:
-        return re.min == 0;
-      case PLUS:
-        return re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
-      case CAPTURE:
-        return re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
-      case CONCAT:
+    return switch (re.op) {
+      case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
+           NO_WORD_BOUNDARY -> true;
+      case STAR, QUEST -> true; // min=0
+      case REPEAT -> re.min == 0;
+      case PLUS -> re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
+      case CAPTURE -> re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
+      case CONCAT -> {
         if (re.subs == null) {
-          return true;
+          yield true;
         }
         for (Regexp sub : re.subs) {
           if (!canMatchEmpty(sub)) {
-            return false;
+            yield false;
           }
         }
-        return true;
-      case ALTERNATE:
+        yield true;
+      }
+      case ALTERNATE -> {
         if (re.subs == null) {
-          return true;
+          yield true;
         }
         for (Regexp sub : re.subs) {
           if (canMatchEmpty(sub)) {
-            return true;
+            yield true;
           }
         }
-        return false;
-      default:
+        yield false;
+      }
+      default ->
         // LITERAL, LITERAL_STRING, CHAR_CLASS, ANY_CHAR, etc. — must consume at least one char.
-        return false;
-    }
+        false;
+    };
   }
 
   /**
@@ -1080,15 +1079,13 @@ public final class Pattern implements Serializable {
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
       switch (node.op) {
-        case END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY:
-          return true;
-        case END_TEXT:
+        case END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY -> { return true; }
+        case END_TEXT -> {
           if ((node.flags & ParseFlags.WAS_DOLLAR) != 0) {
             return true;
           }
-          break;
-        default:
-          break;
+        }
+        default -> {}
       }
       if (node.subs != null) {
         for (Regexp sub : node.subs) {
@@ -1107,32 +1104,29 @@ public final class Pattern implements Serializable {
    * match at a different position than the forward program's start-of-text assertion.
    */
   private static boolean hasAnchorInQuantifier(Regexp re) {
+    record Entry(Regexp node, boolean insideQuant) {}
     // Walk the AST, tracking whether we're inside a quantifier.
-    Deque<Object[]> stack = new ArrayDeque<>();
-    stack.push(new Object[]{re, Boolean.FALSE});
+    Deque<Entry> stack = new ArrayDeque<>();
+    stack.push(new Entry(re, false));
     while (!stack.isEmpty()) {
-      Object[] entry = stack.pop();
-      Regexp node = (Regexp) entry[0];
-      boolean insideQuant = (Boolean) entry[1];
+      Entry entry = stack.pop();
+      Regexp node = entry.node();
+      boolean insideQuant = entry.insideQuant();
       if (insideQuant) {
         switch (node.op) {
-          case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY:
-            return true;
-          default:
-            break;
+          case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY ->
+              { return true; }
+          default -> {}
         }
       }
       boolean childInsideQuant = insideQuant;
       switch (node.op) {
-        case STAR, PLUS, QUEST, REPEAT:
-          childInsideQuant = true;
-          break;
-        default:
-          break;
+        case STAR, PLUS, QUEST, REPEAT -> childInsideQuant = true;
+        default -> {}
       }
       if (node.subs != null) {
         for (Regexp sub : node.subs) {
-          stack.push(new Object[]{sub, childInsideQuant});
+          stack.push(new Entry(sub, childInsideQuant));
         }
       }
     }
@@ -1187,7 +1181,7 @@ public final class Pattern implements Serializable {
       return new PrefixResult(null, false);
     }
 
-    String prefix = foldCase ? sb.toString().toLowerCase() : sb.toString();
+    String prefix = foldCase ? sb.toString().toLowerCase(Locale.ROOT) : sb.toString();
     return new PrefixResult(prefix, foldCase);
   }
 
@@ -1256,6 +1250,8 @@ public final class Pattern implements Serializable {
   }
 
   /** Holds precomputed data for the character-class-match fast path. */
+  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
+  @SuppressWarnings("ArrayRecordComponent")
   private record CharClassMatchInfo(
       int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
 
@@ -1424,7 +1420,7 @@ public final class Pattern implements Serializable {
     if (sb.isEmpty()) {
       return "";
     }
-    return foldCase ? sb.toString().toLowerCase() : sb.toString();
+    return foldCase ? sb.toString().toLowerCase(Locale.ROOT) : sb.toString();
   }
 
   /** Deserialization: recompile the pattern from the stored string and flags. */

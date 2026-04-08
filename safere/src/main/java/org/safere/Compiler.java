@@ -149,19 +149,12 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (re == null || depth >= 4) {
       return false;
     }
-    switch (re.op) {
-      case BEGIN_TEXT:
-        return true;
-      case CONCAT:
-        if (re.nsub() > 0) {
-          return isAnchorStartImpl(re.subs.getFirst(), depth + 1);
-        }
-        return false;
-      case CAPTURE:
-        return isAnchorStartImpl(re.sub(), depth + 1);
-      default:
-        return false;
-    }
+    return switch (re.op) {
+      case BEGIN_TEXT -> true;
+      case CONCAT -> re.nsub() > 0 && isAnchorStartImpl(re.subs.getFirst(), depth + 1);
+      case CAPTURE -> isAnchorStartImpl(re.sub(), depth + 1);
+      default -> false;
+    };
   }
 
   private static Regexp stripAnchorStart(Regexp re) {
@@ -172,25 +165,25 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (re == null || depth >= 4) {
       return re;
     }
-    switch (re.op) {
-      case BEGIN_TEXT:
-        return Regexp.emptyMatch(re.flags);
-      case CONCAT:
+    return switch (re.op) {
+      case BEGIN_TEXT -> Regexp.emptyMatch(re.flags);
+      case CONCAT -> {
         if (re.nsub() > 0 && isAnchorStartImpl(re.subs.getFirst(), depth + 1)) {
           List<Regexp> newSubs = new ArrayList<>(re.subs);
           newSubs.set(0, stripAnchorStartImpl(re.subs.getFirst(), depth + 1));
-          return Regexp.concat(newSubs, re.flags);
+          yield Regexp.concat(newSubs, re.flags);
         }
-        return re;
-      case CAPTURE:
+        yield re;
+      }
+      case CAPTURE -> {
         if (isAnchorStartImpl(re.sub(), depth + 1)) {
-          return Regexp.capture(
+          yield Regexp.capture(
               stripAnchorStartImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
         }
-        return re;
-      default:
-        return re;
-    }
+        yield re;
+      }
+      default -> re;
+    };
   }
 
   private static boolean isAnchorEnd(Regexp re) {
@@ -222,19 +215,12 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (re == null || depth >= 4) {
       return false;
     }
-    switch (re.op) {
-      case END_TEXT:
-        return true;
-      case CONCAT:
-        if (re.nsub() > 0) {
-          return isAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
-        }
-        return false;
-      case CAPTURE:
-        return isAnchorEndImpl(re.sub(), depth + 1);
-      default:
-        return false;
-    }
+    return switch (re.op) {
+      case END_TEXT -> true;
+      case CONCAT -> re.nsub() > 0 && isAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
+      case CAPTURE -> isAnchorEndImpl(re.sub(), depth + 1);
+      default -> false;
+    };
   }
 
   private static Regexp stripAnchorEnd(Regexp re) {
@@ -245,26 +231,26 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (re == null || depth >= 4) {
       return re;
     }
-    switch (re.op) {
-      case END_TEXT:
-        return Regexp.emptyMatch(re.flags);
-      case CONCAT:
+    return switch (re.op) {
+      case END_TEXT -> Regexp.emptyMatch(re.flags);
+      case CONCAT -> {
         if (re.nsub() > 0 && isAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1)) {
           List<Regexp> newSubs = new ArrayList<>(re.subs);
           int last = re.nsub() - 1;
           newSubs.set(last, stripAnchorEndImpl(re.subs.get(last), depth + 1));
-          return Regexp.concat(newSubs, re.flags);
+          yield Regexp.concat(newSubs, re.flags);
         }
-        return re;
-      case CAPTURE:
+        yield re;
+      }
+      case CAPTURE -> {
         if (isAnchorEndImpl(re.sub(), depth + 1)) {
-          return Regexp.capture(
+          yield Regexp.capture(
               stripAnchorEndImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
         }
-        return re;
-      default:
-        return re;
-    }
+        yield re;
+      }
+      default -> re;
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -563,98 +549,88 @@ final class Compiler extends Walker<Compiler.Frag> {
       return Frag.NO_MATCH;
     }
 
-    switch (re.op) {
-      case REPEAT:
+    return switch (re.op) {
+      case REPEAT -> {
         // Should have been simplified away.
         failed = true;
-        return Frag.NO_MATCH;
+        yield Frag.NO_MATCH;
+      }
 
-      case NO_MATCH:
-        return Frag.NO_MATCH;
+      case NO_MATCH -> Frag.NO_MATCH;
 
-      case EMPTY_MATCH:
-        return nop();
+      case EMPTY_MATCH -> nop();
 
-      case HAVE_MATCH:
-        return match(re.matchId);
+      case HAVE_MATCH -> match(re.matchId);
 
-      case CONCAT: {
+      case CONCAT -> {
         Frag f = childArgs.get(0);
         for (int i = 1; i < childArgs.size(); i++) {
           f = cat(f, childArgs.get(i));
         }
-        return f;
+        yield f;
       }
 
-      case ALTERNATE: {
+      case ALTERNATE -> {
         Frag f = childArgs.get(0);
         for (int i = 1; i < childArgs.size(); i++) {
           f = alt(f, childArgs.get(i));
         }
-        return f;
+        yield f;
       }
 
-      case STAR:
-        return star(childArgs.get(0), re.nonGreedy());
+      case STAR -> star(childArgs.get(0), re.nonGreedy());
 
-      case PLUS:
-        return plus(childArgs.get(0), re.nonGreedy());
+      case PLUS -> plus(childArgs.get(0), re.nonGreedy());
 
-      case QUEST:
-        return quest(childArgs.get(0), re.nonGreedy());
+      case QUEST -> quest(childArgs.get(0), re.nonGreedy());
 
-      case LITERAL:
-        return literal(re.rune, re.foldCase());
+      case LITERAL -> literal(re.rune, re.foldCase());
 
-      case LITERAL_STRING: {
+      case LITERAL_STRING -> {
         if (re.runes == null || re.runes.length == 0) {
-          return nop();
+          yield nop();
         }
         Frag f = literal(re.runes[0], re.foldCase());
         for (int i = 1; i < re.runes.length; i++) {
           f = cat(f, literal(re.runes[i], re.foldCase()));
         }
-        return f;
+        yield f;
       }
 
-      case ANY_CHAR:
-        return anyCodePoint();
+      case ANY_CHAR -> anyCodePoint();
 
-      case CHAR_CLASS:
-        return compileCharClass(re);
+      case CHAR_CLASS -> compileCharClass(re);
 
-      case CAPTURE:
+      case CAPTURE -> {
         if (re.cap < 0) {
-          return childArgs.get(0);
+          yield childArgs.get(0);
         }
-        return capture(childArgs.get(0), re.cap);
+        yield capture(childArgs.get(0), re.cap);
+      }
 
-      case BEGIN_LINE:
-        return emptyWidth(reversed ? EmptyOp.END_LINE : EmptyOp.BEGIN_LINE);
+      case BEGIN_LINE -> emptyWidth(reversed ? EmptyOp.END_LINE : EmptyOp.BEGIN_LINE);
 
-      case END_LINE:
-        return emptyWidth(reversed ? EmptyOp.BEGIN_LINE : EmptyOp.END_LINE);
+      case END_LINE -> emptyWidth(reversed ? EmptyOp.BEGIN_LINE : EmptyOp.END_LINE);
 
-      case BEGIN_TEXT:
-        return emptyWidth(reversed ? EmptyOp.END_TEXT : EmptyOp.BEGIN_TEXT);
+      case BEGIN_TEXT -> emptyWidth(reversed ? EmptyOp.END_TEXT : EmptyOp.BEGIN_TEXT);
 
-      case END_TEXT:
+      case END_TEXT -> {
         if (!reversed && (re.flags & ParseFlags.WAS_DOLLAR) != 0) {
           // $ (not \z): also matches before trailing \n, matching JDK behavior.
-          return emptyWidth(EmptyOp.DOLLAR_END);
+          yield emptyWidth(EmptyOp.DOLLAR_END);
         }
-        return emptyWidth(reversed ? EmptyOp.BEGIN_TEXT : EmptyOp.END_TEXT);
+        yield emptyWidth(reversed ? EmptyOp.BEGIN_TEXT : EmptyOp.END_TEXT);
+      }
 
-      case WORD_BOUNDARY:
-        return emptyWidth(EmptyOp.WORD_BOUNDARY);
+      case WORD_BOUNDARY -> emptyWidth(EmptyOp.WORD_BOUNDARY);
 
-      case NO_WORD_BOUNDARY:
-        return emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
+      case NO_WORD_BOUNDARY -> emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
 
-      default:
+      default -> {
         failed = true;
-        return Frag.NO_MATCH;
-    }
+        yield Frag.NO_MATCH;
+      }
+    };
   }
 
   @Override
