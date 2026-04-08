@@ -51,7 +51,7 @@ final class OnePass {
   // Special value: NO_ACTION (-1L) means no valid transition.
   // -------------------------------------------------------------------------
 
-  private static final int EMPTY_BITS = 8;
+  private static final int EMPTY_BITS = 9;
   private static final int CAP_SHIFT = EMPTY_BITS;
   private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS;
   private static final long EMPTY_MASK = (1L << EMPTY_BITS) - 1;

@@ -896,7 +896,7 @@ public final class Pattern implements Serializable {
       pf |= ParseFlags.FOLD_CASE | ParseFlags.UNICODE_GROUPS;
     }
     if ((flags & UNICODE_CHARACTER_CLASS) != 0) {
-      pf |= ParseFlags.UNICODE_GROUPS;
+      pf |= ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;
     }
     if ((flags & UNIX_LINES) != 0) {
       pf |= ParseFlags.UNIX_LINES;

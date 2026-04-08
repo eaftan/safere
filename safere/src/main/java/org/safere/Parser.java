@@ -1097,7 +1097,10 @@ final class Parser {
     }
 
     pos += 2; // '\\', letter
-    int[][] table = UnicodeTables.PERL_GROUPS.get(posName);
+    // Use Unicode-aware tables when UNICODE_CHAR_CLASS is active.
+    int[][] table = (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0
+        ? UnicodeTables.unicodePerlGroups().get(posName)
+        : UnicodeTables.PERL_GROUPS.get(posName);
     if (table == null) return null;
 
     CharClassBuilder ccb = new CharClassBuilder();
