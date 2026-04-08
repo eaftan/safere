@@ -239,6 +239,15 @@ final class Parser {
     if ((flags & ParseFlags.PERL_B) != 0
         && pos + 1 < pattern.length()
         && (pattern.charAt(pos + 1) == 'b' || pattern.charAt(pos + 1) == 'B')) {
+      // Reject \b{g} (grapheme cluster boundary) — not supported.
+      if (pattern.charAt(pos + 1) == 'b'
+          && pos + 4 < pattern.length()
+          && pattern.charAt(pos + 2) == '{'
+          && pattern.charAt(pos + 3) == 'g'
+          && pattern.charAt(pos + 4) == '}') {
+        throw new PatternSyntaxException(
+            "\\b{g} (grapheme cluster boundary) is not supported", pattern, pos);
+      }
       pushWordBoundary(pattern.charAt(pos + 1) == 'b');
       pos += 2; // '\\', 'b' or 'B'
       return;
@@ -255,6 +264,19 @@ final class Parser {
         pushSimpleOp(RegexpOp.END_TEXT);
         pos += 2;
         return;
+      }
+      if (next == 'Z') {
+        // \Z matches at end of input or before a final newline, same as $ in non-multiline mode.
+        int oflags = flags;
+        flags |= ParseFlags.WAS_DOLLAR;
+        pushSimpleOp(RegexpOp.END_TEXT);
+        flags = oflags;
+        pos += 2;
+        return;
+      }
+      if (next == 'G') {
+        throw new PatternSyntaxException(
+            "\\G (end of previous match) is not supported", pattern, pos);
       }
       if (next == 'Q') {
         // \Q ... \E: the ... is always literals
