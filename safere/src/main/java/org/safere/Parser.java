@@ -75,6 +75,37 @@ final class Parser {
     return p.doParse();
   }
 
+  // ---- Comments mode helpers ----
+
+  /**
+   * If comments mode ({@link ParseFlags#COMMENTS}) is active, skips whitespace characters and
+   * {@code #}-to-end-of-line comments at the current position. Advances {@link #pos} past any
+   * skipped content.
+   *
+   * <p>This implements the behavior of Java's {@link java.util.regex.Pattern#COMMENTS} flag and
+   * Perl's {@code (?x)} mode. Whitespace and comments become insignificant, allowing patterns to
+   * be formatted with whitespace and annotations for readability.
+   */
+  private void skipCommentsAndWhitespace() {
+    while (pos < pattern.length()) {
+      int c = pattern.codePointAt(pos);
+      if (c == '#') {
+        // Skip from '#' to end of line (or end of pattern).
+        while (pos < pattern.length() && pattern.charAt(pos) != '\n') {
+          pos++;
+        }
+        // Skip the newline itself if present.
+        if (pos < pattern.length()) {
+          pos++;
+        }
+      } else if (Character.isWhitespace(c)) {
+        pos += Character.charCount(c);
+      } else {
+        break;
+      }
+    }
+  }
+
   // ---- Main parse method ----
 
   private Regexp doParse() {
@@ -91,6 +122,13 @@ final class Parser {
 
     String lastunary = null;
     while (pos < pattern.length()) {
+      // In comments mode, skip whitespace and #-comments before each token.
+      if ((flags & ParseFlags.COMMENTS) != 0) {
+        skipCommentsAndWhitespace();
+        if (pos >= pattern.length()) {
+          break;
+        }
+      }
       String isunary = null;
       int c = pattern.codePointAt(pos);
       switch (c) {
@@ -736,6 +774,17 @@ final class Parser {
 
     boolean first = true; // ] is okay as first char in class
     while (pos < pattern.length() && (pattern.charAt(pos) != ']' || first)) {
+      // In comments mode, skip whitespace and #-comments inside character classes.
+      if ((flags & ParseFlags.COMMENTS) != 0) {
+        skipCommentsAndWhitespace();
+        if (pos >= pattern.length()) {
+          break; // will hit "missing closing ]" below
+        }
+        // After skipping, re-check for ']' (unless first).
+        if (pattern.charAt(pos) == ']' && !first) {
+          break;
+        }
+      }
       // - is only okay unescaped as first or last in class (except with PerlX).
       if (pattern.charAt(pos) == '-' && !first && (flags & ParseFlags.PERL_X) == 0
           && (pos + 1 >= pattern.length() || pattern.charAt(pos + 1) != ']')) {
@@ -831,14 +880,29 @@ final class Parser {
   private int[] parseCCRange() {
     int lo = parseCCCharacter();
     int hi = lo;
-    // [a-] means (a|-), so check for final ].
-    if (pos + 1 < pattern.length()
-        && pattern.charAt(pos) == '-'
-        && pattern.charAt(pos + 1) != ']') {
-      pos++; // '-'
-      hi = parseCCCharacter();
-      if (hi < lo) {
-        throw new PatternSyntaxException("invalid character class range", pattern, pos);
+    // In comments mode, skip whitespace before checking for '-'.
+    if ((flags & ParseFlags.COMMENTS) != 0) {
+      skipCommentsAndWhitespace();
+    }
+    // [a-] means (a|-), so '-' at end of class is literal.
+    // In comments mode, peek past whitespace after '-' to check for ']'.
+    if (pos < pattern.length() && pattern.charAt(pos) == '-') {
+      int peekPos = pos + 1;
+      if ((flags & ParseFlags.COMMENTS) != 0) {
+        while (peekPos < pattern.length() && Character.isWhitespace(pattern.charAt(peekPos))) {
+          peekPos++;
+        }
+      }
+      if (peekPos < pattern.length() && pattern.charAt(peekPos) != ']') {
+        pos++; // '-'
+        // In comments mode, skip whitespace after '-'.
+        if ((flags & ParseFlags.COMMENTS) != 0) {
+          skipCommentsAndWhitespace();
+        }
+        hi = parseCCCharacter();
+        if (hi < lo) {
+          throw new PatternSyntaxException("invalid character class range", pattern, pos);
+        }
       }
     }
     return new int[] {lo, hi};
@@ -1375,6 +1439,11 @@ final class Parser {
           sawflags = true;
           if (negated) nflags &= ~ParseFlags.NON_GREEDY;
           else nflags |= ParseFlags.NON_GREEDY;
+        }
+        case 'x' -> {
+          sawflags = true;
+          if (negated) nflags &= ~ParseFlags.COMMENTS;
+          else nflags |= ParseFlags.COMMENTS;
         }
         case '-' -> {
           if (negated) {

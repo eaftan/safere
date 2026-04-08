@@ -889,6 +889,9 @@ public final class Pattern implements Serializable {
     if ((flags & LITERAL) != 0) {
       pf |= ParseFlags.LITERAL;
     }
+    if ((flags & COMMENTS) != 0) {
+      pf |= ParseFlags.COMMENTS;
+    }
     if ((flags & UNICODE_CASE) != 0) {
       pf |= ParseFlags.FOLD_CASE | ParseFlags.UNICODE_GROUPS;
     }
