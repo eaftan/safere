@@ -1177,6 +1177,10 @@ final class Parser {
     if (table != null) {
       return table;
     }
+    table = UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
+    if (table != null) {
+      return table;
+    }
     return UnicodeTables.UNICODE_GROUPS.get(name);
   }
 

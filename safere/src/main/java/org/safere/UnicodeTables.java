@@ -73,6 +73,26 @@ final class UnicodeTables {
       Map.entry("[:word:]", POSIX_WORD),
       Map.entry("[:xdigit:]", POSIX_XDIGIT));
 
+  /**
+   * POSIX character class names for use with the {@code \p{...}} property syntax (e.g., {@code
+   * \p{Lower}}). These are the 13 POSIX classes defined in the JDK's {@code java.util.regex.Pattern}
+   * documentation. In the default (non-UNICODE_CHARACTER_CLASS) mode, they match ASCII-only ranges.
+   */
+  public static final Map<String, int[][]> POSIX_PROPERTY_GROUPS = Map.ofEntries(
+      Map.entry("Lower", POSIX_LOWER),
+      Map.entry("Upper", POSIX_UPPER),
+      Map.entry("ASCII", POSIX_ASCII),
+      Map.entry("Alpha", POSIX_ALPHA),
+      Map.entry("Digit", POSIX_DIGIT),
+      Map.entry("Alnum", POSIX_ALNUM),
+      Map.entry("Punct", POSIX_PUNCT),
+      Map.entry("Graph", POSIX_GRAPH),
+      Map.entry("Print", POSIX_PRINT),
+      Map.entry("Blank", POSIX_BLANK),
+      Map.entry("Cntrl", POSIX_CNTRL),
+      Map.entry("XDigit", POSIX_XDIGIT),
+      Map.entry("Space", POSIX_SPACE));
+
   // Case folding sentinel values
   public static final int EVEN_ODD = 1;
   public static final int ODD_EVEN = -1;
