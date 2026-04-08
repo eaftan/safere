@@ -50,6 +50,9 @@ jobs:
       - name: Build and test
         run: mvn verify -pl safere -Dtest.parallelism=4 --batch-mode --no-transfer-progress
 
+      - name: Build and test crosscheck module
+        run: mvn verify -pl safere-crosscheck --batch-mode --no-transfer-progress
+
   benchmark-smoke-test-java:
     needs: changes
     if: needs.changes.outputs.code == 'true'

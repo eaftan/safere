@@ -356,6 +356,37 @@ class CrosscheckTest {
   }
 
   // ---------------------------------------------------------------------------
+  // CrosscheckException on known divergence
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("CrosscheckException on known divergence")
+  class DivergenceTests {
+
+    @Test
+    @DisplayName("nested repetition with captures: (?:(a))*$ on 'ab' triggers divergence")
+    void nestedRepetitionCaptureDivergence() {
+      // Known divergence (issue #52): JDK's backtracking engine leaks captures from failed
+      // starting positions in patterns with captures inside zero-or-more repetition anchored
+      // by $. For (?:(a))*$ on "ab", both engines find the empty match at position 2 (end
+      // of string). SafeRE correctly reports group(1)=null (the * matched zero times), but
+      // JDK leaks group(1)="a" from the failed attempt at position 0.
+      Pattern p = Pattern.compile("(?:(a))*$");
+      Matcher m = p.matcher("ab");
+
+      // The only match is the empty match at the end of the string.
+      // SafeRE: group(1) = null (correct — * matched zero times at this position)
+      // JDK:    group(1) = "a" (leaked from failed attempt at earlier position)
+      assertThatThrownBy(() -> m.find())
+          .isInstanceOf(CrosscheckException.class)
+          .satisfies(ex -> {
+            CrosscheckException ce = (CrosscheckException) ex;
+            assertThat(ce.trace()).contains("DIVERGENCE");
+          });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Other
   // ---------------------------------------------------------------------------
 
