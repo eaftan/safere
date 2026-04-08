@@ -622,9 +622,19 @@ final class Compiler extends Walker<Compiler.Frag> {
         yield emptyWidth(reversed ? EmptyOp.BEGIN_TEXT : EmptyOp.END_TEXT);
       }
 
-      case WORD_BOUNDARY -> emptyWidth(EmptyOp.WORD_BOUNDARY);
+      case WORD_BOUNDARY -> {
+        if ((re.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0) {
+          yield emptyWidth(EmptyOp.UNICODE_WORD_BOUNDARY);
+        }
+        yield emptyWidth(EmptyOp.WORD_BOUNDARY);
+      }
 
-      case NO_WORD_BOUNDARY -> emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
+      case NO_WORD_BOUNDARY -> {
+        if ((re.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0) {
+          yield emptyWidth(EmptyOp.UNICODE_NON_WORD_BOUNDARY);
+        }
+        yield emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
+      }
 
       default -> {
         failed = true;
