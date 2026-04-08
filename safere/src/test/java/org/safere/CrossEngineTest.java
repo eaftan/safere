@@ -32,9 +32,7 @@ class CrossEngineTest {
     /** Both engines should produce identical results. */
     NONE,
     /** SafeRE rejects this pattern (backreferences, lookahead, etc.). */
-    SAFERE_REJECTS,
-    /** Both compile but results may legitimately differ (e.g. POSIX-leftmost vs Perl). */
-    MATCH_DIFFERS
+    SAFERE_REJECTS
   }
 
   /** A single cross-engine test case. */
@@ -385,7 +383,7 @@ class CrossEngineTest {
               tc.pattern(), tc.input(), safeReResult, jdkResult)
           .isEqualTo(jdkResult);
     }
-    // For MATCH_DIFFERS, we just verify SafeRE didn't crash (it already ran).
+    // For SAFERE_REJECTS, we just verify SafeRE didn't crash (it already ran).
   }
 
   private void compareFind(
