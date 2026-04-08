@@ -1671,8 +1671,9 @@ public final class Matcher implements MatchResult {
    * match won't be lost. If a match was not found, then requireEnd has no meaning.
    *
    * <p>This is a conservative approximation: it returns {@code true} when the pattern contains
-   * {@code $} or word-boundary assertions ({@code \b}, {@code \B}) and the last match reached the
-   * end of the input region. Like the JDK, {@code \z} does not trigger {@code requireEnd}.
+   * {@code $}, {@code \Z}, or word-boundary assertions ({@code \b}, {@code \B}) and the last
+   * match reached the end of the input region. Like the JDK, {@code \z} does not trigger
+   * {@code requireEnd}.
    *
    * @return true if more input could change a positive match into a negative one
    */
