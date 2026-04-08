@@ -1032,7 +1032,6 @@ final class Parser {
       case 't' -> { return '\t'; }
       case 'a' -> { return '\u0007'; } // bell
       case 'f' -> { return '\f'; }
-      case 'v' -> { return '\u000B'; } // vertical tab
       default -> {
         // Escaped non-word characters are always themselves.
         if (c < 0x80 && !Utils.isAlnum(c)) {
@@ -1055,8 +1054,12 @@ final class Parser {
     switch (c2) {
       case 'd' -> { posName = "\\d"; negate = false; }
       case 'D' -> { posName = "\\d"; negate = true; }
+      case 'h' -> { posName = "\\h"; negate = false; }
+      case 'H' -> { posName = "\\h"; negate = true; }
       case 's' -> { posName = "\\s"; negate = false; }
       case 'S' -> { posName = "\\s"; negate = true; }
+      case 'v' -> { posName = "\\v"; negate = false; }
+      case 'V' -> { posName = "\\v"; negate = true; }
       case 'w' -> { posName = "\\w"; negate = false; }
       case 'W' -> { posName = "\\w"; negate = true; }
       default -> { return null; }
