@@ -253,6 +253,8 @@ class CrossEngineTest {
         new TestCase("(a)\\1", "aa", Divergence.SAFERE_REJECTS),
         new TestCase("(\\w+) \\1", "hello hello", Divergence.SAFERE_REJECTS),
         new TestCase("([abc])\\1", "aa", Divergence.SAFERE_REJECTS),
+        new TestCase("(?<name>a)\\k<name>", "aa", Divergence.SAFERE_REJECTS),
+        new TestCase("(?<word>\\w+) \\k<word>", "hello hello", Divergence.SAFERE_REJECTS),
 
         // ===== Lookahead (SAFERE_REJECTS) =====
         new TestCase("(?=a)a", "a", Divergence.SAFERE_REJECTS),

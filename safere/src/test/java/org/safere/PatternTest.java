@@ -101,6 +101,18 @@ class PatternTest {
     }
 
     @Test
+    void namedBackreferenceRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?<name>a)\\k<name>"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void namedBackreferenceWithoutGroupRejected() {
+      assertThatThrownBy(() -> Pattern.compile("\\k<name>"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
     void possessivePlusRejected() {
       assertThatThrownBy(() -> Pattern.compile("a++"))
           .isInstanceOf(PatternSyntaxException.class);
