@@ -70,11 +70,18 @@ final class ParseFlags {
    */
   public static final int COMMENTS = 1 << 11;
 
+  /**
+   * Unicode character classes mode: makes {@code \d}, {@code \w}, {@code \s}, and {@code \b} use
+   * Unicode definitions instead of ASCII-only. Corresponds to Java's {@link
+   * java.util.regex.Pattern#UNICODE_CHARACTER_CLASS} flag.
+   */
+  public static final int UNICODE_CHAR_CLASS = 1 << 12;
+
   /** Never match {@code \n}, even if the regexp mentions it explicitly. */
-  public static final int NEVER_NL = 1 << 12;
+  public static final int NEVER_NL = 1 << 13;
 
   /** Parse all parentheses as non-capturing. */
-  public static final int NEVER_CAPTURE = 1 << 13;
+  public static final int NEVER_CAPTURE = 1 << 14;
 
   /**
    * Composite flag matching Perl's default behavior. Includes {@link #CLASS_NL}, {@link #ONE_LINE},
@@ -87,7 +94,7 @@ final class ParseFlags {
    * Internal flag: on {@link RegexpOp#END_TEXT}, indicates the original pattern used {@code $}
    * rather than {@code \z}.
    */
-  public static final int WAS_DOLLAR = 1 << 14;
+  public static final int WAS_DOLLAR = 1 << 15;
 
   /**
    * Unix lines mode: only {@code '\n'} is recognized as a line terminator in the behavior of
@@ -95,10 +102,10 @@ final class ParseFlags {
    * recognized: {@code '\n'}, {@code '\r'}, {@code "\r\n"}, {@code '\u0085'}, {@code '\u2028'},
    * and {@code '\u2029'}.
    */
-  public static final int UNIX_LINES = 1 << 15;
+  public static final int UNIX_LINES = 1 << 16;
 
   /** Mask of all valid parse flags. */
-  public static final int ALL_FLAGS = (1 << 16) - 1;
+  public static final int ALL_FLAGS = (1 << 17) - 1;
 
   private ParseFlags() {} // Non-instantiable.
 }

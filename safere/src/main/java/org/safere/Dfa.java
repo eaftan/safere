@@ -43,17 +43,17 @@ final class Dfa {
   record ManyMatchResult(boolean matched, int[] matchIds) {}
 
   /** Flag bit: this state contains a MATCH instruction. */
-  private static final int FLAG_MATCH = 1 << 8;
+  private static final int FLAG_MATCH = 1 << 9;
 
   /** Flag bit: last consumed character was a word character (for {@code \b}/\B}). */
-  private static final int FLAG_LAST_WORD = 1 << 9;
+  private static final int FLAG_LAST_WORD = 1 << 10;
 
   /**
    * Flag bit: match was triggered by a word-boundary assertion BEFORE consuming the transition
    * character. The match position should be recorded at the current position, not after the
    * character.
    */
-  private static final int FLAG_MATCH_BEFORE = 1 << 10;
+  private static final int FLAG_MATCH_BEFORE = 1 << 11;
 
   /**
    * Flag bit: when {@link #FLAG_MATCH_BEFORE} is set, indicates that an after-consume match ALSO
@@ -61,7 +61,12 @@ final class Dfa {
    * before-consume match first (earlier position) and fall back to the after-consume match if the
    * before-consume match is rejected (e.g., by {@code needEndMatch} requiring end-of-text).
    */
-  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 11;
+  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 12;
+
+  /**
+   * Flag bit: last consumed character was a Unicode word character (for Unicode {@code \b}/\B}).
+   */
+  private static final int FLAG_LAST_UNICODE_WORD = 1 << 13;
 
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
@@ -168,7 +173,7 @@ final class Dfa {
    * character. This gives at most 2 × 2 × 64 × 2 = 512 combinations. Caching avoids the expensive
    * {@link #expand} call and its {@code Arrays.copyOf} allocation on every DFA search.
    */
-  private final State[] startStateByContext = new State[1024];
+  private final State[] startStateByContext = new State[2048];
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -242,6 +247,11 @@ final class Dfa {
         }
       } else if (inst.opCode == InstOp.OP_EMPTY_WIDTH) {
         if ((inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
+          hasWordBoundary = true;
+        }
+        if ((inst.arg
+                & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY))
+            != 0) {
           hasWordBoundary = true;
         }
         if ((inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
@@ -489,16 +499,20 @@ final class Dfa {
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
+    boolean lastUnicodeWord;
     if (reverseContext) {
       lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
+      lastUnicodeWord = pos < text.length() && Nfa.isUnicodeWordChar(text.codePointAt(pos));
     } else {
       lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
+      lastUnicodeWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
     }
 
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
-    // emptyFlags, lastWord), so positions with identical context share the same start state.
-    int cacheKey = (anchored ? 512 : 0) | (reverseContext ? 256 : 0)
-        | ((emptyFlags & 0x7F) << 1) | (lastWord ? 1 : 0);
+    // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
+    // start state.
+    int cacheKey = (anchored ? 1024 : 0) | (reverseContext ? 512 : 0)
+        | ((emptyFlags & 0x7F) << 2) | (lastWord ? 2 : 0) | (lastUnicodeWord ? 1 : 0);
     State cached = startStateByContext[cacheKey];
     if (cached != null) {
       return cached;
@@ -506,12 +520,15 @@ final class Dfa {
 
     computeBuf[0] = startInst;
     int[] insts = expand(computeBuf, 1, emptyFlags);
-    int flags = emptyFlags & 0xFF;
+    int flags = emptyFlags & 0x1FF;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
     }
     if (lastWord) {
       flags |= FLAG_LAST_WORD;
+    }
+    if (lastUnicodeWord) {
+      flags |= FLAG_LAST_UNICODE_WORD;
     }
     State s = getOrCreate(insts, flags);
     if (s != null) {
@@ -593,6 +610,14 @@ final class Dfa {
       } else {
         emptyFlags = (emptyFlags | EmptyOp.NON_WORD_BOUNDARY) & ~EmptyOp.WORD_BOUNDARY;
       }
+      boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
+      if (wasUnicodeWord) {
+        emptyFlags =
+            (emptyFlags | EmptyOp.UNICODE_WORD_BOUNDARY) & ~EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      } else {
+        emptyFlags =
+            (emptyFlags | EmptyOp.UNICODE_NON_WORD_BOUNDARY) & ~EmptyOp.UNICODE_WORD_BOUNDARY;
+      }
       // Re-expand from the successors of EMPTY_WIDTH instructions that now pass.
       int seedCount = 0;
       for (int id : s.insts) {
@@ -608,7 +633,7 @@ final class Dfa {
       if (nextInsts.length == 0) {
         return deadState;
       }
-      int flags = emptyFlags & 0xFF;
+      int flags = emptyFlags & 0x1FF;
       if (hasMatch(nextInsts)) {
         flags |= FLAG_MATCH;
       }
@@ -634,6 +659,10 @@ final class Dfa {
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
     int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
         : EmptyOp.NON_WORD_BOUNDARY;
+    boolean isUnicodeWord = Nfa.isUnicodeWordChar(cp);
+    boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
+    int unicodeWordBeforeFlags = (isUnicodeWord != wasUnicodeWord)
+        ? EmptyOp.UNICODE_WORD_BOUNDARY : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     boolean endLineHere;
     if (prog.unixLines()) {
       endLineHere = (cp == '\n');
@@ -650,20 +679,26 @@ final class Dfa {
     // Collect successors of unsatisfied EMPTY_WIDTH instructions whose deferred flags
     // are now satisfiable and that have no other unsatisfied flags.
     int reExpandCount = 0;
-    int deferredMask = EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY | EmptyOp.END_LINE;
+    int deferredMask = EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
+        | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY
+        | EmptyOp.END_LINE;
     for (int id : s.insts) {
       Inst ip = prog.inst(id);
       if (ip.opCode == InstOp.OP_EMPTY_WIDTH) {
         int wordFlags = ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
+        int unicodeWordFlags =
+            ip.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY);
         int endLineFlag = ip.arg & EmptyOp.END_LINE;
         int otherFlags = ip.arg & ~deferredMask;
 
         // The instruction must have at least one deferred flag, no non-deferred flags,
         // and all deferred flags must be currently satisfiable.
-        boolean hasDeferred = (wordFlags | endLineFlag) != 0;
+        boolean hasDeferred = (wordFlags | unicodeWordFlags | endLineFlag) != 0;
         boolean wordOk = wordFlags == 0 || (wordFlags & ~wordBeforeFlags) == 0;
+        boolean unicodeWordOk =
+            unicodeWordFlags == 0 || (unicodeWordFlags & ~unicodeWordBeforeFlags) == 0;
         boolean lineOk = endLineFlag == 0 || endLineHere;
-        if (otherFlags == 0 && hasDeferred && wordOk && lineOk) {
+        if (otherFlags == 0 && hasDeferred && wordOk && unicodeWordOk && lineOk) {
           computeBuf[reExpandCount++] = ip.out;
         }
       }
@@ -679,7 +714,7 @@ final class Dfa {
       // kind (e.g., \b\b or $$) can fire during expansion. Without this, the first
       // \b fires but expand() wouldn't satisfy the second \b because WORD_BOUNDARY
       // was stripped from the state's cached emptyFlags.
-      int reExpandEmptyFlags = (s.flags & 0xFF) | wordBeforeFlags;
+      int reExpandEmptyFlags = (s.flags & 0x1FF) | wordBeforeFlags | unicodeWordBeforeFlags;
       if (endLineHere) {
         reExpandEmptyFlags |= EmptyOp.END_LINE;
       }
@@ -724,7 +759,9 @@ final class Dfa {
       // recorded at the current position (before consuming cp), not after.
       if (hasMatchFromDeferred) {
         return getOrCreate(EMPTY_INSTS,
-            FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
+            FLAG_MATCH | FLAG_MATCH_BEFORE
+                | (isWord ? FLAG_LAST_WORD : 0)
+                | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
       }
       return deadState;
@@ -735,20 +772,24 @@ final class Dfa {
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
     int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines());
-    emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY | EmptyOp.END_LINE);
+    emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
+        | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY
+        | EmptyOp.END_LINE);
 
     int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
 
     if (nextInsts.length == 0) {
       if (hasMatchFromDeferred) {
         return getOrCreate(EMPTY_INSTS,
-            FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0),
+            FLAG_MATCH | FLAG_MATCH_BEFORE
+                | (isWord ? FLAG_LAST_WORD : 0)
+                | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
       }
       return deadState;
     }
 
-    int flags = emptyFlags & 0xFF;
+    int flags = emptyFlags & 0x1FF;
     if (hasMatchFromDeferred) {
       // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
       // character and reached a MATCH instruction. This match is at position `pos` (before
@@ -767,6 +808,9 @@ final class Dfa {
     }
     if (isWord) {
       flags |= FLAG_LAST_WORD;
+    }
+    if (isUnicodeWord) {
+      flags |= FLAG_LAST_UNICODE_WORD;
     }
     return getOrCreate(nextInsts, flags, deferredMatchIds);
   }

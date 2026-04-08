@@ -587,6 +587,15 @@ final class Nfa {
       flags |= EmptyOp.NON_WORD_BOUNDARY;
     }
 
+    // Unicode \b and \B
+    boolean prevUnicodeWord = pos > 0 && isUnicodeWordChar(text.codePointBefore(pos));
+    boolean nextUnicodeWord = pos < text.length() && isUnicodeWordChar(text.codePointAt(pos));
+    if (prevUnicodeWord != nextUnicodeWord) {
+      flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
+    } else {
+      flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    }
+
     return flags;
   }
 
@@ -594,6 +603,18 @@ final class Nfa {
   static boolean isWordChar(int c) {
     return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z')
         || ('0' <= c && c <= '9') || c == '_';
+  }
+
+  /** Returns true if the code point is a Unicode word character (matching {@code \w} under UCC). */
+  static boolean isUnicodeWordChar(int c) {
+    return Character.isAlphabetic(c)
+        || Character.getType(c) == Character.NON_SPACING_MARK
+        || Character.getType(c) == Character.ENCLOSING_MARK
+        || Character.getType(c) == Character.COMBINING_SPACING_MARK
+        || Character.isDigit(c)
+        || Character.getType(c) == Character.CONNECTOR_PUNCTUATION
+        || c == 0x200C  // ZWNJ
+        || c == 0x200D; // ZWJ
   }
 
   private Nfa() {

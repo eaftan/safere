@@ -163,6 +163,9 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   items are done, post a progress comment instead.
 - When referencing an issue in a commit message, use `Fixes #N` only if the
   commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
+- **File issues for bugs found during other work.** If you discover a bug
+  while working on an unrelated task, you *must* file a GitHub issue for it
+  immediately. Do not silently work around it or leave it undocumented.
 
 ## Bug Fixing Philosophy
 

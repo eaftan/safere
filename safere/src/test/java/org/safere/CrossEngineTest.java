@@ -218,6 +218,25 @@ class CrossEngineTest {
         new TestCase("[\u00e0-\u00ff]", "\u00e9"),
         new TestCase("[\u00e0-\u00ff]", "a"),
 
+        // ===== Character escapes =====
+        // Octal
+        new TestCase("\\012", "\n"),
+        new TestCase("\\012", "a"),
+        new TestCase("\\0", "\0"),
+        new TestCase("\\077", "?"), // 077 octal = 63 = '?'
+        // \e (escape char)
+        new TestCase("\\e", "\u001B"),
+        new TestCase("\\e", "a"),
+        // \cx (control chars)
+        new TestCase("\\cA", "\u0001"),
+        new TestCase("\\cA", "a"),
+        new TestCase("\\cZ", "\u001A"),
+        new TestCase("\\c@", "\u0000"),
+        // \N{name} (named Unicode character)
+        new TestCase("\\N{LATIN SMALL LETTER A}", "a"),
+        new TestCase("\\N{LATIN SMALL LETTER A}", "b"),
+        new TestCase("\\N{WHITE SMILING FACE}", "\u263A"),
+
         // ===== Escaped metacharacters =====
         new TestCase("\\.", "a.b"),
         new TestCase("\\.", "abc"),

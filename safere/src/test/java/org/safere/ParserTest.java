@@ -1033,6 +1033,117 @@ class ParserTest {
       Regexp re = parse("\\Qab\\E*");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
     }
+
+    // ---- Octal escapes ----
+
+    @Test
+    void octal_nul() {
+      Regexp re = parse("\\0");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x00);
+    }
+
+    @Test
+    void octal_singleDigit() {
+      Regexp re = parse("\\07");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(7);
+    }
+
+    @Test
+    void octal_twoDigits() {
+      Regexp re = parse("\\012");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo('\n'); // 012 octal = 10 = newline
+    }
+
+    @Test
+    void octal_maxTwoDigitsAfterZero() {
+      Regexp re = parse("\\077");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(63); // 077 octal = 63
+    }
+
+    @Test
+    void octal_nonZeroLeading_twoDigits() {
+      // \12 is a backreference in JDK, but RE2 treats two-digit as octal.
+      Regexp re = parse("\\12");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(10); // 12 octal = 10
+    }
+
+    @Test
+    void octal_nonZeroLeading_threeDigits() {
+      Regexp re = parse("\\123");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x53); // 123 octal = 83 = 'S'
+    }
+
+    // ---- Escape char and control chars ----
+
+    @Test
+    void escape() {
+      Regexp re = parse("\\e");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x1B);
+    }
+
+    @Test
+    void controlChar_A() {
+      Regexp re = parse("\\cA");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x01); // ctrl-A
+    }
+
+    @Test
+    void controlChar_Z() {
+      Regexp re = parse("\\cZ");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x1A); // ctrl-Z
+    }
+
+    @Test
+    void controlChar_at() {
+      Regexp re = parse("\\c@");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x00); // ctrl-@ = NUL
+    }
+
+    @Test
+    void controlChar_openBracket() {
+      Regexp re = parse("\\c[");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x1B); // ctrl-[ = ESC
+    }
+
+    // ---- Named Unicode character ----
+
+    @Test
+    void namedUnicode_latinA() {
+      Regexp re = parse("\\N{LATIN SMALL LETTER A}");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo('a');
+    }
+
+    @Test
+    void namedUnicode_smiley() {
+      Regexp re = parse("\\N{WHITE SMILING FACE}");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0x263A);
+    }
+
+    @Test
+    void namedUnicode_unknown() {
+      assertThatThrownBy(() -> parse("\\N{NOT A REAL NAME}"))
+          .isInstanceOf(PatternSyntaxException.class)
+          .hasMessageContaining("unknown Unicode character name");
+    }
+
+    @Test
+    void namedUnicode_missingBrace() {
+      assertThatThrownBy(() -> parse("\\N{LATIN SMALL LETTER A"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
   }
 
   // ---------------------------------------------------------------------------

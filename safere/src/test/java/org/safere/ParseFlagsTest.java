@@ -27,10 +27,11 @@ class ParseFlagsTest {
     assertThat(ParseFlags.PERL_X).isEqualTo(512);
     assertThat(ParseFlags.UNICODE_GROUPS).isEqualTo(1024);
     assertThat(ParseFlags.COMMENTS).isEqualTo(2048);
-    assertThat(ParseFlags.NEVER_NL).isEqualTo(4096);
-    assertThat(ParseFlags.NEVER_CAPTURE).isEqualTo(8192);
-    assertThat(ParseFlags.WAS_DOLLAR).isEqualTo(16384);
-    assertThat(ParseFlags.UNIX_LINES).isEqualTo(32768);
+    assertThat(ParseFlags.UNICODE_CHAR_CLASS).isEqualTo(4096);
+    assertThat(ParseFlags.NEVER_NL).isEqualTo(8192);
+    assertThat(ParseFlags.NEVER_CAPTURE).isEqualTo(16384);
+    assertThat(ParseFlags.WAS_DOLLAR).isEqualTo(32768);
+    assertThat(ParseFlags.UNIX_LINES).isEqualTo(65536);
   }
 
   @Test
@@ -52,7 +53,7 @@ class ParseFlagsTest {
 
   @Test
   void allFlagsCoversAllBits() {
-    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 16) - 1);
+    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 17) - 1);
   }
 
   @Test

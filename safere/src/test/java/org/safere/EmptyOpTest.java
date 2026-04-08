@@ -20,6 +20,9 @@ class EmptyOpTest {
     assertThat(EmptyOp.END_TEXT).isEqualTo(8);
     assertThat(EmptyOp.WORD_BOUNDARY).isEqualTo(16);
     assertThat(EmptyOp.NON_WORD_BOUNDARY).isEqualTo(32);
+    assertThat(EmptyOp.DOLLAR_END).isEqualTo(64);
+    assertThat(EmptyOp.UNICODE_WORD_BOUNDARY).isEqualTo(128);
+    assertThat(EmptyOp.UNICODE_NON_WORD_BOUNDARY).isEqualTo(256);
   }
 
   @Test
@@ -31,9 +34,11 @@ class EmptyOpTest {
             | EmptyOp.END_TEXT
             | EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY
-            | EmptyOp.DOLLAR_END;
+            | EmptyOp.DOLLAR_END
+            | EmptyOp.UNICODE_WORD_BOUNDARY
+            | EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     assertThat(EmptyOp.ALL_FLAGS).isEqualTo(combined);
-    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(127);
+    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(511);
   }
 
   @Test
@@ -45,7 +50,10 @@ class EmptyOpTest {
       EmptyOp.BEGIN_TEXT,
       EmptyOp.END_TEXT,
       EmptyOp.WORD_BOUNDARY,
-      EmptyOp.NON_WORD_BOUNDARY
+      EmptyOp.NON_WORD_BOUNDARY,
+      EmptyOp.DOLLAR_END,
+      EmptyOp.UNICODE_WORD_BOUNDARY,
+      EmptyOp.UNICODE_NON_WORD_BOUNDARY
     };
     for (int i = 0; i < flags.length; i++) {
       for (int j = i + 1; j < flags.length; j++) {

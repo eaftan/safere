@@ -934,6 +934,26 @@ final class Parser {
     pos += Character.charCount(c);
 
     switch (c) {
+      // Named Unicode character: \N{name}
+      case 'N' -> {
+        if (pos >= pattern.length() || pattern.charAt(pos) != '{') {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
+        }
+        pos++; // '{'
+        int nameStart = pos;
+        int end = pattern.indexOf('}', pos);
+        if (end < 0) {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 3);
+        }
+        String name = pattern.substring(nameStart, end);
+        pos = end + 1; // skip '}'
+        try {
+          return Character.codePointOf(name);
+        } catch (IllegalArgumentException e) {
+          throw new PatternSyntaxException(
+              "unknown Unicode character name: " + name, pattern, nameStart);
+        }
+      }
       // Octal escapes.
       case '1', '2', '3', '4', '5', '6', '7' -> {
         // Single non-zero octal digit is a backreference; not supported.
@@ -1031,7 +1051,21 @@ final class Parser {
       case 'r' -> { return '\r'; }
       case 't' -> { return '\t'; }
       case 'a' -> { return '\u0007'; } // bell
+      case 'e' -> { return '\u001B'; } // escape
       case 'f' -> { return '\f'; }
+      // Control character: \cX → X ^ 0x40
+      case 'c' -> {
+        if (pos >= pattern.length()) {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
+        }
+        int ctrl = pattern.codePointAt(pos);
+        pos += Character.charCount(ctrl);
+        // JDK accepts ASCII letters and some symbols; the result is ctrl ^ 0x40.
+        if (ctrl >= 0x40 && ctrl <= 0x7F) {
+          return ctrl ^ 0x40;
+        }
+        throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 1);
+      }
       default -> {
         // Escaped non-word characters are always themselves.
         if (c < 0x80 && !Utils.isAlnum(c)) {
@@ -1066,7 +1100,10 @@ final class Parser {
     }
 
     pos += 2; // '\\', letter
-    int[][] table = UnicodeTables.PERL_GROUPS.get(posName);
+    // Use Unicode-aware tables when UNICODE_CHAR_CLASS is active.
+    int[][] table = (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0
+        ? UnicodeTables.unicodePerlGroups().get(posName)
+        : UnicodeTables.PERL_GROUPS.get(posName);
     if (table == null) return null;
 
     CharClassBuilder ccb = new CharClassBuilder();
@@ -1140,6 +1177,10 @@ final class Parser {
       return new int[][] {{0, Utils.MAX_RUNE}};
     }
     int[][] table = JavaCharacterClasses.lookup(name);
+    if (table != null) {
+      return table;
+    }
+    table = UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
     if (table != null) {
       return table;
     }

@@ -179,19 +179,18 @@ final class Prog {
   }
 
   /**
-   * Returns true if the program contains EMPTY_WIDTH instructions with {@link EmptyOp#WORD_BOUNDARY}
-   * or {@link EmptyOp#NON_WORD_BOUNDARY} flags. The DFA cannot correctly cache transitions for these
-   * assertions because the word-boundary context depends on both the previous and next characters,
-   * but the DFA transition cache keys only on (state, character-class).
-   *
-   * <p>When this returns true, callers should bypass the DFA and use NFA/BitState instead.
+   * Returns true if the program contains EMPTY_WIDTH instructions with {@link EmptyOp#WORD_BOUNDARY},
+   * {@link EmptyOp#NON_WORD_BOUNDARY}, {@link EmptyOp#UNICODE_WORD_BOUNDARY}, or
+   * {@link EmptyOp#UNICODE_NON_WORD_BOUNDARY} flags. The DFA handles these as deferred assertions
+   * that are re-expanded when the word-character context is known.
    */
   public boolean hasWordBoundary() {
+    int mask = EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
+        | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     int n = size();
     for (int i = 0; i < n; i++) {
       Inst ip = inst(i);
-      if (ip.op == InstOp.EMPTY_WIDTH
-          && (ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
+      if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & mask) != 0) {
         return true;
       }
     }

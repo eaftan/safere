@@ -89,6 +89,26 @@ final class UnicodeTables {
       Map.entry("[:word:]", POSIX_WORD),
       Map.entry("[:xdigit:]", POSIX_XDIGIT));
 
+  /**
+   * POSIX character class names for use with the {@code \p{...}} property syntax (e.g., {@code
+   * \p{Lower}}). These are the 13 POSIX classes defined in the JDK's {@code java.util.regex.Pattern}
+   * documentation. In the default (non-UNICODE_CHARACTER_CLASS) mode, they match ASCII-only ranges.
+   */
+  public static final Map<String, int[][]> POSIX_PROPERTY_GROUPS = Map.ofEntries(
+      Map.entry("Lower", POSIX_LOWER),
+      Map.entry("Upper", POSIX_UPPER),
+      Map.entry("ASCII", POSIX_ASCII),
+      Map.entry("Alpha", POSIX_ALPHA),
+      Map.entry("Digit", POSIX_DIGIT),
+      Map.entry("Alnum", POSIX_ALNUM),
+      Map.entry("Punct", POSIX_PUNCT),
+      Map.entry("Graph", POSIX_GRAPH),
+      Map.entry("Print", POSIX_PRINT),
+      Map.entry("Blank", POSIX_BLANK),
+      Map.entry("Cntrl", POSIX_CNTRL),
+      Map.entry("XDigit", POSIX_XDIGIT),
+      Map.entry("Space", POSIX_SPACE));
+
   // Case folding sentinel values
   public static final int EVEN_ODD = 1;
   public static final int ODD_EVEN = -1;
@@ -2671,5 +2691,100 @@ final class UnicodeTables {
         Map.entry("Zl", ZL),
         Map.entry("Zp", ZP),
         Map.entry("Zs", ZS));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Unicode Perl character classes (for UNICODE_CHARACTER_CLASS flag)
+  // ---------------------------------------------------------------------------
+  //
+  // These define Unicode-aware \d, \s, \w for use when the UNICODE_CHARACTER_CLASS
+  // flag is enabled. They parallel PERL_GROUPS but use Unicode properties instead
+  // of ASCII-only ranges.
+
+  /**
+   * Unicode {@code \d}: Unicode category Nd (Number, Decimal Digit). JDK maps {@code \d} under
+   * UNICODE_CHARACTER_CLASS to {@code \p{IsDigit}} which is the Nd general category.
+   */
+  public static int[][] unicodeDigit() {
+    return ND;
+  }
+
+  /**
+   * Unicode {@code \s}: Unicode White_Space property. This includes ASCII whitespace plus Unicode
+   * space separators (Zs), line/paragraph separators (Zl, Zp), and certain control characters.
+   * Matches JDK's {@code \s} under UNICODE_CHARACTER_CLASS.
+   */
+  public static int[][] unicodeSpace() {
+    // Unicode White_Space = [\t\n\x0B\f\r\x1C-\x1F \u0085\u00A0\u1680\u2000-\u200A
+    //                        \u2028\u2029\u202F\u205F\u3000]
+    return new int[][] {
+      {0x09, 0x0D},     // \t \n \x0B \f \r
+      {0x1C, 0x20},     // file/group/record/unit separators + space
+      {0x85, 0x85},     // NEL (Next Line)
+      {0xA0, 0xA0},     // NBSP
+      {0x1680, 0x1680}, // Ogham space mark
+      {0x2000, 0x200A}, // en quad through hair space
+      {0x2028, 0x2029}, // line separator, paragraph separator
+      {0x202F, 0x202F}, // narrow no-break space
+      {0x205F, 0x205F}, // medium mathematical space
+      {0x3000, 0x3000}, // ideographic space
+    };
+  }
+
+  /**
+   * Unicode {@code \w}: Alphabetic + Mark + Digit + Letter_Number + Connector_Punctuation (Pc) +
+   * Join_Control. JDK defines {@code \w} under UNICODE_CHARACTER_CLASS as {@code
+   * [\p{Alpha}\p{gc=Mn}\p{gc=Me}\p{gc=Mc}\p{Digit}\p{gc=Pc}\p{IsJoin_Control}]}.
+   *
+   * <p>Built by merging the L (Letter), M (Mark), Nd (Decimal Number), Nl (Letter Number), Pc
+   * (Connector Punctuation) tables, plus the two Join_Control characters (U+200C, U+200D).
+   */
+  public static int[][] unicodeWord() {
+    return mergeRangeTables(L, M, ND, NL, PC, JOIN_CONTROL);
+  }
+
+  /** The two Join_Control characters: U+200C (ZWNJ) and U+200D (ZWJ). */
+  private static final int[][] JOIN_CONTROL = {{0x200C, 0x200D}};
+
+  /**
+   * Map of Unicode-aware Perl shorthand classes, paralleling {@link #PERL_GROUPS}. Used when
+   * {@link ParseFlags#UNICODE_CHAR_CLASS} is active.
+   */
+  public static Map<String, int[][]> unicodePerlGroups() {
+    return Map.of("\\d", unicodeDigit(), "\\s", unicodeSpace(), "\\w", unicodeWord());
+  }
+
+  /**
+   * Merges multiple sorted range tables into a single sorted, non-overlapping range table. Each
+   * input table is an array of {@code {lo, hi}} pairs sorted by lo. The output merges adjacent and
+   * overlapping ranges.
+   */
+  static int[][] mergeRangeTables(int[][]... tables) {
+    // Count total ranges.
+    int total = 0;
+    for (int[][] t : tables) {
+      total += t.length;
+    }
+    // Collect all ranges.
+    int[][] all = new int[total][];
+    int idx = 0;
+    for (int[][] t : tables) {
+      System.arraycopy(t, 0, all, idx, t.length);
+      idx += t.length;
+    }
+    // Sort by lo, then by hi.
+    java.util.Arrays.sort(all, (a, b) -> a[0] != b[0] ? a[0] - b[0] : a[1] - b[1]);
+    // Merge overlapping/adjacent ranges.
+    int[][] merged = new int[total][];
+    int count = 0;
+    for (int[] range : all) {
+      if (count > 0 && range[0] <= merged[count - 1][1] + 1) {
+        // Extend existing range.
+        merged[count - 1][1] = Math.max(merged[count - 1][1], range[1]);
+      } else {
+        merged[count++] = new int[] {range[0], range[1]};
+      }
+    }
+    return java.util.Arrays.copyOf(merged, count);
   }
 }
