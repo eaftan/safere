@@ -37,8 +37,24 @@ final class UnicodeTables {
     {0x30, 0x39}, {0x41, 0x5A}, {0x5F, 0x5F}, {0x61, 0x7A},
   };
 
+  // JDK horizontal whitespace (\h): [ \t\xA0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
+  public static final int[][] HORIZ_SPACE = {
+    {0x09, 0x09}, {0x20, 0x20}, {0xA0, 0xA0}, {0x1680, 0x1680}, {0x180E, 0x180E},
+    {0x2000, 0x200A}, {0x202F, 0x202F}, {0x205F, 0x205F}, {0x3000, 0x3000},
+  };
+
+  // JDK vertical whitespace (\v): [\n\x0B\f\r\x85\u2028\u2029]
+  public static final int[][] VERT_SPACE = {
+    {0x0A, 0x0D}, {0x85, 0x85}, {0x2028, 0x2029},
+  };
+
   public static final Map<String, int[][]> PERL_GROUPS =
-      Map.of("\\d", PERL_DIGIT, "\\s", PERL_SPACE, "\\w", PERL_WORD);
+      Map.of(
+          "\\d", PERL_DIGIT,
+          "\\s", PERL_SPACE,
+          "\\w", PERL_WORD,
+          "\\h", HORIZ_SPACE,
+          "\\v", VERT_SPACE);
 
   // POSIX character classes
 

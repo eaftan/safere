@@ -15,8 +15,8 @@ class UnicodeTablesTest {
   // --- Perl groups ---
 
   @Test
-  void perlGroups_hasThreeEntries() {
-    assertThat(UnicodeTables.PERL_GROUPS.size()).isEqualTo(3);
+  void perlGroups_hasFiveEntries() {
+    assertThat(UnicodeTables.PERL_GROUPS.size()).isEqualTo(5);
   }
 
   @Test

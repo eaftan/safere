@@ -1091,7 +1091,6 @@ final class Parser {
       case 'a' -> { return '\u0007'; } // bell
       case 'e' -> { return '\u001B'; } // escape
       case 'f' -> { return '\f'; }
-      case 'v' -> { return '\u000B'; } // vertical tab
       // Control character: \cX → X ^ 0x40
       case 'c' -> {
         if (pos >= pattern.length()) {
@@ -1127,8 +1126,12 @@ final class Parser {
     switch (c2) {
       case 'd' -> { posName = "\\d"; negate = false; }
       case 'D' -> { posName = "\\d"; negate = true; }
+      case 'h' -> { posName = "\\h"; negate = false; }
+      case 'H' -> { posName = "\\h"; negate = true; }
       case 's' -> { posName = "\\s"; negate = false; }
       case 'S' -> { posName = "\\s"; negate = true; }
+      case 'v' -> { posName = "\\v"; negate = false; }
+      case 'V' -> { posName = "\\v"; negate = true; }
       case 'w' -> { posName = "\\w"; negate = false; }
       case 'W' -> { posName = "\\w"; negate = true; }
       default -> { return null; }
