@@ -177,9 +177,25 @@ class PatternTest {
     }
 
     @Test
-    void unsupportedFlagThrows() {
-      // CANON_EQ = 128
-      assertThatThrownBy(() -> Pattern.compile("abc", 128))
+    void canonEqAloneThrows() {
+      assertThatThrownBy(
+              () -> Pattern.compile("abc", java.util.regex.Pattern.CANON_EQ))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("CANON_EQ");
+    }
+
+    @Test
+    void canonEqCombinedWithSupportedFlagsThrows() {
+      int flags = java.util.regex.Pattern.CANON_EQ | Pattern.CASE_INSENSITIVE | Pattern.DOTALL;
+      assertThatThrownBy(() -> Pattern.compile("abc", flags))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("CANON_EQ");
+    }
+
+    @Test
+    void unknownFlagBitsThrow() {
+      // Bit 9 (0x200) is not assigned to any JDK flag.
+      assertThatThrownBy(() -> Pattern.compile("abc", 0x200))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("Unsupported");
     }
