@@ -161,8 +161,28 @@ mvn test -pl safere -Dtest=ParserTest
 
 # Run tests with coverage report (JaCoCo)
 mvn verify -pl safere -Pcoverage
+
+# Run crosscheck module tests
+mvn test -pl safere-crosscheck
 ```
 
 Coverage reports are generated at
 `safere/target/site/jacoco/index.html`.  Note that JaCoCo is disabled
 by default; the `-Pcoverage` profile is required to enable it.
+
+## Differential Testing with safere-crosscheck
+
+The [safere-crosscheck](../safere-crosscheck/) module provides a
+differential-testing facade that runs both SafeRE and `java.util.regex` on
+every operation, comparing results and throwing `CrosscheckException` if they
+diverge. This catches behavioral differences that aren't directly covered by
+unit tests.
+
+To use it, change your import from `org.safere.Pattern` to
+`org.safere.crosscheck.Pattern` (and likewise for `Matcher`). Every API
+call is then executed on both engines and compared automatically.
+
+The facade records a trace of all API calls. When a divergence is detected,
+the exception includes the full trace, providing enough context to reproduce
+and report the bug. See
+[safere-crosscheck/README.md](../safere-crosscheck/README.md) for details.

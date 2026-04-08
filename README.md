@@ -220,6 +220,23 @@ import org.safere.Pattern;
 import org.safere.Matcher;
 ```
 
+### Validating with safere-crosscheck
+
+To verify that SafeRE behaves identically to `java.util.regex` in your
+application, use the [safere-crosscheck](safere-crosscheck/) module. It
+provides `Pattern` and `Matcher` classes that run both engines on every
+operation and throw an exception if results diverge:
+
+```java
+// Crosscheck mode — just change the import
+import org.safere.crosscheck.Pattern;
+import org.safere.crosscheck.Matcher;
+```
+
+Every call is recorded in a trace. If a divergence is found, the exception
+includes the full trace for easy bug reporting. See
+[safere-crosscheck/README.md](safere-crosscheck/README.md) for details.
+
 ### What works unchanged
 
 - `Pattern.compile()`, `Pattern.matches()`, `Pattern.quote()`
