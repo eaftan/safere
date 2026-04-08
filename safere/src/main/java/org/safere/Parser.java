@@ -274,6 +274,22 @@ final class Parser {
       }
     }
 
+    // \R: Unicode linebreak sequence.
+    // Equivalent to (?:\r\n|[\n\x0B\f\r\x{85}\x{2028}\x{2029}]).
+    if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'R') {
+      pos += 2; // '\\', 'R'
+      pushRegexp(buildLinebreakRegexp());
+      return;
+    }
+
+    // \X: Extended grapheme cluster (simplified).
+    // Equivalent to (?:\r\n|\P{M}\p{M}*|<any>), which handles base+combining-marks.
+    if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'X') {
+      pos += 2; // '\\', 'X'
+      pushRegexp(buildGraphemeClusterRegexp());
+      return;
+    }
+
     // Unicode group \p{...} or \P{...}
     if (pos + 1 < pattern.length()
         && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
@@ -1609,5 +1625,71 @@ final class Parser {
 
   private Regexp finishCharClassBuilder(CharClassBuilder ccb) {
     return Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
+  }
+
+  // ---- \R and \X expansion helpers ----
+
+  /**
+   * Builds a Regexp equivalent to {@code (?:\r\n|[\n\x0B\f\r\x{85}\x{2028}\x{2029}])}, which
+   * matches any Unicode linebreak sequence. With POSIX leftmost-longest semantics, the two-char
+   * {@code \r\n} alternative naturally wins over a single {@code \r}.
+   */
+  private Regexp buildLinebreakRegexp() {
+    // Alternative 1: \r\n (CRLF as a single unit)
+    Regexp crLf = Regexp.literalString(new int[] {'\r', '\n'}, flags);
+
+    // Alternative 2: any single linebreak character
+    CharClassBuilder ccb = new CharClassBuilder();
+    ccb.addRune('\n');       // U+000A LINE FEED
+    ccb.addRune('\u000B');   // U+000B VERTICAL TAB
+    ccb.addRune('\f');       // U+000C FORM FEED
+    ccb.addRune('\r');       // U+000D CARRIAGE RETURN
+    ccb.addRune(0x85);       // U+0085 NEXT LINE
+    ccb.addRune(0x2028);     // U+2028 LINE SEPARATOR
+    ccb.addRune(0x2029);     // U+2029 PARAGRAPH SEPARATOR
+    Regexp singleLinebreak = Regexp.charClass(ccb.build(), flags);
+
+    return Regexp.alternate(List.of(crLf, singleLinebreak), flags);
+  }
+
+  /**
+   * Builds a Regexp equivalent to {@code (?:\r\n|\P{M}\p{M}*|[\s\S])}, a simplified extended
+   * grapheme cluster matcher. This handles:
+   *
+   * <ul>
+   *   <li>{@code \r\n} as a single grapheme cluster
+   *   <li>A non-combining-mark character followed by zero or more combining marks
+   *   <li>Any single character as a fallback (e.g., standalone combining marks)
+   * </ul>
+   *
+   * <p>This does not implement the full UAX #29 grapheme cluster algorithm (Hangul jamo
+   * composition, emoji ZWJ sequences, regional indicator pairs, etc.).
+   */
+  private Regexp buildGraphemeClusterRegexp() {
+    // Alternative 1: \r\n (CRLF as a single unit)
+    Regexp crLf = Regexp.literalString(new int[] {'\r', '\n'}, flags);
+
+    // Alternative 2: \P{M}\p{M}* (base character + combining marks)
+    int[][] markTable = UnicodeTables.UNICODE_GROUPS.get("M");
+    CharClassBuilder nonMarkCcb = new CharClassBuilder();
+    for (int[] row : markTable) {
+      nonMarkCcb.addRange(row[0], row[1]);
+    }
+    nonMarkCcb.negate(); // \P{M}
+    Regexp nonMark = Regexp.charClass(nonMarkCcb.build(), flags);
+
+    CharClassBuilder markCcb = new CharClassBuilder();
+    for (int[] row : markTable) {
+      markCcb.addRange(row[0], row[1]);
+    }
+    Regexp mark = Regexp.charClass(markCcb.build(), flags);
+    Regexp markStar = Regexp.star(mark, flags);
+    Regexp baseWithMarks = Regexp.concat(List.of(nonMark, markStar), flags);
+
+    // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
+    // Use ANY_CHAR with DOT_NL to match all characters including newlines.
+    Regexp anyOne = Regexp.anyChar(flags | ParseFlags.DOT_NL);
+
+    return Regexp.alternate(List.of(crLf, baseWithMarks, anyOne), flags);
   }
 }
