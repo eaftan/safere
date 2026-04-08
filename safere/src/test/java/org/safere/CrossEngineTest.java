@@ -268,6 +268,9 @@ class CrossEngineTest {
         new TestCase("a++", "aaa", Divergence.SAFERE_REJECTS),
         new TestCase("a*+", "aaa", Divergence.SAFERE_REJECTS),
         new TestCase("a?+", "a", Divergence.SAFERE_REJECTS),
+        new TestCase("a{2}+", "aa", Divergence.SAFERE_REJECTS),
+        new TestCase("a{2,}+", "aaa", Divergence.SAFERE_REJECTS),
+        new TestCase("a{2,5}+", "aaa", Divergence.SAFERE_REJECTS),
 
         // ===== Atomic groups (SAFERE_REJECTS) =====
         new TestCase("(?>a+)", "aaa", Divergence.SAFERE_REJECTS),

@@ -117,6 +117,24 @@ class PatternTest {
       assertThatThrownBy(() -> Pattern.compile("a?+"))
           .isInstanceOf(PatternSyntaxException.class);
     }
+
+    @Test
+    void possessiveBracedExactRejected() {
+      assertThatThrownBy(() -> Pattern.compile("a{2}+"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void possessiveBracedMinRejected() {
+      assertThatThrownBy(() -> Pattern.compile("a{2,}+"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void possessiveBracedRangeRejected() {
+      assertThatThrownBy(() -> Pattern.compile("a{2,5}+"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
   }
 
   @Nested
