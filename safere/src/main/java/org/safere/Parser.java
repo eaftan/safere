@@ -1136,6 +1136,10 @@ final class Parser {
     if ("Any".equals(name)) {
       return new int[][] {{0, Utils.MAX_RUNE}};
     }
+    int[][] table = JavaCharacterClasses.lookup(name);
+    if (table != null) {
+      return table;
+    }
     return UnicodeTables.UNICODE_GROUPS.get(name);
   }
 
