@@ -934,6 +934,26 @@ final class Parser {
     pos += Character.charCount(c);
 
     switch (c) {
+      // Named Unicode character: \N{name}
+      case 'N' -> {
+        if (pos >= pattern.length() || pattern.charAt(pos) != '{') {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
+        }
+        pos++; // '{'
+        int nameStart = pos;
+        int end = pattern.indexOf('}', pos);
+        if (end < 0) {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 3);
+        }
+        String name = pattern.substring(nameStart, end);
+        pos = end + 1; // skip '}'
+        try {
+          return Character.codePointOf(name);
+        } catch (IllegalArgumentException e) {
+          throw new PatternSyntaxException(
+              "unknown Unicode character name: " + name, pattern, nameStart);
+        }
+      }
       // Octal escapes.
       case '1', '2', '3', '4', '5', '6', '7' -> {
         // Single non-zero octal digit is a backreference; not supported.
@@ -1031,8 +1051,22 @@ final class Parser {
       case 'r' -> { return '\r'; }
       case 't' -> { return '\t'; }
       case 'a' -> { return '\u0007'; } // bell
+      case 'e' -> { return '\u001B'; } // escape
       case 'f' -> { return '\f'; }
       case 'v' -> { return '\u000B'; } // vertical tab
+      // Control character: \cX → X ^ 0x40
+      case 'c' -> {
+        if (pos >= pattern.length()) {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
+        }
+        int ctrl = pattern.codePointAt(pos);
+        pos += Character.charCount(ctrl);
+        // JDK accepts ASCII letters and some symbols; the result is ctrl ^ 0x40.
+        if (ctrl >= 0x40 && ctrl <= 0x7F) {
+          return ctrl ^ 0x40;
+        }
+        throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 1);
+      }
       default -> {
         // Escaped non-word characters are always themselves.
         if (c < 0x80 && !Utils.isAlnum(c)) {
