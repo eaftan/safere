@@ -50,6 +50,11 @@ jobs:
       - name: Build and test
         run: mvn verify -pl safere -Dtest.parallelism=4 --batch-mode --no-transfer-progress
 
+      - name: Install parent POM and safere to local repo
+        run: |
+          mvn install -N -DskipTests --batch-mode --no-transfer-progress -q
+          mvn install -pl safere -DskipTests --batch-mode --no-transfer-progress -q
+
       - name: Build and test crosscheck module
         run: mvn verify -pl safere-crosscheck --batch-mode --no-transfer-progress
 
