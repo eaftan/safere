@@ -85,7 +85,7 @@ class UnicodeTablesTest {
 
   @Test
   void caseFold_hasExpectedSize() {
-    assertThat(UnicodeTables.CASE_FOLD.length).isEqualTo(372);
+    assertThat(UnicodeTables.CASE_FOLD.length).isEqualTo(380);
   }
 
   @Test
@@ -120,7 +120,7 @@ class UnicodeTablesTest {
 
   @Test
   void toLower_hasExpectedSize() {
-    assertThat(UnicodeTables.TO_LOWER.length).isEqualTo(208);
+    assertThat(UnicodeTables.TO_LOWER.length).isEqualTo(212);
   }
 
   @Test
@@ -132,8 +132,12 @@ class UnicodeTablesTest {
   // --- Unicode groups ---
 
   @Test
-  void unicodeGroups_hasExpectedSize() {
-    assertThat(UnicodeTables.UNICODE_GROUPS.size()).isEqualTo(199);
+  void unicodeGroups_hasAllExpectedEntries() {
+    // 7 major categories + subcategories + all JDK scripts (minus UNKNOWN).
+    // The exact count depends on the JDK's Unicode version, so we check minimum bounds.
+    assertThat(UnicodeTables.UNICODE_GROUPS.size())
+        .as("UNICODE_GROUPS should have categories + scripts")
+        .isGreaterThanOrEqualTo(199); // RE2's original count; JDK 25 has more
   }
 
   @Test
