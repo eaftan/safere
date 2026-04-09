@@ -431,6 +431,65 @@ class ParserTest {
       assertThat(re.charClass.contains('a')).isTrue();
     }
 
+    @Test
+    void unicodeProperty_IsWhiteSpace() {
+      // From issue: \p{IsWhiteSpace} should be accepted (normalized to White_Space).
+      Regexp re = parse("\\p{IsWhiteSpace}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains(' ')).isTrue();
+      assertThat(re.charClass.contains('\t')).isTrue();
+      assertThat(re.charClass.contains('a')).isFalse();
+    }
+
+    @Test
+    void unicodeProperty_IsWhite_Space() {
+      // Canonical form with underscore.
+      Regexp re = parse("\\p{IsWhite_Space}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains(' ')).isTrue();
+    }
+
+    @Test
+    void unicodeProperty_IsAlphabetic() {
+      Regexp re = parse("\\p{IsAlphabetic}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains('a')).isTrue();
+    }
+
+    @Test
+    void unicodeProperty_IsLowercase() {
+      // "IsLowercase" → binary property "Lowercase"
+      Regexp re = parse("\\p{IsLowercase}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains('a')).isTrue();
+      assertThat(re.charClass.contains('A')).isFalse();
+    }
+
+    @Test
+    void unicodeProperty_IsUppercase() {
+      Regexp re = parse("\\p{IsUppercase}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains('A')).isTrue();
+      assertThat(re.charClass.contains('a')).isFalse();
+    }
+
+    @Test
+    void unicodeProperty_IsHexDigit() {
+      // "IsHexDigit" → binary property "Hex_Digit" (without underscore normalization)
+      Regexp re = parse("\\p{IsHexDigit}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains('0')).isTrue();
+      assertThat(re.charClass.contains('F')).isTrue();
+    }
+
+    @Test
+    void unicodeProperty_IsHex_Digit() {
+      // Canonical form with underscore.
+      Regexp re = parse("\\p{IsHex_Digit}");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains('0')).isTrue();
+    }
+
     // -- Special character class contents --
 
     @Test
@@ -626,6 +685,46 @@ class ParserTest {
       // a*{ → concatenation of star(a) and literal({)
       Regexp re = parse("a*{");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
+    }
+
+    @Test
+    void nestedRepeatInAlternation() {
+      // From issue: (?:a (?:b{0,99}|c{0,9})){0,5}
+      // This should parse without error because the alternation branches are not cumulative.
+      Regexp re = parse("(?:a (?:b{0,99}|c{0,9})){0,5}");
+      assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
+      assertThat(re.min).isEqualTo(0);
+      assertThat(re.max).isEqualTo(5);
+    }
+
+    @Test
+    void nestedRepeatInAlternation_largerCounts() {
+      // Alternation branches should be checked independently:
+      // worst case is a{500} repeated 2 times = 1000, which is at the limit.
+      Regexp re = parse("(?:a{500}|b{3}){2}");
+      assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
+    }
+
+    @Test
+    void nestedRepeatInAlternation_exceedsLimit() {
+      // a{501} repeated 2 times = 1002 > 1000, should still be rejected.
+      assertThatThrownBy(() -> parse("(?:a{501}|b{3}){2}"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void nestedRepeatInConcat_exceedsLimit() {
+      // a{100} followed by b{100} repeated 2 times = 100*100*2 in one branch - but
+      // actually countRepeat divides: 1000/2=500, then 500/100=5, then 5/100=0. Rejected.
+      assertThatThrownBy(() -> parse("(?:a{100}b{100}){2}"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void nestedRepeatInConcat_withinLimit() {
+      // a{10}b{10} repeated 5 = 10*10*5 = 500 < 1000.
+      Regexp re = parse("(?:a{10}b{10}){5}");
+      assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
     }
   }
 
@@ -1235,6 +1334,56 @@ class ParserTest {
       assertThat(re.charClass.contains('A')).isTrue();
       assertThat(re.charClass.contains('a')).isTrue();
     }
+
+    @Test
+    void unixLines_dFlag() {
+      // (?d) is UNIX_LINES; should be accepted without error.
+      Regexp re = parse("(?d)abc");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL_STRING);
+    }
+
+    @Test
+    void unixLines_dFlag_withOtherFlags() {
+      // (?md) combines multiline and unix lines.
+      Regexp re = parse("(?md)^abc");
+      assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
+    }
+
+    @Test
+    void unixLines_dFlag_inGroup() {
+      // (?d:...) scoped form.
+      Regexp re = parse("(?d:abc)");
+      assertThat(re.op).isIn(RegexpOp.LITERAL_STRING, RegexpOp.CONCAT);
+    }
+
+    @Test
+    void unixLines_dFlag_negated() {
+      // (?-d) turns off unix lines.
+      Regexp re = parse("(?-d)abc");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL_STRING);
+    }
+
+    @Test
+    void unicodeCase_uFlag() {
+      // (?u) is UNICODE_CASE; accepted for JDK compatibility.
+      Regexp re = parse("(?u)abc");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL_STRING);
+    }
+
+    @Test
+    void unicodeCase_uFlag_withCaseInsensitive() {
+      // (?iu) combines case-insensitive with unicode case.
+      Regexp re = parse("(?iu)a");
+      assertThat(re.foldCase()).isTrue();
+    }
+
+    @Test
+    void allJdkFlags_combined() {
+      // All JDK inline flags: d, i, m, s, u, U, x
+      // From the issue: (?m)(?d)^(####? .+|---)$
+      Regexp re = parse("(?m)(?d)^(####? .+|---)$");
+      assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1584,6 +1733,69 @@ class ParserTest {
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
       assertThat(re.subs.get(0).op).isEqualTo(RegexpOp.LITERAL);
       assertThat(re.subs.get(1).op).isIn(RegexpOp.ANY_CHAR, RegexpOp.CHAR_CLASS);
+    }
+
+    @Test
+    void unicodeEscape_basic() {
+      Regexp re = parse("\\u0041");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo('A');
+    }
+
+    @Test
+    void unicodeEscape_thai() {
+      // From issue: ([\\u0E00-\\u0E7F])
+      Regexp re = parse("[\\u0E00-\\u0E7F]");
+      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains(0x0E00)).isTrue();
+      assertThat(re.charClass.contains(0x0E3F)).isTrue();
+      assertThat(re.charClass.contains(0x0E7F)).isTrue();
+    }
+
+    @Test
+    void unicodeEscape_fullPattern() {
+      // From issue: ([\\u0E00-\\u0E7F])([0-9a-zA-Z])
+      Regexp re = parse("([\\u0E00-\\u0E7F])([0-9a-zA-Z])");
+      assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
+    }
+
+    @Test
+    void unicodeEscape_singleChar() {
+      Regexp re = parse("\\u00E9");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0xE9); // é
+    }
+
+    @Test
+    void unicodeEscape_null() {
+      Regexp re = parse("\\u0000");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0);
+    }
+
+    @Test
+    void unicodeEscape_maxBMP() {
+      Regexp re = parse("\\uFFFF");
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(0xFFFF);
+    }
+
+    @Test
+    void unicodeEscape_tooFewDigits() {
+      assertThatThrownBy(() -> parse("\\u00"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void unicodeEscape_invalidHexDigit() {
+      assertThatThrownBy(() -> parse("\\u00GG"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void unicodeEscape_noDigits() {
+      assertThatThrownBy(() -> parse("\\u"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 }

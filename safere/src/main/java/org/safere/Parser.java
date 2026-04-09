@@ -577,10 +577,26 @@ final class Parser {
       return 0;
     }
     if (re.subs != null) {
-      for (Regexp sub : re.subs) {
-        int subLimit = countRepeat(sub, limit);
-        if (subLimit < limit) {
-          limit = subLimit;
+      if (re.op == RegexpOp.ALTERNATE) {
+        // For alternation, only one branch is taken at a time, so check each branch
+        // independently with the same original limit and return the minimum (worst case).
+        int minLimit = limit;
+        for (Regexp sub : re.subs) {
+          int subLimit = countRepeat(sub, limit);
+          if (subLimit < minLimit) {
+            minLimit = subLimit;
+          }
+        }
+        limit = minLimit;
+      } else {
+        // For concat, capture, and other composite nodes, the children are cumulative:
+        // each child's expansion multiplies with the others, so we pass the reduced
+        // limit from one child to the next.
+        for (Regexp sub : re.subs) {
+          limit = countRepeat(sub, limit);
+          if (limit == 0) {
+            return 0;
+          }
         }
       }
     }
@@ -1084,6 +1100,22 @@ final class Parser {
         }
         return Utils.unhex(c2) * 16 + Utils.unhex(c3);
       }
+      // Unicode escape: \\uXXXX (exactly four hex digits).
+      case 'u' -> {
+        if (pos + 4 > pattern.length()) {
+          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
+        }
+        int code = 0;
+        for (int i = 0; i < 4; i++) {
+          int hc = pattern.charAt(pos);
+          if (!Utils.isHexDigit(hc)) {
+            throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
+          }
+          code = code * 16 + Utils.unhex(hc);
+          pos++;
+        }
+        return code;
+      }
       // C escapes.
       case 'n' -> { return '\n'; }
       case 'r' -> { return '\r'; }
@@ -1563,6 +1595,16 @@ final class Parser {
           sawflags = true;
           if (negated) nflags &= ~ParseFlags.NON_GREEDY;
           else nflags |= ParseFlags.NON_GREEDY;
+        }
+        case 'd' -> {
+          sawflags = true;
+          if (negated) nflags &= ~ParseFlags.UNIX_LINES;
+          else nflags |= ParseFlags.UNIX_LINES;
+        }
+        case 'u' -> {
+          // UNICODE_CASE: SafeRE always uses Unicode case folding, so this is accepted
+          // for JDK compatibility but has no additional effect.
+          sawflags = true;
         }
         case 'x' -> {
           sawflags = true;
