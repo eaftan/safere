@@ -12,11 +12,13 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link Pattern#UNICODE_CASE} flag behavior.
  *
+ * <p>{@code UNICODE_CASE} controls <i>how</i> case folding works (Unicode vs ASCII-only) when
+ * {@link Pattern#CASE_INSENSITIVE} is also set. By itself, it should have no effect on matching.
+ *
  * <p><b>Known divergence from JDK:</b> SafeRE always performs Unicode case folding when
  * {@link Pattern#CASE_INSENSITIVE} is set (because the RE2-derived engine uses Unicode tables by
  * default). In the JDK, {@code CASE_INSENSITIVE} alone only folds ASCII, and you must also set
- * {@code UNICODE_CASE} for Unicode folding. SafeRE's behavior is a superset — it always matches
- * Unicode regardless of whether {@code UNICODE_CASE} is set. These tests document this divergence.
+ * {@code UNICODE_CASE} for Unicode folding.
  */
 class UnicodeCaseTest {
 
@@ -114,11 +116,10 @@ class UnicodeCaseTest {
   }
 
   @Test
-  void unicodeCaseWithoutCaseInsensitiveEnablesFolding() {
-    // SafeRE divergence: UNICODE_CASE alone enables case folding (because it maps to FOLD_CASE
-    // internally). In JDK, UNICODE_CASE without CASE_INSENSITIVE has no effect on matching.
+  void unicodeCaseWithoutCaseInsensitiveDoesNotEnableFolding() {
+    // UNICODE_CASE alone should NOT enable case folding — matches JDK behavior.
     Pattern p = Pattern.compile("hello", Pattern.UNICODE_CASE);
-    assertThat(p.matcher("HELLO").matches()).isTrue();
+    assertThat(p.matcher("HELLO").matches()).isFalse();
     assertThat(p.matcher("hello").matches()).isTrue();
   }
 
