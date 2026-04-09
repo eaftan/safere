@@ -94,6 +94,8 @@ final class UnicodeProperties {
       return Map.entry(name, buildRanges(predicate));
     }
 
+    // Collisions are impossible here: BINARY_PROPERTIES uses Map.ofEntries which rejects
+    // duplicate keys, and the canonical names are all distinct after normalization.
     private static Map<String, String> buildNormalizedKeys() {
       Map<String, String> map = new HashMap<>();
       for (String key : BINARY_PROPERTIES.keySet()) {

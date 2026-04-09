@@ -1603,7 +1603,9 @@ final class Parser {
         }
         case 'u' -> {
           // UNICODE_CASE: SafeRE always uses Unicode case folding, so this is accepted
-          // for JDK compatibility but has no additional effect.
+          // for JDK compatibility but has no additional effect. Both (?u) and (?-u) are
+          // no-ops because there is no non-Unicode mode to toggle. No flag bit is set
+          // because no downstream code needs to distinguish this state.
           sawflags = true;
         }
         case 'x' -> {
