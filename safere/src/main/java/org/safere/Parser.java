@@ -1222,7 +1222,45 @@ final class Parser {
     if (table != null) {
       return table;
     }
+
+    // Keyword forms: script=, sc=, block=, blk=, general_category=, gc=.
+    int eq = name.indexOf('=');
+    if (eq >= 0) {
+      String key = name.substring(0, eq);
+      String value = name.substring(eq + 1);
+      return lookupKeywordProperty(key, value);
+    }
+
+    // "Is" prefix: try script/category (case-insensitive), then binary property.
+    // The prefix is case-sensitive ("Is" only, not "is" or "IS").
+    if (name.startsWith("Is") && name.length() > 2) {
+      String stripped = name.substring(2);
+      table = UnicodeProperties.lookupScriptOrCategory(stripped);
+      if (table != null) {
+        return table;
+      }
+      return UnicodeProperties.lookupBinaryProperty(stripped);
+    }
+
+    // "In" prefix: Unicode block lookup.
+    if (name.startsWith("In") && name.length() > 2) {
+      return UnicodeProperties.lookupBlock(name.substring(2));
+    }
+
+    // Direct lookup in UNICODE_GROUPS (e.g., "Latin", "Lu").
     return UnicodeTables.UNICODE_GROUPS.get(name);
+  }
+
+  private static int[][] lookupKeywordProperty(String key, String value) {
+    // Keywords are case-insensitive per JDK behavior.
+    String normalizedKey =
+        key.toUpperCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
+    return switch (normalizedKey) {
+      case "SCRIPT", "SC" -> UnicodeProperties.lookupScriptOrCategory(value);
+      case "BLOCK", "BLK" -> UnicodeProperties.lookupBlock(value);
+      case "GENERAL_CATEGORY", "GC" -> UnicodeProperties.lookupScriptOrCategory(value);
+      default -> null;
+    };
   }
 
   // ---- POSIX class name parsing ([:alnum:], etc.) ----
