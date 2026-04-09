@@ -893,7 +893,7 @@ public final class Pattern implements Serializable {
       pf |= ParseFlags.COMMENTS;
     }
     if ((flags & UNICODE_CASE) != 0) {
-      pf |= ParseFlags.FOLD_CASE | ParseFlags.UNICODE_GROUPS;
+      pf |= ParseFlags.UNICODE_GROUPS;
     }
     if ((flags & UNICODE_CHARACTER_CLASS) != 0) {
       pf |= ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;
