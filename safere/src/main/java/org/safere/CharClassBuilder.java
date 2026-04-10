@@ -239,6 +239,38 @@ final class CharClassBuilder {
     return ranges.isEmpty();
   }
 
+  /**
+   * Intersects this builder with another, keeping only code points present in both. Replaces the
+   * contents of this builder with the intersection.
+   *
+   * @return this builder, for chaining
+   */
+  public CharClassBuilder intersect(CharClassBuilder other) {
+    TreeSet<Range> result = new TreeSet<>();
+    int ncount = 0;
+    Iterator<Range> itA = ranges.iterator();
+    Iterator<Range> itB = other.ranges.iterator();
+    Range a = itA.hasNext() ? itA.next() : null;
+    Range b = itB.hasNext() ? itB.next() : null;
+    while (a != null && b != null) {
+      int lo = Math.max(a.lo, b.lo);
+      int hi = Math.min(a.hi, b.hi);
+      if (lo <= hi) {
+        result.add(new Range(lo, hi));
+        ncount += (hi - lo + 1);
+      }
+      if (a.hi < b.hi) {
+        a = itA.hasNext() ? itA.next() : null;
+      } else {
+        b = itB.hasNext() ? itB.next() : null;
+      }
+    }
+    ranges.clear();
+    ranges.addAll(result);
+    nrunes = ncount;
+    return this;
+  }
+
   /** Builds an immutable {@link CharClass} from the current state of this builder. */
   public CharClass build() {
     int[] flat = new int[ranges.size() * 2];

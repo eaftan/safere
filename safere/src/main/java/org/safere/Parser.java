@@ -837,6 +837,40 @@ final class Parser {
           break;
         }
       }
+
+      // Character class intersection: &&
+      if (pos + 1 < pattern.length()
+          && pattern.charAt(pos) == '&'
+          && pattern.charAt(pos + 1) == '&') {
+        pos += 2; // skip '&&'
+        // Parse the right-hand side of the intersection.
+        CharClassBuilder rhs = new CharClassBuilder();
+        if (pos < pattern.length() && pattern.charAt(pos) == '[') {
+          // &&[...] — parse nested class as the right side.
+          Regexp nested = parseCharClass();
+          rhs.addCharClass(nested.charClass);
+        } else {
+          // &&<ranges> — parse remaining ranges until ']' as the right side.
+          while (pos < pattern.length() && pattern.charAt(pos) != ']'
+              && !(pos + 1 < pattern.length()
+                  && pattern.charAt(pos) == '&' && pattern.charAt(pos + 1) == '&')) {
+            if (pos < pattern.length() && pattern.charAt(pos) == '[') {
+              Regexp nested = parseCharClass();
+              rhs.addCharClass(nested.charClass);
+            } else {
+              int[] rr = parseCCRange();
+              addRangeFlags(rhs, rr[0], rr[1], flags | ParseFlags.CLASS_NL);
+            }
+          }
+        }
+        if (negated) {
+          ccb.negate();
+          negated = false;
+        }
+        ccb.intersect(rhs);
+        continue;
+      }
+
       // - is only okay unescaped as first or last in class (except with PerlX).
       if (pattern.charAt(pos) == '-' && !first && (flags & ParseFlags.PERL_X) == 0
           && (pos + 1 >= pattern.length() || pattern.charAt(pos + 1) != ']')) {
