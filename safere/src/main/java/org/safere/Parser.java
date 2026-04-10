@@ -1671,12 +1671,15 @@ final class Parser {
 
   private static boolean isValidCaptureName(String name) {
     if (name.isEmpty()) return false;
-    for (int i = 0; i < name.length(); ) {
-      int r = name.codePointAt(i);
-      i += Character.charCount(r);
-      if (Utils.isAlnum(r) || r == '_') continue;
-      // Also allow Unicode letters and digits.
-      if (Character.isLetterOrDigit(r) || Character.getType(r) == Character.CONNECTOR_PUNCTUATION) {
+    // Match java.util.regex.Pattern rules: first character must be an ASCII letter,
+    // subsequent characters must be ASCII letters or digits.
+    char first = name.charAt(0);
+    if (!((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z'))) {
+      return false;
+    }
+    for (int i = 1; i < name.length(); i++) {
+      char c = name.charAt(i);
+      if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
         continue;
       }
       return false;
