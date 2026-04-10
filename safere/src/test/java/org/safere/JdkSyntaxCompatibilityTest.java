@@ -420,7 +420,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/139")
     @DisplayName("intersection [a-z&&[def]]")
     void intersection() {
       assertMatchesSame("[a-z&&[def]]", "d");
@@ -428,7 +427,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/139")
     @DisplayName("subtraction [a-z&&[^bc]]")
     void subtraction() {
       assertMatchesSame("[a-z&&[^bc]]", "a");
@@ -436,7 +434,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/139")
     @DisplayName("subtraction [a-z&&[^m-p]]")
     void subtractionRange() {
       assertMatchesSame("[a-z&&[^m-p]]", "a");
@@ -659,7 +656,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/139")
     @DisplayName("[\\\\p{L}&&[^\\\\p{Lu}]] (category subtraction)")
     void categorySubtraction() {
       assertMatchesSame("[\\p{L}&&[^\\p{Lu}]]", "a");
