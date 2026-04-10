@@ -1066,7 +1066,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("(?d) UNIX_LINES")
     void flagD() {
       assertCompiles("(?d).");
@@ -1087,7 +1086,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("(?u) unicode case")
     void flagU() {
       assertCompiles("(?u)(?i)abc");
@@ -1106,7 +1104,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("combined flags (?dm)")
     void combinedFlags() {
       assertCompiles("(?dm)^test$");
@@ -1125,21 +1122,18 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("(?d) combined with (?m) from issue #127")
     void flagDWithM() {
       assertCompiles("(?m)(?d)^(####? .+|---)$");
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("all JDK flags combined (?idmsuxU)")
     void allFlags() {
       assertCompiles("(?idmsuxU)test");
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("all JDK flags negated (?-idmsuxU)")
     void allFlagsNegated() {
       assertCompiles("(?idmsuxU)(?-idmsuxU)test");
@@ -1309,7 +1303,6 @@ class JdkSyntaxCompatibilityTest {
   class Issue127EdgeCases {
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/134")
     @DisplayName("(?m)(?d)^(####? .+|---)$")
     void inlineFlagDWithMultiline() {
       assertMatchesSame("(?m)(?d)^(####? .+|---)$", "## Hello");

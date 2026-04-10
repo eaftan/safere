@@ -1192,10 +1192,12 @@ class ParserTest {
     }
 
     @Test
-    void nonGreedy_UFlag() {
+    void unicodeCharClass_UFlag() {
+      // (?U) is JDK's UNICODE_CHARACTER_CLASS, not RE2's non-greedy.
       Regexp re = parse("(?U)a*");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
-      assertThat(re.nonGreedy()).isTrue();
+      assertThat(re.nonGreedy()).isFalse();
+      assertThat((re.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0).isTrue();
     }
 
     @Test

@@ -1584,6 +1584,11 @@ final class Parser {
       int c = pattern.codePointAt(pos);
       pos += Character.charCount(c);
       switch (c) {
+        case 'd' -> {
+          sawflags = true;
+          if (negated) nflags &= ~ParseFlags.UNIX_LINES;
+          else nflags |= ParseFlags.UNIX_LINES;
+        }
         case 'i' -> {
           sawflags = true;
           if (negated) nflags &= ~ParseFlags.FOLD_CASE;
@@ -1599,10 +1604,18 @@ final class Parser {
           if (negated) nflags &= ~ParseFlags.DOT_NL;
           else nflags |= ParseFlags.DOT_NL;
         }
+        case 'u' -> {
+          sawflags = true;
+          if (negated) nflags &= ~ParseFlags.UNICODE_GROUPS;
+          else nflags |= ParseFlags.UNICODE_GROUPS;
+        }
         case 'U' -> {
           sawflags = true;
-          if (negated) nflags &= ~ParseFlags.NON_GREEDY;
-          else nflags |= ParseFlags.NON_GREEDY;
+          if (negated) {
+            nflags &= ~(ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS);
+          } else {
+            nflags |= ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;
+          }
         }
         case 'x' -> {
           sawflags = true;
