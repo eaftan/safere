@@ -173,12 +173,16 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   you can construct a new input that would still break, the fix is wrong.
 - **Prefer fewer moving parts.** A fix that removes a special case is better
   than one that adds a new special case.  Simpler code has fewer bugs.
-- **Test-driven bug fixing.** When fixing a bug, first ask: why isn't there
-  test coverage for this *class* of things?  Then write systematic tests for
-  the entire class of related behavior — not just the one failing case.
-  Write the tests first (TDD), see which pass and which fail, then fix the
-  code.  This catches other latent bugs in the same area and prevents
-  regressions.
+- **Test-driven bug fixing.** When fixing a bug, focus on test coverage
+  *first*, before investigating the underlying code.  Do not look at the
+  engine internals or try to understand why the code gets the wrong answer
+  until tests are in place.  The workflow is:
+  1. Ask: why isn't there test coverage for this *class* of things?
+  2. Write systematic tests for the entire class of related behavior — not
+     just the one failing case.
+  3. Run the tests.  See which pass and which fail.
+  4. *Then* investigate the code, root-cause the bug, and fix it.
+  This catches other latent bugs in the same area and prevents regressions.
 
 ## Key Constraints
 
