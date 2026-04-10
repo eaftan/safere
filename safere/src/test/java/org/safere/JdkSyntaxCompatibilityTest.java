@@ -699,7 +699,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/136")
     @DisplayName("\\\\p{IsWhiteSpace} (no underscore, from issue #127)")
     void isWhiteSpaceNoUnderscore() {
       // JDK is flexible about underscores in property names
@@ -1320,7 +1319,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/136")
     @DisplayName("\\\\p{IsWhiteSpace} (no underscore)")
     void isWhiteSpaceNoUnderscore() {
       assertMatchesSame("\\p{IsWhiteSpace}", " ");
