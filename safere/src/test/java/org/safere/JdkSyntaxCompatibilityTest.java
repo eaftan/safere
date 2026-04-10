@@ -441,7 +441,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/140")
     @DisplayName("surrogate pair range in character class")
     void surrogatePairRange() {
       // From issue #127 comment: surrogate pairs encoding supplementary ranges
@@ -449,7 +448,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/140")
     @DisplayName("complex Unicode range from issue #127")
     void complexUnicodeRange() {
       // Pattern from issue #127 comment
@@ -1319,7 +1317,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/140")
     @DisplayName("complex Unicode range with surrogates from issue #127 comment")
     void complexSurrogateRange() {
       assertCompiles("([\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDC00-\\uDBFF\\uDFFF\\t]*)$");
