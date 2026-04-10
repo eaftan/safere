@@ -908,7 +908,6 @@ class JdkSyntaxCompatibilityTest {
     // -- Nested repetitions (from issue #127) --
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/135")
     @DisplayName("nested repetition {0,99} inside {0,5}")
     void nestedRepetition() {
       assertCompiles("(?:a (?:b{0,99}|c{0,9})){0,5}");
@@ -1315,7 +1314,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/135")
     @DisplayName("nested repetition (?:a (?:b{0,99}|c{0,9})){0,5}")
     void nestedRepetitionFromIssue() {
       assertMatchesSame("(?:a (?:b{0,99}|c{0,9})){0,5}", "a bbb");
