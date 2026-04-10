@@ -702,13 +702,22 @@ public final class Pattern implements Serializable {
    * correct match end.
    *
    * <p>The DFA start is reliable when the leftmost-starting match also has the earliest end. This
-   * holds for alternation and bounded repeats (where branches differ in length but the leftmost
-   * start is unambiguous), but fails for lazy quantifiers (where {@code .+?X} starting at
-   * position 0 may end later than a fixed match starting at position 1) and for anchors inside
-   * quantifiers (where the reverse DFA mishandles position-dependent assertions).
+   * holds for bounded repeats (where branches differ in length but the leftmost start is
+   * unambiguous), but fails for:
+   *
+   * <ul>
+   *   <li>Lazy quantifiers: {@code .+?X} starting at position 0 may end later than a fixed match
+   *       starting at position 1.
+   *   <li>Anchors inside quantifiers: the reverse DFA mishandles position-dependent assertions.
+   *   <li>Alternation: when alternatives can match at different start positions with different
+   *       endpoints, the forward DFA's earliest-end result may come from a non-leftmost match.
+   *       For example, {@code (bcd|abcde)} on text containing "abcde" — the forward DFA returns
+   *       the end of the "bcd" match (which ends earlier) instead of the "abcde" match (which
+   *       starts earlier). The reverse DFA from that wrong endpoint cannot find the leftmost start.
+   * </ul>
    */
   boolean dfaStartReliable() {
-    return !hasLazy && !hasAnchorInQuant;
+    return !hasLazy && !hasAnchorInQuant && !hasAlternation;
   }
 
   /**
