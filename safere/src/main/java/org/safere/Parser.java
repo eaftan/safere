@@ -239,14 +239,16 @@ final class Parser {
     if ((flags & ParseFlags.PERL_B) != 0
         && pos + 1 < pattern.length()
         && (pattern.charAt(pos + 1) == 'b' || pattern.charAt(pos + 1) == 'B')) {
-      // Reject \b{g} (grapheme cluster boundary) — not supported.
+      // \b{g}: grapheme cluster boundary — accepted for JDK compatibility.
+      // Approximated as an empty match (matches at every position).
       if (pattern.charAt(pos + 1) == 'b'
           && pos + 4 < pattern.length()
           && pattern.charAt(pos + 2) == '{'
           && pattern.charAt(pos + 3) == 'g'
           && pattern.charAt(pos + 4) == '}') {
-        throw new PatternSyntaxException(
-            "\\b{g} (grapheme cluster boundary) is not supported", pattern, pos);
+        pos += 5; // '\\', 'b', '{', 'g', '}'
+        pushRegexp(Regexp.emptyMatch(flags));
+        return;
       }
       pushWordBoundary(pattern.charAt(pos + 1) == 'b');
       pos += 2; // '\\', 'b' or 'B'

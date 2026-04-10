@@ -775,7 +775,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/137")
     @DisplayName("\\\\b{g} grapheme cluster boundary")
     void graphemeClusterBoundary() {
       assertCompiles("\\b{g}");
