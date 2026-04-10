@@ -924,13 +924,16 @@ public final class Matcher implements MatchResult {
     // Skip the reverse DFA phase when the pattern is anchored at the start — the match start is
     // already known to be effectiveStart, so the reverse scan is unnecessary.
     //
-    // Skip entirely when the DFA's match start is unreliable (patterns with lazy quantifiers
-    // or anchors inside quantifiers). Lazy quantifiers can make a non-leftmost match end earlier,
-    // causing the DFA to find the wrong start. In those cases, fall through to the BitState/NFA
+    // Skip entirely when the DFA's match start is unreliable (patterns with lazy quantifiers,
+    // anchors inside quantifiers, or alternation). Lazy quantifiers can make a non-leftmost match
+    // end earlier, causing the DFA to find the wrong start. Alternation can have the same effect:
+    // when alternatives match at different start positions with different endpoints, the forward
+    // DFA's earliest-end result may come from a non-leftmost match, and the reverse DFA from that
+    // endpoint cannot find the leftmost start. In those cases, fall through to the BitState/NFA
     // fallback which correctly handles all semantics.
     //
-    // For patterns where the DFA start IS reliable but the end may be wrong (alternation, bounded
-    // repeats), the sandwich still narrows the range — capturesResolved is set to false so
+    // For patterns where the DFA start IS reliable but the end may be wrong (bounded repeats),
+    // the sandwich still narrows the range — capturesResolved is set to false so
     // resolveCaptures() corrects the end position using the submatch engine.
     // Skip when a region is active — deferred capture resolution runs on the full text but the
     // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
