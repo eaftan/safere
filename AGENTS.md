@@ -228,12 +228,16 @@ runs `mvn install` to build a shaded (fat) JAR, then runs it with
 self-contained classpath. Do NOT use `mvn exec:java`, which breaks fork
 mode because the forked child cannot find JMH classes.
 
+The script is the **single source of truth** for benchmark settings.
+Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
+— all statistical rigor settings are controlled by the script.
+
 ```bash
-# BENCHMARKS.md updates — NO JMH_OPTS, full JMH defaults
+# BENCHMARKS.md updates — publication-quality (default, no flags needed)
 ./run-java-benchmarks.sh RegexBenchmark
 
 # Quick development iteration ONLY — fast but NOT for BENCHMARKS.md
-JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
+./run-java-benchmarks.sh --quick RegexBenchmark
 ```
 
 **Run benchmarks in batches, not all at once.** Run 2–3 benchmark classes
@@ -255,17 +259,20 @@ per invocation and collect results incrementally:
 
 ### Key Rules
 
-- **NEVER set `JMH_OPTS` when generating data for BENCHMARKS.md.** Use full
-  JMH defaults (5 forks, 5 warmup × 10s, 5 measurement × 10s). `JMH_OPTS`
-  is ONLY for quick development iteration.
+- **The default run is always publication-quality.** Running the script
+  without `--quick` produces 5 forks, 5 warmup × 10s, 5 measurement × 10s.
+  No environment variables or extra flags needed.
+- **Use `--quick` for development iteration only.** Quick mode uses 1 fork,
+  3 warmup × 1s, 5 measurement × 1s. Never use `--quick` results in
+  BENCHMARKS.md.
+- **Pathological benchmarks always use `-f 0`.** The script handles this
+  automatically — PathologicalBenchmark and PathologicalComparisonBenchmark
+  run without forking because the JDK engine can hang on large inputs.
 - **NEVER run benchmarks in parallel.** All benchmark runs (Java, C++, Go)
   must run sequentially, one at a time. Parallel runs compete for CPU,
   cache, and memory bandwidth, producing inaccurate results.
 - **Do not commit optimizations that do not improve benchmark results.**
   Every optimization must be validated with before/after benchmarks.
-- **Use fork mode for publishable data.** Each fork starts a fresh JVM,
-  eliminating JIT profile pollution. Use `-f 0` only for quick spot-checks
-  during development.
 - **All harnesses share `benchmark-data.json`.** This ensures identical
   patterns, inputs, and parameters across Java, C++, and Go. Edit the
   JSON file to change workloads; never hardcode values in the harness.
