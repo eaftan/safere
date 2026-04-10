@@ -144,7 +144,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/138")
     @DisplayName("octal \\\\0mnn (three digits)")
     void octalThreeDigits() {
       assertMatchesSame("\\0101", "A");  // 0101 octal = 65 = 'A'
