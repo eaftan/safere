@@ -1032,20 +1032,18 @@ final class Parser {
         return code;
       }
       case '0' -> {
-        // Consume up to two more octal digits; already have one.
+        // JDK: \0nnn — up to three octal digits after \0 (max value 0377 = 255).
         int code = 0;
-        if (pos < pattern.length() && pattern.charAt(pos) >= '0'
-            && pattern.charAt(pos) <= '7') {
-          code = code * 8 + pattern.charAt(pos) - '0';
-          pos++;
-          if (pos < pattern.length() && pattern.charAt(pos) >= '0'
-              && pattern.charAt(pos) <= '7') {
-            code = code * 8 + pattern.charAt(pos) - '0';
-            pos++;
+        int digits = 0;
+        while (digits < 3 && pos < pattern.length()
+            && pattern.charAt(pos) >= '0' && pattern.charAt(pos) <= '7') {
+          int next = code * 8 + pattern.charAt(pos) - '0';
+          if (next > 0377) {
+            break;
           }
-        }
-        if (code > runeMax) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
+          code = next;
+          pos++;
+          digits++;
         }
         return code;
       }
