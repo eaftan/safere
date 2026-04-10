@@ -1084,6 +1084,26 @@ final class Parser {
         }
         return Utils.unhex(c2) * 16 + Utils.unhex(c3);
       }
+      // Unicode escape: \\uhhhh (exactly 4 hex digits).
+      // If the value is a high surrogate and the next escape is a low surrogate,
+      // they are combined into a single supplementary code point.
+      case 'u' -> {
+        int code = parseExactHex(4);
+        if (Character.isHighSurrogate((char) code)
+            && pos + 5 < pattern.length()
+            && pattern.charAt(pos) == '\\'
+            && pattern.charAt(pos + 1) == 'u') {
+          int savedPos = pos;
+          pos += 2; // skip \\u
+          int low = parseExactHex(4);
+          if (Character.isLowSurrogate((char) low)) {
+            code = Character.toCodePoint((char) code, (char) low);
+          } else {
+            pos = savedPos; // not a surrogate pair, backtrack
+          }
+        }
+        return code;
+      }
       // C escapes.
       case 'n' -> { return '\n'; }
       case 'r' -> { return '\r'; }
@@ -1112,6 +1132,26 @@ final class Parser {
         throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
       }
     }
+  }
+
+  /**
+   * Parses exactly {@code n} hex digits at the current position and returns their value.
+   * Advances {@code pos} past the digits.
+   */
+  private int parseExactHex(int n) {
+    if (pos + n > pattern.length()) {
+      throw new PatternSyntaxException("invalid unicode escape", pattern, pos - 2);
+    }
+    int code = 0;
+    for (int i = 0; i < n; i++) {
+      int hc = pattern.charAt(pos);
+      if (!Utils.isHexDigit(hc)) {
+        throw new PatternSyntaxException("invalid unicode escape", pattern, pos);
+      }
+      code = code * 16 + Utils.unhex(hc);
+      pos++;
+    }
+    return code;
   }
 
   // ---- Perl character class escapes (\d, \s, \w, \D, \S, \W) ----
