@@ -1304,13 +1304,13 @@ final class Parser {
   }
 
   private static int[][] lookupKeywordProperty(String key, String value) {
-    // Keywords are case-insensitive per JDK behavior.
+    // Keywords are case-insensitive per JDK behavior; remove underscores/hyphens/spaces.
     String normalizedKey =
-        key.toUpperCase(java.util.Locale.ROOT).replace('-', '_').replace(' ', '_');
+        key.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
     return switch (normalizedKey) {
       case "SCRIPT", "SC" -> UnicodeProperties.lookupScriptOrCategory(value);
       case "BLOCK", "BLK" -> UnicodeProperties.lookupBlock(value);
-      case "GENERAL_CATEGORY", "GC" -> UnicodeProperties.lookupScriptOrCategory(value);
+      case "GENERALCATEGORY", "GC" -> UnicodeProperties.lookupScriptOrCategory(value);
       default -> null;
     };
   }

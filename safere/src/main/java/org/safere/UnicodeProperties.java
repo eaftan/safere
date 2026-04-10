@@ -142,15 +142,38 @@ final class UnicodeProperties {
     }
   }
 
+  private static final class BinaryNormalizedHolder {
+    // Maps normalized key → original BINARY_PROPERTIES key.
+    static final Map<String, String> NORMALIZED_KEYS = buildNormalizedKeys();
+
+    private static Map<String, String> buildNormalizedKeys() {
+      Map<String, String> map = new HashMap<>();
+      for (String key : BinaryHolder.BINARY_PROPERTIES.keySet()) {
+        map.put(normalize(key), key);
+      }
+      return map;
+    }
+  }
+
   // ---- Public lookup methods ----
 
   /**
-   * Looks up a binary Unicode property by name (e.g., "Alphabetic", "Lowercase").
+   * Looks up a binary Unicode property by name (e.g., "Alphabetic", "Lowercase"). The lookup is
+   * loose per UTS#18: case, underscores, and hyphens are ignored.
    *
    * @return the range table, or {@code null} if not a recognized binary property
    */
   static int[][] lookupBinaryProperty(String name) {
-    return BinaryHolder.BINARY_PROPERTIES.get(name);
+    int[][] table = BinaryHolder.BINARY_PROPERTIES.get(name);
+    if (table != null) {
+      return table;
+    }
+    // Fall back to normalized (case/underscore/hyphen insensitive) lookup.
+    String canonicalKey = BinaryNormalizedHolder.NORMALIZED_KEYS.get(normalize(name));
+    if (canonicalKey != null) {
+      return BinaryHolder.BINARY_PROPERTIES.get(canonicalKey);
+    }
+    return null;
   }
 
   /**
@@ -190,11 +213,11 @@ final class UnicodeProperties {
   }
 
   /**
-   * Normalizes a property name for case-insensitive comparison: uppercases and replaces spaces and
-   * hyphens with underscores.
+   * Normalizes a property name for loose matching per UTS#18: uppercases and removes underscores,
+   * hyphens, and spaces.
    */
   private static String normalize(String name) {
-    return name.toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+    return name.toUpperCase(Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
   }
 
   /**
