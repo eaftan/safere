@@ -6,6 +6,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.regex.PatternSyntaxException;
@@ -196,7 +197,7 @@ class BoundaryMatcherTest {
   }
 
   // ---------------------------------------------------------------------------
-  // \b{g} — grapheme cluster boundary (not supported)
+  // \b{g} — grapheme cluster boundary (accepted for JDK compatibility)
   // ---------------------------------------------------------------------------
 
   @Nested
@@ -204,19 +205,15 @@ class BoundaryMatcherTest {
   class GraphemeClusterBoundary {
 
     @Test
-    @DisplayName("\\b{g} is rejected with a descriptive error")
-    void rejected() {
-      assertThatThrownBy(() -> Pattern.compile("\\b{g}"))
-          .isInstanceOf(PatternSyntaxException.class)
-          .hasMessageContaining("\\b{g}");
+    @DisplayName("\\b{g} compiles without error")
+    void compiles() {
+      assertThatNoException().isThrownBy(() -> Pattern.compile("\\b{g}"));
     }
 
     @Test
-    @DisplayName("\\b{g} in a larger pattern is rejected")
-    void rejectedInLargerPattern() {
-      assertThatThrownBy(() -> Pattern.compile("foo\\b{g}bar"))
-          .isInstanceOf(PatternSyntaxException.class)
-          .hasMessageContaining("\\b{g}");
+    @DisplayName("\\b{g} in a larger pattern compiles without error")
+    void compilesInLargerPattern() {
+      assertThatNoException().isThrownBy(() -> Pattern.compile("foo\\b{g}bar"));
     }
 
     @Test
