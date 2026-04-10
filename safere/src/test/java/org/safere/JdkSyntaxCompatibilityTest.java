@@ -174,28 +174,24 @@ class JdkSyntaxCompatibilityTest {
     // -- Unicode escape (backslash-u) --
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/133")
     @DisplayName("unicode escape \\\\uhhhh (BMP)")
     void unicodeEscapeBmp() {
       assertMatchesSame("\\u0041", "A");
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/133")
     @DisplayName("unicode escape \\\\uhhhh (Thai character)")
     void unicodeEscapeThai() {
       assertMatchesSame("\\u0E01", "\u0E01");
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/133")
     @DisplayName("unicode escape range in character class")
     void unicodeEscapeRange() {
       assertMatchesSame("[\\u0E00-\\u0E7F]", "\u0E01");
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/133")
     @DisplayName("unicode escape \\\\uhhhh (supplementary via surrogate pair)")
     void unicodeEscapeSurrogatePair() {
       // JDK treats surrogate pair escapes as U+1F600
@@ -1320,7 +1316,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @Disabled("https://github.com/eaftan/safere/issues/133")
     @DisplayName("Thai character range with \\\\u escapes")
     void thaiCharacterRange() {
       assertMatchesSame("([\\u0E00-\\u0E7F])([0-9a-zA-Z])", "\u0E01a");
