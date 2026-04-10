@@ -577,6 +577,18 @@ final class Parser {
       return 0;
     }
     if (re.subs != null) {
+      if (re.op == RegexpOp.ALTERNATE) {
+        // Only one branch is taken; use the worst (most expensive) branch.
+        int minLimit = limit;
+        for (Regexp sub : re.subs) {
+          int subLimit = countRepeat(sub, limit);
+          if (subLimit < minLimit) {
+            minLimit = subLimit;
+          }
+        }
+        return minLimit;
+      }
+      // For CONCAT and other ops, all children contribute.
       for (Regexp sub : re.subs) {
         int subLimit = countRepeat(sub, limit);
         if (subLimit < limit) {
