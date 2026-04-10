@@ -690,10 +690,10 @@ class ParserTest {
     }
 
     @Test
-    void namedCapture_unicodeName() {
-      Regexp re = parse("(?P<\u4e2d\u6587>a)");
-      assertThat(re.op).isEqualTo(RegexpOp.CAPTURE);
-      assertThat(re.name).isEqualTo("\u4e2d\u6587");
+    void namedCapture_unicodeName_rejected() {
+      // JDK only allows ASCII letters/digits in group names.
+      assertThatThrownBy(() -> parse("(?P<\u4e2d\u6587>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -1325,6 +1325,43 @@ class ParserTest {
     @Test
     void invalidNamedCapture_spaceInName_angle() {
       assertThatThrownBy(() -> parse("(?<x y>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    // Regression: (?<test_group>.*) rejected — underscore not allowed (issue #129)
+    void invalidNamedCapture_underscore() {
+      assertThatThrownBy(() -> parse("(?<test_group>.*)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void invalidNamedCapture_startsWithDigit() {
+      assertThatThrownBy(() -> parse("(?<1abc>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void invalidNamedCapture_startsWithDigit_P() {
+      assertThatThrownBy(() -> parse("(?P<1abc>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void invalidNamedCapture_unicodeLetter() {
+      assertThatThrownBy(() -> parse("(?<caf\u00e9>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void invalidNamedCapture_connectorPunctuation() {
+      assertThatThrownBy(() -> parse("(?<foo\u203fbar>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void invalidNamedCapture_allDigits() {
+      assertThatThrownBy(() -> parse("(?<123>a)"))
           .isInstanceOf(PatternSyntaxException.class);
     }
 
