@@ -12,7 +12,7 @@ workloads and pathological patterns that demonstrate backtracking blowup.
 - OS: Ubuntu 24.04.4 LTS on WSL2 (kernel 6.6.87.2-microsoft-standard-WSL2),
   Windows 11 host
 - JDK: OpenJDK 25.0.2+10-69 (targeting Java 21)
-- JMH: 1.37, fork mode (5 forks, full JMH defaults)
+- JMH: 1.37, fork mode (1 fork, 3 warmup × 1s, 5 measurement × 1s)
 - RE2-FFM: C++ RE2 (2024-07-02) accessed via Java FFM API (JEP 454)
 - C++ compiler: g++ 13.3.0, `-O3 -DNDEBUG` (CMake Release)
 - Go: 1.26.1 linux/amd64
@@ -58,15 +58,13 @@ All benchmarks use a warmup-then-measure approach, but the settings differ
 between Java and native harnesses to account for their different runtime
 characteristics.
 
-**Java (JMH):** All JMH defaults — 5 forks × (5 warmup × 10s + 5 measurement
-× 10s). Each fork starts a **fresh JVM process**, which is critical because
-the JIT compiler is non-deterministic — different runs may make different
-inlining and optimization decisions based on profiling data. Five forks sample
-this variance so results reflect typical JIT behavior rather than one lucky
-(or unlucky) compilation. The generous warmup (50s per fork) ensures the JIT
-completes tiered compilation (C1 → C2) and reaches steady state before
-measurement begins. Total: 25 samples from 5 independent JVMs, ~8 minutes per
-benchmark method.
+**Java (JMH):** 1 fork × (3 warmup × 1s + 5 measurement × 1s). These results
+were collected before [#152](https://github.com/eaftan/safere/issues/152)
+discovered that JMH annotation settings in the benchmark classes were
+overriding the intended publication-quality defaults. The actual settings used
+were less rigorous than intended. A full re-run with publication-quality
+settings (3 forks, 3 warmup × 5s, 5 measurement × 5s) is tracked in
+[#155](https://github.com/eaftan/safere/issues/155).
 
 **C++ and Go:** 2 warmup + 10 measurement iterations × 2s each, single process.
 Native code has no JIT, so the same binary always runs the same machine code —
@@ -535,12 +533,13 @@ substantially faster than all other RE2-family implementations except
 the C++ original.
 
 **Impact of fork mode:** These results were collected with JMH fork mode
-(5 forks per benchmark), which starts a fresh JVM for each fork to avoid
-JIT profile pollution between benchmarks. Prior results collected in no-fork
-mode (`-f 0`) showed distorted JDK numbers (artificially slow on some
-benchmarks due to JIT profile contamination from RE2/J and SafeRE code
-paths). Fork-mode results are more representative of real-world performance
-where JDK regex runs in its own application.
+(1 fork per benchmark), which starts a fresh JVM to avoid JIT profile
+pollution between benchmarks. Prior results collected in no-fork mode (`-f 0`)
+showed distorted JDK numbers (artificially slow on some benchmarks due to JIT
+profile contamination from RE2/J and SafeRE code paths). Fork-mode results
+are more representative of real-world performance where JDK regex runs in its
+own application. A re-run with 3 forks (to better sample JIT variance) is
+planned.
 
 ## Optimizations Applied
 
