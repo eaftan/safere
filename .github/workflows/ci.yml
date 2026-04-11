@@ -74,14 +74,10 @@ jobs:
           cache: maven
 
       - name: Smoke test Java benchmarks
-        run: ./run-java-benchmarks.sh RegexBenchmark
-        env:
-          JMH_OPTS: "-f 0 -wi 1 -i 1 -w 1 -r 1"
+        run: ./run-java-benchmarks.sh --smoke RegexBenchmark
 
       - name: Smoke test Java memory benchmarks (GC profiler)
-        run: ./run-java-memory-benchmarks.sh RegexBenchmark
-        env:
-          JMH_OPTS: "-f 0 -wi 1 -i 1 -w 1 -r 1"
+        run: ./run-java-memory-benchmarks.sh --smoke RegexBenchmark
 
       - name: Smoke test Java memory benchmarks (pattern sizes)
         run: |
