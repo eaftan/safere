@@ -5,14 +5,17 @@
 # Run SafeRE JMH benchmarks with GC profiling to measure allocation rates.
 #
 # Usage:
-#   ./run-java-memory-benchmarks.sh                    # run all benchmarks
-#   ./run-java-memory-benchmarks.sh RegexBenchmark     # run a specific benchmark class
-#   ./run-java-memory-benchmarks.sh Capture Regex      # run multiple benchmark classes
+#   ./run-java-memory-benchmarks.sh RegexBenchmark         # publication-quality (default)
+#   ./run-java-memory-benchmarks.sh --quick RegexBenchmark  # fast dev iteration
+#   ./run-java-memory-benchmarks.sh --smoke RegexBenchmark  # CI smoke test
+#   ./run-java-memory-benchmarks.sh                         # run all benchmarks
 #
 # This runs the same benchmarks as run-java-benchmarks.sh but adds JMH's
 # GC profiler (-prof gc), which reports gc.alloc.rate.norm (bytes allocated
 # per operation). This metric is deterministic — it counts bytes, not time —
 # and is not affected by other processes on the machine.
+#
+# See run-java-benchmarks.sh for details on modes and settings.
 
 set -euo pipefail
 
@@ -20,11 +23,31 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 
-# JMH options (can be overridden via JMH_OPTS env var)
-# Default: no flags, letting JMH use its built-in defaults
-# (5 forks, 5 warmup iters x 10s, 5 measurement iters x 10s).
-# The GC profiler is always added.
-JMH_OPTS="${JMH_OPTS:-}"
+# Publication-quality settings (JMH built-in defaults, made explicit).
+PUBLISH_OPTS="-f 5 -wi 5 -w 10 -i 5 -r 10"
+QUICK_OPTS="-f 1 -wi 3 -w 1 -i 5 -r 1"
+SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
+
+# Parse mode flag.
+MODE="publish"
+if [ "${1:-}" = "--quick" ]; then
+  MODE="quick"
+  shift
+elif [ "${1:-}" = "--smoke" ]; then
+  MODE="smoke"
+  shift
+fi
+
+if [ "$MODE" = "smoke" ]; then
+  JMH_OPTS="$SMOKE_OPTS"
+  echo "=== Smoke-test mode (CI only) ==="
+elif [ "$MODE" = "quick" ]; then
+  JMH_OPTS="$QUICK_OPTS"
+  echo "=== Quick mode (NOT for BENCHMARKS.md) ==="
+else
+  JMH_OPTS="$PUBLISH_OPTS"
+  echo "=== Publication mode (for BENCHMARKS.md) ==="
+fi
 
 # JVM args for FFM native access and native library path.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR"

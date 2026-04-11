@@ -7,6 +7,7 @@
 # Usage:
 #   ./run-java-benchmarks.sh RegexBenchmark         # publication-quality (default)
 #   ./run-java-benchmarks.sh --quick RegexBenchmark  # fast dev iteration
+#   ./run-java-benchmarks.sh --smoke RegexBenchmark  # CI smoke test (minimal)
 #   ./run-java-benchmarks.sh                         # run all benchmarks
 #
 # The script builds a shaded (fat) JAR containing all dependencies and runs
@@ -23,6 +24,9 @@
 #                        5 measurement × 10s. Use for BENCHMARKS.md.
 #   --quick:             Dev iteration — 1 fork, 3 warmup × 1s,
 #                        5 measurement × 1s. NOT for BENCHMARKS.md.
+#   --smoke:             CI smoke test — 0 forks, 1 warmup × 1s,
+#                        1 measurement × 1s. Just verifies benchmarks compile
+#                        and run without errors.
 #
 # Pathological benchmarks (PathologicalBenchmark, PathologicalComparisonBenchmark)
 # always run with -f 0 (no forking) because the JDK engine can hang on large
@@ -37,19 +41,28 @@ RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 # Publication-quality settings (JMH built-in defaults, made explicit).
 PUBLISH_OPTS="-f 5 -wi 5 -w 10 -i 5 -r 10"
 QUICK_OPTS="-f 1 -wi 3 -w 1 -i 5 -r 1"
+SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
 # Pathological benchmarks must run without forking (JDK can hang).
 PATHOLOGICAL_PUBLISH_OPTS="-f 0 -wi 5 -w 10 -i 5 -r 10"
 PATHOLOGICAL_QUICK_OPTS="-f 0 -wi 3 -w 1 -i 5 -r 1"
+PATHOLOGICAL_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
-# Parse --quick flag.
+# Parse mode flag.
 MODE="publish"
 if [ "${1:-}" = "--quick" ]; then
   MODE="quick"
   shift
+elif [ "${1:-}" = "--smoke" ]; then
+  MODE="smoke"
+  shift
 fi
 
-if [ "$MODE" = "quick" ]; then
+if [ "$MODE" = "smoke" ]; then
+  JMH_OPTS="$SMOKE_OPTS"
+  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_SMOKE_OPTS"
+  echo "=== Smoke-test mode (CI only) ==="
+elif [ "$MODE" = "quick" ]; then
   JMH_OPTS="$QUICK_OPTS"
   PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_QUICK_OPTS"
   echo "=== Quick mode (NOT for BENCHMARKS.md) ==="
