@@ -260,7 +260,7 @@ per invocation and collect results incrementally:
 ### Key Rules
 
 - **The default run is always publication-quality.** Running the script
-  without `--quick` produces 5 forks, 5 warmup × 10s, 5 measurement × 10s.
+  without `--quick` produces 3 forks, 3 warmup × 5s, 5 measurement × 5s.
   No environment variables or extra flags needed.
 - **Use `--quick` for development iteration only.** Quick mode uses 1 fork,
   3 warmup × 1s, 5 measurement × 1s. Never use `--quick` results in

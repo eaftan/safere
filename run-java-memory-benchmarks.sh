@@ -23,8 +23,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 
-# Publication-quality settings (JMH built-in defaults, made explicit).
-PUBLISH_OPTS="-f 5 -wi 5 -w 10 -i 5 -r 10"
+# Publication-quality settings: 3 forks × (3 warmup × 5s + 5 measurement × 5s).
+# 15 samples per method — sufficient for meaningful confidence intervals.
+PUBLISH_OPTS="-f 3 -wi 3 -w 5 -i 5 -r 5"
 QUICK_OPTS="-f 1 -wi 3 -w 1 -i 5 -r 1"
 SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 

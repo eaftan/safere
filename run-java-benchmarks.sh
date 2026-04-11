@@ -20,8 +20,8 @@
 # between annotation values and command-line overrides.
 #
 # Modes:
-#   Default (no flags):  Publication-quality — 5 forks, 5 warmup × 10s,
-#                        5 measurement × 10s. Use for BENCHMARKS.md.
+#   Default (no flags):  Publication-quality — 3 forks, 3 warmup × 5s,
+#                        5 measurement × 5s. Use for BENCHMARKS.md.
 #   --quick:             Dev iteration — 1 fork, 3 warmup × 1s,
 #                        5 measurement × 1s. NOT for BENCHMARKS.md.
 #   --smoke:             CI smoke test — 0 forks, 1 warmup × 1s,
@@ -38,13 +38,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 
-# Publication-quality settings (JMH built-in defaults, made explicit).
-PUBLISH_OPTS="-f 5 -wi 5 -w 10 -i 5 -r 10"
+# Publication-quality settings: 3 forks × (3 warmup × 5s + 5 measurement × 5s).
+# 15 samples per method — sufficient for meaningful confidence intervals.
+PUBLISH_OPTS="-f 3 -wi 3 -w 5 -i 5 -r 5"
 QUICK_OPTS="-f 1 -wi 3 -w 1 -i 5 -r 1"
 SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
 # Pathological benchmarks must run without forking (JDK can hang).
-PATHOLOGICAL_PUBLISH_OPTS="-f 0 -wi 5 -w 10 -i 5 -r 10"
+PATHOLOGICAL_PUBLISH_OPTS="-f 0 -wi 3 -w 5 -i 5 -r 5"
 PATHOLOGICAL_QUICK_OPTS="-f 0 -wi 3 -w 1 -i 5 -r 1"
 PATHOLOGICAL_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
