@@ -476,6 +476,52 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("numeric replacement references keep trailing digits literal when needed")
+    void numericReplacementReferencesUseLongestLegalGroup() {
+      Pattern p = Pattern.compile("(\\w+)");
+
+      assertThat(p.matcher("abc").replaceFirst("$11")).isEqualTo("abc1");
+      assertThat(p.matcher("abc").replaceFirst("$19")).isEqualTo("abc9");
+      assertThat(p.matcher("abc").replaceFirst("$10")).isEqualTo("abc0");
+      assertThat(p.matcher("ab cd").replaceAll("$11")).isEqualTo("ab1 cd1");
+    }
+
+    @Test
+    @DisplayName("numeric replacement references use multiple digits for existing groups")
+    void numericReplacementReferencesUseExistingMultiDigitGroup() {
+      Pattern p = Pattern.compile("(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)");
+
+      assertThat(p.matcher("abcdefghijkl").replaceFirst("$11")).isEqualTo("kl");
+      assertThat(p.matcher("abcdefghijkl").replaceFirst("$111")).isEqualTo("k1l");
+    }
+
+    @Test
+    @DisplayName("appendReplacement parses numeric references using longest legal group")
+    void appendReplacementNumericReferencesUseLongestLegalGroup() {
+      Pattern p = Pattern.compile("(\\w+)");
+      Matcher m = p.matcher("ab cd");
+      StringBuilder sb = new StringBuilder();
+
+      while (m.find()) {
+        m.appendReplacement(sb, "$11");
+      }
+      m.appendTail(sb);
+
+      assertThat(sb.toString()).isEqualTo("ab1 cd1");
+    }
+
+    @Test
+    @DisplayName("numeric replacement reference with invalid first digit still throws")
+    void numericReplacementReferenceInvalidFirstDigitThrows() {
+      Pattern p = Pattern.compile("(\\w+)");
+
+      assertThatThrownBy(() -> p.matcher("abc").replaceFirst("$99"))
+          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> p.matcher("abc").replaceAll("$99"))
+          .isInstanceOf(IndexOutOfBoundsException.class);
+    }
+
+    @Test
     @DisplayName("replaceAll() with named backreference")
     void replaceAllWithNamedBackref() {
       Pattern p = Pattern.compile("(?P<word>\\w+)");
