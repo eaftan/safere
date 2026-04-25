@@ -281,16 +281,19 @@ public final class Matcher implements MatchResult {
     record NamedGroupRef(String name) implements ReplacementSegment {}
   }
 
+  private record NumericGroupReference(int groupNum, int end) {}
+
   /**
    * Pre-parses a replacement string into a compiled template of segments. The template can be
    * applied repeatedly without re-scanning the replacement string.
    *
    * @param replacement the replacement string (may contain {@code $1}, {@code ${name}},
    *     {@code \\}, {@code \$})
+   * @param maxGroup the highest legal capturing-group number, excluding group 0
    * @return an array of segments representing the compiled template
    * @throws IllegalArgumentException if the replacement string is malformed
    */
-  private static ReplacementSegment[] compileReplacementTemplate(String replacement) {
+  private static ReplacementSegment[] compileReplacementTemplate(String replacement, int maxGroup) {
     // Fast path: no special characters → single literal segment.
     if (isSimpleReplacement(replacement)) {
       return new ReplacementSegment[]{new ReplacementSegment.Literal(replacement)};
@@ -334,12 +337,10 @@ public final class Matcher implements MatchResult {
           i++; // skip '}'
         } else if (Character.isDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
-          int groupNum = 0;
-          while (i < replacement.length() && Character.isDigit(replacement.charAt(i))) {
-            groupNum = groupNum * 10 + (replacement.charAt(i) - '0');
-            i++;
-          }
-          segments.add(new ReplacementSegment.GroupRef(groupNum));
+          NumericGroupReference groupRef =
+              parseNumericGroupReference(replacement, i, maxGroup);
+          segments.add(new ReplacementSegment.GroupRef(groupRef.groupNum()));
+          i = groupRef.end();
         } else {
           throw new IllegalArgumentException(
               "Invalid group reference in replacement string");
@@ -356,6 +357,21 @@ public final class Matcher implements MatchResult {
     return segments.toArray(new ReplacementSegment[0]);
   }
 
+  private static NumericGroupReference parseNumericGroupReference(
+      String replacement, int digitStart, int maxGroup) {
+    int groupNum = replacement.charAt(digitStart) - '0';
+    int i = digitStart + 1;
+    while (i < replacement.length() && Character.isDigit(replacement.charAt(i))) {
+      int nextGroupNum = groupNum * 10 + (replacement.charAt(i) - '0');
+      if (nextGroupNum > maxGroup) {
+        break;
+      }
+      groupNum = nextGroupNum;
+      i++;
+    }
+    return new NumericGroupReference(groupNum, i);
+  }
+
   /**
    * Applies a compiled replacement template to the current match, appending the result to
    * {@code sb}. Uses {@code sb.append(text, start, end)} for group values to avoid substring
@@ -368,6 +384,7 @@ public final class Matcher implements MatchResult {
       switch (seg) {
         case ReplacementSegment.Literal(var t) -> sb.append(t);
         case ReplacementSegment.GroupRef(var g) -> {
+          checkGroup(g);
           int start = groups[2 * g];
           int end = groups[2 * g + 1];
           if (start >= 0 && end >= 0) {
@@ -1366,7 +1383,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Pre-compile the replacement template once, avoiding per-match parseInt/substring overhead.
-    ReplacementSegment[] template = compileReplacementTemplate(replacement);
+    ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
 
     reset();
     Prog prog = parentPattern.prog();
@@ -1891,13 +1908,10 @@ public final class Matcher implements MatchResult {
           }
         } else if (Character.isDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
-          int digitStart = i;
-          while (i < replacement.length()
-              && Character.isDigit(replacement.charAt(i))) {
-            i++;
-          }
-          int groupIdx = Integer.parseInt(
-              replacement.substring(digitStart, i));
+          NumericGroupReference groupRef =
+              parseNumericGroupReference(replacement, i, groupCount());
+          int groupIdx = groupRef.groupNum();
+          i = groupRef.end();
           String g = group(groupIdx);
           if (g != null) {
             sb.append(g);
