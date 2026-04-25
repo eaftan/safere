@@ -68,8 +68,8 @@ Follow the [Google Java Style Guide](https://google.github.io/styleguide/javagui
 ## Project Structure
 
 ```
-safere/src/main/java/dev/eaftan/safere/   # Library source
-safere/src/test/java/dev/eaftan/safere/   # Tests
+safere/src/main/java/org/safere/          # Library source
+safere/src/test/java/org/safere/          # Tests
 safere-benchmarks/                         # JMH benchmark suite
 ```
 
