@@ -909,6 +909,12 @@ class JdkSyntaxCompatibilityTest {
     void simpleNestedRepetition() {
       assertMatchesSame("(ab{2,3}){2}", "abbbabb");
     }
+
+    @Test
+    @DisplayName("bounded repeat of concatenated bounded repeats")
+    void boundedRepeatOfConcatenatedBoundedRepeats() {
+      assertMatchesSame("(?:a{0,63}b{0,99}){0,5}", "aaabbbb");
+    }
   }
 
   // ===========================================================================
