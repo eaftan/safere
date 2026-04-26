@@ -30,6 +30,9 @@ final class BitState {
   /** Maximum bitmap size in bits. Limits the product of prog size × text length. */
   private static final int MAX_BITMAP_BITS = 256 * 1024;
 
+  /** Maximum BitState jobs to run per instruction/position slot before falling back to NFA. */
+  private static final int MAX_WORK_PER_SLOT = 8;
+
   /**
    * Returns the maximum text length (in chars) for which BitState can be used with the given
    * program, or -1 if the program is too large for BitState.
@@ -164,10 +167,16 @@ final class BitState {
    * @return submatch positions, or null if no match
    */
   int[] doSearch(int startPos, int searchLimit, boolean anchored) {
+    budgetExceeded = false;
+    stepCount = 0;
+    stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (endPos + 1));
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
         return bestMatch;
+      }
+      if (budgetExceeded) {
+        return null;
       }
       if (searchStart < textLen) {
         int cp = text.codePointAt(searchStart);
@@ -213,6 +222,11 @@ final class BitState {
   /** Best match found so far. */
   private int[] bestMatch;
 
+  /** Work-budget accounting for falling back when BitState backtracking is too expensive. */
+  private long stepBudget;
+  private long stepCount;
+  private boolean budgetExceeded;
+
   /** Explicit job stack for backtracking. */
   private int[] jobInstId;
   private int[] jobPos;
@@ -246,6 +260,9 @@ final class BitState {
     this.jobInstId = new int[maxJobs];
     this.jobPos = new int[maxJobs];
     this.jobCount = 0;
+    this.stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (textLen + 1));
+    this.stepCount = 0;
+    this.budgetExceeded = false;
   }
 
   /**
@@ -327,6 +344,10 @@ final class BitState {
     }
 
     while (jobCount > 0) {
+      if (++stepCount > stepBudget) {
+        budgetExceeded = true;
+        return false;
+      }
       jobCount--;
       int id = jobInstId[jobCount];
       int pos = jobPos[jobCount];
@@ -479,6 +500,11 @@ final class BitState {
     }
 
     return matched;
+  }
+
+  /** Returns whether the previous search stopped because BitState exceeded its work budget. */
+  boolean budgetExceeded() {
+    return budgetExceeded;
   }
 
   /**

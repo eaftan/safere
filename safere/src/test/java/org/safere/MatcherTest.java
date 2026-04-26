@@ -9,10 +9,9 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import java.time.Duration;
 import java.util.regex.MatchResult;
+import java.util.function.IntConsumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -135,20 +134,34 @@ class MatcherTest {
     @Test
     @DisplayName("matches() stays linear for repeated dot-star with bounded captures")
     void matchesWithRepeatedDotStarAndBoundedCaptures() {
-      String input = issue161SqlUnionInput(10);
       Pattern p =
           Pattern.compile(
               ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
               Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-      Matcher m = p.matcher(input);
 
-      assertTimeoutPreemptively(
-          Duration.ofSeconds(1),
-          () -> {
+      assertNoIssue166PerformanceCliff(
+          "matches()",
+          blocks -> {
+            String input = issue161SqlUnionInput(blocks);
+            Matcher m = p.matcher(input);
             assertThat(m.matches()).isTrue();
             assertThat(m.group()).isEqualTo(input);
             assertThat(m.start()).isEqualTo(0);
             assertThat(m.end()).isEqualTo(input.length());
+          });
+    }
+
+    @Test
+    @DisplayName("lookingAt() stays linear for repeated dot-star with bounded captures")
+    void lookingAtWithRepeatedDotStarAndBoundedCaptures() {
+      Pattern p = issue161SqlUnionPattern();
+
+      assertNoIssue166PerformanceCliff(
+          "lookingAt()",
+          blocks -> {
+            Matcher m = p.matcher(issue161SqlUnionInput(blocks));
+            assertThat(m.lookingAt()).isTrue();
+            assertThat(m.group(1)).contains("INFORMATION_SCHEMA");
           });
     }
 
@@ -157,6 +170,20 @@ class MatcherTest {
   @Nested
   @DisplayName("find()")
   class FindTests {
+
+    @Test
+    @DisplayName("group access after find() stays linear for repeated dot-star captures")
+    void findGroupWithRepeatedDotStarAndBoundedCaptures() {
+      Pattern p = issue161SqlUnionPattern();
+
+      assertNoIssue166PerformanceCliff(
+          "find()+group(1)",
+          blocks -> {
+            Matcher m = p.matcher(issue161SqlUnionInput(blocks));
+            assertThat(m.find()).isTrue();
+            assertThat(m.group(1)).contains("INFORMATION_SCHEMA");
+          });
+    }
 
     @Test
     @DisplayName("find() locates a single match in the input")
@@ -1206,6 +1233,22 @@ class MatcherTest {
   class RegionTests {
 
     @Test
+    @DisplayName("region find stays linear for repeated dot-star captures")
+    void regionFindWithRepeatedDotStarAndBoundedCaptures() {
+      Pattern p = issue161SqlUnionPattern();
+
+      assertNoIssue166PerformanceCliff(
+          "region().find()",
+          blocks -> {
+            String input = "prefix\n" + issue161SqlUnionInput(blocks) + "suffix\n";
+            Matcher m = p.matcher(input);
+            m.region("prefix\n".length(), input.length() - "suffix\n".length());
+            assertThat(m.find()).isTrue();
+            assertThat(m.group(1)).contains("INFORMATION_SCHEMA");
+          });
+    }
+
+    @Test
     @DisplayName("find() respects region boundaries")
     void findRespectsRegion() {
       Pattern p = Pattern.compile("\\d+");
@@ -1986,5 +2029,28 @@ class MatcherTest {
           .append("UNION ALL\n");
     }
     return input.toString();
+  }
+
+  private static Pattern issue161SqlUnionPattern() {
+    return Pattern.compile(
+        ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
+        Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+  }
+
+  private static void assertNoIssue166PerformanceCliff(String api, IntConsumer scenario) {
+    long largerPositiveNanos = runtimeNanos(() -> scenario.accept(16));
+    long nearMinimumNanos = runtimeNanos(() -> scenario.accept(5));
+
+    assertThat(nearMinimumNanos)
+        .as("%s near-minimum input should not be dramatically slower than a larger "
+            + "positive input; near=%d ns, larger=%d ns",
+            api, nearMinimumNanos, largerPositiveNanos)
+        .isLessThan(largerPositiveNanos * 50);
+  }
+
+  private static long runtimeNanos(Runnable task) {
+    long start = System.nanoTime();
+    task.run();
+    return System.nanoTime() - start;
   }
 }
