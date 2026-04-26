@@ -45,6 +45,16 @@ final class Parser {
     }
   }
 
+  private static final class RepeatCount {
+    final int cost;
+    final boolean hasRepeat;
+
+    RepeatCount(int cost, boolean hasRepeat) {
+      this.cost = cost;
+      this.hasRepeat = hasRepeat;
+    }
+  }
+
   // Parse state
   private int flags;
   private final String pattern;
@@ -565,40 +575,88 @@ final class Parser {
 
   // Walk the regexp tree to check that nested repetitions don't exceed limit.
   private static int countRepeat(Regexp re, int limit) {
-    if (re.op == RegexpOp.REPEAT) {
-      int m = re.max;
-      if (m < 0) {
-        m = re.min;
-      }
-      if (m <= 0) {
-        m = 1;
-      }
-      limit /= m;
-    }
-    if (limit == 0) {
+    RepeatCount count = repeatCount(re, limit);
+    if (count.cost > limit) {
       return 0;
     }
-    if (re.subs != null) {
-      if (re.op == RegexpOp.ALTERNATE) {
-        // Only one branch is taken; use the worst (most expensive) branch.
-        int minLimit = limit;
-        for (Regexp sub : re.subs) {
-          int subLimit = countRepeat(sub, limit);
-          if (subLimit < minLimit) {
-            minLimit = subLimit;
-          }
-        }
-        return minLimit;
+    return limit / count.cost;
+  }
+
+  private static RepeatCount repeatCount(Regexp re, int limit) {
+    int multiplier = 1;
+    if (re.op == RegexpOp.REPEAT) {
+      multiplier = re.max;
+      if (multiplier < 0) {
+        multiplier = re.min;
       }
-      // For CONCAT and other ops, all children contribute.
-      for (Regexp sub : re.subs) {
-        int subLimit = countRepeat(sub, limit);
-        if (subLimit < limit) {
-          limit = subLimit;
-        }
+      if (multiplier <= 0) {
+        multiplier = 1;
       }
     }
-    return limit;
+
+    RepeatCount subCount = switch (re.op) {
+      case ALTERNATE -> alternateRepeatCount(re, limit);
+      case CONCAT -> concatRepeatCount(re, limit);
+      default -> unaryRepeatCount(re, limit);
+    };
+
+    int cost = multiplySaturated(multiplier, subCount.cost, limit);
+    return new RepeatCount(cost, re.op == RegexpOp.REPEAT || subCount.hasRepeat);
+  }
+
+  private static RepeatCount unaryRepeatCount(Regexp re, int limit) {
+    if (re.subs == null || re.subs.isEmpty()) {
+      return new RepeatCount(1, false);
+    }
+    RepeatCount maxCount = new RepeatCount(1, false);
+    for (Regexp sub : re.subs) {
+      RepeatCount subCount = repeatCount(sub, limit);
+      if (subCount.cost > maxCount.cost) {
+        maxCount = subCount;
+      }
+    }
+    return maxCount;
+  }
+
+  private static RepeatCount alternateRepeatCount(Regexp re, int limit) {
+    int cost = 1;
+    boolean hasRepeat = false;
+    for (Regexp sub : re.subs) {
+      RepeatCount subCount = repeatCount(sub, limit);
+      cost = Math.max(cost, subCount.cost);
+      hasRepeat |= subCount.hasRepeat;
+    }
+    return new RepeatCount(cost, hasRepeat);
+  }
+
+  private static RepeatCount concatRepeatCount(Regexp re, int limit) {
+    int cost = 0;
+    boolean hasRepeat = false;
+    for (Regexp sub : re.subs) {
+      RepeatCount subCount = repeatCount(sub, limit);
+      if (subCount.hasRepeat) {
+        cost = addSaturated(cost, subCount.cost, limit);
+        hasRepeat = true;
+      }
+    }
+    if (!hasRepeat) {
+      return new RepeatCount(1, false);
+    }
+    return new RepeatCount(cost, true);
+  }
+
+  private static int multiplySaturated(int a, int b, int limit) {
+    if (a != 0 && b > limit / a) {
+      return limit + 1;
+    }
+    return a * b;
+  }
+
+  private static int addSaturated(int a, int b, int limit) {
+    if (b > limit - a) {
+      return limit + 1;
+    }
+    return a + b;
   }
 
   private void doLeftParen(String name) {

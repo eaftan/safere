@@ -622,6 +622,14 @@ class ParserTest {
     }
 
     @Test
+    void boundedRepeatOfConcatenatedBoundedRepeats() {
+      Regexp re = parse("(?:a{0,63}b{0,99}){0,5}");
+      assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
+      assertThat(re.min).isEqualTo(0);
+      assertThat(re.max).isEqualTo(5);
+    }
+
+    @Test
     void starAfterBrace() {
       // a*{ → concatenation of star(a) and literal({)
       Regexp re = parse("a*{");
