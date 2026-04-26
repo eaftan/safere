@@ -82,9 +82,17 @@ public final class Matcher implements MatchResult {
    */
   private boolean capturesResolved = true;
 
+  /**
+   * Whether {@code groups[0..1]} are authoritative while inner captures are deferred. Some DFA
+   * paths only narrow the candidate range, so group 0 must still be resolved by the submatch
+   * engine before it is exposed.
+   */
+  private boolean groupZeroResolved = true;
+
   /** Stashed match boundaries for deferred capture resolution. */
   private int deferredMatchStart;
   private int deferredMatchEnd;
+  private boolean deferredEndMatch;
 
   /**
    * Cached DFA references to avoid repeated ThreadLocal lookups in find-all loops. Populated on
@@ -447,6 +455,9 @@ public final class Matcher implements MatchResult {
 
   /** Core matches logic, operates on the (possibly substituted) {@code text} field. */
   private boolean matchesCore() {
+    capturesResolved = true;
+    groupZeroResolved = true;
+
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
     if (literal != null && parentPattern.numGroups() == 0) {
@@ -493,6 +504,11 @@ public final class Matcher implements MatchResult {
       if (dfaResult != null && dfaResult.pos() != text.length()) {
         hasMatch = false;
         return false;
+      }
+      if (dfaResult != null && prog.numLoopRegs() == 0) {
+        setDeferredGroups(0, text.length(), prog.numCaptures(), true, true);
+        hasMatch = true;
+        return true;
       }
     }
 
@@ -549,6 +565,9 @@ public final class Matcher implements MatchResult {
 
   /** Core lookingAt logic, operates on the (possibly substituted) {@code text} field. */
   private boolean lookingAtCore() {
+    capturesResolved = true;
+    groupZeroResolved = true;
+
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
     if (literal != null && parentPattern.numGroups() == 0) {
@@ -717,6 +736,7 @@ public final class Matcher implements MatchResult {
 
     // Reset deferred-capture state; DFA sandwich path may set it to false.
     capturesResolved = true;
+    groupZeroResolved = true;
 
     // Literal fast path: for fully literal patterns with no user capture groups,
     // use String.indexOf() directly.
@@ -900,14 +920,12 @@ public final class Matcher implements MatchResult {
           Dfa.SearchResult fwdAnchored = dfa().doSearch(text, matchStart, true, true);
           if (fwdAnchored != null && fwdAnchored.matched()) {
             int matchEnd = fwdAnchored.pos();
-            int nc = prog.numCaptures();
-            groups = new int[2 * nc];
-            Arrays.fill(groups, -1);
-            groups[0] = matchStart;
-            groups[1] = matchEnd;
-            deferredMatchStart = matchStart;
-            deferredMatchEnd = matchEnd;
-            capturesResolved = (nc <= 1) && parentPattern.dfaGroupZeroReliable();
+            setDeferredGroups(
+                matchStart,
+                matchEnd,
+                prog.numCaptures(),
+                parentPattern.dfaGroupZeroReliable(),
+                false);
             hasMatch = true;
             return true;
           }
@@ -966,14 +984,12 @@ public final class Matcher implements MatchResult {
         Dfa.SearchResult fwdLongest = dfa().doSearch(text, effectiveStart, true, true);
         if (fwdLongest != null && fwdLongest.matched()) {
           int matchEnd = fwdLongest.pos();
-          int nc = prog.numCaptures();
-          groups = new int[2 * nc];
-          Arrays.fill(groups, -1);
-          groups[0] = effectiveStart;
-          groups[1] = matchEnd;
-          deferredMatchStart = effectiveStart;
-          deferredMatchEnd = matchEnd;
-          capturesResolved = (nc <= 1) && parentPattern.dfaGroupZeroReliable();
+          setDeferredGroups(
+              effectiveStart,
+              matchEnd,
+              prog.numCaptures(),
+              parentPattern.dfaGroupZeroReliable(),
+              false);
           hasMatch = true;
           return true;
         }
@@ -1028,14 +1044,12 @@ public final class Matcher implements MatchResult {
             if (fwdLongest != null && fwdLongest.matched()) {
               int matchEnd = fwdLongest.pos();
               // Step 4: Store group(0) boundaries, defer inner captures until requested.
-              int nc = prog.numCaptures();
-              groups = new int[2 * nc];
-              Arrays.fill(groups, -1);
-              groups[0] = matchStart;
-              groups[1] = matchEnd;
-              deferredMatchStart = matchStart;
-              deferredMatchEnd = matchEnd;
-              capturesResolved = (nc <= 1) && parentPattern.dfaGroupZeroReliable();
+              setDeferredGroups(
+                  matchStart,
+                  matchEnd,
+                  prog.numCaptures(),
+                  parentPattern.dfaGroupZeroReliable(),
+                  false);
               hasMatch = true;
               return true;
             }
@@ -1236,7 +1250,9 @@ public final class Matcher implements MatchResult {
   public int start(int group) {
     checkMatch();
     checkGroup(group);
-    resolveCaptures();
+    if (group != 0 || !groupZeroResolved) {
+      resolveCaptures();
+    }
     return groups[2 * group];
   }
 
@@ -1266,7 +1282,9 @@ public final class Matcher implements MatchResult {
   public int end(int group) {
     checkMatch();
     checkGroup(group);
-    resolveCaptures();
+    if (group != 0 || !groupZeroResolved) {
+      resolveCaptures();
+    }
     return groups[2 * group + 1];
   }
 
@@ -1495,6 +1513,7 @@ public final class Matcher implements MatchResult {
       }
       groups = result;
       capturesResolved = true;
+      groupZeroResolved = true;
       hasMatch = true;
       sb.append(text, appPos, groups[0]);
       applyReplacementTemplate(sb, template);
@@ -1601,6 +1620,7 @@ public final class Matcher implements MatchResult {
     hasMatch = false;
     groups = null;
     capturesResolved = true;
+    groupZeroResolved = true;
     lastHitEnd = false;
     lastRequireEnd = false;
     return this;
@@ -1648,6 +1668,7 @@ public final class Matcher implements MatchResult {
     appendPos = start;
     groups = null;
     capturesResolved = true;
+    groupZeroResolved = true;
     lastHitEnd = false;
     return this;
   }
@@ -1748,6 +1769,7 @@ public final class Matcher implements MatchResult {
     hasMatch = false;
     groups = null;
     capturesResolved = true;
+    groupZeroResolved = true;
     return this;
   }
 
@@ -1820,9 +1842,10 @@ public final class Matcher implements MatchResult {
    * Resolves deferred capture groups. Called lazily when the user accesses any group
    * (e.g., {@code group(0)}, {@code start(1)}) or when a full snapshot is needed
    * ({@code toMatchResult()}). Runs the submatch engine (OnePass or BitState/NFA) anchored
-   * at the DFA-determined match start, bounded by the DFA's match end, but without forcing
-   * the match to extend to that end. This allows alternation priority to determine the actual
-   * match length (e.g., {@code (fo|foo)} matching "fo" rather than "foo").
+   * at the DFA-determined match start, bounded by the DFA's match end. For {@code find()}, it does
+   * not force the match to extend to that end; this allows alternation priority to determine the
+   * actual match length (e.g., {@code (fo|foo)} matching "fo" rather than "foo"). For
+   * {@code matches()}, the deferred search must still cover the whole input.
    */
   private void resolveCaptures() {
     if (capturesResolved) {
@@ -1845,12 +1868,27 @@ public final class Matcher implements MatchResult {
     } else {
       result = searchWithBitStateOrNfa(
           prog, text, deferredMatchStart, deferredMatchEnd, deferredMatchEnd,
-          true, false, false, prog.numCaptures());
+          true, false, deferredEndMatch, prog.numCaptures());
     }
     if (result != null) {
       groups = result;
     }
     capturesResolved = true;
+    groupZeroResolved = true;
+  }
+
+  /** Stores DFA-determined group 0 and defers inner capture extraction until requested. */
+  private void setDeferredGroups(
+      int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
+    groups = new int[2 * ncap];
+    Arrays.fill(groups, -1);
+    groups[0] = start;
+    groups[1] = end;
+    deferredMatchStart = start;
+    deferredMatchEnd = end;
+    deferredEndMatch = endMatch;
+    this.groupZeroResolved = groupZeroResolved;
+    capturesResolved = groupZeroResolved && ncap <= 1;
   }
 
   private void checkMatch() {
