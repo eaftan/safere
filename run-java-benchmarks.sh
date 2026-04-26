@@ -31,12 +31,16 @@
 # Pathological benchmarks (PathologicalBenchmark, PathologicalComparisonBenchmark)
 # always run with -f 0 (no forking) because the JDK engine can hang on large
 # inputs, making forked JVM processes unrecoverable.
+#
+# CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
+# explicitly when working on safere-crosscheck performance.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
+DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.CrosscheckOverheadBenchmark\\.).*$"
 
 # Publication-quality settings: 3 forks × (3 warmup × 5s + 5 measurement × 5s).
 # 15 samples per method — sufficient for meaningful confidence intervals.
@@ -98,8 +102,8 @@ run_benchmark() {
 }
 
 if [ $# -eq 0 ]; then
-  echo "=== Running all benchmarks ==="
-  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $JMH_OPTS
+  echo "=== Running standard benchmarks ($DEFAULT_BENCHMARK_REGEX) ==="
+  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $JMH_OPTS "$DEFAULT_BENCHMARK_REGEX"
 else
   for bench in "$@"; do
     run_benchmark "$bench"

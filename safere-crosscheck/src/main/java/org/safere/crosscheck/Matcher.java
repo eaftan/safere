@@ -187,56 +187,63 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Implements a non-terminal append-and-replace step, applying to both engines and comparing at
-   * {@link #appendTail}.
+   * Implements a non-terminal append-and-replace step, applying to both engines and comparing the
+   * appended fragment.
    *
-   * <p>Note: the caller's {@code StringBuilder} receives SafeRE's output. Use
-   * {@link #appendTail(StringBuilder)} to finalize and crosscheck.
+   * <p>Note: the caller's {@code StringBuilder} receives SafeRE's output.
    */
   public Matcher appendReplacement(StringBuilder sb, String replacement) {
-    String before = sb.toString();
-    safereMatcher.appendReplacement(sb, replacement);
-    StringBuilder jdkSb = new StringBuilder(before);
+    StringBuilder safeSb = new StringBuilder();
+    StringBuilder jdkSb = new StringBuilder();
+    safereMatcher.appendReplacement(safeSb, replacement);
     jdkMatcher.appendReplacement(jdkSb, replacement);
-    checkEqual("appendReplacement", quote(replacement), sb.toString(), jdkSb.toString());
+    String sr = safeSb.toString();
+    String jr = jdkSb.toString();
+    checkEqual("appendReplacement", quote(replacement), sr, jr);
+    sb.append(sr);
     return this;
   }
 
   /**
-   * Implements a terminal append step. Compares the full replacement result from both engines.
+   * Implements a terminal append step. Compares the tail fragment from both engines.
    *
-   * @throws CrosscheckException if the accumulated replacement results differ
+   * @throws CrosscheckException if the appended tail fragments differ
    */
   public StringBuilder appendTail(StringBuilder sb) {
-    String before = sb.toString();
-    safereMatcher.appendTail(sb);
-    StringBuilder jdkSb = new StringBuilder(before);
+    StringBuilder safeSb = new StringBuilder();
+    StringBuilder jdkSb = new StringBuilder();
+    safereMatcher.appendTail(safeSb);
     jdkMatcher.appendTail(jdkSb);
-    String sr = sb.toString();
+    String sr = safeSb.toString();
     String jr = jdkSb.toString();
     checkEqual("appendTail", "", sr, jr);
+    sb.append(sr);
     return sb;
   }
 
   /** Implements a non-terminal append-and-replace step using {@link StringBuffer}. */
   public Matcher appendReplacement(StringBuffer sb, String replacement) {
-    String before = sb.toString();
-    safereMatcher.appendReplacement(sb, replacement);
-    StringBuffer jdkSbuf = new StringBuffer(before);
+    StringBuffer safeSbuf = new StringBuffer();
+    StringBuffer jdkSbuf = new StringBuffer();
+    safereMatcher.appendReplacement(safeSbuf, replacement);
     jdkMatcher.appendReplacement(jdkSbuf, replacement);
-    checkEqual("appendReplacement", quote(replacement), sb.toString(), jdkSbuf.toString());
+    String sr = safeSbuf.toString();
+    String jr = jdkSbuf.toString();
+    checkEqual("appendReplacement", quote(replacement), sr, jr);
+    sb.append(sr);
     return this;
   }
 
   /** Implements a terminal append step using {@link StringBuffer}. */
   public StringBuffer appendTail(StringBuffer sb) {
-    String before = sb.toString();
-    safereMatcher.appendTail(sb);
-    StringBuffer jdkSbuf = new StringBuffer(before);
+    StringBuffer safeSbuf = new StringBuffer();
+    StringBuffer jdkSbuf = new StringBuffer();
+    safereMatcher.appendTail(safeSbuf);
     jdkMatcher.appendTail(jdkSbuf);
-    String sr = sb.toString();
+    String sr = safeSbuf.toString();
     String jr = jdkSbuf.toString();
     checkEqual("appendTail", "", sr, jr);
+    sb.append(sr);
     return sb;
   }
 
