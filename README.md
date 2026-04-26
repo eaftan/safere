@@ -361,7 +361,7 @@ development iteration or focused investigation; use
 
 ```bash
 # Java benchmarks (throughput)
-./run-java-benchmarks.sh                        # all benchmarks
+./run-java-benchmarks.sh                        # standard benchmarks
 ./run-java-benchmarks.sh RegexBenchmark         # specific class
 
 # Java memory profiling (allocation rates via JMH GC profiler)
@@ -370,6 +370,14 @@ development iteration or focused investigation; use
 
 # Fast development iteration only — NOT for BENCHMARKS.md
 ./run-java-benchmarks.sh --quick RegexBenchmark
+```
+
+`CrosscheckOverheadBenchmark` is excluded from the no-argument Java benchmark
+run. It measures overhead in the `safere-crosscheck` facade and should be run
+explicitly only when optimizing crosscheck:
+
+```bash
+./run-java-benchmarks.sh --quick CrosscheckOverheadBenchmark
 ```
 
 ### C++ RE2 and Go Benchmarks

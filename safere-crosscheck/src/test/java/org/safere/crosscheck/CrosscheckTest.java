@@ -220,28 +220,28 @@ class CrosscheckTest {
     @DisplayName("appendReplacement/appendTail with direct StringBuilder mutation")
     void appendReplacementTailWithDirectStringBuilderMutation() {
       Matcher m = Pattern.compile("\\{\\{(.+?)\\}\\}").matcher("{{one}};{{two}};tail");
-      StringBuilder sb = new StringBuilder();
+      StringBuilder sb = new StringBuilder("prefix:");
       while (m.find()) {
         String group = m.group(1);
         m.appendReplacement(sb, "");
         sb.append(group);
       }
       m.appendTail(sb);
-      assertThat(sb.toString()).isEqualTo("one;two;tail");
+      assertThat(sb.toString()).isEqualTo("prefix:one;two;tail");
     }
 
     @Test
     @DisplayName("appendReplacement/appendTail with direct StringBuffer mutation")
     void appendReplacementTailWithDirectStringBufferMutation() {
       Matcher m = Pattern.compile("\\{\\{(.+?)\\}\\}").matcher("{{one}};{{two}};tail");
-      StringBuffer sb = new StringBuffer();
+      StringBuffer sb = new StringBuffer("prefix:");
       while (m.find()) {
         String group = m.group(1);
         m.appendReplacement(sb, "");
         sb.append(group);
       }
       m.appendTail(sb);
-      assertThat(sb.toString()).isEqualTo("one;two;tail");
+      assertThat(sb.toString()).isEqualTo("prefix:one;two;tail");
     }
   }
 

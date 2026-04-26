@@ -33,6 +33,11 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>org.safere</groupId>
+      <artifactId>safere-crosscheck</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.re2j</groupId>
       <artifactId>re2j</artifactId>
       <version>1.8</version>

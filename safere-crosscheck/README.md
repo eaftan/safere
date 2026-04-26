@@ -137,3 +137,16 @@ The crosscheck facade covers:
 - **Unsupported features:** Patterns using backreferences, lookahead,
   lookbehind, or possessive quantifiers will throw
   `UnsupportedPatternException` at compile time.
+
+## Benchmarking
+
+Crosscheck overhead is measured by `CrosscheckOverheadBenchmark` in the
+`safere-benchmarks` module. It is excluded from the default no-argument Java
+benchmark run because it is a diagnostic benchmark for optimizing
+`safere-crosscheck`, not part of the normal SafeRE performance suite.
+
+Run it explicitly when working on crosscheck performance:
+
+```bash
+./run-java-benchmarks.sh --quick CrosscheckOverheadBenchmark
+```
