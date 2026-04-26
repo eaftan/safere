@@ -28,29 +28,8 @@ the same algorithmic ballpark as other RE2-family engines, not to declare a
 winner across language boundaries. Within the Java ecosystem, the SafeRE vs JDK
 vs RE2/J vs RE2-FFM comparison is apples-to-apples.
 
-**Running benchmarks:**
-
-```bash
-# Java benchmarks — always use the wrapper script (runs `mvn install` first)
-./run-java-benchmarks.sh                        # all benchmarks
-./run-java-benchmarks.sh CaptureScalingBenchmark  # specific class
-
-# Java memory profiling — allocation rates (bytes/op) via JMH GC profiler
-./run-java-memory-benchmarks.sh                        # all benchmarks with -prof gc
-./run-java-memory-benchmarks.sh RegexBenchmark         # specific class
-
-# Java compiled pattern sizes — standalone measurement
-java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
-  org.safere.benchmark.MemoryBenchmark
-
-# C++ RE2 benchmarks
-./run-cpp-benchmarks.sh                    # all C++ benchmarks
-./run-cpp-benchmarks.sh Regex Compile      # specific benchmark groups
-
-# Go regexp benchmarks
-./run-go-benchmarks.sh                     # all Go benchmarks
-./run-go-benchmarks.sh Regex Compile       # specific benchmark groups
-```
+For instructions on collecting publication-quality benchmark data, see
+[Benchmarks](README.md#benchmarks) in the README.
 
 ## Methodology
 

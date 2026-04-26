@@ -322,15 +322,11 @@ root:
 
 The script runs the Java, C++ RE2, and Go benchmark batches sequentially,
 captures raw output, extracts native JSON-lines results, and generates merged
-markdown tables. It does not run the test suite.
+markdown tables.
 
 By default, results are written to a timestamped directory under
 `benchmark-results/`, and `benchmark-results/latest` is updated to point to
-the newest run. To choose a specific output directory:
-
-```bash
-./collect-benchmark-results.sh --output-dir benchmark-results/my-run
-```
+the newest run. 
 
 When the run finishes, hand off the result directory to the agent that will
 update `BENCHMARKS.md`:
