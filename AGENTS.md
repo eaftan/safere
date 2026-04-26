@@ -124,6 +124,9 @@ Drop-in replacements for `java.util.regex`:
 - Use `@Test`, `@ParameterizedTest`, `@DisplayName` as appropriate
 - Aim for high coverage; JaCoCo is configured in the build
 - Port test cases from RE2's C++ test suite where applicable
+- For performance regressions, do not hardcode specific elapsed durations in
+  tests. Test the performance behavior directly in a way that is stable across
+  machines, such as relative ratios between related inputs or scaling behavior.
 - **Do not include test counts in documentation** (DESIGN.md, TESTING.md,
   etc.) — counts change frequently as tests are added and will go stale.
 

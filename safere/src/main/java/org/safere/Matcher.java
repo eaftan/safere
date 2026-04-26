@@ -1121,7 +1121,9 @@ public final class Matcher implements MatchResult {
   private int[] searchWithBitStateOrNfa(Prog prog, String text, int startPos,
       int searchLimit, int endPos, boolean anchored, boolean longest, boolean endMatch,
       int nsubmatch) {
-    // Try BitState if the full text is small enough for the visited bitmap.
+    // Try BitState if the full text is small enough for the visited bitmap. BitState is an
+    // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
+    // Pike NFA below.
     int maxBitStateLen = BitState.maxTextSize(prog);
     if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
@@ -1139,8 +1141,10 @@ public final class Matcher implements MatchResult {
       cachedBitState = bs;
       // Return to Pattern's cache for reuse by future Matchers.
       parentPattern.returnBitState(bs);
-      // BitState is a complete engine — if it searched and found no match, NFA won't either.
-      return result;
+      if (!bs.budgetExceeded()) {
+        // BitState is a complete engine — if it searched and found no match, NFA won't either.
+        return result;
+      }
     }
 
     // Fall back to general NFA (only for texts too large for BitState).
