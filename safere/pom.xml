@@ -115,6 +115,7 @@
               junit.jupiter.execution.parallel.mode.classes.default = concurrent
               junit.jupiter.execution.parallel.config.strategy = fixed
               junit.jupiter.execution.parallel.config.fixed.parallelism = ${test.parallelism}
+              junit.jupiter.execution.timeout.testable.method.default = 10 m
             </configurationParameters>
           </properties>
         </configuration>

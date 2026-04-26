@@ -136,12 +136,9 @@ class MatcherTest {
     @Test
     @DisplayName("matches() stays linear for repeated dot-star with bounded captures")
     void matchesWithRepeatedDotStarAndBoundedCaptures() {
-      Pattern p =
-          Pattern.compile(
-              ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
-              Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+      Pattern p = issue161SqlUnionPattern();
 
-      assertNoIssue166PerformanceCliff(
+      assertNoPerformanceCliff(
           "matches()",
           blocks -> {
             String input = issue161SqlUnionInput(blocks);
@@ -158,7 +155,7 @@ class MatcherTest {
     void lookingAtWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = issue161SqlUnionPattern();
 
-      assertNoIssue166PerformanceCliff(
+      assertNoPerformanceCliff(
           "lookingAt()",
           blocks -> {
             Matcher m = p.matcher(issue161SqlUnionInput(blocks));
@@ -210,7 +207,7 @@ class MatcherTest {
     void findGroupWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = issue161SqlUnionPattern();
 
-      assertNoIssue166PerformanceCliff(
+      assertNoPerformanceCliff(
           "find()+group(1)",
           blocks -> {
             Matcher m = p.matcher(issue161SqlUnionInput(blocks));
@@ -1271,7 +1268,7 @@ class MatcherTest {
     void regionFindWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = issue161SqlUnionPattern();
 
-      assertNoIssue166PerformanceCliff(
+      assertNoPerformanceCliff(
           "region().find()",
           blocks -> {
             String input = "prefix\n" + issue161SqlUnionInput(blocks) + "suffix\n";
@@ -2071,7 +2068,7 @@ class MatcherTest {
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
   }
 
-  private static void assertNoIssue166PerformanceCliff(String api, IntConsumer scenario) {
+  private static void assertNoPerformanceCliff(String api, IntConsumer scenario) {
     long largerPositiveNanos = runtimeNanos(() -> scenario.accept(16));
     long nearMinimumNanos = runtimeNanos(() -> scenario.accept(5));
 
