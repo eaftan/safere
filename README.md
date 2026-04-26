@@ -310,10 +310,52 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 [RE2/J](https://github.com/google/re2j), RE2-FFM (C++ RE2 via Java
 [FFM API](https://openjdk.org/jeps/454)), C++ RE2, and Go `regexp`.
 
-### Running Benchmarks
+### Publication-Quality Benchmark Collection
+
+To collect a full set of benchmark data for updating
+[BENCHMARKS.md](BENCHMARKS.md), run the collection script from the repository
+root:
+
+```bash
+./collect-benchmark-results.sh
+```
+
+The script runs the Java, C++ RE2, and Go benchmark batches sequentially,
+captures raw output, extracts native JSON-lines results, and generates merged
+markdown tables. It does not run the test suite.
+
+By default, results are written to a timestamped directory under
+`benchmark-results/`, and `benchmark-results/latest` is updated to point to
+the newest run. To choose a specific output directory:
+
+```bash
+./collect-benchmark-results.sh --output-dir benchmark-results/my-run
+```
+
+When the run finishes, hand off the result directory to the agent that will
+update `BENCHMARKS.md`:
+
+```text
+benchmark-results/latest
+```
+
+The important files in that directory are:
+
+```text
+jmh-output.txt
+cpp-results.jsonl
+go-results.jsonl
+merged-tables.md
+java-memory.txt
+java-pattern-memory.txt
+```
+
+### Targeted Benchmark Runs
 
 Always use the wrapper scripts — they run `mvn install` first to ensure
-the benchmark module picks up the latest SafeRE code:
+the benchmark module picks up the latest SafeRE code. These are useful for
+development iteration or focused investigation; use
+`./collect-benchmark-results.sh` for full publication-quality collection.
 
 ```bash
 # Java benchmarks (throughput)
@@ -324,8 +366,8 @@ the benchmark module picks up the latest SafeRE code:
 ./run-java-memory-benchmarks.sh                 # all benchmarks
 ./run-java-memory-benchmarks.sh RegexBenchmark  # specific class
 
-# Override JMH options (development only — NOT for BENCHMARKS.md)
-JMH_OPTS="-f 0 -wi 1 -i 3 -w 1 -r 1" ./run-java-benchmarks.sh RegexBenchmark
+# Fast development iteration only — NOT for BENCHMARKS.md
+./run-java-benchmarks.sh --quick RegexBenchmark
 ```
 
 ### C++ RE2 and Go Benchmarks
@@ -344,7 +386,7 @@ cross-language comparison. Prerequisites: CMake ≥ 3.14 + C++17 compiler
 ./run-go-benchmarks.sh Regex Compile       # specific benchmark groups
 ```
 
-### Comparing Results
+### Comparing Results Manually
 
 A comparison script merges JMH, C++, and Go results into side-by-side markdown:
 

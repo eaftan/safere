@@ -35,3 +35,6 @@ dependency-reduced-pom.xml
 safere-ffm-re2/build/
 org.safere.benchmark.*
 .flattened-pom.xml
+
+# Local benchmark result captures
+benchmark-results/
