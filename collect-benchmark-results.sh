@@ -6,6 +6,7 @@
 #
 # Usage:
 #   ./collect-benchmark-results.sh
+#   ./collect-benchmark-results.sh --smoke
 #   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 #
 # The script intentionally does not run the test suite. It runs benchmark
@@ -17,19 +18,28 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEFAULT_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 OUTPUT_DIR="$SCRIPT_DIR/benchmark-results/$DEFAULT_RUN_ID"
+MODE="publish"
 
 usage() {
   cat <<EOF
 Usage:
   ./collect-benchmark-results.sh
+  ./collect-benchmark-results.sh --smoke
   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 
 Collects publication-quality benchmark outputs for updating BENCHMARKS.md.
+
+Options:
+  --smoke       Run one small benchmark through the collection pipeline.
 EOF
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --smoke)
+      MODE="smoke"
+      shift
+      ;;
     --output-dir)
       if [ $# -lt 2 ]; then
         echo "ERROR: --output-dir requires a path" >&2
@@ -49,6 +59,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ "$MODE" = "smoke" ] && [ "$OUTPUT_DIR" = "$SCRIPT_DIR/benchmark-results/$DEFAULT_RUN_ID" ]; then
+  OUTPUT_DIR="$SCRIPT_DIR/benchmark-results/smoke-$DEFAULT_RUN_ID"
+fi
+
 if [[ "$OUTPUT_DIR" != /* ]]; then
   OUTPUT_DIR="$SCRIPT_DIR/$OUTPUT_DIR"
 fi
@@ -66,6 +80,11 @@ run_and_capture() {
   "$@" 2>&1 | tee "$output_file"
 }
 
+clean_benchmark_module() {
+  log "Cleaning benchmark module before rebuild"
+  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
+}
+
 extract_jsonl() {
   local input_file="$1"
   local output_file="$2"
@@ -75,46 +94,70 @@ extract_jsonl() {
 cd "$SCRIPT_DIR"
 
 log "Writing benchmark outputs to $OUTPUT_DIR"
+log "Mode: $MODE"
 
-run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-  ./run-java-benchmarks.sh RegexBenchmark CompileBenchmark
+if [ "$MODE" = "smoke" ]; then
+  run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
+    ./run-java-benchmarks.sh --smoke RegexBenchmark.literalMatch
 
-run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
-  ./run-java-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
+  log "Combining Java JMH output"
+  cp "$OUTPUT_DIR/java-01-core.txt" "$OUTPUT_DIR/jmh-output.txt"
 
-run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
-  ./run-java-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
+  clean_benchmark_module
+  run_and_capture "$OUTPUT_DIR/java-memory.txt" \
+    ./run-java-memory-benchmarks.sh --smoke RegexBenchmark.literalMatch
+else
+  run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
+    ./run-java-benchmarks.sh RegexBenchmark CompileBenchmark
 
-run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
-  ./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
+  run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
+    ./run-java-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
 
-run_and_capture "$OUTPUT_DIR/java-05-patternset.txt" \
-  ./run-java-benchmarks.sh PatternSetBenchmark
+  run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
+    ./run-java-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
 
-log "Combining Java JMH output"
-cat \
-  "$OUTPUT_DIR/java-01-core.txt" \
-  "$OUTPUT_DIR/java-02-scaling.txt" \
-  "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
-  "$OUTPUT_DIR/java-04-pathological.txt" \
-  "$OUTPUT_DIR/java-05-patternset.txt" \
-  > "$OUTPUT_DIR/jmh-output.txt"
+  run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
+    ./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
 
-run_and_capture "$OUTPUT_DIR/java-memory.txt" \
-  ./run-java-memory-benchmarks.sh RegexBenchmark SearchScalingBenchmark MemoryScalingBenchmark
+  run_and_capture "$OUTPUT_DIR/java-05-patternset.txt" \
+    ./run-java-benchmarks.sh PatternSetBenchmark
+
+  log "Combining Java JMH output"
+  cat \
+    "$OUTPUT_DIR/java-01-core.txt" \
+    "$OUTPUT_DIR/java-02-scaling.txt" \
+    "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
+    "$OUTPUT_DIR/java-04-pathological.txt" \
+    "$OUTPUT_DIR/java-05-patternset.txt" \
+    > "$OUTPUT_DIR/jmh-output.txt"
+
+  clean_benchmark_module
+  run_and_capture "$OUTPUT_DIR/java-memory.txt" \
+    ./run-java-memory-benchmarks.sh RegexBenchmark SearchScalingBenchmark MemoryScalingBenchmark
+fi
 
 run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" \
   java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
     org.safere.benchmark.MemoryBenchmark
 
-run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-  ./run-cpp-benchmarks.sh Regex Compile SearchScaling CaptureScaling Http Replace Fanout Pathological
+if [ "$MODE" = "smoke" ]; then
+  run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
+    ./run-cpp-benchmarks.sh RegexBenchmark.literalMatch
+else
+  run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
+    ./run-cpp-benchmarks.sh Regex Compile SearchScaling CaptureScaling Http Replace Fanout Pathological
+fi
 
 log "Extracting C++ JSONL"
 extract_jsonl "$OUTPUT_DIR/cpp-raw.txt" "$OUTPUT_DIR/cpp-results.jsonl"
 
-run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-  ./run-go-benchmarks.sh Regex Compile SearchScaling CaptureScaling Http Replace Fanout Pathological
+if [ "$MODE" = "smoke" ]; then
+  run_and_capture "$OUTPUT_DIR/go-raw.txt" \
+    ./run-go-benchmarks.sh RegexBenchmark.literalMatch
+else
+  run_and_capture "$OUTPUT_DIR/go-raw.txt" \
+    ./run-go-benchmarks.sh Regex Compile SearchScaling CaptureScaling Http Replace Fanout Pathological
+fi
 
 log "Extracting Go JSONL"
 extract_jsonl "$OUTPUT_DIR/go-raw.txt" "$OUTPUT_DIR/go-results.jsonl"
@@ -126,7 +169,17 @@ python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --engines safere,jdk,re2j,re2_ffm,re2_cpp,go \
   > "$OUTPUT_DIR/merged-tables.md"
 
+if [ "$MODE" = "smoke" ]; then
+  log "Verifying smoke output"
+  missing_cell="$(printf '\342\200\224')"
+  if grep -q "$missing_cell" "$OUTPUT_DIR/merged-tables.md"; then
+    echo "ERROR: smoke merged table contains missing result cells" >&2
+    exit 1
+  fi
+fi
+
 log "Updating latest symlink"
+mkdir -p "$SCRIPT_DIR/benchmark-results"
 ln -sfn "$OUTPUT_DIR" "$SCRIPT_DIR/benchmark-results/latest"
 
 log "Done"

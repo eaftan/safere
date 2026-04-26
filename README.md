@@ -320,6 +320,12 @@ root:
 ./collect-benchmark-results.sh
 ```
 
+To verify the collection pipeline without doing a full run:
+
+```bash
+./collect-benchmark-results.sh --smoke
+```
+
 The script runs the Java, C++ RE2, and Go benchmark batches sequentially,
 captures raw output, extracts native JSON-lines results, and generates merged
 markdown tables.
