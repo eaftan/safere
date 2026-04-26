@@ -118,6 +118,62 @@
     }
   },
 
+  "application": {
+    "uuidValidation": {
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+      "texts": [
+        "550e8400-e29b-41d4-a716-446655440000",
+        "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+        "not-a-uuid",
+        "550e8400e29b41d4a716446655440000",
+        "ffffffff-ffff-5fff-bfff-ffffffffffff",
+        "12345678-1234-7234-9234-123456789abc"
+      ]
+    },
+    "logLineParse": {
+      "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)\\s+(INFO|WARN|ERROR)\\s+([A-Za-z0-9_.-]+)\\s+-\\s+(.+)$",
+      "texts": [
+        "2026-03-31T14:22:08Z INFO api.gateway - request completed status=200 latency=38ms",
+        "2026-03-31T14:22:09Z WARN db.pool - connection wait exceeded threshold=100ms",
+        "2026-03-31T14:22:10Z ERROR worker-7 - job failed id=abc123 retry=2",
+        "debug line without structured prefix",
+        "2026-03-31 14:22:11 INFO api.gateway - malformed timestamp"
+      ]
+    },
+    "apiRouteMatch": {
+      "pattern": "^/api/v[0-9]+/(users|orders|inventory)/([A-Za-z0-9_-]+)(?:\\?.*)?$",
+      "texts": [
+        "/api/v1/users/12345",
+        "/api/v2/orders/ord_9f3a?include=items",
+        "/api/v3/inventory/sku-7788",
+        "/assets/app.js",
+        "/api/v1/users/",
+        "/api/latest/users/12345"
+      ]
+    },
+    "stackTraceExtract": {
+      "pattern": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+      "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)"
+    },
+    "caseInsensitiveKeywords": {
+      "pattern": "(?i)\\b(error|warning|timeout|failed)\\b",
+      "text": "INFO startup complete\nWarning cache miss ratio high\nrequest failed after TIMEOUT waiting for backend\nERROR circuit breaker opened\nhealth check passed"
+    },
+    "urlExtraction": {
+      "pattern": "(https?://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9._~:/?#\\[\\]@!$&'()*+,;=%-]*)?)",
+      "text": "Docs: https://example.com/docs/v1/index.html?lang=en and callback http://localhost:8080/api/callback?id=42; mirror at https://cdn.example.org/assets/app.js"
+    },
+    "csvFieldScan": {
+      "pattern": "(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\\r\\n]+))",
+      "text": "id,name,email,status,created_at\n42,\"Ada Lovelace\",ada@example.com,active,2026-03-31T14:22:08Z\n43,\"Grace Hopper\",grace@example.com,pending,2026-04-01T09:15:00Z"
+    },
+    "secretRedaction": {
+      "pattern": "(?i)\\b(password|token|secret)=([^\\s&]+)",
+      "text": "user=service password=hunter2 token=abc123XYZ path=/api secret=prod-key-9 debug=true",
+      "replacement": "$1=REDACTED"
+    }
+  },
+
   "pathological": {
     "nValues": [10, 15, 20, 25, 30, 50, 100],
     "nValuesComparison": [10, 15, 20],

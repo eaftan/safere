@@ -309,6 +309,8 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 `safere-benchmarks` module, comparing SafeRE against `java.util.regex` (JDK),
 [RE2/J](https://github.com/google/re2j), RE2-FFM (C++ RE2 via Java
 [FFM API](https://openjdk.org/jeps/454)), C++ RE2, and Go `regexp`.
+The suite includes focused microbenchmarks, corpus-style application workloads,
+scaling/pathological cases, replacement, memory, and `PatternSet` benchmarks.
 
 ### Publication-Quality Benchmark Collection
 
@@ -363,6 +365,7 @@ development iteration or focused investigation; use
 # Java benchmarks (throughput)
 ./run-java-benchmarks.sh                        # all benchmarks
 ./run-java-benchmarks.sh RegexBenchmark         # specific class
+./run-java-benchmarks.sh ApplicationBenchmark   # application workloads
 
 # Java memory profiling (allocation rates via JMH GC profiler)
 ./run-java-memory-benchmarks.sh                 # all benchmarks
@@ -381,11 +384,11 @@ cross-language comparison. Prerequisites: CMake ≥ 3.14 + C++17 compiler
 ```bash
 # C++ RE2 benchmarks
 ./run-cpp-benchmarks.sh                    # all C++ benchmarks
-./run-cpp-benchmarks.sh Regex Compile      # specific benchmark groups
+./run-cpp-benchmarks.sh Regex Application  # specific benchmark groups
 
 # Go regexp benchmarks
 ./run-go-benchmarks.sh                     # all Go benchmarks
-./run-go-benchmarks.sh Regex Compile       # specific benchmark groups
+./run-go-benchmarks.sh Regex Application   # specific benchmark groups
 ```
 
 ### Comparing Results Manually
