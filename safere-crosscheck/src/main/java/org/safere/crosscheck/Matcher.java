@@ -194,11 +194,11 @@ public final class Matcher implements MatchResult {
    * {@link #appendTail(StringBuilder)} to finalize and crosscheck.
    */
   public Matcher appendReplacement(StringBuilder sb, String replacement) {
+    String before = sb.toString();
     safereMatcher.appendReplacement(sb, replacement);
-    // JDK side uses its own buffer — compared at appendTail.
-    jdkSb().append(""); // ensure initialized
-    jdkMatcher.appendReplacement(jdkSb(), replacement);
-    trace.recordMatch("appendReplacement", quote(replacement), "(appended)");
+    StringBuilder jdkSb = new StringBuilder(before);
+    jdkMatcher.appendReplacement(jdkSb, replacement);
+    checkEqual("appendReplacement", quote(replacement), sb.toString(), jdkSb.toString());
     return this;
   }
 
@@ -208,29 +208,34 @@ public final class Matcher implements MatchResult {
    * @throws CrosscheckException if the accumulated replacement results differ
    */
   public StringBuilder appendTail(StringBuilder sb) {
+    String before = sb.toString();
     safereMatcher.appendTail(sb);
-    jdkMatcher.appendTail(jdkSb());
+    StringBuilder jdkSb = new StringBuilder(before);
+    jdkMatcher.appendTail(jdkSb);
     String sr = sb.toString();
-    String jr = jdkSb().toString();
+    String jr = jdkSb.toString();
     checkEqual("appendTail", "", sr, jr);
     return sb;
   }
 
   /** Implements a non-terminal append-and-replace step using {@link StringBuffer}. */
   public Matcher appendReplacement(StringBuffer sb, String replacement) {
+    String before = sb.toString();
     safereMatcher.appendReplacement(sb, replacement);
-    jdkSbuf().append(""); // ensure initialized
-    jdkMatcher.appendReplacement(jdkSbuf(), replacement);
-    trace.recordMatch("appendReplacement", quote(replacement), "(appended)");
+    StringBuffer jdkSbuf = new StringBuffer(before);
+    jdkMatcher.appendReplacement(jdkSbuf, replacement);
+    checkEqual("appendReplacement", quote(replacement), sb.toString(), jdkSbuf.toString());
     return this;
   }
 
   /** Implements a terminal append step using {@link StringBuffer}. */
   public StringBuffer appendTail(StringBuffer sb) {
+    String before = sb.toString();
     safereMatcher.appendTail(sb);
-    jdkMatcher.appendTail(jdkSbuf());
+    StringBuffer jdkSbuf = new StringBuffer(before);
+    jdkMatcher.appendTail(jdkSbuf);
     String sr = sb.toString();
-    String jr = jdkSbuf().toString();
+    String jr = jdkSbuf.toString();
     checkEqual("appendTail", "", sr, jr);
     return sb;
   }
@@ -248,8 +253,6 @@ public final class Matcher implements MatchResult {
   public Matcher reset() {
     safereMatcher.reset();
     jdkMatcher.reset();
-    jdkStringBuilder = null;
-    jdkStringBuffer = null;
     trace.recordMatch("reset", "", "void");
     return this;
   }
@@ -258,8 +261,6 @@ public final class Matcher implements MatchResult {
   public Matcher reset(CharSequence input) {
     safereMatcher.reset(input);
     jdkMatcher.reset(input);
-    jdkStringBuilder = null;
-    jdkStringBuffer = null;
     trace.recordMatch("reset", quote(input), "void");
     return this;
   }
@@ -364,23 +365,6 @@ public final class Matcher implements MatchResult {
   // ---------------------------------------------------------------------------
   // Internal helpers
   // ---------------------------------------------------------------------------
-
-  private StringBuilder jdkStringBuilder;
-  private StringBuffer jdkStringBuffer;
-
-  private StringBuilder jdkSb() {
-    if (jdkStringBuilder == null) {
-      jdkStringBuilder = new StringBuilder();
-    }
-    return jdkStringBuilder;
-  }
-
-  private StringBuffer jdkSbuf() {
-    if (jdkStringBuffer == null) {
-      jdkStringBuffer = new StringBuffer();
-    }
-    return jdkStringBuffer;
-  }
 
   /**
    * After a successful find/matches/lookingAt on both engines, verify that the match positions

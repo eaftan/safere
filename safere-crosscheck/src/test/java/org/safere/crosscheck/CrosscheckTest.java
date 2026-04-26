@@ -215,6 +215,34 @@ class CrosscheckTest {
       m.appendTail(sb);
       assertThat(sb.toString()).isEqualTo("aXbXcX");
     }
+
+    @Test
+    @DisplayName("appendReplacement/appendTail with direct StringBuilder mutation")
+    void appendReplacementTailWithDirectStringBuilderMutation() {
+      Matcher m = Pattern.compile("\\{\\{(.+?)\\}\\}").matcher("{{one}};{{two}};tail");
+      StringBuilder sb = new StringBuilder();
+      while (m.find()) {
+        String group = m.group(1);
+        m.appendReplacement(sb, "");
+        sb.append(group);
+      }
+      m.appendTail(sb);
+      assertThat(sb.toString()).isEqualTo("one;two;tail");
+    }
+
+    @Test
+    @DisplayName("appendReplacement/appendTail with direct StringBuffer mutation")
+    void appendReplacementTailWithDirectStringBufferMutation() {
+      Matcher m = Pattern.compile("\\{\\{(.+?)\\}\\}").matcher("{{one}};{{two}};tail");
+      StringBuffer sb = new StringBuffer();
+      while (m.find()) {
+        String group = m.group(1);
+        m.appendReplacement(sb, "");
+        sb.append(group);
+      }
+      m.appendTail(sb);
+      assertThat(sb.toString()).isEqualTo("one;two;tail");
+    }
   }
 
   // ---------------------------------------------------------------------------
