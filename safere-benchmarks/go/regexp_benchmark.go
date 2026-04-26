@@ -186,6 +186,21 @@ func getIntSlice(data any, path string) []int {
 	return result
 }
 
+func getStringSlice(data any, path string) []string {
+	v := get(data, path)
+	arr, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, len(arr))
+	for i, item := range arr {
+		if s, ok := item.(string); ok {
+			result[i] = s
+		}
+	}
+	return result
+}
+
 // ---------------------------------------------------------------------------
 // Text generators
 // ---------------------------------------------------------------------------
@@ -268,6 +283,92 @@ func runRegexBenchmarks(data map[string]any, filters []string) {
 	})
 	run("RegexBenchmark.emailFind", func() {
 		sink = email.FindString(emailText)
+	})
+}
+
+func runApplicationBenchmarks(data map[string]any, filters []string) {
+	sec := data["application"]
+
+	uuid := regexp.MustCompile(getString(sec, "uuidValidation.pattern"))
+	logLine := regexp.MustCompile(getString(sec, "logLineParse.pattern"))
+	apiRoute := regexp.MustCompile(getString(sec, "apiRouteMatch.pattern"))
+	stackTrace := regexp.MustCompile(getString(sec, "stackTraceExtract.pattern"))
+	keywords := regexp.MustCompile(getString(sec, "caseInsensitiveKeywords.pattern"))
+	url := regexp.MustCompile(getString(sec, "urlExtraction.pattern"))
+	csv := regexp.MustCompile(getString(sec, "csvFieldScan.pattern"))
+	secret := regexp.MustCompile(getString(sec, "secretRedaction.pattern"))
+
+	uuidTexts := getStringSlice(sec, "uuidValidation.texts")
+	logLineTexts := getStringSlice(sec, "logLineParse.texts")
+	apiRouteTexts := getStringSlice(sec, "apiRouteMatch.texts")
+	stackTraceText := getString(sec, "stackTraceExtract.text")
+	keywordText := getString(sec, "caseInsensitiveKeywords.text")
+	urlText := getString(sec, "urlExtraction.text")
+	csvText := getString(sec, "csvFieldScan.text")
+	secretText := getString(sec, "secretRedaction.text")
+	secretReplacement := convertReplacement(getString(sec, "secretRedaction.replacement"))
+
+	run := func(name string, fn func()) {
+		if matchesFilter(name, filters) {
+			printJSON(measureNs(name, fn))
+		}
+	}
+
+	run("ApplicationBenchmark.uuidValidation", func() {
+		count := 0
+		for _, text := range uuidTexts {
+			if uuid.MatchString(text) {
+				count++
+			}
+		}
+		sink = count
+	})
+	run("ApplicationBenchmark.logLineParse", func() {
+		count := 0
+		for _, text := range logLineTexts {
+			groups := logLine.FindStringSubmatch(text)
+			if groups != nil {
+				count += len(groups[2]) + len(groups[3])
+			}
+		}
+		sink = count
+	})
+	run("ApplicationBenchmark.apiRouteMatch", func() {
+		count := 0
+		for _, text := range apiRouteTexts {
+			groups := apiRoute.FindStringSubmatch(text)
+			if groups != nil {
+				count += len(groups[1]) + len(groups[2])
+			}
+		}
+		sink = count
+	})
+	run("ApplicationBenchmark.stackTraceExtract", func() {
+		count := 0
+		for _, groups := range stackTrace.FindAllStringSubmatch(stackTraceText, -1) {
+			count += len(groups[1]) + len(groups[4])
+		}
+		sink = count
+	})
+	run("ApplicationBenchmark.caseInsensitiveKeywords", func() {
+		sink = len(keywords.FindAllString(keywordText, -1))
+	})
+	run("ApplicationBenchmark.urlExtraction", func() {
+		count := 0
+		for _, match := range url.FindAllString(urlText, -1) {
+			count += len(match)
+		}
+		sink = count
+	})
+	run("ApplicationBenchmark.csvFieldScan", func() {
+		count := 0
+		for _, match := range csv.FindAllString(csvText, -1) {
+			count += len(match)
+		}
+		sink = count
+	})
+	run("ApplicationBenchmark.secretRedaction", func() {
+		sink = secret.ReplaceAllString(secretText, secretReplacement)
 	})
 }
 
@@ -612,6 +713,7 @@ func main() {
 	data := loadBenchmarkData(dataPath)
 
 	runRegexBenchmarks(data, filters)
+	runApplicationBenchmarks(data, filters)
 	runCompileBenchmarks(data, filters)
 	runSearchScalingBenchmarks(data, filters)
 	runCaptureScalingBenchmarks(data, filters)

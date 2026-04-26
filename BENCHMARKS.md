@@ -61,6 +61,11 @@ Student's t-distribution (t ≈ 4.781 for 9 df at 99.9%).
 a single `benchmark-data.json` file, ensuring identical workloads across
 languages.
 
+**Workload coverage:** The suite separates focused microbenchmarks from
+corpus-style application workloads. The published numerical tables below were
+collected before `ApplicationBenchmark` was added; rerun the collection script
+before adding application-workload ratios to the summary tables.
+
 | Setting | Java (JMH) | C++ | Go |
 |---|---|---|---|
 | Warmup | 5 × 10s per fork | 2 × 2s | 2 × 2s |
@@ -360,11 +365,14 @@ DaCapo, Renaissance).
 representative. We report two geomeans to avoid conflating qualitatively
 different workloads:
 
-1. **Core workloads** — everyday regex operations: literal match, character
+1. **Core micro workloads** — focused regex operations: literal match, character
    class match, alternation find, capture groups, find-in-text, email find,
-   pig Latin replace, HTTP full request. These represent typical application
-   usage patterns.
-2. **Pathological/scaling** — workloads that stress linear-time guarantees:
+   pig Latin replace, HTTP full request. These are useful for isolating engine
+   behavior, but they are not a complete model of application regex use.
+2. **Application workloads** — corpus-style validation, parsing, extraction,
+   scanning, and redaction cases from `ApplicationBenchmark`. These are intended
+   to represent ordinary application usage more directly than the microbenchmarks.
+3. **Pathological/scaling** — workloads that stress linear-time guarantees:
    `a?{n}a{n}` at n=20, `[ -~]*…$` hard search at 1 MB, nested quantifier
    `(?:a?){20}a{20}` at 100 KB. These are less common in everyday code but
    represent the safety guarantee that motivates the library.

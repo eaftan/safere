@@ -269,6 +269,107 @@ void run_regex_benchmarks(const json& data,
   });
 }
 
+void run_application_benchmarks(const json& data,
+                                const std::vector<std::string>& filters) {
+  const auto& sec = data["application"];
+
+  RE2 uuid(sec["uuidValidation"]["pattern"].get<std::string>());
+  RE2 log_line(sec["logLineParse"]["pattern"].get<std::string>());
+  RE2 api_route(sec["apiRouteMatch"]["pattern"].get<std::string>());
+  RE2 stack_trace(sec["stackTraceExtract"]["pattern"].get<std::string>());
+  RE2 keywords(sec["caseInsensitiveKeywords"]["pattern"].get<std::string>());
+  RE2 url(sec["urlExtraction"]["pattern"].get<std::string>());
+  RE2 csv(sec["csvFieldScan"]["pattern"].get<std::string>());
+  RE2 secret(sec["secretRedaction"]["pattern"].get<std::string>());
+
+  std::vector<std::string> uuid_texts =
+      sec["uuidValidation"]["texts"].get<std::vector<std::string>>();
+  std::vector<std::string> log_line_texts =
+      sec["logLineParse"]["texts"].get<std::vector<std::string>>();
+  std::vector<std::string> api_route_texts =
+      sec["apiRouteMatch"]["texts"].get<std::vector<std::string>>();
+  std::string stack_trace_text = sec["stackTraceExtract"]["text"];
+  std::string keyword_text = sec["caseInsensitiveKeywords"]["text"];
+  std::string url_text = sec["urlExtraction"]["text"];
+  std::string csv_text = sec["csvFieldScan"]["text"];
+  std::string secret_text = sec["secretRedaction"]["text"];
+  std::string secret_replacement =
+      convert_replacement(sec["secretRedaction"]["replacement"].get<std::string>());
+
+  auto run = [&](const std::string& name, const std::function<void()>& fn) {
+    if (matches_filter(name, filters)) {
+      print_json(measure(name, fn));
+    }
+  };
+
+  run("ApplicationBenchmark.uuidValidation", [&]() {
+    int count = 0;
+    for (const auto& text : uuid_texts) {
+      if (RE2::FullMatch(text, uuid)) ++count;
+    }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.logLineParse", [&]() {
+    int count = 0;
+    for (const auto& text : log_line_texts) {
+      std::string ts, level, component, message;
+      if (RE2::FullMatch(text, log_line, &ts, &level, &component, &message)) {
+        count += level.size() + component.size();
+      }
+    }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.apiRouteMatch", [&]() {
+    int count = 0;
+    for (const auto& text : api_route_texts) {
+      std::string resource, id;
+      if (RE2::FullMatch(text, api_route, &resource, &id)) {
+        count += resource.size() + id.size();
+      }
+    }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.stackTraceExtract", [&]() {
+    re2::StringPiece input(stack_trace_text);
+    int count = 0;
+    std::string klass, method, file, line;
+    while (RE2::FindAndConsume(&input, stack_trace, &klass, &method, &file, &line)) {
+      count += klass.size() + line.size();
+    }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.caseInsensitiveKeywords", [&]() {
+    re2::StringPiece input(keyword_text);
+    int count = 0;
+    std::string match;
+    while (RE2::FindAndConsume(&input, keywords, &match)) { ++count; }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.urlExtraction", [&]() {
+    re2::StringPiece input(url_text);
+    int count = 0;
+    std::string match;
+    while (RE2::FindAndConsume(&input, url, &match)) {
+      count += match.size();
+    }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.csvFieldScan", [&]() {
+    re2::StringPiece input(csv_text);
+    int count = 0;
+    std::string quoted, unquoted;
+    while (RE2::FindAndConsume(&input, csv, &quoted, &unquoted)) {
+      count += quoted.size() + unquoted.size();
+    }
+    do_not_optimize(count);
+  });
+  run("ApplicationBenchmark.secretRedaction", [&]() {
+    std::string s = secret_text;
+    RE2::GlobalReplace(&s, secret, secret_replacement);
+    do_not_optimize(s);
+  });
+}
+
 void run_compile_benchmarks(const json& data,
                             const std::vector<std::string>& filters) {
   const auto& sec = data["compile"];
@@ -613,6 +714,7 @@ int main(int argc, char* argv[]) {
   json data = load_benchmark_data(data_path);
 
   run_regex_benchmarks(data, filters);
+  run_application_benchmarks(data, filters);
   run_compile_benchmarks(data, filters);
   run_search_scaling_benchmarks(data, filters);
   run_capture_scaling_benchmarks(data, filters);
