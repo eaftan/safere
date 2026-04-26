@@ -47,9 +47,13 @@ Result = collections.namedtuple("Result", ["engine", "benchmark", "score", "erro
 _ENGINE_SUFFIXES = collections.OrderedDict([
     ("_safere", "safere"),
     ("_jdk", "jdk"),
+    ("_re2ffm", "re2_ffm"),
     ("_re2j", "re2j"),
 ])
 _DEFAULT_ENGINE = "safere"
+_ENGINE_ALIASES = {
+    "go_regexp": "go",
+}
 
 
 def _engine_from_method(method):
@@ -73,14 +77,14 @@ def _engine_from_method(method):
 # ---------------------------------------------------------------------------
 
 # Regex for the data rows of JMH text output.  Handles optional Cnt column and
-# the ``±`` separator between score and error.
+# the optional ``±`` separator between score and error.
 _JMH_LINE_RE = re.compile(
     r"^(?P<bench>\S+)"       # Fully-qualified benchmark name
     r"\s+\S+"                # Mode (avgt, thrpt, …)
-    r"\s+\d+"                # Cnt
+    r"(?:\s+\d+)?"           # Optional Cnt
     r"\s+(?P<score>[\d.]+)"  # Score
-    r"\s+[±]"               # ± separator
-    r"\s+(?P<error>[\d.]+)"  # Error
+    r"(?:\s+[±]"             # Optional ± separator
+    r"\s+(?P<error>[\d.]+))?"  # Optional error
     r"\s+(?P<unit>\S+)"      # Units
     r"\s*$"
 )
@@ -96,17 +100,15 @@ def parse_jmh(path):
                 continue
             full_name = m.group("bench")
             score = float(m.group("score"))
-            error = float(m.group("error"))
+            error = float(m.group("error") or 0)
             unit = m.group("unit")
 
             # Split "ClassName.method" – keep ClassName prefix for grouping.
             dot = full_name.rfind(".")
             if dot == -1:
-                class_name = ""
-                method = full_name
-            else:
-                class_name = full_name[: dot]
-                method = full_name[dot + 1 :]
+                continue
+            class_name = full_name[: dot]
+            method = full_name[dot + 1 :]
 
             engine, base_method = _engine_from_method(method)
             benchmark = f"{class_name}.{base_method}" if class_name else base_method
@@ -129,8 +131,9 @@ def parse_jsonl(path):
                 print(f"WARNING: {path}:{lineno}: skipping invalid JSON: {exc}",
                       file=sys.stderr)
                 continue
+            engine = _ENGINE_ALIASES.get(obj["engine"], obj["engine"])
             results.append(Result(
-                engine=obj["engine"],
+                engine=engine,
                 benchmark=obj["benchmark"],
                 score=float(obj["score"]),
                 error=float(obj.get("error", 0)),
