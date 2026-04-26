@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -239,6 +241,58 @@ class BoundaryMatcherTest {
       // (since {x} is not a valid repetition, it becomes literal)
       Pattern p = Pattern.compile("\\b\\{x}");
       assertThat(p.matcher("a{x}b").find()).isTrue();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // \b in zero-width alternation
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("\\b in zero-width alternation")
+  class WordBoundaryAlternation {
+
+    @Test
+    @DisplayName("(?:$|\\b) finds the word boundary before the first word character")
+    void dollarOrWordBoundary() {
+      // Regression for issue #42: find() must choose the leftmost boundary, not the first
+      // alternative that can match later.
+      Matcher m = Pattern.compile("(?:$|\\b)").matcher(" a");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("(?:\\b|$) finds the word boundary before the first word character")
+    void wordBoundaryOrDollar() {
+      Matcher m = Pattern.compile("(?:\\b|$)").matcher(" a");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("$|\\b on longer text finds the boundary at the start of the word")
+    void dollarOrWordBoundaryLongText() {
+      Matcher m = Pattern.compile("(?:$|\\b)").matcher("hello world");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("find() with $|\\b returns each boundary position once")
+    void dollarOrWordBoundaryFindAll() {
+      Matcher m = Pattern.compile("(?:$|\\b)").matcher(" a");
+      List<int[]> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(new int[]{m.start(), m.end()});
+      }
+
+      assertThat(matches).hasSize(2);
+      assertThat(matches.get(0)).containsExactly(1, 1);
+      assertThat(matches.get(1)).containsExactly(2, 2);
     }
   }
 

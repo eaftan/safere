@@ -448,7 +448,7 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("complex Unicode range from issue #127")
+    @DisplayName("complex Unicode range with explicit surrogate endpoints")
     void complexUnicodeRange() {
       // Pattern from issue #127 comment
       assertCompiles("([\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDC00-\\uDBFF\\uDFFF\\t]*)$");
@@ -692,9 +692,9 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("\\\\p{IsWhiteSpace} (no underscore, from issue #127)")
+    @DisplayName("\\\\p{IsWhiteSpace} property alias without underscore")
     void isWhiteSpaceNoUnderscore() {
-      // JDK is flexible about underscores in property names
+      // Regression for issue #127. JDK is flexible about underscores in property names.
       assertMatchesSame("\\p{IsWhiteSpace}", " ");
     }
 
@@ -896,11 +896,12 @@ class JdkSyntaxCompatibilityTest {
           .isInstanceOf(PatternSyntaxException.class);
     }
 
-    // -- Nested repetitions (from issue #127) --
+    // -- Nested repetitions --
 
     @Test
     @DisplayName("nested repetition {0,99} inside {0,5}")
     void nestedRepetition() {
+      // Regression for issue #127.
       assertCompiles("(?:a (?:b{0,99}|c{0,9})){0,5}");
     }
 
@@ -1118,8 +1119,9 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("(?d) combined with (?m) from issue #127")
+    @DisplayName("(?d) combined with (?m)")
     void flagDWithM() {
+      // Regression for issue #127.
       assertCompiles("(?m)(?d)^(####? .+|---)$");
     }
 
@@ -1291,16 +1293,17 @@ class JdkSyntaxCompatibilityTest {
   }
 
   // ===========================================================================
-  // 18. Edge Cases from Issue #127
+  // 18. Compatibility edge cases
   // ===========================================================================
 
   @Nested
-  @DisplayName("Edge cases from issue #127")
-  class Issue127EdgeCases {
+  @DisplayName("Compatibility edge cases")
+  class CompatibilityEdgeCases {
 
     @Test
     @DisplayName("(?m)(?d)^(####? .+|---)$")
     void inlineFlagDWithMultiline() {
+      // Regression for issue #127.
       assertMatchesSame("(?m)(?d)^(####? .+|---)$", "## Hello");
     }
 
@@ -1313,6 +1316,7 @@ class JdkSyntaxCompatibilityTest {
     @Test
     @DisplayName("nested repetition (?:a (?:b{0,99}|c{0,9})){0,5}")
     void nestedRepetitionFromIssue() {
+      // Regression for issue #127.
       assertMatchesSame("(?:a (?:b{0,99}|c{0,9})){0,5}", "a bbb");
     }
 
@@ -1323,8 +1327,9 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("complex Unicode range with surrogates from issue #127 comment")
+    @DisplayName("complex Unicode range with surrogate pairs")
     void complexSurrogateRange() {
+      // Regression for issue #127.
       assertCompiles("([\\u0020-\\uD7FF\\uE000-\\uFFFD\\uD800\\uDC00-\\uDBFF\\uDFFF\\t]*)$");
     }
   }

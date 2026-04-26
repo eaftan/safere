@@ -40,12 +40,13 @@ class BoundedRepeatLeftmostPositionTest {
   }
 
   @Nested
-  @DisplayName("Issue #159 regressions")
-  class Issue159Regressions {
+  @DisplayName("Real-world optional prefix patterns")
+  class RealWorldOptionalPrefixPatterns {
 
     @Test
     @DisplayName("phone-number pattern with bounded repeats")
     void phoneNumberPatternWithBoundedRepeats() {
+      // Regression for issue #159.
       String pattern =
           "("
               + "(\\+?\\d{1,3}( )?)?"

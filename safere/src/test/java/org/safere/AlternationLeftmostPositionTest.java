@@ -205,16 +205,17 @@ class AlternationLeftmostPositionTest {
   }
 
   // ==========================================================================
-  // 3. Issue #150 regression tests (exact patterns from bug report)
+  // 3. Real-world regressions for alternatives that start at different positions
   // ==========================================================================
 
   @Nested
-  @DisplayName("Issue #150 regressions")
-  class Issue150Regressions {
+  @DisplayName("Real-world overlapping alternatives")
+  class RealWorldOverlappingAlternatives {
 
     @Test
     @DisplayName("Java generics pattern on 'List<List<Integer>> '")
     void javaGenericsPattern() {
+      // Regression for issue #150.
       String pattern =
           "([A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>"
               + "|[A-Z][a-zA-Z0-9_]*<[A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>>)";
@@ -225,6 +226,7 @@ class AlternationLeftmostPositionTest {
     @Test
     @DisplayName("API version pattern on '/literature/{$api_version}/'")
     void apiVersionPattern() {
+      // Regression for issue #150.
       String pattern = "(?:(/|^)\\{\\$api_version\\}(/|$)|\\{\\$api_version\\})";
       String input = "/literature/{$api_version}/";
       assertMatchesJdkWithGroups(pattern, input);
@@ -233,6 +235,7 @@ class AlternationLeftmostPositionTest {
     @Test
     @DisplayName("Java generics pattern — all matches")
     void javaGenericsPatternAllMatches() {
+      // Regression for issue #150.
       String pattern =
           "([A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>"
               + "|[A-Z][a-zA-Z0-9_]*<[A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>>)";
@@ -243,6 +246,7 @@ class AlternationLeftmostPositionTest {
     @Test
     @DisplayName("API version pattern — all matches")
     void apiVersionPatternAllMatches() {
+      // Regression for issue #150.
       String pattern = "(?:(/|^)\\{\\$api_version\\}(/|$)|\\{\\$api_version\\})";
       String input = "/literature/{$api_version}/";
       assertAllMatchesMatchJdk(pattern, input);
@@ -515,11 +519,12 @@ class AlternationLeftmostPositionTest {
       assertMatchesJdk("(?:[0-9]+|[a-z]+[0-9]+)", PADDING + "abc123" + PADDING);
     }
 
-    // --- Issue #150 patterns on long text ---
+    // --- Real-world overlapping alternatives on long text ---
 
     @Test
-    @DisplayName("Issue #150 generics pattern in long text — capturing")
-    void issue150LongText() {
+    @DisplayName("Java generics pattern in long text — capturing")
+    void javaGenericsLongTextCapturing() {
+      // Regression for issue #150.
       String pattern =
           "([A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>"
               + "|[A-Z][a-zA-Z0-9_]*<[A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>>)";
@@ -528,8 +533,9 @@ class AlternationLeftmostPositionTest {
     }
 
     @Test
-    @DisplayName("Issue #150 generics pattern in long text — non-capturing")
-    void issue150NonCapturingLongText() {
+    @DisplayName("Java generics pattern in long text — non-capturing")
+    void javaGenericsLongTextNonCapturing() {
+      // Regression for issue #150.
       String pattern =
           "(?:[A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>"
               + "|[A-Z][a-zA-Z0-9_]*<[A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>>)";
@@ -646,8 +652,9 @@ class AlternationLeftmostPositionTest {
     }
 
     @Test
-    @DisplayName("Issue #150 generics pattern findAll on multi-generic input")
+    @DisplayName("Java generics pattern findAll on multi-generic input")
     void findAllGenerics() {
+      // Regression for issue #150.
       String pattern =
           "([A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>"
               + "|[A-Z][a-zA-Z0-9_]*<[A-Z][a-zA-Z0-9_]*<[A-Z][A-Za-z0-9,.& ]+>>)";
@@ -867,7 +874,7 @@ class AlternationLeftmostPositionTest {
   }
 
   // ==========================================================================
-  // 18. Minimal reproduction: progressively simplify issue #150 patterns
+  // 18. Minimal reproduction: progressively simplify short-text failures
   // ==========================================================================
 
   @Nested

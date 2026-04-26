@@ -185,8 +185,9 @@ class JavaCharacterClassesTest {
   }
 
   @Test
-  @DisplayName("Exact issue #106 repro: \\p{javaLowerCase}+ matches 'foo'")
-  void issue106Repro() {
+  @DisplayName("\\p{javaLowerCase}+ matches lowercase text")
+  void javaLowerCaseMatchesLowercaseText() {
+    // Regression for issue #106.
     var p = Pattern.compile("\\p{javaLowerCase}+", Pattern.UNICODE_CHARACTER_CLASS);
     assertThat(p.matcher("foo").find()).isTrue();
   }

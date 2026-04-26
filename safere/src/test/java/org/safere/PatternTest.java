@@ -10,6 +10,8 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
@@ -542,6 +544,91 @@ class PatternTest {
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("foo");
       assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("MULTILINE ^|$ finds starts and ends for every line")
+    void multilineAnchorsFindAll() {
+      // Regression for issue #42: $ before a newline must not be skipped when collecting
+      // successive zero-width matches.
+      Matcher m = Pattern.compile("(?:^|$)", Pattern.MULTILINE).matcher("aa\na");
+      List<int[]> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(new int[]{m.start(), m.end()});
+      }
+
+      assertThat(matches).hasSize(4);
+      assertThat(matches.get(0)).containsExactly(0, 0);
+      assertThat(matches.get(1)).containsExactly(2, 2);
+      assertThat(matches.get(2)).containsExactly(3, 3);
+      assertThat(matches.get(3)).containsExactly(4, 4);
+    }
+
+    @Test
+    @DisplayName("MULTILINE $|^ finds starts and ends for every line")
+    void multilineAnchorsFindAllReversedAlternation() {
+      Matcher m = Pattern.compile("(?:$|^)", Pattern.MULTILINE).matcher("aa\na");
+      List<int[]> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(new int[]{m.start(), m.end()});
+      }
+
+      assertThat(matches).hasSize(4);
+      assertThat(matches.get(0)).containsExactly(0, 0);
+      assertThat(matches.get(1)).containsExactly(2, 2);
+      assertThat(matches.get(2)).containsExactly(3, 3);
+      assertThat(matches.get(3)).containsExactly(4, 4);
+    }
+
+    @Test
+    @DisplayName("MULTILINE ^|$ finds every line boundary in multi-line text")
+    void multilineAnchorsFindMultipleLines() {
+      Matcher m = Pattern.compile("(?:^|$)", Pattern.MULTILINE).matcher("a\nb\nc");
+      List<int[]> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(new int[]{m.start(), m.end()});
+      }
+
+      assertThat(matches).hasSize(6);
+      assertThat(matches.get(0)).containsExactly(0, 0);
+      assertThat(matches.get(1)).containsExactly(1, 1);
+      assertThat(matches.get(2)).containsExactly(2, 2);
+      assertThat(matches.get(3)).containsExactly(3, 3);
+      assertThat(matches.get(4)).containsExactly(4, 4);
+      assertThat(matches.get(5)).containsExactly(5, 5);
+    }
+
+    @Test
+    @DisplayName("MULTILINE ^|$ first find() returns the start of input")
+    void multilineAnchorsFirstFind() {
+      Matcher m = Pattern.compile("(?:^|$)", Pattern.MULTILINE).matcher("aa\na");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("^.*$ with MULTILINE skips the final empty line after a trailing newline")
+    void multilineDotStarWithTrailingNewline() {
+      String text = "\na\n";
+      Pattern safePattern = Pattern.compile("^.*$", Pattern.MULTILINE);
+      java.util.regex.Pattern jdkPattern =
+          java.util.regex.Pattern.compile("^.*$", Pattern.MULTILINE);
+
+      Matcher safeMatcher = safePattern.matcher(text);
+      java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+      List<String> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add("[" + safeMatcher.start() + "," + safeMatcher.end() + ")");
+      }
+
+      List<String> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add("[" + jdkMatcher.start() + "," + jdkMatcher.end() + ")");
+      }
+
+      assertThat(safeMatches).isEqualTo(jdkMatches).containsExactly("[0,0)", "[1,2)");
     }
 
     @Test
