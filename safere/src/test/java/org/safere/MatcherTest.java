@@ -15,6 +15,8 @@ import java.util.function.IntConsumer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Matcher}. */
 class MatcherTest {
@@ -162,6 +164,38 @@ class MatcherTest {
             Matcher m = p.matcher(issue161SqlUnionInput(blocks));
             assertThat(m.lookingAt()).isTrue();
             assertThat(m.group(1)).contains("INFORMATION_SCHEMA");
+          });
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4})
+    @DisplayName("captures in repeated dot-star bodies match JDK semantics")
+    void matchesWithRepeatedDotStarCapturesMatchJdkSemantics(int captures) {
+      String pattern = issue167Pattern(5, captures);
+      String input = issue167Input(5, captures);
+      Matcher m = Pattern.compile(pattern).matcher(input);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(pattern).matcher(input);
+
+      assertThat(m.matches()).isTrue();
+      assertThat(jdk.matches()).isTrue();
+      assertThat(m.group(1)).isEqualTo(jdk.group(1));
+      for (int i = 2; i <= captures + 1; i++) {
+        assertThat(m.group(i)).isEqualTo(jdk.group(i));
+      }
+    }
+
+    @Test
+    @DisplayName("matches() stays linear for repeated dot-star bodies with multiple captures")
+    void matchesWithRepeatedDotStarBodiesAndMultipleCaptures() {
+      assertNoIssue167SuperlinearScaling(
+          repetitions -> {
+            String pattern = issue167Pattern(repetitions, 3);
+            String input = issue167Input(repetitions, 3);
+            Matcher m = Pattern.compile(pattern).matcher(input);
+            assertThat(m.matches()).isTrue();
+            assertThat(m.group(2)).endsWith("A");
+            assertThat(m.group(3)).endsWith("B");
+            assertThat(m.group(4)).endsWith("C");
           });
     }
 
@@ -2052,5 +2086,48 @@ class MatcherTest {
     long start = System.nanoTime();
     task.run();
     return System.nanoTime() - start;
+  }
+
+  private static String issue167Pattern(int repetitions, int captures) {
+    StringBuilder pattern = new StringBuilder("(");
+    for (int i = 0; i < captures; i++) {
+      pattern.append("(.*").append((char) ('A' + i)).append(")");
+    }
+    pattern.append("){").append(repetitions).append(",}");
+    return pattern.toString();
+  }
+
+  private static String issue167Input(int repetitions, int captures) {
+    StringBuilder input = new StringBuilder();
+    for (int i = 0; i < repetitions; i++) {
+      for (int j = 0; j < captures; j++) {
+        input.append((char) ('x' + j)).append((char) ('A' + j));
+      }
+    }
+    return input.toString();
+  }
+
+  private static void assertNoIssue167SuperlinearScaling(IntConsumer scenario) {
+    scenario.accept(100);
+    scenario.accept(500);
+
+    long smallNanos = bestRuntimeNanos(3, () -> scenario.accept(100));
+    long largeNanos = bestRuntimeNanos(3, () -> scenario.accept(500));
+
+    assertThat(largeNanos)
+        .as("larger repeated-capture input should scale roughly with input size; "
+            + "small=%d ns, large=%d ns",
+            smallNanos, largeNanos)
+        .isLessThan(smallNanos * 50);
+  }
+
+  private static long bestRuntimeNanos(int runs, Runnable task) {
+    long best = Long.MAX_VALUE;
+    for (int i = 0; i < runs; i++) {
+      long start = System.nanoTime();
+      task.run();
+      best = Math.min(best, System.nanoTime() - start);
+    }
+    return best;
   }
 }

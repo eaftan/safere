@@ -310,7 +310,7 @@ final class Nfa {
 
         case ALT_MATCH -> {
           // Enqueue this state and also explore the next alt branch.
-          q.add(new NfaThread(id, t0.clone()));
+          q.add(new NfaThread(id, t0));
           // Explore the next instruction after this one (the other alt branch).
           stack.add(new int[]{ip.out, -1});
           captureStack.add(t0);
@@ -381,8 +381,9 @@ final class Nfa {
         }
 
         case CHAR_RANGE, CHAR_CLASS, MATCH ->
-          // These are "real" states: enqueue them with a copy of the capture.
-          q.add(new NfaThread(id, t0.clone()));
+          // These are "real" states. Capture arrays are immutable from this point
+          // until a later CAPTURE or PROGRESS_CHECK transition clones them.
+          q.add(new NfaThread(id, t0));
 
         default -> {}
       }

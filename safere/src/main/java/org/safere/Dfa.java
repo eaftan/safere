@@ -402,8 +402,12 @@ final class Dfa {
     return Arrays.copyOf(frontier, frontierSize);
   }
 
-  /** Insertion sort for small arrays; faster than Arrays.sort for typical DFA frontier sizes. */
+  /** Sorts DFA frontiers, keeping insertion sort only for genuinely small arrays. */
   private static void sortSmall(int[] a, int len) {
+    if (len > 32) {
+      Arrays.sort(a, 0, len);
+      return;
+    }
     for (int i = 1; i < len; i++) {
       int key = a[i];
       int j = i - 1;
