@@ -95,8 +95,9 @@ class CommentsTest {
     }
 
     @Test
-    @DisplayName("original issue #105 test case")
-    void issue105() {
+    @DisplayName("verbose block-comment replacement preserves captured text")
+    void verboseBlockCommentReplacementPreservesCapturedText() {
+      // Regression for issue #105.
       var p =
           Pattern.compile(
               """
@@ -117,11 +118,7 @@ class CommentsTest {
       """;
       content = p.matcher(content).replaceAll("$1");
       assertThat(content)
-          .isEqualTo(
-              """
-      @Deprecated
-         public  void trimToSize() {
-       """);
+          .isEqualTo("@Deprecated\n   public  void trimToSize() {\n");
     }
   }
 

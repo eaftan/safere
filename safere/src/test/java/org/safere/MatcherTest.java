@@ -9,9 +9,11 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import java.util.regex.MatchResult;
+import java.time.Duration;
 import java.util.function.IntConsumer;
+import java.util.regex.MatchResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Matcher}. */
 class MatcherTest {
+  private static final Duration PERFORMANCE_SCENARIO_TIMEOUT = Duration.ofSeconds(30);
 
   @Nested
   @DisplayName("matches() and lookingAt()")
@@ -136,12 +139,12 @@ class MatcherTest {
     @Test
     @DisplayName("matches() stays linear for repeated dot-star with bounded captures")
     void matchesWithRepeatedDotStarAndBoundedCaptures() {
-      Pattern p = issue161SqlUnionPattern();
+      Pattern p = repeatedDotStarSqlUnionPattern();
 
       assertNoPerformanceCliff(
           "matches()",
           blocks -> {
-            String input = issue161SqlUnionInput(blocks);
+            String input = repeatedDotStarSqlUnionInput(blocks);
             Matcher m = p.matcher(input);
             assertThat(m.matches()).isTrue();
             assertThat(m.group()).isEqualTo(input);
@@ -153,12 +156,12 @@ class MatcherTest {
     @Test
     @DisplayName("lookingAt() stays linear for repeated dot-star with bounded captures")
     void lookingAtWithRepeatedDotStarAndBoundedCaptures() {
-      Pattern p = issue161SqlUnionPattern();
+      Pattern p = repeatedDotStarSqlUnionPattern();
 
       assertNoPerformanceCliff(
           "lookingAt()",
           blocks -> {
-            Matcher m = p.matcher(issue161SqlUnionInput(blocks));
+            Matcher m = p.matcher(repeatedDotStarSqlUnionInput(blocks));
             assertThat(m.lookingAt()).isTrue();
             assertThat(m.group(1)).contains("INFORMATION_SCHEMA");
           });
@@ -168,8 +171,8 @@ class MatcherTest {
     @ValueSource(ints = {1, 2, 3, 4})
     @DisplayName("captures in repeated dot-star bodies match JDK semantics")
     void matchesWithRepeatedDotStarCapturesMatchJdkSemantics(int captures) {
-      String pattern = issue167Pattern(5, captures);
-      String input = issue167Input(5, captures);
+      String pattern = repeatedDotStarCapturePattern(5, captures);
+      String input = repeatedDotStarCaptureInput(5, captures);
       Matcher m = Pattern.compile(pattern).matcher(input);
       java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(pattern).matcher(input);
 
@@ -184,10 +187,10 @@ class MatcherTest {
     @Test
     @DisplayName("matches() stays linear for repeated dot-star bodies with multiple captures")
     void matchesWithRepeatedDotStarBodiesAndMultipleCaptures() {
-      assertNoIssue167SuperlinearScaling(
+      assertNoSuperlinearRepeatedDotStarCaptureScaling(
           repetitions -> {
-            String pattern = issue167Pattern(repetitions, 3);
-            String input = issue167Input(repetitions, 3);
+            String pattern = repeatedDotStarCapturePattern(repetitions, 3);
+            String input = repeatedDotStarCaptureInput(repetitions, 3);
             Matcher m = Pattern.compile(pattern).matcher(input);
             assertThat(m.matches()).isTrue();
             assertThat(m.group(2)).endsWith("A");
@@ -205,12 +208,12 @@ class MatcherTest {
     @Test
     @DisplayName("group access after find() stays linear for repeated dot-star captures")
     void findGroupWithRepeatedDotStarAndBoundedCaptures() {
-      Pattern p = issue161SqlUnionPattern();
+      Pattern p = repeatedDotStarSqlUnionPattern();
 
       assertNoPerformanceCliff(
           "find()+group(1)",
           blocks -> {
-            Matcher m = p.matcher(issue161SqlUnionInput(blocks));
+            Matcher m = p.matcher(repeatedDotStarSqlUnionInput(blocks));
             assertThat(m.find()).isTrue();
             assertThat(m.group(1)).contains("INFORMATION_SCHEMA");
           });
@@ -1266,12 +1269,12 @@ class MatcherTest {
     @Test
     @DisplayName("region find stays linear for repeated dot-star captures")
     void regionFindWithRepeatedDotStarAndBoundedCaptures() {
-      Pattern p = issue161SqlUnionPattern();
+      Pattern p = repeatedDotStarSqlUnionPattern();
 
       assertNoPerformanceCliff(
           "region().find()",
           blocks -> {
-            String input = "prefix\n" + issue161SqlUnionInput(blocks) + "suffix\n";
+            String input = "prefix\n" + repeatedDotStarSqlUnionInput(blocks) + "suffix\n";
             Matcher m = p.matcher(input);
             m.region("prefix\n".length(), input.length() - "suffix\n".length());
             assertThat(m.find()).isTrue();
@@ -2049,7 +2052,145 @@ class MatcherTest {
     }
   }
 
-  private static String issue161SqlUnionInput(int selectCount) {
+  @Nested
+  @DisplayName("Repetition with nullable bodies")
+  class RepetitionWithNullableBodies {
+
+    @Test
+    @DisplayName("(?:\\B|a)* stops after the first consuming iteration")
+    void nonWordBoundaryOrCharStar() {
+      // Regression for issue #55: JDK breaks a repetition loop after a zero-width body match.
+      Pattern p = Pattern.compile("(?:\\B|a)*");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("(?:\\B|a)+ stops after the first consuming iteration")
+    void nonWordBoundaryOrCharPlus() {
+      Pattern p = Pattern.compile("(?:\\B|a)+");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("(?:\\b|a)* terminates on the zero-width word-boundary match")
+    void wordBoundaryOrCharStar() {
+      Pattern p = Pattern.compile("(?:\\b|a)*");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("(a|)* can consume before the empty exit match")
+    void consumingOrEmptyStar() {
+      Pattern p = Pattern.compile("(a|)*");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+      assertThat(m.start(1)).isEqualTo(2);
+      assertThat(m.end(1)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("(a|)+ can consume before the empty exit match")
+    void consumingOrEmptyPlus() {
+      Pattern p = Pattern.compile("(a|)+");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("([a]*)* captures the zero-width exit match")
+    void starOfStar() {
+      Pattern p = Pattern.compile("([a]*)*");
+      Matcher m = p.matcher("aaaaaa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(6);
+      assertThat(m.start(1)).isEqualTo(6);
+      assertThat(m.end(1)).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("X(.?){2,}Y captures the zero-width exit match")
+    void boundedRepetitionCapture() {
+      Pattern p = Pattern.compile("X(.?){2,}Y");
+      Matcher m = p.matcher("XABCDEFY");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(8);
+      assertThat(m.start(1)).isEqualTo(7);
+      assertThat(m.end(1)).isEqualTo(7);
+    }
+
+    @Test
+    @DisplayName("(?:$)+ finds the zero-width end-of-input match")
+    void dollarPlus() {
+      Pattern p = Pattern.compile("(?:$)+");
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("(?:^)+ matches zero-width at the start of input")
+    void caretPlus() {
+      Pattern p = Pattern.compile("(?:^)+");
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("(?:(?:^)|\\w)* full-matches a word character")
+    void caretOrWordStar() {
+      assertThat(Pattern.matches("(?:(?:^)|\\w)*", "a")).isTrue();
+    }
+
+    @Test
+    @DisplayName("(a|)*? prefers the empty match")
+    void nonGreedyStarNullable() {
+      Pattern p = Pattern.compile("(a|)*?");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("(a|)+? consumes the minimum non-empty match")
+    void nonGreedyPlusNullable() {
+      Pattern p = Pattern.compile("(a|)+?");
+      Matcher m = p.matcher("aa");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("(?:$|\\n)+ matches JDK dollar-newline repetition behavior")
+    void dollarOrNewlinePlus() {
+      Pattern p = Pattern.compile("(?:$|\\n)+");
+      Matcher m = p.matcher("a\n\n");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(2);
+    }
+  }
+
+  private static String repeatedDotStarSqlUnionInput(int selectCount) {
     StringBuilder input = new StringBuilder();
     for (int i = 1; i <= selectCount; i++) {
       input
@@ -2062,7 +2203,7 @@ class MatcherTest {
     return input.toString();
   }
 
-  private static Pattern issue161SqlUnionPattern() {
+  private static Pattern repeatedDotStarSqlUnionPattern() {
     return Pattern.compile(
         ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
@@ -2080,12 +2221,16 @@ class MatcherTest {
   }
 
   private static long runtimeNanos(Runnable task) {
-    long start = System.nanoTime();
-    task.run();
-    return System.nanoTime() - start;
+    return assertTimeoutPreemptively(
+        PERFORMANCE_SCENARIO_TIMEOUT,
+        () -> {
+          long start = System.nanoTime();
+          task.run();
+          return System.nanoTime() - start;
+        });
   }
 
-  private static String issue167Pattern(int repetitions, int captures) {
+  private static String repeatedDotStarCapturePattern(int repetitions, int captures) {
     StringBuilder pattern = new StringBuilder("(");
     for (int i = 0; i < captures; i++) {
       pattern.append("(.*").append((char) ('A' + i)).append(")");
@@ -2094,7 +2239,7 @@ class MatcherTest {
     return pattern.toString();
   }
 
-  private static String issue167Input(int repetitions, int captures) {
+  private static String repeatedDotStarCaptureInput(int repetitions, int captures) {
     StringBuilder input = new StringBuilder();
     for (int i = 0; i < repetitions; i++) {
       for (int j = 0; j < captures; j++) {
@@ -2104,7 +2249,7 @@ class MatcherTest {
     return input.toString();
   }
 
-  private static void assertNoIssue167SuperlinearScaling(IntConsumer scenario) {
+  private static void assertNoSuperlinearRepeatedDotStarCaptureScaling(IntConsumer scenario) {
     scenario.accept(100);
     scenario.accept(500);
 

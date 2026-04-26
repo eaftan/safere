@@ -6,7 +6,9 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -470,13 +472,9 @@ class NfaTest {
       String pattern = questPart + litPart;
       String text = litPart;
 
-      long start = System.nanoTime();
-      int[] m = fullMatch(pattern, text);
-      long elapsed = System.nanoTime() - start;
+      int[] m = assertTimeoutPreemptively(Duration.ofSeconds(5), () -> fullMatch(pattern, text));
 
       assertThat(m).isNotNull();
-      // Should complete in well under 1 second (backtracking would take ~2^25 steps).
-      assertThat(elapsed).isLessThan(5_000_000_000L); // 5 seconds generous limit
     }
   }
 

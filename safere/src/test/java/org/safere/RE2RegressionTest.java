@@ -425,8 +425,9 @@ class RE2RegressionTest {
     }
 
     @Test
-    @DisplayName("Issue 310: (?:|a)* vs (?:|a)+")
-    void issue310NullableAlternation() {
+    @DisplayName("nullable alternation repeats match the empty branch first")
+    void nullableAlternationRepeatsMatchEmptyBranchFirst() {
+      // RE2 regression issue 310.
       // (?:|a)* should match empty (first-match semantics).
       // Bug was that * matched more than + did.
       Pattern star = Pattern.compile("(?:|a)*");
@@ -441,8 +442,9 @@ class RE2RegressionTest {
     }
 
     @Test
-    @DisplayName("Issue 104: GlobalReplace advancing past multibyte chars")
-    void issue104MultibytReplace() {
+    @DisplayName("replaceAll advances correctly past non-ASCII characters")
+    void replaceAllAdvancesPastNonAsciiCharacters() {
+      // RE2 regression issue 104.
       // Replacing with a* (matches empty too) should not clobber multibyte chars.
       Pattern p = Pattern.compile("a*");
       Matcher m = p.matcher("bc");
