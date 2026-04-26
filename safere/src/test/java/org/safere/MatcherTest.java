@@ -9,7 +9,9 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.regex.MatchResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -128,6 +130,26 @@ class MatcherTest {
       assertThat(m.group(0)).isEqualTo("123abc");
       assertThat(m.group(1)).isEqualTo("123");
       assertThat(m.group(2)).isEqualTo("abc");
+    }
+
+    @Test
+    @DisplayName("matches() stays linear for repeated dot-star with bounded captures")
+    void matchesWithRepeatedDotStarAndBoundedCaptures() {
+      String input = issue161SqlUnionInput(10);
+      Pattern p =
+          Pattern.compile(
+              ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
+              Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+      Matcher m = p.matcher(input);
+
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(1),
+          () -> {
+            assertThat(m.matches()).isTrue();
+            assertThat(m.group()).isEqualTo(input);
+            assertThat(m.start()).isEqualTo(0);
+            assertThat(m.end()).isEqualTo(input.length());
+          });
     }
 
   }
@@ -260,7 +282,6 @@ class MatcherTest {
       assertThat(m.find(4)).isTrue();
       assertThat(m.group()).isEqualTo("3");
     }
-
   }
 
   @Nested
@@ -1952,5 +1973,18 @@ class MatcherTest {
       // or the default method. SafeRE's Matcher overrides it.
       assertThat(m.namedGroups()).containsEntry("word", 1);
     }
+  }
+
+  private static String issue161SqlUnionInput(int selectCount) {
+    StringBuilder input = new StringBuilder();
+    for (int i = 1; i <= selectCount; i++) {
+      input
+          .append("(SELECT *, PARSE_DATE('%Y-%m-%d', '2025-06-25') AS snapshot_date FROM ")
+          .append("`project-")
+          .append("%02d".formatted(i))
+          .append("`.`region2`.INFORMATION_SCHEMA.TABLE_OPTIONS)\n")
+          .append("UNION ALL\n");
+    }
+    return input.toString();
   }
 }
