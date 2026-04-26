@@ -121,6 +121,13 @@ Drop-in replacements for `java.util.regex`:
 - Use JUnit 6 (6.0.3) with `org.junit.jupiter.api.*` imports
 - Use AssertJ (`org.assertj.core.api.Assertions.*`) for all assertions
 - Test class naming: `FooTest.java` for `Foo.java`
+- Name regression test classes, nested classes, methods, and display names for
+  the behavior under test, not the issue number. Do not use names like
+  `Issue123RegressionTest`, `Issue123Regressions`, or
+  `original issue #123 test case`.
+- Keep issue references in comments, Javadocs, or display-name suffixes only
+  when they add traceability. The issue number should never be the primary
+  description of the test.
 - Use `@Test`, `@ParameterizedTest`, `@DisplayName` as appropriate
 - Aim for high coverage; JaCoCo is configured in the build
 - Port test cases from RE2's C++ test suite where applicable
