@@ -163,10 +163,18 @@ log "Extracting Go JSONL"
 extract_jsonl "$OUTPUT_DIR/go-raw.txt" "$OUTPUT_DIR/go-results.jsonl"
 
 log "Generating merged markdown tables"
-python3 safere-benchmarks/scripts/compare-benchmarks.py \
-  --jmh "$OUTPUT_DIR/jmh-output.txt" \
-  --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl" \
-  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go \
+COMPARE_ARGS=(
+  --jmh "$OUTPUT_DIR/jmh-output.txt"
+  --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl"
+  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go
+)
+if [ "$MODE" != "smoke" ]; then
+  COMPARE_ARGS+=(
+    --benchmark-data safere-benchmarks/benchmark-data.json
+    --check-application-names
+  )
+fi
+python3 safere-benchmarks/scripts/compare-benchmarks.py "${COMPARE_ARGS[@]}" \
   > "$OUTPUT_DIR/merged-tables.md"
 
 if [ "$MODE" = "smoke" ]; then

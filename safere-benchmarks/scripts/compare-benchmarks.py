@@ -21,6 +21,10 @@ Usage examples:
   python3 compare-benchmarks.py --jmh jmh.txt --json cpp.jsonl \
       --engines safere,jdk,re2j,re2_cpp
 
+  # Verify ApplicationBenchmark names match benchmark-data.json
+  python3 compare-benchmarks.py --jmh jmh.txt --json cpp.jsonl go.jsonl \
+      --benchmark-data benchmark-data.json --check-application-names
+
 JSON-lines format (one object per line):
   {"engine":"re2_cpp","benchmark":"RegexBenchmark.literalMatch",
    "score":40.674,"error":0.830,"unit":"ns/op"}
@@ -303,6 +307,39 @@ def generate_tables(results, engines):
     return "\n".join(lines)
 
 
+def _application_benchmarks_from_data(path):
+    with open(path) as fh:
+        data = json.load(fh)
+    return {
+        f"ApplicationBenchmark.{case['name']}"
+        for case in data.get("application", [])
+    }
+
+
+def verify_application_names(results, benchmark_data_path, engines):
+    """Verify every engine emitted the application case names from benchmark data."""
+    expected = _application_benchmarks_from_data(benchmark_data_path)
+    by_engine = collections.defaultdict(set)
+    seen_engines = collections.OrderedDict()
+    for result in results:
+        seen_engines[result.engine] = True
+        if result.benchmark.startswith("ApplicationBenchmark."):
+            by_engine[result.engine].add(result.benchmark)
+
+    expected_engines = engines or list(seen_engines)
+    errors = []
+    for engine in expected_engines:
+        names = by_engine[engine]
+        missing = sorted(expected - names)
+        extra = sorted(names - expected)
+        if missing:
+            errors.append(f"{engine}: missing {', '.join(missing)}")
+        if extra:
+            errors.append(f"{engine}: unexpected {', '.join(extra)}")
+    if errors:
+        raise SystemExit("Application benchmark name mismatch:\n" + "\n".join(errors))
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -329,6 +366,17 @@ def main(argv=None):
         help="Comma-separated engine names in desired column order "
              "(e.g. safere,jdk,re2j,re2_cpp).",
     )
+    parser.add_argument(
+        "--benchmark-data",
+        metavar="FILE",
+        default="benchmark-data.json",
+        help="Path to benchmark-data.json for application benchmark validation.",
+    )
+    parser.add_argument(
+        "--check-application-names",
+        action="store_true",
+        help="Verify emitted ApplicationBenchmark names match benchmark-data.json.",
+    )
     args = parser.parse_args(argv)
 
     if not args.jmh and not args.json:
@@ -346,6 +394,9 @@ def main(argv=None):
         sys.exit(1)
 
     engines = [e.strip() for e in args.engines.split(",")] if args.engines else []
+    if args.check_application_names:
+        verify_application_names(results, args.benchmark_data, engines)
+
     print(generate_tables(results, engines))
 
 

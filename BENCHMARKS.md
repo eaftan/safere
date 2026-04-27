@@ -58,13 +58,15 @@ interval half-width. Java uses JMH's built-in statistics. C++ and Go use
 Student's t-distribution (t ≈ 4.781 for 9 df at 99.9%).
 
 **Shared test data:** All harnesses read patterns, inputs, and parameters from
-a single `benchmark-data.json` file, ensuring identical workloads across
-languages.
+a single `benchmark-data.json` file. Application cases also define their
+operation type and expected result in that file, so Java, C++, and Go validate
+the same semantics before timing.
 
-**Workload coverage:** The suite separates focused microbenchmarks from
-corpus-style application workloads. The published numerical tables below were
-collected before `ApplicationBenchmark` was added; rerun the collection script
-before adding application-workload ratios to the summary tables.
+**Workload coverage:** The suite separates focused microbenchmarks,
+data-driven application workloads, and pathological/scaling workloads. The
+published numerical tables below were collected before `ApplicationBenchmark`
+was added; rerun the collection script before adding application-workload
+ratios to the summary tables.
 
 | Setting | Java (JMH) | C++ | Go |
 |---|---|---|---|
@@ -369,7 +371,7 @@ different workloads:
    class match, alternation find, capture groups, find-in-text, email find,
    pig Latin replace, HTTP full request. These are useful for isolating engine
    behavior, but they are not a complete model of application regex use.
-2. **Application workloads** — corpus-style validation, parsing, extraction,
+2. **Application workloads** — data-driven validation, parsing, extraction,
    scanning, and redaction cases from `ApplicationBenchmark`. These are intended
    to represent ordinary application usage more directly than the microbenchmarks.
 3. **Pathological/scaling** — workloads that stress linear-time guarantees:

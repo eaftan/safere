@@ -15,6 +15,7 @@
 // Each filter is a substring match against benchmark names. If no filters
 // are given, all benchmarks are run.
 
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -22,6 +23,7 @@
 #include <fstream>
 #include <functional>
 #include <malloc.h>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>
@@ -271,103 +273,172 @@ void run_regex_benchmarks(const json& data,
 
 void run_application_benchmarks(const json& data,
                                 const std::vector<std::string>& filters) {
-  const auto& sec = data["application"];
-
-  RE2 uuid(sec["uuidValidation"]["pattern"].get<std::string>());
-  RE2 log_line(sec["logLineParse"]["pattern"].get<std::string>());
-  RE2 api_route(sec["apiRouteMatch"]["pattern"].get<std::string>());
-  RE2 stack_trace(sec["stackTraceExtract"]["pattern"].get<std::string>());
-  RE2 keywords(sec["caseInsensitiveKeywords"]["pattern"].get<std::string>());
-  RE2 url(sec["urlExtraction"]["pattern"].get<std::string>());
-  RE2 csv(sec["csvFieldScan"]["pattern"].get<std::string>());
-  RE2 secret(sec["secretRedaction"]["pattern"].get<std::string>());
-
-  std::vector<std::string> uuid_texts =
-      sec["uuidValidation"]["texts"].get<std::vector<std::string>>();
-  std::vector<std::string> log_line_texts =
-      sec["logLineParse"]["texts"].get<std::vector<std::string>>();
-  std::vector<std::string> api_route_texts =
-      sec["apiRouteMatch"]["texts"].get<std::vector<std::string>>();
-  std::string stack_trace_text = sec["stackTraceExtract"]["text"];
-  std::string keyword_text = sec["caseInsensitiveKeywords"]["text"];
-  std::string url_text = sec["urlExtraction"]["text"];
-  std::string csv_text = sec["csvFieldScan"]["text"];
-  std::string secret_text = sec["secretRedaction"]["text"];
-  std::string secret_replacement =
-      convert_replacement(sec["secretRedaction"]["replacement"].get<std::string>());
-
   auto run = [&](const std::string& name, const std::function<void()>& fn) {
     if (matches_filter(name, filters)) {
       print_json(measure(name, fn));
     }
   };
 
-  run("ApplicationBenchmark.uuidValidation", [&]() {
-    int count = 0;
-    for (const auto& text : uuid_texts) {
-      if (RE2::FullMatch(text, uuid)) ++count;
+  struct AppCase {
+    std::string name;
+    std::string op;
+    std::string pattern;
+    std::vector<std::string> texts;
+    std::string text;
+    std::vector<int> groups;
+    std::string replacement;
+    json expected;
+    RE2 re;
+
+    explicit AppCase(const json& item)
+        : name(item.at("name").get<std::string>()),
+          op(item.at("op").get<std::string>()),
+          pattern(item.at("pattern").get<std::string>()),
+          texts(item.contains("texts")
+                    ? item.at("texts").get<std::vector<std::string>>()
+                    : std::vector<std::string>()),
+          text(item.value("text", "")),
+          groups(item.contains("groups") ? item.at("groups").get<std::vector<int>>()
+                                         : std::vector<int>()),
+          replacement(item.contains("replacement")
+                          ? convert_replacement(item.at("replacement").get<std::string>())
+                          : ""),
+          expected(item.at("expected")),
+          re(pattern) {}
+  };
+
+  auto max_group = [](const std::vector<int>& groups) {
+    int max = 0;
+    for (int group : groups) {
+      if (group > max) max = group;
     }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.logLineParse", [&]() {
-    int count = 0;
-    for (const auto& text : log_line_texts) {
-      std::string ts, level, component, message;
-      if (RE2::FullMatch(text, log_line, &ts, &level, &component, &message)) {
-        count += level.size() + component.size();
+    return max;
+  };
+
+  auto group_length_sum = [](const std::vector<re2::StringPiece>& matches,
+                             const std::vector<int>& groups) {
+    int sum = 0;
+    for (int group : groups) {
+      if (group < static_cast<int>(matches.size()) && matches[group].data() != nullptr) {
+        sum += matches[group].size();
       }
     }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.apiRouteMatch", [&]() {
-    int count = 0;
-    for (const auto& text : api_route_texts) {
-      std::string resource, id;
-      if (RE2::FullMatch(text, api_route, &resource, &id)) {
-        count += resource.size() + id.size();
+    return sum;
+  };
+
+  auto matches_groups =
+      [&](const AppCase& app_case, const std::string& text,
+          std::vector<re2::StringPiece>* matches) {
+        int match_count = std::max(1, max_group(app_case.groups) + 1);
+        matches->assign(match_count, re2::StringPiece());
+        return app_case.re.Match(
+            text, 0, text.size(), RE2::ANCHOR_BOTH, matches->data(), match_count);
+      };
+
+  auto run_int = [&](const AppCase& app_case) {
+    if (app_case.op == "matchesCorpus") {
+      int count = 0;
+      for (const auto& text : app_case.texts) {
+        if (RE2::FullMatch(text, app_case.re)) ++count;
+      }
+      return count;
+    }
+    if (app_case.op == "matchesGroupLengthSum") {
+      int count = 0;
+      std::vector<re2::StringPiece> matches;
+      for (const auto& text : app_case.texts) {
+        if (matches_groups(app_case, text, &matches)) {
+          count += group_length_sum(matches, app_case.groups);
+        }
+      }
+      return count;
+    }
+    if (app_case.op == "findAllCount") {
+      int count = 0;
+      int start = 0;
+      std::vector<re2::StringPiece> matches(1);
+      while (start <= static_cast<int>(app_case.text.size()) &&
+             app_case.re.Match(app_case.text, start, app_case.text.size(),
+                               RE2::UNANCHORED, matches.data(), matches.size())) {
+        ++count;
+        int end = matches[0].data() - app_case.text.data() + matches[0].size();
+        start = matches[0].empty() ? end + 1 : end;
+      }
+      return count;
+    }
+    if (app_case.op == "findAllLengthSum" ||
+        app_case.op == "findAllGroupLengthSum") {
+      int count = 0;
+      int start = 0;
+      int match_count = std::max(1, max_group(app_case.groups) + 1);
+      std::vector<re2::StringPiece> matches(match_count);
+      while (start <= static_cast<int>(app_case.text.size()) &&
+             app_case.re.Match(app_case.text, start, app_case.text.size(),
+                               RE2::UNANCHORED, matches.data(), matches.size())) {
+        if (app_case.op == "findAllLengthSum") {
+          count += matches[0].size();
+        } else {
+          count += group_length_sum(matches, app_case.groups);
+        }
+        int end = matches[0].data() - app_case.text.data() + matches[0].size();
+        start = matches[0].empty() ? end + 1 : end;
+      }
+      return count;
+    }
+    fprintf(stderr, "ERROR: string op used as int op: %s\n", app_case.op.c_str());
+    exit(1);
+  };
+
+  auto run_string = [](const AppCase& app_case) {
+    std::string s = app_case.text;
+    RE2::GlobalReplace(&s, app_case.re, app_case.replacement);
+    return s;
+  };
+
+  std::vector<std::unique_ptr<AppCase>> cases;
+  for (const auto& item : data["application"]) {
+    cases.push_back(std::make_unique<AppCase>(item));
+  }
+
+  for (const auto& app_case_ptr : cases) {
+    const AppCase& app_case = *app_case_ptr;
+    if (!app_case.re.ok()) {
+      fprintf(stderr, "ERROR: invalid application pattern: %s\n",
+              app_case.name.c_str());
+      exit(1);
+    }
+    if (app_case.op.rfind("findAll", 0) == 0 &&
+        RE2::PartialMatch("", app_case.re)) {
+      fprintf(stderr, "ERROR: empty-width find-all application pattern: %s\n",
+              app_case.name.c_str());
+      exit(1);
+    }
+    if (app_case.op == "replaceAll") {
+      std::string actual = run_string(app_case);
+      if (actual != app_case.expected.get<std::string>()) {
+        fprintf(stderr, "ERROR: %s expected result mismatch\n", app_case.name.c_str());
+        exit(1);
+      }
+    } else {
+      int actual = run_int(app_case);
+      if (actual != app_case.expected.get<int>()) {
+        fprintf(stderr, "ERROR: %s expected %d but was %d\n",
+                app_case.name.c_str(), app_case.expected.get<int>(), actual);
+        exit(1);
       }
     }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.stackTraceExtract", [&]() {
-    re2::StringPiece input(stack_trace_text);
-    int count = 0;
-    std::string klass, method, file, line;
-    while (RE2::FindAndConsume(&input, stack_trace, &klass, &method, &file, &line)) {
-      count += klass.size() + line.size();
-    }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.caseInsensitiveKeywords", [&]() {
-    re2::StringPiece input(keyword_text);
-    int count = 0;
-    std::string match;
-    while (RE2::FindAndConsume(&input, keywords, &match)) { ++count; }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.urlExtraction", [&]() {
-    re2::StringPiece input(url_text);
-    int count = 0;
-    std::string match;
-    while (RE2::FindAndConsume(&input, url, &match)) {
-      count += match.size();
-    }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.csvFieldScan", [&]() {
-    re2::StringPiece input(csv_text);
-    int count = 0;
-    std::string quoted, unquoted;
-    while (RE2::FindAndConsume(&input, csv, &quoted, &unquoted)) {
-      count += quoted.size() + unquoted.size();
-    }
-    do_not_optimize(count);
-  });
-  run("ApplicationBenchmark.secretRedaction", [&]() {
-    std::string s = secret_text;
-    RE2::GlobalReplace(&s, secret, secret_replacement);
-    do_not_optimize(s);
-  });
+  }
+
+  for (const auto& app_case_ptr : cases) {
+    const AppCase& app_case = *app_case_ptr;
+    run("ApplicationBenchmark." + app_case.name, [&]() {
+      if (app_case.op == "replaceAll") {
+        do_not_optimize(run_string(app_case));
+      } else {
+        do_not_optimize(run_int(app_case));
+      }
+    });
+  }
 }
 
 void run_compile_benchmarks(const json& data,
