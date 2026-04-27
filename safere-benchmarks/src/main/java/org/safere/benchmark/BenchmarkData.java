@@ -13,7 +13,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Loads benchmark data (patterns, texts, parameters) from the shared {@code benchmark-data.json}
@@ -100,5 +103,18 @@ public final class BenchmarkData {
       result.add(item.getAsString());
     }
     return result;
+  }
+
+  /** Returns application benchmark cases in JSON order, keyed by case name. */
+  public Map<String, ApplicationCase> getApplicationCases() {
+    JsonArray arr = root.getAsJsonArray("application");
+    Map<String, ApplicationCase> cases = new LinkedHashMap<>();
+    for (JsonElement item : arr) {
+      ApplicationCase appCase = ApplicationCase.fromJson(item.getAsJsonObject());
+      if (cases.put(appCase.name, appCase) != null) {
+        throw new IllegalArgumentException("Duplicate application benchmark case: " + appCase.name);
+      }
+    }
+    return Collections.unmodifiableMap(cases);
   }
 }

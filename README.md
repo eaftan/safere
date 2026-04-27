@@ -309,8 +309,11 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 `safere-benchmarks` module, comparing SafeRE against `java.util.regex` (JDK),
 [RE2/J](https://github.com/google/re2j), RE2-FFM (C++ RE2 via Java
 [FFM API](https://openjdk.org/jeps/454)), C++ RE2, and Go `regexp`.
-The suite includes focused microbenchmarks, corpus-style application workloads,
+The suite includes focused microbenchmarks, data-driven application workloads,
 scaling/pathological cases, replacement, memory, and `PatternSet` benchmarks.
+Application workloads live in `safere-benchmarks/benchmark-data.json`, where
+each case defines its operation semantics and expected result for the Java,
+C++, and Go harnesses.
 
 ### Publication-Quality Benchmark Collection
 
@@ -398,6 +401,16 @@ A comparison script merges JMH, C++, and Go results into side-by-side markdown:
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --jmh jmh-output.txt --json cpp-results.jsonl go-results.jsonl
+```
+
+To verify that all harnesses emitted the application benchmark names defined in
+`benchmark-data.json`, add:
+
+```bash
+python3 safere-benchmarks/scripts/compare-benchmarks.py \
+  --jmh jmh-output.txt --json cpp-results.jsonl go-results.jsonl \
+  --benchmark-data safere-benchmarks/benchmark-data.json \
+  --check-application-names
 ```
 
 ### Latest Results

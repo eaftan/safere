@@ -287,89 +287,140 @@ func runRegexBenchmarks(data map[string]any, filters []string) {
 }
 
 func runApplicationBenchmarks(data map[string]any, filters []string) {
-	sec := data["application"]
-
-	uuid := regexp.MustCompile(getString(sec, "uuidValidation.pattern"))
-	logLine := regexp.MustCompile(getString(sec, "logLineParse.pattern"))
-	apiRoute := regexp.MustCompile(getString(sec, "apiRouteMatch.pattern"))
-	stackTrace := regexp.MustCompile(getString(sec, "stackTraceExtract.pattern"))
-	keywords := regexp.MustCompile(getString(sec, "caseInsensitiveKeywords.pattern"))
-	url := regexp.MustCompile(getString(sec, "urlExtraction.pattern"))
-	csv := regexp.MustCompile(getString(sec, "csvFieldScan.pattern"))
-	secret := regexp.MustCompile(getString(sec, "secretRedaction.pattern"))
-
-	uuidTexts := getStringSlice(sec, "uuidValidation.texts")
-	logLineTexts := getStringSlice(sec, "logLineParse.texts")
-	apiRouteTexts := getStringSlice(sec, "apiRouteMatch.texts")
-	stackTraceText := getString(sec, "stackTraceExtract.text")
-	keywordText := getString(sec, "caseInsensitiveKeywords.text")
-	urlText := getString(sec, "urlExtraction.text")
-	csvText := getString(sec, "csvFieldScan.text")
-	secretText := getString(sec, "secretRedaction.text")
-	secretReplacement := convertReplacement(getString(sec, "secretRedaction.replacement"))
-
 	run := func(name string, fn func()) {
 		if matchesFilter(name, filters) {
 			printJSON(measureNs(name, fn))
 		}
 	}
 
-	run("ApplicationBenchmark.uuidValidation", func() {
-		count := 0
-		for _, text := range uuidTexts {
-			if uuid.MatchString(text) {
-				count++
+	type appCase struct {
+		name        string
+		op          string
+		pattern     string
+		texts       []string
+		text        string
+		groups      []int
+		replacement string
+		expected    any
+		re          *regexp.Regexp
+		fullRe      *regexp.Regexp
+	}
+
+	rawCases, ok := data["application"].([]any)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "ERROR: application benchmark data must be a list")
+		os.Exit(1)
+	}
+	cases := make([]appCase, 0, len(rawCases))
+	for _, raw := range rawCases {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			fmt.Fprintln(os.Stderr, "ERROR: invalid application benchmark case")
+			os.Exit(1)
+		}
+		pattern := getString(item, "pattern")
+		c := appCase{
+			name:        getString(item, "name"),
+			op:          getString(item, "op"),
+			pattern:     pattern,
+			texts:       getStringSlice(item, "texts"),
+			text:        getString(item, "text"),
+			groups:      getIntSlice(item, "groups"),
+			replacement: convertReplacement(getString(item, "replacement")),
+			expected:    item["expected"],
+			re:          regexp.MustCompile(pattern),
+		}
+		if strings.HasPrefix(c.op, "matches") {
+			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+		}
+		cases = append(cases, c)
+	}
+
+	groupLengthSum := func(indexes []int, groups []int) int {
+		sum := 0
+		for _, group := range groups {
+			start := indexes[2*group]
+			end := indexes[2*group+1]
+			if start >= 0 {
+				sum += end - start
 			}
 		}
-		sink = count
-	})
-	run("ApplicationBenchmark.logLineParse", func() {
-		count := 0
-		for _, text := range logLineTexts {
-			groups := logLine.FindStringSubmatch(text)
-			if groups != nil {
-				count += len(groups[2]) + len(groups[3])
+		return sum
+	}
+	runInt := func(c appCase) int {
+		switch c.op {
+		case "matchesCorpus":
+			count := 0
+			for _, text := range c.texts {
+				if c.fullRe.MatchString(text) {
+					count++
+				}
+			}
+			return count
+		case "matchesGroupLengthSum":
+			count := 0
+			for _, text := range c.texts {
+				indexes := c.fullRe.FindStringSubmatchIndex(text)
+				if indexes != nil {
+					count += groupLengthSum(indexes, c.groups)
+				}
+			}
+			return count
+		case "findAllCount":
+			return len(c.re.FindAllStringIndex(c.text, -1))
+		case "findAllLengthSum":
+			count := 0
+			for _, match := range c.re.FindAllStringIndex(c.text, -1) {
+				count += match[1] - match[0]
+			}
+			return count
+		case "findAllGroupLengthSum":
+			count := 0
+			for _, indexes := range c.re.FindAllStringSubmatchIndex(c.text, -1) {
+				count += groupLengthSum(indexes, c.groups)
+			}
+			return count
+		default:
+			fmt.Fprintf(os.Stderr, "ERROR: string op used as int op: %s\n", c.op)
+			os.Exit(1)
+		}
+		return 0
+	}
+	runString := func(c appCase) string {
+		return c.re.ReplaceAllString(c.text, c.replacement)
+	}
+
+	for _, c := range cases {
+		if strings.HasPrefix(c.op, "findAll") && c.re.FindStringIndex("") != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: empty-width find-all application pattern: %s\n", c.name)
+			os.Exit(1)
+		}
+		if c.op == "replaceAll" {
+			actual := runString(c)
+			if actual != c.expected.(string) {
+				fmt.Fprintf(os.Stderr, "ERROR: %s expected result mismatch\n", c.name)
+				os.Exit(1)
+			}
+		} else {
+			actual := runInt(c)
+			if actual != int(c.expected.(float64)) {
+				fmt.Fprintf(os.Stderr, "ERROR: %s expected %d but was %d\n",
+					c.name, int(c.expected.(float64)), actual)
+				os.Exit(1)
 			}
 		}
-		sink = count
-	})
-	run("ApplicationBenchmark.apiRouteMatch", func() {
-		count := 0
-		for _, text := range apiRouteTexts {
-			groups := apiRoute.FindStringSubmatch(text)
-			if groups != nil {
-				count += len(groups[1]) + len(groups[2])
+	}
+
+	for _, c := range cases {
+		c := c
+		run("ApplicationBenchmark."+c.name, func() {
+			if c.op == "replaceAll" {
+				sink = runString(c)
+			} else {
+				sink = runInt(c)
 			}
-		}
-		sink = count
-	})
-	run("ApplicationBenchmark.stackTraceExtract", func() {
-		count := 0
-		for _, groups := range stackTrace.FindAllStringSubmatch(stackTraceText, -1) {
-			count += len(groups[1]) + len(groups[4])
-		}
-		sink = count
-	})
-	run("ApplicationBenchmark.caseInsensitiveKeywords", func() {
-		sink = len(keywords.FindAllString(keywordText, -1))
-	})
-	run("ApplicationBenchmark.urlExtraction", func() {
-		count := 0
-		for _, match := range url.FindAllString(urlText, -1) {
-			count += len(match)
-		}
-		sink = count
-	})
-	run("ApplicationBenchmark.csvFieldScan", func() {
-		count := 0
-		for _, match := range csv.FindAllString(csvText, -1) {
-			count += len(match)
-		}
-		sink = count
-	})
-	run("ApplicationBenchmark.secretRedaction", func() {
-		sink = secret.ReplaceAllString(secretText, secretReplacement)
-	})
+		})
+	}
 }
 
 func runCompileBenchmarks(data map[string]any, filters []string) {

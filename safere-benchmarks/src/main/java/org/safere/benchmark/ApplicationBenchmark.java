@@ -5,7 +5,8 @@
 
 package org.safere.benchmark;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -21,434 +22,475 @@ import org.openjdk.jmh.annotations.State;
 @State(Scope.Thread)
 public class ApplicationBenchmark {
 
-  private org.safere.Pattern safeUuid;
-  private java.util.regex.Pattern jdkUuid;
-  private com.google.re2j.Pattern re2jUuid;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmUuid;
-  private List<String> uuidTexts;
-
-  private org.safere.Pattern safeLogLine;
-  private java.util.regex.Pattern jdkLogLine;
-  private com.google.re2j.Pattern re2jLogLine;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmLogLine;
-  private List<String> logLineTexts;
-
-  private org.safere.Pattern safeApiRoute;
-  private java.util.regex.Pattern jdkApiRoute;
-  private com.google.re2j.Pattern re2jApiRoute;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmApiRoute;
-  private List<String> apiRouteTexts;
-
-  private org.safere.Pattern safeStackTrace;
-  private java.util.regex.Pattern jdkStackTrace;
-  private com.google.re2j.Pattern re2jStackTrace;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmStackTrace;
-  private String stackTraceText;
-
-  private org.safere.Pattern safeKeywords;
-  private java.util.regex.Pattern jdkKeywords;
-  private com.google.re2j.Pattern re2jKeywords;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmKeywords;
-  private String keywordText;
-
-  private org.safere.Pattern safeUrl;
-  private java.util.regex.Pattern jdkUrl;
-  private com.google.re2j.Pattern re2jUrl;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmUrl;
-  private String urlText;
-
-  private org.safere.Pattern safeCsv;
-  private java.util.regex.Pattern jdkCsv;
-  private com.google.re2j.Pattern re2jCsv;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmCsv;
-  private String csvText;
-
-  private org.safere.Pattern safeSecret;
-  private java.util.regex.Pattern jdkSecret;
-  private com.google.re2j.Pattern re2jSecret;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmSecret;
-  private String secretText;
-  private String secretReplacement;
+  private Map<String, ApplicationCase> cases;
+  private Map<String, org.safere.Pattern> saferePatterns;
+  private Map<String, java.util.regex.Pattern> jdkPatterns;
+  private Map<String, com.google.re2j.Pattern> re2jPatterns;
+  private Map<String, org.safere.re2ffm.RE2FfmPattern> re2ffmPatterns;
 
   @Setup
   public void setup() {
-    BenchmarkData data = BenchmarkData.get();
+    cases = BenchmarkData.get().getApplicationCases();
+    saferePatterns = new HashMap<>();
+    jdkPatterns = new HashMap<>();
+    re2jPatterns = new HashMap<>();
+    re2ffmPatterns = new HashMap<>();
 
-    String uuidPattern = data.getString("application.uuidValidation.pattern");
-    uuidTexts = data.getStringList("application.uuidValidation.texts");
-    safeUuid = org.safere.Pattern.compile(uuidPattern);
-    jdkUuid = java.util.regex.Pattern.compile(uuidPattern);
-    re2jUuid = com.google.re2j.Pattern.compile(uuidPattern);
-    re2ffmUuid = org.safere.re2ffm.RE2FfmPattern.compile(uuidPattern);
-
-    String logLinePattern = data.getString("application.logLineParse.pattern");
-    logLineTexts = data.getStringList("application.logLineParse.texts");
-    safeLogLine = org.safere.Pattern.compile(logLinePattern);
-    jdkLogLine = java.util.regex.Pattern.compile(logLinePattern);
-    re2jLogLine = com.google.re2j.Pattern.compile(logLinePattern);
-    re2ffmLogLine = org.safere.re2ffm.RE2FfmPattern.compile(logLinePattern);
-
-    String apiRoutePattern = data.getString("application.apiRouteMatch.pattern");
-    apiRouteTexts = data.getStringList("application.apiRouteMatch.texts");
-    safeApiRoute = org.safere.Pattern.compile(apiRoutePattern);
-    jdkApiRoute = java.util.regex.Pattern.compile(apiRoutePattern);
-    re2jApiRoute = com.google.re2j.Pattern.compile(apiRoutePattern);
-    re2ffmApiRoute = org.safere.re2ffm.RE2FfmPattern.compile(apiRoutePattern);
-
-    String stackTracePattern = data.getString("application.stackTraceExtract.pattern");
-    stackTraceText = data.getString("application.stackTraceExtract.text");
-    safeStackTrace = org.safere.Pattern.compile(stackTracePattern);
-    jdkStackTrace = java.util.regex.Pattern.compile(stackTracePattern);
-    re2jStackTrace = com.google.re2j.Pattern.compile(stackTracePattern);
-    re2ffmStackTrace = org.safere.re2ffm.RE2FfmPattern.compile(stackTracePattern);
-
-    String keywordPattern = data.getString("application.caseInsensitiveKeywords.pattern");
-    keywordText = data.getString("application.caseInsensitiveKeywords.text");
-    safeKeywords = org.safere.Pattern.compile(keywordPattern);
-    jdkKeywords = java.util.regex.Pattern.compile(keywordPattern);
-    re2jKeywords = com.google.re2j.Pattern.compile(keywordPattern);
-    re2ffmKeywords = org.safere.re2ffm.RE2FfmPattern.compile(keywordPattern);
-
-    String urlPattern = data.getString("application.urlExtraction.pattern");
-    urlText = data.getString("application.urlExtraction.text");
-    safeUrl = org.safere.Pattern.compile(urlPattern);
-    jdkUrl = java.util.regex.Pattern.compile(urlPattern);
-    re2jUrl = com.google.re2j.Pattern.compile(urlPattern);
-    re2ffmUrl = org.safere.re2ffm.RE2FfmPattern.compile(urlPattern);
-
-    String csvPattern = data.getString("application.csvFieldScan.pattern");
-    csvText = data.getString("application.csvFieldScan.text");
-    safeCsv = org.safere.Pattern.compile(csvPattern);
-    jdkCsv = java.util.regex.Pattern.compile(csvPattern);
-    re2jCsv = com.google.re2j.Pattern.compile(csvPattern);
-    re2ffmCsv = org.safere.re2ffm.RE2FfmPattern.compile(csvPattern);
-
-    String secretPattern = data.getString("application.secretRedaction.pattern");
-    secretText = data.getString("application.secretRedaction.text");
-    secretReplacement = data.getString("application.secretRedaction.replacement");
-    safeSecret = org.safere.Pattern.compile(secretPattern);
-    jdkSecret = java.util.regex.Pattern.compile(secretPattern);
-    re2jSecret = com.google.re2j.Pattern.compile(secretPattern);
-    re2ffmSecret = org.safere.re2ffm.RE2FfmPattern.compile(secretPattern);
+    for (ApplicationCase appCase : cases.values()) {
+      org.safere.Pattern saferePattern = org.safere.Pattern.compile(appCase.pattern);
+      saferePatterns.put(appCase.name, saferePattern);
+      jdkPatterns.put(appCase.name, java.util.regex.Pattern.compile(appCase.pattern));
+      re2jPatterns.put(appCase.name, com.google.re2j.Pattern.compile(appCase.pattern));
+      re2ffmPatterns.put(appCase.name, org.safere.re2ffm.RE2FfmPattern.compile(appCase.pattern));
+      validateExpected(appCase);
+    }
   }
 
   @Benchmark
   public int uuidValidation_safere() {
-    int count = 0;
-    for (String text : uuidTexts) {
-      if (safeUuid.matcher(text).matches()) {
-        count++;
-      }
-    }
-    return count;
+    return runSafereInt("uuidValidation");
   }
 
   @Benchmark
   public int uuidValidation_jdk() {
-    int count = 0;
-    for (String text : uuidTexts) {
-      if (jdkUuid.matcher(text).matches()) {
-        count++;
-      }
-    }
-    return count;
+    return runJdkInt("uuidValidation");
   }
 
   @Benchmark
   public int uuidValidation_re2j() {
-    int count = 0;
-    for (String text : uuidTexts) {
-      if (re2jUuid.matcher(text).matches()) {
-        count++;
-      }
-    }
-    return count;
+    return runRe2jInt("uuidValidation");
   }
 
   @Benchmark
   public int uuidValidation_re2ffm() {
-    int count = 0;
-    for (String text : uuidTexts) {
-      if (re2ffmUuid.matcher(text).matches()) {
-        count++;
-      }
-    }
-    return count;
+    return runRe2ffmInt("uuidValidation");
   }
 
   @Benchmark
   public int logLineParse_safere() {
-    int count = 0;
-    for (String text : logLineTexts) {
-      org.safere.Matcher matcher = safeLogLine.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(2).length() + matcher.group(3).length();
-      }
-    }
-    return count;
+    return runSafereInt("logLineParse");
   }
 
   @Benchmark
   public int logLineParse_jdk() {
-    int count = 0;
-    for (String text : logLineTexts) {
-      java.util.regex.Matcher matcher = jdkLogLine.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(2).length() + matcher.group(3).length();
-      }
-    }
-    return count;
+    return runJdkInt("logLineParse");
   }
 
   @Benchmark
   public int logLineParse_re2j() {
-    int count = 0;
-    for (String text : logLineTexts) {
-      com.google.re2j.Matcher matcher = re2jLogLine.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(2).length() + matcher.group(3).length();
-      }
-    }
-    return count;
+    return runRe2jInt("logLineParse");
   }
 
   @Benchmark
   public int logLineParse_re2ffm() {
-    int count = 0;
-    for (String text : logLineTexts) {
-      org.safere.re2ffm.RE2FfmMatcher matcher = re2ffmLogLine.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(2).length() + matcher.group(3).length();
-      }
-    }
-    return count;
+    return runRe2ffmInt("logLineParse");
   }
 
   @Benchmark
   public int apiRouteMatch_safere() {
-    int count = 0;
-    for (String text : apiRouteTexts) {
-      org.safere.Matcher matcher = safeApiRoute.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(1).length() + matcher.group(2).length();
-      }
-    }
-    return count;
+    return runSafereInt("apiRouteMatch");
   }
 
   @Benchmark
   public int apiRouteMatch_jdk() {
-    int count = 0;
-    for (String text : apiRouteTexts) {
-      java.util.regex.Matcher matcher = jdkApiRoute.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(1).length() + matcher.group(2).length();
-      }
-    }
-    return count;
+    return runJdkInt("apiRouteMatch");
   }
 
   @Benchmark
   public int apiRouteMatch_re2j() {
-    int count = 0;
-    for (String text : apiRouteTexts) {
-      com.google.re2j.Matcher matcher = re2jApiRoute.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(1).length() + matcher.group(2).length();
-      }
-    }
-    return count;
+    return runRe2jInt("apiRouteMatch");
   }
 
   @Benchmark
   public int apiRouteMatch_re2ffm() {
-    int count = 0;
-    for (String text : apiRouteTexts) {
-      org.safere.re2ffm.RE2FfmMatcher matcher = re2ffmApiRoute.matcher(text);
-      if (matcher.matches()) {
-        count += matcher.group(1).length() + matcher.group(2).length();
-      }
-    }
-    return count;
+    return runRe2ffmInt("apiRouteMatch");
   }
 
   @Benchmark
   public int stackTraceExtract_safere() {
-    org.safere.Matcher matcher = safeStackTrace.matcher(stackTraceText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group(1).length() + matcher.group(4).length();
-    }
-    return count;
+    return runSafereInt("stackTraceExtract");
   }
 
   @Benchmark
   public int stackTraceExtract_jdk() {
-    java.util.regex.Matcher matcher = jdkStackTrace.matcher(stackTraceText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group(1).length() + matcher.group(4).length();
-    }
-    return count;
+    return runJdkInt("stackTraceExtract");
   }
 
   @Benchmark
   public int stackTraceExtract_re2j() {
-    com.google.re2j.Matcher matcher = re2jStackTrace.matcher(stackTraceText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group(1).length() + matcher.group(4).length();
-    }
-    return count;
+    return runRe2jInt("stackTraceExtract");
   }
 
   @Benchmark
   public int stackTraceExtract_re2ffm() {
-    org.safere.re2ffm.RE2FfmMatcher matcher = re2ffmStackTrace.matcher(stackTraceText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group(1).length() + matcher.group(4).length();
-    }
-    return count;
+    return runRe2ffmInt("stackTraceExtract");
   }
 
   @Benchmark
   public int caseInsensitiveKeywords_safere() {
-    org.safere.Matcher matcher = safeKeywords.matcher(keywordText);
-    int count = 0;
-    while (matcher.find()) {
-      count++;
-    }
-    return count;
+    return runSafereInt("caseInsensitiveKeywords");
   }
 
   @Benchmark
   public int caseInsensitiveKeywords_jdk() {
-    java.util.regex.Matcher matcher = jdkKeywords.matcher(keywordText);
-    int count = 0;
-    while (matcher.find()) {
-      count++;
-    }
-    return count;
+    return runJdkInt("caseInsensitiveKeywords");
   }
 
   @Benchmark
   public int caseInsensitiveKeywords_re2j() {
-    com.google.re2j.Matcher matcher = re2jKeywords.matcher(keywordText);
-    int count = 0;
-    while (matcher.find()) {
-      count++;
-    }
-    return count;
+    return runRe2jInt("caseInsensitiveKeywords");
   }
 
   @Benchmark
   public int caseInsensitiveKeywords_re2ffm() {
-    org.safere.re2ffm.RE2FfmMatcher matcher = re2ffmKeywords.matcher(keywordText);
-    int count = 0;
-    while (matcher.find()) {
-      count++;
-    }
-    return count;
+    return runRe2ffmInt("caseInsensitiveKeywords");
   }
 
   @Benchmark
   public int urlExtraction_safere() {
-    org.safere.Matcher matcher = safeUrl.matcher(urlText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runSafereInt("urlExtraction");
   }
 
   @Benchmark
   public int urlExtraction_jdk() {
-    java.util.regex.Matcher matcher = jdkUrl.matcher(urlText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runJdkInt("urlExtraction");
   }
 
   @Benchmark
   public int urlExtraction_re2j() {
-    com.google.re2j.Matcher matcher = re2jUrl.matcher(urlText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runRe2jInt("urlExtraction");
   }
 
   @Benchmark
   public int urlExtraction_re2ffm() {
-    org.safere.re2ffm.RE2FfmMatcher matcher = re2ffmUrl.matcher(urlText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runRe2ffmInt("urlExtraction");
   }
 
   @Benchmark
   public int csvFieldScan_safere() {
-    org.safere.Matcher matcher = safeCsv.matcher(csvText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runSafereInt("csvFieldScan");
   }
 
   @Benchmark
   public int csvFieldScan_jdk() {
-    java.util.regex.Matcher matcher = jdkCsv.matcher(csvText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runJdkInt("csvFieldScan");
   }
 
   @Benchmark
   public int csvFieldScan_re2j() {
-    com.google.re2j.Matcher matcher = re2jCsv.matcher(csvText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runRe2jInt("csvFieldScan");
   }
 
   @Benchmark
   public int csvFieldScan_re2ffm() {
-    org.safere.re2ffm.RE2FfmMatcher matcher = re2ffmCsv.matcher(csvText);
-    int count = 0;
-    while (matcher.find()) {
-      count += matcher.group().length();
-    }
-    return count;
+    return runRe2ffmInt("csvFieldScan");
   }
 
   @Benchmark
   public String secretRedaction_safere() {
-    return safeSecret.matcher(secretText).replaceAll(secretReplacement);
+    return runSafereString("secretRedaction");
   }
 
   @Benchmark
   public String secretRedaction_jdk() {
-    return jdkSecret.matcher(secretText).replaceAll(secretReplacement);
+    return runJdkString("secretRedaction");
   }
 
   @Benchmark
   public String secretRedaction_re2j() {
-    return re2jSecret.matcher(secretText).replaceAll(secretReplacement);
+    return runRe2jString("secretRedaction");
   }
 
   @Benchmark
   public String secretRedaction_re2ffm() {
-    return re2ffmSecret.matcher(secretText).replaceAll(secretReplacement);
+    return runRe2ffmString("secretRedaction");
+  }
+
+  private int runSafereInt(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return runSafereInt(appCase, saferePatterns.get(name));
+  }
+
+  private int runJdkInt(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return runJdkInt(appCase, jdkPatterns.get(name));
+  }
+
+  private int runRe2jInt(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return runRe2jInt(appCase, re2jPatterns.get(name));
+  }
+
+  private int runRe2ffmInt(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return runRe2ffmInt(appCase, re2ffmPatterns.get(name));
+  }
+
+  private String runSafereString(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return saferePatterns.get(name).matcher(appCase.text).replaceAll(appCase.replacement);
+  }
+
+  private String runJdkString(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return jdkPatterns.get(name).matcher(appCase.text).replaceAll(appCase.replacement);
+  }
+
+  private String runRe2jString(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return re2jPatterns.get(name).matcher(appCase.text).replaceAll(appCase.replacement);
+  }
+
+  private String runRe2ffmString(String name) {
+    ApplicationCase appCase = cases.get(name);
+    return re2ffmPatterns.get(name).matcher(appCase.text).replaceAll(appCase.replacement);
+  }
+
+  private static int runSafereInt(ApplicationCase appCase, org.safere.Pattern pattern) {
+    return switch (appCase.op) {
+      case "matchesCorpus" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          if (pattern.matcher(text).matches()) {
+            count++;
+          }
+        }
+        yield count;
+      }
+      case "matchesGroupLengthSum" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          org.safere.Matcher matcher = pattern.matcher(text);
+          if (matcher.matches()) {
+            count += groupLengthSum(matcher::group, appCase.groups);
+          }
+        }
+        yield count;
+      }
+      case "findAllCount" -> {
+        org.safere.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count++;
+        }
+        yield count;
+      }
+      case "findAllLengthSum" -> {
+        org.safere.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += matcher.group().length();
+        }
+        yield count;
+      }
+      case "findAllGroupLengthSum" -> {
+        org.safere.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += groupLengthSum(matcher::group, appCase.groups);
+        }
+        yield count;
+      }
+      default -> throw new IllegalArgumentException("String op used as int op: " + appCase.op);
+    };
+  }
+
+  private static int runJdkInt(ApplicationCase appCase, java.util.regex.Pattern pattern) {
+    return switch (appCase.op) {
+      case "matchesCorpus" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          if (pattern.matcher(text).matches()) {
+            count++;
+          }
+        }
+        yield count;
+      }
+      case "matchesGroupLengthSum" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          java.util.regex.Matcher matcher = pattern.matcher(text);
+          if (matcher.matches()) {
+            count += groupLengthSum(matcher::group, appCase.groups);
+          }
+        }
+        yield count;
+      }
+      case "findAllCount" -> {
+        java.util.regex.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count++;
+        }
+        yield count;
+      }
+      case "findAllLengthSum" -> {
+        java.util.regex.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += matcher.group().length();
+        }
+        yield count;
+      }
+      case "findAllGroupLengthSum" -> {
+        java.util.regex.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += groupLengthSum(matcher::group, appCase.groups);
+        }
+        yield count;
+      }
+      default -> throw new IllegalArgumentException("String op used as int op: " + appCase.op);
+    };
+  }
+
+  private static int runRe2jInt(ApplicationCase appCase, com.google.re2j.Pattern pattern) {
+    return switch (appCase.op) {
+      case "matchesCorpus" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          if (pattern.matcher(text).matches()) {
+            count++;
+          }
+        }
+        yield count;
+      }
+      case "matchesGroupLengthSum" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          com.google.re2j.Matcher matcher = pattern.matcher(text);
+          if (matcher.matches()) {
+            count += groupLengthSum(matcher::group, appCase.groups);
+          }
+        }
+        yield count;
+      }
+      case "findAllCount" -> {
+        com.google.re2j.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count++;
+        }
+        yield count;
+      }
+      case "findAllLengthSum" -> {
+        com.google.re2j.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += matcher.group().length();
+        }
+        yield count;
+      }
+      case "findAllGroupLengthSum" -> {
+        com.google.re2j.Matcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += groupLengthSum(matcher::group, appCase.groups);
+        }
+        yield count;
+      }
+      default -> throw new IllegalArgumentException("String op used as int op: " + appCase.op);
+    };
+  }
+
+  private static int runRe2ffmInt(
+      ApplicationCase appCase, org.safere.re2ffm.RE2FfmPattern pattern) {
+    return switch (appCase.op) {
+      case "matchesCorpus" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          if (pattern.matcher(text).matches()) {
+            count++;
+          }
+        }
+        yield count;
+      }
+      case "matchesGroupLengthSum" -> {
+        int count = 0;
+        for (String text : appCase.texts) {
+          org.safere.re2ffm.RE2FfmMatcher matcher = pattern.matcher(text);
+          if (matcher.matches()) {
+            count += groupLengthSum(matcher::group, appCase.groups);
+          }
+        }
+        yield count;
+      }
+      case "findAllCount" -> {
+        org.safere.re2ffm.RE2FfmMatcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count++;
+        }
+        yield count;
+      }
+      case "findAllLengthSum" -> {
+        org.safere.re2ffm.RE2FfmMatcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += matcher.group().length();
+        }
+        yield count;
+      }
+      case "findAllGroupLengthSum" -> {
+        org.safere.re2ffm.RE2FfmMatcher matcher = pattern.matcher(appCase.text);
+        int count = 0;
+        while (matcher.find()) {
+          count += groupLengthSum(matcher::group, appCase.groups);
+        }
+        yield count;
+      }
+      default -> throw new IllegalArgumentException("String op used as int op: " + appCase.op);
+    };
+  }
+
+  private static int groupLengthSum(GroupReader groupReader, int[] groups) {
+    int sum = 0;
+    for (int group : groups) {
+      String value = groupReader.group(group);
+      if (value != null) {
+        sum += value.length();
+      }
+    }
+    return sum;
+  }
+
+  private void validateExpected(ApplicationCase appCase) {
+    org.safere.Pattern saferePattern = saferePatterns.get(appCase.name);
+    if (appCase.op.startsWith("findAll") && saferePattern.matcher("").find()) {
+      throw new IllegalArgumentException(
+          appCase.name + " uses an empty-width pattern with find-all op " + appCase.op);
+    }
+    if (appCase.expectsString()) {
+      validateString(
+          appCase.name, "safere", runSafereString(appCase.name), appCase.expectedString());
+      validateString(appCase.name, "jdk", runJdkString(appCase.name), appCase.expectedString());
+      validateString(appCase.name, "re2j", runRe2jString(appCase.name), appCase.expectedString());
+      validateString(
+          appCase.name, "re2ffm", runRe2ffmString(appCase.name), appCase.expectedString());
+      return;
+    }
+    validateInt(appCase.name, "safere", runSafereInt(appCase.name), appCase.expectedInt());
+    validateInt(appCase.name, "jdk", runJdkInt(appCase.name), appCase.expectedInt());
+    validateInt(appCase.name, "re2j", runRe2jInt(appCase.name), appCase.expectedInt());
+    validateInt(appCase.name, "re2ffm", runRe2ffmInt(appCase.name), appCase.expectedInt());
+  }
+
+  private static void validateInt(String caseName, String engine, int actual, int expected) {
+    if (actual != expected) {
+      throw new IllegalArgumentException(
+          caseName + " " + engine + " expected " + expected + " but was " + actual);
+    }
+  }
+
+  private static void validateString(
+      String caseName, String engine, String actual, String expected) {
+    if (!actual.equals(expected)) {
+      throw new IllegalArgumentException(
+          caseName + " " + engine + " expected " + expected + " but was " + actual);
+    }
+  }
+
+  private interface GroupReader {
+    String group(int group);
   }
 }
