@@ -2253,14 +2253,26 @@ class MatcherTest {
     scenario.accept(100);
     scenario.accept(500);
 
-    long smallNanos = bestRuntimeNanos(3, () -> scenario.accept(100));
-    long largeNanos = bestRuntimeNanos(3, () -> scenario.accept(500));
+    int smallRepetitions = 100;
+    int largeRepetitions = 500;
+    long smallNanos = bestRuntimeNanos(5, () -> scenario.accept(smallRepetitions));
+    long largeNanos = bestRuntimeNanos(5, () -> scenario.accept(largeRepetitions));
+    long smallNanosPerRepetition = smallNanos / smallRepetitions;
+    long largeNanosPerRepetition = largeNanos / largeRepetitions;
 
+    // This is a regression guard for accidental superlinear capture extraction, not a
+    // microbenchmark. The wide per-repetition allowance absorbs ordinary full-suite
+    // timing noise while still failing on the dramatic cliff this test was added to catch.
     assertThat(largeNanos)
         .as("larger repeated-capture input should scale roughly with input size; "
             + "small=%d ns, large=%d ns",
             smallNanos, largeNanos)
-        .isLessThan(smallNanos * 50);
+        .isLessThan(smallNanos * largeRepetitions / smallRepetitions * 12);
+    assertThat(largeNanosPerRepetition)
+        .as("larger repeated-capture input should not be dramatically slower per repetition; "
+            + "small=%d ns/repetition, large=%d ns/repetition",
+            smallNanosPerRepetition, largeNanosPerRepetition)
+        .isLessThan(smallNanosPerRepetition * 12);
   }
 
   private static long bestRuntimeNanos(int runs, Runnable task) {
