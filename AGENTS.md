@@ -136,6 +136,10 @@ Drop-in replacements for `java.util.regex`:
   machines, such as relative ratios between related inputs or scaling behavior.
 - **Do not include test counts in documentation** (DESIGN.md, TESTING.md,
   etc.) — counts change frequently as tests are added and will go stale.
+- When updating BENCHMARKS.md, include the full Git SHA that the benchmarks
+  were run against and that commit's date/time in UTC using `Z` notation
+  (for example, `2026-04-27T02:42:22Z`). Do not include a separate benchmark
+  results timestamp unless explicitly requested.
 
 ## External Validation
 
@@ -291,13 +295,17 @@ per invocation and collect results incrementally:
 
 When reporting benchmark results in BENCHMARKS.md, always compute and report
 **geometric mean of the speed ratios** (SafeRE time / competitor time) as the
-single summary statistic. Report two geomeans, against both JDK and RE2/J:
+single summary statistic. Report three geomeans, against JDK, RE2/J, and
+RE2-FFM:
 
 1. **Core workloads geomean** — includes: literalMatch, emailFind, findInText,
-   alternationFind, charClassMatch, captureGroups, pigLatinReplace, httpFull
-   (and any future "everyday usage" benchmarks). This answers: "Is SafeRE
-   competitive for normal use?"
-2. **Pathological/scaling geomean** — includes: pathological, searchHardFail,
+   alternationFind, charClassMatch, captureGroups, pigLatinReplace, and
+   httpFull. These are focused microbenchmarks that isolate engine behavior.
+2. **Application workloads geomean** — includes the data-driven validation,
+   parsing, extraction, scanning, and redaction cases from
+   `ApplicationBenchmark`. This answers: "Is SafeRE competitive on ordinary
+   application regex use?"
+3. **Pathological/scaling geomean** — includes: pathological, searchHardFail,
    and other benchmarks that demonstrate linear-time guarantees or scaling
    behavior. This answers: "Does the linear-time guarantee matter?"
 
