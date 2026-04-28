@@ -19,6 +19,35 @@ class UnicodeCharClassTest {
 
   private static final int UCC = Pattern.UNICODE_CHARACTER_CLASS;
 
+  @Nested
+  class PosixUnicodeCharacterClassTests {
+
+    @Test
+    void posixAlphaUsesUnicodeWithFlag() {
+      Pattern p = Pattern.compile("\\p{Alpha}+", UCC);
+      assertThat(p.matcher("é中").matches()).isTrue();
+    }
+
+    @Test
+    void posixLowerAndUpperUseUnicodeWithFlag() {
+      assertThat(Pattern.compile("\\p{Lower}", UCC).matcher("é").matches()).isTrue();
+      assertThat(Pattern.compile("\\p{Upper}", UCC).matcher("É").matches()).isTrue();
+    }
+
+    @Test
+    void posixDigitUsesUnicodeWithFlag() {
+      Pattern p = Pattern.compile("\\p{Digit}+", UCC);
+      assertThat(p.matcher("\u0661").matches()).isTrue();
+    }
+
+    @Test
+    void posixPunctUsesUnicodePunctuationWithFlag() {
+      Pattern p = Pattern.compile("\\p{Punct}", UCC);
+      assertThat(p.matcher("\u3002").matches()).isTrue();
+      assertThat(p.matcher("$").matches()).isFalse();
+    }
+  }
+
   // -------------------------------------------------------------------------
   // \d — Unicode digit (category Nd)
   // -------------------------------------------------------------------------

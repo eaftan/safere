@@ -7,7 +7,10 @@
 
 package org.safere;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.function.IntPredicate;
 
 /**
  * Unicode character data tables for the SafeRE regular expression library.
@@ -110,6 +113,87 @@ final class UnicodeTables {
       Map.entry("Cntrl", POSIX_CNTRL),
       Map.entry("XDigit", POSIX_XDIGIT),
       Map.entry("Space", POSIX_SPACE));
+
+  private static final class UnicodePosixHolder {
+    static final int[][] UNICODE_ALPHA = UnicodeProperties.lookupBinaryProperty("Alphabetic");
+    static final int[][] UNICODE_DIGIT = UnicodeProperties.lookupBinaryProperty("Digit");
+    static final int[][] UNICODE_ALNUM = mergeRangeTables(UNICODE_ALPHA, UNICODE_DIGIT);
+    static final int[][] UNICODE_PUNCT = UnicodeProperties.lookupBinaryProperty("Punctuation");
+    static final int[][] UNICODE_CNTRL = UnicodeProperties.lookupBinaryProperty("Control");
+    static final int[][] UNICODE_XDIGIT = UnicodeProperties.lookupBinaryProperty("Hex_Digit");
+    static final int[][] UNICODE_GRAPH =
+        buildRanges(
+            cp ->
+                Character.isDefined(cp)
+                    && Character.getType(cp) != Character.CONTROL
+                    && Character.getType(cp) != Character.SURROGATE
+                    && !isUnicodeWhiteSpace(cp));
+    static final int[][] UNICODE_PRINT = mergeRangeTables(UNICODE_GRAPH, HORIZ_SPACE);
+
+    static final Map<String, int[][]> UNICODE_POSIX_PROPERTY_GROUPS =
+        Map.ofEntries(
+            Map.entry("Lower", UnicodeProperties.lookupBinaryProperty("Lowercase")),
+            Map.entry("Upper", UnicodeProperties.lookupBinaryProperty("Uppercase")),
+            Map.entry("ASCII", POSIX_ASCII),
+            Map.entry("Alpha", UNICODE_ALPHA),
+            Map.entry("Digit", UNICODE_DIGIT),
+            Map.entry("Alnum", UNICODE_ALNUM),
+            Map.entry("Punct", UNICODE_PUNCT),
+            Map.entry("Graph", UNICODE_GRAPH),
+            Map.entry("Print", UNICODE_PRINT),
+            Map.entry("Blank", HORIZ_SPACE),
+            Map.entry("Cntrl", UNICODE_CNTRL),
+            Map.entry("XDigit", UNICODE_XDIGIT),
+            Map.entry("Space", unicodeSpace()));
+
+    static final Map<String, int[][]> UNICODE_POSIX_GROUPS =
+        Map.ofEntries(
+            Map.entry("[:alnum:]", UNICODE_ALNUM),
+            Map.entry("[:alpha:]", UNICODE_ALPHA),
+            Map.entry("[:ascii:]", POSIX_ASCII),
+            Map.entry("[:blank:]", HORIZ_SPACE),
+            Map.entry("[:cntrl:]", UNICODE_CNTRL),
+            Map.entry("[:digit:]", UNICODE_DIGIT),
+            Map.entry("[:graph:]", UNICODE_GRAPH),
+            Map.entry("[:lower:]", UnicodeProperties.lookupBinaryProperty("Lowercase")),
+            Map.entry("[:print:]", UNICODE_PRINT),
+            Map.entry("[:punct:]", UNICODE_PUNCT),
+            Map.entry("[:space:]", unicodeSpace()),
+            Map.entry("[:upper:]", UnicodeProperties.lookupBinaryProperty("Uppercase")),
+            Map.entry("[:word:]", unicodeWord()),
+            Map.entry("[:xdigit:]", UNICODE_XDIGIT));
+  }
+
+  static Map<String, int[][]> unicodePosixPropertyGroups() {
+    return UnicodePosixHolder.UNICODE_POSIX_PROPERTY_GROUPS;
+  }
+
+  static Map<String, int[][]> unicodePosixGroups() {
+    return UnicodePosixHolder.UNICODE_POSIX_GROUPS;
+  }
+
+  private static boolean isUnicodeWhiteSpace(int cp) {
+    return Character.isWhitespace(cp) || Character.isSpaceChar(cp);
+  }
+
+  private static int[][] buildRanges(IntPredicate predicate) {
+    List<int[]> ranges = new ArrayList<>();
+    int lo = -1;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      if (predicate.test(cp)) {
+        if (lo < 0) {
+          lo = cp;
+        }
+      } else if (lo >= 0) {
+        ranges.add(new int[] {lo, cp - 1});
+        lo = -1;
+      }
+    }
+    if (lo >= 0) {
+      ranges.add(new int[] {lo, Character.MAX_CODE_POINT});
+    }
+    return ranges.toArray(new int[0][]);
+  }
 
   // Case folding sentinel values
   public static final int EVEN_ODD = 1;

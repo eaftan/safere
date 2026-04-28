@@ -87,6 +87,28 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("lookingAt() respects lazy quantifier priority")
+    void lookingAtRespectsLazyQuantifierPriority() {
+      Matcher m = Pattern.compile("(a+?)").matcher("aaa");
+
+      assertThat(m.lookingAt()).isTrue();
+      assertThat(m.group()).isEqualTo("a");
+      assertThat(m.group(1)).isEqualTo("a");
+      assertThat(m.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("lookingAt() respects empty alternative priority")
+    void lookingAtRespectsEmptyAlternativePriority() {
+      Matcher m = Pattern.compile("(|a)").matcher("a");
+
+      assertThat(m.lookingAt()).isTrue();
+      assertThat(m.group()).isEmpty();
+      assertThat(m.group(1)).isEmpty();
+      assertThat(m.end()).isEqualTo(0);
+    }
+
+    @Test
     @DisplayName("matches() with alternation and non-participating group")
     void matchesAlternation() {
       Pattern p = Pattern.compile("(a)|(b)");

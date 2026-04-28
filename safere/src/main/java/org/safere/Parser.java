@@ -9,7 +9,9 @@ package org.safere;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.PatternSyntaxException;
 
 /**
@@ -62,6 +64,7 @@ final class Parser {
   private StackEntry stacktop;
   private int ncap;
   private final int runeMax;
+  private final Set<String> namedCaptures = new HashSet<>();
 
   private Parser(String pattern, int flags) {
     this.pattern = pattern;
@@ -392,7 +395,7 @@ final class Parser {
       CharClass cc = re.charClass;
       if (cc.numRanges() == 1 && cc.lo(0) == cc.hi(0)) {
         int r = cc.lo(0);
-        re = Regexp.literal(r, flags);
+        re = Regexp.literal(r, re.flags);
       } else if (cc.numRanges() == 2) {
         int r = cc.lo(0);
         if ('A' <= r && r <= 'Z'
@@ -413,7 +416,13 @@ final class Parser {
   private void pushLiteral(int r) {
     // Do case folding if needed.
     if ((flags & ParseFlags.FOLD_CASE) != 0) {
-      if (cycleFoldRune(r) != r) {
+      if ((flags & ParseFlags.UNICODE_CASE) == 0) {
+        int folded = asciiFoldRune(r);
+        if (folded != r) {
+          pushRegexp(Regexp.literal(folded, flags));
+          return;
+        }
+      } else if (cycleFoldRune(r) != r) {
         CharClassBuilder ccb = new CharClassBuilder();
         int r1 = r;
         do {
@@ -435,11 +444,18 @@ final class Parser {
     }
 
     // No fancy stuff worked. Ordinary literal.
-    if (maybeConcatString(r, flags)) {
+    int literalFlags = flags;
+    if ((flags & ParseFlags.FOLD_CASE) != 0
+        && (flags & ParseFlags.UNICODE_CASE) == 0
+        && asciiFoldRune(r) == r
+        && !('a' <= r && r <= 'z')) {
+      literalFlags &= ~ParseFlags.FOLD_CASE;
+    }
+    if (maybeConcatString(r, literalFlags)) {
       return;
     }
 
-    Regexp re = Regexp.literal(r, flags);
+    Regexp re = Regexp.literal(r, literalFlags);
     pushRegexp(re);
   }
 
@@ -660,6 +676,10 @@ final class Parser {
   }
 
   private void doLeftParen(String name) {
+    if (name != null && !namedCaptures.add(name)) {
+      throw new PatternSyntaxException(
+          "named capturing group <" + name + "> is already defined", pattern, pos);
+    }
     StackEntry e = newMarker(LEFT_PAREN);
     e.cap = ++ncap;
     e.name = name;
@@ -1340,7 +1360,7 @@ final class Parser {
       name = name.substring(1);
     }
 
-    int[][] table = lookupUnicodeGroup(name);
+    int[][] table = lookupUnicodeGroup(name, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
     if (table == null) {
       throw new PatternSyntaxException(
           "invalid Unicode group: " + name, pattern, seqStart);
@@ -1354,7 +1374,7 @@ final class Parser {
     return PARSE_OK;
   }
 
-  private static int[][] lookupUnicodeGroup(String name) {
+  private static int[][] lookupUnicodeGroup(String name, boolean unicodeCharacterClass) {
     if ("Any".equals(name)) {
       return new int[][] {{0, Utils.MAX_RUNE}};
     }
@@ -1362,7 +1382,9 @@ final class Parser {
     if (table != null) {
       return table;
     }
-    table = UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
+    table = unicodeCharacterClass
+        ? UnicodeTables.unicodePosixPropertyGroups().get(name)
+        : UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
     if (table != null) {
       return table;
     }
@@ -1436,7 +1458,9 @@ final class Parser {
       lookupName = "[:" + name.substring(3);
     }
 
-    int[][] table = UnicodeTables.POSIX_GROUPS.get(lookupName);
+    int[][] table = (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0
+        ? UnicodeTables.unicodePosixGroups().get(lookupName)
+        : UnicodeTables.POSIX_GROUPS.get(lookupName);
     if (table == null) {
       throw new PatternSyntaxException("invalid POSIX class: " + name, pattern, pos);
     }
@@ -1504,6 +1528,10 @@ final class Parser {
 
     // If folding case, add fold-equivalent characters too.
     if ((parseFlags & ParseFlags.FOLD_CASE) != 0) {
+      if ((parseFlags & ParseFlags.UNICODE_CASE) == 0) {
+        addAsciiFoldedRange(ccb, lo, hi);
+        return;
+      }
       addFoldedRange(ccb, lo, hi, 0);
     } else {
       ccb.addRange(lo, hi);
@@ -1511,6 +1539,30 @@ final class Parser {
   }
 
   // ---- Case folding ----
+
+  private static int asciiFoldRune(int r) {
+    if ('A' <= r && r <= 'Z') {
+      return r + ('a' - 'A');
+    }
+    if ('a' <= r && r <= 'z') {
+      return r;
+    }
+    return r;
+  }
+
+  private static void addAsciiFoldedRange(CharClassBuilder ccb, int lo, int hi) {
+    ccb.addRange(lo, hi);
+    int upperLo = Math.max(lo, 'A');
+    int upperHi = Math.min(hi, 'Z');
+    if (upperLo <= upperHi) {
+      ccb.addRange(upperLo + ('a' - 'A'), upperHi + ('a' - 'A'));
+    }
+    int lowerLo = Math.max(lo, 'a');
+    int lowerHi = Math.min(hi, 'z');
+    if (lowerLo <= lowerHi) {
+      ccb.addRange(lowerLo - ('a' - 'A'), lowerHi - ('a' - 'A'));
+    }
+  }
 
   /**
    * Look up the case fold entry containing r. Returns the index into CASE_FOLD, or -1 if none
@@ -1710,15 +1762,17 @@ final class Parser {
         }
         case 'u' -> {
           sawflags = true;
-          if (negated) nflags &= ~ParseFlags.UNICODE_GROUPS;
-          else nflags |= ParseFlags.UNICODE_GROUPS;
+          if (negated) nflags &= ~ParseFlags.UNICODE_CASE;
+          else nflags |= ParseFlags.UNICODE_CASE;
         }
         case 'U' -> {
           sawflags = true;
           if (negated) {
-            nflags &= ~(ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS);
+            nflags &= ~(ParseFlags.UNICODE_CASE | ParseFlags.UNICODE_GROUPS
+                | ParseFlags.UNICODE_CHAR_CLASS);
           } else {
-            nflags |= ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;
+            nflags |= ParseFlags.UNICODE_CASE | ParseFlags.UNICODE_GROUPS
+                | ParseFlags.UNICODE_CHAR_CLASS;
           }
         }
         case 'x' -> {

@@ -533,6 +533,15 @@ class PatternTest {
       Pattern p = Pattern.compile("hello", flags);
       assertThat(p.flags()).isEqualTo(flags);
     }
+
+    @Test
+    @DisplayName("UNICODE_CHARACTER_CLASS implies UNICODE_CASE in flags()")
+    void unicodeCharacterClassImpliesUnicodeCaseFlag() {
+      Pattern p = Pattern.compile("\\w+", Pattern.UNICODE_CHARACTER_CLASS);
+
+      assertThat(p.flags())
+          .isEqualTo(Pattern.UNICODE_CHARACTER_CLASS | Pattern.UNICODE_CASE);
+    }
   }
 
   @Nested
@@ -568,6 +577,15 @@ class PatternTest {
       Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
       assertThatThrownBy(() -> p.namedGroups().put("foo", 99))
           .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("duplicate named capturing groups are rejected")
+    void duplicateNamedGroupsRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?<word>a)(?<word>b)"))
+          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("(?P<word>a)(?P<word>b)"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 
