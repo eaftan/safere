@@ -412,6 +412,54 @@ class MatcherTest {
       assertThat(m.find()).isFalse();
     }
 
+    @Test
+    @DisplayName("find() start acceleration matches JDK for comma-or-line-start CSV fields")
+    void findStartAccelerationForCsvFields() {
+      assertAllFindsMatchJdk(
+          "(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))",
+          "id,name,email\r\n42,\"Ada Lovelace\",ada@example.com\n"
+              + "43,\"Grace Hopper\",grace@example.com");
+    }
+
+    @Test
+    @DisplayName("find() start acceleration matches JDK for multiline line-start whitespace")
+    void findStartAccelerationForLineStartWhitespace() {
+      assertAllFindsMatchJdk(
+          "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "java.lang.IllegalStateException: failed\n"
+              + "\tat org.example.api.Handler.handle(Handler.java:87)\n"
+              + "Caused by: java.io.IOException: timeout\r\n"
+              + "\tat org.example.net.Client.read(Client.java:203)");
+    }
+
+    @Test
+    @DisplayName("find() start acceleration handles Unicode line terminators")
+    void findStartAccelerationWithUnicodeLineTerminators() {
+      assertAllFindsMatchJdk("(?m)^\\s+at\\s+(\\w+)$", "header\u2028\tat alpha\u2029\tat beta");
+    }
+
+    private void assertAllFindsMatchJdk(String regex, String input) {
+      Matcher m = Pattern.compile(regex).matcher(input);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+
+      while (true) {
+        boolean safereFound = m.find();
+        boolean jdkFound = jdk.find();
+        assertThat(safereFound).isEqualTo(jdkFound);
+        if (!jdkFound) {
+          return;
+        }
+        assertThat(m.group()).isEqualTo(jdk.group());
+        assertThat(m.start()).isEqualTo(jdk.start());
+        assertThat(m.end()).isEqualTo(jdk.end());
+        for (int group = 1; group <= jdk.groupCount(); group++) {
+          assertThat(m.group(group)).isEqualTo(jdk.group(group));
+          assertThat(m.start(group)).isEqualTo(jdk.start(group));
+          assertThat(m.end(group)).isEqualTo(jdk.end(group));
+        }
+      }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
       "(bcd|abcde)",

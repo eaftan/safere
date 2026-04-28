@@ -108,6 +108,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasAnchorInQuant;
   private final transient boolean hasEndConstraint;
   private final transient boolean[] charClassPrefixAscii;
+  private final transient StartAcceleration startAcceleration;
 
   /**
    * Precomputed character class data for the "repeated character class" fast path in
@@ -184,7 +185,7 @@ public final class Pattern implements Serializable {
       String literalMatch, boolean hasLazy, boolean hasAlternation,
       boolean hasNullableAlternation,
       boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean hasEndConstraint,
-      boolean[] charClassPrefixAscii,
+      boolean[] charClassPrefixAscii, StartAcceleration startAcceleration,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty) {
     this.pattern = pattern;
@@ -202,6 +203,7 @@ public final class Pattern implements Serializable {
     this.hasAnchorInQuant = hasAnchorInQuant;
     this.hasEndConstraint = hasEndConstraint;
     this.charClassPrefixAscii = charClassPrefixAscii;
+    this.startAcceleration = startAcceleration;
     this.charClassMatchRanges = charClassMatchRanges;
     this.charClassMatchBitmap0 = charClassMatchBitmap0;
     this.charClassMatchBitmap1 = charClassMatchBitmap1;
@@ -251,12 +253,14 @@ public final class Pattern implements Serializable {
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(re) : null;
+    StartAcceleration startAcceleration =
+        (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(re) : null;
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
-        hasEndConst, ccPrefixAscii,
+        hasEndConst, ccPrefixAscii, startAcceleration,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -744,6 +748,11 @@ public final class Pattern implements Serializable {
     return charClassPrefixAscii;
   }
 
+  /** Returns conservative start-position acceleration data, or {@code null} if unavailable. */
+  StartAcceleration startAcceleration() {
+    return startAcceleration;
+  }
+
   /**
    * Returns the precomputed ranges for the character-class-match fast path, or {@code null} if
    * the pattern is not a simple repeated character class. When non-null, {@code matches()} can
@@ -1151,6 +1160,26 @@ public final class Pattern implements Serializable {
   private record PrefixResult(String prefix, boolean foldCase) {}
 
   /**
+   * Conservative start-position accelerator.
+   *
+   * <p>When {@code requireLineStart} is true, every match must start at a multiline {@code ^}
+   * position, optionally with the first consumed ASCII character in {@code asciiStart}. Otherwise,
+   * a match may start at a line start if {@code allowLineStart} is true, or at a position whose
+   * first consumed ASCII character is in {@code asciiStart}.
+   */
+  static final class StartAcceleration {
+    final boolean requireLineStart;
+    final boolean allowLineStart;
+    final boolean[] asciiStart;
+
+    StartAcceleration(boolean requireLineStart, boolean allowLineStart, boolean[] asciiStart) {
+      this.requireLineStart = requireLineStart;
+      this.allowLineStart = allowLineStart;
+      this.asciiStart = asciiStart;
+    }
+  }
+
+  /**
    * Extracts a literal prefix from the simplified AST for prefix acceleration. Returns a {@link
    * PrefixResult} containing the literal string that every match must start with (or {@code null}
    * if no fixed prefix exists) and whether the prefix is case-folded.
@@ -1261,6 +1290,130 @@ public final class Pattern implements Serializable {
       }
     }
     return bitmap;
+  }
+
+  private static StartAcceleration extractStartAcceleration(Regexp re) {
+    Regexp node = unwrapCaptures(re);
+    if (node == null) {
+      return null;
+    }
+
+    if (node.op == RegexpOp.CONCAT && node.nsub() > 0) {
+      Regexp first = unwrapCaptures(node.subs.get(0));
+      if (first != null && first.op == RegexpOp.BEGIN_LINE) {
+        boolean[] requiredStart = null;
+        if (node.nsub() > 1) {
+          requiredStart = requiredFirstAscii(node.subs.get(1));
+        }
+        return new StartAcceleration(true, false, requiredStart);
+      }
+      return extractAlternateStartAcceleration(first);
+    }
+
+    if (node.op == RegexpOp.BEGIN_LINE) {
+      return new StartAcceleration(true, false, null);
+    }
+    return extractAlternateStartAcceleration(node);
+  }
+
+  private static StartAcceleration extractAlternateStartAcceleration(Regexp node) {
+    if (node == null || node.op != RegexpOp.ALTERNATE || node.subs == null) {
+      return null;
+    }
+
+    boolean allowLineStart = false;
+    boolean[] asciiStart = null;
+    for (Regexp branch : node.subs) {
+      Regexp first = firstMeaningfulNode(branch);
+      if (first == null) {
+        return null;
+      }
+      if (first.op == RegexpOp.BEGIN_LINE) {
+        allowLineStart = true;
+        continue;
+      }
+      boolean[] branchStart = requiredFirstAscii(first);
+      if (branchStart == null) {
+        return null;
+      }
+      if (asciiStart == null) {
+        asciiStart = new boolean[128];
+      }
+      for (int i = 0; i < branchStart.length; i++) {
+        asciiStart[i] |= branchStart[i];
+      }
+    }
+
+    return (allowLineStart || asciiStart != null)
+        ? new StartAcceleration(false, allowLineStart, asciiStart)
+        : null;
+  }
+
+  private static Regexp firstMeaningfulNode(Regexp re) {
+    Regexp node = unwrapCaptures(re);
+    if (node == null) {
+      return null;
+    }
+    if (node.op == RegexpOp.CONCAT && node.nsub() > 0) {
+      return unwrapCaptures(node.subs.get(0));
+    }
+    return node;
+  }
+
+  private static Regexp unwrapCaptures(Regexp re) {
+    Regexp node = re;
+    while (node != null && node.op == RegexpOp.CAPTURE) {
+      node = node.sub();
+    }
+    return node;
+  }
+
+  private static boolean[] requiredFirstAscii(Regexp re) {
+    Regexp node = firstMeaningfulNode(re);
+    if (node == null) {
+      return null;
+    }
+    if (node.op == RegexpOp.PLUS
+        || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
+      node = firstMeaningfulNode(node.sub());
+    }
+    if (node == null) {
+      return null;
+    }
+
+    boolean[] bitmap = new boolean[128];
+    if (node.op == RegexpOp.LITERAL) {
+      if ((node.flags & ParseFlags.FOLD_CASE) != 0 || node.rune >= 128) {
+        return null;
+      }
+      bitmap[node.rune] = true;
+      return bitmap;
+    }
+    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
+      if ((node.flags & ParseFlags.FOLD_CASE) != 0 || node.runes[0] >= 128) {
+        return null;
+      }
+      bitmap[node.runes[0]] = true;
+      return bitmap;
+    }
+    if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null) {
+      CharClass cc = node.charClass;
+      if (cc.isEmpty()) {
+        return null;
+      }
+      for (int i = 0; i < cc.numRanges(); i++) {
+        if (cc.hi(i) >= 128) {
+          return null;
+        }
+      }
+      for (int i = 0; i < cc.numRanges(); i++) {
+        for (int cp = cc.lo(i); cp <= cc.hi(i); cp++) {
+          bitmap[cp] = true;
+        }
+      }
+      return bitmap;
+    }
+    return null;
   }
 
   /** Holds precomputed data for the character-class-match fast path. */
