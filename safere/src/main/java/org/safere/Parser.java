@@ -914,7 +914,8 @@ final class Parser {
       }
 
       // Character class intersection: &&
-      if (pos + 1 < pattern.length()
+      if (!first
+          && pos + 1 < pattern.length()
           && pattern.charAt(pos) == '&'
           && pattern.charAt(pos + 1) == '&') {
         pos += 2; // skip '&&'

@@ -426,6 +426,16 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesFull("[a-z&&[def]]", "a");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"[&&`+]˫]*", "[&&abc]", "[a&&&&b]"})
+    @DisplayName("empty left side of class intersection matches like JDK")
+    void emptyLeftSideOfIntersection(String regex) {
+      assertMatchesSame(regex, "");
+      assertMatchesSame(regex, "a");
+      assertMatchesSame(regex, "`");
+      assertMatchesSame(regex, "˫");
+    }
+
     @Test
     @DisplayName("subtraction [a-z&&[^bc]]")
     void subtraction() {
