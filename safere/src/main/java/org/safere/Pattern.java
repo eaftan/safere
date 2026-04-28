@@ -1162,10 +1162,9 @@ public final class Pattern implements Serializable {
   /**
    * Conservative start-position accelerator.
    *
-   * <p>When {@code requireLineStart} is true, every match must start at a multiline {@code ^}
-   * position, optionally with the first consumed ASCII character in {@code asciiStart}. Otherwise,
-   * a match may start at a line start if {@code allowLineStart} is true, or at a position whose
-   * first consumed ASCII character is in {@code asciiStart}.
+   * <p>Every match must start at a multiline {@code ^} position, optionally with the first
+   * consumed ASCII character in {@code asciiStart}. The accelerator only advances the initial
+   * search position before handing off to the normal linear engine pipeline.
    */
   static final class StartAcceleration {
     final boolean requireLineStart;
@@ -1307,46 +1306,13 @@ public final class Pattern implements Serializable {
         }
         return new StartAcceleration(true, false, requiredStart);
       }
-      return extractAlternateStartAcceleration(first);
+      return null;
     }
 
     if (node.op == RegexpOp.BEGIN_LINE) {
       return new StartAcceleration(true, false, null);
     }
-    return extractAlternateStartAcceleration(node);
-  }
-
-  private static StartAcceleration extractAlternateStartAcceleration(Regexp node) {
-    if (node == null || node.op != RegexpOp.ALTERNATE || node.subs == null) {
-      return null;
-    }
-
-    boolean allowLineStart = false;
-    boolean[] asciiStart = null;
-    for (Regexp branch : node.subs) {
-      Regexp first = firstMeaningfulNode(branch);
-      if (first == null) {
-        return null;
-      }
-      if (first.op == RegexpOp.BEGIN_LINE) {
-        allowLineStart = true;
-        continue;
-      }
-      boolean[] branchStart = requiredFirstAscii(first);
-      if (branchStart == null) {
-        return null;
-      }
-      if (asciiStart == null) {
-        asciiStart = new boolean[128];
-      }
-      for (int i = 0; i < branchStart.length; i++) {
-        asciiStart[i] |= branchStart[i];
-      }
-    }
-
-    return (allowLineStart || asciiStart != null)
-        ? new StartAcceleration(false, allowLineStart, asciiStart)
-        : null;
+    return null;
   }
 
   private static Regexp firstMeaningfulNode(Regexp re) {
