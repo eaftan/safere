@@ -17,9 +17,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Spliterator;
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A compiled regular expression backed by a linear-time NFA engine. This class provides a drop-in
@@ -503,7 +505,10 @@ public final class Pattern implements Serializable {
    *     pattern
    */
   public Stream<String> splitAsStream(CharSequence input) {
-    return Arrays.stream(split(input, 0));
+    return StreamSupport.stream(
+        () -> Arrays.spliterator(split(input, 0)),
+        Spliterator.ORDERED | Spliterator.NONNULL,
+        false);
   }
 
   /**
