@@ -109,6 +109,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasEndConstraint;
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
+  private final transient KeywordAlternation keywordAlternation;
 
   /**
    * Precomputed character class data for the "repeated character class" fast path in
@@ -186,6 +187,7 @@ public final class Pattern implements Serializable {
       boolean hasNullableAlternation,
       boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean hasEndConstraint,
       boolean[] charClassPrefixAscii, StartAcceleration startAcceleration,
+      KeywordAlternation keywordAlternation,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty) {
     this.pattern = pattern;
@@ -204,6 +206,7 @@ public final class Pattern implements Serializable {
     this.hasEndConstraint = hasEndConstraint;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
+    this.keywordAlternation = keywordAlternation;
     this.charClassMatchRanges = charClassMatchRanges;
     this.charClassMatchBitmap0 = charClassMatchBitmap0;
     this.charClassMatchBitmap1 = charClassMatchBitmap1;
@@ -255,12 +258,13 @@ public final class Pattern implements Serializable {
         ? extractCharClassPrefixAscii(re) : null;
     StartAcceleration startAcceleration =
         (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(re) : null;
+    KeywordAlternation keywordAlternation = extractKeywordAlternation(re, flags);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
-        hasEndConst, ccPrefixAscii, startAcceleration,
+        hasEndConst, ccPrefixAscii, startAcceleration, keywordAlternation,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -753,6 +757,11 @@ public final class Pattern implements Serializable {
     return startAcceleration;
   }
 
+  /** Returns case-insensitive keyword-alternation fast-path data, or {@code null}. */
+  KeywordAlternation keywordAlternation() {
+    return keywordAlternation;
+  }
+
   /**
    * Returns the precomputed ranges for the character-class-match fast path, or {@code null} if
    * the pattern is not a simple repeated character class. When non-null, {@code matches()} can
@@ -1178,6 +1187,22 @@ public final class Pattern implements Serializable {
     }
   }
 
+  /** Fast-path data for {@code (?i)\b(keyword|...)\b}. */
+  static final class KeywordAlternation {
+    final String[] keywords;
+    final boolean[] firstAscii;
+    final int captureGroup;
+    final boolean unicodeWordBoundary;
+
+    KeywordAlternation(
+        String[] keywords, boolean[] firstAscii, int captureGroup, boolean unicodeWordBoundary) {
+      this.keywords = keywords;
+      this.firstAscii = firstAscii;
+      this.captureGroup = captureGroup;
+      this.unicodeWordBoundary = unicodeWordBoundary;
+    }
+  }
+
   /**
    * Extracts a literal prefix from the simplified AST for prefix acceleration. Returns a {@link
    * PrefixResult} containing the literal string that every match must start with (or {@code null}
@@ -1313,6 +1338,165 @@ public final class Pattern implements Serializable {
       return new StartAcceleration(true, false, null);
     }
     return null;
+  }
+
+  private static KeywordAlternation extractKeywordAlternation(Regexp re, int patternFlags) {
+    if ((patternFlags & UNICODE_CASE) != 0) {
+      return null;
+    }
+
+    Regexp node = unwrapImplicitCapture(re);
+    if (node == null || node.op != RegexpOp.CONCAT || node.nsub() != 3) {
+      return null;
+    }
+    Regexp before = unwrapImplicitCapture(node.subs.get(0));
+    Regexp middle = unwrapImplicitCapture(node.subs.get(1));
+    Regexp after = unwrapImplicitCapture(node.subs.get(2));
+    if (before == null || before.op != RegexpOp.WORD_BOUNDARY
+        || after == null || after.op != RegexpOp.WORD_BOUNDARY) {
+      return null;
+    }
+
+    int captureGroup = -1;
+    if (middle != null && middle.op == RegexpOp.CAPTURE && middle.cap > 0) {
+      captureGroup = middle.cap;
+      middle = unwrapImplicitCapture(middle.sub());
+    }
+    if (middle == null || middle.op != RegexpOp.ALTERNATE || middle.subs == null
+        || middle.subs.isEmpty()) {
+      return null;
+    }
+    if (hasOtherUserCaptures(middle, captureGroup)) {
+      return null;
+    }
+
+    String[] keywords = new String[middle.subs.size()];
+    boolean[] firstAscii = new boolean[128];
+    for (int i = 0; i < middle.subs.size(); i++) {
+      String keyword = extractAsciiCaseInsensitiveLiteral(middle.subs.get(i));
+      if (keyword == null || keyword.isEmpty()) {
+        return null;
+      }
+      keywords[i] = keyword;
+      firstAscii[keyword.charAt(0)] = true;
+    }
+    boolean unicodeWordBoundary = (before.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
+    return new KeywordAlternation(keywords, firstAscii, captureGroup, unicodeWordBoundary);
+  }
+
+  private static boolean hasOtherUserCaptures(Regexp re, int allowedCapture) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.CAPTURE && node.cap > 0 && node.cap != allowedCapture) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private static Regexp unwrapImplicitCapture(Regexp re) {
+    Regexp node = re;
+    while (node != null && node.op == RegexpOp.CAPTURE && node.cap == 0) {
+      node = node.sub();
+    }
+    return node;
+  }
+
+  private static String extractAsciiCaseInsensitiveLiteral(Regexp re) {
+    Regexp node = unwrapImplicitCapture(re);
+    if (node == null) {
+      return null;
+    }
+    StringBuilder sb = new StringBuilder();
+    boolean[] sawCaseInsensitive = new boolean[1];
+    if (!appendAsciiCaseInsensitiveLiteral(node, sb, sawCaseInsensitive)
+        || !sawCaseInsensitive[0]) {
+      return null;
+    }
+    return sb.toString();
+  }
+
+  private static boolean appendAsciiCaseInsensitiveLiteral(
+      Regexp node, StringBuilder sb, boolean[] sawCaseInsensitive) {
+    node = unwrapImplicitCapture(node);
+    if (node == null) {
+      return false;
+    }
+    switch (node.op) {
+      case CONCAT -> {
+        if (node.subs == null || node.subs.isEmpty()) {
+          return false;
+        }
+        for (Regexp sub : node.subs) {
+          if (!appendAsciiCaseInsensitiveLiteral(sub, sb, sawCaseInsensitive)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      case LITERAL -> {
+        int cp = node.rune;
+        if (cp < 0 || cp >= 128 || !isAsciiLiteralKeywordChar(cp)) {
+          return false;
+        }
+        sawCaseInsensitive[0] |= (node.flags & ParseFlags.FOLD_CASE) != 0;
+        sb.append((char) asciiLower(cp));
+        return true;
+      }
+      case LITERAL_STRING -> {
+        if (node.runes == null || node.runes.length == 0) {
+          return false;
+        }
+        for (int cp : node.runes) {
+          if (cp < 0 || cp >= 128 || !isAsciiLiteralKeywordChar(cp)) {
+            return false;
+          }
+          sawCaseInsensitive[0] |= (node.flags & ParseFlags.FOLD_CASE) != 0;
+          sb.append((char) asciiLower(cp));
+        }
+        return true;
+      }
+      case CHAR_CLASS -> {
+        int cp = asciiFoldedLiteralChar(node.charClass);
+        if (cp < 0) {
+          return false;
+        }
+        sawCaseInsensitive[0] = true;
+        sb.append((char) cp);
+        return true;
+      }
+      default -> {
+        return false;
+      }
+    }
+  }
+
+  private static boolean isAsciiLiteralKeywordChar(int cp) {
+    return ('A' <= cp && cp <= 'Z') || ('a' <= cp && cp <= 'z')
+        || ('0' <= cp && cp <= '9') || cp == '_';
+  }
+
+  private static int asciiLower(int cp) {
+    return ('A' <= cp && cp <= 'Z') ? cp + ('a' - 'A') : cp;
+  }
+
+  private static int asciiFoldedLiteralChar(CharClass cc) {
+    if (cc == null || cc.numRunes() != 2) {
+      return -1;
+    }
+    for (int cp = 'a'; cp <= 'z'; cp++) {
+      if (cc.contains(cp) && cc.contains(cp - ('a' - 'A'))) {
+        return cp;
+      }
+    }
+    return -1;
   }
 
   private static Regexp firstMeaningfulNode(Regexp re) {
