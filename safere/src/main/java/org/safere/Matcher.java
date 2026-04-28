@@ -52,6 +52,14 @@ public final class Matcher implements MatchResult {
    */
   private static final int ONEPASS_ANCHORED_TEXT_LIMIT = 4096;
 
+  /**
+   * Maximum number of submatches (including group 0) for lazy fallback capture extraction.
+   * Deferring captures saves work for find-all loops that only need group 0, but the first inner
+   * group access has to rerun the submatch engine. Keep the optimization to small-capture
+   * patterns so capture-heavy parsers do not pay that startup penalty.
+   */
+  private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -93,6 +101,14 @@ public final class Matcher implements MatchResult {
   private int deferredMatchStart;
   private int deferredMatchEnd;
   private boolean deferredEndMatch;
+
+  /**
+   * Whether later fallback {@code find()} calls in this matcher should capture all groups eagerly.
+   * Starts false so find-all loops that only need group 0 avoid capture extraction; flips true
+   * after the caller asks for inner captures or a snapshot, which is a strong signal that future
+   * matches will need captures too.
+   */
+  private boolean eagerFallbackCaptures;
 
   /**
    * Cached DFA references to avoid repeated ThreadLocal lookups in find-all loops. Populated on
@@ -624,10 +640,12 @@ public final class Matcher implements MatchResult {
    */
   public boolean find() {
     if (hasMatch) {
-      // Resolve deferred captures so groups[0] and groups[1] reflect the correct
-      // match boundaries (the DFA sandwich uses longest-match, which may differ
-      // from RE2's leftmost-first semantics for lazy quantifiers and ambiguous alternation).
-      resolveCaptures();
+      // Only resolve deferred captures before advancing when group 0 itself is not authoritative.
+      // If group 0 is already exact, find-all loops that never read inner captures should not pay
+      // the capture-extraction cost for the previous match.
+      if (!groupZeroResolved) {
+        resolveCaptures();
+      }
       searchFrom = groups[1];
       if (groups[0] == groups[1]) { // empty match
         if (searchFrom >= regionEnd) {
@@ -1060,17 +1078,28 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    // Fallback: DFA bailed out or reverse DFA unavailable — extract captures with
-    // BitState/NFA on the full text from effectiveStart. Pass the full text (not a substring)
-    // to avoid O(n) string copy and position-adjustment overhead.
+    // Fallback: DFA bailed out or reverse DFA unavailable. Search only for group 0 first, then
+    // defer inner capture extraction until group access. This keeps find-all loops that only need
+    // match existence or group 0 from paying full capture-tracking cost on every match.
+    //
+    // Region searches keep eager capture extraction: deferred resolution runs on the full input,
+    // while the fallback below sees the substituted region substring.
+    boolean lazyFallbackCaptures =
+        !regionActive
+            && !eagerFallbackCaptures
+            && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;
+    int nsubmatch = lazyFallbackCaptures ? 1 : prog.numCaptures();
     int[] result = searchWithBitStateOrNfa(
-        prog, text, effectiveStart, text.length(), text.length(), false, false, false,
-        prog.numCaptures());
+        prog, text, effectiveStart, text.length(), text.length(), false, false, false, nsubmatch);
     if (result == null) {
       hasMatch = false;
       return false;
     }
-    groups = result;
+    if (!lazyFallbackCaptures || prog.numCaptures() <= 1) {
+      groups = result;
+    } else {
+      setDeferredGroups(result[0], result[1], prog.numCaptures(), true, false);
+    }
     hasMatch = true;
     return true;
   }
@@ -1255,6 +1284,9 @@ public final class Matcher implements MatchResult {
     checkMatch();
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
+      if (group != 0) {
+        eagerFallbackCaptures = true;
+      }
       resolveCaptures();
     }
     return groups[2 * group];
@@ -1287,6 +1319,9 @@ public final class Matcher implements MatchResult {
     checkMatch();
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
+      if (group != 0) {
+        eagerFallbackCaptures = true;
+      }
       resolveCaptures();
     }
     return groups[2 * group + 1];
@@ -1625,6 +1660,7 @@ public final class Matcher implements MatchResult {
     groups = null;
     capturesResolved = true;
     groupZeroResolved = true;
+    eagerFallbackCaptures = false;
     lastHitEnd = false;
     lastRequireEnd = false;
     return this;
@@ -1774,6 +1810,7 @@ public final class Matcher implements MatchResult {
     groups = null;
     capturesResolved = true;
     groupZeroResolved = true;
+    eagerFallbackCaptures = false;
     return this;
   }
 
@@ -1834,6 +1871,7 @@ public final class Matcher implements MatchResult {
    */
   public MatchResult toMatchResult() {
     checkMatch();
+    eagerFallbackCaptures = true;
     resolveCaptures();
     return new SnapshotMatchResult(groups.clone(), text, groupCount());
   }

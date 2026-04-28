@@ -343,6 +343,74 @@ class MatcherTest {
       assertThat(m.find(4)).isTrue();
       assertThat(m.group()).isEqualTo("3");
     }
+
+    @Test
+    @DisplayName("find() exposes group 0 before deferred fallback captures are resolved")
+    void findGroupZeroBeforeDeferredFallbackCaptures() {
+      Pattern p = Pattern.compile("(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))");
+      Matcher m = p.matcher("id,name\n42,\"Ada Lovelace\"");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("id");
+      assertThat(m.group(0)).isEqualTo("id");
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("group access resolves deferred fallback captures")
+    void groupAccessResolvesDeferredFallbackCaptures() {
+      Pattern p = Pattern.compile("(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))");
+      Matcher m = p.matcher("id,name\n42,\"Ada Lovelace\"");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isNull();
+      assertThat(m.group(2)).isEqualTo("id");
+      assertThat(m.start(2)).isEqualTo(0);
+      assertThat(m.end(2)).isEqualTo(2);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(",name");
+      assertThat(m.group(1)).isNull();
+      assertThat(m.group(2)).isEqualTo("name");
+    }
+
+    @Test
+    @DisplayName("toMatchResult() resolves deferred fallback captures into snapshot")
+    void toMatchResultResolvesDeferredFallbackCaptures() {
+      Pattern p = Pattern.compile("(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))");
+      Matcher m = p.matcher("id,name\n42,\"Ada Lovelace\"");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.find()).isTrue();
+      assertThat(m.find()).isTrue();
+      assertThat(m.find()).isTrue();
+      MatchResult snapshot = m.toMatchResult();
+
+      assertThat(snapshot.group()).isEqualTo(",\"Ada Lovelace\"");
+      assertThat(snapshot.group(1)).isEqualTo("Ada Lovelace");
+      assertThat(snapshot.group(2)).isNull();
+      assertThat(snapshot.start(1)).isEqualTo(12);
+      assertThat(snapshot.end(1)).isEqualTo(24);
+    }
+
+    @Test
+    @DisplayName("successive find() calls do not require resolving previous fallback captures")
+    void successiveFindCallsWithDeferredFallbackCaptures() {
+      Pattern p = Pattern.compile("(?i)\\b(error|warning|timeout|failed)\\b");
+      Matcher m = p.matcher("Warning cache miss\nrequest failed after TIMEOUT\nERROR");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("Warning");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("failed");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("TIMEOUT");
+      assertThat(m.group(1)).isEqualTo("TIMEOUT");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isEqualTo("ERROR");
+      assertThat(m.find()).isFalse();
+    }
   }
 
   @Nested
