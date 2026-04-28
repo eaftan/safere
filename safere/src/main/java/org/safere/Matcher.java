@@ -456,11 +456,16 @@ public final class Matcher implements MatchResult {
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
-    if (regionActive) {
-      text = savedText.substring(regionStart, regionEnd);
-    }
 
     try {
+      if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
+        groups = null;
+        hasMatch = false;
+        return false;
+      }
+      if (regionActive) {
+        text = savedText.substring(regionStart, regionEnd);
+      }
       return matchesCore();
     } finally {
       if (regionActive) {
@@ -566,11 +571,16 @@ public final class Matcher implements MatchResult {
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
-    if (regionActive) {
-      text = savedText.substring(regionStart, regionEnd);
-    }
 
     try {
+      if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
+        groups = null;
+        hasMatch = false;
+        return false;
+      }
+      if (regionActive) {
+        text = savedText.substring(regionStart, regionEnd);
+      }
       return lookingAtCore();
     } finally {
       if (regionActive) {
@@ -721,12 +731,17 @@ public final class Matcher implements MatchResult {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
     int savedSearchFrom = searchFrom;
-    if (regionActive) {
-      text = savedText.substring(regionStart, regionEnd);
-      searchFrom = Math.max(0, savedSearchFrom - regionStart);
-    }
 
     try {
+      if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
+        groups = null;
+        hasMatch = false;
+        return false;
+      }
+      if (regionActive) {
+        text = savedText.substring(regionStart, regionEnd);
+        searchFrom = Math.max(0, savedSearchFrom - regionStart);
+      }
       return doFindCore(regionActive);
     } finally {
       if (regionActive) {
@@ -748,6 +763,26 @@ public final class Matcher implements MatchResult {
       lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
       lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
     }
+  }
+
+  /**
+   * Returns true when a stripped text anchor ({@code ^}, {@code \A}, {@code $}, {@code \Z}, or
+   * {@code \z}) cannot be satisfied at this region boundary because anchoring bounds are disabled.
+   */
+  private boolean regionTextAnchorCannotMatch() {
+    Prog prog = parentPattern.prog();
+    if (prog.anchorStart() && regionStart != 0) {
+      return true;
+    }
+    return prog.anchorEnd() && !regionEndCanSatisfyTextEnd(prog);
+  }
+
+  private boolean regionEndCanSatisfyTextEnd(Prog prog) {
+    if (regionEnd == text.length()) {
+      return true;
+    }
+    return prog.dollarAnchorEnd()
+        && Nfa.isAtTrailingLineTerminator(text, regionEnd, prog.unixLines());
   }
 
   /**
@@ -1976,9 +2011,6 @@ public final class Matcher implements MatchResult {
    * Sets the anchoring of region bounds for this matcher. Anchoring bounds cause {@code ^} and
    * {@code $} to match at the region boundaries rather than at the start and end of the entire
    * input. This is the default behavior.
-   *
-   * <p><b>Note:</b> This method currently stores the flag but region support is not yet
-   * implemented. The flag will take effect once region support is added.
    *
    * @param b a boolean indicating whether to use anchoring bounds
    * @return this matcher

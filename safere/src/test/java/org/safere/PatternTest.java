@@ -26,6 +26,28 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Pattern}. */
 class PatternTest {
+  private static final class LiteralCharSequence implements CharSequence {
+    private final String value;
+
+    LiteralCharSequence(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public int length() {
+      return value.length();
+    }
+
+    @Override
+    public char charAt(int index) {
+      return value.charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+      return value.subSequence(start, end);
+    }
+  }
 
   @Nested
   @DisplayName("compile()")
@@ -344,6 +366,14 @@ class PatternTest {
       String[] parts = p.split("hello   world  foo");
       assertThat(parts).containsExactly("hello", "world", "foo");
     }
+
+    @Test
+    @DisplayName("split reads custom CharSequence content via charAt()")
+    void splitCustomCharSequence() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.split(new LiteralCharSequence("a,b,c"));
+      assertThat(parts).containsExactly("a", "b", "c");
+    }
   }
 
   @Nested
@@ -419,6 +449,14 @@ class PatternTest {
       Pattern p = Pattern.compile(",");
       String[] parts = p.splitWithDelimiters(",a,b", -1);
       assertThat(parts).containsExactly("", ",", "a", ",", "b");
+    }
+
+    @Test
+    @DisplayName("splitWithDelimiters reads custom CharSequence content via charAt()")
+    void splitWithDelimitersCustomCharSequence() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters(new LiteralCharSequence("a,b"));
+      assertThat(parts).containsExactly("a", ",", "b");
     }
   }
 
@@ -917,6 +955,25 @@ class PatternTest {
       Pattern p = Pattern.compile(",");
       long count = p.splitAsStream("a,b,c,d").count();
       assertThat(count).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("splitAsStream discards trailing empty strings")
+    void splitAsStreamTrailingEmpty() {
+      Pattern p = Pattern.compile(",");
+      java.util.List<String> parts =
+          p.splitAsStream("a,b,").collect(java.util.stream.Collectors.toList());
+      assertThat(parts).containsExactly("a", "b");
+    }
+
+    @Test
+    @DisplayName("splitAsStream reads custom CharSequence content via charAt()")
+    void splitAsStreamCustomCharSequence() {
+      Pattern p = Pattern.compile(",");
+      java.util.List<String> parts =
+          p.splitAsStream(new LiteralCharSequence("a,b,c"))
+              .collect(java.util.stream.Collectors.toList());
+      assertThat(parts).containsExactly("a", "b", "c");
     }
   }
 

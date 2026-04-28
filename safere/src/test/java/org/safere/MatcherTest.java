@@ -1610,6 +1610,26 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("^ does not match region start when anchoring bounds are disabled")
+    void caretDoesNotMatchRegionStartWithoutAnchoringBounds() {
+      Pattern p = Pattern.compile("^\\d+");
+      Matcher m = p.matcher("abc123def");
+      m.region(3, 6); // "123"
+      m.useAnchoringBounds(false);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("$ does not match region end when anchoring bounds are disabled")
+    void dollarDoesNotMatchRegionEndWithoutAnchoringBounds() {
+      Pattern p = Pattern.compile("\\d+$");
+      Matcher m = p.matcher("abc123def");
+      m.region(3, 6); // "123"
+      m.useAnchoringBounds(false);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
     @DisplayName("successive find() calls within region")
     void successiveFindInRegion() {
       Pattern p = Pattern.compile("[a-z]+");

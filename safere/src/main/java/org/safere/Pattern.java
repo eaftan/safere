@@ -10,18 +10,16 @@ package org.safere;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
  * A compiled regular expression backed by a linear-time NFA engine. This class provides a drop-in
@@ -285,6 +283,22 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Materializes a {@link CharSequence} by reading through {@code charAt()}, so custom
+   * implementations that do not override {@code toString()} are handled correctly.
+   */
+  private static String charSequenceToString(CharSequence cs) {
+    if (cs instanceof String s) {
+      return s;
+    }
+    int len = cs.length();
+    char[] chars = new char[len];
+    for (int i = 0; i < len; i++) {
+      chars[i] = cs.charAt(i);
+    }
+    return new String(chars);
+  }
+
+  /**
    * Returns a literal pattern string for the specified string. Metacharacters and escape sequences
    * in the returned string will have no special meaning.
    *
@@ -366,7 +380,7 @@ public final class Pattern implements Serializable {
    * @return the array of strings computed by splitting the input around matches of this pattern
    */
   public String[] split(CharSequence input, int limit) {
-    String text = input.toString();
+    String text = charSequenceToString(input);
     Matcher m = matcher(text);
     List<String> parts = new ArrayList<>();
     int last = 0;
@@ -442,7 +456,7 @@ public final class Pattern implements Serializable {
    * @since 21
    */
   public String[] splitWithDelimiters(CharSequence input, int limit) {
-    String text = input.toString();
+    String text = charSequenceToString(input);
     Matcher m = matcher(text);
     List<String> parts = new ArrayList<>();
     int last = 0;
@@ -489,33 +503,7 @@ public final class Pattern implements Serializable {
    *     pattern
    */
   public Stream<String> splitAsStream(CharSequence input) {
-    String text = input.toString();
-    Matcher m = matcher(text);
-    Spliterator<String> spliterator =
-        new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE,
-            Spliterator.ORDERED | Spliterator.NONNULL) {
-          private int last = 0;
-          private boolean done = false;
-
-          @Override
-          public boolean tryAdvance(java.util.function.Consumer<? super String> action) {
-            if (done) {
-              return false;
-            }
-            if (m.find()) {
-              action.accept(text.substring(last, m.start()));
-              last = m.end();
-              return true;
-            } else {
-              // Emit the trailing segment.
-              action.accept(text.substring(last));
-              done = true;
-              return true;
-            }
-          }
-        };
-    // The JDK trims trailing empty strings; replicate that behavior.
-    return StreamSupport.stream(spliterator, false);
+    return Arrays.stream(split(input, 0));
   }
 
   /**
