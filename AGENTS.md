@@ -165,6 +165,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   loses review context and clutters the issue tracker.
 - Whenever you create a PR, enable auto-merge on it:
   `gh pr merge <number> --auto --squash`
+- For performance optimization PRs, include before/after benchmark results in
+  the PR description and state the measured improvement or regression for the
+  specific change. If using quick benchmarks, clearly label them as quick
+  development signal rather than publication-quality results.
 - Do not push directly to `main`. Always create a branch and open a PR.
 ## GitHub Issues
 
