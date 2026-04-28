@@ -918,6 +918,9 @@ final class Parser {
           && pattern.charAt(pos) == '&'
           && pattern.charAt(pos + 1) == '&') {
         pos += 2; // skip '&&'
+        if (pos < pattern.length() && pattern.charAt(pos) == ']') {
+          break;
+        }
         // Parse the right-hand side of the intersection.
         CharClassBuilder rhs = new CharClassBuilder();
         if (pos < pattern.length() && pattern.charAt(pos) == '[') {

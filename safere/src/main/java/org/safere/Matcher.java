@@ -488,8 +488,7 @@ public final class Matcher implements MatchResult {
           }
         }
       }
-      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
-      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
+      updateEndState(false);
     }
   }
 
@@ -609,8 +608,7 @@ public final class Matcher implements MatchResult {
           }
         }
       }
-      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
-      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
+      updateEndState(false);
     }
   }
 
@@ -784,9 +782,7 @@ public final class Matcher implements MatchResult {
           deferredMatchEnd += regionStart;
         }
       }
-      // Track hitEnd: true if no match found (engine scanned to end) or match reaches regionEnd.
-      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
-      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
+      updateEndState(true);
     }
   }
 
@@ -1946,7 +1942,7 @@ public final class Matcher implements MatchResult {
     modCount++;
     hasMatch = false;
     searchFrom = start;
-    appendPos = start;
+    appendPos = 0;
     groups = null;
     capturesResolved = true;
     groupZeroResolved = true;
@@ -2023,6 +2019,23 @@ public final class Matcher implements MatchResult {
    */
   public Pattern pattern() {
     return parentPattern;
+  }
+
+  @Override
+  public String toString() {
+    String lastMatch = "";
+    if (hasMatch && groups != null && groups[0] >= 0 && groups[1] >= groups[0]) {
+      lastMatch = text.substring(groups[0], groups[1]);
+    }
+    return "org.safere.Matcher[pattern="
+        + parentPattern.pattern()
+        + " region="
+        + regionStart
+        + ","
+        + regionEnd
+        + " lastmatch="
+        + lastMatch
+        + "]";
   }
 
   /**
@@ -2190,6 +2203,26 @@ public final class Matcher implements MatchResult {
     if (modCount != expectedModCount) {
       throw new ConcurrentModificationException();
     }
+  }
+
+  private void updateEndState(boolean findOperation) {
+    if (!hasMatch || groups == null) {
+      lastHitEnd = findOperation;
+      lastRequireEnd = false;
+      return;
+    }
+    boolean endSensitive = parentPattern.hasEndConstraint() && matchEndsAtSensitiveEnd();
+    lastHitEnd = endSensitive;
+    lastRequireEnd = endSensitive;
+  }
+
+  private boolean matchEndsAtSensitiveEnd() {
+    if (groups[1] == regionEnd) {
+      return true;
+    }
+    Prog prog = parentPattern.prog();
+    return prog.dollarAnchorEnd()
+        && Nfa.isAtTrailingLineTerminator(text, groups[1], prog.unixLines());
   }
 
   /**
