@@ -280,11 +280,12 @@ class UnicodeTablesTest {
   @Test
   void caseInsensitiveMatching_unicodePairs() {
     // Verify case-insensitive matching works for some interesting Unicode pairs.
-    assertThat(Pattern.compile("é", Pattern.CASE_INSENSITIVE).matcher("É").matches()).isTrue();
-    assertThat(Pattern.compile("Ú", Pattern.CASE_INSENSITIVE).matcher("ú").matches()).isTrue();
-    assertThat(Pattern.compile("k", Pattern.CASE_INSENSITIVE).matcher("\u212A").matches())
+    int flags = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+    assertThat(Pattern.compile("é", flags).matcher("É").matches()).isTrue();
+    assertThat(Pattern.compile("Ú", flags).matcher("ú").matches()).isTrue();
+    assertThat(Pattern.compile("k", flags).matcher("\u212A").matches())
         .isTrue();
-    assertThat(Pattern.compile("K", Pattern.CASE_INSENSITIVE).matcher("\u212A").matches())
+    assertThat(Pattern.compile("K", flags).matcher("\u212A").matches())
         .isTrue();
   }
 

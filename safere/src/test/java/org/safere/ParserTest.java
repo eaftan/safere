@@ -1610,11 +1610,20 @@ class ParserTest {
     }
 
     @Test
-    void caseInsensitiveCharClass_addsUnicodeFolds() {
-      // (?i)[a-z] should include the Unicode K-with-stroke (0x212A) and long-s (0x17F).
-      Regexp re = parse("(?i)[a-z]");
+    void caseInsensitiveUnicodeCaseCharClassAddsUnicodeFolds() {
+      // (?iu)[a-z] should include the Kelvin sign (0x212A) and long-s (0x17F).
+      Regexp re = parse("(?iu)[a-z]");
       assertThat(re.charClass.contains(0x17F)).isTrue(); // ſ (long s)
       assertThat(re.charClass.contains(0x212A)).isTrue(); // K (Kelvin sign)
+    }
+
+    @Test
+    void caseInsensitiveCharClassUsesAsciiFoldsWithoutUnicodeCase() {
+      Regexp re = parse("(?i)[a-z]");
+      assertThat(re.charClass.contains('A')).isTrue();
+      assertThat(re.charClass.contains('Z')).isTrue();
+      assertThat(re.charClass.contains(0x17F)).isFalse();
+      assertThat(re.charClass.contains(0x212A)).isFalse();
     }
 
     @Test

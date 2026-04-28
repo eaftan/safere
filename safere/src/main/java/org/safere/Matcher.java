@@ -641,8 +641,8 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
-    OnePass onePass = parentPattern.onePass();
-    if (onePass != null) {
+    if (parentPattern.canOnePassPrimary()) {
+      OnePass onePass = parentPattern.onePass();
       groups = onePass.search(text, false, prog.numCaptures());
       hasMatch = (groups != null);
       return hasMatch;

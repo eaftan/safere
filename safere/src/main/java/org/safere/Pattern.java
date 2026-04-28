@@ -238,10 +238,11 @@ public final class Pattern implements Serializable {
    */
   public static Pattern compile(String regex, int flags) {
     validateFlags(flags);
-    int parseFlags = toParseFlags(flags);
+    int effectiveFlags = effectiveFlags(flags);
+    int parseFlags = toParseFlags(effectiveFlags);
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
-    compiled.setUnixLines((flags & UNIX_LINES) != 0);
+    compiled.setUnixLines((effectiveFlags & UNIX_LINES) != 0);
     Map<String, Integer> named = extractNamedGroups(re);
     PrefixResult prefixResult = extractPrefix(re);
     String prefix = prefixResult.prefix();
@@ -262,7 +263,7 @@ public final class Pattern implements Serializable {
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
-    return new Pattern(regex, flags, compiled, re, named, prefix, prefixFoldCase,
+    return new Pattern(regex, effectiveFlags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
         hasEndConst, ccPrefixAscii, startAcceleration, keywordAlternation,
         ccMatch != null ? ccMatch.ranges : null,
@@ -604,7 +605,8 @@ public final class Pattern implements Serializable {
       // with JDK's leftmost-first (biased) semantics for nullable alternations.
       boolean canPrimary = op != null
           && op.search("", false, 0) == null
-          && !hasLazy;
+          && !hasLazy
+          && !hasNullableAlternation;
       // canFind is canPrimary restricted to anchored patterns (legacy flag).
       boolean canFind = canPrimary && prog.anchorStart();
       // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
@@ -887,6 +889,14 @@ public final class Pattern implements Serializable {
     }
   }
 
+  /** Returns JDK-compatible effective flags after applying implied flags. */
+  private static int effectiveFlags(int flags) {
+    if ((flags & UNICODE_CHARACTER_CLASS) != 0) {
+      flags |= UNICODE_CASE;
+    }
+    return flags;
+  }
+
   /**
    * Converts {@code java.util.regex.Pattern} flags to internal {@link ParseFlags}.
    *
@@ -915,7 +925,7 @@ public final class Pattern implements Serializable {
       pf |= ParseFlags.COMMENTS;
     }
     if ((flags & UNICODE_CASE) != 0) {
-      pf |= ParseFlags.UNICODE_GROUPS;
+      pf |= ParseFlags.UNICODE_CASE;
     }
     if ((flags & UNICODE_CHARACTER_CLASS) != 0) {
       pf |= ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;

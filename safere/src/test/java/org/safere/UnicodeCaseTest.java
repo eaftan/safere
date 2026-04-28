@@ -15,10 +15,8 @@ import org.junit.jupiter.api.Test;
  * <p>{@code UNICODE_CASE} controls <i>how</i> case folding works (Unicode vs ASCII-only) when
  * {@link Pattern#CASE_INSENSITIVE} is also set. By itself, it should have no effect on matching.
  *
- * <p><b>Known divergence from JDK:</b> SafeRE always performs Unicode case folding when
- * {@link Pattern#CASE_INSENSITIVE} is set (because the RE2-derived engine uses Unicode tables by
- * default). In the JDK, {@code CASE_INSENSITIVE} alone only folds ASCII, and you must also set
- * {@code UNICODE_CASE} for Unicode folding.
+ * <p>{@code CASE_INSENSITIVE} alone folds ASCII only, matching the JDK. Add
+ * {@code UNICODE_CASE} for Unicode-aware folding.
  */
 class UnicodeCaseTest {
 
@@ -41,11 +39,10 @@ class UnicodeCaseTest {
   }
 
   @Test
-  void unicodeCaseFoldingWithCaseInsensitiveOnly() {
-    // SafeRE divergence: Unicode folding works with CASE_INSENSITIVE alone.
-    // In JDK, this would NOT match "CAFÉ" without UNICODE_CASE.
+  void unicodeCaseFoldingRequiresUnicodeCase() {
     Pattern p = Pattern.compile("café", Pattern.CASE_INSENSITIVE);
-    assertThat(p.matcher("CAFÉ").matches()).isTrue();
+    assertThat(p.matcher("CAFÉ").matches()).isFalse();
+    assertThat(p.matcher("Café").matches()).isTrue();
   }
 
   @Test
@@ -81,6 +78,13 @@ class UnicodeCaseTest {
     assertThat(p.matcher("Á").matches()).isTrue();
     assertThat(p.matcher("ã").matches()).isTrue();
     assertThat(p.matcher("Ã").matches()).isTrue();
+  }
+
+  @Test
+  void characterClassUnicodeCaseRequiresUnicodeCase() {
+    Pattern p = Pattern.compile("[à-ã]", Pattern.CASE_INSENSITIVE);
+    assertThat(p.matcher("á").matches()).isTrue();
+    assertThat(p.matcher("Á").matches()).isFalse();
   }
 
   @Test
@@ -125,8 +129,14 @@ class UnicodeCaseTest {
 
   @Test
   void inlineFlagCaseInsensitive() {
-    // (?i) enables case insensitive matching. SafeRE always does Unicode folding.
     Pattern p = Pattern.compile("(?i)café");
+    assertThat(p.matcher("CAFÉ").matches()).isFalse();
+    assertThat(p.matcher("Café").matches()).isTrue();
+  }
+
+  @Test
+  void inlineFlagUnicodeCaseEnablesUnicodeFolding() {
+    Pattern p = Pattern.compile("(?iu)café");
     assertThat(p.matcher("CAFÉ").matches()).isTrue();
   }
 

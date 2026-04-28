@@ -104,8 +104,11 @@ final class ParseFlags {
    */
   public static final int UNIX_LINES = 1 << 16;
 
+  /** Use Unicode-aware case folding when {@link #FOLD_CASE} is active. */
+  public static final int UNICODE_CASE = 1 << 17;
+
   /** Mask of all valid parse flags. */
-  public static final int ALL_FLAGS = (1 << 17) - 1;
+  public static final int ALL_FLAGS = (1 << 18) - 1;
 
   private ParseFlags() {} // Non-instantiable.
 }
