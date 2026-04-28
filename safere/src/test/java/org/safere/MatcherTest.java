@@ -246,6 +246,21 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find(int) resets region before searching")
+    void findStartResetsRegion() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc123def456");
+      m.region(3, 6); // "123"
+
+      assertThat(m.find(6)).isTrue();
+      assertThat(m.regionStart()).isEqualTo(0);
+      assertThat(m.regionEnd()).isEqualTo(12);
+      assertThat(m.group()).isEqualTo("456");
+      assertThat(m.start()).isEqualTo(9);
+      assertThat(m.end()).isEqualTo(12);
+    }
+
+    @Test
     @DisplayName("find() handles empty matches by advancing one character")
     void findEmptyMatches() {
       Pattern p = Pattern.compile("a*");
@@ -1116,6 +1131,20 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("toMatchResult() snapshot supports named-group lookup")
+    void toMatchResultNamedGroups() {
+      Pattern p = Pattern.compile("(?P<word>\\w+)");
+      Matcher m = p.matcher("hello");
+      assertThat(m.find()).isTrue();
+
+      MatchResult mr = m.toMatchResult();
+      assertThat(mr.namedGroups()).containsEntry("word", 1);
+      assertThat(mr.group("word")).isEqualTo("hello");
+      assertThat(mr.start("word")).isEqualTo(0);
+      assertThat(mr.end("word")).isEqualTo(5);
+    }
+
+    @Test
     @DisplayName("reset(CharSequence) allows reuse with different input")
     void resetCharSequenceReuse() {
       Pattern p = Pattern.compile("(\\d+)");
@@ -1335,6 +1364,30 @@ class MatcherTest {
       assertThatThrownBy(
               () -> m.replaceFirst((java.util.function.Function<MatchResult, String>) null))
           .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("replaceAll(Function) detects matcher mutation from replacer")
+    void replaceAllFunctionDetectsMatcherMutation() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("aa");
+
+      assertThatThrownBy(() -> m.replaceAll(result -> {
+        m.find();
+        return "x";
+      })).isInstanceOf(java.util.ConcurrentModificationException.class);
+    }
+
+    @Test
+    @DisplayName("replaceFirst(Function) detects matcher mutation from replacer")
+    void replaceFirstFunctionDetectsMatcherMutation() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("aa");
+
+      assertThatThrownBy(() -> m.replaceFirst(result -> {
+        m.find();
+        return "x";
+      })).isInstanceOf(java.util.ConcurrentModificationException.class);
     }
   }
 
@@ -1621,6 +1674,19 @@ class MatcherTest {
           .isInstanceOf(IndexOutOfBoundsException.class);
       assertThatThrownBy(() -> m.region(3, 1))
           .isInstanceOf(IndexOutOfBoundsException.class);
+    }
+
+    @Test
+    @DisplayName("region clears stale requireEnd state")
+    void regionClearsRequireEndState() {
+      Pattern p = Pattern.compile("a$");
+      Matcher m = p.matcher("a");
+      assertThat(m.find()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+
+      m.region(0, 1);
+      assertThat(m.hitEnd()).isFalse();
+      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
@@ -2321,9 +2387,22 @@ class MatcherTest {
       Matcher m = p.matcher("hello");
       assertThat(m.find()).isTrue();
       MatchResult result = m.toMatchResult();
-      // MatchResult.namedGroups() should work via the override on SnapshotMatchResult
-      // or the default method. SafeRE's Matcher overrides it.
-      assertThat(m.namedGroups()).containsEntry("word", 1);
+      assertThat(result.namedGroups()).containsEntry("word", 1);
+    }
+
+    @Test
+    @DisplayName("named group methods reject null names")
+    void namedGroupMethodsRejectNullNames() {
+      Pattern p = Pattern.compile("(?P<word>\\w+)");
+      Matcher m = p.matcher("hello");
+      assertThat(m.find()).isTrue();
+
+      assertThatThrownBy(() -> m.group((String) null))
+          .isInstanceOf(NullPointerException.class);
+      assertThatThrownBy(() -> m.start((String) null))
+          .isInstanceOf(NullPointerException.class);
+      assertThatThrownBy(() -> m.end((String) null))
+          .isInstanceOf(NullPointerException.class);
     }
   }
 
