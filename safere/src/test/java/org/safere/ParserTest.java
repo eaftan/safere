@@ -180,8 +180,8 @@ class ParserTest {
     }
 
     @Test
-    void literalBrace() {
-      Regexp re = parse("{");
+    void escapedBrace() {
+      Regexp re = parse("\\{");
       assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
       assertThat(re.rune).isEqualTo('{');
     }
@@ -630,9 +630,8 @@ class ParserTest {
     }
 
     @Test
-    void starAfterBrace() {
-      // a*{ → concatenation of star(a) and literal({)
-      Regexp re = parse("a*{");
+    void starAfterEscapedBrace() {
+      Regexp re = parse("a*\\{");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
     }
   }
@@ -1284,6 +1283,13 @@ class ParserTest {
           .isInstanceOf(PatternSyntaxException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"{", "{?", "a{?", "a{,2}", "a{x}", "\\\\Q{?\\\\E"})
+    void malformedUnescapedCountedRepetition(String pattern) {
+      assertThatThrownBy(() -> parse(pattern))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
     @Test
     void trailingBackslash() {
       assertThatThrownBy(() -> parse("\\"))
@@ -1569,9 +1575,8 @@ class ParserTest {
     }
 
     @Test
-    void commaNotRepeat() {
-      // a{,2} is not a valid repeat syntax → treated as literal.
-      Regexp re = parse("a{,2}");
+    void escapedBraceWithCommaIsLiteral() {
+      Regexp re = parse("a\\{,2}");
       assertThat(re.toString()).isEqualTo("a\\{,2\\}");
     }
 

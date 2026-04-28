@@ -210,10 +210,7 @@ final class Parser {
           int opStart = pos;
           int[] lohi = maybeParseRepetition();
           if (lohi == null) {
-            // Treat like a literal.
-            pushLiteral('{');
-            pos++; // '{'
-            break;
+            throw new PatternSyntaxException("Illegal repetition", pattern, opStart);
           }
           int lo = lohi[0];
           int hi = lohi[1];
