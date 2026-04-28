@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bug Hunt Fix"
+  short_description: "Find, prove, fix, and verify bugs"
+  default_prompt: "Use $bug-hunt-fix to review code systematically, prove bugs with failing tests, fix them, and verify the tests pass."

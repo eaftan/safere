@@ -6,6 +6,8 @@
 package org.safere;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterator;
@@ -82,6 +84,7 @@ public final class Matcher implements MatchResult {
   private int regionEnd;
   private boolean lastHitEnd;
   private boolean lastRequireEnd;
+  private int modCount;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -452,6 +455,7 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if the entire input sequence matches this matcher's pattern
    */
   public boolean matches() {
+    modCount++;
     searchFrom = regionStart;
 
     // --- Region setup ---
@@ -572,6 +576,7 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a prefix of the input sequence matches this matcher's pattern
    */
   public boolean lookingAt() {
+    modCount++;
     searchFrom = regionStart;
 
     // --- Region setup ---
@@ -669,6 +674,7 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a subsequence of the input sequence matches this matcher's pattern
    */
   public boolean find() {
+    modCount++;
     if (hasMatch) {
       // Only resolve deferred captures before advancing when group 0 itself is not authoritative.
       // If group 0 is already exact, find-all loops that never read inner captures should not pay
@@ -703,7 +709,8 @@ public final class Matcher implements MatchResult {
       throw new IndexOutOfBoundsException(
           "start=" + start + ", length=" + text.length());
     }
-    hasMatch = false;
+    modCount++;
+    reset();
     searchFrom = start;
     return doFind();
   }
@@ -1475,6 +1482,7 @@ public final class Matcher implements MatchResult {
    */
   @Override
   public String group(String name) {
+    Objects.requireNonNull(name, "Group name");
     Integer idx = parentPattern.namedGroups().get(name);
     if (idx == null) {
       throw new IllegalArgumentException(
@@ -1563,6 +1571,7 @@ public final class Matcher implements MatchResult {
    */
   @Override
   public int start(String name) {
+    Objects.requireNonNull(name, "Group name");
     Integer idx = parentPattern.namedGroups().get(name);
     if (idx == null) {
       throw new IllegalArgumentException("No group with name <" + name + ">");
@@ -1582,6 +1591,7 @@ public final class Matcher implements MatchResult {
    */
   @Override
   public int end(String name) {
+    Objects.requireNonNull(name, "Group name");
     Integer idx = parentPattern.namedGroups().get(name);
     if (idx == null) {
       throw new IllegalArgumentException("No group with name <" + name + ">");
@@ -1640,7 +1650,10 @@ public final class Matcher implements MatchResult {
     reset();
     StringBuilder sb = new StringBuilder();
     if (find()) {
-      appendReplacement(sb, Objects.requireNonNull(replacer.apply(toMatchResult())));
+      int expectedModCount = modCount;
+      String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
+      checkConcurrentModification(expectedModCount);
+      appendReplacement(sb, replacement);
     }
     appendTail(sb);
     return sb.toString();
@@ -1706,7 +1719,10 @@ public final class Matcher implements MatchResult {
     reset();
     StringBuilder sb = new StringBuilder();
     while (find()) {
-      appendReplacement(sb, Objects.requireNonNull(replacer.apply(toMatchResult())));
+      int expectedModCount = modCount;
+      String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
+      checkConcurrentModification(expectedModCount);
+      appendReplacement(sb, replacement);
     }
     appendTail(sb);
     return sb.toString();
@@ -1872,6 +1888,7 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher reset() {
+    modCount++;
     this.text = charSequenceToString(inputSequence);
     regionStart = 0;
     regionEnd = text.length();
@@ -1924,6 +1941,7 @@ public final class Matcher implements MatchResult {
     }
     regionStart = start;
     regionEnd = end;
+    modCount++;
     hasMatch = false;
     searchFrom = start;
     appendPos = start;
@@ -1931,6 +1949,7 @@ public final class Matcher implements MatchResult {
     capturesResolved = true;
     groupZeroResolved = true;
     lastHitEnd = false;
+    lastRequireEnd = false;
     return this;
   }
 
@@ -2017,6 +2036,7 @@ public final class Matcher implements MatchResult {
     if (newPattern == null) {
       throw new IllegalArgumentException("Pattern cannot be null");
     }
+    modCount++;
     this.parentPattern = newPattern;
     // Invalidate cached DFA references since they belong to the old pattern.
     cachedForwardDfa = null;
@@ -2091,7 +2111,7 @@ public final class Matcher implements MatchResult {
     checkMatch();
     eagerFallbackCaptures = true;
     resolveCaptures();
-    return new SnapshotMatchResult(groups.clone(), text, groupCount());
+    return new SnapshotMatchResult(groups.clone(), text, groupCount(), parentPattern.namedGroups());
   }
 
   // ---------------------------------------------------------------------------
@@ -2164,6 +2184,12 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  private void checkConcurrentModification(int expectedModCount) {
+    if (modCount != expectedModCount) {
+      throw new ConcurrentModificationException();
+    }
+  }
+
   /**
    * Processes a replacement string and appends the result to {@code sb}. Handles {@code $0},
    * {@code $1}, {@code ${name}}, {@code \\} (literal backslash), and {@code \$} (literal
@@ -2231,11 +2257,14 @@ public final class Matcher implements MatchResult {
     private final int[] groups;
     private final String text;
     private final int groupCount;
+    private final Map<String, Integer> namedGroups;
 
-    SnapshotMatchResult(int[] groups, String text, int groupCount) {
+    SnapshotMatchResult(
+        int[] groups, String text, int groupCount, Map<String, Integer> namedGroups) {
       this.groups = groups;
       this.text = text;
       this.groupCount = groupCount;
+      this.namedGroups = Collections.unmodifiableMap(namedGroups);
     }
 
     @Override
@@ -2250,6 +2279,11 @@ public final class Matcher implements MatchResult {
     }
 
     @Override
+    public int start(String name) {
+      return start(groupIndex(name));
+    }
+
+    @Override
     public int end() {
       return end(0);
     }
@@ -2258,6 +2292,11 @@ public final class Matcher implements MatchResult {
     public int end(int group) {
       validateGroup(group);
       return groups[2 * group + 1];
+    }
+
+    @Override
+    public int end(String name) {
+      return end(groupIndex(name));
     }
 
     @Override
@@ -2276,8 +2315,27 @@ public final class Matcher implements MatchResult {
     }
 
     @Override
+    public String group(String name) {
+      return group(groupIndex(name));
+    }
+
+    @Override
     public int groupCount() {
       return groupCount;
+    }
+
+    @Override
+    public Map<String, Integer> namedGroups() {
+      return namedGroups;
+    }
+
+    private int groupIndex(String name) {
+      Objects.requireNonNull(name, "Group name");
+      Integer idx = namedGroups.get(name);
+      if (idx == null) {
+        throw new IllegalArgumentException("No group with name <" + name + ">");
+      }
+      return idx;
     }
 
     private void validateGroup(int group) {
