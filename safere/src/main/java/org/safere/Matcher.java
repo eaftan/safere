@@ -7,6 +7,7 @@ package org.safere;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.Function;
@@ -456,6 +457,7 @@ public final class Matcher implements MatchResult {
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
+    boolean regionSubstituted = false;
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
@@ -463,12 +465,16 @@ public final class Matcher implements MatchResult {
         hasMatch = false;
         return false;
       }
+      if (regionActive && transparentBounds) {
+        return matchesTransparentRegion();
+      }
       if (regionActive) {
         text = savedText.substring(regionStart, regionEnd);
+        regionSubstituted = true;
       }
       return matchesCore();
     } finally {
-      if (regionActive) {
+      if (regionSubstituted) {
         text = savedText;
         if (groups != null) {
           for (int i = 0; i < groups.length; i++) {
@@ -571,6 +577,7 @@ public final class Matcher implements MatchResult {
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
+    boolean regionSubstituted = false;
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
@@ -578,12 +585,16 @@ public final class Matcher implements MatchResult {
         hasMatch = false;
         return false;
       }
+      if (regionActive && transparentBounds) {
+        return lookingAtTransparentRegion();
+      }
       if (regionActive) {
         text = savedText.substring(regionStart, regionEnd);
+        regionSubstituted = true;
       }
       return lookingAtCore();
     } finally {
-      if (regionActive) {
+      if (regionSubstituted) {
         text = savedText;
         if (groups != null) {
           for (int i = 0; i < groups.length; i++) {
@@ -731,6 +742,7 @@ public final class Matcher implements MatchResult {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
     int savedSearchFrom = searchFrom;
+    boolean regionSubstituted = false;
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
@@ -738,13 +750,17 @@ public final class Matcher implements MatchResult {
         hasMatch = false;
         return false;
       }
+      if (regionActive && transparentBounds) {
+        return doFindTransparentRegion();
+      }
       if (regionActive) {
         text = savedText.substring(regionStart, regionEnd);
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
+        regionSubstituted = true;
       }
       return doFindCore(regionActive);
     } finally {
-      if (regionActive) {
+      if (regionSubstituted) {
         text = savedText;
         searchFrom = savedSearchFrom;
         if (groups != null) {
@@ -783,6 +799,43 @@ public final class Matcher implements MatchResult {
     }
     return prog.dollarAnchorEnd()
         && Nfa.isAtTrailingLineTerminator(text, regionEnd, prog.unixLines());
+  }
+
+  private boolean matchesTransparentRegion() {
+    capturesResolved = true;
+    groupZeroResolved = true;
+    Prog prog = parentPattern.prog();
+    groups = searchWithBitStateOrNfa(
+        prog, text, regionStart, regionStart, regionEnd,
+        true, false, true, prog.numCaptures());
+    hasMatch = groups != null;
+    return hasMatch;
+  }
+
+  private boolean lookingAtTransparentRegion() {
+    capturesResolved = true;
+    groupZeroResolved = true;
+    Prog prog = parentPattern.prog();
+    groups = searchWithBitStateOrNfa(
+        prog, text, regionStart, regionStart, regionEnd,
+        true, false, false, prog.numCaptures());
+    hasMatch = groups != null;
+    return hasMatch;
+  }
+
+  private boolean doFindTransparentRegion() {
+    if (searchFrom > regionEnd) {
+      hasMatch = false;
+      return false;
+    }
+    capturesResolved = true;
+    groupZeroResolved = true;
+    Prog prog = parentPattern.prog();
+    groups = searchWithBitStateOrNfa(
+        prog, text, searchFrom, regionEnd, regionEnd,
+        false, false, false, prog.numCaptures());
+    hasMatch = groups != null;
+    return hasMatch;
   }
 
   /**
@@ -1357,7 +1410,8 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
-    return Nfa.search(prog, text, startPos, searchLimit, nfaAnchor, nfaKind, nsubmatch);
+    return Nfa.search(
+        prog, text, startPos, searchLimit, endPos, nfaAnchor, nfaKind, nsubmatch);
   }
 
   // ---------------------------------------------------------------------------
@@ -1586,9 +1640,7 @@ public final class Matcher implements MatchResult {
     reset();
     StringBuilder sb = new StringBuilder();
     if (find()) {
-      sb.append(text, appendPos, start());
-      sb.append(replacer.apply(toMatchResult()));
-      appendPos = end();
+      appendReplacement(sb, Objects.requireNonNull(replacer.apply(toMatchResult())));
     }
     appendTail(sb);
     return sb.toString();
@@ -1654,9 +1706,7 @@ public final class Matcher implements MatchResult {
     reset();
     StringBuilder sb = new StringBuilder();
     while (find()) {
-      sb.append(text, appendPos, start());
-      sb.append(replacer.apply(toMatchResult()));
-      appendPos = end();
+      appendReplacement(sb, Objects.requireNonNull(replacer.apply(toMatchResult())));
     }
     appendTail(sb);
     return sb.toString();
