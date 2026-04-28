@@ -736,7 +736,9 @@ public final class Matcher implements MatchResult {
             if (!find()) {
               return false;
             }
+            int expectedModCount = modCount;
             action.accept(toMatchResult());
+            checkConcurrentModification(expectedModCount);
             return true;
           }
         };

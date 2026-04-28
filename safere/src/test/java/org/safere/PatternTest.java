@@ -49,6 +49,34 @@ class PatternTest {
     }
   }
 
+  private static final class MutableCharSequence implements CharSequence {
+    private final StringBuilder value;
+
+    MutableCharSequence(String value) {
+      this.value = new StringBuilder(value);
+    }
+
+    void set(String newValue) {
+      value.setLength(0);
+      value.append(newValue);
+    }
+
+    @Override
+    public int length() {
+      return value.length();
+    }
+
+    @Override
+    public char charAt(int index) {
+      return value.charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+      return value.subSequence(start, end);
+    }
+  }
+
   @Nested
   @DisplayName("compile()")
   class Compile {
@@ -974,6 +1002,19 @@ class PatternTest {
           p.splitAsStream(new LiteralCharSequence("a,b,c"))
               .collect(java.util.stream.Collectors.toList());
       assertThat(parts).containsExactly("a", "b", "c");
+    }
+
+    @Test
+    @DisplayName("splitAsStream reads input lazily when stream is consumed")
+    void splitAsStreamReadsInputLazily() {
+      Pattern p = Pattern.compile(",");
+      MutableCharSequence input = new MutableCharSequence("a,b");
+      Stream<String> stream = p.splitAsStream(input);
+
+      input.set("x,y,z");
+
+      assertThat(stream.collect(java.util.stream.Collectors.toList()))
+          .containsExactly("x", "y", "z");
     }
   }
 

@@ -1296,6 +1296,21 @@ class MatcherTest {
       assertThat(results.get(1).start()).isEqualTo(12);
       assertThat(results.get(1).end()).isEqualTo(15);
     }
+
+    @Test
+    @DisplayName("results() detects matcher mutation during stream traversal")
+    void resultsDetectsMatcherMutation() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("aa");
+
+      assertThatThrownBy(() -> m.results()
+          .map(result -> {
+            m.find();
+            return result.group();
+          })
+          .collect(java.util.stream.Collectors.toList()))
+          .isInstanceOf(java.util.ConcurrentModificationException.class);
+    }
   }
 
   @Nested
