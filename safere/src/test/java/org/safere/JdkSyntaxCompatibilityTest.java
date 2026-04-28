@@ -854,6 +854,18 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("a{2,4}", "aaaaa");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"{", "{?", "a{?", "a{,2}", "a{x}", "\\\\Q{?\\\\E"})
+    @DisplayName("malformed unescaped counted repetition")
+    void malformedUnescapedCountedRepetition(String regex) {
+      assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
+          .as("JDK should reject malformed counted repetition: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject malformed counted repetition: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
     // -- Reluctant --
 
     @Test
@@ -992,6 +1004,12 @@ class JdkSyntaxCompatibilityTest {
     @DisplayName("\\\\Q...\\\\E with normal regex after")
     void quotationWithRegexAfter() {
       assertMatchesSame("\\Q.+\\E.+", ".+ab");
+    }
+
+    @Test
+    @DisplayName("\\\\Q...\\\\E quotes braces")
+    void quotationWithBrace() {
+      assertMatchesSame("\\Q{?\\E", "{?");
     }
   }
 
