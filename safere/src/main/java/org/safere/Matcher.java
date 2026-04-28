@@ -852,7 +852,12 @@ public final class Matcher implements MatchResult {
 
     Pattern.StartAcceleration startAcceleration = parentPattern.startAcceleration();
     if (startAcceleration != null) {
-      return findWithStartAcceleration(prog, startAcceleration, effectiveStart, regionActive);
+      int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
+      if (idx < 0) {
+        hasMatch = false;
+        return false;
+      }
+      effectiveStart = idx;
     }
 
     // OnePass primary path for small texts: for OnePass-eligible unanchored patterns on short
@@ -1128,40 +1133,6 @@ public final class Matcher implements MatchResult {
     }
     hasMatch = true;
     return true;
-  }
-
-  private boolean findWithStartAcceleration(
-      Prog prog,
-      Pattern.StartAcceleration acceleration,
-      int startPos,
-      boolean regionActive) {
-    boolean lazyFallbackCaptures =
-        !regionActive
-            && !eagerFallbackCaptures
-            && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;
-    int nsubmatch = lazyFallbackCaptures ? 1 : prog.numCaptures();
-    int candidate = nextAcceleratedStart(text, acceleration, startPos, prog.unixLines());
-    while (candidate >= 0) {
-      int[] result = searchWithBitStateOrNfa(
-          prog, text, candidate, candidate, text.length(), true, false, false, nsubmatch);
-      if (result != null) {
-        if (!lazyFallbackCaptures || prog.numCaptures() <= 1) {
-          groups = result;
-        } else {
-          setDeferredGroups(result[0], result[1], prog.numCaptures(), true, false);
-        }
-        hasMatch = true;
-        return true;
-      }
-      int next = candidate + 1;
-      if (candidate < text.length()) {
-        int cp = text.codePointAt(candidate);
-        next = candidate + Character.charCount(cp);
-      }
-      candidate = nextAcceleratedStart(text, acceleration, next, prog.unixLines());
-    }
-    hasMatch = false;
-    return false;
   }
 
   /** Case-insensitive indexOf using Unicode case folding. */
