@@ -850,6 +850,16 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
+    Pattern.StartAcceleration startAcceleration = parentPattern.startAcceleration();
+    if (startAcceleration != null) {
+      int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
+      if (idx < 0) {
+        hasMatch = false;
+        return false;
+      }
+      effectiveStart = idx;
+    }
+
     // OnePass primary path for small texts: for OnePass-eligible unanchored patterns on short
     // input, scan with OnePass directly. OnePass is faster than BitState — no visited bitmap
     // or job stack allocation, deterministic single-pass traversal per start position.
@@ -1150,6 +1160,55 @@ public final class Matcher implements MatchResult {
       }
     }
     return -1;
+  }
+
+  private static int nextAcceleratedStart(
+      String text, Pattern.StartAcceleration acceleration, int fromIndex, boolean unixLines) {
+    int start = Math.max(0, fromIndex);
+    for (int i = start; i < text.length(); i++) {
+      if (matchesStartAcceleration(text, i, acceleration, unixLines)) {
+        return i;
+      }
+      int cp = text.codePointAt(i);
+      i += Character.charCount(cp) - 1;
+    }
+    return -1;
+  }
+
+  private static boolean matchesStartAcceleration(
+      String text, int pos, Pattern.StartAcceleration acceleration, boolean unixLines) {
+    boolean lineStart = isBeginLine(text, pos, unixLines);
+    boolean asciiStart = matchesAsciiStart(text, pos, acceleration.asciiStart);
+    if (acceleration.requireLineStart) {
+      return lineStart && (acceleration.asciiStart == null || asciiStart);
+    }
+    return (acceleration.allowLineStart && lineStart) || asciiStart;
+  }
+
+  private static boolean matchesAsciiStart(String text, int pos, boolean[] asciiStart) {
+    if (asciiStart == null || pos >= text.length()) {
+      return false;
+    }
+    char ch = text.charAt(pos);
+    return ch < 128 && asciiStart[ch];
+  }
+
+  private static boolean isBeginLine(String text, int pos, boolean unixLines) {
+    if (pos == 0) {
+      return !text.isEmpty();
+    }
+    if (pos >= text.length()) {
+      return false;
+    }
+    char prev = text.charAt(pos - 1);
+    if (unixLines) {
+      return prev == '\n';
+    }
+    return prev == '\n'
+        || prev == '\u0085'
+        || prev == '\u2028'
+        || prev == '\u2029'
+        || (prev == '\r' && text.charAt(pos) != '\n');
   }
   /**
    * Tries BitState first (for small texts), falls back to NFA. This is the final capture-extraction
