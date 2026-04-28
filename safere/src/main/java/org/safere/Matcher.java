@@ -60,6 +60,14 @@ public final class Matcher implements MatchResult {
    */
   private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
 
+  /**
+   * Maximum input length where skipping the forward DFA precheck can pay off for unreliable-start
+   * patterns. On short inputs, BitState's complete search is cheap enough that running the DFA
+   * first often duplicates work; on longer inputs, the DFA remains valuable as a fast no-match
+   * filter.
+   */
+  private static final int DIRECT_FALLBACK_TEXT_LIMIT = 512;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -952,10 +960,22 @@ public final class Matcher implements MatchResult {
       }
     }
 
+    boolean directFallback =
+        !regionActive
+            && !parentPattern.dfaStartReliable()
+            && (prefix != null || ccPrefixAscii != null)
+            && text.length() <= DIRECT_FALLBACK_TEXT_LIMIT
+            && BitState.maxTextSize(prog) >= text.length();
+
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
+    // For short unreliable-start patterns that fit BitState, skip this precheck: a successful
+    // precheck cannot produce reusable bounds and would fall through to the complete fallback
+    // search anyway.
     Dfa.SearchResult fwdResult;
-    {
+    if (directFallback) {
+      fwdResult = null;
+    } else {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
         hasMatch = false;
