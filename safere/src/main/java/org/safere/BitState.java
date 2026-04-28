@@ -118,6 +118,18 @@ final class BitState {
    */
   static int[] search(BitState cached, Prog prog, String text, int startPos, int searchLimit,
       boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
+    return search(
+        cached, prog, text, startPos, searchLimit, anchored, longest, endMatch, nsubmatch, null);
+  }
+
+  /**
+   * Searches using bit-state backtracking, writing successful captures into {@code resultBuffer}
+   * when it is large enough. This keeps the mutable backtracking capture registers separate from
+   * the returned result while allowing tight find loops to avoid one result-array allocation per
+   * match.
+   */
+  static int[] search(BitState cached, Prog prog, String text, int startPos, int searchLimit,
+      boolean anchored, boolean longest, boolean endMatch, int nsubmatch, int[] resultBuffer) {
     int textLen = text.length();
     int maxLen = maxTextSize(prog);
     if (maxLen < 0 || textLen > maxLen) {
@@ -140,7 +152,7 @@ final class BitState {
       bs = new BitState(prog, text, ncap, longest, endMatch);
     }
 
-    return bs.doSearch(startPos, searchLimit, anchored);
+    return bs.doSearch(startPos, searchLimit, anchored, resultBuffer);
   }
 
   /**
@@ -167,9 +179,19 @@ final class BitState {
    * @return submatch positions, or null if no match
    */
   int[] doSearch(int startPos, int searchLimit, boolean anchored) {
+    return doSearch(startPos, searchLimit, anchored, null);
+  }
+
+  /**
+   * Runs the bit-state search from the given start position, writing successful captures into
+   * {@code resultBuffer} when it is large enough.
+   */
+  int[] doSearch(int startPos, int searchLimit, boolean anchored, int[] resultBuffer) {
     budgetExceeded = false;
     stepCount = 0;
     stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (endPos + 1));
+    bestMatch = null;
+    matchResult = resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
@@ -221,6 +243,9 @@ final class BitState {
 
   /** Best match found so far. */
   private int[] bestMatch;
+
+  /** Caller-owned or BitState-owned array that receives successful capture results. */
+  private int[] matchResult;
 
   /** Work-budget accounting for falling back when BitState backtracking is too expensive. */
   private long stepBudget;
@@ -487,7 +512,8 @@ final class BitState {
 
           if (!matched || (longest && pos > bestMatch[1])) {
             matched = true;
-            bestMatch = cap.clone();
+            System.arraycopy(cap, 0, matchResult, 0, ncap);
+            bestMatch = matchResult;
           }
 
           if (!longest) {
