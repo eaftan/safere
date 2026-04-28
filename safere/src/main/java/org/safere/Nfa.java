@@ -59,6 +59,7 @@ final class Nfa {
   private final int threadArraySize;
   private final boolean longest;
   private final boolean endmatch;
+  private final int endPos;
 
   private boolean matched;
   private int[] bestMatch;
@@ -67,12 +68,13 @@ final class Nfa {
   private List<NfaThread> runq;
   private List<NfaThread> nextq;
 
-  private Nfa(Prog prog, int ncapture, boolean longest, boolean endmatch) {
+  private Nfa(Prog prog, int ncapture, boolean longest, boolean endmatch, int endPos) {
     this.prog = prog;
     this.ncapture = ncapture;
     this.threadArraySize = ncapture + prog.numLoopRegs();
     this.longest = longest;
     this.endmatch = endmatch;
+    this.endPos = endPos;
     this.runq = new ArrayList<>();
     this.nextq = new ArrayList<>();
     this.bestMatch = new int[ncapture];
@@ -92,7 +94,7 @@ final class Nfa {
    *     is the end. -1 means the group did not participate.
    */
   static int[] search(Prog prog, String text, Anchor anchor, MatchKind kind, int nsubmatch) {
-    return search(prog, text, 0, text.length(), anchor, kind, nsubmatch);
+    return search(prog, text, 0, text.length(), text.length(), anchor, kind, nsubmatch);
   }
 
   /**
@@ -109,7 +111,7 @@ final class Nfa {
    */
   static int[] search(
       Prog prog, String text, int startPos, Anchor anchor, MatchKind kind, int nsubmatch) {
-    return search(prog, text, startPos, text.length(), anchor, kind, nsubmatch);
+    return search(prog, text, startPos, text.length(), text.length(), anchor, kind, nsubmatch);
   }
 
   /**
@@ -129,6 +131,11 @@ final class Nfa {
    */
   static int[] search(Prog prog, String text, int startPos, int searchLimit, Anchor anchor,
       MatchKind kind, int nsubmatch) {
+    return search(prog, text, startPos, searchLimit, text.length(), anchor, kind, nsubmatch);
+  }
+
+  static int[] search(Prog prog, String text, int startPos, int searchLimit, int endPos,
+      Anchor anchor, MatchKind kind, int nsubmatch) {
     if (prog.start() == 0) {
       return null;
     }
@@ -148,13 +155,13 @@ final class Nfa {
     // We always need at least capture[0..1] to track the match boundaries.
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
-    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch);
+    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos);
     nfa.doSearch(text, startPos, searchLimit, anchored);
 
     if (!nfa.matched) {
       return null;
     }
-    if (kind == MatchKind.FULL_MATCH && nfa.bestMatch[1] != text.length()) {
+    if (kind == MatchKind.FULL_MATCH && nfa.bestMatch[1] != endPos) {
       return null;
     }
 
@@ -179,16 +186,14 @@ final class Nfa {
    * @param anchored whether to anchor the search at {@code startPos}
    */
   private void doSearch(String text, int startPos, int searchLimit, boolean anchored) {
-    int textLen = text.length();
-
     // The set of instruction IDs in each queue, for deduplication in addToThreadq.
     Set<Integer> runqSet = new HashSet<>();
     Set<Integer> nextqSet = new HashSet<>();
 
     int pos = startPos;
     while (true) {
-      int cp = (pos < textLen) ? text.codePointAt(pos) : -1;
-      int nextPos = (pos < textLen) ? pos + Character.charCount(cp) : textLen + 1;
+      int cp = (pos < endPos) ? text.codePointAt(pos) : -1;
+      int nextPos = (pos < endPos) ? pos + Character.charCount(cp) : endPos + 1;
 
       // Start a new thread if there have not been any matches
       // (no point starting new threads to the right of an existing match).
@@ -212,7 +217,7 @@ final class Nfa {
         }
         // In unanchored mode with no match yet, advance to the next position
         // and try again. Clear the visited set so instructions can be re-added.
-        if (pos >= textLen) {
+        if (pos >= endPos) {
           break;
         }
         runqSet.clear();
@@ -237,7 +242,7 @@ final class Nfa {
         break;
       }
 
-      if (pos >= textLen) {
+      if (pos >= endPos) {
         break;
       }
 
@@ -427,7 +432,7 @@ final class Nfa {
         }
 
         case MATCH -> {
-          boolean skip = endmatch && matchPos != text.length()
+          boolean skip = endmatch && matchPos != endPos
               && (!prog.dollarAnchorEnd()
                   || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines()));
           if (!skip) {

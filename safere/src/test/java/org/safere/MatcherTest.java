@@ -952,6 +952,40 @@ class MatcherTest {
       assertThat(m.replaceFirst("[$1][$2]")).isEqualTo("[][b]");
     }
 
+    @Test
+    @DisplayName("replaceAll(Function) expands group references in returned replacement")
+    void replaceAllFunctionExpandsGroupReferences() {
+      Pattern p = Pattern.compile("(\\w+)");
+      Matcher m = p.matcher("hello world");
+      assertThat(m.replaceAll(result -> "[$1]")).isEqualTo("[hello] [world]");
+    }
+
+    @Test
+    @DisplayName("replaceFirst(Function) expands group references in returned replacement")
+    void replaceFirstFunctionExpandsGroupReferences() {
+      Pattern p = Pattern.compile("(\\w+)");
+      Matcher m = p.matcher("hello world");
+      assertThat(m.replaceFirst(result -> "[$1]")).isEqualTo("[hello] world");
+    }
+
+    @Test
+    @DisplayName("replaceAll(Function) rejects null replacement result")
+    void replaceAllFunctionRejectsNullReplacementResult() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThatThrownBy(() -> m.replaceAll(result -> null))
+          .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("replaceFirst(Function) rejects null replacement result")
+    void replaceFirstFunctionRejectsNullReplacementResult() {
+      Pattern p = Pattern.compile("a");
+      Matcher m = p.matcher("a");
+      assertThatThrownBy(() -> m.replaceFirst(result -> null))
+          .isInstanceOf(NullPointerException.class);
+    }
+
   }
 
   @Nested
@@ -1686,6 +1720,26 @@ class MatcherTest {
       // So this tests that reset() works correctly
       String result = m.replaceAll("N");
       assertThat(result).isEqualTo("aaNbbNcc");
+    }
+
+    @Test
+    @DisplayName("transparent bounds let word boundary see before region start")
+    void transparentBoundsWordBoundarySeesBeforeRegionStart() {
+      Pattern p = Pattern.compile("\\bfoo");
+      Matcher m = p.matcher("afoo");
+      m.region(1, 4); // "foo", preceded by word char outside the region
+      m.useTransparentBounds(true);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("transparent bounds let word boundary see after region end")
+    void transparentBoundsWordBoundarySeesAfterRegionEnd() {
+      Pattern p = Pattern.compile("foo\\b");
+      Matcher m = p.matcher("fooa");
+      m.region(0, 3); // "foo", followed by word char outside the region
+      m.useTransparentBounds(true);
+      assertThat(m.find()).isFalse();
     }
   }
 
