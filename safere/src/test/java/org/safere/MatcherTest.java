@@ -411,6 +411,56 @@ class MatcherTest {
       assertThat(m.group(1)).isEqualTo("ERROR");
       assertThat(m.find()).isFalse();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+      "(bcd|abcde)",
+      "(.+?X|bc)",
+      "(?:a{1,3})?a{3}",
+      "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+      "(?i)\\b(error|warning|timeout|failed)\\b"
+    })
+    @DisplayName("find() fallback paths match JDK for unreliable DFA-start patterns")
+    void findFallbackMatchesJdkForUnreliableDfaStartPatterns(String regex) {
+      String text =
+          "java.lang.IllegalStateException: failed\n"
+              + "\tat org.example.Main.main(Main.java:25)\n"
+              + "xxabcde yy aaa failed bcX";
+      Matcher m = Pattern.compile(regex).matcher(text);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(text);
+
+      boolean safereFound = m.find();
+      boolean jdkFound = jdk.find();
+      assertThat(safereFound).isEqualTo(jdkFound);
+      if (!jdkFound) {
+        return;
+      }
+      assertThat(m.group()).isEqualTo(jdk.group());
+      assertThat(m.start()).isEqualTo(jdk.start());
+      assertThat(m.end()).isEqualTo(jdk.end());
+      for (int group = 1; group <= jdk.groupCount(); group++) {
+        assertThat(m.group(group)).isEqualTo(jdk.group(group));
+        assertThat(m.start(group)).isEqualTo(jdk.start(group));
+        assertThat(m.end(group)).isEqualTo(jdk.end(group));
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+      "(bcd|abcde)",
+      "(.+?X|bc)",
+      "(?:a{1,3})?a{3}",
+      "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+      "(?i)\\b(error|warning|timeout|failed)\\b"
+    })
+    @DisplayName("find() returns false for no-match unreliable DFA-start patterns")
+    void findFallbackNoMatchForUnreliableDfaStartPatterns(String regex) {
+      Matcher m = Pattern.compile(regex).matcher("plain text without the target shape");
+      java.util.regex.Matcher jdk =
+          java.util.regex.Pattern.compile(regex).matcher("plain text without the target shape");
+
+      assertThat(m.find()).isEqualTo(jdk.find());
+    }
   }
 
   @Nested
