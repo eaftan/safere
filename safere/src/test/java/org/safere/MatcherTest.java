@@ -413,6 +413,37 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() keyword alternation fast path matches JDK across case and punctuation")
+    void findKeywordAlternationFastPathMatchesJdk() {
+      assertAllFindsMatchJdk(
+          "(?i)\\b(error|warning|timeout|failed)\\b",
+          "Info: Warning, request failed after TIMEOUT; ERROR-rate ignored");
+    }
+
+    @Test
+    @DisplayName("find() keyword alternation rejects adjacent ASCII word characters")
+    void findKeywordAlternationRejectsAdjacentAsciiWordCharacters() {
+      assertAllFindsMatchJdk(
+          "(?i)\\b(error|warning|timeout|failed)\\b",
+          "preerror error2 _warning warning-post failed");
+    }
+
+    @Test
+    @DisplayName("find() keyword alternation uses Unicode boundaries when requested")
+    void findKeywordAlternationUsesUnicodeBoundaries() {
+      assertAllFindsMatchJdk(
+          "(?i)\\b(error|warning)\\b",
+          Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS,
+          "éerroré error βwarning warning!");
+    }
+
+    @Test
+    @DisplayName("find() keyword alternation rejects partly case-sensitive scoped flags")
+    void findKeywordAlternationRejectsPartlyCaseSensitiveScopedFlags() {
+      assertAllFindsMatchJdk("\\b((?i:a)B|(?i:x)Y)\\b", "ab aB AB xy xY XY");
+    }
+
+    @Test
     @DisplayName("find() start acceleration matches JDK for comma-or-line-start CSV fields")
     void findStartAccelerationForCsvFields() {
       assertAllFindsMatchJdk(
@@ -439,8 +470,12 @@ class MatcherTest {
     }
 
     private void assertAllFindsMatchJdk(String regex, String input) {
-      Matcher m = Pattern.compile(regex).matcher(input);
-      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+      assertAllFindsMatchJdk(regex, 0, input);
+    }
+
+    private void assertAllFindsMatchJdk(String regex, int flags, String input) {
+      Matcher m = Pattern.compile(regex, flags).matcher(input);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex, flags).matcher(input);
 
       while (true) {
         boolean safereFound = m.find();

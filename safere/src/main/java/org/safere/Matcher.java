@@ -786,6 +786,11 @@ public final class Matcher implements MatchResult {
 
     Prog prog = parentPattern.prog();
 
+    Pattern.KeywordAlternation keywordAlternation = parentPattern.keywordAlternation();
+    if (!regionActive && keywordAlternation != null) {
+      return findKeywordAlternation(keywordAlternation, searchFrom, prog.numCaptures());
+    }
+
     // Anchored start: if the pattern requires a match at the beginning of the text (e.g., ^
     // without MULTILINE, or \A), there can be no match starting after position 0 (or regionStart
     // when a region is active). Return false immediately to avoid the DFA matching at every
@@ -1133,6 +1138,54 @@ public final class Matcher implements MatchResult {
     }
     hasMatch = true;
     return true;
+  }
+
+  private boolean findKeywordAlternation(
+      Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
+    for (int i = Math.max(0, startPos); i < text.length(); i++) {
+      char ch = text.charAt(i);
+      if (ch < 128 && keywordAlternation.firstAscii[asciiLower(ch)]
+          && isWordBoundaryAt(i, keywordAlternation.unicodeWordBoundary)) {
+        for (String keyword : keywordAlternation.keywords) {
+          int end = i + keyword.length();
+          if (end <= text.length()
+              && text.regionMatches(true, i, keyword, 0, keyword.length())
+              && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
+            groups = new int[2 * ncap];
+            Arrays.fill(groups, -1);
+            groups[0] = i;
+            groups[1] = end;
+            if (keywordAlternation.captureGroup > 0) {
+              int group = keywordAlternation.captureGroup;
+              groups[2 * group] = i;
+              groups[2 * group + 1] = end;
+            }
+            hasMatch = true;
+            return true;
+          }
+        }
+      }
+      int cp = text.codePointAt(i);
+      i += Character.charCount(cp) - 1;
+    }
+    hasMatch = false;
+    return false;
+  }
+
+  private boolean isWordBoundaryAt(int pos, boolean unicodeWordBoundary) {
+    boolean prevWord =
+        pos > 0 && isBoundaryWordChar(text.codePointBefore(pos), unicodeWordBoundary);
+    boolean nextWord =
+        pos < text.length() && isBoundaryWordChar(text.codePointAt(pos), unicodeWordBoundary);
+    return prevWord != nextWord;
+  }
+
+  private static boolean isBoundaryWordChar(int cp, boolean unicodeWordBoundary) {
+    return unicodeWordBoundary ? Nfa.isUnicodeWordChar(cp) : Nfa.isWordChar(cp);
+  }
+
+  private static int asciiLower(int ch) {
+    return ('A' <= ch && ch <= 'Z') ? ch + ('a' - 'A') : ch;
   }
 
   /** Case-insensitive indexOf using Unicode case folding. */
