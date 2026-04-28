@@ -438,6 +438,12 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() keyword alternation rejects partly case-sensitive scoped flags")
+    void findKeywordAlternationRejectsPartlyCaseSensitiveScopedFlags() {
+      assertAllFindsMatchJdk("\\b((?i:a)B|(?i:x)Y)\\b", "ab aB AB xy xY XY");
+    }
+
+    @Test
     @DisplayName("find() start acceleration matches JDK for comma-or-line-start CSV fields")
     void findStartAccelerationForCsvFields() {
       assertAllFindsMatchJdk(

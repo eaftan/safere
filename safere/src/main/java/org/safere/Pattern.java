@@ -1415,16 +1415,13 @@ public final class Pattern implements Serializable {
       return null;
     }
     StringBuilder sb = new StringBuilder();
-    boolean[] sawCaseInsensitive = new boolean[1];
-    if (!appendAsciiCaseInsensitiveLiteral(node, sb, sawCaseInsensitive)
-        || !sawCaseInsensitive[0]) {
+    if (!appendAsciiCaseInsensitiveLiteral(node, sb)) {
       return null;
     }
     return sb.toString();
   }
 
-  private static boolean appendAsciiCaseInsensitiveLiteral(
-      Regexp node, StringBuilder sb, boolean[] sawCaseInsensitive) {
+  private static boolean appendAsciiCaseInsensitiveLiteral(Regexp node, StringBuilder sb) {
     node = unwrapImplicitCapture(node);
     if (node == null) {
       return false;
@@ -1435,7 +1432,7 @@ public final class Pattern implements Serializable {
           return false;
         }
         for (Regexp sub : node.subs) {
-          if (!appendAsciiCaseInsensitiveLiteral(sub, sb, sawCaseInsensitive)) {
+          if (!appendAsciiCaseInsensitiveLiteral(sub, sb)) {
             return false;
           }
         }
@@ -1446,7 +1443,9 @@ public final class Pattern implements Serializable {
         if (cp < 0 || cp >= 128 || !isAsciiLiteralKeywordChar(cp)) {
           return false;
         }
-        sawCaseInsensitive[0] |= (node.flags & ParseFlags.FOLD_CASE) != 0;
+        if ((node.flags & ParseFlags.FOLD_CASE) == 0) {
+          return false;
+        }
         sb.append((char) asciiLower(cp));
         return true;
       }
@@ -1454,11 +1453,13 @@ public final class Pattern implements Serializable {
         if (node.runes == null || node.runes.length == 0) {
           return false;
         }
+        if ((node.flags & ParseFlags.FOLD_CASE) == 0) {
+          return false;
+        }
         for (int cp : node.runes) {
           if (cp < 0 || cp >= 128 || !isAsciiLiteralKeywordChar(cp)) {
             return false;
           }
-          sawCaseInsensitive[0] |= (node.flags & ParseFlags.FOLD_CASE) != 0;
           sb.append((char) asciiLower(cp));
         }
         return true;
@@ -1468,7 +1469,6 @@ public final class Pattern implements Serializable {
         if (cp < 0) {
           return false;
         }
-        sawCaseInsensitive[0] = true;
         sb.append((char) cp);
         return true;
       }
