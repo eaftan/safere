@@ -89,6 +89,7 @@ public final class Matcher implements MatchResult {
    */
   private BitState cachedBitState;
   private boolean bitStateBorrowed;
+  private int[] bitStateResult;
 
   /**
    * Whether all capture groups have been resolved. When the DFA sandwich determines match
@@ -1186,7 +1187,10 @@ public final class Matcher implements MatchResult {
       BitState bs =
           BitState.getOrCreate(cachedBitState, prog, text, endPos, ncap, longest,
               endMatchEffective);
-      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective);
+      if (bitStateResult == null || bitStateResult.length < ncap) {
+        bitStateResult = new int[ncap];
+      }
+      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective, bitStateResult);
       cachedBitState = bs;
       // Return to Pattern's cache for reuse by future Matchers.
       parentPattern.returnBitState(bs);

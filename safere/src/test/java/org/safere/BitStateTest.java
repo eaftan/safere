@@ -75,6 +75,41 @@ class BitStateTest {
     }
   }
 
+  private static void assertReusableResultConsistent(ResultBufferCase tc) {
+    Regexp re = Parser.parse(tc.pattern(), FLAGS);
+    Prog prog = Compiler.compile(re);
+    int nsubmatch = prog.numCaptures();
+    int ncap = 2 * Math.max(nsubmatch, 1);
+    int[] resultBuffer = new int[ncap + 2];
+    for (int i = 0; i < resultBuffer.length; i++) {
+      resultBuffer[i] = -1000 - i;
+    }
+
+    int[] bsResult = BitState.search(
+        null,
+        prog,
+        tc.input(),
+        0,
+        tc.input().length(),
+        tc.anchored(),
+        tc.longest(),
+        tc.endMatch(),
+        nsubmatch,
+        resultBuffer);
+    Nfa.Anchor anchor = tc.anchored() ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
+    Nfa.MatchKind kind = tc.endMatch() ? Nfa.MatchKind.FULL_MATCH
+        : (tc.longest() ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
+    int[] nfaResult = Nfa.search(prog, tc.input(), anchor, kind, nsubmatch);
+
+    assertThat(bsResult)
+        .as("BitState should return the reusable result buffer for %s", tc)
+        .isSameAs(resultBuffer);
+    assertCapturesEqual(tc.pattern(), tc.input(), bsResult, nfaResult);
+    assertThat(resultBuffer[ncap])
+        .as("BitState should not write past ncap for %s", tc)
+        .isEqualTo(-1000 - ncap);
+  }
+
   // ---------------------------------------------------------------------------
   // Basic tests
   // ---------------------------------------------------------------------------
@@ -282,6 +317,14 @@ class BitStateTest {
     }
   }
 
+  record ResultBufferCase(
+      String pattern, String input, boolean anchored, boolean longest, boolean endMatch) {
+    @Override
+    public String toString() {
+      return "/" + pattern + "/ on \"" + input + "\"";
+    }
+  }
+
   static Stream<TestCase> consistencyCases() {
     List<TestCase> cases = new ArrayList<>();
     cases.add(new TestCase("abc", "abc"));
@@ -305,6 +348,16 @@ class BitStateTest {
     return cases.stream();
   }
 
+  static Stream<ResultBufferCase> resultBufferCases() {
+    return Stream.of(
+        new ResultBufferCase("(a(b(c)))", "abc", true, false, true),
+        new ResultBufferCase("(cat|dog)-(\\d+)?", "dog-", true, false, true),
+        new ResultBufferCase("(a|ab)+", "ab", true, false, true),
+        new ResultBufferCase("(a(b)?)+", "aba", true, false, false),
+        new ResultBufferCase("(a*)", "aaa", true, true, false),
+        new ResultBufferCase("(\\w+)-(\\d+)", "xx abc-123 yy", false, false, false));
+  }
+
   @ParameterizedTest(name = "unanchored: {0}")
   @MethodSource("consistencyCases")
   void unanchoredConsistency(TestCase tc) {
@@ -315,5 +368,11 @@ class BitStateTest {
   @MethodSource("consistencyCases")
   void anchoredFullMatchConsistency(TestCase tc) {
     assertConsistentAnchored(tc.pattern(), tc.input(), false, true);
+  }
+
+  @ParameterizedTest(name = "reusable result: {0}")
+  @MethodSource("resultBufferCases")
+  void reusableResultBufferPreservesCaptureSemantics(ResultBufferCase tc) {
+    assertReusableResultConsistent(tc);
   }
 }
