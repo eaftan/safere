@@ -355,8 +355,27 @@ final class Parser {
     }
 
     // Regular escape
+    if (isUnsupportedLargeNonZeroOctalEscape()) {
+      pos += 4; // '\', digit, digit, digit
+      pushRegexp(Regexp.noMatch(flags));
+      return;
+    }
     int r = parseEscape();
     pushLiteral(r);
+  }
+
+  private boolean isUnsupportedLargeNonZeroOctalEscape() {
+    if (pos + 3 >= pattern.length() || pattern.charAt(pos) != '\\') {
+      return false;
+    }
+    char d0 = pattern.charAt(pos + 1);
+    char d1 = pattern.charAt(pos + 2);
+    char d2 = pattern.charAt(pos + 3);
+    if (d0 < '4' || d0 > '7' || d1 < '0' || d1 > '7' || d2 < '0' || d2 > '7') {
+      return false;
+    }
+    int value = (d0 - '0') * 64 + (d1 - '0') * 8 + (d2 - '0');
+    return value > 0377;
   }
 
   // ---- Stack operations ----
@@ -923,27 +942,16 @@ final class Parser {
         }
         // Parse the right-hand side of the intersection.
         CharClassBuilder rhs = new CharClassBuilder();
-        if (pos < pattern.length() && pattern.charAt(pos) == '[') {
-          // &&[...] — parse nested class as the right side.
-          Regexp nested = parseCharClass();
-          rhs.addCharClass(nested.charClass);
-        } else {
-          // &&<ranges> — parse remaining ranges until ']' as the right side.
-          while (pos < pattern.length() && pattern.charAt(pos) != ']'
-              && !(pos + 1 < pattern.length()
-                  && pattern.charAt(pos) == '&' && pattern.charAt(pos + 1) == '&')) {
-            if (pos < pattern.length() && pattern.charAt(pos) == '[') {
-              Regexp nested = parseCharClass();
-              rhs.addCharClass(nested.charClass);
-            } else {
-              int[] rr = parseCCRange();
-              addRangeFlags(rhs, rr[0], rr[1], flags | ParseFlags.CLASS_NL);
-            }
+        while (pos < pattern.length() && pattern.charAt(pos) != ']'
+            && !(pos + 1 < pattern.length()
+                && pattern.charAt(pos) == '&' && pattern.charAt(pos + 1) == '&')) {
+          if (pos < pattern.length() && pattern.charAt(pos) == '[') {
+            Regexp nested = parseCharClass();
+            rhs.addCharClass(nested.charClass);
+          } else {
+            int[] rr = parseCCRange();
+            addRangeFlags(rhs, rr[0], rr[1], flags | ParseFlags.CLASS_NL);
           }
-        }
-        if (negated) {
-          ccb.negate();
-          negated = false;
         }
         ccb.intersect(rhs);
         continue;
@@ -1134,8 +1142,11 @@ final class Parser {
           pos++;
           if (pos < pattern.length() && pattern.charAt(pos) >= '0'
               && pattern.charAt(pos) <= '7') {
-            code = code * 8 + pattern.charAt(pos) - '0';
-            pos++;
+            int next = code * 8 + pattern.charAt(pos) - '0';
+            if (next <= 0377) {
+              code = next;
+              pos++;
+            }
           }
         }
         if (code > runeMax) {
@@ -1145,6 +1156,11 @@ final class Parser {
       }
       case '0' -> {
         // JDK: \0nnn — up to three octal digits after \0 (max value 0377 = 255).
+        if (pos >= pattern.length()
+            || pattern.charAt(pos) < '0'
+            || pattern.charAt(pos) > '7') {
+          throw new PatternSyntaxException("Illegal octal escape sequence", pattern, pos);
+        }
         int code = 0;
         int digits = 0;
         while (digits < 3 && pos < pattern.length()

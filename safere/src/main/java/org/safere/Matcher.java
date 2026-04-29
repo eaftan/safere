@@ -2052,6 +2052,12 @@ public final class Matcher implements MatchResult {
       throw new IllegalArgumentException("Pattern cannot be null");
     }
     modCount++;
+    if (hasMatch && groups != null) {
+      searchFrom = groups[1];
+      if (groups[0] == groups[1] && searchFrom < regionEnd) {
+        searchFrom++;
+      }
+    }
     this.parentPattern = newPattern;
     // Invalidate cached DFA references since they belong to the old pattern.
     cachedForwardDfa = null;

@@ -1045,9 +1045,8 @@ class ParserTest {
 
     @Test
     void octal_nul() {
-      Regexp re = parse("\\0");
-      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
-      assertThat(re.rune).isEqualTo(0x00);
+      assertThatThrownBy(() -> parse("\\0"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
