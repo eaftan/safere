@@ -22,6 +22,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * <p>Tests verify that BitState produces the same results as the NFA for both anchored and
  * unanchored searches across a variety of patterns and inputs.
  */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class BitStateTest {
 
   private static final int FLAGS =

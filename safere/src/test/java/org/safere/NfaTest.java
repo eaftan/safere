@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Nfa}. End-to-end tests: parse → compile → match. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class NfaTest {
 
   private static final int FLAGS =

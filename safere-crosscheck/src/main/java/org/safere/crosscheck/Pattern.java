@@ -6,7 +6,9 @@ package org.safere.crosscheck;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Stream;
 
 /**
  * A crosscheck wrapper that compiles and executes regular expressions on both SafeRE and
@@ -200,9 +202,29 @@ public final class Pattern {
     return sr;
   }
 
+  /** Splits the input lazily around matches of this pattern. */
+  public Stream<String> splitAsStream(CharSequence input) {
+    return saferePattern.splitAsStream(input);
+  }
+
+  /** Creates a predicate that returns true when this pattern is found in the input. */
+  public Predicate<String> asPredicate() {
+    return input -> matcher(input).find();
+  }
+
+  /** Creates a predicate that returns true when this pattern matches the entire input. */
+  public Predicate<String> asMatchPredicate() {
+    return input -> matcher(input).matches();
+  }
+
   /** Returns the named capturing groups in this pattern. */
   public Map<String, Integer> namedGroups() {
     return saferePattern.namedGroups();
+  }
+
+  /** Returns the number of capturing groups in this pattern. */
+  public int numGroups() {
+    return saferePattern.matcher("").groupCount();
   }
 
   /** Returns the pattern string. */

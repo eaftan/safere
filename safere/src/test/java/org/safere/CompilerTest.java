@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Compiler}. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class CompilerTest {
 
   private static final int DEFAULT_FLAGS =

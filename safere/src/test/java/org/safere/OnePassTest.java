@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * <p>Tests verify: (1) correct one-pass detection, (2) match results agree with the NFA, and (3)
  * capture groups are correctly extracted.
  */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class OnePassTest {
 
   private static final int FLAGS =

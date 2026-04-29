@@ -6,7 +6,9 @@ package org.safere.crosscheck;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.regex.MatchResult;
+import java.util.stream.Stream;
 
 /**
  * A crosscheck wrapper that delegates every matcher operation to both SafeRE and
@@ -22,7 +24,7 @@ import java.util.regex.MatchResult;
  */
 public final class Matcher implements MatchResult {
 
-  private final Pattern crosscheckPattern;
+  private Pattern crosscheckPattern;
   private final org.safere.Matcher safereMatcher;
   private final java.util.regex.Matcher jdkMatcher;
   private final TraceRecorder trace = new TraceRecorder();
@@ -183,6 +185,22 @@ public final class Matcher implements MatchResult {
     String sr = safereMatcher.replaceAll(replacement);
     String jr = jdkMatcher.replaceAll(replacement);
     checkEqual("replaceAll", quote(replacement), sr, jr);
+    return sr;
+  }
+
+  /** Replaces the first match with a replacement computed from the match result. */
+  public String replaceFirst(Function<MatchResult, String> replacer) {
+    String sr = safereMatcher.replaceFirst(replacer);
+    String jr = jdkMatcher.replaceFirst(replacer);
+    checkEqual("replaceFirst", "<function>", sr, jr);
+    return sr;
+  }
+
+  /** Replaces all matches with replacements computed from match results. */
+  public String replaceAll(Function<MatchResult, String> replacer) {
+    String sr = safereMatcher.replaceAll(replacer);
+    String jr = jdkMatcher.replaceAll(replacer);
+    checkEqual("replaceAll", "<function>", sr, jr);
     return sr;
   }
 
@@ -349,6 +367,18 @@ public final class Matcher implements MatchResult {
     return crosscheckPattern;
   }
 
+  /** Changes the pattern used by this matcher. */
+  public Matcher usePattern(Pattern newPattern) {
+    if (newPattern == null) {
+      throw new IllegalArgumentException("Pattern must not be null");
+    }
+    safereMatcher.usePattern(newPattern.saferePattern());
+    jdkMatcher.usePattern(newPattern.jdkPattern());
+    crosscheckPattern = newPattern;
+    trace.recordMatch("usePattern", newPattern.pattern(), "void");
+    return this;
+  }
+
   /** Returns the named groups from the pattern. */
   public Map<String, Integer> namedGroups() {
     return crosscheckPattern.namedGroups();
@@ -358,6 +388,11 @@ public final class Matcher implements MatchResult {
   public MatchResult toMatchResult() {
     // Return SafeRE's result — the match state has already been crosschecked.
     return safereMatcher.toMatchResult();
+  }
+
+  /** Returns a stream of match-result snapshots. */
+  public Stream<MatchResult> results() {
+    return safereMatcher.results();
   }
 
   // ---------------------------------------------------------------------------

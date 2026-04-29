@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link PatternSet}. */
+@DisabledForCrosscheck("PatternSet is a SafeRE-only API with no java.util.regex equivalent")
 class PatternSetTest {
 
   // ---------------------------------------------------------------------------

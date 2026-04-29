@@ -12,6 +12,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Regexp}. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class RegexpTest {
 
   @Test

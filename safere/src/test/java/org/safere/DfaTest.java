@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
  * only reports match boundaries (not capture groups), so tests focus on match detection and end
  * position.
  */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class DfaTest {
 
   private static final int FLAGS =

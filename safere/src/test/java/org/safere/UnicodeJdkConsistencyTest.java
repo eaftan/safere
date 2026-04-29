@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * <p>See <a href="https://github.com/eaftan/safere/issues/107">#107</a>.
  */
 @DisplayName("Unicode JDK consistency canary tests")
+@DisabledForCrosscheck("Unicode table canary uses package-private SafeRE internals")
 class UnicodeJdkConsistencyTest {
 
   // --- Category and script consistency (runtime-generated, should always match) ---

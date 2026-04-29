@@ -145,9 +145,12 @@ reports. Use issue references in the reason for fixable SafeRE/JDK divergences,
 and plain reasons for tests that are intentionally not relevant to crosscheck,
 such as SafeRE-only syntax or JDK stack-overflow stress cases.
 
-The profile still excludes source files that are structurally not crosscheck
-candidates, such as SafeRE internals, SafeRE-only APIs, or tests requiring
-crosscheck facade methods that are not implemented yet.
+The profile still has compile-time structural excludes for source files that
+cannot be generated into the crosscheck package, such as SafeRE internals,
+SafeRE-only APIs, or tests requiring crosscheck facade methods that are not
+implemented yet. Those source files should still be annotated with
+`@DisabledForCrosscheck` so the reason remains discoverable in the original
+test source.
 
 ### Not Covered (yet)
 

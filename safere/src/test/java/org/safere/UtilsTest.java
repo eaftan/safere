@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Utils}. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class UtilsTest {
 
   @Test
