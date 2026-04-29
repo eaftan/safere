@@ -408,12 +408,10 @@ class ParserTest {
       assertThat(re.charClass.contains('a')).isFalse();
     }
 
-    @Test
-    void unicodePropertyNegatedCaretSyntax() {
-      // \p{^Braille} is the same as \P{Braille}
-      Regexp re = parse("\\p{^Braille}");
-      assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains(0x2800)).isFalse();
+    @ParameterizedTest
+    @ValueSource(strings = {"\\p{^Braille}", "\\p{^Lu}", "\\P{^Braille}"})
+    void unicodePropertyCaretNegationRejected(String regex) {
+      assertThatThrownBy(() -> parse(regex)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
