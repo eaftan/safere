@@ -427,8 +427,6 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @ParameterizedTest
-    @DisabledForCrosscheck(
-        "#220 SafeRE differs from java.util.regex for empty-left-side intersections")
     @ValueSource(strings = {"[&&`+]˫]*", "[&&abc]", "[a&&&&b]"})
     @DisplayName("empty left side of class intersection matches like JDK")
     void emptyLeftSideOfIntersection(String regex) {
