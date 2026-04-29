@@ -1072,18 +1072,27 @@ class ParserTest {
     }
 
     @Test
-    void octal_nonZeroLeading_twoDigits() {
-      // \12 is a backreference in JDK, but RE2 treats two-digit as octal.
+    void numericBackreferenceWithoutGroup_twoDigits() {
       Regexp re = parse("\\12");
-      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
-      assertThat(re.rune).isEqualTo(10); // 12 octal = 10
+      assertThat(re.op).isEqualTo(RegexpOp.NO_MATCH);
     }
 
     @Test
-    void octal_nonZeroLeading_threeDigits() {
+    void numericBackreferenceWithoutGroup_threeDigits() {
       Regexp re = parse("\\123");
-      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
-      assertThat(re.rune).isEqualTo(0x53); // 123 octal = 83 = 'S'
+      assertThat(re.op).isEqualTo(RegexpOp.NO_MATCH);
+    }
+
+    @Test
+    void numericBackreferenceWithGroup_rejected() {
+      assertThatThrownBy(() -> parse("(a)\\123"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void numericBackreferenceInCharClass_rejected() {
+      assertThatThrownBy(() -> parse("[\\123]"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
 
     // ---- Escape char and control chars ----

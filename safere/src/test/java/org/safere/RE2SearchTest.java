@@ -136,6 +136,22 @@ class RE2SearchTest {
     return text.substring(startChar, endChar);
   }
 
+  private static boolean hasRe2NonZeroNumericEscape(String pattern) {
+    int backslashes = 0;
+    for (int i = 0; i < pattern.length(); i++) {
+      char c = pattern.charAt(i);
+      if (c == '\\') {
+        backslashes++;
+        continue;
+      }
+      if (backslashes % 2 == 1 && c >= '1' && c <= '9') {
+        return true;
+      }
+      backslashes = 0;
+    }
+    return false;
+  }
+
   static Stream<Arguments> searchTests() throws IOException {
     List<Arguments> tests = new ArrayList<>();
     InputStream is = RE2SearchTest.class.getResourceAsStream("/re2-search.txt");
@@ -225,6 +241,9 @@ class RE2SearchTest {
       "RE2 search data includes non-JDK syntax and RE2-specific expectations")
   @MethodSource("searchTests")
   void testMatches(SearchTestCase tc) {
+    if (hasRe2NonZeroNumericEscape(tc.pattern())) {
+      return;
+    }
     Pattern p;
     try {
       p = Pattern.compile(tc.pattern());
@@ -243,6 +262,9 @@ class RE2SearchTest {
       "RE2 search data includes non-JDK syntax and RE2-specific expectations")
   @MethodSource("searchTests")
   void testFind(SearchTestCase tc) {
+    if (hasRe2NonZeroNumericEscape(tc.pattern())) {
+      return;
+    }
     Pattern p;
     try {
       p = Pattern.compile(tc.pattern());

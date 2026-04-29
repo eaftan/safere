@@ -355,27 +355,33 @@ final class Parser {
     }
 
     // Regular escape
-    if (isUnsupportedLargeNonZeroOctalEscape()) {
-      pos += 4; // '\', digit, digit, digit
-      pushRegexp(Regexp.noMatch(flags));
+    if (maybePushNumericBackreferenceEscape()) {
       return;
     }
     int r = parseEscape();
     pushLiteral(r);
   }
 
-  private boolean isUnsupportedLargeNonZeroOctalEscape() {
-    if (pos + 3 >= pattern.length() || pattern.charAt(pos) != '\\') {
+  private boolean maybePushNumericBackreferenceEscape() {
+    if (pos + 1 >= pattern.length() || pattern.charAt(pos) != '\\') {
       return false;
     }
-    char d0 = pattern.charAt(pos + 1);
-    char d1 = pattern.charAt(pos + 2);
-    char d2 = pattern.charAt(pos + 3);
-    if (d0 < '4' || d0 > '7' || d1 < '0' || d1 > '7' || d2 < '0' || d2 > '7') {
+    char firstDigit = pattern.charAt(pos + 1);
+    if (firstDigit < '1' || firstDigit > '9') {
       return false;
     }
-    int value = (d0 - '0') * 64 + (d1 - '0') * 8 + (d2 - '0');
-    return value > 0377;
+    if (firstDigit - '0' <= ncap) {
+      throw new PatternSyntaxException("backreferences are not supported", pattern, pos);
+    }
+
+    pos += 2;
+    while (pos < pattern.length()
+        && pattern.charAt(pos) >= '0'
+        && pattern.charAt(pos) <= '9') {
+      pos++;
+    }
+    pushRegexp(Regexp.noMatch(flags));
+    return true;
   }
 
   // ---- Stack operations ----
@@ -1129,31 +1135,7 @@ final class Parser {
       }
       // Octal escapes.
       case '1', '2', '3', '4', '5', '6', '7' -> {
-        // Single non-zero octal digit is a backreference; not supported.
-        if (pos >= pattern.length()
-            || pattern.charAt(pos) < '0'
-            || pattern.charAt(pos) > '7') {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
-        }
-        // fall through to octal parsing
-        int code = c - '0';
-        if (pos < pattern.length() && pattern.charAt(pos) >= '0'
-            && pattern.charAt(pos) <= '7') {
-          code = code * 8 + pattern.charAt(pos) - '0';
-          pos++;
-          if (pos < pattern.length() && pattern.charAt(pos) >= '0'
-              && pattern.charAt(pos) <= '7') {
-            int next = code * 8 + pattern.charAt(pos) - '0';
-            if (next <= 0377) {
-              code = next;
-              pos++;
-            }
-          }
-        }
-        if (code > runeMax) {
-          throw new PatternSyntaxException("invalid escape sequence", pattern, pos);
-        }
-        return code;
+        throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
       }
       case '0' -> {
         // JDK: \0nnn — up to three octal digits after \0 (max value 0377 = 255).

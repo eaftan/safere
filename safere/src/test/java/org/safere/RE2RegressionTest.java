@@ -484,7 +484,7 @@ class RE2RegressionTest {
     @ParameterizedTest
     @ValueSource(
         strings = {
-          "a\\1",     // backreference
+          "(a)\\1",   // backreference
           "a[x",      // unclosed bracket
           "a[z-a]",   // invalid range
           "a(b",      // unclosed paren
