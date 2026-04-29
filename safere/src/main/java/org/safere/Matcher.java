@@ -1902,8 +1902,6 @@ public final class Matcher implements MatchResult {
     capturesResolved = true;
     groupZeroResolved = true;
     eagerFallbackCaptures = false;
-    lastHitEnd = false;
-    lastRequireEnd = false;
     return this;
   }
 
@@ -1951,8 +1949,6 @@ public final class Matcher implements MatchResult {
     groups = null;
     capturesResolved = true;
     groupZeroResolved = true;
-    lastHitEnd = false;
-    lastRequireEnd = false;
     return this;
   }
 

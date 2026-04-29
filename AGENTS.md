@@ -169,6 +169,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - **Update existing PRs — do not close and reopen.** Push commits (or
   force-push if rebasing) to the existing branch. Closing and reopening PRs
   loses review context and clutters the issue tracker.
+- When creating or editing PR descriptions with `gh`, write the body to a
+  temporary file first and pass it with `--body-file`. Do not inline
+  multi-line Markdown in the shell command, because quoting and escaping are
+  easy to get wrong.
 - Whenever you create a PR, enable auto-merge on it:
   `gh pr merge <number> --auto --squash`
 - For performance optimization PRs, include before/after benchmark results in
@@ -182,6 +186,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   items are done, post a progress comment instead.
 - When referencing an issue in a commit message, use `Fixes #N` only if the
   commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
+- When creating or commenting on issues with `gh`, write the body to a
+  temporary file first and pass it with `--body-file`. Do not inline
+  multi-line Markdown in the shell command, because quoting and escaping are
+  easy to get wrong.
 - **File issues for bugs found during other work.** If you discover a bug
   while working on an unrelated task, you *must* file a GitHub issue for it
   immediately. Do not silently work around it or leave it undocumented.
