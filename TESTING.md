@@ -164,6 +164,9 @@ mvn verify -pl safere -Pcoverage
 
 # Run crosscheck module tests
 mvn test -pl safere-crosscheck
+
+# Run Jazzer fuzz targets in regression mode
+mvn test -pl safere-fuzz
 ```
 
 Coverage reports are generated at
@@ -186,3 +189,24 @@ The facade records a trace of all API calls. When a divergence is detected,
 the exception includes the full trace, providing enough context to reproduce
 and report the bug. See
 [safere-crosscheck/README.md](../safere-crosscheck/README.md) for details.
+
+## Fuzz Testing with Jazzer
+
+The [safere-fuzz](../safere-fuzz/) module contains Jazzer fuzz targets that
+use `safere-crosscheck` as their oracle. By default, they run in regression
+mode over checked-in seed inputs:
+
+```bash
+mvn -pl safere-fuzz test
+```
+
+For coverage-guided fuzzing, set `JAZZER_FUZZ=1` and select a single target:
+
+```bash
+JAZZER_FUZZ=1 mvn -pl safere-fuzz -Dtest=MatchFuzzer test
+```
+
+When a fuzzer finds a valid SafeRE/JDK divergence or crash, minimize the input
+and add a normal JUnit regression test before fixing the bug. See
+[safere-fuzz/README.md](../safere-fuzz/README.md) for target descriptions and
+workflow details.
