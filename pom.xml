@@ -39,6 +39,7 @@
   <modules>
     <module>safere</module>
     <module>safere-crosscheck</module>
+    <module>safere-fuzz</module>
     <module>safere-ffm-re2</module>
     <module>safere-benchmarks</module>
   </modules>
@@ -48,6 +49,7 @@
     <maven.compiler.release>21</maven.compiler.release>
     <junit.version>6.0.3</junit.version>
     <jacoco.version>0.8.12</jacoco.version>
+    <jazzer.version>0.30.0</jazzer.version>
     <jmh.version>1.37</jmh.version>
     <error-prone.version>2.48.0</error-prone.version>
   </properties>

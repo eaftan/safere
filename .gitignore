@@ -38,3 +38,6 @@ org.safere.benchmark.*
 
 # Local benchmark result captures
 benchmark-results/
+
+# Local Jazzer fuzzing corpus
+safere-fuzz/.cifuzz-corpus/

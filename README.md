@@ -237,6 +237,13 @@ Every call is recorded in a trace. If a divergence is found, the exception
 includes the full trace for easy bug reporting. See
 [safere-crosscheck/README.md](safere-crosscheck/README.md) for details.
 
+### Fuzz Testing
+
+SafeRE also has local Jazzer fuzz targets in
+[safere-fuzz](safere-fuzz/). They use `safere-crosscheck` as the oracle and can
+run either as regression tests over checked-in seeds or as coverage-guided
+fuzzers with `JAZZER_FUZZ=1`.
+
 ### What works unchanged
 
 - `Pattern.compile()`, `Pattern.matches()`, `Pattern.quote()`
