@@ -2581,6 +2581,18 @@ class MatcherTest {
     }
   }
 
+  @Test
+  @DisplayName("find() with empty branch before complex char class")
+  void findEmptyBranchBeforeComplexCharClass() {
+    Matcher m =
+        Pattern.compile("|[\u0166&\u00bfA&&?;]+&?\udb7d\udda6+];]+&?&\u00e9v")
+            .matcher("");
+
+    assertThat(m.find()).isTrue();
+    assertThat(m.group()).isEmpty();
+    assertThat(m.find()).isFalse();
+  }
+
   private static String repeatedDotStarSqlUnionInput(int selectCount) {
     StringBuilder input = new StringBuilder();
     for (int i = 1; i <= selectCount; i++) {

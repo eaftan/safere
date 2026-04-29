@@ -253,64 +253,97 @@ final class Prog {
   private boolean[] computeEpsilonCycleAlts() {
     int n = size();
     boolean[] inCycle = new boolean[n];
+    boolean[] reachable = computeReachableInstructions();
 
     for (int i = 0; i < n; i++) {
       Inst inst = inst(i);
-      if (inst.op != InstOp.ALT && inst.op != InstOp.ALT_MATCH) {
+      if (!reachable[i] || (inst.op != InstOp.ALT && inst.op != InstOp.ALT_MATCH)) {
         continue;
       }
-      if (canReachSelfViaEpsilon(i)) {
+      if (canReachSelfViaEpsilon(i, reachable)) {
         inCycle[i] = true;
       }
     }
     return inCycle;
   }
 
+  private boolean[] computeReachableInstructions() {
+    int n = size();
+    boolean[] reachable = new boolean[n];
+    ArrayDeque<Integer> stack = new ArrayDeque<>();
+    addSuccessor(start, reachable, stack);
+    addSuccessor(startUnanchored, reachable, stack);
+
+    while (!stack.isEmpty()) {
+      int id = stack.pop();
+      Inst inst = inst(id);
+      switch (inst.op) {
+        case ALT, ALT_MATCH, PROGRESS_CHECK -> {
+          addSuccessor(inst.out, reachable, stack);
+          addSuccessor(inst.out1, reachable, stack);
+        }
+        case NOP, CAPTURE, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS ->
+            addSuccessor(inst.out, reachable, stack);
+        default -> {
+          // MATCH and FAIL terminate.
+        }
+      }
+    }
+    return reachable;
+  }
+
   /**
-   * Returns true if instruction {@code target} can reach itself via a path that consists entirely of
-   * epsilon transitions (ALT, ALT_MATCH, NOP, CAPTURE, EMPTY_WIDTH). CHAR_RANGE and MATCH consume
-   * input or terminate, so they break any epsilon path.
+   * Returns true if instruction {@code target} can reach itself via a path that consists entirely
+   * of epsilon transitions (ALT, ALT_MATCH, NOP, CAPTURE, EMPTY_WIDTH). CHAR_RANGE and MATCH
+   * consume input or terminate, so they break any epsilon path.
    */
-  private boolean canReachSelfViaEpsilon(int target) {
+  private boolean canReachSelfViaEpsilon(int target, boolean[] reachable) {
     int n = size();
     boolean[] visited = new boolean[n];
     ArrayDeque<Integer> stack = new ArrayDeque<>();
 
     // Seed with epsilon successors of target (don't count target itself as a starting node).
-    addEpsilonSuccessors(target, visited, stack);
+    addEpsilonSuccessors(target, reachable, visited, stack);
 
     while (!stack.isEmpty()) {
       int id = stack.pop();
       if (id == target) {
         return true;
       }
-      addEpsilonSuccessors(id, visited, stack);
+      addEpsilonSuccessors(id, reachable, visited, stack);
     }
     return false;
   }
 
-  private void addEpsilonSuccessors(int id, boolean[] visited, ArrayDeque<Integer> stack) {
+  private void addEpsilonSuccessors(
+      int id, boolean[] reachable, boolean[] visited, ArrayDeque<Integer> stack) {
     Inst inst = inst(id);
     switch (inst.op) {
       case ALT, ALT_MATCH -> {
-        if (inst.out > 0 && !visited[inst.out]) {
-          visited[inst.out] = true;
-          stack.push(inst.out);
-        }
-        if (inst.out1 > 0 && !visited[inst.out1]) {
-          visited[inst.out1] = true;
-          stack.push(inst.out1);
-        }
+        addEpsilonSuccessor(inst.out, reachable, visited, stack);
+        addEpsilonSuccessor(inst.out1, reachable, visited, stack);
       }
       case NOP, CAPTURE, EMPTY_WIDTH -> {
-        if (inst.out > 0 && !visited[inst.out]) {
-          visited[inst.out] = true;
-          stack.push(inst.out);
-        }
+        addEpsilonSuccessor(inst.out, reachable, visited, stack);
       }
       default -> {
         // CHAR_RANGE, MATCH, FAIL: not epsilon transitions.
       }
+    }
+  }
+
+  private void addEpsilonSuccessor(
+      int id, boolean[] reachable, boolean[] visited, ArrayDeque<Integer> stack) {
+    if (id > 0 && id < reachable.length && reachable[id] && !visited[id]) {
+      visited[id] = true;
+      stack.push(id);
+    }
+  }
+
+  private void addSuccessor(int id, boolean[] reachable, ArrayDeque<Integer> stack) {
+    if (id > 0 && id < reachable.length && !reachable[id]) {
+      reachable[id] = true;
+      stack.push(id);
     }
   }
 }
