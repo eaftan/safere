@@ -1460,17 +1460,17 @@ class MatcherTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#226 hitEnd/requireEnd state differs after region reset")
-    @DisplayName("region clears stale requireEnd state")
-    void regionClearsRequireEndState() {
+    @DisplayName("region preserves end-state flags until next match attempt")
+    void regionPreservesEndStateFlagsUntilNextMatchAttempt() {
       Pattern p = Pattern.compile("a$");
       Matcher m = p.matcher("a");
       assertThat(m.find()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
       assertThat(m.requireEnd()).isTrue();
 
       m.region(0, 1);
-      assertThat(m.hitEnd()).isFalse();
-      assertThat(m.requireEnd()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
     }
 
     @Test
@@ -2115,15 +2115,29 @@ class MatcherTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#226 SafeRE and java.util.regex differ on requireEnd state after reset")
-    @DisplayName("requireEnd() is false after reset")
-    void requireEndFalseAfterReset() {
+    @DisplayName("reset preserves end-state flags until next match attempt")
+    void resetPreservesEndStateFlagsUntilNextMatchAttempt() {
       Pattern p = Pattern.compile("abc$");
       Matcher m = p.matcher("abc");
       assertThat(m.find()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
       assertThat(m.requireEnd()).isTrue();
       m.reset();
-      assertThat(m.requireEnd()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("reset(CharSequence) preserves end-state flags until next match attempt")
+    void resetWithNewInputPreservesEndStateFlagsUntilNextMatchAttempt() {
+      Pattern p = Pattern.compile("abc$");
+      Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+      m.reset("x");
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
     }
 
     @Test
