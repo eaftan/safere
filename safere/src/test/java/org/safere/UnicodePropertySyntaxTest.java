@@ -662,6 +662,7 @@ class UnicodePropertySyntaxTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#210 java.util.regex rejects caret negation in property names")
     @DisplayName("\\p{^IsLatin} negation via caret")
     void caretNegation() {
       assertThat(find("\\p{^IsLatin}", "α")).isTrue();
@@ -790,6 +791,7 @@ class UnicodePropertySyntaxTest {
   class BackwardCompatibilityTest {
 
     @Test
+    @DisabledForCrosscheck("SafeRE backward-compatible direct script alias is not JDK syntax")
     @DisplayName("\\p{Latin} still works (no prefix)")
     void directScriptName() {
       assertThat(find("\\p{Latin}", "A")).isTrue();
@@ -811,6 +813,7 @@ class UnicodePropertySyntaxTest {
     }
 
     @Test
+    @DisabledForCrosscheck("SafeRE backward-compatible direct block alias is not JDK syntax")
     @DisplayName("\\p{Braille} still works")
     void directBraille() {
       assertThat(find("\\p{Braille}", "\u2800")).isTrue();
@@ -839,6 +842,7 @@ class UnicodePropertySyntaxTest {
     }
 
     @Test
+    @DisabledForCrosscheck("SafeRE backward-compatible Any property alias is not JDK syntax")
     @DisplayName("\\p{Any} still works")
     void anyClass() {
       assertThat(find("\\p{Any}", "A")).isTrue();

@@ -194,6 +194,7 @@ class RE2RegressionTest {
     }
 
     @Test
+    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("Multiple named and unnamed groups")
     void multipleNamedGroups() {
       Pattern p = Pattern.compile("(?P<A>expr(?P<B>expr)(?P<C>expr))((expr)(?P<D>expr))");
@@ -208,6 +209,7 @@ class RE2RegressionTest {
     }
 
     @Test
+    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("Named group match extraction")
     void namedGroupMatch() {
       Pattern p = Pattern.compile("directions from (?P<S>.*) to (?P<D>.*)");
@@ -361,6 +363,7 @@ class RE2RegressionTest {
     }
 
     @Test
+    @DisabledForCrosscheck("JDK stack overflows on this linear-time SafeRE stress case")
     @DisplayName("Long input with deep recursion pattern")
     void longInputDeepRecursion() {
       // RE2 C++ test: ((?:\s|xx.*\n|x[*](?:\n|.)*?[*]x)*)

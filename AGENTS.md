@@ -162,8 +162,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   merges.
 - Before making a PR, also run the public API crosscheck invariant:
   `mvn -pl safere-crosscheck -Pcrosscheck-public-api-tests test`. This runs
-  generated copies of allowlisted SafeRE public API tests through
+  generated copies of SafeRE public API test candidates through
   `org.safere.crosscheck` so each test operation is compared with the JDK.
+  Use `@DisabledForCrosscheck("reason")` on original SafeRE tests for cases
+  that should be visible as disabled only in generated crosscheck coverage.
 - **Update existing PRs — do not close and reopen.** Push commits (or
   force-push if rebasing) to the existing branch. Closing and reopening PRs
   loses review context and clutters the issue tracker.
