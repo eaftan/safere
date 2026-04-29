@@ -19,6 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for {@link Simplifier}, ported from RE2's {@code simplify_test.cc}. Tests parse each
  * regexp, simplify it, then compare the toString() output against the expected simplified form.
  */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class SimplifierTest {
 
   private static final int FLAGS =

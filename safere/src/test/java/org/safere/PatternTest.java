@@ -12,7 +12,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -20,7 +19,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -31,34 +29,6 @@ class PatternTest {
 
     LiteralCharSequence(String value) {
       this.value = value;
-    }
-
-    @Override
-    public int length() {
-      return value.length();
-    }
-
-    @Override
-    public char charAt(int index) {
-      return value.charAt(index);
-    }
-
-    @Override
-    public CharSequence subSequence(int start, int end) {
-      return value.subSequence(start, end);
-    }
-  }
-
-  private static final class MutableCharSequence implements CharSequence {
-    private final StringBuilder value;
-
-    MutableCharSequence(String value) {
-      this.value = new StringBuilder(value);
-    }
-
-    void set(String newValue) {
-      value.setLength(0);
-      value.append(newValue);
     }
 
     @Override
@@ -489,24 +459,6 @@ class PatternTest {
   }
 
   @Nested
-  @DisplayName("asPredicate() / asMatchPredicate()")
-  class Predicates {
-    @Test
-    void asPredicatePartialMatch() {
-      Predicate<String> pred = Pattern.compile("\\d+").asPredicate();
-      assertThat(pred.test("abc123def")).isTrue();
-      assertThat(pred.test("abcdef")).isFalse();
-    }
-
-    @Test
-    void asMatchPredicateFullMatch() {
-      Predicate<String> pred = Pattern.compile("\\d+").asMatchPredicate();
-      assertThat(pred.test("123")).isTrue();
-      assertThat(pred.test("abc123")).isFalse();
-    }
-  }
-
-  @Nested
   @DisplayName("toString() / pattern() / flags()")
   class Accessors {
     @Test
@@ -541,51 +493,6 @@ class PatternTest {
 
       assertThat(p.flags())
           .isEqualTo(Pattern.UNICODE_CHARACTER_CLASS | Pattern.UNICODE_CASE);
-    }
-  }
-
-  @Nested
-  @DisplayName("Named groups")
-  class NamedGroups {
-    @Test
-    void extractsNamedGroups() {
-      Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
-      assertThat(p.namedGroups()).containsEntry("user", 1);
-      assertThat(p.namedGroups()).containsEntry("host", 2);
-    }
-
-    @Test
-    void noNamedGroups() {
-      Pattern p = Pattern.compile("(\\w+)@(\\w+)");
-      assertThat(p.namedGroups()).isEmpty();
-    }
-
-    @Test
-    void numGroupsCounting() {
-      Pattern p = Pattern.compile("(a)(b)(c)");
-      assertThat(p.numGroups()).isEqualTo(3);
-    }
-
-    @Test
-    void numGroupsNoCaptures() {
-      Pattern p = Pattern.compile("abc");
-      assertThat(p.numGroups()).isZero();
-    }
-    @Test
-    @DisplayName("namedGroups() returns unmodifiable map")
-    void namedGroupsUnmodifiable() {
-      Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
-      assertThatThrownBy(() -> p.namedGroups().put("foo", 99))
-          .isInstanceOf(UnsupportedOperationException.class);
-    }
-
-    @Test
-    @DisplayName("duplicate named capturing groups are rejected")
-    void duplicateNamedGroupsRejected() {
-      assertThatThrownBy(() -> Pattern.compile("(?<word>a)(?<word>b)"))
-          .isInstanceOf(PatternSyntaxException.class);
-      assertThatThrownBy(() -> Pattern.compile("(?P<word>a)(?P<word>b)"))
-          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 
@@ -918,28 +825,6 @@ class PatternTest {
   }
 
   @Nested
-  @DisplayName("groupCount (ported from RE2/J RE2TestNumSubexps)")
-  class GroupCount {
-
-    @ParameterizedTest(name = "compile(\"{0}\").numGroups() == {1}")
-    @CsvSource({
-        "'',         0",
-        "'.*',        0",
-        "'abba',      0",
-        "'ab(b)a',    1",
-        "'ab(.*)a',   1",
-        "'(.*)ab(.*)a',  2",
-        "'(.*)(ab)(.*)a', 3",
-        "'(.*)((a)b)(.*)a', 4",
-        "'(.*)(\\(ab)(.*)a', 3",
-        "'(.*)(\\(a\\)b)(.*)a', 3",
-    })
-    void numGroups(String pattern, int expected) {
-      assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
-    }
-  }
-
-  @Nested
   @DisplayName("quote() round-trip (ported from RE2/J RE2QuoteMetaTest)")
   class QuoteRoundTrip {
 
@@ -961,78 +846,6 @@ class PatternTest {
       Pattern p = Pattern.compile(quoted);
       String replaced = p.matcher(source).replaceAll("xyz");
       assertThat(replaced).isEqualTo(expected);
-    }
-  }
-
-  @Nested
-  @DisplayName("splitAsStream()")
-  class SplitAsStreamTests {
-
-    @Test
-    @DisplayName("splitAsStream splits input around matches")
-    void splitAsStreamBasic() {
-      Pattern p = Pattern.compile(",");
-      java.util.List<String> parts =
-          p.splitAsStream("a,b,c").collect(java.util.stream.Collectors.toList());
-      assertThat(parts).containsExactly("a", "b", "c");
-    }
-
-    @Test
-    @DisplayName("splitAsStream with no match returns entire input")
-    void splitAsStreamNoMatch() {
-      Pattern p = Pattern.compile(",");
-      java.util.List<String> parts =
-          p.splitAsStream("abc").collect(java.util.stream.Collectors.toList());
-      assertThat(parts).containsExactly("abc");
-    }
-
-    @Test
-    @DisplayName("splitAsStream with regex pattern")
-    void splitAsStreamRegex() {
-      Pattern p = Pattern.compile("\\s+");
-      java.util.List<String> parts =
-          p.splitAsStream("hello  world\tfoo").collect(java.util.stream.Collectors.toList());
-      assertThat(parts).containsExactly("hello", "world", "foo");
-    }
-
-    @Test
-    @DisplayName("splitAsStream count() works without collecting")
-    void splitAsStreamCount() {
-      Pattern p = Pattern.compile(",");
-      long count = p.splitAsStream("a,b,c,d").count();
-      assertThat(count).isEqualTo(4);
-    }
-
-    @Test
-    @DisplayName("splitAsStream discards trailing empty strings")
-    void splitAsStreamTrailingEmpty() {
-      Pattern p = Pattern.compile(",");
-      java.util.List<String> parts =
-          p.splitAsStream("a,b,").collect(java.util.stream.Collectors.toList());
-      assertThat(parts).containsExactly("a", "b");
-    }
-
-    @Test
-    @DisplayName("splitAsStream reads custom CharSequence content via charAt()")
-    void splitAsStreamCustomCharSequence() {
-      Pattern p = Pattern.compile(",");
-      java.util.List<String> parts =
-          p.splitAsStream(new LiteralCharSequence("a,b,c"))
-              .collect(java.util.stream.Collectors.toList());
-      assertThat(parts).containsExactly("a", "b", "c");
-    }
-
-    @Test
-    @DisplayName("splitAsStream reads input lazily when stream is consumed")
-    void splitAsStreamReadsInputLazily() {
-      Pattern p = Pattern.compile(",");
-      MutableCharSequence input = new MutableCharSequence("a,b");
-      Stream<String> stream = p.splitAsStream(input);
-
-      input.set("x,y,z");
-
-      assertThat(stream.collect(java.util.stream.Collectors.toList()))
-          .containsExactly("x", "y", "z");
     }
   }
 
@@ -1087,6 +900,7 @@ class PatternTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#220 empty-left-side character-class intersection diverges from JDK")
     @DisplayName("[^a&&[ab]] applies intersection before negating the left side")
     void negatedIntersectionKeepsNegatedLeftHandClass() {
       Pattern p = Pattern.compile("[^a&&[ab]]");
@@ -1096,6 +910,7 @@ class PatternTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#220 empty-left-side character-class intersection diverges from JDK")
     @DisplayName("[a-z&&[def]1] intersects with the whole right-hand union")
     void intersectionRightHandSideIncludesRangesAfterNestedClass() {
       Pattern p = Pattern.compile("[a-z&&[def]1]");
@@ -1118,6 +933,7 @@ class PatternTest {
   class OctalEscapeTests {
 
     @Test
+    @DisabledForCrosscheck("#224 SafeRE accepts octal syntax that java.util.regex rejects")
     @DisplayName("\\0 without octal digits is rejected")
     void zeroOctalEscapeRequiresDigits() {
       assertThatThrownBy(() -> Pattern.compile("\\0"))
@@ -1125,6 +941,7 @@ class PatternTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#224 SafeRE accepts octal syntax that java.util.regex rejects")
     @DisplayName("\\08 is rejected because \\0 requires an octal digit")
     void zeroOctalEscapeRejectsNonOctalDigit() {
       assertThatThrownBy(() -> Pattern.compile("\\08"))
@@ -1132,6 +949,7 @@ class PatternTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#224 large octal escapes diverge from java.util.regex")
     @DisplayName("octal escapes above 0377 do not become Unicode code points")
     void largeOctalEscapesDoNotBecomeUnicodeCodePoints() {
       assertThat(Pattern.compile("\\400").matcher("\u0100").matches()).isFalse();

@@ -110,6 +110,8 @@
                         <include name="*Test.java"/>
                         <include name="DisabledForCrosscheck.java"/>
                         <include name="ExhaustiveUtils.java"/>
+                        <!-- Compile-time structural excludes. Each excluded test class is also
+                             annotated with @DisabledForCrosscheck in the original source. -->
                         <exclude name="AnchorOptTest.java"/>
                         <exclude name="BitStateTest.java"/>
                         <exclude name="CharClassTest.java"/>
@@ -119,16 +121,12 @@
                         <exclude name="EmptyOpTest.java"/>
                         <exclude name="InstOpTest.java"/>
                         <exclude name="InstTest.java"/>
-                        <exclude name="LicenseHeaderTest.java"/>
-                        <exclude name="MatcherTest.java"/>
                         <exclude name="NfaTest.java"/>
                         <exclude name="OnePassTest.java"/>
                         <exclude name="ParseFlagsTest.java"/>
                         <exclude name="ParserTest.java"/>
                         <exclude name="PatternSetTest.java"/>
-                        <exclude name="PatternTest.java"/>
                         <exclude name="ProgTest.java"/>
-                        <exclude name="RandomTest.java"/>
                         <exclude name="RegexpOpTest.java"/>
                         <exclude name="RegexpTest.java"/>
                         <exclude name="SimplifierTest.java"/>

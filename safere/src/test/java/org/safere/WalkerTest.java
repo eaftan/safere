@@ -11,6 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link Walker}. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class WalkerTest {
 
   private static final int FLAGS =

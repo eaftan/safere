@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /** Verifies that all Java source files include the required license header. */
+@DisabledForCrosscheck("repository source-file validation is not regex API compatibility coverage")
 class LicenseHeaderTest {
 
   // Standard header (4 lines) — files derived from C++ RE2 only.

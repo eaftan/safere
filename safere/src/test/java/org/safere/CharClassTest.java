@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link CharClass} and {@link CharClassBuilder}. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class CharClassTest {
 
   @Test

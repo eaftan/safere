@@ -8,6 +8,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
+@DisabledForCrosscheck("implementation-path assertions use package-private SafeRE internals")
 class AnchorOptTest {
   @Test
   void httpPatternIsOnePassAndAnchored() {

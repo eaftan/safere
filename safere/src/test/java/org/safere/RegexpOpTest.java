@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link RegexpOp}. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class RegexpOpTest {
 
   @Test

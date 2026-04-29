@@ -33,6 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * on match/no-match.
  */
 @DisplayName("DFA vs NFA consistency")
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class DfaNfaTest {
 
   private static final int FLAGS =

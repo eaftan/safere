@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * {@code java.util.regex} agree on match/no-match results and matched text. Uses fixed seeds for
  * reproducibility.
  */
+@DisabledForCrosscheck("random differential fuzzing already compares SafeRE with java.util.regex")
 @DisplayName("Random Fuzz Tests (ported from RE2 C++ random_test.cc)")
 class RandomTest {
 

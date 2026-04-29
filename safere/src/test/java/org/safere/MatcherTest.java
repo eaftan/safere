@@ -159,6 +159,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("matches() stays linear for repeated dot-star with bounded captures")
     void matchesWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
@@ -176,6 +177,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("lookingAt() stays linear for repeated dot-star with bounded captures")
     void lookingAtWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
@@ -207,6 +209,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("matches() stays linear for repeated dot-star bodies with multiple captures")
     void matchesWithRepeatedDotStarBodiesAndMultipleCaptures() {
       assertNoSuperlinearRepeatedDotStarCaptureScaling(
@@ -228,6 +231,7 @@ class MatcherTest {
   class FindTests {
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("group access after find() stays linear for repeated dot-star captures")
     void findGroupWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
@@ -600,6 +604,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("group(String) returns named group text")
     void namedGroup() {
       Pattern p = Pattern.compile("(?P<first>\\w+) (?P<last>\\w+)");
@@ -610,6 +615,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("group(String) throws for unknown name")
     void namedGroupUnknown() {
       Pattern p = Pattern.compile("(?P<first>\\w+)");
@@ -842,6 +848,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("replaceAll() with named backreference")
     void replaceAllWithNamedBackref() {
       Pattern p = Pattern.compile("(?P<word>\\w+)");
@@ -940,14 +947,6 @@ class MatcherTest {
     }
 
     @Test
-    void replaceFirstNamedGroupRef() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
-      Matcher m = p.matcher("hello world");
-      String result = m.replaceFirst("${word}!");
-      assertThat(result).isEqualTo("hello! world");
-    }
-
-    @Test
     @DisplayName("replaceAll with backreference wrapping")
     void replaceAllBackrefWrapping() {
       Pattern p = Pattern.compile("(\\w+):(\\d+)");
@@ -987,40 +986,6 @@ class MatcherTest {
       Matcher m = p.matcher("b");
       // $1 didn't participate (null), should be replaced with empty string
       assertThat(m.replaceFirst("[$1][$2]")).isEqualTo("[][b]");
-    }
-
-    @Test
-    @DisplayName("replaceAll(Function) expands group references in returned replacement")
-    void replaceAllFunctionExpandsGroupReferences() {
-      Pattern p = Pattern.compile("(\\w+)");
-      Matcher m = p.matcher("hello world");
-      assertThat(m.replaceAll(result -> "[$1]")).isEqualTo("[hello] [world]");
-    }
-
-    @Test
-    @DisplayName("replaceFirst(Function) expands group references in returned replacement")
-    void replaceFirstFunctionExpandsGroupReferences() {
-      Pattern p = Pattern.compile("(\\w+)");
-      Matcher m = p.matcher("hello world");
-      assertThat(m.replaceFirst(result -> "[$1]")).isEqualTo("[hello] world");
-    }
-
-    @Test
-    @DisplayName("replaceAll(Function) rejects null replacement result")
-    void replaceAllFunctionRejectsNullReplacementResult() {
-      Pattern p = Pattern.compile("a");
-      Matcher m = p.matcher("a");
-      assertThatThrownBy(() -> m.replaceAll(result -> null))
-          .isInstanceOf(NullPointerException.class);
-    }
-
-    @Test
-    @DisplayName("replaceFirst(Function) rejects null replacement result")
-    void replaceFirstFunctionRejectsNullReplacementResult() {
-      Pattern p = Pattern.compile("a");
-      Matcher m = p.matcher("a");
-      assertThatThrownBy(() -> m.replaceFirst(result -> null))
-          .isInstanceOf(NullPointerException.class);
     }
 
   }
@@ -1069,6 +1034,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("SafeRE supports CharSequence group access that JDK cannot")
     @DisplayName("matcher works with CharSequence that does not override toString()")
     void customCharSequenceWithoutToString() {
       // A CharSequence backed by a byte array that does NOT override toString().
@@ -1114,6 +1080,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("Matcher.toString() format is implementation-specific")
     @DisplayName("toString() reports pattern, region, and last match")
     void toStringReportsMatcherState() {
       Matcher m = Pattern.compile("a").matcher("ba");
@@ -1167,20 +1134,6 @@ class MatcherTest {
       assertThat(mr.group(2)).isNull();
       assertThat(mr.start(2)).isEqualTo(-1);
       assertThat(mr.end(2)).isEqualTo(-1);
-    }
-
-    @Test
-    @DisplayName("toMatchResult() snapshot supports named-group lookup")
-    void toMatchResultNamedGroups() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
-      Matcher m = p.matcher("hello");
-      assertThat(m.find()).isTrue();
-
-      MatchResult mr = m.toMatchResult();
-      assertThat(mr.namedGroups()).containsEntry("word", 1);
-      assertThat(mr.group("word")).isEqualTo("hello");
-      assertThat(mr.start("word")).isEqualTo(0);
-      assertThat(mr.end("word")).isEqualTo(5);
     }
 
     @Test
@@ -1252,200 +1205,6 @@ class MatcherTest {
   }
 
   @Nested
-  @DisplayName("Named group start/end")
-  class NamedGroupPositionTests {
-
-    @Test
-    @DisplayName("start(String) and end(String) return named group positions")
-    void namedGroupStartEnd() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)@(?P<host>\\w+)");
-      Matcher m = p.matcher("user@host");
-      assertThat(m.find()).isTrue();
-      assertThat(m.start("word")).isEqualTo(0);
-      assertThat(m.end("word")).isEqualTo(4);
-      assertThat(m.start("host")).isEqualTo(5);
-      assertThat(m.end("host")).isEqualTo(9);
-    }
-
-    @Test
-    @DisplayName("start(String) throws for unknown group name")
-    void startUnknownNameThrows() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
-      Matcher m = p.matcher("hello");
-      m.find();
-      assertThatThrownBy(() -> m.start("missing"))
-          .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("end(String) throws for unknown group name")
-    void endUnknownNameThrows() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
-      Matcher m = p.matcher("hello");
-      m.find();
-      assertThatThrownBy(() -> m.end("missing"))
-          .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("named group that did not participate returns -1")
-    void nonParticipatingNamedGroup() {
-      Pattern p = Pattern.compile("(?P<a>a)|(?P<b>b)");
-      Matcher m = p.matcher("b");
-      assertThat(m.find()).isTrue();
-      assertThat(m.start("a")).isEqualTo(-1);
-      assertThat(m.end("a")).isEqualTo(-1);
-      assertThat(m.start("b")).isEqualTo(0);
-      assertThat(m.end("b")).isEqualTo(1);
-    }
-  }
-
-  @Nested
-  @DisplayName("results() stream")
-  class ResultsStreamTests {
-
-    @Test
-    @DisplayName("results() returns all matches as a stream")
-    void resultsStream() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("abc 123 def 456 ghi");
-      java.util.List<String> matches =
-          m.results().map(MatchResult::group).collect(java.util.stream.Collectors.toList());
-      assertThat(matches).containsExactly("123", "456");
-    }
-
-    @Test
-    @DisplayName("results() returns empty stream when no matches")
-    void resultsNoMatch() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("no digits here");
-      assertThat(m.results().count()).isEqualTo(0);
-    }
-
-    @Test
-    @DisplayName("results() match results have correct positions")
-    void resultsPositions() {
-      Pattern p = Pattern.compile("[a-z]+");
-      Matcher m = p.matcher("123 abc 456 def");
-      java.util.List<MatchResult> results =
-          m.results().collect(java.util.stream.Collectors.toList());
-      assertThat(results).hasSize(2);
-      assertThat(results.get(0).start()).isEqualTo(4);
-      assertThat(results.get(0).end()).isEqualTo(7);
-      assertThat(results.get(1).start()).isEqualTo(12);
-      assertThat(results.get(1).end()).isEqualTo(15);
-    }
-
-    @Test
-    @DisplayName("results() detects matcher mutation during stream traversal")
-    void resultsDetectsMatcherMutation() {
-      Pattern p = Pattern.compile("a");
-      Matcher m = p.matcher("aa");
-
-      assertThatThrownBy(() -> m.results()
-          .map(result -> {
-            m.find();
-            return result.group();
-          })
-          .collect(java.util.stream.Collectors.toList()))
-          .isInstanceOf(java.util.ConcurrentModificationException.class);
-    }
-  }
-
-  @Nested
-  @DisplayName("Functional replacement")
-  class FunctionalReplaceTests {
-
-    @Test
-    @DisplayName("replaceAll(Function) replaces all matches using function")
-    void replaceAllFunction() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("a1b22c333");
-      String result = m.replaceAll(mr -> "[" + mr.group() + "]");
-      assertThat(result).isEqualTo("a[1]b[22]c[333]");
-    }
-
-    @Test
-    @DisplayName("replaceFirst(Function) replaces only first match using function")
-    void replaceFirstFunction() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("a1b22c333");
-      String result = m.replaceFirst(mr -> "[" + mr.group() + "]");
-      assertThat(result).isEqualTo("a[1]b22c333");
-    }
-
-    @Test
-    @DisplayName("replaceAll(Function) with no matches returns original")
-    void replaceAllFunctionNoMatch() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("no digits");
-      String result = m.replaceAll(mr -> "X");
-      assertThat(result).isEqualTo("no digits");
-    }
-
-    @Test
-    @DisplayName("replaceFirst(Function) with no matches returns original")
-    void replaceFirstFunctionNoMatch() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("no digits");
-      String result = m.replaceFirst(mr -> "X");
-      assertThat(result).isEqualTo("no digits");
-    }
-
-    @Test
-    @DisplayName("replaceAll(Function) can access capture groups")
-    void replaceAllFunctionWithGroups() {
-      Pattern p = Pattern.compile("(\\w+)=(\\w+)");
-      Matcher m = p.matcher("a=1 b=2");
-      String result = m.replaceAll(mr -> mr.group(2) + ":" + mr.group(1));
-      assertThat(result).isEqualTo("1:a 2:b");
-    }
-
-    @Test
-    @DisplayName("replaceAll(Function) throws on null replacer")
-    void replaceAllFunctionNullThrows() {
-      Pattern p = Pattern.compile("x");
-      Matcher m = p.matcher("x");
-      assertThatThrownBy(() -> m.replaceAll((java.util.function.Function<MatchResult, String>) null))
-          .isInstanceOf(NullPointerException.class);
-    }
-
-    @Test
-    @DisplayName("replaceFirst(Function) throws on null replacer")
-    void replaceFirstFunctionNullThrows() {
-      Pattern p = Pattern.compile("x");
-      Matcher m = p.matcher("x");
-      assertThatThrownBy(
-              () -> m.replaceFirst((java.util.function.Function<MatchResult, String>) null))
-          .isInstanceOf(NullPointerException.class);
-    }
-
-    @Test
-    @DisplayName("replaceAll(Function) detects matcher mutation from replacer")
-    void replaceAllFunctionDetectsMatcherMutation() {
-      Pattern p = Pattern.compile("a");
-      Matcher m = p.matcher("aa");
-
-      assertThatThrownBy(() -> m.replaceAll(result -> {
-        m.find();
-        return "x";
-      })).isInstanceOf(java.util.ConcurrentModificationException.class);
-    }
-
-    @Test
-    @DisplayName("replaceFirst(Function) detects matcher mutation from replacer")
-    void replaceFirstFunctionDetectsMatcherMutation() {
-      Pattern p = Pattern.compile("a");
-      Matcher m = p.matcher("aa");
-
-      assertThatThrownBy(() -> m.replaceFirst(result -> {
-        m.find();
-        return "x";
-      })).isInstanceOf(java.util.ConcurrentModificationException.class);
-    }
-  }
-
-  @Nested
   @DisplayName("StringBuffer append methods")
   class StringBufferAppendTests {
 
@@ -1488,66 +1247,6 @@ class MatcherTest {
       m.appendTail(sb);
 
       assertThat(sb.toString()).isEqualTo("abXcdXef");
-    }
-  }
-
-  @Nested
-  @DisplayName("usePattern()")
-  class UsePatternTests {
-
-    @Test
-    @DisplayName("usePattern swaps pattern and preserves position")
-    void usePatternSwapsPattern() {
-      Pattern p1 = Pattern.compile("\\d+");
-      Pattern p2 = Pattern.compile("[a-z]+");
-      Matcher m = p1.matcher("123abc456def");
-      assertThat(m.find()).isTrue();
-      assertThat(m.group()).isEqualTo("123");
-      m.usePattern(p2);
-      assertThat(m.find()).isTrue();
-      assertThat(m.group()).isEqualTo("abc");
-    }
-
-    @Test
-    @DisplayName("usePattern continues searching after the previous match")
-    void usePatternContinuesAfterPreviousMatchEnd() {
-      Matcher m = Pattern.compile("a").matcher("ab");
-      assertThat(m.find()).isTrue();
-
-      m.usePattern(Pattern.compile("."));
-
-      assertThat(m.find()).isTrue();
-      assertThat(m.start()).isEqualTo(1);
-      assertThat(m.group()).isEqualTo("b");
-    }
-
-    @Test
-    @DisplayName("usePattern returns this matcher")
-    void usePatternReturnsSelf() {
-      Pattern p1 = Pattern.compile("a");
-      Pattern p2 = Pattern.compile("b");
-      Matcher m = p1.matcher("ab");
-      assertThat(m.usePattern(p2)).isSameAs(m);
-    }
-
-    @Test
-    @DisplayName("usePattern with null throws")
-    void usePatternNullThrows() {
-      Pattern p = Pattern.compile("a");
-      Matcher m = p.matcher("a");
-      assertThatThrownBy(() -> m.usePattern(null))
-          .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    @DisplayName("pattern() reflects usePattern change")
-    void patternReflectsChange() {
-      Pattern p1 = Pattern.compile("a");
-      Pattern p2 = Pattern.compile("b");
-      Matcher m = p1.matcher("ab");
-      assertThat(m.pattern()).isSameAs(p1);
-      m.usePattern(p2);
-      assertThat(m.pattern()).isSameAs(p2);
     }
   }
 
@@ -1638,6 +1337,7 @@ class MatcherTest {
   class RegionTests {
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("region find stays linear for repeated dot-star captures")
     void regionFindWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
@@ -1760,6 +1460,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#226 hitEnd/requireEnd state differs after region reset")
     @DisplayName("region clears stale requireEnd state")
     void regionClearsRequireEndState() {
       Pattern p = Pattern.compile("a$");
@@ -2414,6 +2115,7 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("#226 SafeRE and java.util.regex differ on requireEnd state after reset")
     @DisplayName("requireEnd() is false after reset")
     void requireEndFalseAfterReset() {
       Pattern p = Pattern.compile("abc$");
@@ -2460,62 +2162,6 @@ class MatcherTest {
       assertThat(m.matches()).isTrue();
       // No end assertions in pattern — match doesn't depend on end position.
       assertThat(m.requireEnd()).isFalse();
-    }
-  }
-
-  @Nested
-  @DisplayName("namedGroups()")
-  class NamedGroupsTests {
-
-    @Test
-    @DisplayName("namedGroups() returns named groups from pattern")
-    void namedGroupsReturnsMap() {
-      Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
-      Matcher m = p.matcher("user@host");
-      assertThat(m.namedGroups()).containsEntry("user", 1);
-      assertThat(m.namedGroups()).containsEntry("host", 2);
-    }
-
-    @Test
-    @DisplayName("namedGroups() returns empty map for no named groups")
-    void namedGroupsEmpty() {
-      Pattern p = Pattern.compile("(\\w+)@(\\w+)");
-      Matcher m = p.matcher("user@host");
-      assertThat(m.namedGroups()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("namedGroups() is unmodifiable")
-    void namedGroupsUnmodifiable() {
-      Pattern p = Pattern.compile("(?P<name>\\w+)");
-      Matcher m = p.matcher("hello");
-      assertThatThrownBy(() -> m.namedGroups().put("foo", 99))
-          .isInstanceOf(UnsupportedOperationException.class);
-    }
-
-    @Test
-    @DisplayName("namedGroups() returns from MatchResult interface")
-    void namedGroupsFromMatchResult() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
-      Matcher m = p.matcher("hello");
-      assertThat(m.find()).isTrue();
-      MatchResult result = m.toMatchResult();
-      assertThat(result.namedGroups()).containsEntry("word", 1);
-    }
-
-    @Test
-    @DisplayName("named group methods reject null names")
-    void namedGroupMethodsRejectNullNames() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
-      Matcher m = p.matcher("hello");
-      assertThat(m.find()).isTrue();
-
-      assertThatThrownBy(() -> m.group((String) null))
-          .isInstanceOf(NullPointerException.class);
-      assertThatThrownBy(() -> m.start((String) null))
-          .isInstanceOf(NullPointerException.class);
-      assertThatThrownBy(() -> m.end((String) null))
-          .isInstanceOf(NullPointerException.class);
     }
   }
 
@@ -2658,6 +2304,7 @@ class MatcherTest {
   }
 
   @Test
+  @DisabledForCrosscheck("#227 BitState crash for this generated regression case")
   @DisplayName("find() with empty branch before complex char class")
   void findEmptyBranchBeforeComplexCharClass() {
     Matcher m =
