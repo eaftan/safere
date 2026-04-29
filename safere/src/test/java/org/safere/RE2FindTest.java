@@ -214,6 +214,8 @@ class RE2FindTest {
   }
 
   @ParameterizedTest(name = "{0}")
+  @DisabledForCrosscheck(
+      "#219 SafeRE drops capture groups in zero-count repetitions")
   @MethodSource("findTests")
   void testFirstMatchSubgroups(FindTestCase tc) {
     Pattern p = Pattern.compile(tc.pattern());
@@ -235,6 +237,8 @@ class RE2FindTest {
   }
 
   @ParameterizedTest(name = "{0}")
+  @DisabledForCrosscheck(
+      "#219 SafeRE drops capture groups in zero-count repetitions")
   @MethodSource("findTests")
   void testFirstMatchPositions(FindTestCase tc) {
     Pattern p = Pattern.compile(tc.pattern());
@@ -263,6 +267,8 @@ class RE2FindTest {
   }
 
   @ParameterizedTest(name = "{0}")
+  @DisabledForCrosscheck(
+      "#219 SafeRE drops capture groups in zero-count repetitions")
   @MethodSource("findTests")
   void testFindFirst(FindTestCase tc) {
     Pattern p = Pattern.compile(tc.pattern());

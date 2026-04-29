@@ -616,6 +616,8 @@ class CrossEngineExhaustiveTest {
     }
 
     @Test
+    @DisabledForCrosscheck(
+        "#219 SafeRE drops capture groups in zero-count repetitions")
     @DisplayName("Repetition operators on long text")
     void repetitionLongText() {
       int tests =

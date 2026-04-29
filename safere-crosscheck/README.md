@@ -123,23 +123,30 @@ The crosscheck facade covers:
 
 ## Crosschecking SafeRE Tests
 
-The `crosscheck-public-api-tests` Maven profile runs generated copies of
-selected SafeRE public API tests through the crosscheck facade:
+The `crosscheck-public-api-tests` Maven profile runs generated copies of SafeRE
+public API test candidates through the crosscheck facade:
 
 ```bash
 mvn -pl safere-crosscheck -Pcrosscheck-public-api-tests test
 ```
 
-The generated sources are not checked in. The profile copies allowlisted test
-classes from `safere/src/test/java/org/safere`, rewrites them into a generated
-package, and imports `org.safere.crosscheck.Pattern` and
+The generated sources are not checked in. The profile copies broad public API
+test candidates from `safere/src/test/java/org/safere`, rewrites them into a
+generated package, and imports `org.safere.crosscheck.Pattern` and
 `org.safere.crosscheck.Matcher`. This keeps one source of truth for the test
 logic while making JDK compatibility an executable invariant.
 
-Only tests whose whole class is expected to match JDK behavior should be added
-to the allowlist in `safere-crosscheck/pom.xml`. Tests for SafeRE internals,
-linear-time performance, unsupported JDK features, or intentional SafeRE/JDK
-syntax differences should remain in the normal SafeRE test suite.
+Use `@DisabledForCrosscheck("reason")` in the original SafeRE test source for
+test methods or classes that should be disabled only in generated crosscheck
+coverage. The generator rewrites that annotation to JUnit's `@Disabled`, so the
+gap is visible in test reports. Use issue references in the reason for fixable
+SafeRE/JDK divergences, and plain reasons for tests that are intentionally not
+relevant to crosscheck, such as SafeRE-only syntax or JDK stack-overflow stress
+cases.
+
+The profile still excludes source files that are structurally not crosscheck
+candidates, such as SafeRE internals, SafeRE-only APIs, or tests requiring
+crosscheck facade methods that are not implemented yet.
 
 ### Not Covered (yet)
 

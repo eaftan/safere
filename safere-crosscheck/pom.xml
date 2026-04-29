@@ -75,6 +75,14 @@
     <profile>
       <id>crosscheck-public-api-tests</id>
       <build>
+        <testResources>
+          <testResource>
+            <directory>${project.basedir}/src/test/resources</directory>
+          </testResource>
+          <testResource>
+            <directory>${project.basedir}/../safere/src/test/resources</directory>
+          </testResource>
+        </testResources>
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
@@ -99,14 +107,42 @@
                         flatten="true"
                         overwrite="true">
                       <fileset dir="${project.basedir}/../safere/src/test/java/org/safere">
-                        <include name="CommentsTest.java"/>
-                        <include name="LiteralFlagTest.java"/>
-                        <include name="UnicodeCaseTest.java"/>
+                        <include name="*Test.java"/>
+                        <include name="ExhaustiveUtils.java"/>
+                        <exclude name="AnchorOptTest.java"/>
+                        <exclude name="BitStateTest.java"/>
+                        <exclude name="CharClassTest.java"/>
+                        <exclude name="CompilerTest.java"/>
+                        <exclude name="DfaNfaTest.java"/>
+                        <exclude name="DfaTest.java"/>
+                        <exclude name="EmptyOpTest.java"/>
+                        <exclude name="InstOpTest.java"/>
+                        <exclude name="InstTest.java"/>
+                        <exclude name="LicenseHeaderTest.java"/>
+                        <exclude name="MatcherTest.java"/>
+                        <exclude name="NfaTest.java"/>
+                        <exclude name="OnePassTest.java"/>
+                        <exclude name="ParseFlagsTest.java"/>
+                        <exclude name="ParserTest.java"/>
+                        <exclude name="PatternSetTest.java"/>
+                        <exclude name="PatternTest.java"/>
+                        <exclude name="ProgTest.java"/>
+                        <exclude name="RandomTest.java"/>
+                        <exclude name="RegexpOpTest.java"/>
+                        <exclude name="RegexpTest.java"/>
+                        <exclude name="SimplifierTest.java"/>
+                        <exclude name="UnicodeJdkConsistencyTest.java"/>
+                        <exclude name="UnicodeTablesTest.java"/>
+                        <exclude name="UtilsTest.java"/>
+                        <exclude name="WalkerTest.java"/>
                       </fileset>
                       <filterchain>
                         <replaceregex
                             pattern="package org\.safere;"
-                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
+                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.junit.jupiter.api.Disabled;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
+                        <replaceregex
+                            pattern="@DisabledForCrosscheck\("
+                            replace="@Disabled("/>
                       </filterchain>
                     </copy>
                   </target>

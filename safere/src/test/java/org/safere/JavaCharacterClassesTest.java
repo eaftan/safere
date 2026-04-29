@@ -177,6 +177,8 @@ class JavaCharacterClassesTest {
   }
 
   @Test
+  @DisabledForCrosscheck(
+      "#210 SafeRE accepts \\p{^javaLowerCase}, but java.util.regex rejects it")
   @DisplayName("Negation with \\p{^...} works")
   void caretNegationWorks() {
     var p = Pattern.compile("\\p{^javaLowerCase}+");
