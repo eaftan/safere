@@ -30,7 +30,6 @@ class MatcherUsePatternTest {
   }
 
   @Test
-  @DisabledForCrosscheck("#225 search position differs after usePattern")
   @DisplayName("usePattern continues searching after the previous match")
   void usePatternContinuesAfterPreviousMatchEnd() {
     Matcher m = Pattern.compile("a").matcher("ab");
