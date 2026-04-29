@@ -138,11 +138,12 @@ logic while making JDK compatibility an executable invariant.
 
 Use `@DisabledForCrosscheck("reason")` in the original SafeRE test source for
 test methods or classes that should be disabled only in generated crosscheck
-coverage. The generator rewrites that annotation to JUnit's `@Disabled`, so the
-gap is visible in test reports. Use issue references in the reason for fixable
-SafeRE/JDK divergences, and plain reasons for tests that are intentionally not
-relevant to crosscheck, such as SafeRE-only syntax or JDK stack-overflow stress
-cases.
+coverage. The annotation is backed by a JUnit execution condition and is active
+only when the generated crosscheck profile sets
+`org.safere.crosscheck.generatedTests=true`, so the gap is visible in test
+reports. Use issue references in the reason for fixable SafeRE/JDK divergences,
+and plain reasons for tests that are intentionally not relevant to crosscheck,
+such as SafeRE-only syntax or JDK stack-overflow stress cases.
 
 The profile still excludes source files that are structurally not crosscheck
 candidates, such as SafeRE internals, SafeRE-only APIs, or tests requiring
