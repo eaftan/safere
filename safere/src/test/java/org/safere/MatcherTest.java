@@ -2318,7 +2318,6 @@ class MatcherTest {
   }
 
   @Test
-  @DisabledForCrosscheck("#227 BitState crash for this generated regression case")
   @DisplayName("find() with empty branch before complex char class")
   void findEmptyBranchBeforeComplexCharClass() {
     Matcher m =
