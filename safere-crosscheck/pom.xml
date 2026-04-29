@@ -108,6 +108,7 @@
                         overwrite="true">
                       <fileset dir="${project.basedir}/../safere/src/test/java/org/safere">
                         <include name="*Test.java"/>
+                        <include name="DisabledForCrosscheck.java"/>
                         <include name="ExhaustiveUtils.java"/>
                         <exclude name="AnchorOptTest.java"/>
                         <exclude name="BitStateTest.java"/>
@@ -139,10 +140,7 @@
                       <filterchain>
                         <replaceregex
                             pattern="package org\.safere;"
-                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.junit.jupiter.api.Disabled;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
-                        <replaceregex
-                            pattern="@DisabledForCrosscheck\("
-                            replace="@Disabled("/>
+                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
                       </filterchain>
                     </copy>
                   </target>
@@ -168,6 +166,16 @@
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>3.5.2</version>
+            <configuration>
+              <systemPropertyVariables>
+                <org.safere.crosscheck.generatedTests>true</org.safere.crosscheck.generatedTests>
+              </systemPropertyVariables>
+            </configuration>
           </plugin>
         </plugins>
       </build>
