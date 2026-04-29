@@ -163,7 +163,7 @@ mvn test -pl safere -Dtest=ParserTest
 mvn verify -pl safere -Pcoverage
 
 # Run crosscheck module tests
-mvn test -pl safere-crosscheck
+mvn test -pl safere-crosscheck -am
 
 # Run Jazzer fuzz targets in regression mode
 mvn test -pl safere-fuzz
