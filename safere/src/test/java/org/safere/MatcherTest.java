@@ -1897,13 +1897,14 @@ class MatcherTest {
   class HitEndTests {
 
     @Test
-    @DisplayName("hitEnd is false for a complete literal match")
-    void hitEndFalseForCompleteLiteralMatch() {
+    @DisplayName("hitEnd is true when a variable-length match reaches end")
+    void hitEndTrueForVariableLengthMatchAtEnd() {
       Pattern p = Pattern.compile("\\w+");
       Matcher m = p.matcher("abc");
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("abc");
-      assertThat(m.hitEnd()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
@@ -1926,14 +1927,15 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("hitEnd is false for a complete literal match at region end")
-    void hitEndFalseForCompleteLiteralMatchAtRegionEnd() {
+    @DisplayName("hitEnd is true when a variable-length match reaches region end")
+    void hitEndTrueForVariableLengthMatchAtRegionEnd() {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("abc123def456ghi");
       m.region(3, 6); // "123"
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("123");
-      assertThat(m.hitEnd()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
@@ -1954,6 +1956,16 @@ class MatcherTest {
       Matcher m = p.matcher("abc");
       assertThat(m.matches()).isTrue();
       assertThat(m.hitEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for variable-length matches() at end")
+    void hitEndTrueForVariableLengthMatchesAtEnd() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
