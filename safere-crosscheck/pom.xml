@@ -70,4 +70,71 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>crosscheck-public-api-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>generate-crosscheck-public-api-tests</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <delete
+                        dir="${project.build.directory}/generated-test-sources/crosscheck"
+                        quiet="true"/>
+                    <mkdir
+                        dir="${project.build.directory}/generated-test-sources/crosscheck/org/safere/crosscheck/generated"/>
+                    <copy
+                        todir="${project.build.directory}/generated-test-sources/crosscheck/org/safere/crosscheck/generated"
+                        flatten="true"
+                        overwrite="true">
+                      <fileset dir="${project.basedir}/../safere/src/test/java/org/safere">
+                        <include name="CommentsTest.java"/>
+                        <include name="LiteralFlagTest.java"/>
+                        <include name="UnicodeCaseTest.java"/>
+                      </fileset>
+                      <filterchain>
+                        <replaceregex
+                            pattern="package org\.safere;"
+                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
+                      </filterchain>
+                    </copy>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.0</version>
+            <executions>
+              <execution>
+                <id>add-crosscheck-public-api-tests</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>${project.build.directory}/generated-test-sources/crosscheck</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

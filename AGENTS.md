@@ -160,6 +160,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - **Never push to a PR (or create one) without first verifying locally that
   all tests pass** (`mvn -pl safere test`). CI failures waste time and block
   merges.
+- Before making a PR, also run the public API crosscheck invariant:
+  `mvn -pl safere-crosscheck -Pcrosscheck-public-api-tests test`. This runs
+  generated copies of allowlisted SafeRE public API tests through
+  `org.safere.crosscheck` so each test operation is compared with the JDK.
 - **Update existing PRs — do not close and reopen.** Push commits (or
   force-push if rebasing) to the existing branch. Closing and reopening PRs
   loses review context and clutters the issue tracker.

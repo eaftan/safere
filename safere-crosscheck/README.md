@@ -121,6 +121,26 @@ The crosscheck facade covers:
 | **State** | `reset()`, `region()`, `useTransparentBounds()`, `useAnchoringBounds()` |
 | **Other** | `hitEnd()`, `requireEnd()`, `toMatchResult()`, `namedGroups()` |
 
+## Crosschecking SafeRE Tests
+
+The `crosscheck-public-api-tests` Maven profile runs generated copies of
+selected SafeRE public API tests through the crosscheck facade:
+
+```bash
+mvn -pl safere-crosscheck -Pcrosscheck-public-api-tests test
+```
+
+The generated sources are not checked in. The profile copies allowlisted test
+classes from `safere/src/test/java/org/safere`, rewrites them into a generated
+package, and imports `org.safere.crosscheck.Pattern` and
+`org.safere.crosscheck.Matcher`. This keeps one source of truth for the test
+logic while making JDK compatibility an executable invariant.
+
+Only tests whose whole class is expected to match JDK behavior should be added
+to the allowlist in `safere-crosscheck/pom.xml`. Tests for SafeRE internals,
+linear-time performance, unsupported JDK features, or intentional SafeRE/JDK
+syntax differences should remain in the normal SafeRE test suite.
+
 ### Not Covered (yet)
 
 - Stream APIs: `splitAsStream()`, `results()`, `asPredicate()`,
