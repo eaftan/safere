@@ -1509,6 +1509,19 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("usePattern continues searching after the previous match")
+    void usePatternContinuesAfterPreviousMatchEnd() {
+      Matcher m = Pattern.compile("a").matcher("ab");
+      assertThat(m.find()).isTrue();
+
+      m.usePattern(Pattern.compile("."));
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.group()).isEqualTo("b");
+    }
+
+    @Test
     @DisplayName("usePattern returns this matcher")
     void usePatternReturnsSelf() {
       Pattern p1 = Pattern.compile("a");
