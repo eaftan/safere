@@ -900,7 +900,6 @@ class PatternTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#220 empty-left-side character-class intersection diverges from JDK")
     @DisplayName("[^a&&[ab]] applies intersection before negating the left side")
     void negatedIntersectionKeepsNegatedLeftHandClass() {
       Pattern p = Pattern.compile("[^a&&[ab]]");
@@ -910,7 +909,6 @@ class PatternTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#220 empty-left-side character-class intersection diverges from JDK")
     @DisplayName("[a-z&&[def]1] intersects with the whole right-hand union")
     void intersectionRightHandSideIncludesRangesAfterNestedClass() {
       Pattern p = Pattern.compile("[a-z&&[def]1]");
