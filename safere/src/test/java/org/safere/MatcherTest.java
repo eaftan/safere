@@ -1114,6 +1114,23 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("toString() reports pattern, region, and last match")
+    void toStringReportsMatcherState() {
+      Matcher m = Pattern.compile("a").matcher("ba");
+
+      assertThat(m.toString())
+          .contains("pattern=a")
+          .contains("region=0,2")
+          .contains("lastmatch=");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.toString())
+          .contains("pattern=a")
+          .contains("region=0,2")
+          .contains("lastmatch=a");
+    }
+
+    @Test
     @DisplayName("toMatchResult() returns an independent snapshot")
     void toMatchResult() {
       Pattern p = Pattern.compile("(\\d+)");
@@ -1456,6 +1473,22 @@ class MatcherTest {
       m.appendTail(sb);
       assertThat(sb.toString()).isEqualTo("host/user");
     }
+
+    @Test
+    @DisplayName("appendReplacement with region preserves text outside the region")
+    void stringBufferAppendReplacementPreservesTextOutsideRegion() {
+      Pattern p = Pattern.compile("\\d");
+      Matcher m = p.matcher("ab1cd2ef");
+      m.region(2, 6);
+      StringBuffer sb = new StringBuffer();
+
+      while (m.find()) {
+        m.appendReplacement(sb, "X");
+      }
+      m.appendTail(sb);
+
+      assertThat(sb.toString()).isEqualTo("abXcdXef");
+    }
   }
 
   @Nested
@@ -1473,6 +1506,19 @@ class MatcherTest {
       m.usePattern(p2);
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("abc");
+    }
+
+    @Test
+    @DisplayName("usePattern continues searching after the previous match")
+    void usePatternContinuesAfterPreviousMatchEnd() {
+      Matcher m = Pattern.compile("a").matcher("ab");
+      assertThat(m.find()).isTrue();
+
+      m.usePattern(Pattern.compile("."));
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.group()).isEqualTo("b");
     }
 
     @Test
@@ -1851,13 +1897,14 @@ class MatcherTest {
   class HitEndTests {
 
     @Test
-    @DisplayName("hitEnd is true when match extends to end of input")
-    void hitEndMatchAtEnd() {
+    @DisplayName("hitEnd is true when a variable-length match reaches end")
+    void hitEndTrueForVariableLengthMatchAtEnd() {
       Pattern p = Pattern.compile("\\w+");
       Matcher m = p.matcher("abc");
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("abc");
       assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
@@ -1880,14 +1927,15 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("hitEnd respects region boundaries")
-    void hitEndWithRegion() {
+    @DisplayName("hitEnd is true when a variable-length match reaches region end")
+    void hitEndTrueForVariableLengthMatchAtRegionEnd() {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("abc123def456ghi");
       m.region(3, 6); // "123"
       assertThat(m.find()).isTrue();
       assertThat(m.group()).isEqualTo("123");
-      assertThat(m.hitEnd()).isTrue(); // match extends to regionEnd
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
@@ -1902,21 +1950,40 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("hitEnd true with matches()")
-    void hitEndWithMatches() {
+    @DisplayName("hitEnd is false for literal matches()")
+    void hitEndFalseForLiteralMatches() {
       Pattern p = Pattern.compile("abc");
       Matcher m = p.matcher("abc");
       assertThat(m.matches()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.hitEnd()).isFalse();
     }
 
     @Test
-    @DisplayName("hitEnd true with lookingAt() matching to end")
-    void hitEndWithLookingAtToEnd() {
+    @DisplayName("hitEnd is true for variable-length matches() at end")
+    void hitEndTrueForVariableLengthMatchesAtEnd() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd is false for literal lookingAt()")
+    void hitEndFalseForLiteralLookingAt() {
       Pattern p = Pattern.compile("abc");
       Matcher m = p.matcher("abc");
       assertThat(m.lookingAt()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.hitEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd is false for failed matches() that does not need more input")
+    void hitEndFalseForFailedLiteralMatches() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abx");
+      assertThat(m.matches()).isFalse();
+      assertThat(m.hitEnd()).isFalse();
     }
 
     @Test
@@ -2314,6 +2381,15 @@ class MatcherTest {
     void requireEndTrueForDollarAnchor() {
       Pattern p = Pattern.compile("abc$");
       Matcher m = p.matcher("abc");
+      assertThat(m.find()).isTrue();
+      assertThat(m.requireEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("requireEnd() is true for dollar anchor before trailing terminator")
+    void requireEndTrueForDollarAnchorBeforeTrailingTerminator() {
+      Pattern p = Pattern.compile("abc$");
+      Matcher m = p.matcher("abc\n");
       assertThat(m.find()).isTrue();
       assertThat(m.requireEnd()).isTrue();
     }

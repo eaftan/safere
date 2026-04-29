@@ -39,6 +39,11 @@ import java.util.stream.StreamSupport;
  * </ul>
  */
 public final class Matcher implements MatchResult {
+  private enum MatchOperation {
+    MATCHES,
+    LOOKING_AT,
+    FIND
+  }
 
   /**
    * Minimum text length for the reverse-first optimization on end-anchored patterns. For shorter
@@ -488,8 +493,7 @@ public final class Matcher implements MatchResult {
           }
         }
       }
-      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
-      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
+      updateEndState(MatchOperation.MATCHES);
     }
   }
 
@@ -609,8 +613,7 @@ public final class Matcher implements MatchResult {
           }
         }
       }
-      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
-      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
+      updateEndState(MatchOperation.LOOKING_AT);
     }
   }
 
@@ -784,9 +787,7 @@ public final class Matcher implements MatchResult {
           deferredMatchEnd += regionStart;
         }
       }
-      // Track hitEnd: true if no match found (engine scanned to end) or match reaches regionEnd.
-      lastHitEnd = !hasMatch || (groups != null && groups[1] == regionEnd);
-      lastRequireEnd = hasMatch && lastHitEnd && parentPattern.hasEndConstraint();
+      updateEndState(MatchOperation.FIND);
     }
   }
 
@@ -1946,7 +1947,7 @@ public final class Matcher implements MatchResult {
     modCount++;
     hasMatch = false;
     searchFrom = start;
-    appendPos = start;
+    appendPos = 0;
     groups = null;
     capturesResolved = true;
     groupZeroResolved = true;
@@ -2025,6 +2026,23 @@ public final class Matcher implements MatchResult {
     return parentPattern;
   }
 
+  @Override
+  public String toString() {
+    String lastMatch = "";
+    if (hasMatch && groups != null && groups[0] >= 0 && groups[1] >= groups[0]) {
+      lastMatch = text.substring(groups[0], groups[1]);
+    }
+    return "org.safere.Matcher[pattern="
+        + parentPattern.pattern()
+        + " region="
+        + regionStart
+        + ","
+        + regionEnd
+        + " lastmatch="
+        + lastMatch
+        + "]";
+  }
+
   /**
    * Changes the {@link Pattern} that this {@code Matcher} uses to find matches. This method causes
    * this matcher to lose information about the groups of the last match. The matcher's position in
@@ -2039,6 +2057,12 @@ public final class Matcher implements MatchResult {
       throw new IllegalArgumentException("Pattern cannot be null");
     }
     modCount++;
+    if (hasMatch && groups != null) {
+      searchFrom = groups[1];
+      if (groups[0] == groups[1] && searchFrom < regionEnd) {
+        searchFrom++;
+      }
+    }
     this.parentPattern = newPattern;
     // Invalidate cached DFA references since they belong to the old pattern.
     cachedForwardDfa = null;
@@ -2190,6 +2214,124 @@ public final class Matcher implements MatchResult {
     if (modCount != expectedModCount) {
       throw new ConcurrentModificationException();
     }
+  }
+
+  private void updateEndState(MatchOperation operation) {
+    if (!hasMatch || groups == null) {
+      lastHitEnd = operation == MatchOperation.FIND;
+      lastRequireEnd = false;
+      return;
+    }
+    boolean endedAtSensitiveEnd = matchEndsAtSensitiveEnd();
+    lastRequireEnd = endedAtSensitiveEnd && parentPattern.hasEndConstraint();
+    lastHitEnd = lastRequireEnd || (endedAtSensitiveEnd && matchCanExtendAtEnd(operation));
+  }
+
+  private boolean matchEndsAtSensitiveEnd() {
+    if (groups[1] == regionEnd) {
+      return true;
+    }
+    Prog prog = parentPattern.prog();
+    return prog.dollarAnchorEnd()
+        && Nfa.isAtTrailingLineTerminator(text, groups[1], prog.unixLines());
+  }
+
+  private boolean matchCanExtendAtEnd(MatchOperation operation) {
+    java.util.List<String> samples = new java.util.ArrayList<>();
+    collectTerminalRepeatSamples(parentPattern.ast(), samples);
+    if (samples.isEmpty()) {
+      return false;
+    }
+    int relativeStart = groups[0] - regionStart;
+    int relativeEnd = groups[1] - regionStart;
+    String regionText = text.substring(regionStart, regionEnd);
+    Prog prog = parentPattern.prog();
+    for (String sample : samples) {
+      if (sample.isEmpty()) {
+        continue;
+      }
+      String probeText = regionText + sample;
+      int[] result = switch (operation) {
+        case MATCHES -> Nfa.search(
+            prog, probeText, 0, probeText.length(),
+            Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, 1);
+        case LOOKING_AT, FIND -> Nfa.search(
+            prog, probeText, relativeStart, probeText.length(),
+            Nfa.Anchor.ANCHORED, Nfa.MatchKind.LONGEST_MATCH, 1);
+      };
+      if (result != null && result[0] == relativeStart && result[1] > relativeEnd) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void collectTerminalRepeatSamples(Regexp re, java.util.List<String> samples) {
+    switch (re.op) {
+      case STAR, PLUS -> addSample(re.subs.get(0), samples);
+      case REPEAT -> {
+        if (re.max < 0) {
+          addSample(re.subs.get(0), samples);
+        }
+      }
+      case CAPTURE -> collectTerminalRepeatSamples(re.subs.get(0), samples);
+      case CONCAT -> {
+        for (int i = re.subs.size() - 1; i >= 0; i--) {
+          Regexp sub = re.subs.get(i);
+          collectTerminalRepeatSamples(sub, samples);
+          if (!Pattern.canMatchEmpty(sub)) {
+            break;
+          }
+        }
+      }
+      case ALTERNATE -> {
+        for (Regexp sub : re.subs) {
+          collectTerminalRepeatSamples(sub, samples);
+        }
+      }
+      default -> {}
+    }
+  }
+
+  private static void addSample(Regexp re, java.util.List<String> samples) {
+    String sample = sampleString(re);
+    if (sample != null && !sample.isEmpty()) {
+      samples.add(sample);
+    }
+  }
+
+  private static String sampleString(Regexp re) {
+    return switch (re.op) {
+      case LITERAL -> new String(Character.toChars(re.rune));
+      case LITERAL_STRING -> new String(re.runes, 0, re.runes.length);
+      case CHAR_CLASS -> re.charClass.isEmpty()
+          ? null
+          : new String(Character.toChars(re.charClass.lo(0)));
+      case ANY_CHAR -> "a";
+      case CAPTURE -> sampleString(re.subs.get(0));
+      case CONCAT -> {
+        StringBuilder sb = new StringBuilder();
+        for (Regexp sub : re.subs) {
+          String sample = sampleString(sub);
+          if (sample == null) {
+            yield null;
+          }
+          sb.append(sample);
+        }
+        yield sb.toString();
+      }
+      case ALTERNATE -> {
+        String sample = null;
+        for (Regexp sub : re.subs) {
+          sample = sampleString(sub);
+          if (sample != null) {
+            break;
+          }
+        }
+        yield sample;
+      }
+      default -> null;
+    };
   }
 
   /**

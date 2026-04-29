@@ -1038,7 +1038,7 @@ public final class Pattern implements Serializable {
    * Returns {@code true} if the given regexp can match the empty string. Used to detect nullable
    * alternation branches where OnePass's longest-match semantics may differ from first-match.
    */
-  private static boolean canMatchEmpty(Regexp re) {
+  static boolean canMatchEmpty(Regexp re) {
     return switch (re.op) {
       case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
            NO_WORD_BOUNDARY -> true;

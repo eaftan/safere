@@ -1078,11 +1078,66 @@ class PatternTest {
     }
 
     @Test
+    @DisplayName("[a-z&&] keeps the left-hand class when intersection has no right operand")
+    void trailingIntersectionKeepsLeftHandClass() {
+      Pattern p = Pattern.compile("[a-z&&]");
+      assertThat(p.matcher("a").matches()).isTrue();
+      assertThat(p.matcher("z").matches()).isTrue();
+      assertThat(p.matcher("&").matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[^a&&[ab]] applies intersection before negating the left side")
+    void negatedIntersectionKeepsNegatedLeftHandClass() {
+      Pattern p = Pattern.compile("[^a&&[ab]]");
+      assertThat(p.matcher("a").matches()).isFalse();
+      assertThat(p.matcher("b").matches()).isTrue();
+      assertThat(p.matcher("z").matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("[a-z&&[def]1] intersects with the whole right-hand union")
+    void intersectionRightHandSideIncludesRangesAfterNestedClass() {
+      Pattern p = Pattern.compile("[a-z&&[def]1]");
+      assertThat(p.matcher("d").matches()).isTrue();
+      assertThat(p.matcher("f").matches()).isTrue();
+      assertThat(p.matcher("1").matches()).isFalse();
+    }
+
+    @Test
     @DisplayName("[^[A-F]] negates the union")
     void negatedNestedCharClass() {
       Pattern p = Pattern.compile("[^[A-F]]");
       assertThat(p.matcher("A").find()).isFalse();
       assertThat(p.matcher("G").find()).isTrue();
+    }
+  }
+
+  @Nested
+  @DisplayName("octal escapes")
+  class OctalEscapeTests {
+
+    @Test
+    @DisplayName("\\0 without octal digits is rejected")
+    void zeroOctalEscapeRequiresDigits() {
+      assertThatThrownBy(() -> Pattern.compile("\\0"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    @DisplayName("\\08 is rejected because \\0 requires an octal digit")
+    void zeroOctalEscapeRejectsNonOctalDigit() {
+      assertThatThrownBy(() -> Pattern.compile("\\08"))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    @DisplayName("octal escapes above 0377 do not become Unicode code points")
+    void largeOctalEscapesDoNotBecomeUnicodeCodePoints() {
+      assertThat(Pattern.compile("\\400").matcher("\u0100").matches()).isFalse();
+      assertThat(Pattern.compile("\\777").matcher("\u01ff").matches()).isFalse();
+      assertThat(Pattern.compile("\\400").matcher(" 0").matches()).isFalse();
+      assertThat(Pattern.compile("\\777").matcher("?7").matches()).isFalse();
     }
   }
 }
