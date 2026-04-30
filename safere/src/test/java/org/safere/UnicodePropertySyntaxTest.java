@@ -788,20 +788,12 @@ class UnicodePropertySyntaxTest {
   }
 
   // =========================================================================
-  // Backward compatibility — existing \p{...} forms still work
+  // Bare JDK category forms
   // =========================================================================
 
   @Nested
-  @DisplayName("Backward compatibility with existing \\p{} forms")
-  class BackwardCompatibilityTest {
-
-    @Test
-    @DisabledForCrosscheck("SafeRE backward-compatible direct script alias is not JDK syntax")
-    @DisplayName("\\p{Latin} still works (no prefix)")
-    void directScriptName() {
-      assertThat(find("\\p{Latin}", "A")).isTrue();
-      assertThat(find("\\p{Latin}", "α")).isFalse();
-    }
+  @DisplayName("Bare JDK category forms")
+  class BareCategoryTest {
 
     @Test
     @DisplayName("\\p{Lu} still works (no prefix)")
@@ -815,14 +807,6 @@ class UnicodePropertySyntaxTest {
     void directMajorCategory() {
       assertThat(find("\\p{L}", "A")).isTrue();
       assertThat(find("\\p{L}", "1")).isFalse();
-    }
-
-    @Test
-    @DisabledForCrosscheck("SafeRE backward-compatible direct block alias is not JDK syntax")
-    @DisplayName("\\p{Braille} still works")
-    void directBraille() {
-      assertThat(find("\\p{Braille}", "\u2800")).isTrue();
-      assertThat(find("\\p{Braille}", "A")).isFalse();
     }
 
     @Test
@@ -846,12 +830,14 @@ class UnicodePropertySyntaxTest {
       assertThat(find("\\p{javaLowerCase}", "A")).isFalse();
     }
 
-    @Test
-    @DisabledForCrosscheck("SafeRE backward-compatible Any property alias is not JDK syntax")
-    @DisplayName("\\p{Any} still works")
-    void anyClass() {
-      assertThat(find("\\p{Any}", "A")).isTrue();
-      assertThat(find("\\p{Any}", "α")).isTrue();
+    @ParameterizedTest
+    @ValueSource(strings = {"\\p{Latin}", "\\p{Braille}", "\\p{Any}"})
+    @DisplayName("RE2-style bare Unicode property names are rejected")
+    void re2StyleBareUnicodePropertyNamesAreRejected(String regex) {
+      assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
+          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 }

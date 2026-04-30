@@ -168,7 +168,7 @@ final class UnicodeGroups {
   }
 
   /** Converts a {@link Character.UnicodeScript} enum constant to its Unicode canonical name. */
-  private static String scriptName(Character.UnicodeScript script) {
+  static String scriptName(Character.UnicodeScript script) {
     String enumName = script.name();
     String override = SCRIPT_NAME_OVERRIDES.get(enumName);
     if (override != null) {

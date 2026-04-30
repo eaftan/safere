@@ -225,7 +225,9 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   fundamental to SafeRE's approach (e.g., linear-time guarantees require
   rejecting backreferences) or (b) the JDK's behavior is likely a bug
   (e.g., JDK is internally inconsistent). When diverging, document the
-  reason.
+  reason. When changing behavior to match `java.util.regex`, use the
+  official JDK Javadoc as the specification; do not rely on memory or infer
+  semantics from implementation details.
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
   quantifiers. These features violate linear-time guarantees and must be
   rejected at parse time with a clear error.

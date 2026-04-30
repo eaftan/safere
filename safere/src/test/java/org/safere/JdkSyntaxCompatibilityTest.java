@@ -52,6 +52,16 @@ class JdkSyntaxCompatibilityTest {
         .isThrownBy(() -> Pattern.compile(regex));
   }
 
+  /** Asserts JDK and SafeRE both reject the pattern. */
+  private static void assertRejectedByJdkAndSafeRe(String regex) {
+    assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
+        .as("JDK should reject: %s", regex)
+        .isInstanceOf(PatternSyntaxException.class);
+    assertThatThrownBy(() -> Pattern.compile(regex))
+        .as("SafeRE should reject: %s", regex)
+        .isInstanceOf(PatternSyntaxException.class);
+  }
+
   /** Asserts SafeRE compiles and matches identically to JDK on the given input. */
   private static void assertMatchesSame(String regex, String input) {
     // Sanity: JDK must accept it.
@@ -603,6 +613,13 @@ class JdkSyntaxCompatibilityTest {
     void scKeywordLatin() {
       assertMatchesSame("\\p{sc=Latin}", "A");
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\p{Latin}", "\\P{Latin}", "[\\p{Latin}]", "\\p{script=Lu}"})
+    @DisplayName("rejects non-JDK script property spellings")
+    void rejectsNonJdkScriptPropertySpellings(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
   }
 
   @Nested
@@ -638,6 +655,19 @@ class JdkSyntaxCompatibilityTest {
     void notInGreek() {
       assertMatchesSame("\\P{InGreek}", "A");
       assertMatchesFull("\\P{InGreek}", "\u0391");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "\\p{Braille}",
+        "\\P{Braille}",
+        "\\p{^Braille}",
+        "[\\p{Braille}]",
+        "\\p{general_category=Latin}"
+    })
+    @DisplayName("rejects non-JDK block property spellings")
+    void rejectsNonJdkBlockPropertySpellings(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
     }
   }
 
@@ -702,6 +732,13 @@ class JdkSyntaxCompatibilityTest {
     @DisplayName("\\\\p{gc=Lu}")
     void gcShortKeywordLu() {
       assertMatchesSame("\\p{gc=Lu}", "A");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\p{lu}", "\\p{gc=Latin}", "\\p{gc=Letter}"})
+    @DisplayName("rejects non-JDK category property spellings")
+    void rejectsNonJdkCategoryPropertySpellings(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
     }
 
     @Test
@@ -783,6 +820,13 @@ class JdkSyntaxCompatibilityTest {
     @DisplayName("\\\\p{IsExtended_Pictographic}")
     void isExtendedPictographic() {
       assertCompiles("\\p{IsExtended_Pictographic}");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\p{Alphabetic}", "\\P{Alphabetic}", "[\\p{Alphabetic}]"})
+    @DisplayName("rejects binary properties without Is prefix")
+    void rejectsBinaryPropertiesWithoutIsPrefix(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
     }
   }
 

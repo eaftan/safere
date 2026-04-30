@@ -6,6 +6,7 @@
 package org.safere;
 
 import java.lang.Character.UnicodeBlock;
+import java.lang.Character.UnicodeScript;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -190,6 +191,40 @@ final class UnicodeProperties {
     } catch (IllegalArgumentException e) {
       return null;
     }
+  }
+
+  /**
+   * Looks up a Unicode script by name using the same names accepted by {@link
+   * Character.UnicodeScript#forName(String)}.
+   *
+   * @return the range table, or {@code null} if not a recognized script
+   */
+  static int[][] lookupScript(String name) {
+    try {
+      UnicodeScript script = UnicodeScript.forName(name);
+      return UnicodeTables.UNICODE_GROUPS.get(UnicodeGroups.scriptName(script));
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  /**
+   * Looks up a Unicode general category by its one- or two-letter abbreviation.
+   *
+   * @return the range table, or {@code null} if not a recognized category
+   */
+  static int[][] lookupCategory(String name) {
+    return switch (name) {
+      case "L", "M", "N", "P", "S", "Z", "C",
+          "Lu", "Ll", "Lt", "Lm", "Lo",
+          "Mn", "Me", "Mc",
+          "Nd", "Nl", "No",
+          "Zs", "Zl", "Zp",
+          "Cc", "Cf", "Co", "Cs",
+          "Pd", "Ps", "Pe", "Pc", "Po", "Pi", "Pf",
+          "Sm", "Sc", "Sk", "So" -> UnicodeTables.UNICODE_GROUPS.get(name);
+      default -> null;
+    };
   }
 
   /**

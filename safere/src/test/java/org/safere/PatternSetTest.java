@@ -283,7 +283,7 @@ class PatternSetTest {
     void unicodePatterns() {
       PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
       b.add("caf\u00e9");
-      b.add("\\p{Greek}+");
+      b.add("\\p{IsGreek}+");
       PatternSet set = b.compile();
 
       assertThat(set.match("caf\u00e9")).containsExactly(0);
