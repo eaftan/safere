@@ -47,12 +47,10 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build and test
-        run: mvn verify -pl safere -Dtest.parallelism=4 --batch-mode --no-transfer-progress
-
-      - name: Build and test crosscheck module
+      - name: Build and test SafeRE and crosscheck modules
         run: >
-          mvn verify -pl safere-crosscheck -am -Pcrosscheck-public-api-tests
+          mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
+          -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
   benchmark-smoke-test-java:

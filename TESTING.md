@@ -165,6 +165,12 @@ mvn verify -pl safere -Pcoverage
 # Run crosscheck module tests
 mvn test -pl safere-crosscheck -am
 
+# Run SafeRE tests and generated public API tests through the crosscheck facade
+mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
+
+# Run generated public API tests only, after safere has already been built locally
+mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
+
 # Run Jazzer fuzz targets in regression mode
 mvn test -pl safere-fuzz
 ```
@@ -189,6 +195,11 @@ The facade records a trace of all API calls. When a divergence is detected,
 the exception includes the full trace, providing enough context to reproduce
 and report the bug. See
 [safere-crosscheck/README.md](../safere-crosscheck/README.md) for details.
+
+For pre-PR validation, use the combined reactor command above. It runs the
+`safere` tests once and then runs generated copies of SafeRE public API tests
+through the crosscheck facade. The `-am` flag ensures Maven rebuilds the local
+`safere` module instead of resolving a stale installed artifact.
 
 ## Fuzz Testing with Jazzer
 

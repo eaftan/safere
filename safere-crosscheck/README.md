@@ -127,7 +127,7 @@ The `crosscheck-public-api-tests` Maven profile runs generated copies of SafeRE
 public API test candidates through the crosscheck facade:
 
 ```bash
-mvn -pl safere-crosscheck -am -Pcrosscheck-public-api-tests test
+mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
 ```
 
 The generated sources are not checked in. The profile copies broad public API
@@ -136,9 +136,11 @@ generated package, and imports `org.safere.crosscheck.Pattern` and
 `org.safere.crosscheck.Matcher`. This keeps one source of truth for the test
 logic while making JDK compatibility an executable invariant.
 
-The `-am` flag tells Maven to also build required reactor dependencies, including
-the local `safere` module. Without it, Maven can resolve `safere` from the local
-repository and accidentally test against a stale installed artifact.
+This single Maven reactor run tests the `safere` module once, then runs the
+generated crosscheck tests in `safere-crosscheck`. The `-am` flag tells Maven to
+also build required reactor dependencies, including the local `safere` module.
+Without it, Maven can resolve `safere` from the local repository and
+accidentally test against a stale installed artifact.
 
 Use `@DisabledForCrosscheck("reason")` in the original SafeRE test source for
 test methods or classes that should be disabled only in generated crosscheck

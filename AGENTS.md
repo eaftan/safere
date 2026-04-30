@@ -158,14 +158,14 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 ## Pull Requests
 
 - **Never push to a PR (or create one) without first verifying locally that
-  all tests pass** (`mvn -pl safere test`). CI failures waste time and block
-  merges.
-- Before making a PR, also run the public API crosscheck invariant:
-  `mvn -pl safere-crosscheck -am -Pcrosscheck-public-api-tests test`. This runs
-  generated copies of SafeRE public API test candidates through
-  `org.safere.crosscheck` so each test operation is compared with the JDK.
-  The `-am` flag is required so the reactor rebuilds the local `safere` module
-  instead of testing against a stale artifact from the local Maven repository.
+  all SafeRE and public API crosscheck tests pass**:
+  `mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests`.
+  CI failures waste time and block merges. This single Maven reactor run tests
+  the `safere` module once, then runs generated copies of SafeRE public API test
+  candidates through `org.safere.crosscheck` so each test operation is compared
+  with the JDK. The `-am` flag is required so the reactor rebuilds the local
+  `safere` module instead of testing against a stale artifact from the local
+  Maven repository.
   Use `@DisabledForCrosscheck("reason")` on original SafeRE tests for cases
   that should be visible as disabled only in generated crosscheck coverage.
 - **Update existing PRs — do not close and reopen.** Push commits (or
