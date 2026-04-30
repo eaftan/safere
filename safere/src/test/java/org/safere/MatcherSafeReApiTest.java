@@ -15,12 +15,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for Matcher APIs that are SafeRE-specific extensions. */
-@DisabledForCrosscheck("SafeRE-only Matcher APIs and (?P<name>...) syntax have no JDK equivalent")
+@DisabledForCrosscheck("SafeRE-only Matcher APIs")
 class MatcherSafeReApiTest {
 
   @Test
   void replaceFirstNamedGroupRef() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)");
     Matcher m = p.matcher("hello world");
     String result = m.replaceFirst("${word}!");
     assertThat(result).isEqualTo("hello! world");
@@ -29,7 +29,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("toMatchResult() snapshot supports named-group lookup")
   void toMatchResultNamedGroups() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)");
     Matcher m = p.matcher("hello");
     assertThat(m.find()).isTrue();
 
@@ -43,7 +43,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("start(String) and end(String) return named group positions")
   void namedGroupStartEnd() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)@(?P<host>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)@(?<host>\\w+)");
     Matcher m = p.matcher("user@host");
     assertThat(m.find()).isTrue();
     assertThat(m.start("word")).isEqualTo(0);
@@ -55,7 +55,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("start(String) throws for unknown group name")
   void startUnknownNameThrows() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)");
     Matcher m = p.matcher("hello");
     m.find();
     assertThatThrownBy(() -> m.start("missing")).isInstanceOf(IllegalArgumentException.class);
@@ -64,7 +64,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("end(String) throws for unknown group name")
   void endUnknownNameThrows() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)");
     Matcher m = p.matcher("hello");
     m.find();
     assertThatThrownBy(() -> m.end("missing")).isInstanceOf(IllegalArgumentException.class);
@@ -73,7 +73,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("named group that did not participate returns -1")
   void nonParticipatingNamedGroup() {
-    Pattern p = Pattern.compile("(?P<a>a)|(?P<b>b)");
+    Pattern p = Pattern.compile("(?<a>a)|(?<b>b)");
     Matcher m = p.matcher("b");
     assertThat(m.find()).isTrue();
     assertThat(m.start("a")).isEqualTo(-1);
@@ -85,7 +85,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("namedGroups() returns named groups from pattern")
   void namedGroupsReturnsMap() {
-    Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
+    Pattern p = Pattern.compile("(?<user>\\w+)@(?<host>\\w+)");
     Matcher m = p.matcher("user@host");
     assertThat(m.namedGroups()).containsEntry("user", 1);
     assertThat(m.namedGroups()).containsEntry("host", 2);
@@ -102,7 +102,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("namedGroups() is unmodifiable")
   void namedGroupsUnmodifiable() {
-    Pattern p = Pattern.compile("(?P<name>\\w+)");
+    Pattern p = Pattern.compile("(?<name>\\w+)");
     Matcher m = p.matcher("hello");
     assertThatThrownBy(() -> m.namedGroups().put("foo", 99))
         .isInstanceOf(UnsupportedOperationException.class);
@@ -111,7 +111,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("namedGroups() returns from MatchResult interface")
   void namedGroupsFromMatchResult() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)");
     Matcher m = p.matcher("hello");
     assertThat(m.find()).isTrue();
     MatchResult result = m.toMatchResult();
@@ -121,7 +121,7 @@ class MatcherSafeReApiTest {
   @Test
   @DisplayName("named group methods reject null names")
   void namedGroupMethodsRejectNullNames() {
-    Pattern p = Pattern.compile("(?P<word>\\w+)");
+    Pattern p = Pattern.compile("(?<word>\\w+)");
     Matcher m = p.matcher("hello");
     assertThat(m.find()).isTrue();
 

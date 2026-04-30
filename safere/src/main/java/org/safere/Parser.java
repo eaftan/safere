@@ -1634,12 +1634,10 @@ final class Parser {
     }
 
     // Check for named captures.
-    // (?P<name>expr) or (?<name>expr)
+    // (?<name>expr)
     if (pos + 3 < pattern.length()) {
-      if ((pattern.charAt(pos + 2) == 'P' && pos + 4 < pattern.length()
-              && pattern.charAt(pos + 3) == '<')
-          || pattern.charAt(pos + 2) == '<') {
-        int begin = (pattern.charAt(pos + 2) == 'P') ? pos + 4 : pos + 3;
+      if (pattern.charAt(pos + 2) == '<') {
+        int begin = pos + 3;
         int end = pattern.indexOf('>', begin);
         if (end < 0) {
           throw new PatternSyntaxException("invalid named capture", pattern, pos);

@@ -17,12 +17,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 /** Tests for Pattern APIs that are SafeRE-specific extensions. */
-@DisabledForCrosscheck("SafeRE-only Pattern APIs and (?P<name>...) syntax have no JDK equivalent")
+@DisabledForCrosscheck("SafeRE-only Pattern APIs")
 class PatternSafeReApiTest {
 
   @Test
   void extractsNamedGroups() {
-    Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
+    Pattern p = Pattern.compile("(?<user>\\w+)@(?<host>\\w+)");
     assertThat(p.namedGroups()).containsEntry("user", 1);
     assertThat(p.namedGroups()).containsEntry("host", 2);
   }
@@ -48,7 +48,7 @@ class PatternSafeReApiTest {
   @Test
   @DisplayName("namedGroups() returns unmodifiable map")
   void namedGroupsUnmodifiable() {
-    Pattern p = Pattern.compile("(?P<user>\\w+)@(?P<host>\\w+)");
+    Pattern p = Pattern.compile("(?<user>\\w+)@(?<host>\\w+)");
     assertThatThrownBy(() -> p.namedGroups().put("foo", 99))
         .isInstanceOf(UnsupportedOperationException.class);
   }
@@ -57,8 +57,6 @@ class PatternSafeReApiTest {
   @DisplayName("duplicate named capturing groups are rejected")
   void duplicateNamedGroupsRejected() {
     assertThatThrownBy(() -> Pattern.compile("(?<word>a)(?<word>b)"))
-        .isInstanceOf(PatternSyntaxException.class);
-    assertThatThrownBy(() -> Pattern.compile("(?P<word>a)(?P<word>b)"))
         .isInstanceOf(PatternSyntaxException.class);
   }
 

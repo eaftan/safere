@@ -326,7 +326,7 @@ final class Regexp {
             throw new IllegalStateException("CAPTURE with cap == 0");
           }
           if (re.name != null) {
-            sb.append("?P<").append(re.name).append('>');
+            sb.append("?<").append(re.name).append('>');
           }
           yield PREC_PAREN;
         }
