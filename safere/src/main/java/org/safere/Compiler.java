@@ -7,6 +7,7 @@
 
 package org.safere;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,6 +70,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   static Prog compile(Regexp re, boolean reversed) {
     Compiler c = new Compiler();
     c.reversed = reversed;
+    int numCaptures = maxCapture(re) + 1;
 
     // Simplify to remove REPEAT, complex char classes, etc.
     Regexp sre = Simplifier.simplify(re);
@@ -117,24 +119,28 @@ final class Compiler extends Walker<Compiler.Frag> {
     // Freeze the instruction list into a flat array for fast indexed access.
     c.prog.freeze();
 
-    // Count captures by scanning instructions.
-    int maxCap = 0;
-    for (int i = 0; i < c.prog.size(); i++) {
-      Inst inst = c.prog.inst(i);
-      if (inst.op == InstOp.CAPTURE) {
-        int capIdx = inst.arg;
-        // cap register index is 2*cap for start, 2*cap+1 for end
-        // so the capture group number is capIdx/2
-        int capNum = capIdx / 2;
-        if (capNum > maxCap) {
-          maxCap = capNum;
-        }
-      }
-    }
-    c.prog.setNumCaptures(maxCap + 1);
+    c.prog.setNumCaptures(numCaptures);
     c.prog.setNumLoopRegs(c.nextLoopReg);
 
     return c.prog;
+  }
+
+  private static int maxCapture(Regexp re) {
+    int max = 0;
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.CAPTURE && node.cap > max) {
+        max = node.cap;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return max;
   }
 
   // ---------------------------------------------------------------------------
