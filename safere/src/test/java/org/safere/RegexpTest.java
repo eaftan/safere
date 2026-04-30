@@ -251,7 +251,7 @@ class RegexpTest {
   @Test
   void toStringNamedCapture() {
     Regexp re = Regexp.capture(Regexp.literal('a', 0), 0, 1, "foo");
-    assertThat(re.toString()).isEqualTo("(?P<foo>a)");
+    assertThat(re.toString()).isEqualTo("(?<foo>a)");
   }
 
   @Test

@@ -605,10 +605,9 @@ class MatcherTest {
     }
 
     @Test
-    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("group(String) returns named group text")
     void namedGroup() {
-      Pattern p = Pattern.compile("(?P<first>\\w+) (?P<last>\\w+)");
+      Pattern p = Pattern.compile("(?<first>\\w+) (?<last>\\w+)");
       Matcher m = p.matcher("John Smith");
       assertThat(m.matches()).isTrue();
       assertThat(m.group("first")).isEqualTo("John");
@@ -616,10 +615,9 @@ class MatcherTest {
     }
 
     @Test
-    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("group(String) throws for unknown name")
     void namedGroupUnknown() {
-      Pattern p = Pattern.compile("(?P<first>\\w+)");
+      Pattern p = Pattern.compile("(?<first>\\w+)");
       Matcher m = p.matcher("hello");
       m.find();
       assertThatThrownBy(() -> m.group("unknown"))
@@ -849,10 +847,9 @@ class MatcherTest {
     }
 
     @Test
-    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("replaceAll() with named backreference")
     void replaceAllWithNamedBackref() {
-      Pattern p = Pattern.compile("(?P<word>\\w+)");
+      Pattern p = Pattern.compile("(?<word>\\w+)");
       Matcher m = p.matcher("hello world");
       assertThat(m.replaceAll("${word}!")).isEqualTo("hello! world!");
     }

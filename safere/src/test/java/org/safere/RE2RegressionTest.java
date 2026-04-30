@@ -194,10 +194,9 @@ class RE2RegressionTest {
     }
 
     @Test
-    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("Multiple named and unnamed groups")
     void multipleNamedGroups() {
-      Pattern p = Pattern.compile("(?P<A>expr(?P<B>expr)(?P<C>expr))((expr)(?P<D>expr))");
+      Pattern p = Pattern.compile("(?<A>expr(?<B>expr)(?<C>expr))((expr)(?<D>expr))");
       Matcher m = p.matcher("");
       assertThat(m.groupCount()).isEqualTo(6);
       Map<String, Integer> names = p.namedGroups();
@@ -209,10 +208,9 @@ class RE2RegressionTest {
     }
 
     @Test
-    @DisabledForCrosscheck("(?P<name>...) named groups are SafeRE syntax, not JDK syntax")
     @DisplayName("Named group match extraction")
     void namedGroupMatch() {
-      Pattern p = Pattern.compile("directions from (?P<S>.*) to (?P<D>.*)");
+      Pattern p = Pattern.compile("directions from (?<S>.*) to (?<D>.*)");
       Matcher m = p.matcher("directions from mountain view to san jose");
       assertThat(m.groupCount()).isEqualTo(2);
       assertThat(m.matches()).isTrue();

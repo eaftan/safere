@@ -687,11 +687,9 @@ class ParserTest {
     }
 
     @Test
-    void namedCapture_PythonSyntax() {
-      Regexp re = parse("(?P<name>a)");
-      assertThat(re.op).isEqualTo(RegexpOp.CAPTURE);
-      assertThat(re.name).isEqualTo("name");
-      assertThat(re.cap).isEqualTo(1);
+    void namedCapture_pythonSyntaxRejected() {
+      assertThatThrownBy(() -> parse("(?P<name>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -704,7 +702,7 @@ class ParserTest {
     @Test
     void namedCapture_unicodeName_rejected() {
       // JDK only allows ASCII letters/digits in group names.
-      assertThatThrownBy(() -> parse("(?P<\u4e2d\u6587>a)"))
+      assertThatThrownBy(() -> parse("(?<\u4e2d\u6587>a)"))
           .isInstanceOf(PatternSyntaxException.class);
     }
 
@@ -1331,7 +1329,7 @@ class ParserTest {
     }
 
     @Test
-    void invalidNamedCapture_empty_P() {
+    void pythonStyleNamedCapture_emptyNameRejected() {
       assertThatThrownBy(() -> parse("(?P<>a)"))
           .isInstanceOf(PatternSyntaxException.class);
     }
@@ -1343,7 +1341,7 @@ class ParserTest {
     }
 
     @Test
-    void invalidNamedCapture_spaceInName_P() {
+    void pythonStyleNamedCapture_spaceInNameRejected() {
       assertThatThrownBy(() -> parse("(?P<x y>a)"))
           .isInstanceOf(PatternSyntaxException.class);
     }
@@ -1368,7 +1366,7 @@ class ParserTest {
     }
 
     @Test
-    void invalidNamedCapture_startsWithDigit_P() {
+    void pythonStyleNamedCapture_startsWithDigitRejected() {
       assertThatThrownBy(() -> parse("(?P<1abc>a)"))
           .isInstanceOf(PatternSyntaxException.class);
     }
@@ -1416,7 +1414,7 @@ class ParserTest {
     }
 
     @Test
-    void unclosedNamedCapture_P() {
+    void pythonStyleNamedCapture_unclosedGroupRejected() {
       assertThatThrownBy(() -> parse("(?P<name>a"))
           .isInstanceOf(PatternSyntaxException.class);
     }
@@ -1459,7 +1457,7 @@ class ParserTest {
     }
 
     @Test
-    void incompleteNamedCapture_P() {
+    void pythonStyleNamedCapture_incompleteRejected() {
       assertThatThrownBy(() -> parse("(?P<name"))
           .isInstanceOf(PatternSyntaxException.class);
     }

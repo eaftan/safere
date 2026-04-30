@@ -1165,6 +1165,16 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
+    @DisplayName("Python-style named capturing group (?P<name>X) is rejected")
+    void pythonStyleNamedCapturingGroupRejected() {
+      String regex = "(?" + "P<word>\\w+)";
+      assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
+          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
     @DisplayName("non-capturing group (?:X)")
     void nonCapturingGroup() {
       assertMatchesSame("(?:ab)+", "ababab");
