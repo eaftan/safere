@@ -78,6 +78,7 @@
           <properties>
             <configurationParameters>
               junit.jupiter.execution.parallel.enabled = false
+              jazzer.disabled_hooks = com.code_intelligence.jazzer.sanitizers.RegexInjection
             </configurationParameters>
           </properties>
         </configuration>

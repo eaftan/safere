@@ -35,6 +35,11 @@ mvn -pl safere-fuzz -Dtest=MatchFuzzer test
 Set `JAZZER_FUZZ=1` to run coverage-guided fuzzing. Jazzer runs one fuzz test
 per Maven invocation, so select a single target with `-Dtest`.
 
+The Maven configuration disables Jazzer's `RegexInjection` sanitizer for these
+targets. SafeRE fuzzers intentionally compile generated patterns with both
+SafeRE and `java.util.regex`; sanitizer findings on the JDK oracle are noise for
+this crosscheck workflow.
+
 ```bash
 JAZZER_FUZZ=1 mvn -pl safere-fuzz -Dtest=MatchFuzzer test
 ```
