@@ -1369,9 +1369,6 @@ final class Parser {
   }
 
   private static int[][] lookupUnicodeGroup(String name, boolean unicodeCharacterClass) {
-    if ("Any".equals(name)) {
-      return new int[][] {{0, Utils.MAX_RUNE}};
-    }
     int[][] table = JavaCharacterClasses.lookup(name);
     if (table != null) {
       return table;
@@ -1407,8 +1404,9 @@ final class Parser {
       return UnicodeProperties.lookupBlock(name.substring(2));
     }
 
-    // Direct lookup in UNICODE_GROUPS (e.g., "Latin", "Lu").
-    return UnicodeTables.UNICODE_GROUPS.get(name);
+    // Bare Unicode properties are valid only for general categories such as "L" or "Lu".
+    // JDK Pattern requires scripts to use Is/script=/sc= and blocks to use In/block=/blk=.
+    return UnicodeProperties.lookupCategory(name);
   }
 
   private static int[][] lookupKeywordProperty(String key, String value) {
@@ -1416,9 +1414,9 @@ final class Parser {
     String normalizedKey =
         key.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
     return switch (normalizedKey) {
-      case "SCRIPT", "SC" -> UnicodeProperties.lookupScriptOrCategory(value);
+      case "SCRIPT", "SC" -> UnicodeProperties.lookupScript(value);
       case "BLOCK", "BLK" -> UnicodeProperties.lookupBlock(value);
-      case "GENERALCATEGORY", "GC" -> UnicodeProperties.lookupScriptOrCategory(value);
+      case "GENERALCATEGORY", "GC" -> UnicodeProperties.lookupCategory(value);
       default -> null;
     };
   }

@@ -385,18 +385,18 @@ class ParserTest {
     // -- Unicode property classes --
 
     @Test
-    void unicodePropertyBraille() {
-      Regexp re = parse("\\p{Braille}");
+    void unicodePropertyGreekBlock() {
+      Regexp re = parse("\\p{InGreek}");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains(0x2800)).isTrue();
-      assertThat(re.charClass.contains(0x28FF)).isTrue();
+      assertThat(re.charClass.contains(0x0391)).isTrue();
+      assertThat(re.charClass.contains('A')).isFalse();
     }
 
     @Test
-    void unicodePropertyBrailleNegated() {
-      Regexp re = parse("\\P{Braille}");
+    void unicodePropertyGreekBlockNegated() {
+      Regexp re = parse("\\P{InGreek}");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains(0x2800)).isFalse();
+      assertThat(re.charClass.contains(0x0391)).isFalse();
       assertThat(re.charClass.contains('a')).isTrue();
     }
 
@@ -415,11 +415,17 @@ class ParserTest {
     }
 
     @Test
-    void unicodePropertyLatin() {
-      Regexp re = parse("\\p{Latin}");
+    void unicodePropertyLatinScript() {
+      Regexp re = parse("\\p{IsLatin}");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
       assertThat(re.charClass.contains('a')).isTrue();
       assertThat(re.charClass.contains('z')).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\p{Braille}", "\\P{Braille}", "\\p{Latin}", "[\\p{Latin}]"})
+    void bareUnicodeScriptAndBlockNamesRejected(String pattern) {
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
