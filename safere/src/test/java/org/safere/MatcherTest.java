@@ -635,6 +635,16 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("zero-count repetitions preserve capturing group count")
+    void zeroCountRepetitionsPreserveCapturingGroupCount() {
+      assertZeroCountGroupBehavior("(a){0}", "");
+      assertZeroCountGroupBehavior("(?:(a){0})", "");
+      assertZeroCountGroupBehavior("(?:(?:(a){0}))", "");
+      assertZeroCountGroupBehavior("(a){0}(b)", "b");
+      assertZeroCountGroupBehavior("((a){0})", "");
+    }
+
+    @Test
     @DisplayName("non-participating group returns null")
     void nonParticipatingGroup() {
       Pattern p = Pattern.compile("(a)|(b)");
@@ -2368,6 +2378,26 @@ class MatcherTest {
           task.run();
           return System.nanoTime() - start;
         });
+  }
+
+  private static void assertZeroCountGroupBehavior(String regex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = Pattern.compile(regex).matcher(input);
+
+    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
+    assertThat(safere.matches()).isEqualTo(jdk.matches());
+    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
+    for (int group = 1; group <= jdk.groupCount(); group++) {
+      assertThat(safere.group(group))
+          .as("group(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.group(group));
+      assertThat(safere.start(group))
+          .as("start(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.start(group));
+      assertThat(safere.end(group))
+          .as("end(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.end(group));
+    }
   }
 
   private static String repeatedDotStarCapturePattern(int repetitions, int captures) {
