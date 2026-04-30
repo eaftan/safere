@@ -1133,10 +1133,9 @@ final class Parser {
               "unknown Unicode character name: " + name, pattern, nameStart);
         }
       }
-      // Octal escapes.
-      case '1', '2', '3', '4', '5', '6', '7' -> {
-        throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
-      }
+      // JDK treats all non-zero numeric escapes as back references, not octal literals.
+      case '1', '2', '3', '4', '5', '6', '7', '8', '9' ->
+          throw new PatternSyntaxException("backreferences are not supported", pattern, pos - 2);
       case '0' -> {
         // JDK: \0nnn — up to three octal digits after \0 (max value 0377 = 255).
         if (pos >= pattern.length()

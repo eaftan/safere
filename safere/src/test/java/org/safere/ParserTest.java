@@ -1075,27 +1075,24 @@ class ParserTest {
       assertThat(re.rune).isEqualTo(63); // 077 octal = 63
     }
 
-    @Test
-    void numericBackreferenceWithoutGroup_twoDigits() {
-      Regexp re = parse("\\12");
+    @ParameterizedTest
+    @ValueSource(strings = {"\\1", "\\9", "\\12", "\\123"})
+    void numericBackreferenceWithoutGroupNeverMatches(String pattern) {
+      Regexp re = parse(pattern);
       assertThat(re.op).isEqualTo(RegexpOp.NO_MATCH);
     }
 
-    @Test
-    void numericBackreferenceWithoutGroup_threeDigits() {
-      Regexp re = parse("\\123");
-      assertThat(re.op).isEqualTo(RegexpOp.NO_MATCH);
-    }
-
-    @Test
-    void numericBackreferenceWithGroup_rejected() {
-      assertThatThrownBy(() -> parse("(a)\\123"))
+    @ParameterizedTest
+    @ValueSource(strings = {"(a)\\1", "(a)\\12", "(a)\\123", "(a)(b)\\12"})
+    void numericBackreferenceWithGroupRejected(String pattern) {
+      assertThatThrownBy(() -> parse(pattern))
           .isInstanceOf(PatternSyntaxException.class);
     }
 
-    @Test
-    void numericBackreferenceInCharClass_rejected() {
-      assertThatThrownBy(() -> parse("[\\123]"))
+    @ParameterizedTest
+    @ValueSource(strings = {"[\\1]", "[\\9]", "[\\12]", "[\\123]"})
+    void numericBackreferenceInCharClassRejected(String pattern) {
+      assertThatThrownBy(() -> parse(pattern))
           .isInstanceOf(PatternSyntaxException.class);
     }
 

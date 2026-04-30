@@ -1080,6 +1080,41 @@ class JdkSyntaxCompatibilityTest {
           .as("SafeRE should reject back reference: %s", regex)
           .isInstanceOf(PatternSyntaxException.class);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\1", "\\9", "\\12"})
+    @DisplayName("unresolved numeric back reference forms never match")
+    void unresolvedNumericBackReferenceFormsNeverMatch(String regex) {
+      assertMatchesSame(regex, "");
+      assertMatchesSame(regex, "1");
+      assertMatchesSame(regex, "9");
+      assertMatchesSame(regex, "S");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"(a)\\12", "(a)\\123", "(a)(b)\\12"})
+    @DisplayName("numeric back reference shortened to an existing preceding group")
+    void numericBackReferenceShortenedToExistingPrecedingGroup(String regex) {
+      assertThatNoException()
+          .as("JDK should accept shortened numeric back reference: %s", regex)
+          .isThrownBy(() -> java.util.regex.Pattern.compile(regex));
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject numeric back reference: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    @DisplayName("multi-digit numeric back reference to an existing preceding group")
+    void multiDigitNumericBackReferenceToExistingPrecedingGroup() {
+      String regex = "(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)\\12";
+
+      assertThatNoException()
+          .as("JDK should accept numeric back reference to group 12")
+          .isThrownBy(() -> java.util.regex.Pattern.compile(regex));
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject numeric back reference to group 12")
+          .isInstanceOf(PatternSyntaxException.class);
+    }
   }
 
   // ===========================================================================
