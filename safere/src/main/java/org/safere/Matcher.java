@@ -8,6 +8,7 @@ package org.safere;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterator;
@@ -89,6 +90,7 @@ public final class Matcher implements MatchResult {
   private int regionEnd;
   private boolean lastHitEnd;
   private boolean lastRequireEnd;
+  private boolean lastMatchWasFind;
   private int modCount;
 
   /**
@@ -494,6 +496,7 @@ public final class Matcher implements MatchResult {
         }
       }
       updateEndState(MatchOperation.MATCHES);
+      lastMatchWasFind = false;
     }
   }
 
@@ -614,6 +617,7 @@ public final class Matcher implements MatchResult {
         }
       }
       updateEndState(MatchOperation.LOOKING_AT);
+      lastMatchWasFind = false;
     }
   }
 
@@ -788,6 +792,7 @@ public final class Matcher implements MatchResult {
         }
       }
       updateEndState(MatchOperation.FIND);
+      lastMatchWasFind = hasMatch;
     }
   }
 
@@ -1524,6 +1529,8 @@ public final class Matcher implements MatchResult {
         eagerFallbackCaptures = true;
       }
       resolveCaptures();
+      applyRetainedFindCaptures();
+      applyRetainedRepeatCaptures();
     }
     return groups[2 * group];
   }
@@ -1559,6 +1566,8 @@ public final class Matcher implements MatchResult {
         eagerFallbackCaptures = true;
       }
       resolveCaptures();
+      applyRetainedFindCaptures();
+      applyRetainedRepeatCaptures();
     }
     return groups[2 * group + 1];
   }
@@ -2177,6 +2186,132 @@ public final class Matcher implements MatchResult {
     }
     capturesResolved = true;
     groupZeroResolved = true;
+  }
+
+  private void applyRetainedFindCaptures() {
+    if (!lastMatchWasFind || groups == null || groups[0] != groups[1]) {
+      return;
+    }
+    List<Prog> retainedCaptureProgs = parentPattern.retainedCaptureProgs();
+    if (retainedCaptureProgs.isEmpty() || searchFrom >= groups[0]) {
+      return;
+    }
+
+    int matchStart = groups[0];
+    for (Prog retainedProg : retainedCaptureProgs) {
+      int pos = searchFrom;
+      int[] retainedGroups = null;
+      while (pos < matchStart) {
+        int[] candidate = Nfa.search(
+            retainedProg,
+            text,
+            pos,
+            matchStart,
+            matchStart,
+            Nfa.Anchor.UNANCHORED,
+            Nfa.MatchKind.FIRST_MATCH,
+            retainedProg.numCaptures());
+        if (candidate == null || candidate[1] > matchStart) {
+          break;
+        }
+        if (candidate[1] > candidate[0]) {
+          retainedGroups = candidate;
+        }
+        pos = nextSearchPosition(candidate[0], matchStart);
+      }
+      if (retainedGroups != null) {
+        mergeRetainedCaptures(retainedGroups);
+      }
+    }
+  }
+
+  private void applyRetainedRepeatCaptures() {
+    List<Pattern.RetainedRepeatCapture> retainedRepeatCaptures =
+        parentPattern.retainedRepeatCaptures();
+    if (retainedRepeatCaptures.isEmpty() || groups == null || groups[0] < 0) {
+      return;
+    }
+
+    int matchStart = groups[0];
+    int matchEnd = groups[1];
+    for (Pattern.RetainedRepeatCapture retained : retainedRepeatCaptures) {
+      int[] firstGroups = findRetainedFirstRepeatGroups(retained, matchStart, matchEnd);
+      if (firstGroups != null) {
+        mergeRetainedCaptures(firstGroups, true);
+      }
+    }
+  }
+
+  private int[] findRetainedFirstRepeatGroups(
+      Pattern.RetainedRepeatCapture retained, int matchStart, int matchEnd) {
+    if (matchEnd - matchStart <= retained.minimumInputLength()) {
+      return null;
+    }
+    int pos = matchEnd;
+    while (pos >= matchStart) {
+      int[] firstGroups = Nfa.search(
+          retained.firstProg(),
+          text,
+          matchStart,
+          pos,
+          pos,
+          Nfa.Anchor.ANCHORED,
+          Nfa.MatchKind.FULL_MATCH,
+          retained.firstProg().numCaptures());
+      if (firstGroups != null) {
+        int[] restGroups = Nfa.search(
+            retained.restProg(),
+            text,
+            pos,
+            matchEnd,
+            matchEnd,
+            Nfa.Anchor.ANCHORED,
+            Nfa.MatchKind.FULL_MATCH,
+            1);
+        if (restGroups != null) {
+          if (pos - matchStart <= retained.firstMinimumInputLength()) {
+            return null;
+          }
+          return firstGroups;
+        }
+      }
+      if (pos == matchStart) {
+        break;
+      }
+      pos = previousSearchPosition(pos, matchStart);
+    }
+    return null;
+  }
+
+  private int nextSearchPosition(int pos, int limit) {
+    if (pos >= limit) {
+      return limit;
+    }
+    int cp = text.codePointAt(pos);
+    return pos + Character.charCount(cp);
+  }
+
+  private int previousSearchPosition(int pos, int limit) {
+    if (pos <= limit) {
+      return limit;
+    }
+    return text.offsetByCodePoints(pos, -1);
+  }
+
+  private void mergeRetainedCaptures(int[] retainedGroups) {
+    mergeRetainedCaptures(retainedGroups, false);
+  }
+
+  private void mergeRetainedCaptures(int[] retainedGroups, boolean overwrite) {
+    int groupsToMerge = Math.min(groups.length, retainedGroups.length) / 2;
+    for (int group = 1; group < groupsToMerge; group++) {
+      int startIdx = 2 * group;
+      int endIdx = startIdx + 1;
+      if ((overwrite || groups[startIdx] == -1) && retainedGroups[startIdx] != -1) {
+        groups[startIdx] = retainedGroups[startIdx];
+        groups[endIdx] = retainedGroups[endIdx];
+      }
+    }
   }
 
   /** Stores DFA-determined group 0 and defers inner capture extraction until requested. */

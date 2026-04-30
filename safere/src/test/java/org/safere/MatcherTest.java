@@ -643,6 +643,39 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() preserves counted-repeat captures retained by JDK")
+    void findPreservesCountedRepeatCapturesRetainedByJdk() {
+      assertFirstFindMatchesJdk("(?:(a){1}){0}$", "ab");
+      assertFirstFindMatchesJdk("(?:(a){1}){0,1}$", "ab");
+      assertFirstFindMatchesJdk("(?:(a){1})*$", "ab");
+      assertFirstFindMatchesJdk("(?:(a){1}){0,2}$", "ab");
+      assertFirstFindMatchesJdk("(?:(a){2})*$", "aab");
+      assertFirstFindMatchesJdk("(?:(a){2})*$", "aaab");
+      assertFirstFindMatchesJdk("(?:(?:(?:(a){1}){0,}))$", "ab");
+      assertFirstFindMatchesJdk("(?:(?:(?:(a){1}){0,2}))$", "ab");
+      assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aaa");
+      assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aaa");
+      assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aa");
+      assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aa");
+      assertFirstFindMatchesJdk("(?:(a){1,}){2,}", "aaa");
+      assertFullMatchMatchesJdk("(?:(a){1,}){2,}", "aaa");
+      assertFirstFindMatchesJdk("(?:(a){1,}){2,3}", "aaaaa");
+      assertFullMatchMatchesJdk("(?:(a){1,}){2,3}", "aaaaa");
+      assertFirstFindMatchesJdk("(?:(a){0,2})*", "aaa");
+      assertFullMatchMatchesJdk("(?:(a){0,2})*", "aaa");
+      assertFirstFindMatchesJdk("(?:(a){1,2})*", "aaa");
+      assertFullMatchMatchesJdk("(?:(a){1,2})*", "aaa");
+      assertFirstFindMatchesJdk("(?:(a){1,2}){2}", "aa");
+      assertFullMatchMatchesJdk("(?:(a){1,2}){2}", "aa");
+      assertFirstFindMatchesJdk("(?:(a){1,2}){2}", "aaa");
+      assertFullMatchMatchesJdk("(?:(a){1,2}){2}", "aaa");
+      assertFirstFindMatchesJdk("(?:(a){3,4})*", "aaaaaa");
+      assertFullMatchMatchesJdk("(?:(a){3,4})*", "aaaaaa");
+      assertFirstFindMatchesJdk("(?:(a){0,1})*", "aaa");
+      assertFullMatchMatchesJdk("(?:(a){0,1})*", "aaa");
+    }
+
+    @Test
     @DisplayName("non-participating group returns null")
     void nonParticipatingGroup() {
       Pattern p = Pattern.compile("(a)|(b)");
@@ -2384,6 +2417,50 @@ class MatcherTest {
     assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
     assertThat(safere.matches()).isEqualTo(jdk.matches());
     assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
+    for (int group = 1; group <= jdk.groupCount(); group++) {
+      assertThat(safere.group(group))
+          .as("group(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.group(group));
+      assertThat(safere.start(group))
+          .as("start(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.start(group));
+      assertThat(safere.end(group))
+          .as("end(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.end(group));
+    }
+  }
+
+  private static void assertFirstFindMatchesJdk(String regex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = Pattern.compile(regex).matcher(input);
+
+    assertThat(safere.find()).isEqualTo(jdk.find());
+    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
+    assertThat(safere.group()).isEqualTo(jdk.group());
+    assertThat(safere.start()).isEqualTo(jdk.start());
+    assertThat(safere.end()).isEqualTo(jdk.end());
+    for (int group = 1; group <= jdk.groupCount(); group++) {
+      assertThat(safere.group(group))
+          .as("group(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.group(group));
+      assertThat(safere.start(group))
+          .as("start(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.start(group));
+      assertThat(safere.end(group))
+          .as("end(%d) for /%s/ on %s", group, regex, input)
+          .isEqualTo(jdk.end(group));
+    }
+  }
+
+  private static void assertFullMatchMatchesJdk(String regex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = Pattern.compile(regex).matcher(input);
+
+    assertThat(safere.matches()).isEqualTo(jdk.matches());
+    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
+    assertThat(safere.group()).isEqualTo(jdk.group());
+    assertThat(safere.start()).isEqualTo(jdk.start());
+    assertThat(safere.end()).isEqualTo(jdk.end());
     for (int group = 1; group <= jdk.groupCount(); group++) {
       assertThat(safere.group(group))
           .as("group(%d) for /%s/ on %s", group, regex, input)
