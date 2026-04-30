@@ -63,16 +63,16 @@ class SimplifierTest {
 
         // Perl character classes
         Arguments.of("\\d", "[0-9]"),
-        Arguments.of("\\s", "[\\t-\\n\\f-\\r ]"),
+        Arguments.of("\\s", "[\\t-\\r ]"),
         Arguments.of("\\w", "[0-9A-Z_a-z]"),
         Arguments.of("\\D", "[^0-9]"),
-        Arguments.of("\\S", "[^\\t-\\n\\f-\\r ]"),
+        Arguments.of("\\S", "[^\\t-\\r ]"),
         Arguments.of("\\W", "[^0-9A-Z_a-z]"),
         Arguments.of("[\\d]", "[0-9]"),
-        Arguments.of("[\\s]", "[\\t-\\n\\f-\\r ]"),
+        Arguments.of("[\\s]", "[\\t-\\r ]"),
         Arguments.of("[\\w]", "[0-9A-Z_a-z]"),
         Arguments.of("[\\D]", "[^0-9]"),
-        Arguments.of("[\\S]", "[^\\t-\\n\\f-\\r ]"),
+        Arguments.of("[\\S]", "[^\\t-\\r ]"),
         Arguments.of("[\\W]", "[^0-9A-Z_a-z]"),
 
         // Posix repetitions
