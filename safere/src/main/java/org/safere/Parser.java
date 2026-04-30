@@ -972,22 +972,7 @@ final class Parser {
       }
       first = false;
 
-      // Look for [:alnum:] etc.
-      if (pos + 2 < pattern.length()
-          && pattern.charAt(pos) == '['
-          && pattern.charAt(pos + 1) == ':') {
-        int result = parseCCName(ccb);
-        if (result == PARSE_OK) {
-          continue;
-        } else if (result == PARSE_ERROR) {
-          // error already thrown
-          return null;
-        }
-        // PARSE_NOTHING: fall through
-      }
-
       // Look for nested character class like [[A-F]] (Java-style union).
-      // At this point we know pattern.charAt(pos) == '[' and it's not a POSIX class.
       if (pos < pattern.length() && pattern.charAt(pos) == '[') {
         Regexp nested = parseCharClass();
         ccb.addCharClass(nested.charClass);
@@ -1418,52 +1403,6 @@ final class Parser {
       case "GENERALCATEGORY", "GC" -> UnicodeProperties.lookupCategory(value);
       default -> null;
     };
-  }
-
-  // ---- POSIX class name parsing ([:alnum:], etc.) ----
-
-  private int parseCCName(CharClassBuilder ccb) {
-    // Check begins with [:
-    if (pos + 2 >= pattern.length()
-        || pattern.charAt(pos) != '['
-        || pattern.charAt(pos + 1) != ':') {
-      return PARSE_NOTHING;
-    }
-
-    // Look for closing :].
-    int q = pattern.indexOf(":]", pos + 2);
-    if (q < 0) {
-      return PARSE_NOTHING;
-    }
-    q += 2; // past :]
-
-    String name = pattern.substring(pos, q);
-    // name is like "[:alnum:]" or "[:^alpha:]"
-
-    // Check for negation: [:^...]
-    boolean negated = false;
-    String lookupName = name;
-    if (name.length() > 4 && name.charAt(2) == '^') {
-      negated = true;
-      // Convert [:^alpha:] to [:alpha:]
-      lookupName = "[:" + name.substring(3);
-    }
-
-    int[][] table = (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0
-        ? UnicodeTables.unicodePosixGroups().get(lookupName)
-        : UnicodeTables.POSIX_GROUPS.get(lookupName);
-    if (table == null) {
-      throw new PatternSyntaxException("invalid POSIX class: " + name, pattern, pos);
-    }
-
-    pos = q; // advance past the class name
-
-    if (negated) {
-      addGroupNegated(ccb, table);
-    } else {
-      addGroupPositive(ccb, table);
-    }
-    return PARSE_OK;
   }
 
   // ---- Group add helpers ----

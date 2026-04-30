@@ -47,19 +47,19 @@ class SimplifierTest {
         Arguments.of("[ac]", "[ac]"),
         Arguments.of("[^ac]", "[^ac]"),
 
-        // Posix character classes
-        Arguments.of("[[:alnum:]]", "[0-9A-Za-z]"),
-        Arguments.of("[[:alpha:]]", "[A-Za-z]"),
-        Arguments.of("[[:blank:]]", "[\\t ]"),
-        Arguments.of("[[:cntrl:]]", "[\\x00-\\x1f\\x7f]"),
-        Arguments.of("[[:digit:]]", "[0-9]"),
-        Arguments.of("[[:graph:]]", "[!-~]"),
-        Arguments.of("[[:lower:]]", "[a-z]"),
-        Arguments.of("[[:print:]]", "[ -~]"),
-        Arguments.of("[[:punct:]]", "[!-/:-@\\[-`{-~]"),
-        Arguments.of("[[:space:]]", "[\\t-\\r ]"),
-        Arguments.of("[[:upper:]]", "[A-Z]"),
-        Arguments.of("[[:xdigit:]]", "[0-9A-Fa-f]"),
+        // JDK treats POSIX bracket-class spelling as ordinary character-class text.
+        Arguments.of("[[:alnum:]]", "[:al-nu]"),
+        Arguments.of("[[:alpha:]]", "[:ahlp]"),
+        Arguments.of("[[:blank:]]", "[:a-bk-ln]"),
+        Arguments.of("[[:cntrl:]]", "[:clnrt]"),
+        Arguments.of("[[:digit:]]", "[:dgit]"),
+        Arguments.of("[[:graph:]]", "[:ag-hpr]"),
+        Arguments.of("[[:lower:]]", "[:elorw]"),
+        Arguments.of("[[:print:]]", "[:inprt]"),
+        Arguments.of("[[:punct:]]", "[:cnpt-u]"),
+        Arguments.of("[[:space:]]", "[:aceps]"),
+        Arguments.of("[[:upper:]]", "[:epru]"),
+        Arguments.of("[[:xdigit:]]", "[:dgitx]"),
 
         // Perl character classes
         Arguments.of("\\d", "[0-9]"),
@@ -112,11 +112,11 @@ class SimplifierTest {
         Arguments.of("[a-ma-ha-e]", "[a-m]"),
         Arguments.of("[a-zA-Z0-9 -~]", "[ -~]"),
 
-        // Empty character classes
-        Arguments.of("[^[:cntrl:][:^cntrl:]]", "[^\\x00-\\x{10ffff}]"),
+        // Negated literal text character classes
+        Arguments.of("[^[:cntrl:][:^cntrl:]]", "[^:\\^clnrt]"),
 
-        // Full character classes
-        Arguments.of("[[:cntrl:][:^cntrl:]]", "."),
+        // Literal text character classes
+        Arguments.of("[[:cntrl:][:^cntrl:]]", "[:\\^clnrt]"),
 
         // Unicode case folding
         Arguments.of("(?i)A", "[Aa]"),
