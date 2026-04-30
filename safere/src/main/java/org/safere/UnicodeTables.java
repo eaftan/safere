@@ -35,7 +35,7 @@ final class UnicodeTables {
   public static final int[][] PERL_DIGIT = {{0x30, 0x39}};
 
   public static final int[][] PERL_SPACE = {
-    {0x09, 0x0A}, {0x0C, 0x0D}, {0x20, 0x20},
+    {0x09, 0x0D}, {0x20, 0x20},
   };
 
   public static final int[][] PERL_WORD = {

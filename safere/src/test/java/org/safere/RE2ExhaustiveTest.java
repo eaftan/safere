@@ -44,8 +44,6 @@ class RE2ExhaustiveTest {
   private static final int MAX_FAILURES = 200;
 
   @Test
-  @DisabledForCrosscheck(
-      "#219 SafeRE drops capture groups in zero-count repetitions")
   void testExhaustive() throws IOException {
     InputStream is = RE2ExhaustiveTest.class.getResourceAsStream("/re2-exhaustive.txt.gz");
     assertThat(is).as("re2-exhaustive.txt.gz must be in test resources").isNotNull();

@@ -370,6 +370,7 @@ class JdkSyntaxCompatibilityTest {
     void whitespaceClass() {
       assertMatchesSame("\\s", " ");
       assertMatchesSame("\\s", "\n");
+      assertMatchesSame("\\s", "\u000B");
       assertMatchesFull("\\s", "a");  // should not match
     }
 
@@ -378,6 +379,7 @@ class JdkSyntaxCompatibilityTest {
     void nonWhitespaceClass() {
       assertMatchesSame("\\S", "a");
       assertMatchesFull("\\S", " ");  // should not match
+      assertMatchesFull("\\S", "\u000B");  // should not match
     }
 
     @Test

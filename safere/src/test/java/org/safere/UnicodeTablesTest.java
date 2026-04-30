@@ -33,8 +33,9 @@ class UnicodeTablesTest {
     int[][] ranges = UnicodeTables.PERL_GROUPS.get("\\s");
     assertThat(ranges).isNotNull();
     assertThat(ranges.length >= 2).isTrue();
-    // Should include tab (0x09) and space (0x20)
+    // Should include tab (0x09), vertical tab (0x0B), and space (0x20).
     assertThat(containsCodePoint(ranges, 0x09)).isTrue();
+    assertThat(containsCodePoint(ranges, 0x0B)).isTrue();
     assertThat(containsCodePoint(ranges, 0x20)).isTrue();
   }
 
