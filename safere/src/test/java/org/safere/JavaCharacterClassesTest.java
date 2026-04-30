@@ -6,7 +6,9 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -177,13 +179,10 @@ class JavaCharacterClassesTest {
   }
 
   @Test
-  @DisabledForCrosscheck(
-      "#210 SafeRE accepts \\p{^javaLowerCase}, but java.util.regex rejects it")
-  @DisplayName("Negation with \\p{^...} works")
-  void caretNegationWorks() {
-    var p = Pattern.compile("\\p{^javaLowerCase}+");
-    assertThat(p.matcher("ABC").find()).isTrue();
-    assertThat(p.matcher("abc").find()).isFalse();
+  @DisplayName("Caret negation in java character class names is rejected")
+  void caretNegationRejected() {
+    assertThatThrownBy(() -> Pattern.compile("\\p{^javaLowerCase}+"))
+        .isInstanceOf(PatternSyntaxException.class);
   }
 
   @Test

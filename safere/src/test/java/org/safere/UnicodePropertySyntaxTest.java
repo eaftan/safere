@@ -621,11 +621,11 @@ class UnicodePropertySyntaxTest {
   }
 
   // =========================================================================
-  // Negation — \P{...} and \p{^...}
+  // Negation — \P{...}
   // =========================================================================
 
   @Nested
-  @DisplayName("Negation with \\P{} and \\p{^}")
+  @DisplayName("Negation with \\P{}")
   class NegationTest {
 
     @Test
@@ -662,14 +662,6 @@ class UnicodePropertySyntaxTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#210 java.util.regex rejects caret negation in property names")
-    @DisplayName("\\p{^IsLatin} negation via caret")
-    void caretNegation() {
-      assertThat(find("\\p{^IsLatin}", "α")).isTrue();
-      assertThat(find("\\p{^IsLatin}", "A")).isFalse();
-    }
-
-    @Test
     @DisplayName("\\P{IsAlphabetic} matches non-alphabetic characters")
     void negatedBinaryProperty() {
       assertThat(find("\\P{IsAlphabetic}", "1")).isTrue();
@@ -699,6 +691,19 @@ class UnicodePropertySyntaxTest {
     void lowercaseInPrefix() {
       assertThatThrownBy(() -> Pattern.compile("\\p{inBasicLatin}"))
           .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+      "\\p{^IsLatin}",
+      "\\p{^InBasicLatin}",
+      "\\p{^script=Latin}",
+      "\\p{^gc=Lu}",
+      "\\p{^javaLowerCase}",
+    })
+    @DisplayName("Caret negation in property names is rejected")
+    void caretNegationInPropertyNameRejected(String regex) {
+      assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test

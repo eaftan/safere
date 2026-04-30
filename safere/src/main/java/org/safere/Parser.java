@@ -1354,11 +1354,6 @@ final class Parser {
       pos = end + 1; // skip '}'
     }
 
-    if (!name.isEmpty() && name.charAt(0) == '^') {
-      sign = -sign;
-      name = name.substring(1);
-    }
-
     int[][] table = lookupUnicodeGroup(name, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
     if (table == null) {
       throw new PatternSyntaxException(
