@@ -23,8 +23,7 @@ final class ParseFlags {
   public static final int LITERAL = 1 << 1;
 
   /**
-   * Allow character classes like {@code [^a-z]}, {@code \D}, {@code \s}, and {@code [[:space:]]} to
-   * match newline.
+   * Allow character classes like {@code [^a-z]}, {@code \D}, and {@code \s} to match newline.
    */
   public static final int CLASS_NL = 1 << 2;
 

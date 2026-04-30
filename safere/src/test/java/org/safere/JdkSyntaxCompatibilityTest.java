@@ -548,6 +548,39 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame(regex, shouldMatch);
       assertMatchesFull(regex, shouldNotMatch);
     }
+
+    static Stream<Arguments> posixBracketClassSyntax() {
+      return Stream.of(
+          Arguments.of("[[:lower:]]", "l", true),
+          Arguments.of("[[:lower:]]", "a", false),
+          Arguments.of("[[:lower:]]", ":", true),
+          Arguments.of("[[:alpha:]]", "p", true),
+          Arguments.of("[[:alpha:]]", "Z", false),
+          Arguments.of("[[:digit:]]", "d", true),
+          Arguments.of("[[:digit:]]", "5", false),
+          Arguments.of("[[:^space:]]", "^", true),
+          Arguments.of("[[:^space:]]", "s", true),
+          Arguments.of("[[:^space:]]", " ", false),
+          Arguments.of("[^[:lower:]]", "a", true),
+          Arguments.of("[^[:lower:]]", "l", false),
+          Arguments.of("[^[:lower:]]", ":", false));
+    }
+
+    @ParameterizedTest(name = "{0} on \"{1}\"")
+    @MethodSource("posixBracketClassSyntax")
+    @DisplayName("POSIX bracket class spelling is ordinary character-class text")
+    void posixBracketClassSyntaxIsOrdinaryText(
+        String regex, String input, boolean expectedMatch) {
+      boolean jdkMatches = java.util.regex.Pattern.compile(regex).matcher(input).matches();
+      boolean safeMatches = Pattern.compile(regex).matcher(input).matches();
+
+      assertThat(jdkMatches)
+          .as("JDK baseline for /%s/ on \"%s\"", regex, input)
+          .isEqualTo(expectedMatch);
+      assertThat(safeMatches)
+          .as("SafeRE for /%s/ on \"%s\"", regex, input)
+          .isEqualTo(expectedMatch);
+    }
   }
 
   // ===========================================================================

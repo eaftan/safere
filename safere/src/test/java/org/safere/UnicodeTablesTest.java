@@ -51,32 +51,32 @@ class UnicodeTablesTest {
     assertThat(containsCodePoint(ranges, 'z')).isTrue();
   }
 
-  // --- POSIX groups ---
+  // --- POSIX property groups ---
 
   @Test
-  void posixGroups_hasFourteenEntries() {
-    assertThat(UnicodeTables.POSIX_GROUPS.size()).isEqualTo(14);
+  void posixPropertyGroups_hasThirteenEntries() {
+    assertThat(UnicodeTables.POSIX_PROPERTY_GROUPS.size()).isEqualTo(13);
   }
 
   @Test
-  void posixDigit_matchesZeroToNine() {
-    int[][] ranges = UnicodeTables.POSIX_GROUPS.get("[:digit:]");
+  void posixPropertyDigit_matchesZeroToNine() {
+    int[][] ranges = UnicodeTables.POSIX_PROPERTY_GROUPS.get("Digit");
     assertThat(ranges).isNotNull();
     assertThat(ranges.length).isEqualTo(1);
     assertThat(ranges[0]).isEqualTo(new int[] {0x30, 0x39});
   }
 
   @Test
-  void posixAscii_matchesFullRange() {
-    int[][] ranges = UnicodeTables.POSIX_GROUPS.get("[:ascii:]");
+  void posixPropertyAscii_matchesFullRange() {
+    int[][] ranges = UnicodeTables.POSIX_PROPERTY_GROUPS.get("ASCII");
     assertThat(ranges).isNotNull();
     assertThat(ranges.length).isEqualTo(1);
     assertThat(ranges[0]).isEqualTo(new int[] {0x00, 0x7F});
   }
 
   @Test
-  void posixUpper_matchesUppercase() {
-    int[][] ranges = UnicodeTables.POSIX_GROUPS.get("[:upper:]");
+  void posixPropertyUpper_matchesUppercase() {
+    int[][] ranges = UnicodeTables.POSIX_PROPERTY_GROUPS.get("Upper");
     assertThat(ranges).isNotNull();
     assertThat(ranges.length).isEqualTo(1);
     assertThat(ranges[0]).isEqualTo(new int[] {0x41, 0x5A});

@@ -75,24 +75,7 @@ final class UnicodeTables {
   public static final int[][] POSIX_PUNCT = {{0x21, 0x2F}, {0x3A, 0x40}, {0x5B, 0x60}, {0x7B, 0x7E}};
   public static final int[][] POSIX_SPACE = {{0x09, 0x0D}, {0x20, 0x20}};
   public static final int[][] POSIX_UPPER = {{0x41, 0x5A}};
-  public static final int[][] POSIX_WORD = {{0x30, 0x39}, {0x41, 0x5A}, {0x5F, 0x5F}, {0x61, 0x7A}};
   public static final int[][] POSIX_XDIGIT = {{0x30, 0x39}, {0x41, 0x46}, {0x61, 0x66}};
-
-  public static final Map<String, int[][]> POSIX_GROUPS = Map.ofEntries(
-      Map.entry("[:alnum:]", POSIX_ALNUM),
-      Map.entry("[:alpha:]", POSIX_ALPHA),
-      Map.entry("[:ascii:]", POSIX_ASCII),
-      Map.entry("[:blank:]", POSIX_BLANK),
-      Map.entry("[:cntrl:]", POSIX_CNTRL),
-      Map.entry("[:digit:]", POSIX_DIGIT),
-      Map.entry("[:graph:]", POSIX_GRAPH),
-      Map.entry("[:lower:]", POSIX_LOWER),
-      Map.entry("[:print:]", POSIX_PRINT),
-      Map.entry("[:punct:]", POSIX_PUNCT),
-      Map.entry("[:space:]", POSIX_SPACE),
-      Map.entry("[:upper:]", POSIX_UPPER),
-      Map.entry("[:word:]", POSIX_WORD),
-      Map.entry("[:xdigit:]", POSIX_XDIGIT));
 
   /**
    * POSIX character class names for use with the {@code \p{...}} property syntax (e.g., {@code
@@ -146,30 +129,10 @@ final class UnicodeTables {
             Map.entry("XDigit", UNICODE_XDIGIT),
             Map.entry("Space", unicodeSpace()));
 
-    static final Map<String, int[][]> UNICODE_POSIX_GROUPS =
-        Map.ofEntries(
-            Map.entry("[:alnum:]", UNICODE_ALNUM),
-            Map.entry("[:alpha:]", UNICODE_ALPHA),
-            Map.entry("[:ascii:]", POSIX_ASCII),
-            Map.entry("[:blank:]", HORIZ_SPACE),
-            Map.entry("[:cntrl:]", UNICODE_CNTRL),
-            Map.entry("[:digit:]", UNICODE_DIGIT),
-            Map.entry("[:graph:]", UNICODE_GRAPH),
-            Map.entry("[:lower:]", UnicodeProperties.lookupBinaryProperty("Lowercase")),
-            Map.entry("[:print:]", UNICODE_PRINT),
-            Map.entry("[:punct:]", UNICODE_PUNCT),
-            Map.entry("[:space:]", unicodeSpace()),
-            Map.entry("[:upper:]", UnicodeProperties.lookupBinaryProperty("Uppercase")),
-            Map.entry("[:word:]", unicodeWord()),
-            Map.entry("[:xdigit:]", UNICODE_XDIGIT));
   }
 
   static Map<String, int[][]> unicodePosixPropertyGroups() {
     return UnicodePosixHolder.UNICODE_POSIX_PROPERTY_GROUPS;
-  }
-
-  static Map<String, int[][]> unicodePosixGroups() {
-    return UnicodePosixHolder.UNICODE_POSIX_GROUPS;
   }
 
   private static boolean isUnicodeWhiteSpace(int cp) {

@@ -274,47 +274,59 @@ class ParserTest {
       assertThat(re.charClass.contains('D')).isFalse();
     }
 
-    // -- POSIX classes --
+    // -- POSIX bracket-class spelling is ordinary JDK character-class text --
 
     @Test
-    void posixLower() {
+    void posixLowerSpellingIsLiteralText() {
       Regexp re = parse("[[:lower:]]");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains('a')).isTrue();
-      assertThat(re.charClass.contains('z')).isTrue();
+      assertThat(re.charClass.contains(':')).isTrue();
+      assertThat(re.charClass.contains('l')).isTrue();
+      assertThat(re.charClass.contains('r')).isTrue();
+      assertThat(re.charClass.contains('a')).isFalse();
+      assertThat(re.charClass.contains('z')).isFalse();
     }
 
     @Test
-    void posixAlpha() {
+    void posixAlphaSpellingIsLiteralText() {
       Regexp re = parse("[[:alpha:]]");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
       assertThat(re.charClass.contains('a')).isTrue();
-      assertThat(re.charClass.contains('Z')).isTrue();
+      assertThat(re.charClass.contains('p')).isTrue();
+      assertThat(re.charClass.contains(':')).isTrue();
       assertThat(re.charClass.contains('0')).isFalse();
+      assertThat(re.charClass.contains('Z')).isFalse();
     }
 
     @Test
-    void posixDigit() {
+    void posixDigitSpellingIsLiteralText() {
       Regexp re = parse("[[:digit:]]");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains('0')).isTrue();
-      assertThat(re.charClass.contains('9')).isTrue();
-      assertThat(re.charClass.contains('a')).isFalse();
+      assertThat(re.charClass.contains('d')).isTrue();
+      assertThat(re.charClass.contains('t')).isTrue();
+      assertThat(re.charClass.contains(':')).isTrue();
+      assertThat(re.charClass.contains('0')).isFalse();
+      assertThat(re.charClass.contains('9')).isFalse();
     }
 
     @Test
-    void posixNegated() {
+    void posixNegatedSpellingIsLiteralText() {
       Regexp re = parse("[[:^space:]]");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+      assertThat(re.charClass.contains('^')).isTrue();
+      assertThat(re.charClass.contains('s')).isTrue();
+      assertThat(re.charClass.contains(':')).isTrue();
       assertThat(re.charClass.contains(' ')).isFalse();
-      assertThat(re.charClass.contains('a')).isTrue();
+      assertThat(re.charClass.contains('x')).isFalse();
     }
 
     @Test
-    void negatedPosixClass() {
+    void negatedPosixSpellingNegatesLiteralText() {
       Regexp re = parse("[^[:lower:]]");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains('a')).isFalse();
+      assertThat(re.charClass.contains('l')).isFalse();
+      assertThat(re.charClass.contains(':')).isFalse();
+      assertThat(re.charClass.contains('a')).isTrue();
       assertThat(re.charClass.contains('A')).isTrue();
     }
 
@@ -1248,11 +1260,14 @@ class ParserTest {
     }
 
     @Test
-    void caseInsensitive_posixLower() {
+    void caseInsensitive_posixLowerSpellingIsLiteralText() {
       Regexp re = parse("(?i)[[:lower:]]");
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
-      assertThat(re.charClass.contains('A')).isTrue();
-      assertThat(re.charClass.contains('a')).isTrue();
+      assertThat(re.charClass.contains('L')).isTrue();
+      assertThat(re.charClass.contains('l')).isTrue();
+      assertThat(re.charClass.contains(':')).isTrue();
+      assertThat(re.charClass.contains('A')).isFalse();
+      assertThat(re.charClass.contains('a')).isFalse();
     }
   }
 
