@@ -931,7 +931,6 @@ class PatternTest {
   class OctalEscapeTests {
 
     @Test
-    @DisabledForCrosscheck("#224 SafeRE accepts octal syntax that java.util.regex rejects")
     @DisplayName("\\0 without octal digits is rejected")
     void zeroOctalEscapeRequiresDigits() {
       assertThatThrownBy(() -> Pattern.compile("\\0"))
@@ -939,7 +938,6 @@ class PatternTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#224 SafeRE accepts octal syntax that java.util.regex rejects")
     @DisplayName("\\08 is rejected because \\0 requires an octal digit")
     void zeroOctalEscapeRejectsNonOctalDigit() {
       assertThatThrownBy(() -> Pattern.compile("\\08"))
@@ -947,7 +945,6 @@ class PatternTest {
     }
 
     @Test
-    @DisabledForCrosscheck("#224 large octal escapes diverge from java.util.regex")
     @DisplayName("octal escapes above 0377 do not become Unicode code points")
     void largeOctalEscapesDoNotBecomeUnicodeCodePoints() {
       assertThat(Pattern.compile("\\400").matcher("\u0100").matches()).isFalse();

@@ -149,6 +149,47 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("\\0101", "A");  // 0101 octal = 65 = 'A'
     }
 
+    @Test
+    @DisplayName("octal \\\\0mnn above 0377 stops before overflow")
+    void octalStopsBeforeOverflow() {
+      assertMatchesSame("\\0400", " 0");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\0", "\\08"})
+    @DisplayName("malformed leading-zero octal escape is rejected")
+    void malformedLeadingZeroOctalEscapeRejected(String regex) {
+      assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
+          .as("JDK should reject malformed octal escape: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject malformed octal escape: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\400", "\\777", "\\123"})
+    @DisplayName("unresolved non-zero numeric escapes never match")
+    void unresolvedNonZeroNumericEscapesNeverMatch(String regex) {
+      assertMatchesSame(regex, "\u0100");
+      assertMatchesSame(regex, "\u01ff");
+      assertMatchesSame(regex, "S");
+      assertMatchesSame(regex, " 0");
+      assertMatchesSame(regex, "?7");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[\\123]", "[\\400]"})
+    @DisplayName("non-zero numeric escapes in character classes are rejected")
+    void nonZeroNumericEscapesInCharacterClassesRejected(String regex) {
+      assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
+          .as("JDK should reject non-zero numeric escape in class: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject non-zero numeric escape in class: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
     // -- Hex escapes --
 
     @Test
@@ -976,7 +1017,14 @@ class JdkSyntaxCompatibilityTest {
   class BackReferences {
 
     @ParameterizedTest
-    @ValueSource(strings = {"(a)\\1", "(a)(b)\\2", "(?<name>a)\\k<name>"})
+    @ValueSource(
+        strings = {
+          "(a)\\1",
+          "(a)(b)\\2",
+          "(a)\\123",
+          "(a)(b)(c)(d)\\400",
+          "(?<name>a)\\k<name>"
+        })
     @DisplayName("back reference")
     void backReference(String regex) {
       // JDK accepts these.
