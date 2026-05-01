@@ -75,6 +75,13 @@ final class Regexp {
   /** Match ID for multi-pattern matching. Used by HAVE_MATCH. */
   public int matchId;
 
+  /**
+   * Whether this node came directly from a source-level non-capturing group. Non-capturing groups
+   * are usually transparent, but the JDK exposes this distinction for zero-width quantified
+   * captures such as {@code ()*} versus {@code (?:())*}.
+   */
+  boolean sourceNonCapturingGroup;
+
   private Regexp(RegexpOp op, int flags) {
     this.op = op;
     this.flags = flags;
