@@ -32,6 +32,10 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(a){1,2}?)*", "aaa"),
         Arguments.of("((ab)?)*", "abab"),
         Arguments.of("((a?))*", "aa"),
+        Arguments.of(
+            "(.*)+/([a-zA-Z]+)/([^/]+)", "projects/123/locations/test-location/foo/bar"),
+        Arguments.of("(.?)+/([a-z]+)/([^/]+)", "abc/foo/bar"),
+        Arguments.of("(.?)+([a-z]+)", "abc"),
         Arguments.of("x(?:(a){1,2})*y", "xaaay"),
         Arguments.of("x(?:(a){1,}){2}y", "xaaay"));
   }
