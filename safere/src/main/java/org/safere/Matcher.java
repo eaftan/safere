@@ -1773,10 +1773,14 @@ public final class Matcher implements MatchResult {
 
     while (pos <= text.length()) {
       int effectiveStart = pos;
+      boolean anchoredStart = prog.anchorStart();
+      if (anchoredStart && pos > 0) {
+        break;
+      }
 
       // Apply prefix acceleration if available.
       String prefix = parentPattern.prefix();
-      if (prefix != null) {
+      if (prefix != null && !anchoredStart) {
         int idx;
         if (parentPattern.prefixFoldCase()) {
           idx = indexOfIgnoreCase(text, prefix, pos);
@@ -1791,7 +1795,7 @@ public final class Matcher implements MatchResult {
 
       // Apply char-class prefix acceleration if available.
       boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-      if (ccPrefixAscii != null) {
+      if (ccPrefixAscii != null && !anchoredStart) {
         int idx = indexOfCharClass(text, ccPrefixAscii, pos);
         if (idx < 0) {
           break;

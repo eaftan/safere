@@ -866,6 +866,31 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceAll with group references preserves start-anchor find semantics")
+    void replaceAllWithGroupReferencesPreservesStartAnchorFindSemantics() {
+      String[][] cases = {
+        {"^(.*)", "ExistingValue", "An$1"},
+        {"\\A(.*)", "ExistingValue", "An$1"},
+        {"^(a*)", "aaa", "[$1]"},
+        {"\\A(a*)", "aaa", "[$1]"},
+        {"^(a*)", "bbb", "[$1]"},
+        {"\\A(a*)", "bbb", "[$1]"},
+        {"^([0-9].*)", "abc123", "<$1>"},
+        {"\\A([0-9].*)", "abc123", "<$1>"},
+      };
+
+      for (String[] tc : cases) {
+        String pattern = tc[0];
+        String input = tc[1];
+        String replacement = tc[2];
+        assertThat(Pattern.compile(pattern).matcher(input).replaceAll(replacement))
+            .as("replaceAll(%s) for /%s/ on %s", replacement, pattern, input)
+            .isEqualTo(java.util.regex.Pattern.compile(pattern).matcher(input)
+                .replaceAll(replacement));
+      }
+    }
+
+    @Test
     @DisplayName("numeric replacement references keep trailing digits literal when needed")
     void numericReplacementReferencesUseLongestLegalGroup() {
       Pattern p = Pattern.compile("(\\w+)");
