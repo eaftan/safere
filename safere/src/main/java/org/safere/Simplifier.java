@@ -639,15 +639,12 @@ final class Simplifier {
       if (min == 1) {
         return starPlusOrQuest(RegexpOp.PLUS, re, flags);
       }
-      // General case: x{4,} is (?:x)(?:x)(?:x)(x)+ for non-nullable x. Captures
-      // in the mandatory prefix are guaranteed to be overwritten by the final
-      // PLUS iteration, so avoid generating capture instructions for them.
-      // Nullable bodies can satisfy the final PLUS without consuming, so earlier
-      // captures may remain observable and must be preserved.
-      Regexp prefix = canMatchEmpty(re) ? re : stripCaptures(re);
+      // General case: x{4,} is (?:x)(?:x)(?:x)(x)+. Keep captures in every
+      // copy: the language-only optimization of stripping captures from the
+      // mandatory prefix changes JDK-visible group state for quantified captures.
       List<Regexp> subs = new ArrayList<>(min);
       for (int i = 0; i < min - 1; i++) {
-        subs.add(prefix);
+        subs.add(re);
       }
       subs.add(starPlusOrQuest(RegexpOp.PLUS, re, flags));
       return Regexp.concat(subs, flags);
@@ -693,84 +690,6 @@ final class Simplifier {
     return nre;
   }
 
-  /** Returns a copy of {@code re} with all capturing groups converted to noncapturing groups. */
-  private static Regexp stripCaptures(Regexp re) {
-    return new StripCapturesWalker().walk(re, null);
-  }
-
-  private static boolean canMatchEmpty(Regexp re) {
-    return new NullableWalker().walk(re, false);
-  }
-
-  private static final class NullableWalker extends Walker<Boolean> {
-
-    @Override
-    protected Boolean shortVisit(Regexp re, Boolean parentArg) {
-      return false;
-    }
-
-    @Override
-    protected Boolean postVisit(
-        Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
-      return switch (re.op) {
-        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-            NO_WORD_BOUNDARY -> true;
-        case STAR, QUEST -> true;
-        case REPEAT -> re.min == 0;
-        case PLUS, CAPTURE -> !childArgs.isEmpty() && childArgs.get(0);
-        case CONCAT -> allTrue(childArgs);
-        case ALTERNATE -> anyTrue(childArgs);
-        default -> false;
-      };
-    }
-  }
-
-  private static boolean allTrue(List<Boolean> values) {
-    for (boolean value : values) {
-      if (!value) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private static boolean anyTrue(List<Boolean> values) {
-    for (boolean value : values) {
-      if (value) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static final class StripCapturesWalker extends Walker<Regexp> {
-
-    @Override
-    protected Regexp shortVisit(Regexp re, Regexp parentArg) {
-      return re;
-    }
-
-    @Override
-    protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
-      return switch (re.op) {
-        case CAPTURE -> childArgs.get(0);
-        case CONCAT -> childArgsChanged(re, childArgs) ? Regexp.concat(childArgs, re.flags) : re;
-        case ALTERNATE ->
-            childArgsChanged(re, childArgs) ? Regexp.alternate(childArgs, re.flags) : re;
-        case STAR, PLUS, QUEST ->
-            childArgsChanged(re, childArgs)
-                ? rawQuantifier(re.op, childArgs.get(0), re.flags)
-                : re;
-        case REPEAT ->
-            childArgsChanged(re, childArgs)
-                ? Regexp.repeat(childArgs.get(0), re.flags, re.min, re.max)
-                : re;
-        default -> re;
-      };
-    }
-  }
-
   /** Returns true if all children of re are empty-width ops. */
   private static boolean allEmptyOp(Regexp re) {
     for (Regexp sub : re.subs) {
@@ -804,6 +723,9 @@ final class Simplifier {
   // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
   @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static Regexp starPlusOrQuest(RegexpOp op, Regexp sub, int flags) {
+    if (hasVisibleCapture(sub)) {
+      return rawQuantifier(op, sub, flags);
+    }
     // Squash identical: **, ++, ??
     if (op == sub.op && flags == sub.flags) {
       return sub;
@@ -825,6 +747,32 @@ final class Simplifier {
         return Regexp.quest(sub, flags);
       default:
         throw new IllegalArgumentException("Bad op: " + op);
+    }
+  }
+
+  private static boolean hasVisibleCapture(Regexp re) {
+    return new HasVisibleCaptureWalker().walk(re, false);
+  }
+
+  private static final class HasVisibleCaptureWalker extends Walker<Boolean> {
+
+    @Override
+    protected Boolean shortVisit(Regexp re, Boolean parentArg) {
+      return false;
+    }
+
+    @Override
+    protected Boolean postVisit(
+        Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
+      if (re.op == RegexpOp.CAPTURE && re.cap > 0) {
+        return true;
+      }
+      for (boolean childHasCapture : childArgs) {
+        if (childHasCapture) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 }

@@ -110,8 +110,6 @@ public final class Pattern implements Serializable {
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
-  private final transient List<Prog> retainedCaptureProgs;
-  private final transient List<RetainedRepeatCapture> retainedRepeatCaptures;
 
   /**
    * Precomputed character class data for the "repeated character class" fast path in
@@ -150,7 +148,6 @@ public final class Pattern implements Serializable {
 
   /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
-
   /**
    * Thread-local cached BitState instance. Shared across all Matchers created from this Pattern
    * within the same thread, enabling reuse even with the common {@code pattern.matcher(t).find()}
@@ -183,9 +180,6 @@ public final class Pattern implements Serializable {
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {}
 
-  record RetainedRepeatCapture(
-      Prog firstProg, Prog restProg, int minimumInputLength, int firstMinimumInputLength) {}
-
   private Pattern(String pattern, int flags, Prog prog, Regexp ast,
       Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
       String literalMatch, boolean hasLazy, boolean hasAlternation,
@@ -193,8 +187,6 @@ public final class Pattern implements Serializable {
       boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean hasEndConstraint,
       boolean[] charClassPrefixAscii, StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
-      List<Prog> retainedCaptureProgs,
-      List<RetainedRepeatCapture> retainedRepeatCaptures,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty) {
     this.pattern = pattern;
@@ -214,8 +206,6 @@ public final class Pattern implements Serializable {
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
-    this.retainedCaptureProgs = retainedCaptureProgs;
-    this.retainedRepeatCaptures = retainedRepeatCaptures;
     this.charClassMatchRanges = charClassMatchRanges;
     this.charClassMatchBitmap0 = charClassMatchBitmap0;
     this.charClassMatchBitmap1 = charClassMatchBitmap1;
@@ -269,18 +259,12 @@ public final class Pattern implements Serializable {
     StartAcceleration startAcceleration =
         (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(re) : null;
     KeywordAlternation keywordAlternation = extractKeywordAlternation(re, flags);
-    List<Prog> retainedCaptureProgs =
-        extractRetainedCaptureProgs(re, (effectiveFlags & UNIX_LINES) != 0);
-    List<RetainedRepeatCapture> retainedRepeatCaptures =
-        extractRetainedRepeatCaptures(re, (effectiveFlags & UNIX_LINES) != 0);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, effectiveFlags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
         hasEndConst, ccPrefixAscii, startAcceleration, keywordAlternation,
-        retainedCaptureProgs,
-        retainedRepeatCaptures,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -772,14 +756,6 @@ public final class Pattern implements Serializable {
     return keywordAlternation;
   }
 
-  List<Prog> retainedCaptureProgs() {
-    return retainedCaptureProgs;
-  }
-
-  List<RetainedRepeatCapture> retainedRepeatCaptures() {
-    return retainedRepeatCaptures;
-  }
-
   /**
    * Returns the precomputed ranges for the character-class-match fast path, or {@code null} if
    * the pattern is not a simple repeated character class. When non-null, {@code matches()} can
@@ -1120,203 +1096,6 @@ public final class Pattern implements Serializable {
       }
     }
     return false;
-  }
-
-  private static List<Prog> extractRetainedCaptureProgs(Regexp re, boolean unixLines) {
-    List<Prog> progs = new ArrayList<>();
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (isOptionalRepeat(node) && hasExactCountedCapture(node.sub())) {
-        Prog retained = Compiler.compile(node.sub());
-        if (retained != null) {
-          retained.setUnixLines(unixLines);
-          progs.add(retained);
-        }
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return progs.isEmpty() ? List.of() : List.copyOf(progs);
-  }
-
-  private static boolean isOptionalRepeat(Regexp re) {
-    return re.op == RegexpOp.STAR
-        || (re.op == RegexpOp.REPEAT && re.min == 0 && (re.max == -1 || re.max >= 2));
-  }
-
-  private static boolean hasExactCountedCapture(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT && node.min >= 1 && node.min == node.max
-          && hasCapture(node.sub())) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasCapture(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static List<RetainedRepeatCapture> extractRetainedRepeatCaptures(
-      Regexp re, boolean unixLines) {
-    List<RetainedRepeatCapture> retained = new ArrayList<>();
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT && node.min >= 2 && (node.max == -1 || node.max >= node.min)
-          && hasUnboundedCaptureRepeat(node.sub())) {
-        Prog firstProg = Compiler.compile(node.sub());
-        Prog restProg = Compiler.compile(repeatCopies(node.sub(), node.min - 1, node.flags));
-        if (firstProg != null && restProg != null) {
-          firstProg.setUnixLines(unixLines);
-          restProg.setUnixLines(unixLines);
-          retained.add(new RetainedRepeatCapture(
-              firstProg, restProg, node.min * minRequiredCodeUnits(node.sub()),
-              minRequiredCodeUnits(node.sub())));
-        }
-      }
-      if (isRepeatWithRemainingCopies(node) && hasGreedyBoundedCaptureRepeat(node.sub())) {
-        Prog firstProg = Compiler.compile(node.sub());
-        Prog restProg = Compiler.compile(repeatAfterFirstCopy(node));
-        if (firstProg != null && restProg != null) {
-          firstProg.setUnixLines(unixLines);
-          restProg.setUnixLines(unixLines);
-          retained.add(new RetainedRepeatCapture(
-              firstProg, restProg, minRequiredCodeUnits(node),
-              minRequiredCodeUnits(node.sub())));
-        }
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return retained.isEmpty() ? List.of() : List.copyOf(retained);
-  }
-
-  private static boolean isRepeatWithRemainingCopies(Regexp re) {
-    return re.op == RegexpOp.STAR
-        || re.op == RegexpOp.PLUS
-        || (re.op == RegexpOp.REPEAT && (re.max == -1 || re.max >= 2));
-  }
-
-  private static Regexp repeatAfterFirstCopy(Regexp repeat) {
-    return switch (repeat.op) {
-      case STAR, PLUS -> Regexp.star(repeat.sub(), repeat.flags);
-      case REPEAT -> Regexp.repeat(
-          repeat.sub(), repeat.flags, Math.max(0, repeat.min - 1),
-          repeat.max == -1 ? -1 : repeat.max - 1);
-      default -> Regexp.emptyMatch(repeat.flags);
-    };
-  }
-
-  private static Regexp repeatCopies(Regexp sub, int copies, int flags) {
-    if (copies == 1) {
-      return sub;
-    }
-    List<Regexp> subs = new ArrayList<>(copies);
-    for (int i = 0; i < copies; i++) {
-      subs.add(sub);
-    }
-    return Regexp.concat(subs, flags);
-  }
-
-  private static boolean hasUnboundedCaptureRepeat(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if ((node.op == RegexpOp.PLUS
-              || (node.op == RegexpOp.REPEAT && node.min >= 1 && node.max == -1))
-          && !node.nonGreedy()
-          && hasCapture(node.sub())) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasGreedyBoundedCaptureRepeat(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT && node.max >= 2 && node.max > node.min && !node.nonGreedy()
-          && hasCapture(node.sub())) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static int minRequiredCodeUnits(Regexp re) {
-    return switch (re.op) {
-      case NO_MATCH, EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-          NO_WORD_BOUNDARY -> 0;
-      case LITERAL, ANY_CHAR, CHAR_CLASS -> 1;
-      case LITERAL_STRING -> re.runes == null ? 0 : re.runes.length;
-      case CAPTURE, PLUS -> minRequiredCodeUnits(re.sub());
-      case STAR, QUEST -> 0;
-      case REPEAT -> re.min * minRequiredCodeUnits(re.sub());
-      case CONCAT -> {
-        int min = 0;
-        if (re.subs != null) {
-          for (Regexp sub : re.subs) {
-            min += minRequiredCodeUnits(sub);
-          }
-        }
-        yield min;
-      }
-      case ALTERNATE -> {
-        int min = Integer.MAX_VALUE;
-        if (re.subs != null) {
-          for (Regexp sub : re.subs) {
-            min = Math.min(min, minRequiredCodeUnits(sub));
-          }
-        }
-        yield min == Integer.MAX_VALUE ? 0 : min;
-      }
-      default -> 0;
-    };
   }
 
   /**

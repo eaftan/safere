@@ -132,6 +132,16 @@ class RE2ExhaustiveTest {
               continue;
             }
 
+            // The generated crosscheck copy compares SafeRE against java.util.regex, but the
+            // exhaustive RE2 corpus includes known #52 cases where JDK leaks a capture from a
+            // failed start position. Keep the ordinary RE2 oracle coverage active, and skip only
+            // generated crosscheck cases whose raw engines prove this exact divergence.
+            if (isGeneratedCrosscheckRun()
+                && hasKnownJdkFailedStartCaptureLeakageDivergence(pattern, text)) {
+              skipped++;
+              continue;
+            }
+
             int[][] fullExpected = parseResult(fields[0]);
             int[][] findExpected = parseResult(fields[1]);
 
@@ -348,6 +358,59 @@ class RE2ExhaustiveTest {
     } catch (Exception e) {
       return false;
     }
+  }
+
+  private static boolean isGeneratedCrosscheckRun() {
+    return Boolean.getBoolean("org.safere.crosscheck.generatedTests");
+  }
+
+  private static boolean hasKnownJdkFailedStartCaptureLeakageDivergence(
+      String pattern, String text) {
+    if (!mayExposeJdkFailedStartCaptureLeakage(pattern, text)) {
+      return false;
+    }
+
+    try {
+      org.safere.Matcher safeReMatcher = org.safere.Pattern.compile(pattern).matcher(text);
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(pattern).matcher(text);
+      boolean safeReFound = safeReMatcher.find();
+      boolean jdkFound = jdkMatcher.find();
+      if (safeReFound != jdkFound || !safeReFound) {
+        return false;
+      }
+      if (safeReMatcher.start() != jdkMatcher.start()
+          || safeReMatcher.end() != jdkMatcher.end()) {
+        return false;
+      }
+
+      boolean sawLeakage = false;
+      int numGroups = Math.min(safeReMatcher.groupCount(), jdkMatcher.groupCount());
+      for (int g = 1; g <= numGroups; g++) {
+        int safeReStart = safeReMatcher.start(g);
+        int safeReEnd = safeReMatcher.end(g);
+        int jdkStart = jdkMatcher.start(g);
+        int jdkEnd = jdkMatcher.end(g);
+        if (safeReStart == jdkStart && safeReEnd == jdkEnd) {
+          continue;
+        }
+        if (safeReStart == -1 && safeReEnd == -1 && jdkStart >= 0 && jdkEnd >= jdkStart) {
+          sawLeakage = true;
+          continue;
+        }
+        return false;
+      }
+      return sawLeakage;
+    } catch (RuntimeException e) {
+      return false;
+    }
+  }
+
+  private static boolean mayExposeJdkFailedStartCaptureLeakage(String pattern, String text) {
+    return pattern.endsWith("$")
+        && pattern.contains("){")
+        && pattern.contains("(a)")
+        && text.indexOf('a') >= 0;
   }
 
   /**
