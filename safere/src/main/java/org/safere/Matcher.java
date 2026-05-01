@@ -8,7 +8,6 @@ package org.safere;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterator;
@@ -90,7 +89,6 @@ public final class Matcher implements MatchResult {
   private int regionEnd;
   private boolean lastHitEnd;
   private boolean lastRequireEnd;
-  private boolean lastMatchWasFind;
   private int modCount;
 
   /**
@@ -116,7 +114,7 @@ public final class Matcher implements MatchResult {
    * engine before it is exposed.
    */
   private boolean groupZeroResolved = true;
-
+  private boolean captureDebugResolved = true;
   /** Stashed match boundaries for deferred capture resolution. */
   private int deferredMatchStart;
   private int deferredMatchEnd;
@@ -424,6 +422,8 @@ public final class Matcher implements MatchResult {
    * <p>Captures must already be resolved before calling this method.
    */
   private void applyReplacementTemplate(StringBuilder sb, ReplacementSegment[] template) {
+    resolveCaptures();
+    applyCaptureDebugInfo();
     for (ReplacementSegment seg : template) {
       switch (seg) {
         case ReplacementSegment.Literal(var t) -> sb.append(t);
@@ -464,6 +464,7 @@ public final class Matcher implements MatchResult {
   public boolean matches() {
     modCount++;
     searchFrom = regionStart;
+    captureDebugResolved = false;
 
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
@@ -494,9 +495,12 @@ public final class Matcher implements MatchResult {
             }
           }
         }
+        if (hasMatch && !capturesResolved) {
+          deferredMatchStart += regionStart;
+          deferredMatchEnd += regionStart;
+        }
       }
       updateEndState(MatchOperation.MATCHES);
-      lastMatchWasFind = false;
     }
   }
 
@@ -585,6 +589,7 @@ public final class Matcher implements MatchResult {
   public boolean lookingAt() {
     modCount++;
     searchFrom = regionStart;
+    captureDebugResolved = false;
 
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
@@ -615,9 +620,12 @@ public final class Matcher implements MatchResult {
             }
           }
         }
+        if (hasMatch && !capturesResolved) {
+          deferredMatchStart += regionStart;
+          deferredMatchEnd += regionStart;
+        }
       }
       updateEndState(MatchOperation.LOOKING_AT);
-      lastMatchWasFind = false;
     }
   }
 
@@ -754,6 +762,7 @@ public final class Matcher implements MatchResult {
 
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
+    captureDebugResolved = false;
     // --- Region setup: temporarily substitute text with the region substring ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
@@ -792,7 +801,6 @@ public final class Matcher implements MatchResult {
         }
       }
       updateEndState(MatchOperation.FIND);
-      lastMatchWasFind = hasMatch;
     }
   }
 
@@ -1529,8 +1537,7 @@ public final class Matcher implements MatchResult {
         eagerFallbackCaptures = true;
       }
       resolveCaptures();
-      applyRetainedFindCaptures();
-      applyRetainedRepeatCaptures();
+      applyCaptureDebugInfo();
     }
     return groups[2 * group];
   }
@@ -1566,8 +1573,7 @@ public final class Matcher implements MatchResult {
         eagerFallbackCaptures = true;
       }
       resolveCaptures();
-      applyRetainedFindCaptures();
-      applyRetainedRepeatCaptures();
+      applyCaptureDebugInfo();
     }
     return groups[2 * group + 1];
   }
@@ -1802,6 +1808,7 @@ public final class Matcher implements MatchResult {
       groups = result;
       capturesResolved = true;
       groupZeroResolved = true;
+      captureDebugResolved = false;
       hasMatch = true;
       sb.append(text, appPos, groups[0]);
       applyReplacementTemplate(sb, template);
@@ -2142,6 +2149,7 @@ public final class Matcher implements MatchResult {
     checkMatch();
     eagerFallbackCaptures = true;
     resolveCaptures();
+    applyCaptureDebugInfo();
     return new SnapshotMatchResult(groups.clone(), text, groupCount(), parentPattern.namedGroups());
   }
 
@@ -2188,99 +2196,94 @@ public final class Matcher implements MatchResult {
     groupZeroResolved = true;
   }
 
-  private void applyRetainedFindCaptures() {
-    if (!lastMatchWasFind || groups == null || groups[0] != groups[1]) {
+  private void applyCaptureDebugInfo() {
+    if (captureDebugResolved || groups == null || groups[0] < 0) {
       return;
     }
-    List<Prog> retainedCaptureProgs = parentPattern.retainedCaptureProgs();
-    if (retainedCaptureProgs.isEmpty() || searchFrom >= groups[0]) {
-      return;
-    }
-
-    int matchStart = groups[0];
-    for (Prog retainedProg : retainedCaptureProgs) {
-      int pos = searchFrom;
-      int[] retainedGroups = null;
-      while (pos < matchStart) {
-        int[] candidate = Nfa.search(
-            retainedProg,
-            text,
-            pos,
-            matchStart,
-            matchStart,
-            Nfa.Anchor.UNANCHORED,
-            Nfa.MatchKind.FIRST_MATCH,
-            retainedProg.numCaptures());
-        if (candidate == null || candidate[1] > matchStart) {
-          break;
-        }
-        if (candidate[1] > candidate[0]) {
-          retainedGroups = candidate;
-        }
-        pos = nextSearchPosition(candidate[0], matchStart);
-      }
-      if (retainedGroups != null) {
-        mergeRetainedCaptures(retainedGroups);
-      }
-    }
-  }
-
-  private void applyRetainedRepeatCaptures() {
-    List<Pattern.RetainedRepeatCapture> retainedRepeatCaptures =
-        parentPattern.retainedRepeatCaptures();
-    if (retainedRepeatCaptures.isEmpty() || groups == null || groups[0] < 0) {
-      return;
-    }
-
     int matchStart = groups[0];
     int matchEnd = groups[1];
-    for (Pattern.RetainedRepeatCapture retained : retainedRepeatCaptures) {
+    for (Prog.RetainedRepeatCapture retained : parentPattern.prog().retainedRepeatCaptures()) {
       int[] firstGroups = findRetainedFirstRepeatGroups(retained, matchStart, matchEnd);
       if (firstGroups != null) {
-        mergeRetainedCaptures(firstGroups, true);
+        mergeCaptureDebugGroups(firstGroups, retained.retainedGroups());
       }
     }
+    captureDebugResolved = true;
   }
 
   private int[] findRetainedFirstRepeatGroups(
-      Pattern.RetainedRepeatCapture retained, int matchStart, int matchEnd) {
-    if (matchEnd - matchStart <= retained.minimumInputLength()) {
-      return null;
-    }
-    int pos = matchEnd;
-    while (pos >= matchStart) {
-      int[] firstGroups = Nfa.search(
-          retained.firstProg(),
-          text,
-          matchStart,
-          pos,
-          pos,
-          Nfa.Anchor.ANCHORED,
-          Nfa.MatchKind.FULL_MATCH,
-          retained.firstProg().numCaptures());
-      if (firstGroups != null) {
-        int[] restGroups = Nfa.search(
-            retained.restProg(),
+      Prog.RetainedRepeatCapture retained, int matchStart, int matchEnd) {
+    for (int repeatStart = matchStart;
+        repeatStart < matchEnd;
+        repeatStart = nextSearchPosition(repeatStart, matchEnd)) {
+      int repeatEnd = findRetainedRepeatEnd(retained, repeatStart, matchEnd);
+      if (repeatEnd < 0 || repeatEnd - repeatStart <= retained.minimumInputLength()) {
+        continue;
+      }
+      int pos = repeatEnd;
+      while (pos >= repeatStart) {
+        int[] firstGroups = Nfa.search(
+            retained.firstProg(),
             text,
+            repeatStart,
             pos,
-            matchEnd,
-            matchEnd,
+            pos,
             Nfa.Anchor.ANCHORED,
             Nfa.MatchKind.FULL_MATCH,
-            1);
-        if (restGroups != null) {
-          if (pos - matchStart <= retained.firstMinimumInputLength()) {
-            return null;
+            retained.firstProg().numCaptures());
+        if (firstGroups != null) {
+          if (matchesRetainedRepeatRest(retained, pos, repeatEnd)) {
+            if (pos - repeatStart <= retained.firstMinimumInputLength()) {
+              return null;
+            }
+            return firstGroups;
           }
-          return firstGroups;
         }
+        if (pos == repeatStart) {
+          break;
+        }
+        pos = previousSearchPosition(pos, repeatStart);
       }
-      if (pos == matchStart) {
-        break;
-      }
-      pos = previousSearchPosition(pos, matchStart);
     }
     return null;
+  }
+
+  private int findRetainedRepeatEnd(
+      Prog.RetainedRepeatCapture retained, int repeatStart, int matchEnd) {
+    int repeatEnd = matchEnd;
+    while (repeatEnd >= repeatStart) {
+      int[] repeatGroups = Nfa.search(
+          retained.repeatProg(),
+          text,
+          repeatStart,
+          repeatEnd,
+          repeatEnd,
+          Nfa.Anchor.ANCHORED,
+          Nfa.MatchKind.FULL_MATCH,
+          1);
+      if (repeatGroups != null) {
+        return repeatEnd;
+      }
+      if (repeatEnd == repeatStart) {
+        return -1;
+      }
+      repeatEnd = previousSearchPosition(repeatEnd, repeatStart);
+    }
+    return -1;
+  }
+
+  private boolean matchesRetainedRepeatRest(
+      Prog.RetainedRepeatCapture retained, int restStart, int matchEnd) {
+    int[] restGroups = Nfa.search(
+        retained.restProg(),
+        text,
+        restStart,
+        matchEnd,
+        matchEnd,
+        Nfa.Anchor.ANCHORED,
+        Nfa.MatchKind.FULL_MATCH,
+        1);
+    return restGroups != null;
   }
 
   private int nextSearchPosition(int pos, int limit) {
@@ -2298,18 +2301,14 @@ public final class Matcher implements MatchResult {
     return text.offsetByCodePoints(pos, -1);
   }
 
-  private void mergeRetainedCaptures(int[] retainedGroups) {
-    mergeRetainedCaptures(retainedGroups, false);
-  }
-
-  private void mergeRetainedCaptures(int[] retainedGroups, boolean overwrite) {
-    int groupsToMerge = Math.min(groups.length, retainedGroups.length) / 2;
+  private void mergeCaptureDebugGroups(int[] debugGroups, boolean[] retainedGroups) {
+    int groupsToMerge = Math.min(groups.length, debugGroups.length) / 2;
     for (int group = 1; group < groupsToMerge; group++) {
       int startIdx = 2 * group;
       int endIdx = startIdx + 1;
-      if ((overwrite || groups[startIdx] == -1) && retainedGroups[startIdx] != -1) {
-        groups[startIdx] = retainedGroups[startIdx];
-        groups[endIdx] = retainedGroups[endIdx];
+      if (group < retainedGroups.length && retainedGroups[group] && debugGroups[startIdx] != -1) {
+        groups[startIdx] = debugGroups[startIdx];
+        groups[endIdx] = debugGroups[endIdx];
       }
     }
   }
@@ -2326,6 +2325,7 @@ public final class Matcher implements MatchResult {
     deferredEndMatch = endMatch;
     this.groupZeroResolved = groupZeroResolved;
     capturesResolved = groupZeroResolved && ncap <= 1;
+    captureDebugResolved = false;
   }
 
   private void checkMatch() {

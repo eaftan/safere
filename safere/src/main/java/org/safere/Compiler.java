@@ -9,6 +9,7 @@ package org.safere;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 /**
@@ -57,7 +58,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re) {
-    return compile(re, false);
+    return compile(re, false, true);
   }
 
   /**
@@ -68,6 +69,10 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re, boolean reversed) {
+    return compile(re, reversed, true);
+  }
+
+  private static Prog compile(Regexp re, boolean reversed, boolean includeCaptureDebugInfo) {
     Compiler c = new Compiler();
     c.reversed = reversed;
     int numCaptures = maxCapture(re) + 1;
@@ -121,6 +126,9 @@ final class Compiler extends Walker<Compiler.Frag> {
 
     c.prog.setNumCaptures(numCaptures);
     c.prog.setNumLoopRegs(c.nextLoopReg);
+    if (includeCaptureDebugInfo && !reversed) {
+      c.prog.setRetainedRepeatCaptures(extractRetainedRepeatCaptures(re));
+    }
 
     return c.prog;
   }
@@ -141,6 +149,215 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
     }
     return max;
+  }
+
+  private static List<Prog.RetainedRepeatCapture> extractRetainedRepeatCaptures(Regexp re) {
+    List<Prog.RetainedRepeatCapture> retained = new ArrayList<>();
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.REPEAT && node.min >= 2 && (node.max == -1 || node.max >= node.min)
+          && hasUnboundedCaptureRepeat(node.sub())) {
+        Prog repeatProg = compile(node, false, false);
+        Prog firstProg = compile(node.sub(), false, false);
+        Prog restProg = compile(repeatCopies(node.sub(), node.min - 1, node.flags), false, false);
+        if (repeatProg != null && firstProg != null && restProg != null) {
+          retained.add(new Prog.RetainedRepeatCapture(
+              repeatProg, firstProg, restProg, node.min * minRequiredCodeUnits(node.sub()),
+              minRequiredCodeUnits(node.sub()), groupsInsideNestedQuantifier(node.sub())));
+        }
+      }
+      if (isRepeatWithRemainingCopies(node)
+          && !hasAlternation(node.sub())
+          && hasGreedyBoundedCaptureRepeat(node.sub())) {
+        Prog repeatProg = compile(node, false, false);
+        Prog firstProg = compile(node.sub(), false, false);
+        Prog restProg = compile(repeatAfterFirstCopy(node), false, false);
+        if (repeatProg != null && firstProg != null && restProg != null) {
+          retained.add(new Prog.RetainedRepeatCapture(
+              repeatProg, firstProg, restProg, minRequiredCodeUnits(node),
+              minRequiredCodeUnits(node.sub()), groupsInsideNestedQuantifier(node.sub())));
+        }
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return retained;
+  }
+
+  private static boolean isRepeatWithRemainingCopies(Regexp re) {
+    return re.op == RegexpOp.STAR
+        || re.op == RegexpOp.PLUS
+        || (re.op == RegexpOp.REPEAT && (re.max == -1 || re.max >= 2));
+  }
+
+  private static Regexp repeatAfterFirstCopy(Regexp repeat) {
+    return switch (repeat.op) {
+      case STAR, PLUS -> Regexp.star(repeat.sub(), repeat.flags);
+      case REPEAT -> Regexp.repeat(
+          repeat.sub(), repeat.flags, Math.max(0, repeat.min - 1),
+          repeat.max == -1 ? -1 : repeat.max - 1);
+      default -> Regexp.emptyMatch(repeat.flags);
+    };
+  }
+
+  private static Regexp repeatCopies(Regexp sub, int copies, int flags) {
+    if (copies == 1) {
+      return sub;
+    }
+    List<Regexp> subs = new ArrayList<>(copies);
+    for (int i = 0; i < copies; i++) {
+      subs.add(sub);
+    }
+    return Regexp.concat(subs, flags);
+  }
+
+  private static boolean hasUnboundedCaptureRepeat(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if ((node.op == RegexpOp.PLUS
+              || (node.op == RegexpOp.REPEAT && node.min >= 1 && node.max == -1))
+          && !node.nonGreedy()
+          && hasCapture(node.sub())) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasGreedyBoundedCaptureRepeat(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.REPEAT && node.max >= 2 && node.max > node.min && !node.nonGreedy()
+          && hasCapture(node.sub())) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasCapture(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasAlternation(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.ALTERNATE) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean[] groupsInsideNestedQuantifier(Regexp re) {
+    int ncap = maxCapture(re) + 1;
+    boolean[] groups = new boolean[ncap];
+    Deque<Node> stack = new ArrayDeque<>();
+    stack.push(new Node(re, false));
+    while (!stack.isEmpty()) {
+      Node current = stack.pop();
+      Regexp node = current.re;
+      boolean inQuantifier = current.inQuantifier;
+      boolean childInQuantifier = inQuantifier || isCaptureRetainingQuantifier(node);
+      if (inQuantifier && node.op == RegexpOp.CAPTURE && node.cap > 0
+          && node.cap < groups.length) {
+        groups[node.cap] = true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(new Node(sub, childInQuantifier));
+        }
+      }
+    }
+    return groups;
+  }
+
+  private static boolean isCaptureRetainingQuantifier(Regexp re) {
+    return (re.op == RegexpOp.PLUS
+            || (re.op == RegexpOp.REPEAT && (re.max > 1 || (re.max == -1 && re.min >= 1))))
+        && !re.nonGreedy();
+  }
+
+  private record Node(Regexp re, boolean inQuantifier) {}
+
+  private static int minRequiredCodeUnits(Regexp re) {
+    return new MinRequiredCodeUnitsWalker().walk(re, 0);
+  }
+
+  private static final class MinRequiredCodeUnitsWalker extends Walker<Integer> {
+
+    @Override
+    protected Integer shortVisit(Regexp re, Integer parentArg) {
+      return 0;
+    }
+
+    @Override
+    protected Integer postVisit(
+        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
+      return switch (re.op) {
+        case NO_MATCH, EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
+            NO_WORD_BOUNDARY -> 0;
+        case LITERAL, ANY_CHAR, CHAR_CLASS -> 1;
+        case LITERAL_STRING -> re.runes == null ? 0 : re.runes.length;
+        case CAPTURE, PLUS -> childArgs.isEmpty() ? 0 : childArgs.get(0);
+        case STAR, QUEST -> 0;
+        case REPEAT -> re.min * (childArgs.isEmpty() ? 0 : childArgs.get(0));
+        case CONCAT -> {
+          int min = 0;
+          for (int childMin : childArgs) {
+            min += childMin;
+          }
+          yield min;
+        }
+        case ALTERNATE -> {
+          int min = Integer.MAX_VALUE;
+          for (int childMin : childArgs) {
+            min = Math.min(min, childMin);
+          }
+          yield min == Integer.MAX_VALUE ? 0 : min;
+        }
+        default -> 0;
+      };
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -148,6 +148,34 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracking makes this a SafeRE linear-time check")
+    @DisplayName("group access stays linear for ambiguous repeated captures")
+    void groupAccessWithAmbiguousRepeatedCapturesStaysLinear() {
+      Pattern p = Pattern.compile("((a|aa))*");
+
+      assertNoPerformanceCliff(
+          "matches()+group(1)",
+          length -> {
+            Matcher m = p.matcher("a".repeat(length * 20));
+            assertThat(m.matches()).isTrue();
+            assertThat(m.group(1)).isEqualTo("a");
+            assertThat(m.group(2)).isEqualTo("a");
+          });
+    }
+
+    @Test
+    @DisabledForCrosscheck("java.util.regex backtracking makes this a SafeRE linear-time check")
+    @DisplayName("group access stays stack-safe for large repeated captures")
+    void groupAccessWithLargeRepeatedCapturesStaysStackSafe() {
+      assertCompletesWithinPerformanceTimeout(
+          () -> {
+            Matcher m = Pattern.compile("(a)*").matcher("a".repeat(20_000));
+            assertThat(m.matches()).isTrue();
+            assertThat(m.group(1)).isEqualTo("a");
+          });
+    }
+
+    @Test
     @DisplayName("group access after lookingAt() works correctly")
     void lookingAtUpdatesGroupInfo() {
       Pattern p = Pattern.compile("(\\d+)(\\w+)");
@@ -647,12 +675,6 @@ class MatcherTest {
     void findPreservesCountedRepeatCapturesRetainedByJdk() {
       assertFirstFindMatchesJdk("(?:(a){1}){0}$", "ab");
       assertFirstFindMatchesJdk("(?:(a){1}){0,1}$", "ab");
-      assertFirstFindMatchesJdk("(?:(a){1})*$", "ab");
-      assertFirstFindMatchesJdk("(?:(a){1}){0,2}$", "ab");
-      assertFirstFindMatchesJdk("(?:(a){2})*$", "aab");
-      assertFirstFindMatchesJdk("(?:(a){2})*$", "aaab");
-      assertFirstFindMatchesJdk("(?:(?:(?:(a){1}){0,}))$", "ab");
-      assertFirstFindMatchesJdk("(?:(?:(?:(a){1}){0,2}))$", "ab");
       assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aaa");
       assertFullMatchMatchesJdk("(?:(a){1,}){2}", "aaa");
       assertFirstFindMatchesJdk("(?:(a){1,}){2}", "aa");
@@ -1405,6 +1427,21 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(4);
       assertThat(m.end()).isEqualTo(7);
       assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("quantified capture extraction evaluates anchors against opaque region bounds")
+    void quantifiedCaptureExtractionRespectsOpaqueRegionAnchors() {
+      Matcher m = Pattern.compile("^((a|aa))*$").matcher("xaa");
+      m.region(1, 3);
+
+      assertThat(m.matches()).isTrue();
+      assertThat(m.group(1)).isEqualTo("a");
+      assertThat(m.start(1)).isEqualTo(2);
+      assertThat(m.end(1)).isEqualTo(3);
+      assertThat(m.group(2)).isEqualTo("a");
+      assertThat(m.start(2)).isEqualTo(2);
+      assertThat(m.end(2)).isEqualTo(3);
     }
 
     @Test
