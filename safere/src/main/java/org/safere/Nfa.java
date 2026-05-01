@@ -298,8 +298,14 @@ final class Nfa {
       // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
       // via registers. Within one addToThreadq call, it is visited at most twice (once
       // to save the position, once to detect zero-width and redirect to exit).
+      //
+      // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
+      // same alternation or capture instruction at the same input position with different capture
+      // registers. The later zero-width iteration is JDK-visible and must not be discarded.
       Inst ip = prog.inst(id);
-      if (ip.op != InstOp.PROGRESS_CHECK) {
+      if (ip.op != InstOp.PROGRESS_CHECK
+          && ip.op != InstOp.ALT
+          && ip.op != InstOp.CAPTURE) {
         visited.add(id);
       }
       switch (ip.op) {
