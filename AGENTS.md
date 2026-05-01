@@ -202,6 +202,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   Do not add special cases, flags, or if-statements that paper over symptoms.
   A correct fix addresses the underlying design flaw — if a DFA cache key is
   missing a dimension, fix the cache key; don't add a post-hoc correction.
+- **Do not make point fixes.** A fix must generalize to the semantic class of
+  the bug, not just the specific repro, issue, fuzz seed, or benchmark case.
+  Avoid pattern-string checks, input-shape checks, and other one-off guards
+  unless they directly encode a documented regex/API rule.
 - **Verify the invariant, not just the test.** After a fix, articulate *why*
   it is correct in general, not just why it makes a specific test pass.  If
   you can construct a new input that would still break, the fix is wrong.

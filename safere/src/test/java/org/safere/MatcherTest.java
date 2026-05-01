@@ -671,6 +671,17 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() matches JDK captures for repeated empty groups")
+    void findMatchesJdkCapturesForRepeatedEmptyGroups() {
+      assertFirstFindMatchesJdk("()*", "");
+      assertFirstFindMatchesJdk("(())*", "");
+      assertFirstFindMatchesJdk("(?:())*", "");
+      assertFirstFindMatchesJdk("(a?)*", "");
+      assertFirstFindMatchesJdk("(?:((^){2}))*", "");
+      assertFirstFindMatchesJdk("$|^Fe|()\u00fc|()*|||||^D*4", "\u007f*\u007f");
+    }
+
+    @Test
     @DisplayName("find() preserves counted-repeat captures retained by JDK")
     void findPreservesCountedRepeatCapturesRetainedByJdk() {
       assertFirstFindMatchesJdk("(?:(a){1}){0}$", "ab");

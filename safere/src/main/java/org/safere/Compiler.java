@@ -400,8 +400,10 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
       case CAPTURE -> {
         if (isAnchorStartImpl(re.sub(), depth + 1)) {
-          yield Regexp.capture(
+          Regexp capture = Regexp.capture(
               stripAnchorStartImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
+          capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
+          yield capture;
         }
         yield re;
       }
@@ -467,8 +469,10 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
       case CAPTURE -> {
         if (isAnchorEndImpl(re.sub(), depth + 1)) {
-          yield Regexp.capture(
+          Regexp capture = Regexp.capture(
               stripAnchorEndImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
+          capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
+          yield capture;
         }
         yield re;
       }
@@ -730,6 +734,49 @@ final class Compiler extends Walker<Compiler.Frag> {
     return new Frag(id, PatchList.mk(id2 << 1), a.nullable);
   }
 
+  private void suppressCapture(Frag a, int cap) {
+    if (isNoMatch(a) || a.end.head != a.end.tail || (a.end.head & 1) != 0) {
+      return;
+    }
+    Inst start = prog.mutableInst(a.begin);
+    int endId = a.end.head >> 1;
+    Inst end = prog.mutableInst(endId);
+    if (start.op == InstOp.CAPTURE && start.arg == 2 * cap
+        && end.op == InstOp.CAPTURE && end.arg == 2 * cap + 1) {
+      start.initNop(start.out);
+      end.initNop(end.out);
+    }
+  }
+
+  private static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
+    return re.op == RegexpOp.CAPTURE
+        && re.cap > 0
+        && !re.sourceNonCapturingGroup
+        && isPureEmpty(re.sub());
+  }
+
+  private static boolean isPureEmpty(Regexp re) {
+    return switch (re.op) {
+      case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
+           NO_WORD_BOUNDARY -> true;
+      case CAPTURE -> isPureEmpty(re.sub());
+      case CONCAT -> {
+        if (re.subs == null) {
+          yield true;
+        }
+        boolean pure = true;
+        for (Regexp sub : re.subs) {
+          if (!isPureEmpty(sub)) {
+            pure = false;
+            break;
+          }
+        }
+        yield pure;
+      }
+      default -> false;
+    };
+  }
+
   private Frag literal(int rune, boolean foldCase) {
     // In our code-point model, a literal is just a single CHAR_RANGE.
     return charRange(rune, rune, foldCase);
@@ -801,7 +848,13 @@ final class Compiler extends Walker<Compiler.Frag> {
         yield f;
       }
 
-      case STAR -> star(childArgs.get(0), re.nonGreedy());
+      case STAR -> {
+        Frag child = childArgs.get(0);
+        if (isDirectRepeatedPureEmptyCapture(re.sub())) {
+          suppressCapture(child, re.sub().cap);
+        }
+        yield star(child, re.nonGreedy());
+      }
 
       case PLUS -> plus(childArgs.get(0), re.nonGreedy());
 

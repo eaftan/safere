@@ -166,7 +166,8 @@ final class Simplifier {
             && a.min == b.min && a.max == b.max;
 
       case CAPTURE:
-        return a.cap == b.cap && Objects.equals(a.name, b.name);
+        return a.cap == b.cap && Objects.equals(a.name, b.name)
+            && a.sourceNonCapturingGroup == b.sourceNonCapturingGroup;
 
       case HAVE_MATCH:
         return a.matchId == b.matchId;
@@ -271,7 +272,9 @@ final class Simplifier {
       case REPEAT:
         return Regexp.repeat(newSubs.getFirst(), re.flags, re.min, re.max);
       case CAPTURE:
-        return Regexp.capture(newSubs.getFirst(), re.flags, re.cap, re.name);
+        Regexp capture = Regexp.capture(newSubs.getFirst(), re.flags, re.cap, re.name);
+        capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
+        return capture;
       case STAR:
         return Regexp.star(newSubs.getFirst(), re.flags);
       case PLUS:
@@ -490,7 +493,9 @@ final class Simplifier {
           if (newsub == re.subs.getFirst()) {
             return re;
           }
-          return Regexp.capture(newsub, re.flags, re.cap, re.name);
+          Regexp capture = Regexp.capture(newsub, re.flags, re.cap, re.name);
+          capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
+          return capture;
         }
 
         case STAR:
