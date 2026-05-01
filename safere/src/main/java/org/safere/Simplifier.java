@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -74,6 +75,7 @@ final class Simplifier {
       case PLUS:
       case QUEST:
       case REPEAT:
+      case NON_CAPTURE:
       case CAPTURE:
         break;
       default:
@@ -100,6 +102,7 @@ final class Simplifier {
         case PLUS:
         case QUEST:
         case REPEAT:
+        case NON_CAPTURE:
         case CAPTURE:
           Regexp a2 = a.subs.get(0);
           Regexp b2 = b.subs.get(0);
@@ -165,9 +168,11 @@ final class Simplifier {
         return ((a.flags ^ b.flags) & ParseFlags.NON_GREEDY) == 0
             && a.min == b.min && a.max == b.max;
 
+      case NON_CAPTURE:
+        return true;
+
       case CAPTURE:
-        return a.cap == b.cap && Objects.equals(a.name, b.name)
-            && a.sourceNonCapturingGroup == b.sourceNonCapturingGroup;
+        return a.cap == b.cap && Objects.equals(a.name, b.name);
 
       case HAVE_MATCH:
         return a.matchId == b.matchId;
@@ -271,10 +276,10 @@ final class Simplifier {
     switch (re.op) {
       case REPEAT:
         return Regexp.repeat(newSubs.getFirst(), re.flags, re.min, re.max);
+      case NON_CAPTURE:
+        return Regexp.nonCapture(newSubs.getFirst(), re.flags);
       case CAPTURE:
-        Regexp capture = Regexp.capture(newSubs.getFirst(), re.flags, re.cap, re.name);
-        capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
-        return capture;
+        return Regexp.capture(newSubs.getFirst(), re.flags, re.cap, re.name);
       case STAR:
         return Regexp.star(newSubs.getFirst(), re.flags);
       case PLUS:
@@ -488,14 +493,23 @@ final class Simplifier {
           }
         }
 
+        case NON_CAPTURE: {
+          Regexp newsub = childArgs.get(0);
+          if (!isPureEmpty(newsub) || !hasCapture(newsub)) {
+            return newsub;
+          }
+          if (newsub == re.subs.getFirst()) {
+            return re;
+          }
+          return Regexp.nonCapture(newsub, re.flags);
+        }
+
         case CAPTURE: {
           Regexp newsub = childArgs.get(0);
           if (newsub == re.subs.getFirst()) {
             return re;
           }
-          Regexp capture = Regexp.capture(newsub, re.flags, re.cap, re.name);
-          capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
-          return capture;
+          return Regexp.capture(newsub, re.flags, re.cap, re.name);
         }
 
         case STAR:
@@ -513,9 +527,7 @@ final class Simplifier {
           if (re.op == newsub.op && re.flags == newsub.flags) {
             return newsub;
           }
-          // Create the node directly — do NOT use the cross-op squashing factory.
-          // The C++ SimplifyWalker also creates nodes directly here.
-          return rawQuantifier(re.op, newsub, re.flags);
+          return starPlusOrQuest(re.op, newsub, re.flags);
         }
 
         case REPEAT: {
@@ -543,6 +555,45 @@ final class Simplifier {
         || re.op == RegexpOp.NO_WORD_BOUNDARY
         || re.op == RegexpOp.BEGIN_TEXT
         || re.op == RegexpOp.END_TEXT;
+  }
+
+  private static boolean isPureEmpty(Regexp re) {
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      switch (node.op) {
+        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
+             NO_WORD_BOUNDARY -> {}
+        case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
+        case CONCAT -> {
+          for (Regexp sub : node.subs) {
+            stack.push(sub);
+          }
+        }
+        default -> {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private static boolean hasCapture(Regexp re) {
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.CAPTURE && node.cap > 0) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -577,6 +628,8 @@ final class Simplifier {
         return true;
       case CHAR_CLASS:
         return !re.charClass.isEmpty() && !isFull(re.charClass);
+      case NON_CAPTURE:
+        return false;
       case CAPTURE:
         return computeSimple(re.subs.getFirst());
       case STAR:

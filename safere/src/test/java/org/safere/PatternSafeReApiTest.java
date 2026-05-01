@@ -10,6 +10,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.Method;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,41 @@ class PatternSafeReApiTest {
   void numGroupsNoCaptures() {
     Pattern p = Pattern.compile("abc");
     assertThat(p.numGroups()).isZero();
+  }
+
+  @Test
+  void transparentGroupsPreserveLiteralAccelerators() {
+    Pattern p = Pattern.compile("(?:abcdef)");
+
+    assertThat(invokePatternMetadata(p, "literalMatch")).isEqualTo("abcdef");
+    assertThat(invokePatternMetadata(p, "prefix")).isEqualTo("abcdef");
+  }
+
+  @Test
+  void transparentGroupsPreserveCharacterClassAccelerators() {
+    Pattern p = Pattern.compile("(?:[A-Z]+)");
+
+    boolean[] prefix = (boolean[]) invokePatternMetadata(p, "charClassPrefixAscii");
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['A']).isTrue();
+    assertThat(invokePatternMetadata(p, "charClassMatchRanges")).isNotNull();
+  }
+
+  @Test
+  void transparentGroupsPreserveKeywordAlternationAccelerator() {
+    Pattern p = Pattern.compile("(?i)\\b(?:error|warning)\\b");
+
+    assertThat(invokePatternMetadata(p, "keywordAlternation")).isNotNull();
+  }
+
+  private static Object invokePatternMetadata(Pattern pattern, String methodName) {
+    try {
+      Method method = Pattern.class.getDeclaredMethod(methodName);
+      method.setAccessible(true);
+      return method.invoke(pattern);
+    } catch (ReflectiveOperationException e) {
+      throw new AssertionError("Could not read Pattern metadata: " + methodName, e);
+    }
   }
 
   @Test

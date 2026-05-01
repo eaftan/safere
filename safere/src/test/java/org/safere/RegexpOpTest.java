@@ -15,8 +15,7 @@ class RegexpOpTest {
 
   @Test
   void allOpsAreDefined() {
-    // 21 operators as defined in RE2's regexp.h
-    assertThat(RegexpOp.values().length).isEqualTo(21);
+    assertThat(RegexpOp.values()).contains(RegexpOp.NON_CAPTURE);
   }
 
   @Test

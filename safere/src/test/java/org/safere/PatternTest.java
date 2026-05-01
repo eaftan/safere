@@ -8,6 +8,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
@@ -80,6 +81,22 @@ class PatternTest {
       assertThat(p.pattern()).isEmpty();
       assertThat(p.matcher("").matches()).isTrue();
       assertThat(p.matcher("abc").find()).isTrue();
+    }
+
+    @Test
+    @DisabledForCrosscheck("JDK stack overflows on this SafeRE stack-safety stress case")
+    void deeplyNestedTransparentGroupsRemainStackSafe() {
+      int depth = 20_000;
+      StringBuilder regex = new StringBuilder(depth * 3 + 4);
+      for (int i = 0; i < depth; i++) {
+        regex.append("(?:");
+      }
+      regex.append("()");
+      regex.append(")".repeat(depth));
+      regex.append("*");
+
+      assertThatCode(() -> Pattern.compile(regex.toString()))
+          .doesNotThrowAnyException();
     }
   }
 
