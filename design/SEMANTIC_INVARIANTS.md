@@ -322,6 +322,8 @@ then map each transition to JDK-compatible behavior.
 
 ### Parser Dialect Compatibility Design
 
+Focused design: [PARSER_DIALECT_COMPATIBILITY.md](PARSER_DIALECT_COMPATIBILITY.md).
+
 Scope: #216, #217, #220, #224, and future syntax compatibility issues.
 
 This design should define the dialect policy for every syntax family: accepted

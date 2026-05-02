@@ -95,6 +95,13 @@ class JdkSyntaxCompatibilityTest {
         .isEqualTo(jdkMatches);
   }
 
+  /** Asserts SafeRE full-match behavior agrees with the JDK for every input. */
+  private static void assertFullMatchesSameForAll(String regex, List<String> inputs) {
+    for (String input : inputs) {
+      assertMatchesFull(regex, input);
+    }
+  }
+
   /**
    * Asserts SafeRE compiles with the given flags and matches identically to JDK on the given
    * input.
@@ -116,6 +123,131 @@ class JdkSyntaxCompatibilityTest {
       assertThat(safeM.group())
           .as("group() for /%s/ (flags=%d) on \"%s\"", regex, jdkFlags, input)
           .isEqualTo(jdkM.group());
+    }
+  }
+
+  private record SyntaxFamilyCase(
+      String family, String acceptedRegex, String matchingInput, String nonMatchingInput) {}
+
+  private record DialectRejection(String family, String regex) {}
+
+  private record CharacterClassMembershipCase(String regex, List<String> inputs) {}
+
+  @Nested
+  @DisplayName("Syntax-family compatibility matrix")
+  class SyntaxFamilyCompatibilityMatrix {
+    static Stream<Arguments> acceptedSyntaxFamilies() {
+      return Stream.of(
+          Arguments.of(new SyntaxFamilyCase("literal characters", "abc", "abc", "ab")),
+          Arguments.of(new SyntaxFamilyCase("quoting", "\\Q.+*\\E", ".+*", "abc")),
+          Arguments.of(new SyntaxFamilyCase("control escapes", "\\t", "\t", "t")),
+          Arguments.of(new SyntaxFamilyCase("octal escapes", "\\041", "!", "1")),
+          Arguments.of(new SyntaxFamilyCase("hex escapes", "\\x41", "A", "x41")),
+          Arguments.of(new SyntaxFamilyCase("Unicode escapes", "\\u0041", "A", "u0041")),
+          Arguments.of(new SyntaxFamilyCase("named characters", "\\N{LATIN SMALL LETTER A}",
+              "a", "A")),
+          Arguments.of(new SyntaxFamilyCase("predefined classes", "\\d", "7", "a")),
+          Arguments.of(new SyntaxFamilyCase("Java character classes", "\\p{javaLowerCase}",
+              "a", "A")),
+          Arguments.of(new SyntaxFamilyCase("POSIX property escapes", "\\p{Lower}", "a", "A")),
+          Arguments.of(new SyntaxFamilyCase("POSIX bracket fragments", "[[:lower:]]",
+              "l", "a")),
+          Arguments.of(new SyntaxFamilyCase("Unicode scripts", "\\p{IsLatin}", "A", "1")),
+          Arguments.of(new SyntaxFamilyCase("Unicode blocks", "\\p{InGreek}", "\u0391", "A")),
+          Arguments.of(new SyntaxFamilyCase("Unicode categories", "\\p{Lu}", "A", "a")),
+          Arguments.of(new SyntaxFamilyCase("Unicode binary properties", "\\p{IsAlphabetic}",
+              "a", "1")),
+          Arguments.of(new SyntaxFamilyCase("class union", "[a-d[m-p]]", "m", "z")),
+          Arguments.of(new SyntaxFamilyCase("class intersection", "[a-z&&[def]]", "d", "a")),
+          Arguments.of(new SyntaxFamilyCase("class subtraction", "[a-z&&[^bc]]", "a", "b")),
+          Arguments.of(new SyntaxFamilyCase("capturing groups", "(ab)+", "abab", "aba")),
+          Arguments.of(new SyntaxFamilyCase("named groups", "(?<word>\\w+)", "abc", "!")),
+          Arguments.of(new SyntaxFamilyCase("non-capturing groups", "(?:ab)+", "abab", "aba")),
+          Arguments.of(new SyntaxFamilyCase("greedy quantifiers", "ab*c", "abbc", "abdc")),
+          Arguments.of(new SyntaxFamilyCase("lazy quantifiers", "a.*?c", "abc", "ab")),
+          Arguments.of(new SyntaxFamilyCase("bounded quantifiers", "a{2,4}", "aaa", "a")),
+          Arguments.of(new SyntaxFamilyCase("boundary matchers", "\\bword\\b", "word", "sword")),
+          Arguments.of(new SyntaxFamilyCase("linebreak matcher", "\\R", "\r\n", "a")),
+          Arguments.of(new SyntaxFamilyCase("comments flag", "(?x)a b c # comment", "abc", "ab")),
+          Arguments.of(new SyntaxFamilyCase("embedded flags", "(?i:abc)def", "ABCdef",
+              "ABCDEF")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("acceptedSyntaxFamilies")
+    @DisplayName("accepted syntax families compile and match like JDK")
+    void acceptedSyntaxFamiliesCompileAndMatchLikeJdk(SyntaxFamilyCase syntaxCase) {
+      assertMatchesFull(syntaxCase.acceptedRegex(), syntaxCase.matchingInput());
+      assertMatchesFull(syntaxCase.acceptedRegex(), syntaxCase.nonMatchingInput());
+    }
+
+    static Stream<Arguments> nonJdkDialectSpellings() {
+      return Stream.of(
+          Arguments.of(new DialectRejection("Python named capture", "(?P<word>a)")),
+          Arguments.of(new DialectRejection("bare script property", "\\p{Latin}")),
+          Arguments.of(new DialectRejection("bare binary property", "\\p{Alphabetic}")),
+          Arguments.of(new DialectRejection("lowercase category", "\\p{lu}")),
+          Arguments.of(new DialectRejection("invalid numeric class escape", "[\\123]")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonJdkDialectSpellings")
+    @DisplayName("non-JDK dialect spellings are rejected")
+    void nonJdkDialectSpellingsAreRejected(DialectRejection rejection) {
+      assertRejectedByJdkAndSafeRe(rejection.regex());
+    }
+
+    static Stream<Arguments> malformedJdkSyntax() {
+      return Stream.of(
+          Arguments.of(new DialectRejection("bare leading class intersection", "[&&]")),
+          Arguments.of(new DialectRejection("bare negated leading class intersection", "[^&&]")),
+          Arguments.of(new DialectRejection("solitary ampersand after leading class intersection",
+              "[&&&b]")),
+          Arguments.of(new DialectRejection(
+              "solitary ampersand after negated leading class intersection", "[^&&&b]")),
+          Arguments.of(new DialectRejection("repeated leading class intersection", "[&&&&b]")),
+          Arguments.of(new DialectRejection("repeated negated leading class intersection",
+              "[^&&&&b]")),
+          Arguments.of(new DialectRejection("comments-mode spaced bare leading class intersection",
+              "(?x)[&&  ]")),
+          Arguments.of(new DialectRejection("comments-mode commented bare leading class intersection",
+              "(?x)[&& #x\n ]")),
+          Arguments.of(new DialectRejection(
+              "comments-mode spaced solitary ampersand after leading class intersection",
+              "(?x)[&&  &b]")),
+          Arguments.of(new DialectRejection(
+              "comments-mode spaced repeated leading class intersection", "(?x)[&&  &&b]")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("malformedJdkSyntax")
+    @DisplayName("malformed JDK syntax is rejected")
+    void malformedJdkSyntaxIsRejected(DialectRejection rejection) {
+      assertRejectedByJdkAndSafeRe(rejection.regex());
+    }
+
+    static Stream<Arguments> unsupportedNonRegularJdkSyntax() {
+      return Stream.of(
+          Arguments.of(new DialectRejection("backreference", "(a)\\1")),
+          Arguments.of(new DialectRejection("named backreference", "(?<name>a)\\k<name>")),
+          Arguments.of(new DialectRejection("positive lookahead", "a(?=b)")),
+          Arguments.of(new DialectRejection("negative lookahead", "a(?!b)")),
+          Arguments.of(new DialectRejection("positive lookbehind", "(?<=a)b")),
+          Arguments.of(new DialectRejection("negative lookbehind", "(?<!a)b")),
+          Arguments.of(new DialectRejection("possessive quantifier", "a++")),
+          Arguments.of(new DialectRejection("atomic group", "(?>a+)")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unsupportedNonRegularJdkSyntax")
+    @DisplayName("JDK syntax outside SafeRE's linear-time subset is rejected")
+    void unsupportedNonRegularJdkSyntaxIsRejected(DialectRejection rejection) {
+      assertThatNoException()
+          .as("JDK should accept: %s", rejection.regex())
+          .isThrownBy(() -> java.util.regex.Pattern.compile(rejection.regex()));
+      assertThatThrownBy(() -> Pattern.compile(rejection.regex()))
+          .as("SafeRE should reject unsupported syntax: %s", rejection.regex())
+          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 
@@ -487,6 +619,28 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame(regex, "a");
       assertMatchesSame(regex, "`");
       assertMatchesSame(regex, "˫");
+    }
+
+    static Stream<Arguments> generatedCharacterClassMembershipCases() {
+      List<String> inputs = List.of("", "&", "[", "]", ":", "^", "-", "a", "b", "c",
+          "d", "e", "f", "m", "p", "z", "`", "+");
+      return Stream.of(
+          Arguments.of(new CharacterClassMembershipCase("[&&abc]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&&&b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-z&&[def]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-z&&[^bc]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-d[m-p]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[:lower:]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^[:lower:]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[:^space:]]", inputs)));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("generatedCharacterClassMembershipCases")
+    @DisplayName("character-class edge syntax matches JDK over generated inputs")
+    void characterClassEdgeSyntaxMatchesJdkOverGeneratedInputs(
+        CharacterClassMembershipCase membershipCase) {
+      assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
     }
 
     @Test
