@@ -68,6 +68,12 @@ public final class Matcher implements MatchResult {
     FIND
   }
 
+  private enum ResultStatus {
+    RESET_NO_ATTEMPT,
+    MATCHED,
+    FAILED
+  }
+
   /**
    * Minimum text length for the reverse-first optimization on end-anchored patterns. For shorter
    * texts, the forward DFA is trivially fast and the one-time cost of lazily compiling the reverse
@@ -104,6 +110,7 @@ public final class Matcher implements MatchResult {
   private String text;
   private int[] groups;
   private boolean hasMatch;
+  private ResultStatus resultStatus = ResultStatus.RESET_NO_ATTEMPT;
   private int searchFrom;
   private int appendPos;
   private boolean transparentBounds;
@@ -194,31 +201,113 @@ public final class Matcher implements MatchResult {
   private boolean applyEngineResult(EngineResult result) {
     switch (result) {
       case NoMatchResult ignored -> {
-        groups = null;
-        hasMatch = false;
-        capturesResolved = true;
-        groupZeroResolved = true;
+        applyFailedMatchResult();
       }
       case FullMatchResult full -> {
-        groups = full.groups();
-        hasMatch = groups != null;
-        capturesResolved = true;
-        groupZeroResolved = true;
+        applyFullMatchResult(full.groups());
       }
       case DeferredMatchResult deferred -> {
-        groups = new int[2 * deferred.ncap()];
-        Arrays.fill(groups, -1);
-        groups[0] = deferred.start();
-        groups[1] = deferred.end();
-        deferredMatchStart = deferred.start();
-        deferredMatchEnd = deferred.end();
-        deferredEndMatch = deferred.endMatch();
-        groupZeroResolved = deferred.groupZeroResolved();
-        capturesResolved = deferred.groupZeroResolved() && deferred.ncap() <= 1;
-        hasMatch = true;
+        applyDeferredMatchResult(deferred);
       }
     }
     return hasMatch;
+  }
+
+  private void applyFailedMatchResult() {
+    groups = null;
+    hasMatch = false;
+    resultStatus = ResultStatus.FAILED;
+    clearDeferredCaptureState();
+  }
+
+  private void applyFullMatchResult(int[] resultGroups) {
+    groups = resultGroups;
+    hasMatch = resultGroups != null;
+    resultStatus = hasMatch ? ResultStatus.MATCHED : ResultStatus.FAILED;
+    clearDeferredCaptureState();
+  }
+
+  private void applyDeferredMatchResult(DeferredMatchResult deferred) {
+    groups = new int[2 * deferred.ncap()];
+    Arrays.fill(groups, -1);
+    groups[0] = deferred.start();
+    groups[1] = deferred.end();
+    deferredMatchStart = deferred.start();
+    deferredMatchEnd = deferred.end();
+    deferredEndMatch = deferred.endMatch();
+    groupZeroResolved = deferred.groupZeroResolved();
+    capturesResolved = deferred.groupZeroResolved() && deferred.ncap() <= 1;
+    hasMatch = true;
+    resultStatus = ResultStatus.MATCHED;
+  }
+
+  private void clearCurrentResult() {
+    groups = null;
+    hasMatch = false;
+    resultStatus = ResultStatus.RESET_NO_ATTEMPT;
+    clearDeferredCaptureState();
+  }
+
+  private void clearDeferredCaptureState() {
+    capturesResolved = true;
+    groupZeroResolved = true;
+    deferredMatchStart = 0;
+    deferredMatchEnd = 0;
+    deferredEndMatch = false;
+  }
+
+  private void resetReplacementState() {
+    appendPos = 0;
+  }
+
+  private void resetSearchStateForInputStart() {
+    searchFrom = 0;
+  }
+
+  private void resetSearchStateForRegionStart() {
+    searchFrom = regionStart;
+  }
+
+  private void resetStateForCurrentInput() {
+    text = charSequenceToString(inputSequence);
+    regionStart = 0;
+    regionEnd = text.length();
+    resetSearchStateForInputStart();
+    resetReplacementState();
+    clearCurrentResult();
+    eagerFallbackCaptures = false;
+  }
+
+  private void resetStateForRegion(int start, int end) {
+    regionStart = start;
+    regionEnd = end;
+    resetSearchStateForRegionStart();
+    resetReplacementState();
+    clearCurrentResult();
+  }
+
+  private void invalidatePatternCaches() {
+    cachedForwardDfa = null;
+    cachedReverseDfa = null;
+    reverseDfaLookedUp = false;
+    if (bitStateBorrowed && cachedBitState != null) {
+      bitStateBorrowed = false;
+      cachedBitState = null;
+    }
+    bitStateResult = null;
+  }
+
+  private void invalidateInputDependentCaches() {
+    bitStateBorrowed = false;
+    cachedBitState = null;
+    bitStateResult = null;
+  }
+
+  private void preserveResultAcrossBoundsChange() {
+    if (hasMatch && !capturesResolved) {
+      resolveCaptures();
+    }
+    clearDeferredCaptureState();
   }
 
   private EnginePathOptions enginePathOptions() {
@@ -269,10 +358,9 @@ public final class Matcher implements MatchResult {
     int len = text.length();
     if (len == 0) {
       if (allowEmpty) {
-        groups = new int[]{0, 0};
-        return true;
+        return applyEngineResult(new FullMatchResult(new int[]{0, 0}));
       }
-      return false;
+      return applyEngineResult(new NoMatchResult());
     }
 
     // Scan every code point.
@@ -281,22 +369,21 @@ public final class Matcher implements MatchResult {
       int cp = text.codePointAt(i);
       if (cp < 64) {
         if ((b0 & (1L << cp)) == 0) {
-          return false;
+          return applyEngineResult(new NoMatchResult());
         }
       } else if (cp < 128) {
         if ((b1 & (1L << (cp - 64))) == 0) {
-          return false;
+          return applyEngineResult(new NoMatchResult());
         }
       } else {
         if (!binarySearchRanges(ranges, cp)) {
-          return false;
+          return applyEngineResult(new NoMatchResult());
         }
       }
       i += Character.charCount(cp);
     }
 
-    groups = new int[]{0, len};
-    return true;
+    return applyEngineResult(new FullMatchResult(new int[]{0, len}));
   }
 
   /** Binary search through sorted [lo, hi] ranges to check if {@code cp} is in any range. */
@@ -331,44 +418,6 @@ public final class Matcher implements MatchResult {
       }
     }
     return true;
-  }
-
-  /**
-   * Single-pass replaceAll for patterns that are a single character class under a {@code +}
-   * quantifier (e.g., {@code \d+}, {@code [a-zA-Z]+}). Scans the text once, identifying runs of
-   * matching characters and replacing each run with the replacement string. Completely bypasses
-   * all regex engines.
-   */
-  private String charClassReplaceAll(int[] ranges, String replacement) {
-    long b0 = parentPattern.charClassMatchBitmap0();
-    long b1 = parentPattern.charClassMatchBitmap1();
-    int len = text.length();
-
-    StringBuilder sb = new StringBuilder(len);
-    int copyFrom = 0;
-    int i = 0;
-
-    while (i < len) {
-      int cp = text.codePointAt(i);
-      if (charClassContains(b0, b1, ranges, cp)) {
-        // Found start of a match — append preceding non-match text.
-        sb.append(text, copyFrom, i);
-        // Skip past the entire run of matching characters.
-        do {
-          i += Character.charCount(cp);
-          if (i >= len) {
-            break;
-          }
-          cp = text.codePointAt(i);
-        } while (charClassContains(b0, b1, ranges, cp));
-        sb.append(replacement);
-        copyFrom = i;
-      } else {
-        i += Character.charCount(cp);
-      }
-    }
-    sb.append(text, copyFrom, len);
-    return sb.toString();
   }
 
   // ---------------------------------------------------------------------------
@@ -512,17 +561,6 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  /** Tests whether a code point belongs to a character class defined by bitmaps and ranges. */
-  private static boolean charClassContains(long b0, long b1, int[] ranges, int cp) {
-    if (cp < 64) {
-      return (b0 & (1L << cp)) != 0;
-    } else if (cp < 128) {
-      return (b1 & (1L << (cp - 64))) != 0;
-    } else {
-      return binarySearchRanges(ranges, cp);
-    }
-  }
-
   /**
    * Attempts to match the entire input sequence against the pattern.
    *
@@ -596,8 +634,7 @@ public final class Matcher implements MatchResult {
     // Character-class fast path: for patterns like [a-zA-Z]+, \d+, \w*, etc.
     int[] ccRanges = parentPattern.charClassMatchRanges();
     if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null) {
-      hasMatch = charClassMatchFastPath(ccRanges);
-      return hasMatch;
+      return charClassMatchFastPath(ccRanges);
     }
 
     Prog prog = parentPattern.prog();
@@ -658,9 +695,7 @@ public final class Matcher implements MatchResult {
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
-        groups = null;
-        hasMatch = false;
-        return false;
+        return applyEngineResult(new NoMatchResult());
       }
       if (regionActive && transparentBounds) {
         return lookingAtTransparentRegion();
@@ -761,7 +796,8 @@ public final class Matcher implements MatchResult {
       searchFrom = groups[1];
       if (groups[0] == groups[1]) { // empty match
         if (searchFrom >= regionEnd) {
-          hasMatch = false;
+          applyEngineResult(new NoMatchResult());
+          updateEndState(MatchOperation.FIND);
           return false;
         }
         searchFrom++;
@@ -831,9 +867,7 @@ public final class Matcher implements MatchResult {
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
-        groups = null;
-        hasMatch = false;
-        return false;
+        return applyEngineResult(new NoMatchResult());
       }
       if (regionActive && transparentBounds) {
         return doFindTransparentRegion();
@@ -1739,16 +1773,6 @@ public final class Matcher implements MatchResult {
    * @return the string with all matches replaced
    */
   public String replaceAll(String replacement) {
-    // Character-class fast path: for patterns like \d+, [a-zA-Z]+, etc. with simple
-    // replacement strings (no group references), scan the text in a single pass.
-    int[] ccRanges = parentPattern.charClassMatchRanges();
-    if (enginePathOptions().charClassReplacementFastPath()
-        && ccRanges != null
-        && !parentPattern.charClassMatchAllowEmpty()
-        && isSimpleReplacement(replacement)) {
-      return charClassReplaceAll(ccRanges, replacement);
-    }
-
     // Pre-compile the replacement template once, avoiding per-match parseInt/substring overhead.
     ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
 
@@ -1804,6 +1828,7 @@ public final class Matcher implements MatchResult {
    *     operation failed
    */
   public Matcher appendReplacement(StringBuilder sb, String replacement) {
+    modCount++;
     checkMatch();
     sb.append(text, appendPos, start());
     appendReplacementBody(sb, replacement);
@@ -1834,6 +1859,7 @@ public final class Matcher implements MatchResult {
    *     operation failed
    */
   public Matcher appendReplacement(StringBuffer sb, String replacement) {
+    modCount++;
     checkMatch();
     // Build into a temporary StringBuilder, then transfer to the StringBuffer.
     StringBuilder tmp = new StringBuilder();
@@ -1868,16 +1894,7 @@ public final class Matcher implements MatchResult {
    */
   public Matcher reset() {
     modCount++;
-    this.text = charSequenceToString(inputSequence);
-    regionStart = 0;
-    regionEnd = text.length();
-    searchFrom = 0;
-    appendPos = 0;
-    hasMatch = false;
-    groups = null;
-    capturesResolved = true;
-    groupZeroResolved = true;
-    eagerFallbackCaptures = false;
+    resetStateForCurrentInput();
     return this;
   }
 
@@ -1889,6 +1906,7 @@ public final class Matcher implements MatchResult {
    */
   public Matcher reset(CharSequence input) {
     this.inputSequence = input;
+    invalidateInputDependentCaches();
     return reset();
   }
 
@@ -1916,15 +1934,8 @@ public final class Matcher implements MatchResult {
     if (start > end) {
       throw new IndexOutOfBoundsException("start=" + start + " > end=" + end);
     }
-    regionStart = start;
-    regionEnd = end;
     modCount++;
-    hasMatch = false;
-    searchFrom = start;
-    appendPos = 0;
-    groups = null;
-    capturesResolved = true;
-    groupZeroResolved = true;
+    resetStateForRegion(start, end);
     return this;
   }
 
@@ -2030,25 +2041,17 @@ public final class Matcher implements MatchResult {
     }
     modCount++;
     if (hasMatch && groups != null) {
+      if (!groupZeroResolved) {
+        resolveCaptures();
+      }
       searchFrom = groups[1];
       if (groups[0] == groups[1] && searchFrom < regionEnd) {
         searchFrom++;
       }
     }
     this.parentPattern = newPattern;
-    // Invalidate cached DFA references since they belong to the old pattern.
-    cachedForwardDfa = null;
-    cachedReverseDfa = null;
-    reverseDfaLookedUp = false;
-    // Return borrowed BitState to old pattern if needed.
-    if (bitStateBorrowed && cachedBitState != null) {
-      bitStateBorrowed = false;
-      cachedBitState = null;
-    }
-    hasMatch = false;
-    groups = null;
-    capturesResolved = true;
-    groupZeroResolved = true;
+    invalidatePatternCaches();
+    clearCurrentResult();
     eagerFallbackCaptures = false;
     return this;
   }
@@ -2062,6 +2065,7 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher useTransparentBounds(boolean b) {
+    preserveResultAcrossBoundsChange();
     transparentBounds = b;
     return this;
   }
@@ -2084,6 +2088,7 @@ public final class Matcher implements MatchResult {
    * @return this matcher
    */
   public Matcher useAnchoringBounds(boolean b) {
+    preserveResultAcrossBoundsChange();
     anchoringBounds = b;
     return this;
   }
@@ -2159,7 +2164,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void checkMatch() {
-    if (!hasMatch) {
+    if (resultStatus != ResultStatus.MATCHED) {
       throw new IllegalStateException("No match found");
     }
   }
@@ -2185,7 +2190,9 @@ public final class Matcher implements MatchResult {
     }
     boolean endedAtSensitiveEnd = matchEndsAtSensitiveEnd();
     lastRequireEnd = endedAtSensitiveEnd && parentPattern.hasEndConstraint();
-    lastHitEnd = lastRequireEnd || (endedAtSensitiveEnd && matchCanExtendAtEnd(operation));
+    lastHitEnd = lastRequireEnd
+        || (endedAtSensitiveEnd
+            && (parentPattern.hasHitEndConstraint() || matchCanExtendAtEnd(operation)));
   }
 
   private boolean matchEndsAtSensitiveEnd() {

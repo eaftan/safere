@@ -122,6 +122,8 @@
                         <exclude name="EnginePathEquivalenceTest.java"/>
                         <exclude name="InstOpTest.java"/>
                         <exclude name="InstTest.java"/>
+                        <exclude name="MatcherDeferredCaptureStateTest.java"/>
+                        <exclude name="MatcherTransitionInventoryTest.java"/>
                         <exclude name="NfaTest.java"/>
                         <exclude name="OnePassTest.java"/>
                         <exclude name="ParseFlagsTest.java"/>
