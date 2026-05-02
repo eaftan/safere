@@ -15,12 +15,13 @@ import java.util.Set;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * Parser for RE2 regular expression syntax. Converts a pattern string into a {@link Regexp} AST.
+ * Parser for SafeRE's {@link Pattern} syntax. Converts a JDK-compatible regular expression string
+ * into a {@link Regexp} AST, rejecting unsupported non-regular constructs rather than accepting
+ * another regex dialect as an extension.
  *
- * <p>This is a stack-based operator-precedence parser ported from RE2's {@code parse.cc}. It
- * supports POSIX extended regular expressions (excluding backreferences, collating elements, and
- * collating classes), Perl extensions (when enabled via flags), Unicode character properties, and
- * named captures.
+ * <p>This is a stack-based operator-precedence parser derived from RE2's {@code parse.cc}. The
+ * parser's accepted language is governed by {@code java.util.regex.Pattern} compatibility and the
+ * linear-time execution contract, not by RE2 source syntax compatibility.
  */
 final class Parser {
 
@@ -938,11 +939,15 @@ final class Parser {
         }
       }
 
-      // Character class intersection: &&
-      if (!first
-          && pos + 1 < pattern.length()
-          && pattern.charAt(pos) == '&'
-          && pattern.charAt(pos + 1) == '&') {
+      // Character class intersection: &&. At the start of a class, the JDK treats the marker as
+      // syntax, not as two literal ampersands, and then continues with following class items.
+      if (first && isClassIntersectionOperator()) {
+        pos += 2;
+        requireLeadingClassIntersectionOperandStart();
+        first = false;
+        continue;
+      }
+      if (!first && isClassIntersectionOperator()) {
         pos += 2; // skip '&&'
         if (pos < pattern.length() && pattern.charAt(pos) == ']') {
           break;
@@ -1039,6 +1044,25 @@ final class Parser {
     }
 
     return Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
+  }
+
+  private boolean isClassIntersectionOperator() {
+    return pos + 1 < pattern.length()
+        && pattern.charAt(pos) == '&'
+        && pattern.charAt(pos + 1) == '&';
+  }
+
+  private void requireLeadingClassIntersectionOperandStart() {
+    if ((flags & ParseFlags.COMMENTS) != 0) {
+      skipCommentsAndWhitespace();
+    }
+    if (pos >= pattern.length()) {
+      throw new PatternSyntaxException("missing closing ]", pattern, pos);
+    }
+    char c = pattern.charAt(pos);
+    if (c == ']' || c == '&') {
+      throw new PatternSyntaxException("bad class syntax", pattern, pos);
+    }
   }
 
   private int[] parseCCRange() {
