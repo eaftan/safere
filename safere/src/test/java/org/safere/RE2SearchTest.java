@@ -237,8 +237,6 @@ class RE2SearchTest {
   }
 
   @ParameterizedTest(name = "{0}")
-  @DisabledForCrosscheck(
-      "RE2 search data includes non-JDK syntax and RE2-specific expectations")
   @MethodSource("searchTests")
   void testMatches(SearchTestCase tc) {
     if (hasRe2NonZeroNumericEscape(tc.pattern())) {
@@ -258,8 +256,6 @@ class RE2SearchTest {
   }
 
   @ParameterizedTest(name = "{0}")
-  @DisabledForCrosscheck(
-      "RE2 search data includes non-JDK syntax and RE2-specific expectations")
   @MethodSource("searchTests")
   void testFind(SearchTestCase tc) {
     if (hasRe2NonZeroNumericEscape(tc.pattern())) {

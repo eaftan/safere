@@ -268,8 +268,6 @@ class RE2PosixTest {
   }
 
   @ParameterizedTest(name = "{0}")
-  @DisabledForCrosscheck(
-      "POSIX test data includes submatch semantics that differ from java.util.regex")
   @MethodSource("basicTests")
   void testBasic(PosixTestCase tc) {
     runTest(tc);

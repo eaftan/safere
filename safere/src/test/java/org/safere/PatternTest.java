@@ -511,6 +511,29 @@ class PatternTest {
       assertThat(p.flags())
           .isEqualTo(Pattern.UNICODE_CHARACTER_CLASS | Pattern.UNICODE_CASE);
     }
+
+    @Test
+    @DisplayName("namedGroups() returns named capturing groups")
+    void namedGroupsReturnsMap() {
+      Pattern p = Pattern.compile("(?<user>\\w+)@(?<host>\\w+)");
+      assertThat(p.namedGroups()).containsEntry("user", 1);
+      assertThat(p.namedGroups()).containsEntry("host", 2);
+    }
+
+    @Test
+    @DisplayName("namedGroups() returns an empty map for no named groups")
+    void namedGroupsEmpty() {
+      Pattern p = Pattern.compile("(\\w+)@(\\w+)");
+      assertThat(p.namedGroups()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("namedGroups() returns an unmodifiable map")
+    void namedGroupsUnmodifiable() {
+      Pattern p = Pattern.compile("(?<user>\\w+)@(?<host>\\w+)");
+      assertThatThrownBy(() -> p.namedGroups().put("foo", 99))
+          .isInstanceOf(UnsupportedOperationException.class);
+    }
   }
 
   @Nested
@@ -837,6 +860,13 @@ class PatternTest {
     })
     void invalidPatternsThrow(String pattern) {
       assertThatThrownBy(() -> Pattern.compile(pattern))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    @DisplayName("duplicate named capturing groups are rejected")
+    void duplicateNamedGroupsRejected() {
+      assertThatThrownBy(() -> Pattern.compile("(?<word>a)(?<word>b)"))
           .isInstanceOf(PatternSyntaxException.class);
     }
   }
