@@ -119,6 +119,7 @@
                         <exclude name="DfaNfaTest.java"/>
                         <exclude name="DfaTest.java"/>
                         <exclude name="EmptyOpTest.java"/>
+                        <exclude name="EnginePathEquivalenceTest.java"/>
                         <exclude name="InstOpTest.java"/>
                         <exclude name="InstTest.java"/>
                         <exclude name="NfaTest.java"/>
