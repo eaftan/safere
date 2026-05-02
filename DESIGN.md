@@ -22,9 +22,10 @@ Pattern string ──► Parse ──► Simplify ──► Compile ──► Ex
 ### 1. Parse (`Parser`)
 
 A stack-based operator-precedence parser (ported from RE2's `parse.cc`)
-converts the pattern string into a `Regexp` AST.  It supports POSIX
-extended regex syntax plus Perl extensions (`(?:...)`, `(?P<name>...)`,
-`\d`, `\b`, etc.).
+converts the pattern string into a `Regexp` AST.  It targets the
+`java.util.regex` dialect, including Java-compatible extensions such as
+non-capturing groups (`(?:...)`), named captures (`(?<name>...)`), shorthand
+classes (`\d`, `\b`, etc.), and Unicode properties.
 
 Key details:
 - Implicit concatenation between adjacent atoms.

@@ -91,7 +91,7 @@ exponentially and hangs at n=25.
 - **Linear-time guarantee** — No input can cause catastrophic backtracking
 - **Full Unicode** — Operates on Unicode code points, supports `\p{...}`
   properties, Unicode-aware case folding
-- **Named captures** — `(?P<name>...)` syntax
+- **Named captures** — Java-compatible `(?<name>...)` syntax
 - **Multi-pattern matching** — `PatternSet` matches multiple patterns
   simultaneously in a single pass
 - **Five execution engines** — OnePass, DFA, BitState, NFA, and reverse DFA,
@@ -121,20 +121,19 @@ core algorithms.  Here is how they compare:
 
 ## Supported Syntax
 
-SafeRE supports most of the syntax from `java.util.regex` and RE2:
+SafeRE supports most of the syntax from `java.util.regex`:
 
 | Category | Syntax |
 |---|---|
 | Literals | `a`, `\n`, `\t`, `\x{1F600}`, `\Q...\E` |
 | Character classes | `[abc]`, `[a-z]`, `[^0-9]`, `.` |
 | Perl classes | `\d`, `\D`, `\s`, `\S`, `\w`, `\W` |
-| Unicode properties | `\p{L}`, `\p{Han}`, `\P{Digit}`, `\p{Greek}` |
-| POSIX classes | `[:alpha:]`, `[:digit:]`, `[:space:]` (inside `[...]`) |
+| Unicode properties | `\p{L}`, `\p{IsHan}`, `\P{Digit}`, `\p{Lower}` |
 | Quantifiers | `*`, `+`, `?`, `{n}`, `{n,}`, `{n,m}` |
 | Non-greedy | `*?`, `+?`, `??`, `{n,m}?` |
 | Alternation | `a\|b` |
 | Grouping | `(...)`, `(?:...)` |
-| Named captures | `(?P<name>...)` |
+| Named captures | `(?<name>...)` |
 | Anchors | `^`, `$`, `\A`, `\z`, `\b`, `\B` |
 | Flags | `(?i)`, `(?m)`, `(?s)`, `(?U)` |
 
@@ -259,8 +258,8 @@ fuzzers with `JAZZER_FUZZ=1`.
    `PatternSyntaxException` at compile time.
 2. **Lookahead / lookbehind** (`(?=...)`, `(?<=...)`) — not supported.
 3. **Possessive quantifiers** (`*+`, `++`) — not supported.
-4. **Named captures** use `(?P<name>...)` syntax (RE2-style), not
-   `(?<name>...)` (Java-style). Both are accepted.
+4. **Named captures** use Java-compatible `(?<name>...)` syntax.
+   RE2/Python-style `(?P<name>...)` is rejected.
 
 See [Semantic Compatibility](#semantic-compatibility-with-javautilregex) for
 minor edge-case differences.
