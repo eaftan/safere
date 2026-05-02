@@ -45,7 +45,16 @@ public final class Matcher implements MatchResult {
   private record NoMatchResult() implements EngineResult {
   }
 
-  private record FullMatchResult(int[] groups) implements EngineResult {
+  private static final class FullMatchResult implements EngineResult {
+    private final int[] groups;
+
+    private FullMatchResult(int[] groups) {
+      this.groups = groups;
+    }
+
+    private int[] groups() {
+      return groups;
+    }
   }
 
   private record DeferredMatchResult(
