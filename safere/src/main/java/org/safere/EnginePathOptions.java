@@ -5,6 +5,9 @@
 
 package org.safere;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 /**
  * Package-private engine-path controls for forced-path equivalence tests.
  *
@@ -24,6 +27,7 @@ record EnginePathOptions(
     boolean lazyCaptureExtraction) {
 
   private static final EnginePathOptions ALL_ENABLED = builder().build();
+  private static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
 
   static EnginePathOptions allEnabled() {
     return ALL_ENABLED;
@@ -31,6 +35,33 @@ record EnginePathOptions(
 
   static Builder builder() {
     return new Builder();
+  }
+
+  static Map<EnginePath, OptionAccessor> accessors() {
+    return ACCESSORS;
+  }
+
+  private static Map<EnginePath, OptionAccessor> buildAccessors() {
+    EnumMap<EnginePath, OptionAccessor> accessors = new EnumMap<>(EnginePath.class);
+    accessors.put(EnginePath.LITERAL_FAST_PATHS, EnginePathOptions::literalFastPaths);
+    accessors.put(EnginePath.CHAR_CLASS_MATCH_FAST_PATHS,
+        EnginePathOptions::charClassMatchFastPaths);
+    accessors.put(EnginePath.CHAR_CLASS_REPLACEMENT_FAST_PATH,
+        EnginePathOptions::charClassReplacementFastPath);
+    accessors.put(EnginePath.KEYWORD_ALTERNATION_FAST_PATH,
+        EnginePathOptions::keywordAlternationFastPath);
+    accessors.put(EnginePath.START_ACCELERATION, EnginePathOptions::startAcceleration);
+    accessors.put(EnginePath.ONE_PASS, EnginePathOptions::onePass);
+    accessors.put(EnginePath.DFA, EnginePathOptions::dfa);
+    accessors.put(EnginePath.REVERSE_DFA, EnginePathOptions::reverseDfa);
+    accessors.put(EnginePath.BIT_STATE, EnginePathOptions::bitState);
+    accessors.put(EnginePath.LAZY_CAPTURE_EXTRACTION,
+        EnginePathOptions::lazyCaptureExtraction);
+    return Map.copyOf(accessors);
+  }
+
+  interface OptionAccessor {
+    boolean enabled(EnginePathOptions options);
   }
 
   static final class Builder {

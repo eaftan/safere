@@ -8,13 +8,50 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Forced-path equivalence coverage for package-private engine-path controls. */
 @DisabledForCrosscheck("uses package-private engine-path controls to compare SafeRE internals")
 class EnginePathEquivalenceTest {
+
+  @Test
+  @DisplayName("every forced engine path has a machine-readable contract")
+  void everyForcedEnginePathHasContract() {
+    Set<EnginePath> contracted = EnumSet.noneOf(EnginePath.class);
+    for (EnginePathContract contract : EnginePathContract.all()) {
+      contracted.add(contract.path());
+      assertThat(contract.authorities())
+          .as("authorities for %s", contract.path())
+          .isNotEmpty();
+      if (contract.role() != EnginePathRole.FILTER) {
+        assertThat(contract.guards())
+            .as("guards for %s", contract.path())
+            .isNotEmpty();
+      }
+    }
+
+    assertThat(contracted).containsExactlyInAnyOrderElementsOf(EnginePathOptions.accessors()
+        .keySet());
+    assertThat(EnginePathOptions.accessors().keySet()).containsExactlyInAnyOrderElementsOf(
+        EnumSet.allOf(EnginePath.class));
+  }
+
+  @Test
+  @DisplayName("engine path options disable only their declared path")
+  void enginePathOptionsDisableDeclaredPath() {
+    EnginePathOptions allEnabled = EnginePathOptions.allEnabled();
+    for (Map.Entry<EnginePath, EnginePathOptions.OptionAccessor> entry :
+        EnginePathOptions.accessors().entrySet()) {
+      assertThat(entry.getValue().enabled(allEnabled))
+          .as("default option for %s", entry.getKey())
+          .isTrue();
+    }
+  }
 
   @Test
   @DisplayName("literal fast paths match the canonical engine trace")
