@@ -494,3 +494,89 @@ This design is complete when:
 - Do not emulate unsupported JDK features such as backreferences or lookaround.
 - Do not add guards for individual regex strings; guards must correspond to
   semantic capabilities of an engine path.
+
+## Implemented Approach
+
+The implementation now covers the core enforcement shape described above.
+
+The implemented model is:
+
+- `EnginePathOptions` gives package-private tests a way to disable selected
+  engine paths without changing public API behavior;
+- `EnginePathContract` provides machine-readable contract metadata for every
+  controllable path, including its role, result authority, and semantic guard
+  categories;
+- `Matcher` uses typed internal engine results for core dispatch:
+  `NoMatchResult`, `FullMatchResult`, and `DeferredMatchResult`;
+- core dispatch paths apply those results through a shared helper instead of
+  freely mutating match state in each path;
+- `EnginePathEquivalenceTest` compares observable public traces under default
+  and forced-path configurations;
+- registry tests assert that every forced path has a declared contract and that
+  filter or partial-producer roles do not claim full-result authority;
+- negative guard tests deliberately disable semantic guards for representative
+  OnePass and DFA cases and verify divergence from the canonical path, proving
+  those guards have semantic content.
+
+This is intentionally package-private infrastructure.  Production matching does
+not run multiple engines to compare answers, and public `Pattern.compile`
+continues to use all engine paths enabled with semantic guards active.
+
+## Correctness Evidence
+
+Correctness for this design means:
+
+- disabling an optimization does not change the observable public trace for
+  cases where that optimization claims equivalence;
+- paths that are not generally equivalent are guarded out before they can
+  define public semantics;
+- partial producers cannot silently expose unresolved state as authoritative;
+- replacement fast paths produce the same replacement result as the canonical
+  `find()`-driven replacement loop;
+- the enforcement mechanism does not add production-time multi-engine voting or
+  post-match semantic repair.
+
+The implementation checks those claims in three ways.
+
+First, the forced-path trace tests compare observable API behavior across
+engine configurations.  The traces include:
+
+- `matches()`, `lookingAt()`, and full `find()` sequences;
+- `group()`, `start()`, and `end()` for every visible group;
+- `replaceAll`, `replaceFirst`, functional replacement, and
+  `appendReplacement`;
+- regions and anchoring-bound behavior;
+- multiline/CRLF anchor behavior;
+- `hitEnd()` and `requireEnd()`.
+
+Second, the registry tests make the contracts machine-checkable.  They verify
+that every controllable path has contract metadata, that default production
+options enable every path, and that filter or partial-producer roles cannot
+claim result authority they are not supposed to own.
+
+Third, negative guard tests demonstrate that representative guards are not just
+documentation.  For nullable alternation, forcing OnePass past its guard
+diverges from the canonical trace.  For unreliable DFA start detection, forcing
+the DFA sandwich past its guard diverges from the canonical trace.  Those tests
+prove that the guards protect real semantic differences.
+
+This does not constitute a formal proof of all possible regexes and matcher
+states.  The confidence comes from making the contract executable, then running
+it alongside the existing generated cross-engine and public API test suites.
+
+## Remaining Work
+
+The current implementation completes the main design direction, but there are
+reasonable follow-ups if this area continues to change:
+
+- add negative guard tests for more guard categories, especially BitState
+  capture-equivalence and replacement-only fast paths;
+- expand forced-path generated coverage so more regex/input matrices are
+  produced mechanically rather than hand-selected;
+- add more local comments near individual dispatch branches pointing back to
+  their `EnginePathContract` role;
+- consider moving more public matcher state transitions, such as lifecycle
+  reset and region transitions, into typed state helpers as part of the matcher
+  state-machine design;
+- keep the existing generated public API crosscheck as the broad JDK oracle for
+  behavior that is comparable with `java.util.regex`.
