@@ -311,6 +311,8 @@ access, and end-state flags.
 
 ### Matcher State-Machine Design
 
+Focused design: [MATCHER_STATE_MACHINE.md](MATCHER_STATE_MACHINE.md).
+
 Scope: #225, #226, and related public API lifecycle behavior.
 
 This design should model `Matcher` as an explicit state machine.  It should

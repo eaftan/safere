@@ -108,6 +108,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
   private final transient boolean hasEndConstraint;
+  private final transient boolean hasHitEndConstraint;
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
@@ -187,8 +188,8 @@ public final class Pattern implements Serializable {
       String literalMatch, boolean hasLazy, boolean hasAlternation,
       boolean hasNullableAlternation,
       boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean hasEndConstraint,
-      boolean[] charClassPrefixAscii, StartAcceleration startAcceleration,
-      KeywordAlternation keywordAlternation,
+      boolean hasHitEndConstraint, boolean[] charClassPrefixAscii,
+      StartAcceleration startAcceleration, KeywordAlternation keywordAlternation,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty, EnginePathOptions enginePathOptions) {
     this.pattern = pattern;
@@ -205,6 +206,7 @@ public final class Pattern implements Serializable {
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
     this.hasEndConstraint = hasEndConstraint;
+    this.hasHitEndConstraint = hasHitEndConstraint;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
@@ -268,6 +270,7 @@ public final class Pattern implements Serializable {
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
     boolean hasEndConst = hasEndConstraint(re);
+    boolean hasHitEndConst = hasHitEndConstraint(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
         ? extractCharClassPrefixAscii(metadataAst) : null;
@@ -279,7 +282,7 @@ public final class Pattern implements Serializable {
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, effectiveFlags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
-        hasEndConst, ccPrefixAscii, startAcceleration, keywordAlternation,
+        hasEndConst, hasHitEndConst, ccPrefixAscii, startAcceleration, keywordAlternation,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -889,6 +892,14 @@ public final class Pattern implements Serializable {
     return hasEndConstraint;
   }
 
+  /**
+   * Returns {@code true} if the pattern contains an assertion that observes the end of the input
+   * for {@link Matcher#hitEnd()} purposes.
+   */
+  boolean hasHitEndConstraint() {
+    return hasHitEndConstraint;
+  }
+
   // ---------------------------------------------------------------------------
   // Flag mapping
   // ---------------------------------------------------------------------------
@@ -1144,6 +1155,24 @@ public final class Pattern implements Serializable {
             return true;
           }
         }
+        default -> {}
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasHitEndConstraint(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      switch (node.op) {
+        case END_LINE, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY -> { return true; }
         default -> {}
       }
       if (node.subs != null) {
