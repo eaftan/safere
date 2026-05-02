@@ -394,10 +394,6 @@ final class Compiler extends Walker<Compiler.Frag> {
     return Regexp.rawQuantifier(RegexpOp.STAR, re, flags);
   }
 
-  private static Regexp optional(Regexp re, int flags) {
-    return Regexp.rawQuantifier(RegexpOp.QUEST, re, flags);
-  }
-
   private static Regexp repeatRange(Regexp re, int min, int max, int flags) {
     if (min == 0 && max == 0) {
       return Regexp.emptyMatch(flags);
