@@ -36,55 +36,7 @@ final class Prog {
   private boolean reversed;
   private boolean unixLines;
   private int numLoopRegs;
-  private List<RetainedRepeatCapture> retainedRepeatCaptures = List.of();
-
-  static final class RetainedRepeatCapture {
-    private final Prog repeatProg;
-    private final Prog firstProg;
-    private final Prog restProg;
-    private final int minimumInputLength;
-    private final int firstMinimumInputLength;
-    private final boolean[] retainedGroups;
-
-    RetainedRepeatCapture(
-        Prog repeatProg,
-        Prog firstProg,
-        Prog restProg,
-        int minimumInputLength,
-        int firstMinimumInputLength,
-        boolean[] retainedGroups) {
-      this.repeatProg = repeatProg;
-      this.firstProg = firstProg;
-      this.restProg = restProg;
-      this.minimumInputLength = minimumInputLength;
-      this.firstMinimumInputLength = firstMinimumInputLength;
-      this.retainedGroups = retainedGroups.clone();
-    }
-
-    Prog repeatProg() {
-      return repeatProg;
-    }
-
-    Prog firstProg() {
-      return firstProg;
-    }
-
-    Prog restProg() {
-      return restProg;
-    }
-
-    int minimumInputLength() {
-      return minimumInputLength;
-    }
-
-    int firstMinimumInputLength() {
-      return firstMinimumInputLength;
-    }
-
-    boolean[] retainedGroups() {
-      return retainedGroups;
-    }
-  }
+  private boolean requiresPikeNfaCaptureSemantics;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -214,13 +166,12 @@ final class Prog {
     this.numLoopRegs = numLoopRegs;
   }
 
-  List<RetainedRepeatCapture> retainedRepeatCaptures() {
-    return retainedRepeatCaptures;
+  boolean requiresPikeNfaCaptureSemantics() {
+    return requiresPikeNfaCaptureSemantics;
   }
 
-  void setRetainedRepeatCaptures(List<RetainedRepeatCapture> retainedRepeatCaptures) {
-    this.retainedRepeatCaptures =
-        retainedRepeatCaptures.isEmpty() ? List.of() : List.copyOf(retainedRepeatCaptures);
+  void setRequiresPikeNfaCaptureSemantics(boolean requiresPikeNfaCaptureSemantics) {
+    this.requiresPikeNfaCaptureSemantics = requiresPikeNfaCaptureSemantics;
   }
 
   /**
@@ -234,11 +185,6 @@ final class Prog {
   /** Sets whether Unix lines mode is active. */
   public void setUnixLines(boolean unixLines) {
     this.unixLines = unixLines;
-    for (RetainedRepeatCapture retained : retainedRepeatCaptures) {
-      retained.repeatProg().setUnixLines(unixLines);
-      retained.firstProg().setUnixLines(unixLines);
-      retained.restProg().setUnixLines(unixLines);
-    }
   }
 
   /**

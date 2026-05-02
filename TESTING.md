@@ -54,7 +54,7 @@ These test SafeRE's internal classes directly:
 | `OnePassTest` | OnePass automaton detection and matching |
 | `RegexpTest` | Regexp AST node operations |
 | `CharClassTest` | Character class building and matching |
-| `UnicodeTablesTest` | Unicode property tables, Perl/POSIX classes, case folding |
+| `UnicodeTablesTest` | Unicode property tables, predefined/property classes, case folding |
 | `UtilsTest` | Utility functions |
 | `InstTest` | Instruction structure and initialization |
 | `WalkerTest` | Iterative Regexp tree traversal |
