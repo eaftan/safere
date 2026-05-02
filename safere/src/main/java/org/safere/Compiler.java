@@ -304,6 +304,10 @@ final class Compiler extends Walker<Compiler.Frag> {
             case REPEAT -> lowerCountedRepeat(first, suppressed, re.min, re.max, re.flags);
             default -> original;
           };
+      if (re.nonGreedy() && canRepeatZeroTimes(re)) {
+        return Regexp.alternate(List.of(Regexp.emptyMatch(re.flags), retained, original),
+            re.flags);
+      }
       return Regexp.alternate(List.of(retained, original), re.flags);
     }
 
@@ -372,9 +376,6 @@ final class Compiler extends Walker<Compiler.Frag> {
   }
 
   private static boolean needsCaptureRetentionLowering(Regexp re, Regexp sub) {
-    if (re.nonGreedy()) {
-      return false;
-    }
     if (hasNullableCaptureRetainingQuantifier(sub)) {
       return false;
     }
@@ -388,6 +389,10 @@ final class Compiler extends Walker<Compiler.Frag> {
     return isRepeatWithRemainingCopies(re)
         && !hasAlternation(sub)
         && hasGreedyBoundedCaptureRepeat(sub);
+  }
+
+  private static boolean canRepeatZeroTimes(Regexp re) {
+    return re.op == RegexpOp.STAR || (re.op == RegexpOp.REPEAT && re.min == 0);
   }
 
   private static Regexp repeatAny(Regexp re, int flags) {
