@@ -375,9 +375,13 @@ final class Compiler extends Walker<Compiler.Frag> {
     if (re.nonGreedy()) {
       return false;
     }
+    if (hasNullableCaptureRetainingQuantifier(sub)) {
+      return false;
+    }
     if (re.op == RegexpOp.REPEAT
         && re.min >= 2
         && (re.max == -1 || re.max >= re.min)
+        && !hasAlternation(sub)
         && hasUnboundedCaptureRepeat(sub)) {
       return true;
     }
@@ -460,6 +464,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       if (inQuantifier && node.op == RegexpOp.CAPTURE && node.cap > 0
           && node.cap < groups.length) {
         groups[node.cap] = true;
+        childInQuantifier = false;
       }
       if (node.subs != null) {
         for (Regexp sub : node.subs) {
@@ -483,6 +488,25 @@ final class Compiler extends Walker<Compiler.Frag> {
     return (re.op == RegexpOp.PLUS
             || (re.op == RegexpOp.REPEAT && (re.max > 1 || (re.max == -1 && re.min >= 1))))
         && !re.nonGreedy();
+  }
+
+  private static boolean hasNullableCaptureRetainingQuantifier(Regexp re) {
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (isCaptureRetainingQuantifier(node)
+          && hasCapture(node.sub())
+          && Pattern.canMatchEmpty(node.sub())) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
   }
 
   private record Node(Regexp re, boolean inQuantifier) {}
