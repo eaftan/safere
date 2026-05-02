@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Spliterator;
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
@@ -110,6 +111,7 @@ public final class Pattern implements Serializable {
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
+  private final transient EnginePathOptions enginePathOptions;
 
   /**
    * Precomputed character class data for the "repeated character class" fast path in
@@ -188,7 +190,7 @@ public final class Pattern implements Serializable {
       boolean[] charClassPrefixAscii, StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
       int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
-      boolean charClassMatchAllowEmpty) {
+      boolean charClassMatchAllowEmpty, EnginePathOptions enginePathOptions) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -206,6 +208,7 @@ public final class Pattern implements Serializable {
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
+    this.enginePathOptions = enginePathOptions;
     this.charClassMatchRanges = charClassMatchRanges;
     this.charClassMatchBitmap0 = charClassMatchBitmap0;
     this.charClassMatchBitmap1 = charClassMatchBitmap1;
@@ -236,7 +239,12 @@ public final class Pattern implements Serializable {
    *     {@code CANON_EQ})
    */
   public static Pattern compile(String regex, int flags) {
+    return compile(regex, flags, EnginePathOptions.allEnabled());
+  }
+
+  static Pattern compile(String regex, int flags, EnginePathOptions enginePathOptions) {
     validateFlags(flags);
+    Objects.requireNonNull(enginePathOptions, "enginePathOptions");
     int effectiveFlags = effectiveFlags(flags);
     int parseFlags = toParseFlags(effectiveFlags);
     Regexp re = Parser.parse(regex, parseFlags);
@@ -275,7 +283,8 @@ public final class Pattern implements Serializable {
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
-        ccMatch != null && ccMatch.allowEmpty);
+        ccMatch != null && ccMatch.allowEmpty,
+        enginePathOptions);
   }
 
   /**
@@ -550,6 +559,10 @@ public final class Pattern implements Serializable {
   /** Returns the compiled program. */
   Prog prog() {
     return prog;
+  }
+
+  EnginePathOptions enginePathOptions() {
+    return enginePathOptions;
   }
 
   /** Returns the thread-local cached BitState, or null if none has been cached yet. */

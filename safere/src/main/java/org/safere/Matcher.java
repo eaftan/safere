@@ -168,6 +168,10 @@ public final class Matcher implements MatchResult {
     return prog.requiresPikeNfaCaptureSemantics() && prog.numCaptures() > 1;
   }
 
+  private EnginePathOptions enginePathOptions() {
+    return parentPattern.enginePathOptions();
+  }
+
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
   private Dfa dfa() {
     Dfa d = cachedForwardDfa;
@@ -512,7 +516,9 @@ public final class Matcher implements MatchResult {
 
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
-    if (literal != null && parentPattern.numGroups() == 0) {
+    if (enginePathOptions().literalFastPaths()
+        && literal != null
+        && parentPattern.numGroups() == 0) {
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched = text.length() == literal.length()
@@ -531,7 +537,7 @@ public final class Matcher implements MatchResult {
 
     // Character-class fast path: for patterns like [a-zA-Z]+, \d+, \w*, etc.
     int[] ccRanges = parentPattern.charClassMatchRanges();
-    if (ccRanges != null) {
+    if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null) {
       hasMatch = charClassMatchFastPath(ccRanges);
       return hasMatch;
     }
@@ -539,15 +545,17 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
-    OnePass onePass = parentPattern.onePass();
-    if (onePass != null && !requiresPikeNfaCaptureSemantics(prog)) {
+    EnginePathOptions options = enginePathOptions();
+    OnePass onePass = options.onePass() ? parentPattern.onePass() : null;
+    if (onePass != null
+        && !requiresPikeNfaCaptureSemantics(prog)) {
       groups = onePass.search(text, true, prog.numCaptures());
       hasMatch = (groups != null);
       return hasMatch;
     }
 
     // Medium path: use DFA to check if a full match exists.
-    {
+    if (enginePathOptions().dfa()) {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         hasMatch = false;
@@ -636,7 +644,9 @@ public final class Matcher implements MatchResult {
 
     // Literal fast path: for fully literal patterns with no user capture groups.
     String literal = parentPattern.literalMatch();
-    if (literal != null && parentPattern.numGroups() == 0) {
+    if (enginePathOptions().literalFastPaths()
+        && literal != null
+        && parentPattern.numGroups() == 0) {
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched = text.length() >= literal.length()
@@ -656,7 +666,9 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
-    if (parentPattern.canOnePassPrimary() && !requiresPikeNfaCaptureSemantics(prog)) {
+    if (enginePathOptions().onePass()
+        && parentPattern.canOnePassPrimary()
+        && !requiresPikeNfaCaptureSemantics(prog)) {
       OnePass onePass = parentPattern.onePass();
       groups = onePass.search(text, false, prog.numCaptures());
       hasMatch = (groups != null);
@@ -664,7 +676,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    {
+    if (enginePathOptions().dfa()) {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         hasMatch = false;
@@ -878,7 +890,8 @@ public final class Matcher implements MatchResult {
     // Literal fast path: for fully literal patterns with no user capture groups,
     // use String.indexOf() directly.
     String literal = parentPattern.literalMatch();
-    if (literal != null && parentPattern.numGroups() == 0) {
+    EnginePathOptions options = enginePathOptions();
+    if (options.literalFastPaths() && literal != null && parentPattern.numGroups() == 0) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, literal, searchFrom);
@@ -897,7 +910,7 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
 
     Pattern.KeywordAlternation keywordAlternation = parentPattern.keywordAlternation();
-    if (!regionActive && keywordAlternation != null) {
+    if (options.keywordAlternationFastPath() && !regionActive && keywordAlternation != null) {
       return findKeywordAlternation(keywordAlternation, searchFrom, prog.numCaptures());
     }
 
@@ -925,7 +938,9 @@ public final class Matcher implements MatchResult {
     // violating first-match alternation priority.
     //
     // The text size threshold (4096) matches C++ RE2. For larger texts, the DFA is more efficient.
-    if (prog.anchorStart() && parentPattern.canOnePassPrimary()
+    if (options.onePass()
+        && prog.anchorStart()
+        && parentPattern.canOnePassPrimary()
         && !parentPattern.hasNullableAlternation()
         && !requiresPikeNfaCaptureSemantics(prog)
         && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
@@ -939,7 +954,7 @@ public final class Matcher implements MatchResult {
     // that prefix first appears instead of searching from the current position.
     int effectiveStart = searchFrom;
     String prefix = parentPattern.prefix();
-    if (prefix != null) {
+    if (options.startAcceleration() && prefix != null) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
@@ -957,7 +972,7 @@ public final class Matcher implements MatchResult {
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
     boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (ccPrefixAscii != null) {
+    if (options.startAcceleration() && ccPrefixAscii != null) {
       int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         hasMatch = false;
@@ -967,7 +982,7 @@ public final class Matcher implements MatchResult {
     }
 
     Pattern.StartAcceleration startAcceleration = parentPattern.startAcceleration();
-    if (startAcceleration != null) {
+    if (options.startAcceleration() && startAcceleration != null) {
       int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
       if (idx < 0) {
         hasMatch = false;
@@ -980,7 +995,9 @@ public final class Matcher implements MatchResult {
     // input, scan with OnePass directly. OnePass is faster than BitState — no visited bitmap
     // or job stack allocation, deterministic single-pass traversal per start position.
     // Skip for nullable alternation (see anchored path comment above).
-    if (parentPattern.canOnePassPrimary() && text.length() <= 256
+    if (options.onePass()
+        && parentPattern.canOnePassPrimary()
+        && text.length() <= 256
         && !requiresPikeNfaCaptureSemantics(prog)
         && !parentPattern.hasNullableAlternation()) {
       int[] result = parentPattern.onePass().searchUnanchored(
@@ -1007,7 +1024,11 @@ public final class Matcher implements MatchResult {
     //
     // A null result from the reverse DFA means the DFA budget was exceeded — in that case we
     // must fall through to the normal forward DFA path rather than returning false.
-    if (!regionActive && prog.anchorEnd() && !prog.anchorStart()
+    if (options.dfa()
+        && options.reverseDfa()
+        && !regionActive
+        && prog.anchorEnd()
+        && !prog.anchorStart()
         && text.length() >= MIN_REVERSE_FIRST_LEN
         && parentPattern.dfaStartReliable()) {
       Dfa revDfa = reverseDfa();
@@ -1091,6 +1112,7 @@ public final class Matcher implements MatchResult {
     boolean directFallback =
         !regionActive
             && !parentPattern.dfaStartReliable()
+            && options.startAcceleration()
             && (prefix != null || ccPrefixAscii != null)
             && text.length() <= DIRECT_FALLBACK_TEXT_LIMIT
             && BitState.maxTextSize(prog) >= text.length();
@@ -1101,7 +1123,7 @@ public final class Matcher implements MatchResult {
     // precheck cannot produce reusable bounds and would fall through to the complete fallback
     // search anyway.
     Dfa.SearchResult fwdResult;
-    if (directFallback) {
+    if (!options.dfa() || directFallback) {
       fwdResult = null;
     } else {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
@@ -1138,7 +1160,8 @@ public final class Matcher implements MatchResult {
     // resolveCaptures() corrects the end position using the submatch engine.
     // Skip when a region is active — deferred capture resolution runs on the full text but the
     // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
-    if (!regionActive
+    if (options.dfa()
+        && !regionActive
         && fwdResult != null
         && fwdResult.pos() > effectiveStart
         && parentPattern.dfaStartReliable()) {
@@ -1235,6 +1258,7 @@ public final class Matcher implements MatchResult {
     boolean lazyFallbackCaptures =
         !regionActive
             && !eagerFallbackCaptures
+            && options.lazyCaptureExtraction()
             && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;
     int nsubmatch = lazyFallbackCaptures ? 1 : prog.numCaptures();
     int[] result = searchWithBitStateOrNfa(
@@ -1399,7 +1423,8 @@ public final class Matcher implements MatchResult {
     // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
     // Pike NFA below.
     int maxBitStateLen = BitState.maxTextSize(prog);
-    boolean canUseBitState = !prog.requiresPikeNfaCaptureSemantics() || nsubmatch <= 1;
+    boolean canUseBitState = enginePathOptions().bitState()
+        && (!prog.requiresPikeNfaCaptureSemantics() || nsubmatch <= 1);
     if (canUseBitState && maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
@@ -1689,7 +1714,9 @@ public final class Matcher implements MatchResult {
     // Character-class fast path: for patterns like \d+, [a-zA-Z]+, etc. with simple
     // replacement strings (no group references), scan the text in a single pass.
     int[] ccRanges = parentPattern.charClassMatchRanges();
-    if (ccRanges != null && !parentPattern.charClassMatchAllowEmpty()
+    if (enginePathOptions().charClassReplacementFastPath()
+        && ccRanges != null
+        && !parentPattern.charClassMatchAllowEmpty()
         && isSimpleReplacement(replacement)) {
       return charClassReplaceAll(ccRanges, replacement);
     }
@@ -2085,7 +2112,8 @@ public final class Matcher implements MatchResult {
     // alternation (e.g., GET|POST), all branches must consume characters so longest-match
     // and first-match are equivalent.
     int[] result;
-    if (parentPattern.canOnePassSubmatch()
+    if (enginePathOptions().onePass()
+        && parentPattern.canOnePassSubmatch()
         && !parentPattern.hasNullableAlternation()
         && !requiresPikeNfaCaptureSemantics(prog)) {
       result = parentPattern.onePass().search(
