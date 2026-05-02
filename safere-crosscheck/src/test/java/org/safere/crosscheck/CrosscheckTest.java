@@ -246,6 +246,37 @@ class CrosscheckTest {
   }
 
   // ---------------------------------------------------------------------------
+  // Matcher — results
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("Matcher results")
+  class MatcherResultsTests {
+
+    @Test
+    @DisplayName("results() compares match result snapshots")
+    void resultsComparesSnapshots() {
+      Matcher m = Pattern.compile("(\\w+)").matcher("one two");
+
+      assertThat(m.results().map(result -> result.group(1) + ":" + result.start()).toList())
+          .containsExactly("one:0", "two:4");
+    }
+
+    @Test
+    @DisplayName("results() reports match result divergence")
+    void resultsReportsMatchResultDivergence() {
+      Matcher m = Pattern.compile("(?:(a))*$").matcher("ab");
+
+      assertThatThrownBy(() -> m.results().toList())
+          .isInstanceOf(CrosscheckException.class)
+          .satisfies(ex -> {
+            CrosscheckException ce = (CrosscheckException) ex;
+            assertThat(ce.trace()).contains("DIVERGENCE");
+          });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Pattern — split
   // ---------------------------------------------------------------------------
 

@@ -79,6 +79,15 @@ The expected rule is:
 - If only part of a test class is non-comparable, disable the smallest useful
   scope rather than hiding unrelated comparable tests.
 
+Generated crosscheck can compare ordinary `results()` streams and pure
+functional replacement callbacks by advancing SafeRE and the JDK through the
+same public operation and comparing the observable snapshots or replacement
+output.  It is not the right oracle for callbacks that intentionally mutate the
+matcher being traversed or replaced: one generated wrapper owns two underlying
+matchers, while the callback's natural target is a single matcher.  Those cases
+belong in a matcher state-machine differential suite that runs the same
+operation trace separately against SafeRE and the JDK.
+
 `@DisabledForCrosscheck` should remain an explicit contract.  Its reason string
 should say which category makes the test non-comparable, such as "SafeRE-only
 API", "internal engine control", "unsupported non-regular JDK feature", or
