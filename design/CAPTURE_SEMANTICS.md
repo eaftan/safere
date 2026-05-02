@@ -253,10 +253,10 @@ implemented:
 - explicit bounded retention state in Pike VM NFA threads;
 - a BitState implementation of the same retention model;
 - a reusable generated differential suite dedicated to quantified-capture
-  semantics;
+  semantics (#260);
 - benchmark results for quantified-capture workloads with and without inner
   group access, replacement APIs, BitState-sized inputs, and #258-style
-  pathological inputs.
+  pathological inputs (#261).
 
 At the moment these are risk-reduction items rather than known user-visible
 fixes.  The current implementation already removes the superlinear repair path
