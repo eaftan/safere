@@ -297,6 +297,8 @@ semantic repair mechanism.
 
 ### Engine-Path Equivalence Design
 
+Focused design: [ENGINE_PATH_EQUIVALENCE.md](ENGINE_PATH_EQUIVALENCE.md).
+
 Scope: #251, #227, and cross-engine portions of the capture bugs.
 
 #251 is already fixed by the #259 consolidation work and should be treated as a

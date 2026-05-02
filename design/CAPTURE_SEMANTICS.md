@@ -224,9 +224,11 @@ The implemented model is:
   retained capture boundary;
 - the lowering is deliberately guarded away from cases where it would change
   the selected path's observable captures, including alternation inside the
-  retained body, nullable capture-retaining inner quantifiers, lazy outer
-  quantifiers, and nested captures that should continue to be overwritten by the
-  selected later path;
+  retained body, nullable capture-retaining inner quantifiers, and nested
+  captures that should continue to be overwritten by the selected later path;
+- lazy outer quantifiers use the same retained-capture lowering when it is safe,
+  with an explicit zero-iteration arm for quantifiers that can legally match
+  zero copies so ordinary empty `find()` behavior is preserved;
 - affected capture-aware execution paths avoid OnePass and BitState and use the
   Pike VM NFA as the semantic authority;
 - post-match retained-repeat repair has been removed, including
