@@ -210,6 +210,82 @@ The design should avoid:
 - recursive tree or program walks on user-controlled nesting depth;
 - state whose size grows with the number of repetition iterations.
 
+## Implemented Approach
+
+The implementation currently uses the compiler-generated control-flow variant,
+not new `Prog` instructions or explicit NFA retention registers.
+
+The implemented model is:
+
+- compile-time analysis identifies quantified-capture shapes where ordinary
+  Thompson `CAPTURE` writes would expose the wrong retained value;
+- the compiler lowers only the cases it can model safely by preserving the
+  first capture-producing copy and suppressing later overwrites for the
+  retained capture boundary;
+- the lowering is deliberately guarded away from cases where it would change
+  the selected path's observable captures, including alternation inside the
+  retained body, nullable capture-retaining inner quantifiers, lazy outer
+  quantifiers, and nested captures that should continue to be overwritten by the
+  selected later path;
+- affected capture-aware execution paths avoid OnePass and BitState and use the
+  Pike VM NFA as the semantic authority;
+- post-match retained-repeat repair has been removed, including
+  `Prog.RetainedRepeatCapture`, `Matcher.applyCaptureDebugInfo()`, and the
+  helper searches over candidate repeat starts, ends, and split points.
+
+This approach satisfies the central invariant: public capture observation no
+longer reconstructs captures by running extra regex searches after a match has
+already been selected.  It also keeps the implementation simple by using the
+existing Pike VM NFA capture array as the authoritative result.
+
+It is intentionally narrower than the explicit-retention-state design.  The
+compiler lowering is a proven-enough implementation strategy for the covered
+regular-syntax cases, but it is not a general mechanism for modeling arbitrary
+capture history.  When the compiler cannot safely lower a shape, it leaves the
+ordinary compiled structure in place and relies on the Pike VM NFA path.
+
+## Remaining Work
+
+The following parts of the fuller design remain available but are not currently
+implemented:
+
+- explicit capture-retention instructions or checkpoint metadata in `Prog`;
+- explicit bounded retention state in Pike VM NFA threads;
+- a BitState implementation of the same retention model;
+- a reusable generated differential suite dedicated to quantified-capture
+  semantics;
+- benchmark results for quantified-capture workloads with and without inner
+  group access, replacement APIs, BitState-sized inputs, and #258-style
+  pathological inputs.
+
+At the moment these are risk-reduction items rather than known user-visible
+fixes.  The current implementation already removes the superlinear repair path
+and passes focused differential tests for retained quantified captures,
+alternation under repetition, nested captures, nullable and lazy cases,
+replacement APIs, and a broad local generated probe, along with the full
+`safere` module test suite.
+
+## Revisit Criteria
+
+Revisit the explicit-retention-state design if any of the following happen:
+
+- a supported regex produces JDK-incompatible captures that cannot be fixed by
+  narrowing or extending compiler lowering without adding brittle case logic;
+- a quantified-capture bug depends on suffix failure, nullable iteration, or
+  nested alternation in a way that shows the existing Pike VM NFA result is not
+  enough without additional bounded state;
+- benchmarks show the compiler-generated control flow causes unacceptable
+  overhead on realistic quantified-capture workloads;
+- BitState support for affected patterns becomes important enough that guarding
+  to Pike VM NFA is no longer an acceptable performance tradeoff;
+- future engine changes make it harder to reason about which path is the
+  semantic authority for capture extraction.
+
+If none of those triggers occur, the observable behavior of the explicit
+retention-state design would likely be the same as the current implementation
+for supported syntax.  Its main benefit would be a stronger internal proof and
+less reliance on compiler-lowering analysis, not a known public API difference.
+
 ## Alternatives Considered
 
 ### Keep Post-Match Repair
