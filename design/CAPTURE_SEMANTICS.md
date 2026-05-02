@@ -26,6 +26,14 @@ Examples from recent bugs:
 The common issue is that capture semantics are not just metadata attached to a
 finished match.  They are part of the execution state of the regex.
 
+This design takes the position that the problem is solvable for SafeRE's
+supported regular syntax, but not by making every accelerator independently
+implement full capture behavior.  The Pike VM NFA is the semantic authority for
+complex capture cases.  DFA, OnePass, BitState, and literal or prefix
+accelerators remain valid only when they are proven capture-equivalent for the
+pattern and operation, or when they defer capture observation to the
+authoritative path.
+
 ## Current State
 
 SafeRE already has several mechanisms that preserve parts of the capture
@@ -33,8 +41,11 @@ contract:
 
 - The parser preserves capturing group structure and group numbering.
 - The compiler emits `CAPTURE` instructions for ordinary capture boundaries.
-- The NFA and BitState engines carry capture registers in their execution
-  state.
+- The Pike VM NFA carries capture registers in its execution state and is the
+  natural semantic reference for capture extraction.
+- BitState carries capture registers for small-input searches, but its bounded
+  exploration invariant makes it an optimization, not the semantic authority
+  for every complex capture case.
 - The DFA can determine match existence and bounds, then defer capture
   extraction until groups are observed.
 - Recent work preserved source-level non-capturing groups as explicit AST nodes
@@ -76,6 +87,13 @@ capture-aware engine pass must compute them directly from bounded execution
 state.  It must not infer them by enumerating repeat starts, repeat ends, or
 split points after the fact.
 
+The proof obligation is not to simulate JDK backtracking history.  It is to
+show that, for SafeRE's supported regular syntax, the JDK-visible capture result
+can be computed from the compiled program, the current input position, capture
+registers, and any additional state whose size is bounded by the compiled
+program rather than by the input length or by the number of possible repetition
+partitions.
+
 ## Required Semantics
 
 The capture-aware execution model must handle at least these cases:
@@ -88,7 +106,10 @@ The capture-aware execution model must handle at least these cases:
 - replacement APIs that consume group values through `$n`, `${name}`,
   functional replacements, and `appendReplacement`;
 - deferred capture extraction after DFA range narrowing;
-- both BitState and Pike VM NFA execution.
+- Pike VM NFA execution as the semantic reference path;
+- BitState execution where it is proven equivalent, with a principled guard to
+  the Pike VM NFA where supporting the case in BitState would weaken its bounded
+  exploration invariant.
 
 The compiler must also preserve group numbering for captures inside zero-count
 repetitions, even though those groups cannot participate at run time.
@@ -99,7 +120,8 @@ state.
 
 ## Proposed Direction
 
-Move retained quantified capture semantics into the compiled execution model.
+Move retained quantified capture semantics into the compiled execution model,
+with the Pike VM NFA as the authoritative capture-aware execution path.
 
 This is the preferred architectural direction, not yet a complete mechanical
 specification.  It should be validated by first defining the exact capture state
@@ -107,31 +129,35 @@ transitions for representative quantified constructs and proving that the needed
 state is bounded by the compiled program.
 
 The compiler should lower capture-retention requirements into explicit bounded
-state transitions that the capture-aware engines execute inline.  The exact
-instruction shape can be refined during implementation, but the model should
-look like this:
+program structure or state transitions that the authoritative capture-aware
+engine executes inline.  The exact instruction shape can be refined during
+implementation, but the model should look like this:
 
 1. Identify quantified regions where existing Thompson `CAPTURE` writes are
    insufficient to represent JDK-visible retention after a later iteration
    exits, fails, or matches zero width.
 2. Emit explicit program operations, annotations, or control-flow structure that
    tell engines when a capture snapshot must be retained, restored, or ignored.
-3. Have NFA and BitState maintain that state per active thread/job, alongside
+3. Have the Pike VM NFA maintain that state per active thread, alongside
    existing capture registers and loop progress registers.
 4. Ensure a successful `MATCH` instruction already carries final group state.
-5. Delete post-match retained-repeat repair once the execution engines compute
+5. Allow OnePass and BitState only for cases where they are proven equivalent,
+   or guard affected patterns to Pike VM NFA capture extraction.
+6. Delete post-match retained-repeat repair once the authoritative path computes
    the same observable captures directly.
 
-The important bound is that engines may keep a fixed amount of additional state
-per capture group and active thread/job.  They must not keep unbounded history
-for every repetition iteration.
+The important bound is that the authoritative path may keep a fixed amount of
+additional state per capture group, compiled checkpoint, and active thread.  It
+must not keep unbounded history for every repetition iteration.  BitState may
+share the same model only if doing so preserves its bounded visited-state
+argument.
 
 ### Pros
 
 - Capture values are produced by the same execution path that selects the match.
 - Post-match partition searches are eliminated.
-- DFA and OnePass acceleration can remain available when they are semantically
-  reliable.
+- DFA, OnePass, and BitState acceleration can remain available when they are
+  semantically reliable.
 - The linear-time argument can be tied to instruction transitions plus bounded
   per-thread state.
 - Replacement APIs, snapshots, and direct group access all consume the same
@@ -143,7 +169,8 @@ for every repetition iteration.
 - This is likely the hardest implementation option.
 - JDK quantified-capture behavior is subtle, especially around nullable bodies,
   failed iterations, and nested repetitions.
-- NFA priority and epsilon-closure behavior may need careful changes.
+- NFA priority and epsilon-closure behavior may need careful changes because
+  the NFA becomes the semantic authority for these captures.
 - BitState is high risk: adding runtime capture values to its visited key would
   weaken the bounded-exploration invariant.
 - Overly broad retention tracking could add overhead to ordinary capturing
@@ -171,8 +198,9 @@ Conceptually:
 
 This could be encoded as new instructions, as metadata attached to existing
 `ALT`/`PROGRESS_CHECK`/`CAPTURE` instructions, or as compiler-generated control
-flow.  The choice should be guided by simplicity and by the ability to make NFA
-and BitState share the same semantics.
+flow.  The choice should be guided by simplicity, by the ability to make the NFA
+the source of truth, and by whether BitState can share the same semantics
+without expanding its visited key by runtime capture values.
 
 The design should avoid:
 
@@ -214,6 +242,11 @@ This is too broad.  The DFA is still valuable for rejection and range narrowing,
 OnePass is correct and efficient for eligible patterns, and BitState is useful
 for small inputs.  More importantly, this does not by itself solve quantified
 capture retention: the NFA still needs the correct execution-time capture state.
+
+The design does adopt a narrower version of this alternative: Pike VM NFA is the
+fallback semantic authority for complex capture cases.  That is different from
+using it for all capturing patterns.  Straightforward captures should still be
+eligible for faster engines when equivalence is established.
 
 ### Original-AST Capture Extraction
 
@@ -285,6 +318,11 @@ capture-aware linear engine, not syntax rejection.  Rejection is appropriate
 only when supporting the construct would fundamentally violate SafeRE's
 linear-time model.
 
+If the proof fails specifically for BitState, that is not a correctness blocker:
+BitState is an optimization.  The principled response is to guard the affected
+patterns to Pike VM NFA capture extraction unless and until BitState can carry
+the same bounded semantics.
+
 ## Linear-Time Argument
 
 The fix preserves linear time if every engine still processes a bounded number
@@ -308,6 +346,9 @@ For BitState, this means:
   and loop registers;
 - fallback to NFA remains available when BitState's bounded work budget is
   exceeded.
+- patterns whose capture semantics would require BitState to distinguish
+  runtime capture values or input-dependent repetition histories are guarded to
+  the Pike VM NFA instead of expanding the visited key.
 
 The asymptotic requirement is:
 
@@ -318,6 +359,41 @@ O(input length * compiled program size * bounded capture-state factor)
 The bounded capture-state factor may depend on the number of capture groups or
 compiled retention checkpoints, but not on the length of the input or on the
 number of possible repetition partitions.
+
+## Performance Expectations
+
+This design intentionally prioritizes a clear linear-time guarantee over using
+every accelerator for every capture-observing pattern.
+
+Expected performance impact:
+
+- Ordinary literal, prefix, non-capturing, and simple-capture patterns should be
+  mostly unaffected.
+- Complex quantified-capture patterns may lose OnePass or BitState acceleration
+  when those engines are not proven capture-equivalent.  Those cases may be
+  slower by a constant factor, especially on small inputs where BitState would
+  otherwise be cheap.
+- `find()` loops that only need match existence or `group(0)` can still benefit
+  from DFA rejection or range narrowing where group-zero bounds are reliable.
+  The capture-aware cost should be paid when inner captures are observed.
+- Replacement APIs that reference captures should use the authoritative
+  capture-aware path and may therefore pay the same cost as explicit group
+  access.
+- Pathological retained-repeat cases should improve asymptotically because
+  public capture observation no longer launches post-match searches over
+  candidate repeat partitions.
+
+The intended tradeoff is localized constant-factor cost for subtle
+quantified-capture patterns in exchange for eliminating a superlinear failure
+mode and making capture semantics easier to reason about.
+
+Before opening a PR for implementation, benchmark at least:
+
+- quantified captures with and without inner group access;
+- replacement APIs using `$1`, `${name}`, and functional replacements;
+- `find()` loops that observe only match existence or `group(0)`;
+- small inputs where BitState was previously selected;
+- #258-style pathological inputs to confirm scaling behavior.
 
 ## Testing Strategy
 
@@ -368,8 +444,8 @@ structural behavior.
    #258 without relying on elapsed time.
 2. Add focused differential tests for the retained quantified capture cases that
    must keep passing throughout the refactor.
-3. Implement the new execution-time retention model in the NFA first, because
-   the NFA is the semantic reference engine.
+3. Implement the new execution-time retention model in the Pike VM NFA first,
+   because the NFA is the semantic reference engine.
 4. While BitState does not yet support the new retention model, guard affected
    patterns away from BitState and use the NFA fallback.  This is acceptable as
    a staging step because the fallback remains linear.
@@ -389,9 +465,10 @@ structural behavior.
 - No public API observes captures repaired by post-match regex searches.
 - Quantified capture differential tests match `java.util.regex` for supported
   syntax and documented semantics.
-- NFA and BitState produce the same capture state for affected patterns, or
-  affected patterns are guarded away from BitState with a documented
-  linear-time fallback.
+- Pike VM NFA is the authoritative capture path for affected patterns.
+- BitState produces the same capture state for affected patterns, or affected
+  patterns are guarded away from BitState with a documented linear-time
+  fallback.
 - DFA-deferred capture extraction produces the same result as direct
   capture-aware execution.
 - Replacement APIs observe the same captures as `group()`, `start()`, and

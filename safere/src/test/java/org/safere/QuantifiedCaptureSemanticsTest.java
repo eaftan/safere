@@ -6,9 +6,12 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -16,6 +19,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Differential coverage for JDK-visible captures inside quantified expressions. */
 @DisabledForCrosscheck("differential test already compares SafeRE with java.util.regex")
 class QuantifiedCaptureSemanticsTest {
+  private static final Duration CAPTURE_OBSERVATION_TIMEOUT = Duration.ofSeconds(5);
 
   private static Stream<Arguments> quantifiedCaptureCases() {
     return Stream.of(
@@ -45,6 +49,14 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(a){1})*$", "ab"),
         Arguments.of("(?:(a){2})*$", "aab"),
         Arguments.of("(?:(a){2})*$", "aaab"));
+  }
+
+  private static Stream<Arguments> lazyNullableGroupZeroCases() {
+    return Stream.of(
+        Arguments.of("(?:(?:(a){0,2})*?)", "a"),
+        Arguments.of("(?:(?:(a){0,2})*?)", "aa"),
+        Arguments.of("(?:(?:(a){0,2})*?)", "ab"),
+        Arguments.of("(?:(?:(a){0,2})*?)", "aaa"));
   }
 
   @ParameterizedTest(name = "[{index}] find captures for /{0}/ on \"{1}\"")
@@ -89,6 +101,37 @@ class QuantifiedCaptureSemanticsTest {
     assertThat(appendReplacementResult(saferePattern.matcher(input)))
         .as("appendReplacement for /%s/ on %s", regex, input)
         .isEqualTo(appendReplacementResult(jdkPattern.matcher(input)));
+  }
+
+  @Test
+  @DisplayName("observing retained quantified captures does not enumerate repeat partitions")
+  void observingRetainedQuantifiedCapturesDoesNotEnumerateRepeatPartitions() {
+    String prefix = "b".repeat(12_000);
+    String suffix = "a".repeat(100);
+    String input = prefix + "x" + suffix + "y";
+
+    assertTimeoutPreemptively(
+        CAPTURE_OBSERVATION_TIMEOUT,
+        () -> {
+          Matcher matcher = Pattern.compile(".*x(?:(a){1,}){2}y").matcher(input);
+
+          assertThat(matcher.find()).isTrue();
+          assertThat(matcher.group(1)).isEqualTo("a");
+          assertThat(matcher.start(1)).isEqualTo(prefix.length() + suffix.length() - 1);
+          assertThat(matcher.end(1)).isEqualTo(prefix.length() + suffix.length());
+        });
+  }
+
+  @ParameterizedTest(name = "[{index}] lazy nullable group 0 for /{0}/ on \"{1}\"")
+  @MethodSource("lazyNullableGroupZeroCases")
+  @DisplayName("capture-retention lowering preserves lazy nullable group zero")
+  void captureRetentionLoweringPreservesLazyNullableGroupZero(String regex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = Pattern.compile(regex).matcher(input);
+
+    boolean jdkMatched = jdk.find();
+    assertThat(safere.find()).isEqualTo(jdkMatched);
+    assertGroupsMatch(regex, input, jdkMatched, jdk, safere);
   }
 
   @ParameterizedTest(name = "[{index}] #52 divergence for /{0}/ on \"{1}\"")

@@ -220,9 +220,12 @@ match has already been selected.
 
 The DFA may still reject inputs or narrow match bounds without carrying captures.
 Deferred capture extraction may still avoid work when callers only need
-`group(0)`.  But once captures are observed, the capture-aware pass must compute
-the result directly from the compiled semantics.  It should not infer captures
-by enumerating possible explanations for a match selected elsewhere.
+`group(0)`.  BitState and OnePass may remain available when they are proven
+equivalent for the pattern.  But once captures are observed, SafeRE must route
+to a capture-aware path that computes the result directly from the compiled
+semantics.  For complex capture cases, the Pike VM NFA is the semantic
+authority.  Other engines and fast paths must either preserve that result or be
+guarded out.
 
 ### 2. Engine-Path Equivalence Invariant
 
@@ -286,8 +289,11 @@ This design should define how JDK-visible capture participation and retention
 survive simplification, compilation, engine selection, and deferred capture
 extraction while preserving linear time.  It should address whether capture
 retention belongs in explicit `Prog` instructions, per-thread engine state, or
-some other bounded execution-time representation.  It should remove post-match
-regex searches over candidate repeat partitions as a semantic repair mechanism.
+some other bounded execution-time representation.  It should make the Pike VM
+NFA the semantic authority for complex captures, while allowing DFA, OnePass,
+and BitState only where they are proven equivalent or can safely defer.  It
+should remove post-match regex searches over candidate repeat partitions as a
+semantic repair mechanism.
 
 ### Engine-Path Equivalence Design
 
@@ -341,6 +347,21 @@ ordinary correctness tests becoming timing-sensitive.
   wall-clock timing.
 - Keep generated public API crosscheck enabled except for documented,
   intentionally non-comparable cases.
+
+## Performance Stance
+
+Semantic preservation is allowed to guard an accelerator out of a case where
+equivalence has not been proven.  That may impose a localized constant-factor
+cost, especially for complex quantified captures that fall back to Pike VM NFA
+capture extraction instead of OnePass or BitState.  It should not impose broad
+cost on ordinary literals, prefixes, non-capturing patterns, or simple captures.
+
+The tradeoff is intentional only when it protects a stronger invariant:
+observing a public result must remain linear and must not trigger post-match
+semantic repair by enumerating candidate explanations.  Implementation PRs for
+these designs should therefore include targeted before/after benchmarks for
+affected engine paths and pathological scaling cases, not just correctness
+tests.
 
 ## Non-Goals
 

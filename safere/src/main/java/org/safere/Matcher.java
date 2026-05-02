@@ -114,7 +114,6 @@ public final class Matcher implements MatchResult {
    * engine before it is exposed.
    */
   private boolean groupZeroResolved = true;
-  private boolean captureDebugResolved = true;
   /** Stashed match boundaries for deferred capture resolution. */
   private int deferredMatchStart;
   private int deferredMatchEnd;
@@ -163,6 +162,10 @@ public final class Matcher implements MatchResult {
       chars[i] = cs.charAt(i);
     }
     return new String(chars);
+  }
+
+  private static boolean requiresPikeNfaCaptureSemantics(Prog prog) {
+    return prog.requiresPikeNfaCaptureSemantics() && prog.numCaptures() > 1;
   }
 
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
@@ -423,7 +426,6 @@ public final class Matcher implements MatchResult {
    */
   private void applyReplacementTemplate(StringBuilder sb, ReplacementSegment[] template) {
     resolveCaptures();
-    applyCaptureDebugInfo();
     for (ReplacementSegment seg : template) {
       switch (seg) {
         case ReplacementSegment.Literal(var t) -> sb.append(t);
@@ -464,7 +466,6 @@ public final class Matcher implements MatchResult {
   public boolean matches() {
     modCount++;
     searchFrom = regionStart;
-    captureDebugResolved = false;
 
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
@@ -539,7 +540,7 @@ public final class Matcher implements MatchResult {
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
     OnePass onePass = parentPattern.onePass();
-    if (onePass != null) {
+    if (onePass != null && !requiresPikeNfaCaptureSemantics(prog)) {
       groups = onePass.search(text, true, prog.numCaptures());
       hasMatch = (groups != null);
       return hasMatch;
@@ -589,7 +590,6 @@ public final class Matcher implements MatchResult {
   public boolean lookingAt() {
     modCount++;
     searchFrom = regionStart;
-    captureDebugResolved = false;
 
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
@@ -656,7 +656,7 @@ public final class Matcher implements MatchResult {
     Prog prog = parentPattern.prog();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
-    if (parentPattern.canOnePassPrimary()) {
+    if (parentPattern.canOnePassPrimary() && !requiresPikeNfaCaptureSemantics(prog)) {
       OnePass onePass = parentPattern.onePass();
       groups = onePass.search(text, false, prog.numCaptures());
       hasMatch = (groups != null);
@@ -762,7 +762,6 @@ public final class Matcher implements MatchResult {
 
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
-    captureDebugResolved = false;
     // --- Region setup: temporarily substitute text with the region substring ---
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     String savedText = text;
@@ -928,6 +927,7 @@ public final class Matcher implements MatchResult {
     // The text size threshold (4096) matches C++ RE2. For larger texts, the DFA is more efficient.
     if (prog.anchorStart() && parentPattern.canOnePassPrimary()
         && !parentPattern.hasNullableAlternation()
+        && !requiresPikeNfaCaptureSemantics(prog)
         && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
       groups = parentPattern.onePass().search(text, searchFrom, text.length(), false,
           prog.numCaptures());
@@ -981,6 +981,7 @@ public final class Matcher implements MatchResult {
     // or job stack allocation, deterministic single-pass traversal per start position.
     // Skip for nullable alternation (see anchored path comment above).
     if (parentPattern.canOnePassPrimary() && text.length() <= 256
+        && !requiresPikeNfaCaptureSemantics(prog)
         && !parentPattern.hasNullableAlternation()) {
       int[] result = parentPattern.onePass().searchUnanchored(
           text, effectiveStart, text.length(), prog.numCaptures());
@@ -1398,7 +1399,8 @@ public final class Matcher implements MatchResult {
     // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
     // Pike NFA below.
     int maxBitStateLen = BitState.maxTextSize(prog);
-    if (maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
+    boolean canUseBitState = !prog.requiresPikeNfaCaptureSemantics() || nsubmatch <= 1;
+    if (canUseBitState && maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
       int ncap = 2 * Math.max(nsubmatch, 1);
@@ -1423,7 +1425,8 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    // Fall back to general NFA (only for texts too large for BitState).
+    // Fall back to the general NFA when BitState cannot be used or when capture semantics need
+    // Pike NFA's priority model.
     Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
     Nfa.MatchKind nfaKind;
     if (endMatch) {
@@ -1537,7 +1540,6 @@ public final class Matcher implements MatchResult {
         eagerFallbackCaptures = true;
       }
       resolveCaptures();
-      applyCaptureDebugInfo();
     }
     return groups[2 * group];
   }
@@ -1573,7 +1575,6 @@ public final class Matcher implements MatchResult {
         eagerFallbackCaptures = true;
       }
       resolveCaptures();
-      applyCaptureDebugInfo();
     }
     return groups[2 * group + 1];
   }
@@ -2053,7 +2054,6 @@ public final class Matcher implements MatchResult {
     checkMatch();
     eagerFallbackCaptures = true;
     resolveCaptures();
-    applyCaptureDebugInfo();
     return new SnapshotMatchResult(groups.clone(), text, groupCount(), parentPattern.namedGroups());
   }
 
@@ -2085,7 +2085,9 @@ public final class Matcher implements MatchResult {
     // alternation (e.g., GET|POST), all branches must consume characters so longest-match
     // and first-match are equivalent.
     int[] result;
-    if (parentPattern.canOnePassSubmatch() && !parentPattern.hasNullableAlternation()) {
+    if (parentPattern.canOnePassSubmatch()
+        && !parentPattern.hasNullableAlternation()
+        && !requiresPikeNfaCaptureSemantics(prog)) {
       result = parentPattern.onePass().search(
           text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures());
     } else {
@@ -2100,123 +2102,6 @@ public final class Matcher implements MatchResult {
     groupZeroResolved = true;
   }
 
-  private void applyCaptureDebugInfo() {
-    if (captureDebugResolved || groups == null || groups[0] < 0) {
-      return;
-    }
-    int matchStart = groups[0];
-    int matchEnd = groups[1];
-    for (Prog.RetainedRepeatCapture retained : parentPattern.prog().retainedRepeatCaptures()) {
-      int[] firstGroups = findRetainedFirstRepeatGroups(retained, matchStart, matchEnd);
-      if (firstGroups != null) {
-        mergeCaptureDebugGroups(firstGroups, retained.retainedGroups());
-      }
-    }
-    captureDebugResolved = true;
-  }
-
-  private int[] findRetainedFirstRepeatGroups(
-      Prog.RetainedRepeatCapture retained, int matchStart, int matchEnd) {
-    for (int repeatStart = matchStart;
-        repeatStart < matchEnd;
-        repeatStart = nextSearchPosition(repeatStart, matchEnd)) {
-      int repeatEnd = findRetainedRepeatEnd(retained, repeatStart, matchEnd);
-      if (repeatEnd < 0 || repeatEnd - repeatStart <= retained.minimumInputLength()) {
-        continue;
-      }
-      int pos = repeatEnd;
-      while (pos >= repeatStart) {
-        int[] firstGroups = Nfa.search(
-            retained.firstProg(),
-            text,
-            repeatStart,
-            pos,
-            pos,
-            Nfa.Anchor.ANCHORED,
-            Nfa.MatchKind.FULL_MATCH,
-            retained.firstProg().numCaptures());
-        if (firstGroups != null) {
-          if (matchesRetainedRepeatRest(retained, pos, repeatEnd)) {
-            if (pos - repeatStart <= retained.firstMinimumInputLength()) {
-              return null;
-            }
-            return firstGroups;
-          }
-        }
-        if (pos == repeatStart) {
-          break;
-        }
-        pos = previousSearchPosition(pos, repeatStart);
-      }
-    }
-    return null;
-  }
-
-  private int findRetainedRepeatEnd(
-      Prog.RetainedRepeatCapture retained, int repeatStart, int matchEnd) {
-    int repeatEnd = matchEnd;
-    while (repeatEnd >= repeatStart) {
-      int[] repeatGroups = Nfa.search(
-          retained.repeatProg(),
-          text,
-          repeatStart,
-          repeatEnd,
-          repeatEnd,
-          Nfa.Anchor.ANCHORED,
-          Nfa.MatchKind.FULL_MATCH,
-          1);
-      if (repeatGroups != null) {
-        return repeatEnd;
-      }
-      if (repeatEnd == repeatStart) {
-        return -1;
-      }
-      repeatEnd = previousSearchPosition(repeatEnd, repeatStart);
-    }
-    return -1;
-  }
-
-  private boolean matchesRetainedRepeatRest(
-      Prog.RetainedRepeatCapture retained, int restStart, int matchEnd) {
-    int[] restGroups = Nfa.search(
-        retained.restProg(),
-        text,
-        restStart,
-        matchEnd,
-        matchEnd,
-        Nfa.Anchor.ANCHORED,
-        Nfa.MatchKind.FULL_MATCH,
-        1);
-    return restGroups != null;
-  }
-
-  private int nextSearchPosition(int pos, int limit) {
-    if (pos >= limit) {
-      return limit;
-    }
-    int cp = text.codePointAt(pos);
-    return pos + Character.charCount(cp);
-  }
-
-  private int previousSearchPosition(int pos, int limit) {
-    if (pos <= limit) {
-      return limit;
-    }
-    return text.offsetByCodePoints(pos, -1);
-  }
-
-  private void mergeCaptureDebugGroups(int[] debugGroups, boolean[] retainedGroups) {
-    int groupsToMerge = Math.min(groups.length, debugGroups.length) / 2;
-    for (int group = 1; group < groupsToMerge; group++) {
-      int startIdx = 2 * group;
-      int endIdx = startIdx + 1;
-      if (group < retainedGroups.length && retainedGroups[group] && debugGroups[startIdx] != -1) {
-        groups[startIdx] = debugGroups[startIdx];
-        groups[endIdx] = debugGroups[endIdx];
-      }
-    }
-  }
-
   /** Stores DFA-determined group 0 and defers inner capture extraction until requested. */
   private void setDeferredGroups(
       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
@@ -2229,7 +2114,6 @@ public final class Matcher implements MatchResult {
     deferredEndMatch = endMatch;
     this.groupZeroResolved = groupZeroResolved;
     capturesResolved = groupZeroResolved && ncap <= 1;
-    captureDebugResolved = false;
   }
 
   private void checkMatch() {
