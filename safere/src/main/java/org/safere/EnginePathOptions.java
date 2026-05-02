@@ -24,7 +24,8 @@ record EnginePathOptions(
     boolean dfa,
     boolean reverseDfa,
     boolean bitState,
-    boolean lazyCaptureExtraction) {
+    boolean lazyCaptureExtraction,
+    boolean semanticGuards) {
 
   private static final EnginePathOptions ALL_ENABLED = builder().build();
   private static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
@@ -75,6 +76,7 @@ record EnginePathOptions(
     private boolean reverseDfa = true;
     private boolean bitState = true;
     private boolean lazyCaptureExtraction = true;
+    private boolean semanticGuards = true;
 
     Builder literalFastPaths(boolean enabled) {
       literalFastPaths = enabled;
@@ -126,6 +128,11 @@ record EnginePathOptions(
       return this;
     }
 
+    Builder semanticGuards(boolean enabled) {
+      semanticGuards = enabled;
+      return this;
+    }
+
     EnginePathOptions build() {
       return new EnginePathOptions(
           literalFastPaths,
@@ -137,7 +144,8 @@ record EnginePathOptions(
           dfa,
           reverseDfa,
           bitState,
-          lazyCaptureExtraction);
+          lazyCaptureExtraction,
+          semanticGuards);
     }
   }
 }

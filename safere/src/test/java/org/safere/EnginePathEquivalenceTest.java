@@ -42,6 +42,27 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  @DisplayName("engine path roles constrain declared result authority")
+  void enginePathRolesConstrainDeclaredResultAuthority() {
+    for (EnginePathContract contract : EnginePathContract.all()) {
+      if (contract.role() == EnginePathRole.FILTER) {
+        assertThat(contract.authorities())
+            .as("filter authorities for %s", contract.path())
+            .doesNotContain(
+                ResultAuthority.GROUP_ZERO,
+                ResultAuthority.CAPTURES,
+                ResultAuthority.DEFERRED_CAPTURES,
+                ResultAuthority.REPLACEMENT_RESULT);
+      }
+      if (contract.role() == EnginePathRole.PARTIAL_PRODUCER) {
+        assertThat(contract.authorities())
+            .as("partial producer authorities for %s", contract.path())
+            .doesNotContain(ResultAuthority.CAPTURES, ResultAuthority.REPLACEMENT_RESULT);
+      }
+    }
+  }
+
+  @Test
   @DisplayName("engine path options disable only their declared path")
   void enginePathOptionsDisableDeclaredPath() {
     EnginePathOptions allEnabled = EnginePathOptions.allEnabled();
@@ -51,6 +72,51 @@ class EnginePathEquivalenceTest {
           .as("default option for %s", entry.getKey())
           .isTrue();
     }
+  }
+
+  @Test
+  @DisplayName("OnePass nullable-alternation guard has semantic content")
+  void onePassNullableAlternationGuardHasSemanticContent() {
+    String regex = "(?:|a)";
+    String input = "a";
+    Pattern canonical = Pattern.compile(regex);
+    Pattern unguarded =
+        Pattern.compile(
+            regex,
+            0,
+            EnginePathOptions.builder()
+                .semanticGuards(false)
+                .dfa(false)
+                .bitState(false)
+                .build());
+
+    assertThat(canonical.hasNullableAlternation()).isTrue();
+    assertThat(canonical.onePass()).isNotNull();
+    assertThat(findTrace(unguarded.matcher(input)))
+        .as("unguarded OnePass should expose why the nullable-alternation guard exists")
+        .isNotEqualTo(findTrace(canonical.matcher(input)));
+  }
+
+  @Test
+  @DisplayName("DFA start-reliability guard has semantic content")
+  void dfaStartReliabilityGuardHasSemanticContent() {
+    String regex = "(bcd|abcde)";
+    String input = "abcde";
+    Pattern canonical = Pattern.compile(regex);
+    Pattern unguarded =
+        Pattern.compile(
+            regex,
+            0,
+            EnginePathOptions.builder()
+                .semanticGuards(false)
+                .onePass(false)
+                .bitState(false)
+                .build());
+
+    assertThat(canonical.dfaStartReliable()).isFalse();
+    assertThat(findTrace(unguarded.matcher(input)))
+        .as("unguarded DFA sandwich should expose why start reliability is guarded")
+        .isNotEqualTo(findTrace(canonical.matcher(input)));
   }
 
   @Test
@@ -148,6 +214,64 @@ class EnginePathEquivalenceTest {
     assertThat(defaultPattern.matcher(input).replaceFirst("<$0>"))
         .as("replaceFirst trace for /%s/ on %s", regex, input)
         .isEqualTo(forcedPattern.matcher(input).replaceFirst("<$0>"));
+    assertThat(defaultPattern.matcher(input).replaceAll(match -> "<" + match.group() + ">"))
+        .as("functional replaceAll trace for /%s/ on %s", regex, input)
+        .isEqualTo(forcedPattern.matcher(input).replaceAll(match -> "<" + match.group() + ">"));
+    assertThat(appendReplacementTrace(defaultPattern.matcher(input)))
+        .as("appendReplacement trace for /%s/ on %s", regex, input)
+        .isEqualTo(appendReplacementTrace(forcedPattern.matcher(input)));
+  }
+
+  @Test
+  @DisplayName("region traces are engine-path equivalent")
+  void regionTracesAreEnginePathEquivalent() {
+    EnginePathOptions forced =
+        EnginePathOptions.builder()
+            .literalFastPaths(false)
+            .charClassMatchFastPaths(false)
+            .startAcceleration(false)
+            .onePass(false)
+            .dfa(false)
+            .bitState(false)
+            .lazyCaptureExtraction(false)
+            .build();
+    Pattern defaultPattern = Pattern.compile("^[a-z]+$");
+    Pattern forcedPattern = Pattern.compile("^[a-z]+$", 0, forced);
+    Matcher defaultMatcher = defaultPattern.matcher("00abc11").region(2, 5);
+    Matcher forcedMatcher = forcedPattern.matcher("00abc11").region(2, 5);
+
+    assertThat(operationTrace(defaultMatcher, Operation.MATCHES))
+        .isEqualTo(operationTrace(forcedMatcher, Operation.MATCHES));
+  }
+
+  @Test
+  @DisplayName("transparent and anchoring bounds traces are engine-path equivalent")
+  void boundsTracesAreEnginePathEquivalent() {
+    EnginePathOptions forced = EnginePathOptions.builder().dfa(false).bitState(false).build();
+    Pattern defaultPattern = Pattern.compile("^abc$");
+    Pattern forcedPattern = Pattern.compile("^abc$", 0, forced);
+    Matcher defaultMatcher =
+        defaultPattern.matcher("00abc11").region(2, 5).useAnchoringBounds(false);
+    Matcher forcedMatcher =
+        forcedPattern.matcher("00abc11").region(2, 5).useAnchoringBounds(false);
+
+    assertThat(operationTrace(defaultMatcher, Operation.MATCHES))
+        .isEqualTo(operationTrace(forcedMatcher, Operation.MATCHES));
+  }
+
+  @Test
+  @DisplayName("multiline CRLF anchor traces are engine-path equivalent")
+  void multilineCrLfAnchorTracesAreEnginePathEquivalent() {
+    assertEquivalent(
+        "(?m)^abc$",
+        "xx\r\nabc\r\nyy",
+        EnginePathOptions.builder()
+            .startAcceleration(false)
+            .onePass(false)
+            .dfa(false)
+            .reverseDfa(false)
+            .bitState(false)
+            .build());
   }
 
   private static MatchTrace operationTrace(Matcher matcher, Operation operation) {
@@ -166,6 +290,15 @@ class EnginePathEquivalenceTest {
     }
     traces.add(snapshot(matcher, false));
     return traces;
+  }
+
+  private static String appendReplacementTrace(Matcher matcher) {
+    StringBuilder builder = new StringBuilder();
+    while (matcher.find()) {
+      matcher.appendReplacement(builder, "<$0>");
+    }
+    matcher.appendTail(builder);
+    return builder.toString();
   }
 
   private static MatchTrace snapshot(Matcher matcher, boolean matched) {
