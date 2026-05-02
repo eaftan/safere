@@ -47,6 +47,9 @@ enum RegexpOp {
    */
   REPEAT,
 
+  /** Source-level non-capturing parenthesized subexpression. */
+  NON_CAPTURE,
+
   /** Parenthesized (capturing) subexpression with capture index and optional name. */
   CAPTURE,
 

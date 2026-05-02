@@ -45,7 +45,10 @@ final class Regexp {
   /** Parse flags in effect for this node. */
   public final int flags;
 
-  /** Sub-expressions (children). Used by CONCAT, ALTERNATE, STAR, PLUS, QUEST, REPEAT, CAPTURE. */
+  /**
+   * Sub-expressions (children). Used by CONCAT, ALTERNATE, STAR, PLUS, QUEST, REPEAT, NON_CAPTURE,
+   * and CAPTURE.
+   */
   public List<Regexp> subs;
 
   /**
@@ -74,13 +77,6 @@ final class Regexp {
 
   /** Match ID for multi-pattern matching. Used by HAVE_MATCH. */
   public int matchId;
-
-  /**
-   * Whether this node came directly from a source-level non-capturing group. Non-capturing groups
-   * are usually transparent, but the JDK exposes this distinction for zero-width quantified
-   * captures such as {@code ()*} versus {@code (?:())*}.
-   */
-  boolean sourceNonCapturingGroup;
 
   private Regexp(RegexpOp op, int flags) {
     this.op = op;
@@ -184,6 +180,13 @@ final class Regexp {
     re.subs = List.of(sub);
     re.min = min;
     re.max = max;
+    return re;
+  }
+
+  /** Creates a NON_CAPTURE node preserving a source-level {@code (?:...)} group boundary. */
+  public static Regexp nonCapture(Regexp sub, int flags) {
+    Regexp re = new Regexp(RegexpOp.NON_CAPTURE, flags);
+    re.subs = List.of(sub);
     return re;
   }
 
@@ -327,6 +330,10 @@ final class Regexp {
           }
           yield PREC_ALTERNATE;
         }
+        case NON_CAPTURE -> {
+          sb.append("(?:");
+          yield PREC_PAREN;
+        }
         case CAPTURE -> {
           sb.append('(');
           if (re.cap == 0) {
@@ -439,6 +446,7 @@ final class Regexp {
         case WORD_BOUNDARY -> sb.append("\\b");
         case NO_WORD_BOUNDARY -> sb.append("\\B");
         case CHAR_CLASS -> appendCharClass(sb, re.charClass);
+        case NON_CAPTURE -> sb.append(')');
         case CAPTURE -> sb.append(')');
         case HAVE_MATCH -> sb.append("(?HaveMatch:").append(re.matchId).append(')');
         default -> sb.append("[").append(re.op).append("]");

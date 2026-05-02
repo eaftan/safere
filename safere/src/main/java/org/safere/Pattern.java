@@ -242,11 +242,18 @@ public final class Pattern implements Serializable {
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
     compiled.setUnixLines((effectiveFlags & UNIX_LINES) != 0);
+    // Language-shape accelerators should see through source-only grouping. Correctness guards
+    // below still inspect the source AST because source quantifiers carry matching semantics that
+    // simplification deliberately lowers away.
+    Regexp metadataAst = Simplifier.simplify(re);
+    if (metadataAst == null) {
+      throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
+    }
     Map<String, Integer> named = extractNamedGroups(re);
-    PrefixResult prefixResult = extractPrefix(re);
+    PrefixResult prefixResult = extractPrefix(metadataAst);
     String prefix = prefixResult.prefix();
     boolean prefixFoldCase = prefixResult.foldCase();
-    String literalMatch = extractLiteralMatch(re);
+    String literalMatch = extractLiteralMatch(metadataAst);
     boolean hasLazy = hasLazyQuantifiers(re);
     boolean hasAlt = hasAlternation(re);
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
@@ -255,12 +262,12 @@ public final class Pattern implements Serializable {
     boolean hasEndConst = hasEndConstraint(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null)
-        ? extractCharClassPrefixAscii(re) : null;
+        ? extractCharClassPrefixAscii(metadataAst) : null;
     StartAcceleration startAcceleration =
-        (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(re) : null;
-    KeywordAlternation keywordAlternation = extractKeywordAlternation(re, flags);
+        (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(metadataAst) : null;
+    KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     // Detect "repeated character class" pattern for matches() fast path.
-    CharClassMatchInfo ccMatch = extractCharClassMatch(re);
+    CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(regex, effectiveFlags, compiled, re, named, prefix, prefixFoldCase,
         literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
@@ -1038,39 +1045,44 @@ public final class Pattern implements Serializable {
    * alternation branches where OnePass's longest-match semantics may differ from first-match.
    */
   static boolean canMatchEmpty(Regexp re) {
-    return switch (re.op) {
-      case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-           NO_WORD_BOUNDARY -> true;
-      case STAR, QUEST -> true; // min=0
-      case REPEAT -> re.min == 0;
-      case PLUS -> re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
-      case CAPTURE -> re.subs != null && !re.subs.isEmpty() && canMatchEmpty(re.subs.get(0));
-      case CONCAT -> {
-        if (re.subs == null) {
+    return new CanMatchEmptyWalker().walk(re, false);
+  }
+
+  private static final class CanMatchEmptyWalker extends Walker<Boolean> {
+
+    @Override
+    protected Boolean shortVisit(Regexp re, Boolean parentArg) {
+      return false;
+    }
+
+    @Override
+    protected Boolean postVisit(
+        Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
+      return switch (re.op) {
+        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
+             NO_WORD_BOUNDARY -> true;
+        case STAR, QUEST -> true;
+        case REPEAT -> re.min == 0;
+        case PLUS, NON_CAPTURE, CAPTURE -> !childArgs.isEmpty() && childArgs.getFirst();
+        case CONCAT -> {
+          for (boolean childCanMatchEmpty : childArgs) {
+            if (!childCanMatchEmpty) {
+              yield false;
+            }
+          }
           yield true;
         }
-        for (Regexp sub : re.subs) {
-          if (!canMatchEmpty(sub)) {
-            yield false;
+        case ALTERNATE -> {
+          for (boolean childCanMatchEmpty : childArgs) {
+            if (childCanMatchEmpty) {
+              yield true;
+            }
           }
+          yield childArgs.isEmpty();
         }
-        yield true;
-      }
-      case ALTERNATE -> {
-        if (re.subs == null) {
-          yield true;
-        }
-        for (Regexp sub : re.subs) {
-          if (canMatchEmpty(sub)) {
-            yield true;
-          }
-        }
-        yield false;
-      }
-      default ->
-        // LITERAL, LITERAL_STRING, CHAR_CLASS, ANY_CHAR, etc. — must consume at least one char.
-        false;
-    };
+        default -> false;
+      };
+    }
   }
 
   /**

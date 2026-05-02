@@ -95,9 +95,9 @@ class SimplifierTest {
         Arguments.of("(?:a{1,}){1,}", "a+"),
         Arguments.of("(a{1,}b{1,})", "(a+b+)"),
         Arguments.of("a{1,}|b{1,}", "a+|b+"),
-        Arguments.of("(?:a{1,})*", "(?:a+)*"),
+        Arguments.of("(?:a{1,})*", "a*"),
         Arguments.of("(?:a{1,})+", "a+"),
-        Arguments.of("(?:a{1,})?", "(?:a+)?"),
+        Arguments.of("(?:a{1,})?", "a*"),
         Arguments.of("a{0}", ""),
 
         // Character class simplification

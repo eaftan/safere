@@ -43,6 +43,10 @@ class ParserTest {
     return Parser.parse(pattern, flags);
   }
 
+  private static Regexp simplify(String pattern) {
+    return Simplifier.simplify(parse(pattern));
+  }
+
   // ---------------------------------------------------------------------------
   // 1. Literals
   // ---------------------------------------------------------------------------
@@ -621,7 +625,8 @@ class ParserTest {
     void quantifierOnNonCapturingGroup() {
       Regexp re = parse("(?:ab)*");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
-      assertThat(re.sub().toString()).isEqualTo("ab");
+      assertThat(re.sub().op).isEqualTo(RegexpOp.NON_CAPTURE);
+      assertThat(re.sub().sub().toString()).isEqualTo("ab");
     }
 
     @Test
@@ -678,9 +683,16 @@ class ParserTest {
     }
 
     @Test
-    void nonCapturingGroup_simplifiesAway() {
-      // (?:a) optimizes to just the literal
+    void nonCapturingGroup_preservesSourceBoundary() {
       Regexp re = parse("(?:a)");
+      assertThat(re.op).isEqualTo(RegexpOp.NON_CAPTURE);
+      assertThat(re.sub().op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.sub().rune).isEqualTo('a');
+    }
+
+    @Test
+    void nonCapturingGroup_simplifiesAway() {
+      Regexp re = simplify("(?:a)");
       assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
       assertThat(re.rune).isEqualTo('a');
     }
@@ -688,13 +700,13 @@ class ParserTest {
     @Test
     void nonCapturingGroupConcat() {
       // (?:ab)(?:cd) should coalesce to "abcd"
-      Regexp re = parse("(?:ab)(?:cd)");
+      Regexp re = simplify("(?:ab)(?:cd)");
       assertThat(re.toString()).isEqualTo("abcd");
     }
 
     @Test
     void nonCapturingGroupWithAlternation() {
-      Regexp re = parse("(?:ab|cd)");
+      Regexp re = simplify("(?:ab|cd)");
       assertThat(re.op).isEqualTo(RegexpOp.ALTERNATE);
     }
 
@@ -1189,7 +1201,8 @@ class ParserTest {
     @Test
     void caseInsensitive_scoped() {
       Regexp re = parse("(?i:abc)");
-      assertThat(re.foldCase()).isTrue();
+      assertThat(re.op).isEqualTo(RegexpOp.NON_CAPTURE);
+      assertThat(re.sub().foldCase()).isTrue();
     }
 
     @Test
@@ -1527,7 +1540,7 @@ class ParserTest {
     @Test
     void nestedRepetition_starStar() {
       // (?:(?:a)*)* simplifies to a*
-      Regexp re = parse("(?:(?:a)*)*");
+      Regexp re = simplify("(?:(?:a)*)*");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
       assertThat(re.sub().op).isEqualTo(RegexpOp.LITERAL);
       assertThat(re.sub().rune).isEqualTo('a');
@@ -1536,7 +1549,7 @@ class ParserTest {
     @Test
     void nestedRepetition_plusPlus() {
       // (?:(?:a)+)+ simplifies to a+
-      Regexp re = parse("(?:(?:a)+)+");
+      Regexp re = simplify("(?:(?:a)+)+");
       assertThat(re.op).isEqualTo(RegexpOp.PLUS);
       assertThat(re.sub().op).isEqualTo(RegexpOp.LITERAL);
     }
@@ -1544,55 +1557,55 @@ class ParserTest {
     @Test
     void nestedRepetition_questQuest() {
       // (?:(?:a)?)? simplifies to a?
-      Regexp re = parse("(?:(?:a)?)?");
+      Regexp re = simplify("(?:(?:a)?)?");
       assertThat(re.op).isEqualTo(RegexpOp.QUEST);
     }
 
     @Test
     void nestedRepetition_starPlus() {
       // (?:(?:a)*)+ simplifies to a*
-      Regexp re = parse("(?:(?:a)*)+");
+      Regexp re = simplify("(?:(?:a)*)+");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
     }
 
     @Test
     void nestedRepetition_starQuest() {
       // (?:(?:a)*)? simplifies to a*
-      Regexp re = parse("(?:(?:a)*)?");
+      Regexp re = simplify("(?:(?:a)*)?");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
     }
 
     @Test
     void nestedRepetition_plusStar() {
       // (?:(?:a)+)* simplifies to a*
-      Regexp re = parse("(?:(?:a)+)*");
+      Regexp re = simplify("(?:(?:a)+)*");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
     }
 
     @Test
     void nestedRepetition_plusQuest() {
       // (?:(?:a)+)? simplifies to a*
-      Regexp re = parse("(?:(?:a)+)?");
+      Regexp re = simplify("(?:(?:a)+)?");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
     }
 
     @Test
     void nestedRepetition_questStar() {
       // (?:(?:a)?)* simplifies to a*
-      Regexp re = parse("(?:(?:a)?)*");
+      Regexp re = simplify("(?:(?:a)?)*");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
     }
 
     @Test
     void nestedRepetition_questPlus() {
       // (?:(?:a)?)+ simplifies to a*
-      Regexp re = parse("(?:(?:a)?)+");
+      Regexp re = simplify("(?:(?:a)?)+");
       assertThat(re.op).isEqualTo(RegexpOp.STAR);
     }
 
     @Test
     void nonCapturingNoop() {
-      Regexp re = parse("(?:a)");
+      Regexp re = simplify("(?:a)");
       assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
       assertThat(re.rune).isEqualTo('a');
     }

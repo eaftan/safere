@@ -764,8 +764,7 @@ final class Parser {
       Regexp re = Regexp.capture(r1.re, flags, r2.cap, r2.name);
       pushRegexp(re);
     } else {
-      r1.re.sourceNonCapturingGroup = true;
-      pushRegexp(r1.re);
+      pushRegexp(Regexp.nonCapture(r1.re, flags));
     }
   }
 

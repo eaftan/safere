@@ -1697,19 +1697,6 @@ public final class Matcher implements MatchResult {
     ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
 
     reset();
-    Prog prog = parentPattern.prog();
-
-    // Direct BitState path: when captures will always be needed (group references in the
-    // replacement) and the text fits BitState, skip the DFA sandwich entirely. Instead of
-    // DFA forward + reverse + anchored (3 passes) then BitState for captures (1 pass), run
-    // BitState once per match for combined find + capture. For short text with dense matches,
-    // this eliminates ~12% overhead from the per-match DFA engine setup.
-    if (templateHasGroupRefs(template)
-        && !parentPattern.canOnePassPrimary()
-        && BitState.maxTextSize(prog) >= text.length()) {
-      return replaceAllDirectBitState(template, prog);
-    }
-
     StringBuilder sb = new StringBuilder();
     while (find()) {
       resolveCaptures();
@@ -1743,93 +1730,6 @@ public final class Matcher implements MatchResult {
       appendReplacement(sb, replacement);
     }
     appendTail(sb);
-    return sb.toString();
-  }
-
-  /**
-   * Returns {@code true} if the compiled template contains any group references (numbered or
-   * named). When true, captures will be accessed for every match, making the direct BitState path
-   * worthwhile.
-   */
-  private static boolean templateHasGroupRefs(ReplacementSegment[] template) {
-    for (ReplacementSegment seg : template) {
-      if (seg instanceof ReplacementSegment.GroupRef
-          || seg instanceof ReplacementSegment.NamedGroupRef) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Specialized replaceAll loop that uses BitState directly for find + capture in a single pass,
-   * bypassing the DFA sandwich. Falls back to prefix acceleration when available.
-   */
-  private String replaceAllDirectBitState(ReplacementSegment[] template, Prog prog) {
-    StringBuilder sb = new StringBuilder();
-    int ncap = prog.numCaptures();
-    int pos = 0;
-    int appPos = 0;
-
-    while (pos <= text.length()) {
-      int effectiveStart = pos;
-      boolean anchoredStart = prog.anchorStart();
-      if (anchoredStart && pos > 0) {
-        break;
-      }
-
-      // Apply prefix acceleration if available.
-      String prefix = parentPattern.prefix();
-      if (prefix != null && !anchoredStart) {
-        int idx;
-        if (parentPattern.prefixFoldCase()) {
-          idx = indexOfIgnoreCase(text, prefix, pos);
-        } else {
-          idx = text.indexOf(prefix, pos);
-        }
-        if (idx < 0) {
-          break;
-        }
-        effectiveStart = idx;
-      }
-
-      // Apply char-class prefix acceleration if available.
-      boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-      if (ccPrefixAscii != null && !anchoredStart) {
-        int idx = indexOfCharClass(text, ccPrefixAscii, pos);
-        if (idx < 0) {
-          break;
-        }
-        effectiveStart = idx;
-      }
-
-      int[] result = searchWithBitStateOrNfa(
-          prog, text, effectiveStart, text.length(), text.length(),
-          false, false, false, ncap);
-      if (result == null) {
-        break;
-      }
-      groups = result;
-      capturesResolved = true;
-      groupZeroResolved = true;
-      captureDebugResolved = false;
-      hasMatch = true;
-      sb.append(text, appPos, groups[0]);
-      applyReplacementTemplate(sb, template);
-      appPos = groups[1];
-
-      // Advance past the match; handle empty matches by advancing one character.
-      if (groups[1] == groups[0]) {
-        if (groups[0] < text.length()) {
-          sb.append(text, groups[0], groups[0] + Character.charCount(text.codePointAt(groups[0])));
-          appPos = groups[0] + Character.charCount(text.codePointAt(groups[0]));
-        }
-        pos = groups[0] + 1;
-      } else {
-        pos = groups[1];
-      }
-    }
-    sb.append(text, appPos, text.length());
     return sb.toString();
   }
 
@@ -2409,7 +2309,7 @@ public final class Matcher implements MatchResult {
           addSample(re.subs.get(0), samples);
         }
       }
-      case CAPTURE -> collectTerminalRepeatSamples(re.subs.get(0), samples);
+      case NON_CAPTURE, CAPTURE -> collectTerminalRepeatSamples(re.subs.get(0), samples);
       case CONCAT -> {
         for (int i = re.subs.size() - 1; i >= 0; i--) {
           Regexp sub = re.subs.get(i);
@@ -2443,7 +2343,7 @@ public final class Matcher implements MatchResult {
           ? null
           : new String(Character.toChars(re.charClass.lo(0)));
       case ANY_CHAR -> "a";
-      case CAPTURE -> sampleString(re.subs.get(0));
+      case NON_CAPTURE, CAPTURE -> sampleString(re.subs.get(0));
       case CONCAT -> {
         StringBuilder sb = new StringBuilder();
         for (Regexp sub : re.subs) {

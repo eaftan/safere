@@ -338,7 +338,7 @@ final class Compiler extends Walker<Compiler.Frag> {
             NO_WORD_BOUNDARY -> 0;
         case LITERAL, ANY_CHAR, CHAR_CLASS -> 1;
         case LITERAL_STRING -> re.runes == null ? 0 : re.runes.length;
-        case CAPTURE, PLUS -> childArgs.isEmpty() ? 0 : childArgs.get(0);
+        case NON_CAPTURE, CAPTURE, PLUS -> childArgs.isEmpty() ? 0 : childArgs.get(0);
         case STAR, QUEST -> 0;
         case REPEAT -> re.min * (childArgs.isEmpty() ? 0 : childArgs.get(0));
         case CONCAT -> {
@@ -375,7 +375,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     return switch (re.op) {
       case BEGIN_TEXT -> true;
       case CONCAT -> re.nsub() > 0 && isAnchorStartImpl(re.subs.getFirst(), depth + 1);
-      case CAPTURE -> isAnchorStartImpl(re.sub(), depth + 1);
+      case NON_CAPTURE, CAPTURE -> isAnchorStartImpl(re.sub(), depth + 1);
       default -> false;
     };
   }
@@ -398,12 +398,16 @@ final class Compiler extends Walker<Compiler.Frag> {
         }
         yield re;
       }
+      case NON_CAPTURE -> {
+        if (isAnchorStartImpl(re.sub(), depth + 1)) {
+          yield Regexp.nonCapture(stripAnchorStartImpl(re.sub(), depth + 1), re.flags);
+        }
+        yield re;
+      }
       case CAPTURE -> {
         if (isAnchorStartImpl(re.sub(), depth + 1)) {
-          Regexp capture = Regexp.capture(
-              stripAnchorStartImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
-          capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
-          yield capture;
+          yield Regexp.capture(stripAnchorStartImpl(re.sub(), depth + 1), re.flags, re.cap,
+              re.name);
         }
         yield re;
       }
@@ -431,7 +435,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       case END_TEXT -> (re.flags & ParseFlags.WAS_DOLLAR) != 0;
       case CONCAT -> re.nsub() > 0
           && isDollarAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
-      case CAPTURE -> isDollarAnchorEndImpl(re.sub(), depth + 1);
+      case NON_CAPTURE, CAPTURE -> isDollarAnchorEndImpl(re.sub(), depth + 1);
       default -> false;
     };
   }
@@ -443,7 +447,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     return switch (re.op) {
       case END_TEXT -> true;
       case CONCAT -> re.nsub() > 0 && isAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
-      case CAPTURE -> isAnchorEndImpl(re.sub(), depth + 1);
+      case NON_CAPTURE, CAPTURE -> isAnchorEndImpl(re.sub(), depth + 1);
       default -> false;
     };
   }
@@ -467,12 +471,16 @@ final class Compiler extends Walker<Compiler.Frag> {
         }
         yield re;
       }
+      case NON_CAPTURE -> {
+        if (isAnchorEndImpl(re.sub(), depth + 1)) {
+          yield Regexp.nonCapture(stripAnchorEndImpl(re.sub(), depth + 1), re.flags);
+        }
+        yield re;
+      }
       case CAPTURE -> {
         if (isAnchorEndImpl(re.sub(), depth + 1)) {
-          Regexp capture = Regexp.capture(
-              stripAnchorEndImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
-          capture.sourceNonCapturingGroup = re.sourceNonCapturingGroup;
-          yield capture;
+          yield Regexp.capture(stripAnchorEndImpl(re.sub(), depth + 1), re.flags, re.cap,
+              re.name);
         }
         yield re;
       }
@@ -751,30 +759,31 @@ final class Compiler extends Walker<Compiler.Frag> {
   private static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
     return re.op == RegexpOp.CAPTURE
         && re.cap > 0
-        && !re.sourceNonCapturingGroup
         && isPureEmpty(re.sub());
   }
 
   private static boolean isPureEmpty(Regexp re) {
-    return switch (re.op) {
-      case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-           NO_WORD_BOUNDARY -> true;
-      case CAPTURE -> isPureEmpty(re.sub());
-      case CONCAT -> {
-        if (re.subs == null) {
-          yield true;
-        }
-        boolean pure = true;
-        for (Regexp sub : re.subs) {
-          if (!isPureEmpty(sub)) {
-            pure = false;
-            break;
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      switch (node.op) {
+        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
+             NO_WORD_BOUNDARY -> {}
+        case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
+        case CONCAT -> {
+          if (node.subs != null) {
+            for (Regexp sub : node.subs) {
+              stack.push(sub);
+            }
           }
         }
-        yield pure;
+        default -> {
+          return false;
+        }
       }
-      default -> false;
-    };
+    }
+    return true;
   }
 
   private Frag literal(int rune, boolean foldCase) {
@@ -847,6 +856,8 @@ final class Compiler extends Walker<Compiler.Frag> {
         }
         yield f;
       }
+
+      case NON_CAPTURE -> childArgs.get(0);
 
       case STAR -> {
         Frag child = childArgs.get(0);
