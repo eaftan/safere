@@ -470,8 +470,9 @@ class CrosscheckTest {
     @DisplayName("namedGroups() returns group mapping")
     void namedGroupsMap() {
       Pattern p = Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})");
-      assertThat(p.namedGroups()).containsEntry("year", 1);
-      assertThat(p.namedGroups()).containsEntry("month", 2);
+      assertThat(p.namedGroups())
+          .isEqualTo(java.util.regex.Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})")
+              .namedGroups());
     }
 
     @Test

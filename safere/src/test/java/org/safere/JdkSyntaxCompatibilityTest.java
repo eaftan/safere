@@ -216,7 +216,36 @@ class JdkSyntaxCompatibilityTest {
               "comments-mode spaced solitary ampersand after leading class intersection",
               "(?x)[&&  &b]")),
           Arguments.of(new DialectRejection(
-              "comments-mode spaced repeated leading class intersection", "(?x)[&&  &&b]")));
+              "comments-mode spaced repeated leading class intersection", "(?x)[&&  &&b]")),
+          Arguments.of(new DialectRejection(
+              "leading intersection followed by zero-width syntax only", "[&&\\Q\\E]")),
+          Arguments.of(new DialectRejection(
+              "leading intersection followed by zero-width syntax and repeated marker",
+              "[&&\\Q\\E&&a]")),
+          Arguments.of(new DialectRejection(
+              "comments-mode leading intersection followed by zero-width syntax and repeated marker",
+              "(?x)[&& \\Q\\E&&a]")),
+          Arguments.of(new DialectRejection("range ending at nested class opener", "[a-[]")),
+          Arguments.of(new DialectRejection(
+              "leading intersection range ending at nested class opener", "[&&--[]")),
+          Arguments.of(new DialectRejection(
+              "negated leading intersection range ending at nested class opener", "[^&&--[]")),
+          Arguments.of(new DialectRejection(
+              "leading intersection range ending before nested class", "[&&--[x]")),
+          Arguments.of(new DialectRejection(
+              "comments-mode leading intersection range ending at nested class opener",
+              "(?x)[&&  --[]")),
+          Arguments.of(new DialectRejection(
+              "comments-mode leading intersection range ending before nested class",
+              "(?x)[&& #x\n --[x]")),
+          Arguments.of(new DialectRejection(
+              "intersection rhs range ending at nested class opener", "[a&&b-[]")),
+          Arguments.of(new DialectRejection("empty quoted class item has no terminator",
+              "[\\Q\\E]")),
+          Arguments.of(new DialectRejection("comments-mode spaced range has no endpoint",
+              "(?x)[a- ]")),
+          Arguments.of(new DialectRejection("comments-mode spaced empty quote has no endpoint",
+              "(?x)[a- \\Q\\E]")));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -626,9 +655,40 @@ class JdkSyntaxCompatibilityTest {
           "d", "e", "f", "m", "p", "z", "`", "+");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[&&abc]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^&&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&  -a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&& #x\n -a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&^a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&\\d]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&[a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&a-]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&--a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&-[a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&a&&b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&a&&[ab]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Q\\E-]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Q\\E-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Q\\E&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ \\Q\\E-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a\\Q\\E-b]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a&&&&b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&\\Q\\E&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ab&&\\Q\\E&&b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&\\Q\\E&&b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab&&  ]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab&& #x\n ]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-z&&[def]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-z&&[^bc]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-\\Q\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-\\Qb\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-\\Qbc\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Qa\\E-b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Qab\\E-c]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-[a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-[x]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&--[a]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-d[m-p]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[:lower:]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^[:lower:]]", inputs)),
@@ -639,6 +699,32 @@ class JdkSyntaxCompatibilityTest {
     @MethodSource("generatedCharacterClassMembershipCases")
     @DisplayName("character-class edge syntax matches JDK over generated inputs")
     void characterClassEdgeSyntaxMatchesJdkOverGeneratedInputs(
+        CharacterClassMembershipCase membershipCase) {
+      assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
+    }
+
+    static Stream<Arguments> deferredCharacterClassExpressionParserCases() {
+      List<String> inputs = List.of("", "&", "[", "]", "-", "a", "x", "0", " ");
+      return Stream.of(
+          Arguments.of(new CharacterClassMembershipCase("[ [a]&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ \\d&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ &&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ &&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&[x]-&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&\\Q\\E[x]-&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[x]-&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^ [a]&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^ \\d&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^ &&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^&&[x]-&&a]", inputs)));
+    }
+
+    @Disabled("Requires full JDK character-class expression parser: "
+        + "https://github.com/eaftan/safere/issues/273")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("deferredCharacterClassExpressionParserCases")
+    @DisplayName("deferred character-class expression parser cases match JDK")
+    void deferredCharacterClassExpressionParserCasesMatchJdk(
         CharacterClassMembershipCase membershipCase) {
       assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
     }

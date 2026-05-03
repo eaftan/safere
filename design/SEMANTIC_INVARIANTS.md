@@ -332,6 +332,8 @@ matrix and systematic membership/error tests against `java.util.regex`.
 
 ### Crosscheck And Test Oracle Design
 
+Focused design: [CROSSCHECK_TEST_ORACLE.md](CROSSCHECK_TEST_ORACLE.md).
+
 Scope: #223, #231, #235, #241, #252.
 
 This design should define when generated crosscheck tests are expected to run,

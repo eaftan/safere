@@ -128,6 +128,7 @@
                         <exclude name="OnePassTest.java"/>
                         <exclude name="ParseFlagsTest.java"/>
                         <exclude name="ParserTest.java"/>
+                        <exclude name="PatternInternalTest.java"/>
                         <exclude name="PatternSetTest.java"/>
                         <exclude name="ProgTest.java"/>
                         <exclude name="RegexpOpTest.java"/>
