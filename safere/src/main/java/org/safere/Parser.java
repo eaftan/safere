@@ -1136,12 +1136,12 @@ final class Parser {
           skipCommentsAndWhitespace();
         }
         RangeEndpoint endpoint = parseCCRangeEndpoint();
-        hi = endpoint.first();
+        hi = endpoint.first;
         if (hi < lo) {
           throw new PatternSyntaxException("invalid character class range", pattern, pos);
         }
         addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
-        for (int r : endpoint.trailingLiterals()) {
+        for (int r : endpoint.trailingLiterals) {
           addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
         }
         return;
@@ -1230,7 +1230,15 @@ final class Parser {
     return result;
   }
 
-  private record RangeEndpoint(int first, int[] trailingLiterals) {}
+  private static final class RangeEndpoint {
+    final int first;
+    final int[] trailingLiterals;
+
+    RangeEndpoint(int first, int[] trailingLiterals) {
+      this.first = first;
+      this.trailingLiterals = trailingLiterals;
+    }
+  }
 
   private int parseCCCharacter() {
     if (pos >= pattern.length()) {
