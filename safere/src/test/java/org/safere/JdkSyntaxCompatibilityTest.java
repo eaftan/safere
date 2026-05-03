@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -240,6 +239,15 @@ class JdkSyntaxCompatibilityTest {
               "(?x)[&& #x\n --[x]")),
           Arguments.of(new DialectRejection(
               "intersection rhs range ending at nested class opener", "[a&&b-[]")),
+          Arguments.of(new DialectRejection(
+              "ordinary literal before trailing class intersection after nested class",
+              "[[a]b&&]")),
+          Arguments.of(new DialectRejection(
+              "ordinary literal before trailing class intersection after predefined class",
+              "[\\d0&&]")),
+          Arguments.of(new DialectRejection(
+              "quoted literal before trailing class intersection after nested class",
+              "[[a]\\Qa\\E&&]")),
           Arguments.of(new DialectRejection("empty quoted class item has no terminator",
               "[\\Q\\E]")),
           Arguments.of(new DialectRejection("comments-mode spaced range has no endpoint",
@@ -704,7 +712,8 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> deferredCharacterClassExpressionParserCases() {
-      List<String> inputs = List.of("", "&", "[", "]", "-", "a", "x", "0", " ");
+      List<String> inputs = List.of("", "&", "[", "]", "-", "a", "b", "x", "0", "1", " ",
+          "\t", "Ā");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[ [a]&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ \\d&&]", inputs)),
@@ -716,15 +725,33 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[^ [a]&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^ \\d&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^ &&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("[^&&[x]-&&a]", inputs)));
+          Arguments.of(new CharacterClassMembershipCase("[^&&[x]-&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[ab]&&[bc]&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[ab]&&\\Q\\E[bc]&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Qab\\E&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\Qab\\E&&[b]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[ab]&&[^b]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[a]a-b&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\da-b&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^[a]a-b&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\D\\Q\\E &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\D\\Q\\E #x\n &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[a]&\\Q\\E&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\d&\\Q\\E&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]& &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\d& #x\n&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\w&\\Q\\E&& &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ && \\D&\\Q\\E&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\d0-1&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]",
+              inputs)));
     }
 
-    @Disabled("Requires full JDK character-class expression parser: "
-        + "https://github.com/eaftan/safere/issues/273")
     @ParameterizedTest(name = "{0}")
     @MethodSource("deferredCharacterClassExpressionParserCases")
-    @DisplayName("deferred character-class expression parser cases match JDK")
-    void deferredCharacterClassExpressionParserCasesMatchJdk(
+    @DisplayName("character-class expression parser cases match JDK")
+    void characterClassExpressionParserCasesMatchJdk(
         CharacterClassMembershipCase membershipCase) {
       assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
     }

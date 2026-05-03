@@ -68,35 +68,6 @@ final class Parser {
   private final int runeMax;
   private final Set<String> namedCaptures = new HashSet<>();
 
-  private final class CharacterClassFrame {
-    final int classStart;
-    final boolean parentIntersectionRhs;
-    final CharClassBuilder ccb = new CharClassBuilder();
-    boolean negated;
-    boolean expectFirstClassItem = true;
-    boolean parsingIntersectionRhs;
-    CharClassBuilder intersectionRhs;
-    boolean intersectionRhsHasClassItem;
-
-    CharacterClassFrame(boolean parentIntersectionRhs) {
-      if (pos >= pattern.length() || pattern.charAt(pos) != '[') {
-        throw new PatternSyntaxException("internal error", pattern, pos);
-      }
-      this.classStart = pos;
-      this.parentIntersectionRhs = parentIntersectionRhs;
-      pos++; // '['
-
-      if (pos < pattern.length() && pattern.charAt(pos) == '^') {
-        pos++; // '^'
-        negated = true;
-        if ((flags & ParseFlags.CLASS_NL) == 0 || (flags & ParseFlags.NEVER_NL) != 0) {
-          // If NL can't match implicitly, pretend negated classes include a leading \n.
-          ccb.addRune('\n');
-        }
-      }
-    }
-  }
-
   private Parser(String pattern, int flags) {
     this.pattern = pattern;
     this.flags = flags;
@@ -943,149 +914,269 @@ final class Parser {
   }
 
   private CharClassBuilder parseCharClassBuilder() {
-    ArrayDeque<CharacterClassFrame> stack = new ArrayDeque<>();
-    stack.push(new CharacterClassFrame(false));
+    ArrayDeque<ClassExpressionFrame> stack = new ArrayDeque<>();
+    stack.push(new ClassExpressionFrame(true, ClassContinuation.ROOT));
 
     while (!stack.isEmpty()) {
-      CharacterClassFrame frame = stack.peek();
+      ClassExpressionFrame frame = stack.peek();
       skipClassTriviaAndEmptySyntax();
       if (pos >= pattern.length()) {
         throw new PatternSyntaxException("missing closing ]", pattern, frame.classStart);
       }
 
-      if (frame.parsingIntersectionRhs) {
-        if (pattern.charAt(pos) == ']' && !frame.intersectionRhsHasClassItem) {
-          frame.parsingIntersectionRhs = false;
-          frame.intersectionRhs = null;
+      if (frame.parsingIntersectionRight) {
+        char c = pattern.charAt(pos);
+        if (c == ']' || c == '&') {
+          finishClassIntersection(frame);
+          frame.parsingIntersectionRight = false;
           continue;
         }
-        if (shouldFinishIntersectionRhs(frame)) {
-          frame.ccb.intersect(frame.intersectionRhs);
-          frame.parsingIntersectionRhs = false;
-          frame.intersectionRhs = null;
-          frame.intersectionRhsHasClassItem = false;
+        if (c == '[') {
+          stack.push(new ClassExpressionFrame(true, ClassContinuation.INTERSECTION_RIGHT));
           continue;
         }
-        if (isClassIntersectionOperator()) {
-          pos += 2;
-          continue;
-        }
-        if (pattern.charAt(pos) == '[') {
-          stack.push(new CharacterClassFrame(true));
-          continue;
-        }
-        if (parseAndAddNonNestedClassItem(frame.intersectionRhs)) {
-          frame.intersectionRhsHasClassItem = true;
-        }
+        stack.push(new ClassExpressionFrame(false, ClassContinuation.INTERSECTION_RIGHT));
         continue;
       }
 
-      if (pattern.charAt(pos) == ']' && !frame.expectFirstClassItem) {
-        CharClassBuilder completed = closeCharacterClassFrame(stack.pop());
+      char c = pattern.charAt(pos);
+      if (c == '[') {
+        stack.push(new ClassExpressionFrame(true, ClassContinuation.UNION));
+        continue;
+      }
+      if (c == '&') {
+        pos++;
+        if (pos < pattern.length() && pattern.charAt(pos) == '&') {
+          pos++;
+          frame.parsingIntersectionRight = true;
+          frame.intersectionRight = null;
+          continue;
+        }
+        pos--;
+      } else if (frame.shouldCompleteAt(c)) {
+        CharClassBuilder completed = completeClassExpression(frame);
+        stack.pop();
         if (stack.isEmpty()) {
           return completed;
         }
-        addCompletedNestedClass(stack.peek(), completed, frame.parentIntersectionRhs);
+        addCompletedClassExpression(stack.peek(), frame.continuation, completed);
         continue;
       }
 
-      // Character class intersection: &&. At the start of a class, the JDK treats the marker as
-      // syntax, not as two literal ampersands, and then continues with following class items.
-      if (frame.expectFirstClassItem && isClassIntersectionOperator()) {
-        pos += 2;
-        requireLeadingClassIntersectionOperandStart();
-        continue;
-      }
-      if (!frame.expectFirstClassItem && isClassIntersectionOperator()) {
-        pos += 2;
-        frame.parsingIntersectionRhs = true;
-        frame.intersectionRhs = new CharClassBuilder();
-        frame.intersectionRhsHasClassItem = false;
-        continue;
-      }
-
-      // - is only okay unescaped as first or last in class (except with PerlX).
-      if (pattern.charAt(pos) == '-' && !frame.expectFirstClassItem
-          && (flags & ParseFlags.PERL_X) == 0
-          && (pos + 1 >= pattern.length() || pattern.charAt(pos + 1) != ']')) {
-        throw new PatternSyntaxException(
-            "invalid character class range", pattern, pos);
-      }
-
-      if (pattern.charAt(pos) == '[') {
-        stack.push(new CharacterClassFrame(false));
-        continue;
-      }
-      if (parseAndAddNonNestedClassItem(frame.ccb)) {
-        frame.expectFirstClassItem = false;
+      ParsedClassAtom atom = parseClassAtomOrRange();
+      if (atom.role != ClassAtomRole.INTERSECTION_OPERAND) {
+        boolean alreadyHadPendingScalarsAfterCurrent =
+            frame.hasPendingScalarItems && frame.pendingScalarItemsAfterCurrentOperand;
+        frame.pendingScalarItems.addCharClass(atom.ccb);
+        frame.hasPendingScalarItems = true;
+        frame.pendingScalarRole = alreadyHadPendingScalarsAfterCurrent
+            ? ClassAtomRole.merge(frame.pendingScalarRole, atom.role)
+            : atom.role;
+        if (frame.accumulatedClass != null) {
+          frame.pendingScalarItemsAfterCurrentOperand = true;
+        }
+      } else {
+        frame.currentIntersectionOperand = atom.ccb;
+        frame.accumulatedClass = unionClass(frame.accumulatedClass, frame.currentIntersectionOperand);
+        if (frame.hasPendingScalarItems) {
+          frame.pendingScalarItemsAfterCurrentOperand = false;
+        }
       }
     }
 
     throw new PatternSyntaxException("internal error", pattern, pos);
   }
 
-  private void skipClassTriviaAndEmptySyntax() {
-    if ((flags & ParseFlags.COMMENTS) != 0) {
-      skipCommentsAndWhitespace();
+  private void finishClassIntersection(ClassExpressionFrame frame) {
+    boolean emptyRight = frame.intersectionRight == null;
+    boolean hadPendingScalarItems = frame.hasPendingScalarItems;
+    boolean pendingScalarsAfterCurrentOperand = frame.pendingScalarItemsAfterCurrentOperand;
+    ClassAtomRole pendingRole = frame.pendingScalarRole;
+    if (frame.hasPendingScalarItems) {
+      if (frame.accumulatedClass == null) {
+        frame.accumulatedClass = frame.pendingScalarItems;
+        frame.currentIntersectionOperand = frame.pendingScalarItems;
+      } else {
+        frame.accumulatedClass.addCharClass(frame.pendingScalarItems);
+        if (pendingScalarsAfterCurrentOperand
+            && pendingRole == ClassAtomRole.INTERSECTION_OPERAND) {
+          frame.currentIntersectionOperand = frame.pendingScalarItems;
+        }
+      }
+      frame.pendingScalarItems = new CharClassBuilder();
+      frame.hasPendingScalarItems = false;
+      frame.pendingScalarItemsAfterCurrentOperand = false;
+      frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
     }
-    skipEmptyQuotedLiterals();
-  }
-
-  private boolean shouldFinishIntersectionRhs(CharacterClassFrame frame) {
-    return pos >= pattern.length()
-        || pattern.charAt(pos) == ']'
-        || (frame.intersectionRhsHasClassItem && isClassIntersectionOperator());
-  }
-
-  private CharClassBuilder closeCharacterClassFrame(CharacterClassFrame frame) {
-    pos++; // ']'
-    if (frame.negated) {
-      frame.ccb.negate();
+    if (emptyRight && pendingRole == ClassAtomRole.AMBIGUOUS_AMPERSAND) {
+      frame.currentIntersectionOperand = frame.accumulatedClass;
+      return;
     }
-    return frame.ccb;
-  }
-
-  private void addCompletedNestedClass(
-      CharacterClassFrame parent, CharClassBuilder completed, boolean parentIntersectionRhs) {
-    if (parentIntersectionRhs) {
-      parent.intersectionRhs.addCharClass(completed);
-      parent.intersectionRhsHasClassItem = true;
+    if (frame.intersectionRight != null) {
+      frame.currentIntersectionOperand = frame.intersectionRight;
+    }
+    if (frame.accumulatedClass == null) {
+      if (frame.intersectionRight == null) {
+        throw new PatternSyntaxException("bad class syntax", pattern, pos);
+      }
+      frame.accumulatedClass = frame.intersectionRight;
     } else {
-      parent.ccb.addCharClass(completed);
-      parent.expectFirstClassItem = false;
+      if (emptyRight
+          && hadPendingScalarItems
+          && pendingScalarsAfterCurrentOperand
+          && pendingRole == ClassAtomRole.ORDINARY_SCALAR) {
+        throw new PatternSyntaxException("bad class syntax", pattern, pos);
+      }
+      if (frame.currentIntersectionOperand == null) {
+        throw new PatternSyntaxException("bad class syntax", pattern, pos);
+      }
+      frame.accumulatedClass.intersect(frame.currentIntersectionOperand);
     }
   }
 
-  private boolean isClassIntersectionOperator() {
-    return pos + 1 < pattern.length()
-        && pattern.charAt(pos) == '&'
-        && pattern.charAt(pos + 1) == '&';
+  private CharClassBuilder completeClassExpression(ClassExpressionFrame frame) {
+    if (frame.bracketed) {
+      pos++;
+    }
+    CharClassBuilder result;
+    if (frame.accumulatedClass == null) {
+      result = frame.pendingScalarItems;
+    } else {
+      result = frame.accumulatedClass;
+      if (frame.hasPendingScalarItems) {
+        result.addCharClass(frame.pendingScalarItems);
+      }
+    }
+    if (frame.negated) {
+      if ((flags & ParseFlags.CLASS_NL) == 0 || (flags & ParseFlags.NEVER_NL) != 0) {
+        result.addRune('\n');
+      }
+      result.negate();
+    }
+    return result;
   }
 
-  private void requireLeadingClassIntersectionOperandStart() {
-    if ((flags & ParseFlags.COMMENTS) != 0) {
-      skipCommentsAndWhitespace();
-    }
-    skipEmptyQuotedLiterals();
-    if (pos >= pattern.length()) {
-      throw new PatternSyntaxException("missing closing ]", pattern, pos);
-    }
-    char c = pattern.charAt(pos);
-    if (c == ']' || c == '&') {
-      throw new PatternSyntaxException("bad class syntax", pattern, pos);
+  private void addCompletedClassExpression(
+      ClassExpressionFrame parent, ClassContinuation continuation, CharClassBuilder completed) {
+    switch (continuation) {
+      case ROOT -> throw new PatternSyntaxException("internal error", pattern, pos);
+      case UNION -> {
+        parent.currentIntersectionOperand = completed;
+        parent.accumulatedClass = unionClass(parent.accumulatedClass, parent.currentIntersectionOperand);
+        if (parent.hasPendingScalarItems) {
+          parent.pendingScalarItemsAfterCurrentOperand = false;
+        }
+      }
+      case INTERSECTION_RIGHT -> parent.intersectionRight =
+          unionClass(parent.intersectionRight, completed);
     }
   }
 
-  private boolean parseAndAddNonNestedClassItem(CharClassBuilder ccb) {
+  private void skipClassTriviaAndEmptySyntax() {
+    int before;
+    do {
+      before = pos;
+      if ((flags & ParseFlags.COMMENTS) != 0) {
+        skipCommentsAndWhitespace();
+      }
+      skipEmptyQuotedLiterals();
+    } while (pos != before);
+  }
+
+  private CharClassBuilder unionClass(CharClassBuilder left, CharClassBuilder right) {
+    if (left == null) {
+      return new CharClassBuilder().addCharClass(right);
+    }
+    left.addCharClass(right);
+    return left;
+  }
+
+  private enum ClassContinuation {
+    ROOT,
+    UNION,
+    INTERSECTION_RIGHT
+  }
+
+  private enum ClassAtomRole {
+    ORDINARY_SCALAR,
+    AMBIGUOUS_AMPERSAND,
+    INTERSECTION_OPERAND;
+
+    static ClassAtomRole merge(ClassAtomRole left, ClassAtomRole right) {
+      if (left == INTERSECTION_OPERAND || right == INTERSECTION_OPERAND) {
+        return INTERSECTION_OPERAND;
+      }
+      if (left == ORDINARY_SCALAR && right == ORDINARY_SCALAR) {
+        return ORDINARY_SCALAR;
+      }
+      if (left == AMBIGUOUS_AMPERSAND && right == AMBIGUOUS_AMPERSAND) {
+        return AMBIGUOUS_AMPERSAND;
+      }
+      return ORDINARY_SCALAR;
+    }
+  }
+
+  private final class ClassExpressionFrame {
+    final boolean bracketed;
+    final int classStart;
+    final boolean negated;
+    final ClassContinuation continuation;
+    CharClassBuilder accumulatedClass;
+    CharClassBuilder currentIntersectionOperand;
+    CharClassBuilder pendingScalarItems = new CharClassBuilder();
+    boolean hasPendingScalarItems;
+    boolean pendingScalarItemsAfterCurrentOperand;
+    ClassAtomRole pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
+    boolean parsingIntersectionRight;
+    CharClassBuilder intersectionRight;
+
+    ClassExpressionFrame(boolean bracketed, ClassContinuation continuation) {
+      if (bracketed && (pos >= pattern.length() || pattern.charAt(pos) != '[')) {
+        throw new PatternSyntaxException("internal error", pattern, pos);
+      }
+      this.bracketed = bracketed;
+      this.classStart = pos;
+      this.continuation = continuation;
+      if (bracketed) {
+        pos++;
+        if (pos < pattern.length() && pattern.charAt(pos) == '^') {
+          pos++;
+          negated = true;
+          return;
+        }
+      }
+      negated = false;
+    }
+
+    boolean shouldCompleteAt(char c) {
+      if (accumulatedClass == null && !hasPendingScalarItems) {
+        return false;
+      }
+      return bracketed ? c == ']' : c == ']' || c == '&';
+    }
+  }
+
+  private static final class ParsedClassAtom {
+    final CharClassBuilder ccb;
+    final ClassAtomRole role;
+
+    ParsedClassAtom(CharClassBuilder ccb, ClassAtomRole role) {
+      this.ccb = ccb;
+      this.role = role;
+    }
+  }
+
+  private ParsedClassAtom parseClassAtomOrRange() {
+    CharClassBuilder ccb = new CharClassBuilder();
     // Look for Unicode character group like \p{Han}
     if (pos + 2 < pattern.length()
         && pattern.charAt(pos) == '\\'
         && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
       int result = parseUnicodeGroup(ccb);
       if (result == PARSE_OK) {
-        return true;
+        return new ParsedClassAtom(ccb, ClassAtomRole.INTERSECTION_OPERAND);
       } else if (result == PARSE_ERROR) {
-        return false;
+        throw new PatternSyntaxException("invalid Unicode group", pattern, pos);
       }
       // PARSE_NOTHING: fall through
     }
@@ -1096,38 +1187,50 @@ final class Parser {
       CharClassBuilder perlCcb = maybeParsePerlCCEscape();
       if (perlCcb != null) {
         ccb.addCharClass(perlCcb);
-        return true;
+        return new ParsedClassAtom(ccb, ClassAtomRole.INTERSECTION_OPERAND);
       }
       pos = saved;
     }
 
     if (startsQuotedLiteral()) {
-      return addQuotedLiteralClassItem(ccb);
+      ClassAtomRole role = addQuotedLiteralClassItem(ccb);
+      return new ParsedClassAtom(ccb, role);
     }
 
-    addScalarClassItem(ccb, parseCCCharacter());
-    return true;
+    int scalar = parseCCCharacter();
+    ClassAtomRole role = addScalarClassItem(ccb, scalar);
+    return new ParsedClassAtom(ccb, role);
   }
 
-  private boolean addQuotedLiteralClassItem(CharClassBuilder ccb) {
+  private ClassAtomRole addQuotedLiteralClassItem(CharClassBuilder ccb) {
     int[] literals = parseQuotedLiteralSequence();
     if (literals.length == 0) {
-      return false;
+      return ClassAtomRole.ORDINARY_SCALAR;
     }
     for (int i = 0; i + 1 < literals.length; i++) {
       addRangeFlags(ccb, literals[i], literals[i], flags | ParseFlags.CLASS_NL);
     }
-    addScalarClassItem(ccb, literals[literals.length - 1]);
-    return true;
+    return addScalarClassItem(ccb, literals[literals.length - 1]);
   }
 
-  private void addScalarClassItem(CharClassBuilder ccb, int lo) {
+  private ClassAtomRole addScalarClassItem(CharClassBuilder ccb, int lo) {
     int hi = lo;
+    boolean skippedNonItemSyntax = false;
     // In comments mode, skip whitespace before checking for '-'.
     if ((flags & ParseFlags.COMMENTS) != 0) {
+      int beforeTrivia = pos;
       skipCommentsAndWhitespace();
+      skippedNonItemSyntax = pos != beforeTrivia;
     }
-    skipEmptyQuotedLiterals();
+    while (startsEmptyQuotedLiteralAt(pos)) {
+      skippedNonItemSyntax = true;
+      pos += 4;
+      if ((flags & ParseFlags.COMMENTS) != 0) {
+        int beforeTrivia = pos;
+        skipCommentsAndWhitespace();
+        skippedNonItemSyntax |= pos != beforeTrivia;
+      }
+    }
     if (pos < pattern.length() && pattern.charAt(pos) == '-') {
       if (hasRangeEndpointAfterHyphen()) {
         pos++; // '-'
@@ -1144,11 +1247,18 @@ final class Parser {
         for (int r : endpoint.trailingLiterals) {
           addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
         }
-        return;
+        return ClassAtomRole.INTERSECTION_OPERAND;
       }
     }
 
     addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
+    if (lo > 0xFF) {
+      return ClassAtomRole.INTERSECTION_OPERAND;
+    }
+    if (lo == '&' && skippedNonItemSyntax) {
+      return ClassAtomRole.AMBIGUOUS_AMPERSAND;
+    }
+    return ClassAtomRole.ORDINARY_SCALAR;
   }
 
   private boolean hasRangeEndpointAfterHyphen() {
