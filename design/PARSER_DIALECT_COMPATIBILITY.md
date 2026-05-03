@@ -37,18 +37,31 @@ membership tests against `java.util.regex`.
 
 SafeRE should not have regex syntax extensions in `Pattern.compile`.
 
-SafeRE-only public APIs such as `PatternSet` are fine.  The regex language
-accepted by `Pattern.compile` should follow one of two policies:
+SafeRE-only public APIs such as `PatternSet` are fine.  The default target for
+the regex language accepted by `Pattern.compile` is JDK compatibility.  Each
+syntax feature should follow one of two policies:
 
 - **JDK-compatible:** SafeRE accepts the syntax and gives it the same
   membership, capture, flag, and compile/reject behavior as `java.util.regex`,
-  subject to documented linear-time rejections.
+  subject to documented linear-time rejections and documented explicit
+  exceptions for unspecified JDK edge behavior.
 - **Rejected:** SafeRE rejects the syntax because the JDK rejects it, or because
   supporting it would violate SafeRE's linear-time guarantee.
 
 There should not be a third implicit category of "accepted because RE2 accepts
 it" or "accepted because it was easy to parse."  RE2 source compatibility is a
-source of implementation ideas, not a product dialect.
+source of implementation ideas, not a product dialect.  A documented divergence
+is an explicit exception to these policies, not a separate parser dialect: it
+must name the public behavior, explain why JDK compatibility is not the chosen
+contract, and include regression coverage.
+
+For behavior that is unspecified by the JDK documentation but observable in
+`java.util.regex.Pattern`, the default is still to follow the running JDK oracle
+for drop-in compatibility.  Falling back to an unspecified-behavior argument is
+an escape hatch, not an equal goal: use it only when exact compatibility would
+break SafeRE's linear-time guarantee, make the parser materially brittle or
+unmaintainable, or depend on version-sensitive behavior that is not part of the
+documented Java regex grammar.
 
 ## Current State
 
@@ -62,17 +75,21 @@ SafeRE already has significant JDK syntax coverage:
   against the running JDK.
 - Unsupported non-regular features such as backreferences and lookaround are
   rejected rather than emulated.
-- The recent bugs in this design's scope are closed with focused regression
-  coverage.
+- Recent bugs in this design's scope are covered by focused regression work.
 
-The weak point is that the policy is still mostly encoded in tests and parser
-branches.  There is no central compatibility matrix that tells a future parser
-change which dialect owns a spelling, which spellings are deliberately
-rejected, and which membership tests must be run before a change is safe.
+The remaining weak point is that not every parser syntax family has the same
+explicit coverage shape.  The character-class expression parser now has a
+generated JDK-oracle matrix, but other syntax families still rely more heavily
+on focused examples and parser branches.  Future parser work should move each
+family toward the same policy: name the dialect category, add executable
+compile/error and membership coverage, and keep any intentional divergence
+documented.
 
 ## Dialect Policy
 
-The parser should classify every syntax feature into one explicit category.
+The parser should classify every syntax feature into one explicit policy
+category.  A documented explicit exception is recorded separately when SafeRE
+intentionally diverges from JDK behavior under the rules above.
 
 | Category | Meaning | Examples |
 | --- | --- | --- |
@@ -82,7 +99,7 @@ The parser should classify every syntax feature into one explicit category.
 | Rejected non-JDK syntax | Another regex dialect accepts the spelling, but JDK does not. | `(?P<name>...)`, RE2/Python-only or POSIX-only spellings |
 | JDK accepted literal text | A spelling resembles another dialect's metasyntax but is ordinary text in the JDK. | POSIX bracket fragments inside Java character classes such as `[[:lower:]]` |
 | JDK rejected malformed syntax | Both JDK and SafeRE should throw `PatternSyntaxException`. | malformed octal escapes such as `\0`, bad property names, invalid group syntax |
-| Documented divergence | SafeRE intentionally differs for a stated reason and has regression coverage. | unsupported non-regular features, known capture behavior that would require non-linear backtracking state |
+| Documented explicit exception | SafeRE intentionally differs from JDK behavior for a stated reason and has regression coverage. This is not a dialect category; it is an exception that must be reviewed and documented. | unspecified character-class edge behavior where exact JDK compatibility would break linear time or make the parser materially brittle |
 
 The implementation does not need a giant runtime table.  The design target is a
 source-level matrix near parser tests, plus helper APIs that make every family
@@ -108,7 +125,7 @@ The focused compatibility matrix should cover at least these syntax families.
 | POSIX property escapes `\p{Lower}` etc. | JDK-compatible | membership against JDK |
 | POSIX bracket fragments `[[:lower:]]` | ordinary JDK character-class text, not POSIX metasyntax | membership tests proving characters like `l`, `o`, `w`, `e`, `r`, `:`, `[`, and `]` behave like JDK |
 | Unicode scripts, blocks, categories, and binary properties | JDK-compatible, tied to the running JDK where possible | property lookup and membership crosschecks |
-| Character-class union, range, intersection, subtraction, and negation | JDK-compatible | generated membership tests for edge shapes, including empty class items and malformed range endpoints |
+| Character-class union, range, intersection, subtraction, and negation | JDK-compatible for documented grammar; unspecified observable edge behavior follows the character-class policy below | generated membership tests for edge shapes, including zero-width class syntax, empty RHS expressions, and malformed range endpoints |
 | Group syntax | JDK-compatible accepted forms; reject non-JDK forms | compile/error tests for capturing, non-capturing, flags, named groups, and rejected dialect spellings |
 | Quantifier syntax | JDK-compatible where regular; reject unsupported non-regular forms | compile/error tests plus membership for greedy/lazy and bounded forms |
 | Boundary matchers and line terminators | JDK-compatible where supported | membership and `hitEnd`/`requireEnd` tests where observable |
@@ -151,6 +168,36 @@ This design uses these character-class terms consistently:
   and intersection (`&&`).  Operator validation belongs to character-class
   expression parsing, not to later AST repair.  An operator token contributes no
   characters by itself and does not consume first-item state.
+- **Class piece**: a source-level unit inside a character class after
+  zero-width syntax and comments-mode trivia normalization.  A class piece can
+  be a scalar/range item, quoted literal item, predefined/property operand,
+  nested class, raw ampersand run, or class terminator.
+- **Operand-like piece**: a piece that behaves as a complete expression operand
+  for intersection state: ranges, non-inline scalars, predefined classes,
+  property classes, and nested classes.  Ordinary inline scalar text is not
+  operand-like until a transition incorporates it.
+- **Accumulated expression**: the union/intersection expression built so far for
+  the current bracketed frame.
+- **Current operand**: the most recent operand-like expression that can be the
+  left side of an intersection decision.  It can differ from the accumulated
+  expression.
+- **Pending scalar run**: ordinary scalar or quoted-literal content that has
+  contributed characters but whose intersection role is still undecided.
+- **Raw ampersand separator**: an unescaped raw source `&` that has contributed
+  literal `&` and is separated from a following raw ampersand run only by
+  zero-width quoted syntax or comments-mode trivia.
+- **Normalized operator tail**: the source position after a raw ampersand run
+  and after repeatedly skipping zero-width quoted syntax plus comments-mode
+  trivia, together with whether zero-width syntax or comments-mode trivia was
+  skipped.
+- **RHS**: the unbracketed right-hand expression started by a raw `&&`
+  intersection operator.
+- **RHS terminator**: `]` or raw `&` that stops an unbracketed RHS before it
+  has consumed a new bracketed expression.  A terminator is syntax, not
+  automatically a literal class item.
+- **Synthetic empty expression**: a JDK-observed accepted transition whose
+  membership is empty and whose outer negation is suppressed.  This is not
+  ordinary set complement of an empty class.
 
 ### Character-Class Parser Contract
 
@@ -217,11 +264,11 @@ their precedence:
 
 Some accepted but unusual JDK spellings, such as repeated, trailing, or
 ambiguous `&&` around nested classes and predefined classes, depend on that
-full expression model.  Examples include forms like `[a&&&&a]`, `[ [a]&&]`,
-and `[ \d&&]`.  SafeRE should handle those with the character-class expression
-parser, or an equivalent explicit state machine, that models grouping, range,
-union, and intersection precedence directly instead of continuing to grow local
-`&&` special cases.
+full expression model.  Examples include forms like `[a&&&&a]`, `[[a]&&]`,
+and `[\d&&]`.  SafeRE handles those with the character-class expression parser,
+or an equivalent explicit state machine, that models grouping, range, union, and
+intersection precedence directly instead of continuing to grow local `&&`
+special cases.
 
 The parser should treat literal characters, escaped scalar characters,
 predefined character classes, Unicode and POSIX property classes, quoted literal
@@ -241,6 +288,16 @@ terms and verify it with black-box differential tests against
 OpenJDK parser structure, or use OpenJDK-internal names as implementation
 guidance.
 
+These edge spellings should be treated as unspecified by the JDK documentation
+but observable in `java.util.regex.Pattern`.  SafeRE should follow the running
+JDK oracle for drop-in compatibility by default.  If matching an unspecified JDK
+edge behavior would break the linear-time guarantee, make the parser materially
+brittle or unmaintainable, or depend on version-sensitive behavior outside the
+documented Java regex grammar, the behavior should be classified explicitly:
+prefer the documented JDK grammar, reject the pattern with
+`PatternSyntaxException` if necessary, and document the divergence with
+regression coverage rather than adding unprincipled compatibility patches.
+
 The equivalent explicit state machine should follow this SafeRE-owned
 operational contract:
 
@@ -249,44 +306,278 @@ operational contract:
 2. Classify exactly one next token kind after normalization: class terminator,
    intersection operator, nested class start, predefined/property class item,
    quoted literal class item, or scalar/range class item.
-3. Maintain separate state for the accumulated class expression, the current
-   intersection operand, pending scalar-literal content, and any right-hand
-   intersection expression being parsed.
-4. Keep pending scalar-literal content distinct from nested/predefined/property
+3. Maintain separate state for the accumulated expression, the current operand,
+   pending scalar run, raw ampersand context, normalized operator tail, and any
+   RHS expression being parsed.
+4. Keep pending scalar runs distinct from nested/predefined/property
    operands until an operator or terminator requires it to be incorporated.
    This distinction is observable for JDK-compatible trailing and repeated
    intersections, so the parser must not collapse all class items into a single
-   generic "completed operand" model.
-5. Parse `&&` as the start of a right-hand expression.  If that expression is
+   generic "completed set" model.
+5. Parse `&&` as the start of a RHS expression.  If that expression is
    empty before the next terminator or operator, apply the SafeRE-specified
    behavior that is covered by black-box JDK oracle tests for the corresponding
    syntax family.
-6. Distinguish pending scalar-literal roles that are observable through the
-   JDK oracle: ordinary scalar text after an existing class expression before
-   an empty right-hand intersection is malformed; ranges and scalar items that
-   the oracle treats as standalone operands participate in the intersection;
-   and an ambiguous literal `&` separated from a following trailing `&&` only
-   by non-item syntax, such as zero-width quoted syntax and comments-mode
-   trivia, follows the repeated-intersection edge behavior covered by oracle
-   tests.  That ambiguity must not remove or demote the literal `&` from the
-   class contents: accepted oracle-backed cases must prove both that the
-   preceding class expression is preserved and that the literal `&` still
-   matches.
+6. Distinguish pending class piece roles that are observable through the JDK
+   oracle.  This is not just a pending-scalar problem: raw `&`, quoted `&`,
+   zero-width quoted syntax, comments-mode trivia, scalar runs, ranges,
+   predefined classes, properties, and nested classes all affect whether a
+   following `&&` starts an intersection, terminates an empty RHS,
+   preserves a literal ampersand, or makes the class malformed.  The
+   implementation must model these roles explicitly rather than relying on a
+   single "ambiguous ampersand" state.
 7. Apply negation only after the bracketed expression is complete.
 8. Represent nested classes with explicit frames or another stack-safe
    mechanism; source nesting must not recurse on the Java call stack.
+
+### Character-Class Expression Semantic Model
+
+The expression parser should be described as a deterministic transition system,
+not as a loose collection of parser flags.  The high-level rule is:
+
+> A character class is parsed as source-level class pieces whose provenance is
+> observable until an operator, terminator, or range decision has consumed that
+> provenance.  The parser must not prematurely collapse source pieces into only
+> character sets, because JDK behavior for intersections depends on whether a
+> piece was raw syntax, quoted literal text, comments-mode trivia, a scalar run,
+> a range/predefined/property operand, or a nested class.
+
+This rule is the reason the parser needs a small expression state machine
+instead of local `&&` special cases.  Character-class parsing has two layers:
+
+- **Set algebra**: completed operand-like pieces are combined with union and
+  intersection.
+- **Source transition semantics**: raw `&`, quoted `&`, empty quoted syntax,
+  comments-mode trivia, pending scalar text, and unbracketed RHS expressions
+  decide which set operation is being performed and whether the spelling is
+  malformed.
+
+Each character-class frame owns this state:
+
+- **Accumulated expression**: the class expression built so far.
+- **Current operand**: the most recent operand-like expression.  This
+  is not always the same as the accumulated expression; comments-mode repeated
+  intersections can use the current operand while preserving or discarding
+  other accumulated pieces according to the transition below.
+- **Pending scalar run**: source-level scalar content that has contributed
+  characters but has not yet been incorporated into intersection state.  This
+  includes ordinary scalar text and quoted literal text that has not become an
+  operand-like range or non-inline scalar.
+- **Pending class piece role**: the observable role of the pending source-level
+  class piece: ordinary scalar text, standalone scalar/range operand, raw
+  ampersand separator, or completed nested/predefined/property operand.
+- **Raw ampersand context**: whether a source-level `&` was parsed as raw
+  syntax, whether a completed left expression exists before it, whether it has
+  already contributed a literal `&`, and whether only zero-width syntax or
+  comments-mode trivia separates it from a following operator or right-hand
+  token.
+- **Literal ampersand context**: whether `&` came from raw source text, an
+  escaped literal such as `\&`, or quoted literal content such as `\Q&\E`.
+  Escaped and quoted literal `&` are not the same token as raw source `&`; the
+  JDK oracle distinguishes them in trailing and repeated intersection cases.
+- **Normalized operator tail**: the count and parity of consecutive raw `&`
+  syntax, plus whether zero-width quoted syntax or comments-mode trivia was
+  skipped after the run.  `&&`, `&&&`, and longer runs are not equivalent, and
+  they are still not equivalent after trivia has been skipped.
+- **RHS expression**: the unbracketed right-hand expression being collected
+  after `&&`.
+- **Synthetic empty expression**: a JDK-observed transition for comments-mode
+  repeated intersections whose right-hand tail is discarded.  This is not the
+  same as parsing an ordinary empty class and then applying outer negation.
+
+The pending class piece role is part of the semantics:
+
+- **Ordinary scalar text**: inline scalar text after an existing class
+  expression before an empty right-hand intersection is malformed.  Examples to
+  test against the JDK oracle include `[[a]b&&]`, `[[a]a&&]`, and `[\d0&&]`.
+- **Standalone scalar/range operand**: ranges and scalar items that the oracle
+  treats as operands participate in the intersection.  Examples include
+  `[[a]a-b&&]`, `[\d0-1&&]`, and non-inline scalar examples such as
+  `[[a]\u0100&&]`.
+- **Raw ampersand separator**: an unescaped raw source `&` after an established
+  left expression, followed only by zero-width syntax or comments-mode trivia
+  before a raw `&&` run, remains a literal class item but also participates in
+  the repeated-intersection transition.  Examples include `[[a]&\Q\E&&]`,
+  `(?x)[[a]& &&]`, `[\d&\Q\E&&]`, and `(?x)[\d& #x\n&&]`.
+- **Raw ampersand without a left expression**: the same unescaped raw source `&`
+  shape is malformed when there is no completed left expression before it.
+  Examples include `[&\Q\E&&]`, `[&\Q\E&&a]`, and their repeated-operator
+  variants.  The parser must not repair this by treating the `&` as an ordinary
+  literal or by treating the following `&&` as an empty trailing intersection.
+- **Escaped or quoted ampersand literal**: `\&` and `\Q&\E` contribute literal
+  `&`; neither creates a raw ampersand separator.  They can be ordinary literal
+  operands, participate in ordinary intersections, or make an otherwise
+  trailing-looking spelling malformed depending on the left operand and the
+  operator run.  Examples include `[\&\Q\E&&]`, `[\Q&\E&&]`,
+  `[a\Q&\E&&b]`, `[[a]\Q&\E&&]`, and `[\d\Q&\E&&\D]`.
+
+The state machine has these transition rules.
+
+1. **Normalize before token classification.**  At every class-expression
+   boundary, skip comments-mode trivia and zero-width quoted syntax until the
+   source position stops moving.  The transition must remember whether this
+   skipped zero-width syntax, comments-mode trivia, or both.  JDK behavior can
+   distinguish immediately adjacent syntax from syntax separated by these
+   normalized source forms.
+
+2. **Classify exactly one token after normalization.**  The token kind is one
+   of: class terminator, raw ampersand run, nested class start,
+   predefined/property operand, quoted literal item, or scalar/range item.
+   Token classification must retain source provenance.  In particular, raw
+   source `&`, escaped literal `\&`, and quoted literal `&` are different token
+   kinds even though they can contribute the same character to the final set.
+
+3. **Preserve current operand separately from accumulated expression.**  A
+   completed range, non-inline scalar, nested class, predefined class, or
+   property class updates the current operand and is unioned into the
+   accumulated expression.  Ordinary scalar text is pending until a later
+   transition decides whether it should be incorporated, rejected, or used only
+   as literal class content.  This distinction is observable in cases such as
+   `[\d0&&]`, `[\d0-1&&]`, `(?x)[a0-1&&& 0]`, and
+   `(?x)[a0-1&&& 0-1]`.
+
+4. **Reject malformed pending scalar text after an operand.**  If an existing
+   operand-like expression is followed by ordinary scalar text and then an
+   empty or terminator-like RHS, the spelling is malformed.  A later raw
+   ampersand, zero-width quote, or comments-mode trivia must not repair that
+   left side.  This covers both trailing forms and
+   comments-mode RHS tail forms such as `[[a]b&&]`, `[\d0&&]`,
+   `(?x)[a-ba&& &]`, and `(?x)[a-ba&&& [b]]`.
+
+5. **Treat raw ampersand separator as a transition, not as a scalar role.**
+   An unescaped raw source `&` after an established left expression, followed
+   only by zero-width quoted syntax or comments-mode trivia before a raw
+   ampersand run, remains literal content but also participates in
+   repeated-intersection syntax.  The transition carries these dimensions:
+
+   - whether a completed left expression exists;
+   - whether the left expression is pending scalar-only, a range/scalar operand,
+     a nested class, a predefined/property class, or a union of such pieces;
+   - whether separator text is zero-width quoted syntax, comments-mode trivia,
+     or absent;
+   - the raw `&` run length and parity after the separator;
+   - whether the RHS is absent, a scalar, a range, a quoted literal, a nested
+     class, a predefined/property class, or another raw/quoted ampersand.
+
+   If no completed left expression exists, the same raw source shape is
+   malformed.  A parser that folds raw `&` into pending scalar text before this
+   decision cannot implement the JDK oracle.
+
+6. **Keep escaped and quoted ampersands separate from raw ampersand.**  Escaped
+   `\&` and quoted `\Q&\E` contribute literal content and do not create a raw
+   ampersand separator.  They can still participate in ordinary class-item and
+   intersection behavior, but they must not take the raw-ampersand transition.
+   This provenance explains why similar-looking raw, escaped, and quoted
+   spellings have different accept/reject and membership results.
+
+7. **Interpret operator runs by both parity and tail shape.**  A raw `&&`
+   starts a RHS expression.  Longer raw ampersand runs are interpreted
+   by count, parity, and the normalized tail after the run:
+
+   - Without comments-mode trivia after the run, odd repeated runs preserve the
+     relevant left expression and contribute a literal `&`.
+   - With comments-mode trivia after an odd run, scalar and quoted-scalar RHS
+     forms use the accumulated left expression, while operand-like RHS forms
+     such as ranges, non-inline scalars, predefined classes, properties, and
+     nested classes can use the current operand.  This distinction is observable
+     in `(?x)[a0-1&&& 0]` versus `(?x)[a0-1&&& 0-1]`.
+   - A normalized tail that reaches a solitary raw `&` is not necessarily an
+     empty RHS.  If there is a valid left expression, the solitary raw `&` may
+     be consumed as a RHS terminator/tail marker and can contribute literal `&`
+     according to the operator run.  If there is no valid left expression, the
+     spelling is malformed.
+   - A normalized tail that reaches a nested class after comments-mode trivia in
+     the repeated-intersection edge family produces the JDK-observed synthetic
+     empty expression and ignores the remaining nested tail until the matching
+     class terminator.  This transition must not accidentally re-read the RHS
+     terminator `&` as a literal or union the nested class back into the result.
+
+8. **Make synthetic empty expression explicit.**  Some comments-mode repeated
+   intersection tails produce an accepted expression with empty membership,
+   even under a negated outer class.  This is not ordinary set negation of an
+   empty class; it is a parser transition that suppresses the outer negation
+   for that synthetic result.  Cases such as `(?x)[a&&& [b]]` and
+   `(?x)[^a&&& [b]]` must both be covered.
+
+9. **Declare every transition's effects.**  Each transition must state whether
+   it consumes source, contributes literal characters, starts or finishes a
+   RHS expression, updates the accumulated expression, updates the
+   current operand, rejects the pattern, or creates a synthetic empty
+   expression.  Any source character used as a RHS terminator must not be
+   accidentally re-read as a literal unless
+   that is an explicit transition backed by oracle tests.
+
+The model must be checked against an oracle matrix.  The matrix must cover the
+full product of these axes:
+
+- positive and negated classes;
+- ordinary and `COMMENTS` mode;
+- left expression shape: no left expression, scalar-only, range, non-inline
+  scalar, quoted scalar, nested class, predefined class, property class, and
+  unions of those shapes;
+- ampersand provenance: raw source `&`, escaped literal `\&`, and quoted
+  literal `&`;
+- separator shape: no separator, zero-width quoted syntax, comments-mode
+  whitespace, comments-mode line comments, and mixtures of zero-width syntax
+  and comments-mode trivia;
+- normalization boundary: zero-width quoted syntax and comments-mode trivia
+  absent or present before separator detection, after raw ampersand runs, before
+  RHS classification, and before class terminators;
+- operator run: `&&`, odd repeated runs such as `&&&`, and even repeated runs
+  longer than `&&`;
+- right-hand shape: absent, scalar, range, quoted literal, nested class,
+  predefined class, property class, raw `&`, and quoted `&`.
+
+Representative public-JDK results include:
+
+| Syntax family | Examples | JDK-observed behavior |
+| --- | --- | --- |
+| Scalar-only trailing intersection | `[ab&&]`, `[a-b&&]`, `[ab&&&&]` | preserves the scalar/range class |
+| Scalar-only odd repeated intersection | `[ab&&&]`, `[ab&&&c]` | preserves the scalar/range class and includes literal `&`, plus following scalar RHS where present |
+| Nested/predefined trailing intersection | `[[a]&&]`, `[\d&&]` | preserves the nested/predefined operand |
+| Nested/predefined odd repeated intersection | `[[a]&&&]`, `[\d&&&]` | preserves the operand and includes literal `&` |
+| Ordinary scalar after existing expression | `[[a]b&&]`, `[[a]a&&]`, `[\d0&&]` | rejected as bad intersection syntax |
+| Range or non-inline scalar after existing expression | `[[a]a-b&&]`, `[\d0-1&&]`, `[[a]\u0100&&]`, `[\d\u0100&&]` | the range or non-inline scalar participates as the intersection operand |
+| Quoted ordinary scalar after existing expression | `[[a]\Qa\E&&]`, `[[a]\Q&\E&&]` | rejected as bad intersection syntax |
+| Raw ampersand separator with no left expression | `[&\Q\E&&]`, `[&\Q\E&&a]`, `[&\Q\E&&&a]` | rejected as bad class syntax |
+| Raw ampersand separator before trailing `&&` | `[[a]&\Q\E&&]`, `(?x)[[a]& &&]`, `[\d&\Q\E&&]`, `(?x)[\d& #x\n&&]` | preserves the preceding expression and literal `&` |
+| Raw ampersand separator with repeated `&&` | `[\d&\Q\E&&&]`, `[\d&\Q\E&&&&]`, `(?x)[\w&\Q\E&& &&]` | follows repeated-intersection edge behavior; oracle tests must assert both literal `&` preservation and membership of the surrounding expression |
+| Escaped/quoted ampersand with no left expression | `[\&\Q\E&&]`, `[\Q&\E&&]`, `[\Q&\E&&a]`, `[\Q&\E&&&a]` | behaves as literal content followed by intersection syntax; this is not the raw-ampersand malformed family |
+| Escaped/quoted ampersand after scalar left expression | `[a\&\Q\E&&b]`, `[a\Q&\E&&b]`, `[ab\Q&\E&&b]`, `[a\Q&\E&&&b]` | follows literal-intersection behavior, which differs from raw `&` separator behavior |
+| Escaped/quoted ampersand after nested/predefined left expression | `[[a]\&\Q\E&&]`, `[[a]\Q&\E&&]`, `[[a]\Q&\E&&a]`, `[\d\Q&\E&&\D]` | may reject empty trailing forms while accepting ordinary RHS intersections |
+| Leading intersection edge forms | `[&&abc]`, `[ &&&]`, `[&&&a]`, `[&&&b]`, `[&&&&b]` | accepted forms match JDK membership; malformed leading `&&&b` and `&&&&b` are rejected |
+| Unbracketed RHS terminator ampersand | `(?x)[a&&& [b]]` | the terminator `&` is not re-read as a literal and unioned with `[b]` |
+| Negated variants | `[^[a]a-b&&]`, `(?x)[^[a]& &&]` | negation applies after completing the whole class expression |
 
 Negation should apply to the completed class expression after the closing `]`,
 not to whichever local parser fragment happened to be active when the `^` was
 seen.  This matters for cases such as negated trailing intersections, where the
 observable JDK membership is the complement of the whole parsed expression.
 
+The exhaustive oracle probe for the current work found divergence clusters in
+exactly these dimensions: raw `&` with zero-width syntax and no valid left
+expression, raw `&` separator parity after established left expressions, quoted
+`&` after nested/predefined/range operands, comments-mode trivia between raw
+`&` and a following operator, and accidental rereading or dropping of raw
+ampersands used as RHS terminators.  The design
+therefore treats the product above as mandatory coverage, not as optional
+regression examples.
+
+An implementation should not claim this part of the design is complete merely
+because the representative table passes.  Completion requires a generated
+black-box matrix over the axes above either to agree with the JDK oracle for
+compilation success/failure and representative membership or to classify each
+remaining divergence under the documented unspecified-edge policy above.  Local
+patches for individual spellings are not acceptable unless they fall out of the
+same transition system.
+
 The earlier token-state work was a staging step that fixed leading-intersection
 and range-endpoint bugs without replacing the character-class subparser.  The
-#273 expression-parser work should replace that local intersection handling with
-grammar-level behavior.
+#273 expression-parser work completes that step by replacing local
+intersection-only handling with an equivalent explicit state machine for the
+JDK-observed character-class expression behavior.
 
-The desired changes are structural:
+The structural requirements are:
 
 - Parse branches should name the JDK syntax family they implement.
 - Dialect spellings from RE2, POSIX, Python, or PCRE should be accepted only
@@ -371,7 +662,7 @@ Membership tests should:
 - include class-expression edge families that stress parser state rather than
   only spelling examples: scalar/range content before and after nested or
   predefined operands; empty quoted literals before and after comments-mode
-  trivia; repeated `&&`; unbracketed intersection right-hand sides ending at
+  trivia; repeated `&&`; unbracketed intersection RHS expressions ending at
   `&` or `]`; and negated variants of those forms;
 - keep the #273 expression-parser cases enabled so future changes run against
   oracle coverage rather than a disabled backlog;
@@ -385,9 +676,10 @@ intentionally cover each syntax family.
 
 This is intentionally a test-backed compatibility contract, not a formal proof.
 The success criterion is that known syntax families and newly discovered
-divergences are machine-checked against the JDK oracle.  The design should
-avoid language that implies the parser can be proven equivalent to all current
-and future JDK behavior.
+divergences are machine-checked against the JDK oracle or explicitly documented
+under the unspecified-edge policy above.  The design should avoid language that
+implies the parser can be proven equivalent to all current and future JDK
+behavior.
 
 ## Linear-Time Argument
 
@@ -413,7 +705,8 @@ structure, not recursive over user-controlled nesting.
 
 This design track is complete when:
 
-- the parser dialect policy is documented as "JDK-compatible or rejected";
+- the parser dialect policy is documented as "JDK-compatible or rejected," with
+  reviewed explicit exceptions for unspecified JDK edge behavior;
 - the design explicitly states that this is not a formal proof of complete JDK
   parser equivalence;
 - `JdkSyntaxCompatibilityTest` or an equivalent focused suite contains a
@@ -424,15 +717,16 @@ This design track is complete when:
   JDK character-class text;
 - named-capture tests prove `(?<name>...)` is accepted and `(?P<name>...)` is
   rejected;
-- character-class intersection and subtraction tests include empty class-item
-  and repeated-operator edge cases;
+- character-class intersection and subtraction tests include zero-width class
+  syntax, empty RHS, and repeated-operator edge cases;
 - character-class item-state tests prove that leading operators do not consume
   first-item privileges for the following class item;
 - character-class range tests prove that only valid scalar endpoints are
   accepted, while nested class openers remain valid when they begin a class item;
 - the #273 JDK-accepted character-class expression-precedence gaps are fixed by
   a dedicated character-class expression parser or equivalent explicit state
-  machine, with examples and oracle-backed tests;
+  machine, with examples and oracle-backed tests by default, or documented
+  unspecified-edge divergences where exact JDK behavior is not adopted;
 - newly discovered parser divergences outside the implemented #273 grammar are
   tracked separately only after they are classified by the dialect matrix and
   backed by oracle tests or documented as intentional divergences;
