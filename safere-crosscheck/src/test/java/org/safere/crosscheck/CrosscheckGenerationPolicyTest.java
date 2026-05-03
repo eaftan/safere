@@ -13,8 +13,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.MatchResult;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Element;
 
 /** Policy checks for generated public API crosscheck coverage. */
 class CrosscheckGenerationPolicyTest {
@@ -27,8 +29,6 @@ class CrosscheckGenerationPolicyTest {
           java.util.regex.Pattern.DOTALL);
   private static final java.util.regex.Pattern STRING_LITERAL =
       java.util.regex.Pattern.compile("\"((?:\\\\.|[^\"\\\\])*)\"");
-  private static final java.util.regex.Pattern STRUCTURAL_EXCLUDE =
-      java.util.regex.Pattern.compile("<exclude name=\"([^\"]+Test\\.java)\"/>");
 
   @Test
   @DisplayName("@DisabledForCrosscheck reasons are non-empty")
@@ -74,13 +74,31 @@ class CrosscheckGenerationPolicyTest {
     }
   }
 
-  private static Set<String> structuralExcludes() throws IOException {
+  private static Set<String> structuralExcludes() {
     Set<String> excludes = new HashSet<>();
-    java.util.regex.Matcher matcher = STRUCTURAL_EXCLUDE.matcher(Files.readString(POM));
-    while (matcher.find()) {
-      excludes.add(matcher.group(1));
+    Element pom = pomDocument();
+    var nodes = pom.getElementsByTagName("exclude");
+    for (int i = 0; i < nodes.getLength(); i++) {
+      Element exclude = (Element) nodes.item(i);
+      String name = exclude.getAttribute("name");
+      if (name.endsWith("Test.java")) {
+        excludes.add(name);
+      }
     }
     return excludes;
+  }
+
+  private static Element pomDocument() {
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+      factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+      factory.setExpandEntityReferences(false);
+      return factory.newDocumentBuilder().parse(POM.toFile()).getDocumentElement();
+    } catch (Exception e) {
+      throw new AssertionError("Unable to parse " + POM, e);
+    }
   }
 
   private static String annotationReason(String annotationArgument) {

@@ -191,15 +191,22 @@ This design track is complete when:
 
 ## Implementation Status
 
-This design is implemented for the current crosscheck surface:
+This design is implemented for the current crosscheck surface.  The first audit
+step, merged in #270, made the existing generated oracle more trustworthy:
 
 - comparable public API tests are generated into `safere-crosscheck` by default;
 - stale SafeRE-specific API test classes were removed or moved into ordinary
   public API tests and internal metadata tests;
+- `Pattern.namedGroups()` is compared against the JDK oracle instead of only
+  delegating to SafeRE;
 - the remaining `@DisabledForCrosscheck` annotations were audited and classify
   as internal implementation tests, SafeRE-only APIs, already-differential
   suites, lifecycle/state-machine oracles, linear-time stress oracles,
-  repository validation, or implementation-specific behavior;
+  repository validation, or implementation-specific behavior.
+
+This follow-up closes the remaining crosscheck-oracle gap for result-stream and
+policy coverage:
+
 - ordinary `Matcher.results()` streams are compared by the crosscheck facade as
   SafeRE and JDK streams advance;
 - callback mutation during `results()` traversal and functional replacement is

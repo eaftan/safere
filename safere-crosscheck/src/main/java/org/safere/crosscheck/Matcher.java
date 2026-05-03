@@ -502,6 +502,14 @@ public final class Matcher implements MatchResult {
       checkEqual(context + ".start", String.valueOf(i), sr.start(i), jr.start(i));
       checkEqual(context + ".end", String.valueOf(i), sr.end(i), jr.end(i));
     }
+    Map<String, Integer> srNamedGroups = sr.namedGroups();
+    Map<String, Integer> jrNamedGroups = jr.namedGroups();
+    checkEqual(context + ".namedGroups", "", srNamedGroups, jrNamedGroups);
+    for (String name : srNamedGroups.keySet()) {
+      checkEqual(context + ".group", quote(name), sr.group(name), jr.group(name));
+      checkEqual(context + ".start", quote(name), sr.start(name), jr.start(name));
+      checkEqual(context + ".end", quote(name), sr.end(name), jr.end(name));
+    }
   }
 
   private void throwDivergence(String method, String args, Object sr, Object jr) {
