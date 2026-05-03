@@ -50,7 +50,9 @@ class MatcherResultsStreamTest {
   }
 
   @Test
-  @DisabledForCrosscheck("crosscheck wrapper cannot observe results traversal mutation checks")
+  @DisabledForCrosscheck(
+      "callback mutation is covered by MatcherStateMachineTraceTest; generated wrapper cannot "
+          + "bind mutation separately to each engine")
   @DisplayName("results() detects matcher mutation during stream traversal")
   void resultsDetectsMatcherMutation() {
     Pattern p = Pattern.compile("a");

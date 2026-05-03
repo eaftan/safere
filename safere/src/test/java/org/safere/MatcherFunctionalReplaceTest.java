@@ -116,7 +116,9 @@ class MatcherFunctionalReplaceTest {
   }
 
   @Test
-  @DisabledForCrosscheck("crosscheck wrapper cannot observe replacer mutation checks")
+  @DisabledForCrosscheck(
+      "callback mutation is covered by MatcherStateMachineTraceTest; generated wrapper cannot "
+          + "bind mutation separately to each engine")
   @DisplayName("replaceAll(Function) detects matcher mutation from replacer")
   void replaceAllFunctionDetectsMatcherMutation() {
     Pattern p = Pattern.compile("a");
@@ -133,7 +135,9 @@ class MatcherFunctionalReplaceTest {
   }
 
   @Test
-  @DisabledForCrosscheck("crosscheck wrapper cannot observe replacer mutation checks")
+  @DisabledForCrosscheck(
+      "callback mutation is covered by MatcherStateMachineTraceTest; generated wrapper cannot "
+          + "bind mutation separately to each engine")
   @DisplayName("replaceFirst(Function) detects matcher mutation from replacer")
   void replaceFirstFunctionDetectsMatcherMutation() {
     Pattern p = Pattern.compile("a");

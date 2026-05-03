@@ -246,6 +246,58 @@ class CrosscheckTest {
   }
 
   // ---------------------------------------------------------------------------
+  // Matcher — results
+  // ---------------------------------------------------------------------------
+
+  @Nested
+  @DisplayName("Matcher results")
+  class MatcherResultsTests {
+
+    @Test
+    @DisplayName("results() compares match result snapshots")
+    void resultsComparesSnapshots() {
+      Matcher m = Pattern.compile("(\\w+)").matcher("one two");
+
+      assertThat(m.results().map(result -> result.group(1) + ":" + result.start()).toList())
+          .containsExactly("one:0", "two:4");
+    }
+
+    @Test
+    @DisplayName("results() compares named match result snapshots")
+    void resultsComparesNamedSnapshots() {
+      Matcher m = Pattern.compile("(?<word>\\w+)-(?<digits>\\d+)").matcher("a-12 b-345");
+
+      assertThat(m.results()
+          .map(result -> result.group("word")
+              + ":"
+              + result.start("digits")
+              + "-"
+              + result.end("digits")
+              + ":"
+              + result.namedGroups().get("word")
+              + ","
+              + result.namedGroups().get("digits"))
+          .toList())
+          .containsExactly(
+              "a:2-4:1,2",
+              "b:7-10:1,2");
+    }
+
+    @Test
+    @DisplayName("results() reports match result divergence")
+    void resultsReportsMatchResultDivergence() {
+      Matcher m = Pattern.compile("(?:(a))*$").matcher("ab");
+
+      assertThatThrownBy(() -> m.results().toList())
+          .isInstanceOf(CrosscheckException.class)
+          .satisfies(ex -> {
+            CrosscheckException ce = (CrosscheckException) ex;
+            assertThat(ce.trace()).contains("DIVERGENCE");
+          });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Pattern — split
   // ---------------------------------------------------------------------------
 

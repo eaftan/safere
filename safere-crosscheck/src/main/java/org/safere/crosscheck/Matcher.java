@@ -4,11 +4,15 @@
 package org.safere.crosscheck;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A crosscheck wrapper that delegates every matcher operation to both SafeRE and
@@ -392,7 +396,32 @@ public final class Matcher implements MatchResult {
 
   /** Returns a stream of match-result snapshots. */
   public Stream<MatchResult> results() {
-    return safereMatcher.results();
+    Stream<MatchResult> safereResults = safereMatcher.results();
+    Stream<MatchResult> jdkResults = jdkMatcher.results();
+    Iterator<MatchResult> safereIterator = safereResults.iterator();
+    Iterator<MatchResult> jdkIterator = jdkResults.iterator();
+    Spliterator<MatchResult> spliterator =
+        new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE,
+            Spliterator.ORDERED | Spliterator.NONNULL) {
+          @Override
+          public boolean tryAdvance(java.util.function.Consumer<? super MatchResult> action) {
+            boolean srHasNext = safereIterator.hasNext();
+            boolean jrHasNext = jdkIterator.hasNext();
+            checkBoolean("results.hasNext", "", srHasNext, jrHasNext);
+            if (!srHasNext) {
+              return false;
+            }
+
+            MatchResult sr = safereIterator.next();
+            MatchResult jr = jdkIterator.next();
+            checkMatchResult("results.next", sr, jr);
+            action.accept(sr);
+            return true;
+          }
+        };
+    return StreamSupport.stream(spliterator, false)
+        .onClose(safereResults::close)
+        .onClose(jdkResults::close);
   }
 
   // ---------------------------------------------------------------------------
@@ -460,6 +489,27 @@ public final class Matcher implements MatchResult {
       throwDivergence(method, args, sr, jr);
     }
     trace.recordMatch(method, args, sr);
+  }
+
+  private void checkMatchResult(String context, MatchResult sr, MatchResult jr) {
+    checkEqual(context + ".start", "", sr.start(), jr.start());
+    checkEqual(context + ".end", "", sr.end(), jr.end());
+    int srGroupCount = sr.groupCount();
+    int jrGroupCount = jr.groupCount();
+    checkEqual(context + ".groupCount", "", srGroupCount, jrGroupCount);
+    for (int i = 0; i <= srGroupCount; i++) {
+      checkEqual(context + ".group", String.valueOf(i), sr.group(i), jr.group(i));
+      checkEqual(context + ".start", String.valueOf(i), sr.start(i), jr.start(i));
+      checkEqual(context + ".end", String.valueOf(i), sr.end(i), jr.end(i));
+    }
+    Map<String, Integer> srNamedGroups = sr.namedGroups();
+    Map<String, Integer> jrNamedGroups = jr.namedGroups();
+    checkEqual(context + ".namedGroups", "", srNamedGroups, jrNamedGroups);
+    for (String name : srNamedGroups.keySet()) {
+      checkEqual(context + ".group", quote(name), sr.group(name), jr.group(name));
+      checkEqual(context + ".start", quote(name), sr.start(name), jr.start(name));
+      checkEqual(context + ".end", quote(name), sr.end(name), jr.end(name));
+    }
   }
 
   private void throwDivergence(String method, String args, Object sr, Object jr) {
