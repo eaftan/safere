@@ -108,7 +108,7 @@ The focused compatibility matrix should cover at least these syntax families.
 | POSIX property escapes `\p{Lower}` etc. | JDK-compatible | membership against JDK |
 | POSIX bracket fragments `[[:lower:]]` | ordinary JDK character-class text, not POSIX metasyntax | membership tests proving characters like `l`, `o`, `w`, `e`, `r`, `:`, `[`, and `]` behave like JDK |
 | Unicode scripts, blocks, categories, and binary properties | JDK-compatible, tied to the running JDK where possible | property lookup and membership crosschecks |
-| Character-class union, range, intersection, subtraction, and negation | JDK-compatible | generated membership tests for edge shapes, including empty operands |
+| Character-class union, range, intersection, subtraction, and negation | JDK-compatible | generated membership tests for edge shapes, including empty class items and malformed range endpoints |
 | Group syntax | JDK-compatible accepted forms; reject non-JDK forms | compile/error tests for capturing, non-capturing, flags, named groups, and rejected dialect spellings |
 | Quantifier syntax | JDK-compatible where regular; reject unsupported non-regular forms | compile/error tests plus membership for greedy/lazy and bounded forms |
 | Boundary matchers and line terminators | JDK-compatible where supported | membership and `hitEnd`/`requireEnd` tests where observable |
@@ -124,6 +124,101 @@ tests should make the policy executable.
 The parser should retain its stack-based shape.  This design is not a request
 to replace the parser.
 
+### Character-Class Terminology
+
+This design uses these character-class terms consistently:
+
+- **Trivia**: whitespace and comments skipped by `COMMENTS` mode.  Trivia never
+  consumes first-item state and never contributes characters to the class.
+- **Zero-width class syntax**: source syntax that consumes characters from the
+  pattern but contributes no class item, such as an empty quoted literal
+  sequence (`\Q\E`).  Zero-width class syntax does not consume first-item state.
+- **Marker token**: parser syntax that changes the class expression without
+  being a class item.  A leading JDK intersection marker (`&&`) is a marker
+  token.
+- **Class item**: one source-level item in a character class that can contribute
+  characters or a nested class expression to the current class.  Examples
+  include literal characters, escaped characters, predefined classes, Unicode
+  property classes, POSIX bracket spellings when JDK-compatible, and nested
+  character classes.
+- **First item**: the first class item after the opening `[` or `[^`, ignoring
+  trivia and marker tokens.  First-item state controls JDK edge syntax such as
+  leading `-` and leading `]`.
+- **Range endpoint**: a scalar character endpoint on either side of a range
+  operator (`-`).  A range endpoint is narrower than a class item: a nested
+  class opener (`[`) may begin a class item, but it is not a valid unescaped
+  range endpoint.
+- **Operator token**: syntax that combines class items, such as range (`-`)
+  and intersection (`&&`).  Operator validation belongs to character-class
+  parsing, not to later AST repair.
+
+### Character-Class Parser Contract
+
+The character-class parser should satisfy this contract:
+
+- The parser consumes source text as a sequence of trivia, marker tokens, class
+  items, operator tokens, and zero-width class syntax.
+- Trivia is skipped before deciding whether the next source token is a marker
+  token, class item, range endpoint, operator token, or class terminator.
+- Marker tokens do not contribute characters and do not consume first-item
+  state.
+- Zero-width class syntax does not contribute characters and does not consume
+  first-item state.
+- Only class items consume first-item state.
+- A leading JDK intersection marker is valid only when followed, after trivia,
+  by a valid class item start.  It is invalid before `]`, before another `&&`,
+  or before a solitary `&`.
+- A leading literal `-` is a class item when it appears in first-item position
+  or before the class terminator.
+- A `-` is a range operator only when it appears between two valid range
+  endpoints.  Immediate class termination after `-`, including after immediate
+  zero-width quoted syntax, keeps `-` literal; comments-mode trivia after `-`
+  follows JDK behavior and does not by itself make the `-` trailing literal.
+- A range endpoint must be a scalar character or escaped scalar character.  A
+  nested class opener may begin a class item, but it is not a scalar endpoint.
+  When a `-` is immediately followed by a valid nested class item, the `-`
+  remains a literal class item and the nested class is parsed as the next class
+  item.  Malformed or unclosed nested class syntax after `-` is rejected when
+  the nested class item is parsed.  In `COMMENTS` mode, trivia after `-` follows
+  the JDK range-disambiguation behavior described above rather than making the
+  following nested class immediate.
+- Nested character classes are parsed as class items.  They are not repaired
+  after being consumed as malformed range endpoints.
+- Every accepted character-class spelling must either match JDK membership or
+  be rejected earlier as an unsupported non-regular construct.  Every
+  JDK-rejected malformed spelling in this contract must throw
+  `PatternSyntaxException`.
+
+### Character-Class Expression Parser Follow-Up
+
+The token contract above is enough to prevent the recent parser-state bugs:
+trivia, zero-width syntax, marker tokens, first-item state, scalar range
+endpoints, and nested class items must be classified consistently.  It is not a
+complete implementation of the JDK character-class expression model.
+
+The JDK `Pattern` documentation also defines character-class operators and
+their precedence:
+
+1. literal escape;
+2. grouping (`[...]`);
+3. range (`a-z`);
+4. union;
+5. intersection (`&&`).
+
+Some accepted but unusual JDK spellings, such as repeated, trailing, or
+ambiguous `&&` around nested classes and predefined classes, depend on that
+full expression model.  Examples include forms like `[a&&&&a]`, `[ [a]&&]`,
+and `[ \d&&]`.  SafeRE should handle those with a follow-up character-class
+expression parser, or an equivalent explicit state machine, that models
+grouping, range, union, and intersection precedence directly instead of
+continuing to grow local `&&` special cases.
+
+That follow-up can be separate from this implementation work.  The current
+implementation should still avoid point fixes and should leave any remaining
+JDK-accepted expression-precedence gaps documented and covered by follow-up
+tests or issues.  See
+[issue #273](https://github.com/eaftan/safere/issues/273).
+
 The desired changes are structural:
 
 - Parse branches should name the JDK syntax family they implement.
@@ -131,6 +226,21 @@ The desired changes are structural:
   when they are also JDK-compatible.
 - Character-class parsing should have explicit handling for JDK intersection
   and subtraction edge cases, not a generic POSIX class interpretation.
+- Character-class parser state should distinguish operator tokens, marker
+  tokens, trivia, class items, first items, and range endpoints.
+  The JDK docs describe character classes in terms of union, intersection,
+  range, grouping, and operand classes; SafeRE uses "class item" as an internal
+  parser-state term for a source-level unit that may consume first-item state.
+  For example, a leading JDK intersection marker such as `&&` is syntax that
+  changes the class expression, but it is not itself the first item.  After
+  consuming such a marker, the next class item must still receive first-item
+  semantics, including the JDK's treatment of leading `-`, `]`, and malformed
+  repeated intersections.
+- First-item privileges do not permit the generic range parser to reinterpret a
+  leading literal as an arbitrary range.  The parser must validate each complete
+  class item and, when parsing a range, must validate that both sides are valid
+  scalar range endpoints.  For example, a nested class opener can begin a class
+  item, but it cannot be consumed as an unescaped range endpoint.
 - Escape parsing should separate "numeric backreference-like syntax,"
   "JDK octal syntax," and "invalid numeric escape" instead of treating them as
   one fallback.
@@ -179,8 +289,18 @@ Membership tests should:
 
 - compare SafeRE and JDK on representative positive and negative inputs;
 - include edge characters for class syntax, such as `&`, `[`, `]`, `:`, `^`,
-  and range endpoints;
+  `-`, and representative range endpoints;
+- distinguish marker tokens and trivia from the first item, including cases
+  such as leading intersections followed by `-`, another `&&`, a solitary `&`,
+  comments-mode whitespace, or the end of the class;
+- distinguish class items from range endpoints, including malformed ranges that
+  try to use a nested class opener as an endpoint and accepted neighboring
+  forms where the same source character begins a nested class item;
 - test nested and combined character-class operations;
+- include a focused differential suite for the character-class expression parser
+  follow-up, covering repeated, trailing, and ambiguous intersections with
+  nested classes, predefined classes, quoted literals, negation, and
+  comments-mode trivia;
 - include escape boundary values such as octal overflow points;
 - use generated small-alphabet membership checks for character-class grammar
   where hand-written examples are likely to miss cases.
@@ -230,8 +350,15 @@ This design track is complete when:
   JDK character-class text;
 - named-capture tests prove `(?<name>...)` is accepted and `(?P<name>...)` is
   rejected;
-- character-class intersection and subtraction tests include empty operand and
-  repeated-operator edge cases;
+- character-class intersection and subtraction tests include empty class-item
+  and repeated-operator edge cases;
+- character-class item-state tests prove that leading markers do not consume
+  first-item privileges for the following class item;
+- character-class range tests prove that only valid scalar endpoints are
+  accepted, while nested class openers remain valid when they begin a class item;
+- remaining JDK-accepted character-class expression-precedence gaps are either
+  fixed by a dedicated expression parser follow-up or tracked separately with
+  examples and oracle-backed tests;
 - octal and numeric escape tests cover accepted JDK forms, rejected malformed
   forms, and boundary values;
 - unsupported non-regular JDK features are rejected by clear tests tied to the

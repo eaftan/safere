@@ -14,6 +14,7 @@ import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Parser}. */
@@ -41,6 +42,25 @@ class ParserTest {
 
   private static Regexp parse(String pattern, int flags) {
     return Parser.parse(pattern, flags);
+  }
+
+  private static boolean fullMatch(String pattern, String text, int flags) {
+    Regexp re = Parser.parse(pattern, flags);
+    Prog prog = Compiler.compile(re);
+    return Nfa.search(
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures()) != null;
+  }
+
+  private static String nestedCharacterClass(int depth) {
+    StringBuilder pattern = new StringBuilder(depth * 2 + 1);
+    for (int i = 0; i < depth; i++) {
+      pattern.append('[');
+    }
+    pattern.append('a');
+    for (int i = 0; i < depth; i++) {
+      pattern.append(']');
+    }
+    return pattern.toString();
   }
 
   private static Regexp simplify(String pattern) {
@@ -257,6 +277,33 @@ class ParserTest {
       assertThat(re.charClass.contains('z')).isFalse();
       assertThat(re.charClass.contains('A')).isTrue();
       assertThat(re.charClass.contains('0')).isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+      "'[&&-a]', '-', true",
+      "'[&&-a]', 'a', true",
+      "'[&&-a]', 'b', false",
+      "'[^&&-a]', '-', false",
+      "'[^&&-a]', 'a', false",
+      "'[^&&-a]', 'b', true",
+      "'[&&  -a]', '-', true",
+      "'[&&  -a]', 'a', true",
+      "'[&&  -a]', 'b', false"
+    })
+    void leadingIntersectionMarkerPreservesFirstItemBehaviorWithoutPerlX(
+        String pattern, String input, boolean expected) {
+      int flags = (pattern.indexOf(' ') >= 0 ? ParseFlags.COMMENTS : 0) | ParseFlags.MATCH_NL;
+
+      assertThat(fullMatch(pattern, input, flags)).isEqualTo(expected);
+    }
+
+    @Test
+    void deeplyNestedCharacterClassesAreStackSafe() {
+      String pattern = nestedCharacterClass(5000);
+
+      assertThat(fullMatch(pattern, "a", ParseFlags.LIKE_PERL)).isTrue();
+      assertThat(fullMatch(pattern, "b", ParseFlags.LIKE_PERL)).isFalse();
     }
 
     @Test

@@ -7,6 +7,7 @@
 
 package org.safere;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -66,6 +67,35 @@ final class Parser {
   private int ncap;
   private final int runeMax;
   private final Set<String> namedCaptures = new HashSet<>();
+
+  private final class CharacterClassFrame {
+    final int classStart;
+    final boolean parentIntersectionRhs;
+    final CharClassBuilder ccb = new CharClassBuilder();
+    boolean negated;
+    boolean expectFirstClassItem = true;
+    boolean parsingIntersectionRhs;
+    CharClassBuilder intersectionRhs;
+    boolean intersectionRhsHasClassItem;
+
+    CharacterClassFrame(boolean parentIntersectionRhs) {
+      if (pos >= pattern.length() || pattern.charAt(pos) != '[') {
+        throw new PatternSyntaxException("internal error", pattern, pos);
+      }
+      this.classStart = pos;
+      this.parentIntersectionRhs = parentIntersectionRhs;
+      pos++; // '['
+
+      if (pos < pattern.length() && pattern.charAt(pos) == '^') {
+        pos++; // '^'
+        negated = true;
+        if ((flags & ParseFlags.CLASS_NL) == 0 || (flags & ParseFlags.NEVER_NL) != 0) {
+          // If NL can't match implicitly, pretend negated classes include a leading \n.
+          ccb.addRune('\n');
+        }
+      }
+    }
+  }
 
   private Parser(String pattern, int flags) {
     this.pattern = pattern;
@@ -908,142 +938,122 @@ final class Parser {
   // ---- Character class parsing ----
 
   private Regexp parseCharClass() {
-    int classStart = pos;
-    if (pos >= pattern.length() || pattern.charAt(pos) != '[') {
-      throw new PatternSyntaxException("internal error", pattern, pos);
-    }
-    pos++; // '['
+    CharClassBuilder ccb = parseCharClassBuilder();
+    return Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
+  }
 
-    boolean negated = false;
-    CharClassBuilder ccb = new CharClassBuilder();
-    if (pos < pattern.length() && pattern.charAt(pos) == '^') {
-      pos++; // '^'
-      negated = true;
-      if ((flags & ParseFlags.CLASS_NL) == 0 || (flags & ParseFlags.NEVER_NL) != 0) {
-        // If NL can't match implicitly, pretend negated classes include a leading \n.
-        ccb.addRune('\n');
+  private CharClassBuilder parseCharClassBuilder() {
+    ArrayDeque<CharacterClassFrame> stack = new ArrayDeque<>();
+    stack.push(new CharacterClassFrame(false));
+
+    while (!stack.isEmpty()) {
+      CharacterClassFrame frame = stack.peek();
+      skipClassTriviaAndEmptySyntax();
+      if (pos >= pattern.length()) {
+        throw new PatternSyntaxException("missing closing ]", pattern, frame.classStart);
       }
-    }
 
-    boolean first = true; // ] is okay as first char in class
-    while (pos < pattern.length() && (pattern.charAt(pos) != ']' || first)) {
-      // In comments mode, skip whitespace and #-comments inside character classes.
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        skipCommentsAndWhitespace();
-        if (pos >= pattern.length()) {
-          break; // will hit "missing closing ]" below
+      if (frame.parsingIntersectionRhs) {
+        if (pattern.charAt(pos) == ']' && !frame.intersectionRhsHasClassItem) {
+          frame.parsingIntersectionRhs = false;
+          frame.intersectionRhs = null;
+          continue;
         }
-        // After skipping, re-check for ']' (unless first).
-        if (pattern.charAt(pos) == ']' && !first) {
-          break;
+        if (shouldFinishIntersectionRhs(frame)) {
+          frame.ccb.intersect(frame.intersectionRhs);
+          frame.parsingIntersectionRhs = false;
+          frame.intersectionRhs = null;
+          frame.intersectionRhsHasClassItem = false;
+          continue;
         }
+        if (isClassIntersectionOperator()) {
+          pos += 2;
+          continue;
+        }
+        if (pattern.charAt(pos) == '[') {
+          stack.push(new CharacterClassFrame(true));
+          continue;
+        }
+        if (parseAndAddNonNestedClassItem(frame.intersectionRhs)) {
+          frame.intersectionRhsHasClassItem = true;
+        }
+        continue;
+      }
+
+      if (pattern.charAt(pos) == ']' && !frame.expectFirstClassItem) {
+        CharClassBuilder completed = closeCharacterClassFrame(stack.pop());
+        if (stack.isEmpty()) {
+          return completed;
+        }
+        addCompletedNestedClass(stack.peek(), completed, frame.parentIntersectionRhs);
+        continue;
       }
 
       // Character class intersection: &&. At the start of a class, the JDK treats the marker as
       // syntax, not as two literal ampersands, and then continues with following class items.
-      if (first && isClassIntersectionOperator()) {
+      if (frame.expectFirstClassItem && isClassIntersectionOperator()) {
         pos += 2;
         requireLeadingClassIntersectionOperandStart();
-        first = false;
         continue;
       }
-      if (!first && isClassIntersectionOperator()) {
-        pos += 2; // skip '&&'
-        if (pos < pattern.length() && pattern.charAt(pos) == ']') {
-          break;
-        }
-        // Parse the right-hand side of the intersection.
-        CharClassBuilder rhs = new CharClassBuilder();
-        while (pos < pattern.length() && pattern.charAt(pos) != ']'
-            && !(pos + 1 < pattern.length()
-                && pattern.charAt(pos) == '&' && pattern.charAt(pos + 1) == '&')) {
-          if (pos < pattern.length() && pattern.charAt(pos) == '[') {
-            Regexp nested = parseCharClass();
-            rhs.addCharClass(nested.charClass);
-          } else {
-            int[] rr = parseCCRange();
-            addRangeFlags(rhs, rr[0], rr[1], flags | ParseFlags.CLASS_NL);
-          }
-        }
-        ccb.intersect(rhs);
+      if (!frame.expectFirstClassItem && isClassIntersectionOperator()) {
+        pos += 2;
+        frame.parsingIntersectionRhs = true;
+        frame.intersectionRhs = new CharClassBuilder();
+        frame.intersectionRhsHasClassItem = false;
         continue;
       }
 
       // - is only okay unescaped as first or last in class (except with PerlX).
-      if (pattern.charAt(pos) == '-' && !first && (flags & ParseFlags.PERL_X) == 0
+      if (pattern.charAt(pos) == '-' && !frame.expectFirstClassItem
+          && (flags & ParseFlags.PERL_X) == 0
           && (pos + 1 >= pattern.length() || pattern.charAt(pos + 1) != ']')) {
         throw new PatternSyntaxException(
             "invalid character class range", pattern, pos);
       }
-      first = false;
 
-      // Look for nested character class like [[A-F]] (Java-style union).
-      if (pos < pattern.length() && pattern.charAt(pos) == '[') {
-        Regexp nested = parseCharClass();
-        ccb.addCharClass(nested.charClass);
+      if (pattern.charAt(pos) == '[') {
+        stack.push(new CharacterClassFrame(false));
         continue;
       }
-
-      // Look for \Q...\E quoted literal sequence inside character class.
-      if (pos + 1 < pattern.length()
-          && pattern.charAt(pos) == '\\'
-          && pattern.charAt(pos + 1) == 'Q') {
-        pos += 2; // skip \Q
-        while (pos < pattern.length()) {
-          if (pos + 1 < pattern.length()
-              && pattern.charAt(pos) == '\\'
-              && pattern.charAt(pos + 1) == 'E') {
-            pos += 2; // skip \E
-            break;
-          }
-          int r = pattern.codePointAt(pos);
-          pos += Character.charCount(r);
-          addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
-        }
-        continue;
+      if (parseAndAddNonNestedClassItem(frame.ccb)) {
+        frame.expectFirstClassItem = false;
       }
-
-      // Look for Unicode character group like \p{Han}
-      if (pos + 2 < pattern.length()
-          && pattern.charAt(pos) == '\\'
-          && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
-        int result = parseUnicodeGroup(ccb);
-        if (result == PARSE_OK) {
-          continue;
-        } else if (result == PARSE_ERROR) {
-          return null;
-        }
-        // PARSE_NOTHING: fall through
-      }
-
-      // Look for Perl character class symbols.
-      {
-        int saved = pos;
-        CharClassBuilder perlCcb = maybeParsePerlCCEscape();
-        if (perlCcb != null) {
-          ccb.addCharClass(perlCcb);
-          continue;
-        }
-        pos = saved;
-      }
-
-      // Otherwise assume single character or simple range.
-      int[] rr = parseCCRange();
-      // AddRangeFlags: for explicit ranges, set ClassNL so \n is not filtered out.
-      addRangeFlags(ccb, rr[0], rr[1], flags | ParseFlags.CLASS_NL);
     }
 
-    if (pos >= pattern.length()) {
-      throw new PatternSyntaxException(
-          "missing closing ]", pattern, classStart);
+    throw new PatternSyntaxException("internal error", pattern, pos);
+  }
+
+  private void skipClassTriviaAndEmptySyntax() {
+    if ((flags & ParseFlags.COMMENTS) != 0) {
+      skipCommentsAndWhitespace();
     }
+    skipEmptyQuotedLiterals();
+  }
+
+  private boolean shouldFinishIntersectionRhs(CharacterClassFrame frame) {
+    return pos >= pattern.length()
+        || pattern.charAt(pos) == ']'
+        || (frame.intersectionRhsHasClassItem && isClassIntersectionOperator());
+  }
+
+  private CharClassBuilder closeCharacterClassFrame(CharacterClassFrame frame) {
     pos++; // ']'
-
-    if (negated) {
-      ccb.negate();
+    if (frame.negated) {
+      frame.ccb.negate();
     }
+    return frame.ccb;
+  }
 
-    return Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
+  private void addCompletedNestedClass(
+      CharacterClassFrame parent, CharClassBuilder completed, boolean parentIntersectionRhs) {
+    if (parentIntersectionRhs) {
+      parent.intersectionRhs.addCharClass(completed);
+      parent.intersectionRhsHasClassItem = true;
+    } else {
+      parent.ccb.addCharClass(completed);
+      parent.expectFirstClassItem = false;
+    }
   }
 
   private boolean isClassIntersectionOperator() {
@@ -1056,6 +1066,7 @@ final class Parser {
     if ((flags & ParseFlags.COMMENTS) != 0) {
       skipCommentsAndWhitespace();
     }
+    skipEmptyQuotedLiterals();
     if (pos >= pattern.length()) {
       throw new PatternSyntaxException("missing closing ]", pattern, pos);
     }
@@ -1065,36 +1076,161 @@ final class Parser {
     }
   }
 
-  private int[] parseCCRange() {
-    int lo = parseCCCharacter();
+  private boolean parseAndAddNonNestedClassItem(CharClassBuilder ccb) {
+    // Look for Unicode character group like \p{Han}
+    if (pos + 2 < pattern.length()
+        && pattern.charAt(pos) == '\\'
+        && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
+      int result = parseUnicodeGroup(ccb);
+      if (result == PARSE_OK) {
+        return true;
+      } else if (result == PARSE_ERROR) {
+        return false;
+      }
+      // PARSE_NOTHING: fall through
+    }
+
+    // Look for Perl character class symbols.
+    {
+      int saved = pos;
+      CharClassBuilder perlCcb = maybeParsePerlCCEscape();
+      if (perlCcb != null) {
+        ccb.addCharClass(perlCcb);
+        return true;
+      }
+      pos = saved;
+    }
+
+    if (startsQuotedLiteral()) {
+      return addQuotedLiteralClassItem(ccb);
+    }
+
+    addScalarClassItem(ccb, parseCCCharacter());
+    return true;
+  }
+
+  private boolean addQuotedLiteralClassItem(CharClassBuilder ccb) {
+    int[] literals = parseQuotedLiteralSequence();
+    if (literals.length == 0) {
+      return false;
+    }
+    for (int i = 0; i + 1 < literals.length; i++) {
+      addRangeFlags(ccb, literals[i], literals[i], flags | ParseFlags.CLASS_NL);
+    }
+    addScalarClassItem(ccb, literals[literals.length - 1]);
+    return true;
+  }
+
+  private void addScalarClassItem(CharClassBuilder ccb, int lo) {
     int hi = lo;
     // In comments mode, skip whitespace before checking for '-'.
     if ((flags & ParseFlags.COMMENTS) != 0) {
       skipCommentsAndWhitespace();
     }
-    // [a-] means (a|-), so '-' at end of class is literal.
-    // In comments mode, peek past whitespace after '-' to check for ']'.
+    skipEmptyQuotedLiterals();
     if (pos < pattern.length() && pattern.charAt(pos) == '-') {
-      int peekPos = pos + 1;
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        while (peekPos < pattern.length() && Character.isWhitespace(pattern.charAt(peekPos))) {
-          peekPos++;
-        }
-      }
-      if (peekPos < pattern.length() && pattern.charAt(peekPos) != ']') {
+      if (hasRangeEndpointAfterHyphen()) {
         pos++; // '-'
         // In comments mode, skip whitespace after '-'.
         if ((flags & ParseFlags.COMMENTS) != 0) {
           skipCommentsAndWhitespace();
         }
-        hi = parseCCCharacter();
+        RangeEndpoint endpoint = parseCCRangeEndpoint();
+        hi = endpoint.first();
         if (hi < lo) {
           throw new PatternSyntaxException("invalid character class range", pattern, pos);
         }
+        addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
+        for (int r : endpoint.trailingLiterals()) {
+          addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
+        }
+        return;
       }
     }
-    return new int[] {lo, hi};
+
+    addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
   }
+
+  private boolean hasRangeEndpointAfterHyphen() {
+    int peekPos = pos + 1;
+    if (peekPos < pattern.length() && pattern.charAt(peekPos) == ']') {
+      return false;
+    }
+    while (startsEmptyQuotedLiteralAt(peekPos)) {
+      peekPos += 4;
+      if (peekPos < pattern.length() && pattern.charAt(peekPos) == ']') {
+        return false;
+      }
+    }
+    if (peekPos < pattern.length() && pattern.charAt(peekPos) == '[') {
+      return false;
+    }
+    return peekPos < pattern.length();
+  }
+
+  private RangeEndpoint parseCCRangeEndpoint() {
+    skipEmptyQuotedLiterals();
+    if (pos < pattern.length() && pattern.charAt(pos) == '[') {
+      throw new PatternSyntaxException("bad class syntax", pattern, pos);
+    }
+    if (startsQuotedLiteral()) {
+      int[] literals = parseQuotedLiteralSequence();
+      if (literals.length == 0) {
+        throw new PatternSyntaxException("bad class syntax", pattern, pos);
+      }
+      int[] trailing = new int[literals.length - 1];
+      System.arraycopy(literals, 1, trailing, 0, trailing.length);
+      return new RangeEndpoint(literals[0], trailing);
+    }
+    return new RangeEndpoint(parseCCCharacter(), new int[0]);
+  }
+
+  private boolean startsQuotedLiteral() {
+    return pos + 1 < pattern.length()
+        && pattern.charAt(pos) == '\\'
+        && pattern.charAt(pos + 1) == 'Q';
+  }
+
+  private boolean startsEmptyQuotedLiteralAt(int index) {
+    return index + 3 < pattern.length()
+        && pattern.charAt(index) == '\\'
+        && pattern.charAt(index + 1) == 'Q'
+        && pattern.charAt(index + 2) == '\\'
+        && pattern.charAt(index + 3) == 'E';
+  }
+
+  private void skipEmptyQuotedLiterals() {
+    while (startsEmptyQuotedLiteralAt(pos)) {
+      pos += 4;
+    }
+  }
+
+  private int[] parseQuotedLiteralSequence() {
+    pos += 2; // skip \Q
+    int[] buffer = new int[Math.max(4, pattern.length() - pos)];
+    int count = 0;
+    while (pos < pattern.length()) {
+      if (pos + 1 < pattern.length()
+          && pattern.charAt(pos) == '\\'
+          && pattern.charAt(pos + 1) == 'E') {
+        pos += 2; // skip \E
+        break;
+      }
+      int r = pattern.codePointAt(pos);
+      pos += Character.charCount(r);
+      if (count == buffer.length) {
+        int[] expanded = new int[buffer.length * 2];
+        System.arraycopy(buffer, 0, expanded, 0, buffer.length);
+        buffer = expanded;
+      }
+      buffer[count++] = r;
+    }
+    int[] result = new int[count];
+    System.arraycopy(buffer, 0, result, 0, count);
+    return result;
+  }
+
+  private record RangeEndpoint(int first, int[] trailingLiterals) {}
 
   private int parseCCCharacter() {
     if (pos >= pattern.length()) {

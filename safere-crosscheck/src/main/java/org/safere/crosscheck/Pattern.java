@@ -219,7 +219,17 @@ public final class Pattern {
 
   /** Returns the named capturing groups in this pattern. */
   public Map<String, Integer> namedGroups() {
-    return saferePattern.namedGroups();
+    Map<String, Integer> sr = saferePattern.namedGroups();
+    Map<String, Integer> jr = jdkPattern.namedGroups();
+    if (!Objects.equals(sr, jr)) {
+      throw new CrosscheckException(
+          "Pattern.namedGroups",
+          "",
+          String.valueOf(sr),
+          String.valueOf(jr),
+          "(no trace — Pattern method)");
+    }
+    return sr;
   }
 
   /** Returns the number of capturing groups in this pattern. */
