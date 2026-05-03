@@ -132,7 +132,11 @@ class JdkSyntaxCompatibilityTest {
 
   private record DialectRejection(String family, String regex) {}
 
+  private record DialectLiteralCase(String family, String regex, String input) {}
+
   private record CharacterClassMembershipCase(String regex, List<String> inputs) {}
+
+  private record EscapeMembershipCase(String regex, List<String> inputs) {}
 
   private record CharacterClassMatrixPiece(String label, String text) {}
 
@@ -192,9 +196,22 @@ class JdkSyntaxCompatibilityTest {
     static Stream<Arguments> nonJdkDialectSpellings() {
       return Stream.of(
           Arguments.of(new DialectRejection("Python named capture", "(?P<word>a)")),
+          Arguments.of(new DialectRejection("PCRE single-quoted named capture", "(?'word'a)")),
+          Arguments.of(new DialectRejection("Python named backreference", "(?P=word)")),
+          Arguments.of(new DialectRejection("PCRE subroutine call", "(?&word)")),
+          Arguments.of(new DialectRejection("PCRE branch-reset group", "(?|a)")),
+          Arguments.of(new DialectRejection("PCRE conditional group", "(?(1)a|b)")),
+          Arguments.of(new DialectRejection("PCRE inline comment", "(?#comment)a")),
+          Arguments.of(new DialectRejection("PCRE keep-out escape", "\\K")),
+          Arguments.of(new DialectRejection("PCRE byte escape", "\\C")),
+          Arguments.of(new DialectRejection("PCRE g-name backreference", "\\g{name}")),
+          Arguments.of(new DialectRejection("PCRE g-number backreference", "\\g1")),
           Arguments.of(new DialectRejection("bare script property", "\\p{Latin}")),
           Arguments.of(new DialectRejection("bare binary property", "\\p{Alphabetic}")),
           Arguments.of(new DialectRejection("lowercase category", "\\p{lu}")),
+          Arguments.of(new DialectRejection("PCRE assigned property", "\\p{Assigned}")),
+          Arguments.of(new DialectRejection("PCRE any property", "\\p{Any}")),
+          Arguments.of(new DialectRejection("PCRE letter-and-mark category", "\\p{L&}")),
           Arguments.of(new DialectRejection("invalid numeric class escape", "[\\123]")));
     }
 
@@ -205,8 +222,84 @@ class JdkSyntaxCompatibilityTest {
       assertRejectedByJdkAndSafeRe(rejection.regex());
     }
 
+    static Stream<Arguments> generatedNonJdkDialectSpellings() {
+      List<DialectRejection> groupSpellings = List.of(
+          new DialectRejection("Python named capture", "(?P<name>a)"),
+          new DialectRejection("PCRE single-quoted named capture", "(?'name'a)"),
+          new DialectRejection("Python named backreference", "(?P=name)"),
+          new DialectRejection("PCRE subroutine call", "(?&name)"),
+          new DialectRejection("PCRE branch-reset group", "(?|a)"),
+          new DialectRejection("PCRE conditional group", "(?(1)a|b)"),
+          new DialectRejection("PCRE inline comment", "(?#comment)a"));
+      List<DialectRejection> escapeSpellings = List.of(
+          new DialectRejection("PCRE keep-out escape", "\\K"),
+          new DialectRejection("PCRE byte escape", "\\C"),
+          new DialectRejection("PCRE g-name backreference", "\\g{name}"),
+          new DialectRejection("PCRE g-number backreference", "\\g1"));
+      List<String> wrappers = List.of("%s", "(?:%s)", "%s|z", "z%s");
+
+      Stream<Arguments> groups = groupSpellings.stream()
+          .flatMap(rejection -> wrappers.stream()
+              .map(wrapper -> Arguments.of(new DialectRejection(rejection.family(),
+                  String.format(wrapper, rejection.regex())))));
+      Stream<Arguments> escapes = escapeSpellings.stream()
+          .flatMap(rejection -> wrappers.stream()
+              .map(wrapper -> Arguments.of(new DialectRejection(rejection.family(),
+                  String.format(wrapper, rejection.regex())))));
+      return Stream.concat(groups, escapes);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("generatedNonJdkDialectSpellings")
+    @DisplayName("generated non-JDK dialect spellings are rejected")
+    void generatedNonJdkDialectSpellingsAreRejected(DialectRejection rejection) {
+      assertRejectedByJdkAndSafeRe(rejection.regex());
+    }
+
+    static Stream<Arguments> dialectLookingLiteralSpellings() {
+      return Stream.of(
+          Arguments.of(new DialectLiteralCase("POSIX collating element spelling", "[.ch.]",
+              ".")),
+          Arguments.of(new DialectLiteralCase("POSIX collating element spelling", "[.ch.]",
+              "c")),
+          Arguments.of(new DialectLiteralCase("POSIX equivalence class spelling", "[=a=]",
+              "=")),
+          Arguments.of(new DialectLiteralCase("POSIX equivalence class spelling", "[=a=]",
+              "a")),
+          Arguments.of(new DialectLiteralCase("POSIX word-start bracket spelling", "[[:<:]]",
+              "<")),
+          Arguments.of(new DialectLiteralCase("POSIX word-end bracket spelling", "[[:>:]]",
+              ">")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("dialectLookingLiteralSpellings")
+    @DisplayName("dialect-looking bracket spellings match JDK literal semantics")
+    void dialectLookingBracketSpellingsMatchJdkLiteralSemantics(DialectLiteralCase literalCase) {
+      assertMatchesFull(literalCase.regex(), literalCase.input());
+    }
+
     static Stream<Arguments> malformedJdkSyntax() {
       return Stream.of(
+          Arguments.of(new DialectRejection("unterminated character class", "[abc")),
+          Arguments.of(new DialectRejection("empty character class", "[]")),
+          Arguments.of(new DialectRejection("negated empty character class", "[^]")),
+          Arguments.of(new DialectRejection("unclosed named character escape", "\\N{A")),
+          Arguments.of(new DialectRejection("unknown named character escape", "\\N{NO SUCH}")),
+          Arguments.of(new DialectRejection("unclosed braced hex escape", "\\x{41")),
+          Arguments.of(new DialectRejection("braced hex escape above Unicode range",
+              "\\x{110000}")),
+          Arguments.of(new DialectRejection("malformed Unicode escape", "\\u123")),
+          Arguments.of(new DialectRejection("unknown character property", "\\p{NoSuch}")),
+          Arguments.of(new DialectRejection("unclosed character property", "\\p{Lower")),
+          Arguments.of(new DialectRejection("empty character property", "\\p{}")),
+          Arguments.of(new DialectRejection("unknown flag", "(?q)a")),
+          Arguments.of(new DialectRejection("unterminated scoped flag group", "(?i:a")),
+          Arguments.of(new DialectRejection("unmatched close group", "a)")),
+          Arguments.of(new DialectRejection("unterminated group", "(a")),
+          Arguments.of(new DialectRejection("dangling alternation group opener", "(|")),
+          Arguments.of(new DialectRejection("nothing to repeat star", "*a")),
+          Arguments.of(new DialectRejection("malformed bounded quantifier", "a{2,1}")),
           Arguments.of(new DialectRejection("bare leading class intersection", "[&&]")),
           Arguments.of(new DialectRejection("bare negated leading class intersection", "[^&&]")),
           Arguments.of(new DialectRejection("solitary ampersand after leading class intersection",
@@ -281,12 +374,18 @@ class JdkSyntaxCompatibilityTest {
     static Stream<Arguments> unsupportedNonRegularJdkSyntax() {
       return Stream.of(
           Arguments.of(new DialectRejection("backreference", "(a)\\1")),
+          Arguments.of(new DialectRejection("multi-digit backreference", "(a)(b)\\12")),
           Arguments.of(new DialectRejection("named backreference", "(?<name>a)\\k<name>")),
           Arguments.of(new DialectRejection("positive lookahead", "a(?=b)")),
           Arguments.of(new DialectRejection("negative lookahead", "a(?!b)")),
           Arguments.of(new DialectRejection("positive lookbehind", "(?<=a)b")),
           Arguments.of(new DialectRejection("negative lookbehind", "(?<!a)b")),
+          Arguments.of(new DialectRejection("bounded positive lookbehind", "(?<=a{1,3})b")),
+          Arguments.of(new DialectRejection("independent noncapturing group", "(?>ab|a)")),
+          Arguments.of(new DialectRejection("possessive question quantifier", "a?+")),
+          Arguments.of(new DialectRejection("possessive star quantifier", "a*+")),
           Arguments.of(new DialectRejection("possessive quantifier", "a++")),
+          Arguments.of(new DialectRejection("possessive bounded quantifier", "a{2,4}+")),
           Arguments.of(new DialectRejection("atomic group", "(?>a+)")));
     }
 
@@ -382,6 +481,79 @@ class JdkSyntaxCompatibilityTest {
       assertThatThrownBy(() -> Pattern.compile(regex))
           .as("SafeRE should reject non-zero numeric escape in class: %s", regex)
           .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    static Stream<Arguments> generatedNumericAndOctalEscapeCases() {
+      List<String> inputs = List.of("", "\u0000", "\u0001", "\u0007", "\b", "\t", "\n", " ",
+          "!", "A", "S", "\u007f", "\u00ff", "\u0100", "00", " 0", "?7", "123");
+      return Stream.of(
+          Arguments.of(new EscapeMembershipCase("\\00", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\000", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\01", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\001", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\07", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\077", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\0100", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\0377", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\0400", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\1", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\9", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\12", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\123", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\400", inputs)),
+          Arguments.of(new EscapeMembershipCase("\\777", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\00]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\000]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\01]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\07]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\077]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\0100]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\0377]", inputs)),
+          Arguments.of(new EscapeMembershipCase("[\\0400]", inputs)));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("generatedNumericAndOctalEscapeCases")
+    @DisplayName("generated numeric and octal escape cases match JDK")
+    void generatedNumericAndOctalEscapeCasesMatchJdk(EscapeMembershipCase escapeCase) {
+      assertFullMatchesSameForAll(escapeCase.regex(), escapeCase.inputs());
+    }
+
+    static Stream<Arguments> generatedMalformedEscapeCases() {
+      return Stream.of(
+          "\\0",
+          "\\08",
+          "\\09",
+          "\\x",
+          "\\xG0",
+          "\\x{}",
+          "\\x{110000}",
+          "\\u",
+          "\\u0",
+          "\\u00",
+          "\\u000",
+          "\\u000G",
+          "\\N{}",
+          "\\N{NO SUCH CHARACTER}",
+          "[\\0]",
+          "[\\08]",
+          "[\\09]",
+          "[\\400]",
+          "[\\777]",
+          "[\\123]",
+          "[\\x]",
+          "[\\x{}]",
+          "[\\x{110000}]",
+          "[\\u000]",
+          "[\\N{}]")
+          .map(regex -> Arguments.of(new DialectRejection("malformed escape", regex)));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("generatedMalformedEscapeCases")
+    @DisplayName("generated malformed escape cases are rejected")
+    void generatedMalformedEscapeCasesAreRejected(DialectRejection rejection) {
+      assertRejectedByJdkAndSafeRe(rejection.regex());
     }
 
     // -- Hex escapes --
@@ -724,6 +896,48 @@ class JdkSyntaxCompatibilityTest {
     void characterClassEdgeSyntaxMatchesJdkOverGeneratedInputs(
         CharacterClassMembershipCase membershipCase) {
       assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
+    }
+
+    static Stream<Arguments> generatedRepresentativeCharacterClassOperationCases() {
+      List<String> inputs = characterClassMatrixInputs();
+      List<String> operands = List.of(
+          "a-c",
+          "\\d",
+          "\\w",
+          "\\Q-\\E",
+          "\\Q&\\E",
+          "[ab]",
+          "[^b]",
+          "[[:lower:]]",
+          "[[.ch.]]",
+          "[[=a=]]");
+      List<String> operators = List.of("", "&&");
+      Stream.Builder<Arguments> cases = Stream.builder();
+      for (boolean negated : List.of(false, true)) {
+        for (String left : operands) {
+          cases.add(Arguments.of(new CharacterClassMembershipCase(
+              "[" + (negated ? "^" : "") + left + "]", inputs)));
+          for (String operator : operators) {
+            for (String right : operands) {
+              cases.add(Arguments.of(new CharacterClassMembershipCase(
+                  "[" + (negated ? "^" : "") + left + operator + right + "]", inputs)));
+            }
+          }
+        }
+      }
+      return cases.build();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("generatedRepresentativeCharacterClassOperationCases")
+    @DisplayName("generated representative character-class operation cases match JDK")
+    void generatedRepresentativeCharacterClassOperationCasesMatchJdk(
+        CharacterClassMembershipCase membershipCase) {
+      CharacterClassMatrixOutcome jdk = jdkCharacterClassOutcome(membershipCase.regex());
+      CharacterClassMatrixOutcome safere = safeReCharacterClassOutcome(membershipCase.regex());
+      assertThat(safere)
+          .as("character-class outcome for /%s/", membershipCase.regex())
+          .isEqualTo(jdk);
     }
 
     static Stream<Arguments> deferredCharacterClassExpressionParserCases() {
@@ -1112,15 +1326,32 @@ class JdkSyntaxCompatibilityTest {
     static Stream<Arguments> posixBracketClassSyntax() {
       return Stream.of(
           Arguments.of("[[:lower:]]", "l", true),
+          Arguments.of("[[:lower:]]", "o", true),
+          Arguments.of("[[:lower:]]", "w", true),
+          Arguments.of("[[:lower:]]", "e", true),
+          Arguments.of("[[:lower:]]", "r", true),
           Arguments.of("[[:lower:]]", "a", false),
           Arguments.of("[[:lower:]]", ":", true),
           Arguments.of("[[:alpha:]]", "p", true),
+          Arguments.of("[[:alpha:]]", "h", true),
           Arguments.of("[[:alpha:]]", "Z", false),
           Arguments.of("[[:digit:]]", "d", true),
+          Arguments.of("[[:digit:]]", "i", true),
+          Arguments.of("[[:digit:]]", "g", true),
+          Arguments.of("[[:digit:]]", "t", true),
           Arguments.of("[[:digit:]]", "5", false),
           Arguments.of("[[:^space:]]", "^", true),
           Arguments.of("[[:^space:]]", "s", true),
+          Arguments.of("[[:^space:]]", "p", true),
+          Arguments.of("[[:^space:]]", "a", true),
+          Arguments.of("[[:^space:]]", "c", true),
+          Arguments.of("[[:^space:]]", "e", true),
           Arguments.of("[[:^space:]]", " ", false),
+          Arguments.of("[[.ch.]]", ".", true),
+          Arguments.of("[[.ch.]]", "c", true),
+          Arguments.of("[[.ch.]]", "h", true),
+          Arguments.of("[[=a=]]", "=", true),
+          Arguments.of("[[=a=]]", "a", true),
           Arguments.of("[^[:lower:]]", "a", true),
           Arguments.of("[^[:lower:]]", "l", false),
           Arguments.of("[^[:lower:]]", ":", false));
