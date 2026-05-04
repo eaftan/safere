@@ -171,6 +171,27 @@ mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
 # Run generated public API tests only, after safere has already been built locally
 mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
 
+# Run the long generated character-class syntax matrix
+mvn -pl safere \
+  -Dtest='JdkSyntaxCompatibilityTest$CharacterClasses#generatedCharacterClassExpressionMatrixMatchesJdk' \
+  -Dsafere.longSyntaxMatrix=true \
+  test
+
+# Run one contiguous shard of the long generated character-class syntax matrix
+mvn -pl safere \
+  -Dtest='JdkSyntaxCompatibilityTest$CharacterClasses#generatedCharacterClassExpressionMatrixMatchesJdk' \
+  -Dsafere.longSyntaxMatrix=true \
+  -Dsafere.syntaxMatrix.shard=0 \
+  -Dsafere.syntaxMatrix.shards=8 \
+  test
+
+# Run a bounded prefix of a shard for local debugging
+mvn -pl safere \
+  -Dtest='JdkSyntaxCompatibilityTest$CharacterClasses#generatedCharacterClassExpressionMatrixMatchesJdk' \
+  -Dsafere.longSyntaxMatrix=true \
+  -Dsafere.syntaxMatrix.limit=50000 \
+  test
+
 # Run Jazzer fuzz targets in regression mode
 mvn test -pl safere-fuzz
 ```
@@ -178,6 +199,15 @@ mvn test -pl safere-fuzz
 Coverage reports are generated at
 `safere/target/site/jacoco/index.html`.  Note that JaCoCo is disabled
 by default; the `-Pcoverage` profile is required to enable it.
+
+The generated character-class syntax matrix is intentionally excluded from the
+ordinary test path unless `safere.longSyntaxMatrix` is set.  It compares SafeRE
+with `java.util.regex.Pattern` over a Cartesian product of character-class
+intersection, ampersand, zero-width quoted syntax, comments-mode trivia, nested
+class, and range-tail shapes.  The optional shard properties select a contiguous
+slice without enumerating earlier shards; `safere.syntaxMatrix.limit` bounds the
+selected slice for local debugging.  The matrix runs in parallel by default; set
+`-Dsafere.syntaxMatrix.parallel=false` when debugging output order matters.
 
 ## Differential Testing with safere-crosscheck
 
