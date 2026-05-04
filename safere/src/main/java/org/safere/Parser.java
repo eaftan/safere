@@ -1994,8 +1994,8 @@ final class Parser {
         throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 1);
       }
       default -> {
-        // Escaped non-word characters are always themselves.
-        if (c < 0x80 && !Utils.isAlnum(c)) {
+        // JDK reserves backslash before ASCII alphabetic characters for escaped constructs.
+        if (!Utils.isAlpha(c)) {
           return c;
         }
         throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
