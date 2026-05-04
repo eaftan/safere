@@ -571,6 +571,14 @@ remaining divergence under the documented unspecified-edge policy above.  Local
 patches for individual spellings are not acceptable unless they fall out of the
 same transition system.
 
+The generated matrix is not part of the ordinary unit-test path.  Ordinary CI
+should keep focused oracle-backed regression cases that cover known bug
+families.  The full matrix should run only when an explicit long-running test
+property is set, and it should support contiguous sharding and bounded local
+debug runs.  Shards must be indexed directly into the generated product rather
+than implemented as parameterized tests that re-enumerate and discard the rest
+of the matrix.
+
 The earlier token-state work was a staging step that fixed leading-intersection
 and range-endpoint bugs without replacing the character-class subparser.  The
 #273 expression-parser work completes that step by replacing local
@@ -719,6 +727,9 @@ This design track is complete when:
   rejected;
 - character-class intersection and subtraction tests include zero-width class
   syntax, empty RHS, and repeated-operator edge cases;
+- the generated character-class expression matrix is available behind an
+  explicit long-running property, supports direct contiguous sharding, and is
+  documented in the testing guide;
 - character-class item-state tests prove that leading operators do not consume
   first-item privileges for the following class item;
 - character-class range tests prove that only valid scalar endpoints are

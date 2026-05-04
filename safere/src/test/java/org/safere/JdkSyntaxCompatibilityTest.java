@@ -11,10 +11,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.PatternSyntaxException;
-import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -144,6 +147,51 @@ class JdkSyntaxCompatibilityTest {
       String label, String text, boolean commentsModeOnly) {}
 
   private record CharacterClassMatrixOutcome(boolean accepted, String matches) {}
+
+  private record CharacterClassExpressionMatrix(List<CharacterClassMatrixSpace> spaces, long size) {
+    CharacterClassExpressionMatrix(List<CharacterClassMatrixSpace> spaces) {
+      this(spaces, spaces.stream().mapToLong(CharacterClassMatrixSpace::size).sum());
+    }
+
+    String regexAt(long index) {
+      if (index < 0 || index >= size) {
+        throw new IndexOutOfBoundsException("matrix index " + index + " outside [0, " + size
+            + ")");
+      }
+      long remaining = index;
+      for (CharacterClassMatrixSpace space : spaces) {
+        if (remaining < space.size()) {
+          return space.regexAt(remaining);
+        }
+        remaining -= space.size();
+      }
+      throw new AssertionError("unreachable matrix index " + index);
+    }
+  }
+
+  private record CharacterClassMatrixSpace(
+      String prefix, List<List<String>> dimensions, long size) {
+    CharacterClassMatrixSpace(String prefix, List<List<String>> dimensions) {
+      this(prefix, dimensions, dimensions.stream().mapToLong(List::size)
+          .reduce(1, Math::multiplyExact));
+    }
+
+    String regexAt(long index) {
+      String[] parts = new String[dimensions.size()];
+      long remaining = index;
+      for (int i = dimensions.size() - 1; i >= 0; i--) {
+        List<String> dimension = dimensions.get(i);
+        int element = (int) (remaining % dimension.size());
+        parts[i] = dimension.get(element);
+        remaining /= dimension.size();
+      }
+      StringBuilder regex = new StringBuilder(prefix);
+      for (String part : parts) {
+        regex.append(part);
+      }
+      return regex.append(']').toString();
+    }
+  }
 
   @Nested
   @DisplayName("Syntax-family compatibility matrix")
@@ -1069,32 +1117,45 @@ class JdkSyntaxCompatibilityTest {
       assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
     }
 
-    private static final int GENERATED_CHARACTER_CLASS_MATRIX_SHARDS = 16;
+    private static final String LONG_SYNTAX_MATRIX_PROPERTY = "safere.longSyntaxMatrix";
+    private static final String SYNTAX_MATRIX_SHARD_PROPERTY = "safere.syntaxMatrix.shard";
+    private static final String SYNTAX_MATRIX_SHARDS_PROPERTY = "safere.syntaxMatrix.shards";
+    private static final String SYNTAX_MATRIX_LIMIT_PROPERTY = "safere.syntaxMatrix.limit";
+    private static final String SYNTAX_MATRIX_PARALLEL_PROPERTY = "safere.syntaxMatrix.parallel";
 
-    static Stream<Arguments> generatedCharacterClassExpressionMatrixShards() {
-      return IntStream.range(0, GENERATED_CHARACTER_CLASS_MATRIX_SHARDS)
-          .mapToObj(shard -> Arguments.of(shard, GENERATED_CHARACTER_CLASS_MATRIX_SHARDS));
-    }
-
-    @ParameterizedTest(name = "shard {0} of {1}")
-    @MethodSource("generatedCharacterClassExpressionMatrixShards")
+    @Test
     @DisplayName("generated character-class expression matrix matches JDK")
-    @Disabled("TODO(#277): move behind an explicit long-running test flag")
     @DisabledForCrosscheck(
         "generated differential matrix already compares SafeRE with java.util.regex")
-    void generatedCharacterClassExpressionMatrixMatchesJdk(int shard, int shardCount) {
-      List<String> divergences = new ArrayList<>();
-      int[] divergenceCount = {0};
-      int[] generatedCount = {0};
-      forEachGeneratedCharacterClassExpression(regex -> {
-        int index = generatedCount[0]++;
-        if (index % shardCount != shard) {
-          return;
-        }
+    void generatedCharacterClassExpressionMatrixMatchesJdk() {
+      Assumptions.assumeTrue(Boolean.getBoolean(LONG_SYNTAX_MATRIX_PROPERTY),
+          () -> "set -D" + LONG_SYNTAX_MATRIX_PROPERTY + "=true to run the long syntax matrix");
+
+      CharacterClassExpressionMatrix matrix = generatedCharacterClassExpressionMatrix();
+      int shardCount = Integer.getInteger(SYNTAX_MATRIX_SHARDS_PROPERTY, 1);
+      int shard = Integer.getInteger(SYNTAX_MATRIX_SHARD_PROPERTY, 0);
+      assertThat(shardCount).as(SYNTAX_MATRIX_SHARDS_PROPERTY).isPositive();
+      assertThat(shard).as(SYNTAX_MATRIX_SHARD_PROPERTY).isBetween(0, shardCount - 1);
+
+      long startInclusive = matrix.size() * shard / shardCount;
+      long endExclusive = matrix.size() * (shard + 1) / shardCount;
+      long limit = Long.getLong(SYNTAX_MATRIX_LIMIT_PROPERTY, -1);
+      if (limit >= 0) {
+        endExclusive = Math.min(endExclusive, startInclusive + limit);
+      }
+
+      Queue<String> divergences = new ConcurrentLinkedQueue<>();
+      LongAdder divergenceCount = new LongAdder();
+      LongStream indexes = LongStream.range(startInclusive, endExclusive);
+      if (Boolean.parseBoolean(System.getProperty(SYNTAX_MATRIX_PARALLEL_PROPERTY, "true"))) {
+        indexes = indexes.parallel();
+      }
+      indexes.forEach(index -> {
+        String regex = matrix.regexAt(index);
         CharacterClassMatrixOutcome jdk = jdkCharacterClassOutcome(regex);
         CharacterClassMatrixOutcome safere = safeReCharacterClassOutcome(regex);
         if (!jdk.equals(safere)) {
-          divergenceCount[0]++;
+          divergenceCount.increment();
           if (divergences.size() < 50) {
             divergences.add(regex + " JDK=" + jdk + " SafeRE=" + safere);
           }
@@ -1102,13 +1163,14 @@ class JdkSyntaxCompatibilityTest {
       });
 
       assertThat(divergences)
-          .as("generated character-class expression divergences in shard %d/%d: %d; "
-              + "first entries: %s", shard, shardCount, divergenceCount[0], divergences)
+          .as("generated character-class expression divergences in index range [%d, %d) "
+              + "of %,d total cases, shard %d/%d: %d; first entries: %s",
+              startInclusive, endExclusive, matrix.size(), shard, shardCount,
+              divergenceCount.sum(), divergences)
           .isEmpty();
     }
 
-    private static void forEachGeneratedCharacterClassExpression(
-        java.util.function.Consumer<String> consumer) {
+    private static CharacterClassExpressionMatrix generatedCharacterClassExpressionMatrix() {
       List<CharacterClassMatrixPiece> basePieces = List.of(
           new CharacterClassMatrixPiece("empty", ""),
           new CharacterClassMatrixPiece("litA", "a"),
@@ -1187,75 +1249,51 @@ class JdkSyntaxCompatibilityTest {
           new CharacterClassMatrixPiece("propertyNotLower", "\\P{Lower}"),
           new CharacterClassMatrixPiece("propertyJavaLower", "\\p{javaLowerCase}"));
 
+      List<CharacterClassMatrixSpace> spaces = new ArrayList<>();
       for (boolean comments : List.of(false, true)) {
         for (boolean negated : List.of(false, true)) {
           String prefix = (comments ? "(?x)" : "") + "[" + (negated ? "^" : "");
-          for (CharacterClassMatrixPiece left : basePieces) {
-            for (CharacterClassMatrixPiece middle : basePieces) {
-              for (CharacterClassMatrixSeparator separator : separators) {
-                if (separator.commentsModeOnly() && !comments) {
-                  continue;
-                }
-                for (String operator : operators) {
-                  for (CharacterClassMatrixSeparator afterOperator : afterOperatorSeparators) {
-                    if (afterOperator.commentsModeOnly() && !comments) {
-                      continue;
-                    }
-                    for (CharacterClassMatrixPiece right : rightPieces) {
-                      for (CharacterClassMatrixPiece trailing : trailingPieces) {
-                        consumer.accept(prefix + left.text() + middle.text() + separator.text()
-                            + operator + afterOperator.text() + right.text() + trailing.text()
-                            + "]");
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          for (CharacterClassMatrixPiece left : basePieces) {
-            for (CharacterClassMatrixPiece ampersand : ampersandPieces) {
-              for (CharacterClassMatrixSeparator separator : separators) {
-                if (separator.commentsModeOnly() && !comments) {
-                  continue;
-                }
-                for (String operator : operators) {
-                  for (CharacterClassMatrixSeparator afterOperator : afterOperatorSeparators) {
-                    if (afterOperator.commentsModeOnly() && !comments) {
-                      continue;
-                    }
-                    for (CharacterClassMatrixPiece right : rightPieces) {
-                      for (CharacterClassMatrixPiece trailing : trailingPieces) {
-                        consumer.accept(prefix + left.text() + ampersand.text()
-                            + separator.text() + operator + afterOperator.text() + right.text()
-                            + trailing.text() + "]");
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          for (CharacterClassMatrixSeparator separator : separators) {
-            if (separator.commentsModeOnly() && !comments) {
-              continue;
-            }
-            for (String operator : operators) {
-              for (CharacterClassMatrixSeparator afterOperator : afterOperatorSeparators) {
-                if (afterOperator.commentsModeOnly() && !comments) {
-                  continue;
-                }
-                for (CharacterClassMatrixPiece right : rightPieces) {
-                  for (CharacterClassMatrixPiece trailing : trailingPieces) {
-                    consumer.accept(prefix + separator.text() + operator + afterOperator.text()
-                        + right.text() + trailing.text() + "]");
-                  }
-                }
-              }
-            }
-          }
+          List<String> activeSeparators = activeSeparatorTexts(separators, comments);
+          List<String> activeAfterOperatorSeparators =
+              activeSeparatorTexts(afterOperatorSeparators, comments);
+
+          spaces.add(new CharacterClassMatrixSpace(prefix, List.of(
+              pieceTexts(basePieces),
+              pieceTexts(basePieces),
+              activeSeparators,
+              operators,
+              activeAfterOperatorSeparators,
+              pieceTexts(rightPieces),
+              pieceTexts(trailingPieces))));
+          spaces.add(new CharacterClassMatrixSpace(prefix, List.of(
+              pieceTexts(basePieces),
+              pieceTexts(ampersandPieces),
+              activeSeparators,
+              operators,
+              activeAfterOperatorSeparators,
+              pieceTexts(rightPieces),
+              pieceTexts(trailingPieces))));
+          spaces.add(new CharacterClassMatrixSpace(prefix, List.of(
+              activeSeparators,
+              operators,
+              activeAfterOperatorSeparators,
+              pieceTexts(rightPieces),
+              pieceTexts(trailingPieces))));
         }
       }
+      return new CharacterClassExpressionMatrix(spaces);
+    }
+
+    private static List<String> pieceTexts(List<CharacterClassMatrixPiece> pieces) {
+      return pieces.stream().map(CharacterClassMatrixPiece::text).toList();
+    }
+
+    private static List<String> activeSeparatorTexts(
+        List<CharacterClassMatrixSeparator> separators, boolean comments) {
+      return separators.stream()
+          .filter(separator -> comments || !separator.commentsModeOnly())
+          .map(CharacterClassMatrixSeparator::text)
+          .toList();
     }
 
     private static CharacterClassMatrixOutcome jdkCharacterClassOutcome(String regex) {
