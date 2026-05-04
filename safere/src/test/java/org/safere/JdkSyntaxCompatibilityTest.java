@@ -345,6 +345,11 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new DialectRejection(
               "intersection rhs range ending at nested class opener", "[a&&b-[]")),
           Arguments.of(new DialectRejection(
+              "odd ampersand intersection run before malformed range", "[\\d&&&-\\D]")),
+          Arguments.of(new DialectRejection(
+              "odd ampersand intersection run before zero-width malformed range",
+              "[\\d&&&\\Q\\E-\\D]")),
+          Arguments.of(new DialectRejection(
               "ordinary literal before trailing class intersection after nested class",
               "[[a]b&&]")),
           Arguments.of(new DialectRejection(
@@ -971,6 +976,11 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\d& #x\n&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\w&\\Q\\E&& &&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ && \\D&\\Q\\E&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&\\Q\\E &&\\d]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[b&&[a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[^b&&[a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& -\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& #x\n -\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\d0-1&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]",
@@ -1109,6 +1119,13 @@ class JdkSyntaxCompatibilityTest {
           new CharacterClassMatrixPiece("rawAmp", "&"),
           new CharacterClassMatrixPiece("escapedAmp", "\\&"),
           new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"));
+      List<CharacterClassMatrixPiece> trailingPieces = List.of(
+          new CharacterClassMatrixPiece("none", ""),
+          new CharacterClassMatrixPiece("rawAmp", "&"),
+          new CharacterClassMatrixPiece("escapedAmp", "\\&"),
+          new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
+          new CharacterClassMatrixPiece("rangeToNonDigit", "-\\D"),
+          new CharacterClassMatrixPiece("zeroWidthRangeToNonDigit", "\\Q\\E-\\D"));
       List<CharacterClassMatrixSeparator> separators = List.of(
           new CharacterClassMatrixSeparator("none", "", false),
           new CharacterClassMatrixSeparator("emptyQuote", "\\Q\\E", false),
@@ -1164,8 +1181,11 @@ class JdkSyntaxCompatibilityTest {
                       continue;
                     }
                     for (CharacterClassMatrixPiece right : rightPieces) {
-                      consumer.accept(prefix + left.text() + middle.text() + separator.text()
-                          + operator + afterOperator.text() + right.text() + "]");
+                      for (CharacterClassMatrixPiece trailing : trailingPieces) {
+                        consumer.accept(prefix + left.text() + middle.text() + separator.text()
+                            + operator + afterOperator.text() + right.text() + trailing.text()
+                            + "]");
+                      }
                     }
                   }
                 }
@@ -1184,8 +1204,11 @@ class JdkSyntaxCompatibilityTest {
                       continue;
                     }
                     for (CharacterClassMatrixPiece right : rightPieces) {
-                      consumer.accept(prefix + left.text() + ampersand.text() + separator.text()
-                          + operator + afterOperator.text() + right.text() + "]");
+                      for (CharacterClassMatrixPiece trailing : trailingPieces) {
+                        consumer.accept(prefix + left.text() + ampersand.text()
+                            + separator.text() + operator + afterOperator.text() + right.text()
+                            + trailing.text() + "]");
+                      }
                     }
                   }
                 }
@@ -1202,8 +1225,10 @@ class JdkSyntaxCompatibilityTest {
                   continue;
                 }
                 for (CharacterClassMatrixPiece right : rightPieces) {
-                  consumer.accept(prefix + separator.text() + operator + afterOperator.text()
-                      + right.text() + "]");
+                  for (CharacterClassMatrixPiece trailing : trailingPieces) {
+                    consumer.accept(prefix + separator.text() + operator + afterOperator.text()
+                        + right.text() + trailing.text() + "]");
+                  }
                 }
               }
             }
