@@ -152,6 +152,7 @@ class JdkSyntaxCompatibilityTest {
       return Stream.of(
           Arguments.of(new SyntaxFamilyCase("literal characters", "abc", "abc", "ab")),
           Arguments.of(new SyntaxFamilyCase("quoting", "\\Q.+*\\E", ".+*", "abc")),
+          Arguments.of(new SyntaxFamilyCase("escaped non-ASCII literals", "\\©", "©", "c")),
           Arguments.of(new SyntaxFamilyCase("control escapes", "\\t", "\t", "t")),
           Arguments.of(new SyntaxFamilyCase("octal escapes", "\\041", "!", "1")),
           Arguments.of(new SyntaxFamilyCase("hex escapes", "\\x41", "A", "x41")),
@@ -425,6 +426,24 @@ class JdkSyntaxCompatibilityTest {
     @DisplayName("escaped backslash: \\\\")
     void escapedBackslash() {
       assertMatchesSame("\\\\", "a\\b");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\©", "\\о", "\\\uD83D\uDE00"})
+    @DisplayName("escaped non-ASCII character is literal")
+    void escapedNonAsciiCharacterIsLiteral(String regex) {
+      String literal = regex.substring(1);
+      assertMatchesFull(regex, literal);
+      assertMatchesFull(regex, "x");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[\\©]", "[\\о]", "[\\\uD83D\uDE00]"})
+    @DisplayName("escaped non-ASCII character in class is literal")
+    void escapedNonAsciiCharacterInClassIsLiteral(String regex) {
+      String literal = regex.substring(2, regex.length() - 1);
+      assertMatchesFull(regex, literal);
+      assertMatchesFull(regex, "x");
     }
 
     // -- Octal escapes --
@@ -1104,6 +1123,7 @@ class JdkSyntaxCompatibilityTest {
           new CharacterClassMatrixPiece("quoteAB", "\\Qab\\E"),
           new CharacterClassMatrixPiece("quoteEmpty", "\\Q\\E"),
           new CharacterClassMatrixPiece("nonInline", "Ā"),
+          new CharacterClassMatrixPiece("escapedNonAscii", "\\Ā"),
           new CharacterClassMatrixPiece("nestedA", "[a]"),
           new CharacterClassMatrixPiece("nestedB", "[b]"),
           new CharacterClassMatrixPiece("nestedAB", "[ab]"),
@@ -1156,6 +1176,7 @@ class JdkSyntaxCompatibilityTest {
           new CharacterClassMatrixPiece("quoteA", "\\Qa\\E"),
           new CharacterClassMatrixPiece("quoteEmpty", "\\Q\\E"),
           new CharacterClassMatrixPiece("nonInline", "Ā"),
+          new CharacterClassMatrixPiece("escapedNonAscii", "\\Ā"),
           new CharacterClassMatrixPiece("nestedA", "[a]"),
           new CharacterClassMatrixPiece("nestedB", "[b]"),
           new CharacterClassMatrixPiece("nestedAB", "[ab]"),

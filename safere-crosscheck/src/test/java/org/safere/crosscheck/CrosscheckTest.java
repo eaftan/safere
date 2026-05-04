@@ -38,6 +38,13 @@ class CrosscheckTest {
     }
 
     @Test
+    @DisplayName("compiles escaped non-ASCII literals on both engines")
+    void escapedNonAsciiLiteral() {
+      Pattern p = Pattern.compile("^\\©");
+      assertThat(p.matcher("©").matches()).isTrue();
+    }
+
+    @Test
     @DisplayName("throws UnsupportedPatternException for backreference")
     void backreference() {
       assertThatThrownBy(() -> Pattern.compile("(a)\\1"))
