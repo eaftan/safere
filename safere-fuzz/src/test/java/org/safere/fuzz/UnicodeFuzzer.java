@@ -7,8 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import org.safere.crosscheck.Matcher;
-import org.safere.crosscheck.Pattern;
 
 final class UnicodeFuzzer {
 
@@ -17,12 +15,12 @@ final class UnicodeFuzzer {
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
     String input = FuzzSupport.consumeUnicodeHeavyString(data, 512);
-    Pattern pattern = FuzzSupport.compileOrSkip(regex, flags);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
     }
 
-    Matcher matcher = pattern.matcher(input);
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     matcher.find();
     matcher.reset();
     matcher.matches();

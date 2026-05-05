@@ -1,8 +1,8 @@
 # SafeRE Fuzz Tests
 
-This module contains Jazzer fuzz targets for SafeRE. The targets use
-`safere-crosscheck` as the oracle: each operation runs against both SafeRE and
-`java.util.regex`, and `CrosscheckException` signals a semantic divergence.
+This module contains Jazzer fuzz targets for SafeRE. The targets use local
+dual-engine oracles: each operation runs against both SafeRE and
+`java.util.regex`, and an `AssertionError` signals a semantic divergence.
 
 ## Targets
 
@@ -43,7 +43,7 @@ per Maven invocation, so select a single target with `-Dtest`.
 The Maven configuration disables Jazzer's `RegexInjection` sanitizer for these
 targets. SafeRE fuzzers intentionally compile generated patterns with both
 SafeRE and `java.util.regex`; sanitizer findings on the JDK oracle are noise for
-this crosscheck workflow.
+this differential-testing workflow.
 
 ```bash
 JAZZER_FUZZ=1 mvn -pl safere-fuzz -am -Dtest=MatchFuzzer \

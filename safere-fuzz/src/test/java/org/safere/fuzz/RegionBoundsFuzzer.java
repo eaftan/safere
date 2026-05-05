@@ -7,8 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import org.safere.crosscheck.Matcher;
-import org.safere.crosscheck.Pattern;
 
 final class RegionBoundsFuzzer {
 
@@ -17,12 +15,12 @@ final class RegionBoundsFuzzer {
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
     String input = data.consumeString(2048);
-    Pattern pattern = FuzzSupport.compileOrSkip(regex, flags);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
     }
 
-    Matcher matcher = pattern.matcher(input);
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     int[] region = FuzzSupport.consumeRegion(data, input);
     matcher.region(region[0], region[1]);
     matcher.useAnchoringBounds(data.consumeBoolean());

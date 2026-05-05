@@ -7,8 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import org.safere.crosscheck.Matcher;
-import org.safere.crosscheck.Pattern;
 
 final class ReplacementFuzzer {
 
@@ -18,33 +16,36 @@ final class ReplacementFuzzer {
     int flags = FuzzSupport.consumeFlags(data);
     String input = data.consumeString(2048);
     String replacement = data.consumeRemainingAsString();
-    Pattern pattern = FuzzSupport.compileOrSkip(regex, flags);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
     }
 
-    try {
-      pattern.matcher(input).replaceAll(replacement);
-      pattern.matcher(input).replaceFirst(replacement);
-      appendReplacementLoop(pattern, input, replacement, data.consumeBoolean());
-    } catch (IllegalArgumentException | IndexOutOfBoundsException expected) {
-      // Invalid replacement syntax is valid fuzzer input.
+    if (!pattern.matcher(input).replaceAll(replacement)
+        || !pattern.matcher(input).replaceFirst(replacement)) {
+      return;
     }
+    appendReplacementLoop(pattern, input, replacement, data.consumeBoolean());
   }
 
   private static void appendReplacementLoop(
-      Pattern pattern, String input, String replacement, boolean useStringBuffer) {
-    Matcher matcher = pattern.matcher(input);
+      FuzzSupport.CompiledPattern pattern, String input, String replacement,
+      boolean useStringBuffer) {
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     if (useStringBuffer) {
       StringBuffer sb = new StringBuffer();
       while (matcher.find()) {
-        matcher.appendReplacement(sb, replacement);
+        if (!matcher.appendReplacement(sb, replacement)) {
+          return;
+        }
       }
       matcher.appendTail(sb);
     } else {
       StringBuilder sb = new StringBuilder();
       while (matcher.find()) {
-        matcher.appendReplacement(sb, replacement);
+        if (!matcher.appendReplacement(sb, replacement)) {
+          return;
+        }
       }
       matcher.appendTail(sb);
     }

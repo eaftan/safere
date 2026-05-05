@@ -7,8 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import org.safere.crosscheck.Matcher;
-import org.safere.crosscheck.Pattern;
 
 final class FindSequenceFuzzer {
 
@@ -17,12 +15,12 @@ final class FindSequenceFuzzer {
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
     String input = data.consumeString(2048);
-    Pattern pattern = FuzzSupport.compileOrSkip(regex, flags);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
     }
 
-    Matcher matcher = pattern.matcher(input);
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     boolean hasMatch = false;
     int steps = data.consumeInt(1, 32);
     for (int i = 0; i < steps; i++) {
