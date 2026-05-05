@@ -1238,6 +1238,10 @@ final class Parser {
     } else if (frame.currentIntersectionOperandRole == ClassAtomRole.ORDINARY_SCALAR
         && !frame.hasPendingScalarItems) {
       expression = new CharClassBuilder().addCharClass(frame.accumulatedClass);
+    } else if (frame.hasPendingScalarItems
+        && frame.pendingScalarItemsAfterCurrentOperand
+        && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
+      expression = new CharClassBuilder().addCharClass(frame.pendingScalarItems);
     } else {
       expression = new CharClassBuilder().addCharClass(frame.accumulatedClass);
       expression.intersect(frame.intersectionRight);
