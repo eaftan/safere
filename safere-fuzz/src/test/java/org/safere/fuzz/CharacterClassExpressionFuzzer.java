@@ -104,6 +104,9 @@ final class CharacterClassExpressionFuzzer {
       "[&&[a]&-&&]",
       "[a\\d&&&\\Q\\E&]",
       "[^[^b]&\\Q\\E&&\\Q\\E-&&]",
+      "(?x)[0&\\Q\\E\\Q\\E&&& #x\n-&&]",
+      "(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]",
+      "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]",
       "(?x)[a\\d&& [0]&]",
       "(?x)[a[b]&& [a]&]",
       "(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]"

@@ -1175,6 +1175,16 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[^[a]& &&]", inputs)));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]",
+        "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]"
+    })
+    @DisplayName("character-class ampersand runs with empty quotes reject malformed syntax")
+    void characterClassAmpersandRunsWithEmptyQuotesRejectMalformedSyntax(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("deferredCharacterClassExpressionParserCases")
     @DisplayName("character-class expression parser cases match JDK")
