@@ -25,6 +25,8 @@ final class ParserCompatibilityFuzzer {
       "\\P{Lower}",
       "\\Q\\E",
       "\\Q*\\E",
+      "^",
+      "$",
       "[a]",
       "[^a]",
       "[a-z]",
@@ -37,7 +39,8 @@ final class ParserCompatibilityFuzzer {
   };
   private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "(?m)", "(?s)"};
   private static final String[] CONNECTORS =
-      {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}"};
+      {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}",
+          "??{1,3}", "?{1,3}", "*{1,3}", "+{1,3}", "{1,3}{1,3}"};
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
   private static final List<String> INPUTS =
       List.of("", "a", "aa", "abc", "def", "0", " ", "\n", "*", "name");

@@ -205,7 +205,7 @@ final class Parser {
               nongreedy = true;
               pos++; // '?'
             }
-            if (lastunary != null) {
+            if (lastunary != null && !canRepeatAfterUnary(op)) {
               throw new PatternSyntaxException(
                   "invalid nested repetition operator", pattern, opStart);
             }
@@ -228,15 +228,16 @@ final class Parser {
               nongreedy = true;
               pos++; // '?'
             }
-            if (lastunary != null) {
-              throw new PatternSyntaxException(
-                  "invalid nested repetition operator", pattern, opStart);
-            }
           }
           String opstr = pattern.substring(opStart, pos);
           if (lastTokenNonRepeatable) {
             validateRepeatCount(lo, hi, opstr);
             isNonRepeatable = true;
+            break;
+          }
+          if (lastunary != null) {
+            validateRepeatCount(lo, hi, opstr);
+            isunary = opstr;
             break;
           }
           pushRepetition(lo, hi, opstr, nongreedy);
@@ -595,6 +596,38 @@ final class Parser {
       default -> throw new IllegalStateException("unexpected repeat op: " + op);
     };
     stacktop.re = re;
+  }
+
+  private boolean canRepeatAfterUnary(RegexpOp op) {
+    return op == RegexpOp.PLUS && stacktop != null && isQuantifiedZeroWidth(stacktop.re);
+  }
+
+  private boolean isQuantifiedZeroWidth(Regexp re) {
+    return switch (re.op) {
+      case STAR, PLUS, QUEST, REPEAT -> isZeroWidth(re.subs.getFirst());
+      default -> false;
+    };
+  }
+
+  private boolean isZeroWidth(Regexp re) {
+    ArrayDeque<Regexp> pending = new ArrayDeque<>();
+    pending.add(re);
+    while (!pending.isEmpty()) {
+      Regexp current = pending.removeLast();
+      switch (current.op) {
+        case EMPTY_MATCH, BEGIN_LINE, END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY,
+            BEGIN_TEXT, END_TEXT -> {
+          // Zero-width by definition.
+        }
+        case CAPTURE, NON_CAPTURE, STAR, PLUS, QUEST, REPEAT ->
+            pending.add(current.subs.getFirst());
+        case CONCAT, ALTERNATE -> pending.addAll(current.subs);
+        default -> {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private void pushRepetition(int min, int max, String opstr, boolean nongreedy) {

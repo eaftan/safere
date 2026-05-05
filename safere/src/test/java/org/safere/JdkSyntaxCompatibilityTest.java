@@ -2021,6 +2021,31 @@ class JdkSyntaxCompatibilityTest {
     void boundedRepeatOfConcatenatedBoundedRepeats() {
       assertMatchesSame("(?:a{0,63}b{0,99}){0,5}", "aaabbbb");
     }
+
+    @ParameterizedTest(name = "/{0}/ on \"{1}\"")
+    @MethodSource("boundedRepeatsOfQuantifiedAtoms")
+    @DisplayName("bounded repeats of quantified atoms")
+    void boundedRepeatsOfQuantifiedAtoms(String regex, String input) {
+      assertMatchesSame(regex, input);
+    }
+
+    static Stream<Arguments> boundedRepeatsOfQuantifiedAtoms() {
+      return Stream.of(
+          Arguments.of("\\S??{1,3}", ""),
+          Arguments.of("\\S??{1,3}", "a"),
+          Arguments.of("a?{1,3}", "a"),
+          Arguments.of("a*{1,3}", "aaa"),
+          Arguments.of("a+{1,3}", "aaa"),
+          Arguments.of("a{2}{3}", "aaaaaa"),
+          Arguments.of("a{2}?{3}", "aaaaaa"));
+    }
+
+    @Test
+    @DisplayName("quantified anchors separated by comments-mode whitespace")
+    void quantifiedAnchorsSeparatedByCommentsModeWhitespace() {
+      assertMatchesSameWithFlags("^+\n\n\n+^", java.util.regex.Pattern.COMMENTS, "");
+      assertMatchesSameWithFlags("^+\n\n\n+^", java.util.regex.Pattern.COMMENTS, "a");
+    }
   }
 
   // ===========================================================================
