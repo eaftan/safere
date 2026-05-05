@@ -333,6 +333,109 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("\\X matches a regional indicator flag as one cluster")
+    void matchesRegionalIndicatorFlagAsOneCluster() {
+      String flag = "\uD83C\uDDFA\uD83C\uDDF8"; // US flag
+      Matcher m = Pattern.compile("\\X").matcher(flag);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(flag);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X segments regional indicators in pairs")
+    void segmentsRegionalIndicatorsInPairs() {
+      String regionalIndicators = "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8"; // U, S, C
+      Matcher m = Pattern.compile("\\X").matcher(regionalIndicators);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("\uD83C\uDDFA\uD83C\uDDF8");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("\uD83C\uDDE8");
+
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X matches emoji modifier sequences as one cluster")
+    void matchesEmojiModifierSequenceAsOneCluster() {
+      String thumbsUpMediumSkinTone = "\uD83D\uDC4D\uD83C\uDFFD";
+      Matcher m = Pattern.compile("\\X").matcher(thumbsUpMediumSkinTone);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(thumbsUpMediumSkinTone);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X matches ZWJ emoji sequences as one cluster")
+    void matchesZwjEmojiSequenceAsOneCluster() {
+      String technologist = "\uD83D\uDC69\u200D\uD83D\uDCBB";
+      Matcher m = Pattern.compile("\\X").matcher(technologist);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(technologist);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X matches ZWJ emoji sequences with modifiers as one cluster")
+    void matchesZwjEmojiSequenceWithModifierAsOneCluster() {
+      String technologist = "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB";
+      Matcher m = Pattern.compile("\\X").matcher(technologist);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(technologist);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X keeps ZWJ attached to the preceding cluster")
+    void keepsZwjAttachedToPrecedingCluster() {
+      String joined = "a\u200D";
+      Matcher m = Pattern.compile("\\X").matcher(joined);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(joined);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X matches Hangul jamo sequences as one cluster")
+    void matchesHangulJamoSequenceAsOneCluster() {
+      String hangul = "\u1100\u1161";
+      Matcher m = Pattern.compile("\\X").matcher(hangul);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(hangul);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X keeps trailing Hangul jongseong with a syllable")
+    void keepsTrailingHangulJongseongWithSyllable() {
+      String hangul = "\uAC00\u11A8";
+      Matcher m = Pattern.compile("\\X").matcher(hangul);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(hangul);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\X keeps prepend characters with the following cluster")
+    void keepsPrependCharactersWithFollowingCluster() {
+      String cluster = "\u0600a";
+      Matcher m = Pattern.compile("\\X").matcher(cluster);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(cluster);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
     @DisplayName("find() locates grapheme clusters in mixed text")
     void findInMixedText() {
       // "He\u0301llo" = H + é (2 code points) + l + l + o → 4 grapheme clusters

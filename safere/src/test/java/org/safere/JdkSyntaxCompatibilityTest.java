@@ -952,6 +952,15 @@ class JdkSyntaxCompatibilityTest {
       assertCompiles("\\X");
       // Basic: single character
       assertMatchesSame("\\X", "a");
+      assertMatchesSame("\\X", "e\u0301");
+      assertMatchesSame("\\X", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertMatchesSame("\\X", "\uD83D\uDC4D\uD83C\uDFFD");
+      assertMatchesSame("\\X", "\uD83D\uDC69\u200D\uD83D\uDCBB");
+      assertMatchesSame("\\X", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB");
+      assertMatchesSame("\\X", "a\u200D");
+      assertMatchesSame("\\X", "\u1100\u1161");
+      assertMatchesSame("\\X", "\uAC00\u11A8");
+      assertMatchesSame("\\X", "\u0600a");
     }
   }
 
