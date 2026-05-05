@@ -14,6 +14,10 @@ final class CaptureSemanticsFuzzer {
       "(a?)",
       "(a)?",
       "(a|aa)",
+      "()|\\W+",
+      "(a)|b",
+      "b|(a)",
+      "a|(b)|()",
       "((a))",
       "(?:|(a))",
       "(?<word>a)",
@@ -43,7 +47,10 @@ final class CaptureSemanticsFuzzer {
     String atom = named
         ? pick(data, "(?<word>a)", "(?<word>a|aa)")
         : pick(data, ATOMS);
-    String regex = "(?:" + atom + ")" + pick(data, QUANTIFIERS);
+    String regex = "(?:" + atom + ")";
+    if (!data.consumeBoolean()) {
+      regex += pick(data, QUANTIFIERS);
+    }
     if (data.consumeBoolean()) {
       regex = "(?:" + regex + ")" + pick(data, QUANTIFIERS);
     }
@@ -54,12 +61,13 @@ final class CaptureSemanticsFuzzer {
     int length = data.consumeInt(0, 64);
     StringBuilder input = new StringBuilder(length);
     for (int i = 0; i < length; i++) {
-      input.append(switch (data.consumeInt(0, 4)) {
+      input.append(switch (data.consumeInt(0, 5)) {
         case 0 -> 'a';
         case 1 -> 'b';
         case 2 -> 'c';
         case 3 -> 'x';
         case 4 -> 'y';
+        case 5 -> ' ';
         default -> throw new AssertionError();
       });
     }
