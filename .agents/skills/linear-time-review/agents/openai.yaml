@@ -1,0 +1,4 @@
+interface:
+  display_name: "Linear-Time Review"
+  short_description: "Audit SafeRE for linear-time guarantee risks"
+  default_prompt: "Use $linear-time-review to list SafeRE main source files, review relevant files one by one, and report potential threats to the linear-time guarantee."
