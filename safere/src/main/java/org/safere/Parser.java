@@ -149,6 +149,7 @@ final class Parser {
 
     String lastunary = null;
     boolean lastTokenNonRepeatable = false;
+    boolean lastTokenWasEmptyQuotedLiteral = false;
     while (pos < pattern.length()) {
       // In comments mode, skip whitespace and #-comments before each token.
       if ((flags & ParseFlags.COMMENTS) != 0) {
@@ -217,6 +218,10 @@ final class Parser {
               nongreedy = true;
               pos++; // '?'
             }
+            if (lastunary != null && lastTokenWasEmptyQuotedLiteral && c != '*') {
+              isunary = lastunary;
+              break;
+            }
             if (lastunary != null && !canRepeatAfterUnary(op)) {
               throw new PatternSyntaxException(
                   "invalid nested repetition operator", pattern, opStart);
@@ -256,7 +261,14 @@ final class Parser {
           isunary = opstr;
         }
         case '\\' -> {
-          parseBackslash();
+          if (parseBackslash()) {
+            if (stacktop == null || isMarker(stacktop) || lastTokenNonRepeatable) {
+              lastunary = null;
+              lastTokenNonRepeatable = true;
+            }
+            lastTokenWasEmptyQuotedLiteral = true;
+            continue;
+          }
         }
         default -> {
           pos += Character.charCount(c);
@@ -265,13 +277,14 @@ final class Parser {
       }
       lastunary = isunary;
       lastTokenNonRepeatable = isNonRepeatable;
+      lastTokenWasEmptyQuotedLiteral = false;
     }
     return doFinish();
   }
 
   // ---- Backslash handling (top-level) ----
 
-  private void parseBackslash() {
+  private boolean parseBackslash() {
     // \b and \B: word boundary or not
     if ((flags & ParseFlags.PERL_B) != 0
         && pos + 1 < pattern.length()
@@ -285,11 +298,11 @@ final class Parser {
           && pattern.charAt(pos + 4) == '}') {
         pos += 5; // '\\', 'b', '{', 'g', '}'
         pushRegexp(Regexp.emptyMatch(flags));
-        return;
+        return false;
       }
       pushWordBoundary(pattern.charAt(pos + 1) == 'b');
       pos += 2; // '\\', 'b' or 'B'
-      return;
+      return false;
     }
 
     if ((flags & ParseFlags.PERL_X) != 0 && pos + 1 < pattern.length()) {
@@ -297,12 +310,12 @@ final class Parser {
       if (next == 'A') {
         pushSimpleOp(RegexpOp.BEGIN_TEXT);
         pos += 2;
-        return;
+        return false;
       }
       if (next == 'z') {
         pushSimpleOp(RegexpOp.END_TEXT);
         pos += 2;
-        return;
+        return false;
       }
       if (next == 'Z') {
         // \Z matches at end of input or before a final newline, same as $ in non-multiline mode.
@@ -311,7 +324,7 @@ final class Parser {
         pushSimpleOp(RegexpOp.END_TEXT);
         flags = oflags;
         pos += 2;
-        return;
+        return false;
       }
       if (next == 'G') {
         throw new PatternSyntaxException(
@@ -333,10 +346,7 @@ final class Parser {
           pushLiteral(r);
           sawLiteral = true;
         }
-        if (!sawLiteral) {
-          pushRegexp(Regexp.emptyMatch(flags));
-        }
-        return;
+        return !sawLiteral;
       }
     }
 
@@ -345,7 +355,7 @@ final class Parser {
     if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'R') {
       pos += 2; // '\\', 'R'
       pushRegexp(buildLinebreakRegexp());
-      return;
+      return false;
     }
 
     // \X: Extended grapheme cluster (simplified).
@@ -353,7 +363,7 @@ final class Parser {
     if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'X') {
       pos += 2; // '\\', 'X'
       pushRegexp(buildGraphemeClusterRegexp());
-      return;
+      return false;
     }
 
     // Unicode group \p{...} or \P{...}
@@ -365,10 +375,10 @@ final class Parser {
       if (result == PARSE_OK) {
         Regexp re = finishCharClassBuilder(ccb);
         pushRegexp(re);
-        return;
+        return false;
       } else if (result == PARSE_ERROR) {
         // error already thrown by parseUnicodeGroup
-        return;
+        return false;
       }
       // PARSE_NOTHING: fall through
       pos = saved;
@@ -381,17 +391,18 @@ final class Parser {
       if (ccb != null) {
         Regexp re = finishCharClassBuilder(ccb);
         pushRegexp(re);
-        return;
+        return false;
       }
       pos = saved;
     }
 
     // Regular escape
     if (maybePushNumericBackreferenceEscape()) {
-      return;
+      return false;
     }
     int r = parseEscape();
     pushLiteral(r);
+    return false;
   }
 
   private boolean maybePushNumericBackreferenceEscape() {
