@@ -22,6 +22,17 @@ final class FindSequenceFuzzer {
       return;
     }
 
+    Matcher findWalker = pattern.matcher(input);
+    int maxFinds = Math.min(input.length() + 2, 64);
+    for (int i = 0; i < maxFinds; i++) {
+      boolean found = findWalker.find();
+      findWalker.hitEnd();
+      findWalker.requireEnd();
+      if (!found) {
+        break;
+      }
+    }
+
     Matcher matcher = pattern.matcher(input);
     boolean hasMatch = false;
     int steps = data.consumeInt(1, 32);
