@@ -5,6 +5,7 @@
 # Run one or more SafeRE Jazzer fuzz tests in coverage-guided mode.
 #
 # Usage:
+#   safere-fuzz/scripts/run-fuzz-test.sh
 #   safere-fuzz/scripts/run-fuzz-test.sh CharacterClassExpressionFuzzer
 #   safere-fuzz/scripts/run-fuzz-test.sh --max-duration 10m --keep-going 5 MatchFuzzer UnicodeFuzzer
 
@@ -12,13 +13,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+FUZZ_TARGET_DIR="$REPO_ROOT/safere-fuzz/src/test/java/org/safere/fuzz"
 MAX_DURATION="30m"
 KEEP_GOING="10"
 TESTS=()
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
+LOG_DIR="$REPO_ROOT/safere-fuzz/target/fuzz-logs/$RUN_ID"
 
 usage() {
   cat <<EOF
-Usage: $0 [--max-duration DURATION] [--keep-going COUNT] TEST [TEST...]
+Usage: $0 [--max-duration DURATION] [--keep-going COUNT] [TEST...]
 
 Options:
   --max-duration, --max_duration  Jazzer max duration per test (default: 30m)
@@ -26,9 +30,27 @@ Options:
   -h, --help                      Show this help
 
 Examples:
+  $0
   $0 CharacterClassExpressionFuzzer
   $0 --max-duration 10m --keep-going 5 MatchFuzzer UnicodeFuzzer
 EOF
+}
+
+valid_fuzz_targets() {
+  find "$FUZZ_TARGET_DIR" -maxdepth 1 -type f -name '*Fuzzer.java' -printf '%f\n' \
+    | sed 's/\.java$//' \
+    | sort
+}
+
+is_valid_fuzz_target() {
+  local test_name="$1"
+  local valid_name
+  while IFS= read -r valid_name; do
+    if [ "$test_name" = "$valid_name" ]; then
+      return 0
+    fi
+  done < <(valid_fuzz_targets)
+  return 1
 }
 
 while [ $# -gt 0 ]; do
@@ -73,18 +95,43 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "${#TESTS[@]}" -eq 0 ]; then
-  echo "error: at least one fuzz test is required" >&2
-  usage >&2
-  exit 2
+  while IFS= read -r test_name; do
+    TESTS+=("$test_name")
+  done < <(valid_fuzz_targets)
 fi
 
 for test_name in "${TESTS[@]}"; do
-  echo "=== Running $test_name (max_duration=$MAX_DURATION, keep_going=$KEEP_GOING) ==="
-  JAZZER_FUZZ=1 mvn -f "$REPO_ROOT/pom.xml" -pl safere-fuzz -am \
-    -Dtest="$test_name" \
-    -Dsurefire.failIfNoSpecifiedTests=false \
-    -Djazzer.max_duration="$MAX_DURATION" \
-    -Djazzer.keep_going="$KEEP_GOING" \
-    -Djazzer.reproducer_path=target/fuzz-reproducers \
-    test
+  if ! is_valid_fuzz_target "$test_name"; then
+    echo "error: unknown fuzz test: $test_name" >&2
+    echo >&2
+    echo "Valid fuzz tests:" >&2
+    valid_fuzz_targets | sed 's/^/  /' >&2
+    exit 2
+  fi
+done
+
+echo "=== Fuzz run configuration ==="
+echo "max_duration: $MAX_DURATION"
+echo "keep_going: $KEEP_GOING"
+echo "surefire_reports: safere-fuzz/target/surefire-reports"
+echo "reproducer_path: target/fuzz-reproducers"
+echo "fuzz_logs: safere-fuzz/target/fuzz-logs/$RUN_ID"
+echo "fuzz targets:"
+printf '  %s\n' "${TESTS[@]}"
+
+mkdir -p "$LOG_DIR"
+
+for test_name in "${TESTS[@]}"; do
+  log_file="$LOG_DIR/$test_name.log"
+  {
+    echo "=== Running $test_name (max_duration=$MAX_DURATION, keep_going=$KEEP_GOING) ==="
+    echo "log_file: $log_file"
+    JAZZER_FUZZ=1 mvn -f "$REPO_ROOT/pom.xml" -pl safere-fuzz -am \
+      -Dtest="$test_name" \
+      -Dsurefire.failIfNoSpecifiedTests=false \
+      -Djazzer.max_duration="$MAX_DURATION" \
+      -Djazzer.keep_going="$KEEP_GOING" \
+      -Djazzer.reproducer_path=target/fuzz-reproducers \
+      test
+  } 2>&1 | tee "$log_file"
 done
