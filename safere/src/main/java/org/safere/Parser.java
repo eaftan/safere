@@ -1226,7 +1226,7 @@ final class Parser {
       expression = new CharClassBuilder().addCharClass(frame.accumulatedClass);
       expression.intersect(frame.intersectionRight);
       if (frame.hasPendingScalarItems) {
-        if (frame.pendingScalarItemsAfterCurrentOperand
+        if (!frame.pendingScalarItemsAfterCurrentOperand
             && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
           expression.addCharClass(frame.pendingScalarItems);
         } else {

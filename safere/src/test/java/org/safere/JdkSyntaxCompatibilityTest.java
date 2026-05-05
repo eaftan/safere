@@ -1075,6 +1075,10 @@ class JdkSyntaxCompatibilityTest {
               "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase(
               "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&& [0]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a[b]&& [a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\d0-1&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]",

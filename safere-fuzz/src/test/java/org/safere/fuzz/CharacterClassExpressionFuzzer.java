@@ -103,7 +103,10 @@ final class CharacterClassExpressionFuzzer {
       "[&&[a]&-a]",
       "[&&[a]&-&&]",
       "[a\\d&&&\\Q\\E&]",
-      "[^[^b]&\\Q\\E&&\\Q\\E-&&]"
+      "[^[^b]&\\Q\\E&&\\Q\\E-&&]",
+      "(?x)[a\\d&& [0]&]",
+      "(?x)[a[b]&& [a]&]",
+      "(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]"
   };
 
   @FuzzTest(maxDuration = "30s")
