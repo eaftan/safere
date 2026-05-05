@@ -136,6 +136,7 @@ final class Parser {
     }
 
     String lastunary = null;
+    boolean lastTokenNonRepeatable = false;
     while (pos < pattern.length()) {
       // In comments mode, skip whitespace and #-comments before each token.
       if ((flags & ParseFlags.COMMENTS) != 0) {
@@ -145,6 +146,7 @@ final class Parser {
         }
       }
       String isunary = null;
+      boolean isNonRepeatable = false;
       int c = pattern.codePointAt(pos);
       switch (c) {
         case '(' -> {
@@ -152,7 +154,7 @@ final class Parser {
           if ((flags & ParseFlags.PERL_X) != 0
               && pos + 1 < pattern.length()
               && pattern.charAt(pos + 1) == '?') {
-            parsePerlFlags();
+            isNonRepeatable = parsePerlFlags();
             break;
           }
           if ((flags & ParseFlags.NEVER_CAPTURE) != 0) {
@@ -187,6 +189,10 @@ final class Parser {
           pushRegexp(re);
         }
         case '*', '+', '?' -> {
+          if (lastTokenNonRepeatable) {
+            throw new PatternSyntaxException(
+                "missing argument to repetition operator", pattern, pos);
+          }
           RegexpOp op =
               c == '*'
                   ? RegexpOp.STAR
@@ -228,6 +234,11 @@ final class Parser {
             }
           }
           String opstr = pattern.substring(opStart, pos);
+          if (lastTokenNonRepeatable) {
+            validateRepeatCount(lo, hi, opstr);
+            isNonRepeatable = true;
+            break;
+          }
           pushRepetition(lo, hi, opstr, nongreedy);
           isunary = opstr;
         }
@@ -240,6 +251,7 @@ final class Parser {
         }
       }
       lastunary = isunary;
+      lastTokenNonRepeatable = isNonRepeatable;
     }
     return doFinish();
   }
@@ -586,10 +598,7 @@ final class Parser {
   }
 
   private void pushRepetition(int min, int max, String opstr, boolean nongreedy) {
-    if ((max != -1 && max < min) || min > MAX_REPEAT || max > MAX_REPEAT) {
-      throw new PatternSyntaxException(
-          "invalid repeat count", pattern, pos - opstr.length());
-    }
+    validateRepeatCount(min, max, opstr);
     if (stacktop == null || isMarker(stacktop)) {
       throw new PatternSyntaxException(
           "missing argument to repetition operator", pattern, pos - opstr.length());
@@ -610,6 +619,13 @@ final class Parser {
         throw new PatternSyntaxException(
             "invalid repeat count", pattern, pos - opstr.length());
       }
+    }
+  }
+
+  private void validateRepeatCount(int min, int max, String opstr) {
+    if ((max != -1 && max < min) || min > MAX_REPEAT || max > MAX_REPEAT) {
+      throw new PatternSyntaxException(
+          "invalid repeat count", pattern, pos - opstr.length());
     }
   }
 
@@ -2586,7 +2602,7 @@ final class Parser {
 
   // ---- Perl flags parsing ----
 
-  private void parsePerlFlags() {
+  private boolean parsePerlFlags() {
     // Caller checked that pattern[pos] == '(' and pattern[pos+1] == '?'
     if ((flags & ParseFlags.PERL_X) == 0
         || pos + 1 >= pattern.length()
@@ -2629,7 +2645,7 @@ final class Parser {
         }
         doLeftParen(name);
         pos = end + 1; // skip past '>'
-        return;
+        return false;
       }
     }
 
@@ -2637,6 +2653,7 @@ final class Parser {
 
     boolean negated = false;
     boolean sawflags = false;
+    boolean standaloneFlags = false;
     int nflags = flags;
 
     boolean done = false;
@@ -2700,6 +2717,7 @@ final class Parser {
           done = true;
         }
         case ')' -> {
+          standaloneFlags = true;
           done = true;
         }
         default -> {
@@ -2713,6 +2731,7 @@ final class Parser {
     }
 
     flags = nflags;
+    return standaloneFlags;
   }
 
   // ---- Repetition parsing ----
