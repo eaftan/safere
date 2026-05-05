@@ -76,9 +76,15 @@ The same settings are available through the helper script, which can run
 multiple fuzz targets sequentially:
 
 ```bash
+safere-fuzz/scripts/run-fuzz-test.sh
 safere-fuzz/scripts/run-fuzz-test.sh CharacterClassExpressionFuzzer MatchFuzzer
 safere-fuzz/scripts/run-fuzz-test.sh --max-duration 10m --keep-going 5 MatchFuzzer
 ```
+
+The helper script records each fuzzer's combined stdout/stderr stream under
+`safere-fuzz/target/fuzz-logs/<run-id>/<Fuzzer>.log`. Use these logs alongside
+Surefire XML reports when triaging `jazzer.keep_going` runs, since the XML does
+not always preserve every console detail needed to map findings to crash inputs.
 
 ## Findings
 
