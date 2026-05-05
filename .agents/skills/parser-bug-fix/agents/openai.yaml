@@ -1,0 +1,4 @@
+interface:
+  display_name: "Parser Bug Fix"
+  short_description: "Fix SafeRE parser bugs with fuzz coverage"
+  default_prompt: "Use $parser-bug-fix when fixing a SafeRE parser bug to add systematic regression tests and grammar-biased fuzz coverage."

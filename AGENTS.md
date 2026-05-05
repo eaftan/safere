@@ -198,6 +198,9 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 
 ## Bug Fixing Philosophy
 
+- **Parser bugs**: Use the `parser-bug-fix` skill for parser bug work. It
+  consolidates this bug-fixing discipline with parser-specific regression and
+  grammar-biased fuzz coverage requirements.
 - **Make principled fixes.** Understand the root cause before changing code.
   Do not add special cases, flags, or if-statements that paper over symptoms.
   A correct fix addresses the underlying design flaw — if a DFA cache key is
@@ -257,10 +260,6 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   README.md, TESTING.md, or other documentation.
 - **Regression tests for bugs**: Any time a bug is found, a regression test
   must be added that fails without the fix and passes with it.
-- **Parser bug fuzz coverage**: Any time a parser bug is found, also add the
-  bug's syntax shape to the relevant grammar-biased fuzz generator axis (for
-  example character-class expressions, escapes, dialect spellings, or nested
-  parser structure), not just to a one-off regression test.
 
 ## Benchmarking
 
