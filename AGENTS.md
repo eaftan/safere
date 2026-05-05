@@ -157,15 +157,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 
 ## Pull Requests
 
-- **Never push to a PR (or create one) without first verifying locally that
-  all SafeRE and public API crosscheck tests pass**:
-  `mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests`.
-  CI failures waste time and block merges. This single Maven reactor run tests
-  the `safere` module once, then runs generated copies of SafeRE public API test
-  candidates through `org.safere.crosscheck` so each test operation is compared
-  with the JDK. The `-am` flag is required so the reactor rebuilds the local
-  `safere` module instead of testing against a stale artifact from the local
-  Maven repository.
+- Before creating a PR, run best-effort focused validation for the change, such
+  as tests likely to be affected by the touched code. Full SafeRE plus public
+  API crosscheck validation is not required. The PR description must say
+  exactly which verification has run and which verification has not run.
   Use `@DisabledForCrosscheck("reason")` on original SafeRE tests for cases
   that should be visible as disabled only in generated crosscheck coverage.
 - **Update existing PRs — do not close and reopen.** Push commits (or
@@ -175,6 +170,11 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   temporary file first and pass it with `--body-file`. Do not inline
   multi-line Markdown in the shell command, because quoting and escaping are
   easy to get wrong.
+- Include the appropriate issue linkage in the PR description as well as in
+  commit messages: use `Fixes #N` only when the PR fully resolves the issue,
+  and use `Refs #N` or `Part of #N` for partial work. GitHub's Development
+  sidebar links open PRs to issues based on the PR description; commit-message
+  keywords may only close the issue after merge as a commit reference.
 - Whenever you create a PR, enable auto-merge on it:
   `gh pr merge <number> --auto --squash`
 - For performance optimization PRs, include before/after benchmark results in
