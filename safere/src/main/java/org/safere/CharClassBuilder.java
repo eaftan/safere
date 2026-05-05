@@ -57,30 +57,34 @@ final class CharClassBuilder {
       return this;
     }
 
-    // Find all existing ranges that overlap or are adjacent to [lo, hi].
-    // A range [a, b] overlaps/is adjacent to [lo, hi] if a <= hi+1 && b >= lo-1.
     int mergedLo = lo;
     int mergedHi = hi;
 
-    Iterator<Range> it = ranges.iterator();
-    while (it.hasNext()) {
-      Range r = it.next();
-      if (r.hi + 1 < mergedLo) {
-        continue; // r is entirely before the new range
-      }
-      if (r.lo > mergedHi + 1) {
-        break; // r is entirely after; since sorted, all subsequent will be too
-      }
-      // r overlaps or is adjacent — merge
+    Range r = ranges.floor(new Range(lo, Integer.MAX_VALUE));
+    if (r == null || isBefore(r, lo)) {
+      r = ranges.ceiling(new Range(lo, Integer.MIN_VALUE));
+    }
+
+    while (r != null && !isAfter(r, mergedHi)) {
+      Range next = ranges.higher(r);
       mergedLo = Math.min(mergedLo, r.lo);
       mergedHi = Math.max(mergedHi, r.hi);
       nrunes -= (r.hi - r.lo + 1);
-      it.remove();
+      ranges.remove(r);
+      r = next;
     }
 
     ranges.add(new Range(mergedLo, mergedHi));
     nrunes += (mergedHi - mergedLo + 1);
     return this;
+  }
+
+  private static boolean isBefore(Range range, int lo) {
+    return (long) range.hi + 1 < lo;
+  }
+
+  private static boolean isAfter(Range range, int hi) {
+    return range.lo > (long) hi + 1;
   }
 
   /**

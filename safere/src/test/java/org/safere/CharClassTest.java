@@ -7,6 +7,8 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.BitSet;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link CharClass} and {@link CharClassBuilder}. */
@@ -62,6 +64,144 @@ class CharClassTest {
     CharClass cc = new CharClassBuilder().addRange('a', 'f').addRange('g', 'z').build();
     assertThat(cc.numRanges()).isEqualTo(1);
     assertThat(cc.numRunes()).isEqualTo(26);
+  }
+
+  @Test
+  void addRangeMergesOnlyNeighboringRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange('a', 'c')
+            .addRange('m', 'p')
+            .addRange('x', 'z')
+            .addRange('d', 'n')
+            .build();
+
+    assertThat(cc.numRanges()).isEqualTo(2);
+    assertThat(cc.lo(0)).isEqualTo('a');
+    assertThat(cc.hi(0)).isEqualTo('p');
+    assertThat(cc.lo(1)).isEqualTo('x');
+    assertThat(cc.hi(1)).isEqualTo('z');
+  }
+
+  @Test
+  void addRangeKeepsEarlierDisjointRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange('a', 'c')
+            .addRange('m', 'p')
+            .addRange('x', 'z')
+            .addRange('q', 'v')
+            .build();
+
+    assertThat(cc.numRanges()).isEqualTo(3);
+    assertThat(cc.lo(0)).isEqualTo('a');
+    assertThat(cc.hi(0)).isEqualTo('c');
+    assertThat(cc.lo(1)).isEqualTo('m');
+    assertThat(cc.hi(1)).isEqualTo('v');
+    assertThat(cc.lo(2)).isEqualTo('x');
+    assertThat(cc.hi(2)).isEqualTo('z');
+  }
+
+  @Test
+  void addRangeBeforeAllRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(100, 110)
+            .addRange(200, 210)
+            .addRange(10, 20)
+            .build();
+
+    assertRanges(cc, 10, 20, 100, 110, 200, 210);
+  }
+
+  @Test
+  void addRangeAfterAllRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(100, 110)
+            .addRange(200, 210)
+            .build();
+
+    assertRanges(cc, 10, 20, 100, 110, 200, 210);
+  }
+
+  @Test
+  void addRangeMergesPreviousNeighbor() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(100, 110)
+            .addRange(21, 30)
+            .build();
+
+    assertRanges(cc, 10, 30, 100, 110);
+  }
+
+  @Test
+  void addRangeMergesNextNeighbor() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(100, 110)
+            .addRange(90, 99)
+            .build();
+
+    assertRanges(cc, 10, 20, 90, 110);
+  }
+
+  @Test
+  void addRangeMergesAcrossMultipleRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(30, 40)
+            .addRange(50, 60)
+            .addRange(21, 49)
+            .build();
+
+    assertRanges(cc, 10, 60);
+  }
+
+  @Test
+  void addRangeHandlesEmptyAndBoundaryRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(20, 10)
+            .addRange(0, 0)
+            .addRange(Utils.MAX_RUNE, Utils.MAX_RUNE)
+            .build();
+
+    assertRanges(cc, 0, 0, Utils.MAX_RUNE, Utils.MAX_RUNE);
+  }
+
+  @Test
+  void randomizedAddRangeMatchesBitSetReferenceModel() {
+    int domainSize = 4096;
+    Random random = new Random(0x5AFE_289L);
+
+    for (int trial = 0; trial < 200; trial++) {
+      CharClassBuilder builder = new CharClassBuilder();
+      BitSet expected = new BitSet(domainSize);
+
+      for (int step = 0; step < 300; step++) {
+        int a = random.nextInt(domainSize);
+        int b = random.nextInt(domainSize);
+        if (random.nextInt(10) == 0) {
+          builder.addRange(a, b);
+          if (a <= b) {
+            expected.set(a, b + 1);
+          }
+        } else {
+          int lo = Math.min(a, b);
+          int hi = Math.max(a, b);
+          builder.addRange(lo, hi);
+          expected.set(lo, hi + 1);
+        }
+      }
+
+      assertMatchesReferenceModel(builder.build(), expected, domainSize);
+    }
   }
 
   @Test
@@ -186,5 +326,43 @@ class CharClassTest {
     assertThat(cc.contains(0x1F600)).isTrue();
     assertThat(cc.contains(0x1F64F)).isTrue();
     assertThat(cc.contains(0x1F5FF)).isFalse();
+  }
+
+  private static void assertRanges(CharClass cc, int... endpoints) {
+    assertThat(endpoints.length).isEven();
+    assertThat(cc.numRanges()).isEqualTo(endpoints.length / 2);
+
+    int expectedRunes = 0;
+    for (int i = 0; i < endpoints.length; i += 2) {
+      int rangeIndex = i / 2;
+      assertThat(cc.lo(rangeIndex)).isEqualTo(endpoints[i]);
+      assertThat(cc.hi(rangeIndex)).isEqualTo(endpoints[i + 1]);
+      expectedRunes += endpoints[i + 1] - endpoints[i] + 1;
+    }
+    assertThat(cc.numRunes()).isEqualTo(expectedRunes);
+  }
+
+  private static void assertMatchesReferenceModel(CharClass cc, BitSet expected, int domainSize) {
+    int expectedRunes = 0;
+    for (int r = 0; r < domainSize; r++) {
+      boolean shouldContain = expected.get(r);
+      assertThat(cc.contains(r)).isEqualTo(shouldContain);
+      if (shouldContain) {
+        expectedRunes++;
+      }
+    }
+
+    assertThat(cc.numRunes()).isEqualTo(expectedRunes);
+
+    int rangeIndex = 0;
+    for (int lo = expected.nextSetBit(0); lo >= 0; ) {
+      int hiExclusive = expected.nextClearBit(lo);
+      assertThat(rangeIndex).isLessThan(cc.numRanges());
+      assertThat(cc.lo(rangeIndex)).isEqualTo(lo);
+      assertThat(cc.hi(rangeIndex)).isEqualTo(hiExclusive - 1);
+      rangeIndex++;
+      lo = expected.nextSetBit(hiExclusive);
+    }
+    assertThat(rangeIndex).isEqualTo(cc.numRanges());
   }
 }
