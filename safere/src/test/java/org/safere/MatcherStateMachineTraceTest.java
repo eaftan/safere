@@ -60,6 +60,54 @@ class MatcherStateMachineTraceTest {
   }
 
   @Test
+  @DisplayName("final nullable find at input end preserves JDK-compatible hitEnd")
+  void finalNullableFindAtInputEndPreservesJdkCompatibleHitEnd() {
+    assertTrace("(?:(a)?)??c?", "c" + "b".repeat(3),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd());
+  }
+
+  @Test
+  @DisplayName("find failure after terminal empty-pattern match preserves JDK-compatible hitEnd")
+  void findFailureAfterTerminalEmptyPatternMatchPreservesJdkCompatibleHitEnd() {
+    assertTrace("", "abc",
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd(),
+        Step.find(),
+        Step.hitEnd(),
+        Step.requireEnd());
+  }
+
+  @Test
   @DisplayName("find(int) resets region and append position before searching")
   void findStartResetsRegionAndAppendPositionBeforeSearching() {
     assertTrace("\\d+", "xx11yy22",

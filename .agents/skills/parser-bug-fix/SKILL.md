@@ -1,15 +1,16 @@
 ---
 name: parser-bug-fix
-description: "Fix SafeRE parser bugs using the project bug-fixing discipline: test-driven diagnosis, mandatory regression tests, principled class-level fixes instead of point patches, invariant-based verification, and required grammar-biased fuzz generator updates. Use when a SafeRE bug involves regex syntax parsing, parse-time acceptance or rejection, JDK syntax compatibility, parser stack safety, character-class parsing, escape parsing, unsupported regex feature rejection, or crashes/errors from Parser or Pattern.compile."
+description: "Fix SafeRE parser, capture, and matcher lifecycle bugs using the project bug-fixing discipline: test-driven diagnosis, mandatory regression tests, principled class-level fixes instead of point patches, invariant-based verification, and required fuzz seed/generator coverage. Use when a SafeRE bug involves regex syntax parsing, parse-time acceptance or rejection, JDK syntax compatibility, parser stack safety, character classes, escapes, unsupported regex feature rejection, capture semantics, quantified captures, group boundaries, find() sequences, hitEnd()/requireEnd(), matcher state transitions, or crashes/errors from Parser, Pattern.compile, Pattern, or Matcher."
 ---
 
-# Parser Bug Fix
+# SafeRE Parser, Capture, and Matcher Bug Fix
 
 ## Goal
 
-Fix parser bugs in a way that preserves SafeRE's semantics and linear-time guarantee. The fix must
-be test-driven, include regression coverage, address the semantic class of the bug rather than the
-single reproducer, and add grammar-biased fuzz coverage for the bug's syntax shape.
+Fix parser, capture, and matcher lifecycle bugs in a way that preserves SafeRE's semantics,
+JDK-compatible public API behavior, and linear-time guarantee. The fix must be test-driven, include
+regression coverage, address the semantic class of the bug rather than the single reproducer, and
+add fuzz seed or generator coverage for the bug's behavioral shape.
 
 ## Workflow
 
@@ -19,13 +20,15 @@ single reproducer, and add grammar-biased fuzz coverage for the bug's syntax sha
    - Do not use `Fixes #N` unless the change fully resolves every item in the issue; use
      `Refs #N` or `Part of #N` otherwise.
 
-2. Start with tests, before reading parser internals.
-   - Ask why the existing tests missed this class of syntax.
+2. Start with tests, before reading parser, capture, or matcher internals.
+   - Ask why the existing tests missed this class of syntax or behavior.
    - Add systematic JUnit coverage in `safere/src/test/java/org/safere`, usually
-     `ParserTest.java` or `JdkSyntaxCompatibilityTest.java`.
-   - Cover representative variants: accepted/rejected forms, inside and outside character
-     classes, relevant flags, nesting, separators, Unicode/code point boundaries, and JDK
-     compatibility behavior when applicable.
+     `ParserTest.java`, `JdkSyntaxCompatibilityTest.java`, `MatcherTest.java`,
+     `MatcherStateMachineTraceTest.java`, or `QuantifiedCaptureSemanticsTest.java`.
+   - Cover representative variants for the bug class: accepted/rejected forms, inside and outside
+     character classes, flags, nesting, separators, Unicode/code point boundaries, capture groups,
+     nullable/quantified captures, repeated `find()` sequences, regions/bounds, end-state flags,
+     and JDK compatibility behavior when applicable.
    - Name tests for behavior, not issue numbers. Keep issue IDs only in comments or display-name
      suffixes if useful.
 
@@ -35,7 +38,7 @@ single reproducer, and add grammar-biased fuzz coverage for the bug's syntax sha
    - For public API compatibility behavior, include the matching crosscheck or compatibility test
      path when practical.
 
-4. Root-cause the parser behavior and make a principled fix.
+4. Root-cause the parser, capture, or matcher behavior and make a principled fix.
    - Read parser internals only after the failing coverage exists.
    - Fix the semantic class of the bug, not a pattern string or fuzzer seed.
    - Do not add point guards unless they directly encode a documented regex/API rule.
@@ -54,7 +57,7 @@ single reproducer, and add grammar-biased fuzz coverage for the bug's syntax sha
    - When SafeRE intentionally diverges from JDK behavior for linear-time guarantees, document the
      reason in tests or code comments where relevant.
 
-6. Add the syntax shape to the relevant fuzz generator axis.
+6. Add the behavioral shape to the relevant fuzz generator axis or seed corpus.
    - Character-class expressions: `safere-fuzz/src/test/java/org/safere/fuzz/CharacterClassExpressionFuzzer.java`
    - Escapes and escaped literals: `safere-fuzz/src/test/java/org/safere/fuzz/EscapeSyntaxFuzzer.java`
    - Dialect boundaries, unsupported constructs, property spelling variants:
@@ -63,8 +66,13 @@ single reproducer, and add grammar-biased fuzz coverage for the bug's syntax sha
      `safere-fuzz/src/test/java/org/safere/fuzz/ParserCompatibilityFuzzer.java`
    - Deep nesting or parser stack safety:
      `safere-fuzz/src/test/java/org/safere/fuzz/ParserStackSafetyFuzzer.java`
-   - If none fits, extend the closest axis or add a new focused parser fuzzer. Do not rely only on
-     a one-off regression string.
+   - Captures, quantified captures, group boundaries:
+     `safere-fuzz/src/test/java/org/safere/fuzz/MatchFuzzer.java` or a focused capture fuzzer.
+   - Stateful matcher APIs, repeated `find()`, regions/bounds, `hitEnd()`/`requireEnd()`:
+     `safere-fuzz/src/test/java/org/safere/fuzz/FindSequenceFuzzer.java` or
+     `safere-fuzz/src/test/java/org/safere/fuzz/RegionBoundsFuzzer.java`.
+   - If none fits, extend the closest axis or add a new focused fuzzer. Do not rely only on a
+     one-off regression string.
 
 7. Verify the fix.
    - Run the focused JUnit tests again.
