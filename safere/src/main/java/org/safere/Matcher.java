@@ -648,8 +648,10 @@ public final class Matcher implements MatchResult {
     EnginePathOptions options = enginePathOptions();
     OnePass onePass = options.onePass() ? parentPattern.onePass() : null;
     if (onePass != null
+        && (!options.semanticGuards() || !parentPattern.hasNullableAlternation())
         && canUsePikeEquivalentCaptures(prog)) {
-      return applyEngineResult(new FullMatchResult(onePass.search(text, true, prog.numCaptures())));
+      return applyEngineResult(
+          new FullMatchResult(onePass.search(text, true, prog.numCaptures())));
     }
 
     // Medium path: use DFA to check if a full match exists.
