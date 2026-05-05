@@ -1497,6 +1497,37 @@ class ParserTest {
           .isInstanceOf(PatternSyntaxException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"a|(", "|(", "(a|b)|(", "a|b|(", "a|(?:b)|("})
+    void unclosedGroup_afterAlternationBoundary(String pattern) {
+      assertThatThrownBy(() -> parse(pattern))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "a#\0|(",
+        "#\0(",
+        "a#\0b|(",
+        "a#\0(?:b)|(",
+        "a#\r(",
+        "a#\u0085(",
+        "a#\u2028(",
+        "a#\u2029("
+    })
+    void unclosedGroup_afterCommentsModeTerminatedComment(String pattern) {
+      assertThatThrownBy(() -> parse(pattern, PERL | ParseFlags.COMMENTS))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a#\0|(", "#\0("})
+    void unclosedGroup_afterUnixLinesCommentsModeNulTerminatedComment(String pattern) {
+      assertThatThrownBy(() -> parse(
+          pattern, PERL | ParseFlags.COMMENTS | ParseFlags.UNIX_LINES))
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
     @Test
     void unclosedGroup_partial() {
       assertThatThrownBy(() -> parse("(a|b"))
