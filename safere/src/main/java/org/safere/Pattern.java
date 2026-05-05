@@ -251,6 +251,9 @@ public final class Pattern implements Serializable {
     int parseFlags = toParseFlags(effectiveFlags);
     Regexp re = Parser.parse(regex, parseFlags);
     Prog compiled = Compiler.compile(re);
+    if (compiled == null) {
+      throw new PatternSyntaxException("compiled program too large", regex, -1);
+    }
     compiled.setUnixLines((effectiveFlags & UNIX_LINES) != 0);
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that

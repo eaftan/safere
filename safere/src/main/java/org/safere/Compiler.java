@@ -30,7 +30,7 @@ import java.util.List;
 final class Compiler extends Walker<Compiler.Frag> {
 
   /** Maximum number of instructions allowed by default. */
-  private static final int DEFAULT_MAX_INST = 100_000;
+  private static final int DEFAULT_MAX_INST = 1_000_000;
 
 
   private final Prog prog;

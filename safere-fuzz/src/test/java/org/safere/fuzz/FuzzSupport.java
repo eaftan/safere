@@ -51,7 +51,7 @@ final class FuzzSupport {
     if (safeReException != null && jdkException != null) {
       return null;
     }
-    if (safeReException != null && isIntentionallyUnsupported(regex)) {
+    if (safeReException != null && isIntentionallyUnsupported(regex, safeReException)) {
       return null;
     }
 
@@ -569,8 +569,16 @@ final class FuzzSupport {
     return result.toString();
   }
 
-  private static boolean isIntentionallyUnsupported(String regex) {
-    return hasLookaround(regex) || hasBackreference(regex) || hasPossessiveQuantifier(regex);
+  private static boolean isIntentionallyUnsupported(
+      String regex, PatternSyntaxException safeReException) {
+    return hasLookaround(regex)
+        || hasBackreference(regex)
+        || hasPossessiveQuantifier(regex)
+        || isOverCompilerBudget(safeReException);
+  }
+
+  private static boolean isOverCompilerBudget(PatternSyntaxException safeReException) {
+    return "compiled program too large".equals(safeReException.getDescription());
   }
 
   private static boolean hasLookaround(String regex) {
