@@ -43,17 +43,17 @@ final class Dfa {
   record ManyMatchResult(boolean matched, int[] matchIds) {}
 
   /** Flag bit: this state contains a MATCH instruction. */
-  private static final int FLAG_MATCH = 1 << 9;
+  private static final int FLAG_MATCH = 1 << 10;
 
   /** Flag bit: last consumed character was a word character (for {@code \b}/\B}). */
-  private static final int FLAG_LAST_WORD = 1 << 10;
+  private static final int FLAG_LAST_WORD = 1 << 11;
 
   /**
    * Flag bit: match was triggered by a word-boundary assertion BEFORE consuming the transition
    * character. The match position should be recorded at the current position, not after the
    * character.
    */
-  private static final int FLAG_MATCH_BEFORE = 1 << 11;
+  private static final int FLAG_MATCH_BEFORE = 1 << 12;
 
   /**
    * Flag bit: when {@link #FLAG_MATCH_BEFORE} is set, indicates that an after-consume match ALSO
@@ -61,12 +61,12 @@ final class Dfa {
    * before-consume match first (earlier position) and fall back to the after-consume match if the
    * before-consume match is rejected (e.g., by {@code needEndMatch} requiring end-of-text).
    */
-  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 12;
+  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 13;
 
   /**
    * Flag bit: last consumed character was a Unicode word character (for Unicode {@code \b}/\B}).
    */
-  private static final int FLAG_LAST_UNICODE_WORD = 1 << 13;
+  private static final int FLAG_LAST_UNICODE_WORD = 1 << 14;
 
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
@@ -127,6 +127,7 @@ final class Dfa {
 
   private final Prog prog;
   private final int maxStates;
+  private final boolean hasGraphemeClusterBoundary;
 
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
@@ -169,11 +170,11 @@ final class Dfa {
   /**
    * Cache of DFA start states indexed by position context. The start state depends on four factors:
    * whether the search is anchored, whether it's a reverse context, the empty-width flags at the
-   * position (6 bits for BOL/EOL/BOT/EOT/WB/NWB), and whether the previous character was a word
-   * character. This gives at most 2 × 2 × 64 × 2 = 512 combinations. Caching avoids the expensive
+   * position, and whether the previous character was a word
+   * character. This gives at most 2 × 2 × 1024 × 2 × 2 combinations. Caching avoids the expensive
    * {@link #expand} call and its {@code Arrays.copyOf} allocation on every DFA search.
    */
-  private final State[] startStateByContext = new State[2048];
+  private final State[] startStateByContext = new State[16_384];
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -205,6 +206,7 @@ final class Dfa {
   Dfa(Prog prog, int maxStates, Setup setup) {
     this.prog = prog;
     this.maxStates = maxStates;
+    this.hasGraphemeClusterBoundary = prog.hasGraphemeClusterBoundary();
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.asciiClassMap = setup.asciiClassMap;
@@ -515,8 +517,9 @@ final class Dfa {
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
     // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
     // start state.
-    int cacheKey = (anchored ? 1024 : 0) | (reverseContext ? 512 : 0)
-        | ((emptyFlags & 0x7F) << 2) | (lastWord ? 2 : 0) | (lastUnicodeWord ? 1 : 0);
+    int cacheKey = (anchored ? 8192 : 0) | (reverseContext ? 4096 : 0)
+        | ((emptyFlags & EmptyOp.ALL_FLAGS) << 2) | (lastWord ? 2 : 0)
+        | (lastUnicodeWord ? 1 : 0);
     State cached = startStateByContext[cacheKey];
     if (cached != null) {
       return cached;
@@ -524,7 +527,7 @@ final class Dfa {
 
     computeBuf[0] = startInst;
     int[] insts = expand(computeBuf, 1, emptyFlags);
-    int flags = emptyFlags & 0x1FF;
+    int flags = emptyFlags & EmptyOp.ALL_FLAGS;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
     }
@@ -559,6 +562,9 @@ final class Dfa {
    * is always safe to cache because it always represents "at text end".
    */
   private int positionDependentThreshold(String text) {
+    if (hasGraphemeClusterBoundary) {
+      return 0;
+    }
     int len = text.length();
     if (prog.unixLines()) {
       return (len > 0 && text.charAt(len - 1) == '\n') ? len - 1 : len;
@@ -637,7 +643,7 @@ final class Dfa {
       if (nextInsts.length == 0) {
         return deadState;
       }
-      int flags = emptyFlags & 0x1FF;
+      int flags = emptyFlags & EmptyOp.ALL_FLAGS;
       if (hasMatch(nextInsts)) {
         flags |= FLAG_MATCH;
       }
@@ -718,7 +724,8 @@ final class Dfa {
       // kind (e.g., \b\b or $$) can fire during expansion. Without this, the first
       // \b fires but expand() wouldn't satisfy the second \b because WORD_BOUNDARY
       // was stripped from the state's cached emptyFlags.
-      int reExpandEmptyFlags = (s.flags & 0x1FF) | wordBeforeFlags | unicodeWordBeforeFlags;
+      int reExpandEmptyFlags =
+          (s.flags & EmptyOp.ALL_FLAGS) | wordBeforeFlags | unicodeWordBeforeFlags;
       if (endLineHere) {
         reExpandEmptyFlags |= EmptyOp.END_LINE;
       }
@@ -793,7 +800,7 @@ final class Dfa {
       return deadState;
     }
 
-    int flags = emptyFlags & 0x1FF;
+    int flags = emptyFlags & EmptyOp.ALL_FLAGS;
     if (hasMatchFromDeferred) {
       // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
       // character and reached a MATCH instruction. This match is at position `pos` (before

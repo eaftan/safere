@@ -141,6 +141,7 @@ final class Simplifier {
       case END_LINE:
       case WORD_BOUNDARY:
       case NO_WORD_BOUNDARY:
+      case GRAPHEME_CLUSTER_BOUNDARY:
       case BEGIN_TEXT:
         return true;
 
@@ -475,6 +476,7 @@ final class Simplifier {
         case BEGIN_TEXT:
         case WORD_BOUNDARY:
         case NO_WORD_BOUNDARY:
+        case GRAPHEME_CLUSTER_BOUNDARY:
         case END_TEXT:
         case ANY_CHAR:
         case ANY_BYTE:
@@ -553,6 +555,7 @@ final class Simplifier {
         || re.op == RegexpOp.END_LINE
         || re.op == RegexpOp.WORD_BOUNDARY
         || re.op == RegexpOp.NO_WORD_BOUNDARY
+        || re.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY
         || re.op == RegexpOp.BEGIN_TEXT
         || re.op == RegexpOp.END_TEXT;
   }
@@ -564,7 +567,7 @@ final class Simplifier {
       Regexp node = stack.pop();
       switch (node.op) {
         case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-             NO_WORD_BOUNDARY -> {}
+             NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {}
         case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
         case CONCAT -> {
           for (Regexp sub : node.subs) {
@@ -613,6 +616,7 @@ final class Simplifier {
       case BEGIN_TEXT:
       case WORD_BOUNDARY:
       case NO_WORD_BOUNDARY:
+      case GRAPHEME_CLUSTER_BOUNDARY:
       case END_TEXT:
       case ANY_CHAR:
       case ANY_BYTE:

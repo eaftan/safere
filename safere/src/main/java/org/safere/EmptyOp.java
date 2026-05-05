@@ -45,8 +45,11 @@ final class EmptyOp {
   /** {@code \B} — Unicode not a word boundary (when UNICODE_CHARACTER_CLASS is set). */
   public static final int UNICODE_NON_WORD_BOUNDARY = 1 << 8;
 
+  /** {@code \b{g}} — Unicode extended grapheme cluster boundary. */
+  public static final int GRAPHEME_CLUSTER_BOUNDARY = 1 << 9;
+
   /** All flags combined. */
-  public static final int ALL_FLAGS = (1 << 9) - 1;
+  public static final int ALL_FLAGS = (1 << 10) - 1;
 
   private EmptyOp() {} // Non-instantiable.
 }

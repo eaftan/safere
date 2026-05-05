@@ -32,17 +32,37 @@ final class DialectSyntaxFuzzer {
       "[=a=]",
       "\\C",
       "\\R",
+      "\\X",
+      "\\b{g}",
       "\\K"
   };
   private static final String[] CONTEXT_SUFFIXES = {"", "$", ")", "b", "]", "&&[a]]"};
   private static final List<String> INPUTS =
-      List.of("", "a", "b", "Braille", "Latin", ":", "[", "]", "l", "o", "w", "e", "r");
+      List.of(
+          "",
+          "a",
+          "b",
+          "a\u0300",
+          "\r\n",
+          "Braille",
+          "Latin",
+          ":",
+          "[",
+          "]",
+          "l",
+          "o",
+          "w",
+          "e",
+          "r");
   private static final String[] REGRESSION_REGEXES = {
       "(?P<name>a)",
       "\\p{Braille}",
       "\\p{Latin}",
       "[[:lower:]]",
       "[[:^space:]]",
+      "a\\b{g}\\u0300",
+      "\\r\\b{g}\\n",
+      "\\b{g}a\\u0300\\b{g}",
       "\\Q{?\\E",
       "{?",
       "a{,2}",

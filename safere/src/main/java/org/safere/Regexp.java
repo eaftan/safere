@@ -227,6 +227,11 @@ final class Regexp {
     return new Regexp(RegexpOp.NO_WORD_BOUNDARY, flags);
   }
 
+  /** Creates a GRAPHEME_CLUSTER_BOUNDARY node. */
+  public static Regexp graphemeClusterBoundary(int flags) {
+    return new Regexp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY, flags);
+  }
+
   /** Creates a BEGIN_TEXT node. */
   public static Regexp beginText(int flags) {
     return new Regexp(RegexpOp.BEGIN_TEXT, flags);
@@ -316,8 +321,8 @@ final class Regexp {
 
       nprec = switch (re.op) {
         case NO_MATCH, EMPTY_MATCH, LITERAL, ANY_CHAR, ANY_BYTE, BEGIN_LINE, END_LINE,
-             BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY, CHAR_CLASS, HAVE_MATCH ->
-            PREC_ATOM;
+             BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY,
+             CHAR_CLASS, HAVE_MATCH -> PREC_ATOM;
         case CONCAT, LITERAL_STRING -> {
           if (prec < PREC_CONCAT) {
             sb.append("(?:");
@@ -445,6 +450,7 @@ final class Regexp {
         }
         case WORD_BOUNDARY -> sb.append("\\b");
         case NO_WORD_BOUNDARY -> sb.append("\\B");
+        case GRAPHEME_CLUSTER_BOUNDARY -> sb.append("\\b{g}");
         case CHAR_CLASS -> appendCharClass(sb, re.charClass);
         case NON_CAPTURE -> sb.append(')');
         case CAPTURE -> sb.append(')');

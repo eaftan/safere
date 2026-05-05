@@ -206,6 +206,19 @@ final class Prog {
     return false;
   }
 
+  /** Returns true if this program contains a {@code \b{g}} assertion. */
+  boolean hasGraphemeClusterBoundary() {
+    int n = size();
+    for (int i = 0; i < n; i++) {
+      Inst ip = inst(i);
+      if (ip.op == InstOp.EMPTY_WIDTH
+          && (ip.arg & EmptyOp.GRAPHEME_CLUSTER_BOUNDARY) != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Returns a human-readable dump of the program, useful for debugging.
    *

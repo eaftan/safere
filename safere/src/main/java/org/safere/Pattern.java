@@ -1087,7 +1087,7 @@ public final class Pattern implements Serializable {
         Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
       return switch (re.op) {
         case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-             NO_WORD_BOUNDARY -> true;
+             NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> true;
         case STAR, QUEST -> true;
         case REPEAT -> re.min == 0;
         case PLUS, NON_CAPTURE, CAPTURE -> !childArgs.isEmpty() && childArgs.getFirst();
@@ -1152,7 +1152,9 @@ public final class Pattern implements Serializable {
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
       switch (node.op) {
-        case END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY -> { return true; }
+        case END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {
+          return true;
+        }
         case END_TEXT -> {
           if ((node.flags & ParseFlags.WAS_DOLLAR) != 0) {
             return true;
@@ -1175,7 +1177,9 @@ public final class Pattern implements Serializable {
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
       switch (node.op) {
-        case END_LINE, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY -> { return true; }
+        case END_LINE, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {
+          return true;
+        }
         default -> {}
       }
       if (node.subs != null) {
@@ -1205,8 +1209,8 @@ public final class Pattern implements Serializable {
       boolean insideQuant = entry.insideQuant();
       if (insideQuant) {
         switch (node.op) {
-          case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY ->
-              { return true; }
+          case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY,
+               GRAPHEME_CLUSTER_BOUNDARY -> { return true; }
           default -> {}
         }
       }

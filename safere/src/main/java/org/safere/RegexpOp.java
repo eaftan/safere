@@ -71,6 +71,9 @@ enum RegexpOp {
   /** Matches not-a-word boundary ({@code \B}). */
   NO_WORD_BOUNDARY,
 
+  /** Matches a Unicode extended grapheme cluster boundary ({@code \b{g}}). */
+  GRAPHEME_CLUSTER_BOUNDARY,
+
   /** Matches empty string at beginning of text ({@code \A}). */
   BEGIN_TEXT,
 

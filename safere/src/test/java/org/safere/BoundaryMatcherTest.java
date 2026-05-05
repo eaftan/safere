@@ -206,6 +206,25 @@ class BoundaryMatcherTest {
   @DisplayName("\\b{g} (grapheme cluster boundary)")
   class GraphemeClusterBoundary {
 
+    private void assertFindSameAsJdk(String regex, String input) {
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(regex).matcher(input);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input);
+
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s", regex, input)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
     @Test
     @DisplayName("\\b{g} compiles without error")
     void compiles() {
@@ -216,6 +235,30 @@ class BoundaryMatcherTest {
     @DisplayName("\\b{g} in a larger pattern compiles without error")
     void compilesInLargerPattern() {
       assertThatNoException().isThrownBy(() -> Pattern.compile("foo\\b{g}bar"));
+    }
+
+    @Test
+    @DisplayName("\\b{g} does not match inside a base-plus-combining-mark cluster")
+    void doesNotMatchInsideBaseCombiningCluster() {
+      assertFindSameAsJdk("a\\b{g}\\u0300", "a\u0300");
+    }
+
+    @Test
+    @DisplayName("\\b{g} matches at the edges of base-plus-combining-mark clusters")
+    void matchesBaseCombiningClusterEdges() {
+      assertFindSameAsJdk("\\b{g}a\\u0300\\b{g}", "a\u0300");
+    }
+
+    @Test
+    @DisplayName("\\b{g} find() reports cluster boundaries, not every UTF-16 position")
+    void findReportsOnlyClusterBoundaries() {
+      assertFindSameAsJdk("\\b{g}", "a\u0300b");
+    }
+
+    @Test
+    @DisplayName("\\b{g} does not split CRLF")
+    void doesNotSplitCrLf() {
+      assertFindSameAsJdk("\\r\\b{g}\\n", "\r\n");
     }
 
     @Test
