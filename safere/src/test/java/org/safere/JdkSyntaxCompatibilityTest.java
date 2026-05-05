@@ -196,6 +196,46 @@ class JdkSyntaxCompatibilityTest {
   @Nested
   @DisplayName("Syntax-family compatibility matrix")
   class SyntaxFamilyCompatibilityMatrix {
+    static Stream<Arguments> quantifiedBareQuestionGroups() {
+      return Stream.of(
+          Arguments.of("(?)?"),
+          Arguments.of("(?)*"),
+          Arguments.of("(?)+"),
+          Arguments.of("()??(?)?"),
+          Arguments.of("()?(?)?"),
+          Arguments.of("()*?(?)?"),
+          Arguments.of("()+?(?)?"),
+          Arguments.of("(a)??(?)?"),
+          Arguments.of("a??(?)?"),
+          Arguments.of("()??|(?)?"));
+    }
+
+    @ParameterizedTest(name = "/{0}/")
+    @MethodSource("quantifiedBareQuestionGroups")
+    @DisplayName("bare question groups reject following quantifiers like JDK")
+    void bareQuestionGroupsRejectFollowingQuantifiersLikeJdk(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
+    static Stream<Arguments> countedBareQuestionGroups() {
+      return Stream.of(
+          Arguments.of("(?){2}", "", true),
+          Arguments.of("a(?){2}", "a", true),
+          Arguments.of("a(?){2}", "aa", false),
+          Arguments.of("()??(?){2}", "", true),
+          Arguments.of("a(?){2}?", "a", true),
+          Arguments.of("(?){1}{1}", "", true));
+    }
+
+    @ParameterizedTest(name = "/{0}/ matches \"{1}\" = {2}")
+    @MethodSource("countedBareQuestionGroups")
+    @DisplayName("bare question groups accept counted repeats like JDK")
+    void bareQuestionGroupsAcceptCountedRepeatsLikeJdk(
+        String regex, String input, boolean expected) {
+      assertMatchesFull(regex, input);
+      assertThat(Pattern.compile(regex).matcher(input).matches()).isEqualTo(expected);
+    }
+
     static Stream<Arguments> acceptedSyntaxFamilies() {
       return Stream.of(
           Arguments.of(new SyntaxFamilyCase("literal characters", "abc", "abc", "ab")),

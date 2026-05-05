@@ -29,12 +29,15 @@ final class ParserCompatibilityFuzzer {
       "[^a]",
       "[a-z]",
       "[a-z&&[def]]",
+      "()",
+      "(?)",
       "(a)",
       "(?:a)",
       "(?<name>a)"
   };
   private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "(?m)", "(?s)"};
-  private static final String[] CONNECTORS = {"", "", "|", "?", "*", "+", "{0}", "{1,3}"};
+  private static final String[] CONNECTORS =
+      {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}"};
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
   private static final List<String> INPUTS =
       List.of("", "a", "aa", "abc", "def", "0", " ", "\n", "*", "name");
