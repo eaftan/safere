@@ -9,6 +9,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.MatchResult;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -71,6 +74,48 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(?:(a){0,2})*?)", "aaa"));
   }
 
+  private static Stream<Arguments> generatedQuantifiedCaptureCases() {
+    List<GeneratedCase> cases = new ArrayList<>();
+    addGeneratedCases(cases, "simple repeated capture", "(a)", List.of("", "a", "aa", "aaa"));
+    addGeneratedCases(cases, "nullable repeated capture", "(a?)", List.of("", "a", "aa"));
+    addGeneratedCases(cases, "optional repeated capture", "(a)?", List.of("", "a", "aa"));
+    addGeneratedCases(
+        cases, "alternating repeated capture", "(a|aa)", List.of("", "a", "aa", "aaa"));
+    addGeneratedCases(cases, "nested repeated capture", "((a))", List.of("", "a", "aa", "aaa"));
+    addGeneratedCases(cases, "suffix repeated capture", "(a)b", List.of("", "ab", "abab"));
+    addGeneratedCases(
+        cases, "optional-branch repeated capture", "(a)?b", List.of("", "b", "ab", "abab"));
+    addGeneratedCases(
+        cases, "empty-alternative repeated capture", "(?:|(a))", List.of("", "a", "aa"));
+
+    cases.add(new GeneratedCase("named repeated capture", "(?:(?<word>a)){1,2}", "aa", "word"));
+    cases.add(
+        new GeneratedCase("named nullable repeated capture", "(?:(?<word>a)?){1,2}", "a",
+            "word"));
+    cases.add(
+        new GeneratedCase("named alternation repeated capture", "(?:(?<word>a|aa)){1,2}", "aaa",
+            "word"));
+
+    return cases.stream().map(Arguments::of);
+  }
+
+  private static void addGeneratedCases(
+      List<GeneratedCase> cases, String family, String atom, List<String> inputs) {
+    List<String> quantifiers = List.of("*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??",
+        "{0,2}?", "{1,2}?");
+    for (String quantifier : quantifiers) {
+      String regex = "(?:" + atom + ")" + quantifier;
+      for (String input : inputs) {
+        cases.add(new GeneratedCase(family + " " + quantifier, regex, input, null));
+        cases.add(new GeneratedCase(
+            family + " " + quantifier + " with suffix", regex + "c", input + "c", null));
+        cases.add(new GeneratedCase(
+            family + " " + quantifier + " in context", "x" + regex + "y", "x" + input + "y",
+            null));
+      }
+    }
+  }
+
   @ParameterizedTest(name = "[{index}] find captures for /{0}/ on \"{1}\"")
   @MethodSource("quantifiedCaptureCases")
   @DisplayName("find() exposes quantified captures like java.util.regex")
@@ -93,6 +138,14 @@ class QuantifiedCaptureSemanticsTest {
     boolean jdkMatched = jdk.matches();
     assertThat(safere.matches()).isEqualTo(jdkMatched);
     assertGroupsMatch(regex, input, jdkMatched, jdk, safere);
+  }
+
+  @ParameterizedTest(name = "[{index}] {0}")
+  @MethodSource("generatedQuantifiedCaptureCases")
+  @DisplayName("generated quantified-capture cases match java.util.regex")
+  void generatedQuantifiedCaptureCasesMatchJdk(GeneratedCase testCase) {
+    assertOperationTraceMatchesJdk(testCase);
+    assertReplacementTraceMatchesJdk(testCase);
   }
 
   @ParameterizedTest(name = "[{index}] replacement APIs for /{0}/ on \"{1}\"")
@@ -177,6 +230,110 @@ class QuantifiedCaptureSemanticsTest {
     }
   }
 
+  private static void assertOperationTraceMatchesJdk(GeneratedCase testCase) {
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(testCase.regex());
+    Pattern saferePattern = Pattern.compile(testCase.regex());
+
+    assertSingleOperationMatchesJdk(testCase, jdkPattern, saferePattern, Operation.FIND);
+    assertSingleOperationMatchesJdk(testCase, jdkPattern, saferePattern, Operation.MATCHES);
+    assertSingleOperationMatchesJdk(testCase, jdkPattern, saferePattern, Operation.LOOKING_AT);
+    assertFindSequenceMatchesJdk(testCase, jdkPattern, saferePattern);
+  }
+
+  private static void assertSingleOperationMatchesJdk(
+      GeneratedCase testCase,
+      java.util.regex.Pattern jdkPattern,
+      Pattern saferePattern,
+      Operation operation) {
+    java.util.regex.Matcher jdk = jdkPattern.matcher(testCase.input());
+    Matcher safere = saferePattern.matcher(testCase.input());
+
+    boolean jdkMatched =
+        switch (operation) {
+          case FIND -> jdk.find();
+          case MATCHES -> jdk.matches();
+          case LOOKING_AT -> jdk.lookingAt();
+        };
+    boolean safereMatched =
+        switch (operation) {
+          case FIND -> safere.find();
+          case MATCHES -> safere.matches();
+          case LOOKING_AT -> safere.lookingAt();
+        };
+
+    assertThat(safereMatched)
+        .as("%s result for %s", operation, testCase)
+        .isEqualTo(jdkMatched);
+    assertGroupsMatch(testCase.regex(), testCase.input(), jdkMatched, jdk, safere);
+    if (jdkMatched) {
+      assertMatchResultMatchesJdk(testCase, jdk.toMatchResult(), safere.toMatchResult());
+    }
+  }
+
+  private static void assertFindSequenceMatchesJdk(
+      GeneratedCase testCase, java.util.regex.Pattern jdkPattern, Pattern saferePattern) {
+    java.util.regex.Matcher jdk = jdkPattern.matcher(testCase.input());
+    Matcher safere = saferePattern.matcher(testCase.input());
+
+    int matchIndex = 0;
+    while (true) {
+      boolean jdkMatched = jdk.find();
+      boolean safereMatched = safere.find();
+      assertThat(safereMatched)
+          .as("find sequence result %d for %s", matchIndex, testCase)
+          .isEqualTo(jdkMatched);
+      assertGroupsMatch(testCase.regex(), testCase.input(), jdkMatched, jdk, safere);
+      if (!jdkMatched) {
+        return;
+      }
+      matchIndex++;
+    }
+  }
+
+  private static void assertMatchResultMatchesJdk(
+      GeneratedCase testCase, java.util.regex.MatchResult jdk, MatchResult safere) {
+    assertThat(safere.groupCount()).isEqualTo(jdk.groupCount());
+    for (int group = 0; group <= jdk.groupCount(); group++) {
+      assertThat(safere.group(group))
+          .as("toMatchResult group(%d) for %s", group, testCase)
+          .isEqualTo(jdk.group(group));
+      assertThat(safere.start(group))
+          .as("toMatchResult start(%d) for %s", group, testCase)
+          .isEqualTo(jdk.start(group));
+      assertThat(safere.end(group))
+          .as("toMatchResult end(%d) for %s", group, testCase)
+          .isEqualTo(jdk.end(group));
+    }
+  }
+
+  private static void assertReplacementTraceMatchesJdk(GeneratedCase testCase) {
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(testCase.regex());
+    Pattern saferePattern = Pattern.compile(testCase.regex());
+    String numberedReplacement = "[$1]";
+
+    assertThat(saferePattern.matcher(testCase.input()).replaceAll(numberedReplacement))
+        .as("generated replaceAll(String) for %s", testCase)
+        .isEqualTo(jdkPattern.matcher(testCase.input()).replaceAll(numberedReplacement));
+    assertThat(saferePattern.matcher(testCase.input()).replaceFirst(numberedReplacement))
+        .as("generated replaceFirst(String) for %s", testCase)
+        .isEqualTo(jdkPattern.matcher(testCase.input()).replaceFirst(numberedReplacement));
+    assertThat(appendReplacementResult(saferePattern.matcher(testCase.input())))
+        .as("generated appendReplacement for %s", testCase)
+        .isEqualTo(appendReplacementResult(jdkPattern.matcher(testCase.input())));
+    assertThat(saferePattern.matcher(testCase.input()).replaceAll(match -> "[" + match.group(1)
+        + "]"))
+        .as("generated replaceAll(Function) for %s", testCase)
+        .isEqualTo(jdkPattern.matcher(testCase.input()).replaceAll(match -> "[" + match.group(1)
+            + "]"));
+
+    if (testCase.namedGroup() != null) {
+      String namedReplacement = "[${" + testCase.namedGroup() + "}]";
+      assertThat(saferePattern.matcher(testCase.input()).replaceAll(namedReplacement))
+          .as("generated named replaceAll(String) for %s", testCase)
+          .isEqualTo(jdkPattern.matcher(testCase.input()).replaceAll(namedReplacement));
+    }
+  }
+
   private static String appendReplacementResult(Matcher matcher) {
     StringBuffer result = new StringBuffer();
     while (matcher.find()) {
@@ -193,5 +350,18 @@ class QuantifiedCaptureSemanticsTest {
     }
     matcher.appendTail(result);
     return result.toString();
+  }
+
+  private enum Operation {
+    FIND,
+    MATCHES,
+    LOOKING_AT
+  }
+
+  private record GeneratedCase(String family, String regex, String input, String namedGroup) {
+    @Override
+    public String toString() {
+      return family + " /" + regex + "/ on \"" + input + "\"";
+    }
   }
 }
