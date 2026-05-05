@@ -22,6 +22,15 @@ import org.junit.jupiter.api.Test;
  */
 class CommentsTest {
 
+  private static void assertMatchesSameAsJdk(String regex, int flags, String input) {
+    boolean jdkMatches = java.util.regex.Pattern.compile(regex, flags).matcher(input).matches();
+    boolean safeMatches = Pattern.compile(regex, flags).matcher(input).matches();
+
+    assertThat(safeMatches)
+        .as("matches() for /%s/ (flags=%d) on \"%s\"", regex, flags, input)
+        .isEqualTo(jdkMatches);
+  }
+
   // ---------------------------------------------------------------------------
   // Pattern.COMMENTS compile flag
   // ---------------------------------------------------------------------------
@@ -317,6 +326,25 @@ class CommentsTest {
       Pattern p = Pattern.compile("\\Q a b \\E", Pattern.COMMENTS);
       assertThat(p.matcher(" a b ").matches()).isTrue();
       assertThat(p.matcher("ab").matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("quantifiers after empty quoted literals bind to the empty literal")
+    void quantifiersAfterEmptyQuotedLiteralsBindToEmptyLiteral() {
+      String[] regexes = {
+          "a\\Q\\E+",
+          "a\\Q\\E*",
+          "a\\Q\\E?",
+          "a\\Q\\E{1,3}",
+          "^\\p{Lower}{1,3}\\Q\\E+"
+      };
+      String[] inputs = {"", "a", "aa", "aaa", "name"};
+
+      for (String regex : regexes) {
+        for (String input : inputs) {
+          assertMatchesSameAsJdk(regex, Pattern.COMMENTS, input);
+        }
+      }
     }
 
     @Test
