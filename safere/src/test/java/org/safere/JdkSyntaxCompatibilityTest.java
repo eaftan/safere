@@ -1082,8 +1082,8 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> characterClassExpressionOracleMatrixCases() {
-      List<String> inputs = List.of("", "a", "b", "c", "&", "-", "0", "1", "x", " ", "\t",
-          "Ā", "é");
+      List<String> inputs = List.of("", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_",
+          "`", "x", " ", "\t", "Ā", "é");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[ab&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-b&&]", inputs)),
@@ -1117,9 +1117,12 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[\\d&\\Q\\E&&&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\w&\\Q\\E&& &&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a&&&\\Q\\E&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a\\d&&&\\Q\\E&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a&\\Q\\E&&\\Q\\E&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&\\Q\\E&&\\Q\\E&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&[a]&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&[a]&-&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[&&abc]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ &&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ &&&a]", inputs)),
@@ -1234,6 +1237,8 @@ class JdkSyntaxCompatibilityTest {
           new CharacterClassMatrixPiece("escapedAmp", "\\&"),
           new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
           new CharacterClassMatrixPiece("rangeToNonDigit", "-\\D"),
+          new CharacterClassMatrixPiece("rangeToA", "-a"),
+          new CharacterClassMatrixPiece("rangeToIntersection", "-&&"),
           new CharacterClassMatrixPiece("zeroWidthRangeToNonDigit", "\\Q\\E-\\D"));
       List<CharacterClassMatrixSeparator> separators = List.of(
           new CharacterClassMatrixSeparator("none", "", false),
