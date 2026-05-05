@@ -961,7 +961,8 @@ final class Dfa {
           cp = ch;
           nextPos = pos + 1;
           cls = asciiClassMap[ch];
-        } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen) {
+        } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen
+            && Character.isLowSurrogate(text.charAt(pos + 1))) {
           cp = Character.toCodePoint(ch, text.charAt(pos + 1));
           nextPos = pos + 2;
           cls = classOf(cp);
@@ -1249,7 +1250,8 @@ final class Dfa {
             cp = ch;
             nextPos = pos + 1;
             cls = asciiClassMap[ch];
-          } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen) {
+          } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen
+              && Character.isLowSurrogate(text.charAt(pos + 1))) {
             cp = Character.toCodePoint(ch, text.charAt(pos + 1));
             nextPos = pos + 2;
             cls = classOf(cp);

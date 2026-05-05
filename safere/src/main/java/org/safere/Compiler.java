@@ -943,14 +943,9 @@ final class Compiler extends Walker<Compiler.Frag> {
     return charRange(rune, rune, foldCase);
   }
 
-  /**
-   * Compiles an "any code point" fragment — matches all valid Unicode code points except
-   * surrogates. This produces [0-0xD7FF] | [0xE000-0x10FFFF].
-   */
+  /** Compiles an "any code point" fragment. */
   private Frag anyCodePoint() {
-    Frag lo = charRange(0, Utils.MIN_SURROGATE - 1, false);
-    Frag hi = charRange(Utils.MAX_SURROGATE + 1, Utils.MAX_RUNE, false);
-    return alt(lo, hi);
+    return charRange(0, Utils.MAX_RUNE, false);
   }
 
   /**
