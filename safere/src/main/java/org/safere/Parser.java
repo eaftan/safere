@@ -320,6 +320,7 @@ final class Parser {
       if (next == 'Q') {
         // \Q ... \E: the ... is always literals
         pos += 2; // '\\', 'Q'
+        boolean sawLiteral = false;
         while (pos < pattern.length()) {
           if (pos + 1 < pattern.length()
               && pattern.charAt(pos) == '\\'
@@ -330,6 +331,10 @@ final class Parser {
           int r = pattern.codePointAt(pos);
           pos += Character.charCount(r);
           pushLiteral(r);
+          sawLiteral = true;
+        }
+        if (!sawLiteral) {
+          pushRegexp(Regexp.emptyMatch(flags));
         }
         return;
       }
