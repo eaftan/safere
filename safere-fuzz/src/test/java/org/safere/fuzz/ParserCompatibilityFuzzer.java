@@ -50,6 +50,15 @@ final class ParserCompatibilityFuzzer {
       {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}",
           "??{1,3}", "?{1,3}", "*{1,3}", "+{1,3}", "{1,3}{1,3}"};
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
+  private static final String[] COMMENT_TERMINATED_PREFIXES = {
+      "a#\0",
+      "a#\n",
+      "a#\r",
+      "a#\u0085",
+      "a#\u2028",
+      "a#\u2029"
+  };
+  private static final String[] MALFORMED_GROUP_SUFFIXES = {"(", "|(", "b|(", "(?:b)|("};
   private static final List<String> INPUTS =
       List.of(
           "",
@@ -74,11 +83,19 @@ final class ParserCompatibilityFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void parserCompatibility(FuzzedDataProvider data) {
-    String regex = data.pickValue(PREFIXES)
-        + data.pickValue(ATOMS)
-        + data.pickValue(CONNECTORS)
-        + data.pickValue(ATOMS)
-        + data.pickValue(SUFFIXES);
-    FuzzSupport.assertFullMatchesJdk(regex, FuzzSupport.consumeParserFlags(data), INPUTS);
+    int flags = FuzzSupport.consumeParserFlags(data);
+    String regex;
+    if (data.consumeBoolean()) {
+      flags |= org.safere.Pattern.COMMENTS;
+      regex = data.pickValue(COMMENT_TERMINATED_PREFIXES)
+          + data.pickValue(MALFORMED_GROUP_SUFFIXES);
+    } else {
+      regex = data.pickValue(PREFIXES)
+          + data.pickValue(ATOMS)
+          + data.pickValue(CONNECTORS)
+          + data.pickValue(ATOMS)
+          + data.pickValue(SUFFIXES);
+    }
+    FuzzSupport.assertFullMatchesJdk(regex, flags, INPUTS);
   }
 }

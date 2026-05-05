@@ -66,6 +66,16 @@ class JdkSyntaxCompatibilityTest {
         .isInstanceOf(PatternSyntaxException.class);
   }
 
+  /** Asserts JDK and SafeRE both reject the pattern with the given flags. */
+  private static void assertRejectedByJdkAndSafeRe(String regex, int flags) {
+    assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex, flags))
+        .as("JDK should reject: %s flags=%d", regex, flags)
+        .isInstanceOf(PatternSyntaxException.class);
+    assertThatThrownBy(() -> Pattern.compile(regex, flags))
+        .as("SafeRE should reject: %s flags=%d", regex, flags)
+        .isInstanceOf(PatternSyntaxException.class);
+  }
+
   /** Asserts SafeRE compiles and matches identically to JDK on the given input. */
   private static void assertMatchesSame(String regex, String input) {
     // Sanity: JDK must accept it.
@@ -387,6 +397,11 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new DialectRejection("unmatched close group", "a)")),
           Arguments.of(new DialectRejection("unterminated group", "(a")),
           Arguments.of(new DialectRejection("dangling alternation group opener", "(|")),
+          Arguments.of(new DialectRejection("unterminated group after alternation", "a|(")),
+          Arguments.of(new DialectRejection("unterminated group after empty alternation",
+              "|(")),
+          Arguments.of(new DialectRejection("unterminated group after nested alternation",
+              "(a|b)|(")),
           Arguments.of(new DialectRejection("nothing to repeat star", "*a")),
           Arguments.of(new DialectRejection("malformed bounded quantifier", "a{2,1}")),
           Arguments.of(new DialectRejection("bare leading class intersection", "[&&]")),
@@ -478,6 +493,27 @@ class JdkSyntaxCompatibilityTest {
     @DisplayName("malformed JDK syntax is rejected")
     void malformedJdkSyntaxIsRejected(DialectRejection rejection) {
       assertRejectedByJdkAndSafeRe(rejection.regex());
+    }
+
+    static Stream<Arguments> commentTerminatorCases() {
+      return Stream.of(
+          Arguments.of("a#\0|(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("#\0(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\0b|(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\0(?:b)|(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\r(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\u0085(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\u2028(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\u2029(", java.util.regex.Pattern.COMMENTS),
+          Arguments.of("a#\0|(", java.util.regex.Pattern.COMMENTS
+              | java.util.regex.Pattern.UNIX_LINES));
+    }
+
+    @ParameterizedTest(name = "/{0}/ flags={1}")
+    @MethodSource("commentTerminatorCases")
+    @DisplayName("comments-mode comment terminators expose malformed group syntax")
+    void commentsModeCommentTerminatorsExposeMalformedGroupSyntax(String regex, int flags) {
+      assertRejectedByJdkAndSafeRe(regex, flags);
     }
 
     static Stream<Arguments> unsupportedNonRegularJdkSyntax() {

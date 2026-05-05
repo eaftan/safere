@@ -110,12 +110,13 @@ final class Parser {
       int c = pattern.codePointAt(pos);
       if (c == '#') {
         // Skip from '#' to end of line (or end of pattern).
-        while (pos < pattern.length() && pattern.charAt(pos) != '\n') {
-          pos++;
-        }
-        // Skip the newline itself if present.
-        if (pos < pattern.length()) {
-          pos++;
+        pos++;
+        while (pos < pattern.length()) {
+          int commentChar = pattern.codePointAt(pos);
+          if (isCommentTerminator(commentChar)) {
+            break;
+          }
+          pos += Character.charCount(commentChar);
         }
       } else if (isCommentsWhitespace(c)) {
         pos += Character.charCount(c);
@@ -123,6 +124,13 @@ final class Parser {
         break;
       }
     }
+  }
+
+  private boolean isCommentTerminator(int c) {
+    if (c == '\0' || c == '\n') {
+      return true;
+    }
+    return (flags & ParseFlags.UNIX_LINES) == 0 && Nfa.isLineTerminator(c);
   }
 
   // ---- Main parse method ----
