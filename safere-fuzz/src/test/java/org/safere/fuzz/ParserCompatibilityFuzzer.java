@@ -24,9 +24,11 @@ final class ParserCompatibilityFuzzer {
       "\\p{Lower}",
       "\\P{Lower}",
       "\\Q\\E",
+      "\\Q\\E\\Q\\E",
       "\\Q*\\E",
       "^",
       "$",
+      "a\\Q\\E",
       "[a]",
       "[^a]",
       "[a-z]",
@@ -48,7 +50,7 @@ final class ParserCompatibilityFuzzer {
   private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "(?m)", "(?s)"};
   private static final String[] CONNECTORS =
       {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}",
-          "??{1,3}", "?{1,3}", "*{1,3}", "+{1,3}", "{1,3}{1,3}"};
+          "{1}", "??{1,3}", "?{1,3}", "*{1,3}", "+{1,3}", "{1,3}{1,3}"};
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
   private static final String[] COMMENT_TERMINATED_PREFIXES = {
       "a#\0",
