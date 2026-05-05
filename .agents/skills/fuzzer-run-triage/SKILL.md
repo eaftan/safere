@@ -137,6 +137,10 @@ current branch. Do not treat old console output as proof that a bug still exists
 5. Deduplicate reproducible findings by semantic bug class before filing. Multiple `crash-*` files
    may represent one parser rule, matcher invariant, or Unicode-boundary bug.
 
+6. Preserve durable repro material before relying on it in an issue. Local `crash-*`, `slow-unit-*`,
+   `timeout-*`, console-log, and `/tmp` paths are useful provenance, but they are not durable bug
+   report content.
+
 ## Interpreting Results
 
 Use both logs and crash files:
@@ -180,6 +184,15 @@ When asked to file issues:
 
 1. Search existing issues for exact repro substrings and the semantic class.
 2. Write the issue body to a temp file and use `gh issue create --body-file`.
-3. Include the command, Surefire XML path, raw console log path, crash input path, and concise
-   observed behavior.
-4. Do not close existing issues unless all items are resolved.
+3. Make the issue self-contained. Do not rely on local or ephemeral paths such as
+   `target/surefire-reports`, `target/fuzz-logs`, `/tmp/...`, or local `crash-*` files being
+   available later.
+4. Include enough durable repro material to recreate the bug:
+   - minimized regex, flags, input, operation, and observed SafeRE/JDK behavior when available;
+   - for binary Jazzer inputs, include Base64 and/or hex bytes in the issue body, or attach/upload
+     the input artifact if GitHub supports it for the workflow being used;
+   - if the project owner wants persisted reproducers in-repo, add them deliberately as tracked
+     test resources or regression tests rather than depending on untracked local files.
+5. Local paths may be included only as provenance, clearly secondary to the self-contained repro
+   data.
+6. Do not close existing issues unless all items are resolved.
