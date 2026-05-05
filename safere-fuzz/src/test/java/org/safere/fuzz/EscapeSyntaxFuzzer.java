@@ -32,6 +32,8 @@ final class EscapeSyntaxFuzzer {
       "\\©",
       "\\Ā",
       "\\é",
+      "\\☃",
+      "\\😀",
       "\\Q\\E",
       "\\Q&\\E",
       "\\Q-\\E",
@@ -39,12 +41,31 @@ final class EscapeSyntaxFuzzer {
   };
   private static final String[] SUFFIXES = {"", "$", "]", "a", "-", "-z", "&&[a]"};
   private static final List<String> INPUTS =
-      List.of("", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "\u0000");
+      List.of(
+          "",
+          "a",
+          "A",
+          "0",
+          "7",
+          "@",
+          "\u001b",
+          "&",
+          "-",
+          "©",
+          "Ā",
+          "é",
+          "☃",
+          "😀",
+          "\u0000");
   private static final String[] REGRESSION_REGEXES = {
       "^\\©",
       "[\\©]",
       "\\Ā",
       "[\\Ā]",
+      "\\☃",
+      "[\\☃]",
+      "\\😀",
+      "[\\😀]",
       "\\0",
       "\\08",
       "\\400",
