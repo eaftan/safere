@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fuzzer Run Triage"
+  short_description: "Find bugs from SafeRE Jazzer run artifacts"
+  default_prompt: "Use $fuzzer-run-triage after a manual SafeRE Jazzer run to locate logs, crash inputs, and actionable bug findings."
