@@ -1297,6 +1297,8 @@ final class Parser {
         }
         if (!tail.skippedCommentsTrivia()) {
           rejectInvalidRangeTailAfterOddAmpersandRun();
+        } else if (pattern.charAt(pos) == '-' && hasRangeEndpointAfterHyphen()) {
+          throw new PatternSyntaxException("bad class syntax", pattern, pos);
         }
         if (tail.skippedCommentsTrivia() && pattern.charAt(pos) == '[') {
           frame.accumulatedClass = new CharClassBuilder();

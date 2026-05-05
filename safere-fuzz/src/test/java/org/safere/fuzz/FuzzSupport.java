@@ -9,6 +9,8 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
 final class FuzzSupport {
@@ -226,6 +228,13 @@ final class FuzzSupport {
       return safeRe;
     }
 
+    String group(String name) {
+      String safeRe = safeReMatcher.group(name);
+      String jdk = jdkMatcher.group(name);
+      assertEquals("group(" + name + ")", safeRe, jdk);
+      return safeRe;
+    }
+
     int start(int group) {
       int safeRe = safeReMatcher.start(group);
       int jdk = jdkMatcher.start(group);
@@ -233,10 +242,24 @@ final class FuzzSupport {
       return safeRe;
     }
 
+    int start(String name) {
+      int safeRe = safeReMatcher.start(name);
+      int jdk = jdkMatcher.start(name);
+      assertEquals("start(" + name + ")", safeRe, jdk);
+      return safeRe;
+    }
+
     int end(int group) {
       int safeRe = safeReMatcher.end(group);
       int jdk = jdkMatcher.end(group);
       assertEquals("end(" + group + ")", safeRe, jdk);
+      return safeRe;
+    }
+
+    int end(String name) {
+      int safeRe = safeReMatcher.end(name);
+      int jdk = jdkMatcher.end(name);
+      assertEquals("end(" + name + ")", safeRe, jdk);
       return safeRe;
     }
 
@@ -307,6 +330,13 @@ final class FuzzSupport {
           () -> jdkMatcher.replaceAll(replacement));
     }
 
+    boolean replaceAll(Function<MatchResult, String> replacer) {
+      return assertSameReplacementOutcome(
+          "replaceAll(function)",
+          () -> safeReMatcher.replaceAll(replacer),
+          () -> jdkMatcher.replaceAll(replacer));
+    }
+
     boolean replaceFirst(String replacement) {
       return assertSameReplacementOutcome(
           "replaceFirst",
@@ -370,6 +400,12 @@ final class FuzzSupport {
       output.append(safeRe);
     }
 
+    void toMatchResult() {
+      MatchResult safeRe = safeReMatcher.toMatchResult();
+      MatchResult jdk = jdkMatcher.toMatchResult();
+      assertMatchResult("toMatchResult", safeRe, jdk);
+    }
+
     private void assertMatchState(String operation) {
       assertEquals(operation + ".start", safeReMatcher.start(), jdkMatcher.start());
       assertEquals(operation + ".end", safeReMatcher.end(), jdkMatcher.end());
@@ -378,6 +414,18 @@ final class FuzzSupport {
         group(i);
         start(i);
         end(i);
+      }
+    }
+
+    private void assertMatchResult(String operation, MatchResult safeRe, MatchResult jdk) {
+      assertEquals(operation + ".start", safeRe.start(), jdk.start());
+      assertEquals(operation + ".end", safeRe.end(), jdk.end());
+      int groupCount = safeRe.groupCount();
+      assertEquals(operation + ".groupCount", groupCount, jdk.groupCount());
+      for (int i = 0; i <= groupCount; i++) {
+        assertEquals(operation + ".group(" + i + ")", safeRe.group(i), jdk.group(i));
+        assertEquals(operation + ".start(" + i + ")", safeRe.start(i), jdk.start(i));
+        assertEquals(operation + ".end(" + i + ")", safeRe.end(i), jdk.end(i));
       }
     }
 

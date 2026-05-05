@@ -119,6 +119,7 @@ public final class Matcher implements MatchResult {
   private int regionEnd;
   private boolean lastHitEnd;
   private boolean lastRequireEnd;
+  private boolean findExhaustedAfterTerminalEmptyMatch;
   private int modCount;
 
   /**
@@ -221,6 +222,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void applyFullMatchResult(int[] resultGroups) {
+    findExhaustedAfterTerminalEmptyMatch = false;
     groups = resultGroups;
     hasMatch = resultGroups != null;
     resultStatus = hasMatch ? ResultStatus.MATCHED : ResultStatus.FAILED;
@@ -228,6 +230,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void applyDeferredMatchResult(DeferredMatchResult deferred) {
+    findExhaustedAfterTerminalEmptyMatch = false;
     groups = new int[2 * deferred.ncap()];
     Arrays.fill(groups, -1);
     groups[0] = deferred.start();
@@ -242,6 +245,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void clearCurrentResult() {
+    findExhaustedAfterTerminalEmptyMatch = false;
     groups = null;
     hasMatch = false;
     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
@@ -568,6 +572,7 @@ public final class Matcher implements MatchResult {
    */
   public boolean matches() {
     modCount++;
+    findExhaustedAfterTerminalEmptyMatch = false;
     searchFrom = regionStart;
 
     // --- Region setup ---
@@ -686,6 +691,7 @@ public final class Matcher implements MatchResult {
    */
   public boolean lookingAt() {
     modCount++;
+    findExhaustedAfterTerminalEmptyMatch = false;
     searchFrom = regionStart;
 
     // --- Region setup ---
@@ -786,6 +792,10 @@ public final class Matcher implements MatchResult {
    */
   public boolean find() {
     modCount++;
+    if (findExhaustedAfterTerminalEmptyMatch) {
+      applyEngineResult(new NoMatchResult());
+      return false;
+    }
     if (hasMatch) {
       // Only resolve deferred captures before advancing when group 0 itself is not authoritative.
       // If group 0 is already exact, find-all loops that never read inner captures should not pay
@@ -797,7 +807,8 @@ public final class Matcher implements MatchResult {
       if (groups[0] == groups[1]) { // empty match
         if (searchFrom >= regionEnd) {
           applyEngineResult(new NoMatchResult());
-          updateEndState(MatchOperation.FIND);
+          findExhaustedAfterTerminalEmptyMatch = true;
+          searchFrom = regionEnd + 1;
           return false;
         }
         searchFrom++;
@@ -2206,7 +2217,7 @@ public final class Matcher implements MatchResult {
 
   private boolean matchCanExtendAtEnd(MatchOperation operation) {
     java.util.List<String> samples = new java.util.ArrayList<>();
-    collectTerminalRepeatSamples(parentPattern.ast(), samples);
+    collectTerminalExtensionSamples(parentPattern.ast(), samples);
     if (samples.isEmpty()) {
       return false;
     }
@@ -2234,19 +2245,19 @@ public final class Matcher implements MatchResult {
     return false;
   }
 
-  private static void collectTerminalRepeatSamples(Regexp re, java.util.List<String> samples) {
+  private static void collectTerminalExtensionSamples(Regexp re, java.util.List<String> samples) {
     switch (re.op) {
-      case STAR, PLUS -> addSample(re.subs.get(0), samples);
+      case STAR, PLUS, QUEST -> addSample(re.subs.get(0), samples);
       case REPEAT -> {
-        if (re.max < 0) {
+        if (re.max < 0 || re.max > re.min) {
           addSample(re.subs.get(0), samples);
         }
       }
-      case NON_CAPTURE, CAPTURE -> collectTerminalRepeatSamples(re.subs.get(0), samples);
+      case NON_CAPTURE, CAPTURE -> collectTerminalExtensionSamples(re.subs.get(0), samples);
       case CONCAT -> {
         for (int i = re.subs.size() - 1; i >= 0; i--) {
           Regexp sub = re.subs.get(i);
-          collectTerminalRepeatSamples(sub, samples);
+          collectTerminalExtensionSamples(sub, samples);
           if (!Pattern.canMatchEmpty(sub)) {
             break;
           }
@@ -2254,7 +2265,7 @@ public final class Matcher implements MatchResult {
       }
       case ALTERNATE -> {
         for (Regexp sub : re.subs) {
-          collectTerminalRepeatSamples(sub, samples);
+          collectTerminalExtensionSamples(sub, samples);
         }
       }
       default -> {}

@@ -20,6 +20,17 @@ final class FindSequenceFuzzer {
       return;
     }
 
+    FuzzSupport.MatcherPair findWalker = pattern.matcher(input);
+    int maxFinds = Math.min(input.length() + 2, 64);
+    for (int i = 0; i < maxFinds; i++) {
+      boolean found = findWalker.find();
+      findWalker.hitEnd();
+      findWalker.requireEnd();
+      if (!found) {
+        break;
+      }
+    }
+
     FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     boolean hasMatch = false;
     int steps = data.consumeInt(1, 32);
