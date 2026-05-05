@@ -48,10 +48,28 @@ final class Nfa {
     FULL_MATCH
   }
 
-  /** A thread in the NFA: an instruction index paired with a capture array. */
+  /** A thread in the NFA: an instruction index paired with capture and end-state metadata. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  private record NfaThread(int id, int[] capture) {}
+  private record NfaThread(int id, int[] capture, int terminalEmptyFlags) {}
+
+  static final class EndStateMatch {
+    private final int[] groups;
+    private final int terminalEmptyFlags;
+
+    private EndStateMatch(int[] groups, int terminalEmptyFlags) {
+      this.groups = groups;
+      this.terminalEmptyFlags = terminalEmptyFlags;
+    }
+
+    int[] groups() {
+      return groups;
+    }
+
+    int terminalEmptyFlags() {
+      return terminalEmptyFlags;
+    }
+  }
 
   private final Prog prog;
   private final int ncapture;
@@ -63,6 +81,7 @@ final class Nfa {
 
   private boolean matched;
   private int[] bestMatch;
+  private int bestTerminalEmptyFlags;
 
   // NfaThread queues: ordered lists of threads. The order is the thread priority.
   private List<NfaThread> runq;
@@ -174,6 +193,43 @@ final class Nfa {
     return result;
   }
 
+  static EndStateMatch searchEndState(Prog prog, String text, int startPos, int searchLimit,
+      int endPos, Anchor anchor, MatchKind kind, int nsubmatch) {
+    if (prog.start() == 0) {
+      return null;
+    }
+
+    boolean anchored = (anchor == Anchor.ANCHORED) || prog.anchorStart();
+    boolean longestMode = (kind != MatchKind.FIRST_MATCH);
+    boolean endmatch = prog.anchorEnd();
+
+    if (kind == MatchKind.FULL_MATCH) {
+      anchored = true;
+      endmatch = true;
+      if (nsubmatch == 0) {
+        nsubmatch = 1;
+      }
+    }
+
+    int ncapture = 2 * Math.max(nsubmatch, 1);
+    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos);
+    nfa.doSearch(text, startPos, searchLimit, anchored);
+
+    if (!nfa.matched) {
+      return null;
+    }
+    if (kind == MatchKind.FULL_MATCH && nfa.bestMatch[1] != endPos) {
+      return null;
+    }
+
+    int[] result = new int[2 * nsubmatch];
+    System.arraycopy(nfa.bestMatch, 0, result, 0, Math.min(result.length, nfa.bestMatch.length));
+    for (int i = nfa.bestMatch.length; i < result.length; i++) {
+      result[i] = -1;
+    }
+    return new EndStateMatch(result, nfa.bestTerminalEmptyFlags);
+  }
+
   /**
    * Main search loop. Iterates over each position in the text starting from {@code startPos} (plus
    * one past the end), stepping the NFA. At each position, starts a new thread if appropriate, then
@@ -206,7 +262,7 @@ final class Nfa {
         // Always use prog.start() (anchored start). Unanchored matching is achieved
         // by starting a new thread at each position. The startUnanchored() entry point
         // (which includes a .*? prefix) is only for the DFA engine.
-        addToThreadq(runq, runqSet, prog.start(), text, pos, cap);
+        addToThreadq(runq, runqSet, prog.start(), text, pos, cap, 0);
       }
 
       // If all threads have died, stop if anchored or we already have a match.
@@ -265,7 +321,8 @@ final class Nfa {
    * @param t0 the current capture array (shared — will be cloned before mutation)
    */
   private void addToThreadq(
-      List<NfaThread> q, Set<Integer> visited, int id0, String text, int pos, int[] t0) {
+      List<NfaThread> q, Set<Integer> visited, int id0, String text, int pos, int[] t0,
+      int terminalEmptyFlags0) {
     if (id0 == 0) {
       return;
     }
@@ -280,11 +337,14 @@ final class Nfa {
     // Index corresponds to stack index. null means "use current t0".
     List<int[]> captureStack = new ArrayList<>();
     captureStack.add(null);
+    List<Integer> terminalEmptyFlagsStack = new ArrayList<>();
+    terminalEmptyFlagsStack.add(terminalEmptyFlags0);
 
     while (!stack.isEmpty()) {
       int last = stack.size() - 1;
       int[] entry = stack.remove(last);
       int[] entryCap = captureStack.remove(last);
+      int terminalEmptyFlags = terminalEmptyFlagsStack.remove(last);
 
       int id = entry[0];
 
@@ -315,23 +375,28 @@ final class Nfa {
           // Push out1 first (lower priority), then out (higher priority).
           stack.add(new int[]{ip.out1, -1});
           captureStack.add(t0);
+          terminalEmptyFlagsStack.add(terminalEmptyFlags);
           stack.add(new int[]{ip.out, -1});
           captureStack.add(t0);
+          terminalEmptyFlagsStack.add(terminalEmptyFlags);
         }
 
         case ALT_MATCH -> {
           // Enqueue this state and also explore the next alt branch.
-          q.add(new NfaThread(id, t0));
+          q.add(new NfaThread(id, t0, terminalEmptyFlags));
           // Explore the next instruction after this one (the other alt branch).
           stack.add(new int[]{ip.out, -1});
           captureStack.add(t0);
+          terminalEmptyFlagsStack.add(terminalEmptyFlags);
           stack.add(new int[]{ip.out1, -1});
           captureStack.add(t0);
+          terminalEmptyFlagsStack.add(terminalEmptyFlags);
         }
 
         case NOP -> {
           stack.add(new int[]{ip.out, -1});
           captureStack.add(null);
+          terminalEmptyFlagsStack.add(terminalEmptyFlags);
         }
 
         case CAPTURE -> {
@@ -341,18 +406,25 @@ final class Nfa {
             newCap[ip.arg] = pos;
             stack.add(new int[]{ip.out, -1});
             captureStack.add(newCap);
+            terminalEmptyFlagsStack.add(terminalEmptyFlags);
           } else {
             // Capture register not tracked; just follow the transition.
             stack.add(new int[]{ip.out, -1});
             captureStack.add(null);
+            terminalEmptyFlagsStack.add(terminalEmptyFlags);
           }
         }
 
         case EMPTY_WIDTH -> {
           int flags = emptyFlags(text, pos, prog.unixLines());
           if ((ip.arg & ~flags) == 0) {
+            int nextTerminalEmptyFlags = terminalEmptyFlags;
+            if (pos == endPos || isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
+              nextTerminalEmptyFlags |= ip.arg;
+            }
             stack.add(new int[]{ip.out, -1});
             captureStack.add(null);
+            terminalEmptyFlagsStack.add(nextTerminalEmptyFlags);
           }
         }
 
@@ -366,10 +438,12 @@ final class Nfa {
             newCap[regIdx] = pos;
             stack.add(new int[]{ip.out, -1});
             captureStack.add(newCap);
+            terminalEmptyFlagsStack.add(terminalEmptyFlags);
           } else if (saved == pos) {
             // Zero-width body match: only exit.
             stack.add(new int[]{ip.out1, -1});
             captureStack.add(t0);
+            terminalEmptyFlagsStack.add(terminalEmptyFlags);
           } else {
             // Progress: push both paths like ALT, respecting greediness.
             int[] newCap = t0.clone();
@@ -379,14 +453,18 @@ final class Nfa {
               // Non-greedy: prefer exit (push body first = lower pri, exit second = higher pri).
               stack.add(new int[]{ip.out, -1});
               captureStack.add(newCap);
+              terminalEmptyFlagsStack.add(terminalEmptyFlags);
               stack.add(new int[]{ip.out1, -1});
               captureStack.add(newCap);
+              terminalEmptyFlagsStack.add(terminalEmptyFlags);
             } else {
               // Greedy: prefer body (push exit first = lower pri, body second = higher pri).
               stack.add(new int[]{ip.out1, -1});
               captureStack.add(newCap);
+              terminalEmptyFlagsStack.add(terminalEmptyFlags);
               stack.add(new int[]{ip.out, -1});
               captureStack.add(newCap);
+              terminalEmptyFlagsStack.add(terminalEmptyFlags);
             }
           }
         }
@@ -394,7 +472,7 @@ final class Nfa {
         case CHAR_RANGE, CHAR_CLASS, MATCH ->
           // These are "real" states. Capture arrays are immutable from this point
           // until a later CAPTURE or PROGRESS_CHECK transition clones them.
-          q.add(new NfaThread(id, t0));
+          q.add(new NfaThread(id, t0, terminalEmptyFlags));
 
         default -> {}
       }
@@ -417,6 +495,7 @@ final class Nfa {
     for (NfaThread t : rq) {
       int id = t.id();
       int[] capture = t.capture();
+      int terminalEmptyFlags = t.terminalEmptyFlags();
 
       if (longest && matched && bestMatch[0] != -1 && capture[0] != -1
           && bestMatch[0] < capture[0]) {
@@ -427,13 +506,13 @@ final class Nfa {
       switch (ip.op) {
         case CHAR_RANGE -> {
           if (cp >= 0 && ip.matchesChar(cp)) {
-            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture);
+            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, terminalEmptyFlags);
           }
         }
 
         case CHAR_CLASS -> {
           if (cp >= 0 && ip.matchesCharClass(cp)) {
-            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture);
+            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, terminalEmptyFlags);
           }
         }
 
@@ -447,6 +526,7 @@ final class Nfa {
                   || (capture[0] == bestMatch[0] && matchPos > bestMatch[1])) {
                 System.arraycopy(capture, 0, bestMatch, 0, ncapture);
                 bestMatch[1] = matchPos;
+                bestTerminalEmptyFlags = terminalEmptyFlags;
                 matched = true;
               }
             } else {
@@ -455,6 +535,7 @@ final class Nfa {
               // but do NOT stop the main loop — threads already in nextq continue.
               System.arraycopy(capture, 0, bestMatch, 0, ncapture);
               bestMatch[1] = matchPos;
+              bestTerminalEmptyFlags = terminalEmptyFlags;
               matched = true;
               // Clear remaining runq entries (they can only find worse matches).
               // We break out of the for-each loop; rq will be cleared after the loop.
@@ -467,6 +548,7 @@ final class Nfa {
           // Optimization: if this is the first thread and we want the match, take it.
           if (longest || rq.indexOf(t) == 0) {
             System.arraycopy(capture, 0, bestMatch, 0, ncapture);
+            bestTerminalEmptyFlags = terminalEmptyFlags;
             matched = true;
           }
         }

@@ -105,6 +105,16 @@ public final class Matcher implements MatchResult {
    */
   private static final int DIRECT_FALLBACK_TEXT_LIMIT = 512;
 
+  private static final int REQUIRE_END_EMPTY_FLAGS =
+      EmptyOp.DOLLAR_END
+          | EmptyOp.END_LINE
+          | EmptyOp.WORD_BOUNDARY
+          | EmptyOp.NON_WORD_BOUNDARY
+          | EmptyOp.UNICODE_WORD_BOUNDARY
+          | EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+
+  private static final int HIT_END_EMPTY_FLAGS = REQUIRE_END_EMPTY_FLAGS | EmptyOp.END_TEXT;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -2202,10 +2212,30 @@ public final class Matcher implements MatchResult {
       return;
     }
     boolean endedAtSensitiveEnd = matchEndsAtSensitiveEnd();
-    lastRequireEnd = endedAtSensitiveEnd && parentPattern.hasEndConstraint();
+    int terminalEmptyFlags = endedAtSensitiveEnd ? terminalEmptyFlagsForAcceptedPath(operation) : 0;
+    lastRequireEnd = (terminalEmptyFlags & REQUIRE_END_EMPTY_FLAGS) != 0;
     lastHitEnd = lastRequireEnd
-        || (endedAtSensitiveEnd
-            && (parentPattern.hasHitEndConstraint() || matchCanExtendAtEnd(operation)));
+        || ((terminalEmptyFlags & HIT_END_EMPTY_FLAGS) != 0)
+        || (endedAtSensitiveEnd && matchCanExtendAtEnd(operation));
+  }
+
+  private int terminalEmptyFlagsForAcceptedPath(MatchOperation operation) {
+    Prog prog = parentPattern.prog();
+    int start = groups[0];
+    int end = operation == MatchOperation.MATCHES ? regionEnd : groups[1];
+    Nfa.MatchKind kind = operation == MatchOperation.MATCHES
+        ? Nfa.MatchKind.FULL_MATCH
+        : Nfa.MatchKind.FIRST_MATCH;
+    Nfa.EndStateMatch match = Nfa.searchEndState(
+        prog, text, start, start, end, Nfa.Anchor.ANCHORED, kind, 1);
+    if (match == null || match.groups()[0] != groups[0] || match.groups()[1] != groups[1]) {
+      return 0;
+    }
+    int flags = match.terminalEmptyFlags();
+    if (prog.anchorEnd()) {
+      flags |= prog.dollarAnchorEnd() ? EmptyOp.DOLLAR_END : EmptyOp.END_TEXT;
+    }
+    return flags;
   }
 
   private boolean matchEndsAtSensitiveEnd() {

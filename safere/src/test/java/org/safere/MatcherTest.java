@@ -1925,6 +1925,16 @@ class MatcherTest {
       assertThat(m.lookingAt()).isTrue();
       assertThat(m.hitEnd()).isFalse();
     }
+
+    @Test
+    @DisplayName("hitEnd tracks whether the matched path used a terminal boundary")
+    void hitEndTracksMatchedPathTerminalBoundaryUse() {
+      assertEndStateAfterFindMatchesJdk("\\ba", "a");
+      assertEndStateAfterFindMatchesJdk("\\Ba", "ba");
+      assertEndStateAfterFindMatchesJdk("(?:\\b|a)", "a");
+      assertEndStateAfterFindMatchesJdk("abc|x\\b", "abc");
+      assertEndStateAfterFindMatchesJdk("a\\b", "a");
+    }
   }
 
   @Nested
@@ -2407,6 +2417,19 @@ class MatcherTest {
       // No end assertions in pattern — match doesn't depend on end position.
       assertThat(m.requireEnd()).isFalse();
     }
+
+    @Test
+    @DisplayName("requireEnd() tracks whether the matched path used a terminal boundary")
+    void requireEndTracksMatchedPathTerminalBoundaryUse() {
+      assertEndStateAfterFindMatchesJdk("\\ba", "a");
+      assertEndStateAfterFindMatchesJdk("\\Ba", "ba");
+      assertEndStateAfterFindMatchesJdk("(?:\\b|a)", "a");
+      assertEndStateAfterFindMatchesJdk("abc|x\\b", "abc");
+      assertEndStateAfterFindMatchesJdk("\\babc\\b", "abc");
+      assertEndStateAfterFindMatchesJdk("abc$", "abc");
+      assertEndStateAfterFindMatchesJdk("abc\\Z", "abc");
+      assertEndStateAfterFindMatchesJdk("abc\\z", "abc");
+    }
   }
 
   @Nested
@@ -2661,6 +2684,21 @@ class MatcherTest {
           .as("end(%d) for /%s/ on %s", group, regex, input)
           .isEqualTo(jdk.end(group));
     }
+  }
+
+  private static void assertEndStateAfterFindMatchesJdk(String regex, String input) {
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = Pattern.compile(regex).matcher(input);
+
+    assertThat(safere.find()).as("find() for /%s/ on %s", regex, input).isEqualTo(jdk.find());
+    assertThat(safere.start()).as("start() for /%s/ on %s", regex, input).isEqualTo(jdk.start());
+    assertThat(safere.end()).as("end() for /%s/ on %s", regex, input).isEqualTo(jdk.end());
+    assertThat(safere.hitEnd())
+        .as("hitEnd() for /%s/ on %s", regex, input)
+        .isEqualTo(jdk.hitEnd());
+    assertThat(safere.requireEnd())
+        .as("requireEnd() for /%s/ on %s", regex, input)
+        .isEqualTo(jdk.requireEnd());
   }
 
   private static String repeatedDotStarCapturePattern(int repetitions, int captures) {
