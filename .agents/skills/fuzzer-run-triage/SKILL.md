@@ -99,11 +99,17 @@ inside the XML.
 When the user wants bugs verified or filed, replay candidates against the current working tree and
 current branch. Do not treat old console output as proof that a bug still exists.
 
-1. Compile the current test classes first if needed:
+1. Install the current SafeRE module and compile the current fuzz test classes first:
 
    ```bash
-   mvn -pl safere-fuzz -am -DskipTests test -q
+   mvn -pl safere -DskipTests install -q
+   mvn -pl safere-fuzz -DskipTests test-compile -q
    ```
+
+   Do not skip the `safere` install step before standalone `safere-fuzz` replays. A command such
+   as `mvn -pl safere-fuzz ... surefire:test` does not rebuild reactor dependencies, so it can
+   resolve an older `org.safere:safere` artifact from the local Maven repository and report bugs
+   that are already fixed on the current branch.
 
 2. Replay saved inputs one at a time by isolating the copied test resource directory under
    `target/test-classes`. This avoids stale build-output inputs and gives an exact
