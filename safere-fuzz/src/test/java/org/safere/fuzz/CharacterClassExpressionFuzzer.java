@@ -40,7 +40,7 @@ final class CharacterClassExpressionFuzzer {
   };
   private static final String[] AMPERSAND_PIECES = {"&", "\\&", "\\Q&\\E"};
   private static final String[] TRAILING_PIECES = {
-      "", "&", "\\&", "\\Q&\\E", "-\\D", "\\Q\\E-\\D"
+      "", "&", "\\&", "\\Q&\\E", "-\\D", "-a", "-&&", "\\Q\\E-\\D"
   };
   private static final Separator[] SEPARATORS = {
       new Separator("", false),
@@ -77,7 +77,8 @@ final class CharacterClassExpressionFuzzer {
       "\\p{javaLowerCase}"
   };
   private static final List<String> INPUTS =
-      List.of("", "a", "b", "c", "&", "-", "0", "1", "x", "_", " ", "\t", "Ā", "é", "\n");
+      List.of("", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_", "`", "x", " ",
+          "\t", "Ā", "é", "\n");
   private static final String[] REGRESSION_REGEXES = {
       "[\\d&&&-\\D]",
       "[\\d&&&\\Q\\E-\\D]",
@@ -98,7 +99,11 @@ final class CharacterClassExpressionFuzzer {
       "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]",
       "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]",
       "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]",
-      "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]"
+      "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]",
+      "[&&[a]&-a]",
+      "[&&[a]&-&&]",
+      "[a\\d&&&\\Q\\E&]",
+      "[^[^b]&\\Q\\E&&\\Q\\E-&&]"
   };
 
   @FuzzTest(maxDuration = "30s")

@@ -978,7 +978,10 @@ final class Parser {
                 && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
               throw new PatternSyntaxException("bad class syntax", pattern, pos);
             }
-            addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+            pos++;
+            if (!addRawAmpersandRangeTailIfPresent(expression)) {
+              addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+            }
             frame.accumulatedClass = expression;
             frame.currentIntersectionOperand = expression;
             frame.pendingScalarItems = new CharClassBuilder();
@@ -987,7 +990,6 @@ final class Parser {
             frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
             frame.parsingIntersectionRight = false;
             frame.intersectionRightStartedAfterCommentsTrivia = false;
-            pos++;
             continue;
           }
           if (c == '&') {
@@ -996,7 +998,8 @@ final class Parser {
             }
             if (countAmpersandsAt(pos) == 1
                 && frame.intersectionRightHasExpression
-                && frame.intersectionRightOnlyNestedClasses) {
+                && frame.intersectionRightOnlyNestedClasses
+                && !rawAmpersandStartsRangeAt(pos)) {
               finishNestedRightBeforeTrailingAmpersand(frame);
               pos++;
               continue;
@@ -1020,7 +1023,10 @@ final class Parser {
                   && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
                 throw new PatternSyntaxException("bad class syntax", pattern, pos);
               }
-              addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+              pos = tail.pos() + 1;
+              if (!addRawAmpersandRangeTailIfPresent(expression)) {
+                addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+              }
               frame.accumulatedClass = expression;
               frame.currentIntersectionOperand = expression;
               frame.pendingScalarItems = new CharClassBuilder();
@@ -1029,7 +1035,6 @@ final class Parser {
               frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
               frame.parsingIntersectionRight = false;
               frame.intersectionRightStartedAfterCommentsTrivia = false;
-              pos = tail.pos() + 1;
               continue;
             }
           }
@@ -1326,6 +1331,7 @@ final class Parser {
             includeSeparatorLiteral
                 ? snapshotPendingExpression(frame)
                 : frame.rawAmpersandLeftExpression;
+        addRawAmpersandRangeTailIfPresent(expression);
         frame.accumulatedClass = new CharClassBuilder().addCharClass(expression);
         frame.currentIntersectionOperand = frame.accumulatedClass;
         frame.pendingScalarItems = new CharClassBuilder();
@@ -1381,7 +1387,9 @@ final class Parser {
     OddAmpersandRunTail tail = inspectOddAmpersandRunTail(pos);
     if (!tail.skippedNormalizedSyntax()) {
       rejectInvalidRangeTailAfterOddAmpersandRun();
-      addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+      if (!addRawAmpersandRangeTailIfPresent(expression)) {
+        addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+      }
     } else {
       pos = tail.pos();
       if (!tail.skippedCommentsTrivia()) {
@@ -1398,12 +1406,18 @@ final class Parser {
         if (tail.skippedCommentsTrivia()) {
           throw new PatternSyntaxException("bad class syntax", pattern, pos);
         }
-        addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+        if (!addRawAmpersandRangeTailIfPresent(expression)) {
+          addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+        }
       }
       if (pattern.charAt(pos) == '&') {
         int tailAmpersands = countAmpersandsAt(pos);
         if (tailAmpersands == 1) {
-          startIntersectionRightAfterOddRunDelimiter(frame, expression, tail);
+          CharClassBuilder intersectionLeft = expression;
+          if (frame.currentIntersectionOperand != null) {
+            intersectionLeft = new CharClassBuilder().addCharClass(frame.currentIntersectionOperand);
+          }
+          startIntersectionRightAfterOddRunDelimiter(frame, intersectionLeft, tail);
           return;
         } else if (tailAmpersands % 2 == 0) {
           addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
@@ -1428,7 +1442,9 @@ final class Parser {
         frame.suppressNegation = true;
         return;
       } else if (!tail.skippedCommentsTrivia()) {
-        addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+        if (!addRawAmpersandRangeTailIfPresent(expression)) {
+          addRangeFlags(expression, '&', '&', flags | ParseFlags.CLASS_NL);
+        }
       }
     }
     frame.accumulatedClass = expression;
@@ -1493,6 +1509,40 @@ final class Parser {
       return false;
     }
     return startsPredefinedClassAt(tail.pos() + 1) || startsPropertyClassAt(tail.pos() + 1);
+  }
+
+  private boolean rawAmpersandStartsRangeAt(int ampersandIndex) {
+    if (ampersandIndex + 1 >= pattern.length() || pattern.charAt(ampersandIndex + 1) != '-') {
+      return false;
+    }
+    int saved = pos;
+    pos = ampersandIndex + 1;
+    boolean hasEndpoint = hasRangeEndpointAfterHyphen();
+    pos = saved;
+    return hasEndpoint;
+  }
+
+  private boolean addRawAmpersandRangeTailIfPresent(CharClassBuilder ccb) {
+    if (pos >= pattern.length() || pattern.charAt(pos) != '-' || !hasRangeEndpointAfterHyphen()) {
+      return false;
+    }
+    pos++;
+    if ((flags & ParseFlags.COMMENTS) != 0) {
+      skipCommentsAndWhitespace();
+    }
+    RangeEndpoint endpoint = parseCCRangeEndpoint();
+    if (endpoint.first < '&') {
+      throw new PatternSyntaxException("invalid character class range", pattern, pos);
+    }
+    addRangeFlags(ccb, '&', endpoint.first, flags | ParseFlags.CLASS_NL);
+    for (int r : endpoint.trailingLiterals) {
+      addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
+    }
+    if (pos < pattern.length() && pattern.charAt(pos) == '&' && countAmpersandsAt(pos) == 1) {
+      addRangeFlags(ccb, '&', '&', flags | ParseFlags.CLASS_NL);
+      pos++;
+    }
+    return true;
   }
 
   private CharClassBuilder snapshotOddAmpersandUnionExpression(ClassExpressionFrame frame) {
