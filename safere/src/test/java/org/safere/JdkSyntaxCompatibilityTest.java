@@ -399,6 +399,21 @@ class JdkSyntaxCompatibilityTest {
               "odd ampersand intersection run before zero-width malformed range",
               "[\\d&&&\\Q\\E-\\D]")),
           Arguments.of(new DialectRejection(
+              "intersection RHS raw ampersand before malformed zero-width range",
+              "[a\\Q\\E&&\\Q\\E\\Q\\E&-\\D]")),
+          Arguments.of(new DialectRejection(
+              "quoted ampersand before intersection RHS malformed range",
+              "[\\Q&\\E&&\\Q\\E&-\\D]")),
+          Arguments.of(new DialectRejection(
+              "raw ampersand separator before malformed zero-width range",
+              "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E-\\D]")),
+          Arguments.of(new DialectRejection(
+              "negated raw ampersand separator before malformed zero-width range",
+              "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E-\\D]")),
+          Arguments.of(new DialectRejection(
+              "negated raw ampersand separator before immediate malformed range",
+              "[^[^b]&\\Q\\E&&-\\D]")),
+          Arguments.of(new DialectRejection(
               "ordinary literal before trailing class intersection after nested class",
               "[[a]b&&]")),
           Arguments.of(new DialectRejection(
@@ -1048,6 +1063,18 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[^b&&[a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& -\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& #x\n -\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[ab\\Q\\E\\Q\\E&&&&&\\Q\\E&\\&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[\\&\\Q\\E&&&&&\\Q\\E\\Q\\E&-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\d0-1&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]",
