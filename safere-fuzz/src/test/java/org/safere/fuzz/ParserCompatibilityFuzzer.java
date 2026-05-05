@@ -33,14 +33,41 @@ final class ParserCompatibilityFuzzer {
       "(?)",
       "(a)",
       "(?:a)",
-      "(?<name>a)"
+      "(?<name>a)",
+      "a\u001C\\^]",
+      "a\u001D\\^]",
+      "a\u001E\\^]",
+      "a\u001F\\^]",
+      "[a\u001Cb]",
+      "[a\u001Db]",
+      "[a\u001Eb]",
+      "[a\u001Fb]"
   };
   private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "(?m)", "(?s)"};
   private static final String[] CONNECTORS =
       {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}"};
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
   private static final List<String> INPUTS =
-      List.of("", "a", "aa", "abc", "def", "0", " ", "\n", "*", "name");
+      List.of(
+          "",
+          "a",
+          "aa",
+          "abc",
+          "def",
+          "0",
+          " ",
+          "\n",
+          "*",
+          "name",
+          "a\u001C^]",
+          "a\u001D^]",
+          "a\u001E^]",
+          "a\u001F^]",
+          "a^]",
+          "\u001C",
+          "\u001D",
+          "\u001E",
+          "\u001F");
 
   @FuzzTest(maxDuration = "30s")
   void parserCompatibility(FuzzedDataProvider data) {
