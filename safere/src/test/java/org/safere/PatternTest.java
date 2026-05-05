@@ -1000,4 +1000,20 @@ class PatternTest {
       assertThat(Pattern.compile("\\777").matcher("?7").matches()).isFalse();
     }
   }
+
+  @Nested
+  @DisplayName("compiler budget")
+  class CompilerBudgetTests {
+
+    @Test
+    @DisplayName("large counted nullable subexpressions compile like JDK")
+    void largeCountedNullableSubexpressionsCompileLikeJdk() {
+      String regex = "(?:" + "a?".repeat(120) + "){900}";
+
+      assertThatCode(() -> java.util.regex.Pattern.compile(regex))
+          .doesNotThrowAnyException();
+      assertThatCode(() -> Pattern.compile(regex))
+          .doesNotThrowAnyException();
+    }
+  }
 }
