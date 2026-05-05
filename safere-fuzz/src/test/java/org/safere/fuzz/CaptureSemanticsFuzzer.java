@@ -7,8 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import org.safere.crosscheck.Matcher;
-import org.safere.crosscheck.Pattern;
 
 final class CaptureSemanticsFuzzer {
   private static final String[] ATOMS = {
@@ -32,7 +30,7 @@ final class CaptureSemanticsFuzzer {
     boolean named = data.consumeBoolean();
     String regex = consumeRegex(data, named);
     String input = consumeCaptureInput(data);
-    Pattern pattern = FuzzSupport.compileOrSkip(regex, 0);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
     if (pattern == null) {
       return;
     }
@@ -68,8 +66,9 @@ final class CaptureSemanticsFuzzer {
     return input.toString();
   }
 
-  private static void assertMatchOperations(Pattern pattern, String input, boolean named) {
-    Matcher matcher = pattern.matcher(input);
+  private static void assertMatchOperations(
+      FuzzSupport.CompiledPattern pattern, String input, boolean named) {
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     observeGroups(matcher, matcher.matches(), named);
 
     matcher = pattern.matcher(input);
@@ -83,7 +82,8 @@ final class CaptureSemanticsFuzzer {
     }
   }
 
-  private static void observeGroups(Matcher matcher, boolean matched, boolean named) {
+  private static void observeGroups(
+      FuzzSupport.MatcherPair matcher, boolean matched, boolean named) {
     matcher.groupCount();
     if (!matched) {
       return;
@@ -101,12 +101,13 @@ final class CaptureSemanticsFuzzer {
     }
   }
 
-  private static void assertReplacementOperations(Pattern pattern, String input, boolean named) {
+  private static void assertReplacementOperations(
+      FuzzSupport.CompiledPattern pattern, String input, boolean named) {
     pattern.matcher(input).replaceAll("[$1]");
     pattern.matcher(input).replaceFirst("[$1]");
     pattern.matcher(input).replaceAll(match -> "[" + match.group(1) + "]");
 
-    Matcher matcher = pattern.matcher(input);
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     StringBuilder builder = new StringBuilder();
     while (matcher.find()) {
       matcher.appendReplacement(builder, "[$1]");

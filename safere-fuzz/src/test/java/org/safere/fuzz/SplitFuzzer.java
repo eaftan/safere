@@ -7,7 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import org.safere.crosscheck.Pattern;
 
 final class SplitFuzzer {
 
@@ -17,7 +16,7 @@ final class SplitFuzzer {
     int flags = FuzzSupport.consumeFlags(data);
     String input = data.consumeString(2048);
     int limit = data.consumeInt(-16, 16);
-    Pattern pattern = FuzzSupport.compileOrSkip(regex, flags);
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
     }

@@ -36,7 +36,7 @@
   <dependencies>
     <dependency>
       <groupId>org.safere</groupId>
-      <artifactId>safere-crosscheck</artifactId>
+      <artifactId>safere</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
