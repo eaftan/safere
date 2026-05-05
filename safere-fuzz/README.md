@@ -57,6 +57,40 @@ JAZZER_FUZZ=1 mvn -pl safere-fuzz -am -Dtest=MatchFuzzer \
   -Dsurefire.failIfNoSpecifiedTests=false -Djazzer.max_duration=2m test
 ```
 
+Collect multiple findings from one run:
+
+```bash
+JAZZER_FUZZ=1 mvn -pl safere-fuzz -am -Dtest=CharacterClassExpressionFuzzer \
+  -Dsurefire.failIfNoSpecifiedTests=false \
+  -Djazzer.max_duration=30m \
+  -Djazzer.keep_going=10 \
+  -Djazzer.reproducer_path=target/fuzz-reproducers \
+  test
+```
+
+`jazzer.keep_going` tells Jazzer to keep fuzzing after distinct findings instead
+of stopping at the first one. The Surefire summary can still report zero
+failures when Jazzer continues successfully, so inspect the XML report for the
+actual findings:
+
+```bash
+rg -n '== Java Exception|AssertionError|CrosscheckException|divergence|DEDUP_TOKEN' \
+  safere-fuzz/target/surefire-reports/TEST-org.safere.fuzz.CharacterClassExpressionFuzzer.xml
+```
+
+Jazzer JUnit runs usually write replayable `crash-*` inputs to the checked-in
+seed directory for the fuzz target, not to `target/fuzz-reproducers`:
+
+```bash
+find safere-fuzz/src/test/resources/org/safere/fuzz/CharacterClassExpressionFuzzerInputs \
+  -type f -name 'crash-*' -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' | sort
+```
+
+The `target/fuzz-reproducers` directory is only for standalone Java reproducers
+when Jazzer writes them, and may not exist even when the XML report contains
+findings. The `.cifuzz-corpus` directory is a persistent coverage corpus, not a
+per-run list of bugs.
+
 ## Findings
 
 When Jazzer finds a valid divergence, crash, hang, or stack overflow:
