@@ -2449,6 +2449,23 @@ class JdkSyntaxCompatibilityTest {
     void escapedMetacharacter(String regex) {
       assertCompiles(regex);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\\©", "\\é", "\\Ā", "\\☃", "\\😀"})
+    @DisplayName("escaped non-ASCII character is literal")
+    void escapedNonAsciiCharacter(String regex) {
+      String literal = regex.substring(1);
+      assertMatchesFull(regex, literal);
+      assertMatchesFull("^" + regex + "$", literal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[\\©]", "[\\é]", "[\\Ā]", "[\\☃]", "[\\😀]"})
+    @DisplayName("escaped non-ASCII character in class is literal")
+    void escapedNonAsciiCharacterInClass(String regex) {
+      String literal = regex.substring(2, regex.length() - 1);
+      assertMatchesFull(regex, literal);
+    }
   }
 
   // ===========================================================================

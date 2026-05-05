@@ -179,6 +179,14 @@ class ParserTest {
       assertThat(re.rune).isEqualTo('_');
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"\\©", "\\é", "\\Ā", "\\☃", "\\😀"})
+    void escapedNonAsciiLiteral(String regex) {
+      Regexp re = parse(regex);
+      assertThat(re.op).isEqualTo(RegexpOp.LITERAL);
+      assertThat(re.rune).isEqualTo(regex.codePointAt(1));
+    }
+
     @Test
     void multipleEscapedPunctuation() {
       Regexp re = parse("\\.\\^\\$\\\\");
@@ -507,6 +515,19 @@ class ParserTest {
       assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
       assertThat(re.charClass.contains('\n')).isTrue();
       assertThat(re.charClass.contains('\t')).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[\\©]", "[\\é]", "[\\Ā]", "[\\☃]", "[\\😀]"})
+    void escapedNonAsciiLiteralInClass(String regex) {
+      int codePoint = regex.codePointAt(2);
+      Regexp re = parse(regex);
+      if (re.op == RegexpOp.LITERAL) {
+        assertThat(re.rune).isEqualTo(codePoint);
+      } else {
+        assertThat(re.op).isEqualTo(RegexpOp.CHAR_CLASS);
+        assertThat(re.charClass.contains(codePoint)).isTrue();
+      }
     }
 
     @Test
