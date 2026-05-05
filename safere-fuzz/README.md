@@ -12,6 +12,7 @@ This module contains Jazzer fuzz targets for SafeRE. The targets use
 - `EscapeSyntaxFuzzer` fuzzes escape syntax and escaped literal compatibility.
 - `DialectSyntaxFuzzer` fuzzes non-JDK-looking syntax and dialect boundary cases.
 - `ParserStackSafetyFuzzer` fuzzes parser nesting depth and stack safety.
+- `CaptureSemanticsFuzzer` fuzzes quantified capture semantics and capture-observing APIs.
 - `MatchFuzzer` fuzzes `matches()`, `lookingAt()`, `find()`, and `find(int)`.
 - `FindSequenceFuzzer` fuzzes stateful matcher API call sequences.
 - `ReplacementFuzzer` fuzzes replacement APIs.
