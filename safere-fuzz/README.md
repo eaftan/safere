@@ -72,6 +72,14 @@ JAZZER_FUZZ=1 mvn -pl safere-fuzz -am -Dtest=CharacterClassExpressionFuzzer \
 `jazzer.keep_going` tells Jazzer to keep fuzzing after distinct findings instead
 of stopping at the first one.
 
+The same settings are available through the helper script, which can run
+multiple fuzz targets sequentially:
+
+```bash
+safere-fuzz/scripts/run-fuzz-test.sh CharacterClassExpressionFuzzer MatchFuzzer
+safere-fuzz/scripts/run-fuzz-test.sh --max-duration 10m --keep-going 5 MatchFuzzer
+```
+
 ## Findings
 
 When Jazzer finds a valid divergence, crash, hang, or stack overflow:
