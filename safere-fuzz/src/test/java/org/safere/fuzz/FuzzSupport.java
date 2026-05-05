@@ -6,6 +6,7 @@
 package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import java.util.List;
 import java.util.regex.PatternSyntaxException;
 import org.safere.crosscheck.Pattern;
 
@@ -24,6 +25,59 @@ final class FuzzSupport {
 
   private FuzzSupport() {}
 
+  static org.safere.Pattern compileCompatibleOrSkip(String regex, int flags) {
+    org.safere.Pattern safeRePattern = null;
+    java.util.regex.Pattern jdkPattern = null;
+    PatternSyntaxException safeReException = null;
+    PatternSyntaxException jdkException = null;
+
+    try {
+      safeRePattern = org.safere.Pattern.compile(regex, flags);
+    } catch (PatternSyntaxException e) {
+      safeReException = e;
+    }
+    try {
+      jdkPattern = java.util.regex.Pattern.compile(regex, flags);
+    } catch (PatternSyntaxException e) {
+      jdkException = e;
+    }
+
+    if (safeRePattern != null && jdkPattern != null) {
+      return safeRePattern;
+    }
+    if (safeReException != null && jdkException != null) {
+      return null;
+    }
+    if (safeReException != null && isIntentionallyUnsupported(regex)) {
+      return null;
+    }
+
+    String safeRe = safeReException == null
+        ? "compiled successfully"
+        : safeReException.getClass().getSimpleName() + ": " + safeReException.getMessage();
+    String jdk = jdkException == null
+        ? "compiled successfully"
+        : jdkException.getClass().getSimpleName() + ": " + jdkException.getMessage();
+    throw new AssertionError("compile divergence for /" + regex + "/ flags=" + flags
+        + "\nSafeRE: " + safeRe + "\nJDK: " + jdk);
+  }
+
+  static void assertFullMatchesJdk(String regex, int flags, List<String> inputs) {
+    org.safere.Pattern safeRePattern = compileCompatibleOrSkip(regex, flags);
+    if (safeRePattern == null) {
+      return;
+    }
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex, flags);
+    for (String input : inputs) {
+      boolean safeReMatches = safeRePattern.matcher(input).matches();
+      boolean jdkMatches = jdkPattern.matcher(input).matches();
+      if (safeReMatches != jdkMatches) {
+        throw new AssertionError("matches() divergence for /" + regex + "/ flags=" + flags
+            + " input=\"" + input + "\"\nSafeRE: " + safeReMatches + "\nJDK: " + jdkMatches);
+      }
+    }
+  }
+
   static Pattern compileOrSkip(String regex, int flags) {
     try {
       return Pattern.compile(regex, flags);
@@ -40,6 +94,54 @@ final class FuzzSupport {
       }
     }
     return flags;
+  }
+
+  static int consumeParserFlags(FuzzedDataProvider data) {
+    int flags = 0;
+    if (data.consumeBoolean()) {
+      flags |= Pattern.COMMENTS;
+    }
+    if (data.consumeBoolean()) {
+      flags |= Pattern.CASE_INSENSITIVE;
+    }
+    if (data.consumeBoolean()) {
+      flags |= Pattern.UNICODE_CASE;
+    }
+    if (data.consumeBoolean()) {
+      flags |= Pattern.UNICODE_CHARACTER_CLASS;
+    }
+    return flags;
+  }
+
+  private static boolean isIntentionallyUnsupported(String regex) {
+    return hasLookaround(regex) || hasBackreference(regex) || hasPossessiveQuantifier(regex);
+  }
+
+  private static boolean hasLookaround(String regex) {
+    return regex.contains("(?=")
+        || regex.contains("(?!")
+        || regex.contains("(?<=")
+        || regex.contains("(?<!");
+  }
+
+  private static boolean hasBackreference(String regex) {
+    return regex.matches(".*\\\\[1-9].*")
+        || regex.contains("\\k<")
+        || regex.contains("\\g{")
+        || regex.contains("\\g");
+  }
+
+  private static boolean hasPossessiveQuantifier(String regex) {
+    for (int i = 1; i < regex.length(); i++) {
+      if (regex.charAt(i) == '+' && isPossessiveQuantifierPrefix(regex.charAt(i - 1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isPossessiveQuantifierPrefix(char c) {
+    return c == '?' || c == '*' || c == '+' || c == '}';
   }
 
   static int consumeIndex(FuzzedDataProvider data, String input) {

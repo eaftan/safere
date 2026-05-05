@@ -257,6 +257,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   README.md, TESTING.md, or other documentation.
 - **Regression tests for bugs**: Any time a bug is found, a regression test
   must be added that fails without the fix and passes with it.
+- **Parser bug fuzz coverage**: Any time a parser bug is found, also add the
+  bug's syntax shape to the relevant grammar-biased fuzz generator axis (for
+  example character-class expressions, escapes, dialect spellings, or nested
+  parser structure), not just to a one-off regression test.
 
 ## Benchmarking
 

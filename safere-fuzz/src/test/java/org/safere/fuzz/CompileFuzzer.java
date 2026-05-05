@@ -7,8 +7,6 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
-import java.util.regex.PatternSyntaxException;
-import org.safere.crosscheck.Pattern;
 
 final class CompileFuzzer {
 
@@ -16,10 +14,6 @@ final class CompileFuzzer {
   void compile(FuzzedDataProvider data) {
     int flags = FuzzSupport.consumeFlags(data);
     String regex = data.consumeRemainingAsString();
-    try {
-      Pattern.compile(regex, flags);
-    } catch (PatternSyntaxException expected) {
-      // Invalid or intentionally unsupported patterns are valid fuzzer inputs.
-    }
+    FuzzSupport.compileCompatibleOrSkip(regex, flags);
   }
 }

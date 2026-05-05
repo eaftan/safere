@@ -7,6 +7,11 @@ This module contains Jazzer fuzz targets for SafeRE. The targets use
 ## Targets
 
 - `CompileFuzzer` fuzzes compile/reject behavior.
+- `ParserCompatibilityFuzzer` fuzzes grammar-biased compile and membership compatibility.
+- `CharacterClassExpressionFuzzer` fuzzes JDK character-class expression syntax.
+- `EscapeSyntaxFuzzer` fuzzes escape syntax and escaped literal compatibility.
+- `DialectSyntaxFuzzer` fuzzes non-JDK-looking syntax and dialect boundary cases.
+- `ParserStackSafetyFuzzer` fuzzes parser nesting depth and stack safety.
 - `MatchFuzzer` fuzzes `matches()`, `lookingAt()`, `find()`, and `find(int)`.
 - `FindSequenceFuzzer` fuzzes stateful matcher API call sequences.
 - `ReplacementFuzzer` fuzzes replacement APIs.
@@ -21,13 +26,13 @@ over the empty input and the checked-in seed corpus. Seed inputs live under
 `src/test/resources/org/safere/fuzz/<FuzzerClass>Inputs/<methodName>/`.
 
 ```bash
-mvn -pl safere-fuzz test
+mvn -pl safere-fuzz -am test
 ```
 
 Run one target:
 
 ```bash
-mvn -pl safere-fuzz -Dtest=MatchFuzzer test
+mvn -pl safere-fuzz -am -Dtest=MatchFuzzer -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
 ## Fuzzing Mode
@@ -41,14 +46,15 @@ SafeRE and `java.util.regex`; sanitizer findings on the JDK oracle are noise for
 this crosscheck workflow.
 
 ```bash
-JAZZER_FUZZ=1 mvn -pl safere-fuzz -Dtest=MatchFuzzer test
+JAZZER_FUZZ=1 mvn -pl safere-fuzz -am -Dtest=MatchFuzzer \
+  -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
 Limit a local run with Jazzer options:
 
 ```bash
-JAZZER_FUZZ=1 mvn -pl safere-fuzz -Dtest=MatchFuzzer \
-  -Djazzer.max_duration=2m test
+JAZZER_FUZZ=1 mvn -pl safere-fuzz -am -Dtest=MatchFuzzer \
+  -Dsurefire.failIfNoSpecifiedTests=false -Djazzer.max_duration=2m test
 ```
 
 ## Findings
