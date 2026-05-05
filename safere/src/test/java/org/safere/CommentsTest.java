@@ -46,6 +46,30 @@ class CommentsTest {
     }
 
     @Test
+    @DisplayName("COMMENTS whitespace set matches JDK parser")
+    void commentsWhitespaceSetMatchesJdkParser() {
+      int[] ignoredByJdkComments = {'\t', '\n', 0x0B, '\f', '\r', ' '};
+      for (int cp : ignoredByJdkComments) {
+        String pattern = "a" + new String(Character.toChars(cp)) + "b";
+        assertThat(Pattern.compile(pattern, Pattern.COMMENTS).matcher("ab").matches())
+            .as("U+%04X should be ignored in COMMENTS mode", cp)
+            .isTrue();
+      }
+
+      int[] literalInJdkComments = {0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0x1680, 0x2028, 0x2029};
+      for (int cp : literalInJdkComments) {
+        String ch = new String(Character.toChars(cp));
+        Pattern p = Pattern.compile("a" + ch + "\\^]", Pattern.COMMENTS | Pattern.MULTILINE);
+        assertThat(p.matcher("a" + ch + "^]").matches())
+            .as("U+%04X should remain literal in COMMENTS mode", cp)
+            .isTrue();
+        assertThat(p.matcher("a^]").matches())
+            .as("U+%04X should not be ignored in COMMENTS mode", cp)
+            .isFalse();
+      }
+    }
+
+    @Test
     @DisplayName("# starts a comment to end of line")
     void hashComment() {
       Pattern p = Pattern.compile("a # match 'a'\nb", Pattern.COMMENTS);
@@ -145,6 +169,30 @@ class CommentsTest {
       Pattern p = Pattern.compile("[\\ ]", Pattern.COMMENTS);
       assertThat(p.matcher(" ").matches()).isTrue();
       assertThat(p.matcher("a").matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("COMMENTS character-class whitespace set matches JDK parser")
+    void commentsCharacterClassWhitespaceSetMatchesJdkParser() {
+      int[] ignoredByJdkComments = {'\t', '\n', 0x0B, '\f', '\r', ' '};
+      for (int cp : ignoredByJdkComments) {
+        String pattern = "[a" + new String(Character.toChars(cp)) + "b]";
+        Pattern p = Pattern.compile(pattern, Pattern.COMMENTS);
+        assertThat(p.matcher("a").matches()).isTrue();
+        assertThat(p.matcher("b").matches()).isTrue();
+        assertThat(p.matcher(new String(Character.toChars(cp))).matches())
+            .as("U+%04X should be ignored inside COMMENTS character classes", cp)
+            .isFalse();
+      }
+
+      int[] literalInJdkComments = {0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0x1680, 0x2028, 0x2029};
+      for (int cp : literalInJdkComments) {
+        String ch = new String(Character.toChars(cp));
+        Pattern p = Pattern.compile("[a" + ch + "b]", Pattern.COMMENTS);
+        assertThat(p.matcher(ch).matches())
+            .as("U+%04X should remain literal inside COMMENTS character classes", cp)
+            .isTrue();
+      }
     }
 
     @Test

@@ -77,6 +77,10 @@ final class Parser {
     this.runeMax = Utils.MAX_RUNE;
   }
 
+  private static boolean isCommentsWhitespace(int cp) {
+    return cp == ' ' || ('\t' <= cp && cp <= '\r');
+  }
+
   /**
    * Parses a regular expression pattern into a {@link Regexp} AST.
    *
@@ -113,7 +117,7 @@ final class Parser {
         if (pos < pattern.length()) {
           pos++;
         }
-      } else if (Character.isWhitespace(c)) {
+      } else if (isCommentsWhitespace(c)) {
         pos += Character.charCount(c);
       } else {
         break;
@@ -1738,7 +1742,7 @@ final class Parser {
   private int skipCommentsAndWhitespaceAt(int index) {
     while (index < pattern.length()) {
       int cp = pattern.codePointAt(index);
-      if (Character.isWhitespace(cp)) {
+      if (isCommentsWhitespace(cp)) {
         index += Character.charCount(cp);
         continue;
       }
