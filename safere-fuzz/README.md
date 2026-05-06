@@ -85,6 +85,8 @@ The helper script records each fuzzer's combined stdout/stderr stream under
 `safere-fuzz/target/fuzz-logs/<run-id>/<Fuzzer>.log`. Use these logs alongside
 Surefire XML reports when triaging `jazzer.keep_going` runs, since the XML does
 not always preserve every console detail needed to map findings to crash inputs.
+When one fuzzer exits with findings, the helper still runs the remaining
+requested fuzzers and reports the failed targets at the end.
 
 ## Findings
 

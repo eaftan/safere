@@ -121,8 +121,11 @@ printf '  %s\n' "${TESTS[@]}"
 
 mkdir -p "$LOG_DIR"
 
+FAILED_TESTS=()
+
 for test_name in "${TESTS[@]}"; do
   log_file="$LOG_DIR/$test_name.log"
+  set +e
   {
     echo "=== Running $test_name (max_duration=$MAX_DURATION, keep_going=$KEEP_GOING) ==="
     echo "log_file: $log_file"
@@ -134,4 +137,22 @@ for test_name in "${TESTS[@]}"; do
       -Djazzer.reproducer_path=target/fuzz-reproducers \
       test
   } 2>&1 | tee "$log_file"
+  test_status="${PIPESTATUS[0]}"
+  set -e
+  if [ "$test_status" -eq 0 ]; then
+    echo "=== Completed $test_name: PASS ===" | tee -a "$log_file"
+  else
+    echo "=== Completed $test_name: FAIL (exit $test_status) ===" | tee -a "$log_file"
+    FAILED_TESTS+=("$test_name:$test_status")
+  fi
 done
+
+if [ "${#FAILED_TESTS[@]}" -gt 0 ]; then
+  echo
+  echo "=== Fuzz run completed with failures ==="
+  printf '  %s\n' "${FAILED_TESTS[@]}"
+  exit 1
+fi
+
+echo
+echo "=== Fuzz run completed successfully ==="
