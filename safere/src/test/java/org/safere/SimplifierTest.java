@@ -8,6 +8,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -274,6 +275,20 @@ class SimplifierTest {
     Regexp sre = Simplifier.simplify(re);
     // Already-simple regexps should return the same object.
     assertThat(sre).isSameAs(re);
+  }
+
+  @Test
+  void deeplyNestedCapturesRemainStackSafeDuringCompileSimplification() {
+    String regex = "(".repeat(10_000) + "a" + ")".repeat(10_000) + "*";
+
+    assertThatNoException().isThrownBy(() -> Pattern.compile(regex));
+  }
+
+  @Test
+  void deeplyNestedSimpleGroupsRemainStackSafeDuringSimplification() {
+    Regexp re = Parser.parse("(?:".repeat(10_000) + "a" + ")".repeat(10_000), FLAGS);
+
+    assertThat(Simplifier.simplify(re).toString()).isEqualTo("a");
   }
 
   @Test
