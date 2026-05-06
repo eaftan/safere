@@ -12,9 +12,20 @@ final class FindSequenceFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
-    String regex = data.consumeString(256);
-    int flags = FuzzSupport.consumeFlags(data);
-    String input = data.consumeString(2048);
+    assertTerminalRepeatEndStateSamplingStackSafe();
+
+    String regex;
+    int flags;
+    String input;
+    if (data.consumeBoolean()) {
+      regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
+      flags = 0;
+      input = data.consumeBoolean() ? "a" : "a!";
+    } else {
+      regex = data.consumeString(256);
+      flags = FuzzSupport.consumeFlags(data);
+      input = data.consumeString(2048);
+    }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
@@ -72,5 +83,28 @@ final class FindSequenceFuzzer {
         default -> throw new AssertionError();
       }
     }
+  }
+
+  private static void assertTerminalRepeatEndStateSamplingStackSafe() {
+    org.safere.Pattern pattern = org.safere.Pattern.compile(nestedCapturingGroups(512) + "*");
+
+    org.safere.Matcher matches = pattern.matcher("a");
+    if (!matches.matches() || !matches.hitEnd() || matches.requireEnd()) {
+      throw new AssertionError("deep terminal repeat matches() end-state divergence");
+    }
+
+    org.safere.Matcher lookingAt = pattern.matcher("a!");
+    if (!lookingAt.lookingAt() || lookingAt.hitEnd()) {
+      throw new AssertionError("deep terminal repeat lookingAt() end-state divergence");
+    }
+
+    org.safere.Matcher find = pattern.matcher("a");
+    if (!find.find() || !find.hitEnd() || find.requireEnd()) {
+      throw new AssertionError("deep terminal repeat find() end-state divergence");
+    }
+  }
+
+  private static String nestedCapturingGroups(int depth) {
+    return "(".repeat(depth) + "a" + ")".repeat(depth);
   }
 }
