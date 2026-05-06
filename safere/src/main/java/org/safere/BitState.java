@@ -424,7 +424,8 @@ final class BitState {
         }
 
         case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags = Nfa.emptyFlags(text, pos, prog.unixLines());
+          int curFlags =
+              Nfa.emptyFlags(text, pos, prog.unixLines(), prog.hasGraphemeClusterBoundary());
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);

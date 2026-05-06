@@ -128,6 +128,10 @@ final class Dfa {
   private final Prog prog;
   private final int maxStates;
   private final boolean hasGraphemeClusterBoundary;
+  private final int stateEmptyFlagsMask;
+  private final int startCacheEmptyFlagsMask;
+  private final int anchoredCacheBit;
+  private final int reverseCacheBit;
 
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
@@ -174,7 +178,7 @@ final class Dfa {
    * character. This gives at most 2 × 2 × 1024 × 2 × 2 combinations. Caching avoids the expensive
    * {@link #expand} call and its {@code Arrays.copyOf} allocation on every DFA search.
    */
-  private final State[] startStateByContext = new State[16_384];
+  private final State[] startStateByContext;
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -207,6 +211,15 @@ final class Dfa {
     this.prog = prog;
     this.maxStates = maxStates;
     this.hasGraphemeClusterBoundary = prog.hasGraphemeClusterBoundary();
+    this.stateEmptyFlagsMask =
+        hasGraphemeClusterBoundary
+            ? EmptyOp.ALL_FLAGS
+            : EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+    this.startCacheEmptyFlagsMask =
+        hasGraphemeClusterBoundary ? EmptyOp.ALL_FLAGS : 0x7F;
+    this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
+    this.anchoredCacheBit = reverseCacheBit << 1;
+    this.startStateByContext = new State[anchoredCacheBit << 1];
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.asciiClassMap = setup.asciiClassMap;
@@ -501,7 +514,8 @@ final class Dfa {
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags = Nfa.emptyFlags(text, pos, prog.unixLines());
+    int emptyFlags =
+        Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeClusterBoundary);
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
@@ -517,8 +531,8 @@ final class Dfa {
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
     // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
     // start state.
-    int cacheKey = (anchored ? 8192 : 0) | (reverseContext ? 4096 : 0)
-        | ((emptyFlags & EmptyOp.ALL_FLAGS) << 2) | (lastWord ? 2 : 0)
+    int cacheKey = (anchored ? anchoredCacheBit : 0) | (reverseContext ? reverseCacheBit : 0)
+        | ((emptyFlags & startCacheEmptyFlagsMask) << 2) | (lastWord ? 2 : 0)
         | (lastUnicodeWord ? 1 : 0);
     State cached = startStateByContext[cacheKey];
     if (cached != null) {
@@ -527,7 +541,7 @@ final class Dfa {
 
     computeBuf[0] = startInst;
     int[] insts = expand(computeBuf, 1, emptyFlags);
-    int flags = emptyFlags & EmptyOp.ALL_FLAGS;
+    int flags = emptyFlags & stateEmptyFlagsMask;
     if (hasMatch(insts)) {
       flags |= FLAG_MATCH;
     }
@@ -612,7 +626,8 @@ final class Dfa {
     // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
       // Compute empty flags for end-of-text, but override word boundary using state context.
-      int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines());
+      int emptyFlags =
+          Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
       // At end-of-text the "current" character is not a word char.
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
@@ -643,7 +658,7 @@ final class Dfa {
       if (nextInsts.length == 0) {
         return deadState;
       }
-      int flags = emptyFlags & EmptyOp.ALL_FLAGS;
+      int flags = emptyFlags & stateEmptyFlagsMask;
       if (hasMatch(nextInsts)) {
         flags |= FLAG_MATCH;
       }
@@ -725,7 +740,7 @@ final class Dfa {
       // \b fires but expand() wouldn't satisfy the second \b because WORD_BOUNDARY
       // was stripped from the state's cached emptyFlags.
       int reExpandEmptyFlags =
-          (s.flags & EmptyOp.ALL_FLAGS) | wordBeforeFlags | unicodeWordBeforeFlags;
+          (s.flags & stateEmptyFlagsMask) | wordBeforeFlags | unicodeWordBeforeFlags;
       if (endLineHere) {
         reExpandEmptyFlags |= EmptyOp.END_LINE;
       }
@@ -782,7 +797,8 @@ final class Dfa {
     // word boundary (depends on the next character) and END_LINE (depends on what's at
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
-    int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines());
+    int emptyFlags =
+        Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
     emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
         | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY
         | EmptyOp.END_LINE);
@@ -800,7 +816,7 @@ final class Dfa {
       return deadState;
     }
 
-    int flags = emptyFlags & EmptyOp.ALL_FLAGS;
+    int flags = emptyFlags & stateEmptyFlagsMask;
     if (hasMatchFromDeferred) {
       // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
       // character and reached a MATCH instruction. This match is at position `pos` (before

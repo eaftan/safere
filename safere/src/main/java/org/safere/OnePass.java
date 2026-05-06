@@ -105,6 +105,9 @@ final class OnePass {
   /** When true, only {@code '\n'} is recognized as a line terminator. */
   private final boolean unixLines;
 
+  /** Whether empty-width checks need the grapheme-cluster boundary flag. */
+  private final boolean hasGraphemeClusterBoundary;
+
   /**
    * Bitset indicating which states have match actions. Bit {@code s} is set if
    * {@code matchAction[s] != NO_ACTION}. Used to skip the {@code matchAction[]} array load for
@@ -114,7 +117,7 @@ final class OnePass {
   private final long matchStateBits;
 
   private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd,
-      boolean dollarAnchorEnd, boolean unixLines) {
+      boolean dollarAnchorEnd, boolean unixLines, boolean hasGraphemeClusterBoundary) {
     int numStates = actions.length;
     int nc = (numStates > 0) ? actions[0].length : 0;
     this.numClasses = nc;
@@ -128,6 +131,7 @@ final class OnePass {
     this.anchorEnd = anchorEnd;
     this.dollarAnchorEnd = dollarAnchorEnd;
     this.unixLines = unixLines;
+    this.hasGraphemeClusterBoundary = hasGraphemeClusterBoundary;
 
     // Pre-compute match state bitset.
     long bits = 0;
@@ -320,7 +324,7 @@ final class OnePass {
     long[][] trimmedActions = Arrays.copyOf(actions, stateCount);
     long[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
     return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd(),
-        prog.dollarAnchorEnd(), prog.unixLines());
+        prog.dollarAnchorEnd(), prog.unixLines(), prog.hasGraphemeClusterBoundary());
   }
 
   /** Builds sorted code point boundaries from all CHAR_RANGE and CHAR_CLASS instructions. */
@@ -405,7 +409,11 @@ final class OnePass {
       if ((msb & (1L << state)) != 0) {
         long matchAct = ma[state];
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
-        if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines)) == 0) {
+        if (reqEmpty == 0
+            || (reqEmpty
+                    & ~Nfa.emptyFlags(
+                        text, pos, unixLines, hasGraphemeClusterBoundary))
+                == 0) {
           int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
           if (capMask != 0) {
             applyCaptures(capMask, pos, cap);
@@ -447,7 +455,8 @@ final class OnePass {
       if (conditions != 0) {
         int reqEmpty = (int) (conditions & EMPTY_MASK);
         if (reqEmpty != 0) {
-          int curEmpty = Nfa.emptyFlags(text, pos, unixLines);
+          int curEmpty =
+              Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary);
           if ((reqEmpty & ~curEmpty) != 0) {
             break;
           }
@@ -465,7 +474,9 @@ final class OnePass {
     if (pos == endPos && (msb & (1L << state)) != 0) {
       long matchAct = ma[state];
       int reqEmpty = (int) (matchAct & EMPTY_MASK);
-      if (reqEmpty == 0 || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines)) == 0) {
+      if (reqEmpty == 0
+          || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary))
+              == 0) {
         int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
         if (capMask != 0) {
           applyCaptures(capMask, pos, cap);

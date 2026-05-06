@@ -37,6 +37,7 @@ final class Prog {
   private boolean unixLines;
   private int numLoopRegs;
   private boolean requiresPikeNfaCaptureSemantics;
+  private boolean hasGraphemeClusterBoundary;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -78,6 +79,7 @@ final class Prog {
    */
   public void freeze() {
     instArray = instructions.toArray(new Inst[0]);
+    hasGraphemeClusterBoundary = computeHasGraphemeClusterBoundary();
   }
 
   /** Returns the start instruction index for anchored matching. */
@@ -208,9 +210,13 @@ final class Prog {
 
   /** Returns true if this program contains a {@code \b{g}} assertion. */
   boolean hasGraphemeClusterBoundary() {
-    int n = size();
+    return hasGraphemeClusterBoundary;
+  }
+
+  private boolean computeHasGraphemeClusterBoundary() {
+    int n = instArray.length;
     for (int i = 0; i < n; i++) {
-      Inst ip = inst(i);
+      Inst ip = instArray[i];
       if (ip.op == InstOp.EMPTY_WIDTH
           && (ip.arg & EmptyOp.GRAPHEME_CLUSTER_BOUNDARY) != 0) {
         return true;

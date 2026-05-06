@@ -416,7 +416,7 @@ final class Nfa {
         }
 
         case EMPTY_WIDTH -> {
-          int flags = emptyFlags(text, pos, prog.unixLines());
+          int flags = emptyFlags(text, pos, prog.unixLines(), prog.hasGraphemeClusterBoundary());
           if ((ip.arg & ~flags) == 0) {
             int nextTerminalEmptyFlags = terminalEmptyFlags;
             if (pos == endPos || isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
@@ -610,6 +610,11 @@ final class Nfa {
    * @return a bitmask of {@link EmptyOp} flags
    */
   static int emptyFlags(String text, int pos, boolean unixLines) {
+    return emptyFlags(text, pos, unixLines, true);
+  }
+
+  static int emptyFlags(
+      String text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
     int flags = 0;
 
     // ^ and \A
@@ -690,7 +695,7 @@ final class Nfa {
       flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     }
 
-    if (isGraphemeClusterBoundary(text, pos)) {
+    if (includeGraphemeClusterBoundary && isGraphemeClusterBoundary(text, pos)) {
       flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
     }
 
