@@ -273,11 +273,114 @@ class CharClassTest {
   }
 
   @Test
+  void removeRangeBeforeAllRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(100, 110)
+            .addRange(200, 210)
+            .removeRange(10, 20)
+            .build();
+
+    assertRanges(cc, 100, 110, 200, 210);
+  }
+
+  @Test
+  void removeRangeAfterAllRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(100, 110)
+            .removeRange(200, 210)
+            .build();
+
+    assertRanges(cc, 10, 20, 100, 110);
+  }
+
+  @Test
+  void removeRangeTrimsLeftSide() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(100, 110)
+            .removeRange(5, 12)
+            .build();
+
+    assertRanges(cc, 13, 20, 100, 110);
+  }
+
+  @Test
+  void removeRangeTrimsRightSide() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(100, 110)
+            .removeRange(18, 30)
+            .build();
+
+    assertRanges(cc, 10, 17, 100, 110);
+  }
+
+  @Test
+  void removeRangeRemovesAcrossMultipleRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(10, 20)
+            .addRange(30, 40)
+            .addRange(50, 60)
+            .removeRange(15, 55)
+            .build();
+
+    assertRanges(cc, 10, 14, 56, 60);
+  }
+
+  @Test
+  void removeRangeHandlesEmptyAndBoundaryRanges() {
+    CharClass cc =
+        new CharClassBuilder()
+            .addRange(0, 20)
+            .addRange(Utils.MAX_RUNE - 20, Utils.MAX_RUNE)
+            .removeRange(20, 10)
+            .removeRange(0, 0)
+            .removeRange(Utils.MAX_RUNE, Utils.MAX_RUNE)
+            .build();
+
+    assertRanges(cc, 1, 20, Utils.MAX_RUNE - 20, Utils.MAX_RUNE - 1);
+  }
+
+  @Test
   void removeEntireRange() {
     CharClassBuilder builder = new CharClassBuilder();
     builder.addRange('a', 'c');
     builder.removeRange('a', 'c');
     assertThat(builder.isEmpty()).isTrue();
+  }
+
+  @Test
+  void randomizedAddAndRemoveRangeMatchesBitSetReferenceModel() {
+    int domainSize = 4096;
+    Random random = new Random(0x5AFE_290L);
+
+    for (int trial = 0; trial < 200; trial++) {
+      CharClassBuilder builder = new CharClassBuilder();
+      BitSet expected = new BitSet(domainSize);
+
+      for (int step = 0; step < 300; step++) {
+        int a = random.nextInt(domainSize);
+        int b = random.nextInt(domainSize);
+        int lo = Math.min(a, b);
+        int hi = Math.max(a, b);
+
+        if (random.nextBoolean()) {
+          builder.addRange(lo, hi);
+          expected.set(lo, hi + 1);
+        } else {
+          builder.removeRange(lo, hi);
+          expected.clear(lo, hi + 1);
+        }
+      }
+
+      assertMatchesReferenceModel(builder.build(), expected, domainSize);
+    }
   }
 
   @Test
