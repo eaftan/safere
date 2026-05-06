@@ -921,7 +921,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       Regexp node = stack.pop();
       switch (node.op) {
         case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-             NO_WORD_BOUNDARY -> {}
+             NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {}
         case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
         case CONCAT -> {
           if (node.subs != null) {
@@ -1069,6 +1069,8 @@ final class Compiler extends Walker<Compiler.Frag> {
         }
         yield emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
       }
+
+      case GRAPHEME_CLUSTER_BOUNDARY -> emptyWidth(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY);
 
       default -> {
         failed = true;

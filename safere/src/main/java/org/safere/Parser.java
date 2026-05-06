@@ -289,16 +289,15 @@ final class Parser {
     if ((flags & ParseFlags.PERL_B) != 0
         && pos + 1 < pattern.length()
         && (pattern.charAt(pos + 1) == 'b' || pattern.charAt(pos + 1) == 'B')) {
-      // \b{g}: grapheme cluster boundary — accepted for JDK compatibility.
-      // Approximated as an empty match (matches at every position).
+      // \b{g}: grapheme cluster boundary.
       if (pattern.charAt(pos + 1) == 'b'
           && pos + 4 < pattern.length()
           && pattern.charAt(pos + 2) == '{'
           && pattern.charAt(pos + 3) == 'g'
           && pattern.charAt(pos + 4) == '}') {
         pos += 5; // '\\', 'b', '{', 'g', '}'
-        pushRegexp(Regexp.emptyMatch(flags));
-        return false;
+        pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
+        return true;
       }
       pushWordBoundary(pattern.charAt(pos + 1) == 'b');
       pos += 2; // '\\', 'b' or 'B'
@@ -584,6 +583,7 @@ final class Parser {
       case ANY_CHAR -> Regexp.anyChar(flags);
       case WORD_BOUNDARY -> Regexp.wordBoundary(flags);
       case NO_WORD_BOUNDARY -> Regexp.noWordBoundary(flags);
+      case GRAPHEME_CLUSTER_BOUNDARY -> Regexp.graphemeClusterBoundary(flags);
       default -> Regexp.emptyMatch(flags);
     };
     pushRegexp(re);
@@ -644,7 +644,7 @@ final class Parser {
       Regexp current = pending.removeLast();
       switch (current.op) {
         case EMPTY_MATCH, BEGIN_LINE, END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY,
-            BEGIN_TEXT, END_TEXT -> {
+            GRAPHEME_CLUSTER_BOUNDARY, BEGIN_TEXT, END_TEXT -> {
           // Zero-width by definition.
         }
         case CAPTURE, NON_CAPTURE, STAR, PLUS, QUEST, REPEAT ->

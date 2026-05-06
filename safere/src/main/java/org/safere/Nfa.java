@@ -690,7 +690,41 @@ final class Nfa {
       flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     }
 
+    if (isGraphemeClusterBoundary(text, pos)) {
+      flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+    }
+
     return flags;
+  }
+
+  /**
+   * Returns true if {@code pos} is a grapheme cluster boundary for SafeRE's supported
+   * approximation of JDK {@code \X}: CRLF is atomic, and combining marks extend the preceding
+   * cluster.
+   */
+  static boolean isGraphemeClusterBoundary(String text, int pos) {
+    if (pos < 0 || pos > text.length()) {
+      return false;
+    }
+    if (pos == 0 || pos == text.length()) {
+      return true;
+    }
+    char prevChar = text.charAt(pos - 1);
+    char nextChar = text.charAt(pos);
+    if (Character.isHighSurrogate(prevChar) && Character.isLowSurrogate(nextChar)) {
+      return false;
+    }
+    if (prevChar == '\r' && nextChar == '\n') {
+      return false;
+    }
+    return !isCombiningMark(text.codePointAt(pos));
+  }
+
+  private static boolean isCombiningMark(int c) {
+    int type = Character.getType(c);
+    return type == Character.NON_SPACING_MARK
+        || type == Character.ENCLOSING_MARK
+        || type == Character.COMBINING_SPACING_MARK;
   }
 
   /** Returns true if the code point is a word character ({@code [A-Za-z0-9_]}). */

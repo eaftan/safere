@@ -44,14 +44,14 @@ final class OnePass {
   // -------------------------------------------------------------------------
   // Action encoding: each action is packed into a single long.
   //
-  //   bits  0-7 : empty-width flags required for this transition
-  //   bits  8-27: capture mask (which capture registers to set)
-  //   bits 28-63: next state index
+  //   bits  0-9 : empty-width flags required for this transition
+  //   bits 10-29: capture mask (which capture registers to set)
+  //   bits 30-63: next state index
   //
   // Special value: NO_ACTION (-1L) means no valid transition.
   // -------------------------------------------------------------------------
 
-  private static final int EMPTY_BITS = 9;
+  private static final int EMPTY_BITS = 10;
   private static final int CAP_SHIFT = EMPTY_BITS;
   private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS;
   private static final long EMPTY_MASK = (1L << EMPTY_BITS) - 1;
