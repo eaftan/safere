@@ -19,13 +19,18 @@ final class ParserStackSafetyFuzzer {
       FuzzSupport.assertFullMatchesJdk(nestedCharacterClass(depth), 0, INPUTS);
       FuzzSupport.assertFullMatchesJdk(nestedGroups(depth), 0, INPUTS);
       FuzzSupport.assertFullMatchesJdk(quantifiedNestedCaptures(depth), 0, INPUTS);
+      FuzzSupport.assertFullMatchesJdk(nestedCountedRepeat(depth, "{0,2}"), 0, INPUTS);
     }
 
     int depth = data.consumeInt(0, 512);
-    switch (data.consumeInt(0, 2)) {
+    switch (data.consumeInt(0, 3)) {
       case 0 -> FuzzSupport.assertFullMatchesJdk(nestedCharacterClass(depth), 0, INPUTS);
       case 1 -> FuzzSupport.assertFullMatchesJdk(nestedGroups(depth), 0, INPUTS);
-      default -> FuzzSupport.assertFullMatchesJdk(quantifiedNestedCaptures(depth), 0, INPUTS);
+      case 2 -> FuzzSupport.assertFullMatchesJdk(quantifiedNestedCaptures(depth), 0, INPUTS);
+      default -> {
+        String quantifier = data.pickValue(List.of("{0}", "{1}", "{0,2}", "{1,2}"));
+        FuzzSupport.assertFullMatchesJdk(nestedCountedRepeat(depth, quantifier), 0, INPUTS);
+      }
     }
   }
 
@@ -39,5 +44,9 @@ final class ParserStackSafetyFuzzer {
 
   private static String quantifiedNestedCaptures(int depth) {
     return "(".repeat(depth) + "a" + ")".repeat(depth) + "*";
+  }
+
+  private static String nestedCountedRepeat(int depth, String quantifier) {
+    return nestedGroups(depth) + quantifier;
   }
 }

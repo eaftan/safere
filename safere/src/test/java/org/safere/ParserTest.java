@@ -64,6 +64,18 @@ class ParserTest {
     return pattern.toString();
   }
 
+  private static String nestedNonCapturingGroups(int depth, String atom) {
+    StringBuilder pattern = new StringBuilder(depth * 3 + atom.length() + depth);
+    for (int i = 0; i < depth; i++) {
+      pattern.append("(?:");
+    }
+    pattern.append(atom);
+    for (int i = 0; i < depth; i++) {
+      pattern.append(')');
+    }
+    return pattern.toString();
+  }
+
   private static Regexp simplify(String pattern) {
     return Simplifier.simplify(parse(pattern));
   }
@@ -718,6 +730,15 @@ class ParserTest {
       assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
       assertThat(re.min).isEqualTo(0);
       assertThat(re.max).isEqualTo(5);
+    }
+
+    @Test
+    void countedRepeatAfterDeeplyNestedGroupedAtomIsStackSafe() {
+      Regexp re = parse(nestedNonCapturingGroups(5000, "a") + "{2}");
+
+      assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
+      assertThat(re.min).isEqualTo(2);
+      assertThat(re.max).isEqualTo(2);
     }
 
     @Test
