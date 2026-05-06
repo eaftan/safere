@@ -8,6 +8,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
@@ -2453,6 +2454,20 @@ class MatcherTest {
       assertEndStateAfterFindMatchesJdk("abc$", "abc");
       assertEndStateAfterFindMatchesJdk("abc\\Z", "abc");
       assertEndStateAfterFindMatchesJdk("abc\\z", "abc");
+    }
+
+    @Test
+    @DisplayName("terminal extension sampling is stack-safe through deep groups")
+    @DisabledForCrosscheck("JDK java.util.regex can overflow on this intentionally deep pattern")
+    void terminalExtensionSamplingIsStackSafeThroughDeepGroups() {
+      String regex = "(".repeat(10_000) + "a" + ")".repeat(10_000) + "*$";
+
+      assertThatNoException()
+          .isThrownBy(() -> {
+            Matcher matcher = Pattern.compile(regex).matcher("a");
+            assertThat(matcher.find()).isTrue();
+            assertThat(matcher.hitEnd()).isTrue();
+          });
     }
   }
 

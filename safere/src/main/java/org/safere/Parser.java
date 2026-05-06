@@ -59,6 +59,62 @@ final class Parser {
     }
   }
 
+  private static final class RepeatCountFrame {
+    final Regexp re;
+    final int multiplier;
+    int nextSub;
+    int cost;
+    boolean hasRepeat;
+
+    RepeatCountFrame(Regexp re) {
+      this.re = re;
+      if (re.op == RegexpOp.REPEAT) {
+        int repeatMultiplier = re.max;
+        if (repeatMultiplier < 0) {
+          repeatMultiplier = re.min;
+        }
+        if (repeatMultiplier <= 0) {
+          repeatMultiplier = 1;
+        }
+        multiplier = repeatMultiplier;
+      } else {
+        multiplier = 1;
+      }
+      cost = re.op == RegexpOp.CONCAT ? 0 : 1;
+    }
+
+    void addChild(RepeatCount child, int limit) {
+      switch (re.op) {
+        case ALTERNATE -> {
+          cost = Math.max(cost, child.cost);
+          hasRepeat |= child.hasRepeat;
+        }
+        case CONCAT -> {
+          if (child.hasRepeat) {
+            cost = addSaturated(cost, child.cost, limit);
+            hasRepeat = true;
+          }
+        }
+        default -> {
+          if (child.cost > cost) {
+            cost = child.cost;
+            hasRepeat = child.hasRepeat;
+          }
+        }
+      }
+    }
+
+    RepeatCount finish(int limit) {
+      int subCost = cost;
+      boolean subHasRepeat = hasRepeat;
+      if (re.op == RegexpOp.CONCAT && !subHasRepeat) {
+        subCost = 1;
+      }
+      int totalCost = multiplySaturated(multiplier, subCost, limit);
+      return new RepeatCount(totalCost, re.op == RegexpOp.REPEAT || subHasRepeat);
+    }
+  }
+
   // Parse state
   private int flags;
   private final String pattern;
@@ -700,66 +756,25 @@ final class Parser {
   }
 
   private static RepeatCount repeatCount(Regexp re, int limit) {
-    int multiplier = 1;
-    if (re.op == RegexpOp.REPEAT) {
-      multiplier = re.max;
-      if (multiplier < 0) {
-        multiplier = re.min;
+    ArrayDeque<RepeatCountFrame> stack = new ArrayDeque<>();
+    stack.push(new RepeatCountFrame(re));
+    RepeatCount result = null;
+    while (!stack.isEmpty()) {
+      RepeatCountFrame frame = stack.peek();
+      int nsub = frame.re.subs == null ? 0 : frame.re.subs.size();
+      if (frame.nextSub < nsub) {
+        stack.push(new RepeatCountFrame(frame.re.subs.get(frame.nextSub)));
+        frame.nextSub++;
+        continue;
       }
-      if (multiplier <= 0) {
-        multiplier = 1;
-      }
-    }
 
-    RepeatCount subCount = switch (re.op) {
-      case ALTERNATE -> alternateRepeatCount(re, limit);
-      case CONCAT -> concatRepeatCount(re, limit);
-      default -> unaryRepeatCount(re, limit);
-    };
-
-    int cost = multiplySaturated(multiplier, subCount.cost, limit);
-    return new RepeatCount(cost, re.op == RegexpOp.REPEAT || subCount.hasRepeat);
-  }
-
-  private static RepeatCount unaryRepeatCount(Regexp re, int limit) {
-    if (re.subs == null || re.subs.isEmpty()) {
-      return new RepeatCount(1, false);
-    }
-    RepeatCount maxCount = new RepeatCount(1, false);
-    for (Regexp sub : re.subs) {
-      RepeatCount subCount = repeatCount(sub, limit);
-      if (subCount.cost > maxCount.cost) {
-        maxCount = subCount;
+      result = frame.finish(limit);
+      stack.pop();
+      if (!stack.isEmpty()) {
+        stack.peek().addChild(result, limit);
       }
     }
-    return maxCount;
-  }
-
-  private static RepeatCount alternateRepeatCount(Regexp re, int limit) {
-    int cost = 1;
-    boolean hasRepeat = false;
-    for (Regexp sub : re.subs) {
-      RepeatCount subCount = repeatCount(sub, limit);
-      cost = Math.max(cost, subCount.cost);
-      hasRepeat |= subCount.hasRepeat;
-    }
-    return new RepeatCount(cost, hasRepeat);
-  }
-
-  private static RepeatCount concatRepeatCount(Regexp re, int limit) {
-    int cost = 0;
-    boolean hasRepeat = false;
-    for (Regexp sub : re.subs) {
-      RepeatCount subCount = repeatCount(sub, limit);
-      if (subCount.hasRepeat) {
-        cost = addSaturated(cost, subCount.cost, limit);
-        hasRepeat = true;
-      }
-    }
-    if (!hasRepeat) {
-      return new RepeatCount(1, false);
-    }
-    return new RepeatCount(cost, true);
+    return result;
   }
 
   private static int multiplySaturated(int a, int b, int limit) {

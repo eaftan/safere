@@ -8,6 +8,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.regex.PatternSyntaxException;
@@ -1722,6 +1723,13 @@ class ParserTest {
       assertThat(re.op).isEqualTo(RegexpOp.REPEAT);
       assertThat(re.min).isEqualTo(1000);
       assertThat(re.max).isEqualTo(1000);
+    }
+
+    @Test
+    void countedRepeatLimitCheckIsStackSafeThroughDeepGroups() {
+      String pattern = "(".repeat(10_000) + "a{2}" + ")".repeat(10_000) + "{2}";
+
+      assertThatNoException().isThrownBy(() -> parse(pattern));
     }
 
     @Test

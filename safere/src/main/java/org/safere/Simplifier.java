@@ -603,56 +603,62 @@ final class Simplifier {
    * Determines whether a Regexp is already "simple" (no REPEAT, no empty/full char classes, no
    * nested quantifiers on quantifiers).
    */
-  // Switch mirrors the C++ RE2 structure and is clearer as a statement switch.
-  @SuppressWarnings("StatementSwitchToExpressionSwitch")
   private static boolean computeSimple(Regexp re) {
-    switch (re.op) {
-      case NO_MATCH:
-      case EMPTY_MATCH:
-      case LITERAL:
-      case LITERAL_STRING:
-      case BEGIN_LINE:
-      case END_LINE:
-      case BEGIN_TEXT:
-      case WORD_BOUNDARY:
-      case NO_WORD_BOUNDARY:
-      case GRAPHEME_CLUSTER_BOUNDARY:
-      case END_TEXT:
-      case ANY_CHAR:
-      case ANY_BYTE:
-      case HAVE_MATCH:
-        return true;
-      case CONCAT:
-      case ALTERNATE:
-        for (Regexp sub : re.subs) {
-          if (!computeSimple(sub)) {
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      switch (node.op) {
+        case NO_MATCH:
+        case EMPTY_MATCH:
+        case LITERAL:
+        case LITERAL_STRING:
+        case BEGIN_LINE:
+        case END_LINE:
+        case BEGIN_TEXT:
+        case WORD_BOUNDARY:
+        case NO_WORD_BOUNDARY:
+        case GRAPHEME_CLUSTER_BOUNDARY:
+        case END_TEXT:
+        case ANY_CHAR:
+        case ANY_BYTE:
+        case HAVE_MATCH:
+          break;
+        case CONCAT:
+        case ALTERNATE:
+          for (Regexp sub : node.subs) {
+            stack.push(sub);
+          }
+          break;
+        case CHAR_CLASS:
+          if (node.charClass.isEmpty() || isFull(node.charClass)) {
             return false;
           }
-        }
-        return true;
-      case CHAR_CLASS:
-        return !re.charClass.isEmpty() && !isFull(re.charClass);
-      case NON_CAPTURE:
-        return false;
-      case CAPTURE:
-        return computeSimple(re.subs.getFirst());
-      case STAR:
-      case PLUS:
-      case QUEST:
-        if (!computeSimple(re.subs.getFirst())) {
+          break;
+        case CAPTURE:
+          stack.push(node.subs.getFirst());
+          break;
+        case STAR:
+        case PLUS:
+        case QUEST:
+          Regexp sub = node.subs.getFirst();
+          RegexpOp subOp = sub.op;
+          if (subOp == RegexpOp.STAR
+              || subOp == RegexpOp.PLUS
+              || subOp == RegexpOp.QUEST
+              || subOp == RegexpOp.EMPTY_MATCH
+              || subOp == RegexpOp.NO_MATCH) {
+            return false;
+          }
+          stack.push(sub);
+          break;
+        case NON_CAPTURE:
+        case REPEAT:
+        default:
           return false;
-        }
-        RegexpOp subOp = re.subs.getFirst().op;
-        return subOp != RegexpOp.STAR
-            && subOp != RegexpOp.PLUS
-            && subOp != RegexpOp.QUEST
-            && subOp != RegexpOp.EMPTY_MATCH
-            && subOp != RegexpOp.NO_MATCH;
-      case REPEAT:
-        return false;
-      default:
-        return false;
+      }
     }
+    return true;
   }
 
   /**
