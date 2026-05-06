@@ -2458,6 +2458,7 @@ class MatcherTest {
 
     @Test
     @DisplayName("terminal extension sampling is stack-safe through deep groups")
+    @DisabledForCrosscheck("JDK java.util.regex can overflow on this intentionally deep pattern")
     void terminalExtensionSamplingIsStackSafeThroughDeepGroups() {
       String regex = "(".repeat(10_000) + "a" + ")".repeat(10_000) + "*$";
 
