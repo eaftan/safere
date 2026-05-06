@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
@@ -72,6 +73,18 @@ public final class Matcher implements MatchResult {
     RESET_NO_ATTEMPT,
     MATCHED,
     FAILED
+  }
+
+  private static final class SampleFrame {
+    private Regexp re;
+    private int nextSub;
+    private StringBuilder builder;
+    private String chosen;
+    private boolean failed;
+
+    private SampleFrame(Regexp re) {
+      this.re = re;
+    }
   }
 
   /**
@@ -2278,29 +2291,34 @@ public final class Matcher implements MatchResult {
   }
 
   private static void collectTerminalExtensionSamples(Regexp re, java.util.List<String> samples) {
-    switch (re.op) {
-      case STAR, PLUS, QUEST -> addSample(re.subs.get(0), samples);
-      case REPEAT -> {
-        if (re.max < 0 || re.max > re.min) {
-          addSample(re.subs.get(0), samples);
-        }
-      }
-      case NON_CAPTURE, CAPTURE -> collectTerminalExtensionSamples(re.subs.get(0), samples);
-      case CONCAT -> {
-        for (int i = re.subs.size() - 1; i >= 0; i--) {
-          Regexp sub = re.subs.get(i);
-          collectTerminalExtensionSamples(sub, samples);
-          if (!Pattern.canMatchEmpty(sub)) {
-            break;
+    ArrayDeque<Regexp> work = new ArrayDeque<>();
+    work.addFirst(re);
+    while (!work.isEmpty()) {
+      Regexp current = work.removeFirst();
+      switch (current.op) {
+        case STAR, PLUS, QUEST -> addSample(current.subs.get(0), samples);
+        case REPEAT -> {
+          if (current.max < 0 || current.max > current.min) {
+            addSample(current.subs.get(0), samples);
           }
         }
-      }
-      case ALTERNATE -> {
-        for (Regexp sub : re.subs) {
-          collectTerminalExtensionSamples(sub, samples);
+        case NON_CAPTURE, CAPTURE -> work.addFirst(current.subs.get(0));
+        case CONCAT -> {
+          int firstTerminal = current.subs.size() - 1;
+          while (firstTerminal > 0 && Pattern.canMatchEmpty(current.subs.get(firstTerminal))) {
+            firstTerminal--;
+          }
+          for (int i = firstTerminal; i < current.subs.size(); i++) {
+            work.addFirst(current.subs.get(i));
+          }
         }
+        case ALTERNATE -> {
+          for (int i = current.subs.size() - 1; i >= 0; i--) {
+            work.addFirst(current.subs.get(i));
+          }
+        }
+        default -> {}
       }
-      default -> {}
     }
   }
 
@@ -2312,37 +2330,109 @@ public final class Matcher implements MatchResult {
   }
 
   private static String sampleString(Regexp re) {
-    return switch (re.op) {
-      case LITERAL -> new String(Character.toChars(re.rune));
-      case LITERAL_STRING -> new String(re.runes, 0, re.runes.length);
-      case CHAR_CLASS -> re.charClass.isEmpty()
-          ? null
-          : new String(Character.toChars(re.charClass.lo(0)));
-      case ANY_CHAR -> "a";
-      case NON_CAPTURE, CAPTURE -> sampleString(re.subs.get(0));
-      case CONCAT -> {
-        StringBuilder sb = new StringBuilder();
-        for (Regexp sub : re.subs) {
-          String sample = sampleString(sub);
-          if (sample == null) {
-            yield null;
+    ArrayDeque<SampleFrame> stack = new ArrayDeque<>();
+    stack.addFirst(new SampleFrame(re));
+    while (!stack.isEmpty()) {
+      SampleFrame frame = stack.peekFirst();
+      Regexp current = frame.re;
+      switch (current.op) {
+        case LITERAL -> {
+          String sample = new String(Character.toChars(current.rune));
+          stack.removeFirst();
+          if (stack.isEmpty()) {
+            return sample;
           }
-          sb.append(sample);
+          acceptSample(stack.peekFirst(), sample);
         }
-        yield sb.toString();
+        case LITERAL_STRING -> {
+          String sample = new String(current.runes, 0, current.runes.length);
+          stack.removeFirst();
+          if (stack.isEmpty()) {
+            return sample;
+          }
+          acceptSample(stack.peekFirst(), sample);
+        }
+        case CHAR_CLASS -> {
+          String sample = current.charClass.isEmpty()
+              ? null
+              : new String(Character.toChars(current.charClass.lo(0)));
+          stack.removeFirst();
+          if (stack.isEmpty()) {
+            return sample;
+          }
+          acceptSample(stack.peekFirst(), sample);
+        }
+        case ANY_CHAR -> {
+          stack.removeFirst();
+          if (stack.isEmpty()) {
+            return "a";
+          }
+          acceptSample(stack.peekFirst(), "a");
+        }
+        case NON_CAPTURE, CAPTURE -> frame.re = current.subs.get(0);
+        case CONCAT -> {
+          if (frame.failed) {
+            stack.removeFirst();
+            if (stack.isEmpty()) {
+              return null;
+            }
+            acceptSample(stack.peekFirst(), null);
+          } else if (frame.nextSub == current.subs.size()) {
+            String sample = frame.builder == null ? "" : frame.builder.toString();
+            stack.removeFirst();
+            if (stack.isEmpty()) {
+              return sample;
+            }
+            acceptSample(stack.peekFirst(), sample);
+          } else {
+            if (frame.builder == null) {
+              frame.builder = new StringBuilder();
+            }
+            stack.addFirst(new SampleFrame(current.subs.get(frame.nextSub)));
+            frame.nextSub++;
+          }
+        }
+        case ALTERNATE -> {
+          if (frame.chosen != null || frame.nextSub == current.subs.size()) {
+            String sample = frame.chosen;
+            stack.removeFirst();
+            if (stack.isEmpty()) {
+              return sample;
+            }
+            acceptSample(stack.peekFirst(), sample);
+          } else {
+            stack.addFirst(new SampleFrame(current.subs.get(frame.nextSub)));
+            frame.nextSub++;
+          }
+        }
+        default -> {
+          stack.removeFirst();
+          if (stack.isEmpty()) {
+            return null;
+          }
+          acceptSample(stack.peekFirst(), null);
+        }
+      }
+    }
+    return null;
+  }
+
+  private static void acceptSample(SampleFrame frame, String sample) {
+    switch (frame.re.op) {
+      case CONCAT -> {
+        if (sample == null) {
+          frame.failed = true;
+        } else {
+          frame.builder.append(sample);
+        }
       }
       case ALTERNATE -> {
-        String sample = null;
-        for (Regexp sub : re.subs) {
-          sample = sampleString(sub);
-          if (sample != null) {
-            break;
-          }
+        if (sample != null) {
+          frame.chosen = sample;
         }
-        yield sample;
       }
-      default -> null;
-    };
+      default -> throw new AssertionError("unexpected sample parent: " + frame.re.op);
+    }
   }
 
   /**

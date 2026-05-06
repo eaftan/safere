@@ -176,6 +176,30 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("JDK stack overflows on this SafeRE stack-safety stress case")
+    @DisplayName("terminal repeat end-state sampling stays stack-safe for deep groups")
+    void terminalRepeatEndStateSamplingStaysStackSafeForDeepGroups() {
+      Pattern p = Pattern.compile(nestedCapturingGroups(10_000) + "*");
+
+      assertCompletesWithinPerformanceTimeout(
+          () -> {
+            Matcher matches = p.matcher("a");
+            assertThat(matches.matches()).isTrue();
+            assertThat(matches.hitEnd()).isTrue();
+            assertThat(matches.requireEnd()).isFalse();
+
+            Matcher lookingAt = p.matcher("a!");
+            assertThat(lookingAt.lookingAt()).isTrue();
+            assertThat(lookingAt.hitEnd()).isFalse();
+
+            Matcher find = p.matcher("a");
+            assertThat(find.find()).isTrue();
+            assertThat(find.hitEnd()).isTrue();
+            assertThat(find.requireEnd()).isFalse();
+          });
+    }
+
+    @Test
     @DisplayName("group access after lookingAt() works correctly")
     void lookingAtUpdatesGroupInfo() {
       Pattern p = Pattern.compile("(\\d+)(\\w+)");
@@ -2599,6 +2623,10 @@ class MatcherTest {
     return Pattern.compile(
         ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+  }
+
+  private static String nestedCapturingGroups(int depth) {
+    return "(".repeat(depth) + "a" + ")".repeat(depth);
   }
 
   private static void assertNoPerformanceCliff(String api, IntConsumer scenario) {
