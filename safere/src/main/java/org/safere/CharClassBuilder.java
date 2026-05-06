@@ -196,32 +196,28 @@ final class CharClassBuilder {
       return this;
     }
 
-    Iterator<Range> it = ranges.iterator();
-    TreeSet<Range> toAdd = new TreeSet<>();
+    Range r = ranges.floor(new Range(lo, Integer.MAX_VALUE));
+    if (r == null || r.hi < lo) {
+      r = ranges.ceiling(new Range(lo, Integer.MIN_VALUE));
+    }
 
-    while (it.hasNext()) {
-      Range r = it.next();
-      if (r.hi < lo) {
-        continue; // entirely before
-      }
-      if (r.lo > hi) {
-        break; // entirely after
-      }
+    while (r != null && r.lo <= hi) {
+      Range next = ranges.higher(r);
       // r overlaps [lo, hi] — remove it and possibly add back the non-overlapping parts.
-      it.remove();
+      ranges.remove(r);
       nrunes -= (r.hi - r.lo + 1);
 
       if (r.lo < lo) {
-        toAdd.add(new Range(r.lo, lo - 1));
+        ranges.add(new Range(r.lo, lo - 1));
         nrunes += (lo - 1 - r.lo + 1);
       }
       if (r.hi > hi) {
-        toAdd.add(new Range(hi + 1, r.hi));
+        ranges.add(new Range(hi + 1, r.hi));
         nrunes += (r.hi - hi - 1 + 1);
       }
+      r = next;
     }
 
-    ranges.addAll(toAdd);
     return this;
   }
 
