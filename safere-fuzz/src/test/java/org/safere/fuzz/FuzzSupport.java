@@ -9,11 +9,26 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
 final class FuzzSupport {
+  private static final String JDK_ORACLE_TIMEOUT_PROPERTY =
+      "safere.fuzz.jdkOracleTimeoutMillis";
+  private static final long DEFAULT_JDK_ORACLE_TIMEOUT_MILLIS = 250;
+  private static final ExecutorService JDK_ORACLE_EXECUTOR =
+      Executors.newCachedThreadPool(runnable -> {
+        Thread thread = new Thread(runnable, "safere-jdk-regex-oracle");
+        thread.setDaemon(true);
+        return thread;
+      });
 
   private static final int[] FLAGS = {
       org.safere.Pattern.UNIX_LINES,
@@ -81,6 +96,17 @@ final class FuzzSupport {
     return compileCompatibleOrSkip(regex, flags);
   }
 
+  static boolean jdkOracleCompletesForTesting(String regex, String input) {
+    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
+    return runJdkOracle(
+            "matches",
+            regex,
+            0,
+            input,
+            () -> pattern.matcher(interruptible(input)).matches())
+        .available();
+  }
+
   static int consumeFlags(FuzzedDataProvider data) {
     int flags = 0;
     for (int flag : FLAGS) {
@@ -120,39 +146,79 @@ final class FuzzSupport {
           flags,
           input.toString(),
           safeRePattern.matcher(input),
-          jdkPattern.matcher(input));
+          jdkPattern.matcher(interruptible(input)));
     }
 
     void split(CharSequence input) {
+      String inputText = input.toString();
+      JdkOracleResult<String[]> jdk =
+          runJdkOracle(
+              "split", regex, flags, inputText, () -> jdkPattern.split(interruptible(input)));
+      if (!jdk.available()) {
+        return;
+      }
       assertArrayEquals(
           "split",
-          input.toString(),
+          inputText,
           safeRePattern.split(input),
-          jdkPattern.split(input));
+          jdk.value());
     }
 
     void split(CharSequence input, int limit) {
+      String inputText = input.toString();
+      JdkOracleResult<String[]> jdk =
+          runJdkOracle(
+              "split(" + limit + ")",
+              regex,
+              flags,
+              inputText,
+              () -> jdkPattern.split(interruptible(input), limit));
+      if (!jdk.available()) {
+        return;
+      }
       assertArrayEquals(
           "split(" + limit + ")",
-          input.toString(),
+          inputText,
           safeRePattern.split(input, limit),
-          jdkPattern.split(input, limit));
+          jdk.value());
     }
 
     void splitWithDelimiters(CharSequence input) {
+      String inputText = input.toString();
+      JdkOracleResult<String[]> jdk =
+          runJdkOracle(
+              "splitWithDelimiters",
+              regex,
+              flags,
+              inputText,
+              () -> jdkPattern.splitWithDelimiters(interruptible(input), 0));
+      if (!jdk.available()) {
+        return;
+      }
       assertArrayEquals(
           "splitWithDelimiters",
-          input.toString(),
+          inputText,
           safeRePattern.splitWithDelimiters(input),
-          jdkPattern.splitWithDelimiters(input, 0));
+          jdk.value());
     }
 
     void splitWithDelimiters(CharSequence input, int limit) {
+      String inputText = input.toString();
+      JdkOracleResult<String[]> jdk =
+          runJdkOracle(
+              "splitWithDelimiters(" + limit + ")",
+              regex,
+              flags,
+              inputText,
+              () -> jdkPattern.splitWithDelimiters(interruptible(input), limit));
+      if (!jdk.available()) {
+        return;
+      }
       assertArrayEquals(
           "splitWithDelimiters(" + limit + ")",
-          input.toString(),
+          inputText,
           safeRePattern.splitWithDelimiters(input, limit),
-          jdkPattern.splitWithDelimiters(input, limit));
+          jdk.value());
     }
 
     private void assertArrayEquals(
@@ -175,6 +241,7 @@ final class FuzzSupport {
     private String lastReplacement;
     private final org.safere.Matcher safeReMatcher;
     private final java.util.regex.Matcher jdkMatcher;
+    private boolean jdkOracleAvailable = true;
 
     MatcherPair(
         String regex,
@@ -191,7 +258,7 @@ final class FuzzSupport {
 
     boolean matches() {
       boolean safeRe = safeReMatcher.matches();
-      boolean jdk = jdkMatcher.matches();
+      boolean jdk = runJdkOracle("matches", safeRe, () -> jdkMatcher.matches());
       assertSame("matches", safeRe, jdk);
       if (safeRe) {
         assertMatchState("matches");
@@ -201,7 +268,7 @@ final class FuzzSupport {
 
     boolean lookingAt() {
       boolean safeRe = safeReMatcher.lookingAt();
-      boolean jdk = jdkMatcher.lookingAt();
+      boolean jdk = runJdkOracle("lookingAt", safeRe, () -> jdkMatcher.lookingAt());
       assertSame("lookingAt", safeRe, jdk);
       if (safeRe) {
         assertMatchState("lookingAt");
@@ -211,7 +278,7 @@ final class FuzzSupport {
 
     boolean find() {
       boolean safeRe = safeReMatcher.find();
-      boolean jdk = jdkMatcher.find();
+      boolean jdk = runJdkOracle("find", safeRe, () -> jdkMatcher.find());
       assertSame("find", safeRe, jdk);
       if (safeRe) {
         assertMatchState("find");
@@ -221,7 +288,7 @@ final class FuzzSupport {
 
     boolean find(int start) {
       boolean safeRe = safeReMatcher.find(start);
-      boolean jdk = jdkMatcher.find(start);
+      boolean jdk = runJdkOracle("find(" + start + ")", safeRe, () -> jdkMatcher.find(start));
       assertSame("find(" + start + ")", safeRe, jdk);
       if (safeRe) {
         assertMatchState("find(" + start + ")");
@@ -232,7 +299,7 @@ final class FuzzSupport {
     MatcherPair reset() {
       lastReplacement = null;
       safeReMatcher.reset();
-      jdkMatcher.reset();
+      runJdkOracle("reset", null, () -> jdkMatcher.reset());
       return this;
     }
 
@@ -240,115 +307,117 @@ final class FuzzSupport {
       this.input = input.toString();
       this.lastReplacement = null;
       safeReMatcher.reset(input);
-      jdkMatcher.reset(input);
+      runJdkOracle("reset(input)", null, () -> jdkMatcher.reset(interruptible(input)));
       return this;
     }
 
     int groupCount() {
       int safeRe = safeReMatcher.groupCount();
-      int jdk = jdkMatcher.groupCount();
+      int jdk = runJdkOracle("groupCount", safeRe, () -> jdkMatcher.groupCount());
       assertSame("groupCount", safeRe, jdk);
       return safeRe;
     }
 
     String group(int group) {
       String safeRe = safeReMatcher.group(group);
-      String jdk = jdkMatcher.group(group);
+      String jdk = runJdkOracle("group(" + group + ")", safeRe, () -> jdkMatcher.group(group));
       assertSame("group(" + group + ")", safeRe, jdk);
       return safeRe;
     }
 
     String group(String name) {
       String safeRe = safeReMatcher.group(name);
-      String jdk = jdkMatcher.group(name);
+      String jdk = runJdkOracle("group(" + name + ")", safeRe, () -> jdkMatcher.group(name));
       assertSame("group(" + name + ")", safeRe, jdk);
       return safeRe;
     }
 
     int start(int group) {
       int safeRe = safeReMatcher.start(group);
-      int jdk = jdkMatcher.start(group);
+      int jdk = runJdkOracle("start(" + group + ")", safeRe, () -> jdkMatcher.start(group));
       assertSame("start(" + group + ")", safeRe, jdk);
       return safeRe;
     }
 
     int start(String name) {
       int safeRe = safeReMatcher.start(name);
-      int jdk = jdkMatcher.start(name);
+      int jdk = runJdkOracle("start(" + name + ")", safeRe, () -> jdkMatcher.start(name));
       assertSame("start(" + name + ")", safeRe, jdk);
       return safeRe;
     }
 
     int end(int group) {
       int safeRe = safeReMatcher.end(group);
-      int jdk = jdkMatcher.end(group);
+      int jdk = runJdkOracle("end(" + group + ")", safeRe, () -> jdkMatcher.end(group));
       assertSame("end(" + group + ")", safeRe, jdk);
       return safeRe;
     }
 
     int end(String name) {
       int safeRe = safeReMatcher.end(name);
-      int jdk = jdkMatcher.end(name);
+      int jdk = runJdkOracle("end(" + name + ")", safeRe, () -> jdkMatcher.end(name));
       assertSame("end(" + name + ")", safeRe, jdk);
       return safeRe;
     }
 
     boolean hitEnd() {
       boolean safeRe = safeReMatcher.hitEnd();
-      boolean jdk = jdkMatcher.hitEnd();
+      boolean jdk = runJdkOracle("hitEnd", safeRe, () -> jdkMatcher.hitEnd());
       assertSame("hitEnd", safeRe, jdk);
       return safeRe;
     }
 
     boolean requireEnd() {
       boolean safeRe = safeReMatcher.requireEnd();
-      boolean jdk = jdkMatcher.requireEnd();
+      boolean jdk = runJdkOracle("requireEnd", safeRe, () -> jdkMatcher.requireEnd());
       assertSame("requireEnd", safeRe, jdk);
       return safeRe;
     }
 
     MatcherPair region(int start, int end) {
       safeReMatcher.region(start, end);
-      jdkMatcher.region(start, end);
+      runJdkOracle("region", null, () -> jdkMatcher.region(start, end));
       return this;
     }
 
     int regionStart() {
       int safeRe = safeReMatcher.regionStart();
-      int jdk = jdkMatcher.regionStart();
+      int jdk = runJdkOracle("regionStart", safeRe, () -> jdkMatcher.regionStart());
       assertSame("regionStart", safeRe, jdk);
       return safeRe;
     }
 
     int regionEnd() {
       int safeRe = safeReMatcher.regionEnd();
-      int jdk = jdkMatcher.regionEnd();
+      int jdk = runJdkOracle("regionEnd", safeRe, () -> jdkMatcher.regionEnd());
       assertSame("regionEnd", safeRe, jdk);
       return safeRe;
     }
 
     MatcherPair useAnchoringBounds(boolean value) {
       safeReMatcher.useAnchoringBounds(value);
-      jdkMatcher.useAnchoringBounds(value);
+      runJdkOracle("useAnchoringBounds", null, () -> jdkMatcher.useAnchoringBounds(value));
       return this;
     }
 
     MatcherPair useTransparentBounds(boolean value) {
       safeReMatcher.useTransparentBounds(value);
-      jdkMatcher.useTransparentBounds(value);
+      runJdkOracle("useTransparentBounds", null, () -> jdkMatcher.useTransparentBounds(value));
       return this;
     }
 
     boolean hasAnchoringBounds() {
       boolean safeRe = safeReMatcher.hasAnchoringBounds();
-      boolean jdk = jdkMatcher.hasAnchoringBounds();
+      boolean jdk =
+          runJdkOracle("hasAnchoringBounds", safeRe, () -> jdkMatcher.hasAnchoringBounds());
       assertSame("hasAnchoringBounds", safeRe, jdk);
       return safeRe;
     }
 
     boolean hasTransparentBounds() {
       boolean safeRe = safeReMatcher.hasTransparentBounds();
-      boolean jdk = jdkMatcher.hasTransparentBounds();
+      boolean jdk =
+          runJdkOracle("hasTransparentBounds", safeRe, () -> jdkMatcher.hasTransparentBounds());
       assertSame("hasTransparentBounds", safeRe, jdk);
       return safeRe;
     }
@@ -358,7 +427,7 @@ final class FuzzSupport {
           "replaceAll",
           replacement,
           () -> safeReMatcher.replaceAll(replacement),
-          () -> jdkMatcher.replaceAll(replacement));
+          () -> runJdkOracle("replaceAll", null, () -> jdkMatcher.replaceAll(replacement)));
     }
 
     boolean replaceAll(Function<MatchResult, String> replacer) {
@@ -366,7 +435,7 @@ final class FuzzSupport {
           "replaceAll(function)",
           null,
           () -> safeReMatcher.replaceAll(replacer),
-          () -> jdkMatcher.replaceAll(replacer));
+          () -> runJdkOracle("replaceAll(function)", null, () -> jdkMatcher.replaceAll(replacer)));
     }
 
     boolean replaceFirst(String replacement) {
@@ -374,7 +443,7 @@ final class FuzzSupport {
           "replaceFirst",
           replacement,
           () -> safeReMatcher.replaceFirst(replacement),
-          () -> jdkMatcher.replaceFirst(replacement));
+          () -> runJdkOracle("replaceFirst", null, () -> jdkMatcher.replaceFirst(replacement)));
     }
 
     boolean appendReplacement(StringBuilder output, String replacement) {
@@ -389,7 +458,8 @@ final class FuzzSupport {
             return safeRe.toString();
           },
           () -> {
-            jdkMatcher.appendReplacement(jdk, replacement);
+            runJdkOracle(
+                "appendReplacement", null, () -> jdkMatcher.appendReplacement(jdk, replacement));
             return jdk.toString();
           });
       if (completed) {
@@ -410,7 +480,8 @@ final class FuzzSupport {
             return safeRe.toString();
           },
           () -> {
-            jdkMatcher.appendReplacement(jdk, replacement);
+            runJdkOracle(
+                "appendReplacement", null, () -> jdkMatcher.appendReplacement(jdk, replacement));
             return jdk.toString();
           });
       if (completed) {
@@ -423,7 +494,11 @@ final class FuzzSupport {
       StringBuilder safeRe = new StringBuilder();
       StringBuilder jdk = new StringBuilder();
       safeReMatcher.appendTail(safeRe);
-      jdkMatcher.appendTail(jdk);
+      runJdkOracle("appendTail", null, () -> jdkMatcher.appendTail(jdk));
+      if (!jdkOracleAvailable) {
+        output.append(safeRe);
+        return;
+      }
       assertSame("appendTail", safeRe.toString(), jdk.toString());
       output.append(safeRe);
     }
@@ -432,20 +507,26 @@ final class FuzzSupport {
       StringBuffer safeRe = new StringBuffer();
       StringBuffer jdk = new StringBuffer();
       safeReMatcher.appendTail(safeRe);
-      jdkMatcher.appendTail(jdk);
+      runJdkOracle("appendTail", null, () -> jdkMatcher.appendTail(jdk));
+      if (!jdkOracleAvailable) {
+        output.append(safeRe);
+        return;
+      }
       assertSame("appendTail", safeRe.toString(), jdk.toString());
       output.append(safeRe);
     }
 
     void toMatchResult() {
       MatchResult safeRe = safeReMatcher.toMatchResult();
-      MatchResult jdk = jdkMatcher.toMatchResult();
+      MatchResult jdk = runJdkOracle("toMatchResult", safeRe, () -> jdkMatcher.toMatchResult());
       assertMatchResult("toMatchResult", safeRe, jdk);
     }
 
     private void assertMatchState(String operation) {
-      assertSame(operation + ".start", safeReMatcher.start(), jdkMatcher.start());
-      assertSame(operation + ".end", safeReMatcher.end(), jdkMatcher.end());
+      assertSame(operation + ".start", safeReMatcher.start(),
+          runJdkOracle(operation + ".start", safeReMatcher.start(), () -> jdkMatcher.start()));
+      assertSame(operation + ".end", safeReMatcher.end(),
+          runJdkOracle(operation + ".end", safeReMatcher.end(), () -> jdkMatcher.end()));
       int groupCount = groupCount();
       for (int i = 0; i <= groupCount; i++) {
         group(i);
@@ -472,7 +553,13 @@ final class FuzzSupport {
         StringOperation safeReOperation,
         StringOperation jdkOperation) {
       OperationResult<String> safeRe = OperationResult.capture(safeReOperation);
+      if (!jdkOracleAvailable) {
+        return false;
+      }
       OperationResult<String> jdk = OperationResult.capture(jdkOperation);
+      if (!jdkOracleAvailable) {
+        return false;
+      }
       if (safeRe.throwable() == null && jdk.throwable() == null) {
         assertSame(operation, replacement, safeRe.value(), jdk.value());
         return true;
@@ -509,6 +596,20 @@ final class FuzzSupport {
         throw divergence(operation, replacement, safeRe, jdk);
       }
     }
+
+    private <T> T runJdkOracle(
+        String operation, T fallback, JdkOracleOperation<T> jdkOperation) {
+      if (!jdkOracleAvailable) {
+        return fallback;
+      }
+      JdkOracleResult<T> result =
+          FuzzSupport.runJdkOracle(operation, regex, flags, input, jdkOperation);
+      if (!result.available()) {
+        jdkOracleAvailable = false;
+        return fallback;
+      }
+      return result.value();
+    }
   }
 
   private record OperationResult<T>(T value, RuntimeException throwable) {
@@ -529,6 +630,101 @@ final class FuzzSupport {
 
   private interface StringOperation {
     String run();
+  }
+
+  private interface JdkOracleOperation<T> {
+    T run();
+  }
+
+  private record JdkOracleResult<T>(boolean available, T value) {}
+
+  private static <T> JdkOracleResult<T> runJdkOracle(
+      String operation,
+      String regex,
+      int flags,
+      String input,
+      JdkOracleOperation<T> jdkOperation) {
+    Future<T> task = JDK_ORACLE_EXECUTOR.submit(jdkOperation::run);
+
+    try {
+      return new JdkOracleResult<>(true, task.get(jdkOracleTimeoutMillis(), TimeUnit.MILLISECONDS));
+    } catch (TimeoutException e) {
+      task.cancel(true);
+      return unavailableJdkOracle();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new AssertionError("interrupted while waiting for JDK regex oracle", e);
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof JdkOracleInterruptedException) {
+        return unavailableJdkOracle();
+      }
+      if (cause instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (cause instanceof Error error) {
+        throw error;
+      }
+      throw new AssertionError("JDK regex oracle failed with checked exception", cause);
+    }
+  }
+
+  private static <T> JdkOracleResult<T> unavailableJdkOracle() {
+    return new JdkOracleResult<>(false, null);
+  }
+
+  private static long jdkOracleTimeoutMillis() {
+    String configured = System.getProperty(JDK_ORACLE_TIMEOUT_PROPERTY);
+    if (configured == null) {
+      return DEFAULT_JDK_ORACLE_TIMEOUT_MILLIS;
+    }
+    try {
+      return Math.max(1, Long.parseLong(configured));
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          JDK_ORACLE_TIMEOUT_PROPERTY + " must be a positive integer", e);
+    }
+  }
+
+  private static CharSequence interruptible(CharSequence delegate) {
+    return delegate instanceof InterruptibleCharSequence
+        ? delegate
+        : new InterruptibleCharSequence(delegate);
+  }
+
+  private record InterruptibleCharSequence(CharSequence delegate) implements CharSequence {
+    @Override
+    public int length() {
+      checkInterrupted();
+      return delegate.length();
+    }
+
+    @Override
+    public char charAt(int index) {
+      checkInterrupted();
+      return delegate.charAt(index);
+    }
+
+    @Override
+    public CharSequence subSequence(int start, int end) {
+      checkInterrupted();
+      return new InterruptibleCharSequence(delegate.subSequence(start, end));
+    }
+
+    @Override
+    public String toString() {
+      return delegate.toString();
+    }
+  }
+
+  private static void checkInterrupted() {
+    if (Thread.currentThread().isInterrupted()) {
+      throw new JdkOracleInterruptedException();
+    }
+  }
+
+  private static final class JdkOracleInterruptedException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
   }
 
   private static boolean isExpectedReplacementException(RuntimeException exception) {
