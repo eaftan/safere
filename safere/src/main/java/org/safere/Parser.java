@@ -1910,6 +1910,10 @@ final class Parser {
     switch (child.continuation) {
       case ROOT -> throw new PatternSyntaxException("internal error", pattern, pos);
       case UNION -> {
+        if (parent.rawAmpersandSeparatorActive) {
+          foldRawAmpersandSeparatorBeforeNestedClass(parent, completed);
+          return;
+        }
         parent.currentIntersectionOperand = completed;
         parent.currentIntersectionOperandRole = ClassAtomRole.INTERSECTION_OPERAND;
         parent.accumulatedClass =
@@ -1927,6 +1931,28 @@ final class Parser {
         parent.intersectionRightHasExpression = true;
       }
     }
+  }
+
+  private void foldRawAmpersandSeparatorBeforeNestedClass(
+      ClassExpressionFrame frame, CharClassBuilder completed) {
+    CharClassBuilder expression = new CharClassBuilder();
+    if (frame.rawAmpersandSeparatorRepeated) {
+      expression.addCharClass(completed);
+      if (!frame.rawAmpersandLeftExpression.isEmpty()) {
+        expression.intersect(frame.rawAmpersandLeftExpression);
+      }
+    }
+    frame.accumulatedClass = unionClass(frame.accumulatedClass, expression);
+    frame.currentIntersectionOperand = frame.accumulatedClass;
+    frame.currentIntersectionOperandRole = ClassAtomRole.INTERSECTION_OPERAND;
+    frame.pendingScalarItems = new CharClassBuilder();
+    frame.hasPendingScalarItems = false;
+    frame.pendingScalarItemsAfterCurrentOperand = false;
+    frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
+    frame.rawAmpersandSeparatorActive = false;
+    frame.rawAmpersandSeparatorSkippedCommentsTrivia = false;
+    frame.rawAmpersandSeparatorRepeated = false;
+    frame.rawAmpersandLeftExpression = null;
   }
 
   private ClassNormalization skipClassTriviaAndEmptySyntax() {
