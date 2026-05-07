@@ -1218,6 +1218,9 @@ final class Parser {
           continue;
         }
       } else if (frame.shouldCompleteAt(c)) {
+        if (frame.rawAmpersandSeparatorActive) {
+          throw new PatternSyntaxException("bad class syntax", pattern, pos);
+        }
         CharClassBuilder completed = completeClassExpression(frame);
         stack.pop();
         if (stack.isEmpty()) {
@@ -1377,8 +1380,23 @@ final class Parser {
         }
         if (!tail.skippedCommentsTrivia()) {
           rejectInvalidRangeTailAfterOddAmpersandRun();
-        } else if (pattern.charAt(pos) == '-' && hasRangeEndpointAfterHyphen()) {
-          throw new PatternSyntaxException("bad class syntax", pattern, pos);
+        } else if (pattern.charAt(pos) == '-') {
+          if (commentsModeHyphenIsBeforeIntersection()) {
+            throw new PatternSyntaxException("bad class syntax", pattern, pos);
+          }
+          frame.accumulatedClass =
+              new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
+          addRangeFlags(frame.accumulatedClass, '-', '-', flags | ParseFlags.CLASS_NL);
+          pos++;
+          frame.currentIntersectionOperand = frame.accumulatedClass;
+          frame.currentIntersectionOperandRole = ClassAtomRole.RAW_AMPERSAND_SEPARATOR;
+          frame.pendingScalarItems = new CharClassBuilder();
+          frame.hasPendingScalarItems = false;
+          frame.pendingScalarItemsAfterCurrentOperand = false;
+          frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
+          frame.rawAmpersandSeparatorActive = false;
+          frame.rawAmpersandLeftExpression = null;
+          return;
         }
         if (tail.skippedCommentsTrivia() && pattern.charAt(pos) == '[') {
           frame.accumulatedClass = new CharClassBuilder();
@@ -1627,6 +1645,26 @@ final class Parser {
     boolean hasEndpoint = hasRangeEndpointAfterHyphen();
     pos = saved;
     return hasEndpoint;
+  }
+
+  private boolean commentsModeHyphenIsBeforeIntersection() {
+    if ((flags & ParseFlags.COMMENTS) == 0
+        || pos >= pattern.length()
+        || pattern.charAt(pos) != '-') {
+      return false;
+    }
+    int index = skipCommentsAndWhitespaceAt(pos + 1);
+    while (startsEmptyQuotedLiteralAt(index)) {
+      index = skipCommentsAndWhitespaceAt(index + 4);
+    }
+    if (index >= pattern.length() || pattern.charAt(index) != '&') {
+      return false;
+    }
+    index = skipCommentsAndWhitespaceAt(index + 1);
+    while (startsEmptyQuotedLiteralAt(index)) {
+      index = skipCommentsAndWhitespaceAt(index + 4);
+    }
+    return index < pattern.length() && pattern.charAt(index) == '&';
   }
 
   private boolean addRawAmpersandRangeTailIfPresent(CharClassBuilder ccb) {
