@@ -1439,6 +1439,15 @@ final class Parser {
       }
       if (!tail.skippedNormalizedSyntax()) {
         rejectInvalidRangeTailAfterOddAmpersandRun();
+        CharClassBuilder expression = snapshotPendingExpression(frame);
+        if (addRawAmpersandRangeTailIfPresent(expression)) {
+          frame.accumulatedClass = new CharClassBuilder().addCharClass(expression);
+          frame.currentIntersectionOperand = frame.accumulatedClass;
+          frame.pendingScalarItems = new CharClassBuilder();
+          frame.hasPendingScalarItems = false;
+          frame.pendingScalarItemsAfterCurrentOperand = false;
+          frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
+        }
       }
       frame.rawAmpersandSeparatorActive = false;
       frame.rawAmpersandLeftExpression = null;

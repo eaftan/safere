@@ -1168,6 +1168,16 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[^0-1ab&&[a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase(
               "(?x)[^0-1\\Qab\\E\\Q\\E\\Q\\E&& [a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[0&\\Q\\E\\Q\\E&&&&&&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[0&\\Q\\E\\Q\\E&&&&&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[0&\\Q\\E\\Q\\E&&&&&&-&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "[0&\\Q\\E\\Q\\E&&&&&&\\Q\\E-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "(?x)[0&\\Q\\E\\Q\\E&&&&&&-&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\d0-1&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]",

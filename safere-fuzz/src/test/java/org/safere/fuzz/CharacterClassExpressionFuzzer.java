@@ -40,7 +40,7 @@ final class CharacterClassExpressionFuzzer {
   };
   private static final String[] AMPERSAND_PIECES = {"&", "\\&", "\\Q&\\E"};
   private static final String[] TRAILING_PIECES = {
-      "", "&", "\\&", "\\Q&\\E", "-\\D", "-a", "-&&", "\\Q\\E-\\D"
+      "", "&", "\\&", "\\Q&\\E", "-\\D", "-a", "-&", "-&a", "-&&", "\\Q\\E-\\D"
   };
   private static final Separator[] SEPARATORS = {
       new Separator("", false),
@@ -107,6 +107,11 @@ final class CharacterClassExpressionFuzzer {
       "(?x)[0&\\Q\\E\\Q\\E&&& #x\n-&&]",
       "(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]",
       "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]",
+      "[0&\\Q\\E\\Q\\E&&&&&&-&&]",
+      "[0&\\Q\\E\\Q\\E&&&&&&-&]",
+      "[0&\\Q\\E\\Q\\E&&&&&&-&a]",
+      "[0&\\Q\\E\\Q\\E&&&&&&\\Q\\E-&&]",
+      "(?x)[0&\\Q\\E\\Q\\E&&&&&&-&&]",
       "(?x)[a\\d&& [0]&]",
       "(?x)[a[b]&& [a]&]",
       "[0-1ab&&[a]&]",
