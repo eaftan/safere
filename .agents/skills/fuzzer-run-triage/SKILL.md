@@ -1,6 +1,6 @@
 ---
 name: fuzzer-run-triage
-description: "Triage SafeRE Jazzer fuzzer runs performed manually by the user: locate Surefire/Jazzer logs, distinguish latest run artifacts from persistent corpus and older crashes, extract bugs/findings, identify crash inputs, summarize repro details, and prepare GitHub issue material without rerunning fuzzing."
+description: "Triage SafeRE Jazzer fuzzer runs performed manually by the user: locate Surefire/Jazzer logs, distinguish latest run artifacts from persistent corpus and older saved inputs, extract AssertionError findings, summarize self-contained repro details, and prepare GitHub issue material without rerunning fuzzing."
 ---
 
 # Fuzzer Run Triage
@@ -8,10 +8,16 @@ description: "Triage SafeRE Jazzer fuzzer runs performed manually by the user: l
 ## Goal
 
 When the user has run a SafeRE Jazzer fuzzer by hand, find what that run discovered and present
-the actionable bug findings. Do not assume `target/fuzz-reproducers` exists: Jazzer JUnit usually
-writes libFuzzer `crash-*` inputs to the fuzzer's input resource directory. Maven/Surefire writes
-XML summaries under `target/surefire-reports`, and SafeRE's helper script records raw
-stdout/stderr under `target/fuzz-logs`.
+the actionable bug findings. For normal SafeRE crosscheck divergences, focus first on the
+`AssertionError` text in the Surefire XML and raw console logs. The assertion should contain the
+self-contained semantic repro: regex, flags, operation, input/state when applicable, and SafeRE vs
+JDK behavior. Do not start from `crash-*` files unless the assertion text is incomplete, the console
+log was truncated, or exact Jazzer replay is required.
+
+Do not assume `target/fuzz-reproducers` exists: Jazzer JUnit usually writes libFuzzer `crash-*`
+inputs to the fuzzer's input resource directory. Maven/Surefire writes XML summaries under
+`target/surefire-reports`, and SafeRE's helper script records raw stdout/stderr under
+`target/fuzz-logs`.
 
 ## First Checks
 
@@ -20,9 +26,9 @@ stdout/stderr under `target/fuzz-logs`.
 2. Inspect the latest matching Surefire files:
    - `safere-fuzz/target/surefire-reports/TEST-org.safere.fuzz.<Fuzzer>.xml`
    - `safere-fuzz/target/surefire-reports/org.safere.fuzz.<Fuzzer>.txt`
-3. Inspect helper-script console logs if present. These are often the best source for
-   `artifact_prefix`, `Test unit written`, `Base64`, timeout, and crash path lines that Surefire
-   XML may omit:
+3. Inspect helper-script console logs if present. These are often the best source for complete
+   `== Java Exception: java.lang.AssertionError` blocks and may also include `artifact_prefix`,
+   `Test unit written`, `Base64`, timeout, and saved-input path lines that Surefire XML omits:
 
    ```bash
    find safere-fuzz/target/fuzz-logs -path '*/<Fuzzer>.log' \
@@ -37,7 +43,9 @@ stdout/stderr under `target/fuzz-logs`.
    stat safere-fuzz/target/fuzz-logs/<run-id>/<Fuzzer>.log
    ```
 
-5. Extract findings from the XML and raw console log:
+5. Extract findings from the XML and raw console log. Treat `AssertionError` divergence blocks as
+   the primary repro source. Treat `Base64` and `Test unit written` lines as exact replay
+   provenance, not as a substitute for a self-contained semantic repro:
 
    ```bash
    rg -n '== Java Exception|AssertionError|CrosscheckException|PatternSyntaxException|divergence|DEDUP_TOKEN|libFuzzer crashing input|Test unit written|artifact_prefix|reproducer_path|Java reproducer written' \
@@ -57,8 +65,9 @@ stdout/stderr under `target/fuzz-logs`.
 - **Raw helper-script console logs**: `safere-fuzz/target/fuzz-logs/<run-id>/<Fuzzer>.log`
   - Created by `safere-fuzz/scripts/run-fuzz-test.sh`.
   - Preserve the combined stdout/stderr stream while still showing output live in the terminal.
-  - Prefer these logs for mapping `== Java Exception` blocks to `crash-*`, `slow-unit-*`, and
-    `timeout-*` files.
+  - Prefer these logs for complete `AssertionError` repro text.
+  - Use these logs for mapping `== Java Exception` blocks to `crash-*`, `slow-unit-*`, and
+    `timeout-*` files only when exact Jazzer input replay or provenance is needed.
   - If a user provides a manually saved console log, inspect it the same way as these files.
 
 - **Generated corpus**: `safere-fuzz/.cifuzz-corpus/org.safere.fuzz.<Fuzzer>/<method>/`
@@ -67,7 +76,10 @@ stdout/stderr under `target/fuzz-logs`.
 
 - **Jazzer JUnit crash inputs**:
   `safere-fuzz/src/test/resources/org/safere/fuzz/<Fuzzer>Inputs/<method>/crash-*`
-  - Usually the important reproducer files for JUnit fuzz findings.
+  - Saved libFuzzer inputs for JUnit fuzz findings. Despite the `crash-*` name, SafeRE
+    crosscheck divergences are usually `AssertionError`s, not JVM crashes.
+  - These are exact replay artifacts, not the preferred source for writing issues when assertion
+    text already contains a self-contained repro.
   - These are persistent checked-in seed locations, so use mtimes and the Surefire log to tell
     new crashes from old ones.
 
@@ -79,7 +91,7 @@ stdout/stderr under `target/fuzz-logs`.
   - In Jazzer JUnit mode these often do not exist, even when bugs were found.
   - If present, inspect them, but absence is not evidence that no bugs were found.
 
-## Finding New Crash Inputs
+## Finding New Saved Inputs
 
 Find the fuzzer method and input resource directory. For most SafeRE fuzzers the method name is
 visible in the Surefire testcase name and in the resource path:
@@ -93,6 +105,10 @@ find safere-fuzz/src/test/resources/org/safere/fuzz/<Fuzzer>Inputs -type f -name
 If the user gives the approximate run time, compare crash mtimes to that time. If they do not,
 compare crash mtimes to the Surefire XML mtime and the `sun.java.command` or testcase elapsed time
 inside the XML.
+
+Only do this saved-input search when the logs do not contain enough assertion detail to reproduce,
+when the user asks for exact replay, or when a timeout/crash needs the raw unit. If the assertion
+already has a complete regex/flags/input/operation repro, the saved input is optional provenance.
 
 ## Replaying Candidates on the Current Branch
 
@@ -111,9 +127,10 @@ current branch. Do not treat old console output as proof that a bug still exists
    resolve an older `org.safere:safere` artifact from the local Maven repository and report bugs
    that are already fixed on the current branch.
 
-2. Replay saved inputs one at a time by isolating the copied test resource directory under
-   `target/test-classes`. This avoids stale build-output inputs and gives an exact
-   `crash-*`-to-finding mapping:
+2. Prefer direct semantic repros from the assertion text when they are complete. Replay saved
+   inputs one at a time only when you need to confirm the exact Jazzer unit or recover omitted
+   fuzzer choices. Isolate the copied test resource directory under `target/test-classes` to avoid
+   stale build-output inputs and get an exact saved-input-to-finding mapping:
 
    ```bash
    TARGET=safere-fuzz/target/test-classes/org/safere/fuzz/<Fuzzer>Inputs/<method>
@@ -130,12 +147,12 @@ current branch. Do not treat old console output as proof that a bug still exists
    cp "$SOURCE"/* "$TARGET"/
    ```
 
-4. Record whether the candidate still reproduces, the current assertion output, and the exact
-   source input file. If it no longer reproduces on the current branch, say so and do not file a
-   bug for it.
+4. Record whether the candidate still reproduces, the current assertion output, and any exact
+   saved-input source or Base64 if used. If it no longer reproduces on the current branch, say so
+   and do not file a bug for it.
 
 5. Deduplicate reproducible findings by semantic bug class before filing. Multiple `crash-*` files
-   may represent one parser rule, matcher invariant, or Unicode-boundary bug.
+   or Base64 units may represent one parser rule, matcher invariant, or Unicode-boundary bug.
 
 6. Preserve durable repro material before relying on it in an issue. Local `crash-*`, `slow-unit-*`,
    `timeout-*`, console-log, and `/tmp` paths are useful provenance, but they are not durable bug
@@ -143,18 +160,23 @@ current branch. Do not treat old console output as proof that a bug still exists
 
 ## Interpreting Results
 
-Use both logs and crash files:
+Use assertion logs first:
 
 - The XML usually contains the readable exception text: regex, flags, input, SafeRE result, JDK
   result, stack trace, and dedup tokens.
+- Raw console logs usually contain the most complete `AssertionError` blocks and can also contain
+  saved-input paths and Base64 units.
 - `crash-*` files are the inputs Jazzer can replay through the fuzz target, but they may not be
-  human-readable.
-- Raw console logs can contain crash paths and Base64 units even when Surefire XML has only
-  exception text, or when the fork exits on a libFuzzer timeout before a useful XML report is
-  written.
+  human-readable and should not be necessary for ordinary divergence issues if the assertion is
+  well formed.
 - A `.txt` report with `Failures: 0, Errors: 0` does not prove no bugs were found when
   `jazzer.keep_going` is in use. Always inspect the XML and raw console log for
   `== Java Exception`, `DEDUP_TOKEN`, `Test unit written`, and `libFuzzer: timeout`.
+
+If an `AssertionError` does not include enough information to write a self-contained regression
+test or GitHub issue, tell the user explicitly. Offer to file a separate bug against the fuzz
+harness/assertion reporting, because SafeRE fuzz assertions should make ordinary divergences
+reproducible without consulting local `crash-*` files.
 
 Classify findings before filing:
 
@@ -176,7 +198,9 @@ Summarize:
 - Whether a raw `target/fuzz-logs/<run-id>/<Fuzzer>.log` file, or a manually saved console log,
   was inspected.
 - Each finding's regex/flags/input/operation and SafeRE vs JDK behavior.
-- The corresponding `crash-*` files, if identifiable.
+- Whether the assertion text was sufficient for a self-contained repro.
+- The corresponding `crash-*` files or Base64 units only if needed for exact replay, incomplete
+  assertion text, timeout/crash triage, or provenance.
 - Any `slow-unit-*`, `timeout-*`, or Base64 units for hangs/timeouts.
 - Whether `target/fuzz-reproducers` exists, and why absence may be normal.
 
@@ -188,9 +212,11 @@ When asked to file issues:
    `target/surefire-reports`, `target/fuzz-logs`, `/tmp/...`, or local `crash-*` files being
    available later.
 4. Include enough durable repro material to recreate the bug:
-   - minimized regex, flags, input, operation, and observed SafeRE/JDK behavior when available;
-   - for binary Jazzer inputs, include Base64 and/or hex bytes in the issue body, or attach/upload
-     the input artifact if GitHub supports it for the workflow being used;
+   - minimized regex, flags, input, operation, and observed SafeRE/JDK behavior;
+   - a small Java snippet when practical;
+   - for incomplete assertions, timeouts, crashes, or binary-only repros, include Base64 and/or
+     hex bytes in the issue body, or attach/upload the input artifact if GitHub supports it for the
+     workflow being used;
    - if the project owner wants persisted reproducers in-repo, add them deliberately as tracked
      test resources or regression tests rather than depending on untracked local files.
 5. Local paths may be included only as provenance, clearly secondary to the self-contained repro
