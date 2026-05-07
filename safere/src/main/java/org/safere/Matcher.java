@@ -141,6 +141,7 @@ public final class Matcher implements MatchResult {
   private int regionStart;
   private int regionEnd;
   private boolean lastHitEnd;
+  private boolean lastEngineHitEnd;
   private boolean lastRequireEnd;
   private boolean findExhaustedAfterTerminalEmptyMatch;
   private int modCount;
@@ -699,9 +700,11 @@ public final class Matcher implements MatchResult {
     // may accept a match ending before a trailing \n. In that case, fall back to the NFA
     // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
     if (result != null && result[1] != text.length()) {
-      result = Nfa.search(
+      Nfa.SearchResult nfaResult = Nfa.search(
           prog, text, 0, text.length(),
           Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+      result = nfaResult.groups();
+      this.lastEngineHitEnd = nfaResult.hitEnd();
     }
     return applyEngineResult(new FullMatchResult(result));
   }
@@ -1013,6 +1016,7 @@ public final class Matcher implements MatchResult {
         idx = text.indexOf(literal, searchFrom);
       }
       if (idx < 0) {
+        this.lastEngineHitEnd = true;
         return applyEngineResult(new NoMatchResult());
       }
       return applyEngineResult(new FullMatchResult(new int[]{idx, idx + literal.length()}));
@@ -1072,6 +1076,7 @@ public final class Matcher implements MatchResult {
         idx = text.indexOf(prefix, searchFrom);
       }
       if (idx < 0) {
+        this.lastEngineHitEnd = true;
         return applyEngineResult(new NoMatchResult());
       }
       effectiveStart = idx;
@@ -1084,6 +1089,7 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration() && ccPrefixAscii != null) {
       int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
+        this.lastEngineHitEnd = true;
         return applyEngineResult(new NoMatchResult());
       }
       effectiveStart = idx;
@@ -1093,6 +1099,7 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration() && startAcceleration != null) {
       int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
       if (idx < 0) {
+        this.lastEngineHitEnd = true;
         return applyEngineResult(new NoMatchResult());
       }
       effectiveStart = idx;
@@ -1113,6 +1120,7 @@ public final class Matcher implements MatchResult {
       if (result != null) {
         return applyEngineResult(new FullMatchResult(result));
       }
+      this.lastEngineHitEnd = true;
       return applyEngineResult(new NoMatchResult());
     }
 
@@ -1191,6 +1199,7 @@ public final class Matcher implements MatchResult {
         if (!budgetExceeded) {
           if (matchStart < 0) {
             // No match possible at end of text — fail immediately without forward scan.
+            this.lastEngineHitEnd = true;
             return applyEngineResult(new NoMatchResult());
           }
 
@@ -1231,6 +1240,7 @@ public final class Matcher implements MatchResult {
     } else {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
+        this.lastEngineHitEnd = true;
         return applyEngineResult(new NoMatchResult());
       }
     }
@@ -1544,6 +1554,9 @@ public final class Matcher implements MatchResult {
       parentPattern.returnBitState(bs);
       if (!bs.budgetExceeded()) {
         // BitState is a complete engine — if it searched and found no match, NFA won't either.
+        if (result == null) {
+          this.lastEngineHitEnd = true;
+        }
         return result;
       }
     }
@@ -1559,8 +1572,10 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
-    return Nfa.search(
+    Nfa.SearchResult nfaResult = Nfa.search(
         prog, text, startPos, searchLimit, endPos, nfaAnchor, nfaKind, nsubmatch);
+    this.lastEngineHitEnd = nfaResult.hitEnd();
+    return nfaResult.groups();
   }
 
   // ---------------------------------------------------------------------------
@@ -2220,7 +2235,7 @@ public final class Matcher implements MatchResult {
 
   private void updateEndState(MatchOperation operation) {
     if (!hasMatch || groups == null) {
-      lastHitEnd = operation == MatchOperation.FIND;
+      lastHitEnd = (operation == MatchOperation.FIND) && lastEngineHitEnd;
       lastRequireEnd = false;
       return;
     }
@@ -2278,10 +2293,10 @@ public final class Matcher implements MatchResult {
       int[] result = switch (operation) {
         case MATCHES -> Nfa.search(
             prog, probeText, 0, probeText.length(),
-            Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, 1);
+            Nfa.Anchor.ANCHORED, Nfa.MatchKind.FULL_MATCH, 1).groups();
         case LOOKING_AT, FIND -> Nfa.search(
             prog, probeText, relativeStart, probeText.length(),
-            Nfa.Anchor.ANCHORED, Nfa.MatchKind.LONGEST_MATCH, 1);
+            Nfa.Anchor.ANCHORED, Nfa.MatchKind.LONGEST_MATCH, 1).groups();
       };
       if (result != null && result[0] == relativeStart && result[1] > relativeEnd) {
         return true;

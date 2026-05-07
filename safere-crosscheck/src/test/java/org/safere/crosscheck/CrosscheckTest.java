@@ -542,5 +542,14 @@ class CrosscheckTest {
       // Both engines should agree on hitEnd
       m.hitEnd();
     }
+
+    @Test
+    @DisplayName("hitEnd after early failure")
+    void hitEndAfterEarlyFailure() {
+      Pattern p = Pattern.compile("^fooseball");
+      Matcher m = p.matcher("fort");
+      m.find();
+      assertThat(m.hitEnd()).isFalse();
+    }
   }
 }

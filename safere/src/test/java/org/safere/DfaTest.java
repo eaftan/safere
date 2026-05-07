@@ -39,7 +39,7 @@ class DfaTest {
     Dfa.SearchResult r = Dfa.search(prog, text, true, true);
     if (r != null && r.matched() && r.pos() != text.length()) {
       // Match didn't cover the entire text — not a full match.
-      return new Dfa.SearchResult(false, r.pos());
+      return new Dfa.SearchResult(false, r.pos(), r.hitEnd());
     }
     return r;
   }

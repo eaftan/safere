@@ -326,14 +326,14 @@ class DfaNfaTest {
     // Run NFA with matching settings.
     Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
     Nfa.MatchKind nfaKind = longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    int[] nfaResult = Nfa.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
+    Nfa.SearchResult nfaResult = Nfa.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
 
     if (dfaResult == null) {
       // DFA bailed out due to budget -- skip consistency check.
       return;
     }
 
-    boolean nfaMatched = (nfaResult != null);
+    boolean nfaMatched = (nfaResult.groups() != null);
     String mode = (anchored ? "anchored" : "unanchored")
         + " " + (longest ? "longest" : "first");
 
@@ -354,7 +354,8 @@ class DfaNfaTest {
 
     Nfa.Anchor nfaAnchor = anchored ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
     Nfa.MatchKind nfaKind = longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    int[] nfaResult = Nfa.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
+    Nfa.SearchResult nfaSearchResult = Nfa.search(prog, tc.input(), nfaAnchor, nfaKind, 1);
+    int[] nfaResult = nfaSearchResult.groups();
 
     if (dfaResult == null) {
       return;

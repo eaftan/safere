@@ -26,7 +26,7 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures()).groups();
   }
 
   /** Search with full-match semantics. */
@@ -34,7 +34,7 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures()).groups();
   }
 
   /** Search with longest-match semantics. */
@@ -42,7 +42,7 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.LONGEST_MATCH, prog.numCaptures());
+        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.LONGEST_MATCH, prog.numCaptures()).groups();
   }
 
   /** Search with anchored semantics. */
@@ -50,7 +50,7 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures());
+        prog, text, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures()).groups();
   }
 
   @Nested

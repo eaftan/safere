@@ -59,7 +59,8 @@ class OnePassTest {
     }
     int[] opResult = op.search(text, endMatch, prog.numCaptures());
     Nfa.MatchKind kind = endMatch ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    int[] nfaResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
+    Nfa.SearchResult nfaSearchResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
+    int[] nfaResult = nfaSearchResult.groups();
 
     if (nfaResult == null) {
       assertThat(opResult).as("/%s/ on \"%s\": NFA=null, OnePass should too", pattern, text)
