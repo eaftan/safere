@@ -1127,6 +1127,37 @@ class JdkSyntaxCompatibilityTest {
           .isEqualTo(jdk);
     }
 
+    static Stream<Arguments> normalizedCommentsModeClassOperatorCases() {
+      List<String> inputs = List.of("", "a", "b", "&", "-", "z", "0", "A", " ");
+      return Stream.of(
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& \\Q\\E-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& #x\n-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -z]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a& ]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a\\Q\\E& ]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&\\Q\\E&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& #x\n&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase(
+              "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("normalizedCommentsModeClassOperatorCases")
+    @DisplayName("normalized comments-mode class operator adjacency matches JDK")
+    void normalizedCommentsModeClassOperatorAdjacencyMatchesJdk(
+        CharacterClassMembershipCase membershipCase) {
+      CharacterClassMatrixOutcome jdk = jdkCharacterClassOutcome(membershipCase.regex());
+      CharacterClassMatrixOutcome safere = safeReCharacterClassOutcome(membershipCase.regex());
+      assertThat(safere)
+          .as("character-class outcome for /%s/", membershipCase.regex())
+          .isEqualTo(jdk);
+    }
+
     static Stream<Arguments> deferredCharacterClassExpressionParserCases() {
       List<String> inputs = List.of("", "&", "[", "]", "-", "a", "b", "x", "z", "0", "1", " ",
           "\t", "Ā");

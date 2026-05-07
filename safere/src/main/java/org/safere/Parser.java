@@ -1653,18 +1653,7 @@ final class Parser {
         || pattern.charAt(pos) != '-') {
       return false;
     }
-    int index = skipCommentsAndWhitespaceAt(pos + 1);
-    while (startsEmptyQuotedLiteralAt(index)) {
-      index = skipCommentsAndWhitespaceAt(index + 4);
-    }
-    if (index >= pattern.length() || pattern.charAt(index) != '&') {
-      return false;
-    }
-    index = skipCommentsAndWhitespaceAt(index + 1);
-    while (startsEmptyQuotedLiteralAt(index)) {
-      index = skipCommentsAndWhitespaceAt(index + 4);
-    }
-    return index < pattern.length() && pattern.charAt(index) == '&';
+    return inspectNormalizedAmpersandRun(pos + 1).count() >= 2;
   }
 
   private boolean addRawAmpersandRangeTailIfPresent(CharClassBuilder ccb) {
@@ -1703,22 +1692,10 @@ final class Parser {
   }
 
   private OddAmpersandRunTail inspectOddAmpersandRunTail(int index) {
-    boolean skippedZeroWidthSyntax = false;
-    boolean skippedCommentsTrivia = false;
-    int before;
-    do {
-      before = index;
-      while (startsEmptyQuotedLiteralAt(index)) {
-        skippedZeroWidthSyntax = true;
-        index += 4;
-      }
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        int beforeCommentsTrivia = index;
-        index = skipCommentsAndWhitespaceAt(index);
-        skippedCommentsTrivia |= index != beforeCommentsTrivia;
-      }
-    } while (index != before);
-    return new OddAmpersandRunTail(index, skippedZeroWidthSyntax, skippedCommentsTrivia);
+    ClassSyntaxLookahead lookahead = inspectNormalizedClassSyntax(index);
+    return new OddAmpersandRunTail(
+        lookahead.pos(), lookahead.skippedZeroWidthSyntax(),
+        lookahead.skippedCommentsTrivia());
   }
 
   private record OddAmpersandRunTail(
@@ -1727,6 +1704,50 @@ final class Parser {
       return skippedZeroWidthSyntax || skippedCommentsTrivia;
     }
   }
+
+  private ClassSyntaxLookahead inspectNormalizedClassSyntax(int index) {
+    boolean skippedZeroWidthSyntax = false;
+    boolean skippedCommentsTrivia = false;
+    int before;
+    do {
+      before = index;
+      if ((flags & ParseFlags.COMMENTS) != 0) {
+        int beforeCommentsTrivia = index;
+        index = skipCommentsAndWhitespaceAt(index);
+        skippedCommentsTrivia |= index != beforeCommentsTrivia;
+      }
+      while (startsEmptyQuotedLiteralAt(index)) {
+        skippedZeroWidthSyntax = true;
+        index += 4;
+      }
+    } while (index != before);
+    return new ClassSyntaxLookahead(index, skippedZeroWidthSyntax, skippedCommentsTrivia);
+  }
+
+  private NormalizedAmpersandRun inspectNormalizedAmpersandRun(int index) {
+    ClassSyntaxLookahead lookahead = inspectNormalizedClassSyntax(index);
+    int current = lookahead.pos();
+    int first = current;
+    int count = 0;
+    boolean skippedZeroWidthSyntax = lookahead.skippedZeroWidthSyntax();
+    boolean skippedCommentsTrivia = lookahead.skippedCommentsTrivia();
+    while (current < pattern.length() && pattern.charAt(current) == '&') {
+      count++;
+      lookahead = inspectNormalizedClassSyntax(current + 1);
+      skippedZeroWidthSyntax |= lookahead.skippedZeroWidthSyntax();
+      skippedCommentsTrivia |= lookahead.skippedCommentsTrivia();
+      current = lookahead.pos();
+    }
+    return new NormalizedAmpersandRun(first, count, current, skippedZeroWidthSyntax,
+        skippedCommentsTrivia);
+  }
+
+  private record ClassSyntaxLookahead(
+      int pos, boolean skippedZeroWidthSyntax, boolean skippedCommentsTrivia) {}
+
+  private record NormalizedAmpersandRun(
+      int first, int count, int pos, boolean skippedZeroWidthSyntax,
+      boolean skippedCommentsTrivia) {}
 
   private void finishClassIntersection(ClassExpressionFrame frame) {
     boolean emptyRight = frame.intersectionRight == null;
@@ -1828,21 +1849,10 @@ final class Parser {
   }
 
   private ClassNormalization skipClassTriviaAndEmptySyntax() {
-    boolean skippedCommentsTrivia = false;
-    boolean skippedZeroWidthSyntax = false;
-    int before;
-    do {
-      before = pos;
-      if ((flags & ParseFlags.COMMENTS) != 0) {
-        int beforeCommentsTrivia = pos;
-        skipCommentsAndWhitespace();
-        skippedCommentsTrivia |= pos != beforeCommentsTrivia;
-      }
-      int beforeZeroWidthSyntax = pos;
-      skipEmptyQuotedLiterals();
-      skippedZeroWidthSyntax |= pos != beforeZeroWidthSyntax;
-    } while (pos != before);
-    return new ClassNormalization(skippedZeroWidthSyntax, skippedCommentsTrivia);
+    ClassSyntaxLookahead lookahead = inspectNormalizedClassSyntax(pos);
+    pos = lookahead.pos();
+    return new ClassNormalization(
+        lookahead.skippedZeroWidthSyntax(), lookahead.skippedCommentsTrivia());
   }
 
   private record ClassNormalization(
