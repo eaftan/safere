@@ -521,10 +521,11 @@ final class Dfa {
     boolean lastWord;
     boolean lastUnicodeWord;
     if (reverseContext) {
-      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
+      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos), text, pos);
       lastUnicodeWord = pos < text.length() && Nfa.isUnicodeWordChar(text.codePointAt(pos));
     } else {
-      lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
+      int prevCp = pos > 0 ? text.codePointBefore(pos) : -1;
+      lastWord = pos > 0 && Nfa.isWordChar(prevCp, text, pos - Character.charCount(prevCp));
       lastUnicodeWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
     }
 
@@ -680,7 +681,7 @@ final class Dfa {
     //
     // Both are re-expanded before consuming the character so that MATCH instructions
     // reached through these assertions are detected at the correct position.
-    boolean isWord = Nfa.isWordChar(cp);
+    boolean isWord = Nfa.isWordChar(cp, text, nextPos - 1);
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
     int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
         : EmptyOp.NON_WORD_BOUNDARY;
@@ -1007,7 +1008,7 @@ final class Dfa {
       // is always safe to cache because it always means "at text end".
       int effectiveNextPos = Math.min(nextPos, textLen);
       State ns;
-      if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+      if (cp >= 0 && (effectiveNextPos >= posDepThreshold || Character.getType(cp) == Character.NON_SPACING_MARK)) {
         ns = computeNext(s, cp, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1161,7 +1162,7 @@ final class Dfa {
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
-      if (cp >= 0 && effectivePrevPos >= posDepThreshold) {
+      if (cp >= 0 && (effectivePrevPos >= posDepThreshold || Character.getType(cp) == Character.NON_SPACING_MARK)) {
         ns = computeNext(s, cp, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1292,7 +1293,7 @@ final class Dfa {
         // Bypass cache for position-dependent transitions (same invariant as doSearch).
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
-        if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+        if (cp >= 0 && (effectiveNextPos >= posDepThreshold || Character.getType(cp) == Character.NON_SPACING_MARK)) {
           ns = computeNext(s, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded

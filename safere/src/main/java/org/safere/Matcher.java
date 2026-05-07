@@ -1405,15 +1405,18 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean isWordBoundaryAt(int pos, boolean unicodeWordBoundary) {
+    int prevCp = pos > 0 ? text.codePointBefore(pos) : -1;
     boolean prevWord =
-        pos > 0 && isBoundaryWordChar(text.codePointBefore(pos), unicodeWordBoundary);
+        pos > 0 && isBoundaryWordChar(prevCp, text, pos - Character.charCount(prevCp), unicodeWordBoundary);
+
+    int nextCp = pos < text.length() ? text.codePointAt(pos) : -1;
     boolean nextWord =
-        pos < text.length() && isBoundaryWordChar(text.codePointAt(pos), unicodeWordBoundary);
+        pos < text.length() && isBoundaryWordChar(nextCp, text, pos, unicodeWordBoundary);
     return prevWord != nextWord;
   }
 
-  private static boolean isBoundaryWordChar(int cp, boolean unicodeWordBoundary) {
-    return unicodeWordBoundary ? Nfa.isUnicodeWordChar(cp) : Nfa.isWordChar(cp);
+  private static boolean isBoundaryWordChar(int cp, String text, int pos, boolean unicodeWordBoundary) {
+    return unicodeWordBoundary ? Nfa.isUnicodeWordChar(cp) : Nfa.isWordChar(cp, text, pos);
   }
 
   private static int asciiLower(int ch) {
