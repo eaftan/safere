@@ -123,6 +123,7 @@ final class Parser {
   private int ncap;
   private final int runeMax;
   private final Set<String> namedCaptures = new HashSet<>();
+  private boolean lastClassAtomSkippedCommentsTrivia;
 
   private Parser(String pattern, int flags) {
     this.pattern = pattern;
@@ -1218,7 +1219,9 @@ final class Parser {
           continue;
         }
       } else if (frame.shouldCompleteAt(c)) {
-        if (frame.rawAmpersandSeparatorActive) {
+        if (frame.rawAmpersandSeparatorActive
+            && (normalization.skippedCommentsTrivia()
+                || frame.rawAmpersandSeparatorSkippedCommentsTrivia)) {
           throw new PatternSyntaxException("bad class syntax", pattern, pos);
         }
         CharClassBuilder completed = completeClassExpression(frame);
@@ -1237,6 +1240,7 @@ final class Parser {
           frame.rawAmpersandLeftExpression = new CharClassBuilder();
         }
         frame.rawAmpersandSeparatorActive = true;
+        frame.rawAmpersandSeparatorSkippedCommentsTrivia = lastClassAtomSkippedCommentsTrivia;
       } else if (atom.role == ClassAtomRole.INTERSECTION_OPERAND) {
         if (frame.commentsOddRunCurrentOperandForRhs != null) {
           frame.accumulatedClass =
@@ -1386,8 +1390,10 @@ final class Parser {
           }
           frame.accumulatedClass =
               new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
-          addRangeFlags(frame.accumulatedClass, '-', '-', flags | ParseFlags.CLASS_NL);
-          pos++;
+          if (!addCommentsModeHyphenRangeTailIfPresent(frame.accumulatedClass)) {
+            addRangeFlags(frame.accumulatedClass, '-', '-', flags | ParseFlags.CLASS_NL);
+            pos++;
+          }
           frame.currentIntersectionOperand = frame.accumulatedClass;
           frame.currentIntersectionOperandRole = ClassAtomRole.RAW_AMPERSAND_SEPARATOR;
           frame.pendingScalarItems = new CharClassBuilder();
@@ -1654,6 +1660,32 @@ final class Parser {
       return false;
     }
     return inspectNormalizedAmpersandRun(pos + 1).count() >= 2;
+  }
+
+  private boolean addCommentsModeHyphenRangeTailIfPresent(CharClassBuilder ccb) {
+    if ((flags & ParseFlags.COMMENTS) == 0
+        || pos + 2 >= pattern.length()
+        || pattern.charAt(pos) != '-'
+        || pattern.charAt(pos + 1) != '-'
+        || pattern.charAt(pos + 2) == '-'
+        || pattern.charAt(pos + 2) == ']'
+        || pattern.charAt(pos + 2) == '[') {
+      return false;
+    }
+    if (startsPredefinedClassAt(pos + 2) || startsPropertyClassAt(pos + 2)
+        || inspectNormalizedAmpersandRun(pos + 2).count() >= 2) {
+      throw new PatternSyntaxException("illegal character range", pattern, pos);
+    }
+    pos += 2;
+    RangeEndpoint endpoint = parseCCRangeEndpoint();
+    if (endpoint.first < '-') {
+      throw new PatternSyntaxException("invalid character class range", pattern, pos);
+    }
+    addRangeFlags(ccb, '-', endpoint.first, flags | ParseFlags.CLASS_NL);
+    for (int r : endpoint.trailingLiterals) {
+      addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
+    }
+    return true;
   }
 
   private boolean addRawAmpersandRangeTailIfPresent(CharClassBuilder ccb) {
@@ -1980,6 +2012,7 @@ final class Parser {
     boolean ignoreUntilClassTerminator;
     boolean suppressNegation;
     boolean rawAmpersandSeparatorActive;
+    boolean rawAmpersandSeparatorSkippedCommentsTrivia;
     CharClassBuilder rawAmpersandLeftExpression;
     CharClassBuilder commentsOddRunCurrentOperandForRhs;
     CharClassBuilder intersectionRight;
@@ -2030,6 +2063,7 @@ final class Parser {
         && (pattern.charAt(pos + 1) == 'p' || pattern.charAt(pos + 1) == 'P')) {
       int result = parseUnicodeGroup(ccb);
       if (result == PARSE_OK) {
+        lastClassAtomSkippedCommentsTrivia = false;
         return new ParsedClassAtom(ccb, ClassAtomRole.INTERSECTION_OPERAND);
       } else if (result == PARSE_ERROR) {
         throw new PatternSyntaxException("invalid Unicode group", pattern, pos);
@@ -2043,6 +2077,7 @@ final class Parser {
       CharClassBuilder perlCcb = maybeParsePerlCCEscape();
       if (perlCcb != null) {
         ccb.addCharClass(perlCcb);
+        lastClassAtomSkippedCommentsTrivia = false;
         return new ParsedClassAtom(ccb, ClassAtomRole.INTERSECTION_OPERAND);
       }
       pos = saved;
@@ -2062,6 +2097,7 @@ final class Parser {
   private ClassAtomRole addQuotedLiteralClassItem(CharClassBuilder ccb) {
     int[] literals = parseQuotedLiteralSequence();
     if (literals.length == 0) {
+      lastClassAtomSkippedCommentsTrivia = false;
       return ClassAtomRole.ORDINARY_SCALAR;
     }
     for (int i = 0; i + 1 < literals.length; i++) {
@@ -2073,11 +2109,13 @@ final class Parser {
   private ClassAtomRole addScalarClassItem(CharClassBuilder ccb, int lo, boolean rawSource) {
     int hi = lo;
     boolean skippedNonItemSyntax = false;
+    boolean skippedCommentsTrivia = false;
     // In comments mode, skip whitespace before checking for '-'.
     if ((flags & ParseFlags.COMMENTS) != 0) {
       int beforeTrivia = pos;
       skipCommentsAndWhitespace();
       skippedNonItemSyntax = pos != beforeTrivia;
+      skippedCommentsTrivia = pos != beforeTrivia;
     }
     while (startsEmptyQuotedLiteralAt(pos)) {
       skippedNonItemSyntax = true;
@@ -2085,7 +2123,9 @@ final class Parser {
       if ((flags & ParseFlags.COMMENTS) != 0) {
         int beforeTrivia = pos;
         skipCommentsAndWhitespace();
-        skippedNonItemSyntax |= pos != beforeTrivia;
+        boolean skippedTrivia = pos != beforeTrivia;
+        skippedNonItemSyntax |= skippedTrivia;
+        skippedCommentsTrivia |= skippedTrivia;
       }
     }
     if (pos < pattern.length() && pattern.charAt(pos) == '-') {
@@ -2104,11 +2144,13 @@ final class Parser {
         for (int r : endpoint.trailingLiterals) {
           addRangeFlags(ccb, r, r, flags | ParseFlags.CLASS_NL);
         }
+        lastClassAtomSkippedCommentsTrivia = skippedCommentsTrivia;
         return ClassAtomRole.INTERSECTION_OPERAND;
       }
     }
 
     addRangeFlags(ccb, lo, hi, flags | ParseFlags.CLASS_NL);
+    lastClassAtomSkippedCommentsTrivia = skippedCommentsTrivia;
     if (lo > 0xFF) {
       return ClassAtomRole.INTERSECTION_OPERAND;
     }
