@@ -1222,7 +1222,14 @@ final class Parser {
         if (frame.rawAmpersandSeparatorActive
             && (normalization.skippedCommentsTrivia()
                 || frame.rawAmpersandSeparatorSkippedCommentsTrivia)) {
-          throw new PatternSyntaxException("bad class syntax", pattern, pos);
+          if (canUseCloseBracketAsLiteralAfterRawAmpersand(frame)) {
+            finishRawAmpersandSeparatorWithLiteralCloseBracket(frame);
+            continue;
+          }
+          if (!frame.rawAmpersandSeparatorRepeated) {
+            throw new PatternSyntaxException("bad class syntax", pattern, pos);
+          }
+          finishRawAmpersandSeparatorBeforeClassClose(frame);
         }
         CharClassBuilder completed = completeClassExpression(frame);
         stack.pop();
@@ -1235,12 +1242,16 @@ final class Parser {
 
       ParsedClassAtom atom = parseClassAtomOrRange();
       if (atom.role == ClassAtomRole.RAW_AMPERSAND_SEPARATOR) {
-        frame.rawAmpersandLeftExpression = snapshotPendingExpression(frame);
-        if (frame.rawAmpersandLeftExpression == null) {
-          frame.rawAmpersandLeftExpression = new CharClassBuilder();
+        boolean repeatedRawAmpersandSeparator = frame.rawAmpersandSeparatorActive;
+        if (!repeatedRawAmpersandSeparator) {
+          frame.rawAmpersandLeftExpression = snapshotPendingExpression(frame);
+          if (frame.rawAmpersandLeftExpression == null) {
+            frame.rawAmpersandLeftExpression = new CharClassBuilder();
+          }
         }
         frame.rawAmpersandSeparatorActive = true;
         frame.rawAmpersandSeparatorSkippedCommentsTrivia = lastClassAtomSkippedCommentsTrivia;
+        frame.rawAmpersandSeparatorRepeated = repeatedRawAmpersandSeparator;
       } else if (atom.role == ClassAtomRole.INTERSECTION_OPERAND) {
         if (frame.commentsOddRunCurrentOperandForRhs != null) {
           frame.accumulatedClass =
@@ -1309,6 +1320,44 @@ final class Parser {
       snapshot.addCharClass(frame.pendingScalarItems);
     }
     return snapshot;
+  }
+
+  private boolean canUseCloseBracketAsLiteralAfterRawAmpersand(ClassExpressionFrame frame) {
+    return frame.bracketed
+        && !frame.rawAmpersandSeparatorRepeated
+        && pos + 1 < pattern.length()
+        && pattern.charAt(pos) == ']'
+        && pattern.charAt(pos + 1) == ']';
+  }
+
+  private void finishRawAmpersandSeparatorWithLiteralCloseBracket(ClassExpressionFrame frame) {
+    frame.accumulatedClass = new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
+    addRangeFlags(frame.accumulatedClass, ']', ']', flags | ParseFlags.CLASS_NL);
+    frame.currentIntersectionOperand = frame.accumulatedClass;
+    frame.currentIntersectionOperandRole = ClassAtomRole.ORDINARY_SCALAR;
+    frame.pendingScalarItems = new CharClassBuilder();
+    frame.hasPendingScalarItems = false;
+    frame.pendingScalarItemsAfterCurrentOperand = false;
+    frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
+    frame.rawAmpersandSeparatorActive = false;
+    frame.rawAmpersandSeparatorSkippedCommentsTrivia = false;
+    frame.rawAmpersandSeparatorRepeated = false;
+    frame.rawAmpersandLeftExpression = null;
+    pos++;
+  }
+
+  private void finishRawAmpersandSeparatorBeforeClassClose(ClassExpressionFrame frame) {
+    frame.accumulatedClass = new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
+    frame.currentIntersectionOperand = frame.accumulatedClass;
+    frame.currentIntersectionOperandRole = ClassAtomRole.ORDINARY_SCALAR;
+    frame.pendingScalarItems = new CharClassBuilder();
+    frame.hasPendingScalarItems = false;
+    frame.pendingScalarItemsAfterCurrentOperand = false;
+    frame.pendingScalarRole = ClassAtomRole.ORDINARY_SCALAR;
+    frame.rawAmpersandSeparatorActive = false;
+    frame.rawAmpersandSeparatorSkippedCommentsTrivia = false;
+    frame.rawAmpersandSeparatorRepeated = false;
+    frame.rawAmpersandLeftExpression = null;
   }
 
   private void finishNestedRightBeforeTrailingAmpersand(ClassExpressionFrame frame) {
@@ -2013,6 +2062,7 @@ final class Parser {
     boolean suppressNegation;
     boolean rawAmpersandSeparatorActive;
     boolean rawAmpersandSeparatorSkippedCommentsTrivia;
+    boolean rawAmpersandSeparatorRepeated;
     CharClassBuilder rawAmpersandLeftExpression;
     CharClassBuilder commentsOddRunCurrentOperandForRhs;
     CharClassBuilder intersectionRight;

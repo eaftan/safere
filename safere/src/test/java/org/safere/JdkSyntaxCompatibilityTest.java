@@ -1128,7 +1128,8 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> normalizedCommentsModeClassOperatorCases() {
-      List<String> inputs = List.of("", "a", "b", "&", "-", "z", "0", "A", " ");
+      List<String> inputs =
+          List.of("", "a", "b", "&", "-", "]", "a]", "&]", "]]", "z", "0", "A", " ");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& \\Q\\E-\\D]", inputs)),
@@ -1141,6 +1142,11 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & &]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & &\\Q\\E]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & & ]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& & ]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& & ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& ]]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & & ]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& &]", inputs)),
