@@ -56,8 +56,8 @@ final class BitState {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
-  static int[] search(Prog prog, String text, boolean anchored, boolean longest,
-      boolean endMatch, int nsubmatch) {
+  static int[] search(
+      Prog prog, String text, boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
     return search(prog, text, 0, text.length(), anchored, longest, endMatch, nsubmatch);
   }
 
@@ -71,11 +71,17 @@ final class BitState {
    * @param longest if true, find the longest match; otherwise find the first (greedy) match
    * @param endMatch if true, match must extend to end of text
    * @param nsubmatch number of submatch groups to track (including group 0)
-   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are
-   *     char indices into the full text.
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
+   *     indices into the full text.
    */
-  static int[] search(Prog prog, String text, int startPos, boolean anchored, boolean longest,
-      boolean endMatch, int nsubmatch) {
+  static int[] search(
+      Prog prog,
+      String text,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch) {
     return search(prog, text, startPos, text.length(), anchored, longest, endMatch, nsubmatch);
   }
 
@@ -85,18 +91,25 @@ final class BitState {
    * @param prog the compiled program
    * @param text the full input text
    * @param startPos the char index in {@code text} at which to begin searching
-   * @param searchLimit upper bound on where to try start positions; only positions up to this
-   *     index are tried. The inner search may still match characters beyond this position. Use
-   *     {@code text.length()} for unbounded search.
+   * @param searchLimit upper bound on where to try start positions; only positions up to this index
+   *     are tried. The inner search may still match characters beyond this position. Use {@code
+   *     text.length()} for unbounded search.
    * @param anchored if true, match must start at {@code startPos}
    * @param longest if true, find the longest match; otherwise find the first (greedy) match
    * @param endMatch if true, match must extend to end of text
    * @param nsubmatch number of submatch groups to track (including group 0)
-   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are
-   *     char indices into the full text.
+   * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
+   *     indices into the full text.
    */
-  static int[] search(Prog prog, String text, int startPos, int searchLimit, boolean anchored,
-      boolean longest, boolean endMatch, int nsubmatch) {
+  static int[] search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch) {
     return search(null, prog, text, startPos, searchLimit, anchored, longest, endMatch, nsubmatch);
   }
 
@@ -116,8 +129,16 @@ final class BitState {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
-  static int[] search(BitState cached, Prog prog, String text, int startPos, int searchLimit,
-      boolean anchored, boolean longest, boolean endMatch, int nsubmatch) {
+  static int[] search(
+      BitState cached,
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch) {
     return search(
         cached, prog, text, startPos, searchLimit, anchored, longest, endMatch, nsubmatch, null);
   }
@@ -128,8 +149,17 @@ final class BitState {
    * the returned result while allowing tight find loops to avoid one result-array allocation per
    * match.
    */
-  static int[] search(BitState cached, Prog prog, String text, int startPos, int searchLimit,
-      boolean anchored, boolean longest, boolean endMatch, int nsubmatch, int[] resultBuffer) {
+  static int[] search(
+      BitState cached,
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch,
+      int[] resultBuffer) {
     int textLen = text.length();
     int maxLen = maxTextSize(prog);
     if (maxLen < 0 || textLen > maxLen) {
@@ -156,11 +186,17 @@ final class BitState {
   }
 
   /**
-   * Returns a BitState instance suitable for the given parameters, either by resetting
-   * {@code cached} (if compatible) or by creating a new one.
+   * Returns a BitState instance suitable for the given parameters, either by resetting {@code
+   * cached} (if compatible) or by creating a new one.
    */
-  static BitState getOrCreate(BitState cached, Prog prog, String text, int endPos, int ncap,
-      boolean longest, boolean endMatch) {
+  static BitState getOrCreate(
+      BitState cached,
+      Prog prog,
+      String text,
+      int endPos,
+      int ncap,
+      boolean longest,
+      boolean endMatch) {
     if (cached != null && cached.canReuse(prog, text, ncap)) {
       cached.reset(text, endPos, ncap, longest, endMatch);
       return cached;
@@ -191,7 +227,8 @@ final class BitState {
     stepCount = 0;
     stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (endPos + 1));
     bestMatch = null;
-    matchResult = resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
+    matchResult =
+        resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
@@ -226,10 +263,12 @@ final class BitState {
    * searches with different start/end bounds.
    */
   private long[] visited;
+
   private int textSlots;
 
   /** Tracks which words in the visited bitmap were dirtied, for incremental clearing. */
   private int[] dirtyWords;
+
   private int dirtyCount;
 
   /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
@@ -249,11 +288,13 @@ final class BitState {
 
   /** Work-budget accounting for falling back when BitState backtracking is too expensive. */
   private long stepBudget;
+
   private long stepCount;
   private boolean budgetExceeded;
 
   /** Explicit job stack for backtracking. */
   private int[] jobInstId;
+
   private int[] jobPos;
   private int jobCount;
 

@@ -694,13 +694,14 @@ class UnicodePropertySyntaxTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-      "\\p{^IsLatin}",
-      "\\p{^InBasicLatin}",
-      "\\p{^script=Latin}",
-      "\\p{^gc=Lu}",
-      "\\p{^javaLowerCase}",
-    })
+    @ValueSource(
+        strings = {
+          "\\p{^IsLatin}",
+          "\\p{^InBasicLatin}",
+          "\\p{^script=Latin}",
+          "\\p{^gc=Lu}",
+          "\\p{^javaLowerCase}",
+        })
     @DisplayName("Caret negation in property names is rejected")
     void caretNegationInPropertyNameRejected(String regex) {
       assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
@@ -836,8 +837,7 @@ class UnicodePropertySyntaxTest {
     void re2StyleBareUnicodePropertyNamesAreRejected(String regex) {
       assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
           .isInstanceOf(PatternSyntaxException.class);
-      assertThatThrownBy(() -> Pattern.compile(regex))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
     }
   }
 }

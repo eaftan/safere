@@ -184,23 +184,18 @@ class UnicodeTablesTest {
     for (var entry : UnicodeTables.UNICODE_GROUPS.entrySet()) {
       for (int[] range : entry.getValue()) {
         assertThat(range.length)
-            .withFailMessage(
-                "Range in " + entry.getKey() + " should have {lo, hi}")
+            .withFailMessage("Range in " + entry.getKey() + " should have {lo, hi}")
             .isEqualTo(2);
         assertThat(range[0] <= range[1])
             .withFailMessage(
-                "Range in " + entry.getKey()
-                    + ": lo=" + range[0] + " > hi=" + range[1])
+                "Range in " + entry.getKey() + ": lo=" + range[0] + " > hi=" + range[1])
             .isTrue();
         assertThat(range[0] >= 0)
-            .withFailMessage(
-                "Range in " + entry.getKey()
-                    + ": lo=" + range[0] + " is negative")
+            .withFailMessage("Range in " + entry.getKey() + ": lo=" + range[0] + " is negative")
             .isTrue();
         assertThat(range[1] <= 0x10FFFF)
             .withFailMessage(
-                "Range in " + entry.getKey()
-                    + ": hi=" + range[1] + " exceeds max code point")
+                "Range in " + entry.getKey() + ": hi=" + range[1] + " exceeds max code point")
             .isTrue();
       }
     }
@@ -285,10 +280,8 @@ class UnicodeTablesTest {
     int flags = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
     assertThat(Pattern.compile("é", flags).matcher("É").matches()).isTrue();
     assertThat(Pattern.compile("Ú", flags).matcher("ú").matches()).isTrue();
-    assertThat(Pattern.compile("k", flags).matcher("\u212A").matches())
-        .isTrue();
-    assertThat(Pattern.compile("K", flags).matcher("\u212A").matches())
-        .isTrue();
+    assertThat(Pattern.compile("k", flags).matcher("\u212A").matches()).isTrue();
+    assertThat(Pattern.compile("K", flags).matcher("\u212A").matches()).isTrue();
   }
 
   // --- Helper ---

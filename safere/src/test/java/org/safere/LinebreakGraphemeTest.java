@@ -149,8 +149,7 @@ class LinebreakGraphemeTest {
     @Test
     @DisplayName("\\R inside [...] is rejected")
     void rejectedInsideCharClass() {
-      assertThatThrownBy(() -> Pattern.compile("[\\R]"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("[\\R]")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -163,8 +162,8 @@ class LinebreakGraphemeTest {
         matches.add(new int[] {m.start(), m.end()});
       }
       assertThat(matches).hasSize(2);
-      assertThat(matches.get(0)).containsExactly(5, 6);   // \n
-      assertThat(matches.get(1)).containsExactly(11, 13);  // \r\n
+      assertThat(matches.get(0)).containsExactly(5, 6); // \n
+      assertThat(matches.get(1)).containsExactly(11, 13); // \r\n
     }
 
     @Test
@@ -290,8 +289,7 @@ class LinebreakGraphemeTest {
     @Test
     @DisplayName("\\X inside [...] is rejected")
     void rejectedInsideCharClass() {
-      assertThatThrownBy(() -> Pattern.compile("[\\X]"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("[\\X]")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test

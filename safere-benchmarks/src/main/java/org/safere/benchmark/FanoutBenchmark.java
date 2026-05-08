@@ -19,9 +19,9 @@ import org.openjdk.jmh.annotations.State;
 /**
  * Pathological fanout benchmark, ported from RE2 C++ {@code regexp_benchmark.cc}.
  *
- * <p>The pattern {@code (?:[\x{80}-\x{10FFFF}]?){100}[\x{80}-\x{10FFFF}]} creates high NFA
- * fanout because each of the 100 optional Unicode ranges can match or skip, creating 2^100 possible
- * paths. This stresses DFA state generation and NFA thread management.
+ * <p>The pattern {@code (?:[\x{80}-\x{10FFFF}]?){100}[\x{80}-\x{10FFFF}]} creates high NFA fanout
+ * because each of the 100 optional Unicode ranges can match or skip, creating 2^100 possible paths.
+ * This stresses DFA state generation and NFA thread management.
  *
  * <p>Also includes a simpler nested-quantifier fanout pattern to measure the impact of quantifier
  * nesting depth.

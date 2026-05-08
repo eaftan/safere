@@ -25,11 +25,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 class RE2ReplaceTest {
 
   record ReplaceTestCase(
-      String pattern,
-      String replacement,
-      String source,
-      String expected,
-      boolean replaceFirst) {
+      String pattern, String replacement, String source, String expected, boolean replaceFirst) {
     @Override
     public String toString() {
       String method = replaceFirst ? "replaceFirst" : "replaceAll";

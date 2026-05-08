@@ -32,7 +32,6 @@ final class Compiler extends Walker<Compiler.Frag> {
   /** Maximum number of instructions allowed by default. */
   private static final int DEFAULT_MAX_INST = 1_000_000;
 
-
   private final Prog prog;
   private boolean failed;
   private boolean reversed;
@@ -161,7 +160,9 @@ final class Compiler extends Walker<Compiler.Frag> {
     stack.push(re);
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT && node.min >= 2 && (node.max == -1 || node.max >= node.min)
+      if (node.op == RegexpOp.REPEAT
+          && node.min >= 2
+          && (node.max == -1 || node.max >= node.min)
           && hasUnboundedCaptureRepeat(node.sub())) {
         return true;
       }
@@ -210,7 +211,10 @@ final class Compiler extends Walker<Compiler.Frag> {
     stack.push(re);
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
-      if (node.op == RegexpOp.REPEAT && node.max >= 2 && node.max > node.min && !node.nonGreedy()
+      if (node.op == RegexpOp.REPEAT
+          && node.max >= 2
+          && node.max > node.min
+          && !node.nonGreedy()
           && hasCapture(node.sub())) {
         return true;
       }
@@ -271,8 +275,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
 
     @Override
-    protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       if (childArgs.contains(null)) {
         return null;
       }
@@ -305,8 +308,7 @@ final class Compiler extends Walker<Compiler.Frag> {
             default -> original;
           };
       if (re.nonGreedy() && canRepeatZeroTimes(re)) {
-        return Regexp.alternate(List.of(Regexp.emptyMatch(re.flags), retained, original),
-            re.flags);
+        return Regexp.alternate(List.of(Regexp.emptyMatch(re.flags), retained, original), re.flags);
       }
       return Regexp.alternate(List.of(retained, original), re.flags);
     }
@@ -321,8 +323,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         return Regexp.concat(List.of(first, repeatRange(remaining, 0, remainingMax, flags)), flags);
       }
       return Regexp.concat(
-          List.of(first, repeatRange(remaining, min - 1, max == -1 ? -1 : max - 1, flags)),
-          flags);
+          List.of(first, repeatRange(remaining, min - 1, max == -1 ? -1 : max - 1, flags)), flags);
     }
   }
 
@@ -344,8 +345,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
 
     @Override
-    protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       if (childArgs.contains(null)) {
         return null;
       }
@@ -354,8 +354,9 @@ final class Compiler extends Walker<Compiler.Frag> {
           if (!re.nonGreedy() && hasCapture(childArgs.get(0))) {
             changed = true;
             yield Regexp.concat(
-                List.of(childArgs.get(0), Regexp.rawQuantifier(RegexpOp.PLUS, childArgs.get(0),
-                    re.flags)),
+                List.of(
+                    childArgs.get(0),
+                    Regexp.rawQuantifier(RegexpOp.PLUS, childArgs.get(0), re.flags)),
                 re.flags);
           }
           yield copyWithChildren(re, childArgs);
@@ -365,8 +366,7 @@ final class Compiler extends Walker<Compiler.Frag> {
               && hasCapture(childArgs.get(0))
               && ((re.max == -1 && re.min >= 1) || re.max > re.min)) {
             changed = true;
-            yield Regexp.repeat(
-                childArgs.get(0), re.flags, re.min + 1, re.max == -1 ? -1 : re.max);
+            yield Regexp.repeat(childArgs.get(0), re.flags, re.min + 1, re.max == -1 ? -1 : re.max);
           }
           yield copyWithChildren(re, childArgs);
         }
@@ -428,8 +428,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
 
     @Override
-    protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       if (childArgs.contains(null)) {
         return null;
       }
@@ -462,8 +461,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       Regexp node = current.re;
       boolean inQuantifier = current.inQuantifier;
       boolean childInQuantifier = inQuantifier || isCaptureRetainingQuantifier(node);
-      if (inQuantifier && node.op == RegexpOp.CAPTURE && node.cap > 0
-          && node.cap < groups.length) {
+      if (inQuantifier && node.op == RegexpOp.CAPTURE && node.cap > 0 && node.cap < groups.length) {
         groups[node.cap] = true;
         childInQuantifier = false;
       }
@@ -558,8 +556,8 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
       case CAPTURE -> {
         if (isAnchorStartImpl(re.sub(), depth + 1)) {
-          yield Regexp.capture(stripAnchorStartImpl(re.sub(), depth + 1), re.flags, re.cap,
-              re.name);
+          yield Regexp.capture(
+              stripAnchorStartImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
         }
         yield re;
       }
@@ -572,8 +570,8 @@ final class Compiler extends Walker<Compiler.Frag> {
   }
 
   /**
-   * Returns true if the trailing end anchor is {@code $} (WAS_DOLLAR), meaning the match may
-   * end before a trailing newline. Must only be called when {@link #isAnchorEnd} is true.
+   * Returns true if the trailing end anchor is {@code $} (WAS_DOLLAR), meaning the match may end
+   * before a trailing newline. Must only be called when {@link #isAnchorEnd} is true.
    */
   private static boolean isDollarAnchorEnd(Regexp re) {
     return isDollarAnchorEndImpl(re, 0);
@@ -585,8 +583,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
     return switch (re.op) {
       case END_TEXT -> (re.flags & ParseFlags.WAS_DOLLAR) != 0;
-      case CONCAT -> re.nsub() > 0
-          && isDollarAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
+      case CONCAT -> re.nsub() > 0 && isDollarAnchorEndImpl(re.subs.get(re.nsub() - 1), depth + 1);
       case NON_CAPTURE, CAPTURE -> isDollarAnchorEndImpl(re.sub(), depth + 1);
       default -> false;
     };
@@ -631,8 +628,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
       case CAPTURE -> {
         if (isAnchorEndImpl(re.sub(), depth + 1)) {
-          yield Regexp.capture(stripAnchorEndImpl(re.sub(), depth + 1), re.flags, re.cap,
-              re.name);
+          yield Regexp.capture(stripAnchorEndImpl(re.sub(), depth + 1), re.flags, re.cap, re.name);
         }
         yield re;
       }
@@ -726,9 +722,7 @@ final class Compiler extends Walker<Compiler.Frag> {
 
     // Elide no-op.
     Inst begin = prog.mutableInst(a.begin);
-    if (begin.op == InstOp.NOP
-        && a.end.head == (a.begin << 1)
-        && begin.out == 0) {
+    if (begin.op == InstOp.NOP && a.end.head == (a.begin << 1) && begin.out == 0) {
       PatchList.patch(prog, a.end, b.begin);
       return b;
     }
@@ -756,10 +750,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
 
     prog.mutableInst(id).initAlt(a.begin, b.begin);
-    return new Frag(
-        id,
-        PatchList.append(prog, a.end, b.end),
-        a.nullable || b.nullable);
+    return new Frag(id, PatchList.append(prog, a.end, b.end), a.nullable || b.nullable);
   }
 
   private Frag plus(Frag a, boolean nongreedy) {
@@ -776,7 +767,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
       int loopReg = nextLoopReg++;
       prog.mutableInst(pcId).initProgressCheck(loopReg, a.begin, 0, nongreedy);
-      PatchList pl = PatchList.mk((pcId << 1) | 1);  // patch out1 (exit)
+      PatchList pl = PatchList.mk((pcId << 1) | 1); // patch out1 (exit)
 
       // Patch the body end to loop back to pcId.
       PatchList.patch(prog, a.end, pcId);
@@ -901,17 +892,17 @@ final class Compiler extends Walker<Compiler.Frag> {
     Inst start = prog.mutableInst(a.begin);
     int endId = a.end.head >> 1;
     Inst end = prog.mutableInst(endId);
-    if (start.op == InstOp.CAPTURE && start.arg == 2 * cap
-        && end.op == InstOp.CAPTURE && end.arg == 2 * cap + 1) {
+    if (start.op == InstOp.CAPTURE
+        && start.arg == 2 * cap
+        && end.op == InstOp.CAPTURE
+        && end.arg == 2 * cap + 1) {
       start.initNop(start.out);
       end.initNop(end.out);
     }
   }
 
   private static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
-    return re.op == RegexpOp.CAPTURE
-        && re.cap > 0
-        && isPureEmpty(re.sub());
+    return re.op == RegexpOp.CAPTURE && re.cap > 0 && isPureEmpty(re.sub());
   }
 
   private static boolean isPureEmpty(Regexp re) {
@@ -920,8 +911,14 @@ final class Compiler extends Walker<Compiler.Frag> {
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
       switch (node.op) {
-        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-             NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {}
+        case EMPTY_MATCH,
+            BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            END_TEXT,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY,
+            GRAPHEME_CLUSTER_BOUNDARY -> {}
         case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
         case CONCAT -> {
           if (node.subs != null) {
@@ -969,8 +966,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   }
 
   @Override
-  protected Frag postVisit(
-      Regexp re, Frag parentArg, Frag preArg, List<Frag> childArgs) {
+  protected Frag postVisit(Regexp re, Frag parentArg, Frag preArg, List<Frag> childArgs) {
     if (failed) {
       return Frag.NO_MATCH;
     }

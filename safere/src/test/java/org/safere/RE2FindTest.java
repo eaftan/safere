@@ -39,9 +39,9 @@ class RE2FindTest {
   }
 
   /**
-   * Build a FindTestCase. {@code n} is the number of matches. {@code x} is a flat array of
-   * (start, end) pairs in UTF-8 byte offsets. Each match has {@code x.length / n} values
-   * (group 0 start, group 0 end, group 1 start, group 1 end, ...).
+   * Build a FindTestCase. {@code n} is the number of matches. {@code x} is a flat array of (start,
+   * end) pairs in UTF-8 byte offsets. Each match has {@code x.length / n} values (group 0 start,
+   * group 0 end, group 1 start, group 1 end, ...).
    */
   private static FindTestCase tc(String pat, String text, int n, int... x) {
     int[][] matches = new int[n][];
@@ -185,18 +185,12 @@ class RE2FindTest {
             tc(
                 "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\"
                     + "\\]\\^\\_\\{\\|\\}\\~",
-                "!\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~",
-                1,
-                0,
-                31)),
+                "!\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~", 1, 0, 31)),
         Arguments.of(
             tc(
                 "[\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\\\"
                     + "\\[\\\\\\]\\^\\_\\{\\|\\}\\~]+",
-                "!\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~",
-                1,
-                0,
-                31)),
+                "!\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~", 1, 0, 31)),
         Arguments.of(tc("\\`", "`", 1, 0, 1)),
         Arguments.of(tc("[\\`]+", "`", 1, 0, 1)),
 
@@ -206,10 +200,78 @@ class RE2FindTest {
                 ".",
                 "qwertyuiopasdfghjklzxcvbnm1234567890",
                 36,
-                0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12,
-                12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22,
-                22, 23, 23, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 30, 30, 31, 31, 32,
-                32, 33, 33, 34, 34, 35, 35, 36)),
+                0,
+                1,
+                1,
+                2,
+                2,
+                3,
+                3,
+                4,
+                4,
+                5,
+                5,
+                6,
+                6,
+                7,
+                7,
+                8,
+                8,
+                9,
+                9,
+                10,
+                10,
+                11,
+                11,
+                12,
+                12,
+                13,
+                13,
+                14,
+                14,
+                15,
+                15,
+                16,
+                16,
+                17,
+                17,
+                18,
+                18,
+                19,
+                19,
+                20,
+                20,
+                21,
+                21,
+                22,
+                22,
+                23,
+                23,
+                24,
+                24,
+                25,
+                25,
+                26,
+                26,
+                27,
+                27,
+                28,
+                28,
+                29,
+                29,
+                30,
+                30,
+                31,
+                31,
+                32,
+                32,
+                33,
+                33,
+                34,
+                34,
+                35,
+                35,
+                36)),
         Arguments.of(tc("(|a)*", "aa", 3, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2)));
   }
 
@@ -269,10 +331,12 @@ class RE2FindTest {
     Matcher m = p.matcher(tc.text());
 
     if (tc.matches().length == 0) {
-      assertThat(m.find()).as("find() should fail for \"%s\" on \"%s\"", tc.pattern(), tc.text())
+      assertThat(m.find())
+          .as("find() should fail for \"%s\" on \"%s\"", tc.pattern(), tc.text())
           .isFalse();
     } else {
-      assertThat(m.find()).as("find() should succeed for \"%s\" on \"%s\"", tc.pattern(), tc.text())
+      assertThat(m.find())
+          .as("find() should succeed for \"%s\" on \"%s\"", tc.pattern(), tc.text())
           .isTrue();
       String expectedText = expectedGroupText(tc, 0, 0);
       assertThat(m.group()).isEqualTo(expectedText);

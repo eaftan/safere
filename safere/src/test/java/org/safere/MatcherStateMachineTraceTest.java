@@ -21,7 +21,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("failed matches() leaves the next find() sequence JDK-compatible")
   void failedMatchesLeavesNextFindSequenceJdkCompatible() {
-    assertTrace("a", "ba",
+    assertTrace(
+        "a",
+        "ba",
         Step.matches(),
         Step.hitEnd(),
         Step.requireEnd(),
@@ -35,7 +37,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("failed lookingAt() leaves the next find() sequence JDK-compatible")
   void failedLookingAtLeavesNextFindSequenceJdkCompatible() {
-    assertTrace("a", "ba",
+    assertTrace(
+        "a",
+        "ba",
         Step.lookingAt(),
         Step.hitEnd(),
         Step.requireEnd(),
@@ -49,7 +53,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("empty matches advance the following find() sequence like the JDK")
   void emptyMatchesAdvanceFollowingFindSequenceLikeJdk() {
-    assertTrace("a*", "ba",
+    assertTrace(
+        "a*",
+        "ba",
         Step.find(),
         Step.group(),
         Step.find(),
@@ -62,7 +68,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("final nullable find at input end preserves JDK-compatible hitEnd")
   void finalNullableFindAtInputEndPreservesJdkCompatibleHitEnd() {
-    assertTrace("(?:(a)?)??c?", "c" + "b".repeat(3),
+    assertTrace(
+        "(?:(a)?)??c?",
+        "c" + "b".repeat(3),
         Step.find(),
         Step.hitEnd(),
         Step.requireEnd(),
@@ -86,7 +94,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("find failure after terminal empty-pattern match preserves JDK-compatible hitEnd")
   void findFailureAfterTerminalEmptyPatternMatchPreservesJdkCompatibleHitEnd() {
-    assertTrace("", "abc",
+    assertTrace(
+        "",
+        "abc",
         Step.find(),
         Step.hitEnd(),
         Step.requireEnd(),
@@ -110,7 +120,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("find(int) resets region and append position before searching")
   void findStartResetsRegionAndAppendPositionBeforeSearching() {
-    assertTrace("\\d+", "xx11yy22",
+    assertTrace(
+        "\\d+",
+        "xx11yy22",
         Step.region(2, 4),
         Step.find(),
         Step.appendReplacement("[$0]"),
@@ -124,7 +136,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("usePattern preserves the JDK-compatible next search position")
   void usePatternPreservesJdkCompatibleNextSearchPosition() {
-    assertTrace("a*", "ba",
+    assertTrace(
+        "a*",
+        "ba",
         Step.find(),
         Step.group(),
         Step.usePattern("."),
@@ -137,7 +151,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("bounds changes preserve observable match data")
   void boundsChangesPreserveObservableMatchData() {
-    assertTrace("(a+)", "xxaaaa",
+    assertTrace(
+        "(a+)",
+        "xxaaaa",
         Step.region(2, 6),
         Step.find(),
         Step.useAnchoringBounds(false),
@@ -151,7 +167,9 @@ class MatcherStateMachineTraceTest {
   @Test
   @DisplayName("reset and region preserve end-state flags until the next match attempt")
   void resetAndRegionPreserveEndStateUntilNextAttempt() {
-    assertTrace("a+$", "aaa",
+    assertTrace(
+        "a+$",
+        "aaa",
         Step.find(),
         Step.hitEnd(),
         Step.requireEnd(),
@@ -202,7 +220,9 @@ class MatcherStateMachineTraceTest {
   }
 
   private static void assertEndStateTrace(String regex, String input) {
-    assertTrace(regex, input,
+    assertTrace(
+        regex,
+        input,
         Step.find(),
         Step.hitEnd(),
         Step.requireEnd(),
@@ -225,31 +245,19 @@ class MatcherStateMachineTraceTest {
 
   private static List<Mutation> structuralMutations() {
     return List.of(
+        new Mutation("useTransparentBounds(true)", subject -> subject.useTransparentBounds(true)),
+        new Mutation("useTransparentBounds(false)", subject -> subject.useTransparentBounds(false)),
+        new Mutation("useAnchoringBounds(true)", subject -> subject.useAnchoringBounds(true)),
+        new Mutation("useAnchoringBounds(false)", subject -> subject.useAnchoringBounds(false)),
         new Mutation(
-            "useTransparentBounds(true)",
-            subject -> subject.useTransparentBounds(true)),
-        new Mutation(
-            "useTransparentBounds(false)",
-            subject -> subject.useTransparentBounds(false)),
-        new Mutation(
-            "useAnchoringBounds(true)",
-            subject -> subject.useAnchoringBounds(true)),
-        new Mutation(
-            "useAnchoringBounds(false)",
-            subject -> subject.useAnchoringBounds(false)),
-        new Mutation(
-            "appendReplacement",
-            subject -> subject.appendReplacement(new StringBuilder(), "x")),
-        new Mutation(
-            "appendTail",
-            subject -> subject.appendTail(new StringBuilder())));
+            "appendReplacement", subject -> subject.appendReplacement(new StringBuilder(), "x")),
+        new Mutation("appendTail", subject -> subject.appendTail(new StringBuilder())));
   }
 
   private static String runResultsMutationTrace(Mutation mutation, boolean jdk) {
     TraceSubject subject = traceSubject("a", "aa", jdk);
     try {
-      List<String> groups =
-          subject.resultsWithMutation(mutation).collect(Collectors.toList());
+      List<String> groups = subject.resultsWithMutation(mutation).collect(Collectors.toList());
       return "ok:" + groups;
     } catch (RuntimeException e) {
       return "throws " + e.getClass().getSimpleName();
@@ -260,9 +268,10 @@ class MatcherStateMachineTraceTest {
       Mutation mutation, boolean jdk, boolean first) {
     TraceSubject subject = traceSubject("a", "aa", jdk);
     try {
-      String replaced = first
-          ? subject.replaceFirstWithMutation(mutation)
-          : subject.replaceAllWithMutation(mutation);
+      String replaced =
+          first
+              ? subject.replaceFirstWithMutation(mutation)
+              : subject.replaceAllWithMutation(mutation);
       return "ok:" + replaced;
     } catch (RuntimeException e) {
       return "throws " + e.getClass().getSimpleName();
@@ -278,15 +287,12 @@ class MatcherStateMachineTraceTest {
 
   private static void assertTrace(String regex, String input, Step... steps) {
     TraceSubject safere = new SafeReSubject(Pattern.compile(regex).matcher(input));
-    TraceSubject jdk =
-        new JdkSubject(java.util.regex.Pattern.compile(regex).matcher(input));
+    TraceSubject jdk = new JdkSubject(java.util.regex.Pattern.compile(regex).matcher(input));
 
     List<String> safereTrace = trace(safere, steps);
     List<String> jdkTrace = trace(jdk, steps);
 
-    assertThat(safereTrace)
-        .as("trace for /%s/ on %s", regex, input)
-        .isEqualTo(jdkTrace);
+    assertThat(safereTrace).as("trace for /%s/ on %s", regex, input).isEqualTo(jdkTrace);
   }
 
   private static List<String> trace(TraceSubject subject, Step... steps) {
@@ -468,7 +474,8 @@ class MatcherStateMachineTraceTest {
 
     @Override
     public java.util.stream.Stream<String> resultsWithMutation(Mutation mutation) {
-      return matcher.results()
+      return matcher
+          .results()
           .map(
               result -> {
                 mutation.apply(this);
@@ -614,7 +621,8 @@ class MatcherStateMachineTraceTest {
 
     @Override
     public java.util.stream.Stream<String> resultsWithMutation(Mutation mutation) {
-      return matcher.results()
+      return matcher
+          .results()
           .map(
               result -> {
                 mutation.apply(this);
@@ -718,14 +726,12 @@ class MatcherStateMachineTraceTest {
 
     static Step useAnchoringBounds(boolean value) {
       return effect(
-          "useAnchoringBounds(" + value + ")",
-          subject -> subject.useAnchoringBounds(value));
+          "useAnchoringBounds(" + value + ")", subject -> subject.useAnchoringBounds(value));
     }
 
     static Step useTransparentBounds(boolean value) {
       return effect(
-          "useTransparentBounds(" + value + ")",
-          subject -> subject.useTransparentBounds(value));
+          "useTransparentBounds(" + value + ")", subject -> subject.useTransparentBounds(value));
     }
 
     static Step toMatchResult() {
@@ -777,8 +783,14 @@ class MatcherStateMachineTraceTest {
       List<String> groups = new ArrayList<>();
       for (int group = 0; group <= result.groupCount(); group++) {
         try {
-          groups.add(group + ":" + result.start(group) + "-" + result.end(group)
-              + "=" + result.group(group));
+          groups.add(
+              group
+                  + ":"
+                  + result.start(group)
+                  + "-"
+                  + result.end(group)
+                  + "="
+                  + result.group(group));
         } catch (RuntimeException e) {
           groups.add(group + ":throws " + e.getClass().getSimpleName());
         }

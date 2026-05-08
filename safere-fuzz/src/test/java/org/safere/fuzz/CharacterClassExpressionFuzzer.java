@@ -12,133 +12,134 @@ import java.util.List;
 final class CharacterClassExpressionFuzzer {
 
   private static final String[] BASE_PIECES = {
-      "",
-      "a",
-      "ab",
-      "a-b",
-      "0",
-      "0-1",
-      "&",
-      "\\&",
-      "\\Q&\\E",
-      "\\Qa\\E",
-      "\\Qab\\E",
-      "\\Q\\E",
-      "Ā",
-      "\\Ā",
-      "[a]",
-      "[b]",
-      "[ab]",
-      "[^b]",
-      "\\d",
-      "\\D",
-      "\\w",
-      "\\W",
-      "\\p{Lower}",
-      "\\P{Lower}",
-      "\\p{javaLowerCase}"
+    "",
+    "a",
+    "ab",
+    "a-b",
+    "0",
+    "0-1",
+    "&",
+    "\\&",
+    "\\Q&\\E",
+    "\\Qa\\E",
+    "\\Qab\\E",
+    "\\Q\\E",
+    "Ā",
+    "\\Ā",
+    "[a]",
+    "[b]",
+    "[ab]",
+    "[^b]",
+    "\\d",
+    "\\D",
+    "\\w",
+    "\\W",
+    "\\p{Lower}",
+    "\\P{Lower}",
+    "\\p{javaLowerCase}"
   };
   private static final String[] AMPERSAND_PIECES = {"&", "\\&", "\\Q&\\E"};
   private static final String[] TRAILING_PIECES = {
-      "", "&", "\\&", "\\Q&\\E", "-\\D", "-a", "-&", "-&a", "-&&", "\\Q\\E-\\D"
+    "", "&", "\\&", "\\Q&\\E", "-\\D", "-a", "-&", "-&a", "-&&", "\\Q\\E-\\D"
   };
   private static final Separator[] SEPARATORS = {
-      new Separator("", false),
-      new Separator("\\Q\\E", false),
-      new Separator("\\Q\\E\\Q\\E", false),
-      new Separator(" ", true),
-      new Separator(" #x\n", true),
-      new Separator("\\Q\\E ", true),
-      new Separator(" \\Q\\E", true)
+    new Separator("", false),
+    new Separator("\\Q\\E", false),
+    new Separator("\\Q\\E\\Q\\E", false),
+    new Separator(" ", true),
+    new Separator(" #x\n", true),
+    new Separator("\\Q\\E ", true),
+    new Separator(" \\Q\\E", true)
   };
   private static final String[] OPERATORS = {"&&", "&&&", "&&&&", "&&&&&", "&&&&&&"};
   private static final String[] RIGHT_PIECES = {
-      "",
-      "a",
-      "b",
-      "a-b",
-      "0",
-      "0-1",
-      "&",
-      "\\&",
-      "\\Q&\\E",
-      "\\Qa\\E",
-      "\\Q\\E",
-      "Ā",
-      "\\Ā",
-      "[a]",
-      "[b]",
-      "[ab]",
-      "\\d",
-      "\\D",
-      "\\w",
-      "\\p{Lower}",
-      "\\P{Lower}",
-      "\\p{javaLowerCase}"
+    "",
+    "a",
+    "b",
+    "a-b",
+    "0",
+    "0-1",
+    "&",
+    "\\&",
+    "\\Q&\\E",
+    "\\Qa\\E",
+    "\\Q\\E",
+    "Ā",
+    "\\Ā",
+    "[a]",
+    "[b]",
+    "[ab]",
+    "\\d",
+    "\\D",
+    "\\w",
+    "\\p{Lower}",
+    "\\P{Lower}",
+    "\\p{javaLowerCase}"
   };
   private static final List<String> INPUTS =
-      List.of("", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_", "`", "x", " ",
-          "\t", "Ā", "é", "\n");
+      List.of(
+          "", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_", "`", "x", " ", "\t", "Ā", "é",
+          "\n");
   private static final String[] REGRESSION_REGEXES = {
-      "[\\d&&&-\\D]",
-      "[\\d&&&\\Q\\E-\\D]",
-      "(?x)[a&&& -\\D]",
-      "(?x)[a&&& #x\n -\\D]",
-      "[&\\Q\\E &&\\d]",
-      "[b&&[a]&]",
-      "[^b&&[a]&]",
-      "[&&abc]",
-      "[a&&&&b]",
-      "[ [a]&&]",
-      "[ &&&]",
-      "[&&[x]-&&a]",
-      "[ab\\Q\\E\\Q\\E&&&&&\\Q\\E&\\&]",
-      "[a\\Q\\E&&\\Q\\E\\Q\\E&-\\D]",
-      "[\\&\\Q\\E&&&&&\\Q\\E\\Q\\E&-\\D]",
-      "[\\Q&\\E&&\\Q\\E&-\\D]",
-      "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]",
-      "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]",
-      "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]",
-      "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]",
-      "[&&[a]&-a]",
-      "[&&[a]&-&&]",
-      "[a\\d&&&\\Q\\E&]",
-      "[^[^b]&\\Q\\E&&\\Q\\E-&&]",
-      "(?x)[0&\\Q\\E\\Q\\E&&& #x\n-&&]",
-      "(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]",
-      "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]",
-      "[0&\\Q\\E\\Q\\E&&&&&&-&&]",
-      "[0&\\Q\\E\\Q\\E&&&&&&-&]",
-      "[0&\\Q\\E\\Q\\E&&&&&&-&a]",
-      "[0&\\Q\\E\\Q\\E&&&&&&\\Q\\E-&&]",
-      "(?x)[0&\\Q\\E\\Q\\E&&&&&&-&&]",
-      "(?x)[a& &&&& -& &]",
-      "(?x)[a& &&&& -&\\Q\\E&]",
-      "(?x)[a& &&&& -& #x\n&]",
-      "(?x)[a& &&&& -a& ]",
-      "(?x)[a& &&&& -a\\Q\\E& ]",
-      "(?x)[a& &&&& -a&]",
-      "(?x)[a& &&&& & &]",
-      "(?x)[a& &&&& & &\\Q\\E]",
-      "(?x)[a& &&&& & & ]",
-      "(?x)[a& & ]",
-      "(?x)[a& ]]",
-      "(?x)[a& & ]]",
-      "(?x)[a& ]]]",
-      "(?x)[a& &&&& & & ]]",
-      "(?x)[& [^b]]",
-      "(?x)[a& [^b]]",
-      "(?x)[& & [^b]]",
-      "(?x)[a& & [^b]]",
-      "(?x)[a& &&&& --z]",
-      "(?x)[a\\d&& [0]&]",
-      "(?x)[a[b]&& [a]&]",
-      "(?x)[a& &&&& -z]",
-      "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]",
-      "[0-1ab&&[a]&]",
-      "[^0-1ab&&[a]&]",
-      "(?x)[^0-1\\Qab\\E\\Q\\E\\Q\\E&& [a]&]",
-      "(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]"
+    "[\\d&&&-\\D]",
+    "[\\d&&&\\Q\\E-\\D]",
+    "(?x)[a&&& -\\D]",
+    "(?x)[a&&& #x\n -\\D]",
+    "[&\\Q\\E &&\\d]",
+    "[b&&[a]&]",
+    "[^b&&[a]&]",
+    "[&&abc]",
+    "[a&&&&b]",
+    "[ [a]&&]",
+    "[ &&&]",
+    "[&&[x]-&&a]",
+    "[ab\\Q\\E\\Q\\E&&&&&\\Q\\E&\\&]",
+    "[a\\Q\\E&&\\Q\\E\\Q\\E&-\\D]",
+    "[\\&\\Q\\E&&&&&\\Q\\E\\Q\\E&-\\D]",
+    "[\\Q&\\E&&\\Q\\E&-\\D]",
+    "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]",
+    "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]",
+    "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]",
+    "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]",
+    "[&&[a]&-a]",
+    "[&&[a]&-&&]",
+    "[a\\d&&&\\Q\\E&]",
+    "[^[^b]&\\Q\\E&&\\Q\\E-&&]",
+    "(?x)[0&\\Q\\E\\Q\\E&&& #x\n-&&]",
+    "(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]",
+    "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]",
+    "[0&\\Q\\E\\Q\\E&&&&&&-&&]",
+    "[0&\\Q\\E\\Q\\E&&&&&&-&]",
+    "[0&\\Q\\E\\Q\\E&&&&&&-&a]",
+    "[0&\\Q\\E\\Q\\E&&&&&&\\Q\\E-&&]",
+    "(?x)[0&\\Q\\E\\Q\\E&&&&&&-&&]",
+    "(?x)[a& &&&& -& &]",
+    "(?x)[a& &&&& -&\\Q\\E&]",
+    "(?x)[a& &&&& -& #x\n&]",
+    "(?x)[a& &&&& -a& ]",
+    "(?x)[a& &&&& -a\\Q\\E& ]",
+    "(?x)[a& &&&& -a&]",
+    "(?x)[a& &&&& & &]",
+    "(?x)[a& &&&& & &\\Q\\E]",
+    "(?x)[a& &&&& & & ]",
+    "(?x)[a& & ]",
+    "(?x)[a& ]]",
+    "(?x)[a& & ]]",
+    "(?x)[a& ]]]",
+    "(?x)[a& &&&& & & ]]",
+    "(?x)[& [^b]]",
+    "(?x)[a& [^b]]",
+    "(?x)[& & [^b]]",
+    "(?x)[a& & [^b]]",
+    "(?x)[a& &&&& --z]",
+    "(?x)[a\\d&& [0]&]",
+    "(?x)[a[b]&& [a]&]",
+    "(?x)[a& &&&& -z]",
+    "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]",
+    "[0-1ab&&[a]&]",
+    "[^0-1ab&&[a]&]",
+    "(?x)[^0-1\\Qab\\E\\Q\\E\\Q\\E&& [a]&]",
+    "(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]"
   };
 
   @FuzzTest(maxDuration = "30s")
@@ -150,34 +151,38 @@ final class CharacterClassExpressionFuzzer {
     boolean comments = data.consumeBoolean();
     boolean negated = data.consumeBoolean();
     String prefix = (comments ? "(?x)" : "") + "[" + (negated ? "^" : "");
-    String regex = switch (data.consumeInt(0, 2)) {
-      case 0 -> prefix
-          + data.pickValue(BASE_PIECES)
-          + data.pickValue(BASE_PIECES)
-          + pickSeparator(data, comments)
-          + data.pickValue(OPERATORS)
-          + pickSeparator(data, comments)
-          + data.pickValue(RIGHT_PIECES)
-          + data.pickValue(TRAILING_PIECES)
-          + "]";
-      case 1 -> prefix
-          + data.pickValue(BASE_PIECES)
-          + data.pickValue(AMPERSAND_PIECES)
-          + pickSeparator(data, comments)
-          + data.pickValue(OPERATORS)
-          + pickSeparator(data, comments)
-          + data.pickValue(RIGHT_PIECES)
-          + data.pickValue(TRAILING_PIECES)
-          + "]";
-      case 2 -> prefix
-          + pickSeparator(data, comments)
-          + data.pickValue(OPERATORS)
-          + pickSeparator(data, comments)
-          + data.pickValue(RIGHT_PIECES)
-          + data.pickValue(TRAILING_PIECES)
-          + "]";
-      default -> throw new AssertionError();
-    };
+    String regex =
+        switch (data.consumeInt(0, 2)) {
+          case 0 ->
+              prefix
+                  + data.pickValue(BASE_PIECES)
+                  + data.pickValue(BASE_PIECES)
+                  + pickSeparator(data, comments)
+                  + data.pickValue(OPERATORS)
+                  + pickSeparator(data, comments)
+                  + data.pickValue(RIGHT_PIECES)
+                  + data.pickValue(TRAILING_PIECES)
+                  + "]";
+          case 1 ->
+              prefix
+                  + data.pickValue(BASE_PIECES)
+                  + data.pickValue(AMPERSAND_PIECES)
+                  + pickSeparator(data, comments)
+                  + data.pickValue(OPERATORS)
+                  + pickSeparator(data, comments)
+                  + data.pickValue(RIGHT_PIECES)
+                  + data.pickValue(TRAILING_PIECES)
+                  + "]";
+          case 2 ->
+              prefix
+                  + pickSeparator(data, comments)
+                  + data.pickValue(OPERATORS)
+                  + pickSeparator(data, comments)
+                  + data.pickValue(RIGHT_PIECES)
+                  + data.pickValue(TRAILING_PIECES)
+                  + "]";
+          default -> throw new AssertionError();
+        };
 
     FuzzSupport.assertFullMatchesJdk(regex, 0, INPUTS);
   }

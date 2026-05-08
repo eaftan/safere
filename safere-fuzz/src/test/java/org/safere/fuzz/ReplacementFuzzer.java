@@ -29,7 +29,9 @@ final class ReplacementFuzzer {
   }
 
   private static void appendReplacementLoop(
-      FuzzSupport.CompiledPattern pattern, String input, String replacement,
+      FuzzSupport.CompiledPattern pattern,
+      String input,
+      String replacement,
       boolean useStringBuffer) {
     FuzzSupport.MatcherPair matcher = pattern.matcher(input);
     if (useStringBuffer) {

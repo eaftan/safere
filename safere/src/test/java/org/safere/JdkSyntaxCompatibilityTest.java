@@ -27,18 +27,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Systematic test coverage for every syntax feature documented in the JDK 21
- * {@link java.util.regex.Pattern} Javadoc.
+ * Systematic test coverage for every syntax feature documented in the JDK 21 {@link
+ * java.util.regex.Pattern} Javadoc.
  *
  * <p>For each feature, verifies that:
+ *
  * <ul>
  *   <li>JDK accepts the pattern (sanity check)
  *   <li>SafeRE compiles it and produces the same match result, OR
  *   <li>SafeRE intentionally rejects it (for features that violate linear-time guarantees)
  * </ul>
  *
- * <p>Refs: <a href="https://github.com/eaftan/safere/issues/131">#131</a>,
- * <a href="https://github.com/eaftan/safere/issues/127">#127</a>
+ * <p>Refs: <a href="https://github.com/eaftan/safere/issues/131">#131</a>, <a
+ * href="https://github.com/eaftan/safere/issues/127">#127</a>
  */
 @DisplayName("JDK syntax compatibility")
 class JdkSyntaxCompatibilityTest {
@@ -85,9 +86,7 @@ class JdkSyntaxCompatibilityTest {
     Matcher safeM = Pattern.compile(regex).matcher(input);
     boolean safeFound = safeM.find();
 
-    assertThat(safeFound)
-        .as("find() for /%s/ on \"%s\"", regex, input)
-        .isEqualTo(jdkFound);
+    assertThat(safeFound).as("find() for /%s/ on \"%s\"", regex, input).isEqualTo(jdkFound);
 
     if (jdkFound && safeFound) {
       assertThat(safeM.group())
@@ -104,9 +103,7 @@ class JdkSyntaxCompatibilityTest {
     Matcher safeM = Pattern.compile(regex).matcher(input);
     boolean safeMatches = safeM.matches();
 
-    assertThat(safeMatches)
-        .as("matches() for /%s/ on \"%s\"", regex, input)
-        .isEqualTo(jdkMatches);
+    assertThat(safeMatches).as("matches() for /%s/ on \"%s\"", regex, input).isEqualTo(jdkMatches);
   }
 
   /** Asserts SafeRE full-match behavior agrees with the JDK for every input. */
@@ -117,12 +114,10 @@ class JdkSyntaxCompatibilityTest {
   }
 
   /**
-   * Asserts SafeRE compiles with the given flags and matches identically to JDK on the given
-   * input.
+   * Asserts SafeRE compiles with the given flags and matches identically to JDK on the given input.
    */
   private static void assertMatchesSameWithFlags(String regex, int jdkFlags, String input) {
-    java.util.regex.Matcher jdkM =
-        java.util.regex.Pattern.compile(regex, jdkFlags).matcher(input);
+    java.util.regex.Matcher jdkM = java.util.regex.Pattern.compile(regex, jdkFlags).matcher(input);
     boolean jdkFound = jdkM.find();
 
     // Map JDK flags to SafeRE flags (same values by design).
@@ -165,8 +160,7 @@ class JdkSyntaxCompatibilityTest {
 
     String regexAt(long index) {
       if (index < 0 || index >= size) {
-        throw new IndexOutOfBoundsException("matrix index " + index + " outside [0, " + size
-            + ")");
+        throw new IndexOutOfBoundsException("matrix index " + index + " outside [0, " + size + ")");
       }
       long remaining = index;
       for (CharacterClassMatrixSpace space : spaces) {
@@ -182,8 +176,10 @@ class JdkSyntaxCompatibilityTest {
   private record CharacterClassMatrixSpace(
       String prefix, List<List<String>> dimensions, long size) {
     CharacterClassMatrixSpace(String prefix, List<List<String>> dimensions) {
-      this(prefix, dimensions, dimensions.stream().mapToLong(List::size)
-          .reduce(1, Math::multiplyExact));
+      this(
+          prefix,
+          dimensions,
+          dimensions.stream().mapToLong(List::size).reduce(1, Math::multiplyExact));
     }
 
     String regexAt(long index) {
@@ -250,10 +246,20 @@ class JdkSyntaxCompatibilityTest {
       return Stream.of(
           Arguments.of("{1}", 0, ""),
           Arguments.of("{1,3}", 0, ""),
-          Arguments.of("{1,}$", Pattern.CASE_INSENSITIVE | Pattern.COMMENTS
-              | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS, "abc"),
-          Arguments.of("{1,3}$", Pattern.CASE_INSENSITIVE | Pattern.COMMENTS
-              | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS, "abc"),
+          Arguments.of(
+              "{1,}$",
+              Pattern.CASE_INSENSITIVE
+                  | Pattern.COMMENTS
+                  | Pattern.UNICODE_CASE
+                  | Pattern.UNICODE_CHARACTER_CLASS,
+              "abc"),
+          Arguments.of(
+              "{1,3}$",
+              Pattern.CASE_INSENSITIVE
+                  | Pattern.COMMENTS
+                  | Pattern.UNICODE_CASE
+                  | Pattern.UNICODE_CHARACTER_CLASS,
+              "abc"),
           Arguments.of("a|{1,3}", 0, ""),
           Arguments.of("({1,3})", 0, ""),
           Arguments.of("^{1,3}", 0, ""));
@@ -262,8 +268,7 @@ class JdkSyntaxCompatibilityTest {
     @ParameterizedTest(name = "/{0}/ flags={1} matches \"{2}\"")
     @MethodSource("leadingCountedRepeats")
     @DisplayName("leading counted repeats apply to the empty expression like JDK")
-    void leadingCountedRepeatsApplyToEmptyExpressionLikeJdk(
-        String regex, int flags, String input) {
+    void leadingCountedRepeatsApplyToEmptyExpressionLikeJdk(String regex, int flags, String input) {
       java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex, flags);
       Pattern safeRePattern = Pattern.compile(regex, flags);
 
@@ -284,19 +289,18 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new SyntaxFamilyCase("octal escapes", "\\041", "!", "1")),
           Arguments.of(new SyntaxFamilyCase("hex escapes", "\\x41", "A", "x41")),
           Arguments.of(new SyntaxFamilyCase("Unicode escapes", "\\u0041", "A", "u0041")),
-          Arguments.of(new SyntaxFamilyCase("named characters", "\\N{LATIN SMALL LETTER A}",
-              "a", "A")),
+          Arguments.of(
+              new SyntaxFamilyCase("named characters", "\\N{LATIN SMALL LETTER A}", "a", "A")),
           Arguments.of(new SyntaxFamilyCase("predefined classes", "\\d", "7", "a")),
-          Arguments.of(new SyntaxFamilyCase("Java character classes", "\\p{javaLowerCase}",
-              "a", "A")),
+          Arguments.of(
+              new SyntaxFamilyCase("Java character classes", "\\p{javaLowerCase}", "a", "A")),
           Arguments.of(new SyntaxFamilyCase("POSIX property escapes", "\\p{Lower}", "a", "A")),
-          Arguments.of(new SyntaxFamilyCase("POSIX bracket fragments", "[[:lower:]]",
-              "l", "a")),
+          Arguments.of(new SyntaxFamilyCase("POSIX bracket fragments", "[[:lower:]]", "l", "a")),
           Arguments.of(new SyntaxFamilyCase("Unicode scripts", "\\p{IsLatin}", "A", "1")),
           Arguments.of(new SyntaxFamilyCase("Unicode blocks", "\\p{InGreek}", "\u0391", "A")),
           Arguments.of(new SyntaxFamilyCase("Unicode categories", "\\p{Lu}", "A", "a")),
-          Arguments.of(new SyntaxFamilyCase("Unicode binary properties", "\\p{IsAlphabetic}",
-              "a", "1")),
+          Arguments.of(
+              new SyntaxFamilyCase("Unicode binary properties", "\\p{IsAlphabetic}", "a", "1")),
           Arguments.of(new SyntaxFamilyCase("class union", "[a-d[m-p]]", "m", "z")),
           Arguments.of(new SyntaxFamilyCase("class intersection", "[a-z&&[def]]", "d", "a")),
           Arguments.of(new SyntaxFamilyCase("class subtraction", "[a-z&&[^bc]]", "a", "b")),
@@ -309,8 +313,7 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new SyntaxFamilyCase("boundary matchers", "\\bword\\b", "word", "sword")),
           Arguments.of(new SyntaxFamilyCase("linebreak matcher", "\\R", "\r\n", "a")),
           Arguments.of(new SyntaxFamilyCase("comments flag", "(?x)a b c # comment", "abc", "ab")),
-          Arguments.of(new SyntaxFamilyCase("embedded flags", "(?i:abc)def", "ABCdef",
-              "ABCDEF")));
+          Arguments.of(new SyntaxFamilyCase("embedded flags", "(?i:abc)def", "ABCdef", "ABCDEF")));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -351,29 +354,45 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> generatedNonJdkDialectSpellings() {
-      List<DialectRejection> groupSpellings = List.of(
-          new DialectRejection("Python named capture", "(?P<name>a)"),
-          new DialectRejection("PCRE single-quoted named capture", "(?'name'a)"),
-          new DialectRejection("Python named backreference", "(?P=name)"),
-          new DialectRejection("PCRE subroutine call", "(?&name)"),
-          new DialectRejection("PCRE branch-reset group", "(?|a)"),
-          new DialectRejection("PCRE conditional group", "(?(1)a|b)"),
-          new DialectRejection("PCRE inline comment", "(?#comment)a"));
-      List<DialectRejection> escapeSpellings = List.of(
-          new DialectRejection("PCRE keep-out escape", "\\K"),
-          new DialectRejection("PCRE byte escape", "\\C"),
-          new DialectRejection("PCRE g-name backreference", "\\g{name}"),
-          new DialectRejection("PCRE g-number backreference", "\\g1"));
+      List<DialectRejection> groupSpellings =
+          List.of(
+              new DialectRejection("Python named capture", "(?P<name>a)"),
+              new DialectRejection("PCRE single-quoted named capture", "(?'name'a)"),
+              new DialectRejection("Python named backreference", "(?P=name)"),
+              new DialectRejection("PCRE subroutine call", "(?&name)"),
+              new DialectRejection("PCRE branch-reset group", "(?|a)"),
+              new DialectRejection("PCRE conditional group", "(?(1)a|b)"),
+              new DialectRejection("PCRE inline comment", "(?#comment)a"));
+      List<DialectRejection> escapeSpellings =
+          List.of(
+              new DialectRejection("PCRE keep-out escape", "\\K"),
+              new DialectRejection("PCRE byte escape", "\\C"),
+              new DialectRejection("PCRE g-name backreference", "\\g{name}"),
+              new DialectRejection("PCRE g-number backreference", "\\g1"));
       List<String> wrappers = List.of("%s", "(?:%s)", "%s|z", "z%s");
 
-      Stream<Arguments> groups = groupSpellings.stream()
-          .flatMap(rejection -> wrappers.stream()
-              .map(wrapper -> Arguments.of(new DialectRejection(rejection.family(),
-                  String.format(wrapper, rejection.regex())))));
-      Stream<Arguments> escapes = escapeSpellings.stream()
-          .flatMap(rejection -> wrappers.stream()
-              .map(wrapper -> Arguments.of(new DialectRejection(rejection.family(),
-                  String.format(wrapper, rejection.regex())))));
+      Stream<Arguments> groups =
+          groupSpellings.stream()
+              .flatMap(
+                  rejection ->
+                      wrappers.stream()
+                          .map(
+                              wrapper ->
+                                  Arguments.of(
+                                      new DialectRejection(
+                                          rejection.family(),
+                                          String.format(wrapper, rejection.regex())))));
+      Stream<Arguments> escapes =
+          escapeSpellings.stream()
+              .flatMap(
+                  rejection ->
+                      wrappers.stream()
+                          .map(
+                              wrapper ->
+                                  Arguments.of(
+                                      new DialectRejection(
+                                          rejection.family(),
+                                          String.format(wrapper, rejection.regex())))));
       return Stream.concat(groups, escapes);
     }
 
@@ -386,18 +405,12 @@ class JdkSyntaxCompatibilityTest {
 
     static Stream<Arguments> dialectLookingLiteralSpellings() {
       return Stream.of(
-          Arguments.of(new DialectLiteralCase("POSIX collating element spelling", "[.ch.]",
-              ".")),
-          Arguments.of(new DialectLiteralCase("POSIX collating element spelling", "[.ch.]",
-              "c")),
-          Arguments.of(new DialectLiteralCase("POSIX equivalence class spelling", "[=a=]",
-              "=")),
-          Arguments.of(new DialectLiteralCase("POSIX equivalence class spelling", "[=a=]",
-              "a")),
-          Arguments.of(new DialectLiteralCase("POSIX word-start bracket spelling", "[[:<:]]",
-              "<")),
-          Arguments.of(new DialectLiteralCase("POSIX word-end bracket spelling", "[[:>:]]",
-              ">")));
+          Arguments.of(new DialectLiteralCase("POSIX collating element spelling", "[.ch.]", ".")),
+          Arguments.of(new DialectLiteralCase("POSIX collating element spelling", "[.ch.]", "c")),
+          Arguments.of(new DialectLiteralCase("POSIX equivalence class spelling", "[=a=]", "=")),
+          Arguments.of(new DialectLiteralCase("POSIX equivalence class spelling", "[=a=]", "a")),
+          Arguments.of(new DialectLiteralCase("POSIX word-start bracket spelling", "[[:<:]]", "<")),
+          Arguments.of(new DialectLiteralCase("POSIX word-end bracket spelling", "[[:>:]]", ">")));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -415,8 +428,8 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new DialectRejection("unclosed named character escape", "\\N{A")),
           Arguments.of(new DialectRejection("unknown named character escape", "\\N{NO SUCH}")),
           Arguments.of(new DialectRejection("unclosed braced hex escape", "\\x{41")),
-          Arguments.of(new DialectRejection("braced hex escape above Unicode range",
-              "\\x{110000}")),
+          Arguments.of(
+              new DialectRejection("braced hex escape above Unicode range", "\\x{110000}")),
           Arguments.of(new DialectRejection("malformed Unicode escape", "\\u123")),
           Arguments.of(new DialectRejection("unknown character property", "\\p{NoSuch}")),
           Arguments.of(new DialectRejection("unclosed character property", "\\p{Lower")),
@@ -427,109 +440,143 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new DialectRejection("unterminated group", "(a")),
           Arguments.of(new DialectRejection("dangling alternation group opener", "(|")),
           Arguments.of(new DialectRejection("unterminated group after alternation", "a|(")),
-          Arguments.of(new DialectRejection("unterminated group after empty alternation",
-              "|(")),
-          Arguments.of(new DialectRejection("unterminated group after nested alternation",
-              "(a|b)|(")),
+          Arguments.of(new DialectRejection("unterminated group after empty alternation", "|(")),
+          Arguments.of(
+              new DialectRejection("unterminated group after nested alternation", "(a|b)|(")),
           Arguments.of(new DialectRejection("nothing to repeat star", "*a")),
           Arguments.of(new DialectRejection("malformed bounded quantifier", "a{2,1}")),
           Arguments.of(new DialectRejection("bare leading class intersection", "[&&]")),
           Arguments.of(new DialectRejection("bare negated leading class intersection", "[^&&]")),
-          Arguments.of(new DialectRejection("solitary ampersand after leading class intersection",
-              "[&&&b]")),
-          Arguments.of(new DialectRejection(
-              "solitary ampersand after negated leading class intersection", "[^&&&b]")),
+          Arguments.of(
+              new DialectRejection(
+                  "solitary ampersand after leading class intersection", "[&&&b]")),
+          Arguments.of(
+              new DialectRejection(
+                  "solitary ampersand after negated leading class intersection", "[^&&&b]")),
           Arguments.of(new DialectRejection("repeated leading class intersection", "[&&&&b]")),
-          Arguments.of(new DialectRejection("repeated negated leading class intersection",
-              "[^&&&&b]")),
-          Arguments.of(new DialectRejection("comments-mode spaced bare leading class intersection",
-              "(?x)[&&  ]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode commented bare leading class intersection", "(?x)[&& #x\n ]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode spaced solitary ampersand after leading class intersection",
-              "(?x)[&&  &b]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode spaced repeated leading class intersection", "(?x)[&&  &&b]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode odd leading intersection before nested class", "(?x)[&&& [a]]")),
-          Arguments.of(new DialectRejection(
-              "leading intersection followed by zero-width syntax only", "[&&\\Q\\E]")),
-          Arguments.of(new DialectRejection(
-              "leading intersection followed by zero-width syntax and repeated marker",
-              "[&&\\Q\\E&&a]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode leading intersection followed by zero-width syntax "
-                  + "and repeated marker",
-              "(?x)[&& \\Q\\E&&a]")),
+          Arguments.of(
+              new DialectRejection("repeated negated leading class intersection", "[^&&&&b]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode spaced bare leading class intersection", "(?x)[&&  ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode commented bare leading class intersection", "(?x)[&& #x\n ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode spaced solitary ampersand after leading class intersection",
+                  "(?x)[&&  &b]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode spaced repeated leading class intersection", "(?x)[&&  &&b]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode odd leading intersection before nested class", "(?x)[&&& [a]]")),
+          Arguments.of(
+              new DialectRejection(
+                  "leading intersection followed by zero-width syntax only", "[&&\\Q\\E]")),
+          Arguments.of(
+              new DialectRejection(
+                  "leading intersection followed by zero-width syntax and repeated marker",
+                  "[&&\\Q\\E&&a]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode leading intersection followed by zero-width syntax "
+                      + "and repeated marker",
+                  "(?x)[&& \\Q\\E&&a]")),
           Arguments.of(new DialectRejection("range ending at nested class opener", "[a-[]")),
-          Arguments.of(new DialectRejection(
-              "leading intersection range ending at nested class opener", "[&&--[]")),
-          Arguments.of(new DialectRejection(
-              "negated leading intersection range ending at nested class opener", "[^&&--[]")),
-          Arguments.of(new DialectRejection(
-              "leading intersection range ending before nested class", "[&&--[x]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode leading intersection range ending at nested class opener",
-              "(?x)[&&  --[]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode leading intersection range ending before nested class",
-              "(?x)[&& #x\n --[x]")),
-          Arguments.of(new DialectRejection(
-              "intersection rhs range ending at nested class opener", "[a&&b-[]")),
-          Arguments.of(new DialectRejection(
-              "odd ampersand intersection run before malformed range", "[\\d&&&-\\D]")),
-          Arguments.of(new DialectRejection(
-              "odd ampersand intersection run before zero-width malformed range",
-              "[\\d&&&\\Q\\E-\\D]")),
-          Arguments.of(new DialectRejection(
-              "intersection RHS raw ampersand before malformed zero-width range",
-              "[a\\Q\\E&&\\Q\\E\\Q\\E&-\\D]")),
-          Arguments.of(new DialectRejection(
-              "quoted ampersand before intersection RHS malformed range",
-              "[\\Q&\\E&&\\Q\\E&-\\D]")),
-          Arguments.of(new DialectRejection(
-              "raw ampersand separator before malformed zero-width range",
-              "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E-\\D]")),
-          Arguments.of(new DialectRejection(
-              "negated raw ampersand separator before malformed zero-width range",
-              "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E-\\D]")),
-          Arguments.of(new DialectRejection(
-              "negated raw ampersand separator before immediate malformed range",
-              "[^[^b]&\\Q\\E&&-\\D]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode hyphen before spaced intersection after raw ampersand separator",
-              "(?x)[a& &&&& -& &]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode hyphen before quoted-empty intersection after raw ampersand separator",
-              "(?x)[a& &&&& -&\\Q\\E&]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode hyphen before commented intersection after raw ampersand separator",
-              "(?x)[a& &&&& -& #x\n&]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode hyphen tail before dangling raw ampersand separator",
-              "(?x)[a& &&&& -a& ]")),
-          Arguments.of(new DialectRejection(
-              "comments-mode quoted-empty hyphen tail before dangling raw ampersand separator",
-              "(?x)[a& &&&& -a\\Q\\E& ]")),
-          Arguments.of(new DialectRejection(
-              "ordinary literal before trailing class intersection after nested class",
-              "[[a]b&&]")),
-          Arguments.of(new DialectRejection(
-              "ordinary literal before trailing class intersection after predefined class",
-              "[\\d0&&]")),
-          Arguments.of(new DialectRejection(
-              "quoted literal before trailing class intersection after nested class",
-              "[[a]\\Qa\\E&&]")),
-          Arguments.of(new DialectRejection(
-              "quoted ampersand before trailing class intersection after nested class",
-              "[[a]\\Q&\\E&&]")),
-          Arguments.of(new DialectRejection("empty quoted class item has no terminator",
-              "[\\Q\\E]")),
-          Arguments.of(new DialectRejection("comments-mode spaced range has no endpoint",
-              "(?x)[a- ]")),
-          Arguments.of(new DialectRejection("comments-mode spaced empty quote has no endpoint",
-              "(?x)[a- \\Q\\E]")));
+          Arguments.of(
+              new DialectRejection(
+                  "leading intersection range ending at nested class opener", "[&&--[]")),
+          Arguments.of(
+              new DialectRejection(
+                  "negated leading intersection range ending at nested class opener", "[^&&--[]")),
+          Arguments.of(
+              new DialectRejection(
+                  "leading intersection range ending before nested class", "[&&--[x]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode leading intersection range ending at nested class opener",
+                  "(?x)[&&  --[]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode leading intersection range ending before nested class",
+                  "(?x)[&& #x\n --[x]")),
+          Arguments.of(
+              new DialectRejection(
+                  "intersection rhs range ending at nested class opener", "[a&&b-[]")),
+          Arguments.of(
+              new DialectRejection(
+                  "odd ampersand intersection run before malformed range", "[\\d&&&-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "odd ampersand intersection run before zero-width malformed range",
+                  "[\\d&&&\\Q\\E-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "intersection RHS raw ampersand before malformed zero-width range",
+                  "[a\\Q\\E&&\\Q\\E\\Q\\E&-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "quoted ampersand before intersection RHS malformed range",
+                  "[\\Q&\\E&&\\Q\\E&-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "raw ampersand separator before malformed zero-width range",
+                  "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "negated raw ampersand separator before malformed zero-width range",
+                  "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "negated raw ampersand separator before immediate malformed range",
+                  "[^[^b]&\\Q\\E&&-\\D]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode hyphen before spaced intersection after raw ampersand separator",
+                  "(?x)[a& &&&& -& &]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode hyphen before quoted-empty intersection after raw ampersand"
+                      + " separator",
+                  "(?x)[a& &&&& -&\\Q\\E&]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode hyphen before commented intersection after raw ampersand"
+                      + " separator",
+                  "(?x)[a& &&&& -& #x\n&]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode hyphen tail before dangling raw ampersand separator",
+                  "(?x)[a& &&&& -a& ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode quoted-empty hyphen tail before dangling raw ampersand separator",
+                  "(?x)[a& &&&& -a\\Q\\E& ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "ordinary literal before trailing class intersection after nested class",
+                  "[[a]b&&]")),
+          Arguments.of(
+              new DialectRejection(
+                  "ordinary literal before trailing class intersection after predefined class",
+                  "[\\d0&&]")),
+          Arguments.of(
+              new DialectRejection(
+                  "quoted literal before trailing class intersection after nested class",
+                  "[[a]\\Qa\\E&&]")),
+          Arguments.of(
+              new DialectRejection(
+                  "quoted ampersand before trailing class intersection after nested class",
+                  "[[a]\\Q&\\E&&]")),
+          Arguments.of(
+              new DialectRejection("empty quoted class item has no terminator", "[\\Q\\E]")),
+          Arguments.of(
+              new DialectRejection("comments-mode spaced range has no endpoint", "(?x)[a- ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode spaced empty quote has no endpoint", "(?x)[a- \\Q\\E]")));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -549,8 +596,8 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of("a#\u0085(", java.util.regex.Pattern.COMMENTS),
           Arguments.of("a#\u2028(", java.util.regex.Pattern.COMMENTS),
           Arguments.of("a#\u2029(", java.util.regex.Pattern.COMMENTS),
-          Arguments.of("a#\0|(", java.util.regex.Pattern.COMMENTS
-              | java.util.regex.Pattern.UNIX_LINES));
+          Arguments.of(
+              "a#\0|(", java.util.regex.Pattern.COMMENTS | java.util.regex.Pattern.UNIX_LINES));
     }
 
     @ParameterizedTest(name = "/{0}/ flags={1}")
@@ -640,13 +687,13 @@ class JdkSyntaxCompatibilityTest {
     @Test
     @DisplayName("octal \\\\0nn (two digits)")
     void octalTwoDigits() {
-      assertMatchesSame("\\041", "!");  // 041 octal = 33 = '!'
+      assertMatchesSame("\\041", "!"); // 041 octal = 33 = '!'
     }
 
     @Test
     @DisplayName("octal \\\\0mnn (three digits)")
     void octalThreeDigits() {
-      assertMatchesSame("\\0101", "A");  // 0101 octal = 65 = 'A'
+      assertMatchesSame("\\0101", "A"); // 0101 octal = 65 = 'A'
     }
 
     @Test
@@ -691,8 +738,10 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> generatedNumericAndOctalEscapeCases() {
-      List<String> inputs = List.of("", "\u0000", "\u0001", "\u0007", "\b", "\t", "\n", " ",
-          "!", "A", "S", "\u007f", "\u00ff", "\u0100", "00", " 0", "?7", "123");
+      List<String> inputs =
+          List.of(
+              "", "\u0000", "\u0001", "\u0007", "\b", "\t", "\n", " ", "!", "A", "S", "\u007f",
+              "\u00ff", "\u0100", "00", " 0", "?7", "123");
       return Stream.of(
           Arguments.of(new EscapeMembershipCase("\\00", inputs)),
           Arguments.of(new EscapeMembershipCase("\\000", inputs)),
@@ -728,31 +777,31 @@ class JdkSyntaxCompatibilityTest {
 
     static Stream<Arguments> generatedMalformedEscapeCases() {
       return Stream.of(
-          "\\0",
-          "\\08",
-          "\\09",
-          "\\x",
-          "\\xG0",
-          "\\x{}",
-          "\\x{110000}",
-          "\\u",
-          "\\u0",
-          "\\u00",
-          "\\u000",
-          "\\u000G",
-          "\\N{}",
-          "\\N{NO SUCH CHARACTER}",
-          "[\\0]",
-          "[\\08]",
-          "[\\09]",
-          "[\\400]",
-          "[\\777]",
-          "[\\123]",
-          "[\\x]",
-          "[\\x{}]",
-          "[\\x{110000}]",
-          "[\\u000]",
-          "[\\N{}]")
+              "\\0",
+              "\\08",
+              "\\09",
+              "\\x",
+              "\\xG0",
+              "\\x{}",
+              "\\x{110000}",
+              "\\u",
+              "\\u0",
+              "\\u00",
+              "\\u000",
+              "\\u000G",
+              "\\N{}",
+              "\\N{NO SUCH CHARACTER}",
+              "[\\0]",
+              "[\\08]",
+              "[\\09]",
+              "[\\400]",
+              "[\\777]",
+              "[\\123]",
+              "[\\x]",
+              "[\\x{}]",
+              "[\\x{110000}]",
+              "[\\u000]",
+              "[\\N{}]")
           .map(regex -> Arguments.of(new DialectRejection("malformed escape", regex)));
     }
 
@@ -903,14 +952,14 @@ class JdkSyntaxCompatibilityTest {
     @DisplayName("\\\\d matches digit")
     void digitClass() {
       assertMatchesSame("\\d", "5");
-      assertMatchesFull("\\d", "a");  // should not match
+      assertMatchesFull("\\d", "a"); // should not match
     }
 
     @Test
     @DisplayName("\\\\D matches non-digit")
     void nonDigitClass() {
       assertMatchesSame("\\D", "a");
-      assertMatchesFull("\\D", "5");  // should not match
+      assertMatchesFull("\\D", "5"); // should not match
     }
 
     @Test
@@ -918,14 +967,14 @@ class JdkSyntaxCompatibilityTest {
     void horizontalWhitespace() {
       assertMatchesSame("\\h", " ");
       assertMatchesSame("\\h", "\t");
-      assertMatchesFull("\\h", "a");  // should not match
+      assertMatchesFull("\\h", "a"); // should not match
     }
 
     @Test
     @DisplayName("\\\\H matches non-horizontal whitespace")
     void nonHorizontalWhitespace() {
       assertMatchesSame("\\H", "a");
-      assertMatchesFull("\\H", " ");  // should not match
+      assertMatchesFull("\\H", " "); // should not match
     }
 
     @Test
@@ -934,15 +983,15 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("\\s", " ");
       assertMatchesSame("\\s", "\n");
       assertMatchesSame("\\s", "\u000B");
-      assertMatchesFull("\\s", "a");  // should not match
+      assertMatchesFull("\\s", "a"); // should not match
     }
 
     @Test
     @DisplayName("\\\\S matches non-whitespace")
     void nonWhitespaceClass() {
       assertMatchesSame("\\S", "a");
-      assertMatchesFull("\\S", " ");  // should not match
-      assertMatchesFull("\\S", "\u000B");  // should not match
+      assertMatchesFull("\\S", " "); // should not match
+      assertMatchesFull("\\S", "\u000B"); // should not match
     }
 
     @Test
@@ -952,14 +1001,14 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("\\v", "\u000B");
       assertMatchesSame("\\v", "\f");
       assertMatchesSame("\\v", "\r");
-      assertMatchesFull("\\v", " ");  // should not match
+      assertMatchesFull("\\v", " "); // should not match
     }
 
     @Test
     @DisplayName("\\\\V matches non-vertical whitespace")
     void nonVerticalWhitespace() {
       assertMatchesSame("\\V", "a");
-      assertMatchesFull("\\V", "\n");  // should not match
+      assertMatchesFull("\\V", "\n"); // should not match
     }
 
     @Test
@@ -968,14 +1017,14 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("\\w", "a");
       assertMatchesSame("\\w", "5");
       assertMatchesSame("\\w", "_");
-      assertMatchesFull("\\w", "!");  // should not match
+      assertMatchesFull("\\w", "!"); // should not match
     }
 
     @Test
     @DisplayName("\\\\W matches non-word character")
     void nonWordClass() {
       assertMatchesSame("\\W", "!");
-      assertMatchesFull("\\W", "a");  // should not match
+      assertMatchesFull("\\W", "a"); // should not match
     }
 
     @Test
@@ -987,7 +1036,7 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("\\R", "\u0085");
       assertMatchesSame("\\R", "\u2028");
       assertMatchesSame("\\R", "\u2029");
-      assertMatchesFull("\\R", "a");  // should not match
+      assertMatchesFull("\\R", "a"); // should not match
     }
 
     @Test
@@ -1062,8 +1111,10 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> generatedCharacterClassMembershipCases() {
-      List<String> inputs = List.of("", "&", "[", "]", ":", "^", "-", "a", "b", "c",
-          "d", "e", "f", "m", "p", "z", "`", "+");
+      List<String> inputs =
+          List.of(
+              "", "&", "[", "]", ":", "^", "-", "a", "b", "c", "d", "e", "f", "m", "p", "z", "`",
+              "+");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[&&abc]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[&&-a]", inputs)),
@@ -1116,27 +1167,32 @@ class JdkSyntaxCompatibilityTest {
 
     static Stream<Arguments> generatedRepresentativeCharacterClassOperationCases() {
       List<String> inputs = characterClassMatrixInputs();
-      List<String> operands = List.of(
-          "a-c",
-          "\\d",
-          "\\w",
-          "\\Q-\\E",
-          "\\Q&\\E",
-          "[ab]",
-          "[^b]",
-          "[[:lower:]]",
-          "[[.ch.]]",
-          "[[=a=]]");
+      List<String> operands =
+          List.of(
+              "a-c",
+              "\\d",
+              "\\w",
+              "\\Q-\\E",
+              "\\Q&\\E",
+              "[ab]",
+              "[^b]",
+              "[[:lower:]]",
+              "[[.ch.]]",
+              "[[=a=]]");
       List<String> operators = List.of("", "&&");
       Stream.Builder<Arguments> cases = Stream.builder();
       for (boolean negated : List.of(false, true)) {
         for (String left : operands) {
-          cases.add(Arguments.of(new CharacterClassMembershipCase(
-              "[" + (negated ? "^" : "") + left + "]", inputs)));
+          cases.add(
+              Arguments.of(
+                  new CharacterClassMembershipCase(
+                      "[" + (negated ? "^" : "") + left + "]", inputs)));
           for (String operator : operators) {
             for (String right : operands) {
-              cases.add(Arguments.of(new CharacterClassMembershipCase(
-                  "[" + (negated ? "^" : "") + left + operator + right + "]", inputs)));
+              cases.add(
+                  Arguments.of(
+                      new CharacterClassMembershipCase(
+                          "[" + (negated ? "^" : "") + left + operator + right + "]", inputs)));
             }
           }
         }
@@ -1185,8 +1241,8 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& &]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&\\Q\\E&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& #x\n&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)));
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -1202,8 +1258,8 @@ class JdkSyntaxCompatibilityTest {
     }
 
     static Stream<Arguments> deferredCharacterClassExpressionParserCases() {
-      List<String> inputs = List.of("", "&", "[", "]", "-", "a", "b", "x", "z", "0", "1", " ",
-          "\t", "Ā");
+      List<String> inputs =
+          List.of("", "&", "[", "]", "-", "a", "b", "x", "z", "0", "1", " ", "\t", "Ā");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[ [a]&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ \\d&&]", inputs)),
@@ -1237,48 +1293,43 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[^b&&[a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& -\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& #x\n -\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[ab\\Q\\E\\Q\\E&&&&&\\Q\\E&\\&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[\\&\\Q\\E&&&&&\\Q\\E\\Q\\E&-\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ab\\Q\\E\\Q\\E&&&&&\\Q\\E&\\&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("[\\&\\Q\\E&&&&&\\Q\\E\\Q\\E&-\\D]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&\\&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -z]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&& [0]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a[b]&& [a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[0-1ab&&[a]&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^0-1ab&&[a]&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "(?x)[^0-1\\Qab\\E\\Q\\E\\Q\\E&& [a]&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[0&\\Q\\E\\Q\\E&&&&&&-&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[0&\\Q\\E\\Q\\E&&&&&&-&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[0&\\Q\\E\\Q\\E&&&&&&-&a]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "[0&\\Q\\E\\Q\\E&&&&&&\\Q\\E-&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase(
-              "(?x)[0&\\Q\\E\\Q\\E&&&&&&-&&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[^0-1\\Qab\\E\\Q\\E\\Q\\E&& [a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&&&&&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&&&&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&&&&&-&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&&&&&\\Q\\E-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[0&\\Q\\E\\Q\\E&&&&&&-&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\d0-1&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]",
-              inputs)));
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ [ab] && #x\n [bc] && ]", inputs)));
     }
 
     static Stream<Arguments> characterClassExpressionOracleMatrixCases() {
-      List<String> inputs = List.of("", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_",
-          "`", "x", " ", "\t", "Ā", "é");
+      List<String> inputs =
+          List.of(
+              "", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_", "`", "x", " ", "\t", "Ā",
+              "é");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[ab&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-b&&]", inputs)),
@@ -1322,21 +1373,21 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[ &&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ &&&a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ && \\D&\\Q\\E&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -z]",
-              List.of("", "a", "&", "-", "z", "0", "A", " "))),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a&]",
-              List.of("", "a", "&", "-", "z", "0", "A", " "))),
-          Arguments.of(new CharacterClassMembershipCase(
-              "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase(
+                  "(?x)[a& &&&& -z]", List.of("", "a", "&", "-", "z", "0", "A", " "))),
+          Arguments.of(
+              new CharacterClassMembershipCase(
+                  "(?x)[a& &&&& -a&]", List.of("", "a", "&", "-", "z", "0", "A", " "))),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^[a]a-b&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[^[a]& &&]", inputs)));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]",
-        "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]"
-    })
+    @ValueSource(
+        strings = {"(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]", "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]"})
     @DisplayName("character-class ampersand runs with empty quotes reject malformed syntax")
     void characterClassAmpersandRunsWithEmptyQuotesRejectMalformedSyntax(String regex) {
       assertRejectedByJdkAndSafeRe(regex);
@@ -1345,8 +1396,7 @@ class JdkSyntaxCompatibilityTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("deferredCharacterClassExpressionParserCases")
     @DisplayName("character-class expression parser cases match JDK")
-    void characterClassExpressionParserCasesMatchJdk(
-        CharacterClassMembershipCase membershipCase) {
+    void characterClassExpressionParserCasesMatchJdk(CharacterClassMembershipCase membershipCase) {
       assertFullMatchesSameForAll(membershipCase.regex(), membershipCase.inputs());
     }
 
@@ -1369,7 +1419,8 @@ class JdkSyntaxCompatibilityTest {
     @DisabledForCrosscheck(
         "generated differential matrix already compares SafeRE with java.util.regex")
     void generatedCharacterClassExpressionMatrixMatchesJdk() {
-      Assumptions.assumeTrue(Boolean.getBoolean(LONG_SYNTAX_MATRIX_PROPERTY),
+      Assumptions.assumeTrue(
+          Boolean.getBoolean(LONG_SYNTAX_MATRIX_PROPERTY),
           () -> "set -D" + LONG_SYNTAX_MATRIX_PROPERTY + "=true to run the long syntax matrix");
 
       CharacterClassExpressionMatrix matrix = generatedCharacterClassExpressionMatrix();
@@ -1391,106 +1442,119 @@ class JdkSyntaxCompatibilityTest {
       if (Boolean.parseBoolean(System.getProperty(SYNTAX_MATRIX_PARALLEL_PROPERTY, "true"))) {
         indexes = indexes.parallel();
       }
-      indexes.forEach(index -> {
-        String regex = matrix.regexAt(index);
-        CharacterClassMatrixOutcome jdk = jdkCharacterClassOutcome(regex);
-        CharacterClassMatrixOutcome safere = safeReCharacterClassOutcome(regex);
-        if (!jdk.equals(safere)) {
-          divergenceCount.increment();
-          if (divergences.size() < 50) {
-            divergences.add(regex + " JDK=" + jdk + " SafeRE=" + safere);
-          }
-        }
-      });
+      indexes.forEach(
+          index -> {
+            String regex = matrix.regexAt(index);
+            CharacterClassMatrixOutcome jdk = jdkCharacterClassOutcome(regex);
+            CharacterClassMatrixOutcome safere = safeReCharacterClassOutcome(regex);
+            if (!jdk.equals(safere)) {
+              divergenceCount.increment();
+              if (divergences.size() < 50) {
+                divergences.add(regex + " JDK=" + jdk + " SafeRE=" + safere);
+              }
+            }
+          });
 
       assertThat(divergences)
-          .as("generated character-class expression divergences in index range [%d, %d) "
-              + "of %,d total cases, shard %d/%d: %d; first entries: %s",
-              startInclusive, endExclusive, matrix.size(), shard, shardCount,
-              divergenceCount.sum(), divergences)
+          .as(
+              "generated character-class expression divergences in index range [%d, %d) "
+                  + "of %,d total cases, shard %d/%d: %d; first entries: %s",
+              startInclusive,
+              endExclusive,
+              matrix.size(),
+              shard,
+              shardCount,
+              divergenceCount.sum(),
+              divergences)
           .isEmpty();
     }
 
     private static CharacterClassExpressionMatrix generatedCharacterClassExpressionMatrix() {
-      List<CharacterClassMatrixPiece> basePieces = List.of(
-          new CharacterClassMatrixPiece("empty", ""),
-          new CharacterClassMatrixPiece("litA", "a"),
-          new CharacterClassMatrixPiece("litAB", "ab"),
-          new CharacterClassMatrixPiece("rangeAB", "a-b"),
-          new CharacterClassMatrixPiece("zero", "0"),
-          new CharacterClassMatrixPiece("range01", "0-1"),
-          new CharacterClassMatrixPiece("rawAmp", "&"),
-          new CharacterClassMatrixPiece("escapedAmp", "\\&"),
-          new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
-          new CharacterClassMatrixPiece("quoteA", "\\Qa\\E"),
-          new CharacterClassMatrixPiece("quoteAB", "\\Qab\\E"),
-          new CharacterClassMatrixPiece("quoteEmpty", "\\Q\\E"),
-          new CharacterClassMatrixPiece("nonInline", "Ā"),
-          new CharacterClassMatrixPiece("escapedNonAscii", "\\Ā"),
-          new CharacterClassMatrixPiece("nestedA", "[a]"),
-          new CharacterClassMatrixPiece("nestedB", "[b]"),
-          new CharacterClassMatrixPiece("nestedAB", "[ab]"),
-          new CharacterClassMatrixPiece("nestedNotB", "[^b]"),
-          new CharacterClassMatrixPiece("digit", "\\d"),
-          new CharacterClassMatrixPiece("nonDigit", "\\D"),
-          new CharacterClassMatrixPiece("word", "\\w"),
-          new CharacterClassMatrixPiece("nonWord", "\\W"),
-          new CharacterClassMatrixPiece("propertyLower", "\\p{Lower}"),
-          new CharacterClassMatrixPiece("propertyNotLower", "\\P{Lower}"),
-          new CharacterClassMatrixPiece("propertyJavaLower", "\\p{javaLowerCase}"));
-      List<CharacterClassMatrixPiece> ampersandPieces = List.of(
-          new CharacterClassMatrixPiece("rawAmp", "&"),
-          new CharacterClassMatrixPiece("escapedAmp", "\\&"),
-          new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"));
-      List<CharacterClassMatrixPiece> trailingPieces = List.of(
-          new CharacterClassMatrixPiece("none", ""),
-          new CharacterClassMatrixPiece("rawAmp", "&"),
-          new CharacterClassMatrixPiece("escapedAmp", "\\&"),
-          new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
-          new CharacterClassMatrixPiece("rangeToNonDigit", "-\\D"),
-          new CharacterClassMatrixPiece("rangeToA", "-a"),
-          new CharacterClassMatrixPiece("rangeToIntersection", "-&&"),
-          new CharacterClassMatrixPiece("zeroWidthRangeToNonDigit", "\\Q\\E-\\D"));
-      List<CharacterClassMatrixSeparator> separators = List.of(
-          new CharacterClassMatrixSeparator("none", "", false),
-          new CharacterClassMatrixSeparator("emptyQuote", "\\Q\\E", false),
-          new CharacterClassMatrixSeparator("twoEmptyQuotes", "\\Q\\E\\Q\\E", false),
-          new CharacterClassMatrixSeparator("space", " ", true),
-          new CharacterClassMatrixSeparator("comment", " #x\n", true),
-          new CharacterClassMatrixSeparator("emptyQuoteSpace", "\\Q\\E ", true),
-          new CharacterClassMatrixSeparator("spaceEmptyQuote", " \\Q\\E", true));
-      List<CharacterClassMatrixSeparator> afterOperatorSeparators = List.of(
-          new CharacterClassMatrixSeparator("none", "", false),
-          new CharacterClassMatrixSeparator("emptyQuote", "\\Q\\E", false),
-          new CharacterClassMatrixSeparator("twoEmptyQuotes", "\\Q\\E\\Q\\E", false),
-          new CharacterClassMatrixSeparator("space", " ", true),
-          new CharacterClassMatrixSeparator("comment", " #x\n", true),
-          new CharacterClassMatrixSeparator("emptyQuoteSpace", "\\Q\\E ", true),
-          new CharacterClassMatrixSeparator("spaceEmptyQuote", " \\Q\\E", true));
+      List<CharacterClassMatrixPiece> basePieces =
+          List.of(
+              new CharacterClassMatrixPiece("empty", ""),
+              new CharacterClassMatrixPiece("litA", "a"),
+              new CharacterClassMatrixPiece("litAB", "ab"),
+              new CharacterClassMatrixPiece("rangeAB", "a-b"),
+              new CharacterClassMatrixPiece("zero", "0"),
+              new CharacterClassMatrixPiece("range01", "0-1"),
+              new CharacterClassMatrixPiece("rawAmp", "&"),
+              new CharacterClassMatrixPiece("escapedAmp", "\\&"),
+              new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
+              new CharacterClassMatrixPiece("quoteA", "\\Qa\\E"),
+              new CharacterClassMatrixPiece("quoteAB", "\\Qab\\E"),
+              new CharacterClassMatrixPiece("quoteEmpty", "\\Q\\E"),
+              new CharacterClassMatrixPiece("nonInline", "Ā"),
+              new CharacterClassMatrixPiece("escapedNonAscii", "\\Ā"),
+              new CharacterClassMatrixPiece("nestedA", "[a]"),
+              new CharacterClassMatrixPiece("nestedB", "[b]"),
+              new CharacterClassMatrixPiece("nestedAB", "[ab]"),
+              new CharacterClassMatrixPiece("nestedNotB", "[^b]"),
+              new CharacterClassMatrixPiece("digit", "\\d"),
+              new CharacterClassMatrixPiece("nonDigit", "\\D"),
+              new CharacterClassMatrixPiece("word", "\\w"),
+              new CharacterClassMatrixPiece("nonWord", "\\W"),
+              new CharacterClassMatrixPiece("propertyLower", "\\p{Lower}"),
+              new CharacterClassMatrixPiece("propertyNotLower", "\\P{Lower}"),
+              new CharacterClassMatrixPiece("propertyJavaLower", "\\p{javaLowerCase}"));
+      List<CharacterClassMatrixPiece> ampersandPieces =
+          List.of(
+              new CharacterClassMatrixPiece("rawAmp", "&"),
+              new CharacterClassMatrixPiece("escapedAmp", "\\&"),
+              new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"));
+      List<CharacterClassMatrixPiece> trailingPieces =
+          List.of(
+              new CharacterClassMatrixPiece("none", ""),
+              new CharacterClassMatrixPiece("rawAmp", "&"),
+              new CharacterClassMatrixPiece("escapedAmp", "\\&"),
+              new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
+              new CharacterClassMatrixPiece("rangeToNonDigit", "-\\D"),
+              new CharacterClassMatrixPiece("rangeToA", "-a"),
+              new CharacterClassMatrixPiece("rangeToIntersection", "-&&"),
+              new CharacterClassMatrixPiece("zeroWidthRangeToNonDigit", "\\Q\\E-\\D"));
+      List<CharacterClassMatrixSeparator> separators =
+          List.of(
+              new CharacterClassMatrixSeparator("none", "", false),
+              new CharacterClassMatrixSeparator("emptyQuote", "\\Q\\E", false),
+              new CharacterClassMatrixSeparator("twoEmptyQuotes", "\\Q\\E\\Q\\E", false),
+              new CharacterClassMatrixSeparator("space", " ", true),
+              new CharacterClassMatrixSeparator("comment", " #x\n", true),
+              new CharacterClassMatrixSeparator("emptyQuoteSpace", "\\Q\\E ", true),
+              new CharacterClassMatrixSeparator("spaceEmptyQuote", " \\Q\\E", true));
+      List<CharacterClassMatrixSeparator> afterOperatorSeparators =
+          List.of(
+              new CharacterClassMatrixSeparator("none", "", false),
+              new CharacterClassMatrixSeparator("emptyQuote", "\\Q\\E", false),
+              new CharacterClassMatrixSeparator("twoEmptyQuotes", "\\Q\\E\\Q\\E", false),
+              new CharacterClassMatrixSeparator("space", " ", true),
+              new CharacterClassMatrixSeparator("comment", " #x\n", true),
+              new CharacterClassMatrixSeparator("emptyQuoteSpace", "\\Q\\E ", true),
+              new CharacterClassMatrixSeparator("spaceEmptyQuote", " \\Q\\E", true));
       List<String> operators = List.of("&&", "&&&", "&&&&", "&&&&&", "&&&&&&");
-      List<CharacterClassMatrixPiece> rightPieces = List.of(
-          new CharacterClassMatrixPiece("none", ""),
-          new CharacterClassMatrixPiece("litA", "a"),
-          new CharacterClassMatrixPiece("litB", "b"),
-          new CharacterClassMatrixPiece("rangeAB", "a-b"),
-          new CharacterClassMatrixPiece("zero", "0"),
-          new CharacterClassMatrixPiece("range01", "0-1"),
-          new CharacterClassMatrixPiece("rawAmp", "&"),
-          new CharacterClassMatrixPiece("escapedAmp", "\\&"),
-          new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
-          new CharacterClassMatrixPiece("quoteA", "\\Qa\\E"),
-          new CharacterClassMatrixPiece("quoteEmpty", "\\Q\\E"),
-          new CharacterClassMatrixPiece("nonInline", "Ā"),
-          new CharacterClassMatrixPiece("escapedNonAscii", "\\Ā"),
-          new CharacterClassMatrixPiece("nestedA", "[a]"),
-          new CharacterClassMatrixPiece("nestedB", "[b]"),
-          new CharacterClassMatrixPiece("nestedAB", "[ab]"),
-          new CharacterClassMatrixPiece("digit", "\\d"),
-          new CharacterClassMatrixPiece("word", "\\w"),
-          new CharacterClassMatrixPiece("nonDigit", "\\D"),
-          new CharacterClassMatrixPiece("propertyLower", "\\p{Lower}"),
-          new CharacterClassMatrixPiece("propertyNotLower", "\\P{Lower}"),
-          new CharacterClassMatrixPiece("propertyJavaLower", "\\p{javaLowerCase}"));
+      List<CharacterClassMatrixPiece> rightPieces =
+          List.of(
+              new CharacterClassMatrixPiece("none", ""),
+              new CharacterClassMatrixPiece("litA", "a"),
+              new CharacterClassMatrixPiece("litB", "b"),
+              new CharacterClassMatrixPiece("rangeAB", "a-b"),
+              new CharacterClassMatrixPiece("zero", "0"),
+              new CharacterClassMatrixPiece("range01", "0-1"),
+              new CharacterClassMatrixPiece("rawAmp", "&"),
+              new CharacterClassMatrixPiece("escapedAmp", "\\&"),
+              new CharacterClassMatrixPiece("quoteAmp", "\\Q&\\E"),
+              new CharacterClassMatrixPiece("quoteA", "\\Qa\\E"),
+              new CharacterClassMatrixPiece("quoteEmpty", "\\Q\\E"),
+              new CharacterClassMatrixPiece("nonInline", "Ā"),
+              new CharacterClassMatrixPiece("escapedNonAscii", "\\Ā"),
+              new CharacterClassMatrixPiece("nestedA", "[a]"),
+              new CharacterClassMatrixPiece("nestedB", "[b]"),
+              new CharacterClassMatrixPiece("nestedAB", "[ab]"),
+              new CharacterClassMatrixPiece("digit", "\\d"),
+              new CharacterClassMatrixPiece("word", "\\w"),
+              new CharacterClassMatrixPiece("nonDigit", "\\D"),
+              new CharacterClassMatrixPiece("propertyLower", "\\p{Lower}"),
+              new CharacterClassMatrixPiece("propertyNotLower", "\\P{Lower}"),
+              new CharacterClassMatrixPiece("propertyJavaLower", "\\p{javaLowerCase}"));
 
       List<CharacterClassMatrixSpace> spaces = new ArrayList<>();
       for (boolean comments : List.of(false, true)) {
@@ -1500,28 +1564,37 @@ class JdkSyntaxCompatibilityTest {
           List<String> activeAfterOperatorSeparators =
               activeSeparatorTexts(afterOperatorSeparators, comments);
 
-          spaces.add(new CharacterClassMatrixSpace(prefix, List.of(
-              pieceTexts(basePieces),
-              pieceTexts(basePieces),
-              activeSeparators,
-              operators,
-              activeAfterOperatorSeparators,
-              pieceTexts(rightPieces),
-              pieceTexts(trailingPieces))));
-          spaces.add(new CharacterClassMatrixSpace(prefix, List.of(
-              pieceTexts(basePieces),
-              pieceTexts(ampersandPieces),
-              activeSeparators,
-              operators,
-              activeAfterOperatorSeparators,
-              pieceTexts(rightPieces),
-              pieceTexts(trailingPieces))));
-          spaces.add(new CharacterClassMatrixSpace(prefix, List.of(
-              activeSeparators,
-              operators,
-              activeAfterOperatorSeparators,
-              pieceTexts(rightPieces),
-              pieceTexts(trailingPieces))));
+          spaces.add(
+              new CharacterClassMatrixSpace(
+                  prefix,
+                  List.of(
+                      pieceTexts(basePieces),
+                      pieceTexts(basePieces),
+                      activeSeparators,
+                      operators,
+                      activeAfterOperatorSeparators,
+                      pieceTexts(rightPieces),
+                      pieceTexts(trailingPieces))));
+          spaces.add(
+              new CharacterClassMatrixSpace(
+                  prefix,
+                  List.of(
+                      pieceTexts(basePieces),
+                      pieceTexts(ampersandPieces),
+                      activeSeparators,
+                      operators,
+                      activeAfterOperatorSeparators,
+                      pieceTexts(rightPieces),
+                      pieceTexts(trailingPieces))));
+          spaces.add(
+              new CharacterClassMatrixSpace(
+                  prefix,
+                  List.of(
+                      activeSeparators,
+                      operators,
+                      activeAfterOperatorSeparators,
+                      pieceTexts(rightPieces),
+                      pieceTexts(trailingPieces))));
         }
       }
       return new CharacterClassExpressionMatrix(spaces);
@@ -1541,8 +1614,8 @@ class JdkSyntaxCompatibilityTest {
 
     private static CharacterClassMatrixOutcome jdkCharacterClassOutcome(String regex) {
       try {
-        return new CharacterClassMatrixOutcome(true,
-            characterClassMatrixMatches(java.util.regex.Pattern.compile(regex)));
+        return new CharacterClassMatrixOutcome(
+            true, characterClassMatrixMatches(java.util.regex.Pattern.compile(regex)));
       } catch (PatternSyntaxException e) {
         return new CharacterClassMatrixOutcome(false, "");
       }
@@ -1550,8 +1623,8 @@ class JdkSyntaxCompatibilityTest {
 
     private static CharacterClassMatrixOutcome safeReCharacterClassOutcome(String regex) {
       try {
-        return new CharacterClassMatrixOutcome(true,
-            characterClassMatrixMatches(Pattern.compile(regex)));
+        return new CharacterClassMatrixOutcome(
+            true, characterClassMatrixMatches(Pattern.compile(regex)));
       } catch (PatternSyntaxException e) {
         return new CharacterClassMatrixOutcome(false, "");
       }
@@ -1584,8 +1657,7 @@ class JdkSyntaxCompatibilityTest {
     }
 
     private static List<String> characterClassMatrixInputs() {
-      return List.of("", "a", "b", "c", "&", "-", "0", "1", "x", "_", " ", "\t", "Ā", "é",
-          "\n");
+      return List.of("", "a", "b", "c", "&", "-", "0", "1", "x", "_", " ", "\t", "Ā", "é", "\n");
     }
 
     @Test
@@ -1687,8 +1759,7 @@ class JdkSyntaxCompatibilityTest {
     @ParameterizedTest(name = "{0} on \"{1}\"")
     @MethodSource("posixBracketClassSyntax")
     @DisplayName("POSIX bracket class spelling is ordinary character-class text")
-    void posixBracketClassSyntaxIsOrdinaryText(
-        String regex, String input, boolean expectedMatch) {
+    void posixBracketClassSyntaxIsOrdinaryText(String regex, String input, boolean expectedMatch) {
       boolean jdkMatches = java.util.regex.Pattern.compile(regex).matcher(input).matches();
       boolean safeMatches = Pattern.compile(regex).matcher(input).matches();
 
@@ -1809,13 +1880,14 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "\\p{Braille}",
-        "\\P{Braille}",
-        "\\p{^Braille}",
-        "[\\p{Braille}]",
-        "\\p{general_category=Latin}"
-    })
+    @ValueSource(
+        strings = {
+          "\\p{Braille}",
+          "\\P{Braille}",
+          "\\p{^Braille}",
+          "[\\p{Braille}]",
+          "\\p{general_category=Latin}"
+        })
     @DisplayName("rejects non-JDK block property spellings")
     void rejectsNonJdkBlockPropertySpellings(String regex) {
       assertRejectedByJdkAndSafeRe(regex);
@@ -2238,13 +2310,7 @@ class JdkSyntaxCompatibilityTest {
 
     @ParameterizedTest
     @ValueSource(
-        strings = {
-          "(a)\\1",
-          "(a)(b)\\2",
-          "(a)\\123",
-          "(a)(b)(c)(d)\\400",
-          "(?<name>a)\\k<name>"
-        })
+        strings = {"(a)\\1", "(a)(b)\\2", "(a)\\123", "(a)(b)(c)(d)\\400", "(?<name>a)\\k<name>"})
     @DisplayName("back reference")
     void backReference(String regex) {
       // JDK accepts these.
@@ -2346,8 +2412,7 @@ class JdkSyntaxCompatibilityTest {
       String regex = "(?" + "P<word>\\w+)";
       assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
           .isInstanceOf(PatternSyntaxException.class);
-      assertThatThrownBy(() -> Pattern.compile(regex))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -2526,8 +2591,7 @@ class JdkSyntaxCompatibilityTest {
     @Test
     @DisplayName("Pattern.UNICODE_CASE")
     void unicodeCase() {
-      assertMatchesSameWithFlags(
-          "abc", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE, "ABC");
+      assertMatchesSameWithFlags("abc", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE, "ABC");
     }
 
     @Test
@@ -2602,9 +2666,7 @@ class JdkSyntaxCompatibilityTest {
       // dot should NOT match line terminators (without DOTALL)
       java.util.regex.Matcher jdkM = java.util.regex.Pattern.compile(".").matcher(terminator);
       Matcher safeM = Pattern.compile(".").matcher(terminator);
-      assertThat(safeM.find())
-          .as("dot on %s", desc)
-          .isEqualTo(jdkM.find());
+      assertThat(safeM.find()).as("dot on %s", desc).isEqualTo(jdkM.find());
     }
 
     @ParameterizedTest(name = "{0}")
@@ -2625,8 +2687,11 @@ class JdkSyntaxCompatibilityTest {
   class EscapedMetacharacters {
 
     @ParameterizedTest
-    @ValueSource(strings = {"\\.", "\\*", "\\+", "\\?", "\\(", "\\)", "\\[", "\\]",
-        "\\{", "\\}", "\\|", "\\^", "\\$", "\\\\"})
+    @ValueSource(
+        strings = {
+          "\\.", "\\*", "\\+", "\\?", "\\(", "\\)", "\\[", "\\]", "\\{", "\\}", "\\|", "\\^", "\\$",
+          "\\\\"
+        })
     @DisplayName("escaped metacharacter is literal")
     void escapedMetacharacter(String regex) {
       assertCompiles(regex);
@@ -2727,8 +2792,7 @@ class JdkSyntaxCompatibilityTest {
     @Test
     @DisplayName("complex real-world pattern: IPv4")
     void ipv4() {
-      assertMatchesSame(
-          "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", "192.168.1.1");
+      assertMatchesSame("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", "192.168.1.1");
     }
 
     @Test

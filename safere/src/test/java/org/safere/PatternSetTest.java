@@ -36,8 +36,7 @@ class PatternSetTest {
     @Test
     void addRejectsInvalidPattern() {
       PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
-      assertThatThrownBy(() -> b.add("[invalid"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> b.add("[invalid")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -411,8 +410,7 @@ class PatternSetTest {
     @Test
     void invalidPatternThrows() {
       PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
-      assertThatThrownBy(() -> b.add("[invalid"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> b.add("[invalid")).isInstanceOf(PatternSyntaxException.class);
     }
   }
 

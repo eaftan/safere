@@ -47,6 +47,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Check Java formatting
+        run: mvn spotless:check --batch-mode --no-transfer-progress
+
       - name: Build and test SafeRE and crosscheck modules
         run: >
           mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests

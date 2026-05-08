@@ -21,15 +21,10 @@ public final class TraceRecorder {
 
   /** A single recorded API call with results from both engines. */
   public record TraceEntry(
-      String method,
-      String args,
-      String safereResult,
-      String jdkResult,
-      boolean matched) {
+      String method, String args, String safereResult, String jdkResult, boolean matched) {
 
     /** Creates a trace entry, converting results to strings. */
-    public static TraceEntry of(
-        String method, String args, Object safereResult, Object jdkResult) {
+    public static TraceEntry of(String method, String args, Object safereResult, Object jdkResult) {
       String sr = Objects.toString(safereResult);
       String jr = Objects.toString(jdkResult);
       return new TraceEntry(method, args, sr, jr, Objects.equals(sr, jr));
@@ -62,7 +57,9 @@ public final class TraceRecorder {
     entries.clear();
   }
 
-  /** Formats the trace as a human-readable string for inclusion in error messages and bug reports. */
+  /**
+   * Formats the trace as a human-readable string for inclusion in error messages and bug reports.
+   */
   public String format() {
     if (entries.isEmpty()) {
       return "(empty trace)";

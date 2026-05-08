@@ -159,8 +159,8 @@ final class Parser {
    * skipped content.
    *
    * <p>This implements the behavior of Java's {@link java.util.regex.Pattern#COMMENTS} flag and
-   * Perl's {@code (?x)} mode. Whitespace and comments become insignificant, allowing patterns to
-   * be formatted with whitespace and annotations for readability.
+   * Perl's {@code (?x)} mode. Whitespace and comments become insignificant, allowing patterns to be
+   * formatted with whitespace and annotations for readability.
    */
   private void skipCommentsAndWhitespace() {
     while (pos < pattern.length()) {
@@ -263,10 +263,7 @@ final class Parser {
             throw new PatternSyntaxException(
                 "missing argument to repetition operator", pattern, pos);
           }
-          RegexpOp op =
-              c == '*'
-                  ? RegexpOp.STAR
-                  : c == '+' ? RegexpOp.PLUS : RegexpOp.QUEST;
+          RegexpOp op = c == '*' ? RegexpOp.STAR : c == '+' ? RegexpOp.PLUS : RegexpOp.QUEST;
           int opStart = pos;
           pos++; // the operator
           boolean nongreedy = false;
@@ -474,9 +471,7 @@ final class Parser {
     }
 
     pos += 2;
-    while (pos < pattern.length()
-        && pattern.charAt(pos) >= '0'
-        && pattern.charAt(pos) <= '9') {
+    while (pos < pattern.length() && pattern.charAt(pos) >= '0' && pattern.charAt(pos) <= '9') {
       pos++;
     }
     pushRegexp(Regexp.noMatch(flags));
@@ -486,8 +481,7 @@ final class Parser {
   // ---- Stack operations ----
 
   private boolean isMarker(StackEntry e) {
-    return e != null && e.re != null && e.re.matchId < 0
-        && e.re.op == RegexpOp.NO_MATCH;
+    return e != null && e.re != null && e.re.matchId < 0 && e.re.op == RegexpOp.NO_MATCH;
   }
 
   private boolean isLeftParen(StackEntry e) {
@@ -519,7 +513,8 @@ final class Parser {
         re = Regexp.literal(r, re.flags);
       } else if (cc.numRanges() == 2) {
         int r = cc.lo(0);
-        if ('A' <= r && r <= 'Z'
+        if ('A' <= r
+            && r <= 'Z'
             && cc.hi(0) == r
             && cc.numRanges() == 2
             && cc.lo(1) == r + ('a' - 'A')
@@ -613,11 +608,11 @@ final class Parser {
       // Default JDK behavior: . matches everything except line terminators
       // (\n, \r, \u0085, \u2028, \u2029)
       CharClassBuilder ccb = new CharClassBuilder();
-      ccb.addRange(0, '\n' - 1);             // 0x00–0x09
-      ccb.addRange('\n' + 1, '\r' - 1);      // 0x0B–0x0C
-      ccb.addRange('\r' + 1, '\u0085' - 1);  // 0x0E–0x0084
+      ccb.addRange(0, '\n' - 1); // 0x00–0x09
+      ccb.addRange('\n' + 1, '\r' - 1); // 0x0B–0x0C
+      ccb.addRange('\r' + 1, '\u0085' - 1); // 0x0E–0x0084
       ccb.addRange('\u0085' + 1, '\u2028' - 1); // 0x0086–0x2027
-      ccb.addRange('\u2029' + 1, runeMax);    // 0x202A–max
+      ccb.addRange('\u2029' + 1, runeMax); // 0x202A–max
       Regexp re = Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
       pushRegexp(re);
     }
@@ -632,17 +627,18 @@ final class Parser {
   }
 
   private void pushSimpleOp(RegexpOp op) {
-    Regexp re = switch (op) {
-      case BEGIN_LINE -> Regexp.beginLine(flags);
-      case END_LINE -> Regexp.endLine(flags);
-      case BEGIN_TEXT -> Regexp.beginText(flags);
-      case END_TEXT -> Regexp.endText(flags);
-      case ANY_CHAR -> Regexp.anyChar(flags);
-      case WORD_BOUNDARY -> Regexp.wordBoundary(flags);
-      case NO_WORD_BOUNDARY -> Regexp.noWordBoundary(flags);
-      case GRAPHEME_CLUSTER_BOUNDARY -> Regexp.graphemeClusterBoundary(flags);
-      default -> Regexp.emptyMatch(flags);
-    };
+    Regexp re =
+        switch (op) {
+          case BEGIN_LINE -> Regexp.beginLine(flags);
+          case END_LINE -> Regexp.endLine(flags);
+          case BEGIN_TEXT -> Regexp.beginText(flags);
+          case END_TEXT -> Regexp.endText(flags);
+          case ANY_CHAR -> Regexp.anyChar(flags);
+          case WORD_BOUNDARY -> Regexp.wordBoundary(flags);
+          case NO_WORD_BOUNDARY -> Regexp.noWordBoundary(flags);
+          case GRAPHEME_CLUSTER_BOUNDARY -> Regexp.graphemeClusterBoundary(flags);
+          default -> Regexp.emptyMatch(flags);
+        };
     pushRegexp(re);
   }
 
@@ -664,8 +660,8 @@ final class Parser {
 
     // Squash *+, *?, +*, +?, ?* and ?+. They all squash to *.
     if ((stacktop.re.op == RegexpOp.STAR
-        || stacktop.re.op == RegexpOp.PLUS
-        || stacktop.re.op == RegexpOp.QUEST)
+            || stacktop.re.op == RegexpOp.PLUS
+            || stacktop.re.op == RegexpOp.QUEST)
         && fl == stacktop.re.flags) {
       // Replace with star. Since Regexp is immutable, rebuild.
       Regexp sub = stacktop.re.subs.getFirst();
@@ -674,12 +670,13 @@ final class Parser {
     }
 
     Regexp sub = stacktop.re;
-    Regexp re = switch (op) {
-      case STAR -> Regexp.star(sub, fl);
-      case PLUS -> Regexp.plus(sub, fl);
-      case QUEST -> Regexp.quest(sub, fl);
-      default -> throw new IllegalStateException("unexpected repeat op: " + op);
-    };
+    Regexp re =
+        switch (op) {
+          case STAR -> Regexp.star(sub, fl);
+          case PLUS -> Regexp.plus(sub, fl);
+          case QUEST -> Regexp.quest(sub, fl);
+          default -> throw new IllegalStateException("unexpected repeat op: " + op);
+        };
     stacktop.re = re;
   }
 
@@ -700,8 +697,14 @@ final class Parser {
     while (!pending.isEmpty()) {
       Regexp current = pending.removeLast();
       switch (current.op) {
-        case EMPTY_MATCH, BEGIN_LINE, END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY, BEGIN_TEXT, END_TEXT -> {
+        case EMPTY_MATCH,
+            BEGIN_LINE,
+            END_LINE,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY,
+            GRAPHEME_CLUSTER_BOUNDARY,
+            BEGIN_TEXT,
+            END_TEXT -> {
           // Zero-width by definition.
         }
         case CAPTURE, NON_CAPTURE, STAR, PLUS, QUEST, REPEAT ->
@@ -733,16 +736,14 @@ final class Parser {
     // Check for too-deep nesting of repeats.
     if (min >= 2 || max >= 2) {
       if (countRepeat(stacktop.re, MAX_REPEAT) == 0) {
-        throw new PatternSyntaxException(
-            "invalid repeat count", pattern, pos - opstr.length());
+        throw new PatternSyntaxException("invalid repeat count", pattern, pos - opstr.length());
       }
     }
   }
 
   private void validateRepeatCount(int min, int max, String opstr) {
     if ((max != -1 && max < min) || min > MAX_REPEAT || max > MAX_REPEAT) {
-      throw new PatternSyntaxException(
-          "invalid repeat count", pattern, pos - opstr.length());
+      throw new PatternSyntaxException("invalid repeat count", pattern, pos - opstr.length());
     }
   }
 
@@ -933,9 +934,7 @@ final class Parser {
     }
     Collections.reverse(subs);
 
-    Regexp re = op == RegexpOp.CONCAT
-        ? Regexp.concat(subs, flags)
-        : Regexp.alternate(subs, flags);
+    Regexp re = op == RegexpOp.CONCAT ? Regexp.concat(subs, flags) : Regexp.alternate(subs, flags);
     StackEntry entry = new StackEntry(re);
     entry.down = stacktop;
     stacktop = entry;
@@ -1102,7 +1101,8 @@ final class Parser {
                 && pattern.charAt(tail.pos()) == '&'
                 && token.ampersandTailHasSingleAmpersand()) {
               if (hasInvalidRangeTailAfterRawAmpersand(tail.pos())) {
-                throw new PatternSyntaxException("illegal character range", pattern, tail.pos() + 1);
+                throw new PatternSyntaxException(
+                    "illegal character range", pattern, tail.pos() + 1);
               }
               CharClassBuilder expression = snapshotOddAmpersandUnionExpression(frame);
               if (expression == null) {
@@ -1127,8 +1127,7 @@ final class Parser {
               continue;
             }
           }
-          if (token.isSingleAmpersand()
-              && frame.intersectionRightStartedAfterCommentsTrivia) {
+          if (token.isSingleAmpersand() && frame.intersectionRightStartedAfterCommentsTrivia) {
             if (snapshotPendingExpression(frame) == null) {
               throw new PatternSyntaxException("bad class syntax", pattern, pos);
             }
@@ -1266,11 +1265,12 @@ final class Parser {
             frame.hasPendingScalarItems && frame.pendingScalarItemsAfterCurrentOperand;
         frame.pendingScalarItems.addCharClass(atom.ccb);
         frame.hasPendingScalarItems = true;
-        frame.pendingScalarRole = rawAmpersandBecameOrdinaryScalar
-            ? ClassAtomRole.ORDINARY_SCALAR
-            : alreadyHadPendingScalarsAfterCurrent
-            ? ClassAtomRole.merge(frame.pendingScalarRole, atom.role)
-            : atom.role;
+        frame.pendingScalarRole =
+            rawAmpersandBecameOrdinaryScalar
+                ? ClassAtomRole.ORDINARY_SCALAR
+                : alreadyHadPendingScalarsAfterCurrent
+                    ? ClassAtomRole.merge(frame.pendingScalarRole, atom.role)
+                    : atom.role;
         if (rawAmpersandBecameOrdinaryScalar) {
           frame.rawAmpersandSeparatorActive = false;
           frame.rawAmpersandLeftExpression = null;
@@ -1302,12 +1302,13 @@ final class Parser {
 
   private ClassOperatorToken scanClassOperatorToken(ClassNormalization normalization) {
     char c = pattern.charAt(pos);
-    ClassOperatorTokenKind kind = switch (c) {
-      case '&' -> ClassOperatorTokenKind.AMPERSAND;
-      case '[' -> ClassOperatorTokenKind.OPEN_BRACKET;
-      case ']' -> ClassOperatorTokenKind.CLOSE_BRACKET;
-      default -> ClassOperatorTokenKind.OTHER;
-    };
+    ClassOperatorTokenKind kind =
+        switch (c) {
+          case '&' -> ClassOperatorTokenKind.AMPERSAND;
+          case '[' -> ClassOperatorTokenKind.OPEN_BRACKET;
+          case ']' -> ClassOperatorTokenKind.CLOSE_BRACKET;
+          default -> ClassOperatorTokenKind.OTHER;
+        };
     int ampersands = 0;
     OddAmpersandRunTail ampersandTail = null;
     int ampersandTailAmpersands = 0;
@@ -1315,8 +1316,7 @@ final class Parser {
     if (kind == ClassOperatorTokenKind.AMPERSAND) {
       ampersands = countAmpersandsAt(pos);
       ampersandTail = inspectOddAmpersandRunTail(pos + ampersands);
-      if (ampersandTail.pos() < pattern.length()
-          && pattern.charAt(ampersandTail.pos()) == '&') {
+      if (ampersandTail.pos() < pattern.length() && pattern.charAt(ampersandTail.pos()) == '&') {
         ampersandTailAmpersands = countAmpersandsAt(ampersandTail.pos());
       }
       if (ampersands >= 2) {
@@ -1324,7 +1324,13 @@ final class Parser {
       }
     }
     return new ClassOperatorToken(
-        pos, c, kind, normalization, ampersands, ampersandTail, ampersandTailAmpersands,
+        pos,
+        c,
+        kind,
+        normalization,
+        ampersands,
+        ampersandTail,
+        ampersandTailAmpersands,
         tailAfterFirstAmpersandPair);
   }
 
@@ -1455,8 +1461,8 @@ final class Parser {
             && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
           expression.addCharClass(frame.pendingScalarItems);
         } else {
-          CharClassBuilder pendingOperand = new CharClassBuilder()
-              .addCharClass(frame.pendingScalarItems);
+          CharClassBuilder pendingOperand =
+              new CharClassBuilder().addCharClass(frame.pendingScalarItems);
           pendingOperand.intersect(frame.intersectionRight);
           expression.addCharClass(pendingOperand);
         }
@@ -1599,8 +1605,7 @@ final class Parser {
       frame.rawAmpersandLeftExpression = null;
       return;
     }
-    frame.accumulatedClass =
-        new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
+    frame.accumulatedClass = new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
     frame.currentIntersectionOperand = frame.accumulatedClass;
     frame.currentIntersectionOperandRole = ClassAtomRole.RAW_AMPERSAND_SEPARATOR;
     frame.pendingScalarItems = new CharClassBuilder();
@@ -1615,8 +1620,7 @@ final class Parser {
     frame.intersectionRightOnlyNestedClasses = false;
   }
 
-  private boolean shouldParseOddAmpersandRunAsUnion(
-      ClassExpressionFrame frame, int ampersands) {
+  private boolean shouldParseOddAmpersandRunAsUnion(ClassExpressionFrame frame, int ampersands) {
     if (snapshotOddAmpersandUnionExpression(frame) == null) {
       return false;
     }
@@ -1668,7 +1672,8 @@ final class Parser {
         if (tailAmpersands == 1) {
           CharClassBuilder intersectionLeft = expression;
           if (frame.currentIntersectionOperand != null) {
-            intersectionLeft = new CharClassBuilder().addCharClass(frame.currentIntersectionOperand);
+            intersectionLeft =
+                new CharClassBuilder().addCharClass(frame.currentIntersectionOperand);
           }
           startIntersectionRightAfterOddRunDelimiter(frame, intersectionLeft, tail);
           return;
@@ -1794,7 +1799,8 @@ final class Parser {
         || pattern.charAt(pos + 2) == '[') {
       return false;
     }
-    if (startsPredefinedClassAt(pos + 2) || startsPropertyClassAt(pos + 2)
+    if (startsPredefinedClassAt(pos + 2)
+        || startsPropertyClassAt(pos + 2)
         || inspectNormalizedAmpersandRun(pos + 2).count() >= 2) {
       throw new PatternSyntaxException("illegal character range", pattern, pos);
     }
@@ -1848,8 +1854,7 @@ final class Parser {
   private OddAmpersandRunTail inspectOddAmpersandRunTail(int index) {
     ClassSyntaxLookahead lookahead = inspectNormalizedClassSyntax(index);
     return new OddAmpersandRunTail(
-        lookahead.pos(), lookahead.skippedZeroWidthSyntax(),
-        lookahead.skippedCommentsTrivia());
+        lookahead.pos(), lookahead.skippedZeroWidthSyntax(), lookahead.skippedCommentsTrivia());
   }
 
   private record OddAmpersandRunTail(
@@ -1892,15 +1897,18 @@ final class Parser {
       skippedCommentsTrivia |= lookahead.skippedCommentsTrivia();
       current = lookahead.pos();
     }
-    return new NormalizedAmpersandRun(first, count, current, skippedZeroWidthSyntax,
-        skippedCommentsTrivia);
+    return new NormalizedAmpersandRun(
+        first, count, current, skippedZeroWidthSyntax, skippedCommentsTrivia);
   }
 
   private record ClassSyntaxLookahead(
       int pos, boolean skippedZeroWidthSyntax, boolean skippedCommentsTrivia) {}
 
   private record NormalizedAmpersandRun(
-      int first, int count, int pos, boolean skippedZeroWidthSyntax,
+      int first,
+      int count,
+      int pos,
+      boolean skippedZeroWidthSyntax,
       boolean skippedCommentsTrivia) {}
 
   private void finishClassIntersection(ClassExpressionFrame frame) {
@@ -2449,15 +2457,15 @@ final class Parser {
           throw new PatternSyntaxException("backreferences are not supported", pattern, pos - 2);
       case '0' -> {
         // JDK: \0nnn — up to three octal digits after \0 (max value 0377 = 255).
-        if (pos >= pattern.length()
-            || pattern.charAt(pos) < '0'
-            || pattern.charAt(pos) > '7') {
+        if (pos >= pattern.length() || pattern.charAt(pos) < '0' || pattern.charAt(pos) > '7') {
           throw new PatternSyntaxException("Illegal octal escape sequence", pattern, pos);
         }
         int code = 0;
         int digits = 0;
-        while (digits < 3 && pos < pattern.length()
-            && pattern.charAt(pos) >= '0' && pattern.charAt(pos) <= '7') {
+        while (digits < 3
+            && pos < pattern.length()
+            && pattern.charAt(pos) >= '0'
+            && pattern.charAt(pos) <= '7') {
           int next = code * 8 + pattern.charAt(pos) - '0';
           if (next > 0377) {
             break;
@@ -2538,12 +2546,24 @@ final class Parser {
         return code;
       }
       // C escapes.
-      case 'n' -> { return '\n'; }
-      case 'r' -> { return '\r'; }
-      case 't' -> { return '\t'; }
-      case 'a' -> { return '\u0007'; } // bell
-      case 'e' -> { return '\u001B'; } // escape
-      case 'f' -> { return '\f'; }
+      case 'n' -> {
+        return '\n';
+      }
+      case 'r' -> {
+        return '\r';
+      }
+      case 't' -> {
+        return '\t';
+      }
+      case 'a' -> {
+        return '\u0007';
+      } // bell
+      case 'e' -> {
+        return '\u001B';
+      } // escape
+      case 'f' -> {
+        return '\f';
+      }
       // Control character: \cX → X ^ 0x40
       case 'c' -> {
         if (pos >= pattern.length()) {
@@ -2568,8 +2588,8 @@ final class Parser {
   }
 
   /**
-   * Parses exactly {@code n} hex digits at the current position and returns their value.
-   * Advances {@code pos} past the digits.
+   * Parses exactly {@code n} hex digits at the current position and returns their value. Advances
+   * {@code pos} past the digits.
    */
   private int parseExactHex(int n) {
     if (pos + n > pattern.length()) {
@@ -2597,24 +2617,57 @@ final class Parser {
     String posName; // the positive version
     boolean negate;
     switch (c2) {
-      case 'd' -> { posName = "\\d"; negate = false; }
-      case 'D' -> { posName = "\\d"; negate = true; }
-      case 'h' -> { posName = "\\h"; negate = false; }
-      case 'H' -> { posName = "\\h"; negate = true; }
-      case 's' -> { posName = "\\s"; negate = false; }
-      case 'S' -> { posName = "\\s"; negate = true; }
-      case 'v' -> { posName = "\\v"; negate = false; }
-      case 'V' -> { posName = "\\v"; negate = true; }
-      case 'w' -> { posName = "\\w"; negate = false; }
-      case 'W' -> { posName = "\\w"; negate = true; }
-      default -> { return null; }
+      case 'd' -> {
+        posName = "\\d";
+        negate = false;
+      }
+      case 'D' -> {
+        posName = "\\d";
+        negate = true;
+      }
+      case 'h' -> {
+        posName = "\\h";
+        negate = false;
+      }
+      case 'H' -> {
+        posName = "\\h";
+        negate = true;
+      }
+      case 's' -> {
+        posName = "\\s";
+        negate = false;
+      }
+      case 'S' -> {
+        posName = "\\s";
+        negate = true;
+      }
+      case 'v' -> {
+        posName = "\\v";
+        negate = false;
+      }
+      case 'V' -> {
+        posName = "\\v";
+        negate = true;
+      }
+      case 'w' -> {
+        posName = "\\w";
+        negate = false;
+      }
+      case 'W' -> {
+        posName = "\\w";
+        negate = true;
+      }
+      default -> {
+        return null;
+      }
     }
 
     pos += 2; // '\\', letter
     // Use Unicode-aware tables when UNICODE_CHAR_CLASS is active.
-    int[][] table = (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0
-        ? UnicodeTables.unicodePerlGroups().get(posName)
-        : UnicodeTables.PERL_GROUPS.get(posName);
+    int[][] table =
+        (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0
+            ? UnicodeTables.unicodePerlGroups().get(posName)
+            : UnicodeTables.PERL_GROUPS.get(posName);
     if (table == null) return null;
 
     CharClassBuilder ccb = new CharClassBuilder();
@@ -2666,8 +2719,7 @@ final class Parser {
 
     int[][] table = lookupUnicodeGroup(name, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
     if (table == null) {
-      throw new PatternSyntaxException(
-          "invalid Unicode group: " + name, pattern, seqStart);
+      throw new PatternSyntaxException("invalid Unicode group: " + name, pattern, seqStart);
     }
 
     if (sign > 0) {
@@ -2683,9 +2735,10 @@ final class Parser {
     if (table != null) {
       return table;
     }
-    table = unicodeCharacterClass
-        ? UnicodeTables.unicodePosixPropertyGroups().get(name)
-        : UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
+    table =
+        unicodeCharacterClass
+            ? UnicodeTables.unicodePosixPropertyGroups().get(name)
+            : UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
     if (table != null) {
       return table;
     }
@@ -2744,8 +2797,7 @@ final class Parser {
       // Build the positive set with folding, then negate, then merge.
       CharClassBuilder ccb1 = new CharClassBuilder();
       addGroupPositive(ccb1, table);
-      boolean cutnl = (flags & ParseFlags.CLASS_NL) == 0
-          || (flags & ParseFlags.NEVER_NL) != 0;
+      boolean cutnl = (flags & ParseFlags.CLASS_NL) == 0 || (flags & ParseFlags.NEVER_NL) != 0;
       if (cutnl) {
         ccb1.addRune('\n');
       }
@@ -2765,9 +2817,7 @@ final class Parser {
     }
   }
 
-  /**
-   * Add a range to the character class, but exclude newline if asked. Also handle case folding.
-   */
+  /** Add a range to the character class, but exclude newline if asked. Also handle case folding. */
   private void addRangeFlags(CharClassBuilder ccb, int lo, int hi, int parseFlags) {
     // Take out \n if the flags say so.
     boolean cutnl =
@@ -2970,8 +3020,7 @@ final class Parser {
         }
         String name = pattern.substring(begin, end);
         if (!isValidCaptureName(name)) {
-          throw new PatternSyntaxException(
-              "invalid named capture: " + name, pattern, pos);
+          throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
         }
         doLeftParen(name);
         pos = end + 1; // skip past '>'
@@ -2989,8 +3038,7 @@ final class Parser {
     boolean done = false;
     while (!done) {
       if (pos >= pattern.length()) {
-        throw new PatternSyntaxException(
-            "invalid Perl operator", pattern, startPos);
+        throw new PatternSyntaxException("invalid Perl operator", pattern, startPos);
       }
       int c = pattern.codePointAt(pos);
       pos += Character.charCount(c);
@@ -3023,11 +3071,13 @@ final class Parser {
         case 'U' -> {
           sawflags = true;
           if (negated) {
-            nflags &= ~(ParseFlags.UNICODE_CASE | ParseFlags.UNICODE_GROUPS
-                | ParseFlags.UNICODE_CHAR_CLASS);
+            nflags &=
+                ~(ParseFlags.UNICODE_CASE
+                    | ParseFlags.UNICODE_GROUPS
+                    | ParseFlags.UNICODE_CHAR_CLASS);
           } else {
-            nflags |= ParseFlags.UNICODE_CASE | ParseFlags.UNICODE_GROUPS
-                | ParseFlags.UNICODE_CHAR_CLASS;
+            nflags |=
+                ParseFlags.UNICODE_CASE | ParseFlags.UNICODE_GROUPS | ParseFlags.UNICODE_CHAR_CLASS;
           }
         }
         case 'x' -> {
@@ -3067,8 +3117,8 @@ final class Parser {
   // ---- Repetition parsing ----
 
   /**
-   * Tries to parse a repetition suffix like {1,2} or {2} or {2,}. Returns null if the pattern
-   * at pos does not look like a valid repetition. Otherwise returns int[]{lo, hi} and advances pos.
+   * Tries to parse a repetition suffix like {1,2} or {2} or {2,}. Returns null if the pattern at
+   * pos does not look like a valid repetition. Otherwise returns int[]{lo, hi} and advances pos.
    */
   private int[] maybeParseRepetition() {
     int saved = pos;
@@ -3174,13 +3224,13 @@ final class Parser {
 
     // Alternative 2: any single linebreak character
     CharClassBuilder ccb = new CharClassBuilder();
-    ccb.addRune('\n');       // U+000A LINE FEED
-    ccb.addRune('\u000B');   // U+000B VERTICAL TAB
-    ccb.addRune('\f');       // U+000C FORM FEED
-    ccb.addRune('\r');       // U+000D CARRIAGE RETURN
-    ccb.addRune(0x85);       // U+0085 NEXT LINE
-    ccb.addRune(0x2028);     // U+2028 LINE SEPARATOR
-    ccb.addRune(0x2029);     // U+2029 PARAGRAPH SEPARATOR
+    ccb.addRune('\n'); // U+000A LINE FEED
+    ccb.addRune('\u000B'); // U+000B VERTICAL TAB
+    ccb.addRune('\f'); // U+000C FORM FEED
+    ccb.addRune('\r'); // U+000D CARRIAGE RETURN
+    ccb.addRune(0x85); // U+0085 NEXT LINE
+    ccb.addRune(0x2028); // U+2028 LINE SEPARATOR
+    ccb.addRune(0x2029); // U+2029 PARAGRAPH SEPARATOR
     Regexp singleLinebreak = Regexp.charClass(ccb.build(), flags);
 
     return Regexp.alternate(List.of(crLf, singleLinebreak), flags);
@@ -3196,21 +3246,19 @@ final class Parser {
     Regexp extendNoZwjStar = Regexp.star(buildGraphemeExtendClass(false), flags);
 
     // Extended pictographic sequences joined by ZWJ, e.g. emoji presentation chains.
-    Regexp pictographic = charClassFromTable(
-        UnicodeProperties.lookupBinaryProperty("Extended_Pictographic"));
+    Regexp pictographic =
+        charClassFromTable(UnicodeProperties.lookupBinaryProperty("Extended_Pictographic"));
     Regexp pictographicWithExtends = Regexp.concat(List.of(pictographic, extendNoZwjStar), flags);
-    Regexp zwjPictographicSegment = Regexp.concat(List.of(
-        Regexp.literal(0x200D, flags),
-        pictographic,
-        extendNoZwjStar), flags);
-    Regexp zwjSequence = Regexp.concat(List.of(
-        pictographicWithExtends,
-        Regexp.plus(zwjPictographicSegment, flags)), flags);
+    Regexp zwjPictographicSegment =
+        Regexp.concat(List.of(Regexp.literal(0x200D, flags), pictographic, extendNoZwjStar), flags);
+    Regexp zwjSequence =
+        Regexp.concat(
+            List.of(pictographicWithExtends, Regexp.plus(zwjPictographicSegment, flags)), flags);
 
     // Regional indicators pair into flag clusters.
     Regexp regionalIndicator = charClassFromRange(0x1F1E6, 0x1F1FF);
-    Regexp regionalIndicatorPair = Regexp.concat(
-        List.of(regionalIndicator, regionalIndicator), flags);
+    Regexp regionalIndicatorPair =
+        Regexp.concat(List.of(regionalIndicator, regionalIndicator), flags);
 
     Regexp hangulCluster = buildHangulGraphemeCluster();
 
@@ -3222,8 +3270,9 @@ final class Parser {
     Regexp nonMark = Regexp.charClass(nonMarkCcb.build(), flags);
 
     Regexp baseWithExtends = Regexp.concat(List.of(nonMark, extendStar), flags);
-    Regexp prependCluster = Regexp.concat(
-        List.of(Regexp.plus(buildGraphemePrependClass(), flags), baseWithExtends), flags);
+    Regexp prependCluster =
+        Regexp.concat(
+            List.of(Regexp.plus(buildGraphemePrependClass(), flags), baseWithExtends), flags);
 
     // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
     // Use ANY_CHAR with DOT_NL to match all characters including newlines.
@@ -3271,19 +3320,20 @@ final class Parser {
     Regexp lvt = buildHangulSyllableClass(false);
     Regexp tStar = Regexp.star(t, flags);
 
-    Regexp lTail = Regexp.alternate(List.of(
-        Regexp.concat(List.of(Regexp.plus(v, flags), tStar), flags),
-        Regexp.concat(List.of(lv, Regexp.star(v, flags), tStar), flags),
-        Regexp.concat(List.of(lvt, tStar), flags)), flags);
-    Regexp lSequence = Regexp.concat(
-        List.of(Regexp.plus(l, flags), Regexp.quest(lTail, flags)), flags);
-    Regexp lvOrVSequence = Regexp.concat(List.of(
-        Regexp.alternate(List.of(lv, v), flags),
-        Regexp.star(v, flags),
-        tStar), flags);
-    Regexp lvtOrTSequence = Regexp.concat(List.of(
-        Regexp.alternate(List.of(lvt, t), flags),
-        tStar), flags);
+    Regexp lTail =
+        Regexp.alternate(
+            List.of(
+                Regexp.concat(List.of(Regexp.plus(v, flags), tStar), flags),
+                Regexp.concat(List.of(lv, Regexp.star(v, flags), tStar), flags),
+                Regexp.concat(List.of(lvt, tStar), flags)),
+            flags);
+    Regexp lSequence =
+        Regexp.concat(List.of(Regexp.plus(l, flags), Regexp.quest(lTail, flags)), flags);
+    Regexp lvOrVSequence =
+        Regexp.concat(
+            List.of(Regexp.alternate(List.of(lv, v), flags), Regexp.star(v, flags), tStar), flags);
+    Regexp lvtOrTSequence =
+        Regexp.concat(List.of(Regexp.alternate(List.of(lvt, t), flags), tStar), flags);
     return Regexp.alternate(List.of(lSequence, lvOrVSequence, lvtOrTSequence), flags);
   }
 

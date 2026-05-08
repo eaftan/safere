@@ -22,9 +22,7 @@ final class ParseFlags {
   /** Treat the pattern as a literal string instead of a regexp. */
   public static final int LITERAL = 1 << 1;
 
-  /**
-   * Allow character classes like {@code [^a-z]}, {@code \D}, and {@code \s} to match newline.
-   */
+  /** Allow character classes like {@code [^a-z]}, {@code \D}, and {@code \s} to match newline. */
   public static final int CLASS_NL = 1 << 2;
 
   /** Allow {@code .} to match newline. */
@@ -96,10 +94,10 @@ final class ParseFlags {
   public static final int WAS_DOLLAR = 1 << 15;
 
   /**
-   * Unix lines mode: only {@code '\n'} is recognized as a line terminator in the behavior of
-   * {@code .}, {@code ^}, and {@code $}. Without this flag, all JDK line terminators are
-   * recognized: {@code '\n'}, {@code '\r'}, {@code "\r\n"}, {@code '\u0085'}, {@code '\u2028'},
-   * and {@code '\u2029'}.
+   * Unix lines mode: only {@code '\n'} is recognized as a line terminator in the behavior of {@code
+   * .}, {@code ^}, and {@code $}. Without this flag, all JDK line terminators are recognized:
+   * {@code '\n'}, {@code '\r'}, {@code "\r\n"}, {@code '\u0085'}, {@code '\u2028'}, and {@code
+   * '\u2029'}.
    */
   public static final int UNIX_LINES = 1 << 16;
 

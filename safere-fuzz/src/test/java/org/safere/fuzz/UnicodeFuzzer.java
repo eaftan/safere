@@ -11,19 +11,20 @@ import java.util.List;
 
 final class UnicodeFuzzer {
 
-  private static final List<String> GRAPHEME_CLUSTER_INPUTS = List.of(
-      "a",
-      "e\u0301",
-      "\r\n",
-      "\uD83C\uDDFA\uD83C\uDDF8",
-      "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8",
-      "\uD83D\uDC4D\uD83C\uDFFD",
-      "\uD83D\uDC69\u200D\uD83D\uDCBB",
-      "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB",
-      "a\u200D",
-      "\u1100\u1161",
-      "\uAC00\u11A8",
-      "\u0600a");
+  private static final List<String> GRAPHEME_CLUSTER_INPUTS =
+      List.of(
+          "a",
+          "e\u0301",
+          "\r\n",
+          "\uD83C\uDDFA\uD83C\uDDF8",
+          "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8",
+          "\uD83D\uDC4D\uD83C\uDFFD",
+          "\uD83D\uDC69\u200D\uD83D\uDCBB",
+          "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB",
+          "a\u200D",
+          "\u1100\u1161",
+          "\uAC00\u11A8",
+          "\u0600a");
 
   @FuzzTest(maxDuration = "30s")
   void unicode(FuzzedDataProvider data) {

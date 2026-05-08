@@ -14,9 +14,9 @@ import java.util.regex.PatternSyntaxException;
  * A compiled set of regular expression patterns that can be matched against a text simultaneously.
  *
  * <p>Unlike {@link Pattern}, which compiles and matches one pattern at a time, {@code PatternSet}
- * compiles multiple patterns into a single automaton and tests all of them in a single pass over the
- * input text. This is useful for tasks such as URL routing, lexical analysis, or content filtering
- * where the input must be checked against many patterns.
+ * compiles multiple patterns into a single automaton and tests all of them in a single pass over
+ * the input text. This is useful for tasks such as URL routing, lexical analysis, or content
+ * filtering where the input must be checked against many patterns.
  *
  * <p>Usage:
  *
@@ -37,9 +37,7 @@ import java.util.regex.PatternSyntaxException;
  */
 public final class PatternSet {
 
-  /**
-   * Anchor mode for the pattern set. Determines how patterns are matched against the text.
-   */
+  /** Anchor mode for the pattern set. Determines how patterns are matched against the text. */
   public enum Anchor {
     /** Patterns can match anywhere in the text. */
     UNANCHORED,
@@ -63,8 +61,7 @@ public final class PatternSet {
   /** Default maximum number of DFA states before falling back to NFA. */
   static final int DEFAULT_MAX_DFA_STATES = 10_000;
 
-  private PatternSet(
-      Anchor anchor, Prog prog, int size, List<String> patterns, int maxDfaStates) {
+  private PatternSet(Anchor anchor, Prog prog, int size, List<String> patterns, int maxDfaStates) {
     this.anchor = anchor;
     this.prog = prog;
     this.size = size;
@@ -142,11 +139,12 @@ public final class PatternSet {
     for (int i = 0; i < size; i++) {
       Pattern p = Pattern.compile(patterns.get(i));
       Matcher m = p.matcher(text);
-      boolean matched = switch (anchor) {
-        case UNANCHORED -> m.find();
-        case ANCHOR_START -> m.lookingAt();
-        case ANCHOR_BOTH -> m.matches();
-      };
+      boolean matched =
+          switch (anchor) {
+            case UNANCHORED -> m.find();
+            case ANCHOR_START -> m.lookingAt();
+            case ANCHOR_BOTH -> m.matches();
+          };
       if (matched) {
         result.add(i);
       }
@@ -240,8 +238,7 @@ public final class PatternSet {
         prog.setAnchorEnd(true);
       }
 
-      return new PatternSet(
-          anchor, prog, size, List.copyOf(patterns), DEFAULT_MAX_DFA_STATES);
+      return new PatternSet(anchor, prog, size, List.copyOf(patterns), DEFAULT_MAX_DFA_STATES);
     }
 
     /**

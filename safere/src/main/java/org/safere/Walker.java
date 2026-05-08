@@ -107,7 +107,7 @@ abstract class Walker<T> {
 
     stack.add(new WalkState<>(re, topArg));
 
-    for (;;) {
+    for (; ; ) {
       WalkState<T> s = stack.get(stack.size() - 1);
       re = s.re;
       int nsub = (re.subs != null) ? re.subs.size() : 0;

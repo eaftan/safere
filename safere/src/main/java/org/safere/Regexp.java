@@ -319,44 +319,57 @@ final class Regexp {
       int prec = parentArg;
       int nprec;
 
-      nprec = switch (re.op) {
-        case NO_MATCH, EMPTY_MATCH, LITERAL, ANY_CHAR, ANY_BYTE, BEGIN_LINE, END_LINE,
-             BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY,
-             CHAR_CLASS, HAVE_MATCH -> PREC_ATOM;
-        case CONCAT, LITERAL_STRING -> {
-          if (prec < PREC_CONCAT) {
-            sb.append("(?:");
-          }
-          yield PREC_CONCAT;
-        }
-        case ALTERNATE -> {
-          if (prec < PREC_ALTERNATE) {
-            sb.append("(?:");
-          }
-          yield PREC_ALTERNATE;
-        }
-        case NON_CAPTURE -> {
-          sb.append("(?:");
-          yield PREC_PAREN;
-        }
-        case CAPTURE -> {
-          sb.append('(');
-          if (re.cap == 0) {
-            throw new IllegalStateException("CAPTURE with cap == 0");
-          }
-          if (re.name != null) {
-            sb.append("?<").append(re.name).append('>');
-          }
-          yield PREC_PAREN;
-        }
-        case STAR, PLUS, QUEST, REPEAT -> {
-          if (prec < PREC_UNARY) {
-            sb.append("(?:");
-          }
-          yield PREC_ATOM;
-        }
-        default -> PREC_ATOM;
-      };
+      nprec =
+          switch (re.op) {
+            case NO_MATCH,
+                EMPTY_MATCH,
+                LITERAL,
+                ANY_CHAR,
+                ANY_BYTE,
+                BEGIN_LINE,
+                END_LINE,
+                BEGIN_TEXT,
+                END_TEXT,
+                WORD_BOUNDARY,
+                NO_WORD_BOUNDARY,
+                GRAPHEME_CLUSTER_BOUNDARY,
+                CHAR_CLASS,
+                HAVE_MATCH ->
+                PREC_ATOM;
+            case CONCAT, LITERAL_STRING -> {
+              if (prec < PREC_CONCAT) {
+                sb.append("(?:");
+              }
+              yield PREC_CONCAT;
+            }
+            case ALTERNATE -> {
+              if (prec < PREC_ALTERNATE) {
+                sb.append("(?:");
+              }
+              yield PREC_ALTERNATE;
+            }
+            case NON_CAPTURE -> {
+              sb.append("(?:");
+              yield PREC_PAREN;
+            }
+            case CAPTURE -> {
+              sb.append('(');
+              if (re.cap == 0) {
+                throw new IllegalStateException("CAPTURE with cap == 0");
+              }
+              if (re.name != null) {
+                sb.append("?<").append(re.name).append('>');
+              }
+              yield PREC_PAREN;
+            }
+            case STAR, PLUS, QUEST, REPEAT -> {
+              if (prec < PREC_UNARY) {
+                sb.append("(?:");
+              }
+              yield PREC_ATOM;
+            }
+            default -> PREC_ATOM;
+          };
       return nprec;
     }
 

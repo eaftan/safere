@@ -78,8 +78,7 @@ public final class RE2FfmMatcher {
         matchByteOffsets[1] = inputUtf8.length;
         // Capture groups need a real find call.
         if (pattern.numGroups() > 0) {
-          MemorySegment matchesSeg =
-              arena.allocate(ValueLayout.JAVA_INT, matchByteOffsets.length);
+          MemorySegment matchesSeg = arena.allocate(ValueLayout.JAVA_INT, matchByteOffsets.length);
           Re2Shim.find(
               pattern.nativeHandle(),
               textSeg,
@@ -88,12 +87,7 @@ public final class RE2FfmMatcher {
               matchesSeg,
               pattern.numGroups());
           MemorySegment.copy(
-              matchesSeg,
-              ValueLayout.JAVA_INT,
-              0,
-              matchByteOffsets,
-              0,
-              matchByteOffsets.length);
+              matchesSeg, ValueLayout.JAVA_INT, 0, matchByteOffsets, 0, matchByteOffsets.length);
         }
       }
     }
@@ -288,7 +282,9 @@ public final class RE2FfmMatcher {
     StringBuilder sb = new StringBuilder(replacement.length());
     for (int i = 0; i < replacement.length(); i++) {
       char c = replacement.charAt(i);
-      if (c == '$' && i + 1 < replacement.length() && Character.isDigit(replacement.charAt(i + 1))) {
+      if (c == '$'
+          && i + 1 < replacement.length()
+          && Character.isDigit(replacement.charAt(i + 1))) {
         sb.append('\\');
         i++;
         // Copy all consecutive digits.

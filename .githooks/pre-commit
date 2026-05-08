@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mvn -q spotless:apply
+
+if ! git diff --quiet -- '*.java'; then
+  git add -- '*.java'
+  echo "Applied google-java-format and staged updated Java files."
+fi
