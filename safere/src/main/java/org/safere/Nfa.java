@@ -678,8 +678,11 @@ final class Nfa {
     }
 
     // \b and \B
-    boolean prevWord = pos > 0 && isWordChar(text.codePointBefore(pos));
-    boolean nextWord = pos < text.length() && isWordChar(text.codePointAt(pos));
+    int prevCp = pos > 0 ? text.codePointBefore(pos) : -1;
+    boolean prevWord = pos > 0 && isWordChar(prevCp, text, pos - 1);
+
+    int nextCp = pos < text.length() ? text.codePointAt(pos) : -1;
+    boolean nextWord = pos < text.length() && isWordChar(nextCp, text, pos);
     if (prevWord != nextWord) {
       flags |= EmptyOp.WORD_BOUNDARY;
     } else {
@@ -733,9 +736,14 @@ final class Nfa {
   }
 
   /** Returns true if the code point is a word character ({@code [A-Za-z0-9_]}). */
-  static boolean isWordChar(int c) {
-    return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z')
-        || ('0' <= c && c <= '9') || c == '_';
+  static boolean isWordChar(int c, String text, int pos) {
+    if (('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || ('0' <= c && c <= '9') || c == '_') {
+      return true;
+    }
+    if (Character.getType(c) == Character.NON_SPACING_MARK) {
+      return hasBaseCharacter(text, pos);
+    }
+    return false;
   }
 
   /** Returns true if the code point is a Unicode word character (matching {@code \w} under UCC). */
@@ -748,6 +756,22 @@ final class Nfa {
         || Character.getType(c) == Character.CONNECTOR_PUNCTUATION
         || c == 0x200C  // ZWNJ
         || c == 0x200D; // ZWJ
+  }
+
+  // Iterate over Java characters, not code points, for bug compatibility.
+  // See https://bugs.openjdk.org/browse/JDK-8384082
+  private static boolean hasBaseCharacter(String seq, int i) {
+    for (int x = i; x >= 0; x--) {
+      int cp = seq.codePointAt(x);
+      if (Character.isLetterOrDigit(cp)) {
+        return true;
+      }
+      if (Character.getType(cp) == Character.NON_SPACING_MARK) {
+        continue;
+      }
+      return false;
+    }
+    return false;
   }
 
   private Nfa() {

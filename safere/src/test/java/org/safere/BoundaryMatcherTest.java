@@ -404,4 +404,61 @@ class BoundaryMatcherTest {
       assertThat(p.matcher("word ").find()).isTrue();
     }
   }
+
+  @Nested
+  @DisplayName("Unicode word boundaries")
+  class UnicodeWordBoundary {
+
+    @Test
+    @DisplayName("\\B matches inside CJK base + mark cluster at specific positions")
+    void matchesInsideCjkBaseMarkCluster() {
+      Pattern p = Pattern.compile("\\B");
+      Matcher m = p.matcher("\u8fe3\u030c\u030c");
+
+      List<Integer> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(m.start());
+      }
+      assertThat(matches).containsExactly(0, 2);
+    }
+
+    @Test
+    @DisplayName("\\B matches everywhere in symbol + mark cluster")
+    void matchesEverywhereInSymbolMarkCluster() {
+      Pattern p = Pattern.compile("\\B");
+      Matcher m = p.matcher("|\u030c\u030c");
+
+      List<Integer> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(m.start());
+      }
+      assertThat(matches).containsExactly(0, 1, 2, 3);
+    }
+
+    @Test
+    @DisplayName("\\B matches everywhere with standalone marks")
+    void matchesEverywhereWithStandaloneMarks() {
+      Pattern p = Pattern.compile("\\B");
+      Matcher m = p.matcher("\u030c\u030c");
+
+      List<Integer> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(m.start());
+      }
+      assertThat(matches).containsExactly(0, 1, 2);
+    }
+
+    @Test
+    @DisplayName("\\B matches everywhere with supplementary base (JDK bug compatibility)")
+    void matchesEverywhereWithSupplementaryBase() {
+      Pattern p = Pattern.compile("\\B");
+      Matcher m = p.matcher("\uD835\uDC00\u030c");
+
+      List<Integer> matches = new ArrayList<>();
+      while (m.find()) {
+        matches.add(m.start());
+      }
+      assertThat(matches).containsExactly(0, 1, 2, 3);
+    }
+  }
 }
