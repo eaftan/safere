@@ -6,6 +6,11 @@ package org.safere.crosscheck;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,6 +40,22 @@ class CrosscheckTest {
     void compileWithFlags() {
       Pattern p = Pattern.compile("abc", Pattern.CASE_INSENSITIVE);
       assertThat(p.flags()).isEqualTo(Pattern.CASE_INSENSITIVE);
+    }
+
+    @Test
+    @DisplayName("serialized pattern round-trips through regex and flags")
+    void serializedPatternRoundTripsThroughRegexAndFlags() throws Exception {
+      Pattern p = Pattern.compile("(?<word>[a-z]+)-(\\d+)", Pattern.CASE_INSENSITIVE);
+
+      Pattern restored = roundTrip(p);
+
+      assertThat(restored).isInstanceOf(Serializable.class);
+      assertThat(restored.pattern()).isEqualTo("(?<word>[a-z]+)-(\\d+)");
+      assertThat(restored.flags()).isEqualTo(Pattern.CASE_INSENSITIVE);
+      Matcher m = restored.matcher("Abc-123");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.group("word")).isEqualTo("Abc");
+      assertThat(m.group(2)).isEqualTo("123");
     }
 
     @Test
@@ -541,6 +562,17 @@ class CrosscheckTest {
       m.matches();
       // Both engines should agree on hitEnd
       m.hitEnd();
+    }
+  }
+
+  private static Pattern roundTrip(Pattern pattern) throws Exception {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+      out.writeObject(pattern);
+    }
+    try (ObjectInputStream in = new ObjectInputStream(
+        new ByteArrayInputStream(bytes.toByteArray()))) {
+      return (Pattern) in.readObject();
     }
   }
 }

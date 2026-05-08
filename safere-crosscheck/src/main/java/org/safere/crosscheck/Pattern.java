@@ -3,6 +3,8 @@
 
 package org.safere.crosscheck;
 
+import java.io.ObjectStreamException;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
@@ -30,7 +32,9 @@ import java.util.stream.Stream;
  * rejects a pattern that the JDK accepts (e.g., backreferences), an
  * {@link UnsupportedPatternException} is thrown.
  */
-public final class Pattern {
+public final class Pattern implements Serializable {
+
+  private static final long serialVersionUID = 1L;
 
   // Flag constants — identical to java.util.regex.Pattern and org.safere.Pattern.
   public static final int UNIX_LINES = java.util.regex.Pattern.UNIX_LINES;
@@ -243,6 +247,10 @@ public final class Pattern {
     return saferePattern.toString();
   }
 
+  private Object writeReplace() throws ObjectStreamException {
+    return new SerializedForm(pattern(), flags());
+  }
+
   /** Returns the underlying SafeRE pattern (package-private, used by Matcher). */
   org.safere.Pattern saferePattern() {
     return saferePattern;
@@ -255,5 +263,14 @@ public final class Pattern {
 
   private static String quote(CharSequence s) {
     return "\"" + s + "\"";
+  }
+
+  private record SerializedForm(String regex, int flags) implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private Object readResolve() throws ObjectStreamException {
+      return Pattern.compile(regex, flags);
+    }
   }
 }
