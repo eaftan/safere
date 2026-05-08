@@ -135,6 +135,7 @@ final class CharacterClassExpressionFuzzer {
       "(?x)[a[b]&& [a]&]",
       "(?x)[a& &&&& -z]",
       "(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]",
+      "(?x)[\\Qab\\E\\d &&\\Q\\E &-&]",
       "[0-1ab&&[a]&]",
       "[^0-1ab&&[a]&]",
       "(?x)[^0-1\\Qab\\E\\Q\\E\\Q\\E&& [a]&]",

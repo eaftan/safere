@@ -1137,6 +1137,13 @@ final class Parser {
                 && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
               throw new PatternSyntaxException("bad class syntax", pattern, pos);
             }
+            if (frame.currentIntersectionOperand != null
+                && frame.hasPendingScalarItems
+                && !frame.pendingScalarItemsAfterCurrentOperand
+                && frame.pendingScalarRole == ClassAtomRole.ORDINARY_SCALAR) {
+              frame.pendingScalarItems = new CharClassBuilder();
+              frame.hasPendingScalarItems = false;
+            }
             if (frame.currentIntersectionOperand != null && !frame.hasPendingScalarItems) {
               frame.accumulatedClass =
                   new CharClassBuilder().addCharClass(frame.currentIntersectionOperand);
