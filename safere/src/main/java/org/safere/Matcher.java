@@ -2143,14 +2143,15 @@ public final class Matcher implements MatchResult {
    * of this matcher; subsequent operations on this matcher will not affect the returned result.
    *
    * @return a {@link MatchResult} with the state of this matcher
-   * @throws IllegalStateException if no match has yet been attempted, or if the previous match
-   *     operation failed
    */
   public MatchResult toMatchResult() {
-    checkMatch();
-    eagerFallbackCaptures = true;
-    resolveCaptures();
-    return new SnapshotMatchResult(groups.clone(), text, groupCount(), parentPattern.namedGroups());
+    if (resultStatus == ResultStatus.MATCHED) {
+      eagerFallbackCaptures = true;
+      resolveCaptures();
+    }
+    int[] snapshotGroups = groups == null ? null : groups.clone();
+    return new SnapshotMatchResult(
+        snapshotGroups, text, groupCount(), parentPattern.namedGroups());
   }
 
   // ---------------------------------------------------------------------------
@@ -2519,6 +2520,7 @@ public final class Matcher implements MatchResult {
 
     @Override
     public int start(int group) {
+      checkMatch();
       validateGroup(group);
       return groups[2 * group];
     }
@@ -2535,6 +2537,7 @@ public final class Matcher implements MatchResult {
 
     @Override
     public int end(int group) {
+      checkMatch();
       validateGroup(group);
       return groups[2 * group + 1];
     }
@@ -2587,6 +2590,12 @@ public final class Matcher implements MatchResult {
       if (group < 0 || group > groupCount) {
         throw new IndexOutOfBoundsException(
             "No group " + group + " (groupCount=" + groupCount + ")");
+      }
+    }
+
+    private void checkMatch() {
+      if (groups == null) {
+        throw new IllegalStateException("No match found");
       }
     }
   }

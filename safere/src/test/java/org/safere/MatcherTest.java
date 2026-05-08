@@ -1356,12 +1356,35 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("toMatchResult() throws when no match")
-    void toMatchResultNoMatch() {
+    @DisplayName("toMatchResult() before a match defers failures to result access")
+    void toMatchResultBeforeMatchDefersFailuresToResultAccess() {
+      Pattern p = Pattern.compile("(?<letter>x)(y)?");
+      Matcher m = p.matcher("abc");
+
+      MatchResult result = m.toMatchResult();
+
+      assertThat(result.groupCount()).isEqualTo(2);
+      assertThat(result.namedGroups()).containsEntry("letter", 1);
+      assertThatThrownBy(result::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(result::end).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(result::group).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(() -> result.start(1)).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(() -> result.start(99)).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(() -> result.group("letter")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("toMatchResult() after a failed match defers failures to result access")
+    void toMatchResultAfterFailedMatchDefersFailuresToResultAccess() {
       Pattern p = Pattern.compile("x");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(m::toMatchResult)
-          .isInstanceOf(IllegalStateException.class);
+      assertThat(m.find()).isFalse();
+
+      MatchResult result = m.toMatchResult();
+
+      assertThat(result.groupCount()).isZero();
+      assertThatThrownBy(result::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(result::group).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
