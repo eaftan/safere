@@ -1089,7 +1089,7 @@ public final class Pattern implements Serializable {
         case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
              NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> true;
         case STAR, QUEST -> true;
-        case REPEAT -> re.min == 0;
+        case REPEAT -> re.min == 0 || (!childArgs.isEmpty() && childArgs.getFirst());
         case PLUS, NON_CAPTURE, CAPTURE -> !childArgs.isEmpty() && childArgs.getFirst();
         case CONCAT -> {
           for (boolean childCanMatchEmpty : childArgs) {
