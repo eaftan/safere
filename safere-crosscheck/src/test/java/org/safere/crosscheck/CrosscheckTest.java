@@ -573,8 +573,8 @@ class CrosscheckTest {
     try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
       out.writeObject(pattern);
     }
-    try (ObjectInputStream in = new ObjectInputStream(
-        new ByteArrayInputStream(bytes.toByteArray()))) {
+    try (ObjectInputStream in =
+        new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
       return (Pattern) in.readObject();
     }
   }
