@@ -11,9 +11,8 @@ import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
 /**
- * A crosscheck wrapper that compiles and executes regular expressions on both SafeRE and
- * {@code java.util.regex}, comparing results and throwing {@link CrosscheckException} on
- * divergence.
+ * A crosscheck wrapper that compiles and executes regular expressions on both SafeRE and {@code
+ * java.util.regex}, comparing results and throwing {@link CrosscheckException} on divergence.
  *
  * <p>This class has the same API as {@link org.safere.Pattern} and {@link java.util.regex.Pattern},
  * so switching to crosscheck mode requires only changing the import:
@@ -25,10 +24,10 @@ import java.util.stream.Stream;
  *   import org.safere.crosscheck.Pattern;
  * </pre>
  *
- * <p>When both engines agree, SafeRE's result is returned. When they disagree, a
- * {@link CrosscheckException} is thrown with full details and an API call trace. When SafeRE
- * rejects a pattern that the JDK accepts (e.g., backreferences), an
- * {@link UnsupportedPatternException} is thrown.
+ * <p>When both engines agree, SafeRE's result is returned. When they disagree, a {@link
+ * CrosscheckException} is thrown with full details and an API call trace. When SafeRE rejects a
+ * pattern that the JDK accepts (e.g., backreferences), an {@link UnsupportedPatternException} is
+ * thrown.
  */
 public final class Pattern {
 

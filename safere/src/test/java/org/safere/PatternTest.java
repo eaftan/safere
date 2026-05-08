@@ -71,8 +71,7 @@ class PatternTest {
 
     @Test
     void invalidPatternThrowsUnmatchedParen() {
-      assertThatThrownBy(() -> Pattern.compile("(abc"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("(abc")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -95,8 +94,7 @@ class PatternTest {
       regex.append(")".repeat(depth));
       regex.append("*");
 
-      assertThatCode(() -> Pattern.compile(regex.toString()))
-          .doesNotThrowAnyException();
+      assertThatCode(() -> Pattern.compile(regex.toString())).doesNotThrowAnyException();
     }
   }
 
@@ -105,14 +103,12 @@ class PatternTest {
   class UnsupportedFeatures {
     @Test
     void lookaheadRejected() {
-      assertThatThrownBy(() -> Pattern.compile("(?=a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("(?=a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void negativeLookaheadRejected() {
-      assertThatThrownBy(() -> Pattern.compile("(?!a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("(?!a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -129,8 +125,7 @@ class PatternTest {
 
     @Test
     void atomicGroupRejected() {
-      assertThatThrownBy(() -> Pattern.compile("(?>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("(?>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -153,26 +148,22 @@ class PatternTest {
 
     @Test
     void possessivePlusRejected() {
-      assertThatThrownBy(() -> Pattern.compile("a++"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("a++")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void possessiveStarRejected() {
-      assertThatThrownBy(() -> Pattern.compile("a*+"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("a*+")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void possessiveQuestRejected() {
-      assertThatThrownBy(() -> Pattern.compile("a?+"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("a?+")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void possessiveBracedExactRejected() {
-      assertThatThrownBy(() -> Pattern.compile("a{2}+"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("a{2}+")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -229,8 +220,7 @@ class PatternTest {
 
     @Test
     void canonEqAloneThrows() {
-      assertThatThrownBy(
-              () -> Pattern.compile("abc", java.util.regex.Pattern.CANON_EQ))
+      assertThatThrownBy(() -> Pattern.compile("abc", java.util.regex.Pattern.CANON_EQ))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("CANON_EQ");
     }
@@ -508,8 +498,7 @@ class PatternTest {
     void unicodeCharacterClassImpliesUnicodeCaseFlag() {
       Pattern p = Pattern.compile("\\w+", Pattern.UNICODE_CHARACTER_CLASS);
 
-      assertThat(p.flags())
-          .isEqualTo(Pattern.UNICODE_CHARACTER_CLASS | Pattern.UNICODE_CASE);
+      assertThat(p.flags()).isEqualTo(Pattern.UNICODE_CHARACTER_CLASS | Pattern.UNICODE_CASE);
     }
 
     @Test
@@ -585,7 +574,7 @@ class PatternTest {
       Matcher m = Pattern.compile("(?:^|$)", Pattern.MULTILINE).matcher("aa\na");
       List<int[]> matches = new ArrayList<>();
       while (m.find()) {
-        matches.add(new int[]{m.start(), m.end()});
+        matches.add(new int[] {m.start(), m.end()});
       }
 
       assertThat(matches).hasSize(4);
@@ -601,7 +590,7 @@ class PatternTest {
       Matcher m = Pattern.compile("(?:$|^)", Pattern.MULTILINE).matcher("aa\na");
       List<int[]> matches = new ArrayList<>();
       while (m.find()) {
-        matches.add(new int[]{m.start(), m.end()});
+        matches.add(new int[] {m.start(), m.end()});
       }
 
       assertThat(matches).hasSize(4);
@@ -617,7 +606,7 @@ class PatternTest {
       Matcher m = Pattern.compile("(?:^|$)", Pattern.MULTILINE).matcher("a\nb\nc");
       List<int[]> matches = new ArrayList<>();
       while (m.find()) {
-        matches.add(new int[]{m.start(), m.end()});
+        matches.add(new int[] {m.start(), m.end()});
       }
 
       assertThat(matches).hasSize(6);
@@ -700,8 +689,8 @@ class PatternTest {
     @DisplayName("MULTILINE + CASE_INSENSITIVE with \\r\\n line endings (WebSocket header)")
     void multilineCaseInsensitiveCrLf() {
       String header = "GET / HTTP/1.1\r\nSec-WebSocket-Key: abc123\r\n\r\n";
-      Pattern p = Pattern.compile("^sec-websocket-key:(.*)$",
-          Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
+      Pattern p =
+          Pattern.compile("^sec-websocket-key:(.*)$", Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
       Matcher m = p.matcher(header);
       assertThat(m.find()).isTrue();
       // . now excludes all line terminators including \r (matching JDK behavior).
@@ -792,19 +781,20 @@ class PatternTest {
       assertThat(mLong.group(1)).isEqualTo("secret-uuid");
 
       // Simulated Spring Boot log output with password line buried in long text.
-      String logOutput = "01:04:45.416 [Test worker] INFO org.boot.TomcatWebServer"
-          + " -- Tomcat initialized\n"
-          + "Mar 29, 2026 1:04:45 AM org.apache.coyote.AbstractProtocol init\n"
-          + "INFO: Initializing ProtocolHandler [\"http-nio-auto-1\"]\n"
-          + "01:04:45.998 [Test worker] WARN ... -- \n"
-          + "\n"
-          + "Using generated security password: 2d27188d-396d-49bb-b1da-90a58fa94f61\n"
-          + "\n"
-          + "This generated password is for development use only.\n"
-          + "01:04:46.031 [Test worker] INFO ... AuthenticationManager configured\n"
-          + "01:04:46.162 [Test worker] INFO ... -- Tomcat started on port 40033\n";
-      Pattern pwPattern = Pattern.compile(
-          "^Using generated security password: (.*)$", Pattern.MULTILINE);
+      String logOutput =
+          "01:04:45.416 [Test worker] INFO org.boot.TomcatWebServer"
+              + " -- Tomcat initialized\n"
+              + "Mar 29, 2026 1:04:45 AM org.apache.coyote.AbstractProtocol init\n"
+              + "INFO: Initializing ProtocolHandler [\"http-nio-auto-1\"]\n"
+              + "01:04:45.998 [Test worker] WARN ... -- \n"
+              + "\n"
+              + "Using generated security password: 2d27188d-396d-49bb-b1da-90a58fa94f61\n"
+              + "\n"
+              + "This generated password is for development use only.\n"
+              + "01:04:46.031 [Test worker] INFO ... AuthenticationManager configured\n"
+              + "01:04:46.162 [Test worker] INFO ... -- Tomcat started on port 40033\n";
+      Pattern pwPattern =
+          Pattern.compile("^Using generated security password: (.*)$", Pattern.MULTILINE);
       Matcher mLog = pwPattern.matcher(logOutput);
       assertThat(mLog.find()).isTrue();
       assertThat(mLog.group(1)).isEqualTo("2d27188d-396d-49bb-b1da-90a58fa94f61");
@@ -821,46 +811,38 @@ class PatternTest {
 
     /** Patterns that must compile successfully. */
     @ParameterizedTest(name = "compile(\"{0}\") succeeds")
-    @ValueSource(strings = {
-        "",
-        ".",
-        "^.$",
-        "a",
-        "a*",
-        "a+",
-        "a?",
-        "a|b",
-        "a*|b*",
-        "(a*|b)(c*|d)",
-        "[a-z]",
-        "[a-abc-c\\-\\]\\[]",
-        "[a-z]+",
-        "[abc]",
-        "[^1234]",
-        "[^\n]",
-        "..|.#|..",
-        "\\!\\\\",
-        "abc]",
-        "a??"
-    })
+    @ValueSource(
+        strings = {
+          "",
+          ".",
+          "^.$",
+          "a",
+          "a*",
+          "a+",
+          "a?",
+          "a|b",
+          "a*|b*",
+          "(a*|b)(c*|d)",
+          "[a-z]",
+          "[a-abc-c\\-\\]\\[]",
+          "[a-z]+",
+          "[abc]",
+          "[^1234]",
+          "[^\n]",
+          "..|.#|..",
+          "\\!\\\\",
+          "abc]",
+          "a??"
+        })
     void validPatternsCompile(String pattern) {
       Pattern.compile(pattern); // should not throw
     }
 
     /** Patterns that must fail to compile. */
     @ParameterizedTest(name = "compile(\"{0}\") throws")
-    @ValueSource(strings = {
-        "*",
-        "+",
-        "?",
-        "(abc",
-        "x[a-z",
-        "[z-a]",
-        "abc\\"
-    })
+    @ValueSource(strings = {"*", "+", "?", "(abc", "x[a-z", "[z-a]", "abc\\"})
     void invalidPatternsThrow(String pattern) {
-      assertThatThrownBy(() -> Pattern.compile(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -880,10 +862,7 @@ class PatternTest {
           Arguments.of("foo", "abcfoodef", "abcxyzdef"),
           Arguments.of("foo.$", "abcfoo.$def", "abcxyzdef"),
           Arguments.of(
-              "!@#$%^&*()_+-=[{]}\\|,<.>/?~",
-              "abc!@#$%^&*()_+-=[{]}\\|,<.>/?~def",
-              "abcxyzdef")
-      );
+              "!@#$%^&*()_+-=[{]}\\|,<.>/?~", "abc!@#$%^&*()_+-=[{]}\\|,<.>/?~def", "abcxyzdef"));
     }
 
     @ParameterizedTest(name = "quote(\"{0}\") replaceAll round-trip")
@@ -913,8 +892,7 @@ class PatternTest {
     @DisplayName("[[A-Fa-f0-9]]{32,} matches hex strings (Docker digest pattern)")
     void nestedCharClassHexDigest() {
       Pattern p = Pattern.compile("[[A-Fa-f0-9]]{32,}");
-      Matcher m =
-          p.matcher("6e9f67fa63b0323e9a1e587fd71c561ba48a034504fb804fd26fd8800039835d");
+      Matcher m = p.matcher("6e9f67fa63b0323e9a1e587fd71c561ba48a034504fb804fd26fd8800039835d");
       assertThat(m.find()).isTrue();
       assertThat(m.group())
           .isEqualTo("6e9f67fa63b0323e9a1e587fd71c561ba48a034504fb804fd26fd8800039835d");
@@ -980,15 +958,13 @@ class PatternTest {
     @Test
     @DisplayName("\\0 without octal digits is rejected")
     void zeroOctalEscapeRequiresDigits() {
-      assertThatThrownBy(() -> Pattern.compile("\\0"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("\\0")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     @DisplayName("\\08 is rejected because \\0 requires an octal digit")
     void zeroOctalEscapeRejectsNonOctalDigit() {
-      assertThatThrownBy(() -> Pattern.compile("\\08"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("\\08")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -1010,10 +986,8 @@ class PatternTest {
     void largeCountedNullableSubexpressionsCompileLikeJdk() {
       String regex = "(?:" + "a?".repeat(120) + "){900}";
 
-      assertThatCode(() -> java.util.regex.Pattern.compile(regex))
-          .doesNotThrowAnyException();
-      assertThatCode(() -> Pattern.compile(regex))
-          .doesNotThrowAnyException();
+      assertThatCode(() -> java.util.regex.Pattern.compile(regex)).doesNotThrowAnyException();
+      assertThatCode(() -> Pattern.compile(regex)).doesNotThrowAnyException();
     }
   }
 }

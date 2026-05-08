@@ -63,8 +63,7 @@ class BoundedRepeatLeftmostPositionTest {
   }
 
   private static void assertFindSameAsJdk(String pattern, String input) {
-    java.util.regex.Matcher jdkMatcher =
-        java.util.regex.Pattern.compile(pattern).matcher(input);
+    java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(pattern).matcher(input);
     Matcher safereMatcher = Pattern.compile(pattern).matcher(input);
 
     assertThat(jdkMatcher.find()).isTrue();

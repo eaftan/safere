@@ -66,7 +66,8 @@ final class OnePass {
   private static final long CONDITION_MASK = (1L << INDEX_SHIFT) - 1;
 
   private static long encodeAction(int nextState, int capMask, int emptyFlags) {
-    return ((long) nextState << INDEX_SHIFT) | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
+    return ((long) nextState << INDEX_SHIFT)
+        | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
         | (emptyFlags & EMPTY_MASK);
   }
 
@@ -109,15 +110,21 @@ final class OnePass {
   private final boolean hasGraphemeClusterBoundary;
 
   /**
-   * Bitset indicating which states have match actions. Bit {@code s} is set if
-   * {@code matchAction[s] != NO_ACTION}. Used to skip the {@code matchAction[]} array load for
-   * non-match states in the search loop. Only valid when numStates &le; 64; otherwise set to -1L
-   * (all bits set) to force the array check.
+   * Bitset indicating which states have match actions. Bit {@code s} is set if {@code
+   * matchAction[s] != NO_ACTION}. Used to skip the {@code matchAction[]} array load for non-match
+   * states in the search loop. Only valid when numStates &le; 64; otherwise set to -1L (all bits
+   * set) to force the array check.
    */
   private final long matchStateBits;
 
-  private OnePass(long[][] actions, long[] matchAction, int[] boundaries, boolean anchorEnd,
-      boolean dollarAnchorEnd, boolean unixLines, boolean hasGraphemeClusterBoundary) {
+  private OnePass(
+      long[][] actions,
+      long[] matchAction,
+      int[] boundaries,
+      boolean anchorEnd,
+      boolean dollarAnchorEnd,
+      boolean unixLines,
+      boolean hasGraphemeClusterBoundary) {
     int numStates = actions.length;
     int nc = (numStates > 0) ? actions[0].length : 0;
     this.numClasses = nc;
@@ -245,8 +252,10 @@ final class OnePass {
             // For each equivalence class this CHAR_RANGE covers, set transition.
             for (int cls = 0; cls < numClasses; cls++) {
               int classLo = boundaries[cls];
-              int classHi = (cls + 1 < boundaries.length) ? boundaries[cls + 1] - 1
-                  : Character.MAX_CODE_POINT;
+              int classHi =
+                  (cls + 1 < boundaries.length)
+                      ? boundaries[cls + 1] - 1
+                      : Character.MAX_CODE_POINT;
               // Check overlap.
               if (ip.lo > classHi || ip.hi < classLo) {
                 continue;
@@ -280,8 +289,10 @@ final class OnePass {
               int rHi = ip.ranges[ri + 1];
               for (int cls = 0; cls < numClasses; cls++) {
                 int classLo = boundaries[cls];
-                int classHi = (cls + 1 < boundaries.length) ? boundaries[cls + 1] - 1
-                    : Character.MAX_CODE_POINT;
+                int classHi =
+                    (cls + 1 < boundaries.length)
+                        ? boundaries[cls + 1] - 1
+                        : Character.MAX_CODE_POINT;
                 if (rLo > classHi || rHi < classLo) {
                   continue;
                 }
@@ -299,8 +310,7 @@ final class OnePass {
                 }
 
                 long action = encodeAction(nextState, capMask, emptyFlags);
-                if (actions[stateIndex][cls] != NO_ACTION
-                    && actions[stateIndex][cls] != action) {
+                if (actions[stateIndex][cls] != NO_ACTION && actions[stateIndex][cls] != action) {
                   return null;
                 }
                 actions[stateIndex][cls] = action;
@@ -323,8 +333,14 @@ final class OnePass {
     // Trim tables to actual state count.
     long[][] trimmedActions = Arrays.copyOf(actions, stateCount);
     long[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
-    return new OnePass(trimmedActions, trimmedMatch, boundaries, prog.anchorEnd(),
-        prog.dollarAnchorEnd(), prog.unixLines(), prog.hasGraphemeClusterBoundary());
+    return new OnePass(
+        trimmedActions,
+        trimmedMatch,
+        boundaries,
+        prog.anchorEnd(),
+        prog.dollarAnchorEnd(),
+        prog.unixLines(),
+        prog.hasGraphemeClusterBoundary());
   }
 
   /** Builds sorted code point boundaries from all CHAR_RANGE and CHAR_CLASS instructions. */
@@ -410,9 +426,7 @@ final class OnePass {
         long matchAct = ma[state];
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0
-            || (reqEmpty
-                    & ~Nfa.emptyFlags(
-                        text, pos, unixLines, hasGraphemeClusterBoundary))
+            || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary))
                 == 0) {
           int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
           if (capMask != 0) {
@@ -433,7 +447,8 @@ final class OnePass {
       if (ch < 128) {
         nextPos = pos + 1;
         cls = ascMap[ch];
-      } else if (Character.isHighSurrogate(ch) && pos + 1 < endPos
+      } else if (Character.isHighSurrogate(ch)
+          && pos + 1 < endPos
           && Character.isLowSurrogate(text.charAt(pos + 1))) {
         nextPos = pos + 2;
         cls = classOf(Character.toCodePoint(ch, text.charAt(pos + 1)));
@@ -455,8 +470,7 @@ final class OnePass {
       if (conditions != 0) {
         int reqEmpty = (int) (conditions & EMPTY_MASK);
         if (reqEmpty != 0) {
-          int curEmpty =
-              Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary);
+          int curEmpty = Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary);
           if ((reqEmpty & ~curEmpty) != 0) {
             break;
           }
@@ -475,8 +489,7 @@ final class OnePass {
       long matchAct = ma[state];
       int reqEmpty = (int) (matchAct & EMPTY_MASK);
       if (reqEmpty == 0
-          || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary))
-              == 0) {
+          || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary)) == 0) {
         int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
         if (capMask != 0) {
           applyCaptures(capMask, pos, cap);
@@ -497,8 +510,7 @@ final class OnePass {
     }
     if (anchorEnd && bestCap[1] != endPos) {
       // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
-      if (!dollarAnchorEnd
-          || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
+      if (!dollarAnchorEnd || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
         return null;
       }
     }

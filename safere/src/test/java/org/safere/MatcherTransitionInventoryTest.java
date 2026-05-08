@@ -50,11 +50,12 @@ class MatcherTransitionInventoryTest {
   void publicInstanceTransitionsDeclareDeferredCaptureBehavior() {
     assertThat(MatcherTransitionInventory.transitions())
         .filteredOn(transition -> !transition.signature().isStatic())
-        .allSatisfy(transition ->
-            assertThat(transition.deferredCaptureEffect())
-                .as("%s", format(transition.signature()))
-                .isNotNull()
-                .isNotEqualTo(MatcherTransitionInventory.DeferredCaptureEffect.NONE));
+        .allSatisfy(
+            transition ->
+                assertThat(transition.deferredCaptureEffect())
+                    .as("%s", format(transition.signature()))
+                    .isNotNull()
+                    .isNotEqualTo(MatcherTransitionInventory.DeferredCaptureEffect.NONE));
   }
 
   @Test
@@ -90,9 +91,10 @@ class MatcherTransitionInventoryTest {
   }
 
   private static String format(MatcherTransitionInventory.Signature signature) {
-    String params = signature.parameterTypes().stream()
-        .map(Class::getSimpleName)
-        .collect(Collectors.joining(", "));
+    String params =
+        signature.parameterTypes().stream()
+            .map(Class::getSimpleName)
+            .collect(Collectors.joining(", "));
     String prefix = signature.isStatic() ? "static " : "";
     return prefix + signature.name() + "(" + params + ")";
   }

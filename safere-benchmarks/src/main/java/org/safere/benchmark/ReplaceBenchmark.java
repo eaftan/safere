@@ -108,7 +108,9 @@ public class ReplaceBenchmark {
 
   @Benchmark
   public String literalReplaceFirst_safere() {
-    return safeLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
+    return safeLiteral
+        .matcher(literalReplaceFirstText)
+        .replaceFirst(literalReplaceFirstReplacement);
   }
 
   @Benchmark
@@ -118,12 +120,16 @@ public class ReplaceBenchmark {
 
   @Benchmark
   public String literalReplaceFirst_re2j() {
-    return re2jLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
+    return re2jLiteral
+        .matcher(literalReplaceFirstText)
+        .replaceFirst(literalReplaceFirstReplacement);
   }
 
   @Benchmark
   public String literalReplaceFirst_re2ffm() {
-    return re2ffmLiteral.matcher(literalReplaceFirstText).replaceFirst(literalReplaceFirstReplacement);
+    return re2ffmLiteral
+        .matcher(literalReplaceFirstText)
+        .replaceFirst(literalReplaceFirstReplacement);
   }
 
   // ===== Simple literal replaceAll =====

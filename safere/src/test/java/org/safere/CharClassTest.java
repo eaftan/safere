@@ -105,11 +105,7 @@ class CharClassTest {
   @Test
   void addRangeBeforeAllRanges() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(100, 110)
-            .addRange(200, 210)
-            .addRange(10, 20)
-            .build();
+        new CharClassBuilder().addRange(100, 110).addRange(200, 210).addRange(10, 20).build();
 
     assertRanges(cc, 10, 20, 100, 110, 200, 210);
   }
@@ -117,11 +113,7 @@ class CharClassTest {
   @Test
   void addRangeAfterAllRanges() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(10, 20)
-            .addRange(100, 110)
-            .addRange(200, 210)
-            .build();
+        new CharClassBuilder().addRange(10, 20).addRange(100, 110).addRange(200, 210).build();
 
     assertRanges(cc, 10, 20, 100, 110, 200, 210);
   }
@@ -129,11 +121,7 @@ class CharClassTest {
   @Test
   void addRangeMergesPreviousNeighbor() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(10, 20)
-            .addRange(100, 110)
-            .addRange(21, 30)
-            .build();
+        new CharClassBuilder().addRange(10, 20).addRange(100, 110).addRange(21, 30).build();
 
     assertRanges(cc, 10, 30, 100, 110);
   }
@@ -141,11 +129,7 @@ class CharClassTest {
   @Test
   void addRangeMergesNextNeighbor() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(10, 20)
-            .addRange(100, 110)
-            .addRange(90, 99)
-            .build();
+        new CharClassBuilder().addRange(10, 20).addRange(100, 110).addRange(90, 99).build();
 
     assertRanges(cc, 10, 20, 90, 110);
   }
@@ -275,11 +259,7 @@ class CharClassTest {
   @Test
   void removeRangeBeforeAllRanges() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(100, 110)
-            .addRange(200, 210)
-            .removeRange(10, 20)
-            .build();
+        new CharClassBuilder().addRange(100, 110).addRange(200, 210).removeRange(10, 20).build();
 
     assertRanges(cc, 100, 110, 200, 210);
   }
@@ -287,11 +267,7 @@ class CharClassTest {
   @Test
   void removeRangeAfterAllRanges() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(10, 20)
-            .addRange(100, 110)
-            .removeRange(200, 210)
-            .build();
+        new CharClassBuilder().addRange(10, 20).addRange(100, 110).removeRange(200, 210).build();
 
     assertRanges(cc, 10, 20, 100, 110);
   }
@@ -299,11 +275,7 @@ class CharClassTest {
   @Test
   void removeRangeTrimsLeftSide() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(10, 20)
-            .addRange(100, 110)
-            .removeRange(5, 12)
-            .build();
+        new CharClassBuilder().addRange(10, 20).addRange(100, 110).removeRange(5, 12).build();
 
     assertRanges(cc, 13, 20, 100, 110);
   }
@@ -311,11 +283,7 @@ class CharClassTest {
   @Test
   void removeRangeTrimsRightSide() {
     CharClass cc =
-        new CharClassBuilder()
-            .addRange(10, 20)
-            .addRange(100, 110)
-            .removeRange(18, 30)
-            .build();
+        new CharClassBuilder().addRange(10, 20).addRange(100, 110).removeRange(18, 30).build();
 
     assertRanges(cc, 10, 17, 100, 110);
   }

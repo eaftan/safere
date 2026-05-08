@@ -116,9 +116,7 @@ class UnicodeJdkConsistencyTest {
 
     for (Sample s : samples) {
       int[][] ranges = groups.get(s.expectedCategory);
-      assertThat(ranges)
-          .as("Category %s should exist", s.expectedCategory)
-          .isNotNull();
+      assertThat(ranges).as("Category %s should exist", s.expectedCategory).isNotNull();
       assertThat(containsCodePoint(ranges, s.cp))
           .as(
               "U+%04X should be in category %s (getType=%d)",
@@ -148,16 +146,15 @@ class UnicodeJdkConsistencyTest {
         if (!inFoldOrbit(cp, lower)) {
           missing.add(
               String.format(
-                  "U+%04X <-> U+%04X (delta %d) not in CASE_FOLD orbit",
-                  cp, lower, lower - cp));
+                  "U+%04X <-> U+%04X (delta %d) not in CASE_FOLD orbit", cp, lower, lower - cp));
         }
       }
     }
 
     assertThat(missing)
         .as(
-            "CASE_FOLD should cover all JDK symmetric case pairs. "
-                + "If this fails, the static CASE_FOLD table needs updating for a new Unicode version.")
+            "CASE_FOLD should cover all JDK symmetric case pairs. If this fails, the static"
+                + " CASE_FOLD table needs updating for a new Unicode version.")
         .isEmpty();
   }
 
@@ -176,8 +173,7 @@ class UnicodeJdkConsistencyTest {
     }
 
     // Build the set from JDK's regex.
-    java.util.regex.Pattern jdkWhiteSpace =
-        java.util.regex.Pattern.compile("\\p{IsWhite_Space}");
+    java.util.regex.Pattern jdkWhiteSpace = java.util.regex.Pattern.compile("\\p{IsWhite_Space}");
     TreeSet<Integer> jdkSet = new TreeSet<>();
     for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
       if (jdkWhiteSpace.matcher(new String(Character.toChars(cp))).matches()) {

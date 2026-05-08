@@ -56,16 +56,16 @@ class PatternInternalTest {
 
   @ParameterizedTest(name = "compile(\"{0}\").numGroups() == {1}")
   @CsvSource({
-      "'',         0",
-      "'.*',        0",
-      "'abba',      0",
-      "'ab(b)a',    1",
-      "'ab(.*)a',   1",
-      "'(.*)ab(.*)a',  2",
-      "'(.*)(ab)(.*)a', 3",
-      "'(.*)((a)b)(.*)a', 4",
-      "'(.*)(\\(ab)(.*)a', 3",
-      "'(.*)(\\(a\\)b)(.*)a', 3",
+    "'',         0",
+    "'.*',        0",
+    "'abba',      0",
+    "'ab(b)a',    1",
+    "'ab(.*)a',   1",
+    "'(.*)ab(.*)a',  2",
+    "'(.*)(ab)(.*)a', 3",
+    "'(.*)((a)b)(.*)a', 4",
+    "'(.*)(\\(ab)(.*)a', 3",
+    "'(.*)(\\(a\\)b)(.*)a', 3",
   })
   void numGroups(String pattern, int expected) {
     assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);

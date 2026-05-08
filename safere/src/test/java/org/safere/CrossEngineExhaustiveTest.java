@@ -106,8 +106,7 @@ class CrossEngineExhaustiveTest {
           "prefix\n" + "x".repeat(300) + "\nsuffix",
         };
         for (String text : texts) {
-          tests +=
-              ExhaustiveUtils.testPair(pat, text, Pattern.MULTILINE, failures);
+          tests += ExhaustiveUtils.testPair(pat, text, Pattern.MULTILINE, failures);
         }
       }
 
@@ -169,14 +168,7 @@ class CrossEngineExhaustiveTest {
       int tests = 0;
 
       String[] patterns = {
-        "birds",
-        "bird",
-        "[b][i][r][d]",
-        "b[aeiou]rd",
-        "[a-z]+",
-        "b.*d",
-        "^birds$",
-        "the bird",
+        "birds", "bird", "[b][i][r][d]", "b[aeiou]rd", "[a-z]+", "b.*d", "^birds$", "the bird",
       };
 
       // Test with various texts that exercise DFA equivalence class boundaries
@@ -195,9 +187,7 @@ class CrossEngineExhaustiveTest {
 
       for (String pat : patterns) {
         for (String text : texts) {
-          tests +=
-              ExhaustiveUtils.testPair(
-                  pat, text, Pattern.CASE_INSENSITIVE, failures);
+          tests += ExhaustiveUtils.testPair(pat, text, Pattern.CASE_INSENSITIVE, failures);
         }
       }
 
@@ -371,16 +361,7 @@ class CrossEngineExhaustiveTest {
       int tests = 0;
 
       String[] patterns = {
-        "a$",
-        "abc$",
-        "[a-c]+$",
-        "a*$",
-        "(a)(b)$",
-        ".*$",
-        ".+$",
-        "a\\z",
-        "abc\\z",
-        "[a-c]+\\z",
+        "a$", "abc$", "[a-c]+$", "a*$", "(a)(b)$", ".*$", ".+$", "a\\z", "abc\\z", "[a-c]+\\z",
       };
 
       String[] texts = {
@@ -421,15 +402,15 @@ class CrossEngineExhaustiveTest {
       int tests = 0;
 
       // Characters that Pattern.quote() wraps in \Q..\E
-      String[] specialChars = {"*", ".", "+", "?", "[", "]", "{", "}", "(", ")", "^", "$", "|",
-          "\\"};
+      String[] specialChars = {
+        "*", ".", "+", "?", "[", "]", "{", "}", "(", ")", "^", "$", "|", "\\"
+      };
 
       for (String ch : specialChars) {
         String quoted = Pattern.quote(ch);
         String pat = "[" + quoted + "]+";
 
-        String[] texts = {ch, ch + ch, "a" + ch + "b", "abc", ch.repeat(5),
-            "#".repeat(260) + ch};
+        String[] texts = {ch, ch + ch, "a" + ch + "b", "abc", ch.repeat(5), "#".repeat(260) + ch};
 
         for (String text : texts) {
           tests += ExhaustiveUtils.testPair(pat, text, 0, failures);
@@ -444,8 +425,7 @@ class CrossEngineExhaustiveTest {
         "[" + Pattern.quote("[") + Pattern.quote("]") + "]+",
       };
 
-      String[] compoundTexts = {"*.", "\\/", "abc*", "[]", "a*b.c",
-          "#".repeat(260) + "*."};
+      String[] compoundTexts = {"*.", "\\/", "abc*", "[]", "a*b.c", "#".repeat(260) + "*."};
 
       for (String pat : compoundPatterns) {
         for (String text : compoundTexts) {
@@ -482,9 +462,7 @@ class CrossEngineExhaustiveTest {
         for (int i = 1; i < config.length; i++) {
           tests += ExhaustiveUtils.testPair(pat, config[i], 0, failures);
           // Also long text
-          tests +=
-              ExhaustiveUtils.testPair(
-                  pat, "#".repeat(260) + config[i], 0, failures);
+          tests += ExhaustiveUtils.testPair(pat, "#".repeat(260) + config[i], 0, failures);
         }
       }
 
@@ -514,8 +492,18 @@ class CrossEngineExhaustiveTest {
       };
 
       String[] texts = {
-        "a", "f", "g", "0", "5", "Z", "abc123", "HELLO", "aeiou", "bcdfg",
-        "x".repeat(300), "#".repeat(260) + "abc123",
+        "a",
+        "f",
+        "g",
+        "0",
+        "5",
+        "Z",
+        "abc123",
+        "HELLO",
+        "aeiou",
+        "bcdfg",
+        "x".repeat(300),
+        "#".repeat(260) + "abc123",
       };
 
       for (String pat : patterns) {
@@ -537,8 +525,7 @@ class CrossEngineExhaustiveTest {
             continue;
           }
           tests += ExhaustiveUtils.testPair(pat, text, 0, failures);
-          tests +=
-              ExhaustiveUtils.testPair(pat, text, Pattern.CASE_INSENSITIVE, failures);
+          tests += ExhaustiveUtils.testPair(pat, text, Pattern.CASE_INSENSITIVE, failures);
         }
       }
 
@@ -625,9 +612,9 @@ class CrossEngineExhaustiveTest {
                   /* maxOps= */ 2,
                   /* atoms= */ List.of("a", "b", "(a)"),
                   /* ops= */ List.of(
-                      "%s{0}", "%s{0,}", "%s{1}", "%s{1,}", "%s{0,1}",
-                      "%s{0,2}", "%s{1,2}", "%s{2}", "%s{2,}",
-                      "%s*", "%s+", "%s?", "%s*?", "%s+?", "%s??"),
+                      "%s{0}",
+                      "%s{0,}", "%s{1}", "%s{1,}", "%s{0,1}", "%s{0,2}", "%s{1,2}", "%s{2}",
+                      "%s{2,}", "%s*", "%s+", "%s?", "%s*?", "%s+?", "%s??"),
                   /* maxStrLen= */ 4,
                   /* strAlphabet= */ List.of("a", "b"),
                   /* wrapper= */ "(?:%s)",
@@ -668,17 +655,13 @@ class CrossEngineExhaustiveTest {
           boolean safereResult = safereM.find();
           boolean jdkResult = jdkM.find();
 
-          assertThat(safereResult)
-              .as("find() pat=%s text=%s", pat, input)
-              .isEqualTo(jdkResult);
+          assertThat(safereResult).as("find() pat=%s text=%s", pat, input).isEqualTo(jdkResult);
 
           if (safereResult && jdkResult) {
             assertThat(safereM.start())
                 .as("start() pat=%s text=%s", pat, input)
                 .isEqualTo(jdkM.start());
-            assertThat(safereM.end())
-                .as("end() pat=%s text=%s", pat, input)
-                .isEqualTo(jdkM.end());
+            assertThat(safereM.end()).as("end() pat=%s text=%s", pat, input).isEqualTo(jdkM.end());
           }
         }
       }
@@ -732,16 +715,17 @@ class CrossEngineExhaustiveTest {
           List<String> jdkMatches = new ArrayList<>();
 
           while (safereM.find()) {
-            safereMatches.add(String.format("[%d,%d)=%s", safereM.start(), safereM.end(),
-                safereM.group()));
+            safereMatches.add(
+                String.format("[%d,%d)=%s", safereM.start(), safereM.end(), safereM.group()));
           }
           while (jdkM.find()) {
             jdkMatches.add(String.format("[%d,%d)=%s", jdkM.start(), jdkM.end(), jdkM.group()));
           }
 
           assertThat(safereMatches)
-              .as("findAll pat=%s text=%s (len=%d)", pat, input.length() > 20
-                  ? input.substring(0, 20) + "..." : input, input.length())
+              .as(
+                  "findAll pat=%s text=%s (len=%d)",
+                  pat, input.length() > 20 ? input.substring(0, 20) + "..." : input, input.length())
               .isEqualTo(jdkMatches);
         }
       }
@@ -761,23 +745,24 @@ class CrossEngineExhaustiveTest {
 
         for (String text : texts) {
           // Create a CharSequence that does NOT override toString()
-          CharSequence cs = new CharSequence() {
-            @Override
-            public int length() {
-              return text.length();
-            }
+          CharSequence cs =
+              new CharSequence() {
+                @Override
+                public int length() {
+                  return text.length();
+                }
 
-            @Override
-            public char charAt(int index) {
-              return text.charAt(index);
-            }
+                @Override
+                public char charAt(int index) {
+                  return text.charAt(index);
+                }
 
-            @Override
-            public CharSequence subSequence(int start, int end) {
-              return text.subSequence(start, end);
-            }
-            // Deliberately do NOT override toString()
-          };
+                @Override
+                public CharSequence subSequence(int start, int end) {
+                  return text.subSequence(start, end);
+                }
+                // Deliberately do NOT override toString()
+              };
 
           Matcher safereM = saferePat.matcher(cs);
           java.util.regex.Matcher jdkM = jdkPat.matcher(cs);
@@ -818,26 +803,27 @@ class CrossEngineExhaustiveTest {
         }
 
         for (byte[] bytes : byteArrays) {
-          CharSequence cs = new CharSequence() {
-            @Override
-            public int length() {
-              return bytes.length;
-            }
+          CharSequence cs =
+              new CharSequence() {
+                @Override
+                public int length() {
+                  return bytes.length;
+                }
 
-            @Override
-            public char charAt(int index) {
-              return (char) (bytes[index] & 0xFF);
-            }
+                @Override
+                public char charAt(int index) {
+                  return (char) (bytes[index] & 0xFF);
+                }
 
-            @Override
-            public CharSequence subSequence(int start, int end) {
-              char[] chars = new char[end - start];
-              for (int i = start; i < end; i++) {
-                chars[i - start] = (char) (bytes[i] & 0xFF);
-              }
-              return new String(chars);
-            }
-          };
+                @Override
+                public CharSequence subSequence(int start, int end) {
+                  char[] chars = new char[end - start];
+                  for (int i = start; i < end; i++) {
+                    chars[i - start] = (char) (bytes[i] & 0xFF);
+                  }
+                  return new String(chars);
+                }
+              };
 
           Matcher safereM = saferePat.matcher(cs);
           java.util.regex.Matcher jdkM = jdkPat.matcher(cs);
@@ -850,12 +836,8 @@ class CrossEngineExhaustiveTest {
               .isEqualTo(jdkFound);
 
           if (safereFound && jdkFound) {
-            assertThat(safereM.start())
-                .as("start() pat=%s", pat)
-                .isEqualTo(jdkM.start());
-            assertThat(safereM.end())
-                .as("end() pat=%s", pat)
-                .isEqualTo(jdkM.end());
+            assertThat(safereM.start()).as("start() pat=%s", pat).isEqualTo(jdkM.start());
+            assertThat(safereM.end()).as("end() pat=%s", pat).isEqualTo(jdkM.end());
           }
         }
       }
@@ -924,8 +906,7 @@ class CrossEngineExhaustiveTest {
       int tests = 0;
 
       String[] patterns = {
-        "^a$", "^.*$", "^.+$", "^a+$", "^[a-z]+$",
-        "^(a+)$", "(?m)^a$", "(?m)^.*$", "(?m)^.+$",
+        "^a$", "^.*$", "^.+$", "^a+$", "^[a-z]+$", "^(a+)$", "(?m)^a$", "(?m)^.*$", "(?m)^.+$",
       };
 
       // Test \n endings only. \r and \r\n tests are skipped by ExhaustiveUtils because

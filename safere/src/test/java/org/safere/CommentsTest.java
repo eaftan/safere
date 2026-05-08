@@ -6,9 +6,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -134,24 +132,23 @@ class CommentsTest {
       var p =
           Pattern.compile(
               """
-                        /[*]
-                        [\\s*]*
-                        \\bMOE:insert\\b
+              /[*]
+              [\\s*]*
+              \\bMOE:insert\\b
 
-                        (.*?)
+              (.*?)
 
-                        [*]/
-                        """,
+              [*]/
+              """,
               Pattern.DOTALL | Pattern.COMMENTS);
 
       String content =
           """
-      @Deprecated
-        /* MOE:insert public */ void trimToSize() {
-      """;
+          @Deprecated
+            /* MOE:insert public */ void trimToSize() {
+          """;
       content = p.matcher(content).replaceAll("$1");
-      assertThat(content)
-          .isEqualTo("@Deprecated\n   public  void trimToSize() {\n");
+      assertThat(content).isEqualTo("@Deprecated\n   public  void trimToSize() {\n");
     }
   }
 
@@ -332,11 +329,7 @@ class CommentsTest {
     @DisplayName("quantifiers after empty quoted literals bind to the empty literal")
     void quantifiersAfterEmptyQuotedLiteralsBindToEmptyLiteral() {
       String[] regexes = {
-          "a\\Q\\E+",
-          "a\\Q\\E*",
-          "a\\Q\\E?",
-          "a\\Q\\E{1,3}",
-          "^\\p{Lower}{1,3}\\Q\\E+"
+        "a\\Q\\E+", "a\\Q\\E*", "a\\Q\\E?", "a\\Q\\E{1,3}", "^\\p{Lower}{1,3}\\Q\\E+"
       };
       String[] inputs = {"", "a", "aa", "aaa", "name"};
 

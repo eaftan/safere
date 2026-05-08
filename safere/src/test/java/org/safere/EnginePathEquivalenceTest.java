@@ -25,20 +25,16 @@ class EnginePathEquivalenceTest {
     Set<EnginePath> contracted = EnumSet.noneOf(EnginePath.class);
     for (EnginePathContract contract : EnginePathContract.all()) {
       contracted.add(contract.path());
-      assertThat(contract.authorities())
-          .as("authorities for %s", contract.path())
-          .isNotEmpty();
+      assertThat(contract.authorities()).as("authorities for %s", contract.path()).isNotEmpty();
       if (contract.role() != EnginePathRole.FILTER) {
-        assertThat(contract.guards())
-            .as("guards for %s", contract.path())
-            .isNotEmpty();
+        assertThat(contract.guards()).as("guards for %s", contract.path()).isNotEmpty();
       }
     }
 
-    assertThat(contracted).containsExactlyInAnyOrderElementsOf(EnginePathOptions.accessors()
-        .keySet());
-    assertThat(EnginePathOptions.accessors().keySet()).containsExactlyInAnyOrderElementsOf(
-        EnumSet.allOf(EnginePath.class));
+    assertThat(contracted)
+        .containsExactlyInAnyOrderElementsOf(EnginePathOptions.accessors().keySet());
+    assertThat(EnginePathOptions.accessors().keySet())
+        .containsExactlyInAnyOrderElementsOf(EnumSet.allOf(EnginePath.class));
   }
 
   @Test
@@ -84,11 +80,7 @@ class EnginePathEquivalenceTest {
         Pattern.compile(
             regex,
             0,
-            EnginePathOptions.builder()
-                .semanticGuards(false)
-                .dfa(false)
-                .bitState(false)
-                .build());
+            EnginePathOptions.builder().semanticGuards(false).dfa(false).bitState(false).build());
 
     assertThat(canonical.hasNullableAlternation()).isTrue();
     assertThat(canonical.onePass()).isNotNull();
@@ -123,9 +115,7 @@ class EnginePathEquivalenceTest {
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
     assertEquivalent(
-        "abc",
-        "zzabcabc",
-        EnginePathOptions.builder().literalFastPaths(false).build());
+        "abc", "zzabcabc", EnginePathOptions.builder().literalFastPaths(false).build());
   }
 
   @Test
@@ -134,10 +124,9 @@ class EnginePathEquivalenceTest {
     String regex = "\\d+";
     String input = "a12b345c";
     Pattern defaultPattern = Pattern.compile(regex);
-    Pattern canonicalPattern = Pattern.compile(
-        regex,
-        0,
-        EnginePathOptions.builder().charClassReplacementFastPath(false).build());
+    Pattern canonicalPattern =
+        Pattern.compile(
+            regex, 0, EnginePathOptions.builder().charClassReplacementFastPath(false).build());
 
     assertThat(defaultPattern.matcher(input).replaceAll("X"))
         .isEqualTo(canonicalPattern.matcher(input).replaceAll("X"));
@@ -163,9 +152,7 @@ class EnginePathEquivalenceTest {
   @DisplayName("OnePass paths match the canonical engine trace")
   void onePassPathsMatchCanonicalTrace() {
     assertEquivalent(
-        "^([A-Z]+):(\\d+)$",
-        "ABC:123",
-        EnginePathOptions.builder().onePass(false).build());
+        "^([A-Z]+):(\\d+)$", "ABC:123", EnginePathOptions.builder().onePass(false).build());
   }
 
   @Test
@@ -252,8 +239,7 @@ class EnginePathEquivalenceTest {
     Pattern forcedPattern = Pattern.compile("^abc$", 0, forced);
     Matcher defaultMatcher =
         defaultPattern.matcher("00abc11").region(2, 5).useAnchoringBounds(false);
-    Matcher forcedMatcher =
-        forcedPattern.matcher("00abc11").region(2, 5).useAnchoringBounds(false);
+    Matcher forcedMatcher = forcedPattern.matcher("00abc11").region(2, 5).useAnchoringBounds(false);
 
     assertThat(operationTrace(defaultMatcher, Operation.MATCHES))
         .isEqualTo(operationTrace(forcedMatcher, Operation.MATCHES));
@@ -305,11 +291,7 @@ class EnginePathEquivalenceTest {
     List<GroupTrace> groups = new ArrayList<>();
     if (matched) {
       for (int group = 0; group <= matcher.groupCount(); group++) {
-        groups.add(
-            new GroupTrace(
-                matcher.group(group),
-                matcher.start(group),
-                matcher.end(group)));
+        groups.add(new GroupTrace(matcher.group(group), matcher.start(group), matcher.end(group)));
       }
     }
     return new MatchTrace(matched, groups, matcher.hitEnd(), matcher.requireEnd());

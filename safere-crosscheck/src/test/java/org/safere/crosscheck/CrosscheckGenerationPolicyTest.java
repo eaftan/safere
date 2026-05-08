@@ -103,7 +103,8 @@ class CrosscheckGenerationPolicyTest {
 
   private static String annotationReason(String annotationArgument) {
     java.util.regex.Matcher literals = STRING_LITERAL.matcher(annotationArgument);
-    return literals.results()
+    return literals
+        .results()
         .map(MatchResult::group)
         .map(literal -> literal.substring(1, literal.length() - 1))
         .reduce("", String::concat);

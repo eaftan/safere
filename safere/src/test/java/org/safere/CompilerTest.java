@@ -16,8 +16,7 @@ import org.junit.jupiter.api.Test;
 class CompilerTest {
 
   private static final int DEFAULT_FLAGS =
-      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
-          | ParseFlags.UNICODE_GROUPS;
+      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   private static Prog compile(String pattern) {
     return compile(pattern, DEFAULT_FLAGS);

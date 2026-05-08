@@ -3,7 +3,6 @@
 
 package org.safere.crosscheck;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -15,14 +14,13 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * A crosscheck wrapper that delegates every matcher operation to both SafeRE and
- * {@code java.util.regex}, comparing results and throwing {@link CrosscheckException} on
- * divergence.
+ * A crosscheck wrapper that delegates every matcher operation to both SafeRE and {@code
+ * java.util.regex}, comparing results and throwing {@link CrosscheckException} on divergence.
  *
- * <p>This class has the same API as {@link org.safere.Matcher} and
- * {@link java.util.regex.Matcher}, so switching to crosscheck mode requires only changing the
- * import. Every method call is recorded by a {@link TraceRecorder}; the trace is included in any
- * {@link CrosscheckException} and can be retrieved via {@link #getTrace()}.
+ * <p>This class has the same API as {@link org.safere.Matcher} and {@link java.util.regex.Matcher},
+ * so switching to crosscheck mode requires only changing the import. Every method call is recorded
+ * by a {@link TraceRecorder}; the trace is included in any {@link CrosscheckException} and can be
+ * retrieved via {@link #getTrace()}.
  *
  * <p>Like {@link java.util.regex.Matcher}, this class is not thread-safe.
  */
@@ -401,8 +399,8 @@ public final class Matcher implements MatchResult {
     Iterator<MatchResult> safereIterator = safereResults.iterator();
     Iterator<MatchResult> jdkIterator = jdkResults.iterator();
     Spliterator<MatchResult> spliterator =
-        new Spliterators.AbstractSpliterator<>(Long.MAX_VALUE,
-            Spliterator.ORDERED | Spliterator.NONNULL) {
+        new Spliterators.AbstractSpliterator<>(
+            Long.MAX_VALUE, Spliterator.ORDERED | Spliterator.NONNULL) {
           @Override
           public boolean tryAdvance(java.util.function.Consumer<? super MatchResult> action) {
             boolean srHasNext = safereIterator.hasNext();
@@ -438,8 +436,8 @@ public final class Matcher implements MatchResult {
   // ---------------------------------------------------------------------------
 
   /**
-   * After a successful find/matches/lookingAt on both engines, verify that the match positions
-   * and groups agree.
+   * After a successful find/matches/lookingAt on both engines, verify that the match positions and
+   * groups agree.
    */
   private void checkMatchState(String context) {
     int srStart = safereMatcher.start();
@@ -514,11 +512,7 @@ public final class Matcher implements MatchResult {
 
   private void throwDivergence(String method, String args, Object sr, Object jr) {
     throw new CrosscheckException(
-        method,
-        args,
-        Objects.toString(sr),
-        Objects.toString(jr),
-        trace.format());
+        method, args, Objects.toString(sr), Objects.toString(jr), trace.format());
   }
 
   private static String quote(CharSequence s) {

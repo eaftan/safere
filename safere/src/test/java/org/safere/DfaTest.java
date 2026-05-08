@@ -22,8 +22,7 @@ import org.junit.jupiter.api.Test;
 class DfaTest {
 
   private static final int FLAGS =
-      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
-          | ParseFlags.UNICODE_GROUPS;
+      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   /** Compiles a pattern and searches with the DFA (unanchored, first match). */
   private static Dfa.SearchResult search(String pattern, String text) {
@@ -343,7 +342,6 @@ class DfaTest {
       assertThat(r.matched()).isTrue();
     }
   }
-
 
   @Nested
   @DisplayName("State budget")

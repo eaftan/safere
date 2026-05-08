@@ -12,64 +12,67 @@ import java.util.List;
 final class ParserCompatibilityFuzzer {
 
   private static final String[] ATOMS = {
-      "",
-      "a",
-      ".",
-      "\\d",
-      "\\D",
-      "\\w",
-      "\\W",
-      "\\s",
-      "\\S",
-      "\\p{Lower}",
-      "\\P{Lower}",
-      "\\Q\\E",
-      "\\Q\\E\\Q\\E",
-      "\\Q*\\E",
-      "^",
-      "$",
-      "a\\Q\\E",
-      "[a]",
-      "[^a]",
-      "[a-z]",
-      "[a-z&&[def]]",
-      "()",
-      "(?)",
-      "(a)",
-      "(?:a)",
-      "(?<name>a)",
-      "a\u001C\\^]",
-      "a\u001D\\^]",
-      "a\u001E\\^]",
-      "a\u001F\\^]",
-      "[a\u001Cb]",
-      "[a\u001Db]",
-      "[a\u001Eb]",
-      "[a\u001Fb]"
+    "",
+    "a",
+    ".",
+    "\\d",
+    "\\D",
+    "\\w",
+    "\\W",
+    "\\s",
+    "\\S",
+    "\\p{Lower}",
+    "\\P{Lower}",
+    "\\Q\\E",
+    "\\Q\\E\\Q\\E",
+    "\\Q*\\E",
+    "^",
+    "$",
+    "a\\Q\\E",
+    "[a]",
+    "[^a]",
+    "[a-z]",
+    "[a-z&&[def]]",
+    "()",
+    "(?)",
+    "(a)",
+    "(?:a)",
+    "(?<name>a)",
+    "a\u001C\\^]",
+    "a\u001D\\^]",
+    "a\u001E\\^]",
+    "a\u001F\\^]",
+    "[a\u001Cb]",
+    "[a\u001Db]",
+    "[a\u001Eb]",
+    "[a\u001Fb]"
   };
   private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "(?m)", "(?s)"};
-  private static final String[] CONNECTORS =
-      {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}",
-          "{1}", "??{1,3}", "?{1,3}", "*{1,3}", "+{1,3}", "{1,3}{1,3}"};
+  private static final String[] CONNECTORS = {
+    "",
+    "",
+    "|",
+    "?",
+    "??",
+    "*",
+    "*?",
+    "+",
+    "+?",
+    "{0}",
+    "{1,3}",
+    "{1}",
+    "??{1,3}",
+    "?{1,3}",
+    "*{1,3}",
+    "+{1,3}",
+    "{1,3}{1,3}"
+  };
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
   private static final String[] LEADING_COUNTED_REPEATS = {
-      "{0}",
-      "{1}",
-      "{1,3}",
-      "{1,}",
-      "{1,3}?",
-      "{1,3}$",
-      "^{1,3}",
-      "a|{1,3}",
-      "({1,3})"
+    "{0}", "{1}", "{1,3}", "{1,}", "{1,3}?", "{1,3}$", "^{1,3}", "a|{1,3}", "({1,3})"
   };
   private static final String[] COMMENT_TERMINATED_PREFIXES = {
-      "a#\0",
-      "a#\n",
-      "a#\r",
-      "a#\u0085",
-      "a#\u2028",
-      "a#\u2029"
+    "a#\0", "a#\n", "a#\r", "a#\u0085", "a#\u2028", "a#\u2029"
   };
   private static final String[] MALFORMED_GROUP_SUFFIXES = {"(", "|(", "b|(", "(?:b)|("};
   private static final List<String> INPUTS =
@@ -100,16 +103,17 @@ final class ParserCompatibilityFuzzer {
     String regex;
     if (data.consumeBoolean()) {
       flags |= org.safere.Pattern.COMMENTS;
-      regex = data.pickValue(COMMENT_TERMINATED_PREFIXES)
-          + data.pickValue(MALFORMED_GROUP_SUFFIXES);
+      regex =
+          data.pickValue(COMMENT_TERMINATED_PREFIXES) + data.pickValue(MALFORMED_GROUP_SUFFIXES);
     } else if (data.consumeBoolean()) {
       regex = data.pickValue(PREFIXES) + data.pickValue(LEADING_COUNTED_REPEATS);
     } else {
-      regex = data.pickValue(PREFIXES)
-          + data.pickValue(ATOMS)
-          + data.pickValue(CONNECTORS)
-          + data.pickValue(ATOMS)
-          + data.pickValue(SUFFIXES);
+      regex =
+          data.pickValue(PREFIXES)
+              + data.pickValue(ATOMS)
+              + data.pickValue(CONNECTORS)
+              + data.pickValue(ATOMS)
+              + data.pickValue(SUFFIXES);
     }
     FuzzSupport.assertFullMatchesJdk(regex, flags, INPUTS);
   }

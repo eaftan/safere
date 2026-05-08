@@ -17,9 +17,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Cross-engine test that runs the same regex patterns and input strings through both SafeRE
- * ({@code org.safere.Pattern}/{@code Matcher}) and {@code java.util.regex.Pattern}/{@code
- * Matcher}, comparing results.
+ * Cross-engine test that runs the same regex patterns and input strings through both SafeRE ({@code
+ * org.safere.Pattern}/{@code Matcher}) and {@code java.util.regex.Pattern}/{@code Matcher},
+ * comparing results.
  *
  * <p>Each test case specifies a {@link Divergence} describing whether the two engines are expected
  * to agree, whether SafeRE rejects the pattern, or whether results may legitimately differ.
@@ -193,24 +193,18 @@ class CrossEngineTest {
         new TestCase("([ab])+", "abab"),
 
         // ===== Complex patterns =====
+        new TestCase("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}", "user@example.com"),
+        new TestCase("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}", "no email here"),
         new TestCase(
-            "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}", "user@example.com"),
-        new TestCase(
-            "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}", "no email here"),
-        new TestCase(
-            "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
-            "contact a@b.co and x@y.org"),
-        new TestCase(
-            "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", "192.168.1.1"),
-        new TestCase(
-            "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", "not an ip"),
+            "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}", "contact a@b.co and x@y.org"),
+        new TestCase("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", "192.168.1.1"),
+        new TestCase("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}", "not an ip"),
         new TestCase("https?://[^\\s]+", "visit https://example.com today"),
         new TestCase("https?://[^\\s]+", "http://foo.bar/baz?q=1"),
         new TestCase("https?://[^\\s]+", "no url here"),
         new TestCase("(\\d{4})-(\\d{2})-(\\d{2})", "2025-03-17"),
         new TestCase("(\\d{4})-(\\d{2})-(\\d{2})", "date is 2025-03-17 ok"),
-        new TestCase(
-            "(\\d{4})-(\\d{2})-(\\d{2})", "2025-03-17 and 2024-12-25"),
+        new TestCase("(\\d{4})-(\\d{2})-(\\d{2})", "2025-03-17 and 2024-12-25"),
 
         // ===== Unicode =====
         new TestCase(".", "\u00e9"),
@@ -353,9 +347,7 @@ class CrossEngineTest {
       try {
         Pattern.compile(tc.pattern());
         fail(
-            "Expected SafeRE to reject pattern /"
-                + tc.pattern()
-                + "/ with PatternSyntaxException");
+            "Expected SafeRE to reject pattern /" + tc.pattern() + "/ with PatternSyntaxException");
       } catch (PatternSyntaxException expected) {
         // Good — SafeRE correctly rejects this pattern.
       }
@@ -365,11 +357,7 @@ class CrossEngineTest {
     try {
       safeRePattern = Pattern.compile(tc.pattern());
     } catch (PatternSyntaxException e) {
-      fail(
-          "SafeRE unexpectedly rejected pattern /"
-              + tc.pattern()
-              + "/: "
-              + e.getMessage());
+      fail("SafeRE unexpectedly rejected pattern /" + tc.pattern() + "/: " + e.getMessage());
       return; // unreachable, but keeps the compiler happy
     }
 
@@ -393,10 +381,7 @@ class CrossEngineTest {
   // ---------------------------------------------------------------------------
 
   private void compareMatches(
-      Pattern safeRePattern,
-      java.util.regex.Pattern jdkPattern,
-      TestCase tc,
-      boolean expectEqual) {
+      Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     boolean safeReResult = safeRePattern.matcher(tc.input()).matches();
     boolean jdkResult = jdkPattern.matcher(tc.input()).matches();
 
@@ -411,10 +396,7 @@ class CrossEngineTest {
   }
 
   private void compareFind(
-      Pattern safeRePattern,
-      java.util.regex.Pattern jdkPattern,
-      TestCase tc,
-      boolean expectEqual) {
+      Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     List<MatchResult> safeReMatches = collectFinds(safeRePattern.matcher(tc.input()));
     List<MatchResult> jdkMatches = collectFindsJdk(jdkPattern.matcher(tc.input()));
 
@@ -431,40 +413,27 @@ class CrossEngineTest {
       MatchResult jdk = jdkMatches.get(i);
 
       assertThat(sr.group())
-          .as(
-              "find() match #%d group() for /%s/ on \"%s\"",
-              i, tc.pattern(), tc.input())
+          .as("find() match #%d group() for /%s/ on \"%s\"", i, tc.pattern(), tc.input())
           .isEqualTo(jdk.group());
       assertThat(sr.start())
-          .as(
-              "find() match #%d start() for /%s/ on \"%s\"",
-              i, tc.pattern(), tc.input())
+          .as("find() match #%d start() for /%s/ on \"%s\"", i, tc.pattern(), tc.input())
           .isEqualTo(jdk.start());
       assertThat(sr.end())
-          .as(
-              "find() match #%d end() for /%s/ on \"%s\"",
-              i, tc.pattern(), tc.input())
+          .as("find() match #%d end() for /%s/ on \"%s\"", i, tc.pattern(), tc.input())
           .isEqualTo(jdk.end());
 
       // Compare capturing groups.
       assertThat(sr.groupCount())
-          .as(
-              "find() match #%d groupCount() for /%s/ on \"%s\"",
-              i, tc.pattern(), tc.input())
+          .as("find() match #%d groupCount() for /%s/ on \"%s\"", i, tc.pattern(), tc.input())
           .isEqualTo(jdk.groupCount());
       assertThat(sr.groups())
-          .as(
-              "find() match #%d groups for /%s/ on \"%s\"",
-              i, tc.pattern(), tc.input())
+          .as("find() match #%d groups for /%s/ on \"%s\"", i, tc.pattern(), tc.input())
           .isEqualTo(jdk.groups());
     }
   }
 
   private void compareReplaceAll(
-      Pattern safeRePattern,
-      java.util.regex.Pattern jdkPattern,
-      TestCase tc,
-      boolean expectEqual) {
+      Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     String replacement = "X";
     String safeReResult = safeRePattern.matcher(tc.input()).replaceAll(replacement);
     String jdkResult = jdkPattern.matcher(tc.input()).replaceAll(replacement);
@@ -477,10 +446,7 @@ class CrossEngineTest {
   }
 
   private void compareSplit(
-      Pattern safeRePattern,
-      java.util.regex.Pattern jdkPattern,
-      TestCase tc,
-      boolean expectEqual) {
+      Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     String[] safeReParts = safeRePattern.split(tc.input());
     String[] jdkParts = jdkPattern.split(tc.input());
 
@@ -504,8 +470,7 @@ class CrossEngineTest {
       for (int g = 0; g <= gc; g++) {
         groups.add(matcher.group(g));
       }
-      results.add(
-          new MatchResult(matcher.group(), matcher.start(), matcher.end(), gc, groups));
+      results.add(new MatchResult(matcher.group(), matcher.start(), matcher.end(), gc, groups));
     }
     return results;
   }
@@ -519,8 +484,7 @@ class CrossEngineTest {
       for (int g = 0; g <= gc; g++) {
         groups.add(matcher.group(g));
       }
-      results.add(
-          new MatchResult(matcher.group(), matcher.start(), matcher.end(), gc, groups));
+      results.add(new MatchResult(matcher.group(), matcher.start(), matcher.end(), gc, groups));
     }
     return results;
   }

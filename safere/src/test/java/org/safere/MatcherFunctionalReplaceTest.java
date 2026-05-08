@@ -38,8 +38,7 @@ class MatcherFunctionalReplaceTest {
   void replaceAllFunctionRejectsNullReplacementResult() {
     Pattern p = Pattern.compile("a");
     Matcher m = p.matcher("a");
-    assertThatThrownBy(() -> m.replaceAll(result -> null))
-        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> m.replaceAll(result -> null)).isInstanceOf(NullPointerException.class);
   }
 
   @Test

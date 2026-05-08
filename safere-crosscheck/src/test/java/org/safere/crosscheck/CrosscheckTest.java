@@ -274,20 +274,21 @@ class CrosscheckTest {
     void resultsComparesNamedSnapshots() {
       Matcher m = Pattern.compile("(?<word>\\w+)-(?<digits>\\d+)").matcher("a-12 b-345");
 
-      assertThat(m.results()
-          .map(result -> result.group("word")
-              + ":"
-              + result.start("digits")
-              + "-"
-              + result.end("digits")
-              + ":"
-              + result.namedGroups().get("word")
-              + ","
-              + result.namedGroups().get("digits"))
-          .toList())
-          .containsExactly(
-              "a:2-4:1,2",
-              "b:7-10:1,2");
+      assertThat(
+              m.results()
+                  .map(
+                      result ->
+                          result.group("word")
+                              + ":"
+                              + result.start("digits")
+                              + "-"
+                              + result.end("digits")
+                              + ":"
+                              + result.namedGroups().get("word")
+                              + ","
+                              + result.namedGroups().get("digits"))
+                  .toList())
+          .containsExactly("a:2-4:1,2", "b:7-10:1,2");
     }
 
     @Test
@@ -297,10 +298,11 @@ class CrosscheckTest {
 
       assertThatThrownBy(() -> m.results().toList())
           .isInstanceOf(CrosscheckException.class)
-          .satisfies(ex -> {
-            CrosscheckException ce = (CrosscheckException) ex;
-            assertThat(ce.trace()).contains("DIVERGENCE");
-          });
+          .satisfies(
+              ex -> {
+                CrosscheckException ce = (CrosscheckException) ex;
+                assertThat(ce.trace()).contains("DIVERGENCE");
+              });
     }
   }
 
@@ -466,10 +468,11 @@ class CrosscheckTest {
       // JDK:    group(1) = "a" (leaked from failed attempt at earlier position)
       assertThatThrownBy(() -> m.find())
           .isInstanceOf(CrosscheckException.class)
-          .satisfies(ex -> {
-            CrosscheckException ce = (CrosscheckException) ex;
-            assertThat(ce.trace()).contains("DIVERGENCE");
-          });
+          .satisfies(
+              ex -> {
+                CrosscheckException ce = (CrosscheckException) ex;
+                assertThat(ce.trace()).contains("DIVERGENCE");
+              });
     }
   }
 
@@ -530,8 +533,8 @@ class CrosscheckTest {
     void namedGroupsMap() {
       Pattern p = Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})");
       assertThat(p.namedGroups())
-          .isEqualTo(java.util.regex.Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})")
-              .namedGroups());
+          .isEqualTo(
+              java.util.regex.Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})").namedGroups());
     }
 
     @Test

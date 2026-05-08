@@ -26,19 +26,20 @@ import org.junit.jupiter.params.provider.MethodSource;
 class BitStateTest {
 
   private static final int FLAGS =
-      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
-          | ParseFlags.UNICODE_GROUPS;
+      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   /** Asserts BitState and NFA agree on an anchored search. */
-  private static void assertConsistentAnchored(String pattern, String text,
-      boolean longest, boolean endMatch) {
+  private static void assertConsistentAnchored(
+      String pattern, String text, boolean longest, boolean endMatch) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     int nsubmatch = prog.numCaptures();
 
     int[] bsResult = BitState.search(prog, text, true, longest, endMatch, nsubmatch);
-    Nfa.MatchKind kind = endMatch ? Nfa.MatchKind.FULL_MATCH
-        : (longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
+    Nfa.MatchKind kind =
+        endMatch
+            ? Nfa.MatchKind.FULL_MATCH
+            : (longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
     int[] nfaResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, nsubmatch);
 
     assertCapturesEqual(pattern, text, bsResult, nfaResult);
@@ -51,14 +52,14 @@ class BitStateTest {
     int nsubmatch = prog.numCaptures();
 
     int[] bsResult = BitState.search(prog, text, false, false, false, nsubmatch);
-    int[] nfaResult = Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, nsubmatch);
+    int[] nfaResult =
+        Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, nsubmatch);
 
     assertCapturesEqual(pattern, text, bsResult, nfaResult);
   }
 
-  private static void assertCapturesEqual(String pattern, String text,
-      int[] bsResult, int[] nfaResult) {
+  private static void assertCapturesEqual(
+      String pattern, String text, int[] bsResult, int[] nfaResult) {
     if (nfaResult == null) {
       assertThat(bsResult)
           .as("/%s/ on \"%s\": NFA=null, BitState should too", pattern, text)
@@ -86,20 +87,23 @@ class BitStateTest {
       resultBuffer[i] = -1000 - i;
     }
 
-    int[] bsResult = BitState.search(
-        null,
-        prog,
-        tc.input(),
-        0,
-        tc.input().length(),
-        tc.anchored(),
-        tc.longest(),
-        tc.endMatch(),
-        nsubmatch,
-        resultBuffer);
+    int[] bsResult =
+        BitState.search(
+            null,
+            prog,
+            tc.input(),
+            0,
+            tc.input().length(),
+            tc.anchored(),
+            tc.longest(),
+            tc.endMatch(),
+            nsubmatch,
+            resultBuffer);
     Nfa.Anchor anchor = tc.anchored() ? Nfa.Anchor.ANCHORED : Nfa.Anchor.UNANCHORED;
-    Nfa.MatchKind kind = tc.endMatch() ? Nfa.MatchKind.FULL_MATCH
-        : (tc.longest() ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
+    Nfa.MatchKind kind =
+        tc.endMatch()
+            ? Nfa.MatchKind.FULL_MATCH
+            : (tc.longest() ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
     int[] nfaResult = Nfa.search(prog, tc.input(), anchor, kind, nsubmatch);
 
     assertThat(bsResult)

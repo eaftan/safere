@@ -22,8 +22,8 @@ import java.util.Objects;
  * <ol>
  *   <li><b>Coalesce</b>: Merges adjacent repetitions of the same sub-expression in CONCAT nodes
  *       (e.g., {@code a*a+} → {@code REPEAT(a, 1, -1)}).
- *   <li><b>Simplify</b>: Converts REPEAT nodes into STAR/PLUS/QUEST/CONCAT and simplifies
- *       character classes.
+ *   <li><b>Simplify</b>: Converts REPEAT nodes into STAR/PLUS/QUEST/CONCAT and simplifies character
+ *       classes.
  * </ol>
  *
  * <p>This is a port of RE2's {@code simplify.cc}.
@@ -84,7 +84,7 @@ final class Simplifier {
 
     // Recursively compare children using an explicit stack.
     java.util.ArrayDeque<Regexp> stk = new java.util.ArrayDeque<>();
-    for (;;) {
+    for (; ; ) {
       switch (a.op) {
         case ALTERNATE:
         case CONCAT:
@@ -149,12 +149,10 @@ final class Simplifier {
         return ((a.flags ^ b.flags) & ParseFlags.WAS_DOLLAR) == 0;
 
       case LITERAL:
-        return a.rune == b.rune
-            && ((a.flags ^ b.flags) & ParseFlags.FOLD_CASE) == 0;
+        return a.rune == b.rune && ((a.flags ^ b.flags) & ParseFlags.FOLD_CASE) == 0;
 
       case LITERAL_STRING:
-        return Arrays.equals(a.runes, b.runes)
-            && ((a.flags ^ b.flags) & ParseFlags.FOLD_CASE) == 0;
+        return Arrays.equals(a.runes, b.runes) && ((a.flags ^ b.flags) & ParseFlags.FOLD_CASE) == 0;
 
       case ALTERNATE:
       case CONCAT:
@@ -167,7 +165,8 @@ final class Simplifier {
 
       case REPEAT:
         return ((a.flags ^ b.flags) & ParseFlags.NON_GREEDY) == 0
-            && a.min == b.min && a.max == b.max;
+            && a.min == b.min
+            && a.max == b.max;
 
       case NON_CAPTURE:
         return true;
@@ -207,8 +206,7 @@ final class Simplifier {
     }
 
     @Override
-    protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       if (childArgs.isEmpty()) {
         return re;
       }
@@ -297,24 +295,30 @@ final class Simplifier {
   }
 
   /**
-   * Returns true if r1 and r2 can be coalesced. r1 must be a quantifier (STAR/PLUS/QUEST/REPEAT)
-   * of a LITERAL, CHAR_CLASS, ANY_CHAR, or ANY_BYTE, and r2 must be a compatible quantifier of the
+   * Returns true if r1 and r2 can be coalesced. r1 must be a quantifier (STAR/PLUS/QUEST/REPEAT) of
+   * a LITERAL, CHAR_CLASS, ANY_CHAR, or ANY_BYTE, and r2 must be a compatible quantifier of the
    * same operand, or the operand itself, or a LITERAL_STRING beginning with the same literal.
    */
   private static boolean canCoalesce(Regexp r1, Regexp r2) {
-    if (r1.op != RegexpOp.STAR && r1.op != RegexpOp.PLUS
-        && r1.op != RegexpOp.QUEST && r1.op != RegexpOp.REPEAT) {
+    if (r1.op != RegexpOp.STAR
+        && r1.op != RegexpOp.PLUS
+        && r1.op != RegexpOp.QUEST
+        && r1.op != RegexpOp.REPEAT) {
       return false;
     }
     Regexp r1sub = r1.subs.getFirst();
-    if (r1sub.op != RegexpOp.LITERAL && r1sub.op != RegexpOp.CHAR_CLASS
-        && r1sub.op != RegexpOp.ANY_CHAR && r1sub.op != RegexpOp.ANY_BYTE) {
+    if (r1sub.op != RegexpOp.LITERAL
+        && r1sub.op != RegexpOp.CHAR_CLASS
+        && r1sub.op != RegexpOp.ANY_CHAR
+        && r1sub.op != RegexpOp.ANY_BYTE) {
       return false;
     }
 
     // r2 is a quantifier of the same thing.
-    if ((r2.op == RegexpOp.STAR || r2.op == RegexpOp.PLUS
-            || r2.op == RegexpOp.QUEST || r2.op == RegexpOp.REPEAT)
+    if ((r2.op == RegexpOp.STAR
+            || r2.op == RegexpOp.PLUS
+            || r2.op == RegexpOp.QUEST
+            || r2.op == RegexpOp.REPEAT)
         && equal(r1sub, r2.subs.getFirst())
         && ((r1.flags & ParseFlags.NON_GREEDY) == (r2.flags & ParseFlags.NON_GREEDY))) {
       return true;
@@ -402,25 +406,26 @@ final class Simplifier {
           max++;
         }
         return leaveEmpty(operand, r1.flags, min, max);
-      case LITERAL_STRING: {
-        int r = r1.subs.getFirst().rune;
-        int n = 1;
-        while (n < r2.runes.length && r2.runes[n] == r) {
-          n++;
+      case LITERAL_STRING:
+        {
+          int r = r1.subs.getFirst().rune;
+          int n = 1;
+          while (n < r2.runes.length && r2.runes[n] == r) {
+            n++;
+          }
+          min += n;
+          if (max != -1) {
+            max += n;
+          }
+          if (n == r2.runes.length) {
+            return leaveEmpty(operand, r1.flags, min, max);
+          }
+          // Partial match: the repeat goes first, remainder of literal string second.
+          Regexp nre = Regexp.repeat(operand, r1.flags, min, max);
+          int[] remainRunes = Arrays.copyOfRange(r2.runes, n, r2.runes.length);
+          Regexp remainder = Regexp.literalString(remainRunes, r2.flags);
+          return new CoalescePair(nre, remainder);
         }
-        min += n;
-        if (max != -1) {
-          max += n;
-        }
-        if (n == r2.runes.length) {
-          return leaveEmpty(operand, r1.flags, min, max);
-        }
-        // Partial match: the repeat goes first, remainder of literal string second.
-        Regexp nre = Regexp.repeat(operand, r1.flags, min, max);
-        int[] remainRunes = Arrays.copyOfRange(r2.runes, n, r2.runes.length);
-        Regexp remainder = Regexp.literalString(remainRunes, r2.flags);
-        return new CoalescePair(nre, remainder);
-      }
       default:
         throw new IllegalArgumentException("Bad r2 op: " + r2.op);
     }
@@ -464,8 +469,7 @@ final class Simplifier {
     @Override
     // Switch mirrors the C++ RE2 simplify structure and is clearer as a statement switch.
     @SuppressWarnings("StatementSwitchToExpressionSwitch")
-    protected Regexp postVisit(
-        Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
       switch (re.op) {
         case NO_MATCH:
         case EMPTY_MATCH:
@@ -484,61 +488,66 @@ final class Simplifier {
           return re;
 
         case CONCAT:
-        case ALTERNATE: {
-          if (!childArgsChanged(re, childArgs)) {
-            return re;
+        case ALTERNATE:
+          {
+            if (!childArgsChanged(re, childArgs)) {
+              return re;
+            }
+            if (re.op == RegexpOp.CONCAT) {
+              return Regexp.concat(childArgs, re.flags);
+            } else {
+              return Regexp.alternate(childArgs, re.flags);
+            }
           }
-          if (re.op == RegexpOp.CONCAT) {
-            return Regexp.concat(childArgs, re.flags);
-          } else {
-            return Regexp.alternate(childArgs, re.flags);
-          }
-        }
 
-        case NON_CAPTURE: {
-          Regexp newsub = childArgs.get(0);
-          if (!isPureEmpty(newsub) || !hasCapture(newsub)) {
-            return newsub;
+        case NON_CAPTURE:
+          {
+            Regexp newsub = childArgs.get(0);
+            if (!isPureEmpty(newsub) || !hasCapture(newsub)) {
+              return newsub;
+            }
+            if (newsub == re.subs.getFirst()) {
+              return re;
+            }
+            return Regexp.nonCapture(newsub, re.flags);
           }
-          if (newsub == re.subs.getFirst()) {
-            return re;
-          }
-          return Regexp.nonCapture(newsub, re.flags);
-        }
 
-        case CAPTURE: {
-          Regexp newsub = childArgs.get(0);
-          if (newsub == re.subs.getFirst()) {
-            return re;
+        case CAPTURE:
+          {
+            Regexp newsub = childArgs.get(0);
+            if (newsub == re.subs.getFirst()) {
+              return re;
+            }
+            return Regexp.capture(newsub, re.flags, re.cap, re.name);
           }
-          return Regexp.capture(newsub, re.flags, re.cap, re.name);
-        }
 
         case STAR:
         case PLUS:
-        case QUEST: {
-          Regexp newsub = childArgs.get(0);
-          // Repeat of empty string is still empty string.
-          if (newsub.op == RegexpOp.EMPTY_MATCH) {
-            return newsub;
+        case QUEST:
+          {
+            Regexp newsub = childArgs.get(0);
+            // Repeat of empty string is still empty string.
+            if (newsub.op == RegexpOp.EMPTY_MATCH) {
+              return newsub;
+            }
+            if (newsub == re.subs.getFirst()) {
+              return re;
+            }
+            // Idempotent squashing: e.g. STAR(STAR(x)) → STAR(x).
+            if (re.op == newsub.op && re.flags == newsub.flags) {
+              return newsub;
+            }
+            return starPlusOrQuest(re.op, newsub, re.flags);
           }
-          if (newsub == re.subs.getFirst()) {
-            return re;
-          }
-          // Idempotent squashing: e.g. STAR(STAR(x)) → STAR(x).
-          if (re.op == newsub.op && re.flags == newsub.flags) {
-            return newsub;
-          }
-          return starPlusOrQuest(re.op, newsub, re.flags);
-        }
 
-        case REPEAT: {
-          Regexp newsub = childArgs.get(0);
-          if (newsub.op == RegexpOp.EMPTY_MATCH) {
-            return newsub;
+        case REPEAT:
+          {
+            Regexp newsub = childArgs.get(0);
+            if (newsub.op == RegexpOp.EMPTY_MATCH) {
+              return newsub;
+            }
+            return simplifyRepeat(newsub, re.min, re.max, re.flags);
           }
-          return simplifyRepeat(newsub, re.min, re.max, re.flags);
-        }
 
         case CHAR_CLASS:
           return simplifyCharClass(re);
@@ -566,8 +575,14 @@ final class Simplifier {
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
       switch (node.op) {
-        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-             NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {}
+        case EMPTY_MATCH,
+            BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            END_TEXT,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY,
+            GRAPHEME_CLUSTER_BOUNDARY -> {}
         case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
         case CONCAT -> {
           for (Regexp sub : node.subs) {
@@ -673,8 +688,10 @@ final class Simplifier {
   private static boolean isFull(CharClass cc) {
     // A "full" class covers [0, 0xD7FF] and [0xE000, 0x10FFFF] (skipping surrogates).
     if (cc.numRanges() == 2
-        && cc.lo(0) == 0 && cc.hi(0) == Utils.MIN_SURROGATE - 1
-        && cc.lo(1) == Utils.MAX_SURROGATE + 1 && cc.hi(1) == Utils.MAX_RUNE) {
+        && cc.lo(0) == 0
+        && cc.hi(0) == Utils.MIN_SURROGATE - 1
+        && cc.lo(1) == Utils.MAX_SURROGATE + 1
+        && cc.hi(1) == Utils.MAX_RUNE) {
       return true;
     }
     // Or possibly one range [0, 0x10FFFF] if surrogates are included.
@@ -687,14 +704,13 @@ final class Simplifier {
   /**
    * Simplifies the expression {@code re{min,max}} in terms of STAR, PLUS, QUEST, and CONCAT.
    *
-   * <p>For empty-width ops (or concatenations/alternations of them), the repetition count is
-   * capped at 1.
+   * <p>For empty-width ops (or concatenations/alternations of them), the repetition count is capped
+   * at 1.
    */
   private static Regexp simplifyRepeat(Regexp re, int min, int max, int flags) {
     // Cap repetition of empty-width ops at 1.
     if (isEmptyOp(re)
-        || ((re.op == RegexpOp.CONCAT || re.op == RegexpOp.ALTERNATE)
-            && allEmptyOp(re))) {
+        || ((re.op == RegexpOp.CONCAT || re.op == RegexpOp.ALTERNATE) && allEmptyOp(re))) {
       min = Math.min(min, 1);
       max = Math.min(max, 1);
     }
@@ -742,8 +758,7 @@ final class Simplifier {
     if (max > min) {
       Regexp suf = starPlusOrQuest(RegexpOp.QUEST, re, flags);
       for (int i = min + 1; i < max; i++) {
-        suf = starPlusOrQuest(RegexpOp.QUEST,
-            Regexp.concat(List.of(re, suf), flags), flags);
+        suf = starPlusOrQuest(RegexpOp.QUEST, Regexp.concat(List.of(re, suf), flags), flags);
       }
       if (nre == null) {
         nre = suf;

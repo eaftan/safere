@@ -63,8 +63,7 @@ final class UnicodeProperties {
           // Unicode White_Space = Character.isWhitespace() ∪ Character.isSpaceChar().
           // isWhitespace() covers HT, LF, VT, FF, CR, SP, NEL, etc. but NOT NBSP.
           // isSpaceChar() covers Zs, Zl, Zp categories (includes NBSP).
-          entry(
-              "White_Space", cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp)),
+          entry("White_Space", cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp)),
           entry("Digit", Character::isDigit),
           entry(
               "Hex_Digit",
@@ -215,21 +214,50 @@ final class UnicodeProperties {
    */
   static int[][] lookupCategory(String name) {
     return switch (name) {
-      case "L", "M", "N", "P", "S", "Z", "C",
-          "Lu", "Ll", "Lt", "Lm", "Lo",
-          "Mn", "Me", "Mc",
-          "Nd", "Nl", "No",
-          "Zs", "Zl", "Zp",
-          "Cc", "Cf", "Co", "Cs",
-          "Pd", "Ps", "Pe", "Pc", "Po", "Pi", "Pf",
-          "Sm", "Sc", "Sk", "So" -> UnicodeTables.UNICODE_GROUPS.get(name);
+      case "L",
+          "M",
+          "N",
+          "P",
+          "S",
+          "Z",
+          "C",
+          "Lu",
+          "Ll",
+          "Lt",
+          "Lm",
+          "Lo",
+          "Mn",
+          "Me",
+          "Mc",
+          "Nd",
+          "Nl",
+          "No",
+          "Zs",
+          "Zl",
+          "Zp",
+          "Cc",
+          "Cf",
+          "Co",
+          "Cs",
+          "Pd",
+          "Ps",
+          "Pe",
+          "Pc",
+          "Po",
+          "Pi",
+          "Pf",
+          "Sm",
+          "Sc",
+          "Sk",
+          "So" ->
+          UnicodeTables.UNICODE_GROUPS.get(name);
       default -> null;
     };
   }
 
   /**
-   * Case-insensitive lookup of a script or category name in {@link
-   * UnicodeTables#UNICODE_GROUPS}. Spaces and hyphens are normalized to underscores.
+   * Case-insensitive lookup of a script or category name in {@link UnicodeTables#UNICODE_GROUPS}.
+   * Spaces and hyphens are normalized to underscores.
    *
    * @return the range table, or {@code null} if not found
    */

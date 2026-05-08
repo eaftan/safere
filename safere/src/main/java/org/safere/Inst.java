@@ -33,8 +33,8 @@ final class Inst {
   public InstOp op;
 
   /**
-   * Cached {@code op.ordinal()} for use in hot-loop switches, avoiding the overhead of
-   * {@code Enum.ordinal()} and the synthetic switch-map array lookup on every iteration.
+   * Cached {@code op.ordinal()} for use in hot-loop switches, avoiding the overhead of {@code
+   * Enum.ordinal()} and the synthetic switch-map array lookup on every iteration.
    */
   public int opCode;
 
@@ -66,8 +66,7 @@ final class Inst {
   public int hi;
 
   /**
-   * Whether this character range match is case-insensitive. Only used by {@link
-   * InstOp#CHAR_RANGE}.
+   * Whether this character range match is case-insensitive. Only used by {@link InstOp#CHAR_RANGE}.
    */
   public boolean foldCase;
 
@@ -84,8 +83,8 @@ final class Inst {
   public long bitmap0;
 
   /**
-   * ASCII bitmap for {@link InstOp#CHAR_CLASS}: bit {@code (i - 64)} is set if code point
-   * {@code i} matches at least one range. Covers code points 64–127.
+   * ASCII bitmap for {@link InstOp#CHAR_CLASS}: bit {@code (i - 64)} is set if code point {@code i}
+   * matches at least one range. Covers code points 64–127.
    */
   public long bitmap1;
 
@@ -153,16 +152,18 @@ final class Inst {
    * Initializes as a PROGRESS_CHECK instruction with the given loop register index.
    *
    * <p>This instruction has two successors and a greediness flag:
+   *
    * <ul>
    *   <li>{@code out}: body entry (the loop body)
    *   <li>{@code out1}: loop exit (patched to whatever follows the repetition)
    * </ul>
    *
    * <p>Behavior:
+   *
    * <ul>
    *   <li><b>First visit</b> (saved == -1): saves position, follows both successors like ALT
-   *   <li><b>Progress</b> (pos != saved): saves position, follows both successors like ALT
-   *       (greedy → prefer body; non-greedy → prefer exit)
+   *   <li><b>Progress</b> (pos != saved): saves position, follows both successors like ALT (greedy
+   *       → prefer body; non-greedy → prefer exit)
    *   <li><b>Zero-width</b> (pos == saved): follows only exit (terminates the loop)
    * </ul>
    *
@@ -212,8 +213,8 @@ final class Inst {
   }
 
   /**
-   * Returns true if the given code point matches this CHAR_CLASS instruction. Uses the
-   * precomputed ASCII bitmap for code points 0–127, falls back to binary search for non-ASCII.
+   * Returns true if the given code point matches this CHAR_CLASS instruction. Uses the precomputed
+   * ASCII bitmap for code points 0–127, falls back to binary search for non-ASCII.
    */
   public boolean matchesCharClass(int cp) {
     if (cp < 64) {
@@ -301,16 +302,16 @@ final class Inst {
       case ALT -> String.format("alt -> %d | %d", out, out1);
       case ALT_MATCH -> String.format("altmatch -> %d | %d", out, out1);
       case CHAR_RANGE ->
-          String.format(
-              "char [0x%X-0x%X]%s -> %d", lo, hi, foldCase ? "/i" : "", out);
+          String.format("char [0x%X-0x%X]%s -> %d", lo, hi, foldCase ? "/i" : "", out);
       case CAPTURE -> String.format("capture %d -> %d", arg, out);
       case EMPTY_WIDTH -> String.format("empty 0x%X -> %d", arg, out);
       case MATCH -> String.format("match %d", arg);
       case NOP -> String.format("nop -> %d", out);
       case FAIL -> "fail";
-      case PROGRESS_CHECK -> String.format(
-          "progress_check reg=%d body=%d exit=%d %s", arg, out, out1,
-          foldCase ? "non-greedy" : "greedy");
+      case PROGRESS_CHECK ->
+          String.format(
+              "progress_check reg=%d body=%d exit=%d %s",
+              arg, out, out1, foldCase ? "non-greedy" : "greedy");
       case CHAR_CLASS -> {
         StringBuilder sb = new StringBuilder("charclass [");
         for (int i = 0; i < ranges.length; i += 2) {
