@@ -246,6 +246,35 @@ class JdkSyntaxCompatibilityTest {
       assertThat(Pattern.compile(regex).matcher(input).matches()).isEqualTo(expected);
     }
 
+    static Stream<Arguments> leadingCountedRepeats() {
+      return Stream.of(
+          Arguments.of("{1}", 0, ""),
+          Arguments.of("{1,3}", 0, ""),
+          Arguments.of("{1,}$", Pattern.CASE_INSENSITIVE | Pattern.COMMENTS
+              | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS, "abc"),
+          Arguments.of("{1,3}$", Pattern.CASE_INSENSITIVE | Pattern.COMMENTS
+              | Pattern.UNICODE_CASE | Pattern.UNICODE_CHARACTER_CLASS, "abc"),
+          Arguments.of("a|{1,3}", 0, ""),
+          Arguments.of("({1,3})", 0, ""),
+          Arguments.of("^{1,3}", 0, ""));
+    }
+
+    @ParameterizedTest(name = "/{0}/ flags={1} matches \"{2}\"")
+    @MethodSource("leadingCountedRepeats")
+    @DisplayName("leading counted repeats apply to the empty expression like JDK")
+    void leadingCountedRepeatsApplyToEmptyExpressionLikeJdk(
+        String regex, int flags, String input) {
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex, flags);
+      Pattern safeRePattern = Pattern.compile(regex, flags);
+
+      assertThat(safeRePattern.matcher(input).find())
+          .as("SafeRE find() result for /%s/ flags=%d on \"%s\"", regex, flags, input)
+          .isEqualTo(jdkPattern.matcher(input).find());
+      assertThat(safeRePattern.matcher(input).matches())
+          .as("SafeRE matches() result for /%s/ flags=%d on \"%s\"", regex, flags, input)
+          .isEqualTo(jdkPattern.matcher(input).matches());
+    }
+
     static Stream<Arguments> acceptedSyntaxFamilies() {
       return Stream.of(
           Arguments.of(new SyntaxFamilyCase("literal characters", "abc", "abc", "ab")),

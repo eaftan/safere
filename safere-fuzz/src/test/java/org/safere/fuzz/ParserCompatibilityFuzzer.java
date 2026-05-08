@@ -52,6 +52,17 @@ final class ParserCompatibilityFuzzer {
       {"", "", "|", "?", "??", "*", "*?", "+", "+?", "{0}", "{1,3}",
           "{1}", "??{1,3}", "?{1,3}", "*{1,3}", "+{1,3}", "{1,3}{1,3}"};
   private static final String[] SUFFIXES = {"", "$", "?", "*", "+", "{2}", "{1,3}"};
+  private static final String[] LEADING_COUNTED_REPEATS = {
+      "{0}",
+      "{1}",
+      "{1,3}",
+      "{1,}",
+      "{1,3}?",
+      "{1,3}$",
+      "^{1,3}",
+      "a|{1,3}",
+      "({1,3})"
+  };
   private static final String[] COMMENT_TERMINATED_PREFIXES = {
       "a#\0",
       "a#\n",
@@ -91,6 +102,8 @@ final class ParserCompatibilityFuzzer {
       flags |= org.safere.Pattern.COMMENTS;
       regex = data.pickValue(COMMENT_TERMINATED_PREFIXES)
           + data.pickValue(MALFORMED_GROUP_SUFFIXES);
+    } else if (data.consumeBoolean()) {
+      regex = data.pickValue(PREFIXES) + data.pickValue(LEADING_COUNTED_REPEATS);
     } else {
       regex = data.pickValue(PREFIXES)
           + data.pickValue(ATOMS)

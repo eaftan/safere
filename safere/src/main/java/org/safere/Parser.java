@@ -718,8 +718,7 @@ final class Parser {
   private void pushRepetition(int min, int max, String opstr, boolean nongreedy) {
     validateRepeatCount(min, max, opstr);
     if (stacktop == null || isMarker(stacktop)) {
-      throw new PatternSyntaxException(
-          "missing argument to repetition operator", pattern, pos - opstr.length());
+      pushRegexp(Regexp.emptyMatch(flags));
     }
 
     int fl = flags;
