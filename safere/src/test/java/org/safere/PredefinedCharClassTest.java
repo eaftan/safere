@@ -471,6 +471,31 @@ class PredefinedCharClassTest {
       Pattern p = Pattern.compile("\\h+", Pattern.DOTALL);
       assertThat(p.matcher("\t ").matches()).isTrue();
     }
+
+    @Test
+    @DisplayName("\\h and \\H compile under Unicode character class flags")
+    void horizontalWhitespaceCompilesWithUnicodeCharacterClassFlags() {
+      Pattern h = Pattern.compile("\\h", Pattern.UNIX_LINES | Pattern.UNICODE_CHARACTER_CLASS);
+      Pattern bigH =
+          Pattern.compile("\\H", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+
+      assertThat(h.matcher("\t").matches()).isTrue();
+      assertThat(h.matcher("\n").matches()).isFalse();
+      assertThat(bigH.matcher("a").matches()).isTrue();
+      assertThat(bigH.matcher(" ").matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\v and \\V compile under Unicode character class flags")
+    void verticalWhitespaceCompilesWithUnicodeCharacterClassFlags() {
+      Pattern v = Pattern.compile("\\v", Pattern.UNICODE_CHARACTER_CLASS);
+      Pattern bigV = Pattern.compile("\\V", Pattern.UNICODE_CHARACTER_CLASS);
+
+      assertThat(v.matcher("\n").matches()).isTrue();
+      assertThat(v.matcher(" ").matches()).isFalse();
+      assertThat(bigV.matcher("a").matches()).isTrue();
+      assertThat(bigV.matcher("\r").matches()).isFalse();
+    }
   }
 
   @Nested

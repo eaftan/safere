@@ -794,8 +794,8 @@ final class UnicodeTables {
   // ---------------------------------------------------------------------------
   //
   // These define Unicode-aware \d, \s, \w for use when the UNICODE_CHARACTER_CLASS
-  // flag is enabled. They parallel PERL_GROUPS but use Unicode properties instead
-  // of ASCII-only ranges.
+  // flag is enabled. \h and \v are fixed JDK-defined sets, so they remain the same
+  // as in PERL_GROUPS.
 
   /**
    * Unicode {@code \d}: Unicode category Nd (Number, Decimal Digit). JDK maps {@code \d} under
@@ -860,7 +860,12 @@ final class UnicodeTables {
             JOIN_CONTROL);
 
     static final Map<String, int[][]> UNICODE_PERL_GROUPS =
-        Map.of("\\d", unicodeDigit(), "\\s", unicodeSpace(), "\\w", UNICODE_WORD);
+        Map.of(
+            "\\d", unicodeDigit(),
+            "\\s", unicodeSpace(),
+            "\\w", UNICODE_WORD,
+            "\\h", HORIZ_SPACE,
+            "\\v", VERT_SPACE);
   }
 
   /**

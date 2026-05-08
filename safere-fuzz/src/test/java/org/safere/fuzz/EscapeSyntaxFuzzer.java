@@ -26,6 +26,10 @@ final class EscapeSyntaxFuzzer {
       "\\u{41}",
       "\\x41",
       "\\x{41}",
+      "\\h",
+      "\\H",
+      "\\v",
+      "\\V",
       "\\e",
       "\\cA",
       "\\ca",
@@ -71,7 +75,11 @@ final class EscapeSyntaxFuzzer {
       "\\400",
       "\\777",
       "\\123",
-      "(a)\\12"
+      "(a)\\12",
+      "\\h",
+      "\\H",
+      "\\v",
+      "\\V"
   };
 
   @FuzzTest(maxDuration = "30s")
