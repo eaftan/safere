@@ -1088,6 +1088,13 @@ public final class Matcher implements MatchResult {
       if (idx < 0) {
         if (!prog.anchorStart()) {
           this.lastEngineHitEnd = true;
+        } else {
+          int remainingLen = text.length() - searchFrom;
+          if (remainingLen < literal.length()
+              && text.regionMatches(
+                  parentPattern.prefixFoldCase(), searchFrom, literal, 0, remainingLen)) {
+            this.lastEngineHitEnd = true;
+          }
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1098,8 +1105,6 @@ public final class Matcher implements MatchResult {
     if (options.charClassMatchFastPaths() && singleCharClassRanges != null) {
       return singleCharClassFindFastPath(singleCharClassRanges, searchFrom);
     }
-
-    Prog prog = parentPattern.prog();
 
     Pattern.KeywordAlternation keywordAlternation = parentPattern.keywordAlternation();
     if (options.keywordAlternationFastPath() && !regionActive && keywordAlternation != null) {
@@ -1158,6 +1163,13 @@ public final class Matcher implements MatchResult {
       if (idx < 0) {
         if (!prog.anchorStart()) {
           this.lastEngineHitEnd = true;
+        } else {
+          int remainingLen = text.length() - searchFrom;
+          if (remainingLen < prefix.length()
+              && text.regionMatches(
+                  parentPattern.prefixFoldCase(), searchFrom, prefix, 0, remainingLen)) {
+            this.lastEngineHitEnd = true;
+          }
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1173,6 +1185,10 @@ public final class Matcher implements MatchResult {
       if (idx < 0) {
         if (!prog.anchorStart()) {
           this.lastEngineHitEnd = true;
+        } else {
+          if (searchFrom == text.length()) {
+            this.lastEngineHitEnd = true;
+          }
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1185,6 +1201,10 @@ public final class Matcher implements MatchResult {
       if (idx < 0) {
         if (!prog.anchorStart()) {
           this.lastEngineHitEnd = true;
+        } else {
+          if (searchFrom == text.length()) {
+            this.lastEngineHitEnd = true;
+          }
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1330,9 +1350,7 @@ public final class Matcher implements MatchResult {
     } else {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
-        if (!prog.anchorStart()) {
-          this.lastEngineHitEnd = true;
-        }
+        this.lastEngineHitEnd = fwdResult.hitEnd();
         return applyEngineResult(new NoMatchResult());
       }
     }
