@@ -179,6 +179,29 @@ class JavaCharacterClassesTest {
   }
 
   @Test
+  @DisplayName("Single java character class find matches one code point at a time")
+  void singleJavaCharacterClassFindMatchesOneCodePoint() {
+    var safe = Pattern.compile("\\p{javaLetter}");
+    var jdk = java.util.regex.Pattern.compile("\\p{javaLetter}");
+    String text = "1a\uD835\uDD18_";
+
+    Matcher safeMatcher = safe.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdk.matcher(text);
+
+    assertThat(safeMatcher.find()).isEqualTo(jdkMatcher.find());
+    assertThat(safeMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safeMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safeMatcher.group()).isEqualTo(jdkMatcher.group());
+
+    assertThat(safeMatcher.find()).isEqualTo(jdkMatcher.find());
+    assertThat(safeMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safeMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safeMatcher.group()).isEqualTo(jdkMatcher.group());
+
+    assertThat(safeMatcher.find()).isEqualTo(jdkMatcher.find());
+  }
+
+  @Test
   @DisplayName("Caret negation in java character class names is rejected")
   void caretNegationRejected() {
     assertThatThrownBy(() -> Pattern.compile("\\p{^javaLowerCase}+"))
