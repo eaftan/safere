@@ -25,6 +25,16 @@ final class UnicodeFuzzer {
           "\u1100\u1161",
           "\uAC00\u11A8",
           "\u0600a");
+  private static final List<String> NEGATED_CLASS_REGEXES =
+      List.of("\\S", "\\D", "\\W", "[^a]", "\\P{javaWhitespace}");
+  private static final List<Integer> NEGATED_CLASS_FLAGS =
+      List.of(
+          0,
+          org.safere.Pattern.CASE_INSENSITIVE,
+          org.safere.Pattern.CASE_INSENSITIVE | org.safere.Pattern.UNICODE_CASE,
+          org.safere.Pattern.UNICODE_CHARACTER_CLASS);
+  private static final List<String> UNPAIRED_SURROGATE_INPUTS =
+      List.of("\ud998", "\ude00", "\n".repeat(34) + "\ud998" + "a".repeat(41));
 
   @FuzzTest(maxDuration = "30s")
   void unicode(FuzzedDataProvider data) {
@@ -33,6 +43,19 @@ final class UnicodeFuzzer {
       FuzzSupport.MatcherPair matcher = graphemePattern.matcher(input);
       while (matcher.find()) {
         // Continue through the sequence so group boundaries are compared at every cluster.
+      }
+    }
+    for (String regex : NEGATED_CLASS_REGEXES) {
+      for (int flags : NEGATED_CLASS_FLAGS) {
+        FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
+        for (String input : UNPAIRED_SURROGATE_INPUTS) {
+          FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+          matcher.find();
+          matcher.reset();
+          matcher.matches();
+          matcher.reset();
+          matcher.lookingAt();
+        }
       }
     }
 

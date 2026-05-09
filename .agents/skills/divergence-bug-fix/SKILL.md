@@ -39,6 +39,14 @@ add or preserve tests, docs, or fuzz coverage when useful.
      - `Matcher`: https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html
    - Determine whether the specification supports SafeRE's behavior, the JDK's behavior, both, or
      neither. Quote or cite the specific Javadoc rule when it controls the behavior.
+   - Before reading or discussing SafeRE implementation internals, state the spec assessment to the
+     user using only the behavior reported in the bug report or reproducer: what SafeRE did, what
+     the JDK did, which Javadoc rule controls the behavior, and whether SafeRE's reported behavior
+     is spec-compliant. Do not include root-cause or implementation analysis in this assessment.
+   - If SafeRE's reported behavior is not spec-compliant and matching the specification preserves
+     the linear-time guarantee, continue with the bug-fixing workflow. If SafeRE's reported
+     behavior is spec-compliant, or if the assessment is ambiguous, stop and wait for the user
+     before writing tests, inspecting internals, or changing code.
    - If the JDK behavior contradicts the specification, stop before writing tests or code and
      explain that to the user. If the user confirms proceeding, the intended SafeRE outcome is to
      follow the JDK specification, subject to the linear-time guarantee, and document the divergence
