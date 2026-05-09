@@ -2801,4 +2801,26 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("[a-z[A-Z]&&[^aeiouAEIOU]]", "b"); // consonants only
     }
   }
+
+  @Nested
+  @DisplayName("hitEnd() tests")
+  class HitEndTests {
+    @Test
+    @DisplayName("OnePass path hitEnd")
+    void onePassHitEnd() {
+      Pattern p = Pattern.compile("^forts");
+      Matcher m = p.matcher("fort");
+      assertThat(m.find()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("KeywordAlternation path hitEnd")
+    void keywordAlternationHitEnd() {
+      Pattern p = Pattern.compile("(?i)\\b(?:error|warning)\\b");
+      Matcher m = p.matcher("ok");
+      assertThat(m.find()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+    }
+  }
 }

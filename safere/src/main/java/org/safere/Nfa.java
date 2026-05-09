@@ -76,8 +76,10 @@ final class Nfa {
 
   private final Prog prog;
   private final int ncapture;
+
   /** Total thread array size: ncapture slots for captures + numLoopRegs for progress checks. */
   private final int threadArraySize;
+
   private final boolean longest;
   private final boolean endmatch;
   private final int endPos;

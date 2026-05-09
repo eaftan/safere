@@ -371,6 +371,9 @@ final class OnePass {
   // Search
   // -------------------------------------------------------------------------
 
+  @SuppressWarnings("ArrayRecordComponent")
+  record SearchResult(int[] groups, boolean hitEnd) {}
+
   /**
    * Searches for a match in the given text starting at position 0. Convenience overload that
    * delegates to {@link #search(String, int, int, boolean, int)}.
@@ -380,7 +383,7 @@ final class OnePass {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
-  int[] search(String text, boolean endMatch, int nsubmatch) {
+  SearchResult search(String text, boolean endMatch, int nsubmatch) {
     return search(text, 0, text.length(), endMatch, nsubmatch);
   }
 
@@ -400,7 +403,7 @@ final class OnePass {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions relative to {@code text}, or null if no match
    */
-  int[] search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+  SearchResult search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
     int ncap = 2 * Math.max(nsubmatch, 1);
     int[] cap = new int[ncap];
     Arrays.fill(cap, -1);
@@ -502,19 +505,21 @@ final class OnePass {
       }
     }
 
+    boolean hitEnd = (pos == endPos);
+
     if (!matched) {
-      return null;
+      return new SearchResult(null, hitEnd);
     }
     if (endMatch && bestCap[1] != endPos) {
-      return null;
+      return new SearchResult(null, hitEnd);
     }
     if (anchorEnd && bestCap[1] != endPos) {
       // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
       if (!dollarAnchorEnd || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
-        return null;
+        return new SearchResult(null, hitEnd);
       }
     }
-    return bestCap;
+    return new SearchResult(bestCap, hitEnd);
   }
 
   /**
@@ -532,9 +537,9 @@ final class OnePass {
     int textLen = text.length();
     int limit = Math.min(searchLimit, textLen) + 1;
     for (int start = startPos; start < limit; start++) {
-      int[] result = search(text, start, textLen, false, nsubmatch);
-      if (result != null) {
-        return result;
+      SearchResult result = search(text, start, textLen, false, nsubmatch);
+      if (result.groups() != null) {
+        return result.groups();
       }
       // Advance to next code point boundary.
       if (start < textLen) {

@@ -8,8 +8,8 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static safere.google.FakeAssertJ.assertThatNoException;
 
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Nested;
