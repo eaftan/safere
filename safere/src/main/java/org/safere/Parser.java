@@ -2787,6 +2787,12 @@ final class Parser {
   // ---- Group add helpers ----
 
   private void addGroupPositive(CharClassBuilder ccb, int[][] table) {
+    if ((flags & ParseFlags.FOLD_CASE) == 0
+        && (flags & ParseFlags.CLASS_NL) != 0
+        && (flags & ParseFlags.NEVER_NL) == 0) {
+      ccb.addTable(table);
+      return;
+    }
     for (int[] row : table) {
       addRangeFlags(ccb, row[0], row[1], flags);
     }
