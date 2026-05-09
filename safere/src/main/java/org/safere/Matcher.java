@@ -415,6 +415,36 @@ public final class Matcher implements MatchResult {
     return applyEngineResult(new FullMatchResult(new int[] {0, len}));
   }
 
+  /**
+   * Fast path for {@code find()} when the pattern is exactly one character class. Scans code points
+   * directly and returns the first matching code point as group 0.
+   */
+  private boolean singleCharClassFindFastPath(int[] ranges, int fromIndex) {
+    long b0 = parentPattern.singleCharClassBitmap0();
+    long b1 = parentPattern.singleCharClassBitmap1();
+
+    int i = fromIndex;
+    int len = text.length();
+    while (i < len) {
+      int cp = text.codePointAt(i);
+      if (charClassContains(ranges, b0, b1, cp)) {
+        return applyEngineResult(new FullMatchResult(new int[] {i, i + Character.charCount(cp)}));
+      }
+      i += Character.charCount(cp);
+    }
+    return applyEngineResult(new NoMatchResult());
+  }
+
+  private static boolean charClassContains(int[] ranges, long b0, long b1, int cp) {
+    if (cp < 64) {
+      return (b0 & (1L << cp)) != 0;
+    }
+    if (cp < 128) {
+      return (b1 & (1L << (cp - 64))) != 0;
+    }
+    return binarySearchRanges(ranges, cp);
+  }
+
   /** Binary search through sorted [lo, hi] ranges to check if {@code cp} is in any range. */
   private static boolean binarySearchRanges(int[] ranges, int cp) {
     int lo = 0;
@@ -1051,6 +1081,11 @@ public final class Matcher implements MatchResult {
         return applyEngineResult(new NoMatchResult());
       }
       return applyEngineResult(new FullMatchResult(new int[] {idx, idx + literal.length()}));
+    }
+
+    int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
+    if (options.charClassMatchFastPaths() && singleCharClassRanges != null) {
+      return singleCharClassFindFastPath(singleCharClassRanges, searchFrom);
     }
 
     Prog prog = parentPattern.prog();

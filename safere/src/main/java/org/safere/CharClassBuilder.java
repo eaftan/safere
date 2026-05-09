@@ -126,10 +126,28 @@ final class CharClassBuilder {
    * @return this builder, for chaining
    */
   public CharClassBuilder addTable(int[][] table) {
+    if (ranges.isEmpty() && canAppendTableDirectly(table)) {
+      for (int[] row : table) {
+        ranges.add(new Range(row[0], row[1]));
+        nrunes += row[1] - row[0] + 1;
+      }
+      return this;
+    }
     for (int[] row : table) {
       addRange(row[0], row[1]);
     }
     return this;
+  }
+
+  private static boolean canAppendTableDirectly(int[][] table) {
+    int previousHi = -2;
+    for (int[] row : table) {
+      if (row.length != 2 || row[0] > row[1] || row[0] <= (long) previousHi + 1) {
+        return false;
+      }
+      previousHi = row[1];
+    }
+    return true;
   }
 
   /**

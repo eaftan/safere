@@ -131,6 +131,16 @@ public final class Pattern implements Serializable {
   private final transient boolean charClassMatchAllowEmpty;
 
   /**
+   * Precomputed character class data for a pattern that is exactly one character class, such as
+   * {@code \p{javaLetter}}. Non-null when {@code find()} can scan directly for one matching code
+   * point and produce group 0 without invoking the engine cascade.
+   */
+  private final transient int[] singleCharClassRanges;
+
+  private final transient long singleCharClassBitmap0;
+  private final transient long singleCharClassBitmap1;
+
+  /**
    * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
    * flags ({@code canOnePassFind}, {@code canOnePassSubmatch}). Computed on first access to avoid
    * paying the OnePass BFS cost at compile time.
@@ -208,6 +218,9 @@ public final class Pattern implements Serializable {
       long charClassMatchBitmap0,
       long charClassMatchBitmap1,
       boolean charClassMatchAllowEmpty,
+      int[] singleCharClassRanges,
+      long singleCharClassBitmap0,
+      long singleCharClassBitmap1,
       EnginePathOptions enginePathOptions) {
     this.pattern = pattern;
     this.flags = flags;
@@ -232,6 +245,9 @@ public final class Pattern implements Serializable {
     this.charClassMatchBitmap0 = charClassMatchBitmap0;
     this.charClassMatchBitmap1 = charClassMatchBitmap1;
     this.charClassMatchAllowEmpty = charClassMatchAllowEmpty;
+    this.singleCharClassRanges = singleCharClassRanges;
+    this.singleCharClassBitmap0 = singleCharClassBitmap0;
+    this.singleCharClassBitmap1 = singleCharClassBitmap1;
   }
 
   /**
@@ -297,6 +313,7 @@ public final class Pattern implements Serializable {
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
+    CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(
         regex,
@@ -321,6 +338,9 @@ public final class Pattern implements Serializable {
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
         ccMatch != null && ccMatch.allowEmpty,
+        singleCharClass != null ? singleCharClass.ranges : null,
+        singleCharClass != null ? singleCharClass.bitmap0 : 0,
+        singleCharClass != null ? singleCharClass.bitmap1 : 0,
         enginePathOptions);
   }
 
@@ -840,6 +860,23 @@ public final class Pattern implements Serializable {
    */
   boolean charClassMatchAllowEmpty() {
     return charClassMatchAllowEmpty;
+  }
+
+  /**
+   * Returns precomputed ranges when the pattern is exactly one character class, or {@code null}.
+   */
+  int[] singleCharClassRanges() {
+    return singleCharClassRanges;
+  }
+
+  /** ASCII bitmap (code points 0–63) for the single-character-class fast path. */
+  long singleCharClassBitmap0() {
+    return singleCharClassBitmap0;
+  }
+
+  /** ASCII bitmap (code points 64–127) for the single-character-class fast path. */
+  long singleCharClassBitmap1() {
+    return singleCharClassBitmap1;
   }
 
   /**
@@ -1695,6 +1732,19 @@ public final class Pattern implements Serializable {
   @SuppressWarnings("ArrayRecordComponent")
   private record CharClassMatchInfo(int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
 
+  /** Holds precomputed data for scanning one character class. */
+  private static final class CharClassScanInfo {
+    final int[] ranges;
+    final long bitmap0;
+    final long bitmap1;
+
+    CharClassScanInfo(int[] ranges, long bitmap0, long bitmap1) {
+      this.ranges = ranges;
+      this.bitmap0 = bitmap0;
+      this.bitmap1 = bitmap1;
+    }
+  }
+
   /**
    * Detects patterns that are structurally a single character class under a quantifier covering the
    * entire string — e.g., {@code [a-zA-Z]+}, {@code \d*}, {@code \w{1,}}, {@code [0-9]+}. When
@@ -1770,6 +1820,49 @@ public final class Pattern implements Serializable {
       }
     }
     return new CharClassMatchInfo(ranges, b0, b1, allowEmpty);
+  }
+
+  /**
+   * Detects patterns that are exactly one character class, such as {@code [a-z]} or {@code
+   * \p{javaLetter}}. The fast path only produces group 0, so patterns with user capture groups are
+   * excluded.
+   */
+  private static CharClassScanInfo extractSingleCharClass(Regexp re) {
+    Regexp node = re;
+    if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
+      node = node.sub();
+    }
+    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null || hasUserCaptures(re)) {
+      return null;
+    }
+    CharClass cc = node.charClass;
+    if (cc.isEmpty()) {
+      return null;
+    }
+    return buildCharClassScanInfo(cc);
+  }
+
+  private static CharClassScanInfo buildCharClassScanInfo(CharClass cc) {
+    int numRanges = cc.numRanges();
+    int[] ranges = new int[numRanges * 2];
+    long b0 = 0;
+    long b1 = 0;
+    for (int i = 0; i < numRanges; i++) {
+      int lo = cc.lo(i);
+      int hi = cc.hi(i);
+      ranges[i * 2] = lo;
+      ranges[i * 2 + 1] = hi;
+      int start = Math.max(lo, 0);
+      int end = Math.min(hi, 127);
+      for (int cp = start; cp <= end; cp++) {
+        if (cp < 64) {
+          b0 |= 1L << cp;
+        } else {
+          b1 |= 1L << (cp - 64);
+        }
+      }
+    }
+    return new CharClassScanInfo(ranges, b0, b1);
   }
 
   /**

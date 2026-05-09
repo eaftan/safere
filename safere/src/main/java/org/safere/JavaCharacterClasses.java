@@ -8,6 +8,7 @@ package org.safere;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.IntPredicate;
 
 /**
@@ -22,34 +23,65 @@ import java.util.function.IntPredicate;
 final class JavaCharacterClasses {
   private JavaCharacterClasses() {}
 
-  // Lazy holder pattern — tables are computed on first access, then cached.
-  private static final class Holder {
-    static final Map<String, int[][]> JAVA_GROUPS = buildAll();
+  private record JavaClass(String name, IntPredicate predicate) {
+    JavaClass {
+      Objects.requireNonNull(name);
+      Objects.requireNonNull(predicate);
+    }
+  }
 
-    private static Map<String, int[][]> buildAll() {
-      return Map.ofEntries(
-          entry("javaLowerCase", Character::isLowerCase),
-          entry("javaUpperCase", Character::isUpperCase),
-          entry("javaWhitespace", Character::isWhitespace),
-          entry("javaMirrored", Character::isMirrored),
-          entry("javaAlphabetic", Character::isAlphabetic),
-          entry("javaIdeographic", Character::isIdeographic),
-          entry("javaTitleCase", Character::isTitleCase),
-          entry("javaDigit", Character::isDigit),
-          entry("javaDefined", Character::isDefined),
-          entry("javaLetter", Character::isLetter),
-          entry("javaLetterOrDigit", Character::isLetterOrDigit),
-          entry("javaSpaceChar", Character::isSpaceChar),
-          entry("javaISOControl", Character::isISOControl),
-          entry("javaIdentifierIgnorable", Character::isIdentifierIgnorable),
-          entry("javaUnicodeIdentifierStart", Character::isUnicodeIdentifierStart),
-          entry("javaUnicodeIdentifierPart", Character::isUnicodeIdentifierPart),
-          entry("javaJavaIdentifierStart", cp -> Character.isJavaIdentifierStart(cp)),
-          entry("javaJavaIdentifierPart", cp -> Character.isJavaIdentifierPart(cp)));
+  private static final class LazyTable {
+    private final IntPredicate predicate;
+    private volatile int[][] ranges;
+
+    LazyTable(IntPredicate predicate) {
+      this.predicate = predicate;
     }
 
-    private static Map.Entry<String, int[][]> entry(String name, IntPredicate predicate) {
-      return Map.entry(name, buildRanges(predicate));
+    int[][] ranges() {
+      int[][] result = ranges;
+      if (result == null) {
+        synchronized (this) {
+          result = ranges;
+          if (result == null) {
+            result = buildRanges(predicate);
+            ranges = result;
+          }
+        }
+      }
+      return result;
+    }
+  }
+
+  // Lazy holder pattern — the name index is computed on first access, and each range table is
+  // computed only when that specific java character class is requested.
+  private static final class Holder {
+    static final Map<String, LazyTable> JAVA_GROUPS = buildIndex();
+
+    private static Map<String, LazyTable> buildIndex() {
+      return Map.ofEntries(
+          entry(new JavaClass("javaLowerCase", Character::isLowerCase)),
+          entry(new JavaClass("javaUpperCase", Character::isUpperCase)),
+          entry(new JavaClass("javaWhitespace", Character::isWhitespace)),
+          entry(new JavaClass("javaMirrored", Character::isMirrored)),
+          entry(new JavaClass("javaAlphabetic", Character::isAlphabetic)),
+          entry(new JavaClass("javaIdeographic", Character::isIdeographic)),
+          entry(new JavaClass("javaTitleCase", Character::isTitleCase)),
+          entry(new JavaClass("javaDigit", Character::isDigit)),
+          entry(new JavaClass("javaDefined", Character::isDefined)),
+          entry(new JavaClass("javaLetter", Character::isLetter)),
+          entry(new JavaClass("javaLetterOrDigit", Character::isLetterOrDigit)),
+          entry(new JavaClass("javaSpaceChar", Character::isSpaceChar)),
+          entry(new JavaClass("javaISOControl", Character::isISOControl)),
+          entry(new JavaClass("javaIdentifierIgnorable", Character::isIdentifierIgnorable)),
+          entry(new JavaClass("javaUnicodeIdentifierStart", Character::isUnicodeIdentifierStart)),
+          entry(new JavaClass("javaUnicodeIdentifierPart", Character::isUnicodeIdentifierPart)),
+          entry(new JavaClass("javaJavaIdentifierStart", Character::isJavaIdentifierStart)),
+          entry(new JavaClass("javaJavaIdentifierPart", Character::isJavaIdentifierPart)));
+    }
+
+    private static Map.Entry<String, LazyTable> entry(JavaClass javaClass) {
+      return Map.entry(javaClass.name(), new LazyTable(javaClass.predicate()));
     }
   }
 
@@ -61,7 +93,8 @@ final class JavaCharacterClasses {
     if (!name.startsWith("java")) {
       return null;
     }
-    return Holder.JAVA_GROUPS.get(name);
+    LazyTable table = Holder.JAVA_GROUPS.get(name);
+    return table == null ? null : table.ranges();
   }
 
   /**
