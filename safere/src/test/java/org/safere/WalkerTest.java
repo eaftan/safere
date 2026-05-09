@@ -85,32 +85,33 @@ class WalkerTest {
   @Test
   void preVisitStop() {
     // A walker that stops at the first LITERAL it sees.
-    Walker<String> w = new Walker<>() {
-      @Override
-      protected String preVisit(Regexp re, String parentArg, boolean[] stop) {
-        if (re.op == RegexpOp.LITERAL) {
-          stop[0] = true;
-          return "found:" + (char) re.rune;
-        }
-        return "";
-      }
+    Walker<String> w =
+        new Walker<>() {
+          @Override
+          protected String preVisit(Regexp re, String parentArg, boolean[] stop) {
+            if (re.op == RegexpOp.LITERAL) {
+              stop[0] = true;
+              return "found:" + (char) re.rune;
+            }
+            return "";
+          }
 
-      @Override
-      protected String postVisit(
-          Regexp re, String parentArg, String preArg, List<String> childArgs) {
-        // Concatenate child results.
-        StringBuilder sb = new StringBuilder();
-        for (String childArg : childArgs) {
-          sb.append(childArg);
-        }
-        return sb.toString();
-      }
+          @Override
+          protected String postVisit(
+              Regexp re, String parentArg, String preArg, List<String> childArgs) {
+            // Concatenate child results.
+            StringBuilder sb = new StringBuilder();
+            for (String childArg : childArgs) {
+              sb.append(childArg);
+            }
+            return sb.toString();
+          }
 
-      @Override
-      protected String shortVisit(Regexp re, String parentArg) {
-        return "";
-      }
-    };
+          @Override
+          protected String shortVisit(Regexp re, String parentArg) {
+            return "";
+          }
+        };
 
     // (a+)* — the walker should find 'a' and stop.
     Regexp re = Parser.parse("(a+)*", FLAGS);

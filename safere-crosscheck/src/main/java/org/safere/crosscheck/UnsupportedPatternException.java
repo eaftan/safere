@@ -10,8 +10,8 @@ import java.util.regex.PatternSyntaxException;
  * features that SafeRE intentionally does not support (backreferences, lookahead, lookbehind,
  * possessive quantifiers) because they violate linear-time guarantees.
  *
- * <p>This exception extends {@link PatternSyntaxException} so callers that catch
- * {@code PatternSyntaxException} will handle it naturally.
+ * <p>This exception extends {@link PatternSyntaxException} so callers that catch {@code
+ * PatternSyntaxException} will handle it naturally.
  */
 public class UnsupportedPatternException extends PatternSyntaxException {
 
@@ -35,10 +35,12 @@ public class UnsupportedPatternException extends PatternSyntaxException {
    * @return a new {@code UnsupportedPatternException}
    */
   public static UnsupportedPatternException fromCause(PatternSyntaxException cause) {
-    UnsupportedPatternException ex = new UnsupportedPatternException(
-        "SafeRE does not support this pattern (linear-time constraint): " + cause.getDescription(),
-        cause.getPattern(),
-        cause.getIndex());
+    UnsupportedPatternException ex =
+        new UnsupportedPatternException(
+            "SafeRE does not support this pattern (linear-time constraint): "
+                + cause.getDescription(),
+            cause.getPattern(),
+            cause.getIndex());
     ex.initCause(cause);
     return ex;
   }

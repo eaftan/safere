@@ -35,8 +35,7 @@ final class Re2Shim {
     String libPath = System.getProperty("re2shim.library.path");
     SymbolLookup lookup;
     if (libPath != null) {
-      lookup =
-          SymbolLookup.libraryLookup(Path.of(libPath, "libre2_shim.so"), Arena.global());
+      lookup = SymbolLookup.libraryLookup(Path.of(libPath, "libre2_shim.so"), Arena.global());
     } else {
       // Fall back to system library path
       System.loadLibrary("re2_shim");
@@ -49,21 +48,18 @@ final class Re2Shim {
     COMPILE =
         linker.downcallHandle(
             lookup.find("re2_compile").orElseThrow(),
-            FunctionDescriptor.of(
-                ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
     // re2_pattern_t* re2_compile_case_insensitive(const char* pattern, int pattern_len)
     COMPILE_CASE_INSENSITIVE =
         linker.downcallHandle(
             lookup.find("re2_compile_case_insensitive").orElseThrow(),
-            FunctionDescriptor.of(
-                ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
     // void re2_free(re2_pattern_t* p)
     FREE =
         linker.downcallHandle(
-            lookup.find("re2_free").orElseThrow(),
-            FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+            lookup.find("re2_free").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
 
     // bool re2_ok(const re2_pattern_t* p)
     OK =

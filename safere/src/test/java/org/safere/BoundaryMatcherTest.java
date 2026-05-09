@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for boundary matcher constructs: {@code \b}, {@code \B}, {@code \A}, {@code \z},
- * {@code \Z}, {@code \G}, and {@code \b{g}}.
+ * Tests for boundary matcher constructs: {@code \b}, {@code \B}, {@code \A}, {@code \z}, {@code
+ * \Z}, {@code \G}, and {@code \b{g}}.
  *
  * <p>Covers issue #112 (boundary matchers section).
  */
@@ -330,7 +330,7 @@ class BoundaryMatcherTest {
       Matcher m = Pattern.compile("(?:$|\\b)").matcher(" a");
       List<int[]> matches = new ArrayList<>();
       while (m.find()) {
-        matches.add(new int[]{m.start(), m.end()});
+        matches.add(new int[] {m.start(), m.end()});
       }
 
       assertThat(matches).hasSize(2);

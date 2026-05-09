@@ -277,7 +277,6 @@ class MatcherTest {
             assertThat(m.group(4)).endsWith("C");
           });
     }
-
   }
 
   @Nested
@@ -379,8 +378,7 @@ class MatcherTest {
     void findWithNegativeStart() {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(() -> m.find(-1))
-          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.find(-1)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -388,8 +386,7 @@ class MatcherTest {
     void findWithStartPastEnd() {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(() -> m.find(4))
-          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.find(4)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -591,13 +588,14 @@ class MatcherTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-      "(bcd|abcde)",
-      "(.+?X|bc)",
-      "(?:a{1,3})?a{3}",
-      "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
-      "(?i)\\b(error|warning|timeout|failed)\\b"
-    })
+    @ValueSource(
+        strings = {
+          "(bcd|abcde)",
+          "(.+?X|bc)",
+          "(?:a{1,3})?a{3}",
+          "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "(?i)\\b(error|warning|timeout|failed)\\b"
+        })
     @DisplayName("find() fallback paths match JDK for unreliable DFA-start patterns")
     void findFallbackMatchesJdkForUnreliableDfaStartPatterns(String regex) {
       String text =
@@ -624,13 +622,14 @@ class MatcherTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-      "(bcd|abcde)",
-      "(.+?X|bc)",
-      "(?:a{1,3})?a{3}",
-      "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
-      "(?i)\\b(error|warning|timeout|failed)\\b"
-    })
+    @ValueSource(
+        strings = {
+          "(bcd|abcde)",
+          "(.+?X|bc)",
+          "(?:a{1,3})?a{3}",
+          "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+          "(?i)\\b(error|warning|timeout|failed)\\b"
+        })
     @DisplayName("find() returns false for no-match unreliable DFA-start patterns")
     void findFallbackNoMatchForUnreliableDfaStartPatterns(String regex) {
       Matcher m = Pattern.compile(regex).matcher("plain text without the target shape");
@@ -673,8 +672,7 @@ class MatcherTest {
       Pattern p = Pattern.compile("(?<first>\\w+)");
       Matcher m = p.matcher("hello");
       m.find();
-      assertThatThrownBy(() -> m.group("unknown"))
-          .isInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> m.group("unknown")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -709,8 +707,7 @@ class MatcherTest {
       Pattern p = Pattern.compile("(?<word>\\w+)");
       Matcher m = p.matcher("hello");
       m.find();
-      assertThatThrownBy(() -> m.start("missing"))
-          .isInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> m.start("missing")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -719,8 +716,7 @@ class MatcherTest {
       Pattern p = Pattern.compile("(?<word>\\w+)");
       Matcher m = p.matcher("hello");
       m.find();
-      assertThatThrownBy(() -> m.end("missing"))
-          .isInstanceOf(IllegalArgumentException.class);
+      assertThatThrownBy(() -> m.end("missing")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -880,8 +876,7 @@ class MatcherTest {
     void startNoMatch() {
       Pattern p = Pattern.compile("x");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(m::start)
-          .isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(m::start).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -889,8 +884,7 @@ class MatcherTest {
     void groupNoMatch() {
       Pattern p = Pattern.compile("x");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(m::group)
-          .isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(m::group).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -898,8 +892,7 @@ class MatcherTest {
     void endNoMatch() {
       Pattern p = Pattern.compile("x");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(m::end)
-          .isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(m::end).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -908,8 +901,7 @@ class MatcherTest {
       Pattern p = Pattern.compile("(a)");
       Matcher m = p.matcher("a");
       m.find();
-      assertThatThrownBy(() -> m.start(2))
-          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.start(2)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -918,8 +910,7 @@ class MatcherTest {
       Pattern p = Pattern.compile("(a)");
       Matcher m = p.matcher("a");
       m.find();
-      assertThatThrownBy(() -> m.start(-1))
-          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.start(-1)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -928,8 +919,7 @@ class MatcherTest {
       Pattern p = Pattern.compile("(a)");
       Matcher m = p.matcher("a");
       m.find();
-      assertThatThrownBy(() -> m.end(2))
-          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.end(2)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -942,7 +932,6 @@ class MatcherTest {
       assertThat(m.find()).isTrue();
       assertThat(m.group(2)).isEqualTo("world");
     }
-
   }
 
   @Nested
@@ -955,8 +944,7 @@ class MatcherTest {
       assertThat(Matcher.quoteReplacement("hello")).isEqualTo("hello");
       assertThat(Matcher.quoteReplacement("$1")).isEqualTo("\\$1");
       assertThat(Matcher.quoteReplacement("a\\b")).isEqualTo("a\\\\b");
-      assertThat(Matcher.quoteReplacement("$foo\\bar$"))
-          .isEqualTo("\\$foo\\\\bar\\$");
+      assertThat(Matcher.quoteReplacement("$foo\\bar$")).isEqualTo("\\$foo\\\\bar\\$");
       assertThat(Matcher.quoteReplacement("")).isEqualTo("");
     }
 
@@ -965,8 +953,7 @@ class MatcherTest {
     void quoteReplacementInReplace() {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("a1b2c3");
-      assertThat(m.replaceAll(Matcher.quoteReplacement("$0")))
-          .isEqualTo("a$0b$0c$0");
+      assertThat(m.replaceAll(Matcher.quoteReplacement("$0"))).isEqualTo("a$0b$0c$0");
     }
 
     @Test
@@ -1029,8 +1016,8 @@ class MatcherTest {
         String replacement = tc[2];
         assertThat(Pattern.compile(pattern).matcher(input).replaceAll(replacement))
             .as("replaceAll(%s) for /%s/ on %s", replacement, pattern, input)
-            .isEqualTo(java.util.regex.Pattern.compile(pattern).matcher(input)
-                .replaceAll(replacement));
+            .isEqualTo(
+                java.util.regex.Pattern.compile(pattern).matcher(input).replaceAll(replacement));
       }
     }
 
@@ -1227,7 +1214,6 @@ class MatcherTest {
       // $1 didn't participate (null), should be replaced with empty string
       assertThat(m.replaceFirst("[$1][$2]")).isEqualTo("[][b]");
     }
-
   }
 
   @Nested
@@ -1325,16 +1311,10 @@ class MatcherTest {
     void toStringReportsMatcherState() {
       Matcher m = Pattern.compile("a").matcher("ba");
 
-      assertThat(m.toString())
-          .contains("pattern=a")
-          .contains("region=0,2")
-          .contains("lastmatch=");
+      assertThat(m.toString()).contains("pattern=a").contains("region=0,2").contains("lastmatch=");
 
       assertThat(m.find()).isTrue();
-      assertThat(m.toString())
-          .contains("pattern=a")
-          .contains("region=0,2")
-          .contains("lastmatch=a");
+      assertThat(m.toString()).contains("pattern=a").contains("region=0,2").contains("lastmatch=a");
     }
 
     @Test
@@ -1356,12 +1336,35 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("toMatchResult() throws when no match")
-    void toMatchResultNoMatch() {
+    @DisplayName("toMatchResult() before a match defers failures to result access")
+    void toMatchResultBeforeMatchDefersFailuresToResultAccess() {
+      Pattern p = Pattern.compile("(?<letter>x)(y)?");
+      Matcher m = p.matcher("abc");
+
+      MatchResult result = m.toMatchResult();
+
+      assertThat(result.groupCount()).isEqualTo(2);
+      assertThat(result.namedGroups()).containsEntry("letter", 1);
+      assertThatThrownBy(result::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(result::end).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(result::group).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(() -> result.start(1)).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(() -> result.start(99)).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(() -> result.group("letter")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("toMatchResult() after a failed match defers failures to result access")
+    void toMatchResultAfterFailedMatchDefersFailuresToResultAccess() {
       Pattern p = Pattern.compile("x");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(m::toMatchResult)
-          .isInstanceOf(IllegalStateException.class);
+      assertThat(m.find()).isFalse();
+
+      MatchResult result = m.toMatchResult();
+
+      assertThat(result.groupCount()).isZero();
+      assertThatThrownBy(result::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(result::group).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -1388,7 +1391,6 @@ class MatcherTest {
       assertThat(m.find()).isTrue();
       assertThat(m.group(1)).isEqualTo("789");
     }
-
   }
 
   @Nested
@@ -1419,7 +1421,6 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(3); // 'a'=0, smiley=1,2, 'b'=3
       assertThat(m.end()).isEqualTo(4);
     }
-
   }
 
   @Nested
@@ -1441,7 +1442,6 @@ class MatcherTest {
       assertThat(m.group(2)).isEqualTo("def");
       assertThat(m.find()).isFalse();
     }
-
   }
 
   @Nested
@@ -1706,12 +1706,9 @@ class MatcherTest {
     void regionInvalidBoundsThrows() {
       Pattern p = Pattern.compile("a");
       Matcher m = p.matcher("abc");
-      assertThatThrownBy(() -> m.region(-1, 3))
-          .isInstanceOf(IndexOutOfBoundsException.class);
-      assertThatThrownBy(() -> m.region(0, 4))
-          .isInstanceOf(IndexOutOfBoundsException.class);
-      assertThatThrownBy(() -> m.region(3, 1))
-          .isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.region(-1, 3)).isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.region(0, 4)).isInstanceOf(IndexOutOfBoundsException.class);
+      assertThatThrownBy(() -> m.region(3, 1)).isInstanceOf(IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -2113,9 +2110,9 @@ class MatcherTest {
   }
 
   /**
-   * Tests for the OnePass fast path with alternation patterns. The anchored OnePass fast path
-   * now handles non-nullable alternation (e.g., GET|POST) directly, skipping the DFA sandwich.
-   * Nullable alternation (zero-width vs consuming branches) still falls through to DFA+BitState.
+   * Tests for the OnePass fast path with alternation patterns. The anchored OnePass fast path now
+   * handles non-nullable alternation (e.g., GET|POST) directly, skipping the DFA sandwich. Nullable
+   * alternation (zero-width vs consuming branches) still falls through to DFA+BitState.
    */
   @Nested
   @DisplayName("OnePass alternation fast path")
@@ -2125,13 +2122,18 @@ class MatcherTest {
     @DisplayName("HTTP pattern — anchored with non-nullable alternation uses OnePass")
     void httpPatternFullRequest() {
       Pattern p = Pattern.compile("^(?:GET|POST) +([^ ]+) HTTP");
-      Matcher m = p.matcher(
-          "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1");
+      Matcher m =
+          p.matcher(
+              "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka"
+                  + " HTTP/1.1");
       assertThat(m.find()).isTrue();
-      assertThat(m.group(0)).isEqualTo(
-          "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP");
-      assertThat(m.group(1)).isEqualTo(
-          "/asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka");
+      assertThat(m.group(0))
+          .isEqualTo(
+              "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka"
+                  + " HTTP");
+      assertThat(m.group(1))
+          .isEqualTo(
+              "/asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka");
     }
 
     @Test
@@ -2463,11 +2465,12 @@ class MatcherTest {
       String regex = "(".repeat(10_000) + "a" + ")".repeat(10_000) + "*$";
 
       assertThatNoException()
-          .isThrownBy(() -> {
-            Matcher matcher = Pattern.compile(regex).matcher("a");
-            assertThat(matcher.find()).isTrue();
-            assertThat(matcher.hitEnd()).isTrue();
-          });
+          .isThrownBy(
+              () -> {
+                Matcher matcher = Pattern.compile(regex).matcher("a");
+                assertThat(matcher.find()).isTrue();
+                assertThat(matcher.hitEnd()).isTrue();
+              });
     }
   }
 
@@ -2612,9 +2615,7 @@ class MatcherTest {
   @Test
   @DisplayName("find() with empty branch before complex char class")
   void findEmptyBranchBeforeComplexCharClass() {
-    Matcher m =
-        Pattern.compile("|[\u0166&\u00bfA&&?;]+&?\udb7d\udda6+];]+&?&\u00e9v")
-            .matcher("");
+    Matcher m = Pattern.compile("|[\u0166&\u00bfA&&?;]+&?\udb7d\udda6+];]+&?&\u00e9v").matcher("");
 
     assertThat(m.find()).isTrue();
     assertThat(m.group()).isEmpty();
@@ -2649,8 +2650,9 @@ class MatcherTest {
     long nearMinimumNanos = runtimeNanos(() -> scenario.accept(5));
 
     assertThat(nearMinimumNanos)
-        .as("%s near-minimum input should not be dramatically slower than a larger "
-            + "positive input; near=%d ns, larger=%d ns",
+        .as(
+            "%s near-minimum input should not be dramatically slower than a larger "
+                + "positive input; near=%d ns, larger=%d ns",
             api, nearMinimumNanos, largerPositiveNanos)
         .isLessThan(largerPositiveNanos * 50);
   }
@@ -2736,9 +2738,7 @@ class MatcherTest {
     assertThat(safere.find()).as("find() for /%s/ on %s", regex, input).isEqualTo(jdk.find());
     assertThat(safere.start()).as("start() for /%s/ on %s", regex, input).isEqualTo(jdk.start());
     assertThat(safere.end()).as("end() for /%s/ on %s", regex, input).isEqualTo(jdk.end());
-    assertThat(safere.hitEnd())
-        .as("hitEnd() for /%s/ on %s", regex, input)
-        .isEqualTo(jdk.hitEnd());
+    assertThat(safere.hitEnd()).as("hitEnd() for /%s/ on %s", regex, input).isEqualTo(jdk.hitEnd());
     assertThat(safere.requireEnd())
         .as("requireEnd() for /%s/ on %s", regex, input)
         .isEqualTo(jdk.requireEnd());

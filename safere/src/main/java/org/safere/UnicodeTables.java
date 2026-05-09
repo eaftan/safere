@@ -16,8 +16,8 @@ import java.util.function.IntPredicate;
  * Unicode character data tables for the SafeRE regular expression library.
  *
  * <p>This class contains Perl character classes, POSIX character classes, case folding data, and
- * provides access to Unicode script and category groups. Category and script tables are generated at
- * runtime from the JDK's {@link Character} implementation (see {@link UnicodeGroups}), so they
+ * provides access to Unicode script and category groups. Category and script tables are generated
+ * at runtime from the JDK's {@link Character} implementation (see {@link UnicodeGroups}), so they
  * always match the JVM's Unicode version. Case folding data and ASCII Perl/POSIX classes are static
  * tables ported from RE2's {@code unicode_casefold.cc} and {@code perl_groups.cc}.
  *
@@ -44,8 +44,15 @@ final class UnicodeTables {
 
   // JDK horizontal whitespace (\h): [ \t\xA0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]
   public static final int[][] HORIZ_SPACE = {
-    {0x09, 0x09}, {0x20, 0x20}, {0xA0, 0xA0}, {0x1680, 0x1680}, {0x180E, 0x180E},
-    {0x2000, 0x200A}, {0x202F, 0x202F}, {0x205F, 0x205F}, {0x3000, 0x3000},
+    {0x09, 0x09},
+    {0x20, 0x20},
+    {0xA0, 0xA0},
+    {0x1680, 0x1680},
+    {0x180E, 0x180E},
+    {0x2000, 0x200A},
+    {0x202F, 0x202F},
+    {0x205F, 0x205F},
+    {0x3000, 0x3000},
   };
 
   // JDK vertical whitespace (\v): [\n\x0B\f\r\x85\u2028\u2029]
@@ -72,30 +79,34 @@ final class UnicodeTables {
   public static final int[][] POSIX_GRAPH = {{0x21, 0x7E}};
   public static final int[][] POSIX_LOWER = {{0x61, 0x7A}};
   public static final int[][] POSIX_PRINT = {{0x20, 0x7E}};
-  public static final int[][] POSIX_PUNCT = {{0x21, 0x2F}, {0x3A, 0x40}, {0x5B, 0x60}, {0x7B, 0x7E}};
+  public static final int[][] POSIX_PUNCT = {
+    {0x21, 0x2F}, {0x3A, 0x40}, {0x5B, 0x60}, {0x7B, 0x7E}
+  };
   public static final int[][] POSIX_SPACE = {{0x09, 0x0D}, {0x20, 0x20}};
   public static final int[][] POSIX_UPPER = {{0x41, 0x5A}};
   public static final int[][] POSIX_XDIGIT = {{0x30, 0x39}, {0x41, 0x46}, {0x61, 0x66}};
 
   /**
    * POSIX character class names for use with the {@code \p{...}} property syntax (e.g., {@code
-   * \p{Lower}}). These are the 13 POSIX classes defined in the JDK's {@code java.util.regex.Pattern}
-   * documentation. In the default (non-UNICODE_CHARACTER_CLASS) mode, they match ASCII-only ranges.
+   * \p{Lower}}). These are the 13 POSIX classes defined in the JDK's {@code
+   * java.util.regex.Pattern} documentation. In the default (non-UNICODE_CHARACTER_CLASS) mode, they
+   * match ASCII-only ranges.
    */
-  public static final Map<String, int[][]> POSIX_PROPERTY_GROUPS = Map.ofEntries(
-      Map.entry("Lower", POSIX_LOWER),
-      Map.entry("Upper", POSIX_UPPER),
-      Map.entry("ASCII", POSIX_ASCII),
-      Map.entry("Alpha", POSIX_ALPHA),
-      Map.entry("Digit", POSIX_DIGIT),
-      Map.entry("Alnum", POSIX_ALNUM),
-      Map.entry("Punct", POSIX_PUNCT),
-      Map.entry("Graph", POSIX_GRAPH),
-      Map.entry("Print", POSIX_PRINT),
-      Map.entry("Blank", POSIX_BLANK),
-      Map.entry("Cntrl", POSIX_CNTRL),
-      Map.entry("XDigit", POSIX_XDIGIT),
-      Map.entry("Space", POSIX_SPACE));
+  public static final Map<String, int[][]> POSIX_PROPERTY_GROUPS =
+      Map.ofEntries(
+          Map.entry("Lower", POSIX_LOWER),
+          Map.entry("Upper", POSIX_UPPER),
+          Map.entry("ASCII", POSIX_ASCII),
+          Map.entry("Alpha", POSIX_ALPHA),
+          Map.entry("Digit", POSIX_DIGIT),
+          Map.entry("Alnum", POSIX_ALNUM),
+          Map.entry("Punct", POSIX_PUNCT),
+          Map.entry("Graph", POSIX_GRAPH),
+          Map.entry("Print", POSIX_PRINT),
+          Map.entry("Blank", POSIX_BLANK),
+          Map.entry("Cntrl", POSIX_CNTRL),
+          Map.entry("XDigit", POSIX_XDIGIT),
+          Map.entry("Space", POSIX_SPACE));
 
   private static final class UnicodePosixHolder {
     static final int[][] UNICODE_ALPHA = UnicodeProperties.lookupBinaryProperty("Alphabetic");
@@ -128,7 +139,6 @@ final class UnicodeTables {
             Map.entry("Cntrl", UNICODE_CNTRL),
             Map.entry("XDigit", UNICODE_XDIGIT),
             Map.entry("Space", unicodeSpace()));
-
   }
 
   static Map<String, int[][]> unicodePosixPropertyGroups() {
@@ -785,17 +795,15 @@ final class UnicodeTables {
   // Unicode script and category groups — generated at runtime from the JDK's Character
   // implementation. See UnicodeGroups for details.
 
-
   public static final Map<String, int[][]> UNICODE_GROUPS = UnicodeGroups.groups();
-
 
   // ---------------------------------------------------------------------------
   // Unicode Perl character classes (for UNICODE_CHARACTER_CLASS flag)
   // ---------------------------------------------------------------------------
   //
   // These define Unicode-aware \d, \s, \w for use when the UNICODE_CHARACTER_CLASS
-  // flag is enabled. They parallel PERL_GROUPS but use Unicode properties instead
-  // of ASCII-only ranges.
+  // flag is enabled. \h and \v are fixed JDK-defined sets, so they remain the same
+  // as in PERL_GROUPS.
 
   /**
    * Unicode {@code \d}: Unicode category Nd (Number, Decimal Digit). JDK maps {@code \d} under
@@ -837,9 +845,9 @@ final class UnicodeTables {
    * Join_Control. JDK defines {@code \w} under UNICODE_CHARACTER_CLASS as {@code
    * [\p{Alpha}\p{gc=Mn}\p{gc=Me}\p{gc=Mc}\p{Digit}\p{gc=Pc}\p{IsJoin_Control}]}.
    *
-   * <p>Built by merging the runtime-generated L (Letter), M (Mark), Nd (Decimal Number), Nl
-   * (Letter Number), Pc (Connector Punctuation) tables, plus the two Join_Control characters
-   * (U+200C, U+200D).
+   * <p>Built by merging the runtime-generated L (Letter), M (Mark), Nd (Decimal Number), Nl (Letter
+   * Number), Pc (Connector Punctuation) tables, plus the two Join_Control characters (U+200C,
+   * U+200D).
    */
   public static int[][] unicodeWord() {
     return UnicodePerlHolder.UNICODE_WORD;
@@ -860,7 +868,12 @@ final class UnicodeTables {
             JOIN_CONTROL);
 
     static final Map<String, int[][]> UNICODE_PERL_GROUPS =
-        Map.of("\\d", unicodeDigit(), "\\s", unicodeSpace(), "\\w", UNICODE_WORD);
+        Map.of(
+            "\\d", unicodeDigit(),
+            "\\s", unicodeSpace(),
+            "\\w", UNICODE_WORD,
+            "\\h", HORIZ_SPACE,
+            "\\v", VERT_SPACE);
   }
 
   /**

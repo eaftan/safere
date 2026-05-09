@@ -24,9 +24,9 @@ class PredefinedCharClassTest {
 
   // --- Horizontal whitespace code points (JDK definition of \h) ---
   private static final int[] HORIZ_SPACE_CODEPOINTS = {
-    0x09,   // CHARACTER TABULATION (tab)
-    0x20,   // SPACE
-    0xA0,   // NO-BREAK SPACE
+    0x09, // CHARACTER TABULATION (tab)
+    0x20, // SPACE
+    0xA0, // NO-BREAK SPACE
     0x1680, // OGHAM SPACE MARK
     0x180E, // MONGOLIAN VOWEL SEPARATOR
     0x2000, // EN QUAD
@@ -72,9 +72,7 @@ class PredefinedCharClassTest {
       for (int cp : HORIZ_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\h should match U+%04X", cp)
-            .isTrue();
+        assertThat(m.matches()).as("\\h should match U+%04X", cp).isTrue();
       }
     }
 
@@ -85,9 +83,7 @@ class PredefinedCharClassTest {
       for (int cp : VERT_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\h should not match U+%04X", cp)
-            .isFalse();
+        assertThat(m.matches()).as("\\h should not match U+%04X", cp).isFalse();
       }
     }
 
@@ -98,9 +94,7 @@ class PredefinedCharClassTest {
       for (int cp : NON_WHITESPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\h should not match U+%04X", cp)
-            .isFalse();
+        assertThat(m.matches()).as("\\h should not match U+%04X", cp).isFalse();
       }
     }
 
@@ -137,9 +131,7 @@ class PredefinedCharClassTest {
       for (int cp : HORIZ_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\H should not match U+%04X", cp)
-            .isFalse();
+        assertThat(m.matches()).as("\\H should not match U+%04X", cp).isFalse();
       }
     }
 
@@ -150,9 +142,7 @@ class PredefinedCharClassTest {
       for (int cp : VERT_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\H should match U+%04X", cp)
-            .isTrue();
+        assertThat(m.matches()).as("\\H should match U+%04X", cp).isTrue();
       }
     }
 
@@ -163,9 +153,7 @@ class PredefinedCharClassTest {
       for (int cp : NON_WHITESPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\H should match U+%04X", cp)
-            .isTrue();
+        assertThat(m.matches()).as("\\H should match U+%04X", cp).isTrue();
       }
     }
 
@@ -193,9 +181,7 @@ class PredefinedCharClassTest {
       for (int cp : VERT_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\v should match U+%04X", cp)
-            .isTrue();
+        assertThat(m.matches()).as("\\v should match U+%04X", cp).isTrue();
       }
     }
 
@@ -206,9 +192,7 @@ class PredefinedCharClassTest {
       for (int cp : HORIZ_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\v should not match U+%04X", cp)
-            .isFalse();
+        assertThat(m.matches()).as("\\v should not match U+%04X", cp).isFalse();
       }
     }
 
@@ -219,9 +203,7 @@ class PredefinedCharClassTest {
       for (int cp : NON_WHITESPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\v should not match U+%04X", cp)
-            .isFalse();
+        assertThat(m.matches()).as("\\v should not match U+%04X", cp).isFalse();
       }
     }
 
@@ -267,9 +249,7 @@ class PredefinedCharClassTest {
       for (int cp : VERT_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\V should not match U+%04X", cp)
-            .isFalse();
+        assertThat(m.matches()).as("\\V should not match U+%04X", cp).isFalse();
       }
     }
 
@@ -280,9 +260,7 @@ class PredefinedCharClassTest {
       for (int cp : HORIZ_SPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\V should match U+%04X", cp)
-            .isTrue();
+        assertThat(m.matches()).as("\\V should match U+%04X", cp).isTrue();
       }
     }
 
@@ -293,9 +271,7 @@ class PredefinedCharClassTest {
       for (int cp : NON_WHITESPACE_CODEPOINTS) {
         String s = new String(Character.toChars(cp));
         Matcher m = p.matcher(s);
-        assertThat(m.matches())
-            .as("\\V should match U+%04X", cp)
-            .isTrue();
+        assertThat(m.matches()).as("\\V should match U+%04X", cp).isTrue();
       }
     }
 
@@ -470,6 +446,31 @@ class PredefinedCharClassTest {
     void dotall() {
       Pattern p = Pattern.compile("\\h+", Pattern.DOTALL);
       assertThat(p.matcher("\t ").matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("\\h and \\H compile under Unicode character class flags")
+    void horizontalWhitespaceCompilesWithUnicodeCharacterClassFlags() {
+      Pattern h = Pattern.compile("\\h", Pattern.UNIX_LINES | Pattern.UNICODE_CHARACTER_CLASS);
+      Pattern bigH =
+          Pattern.compile("\\H", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS);
+
+      assertThat(h.matcher("\t").matches()).isTrue();
+      assertThat(h.matcher("\n").matches()).isFalse();
+      assertThat(bigH.matcher("a").matches()).isTrue();
+      assertThat(bigH.matcher(" ").matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\v and \\V compile under Unicode character class flags")
+    void verticalWhitespaceCompilesWithUnicodeCharacterClassFlags() {
+      Pattern v = Pattern.compile("\\v", Pattern.UNICODE_CHARACTER_CLASS);
+      Pattern bigV = Pattern.compile("\\V", Pattern.UNICODE_CHARACTER_CLASS);
+
+      assertThat(v.matcher("\n").matches()).isTrue();
+      assertThat(v.matcher(" ").matches()).isFalse();
+      assertThat(bigV.matcher("a").matches()).isTrue();
+      assertThat(bigV.matcher("\r").matches()).isFalse();
     }
   }
 

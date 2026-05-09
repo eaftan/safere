@@ -32,8 +32,7 @@ class LicenseHeaderTest {
   // Extended header (6 lines) — files that also incorporate code from RE2/J.
   private static final String RE2J_LINE_3 =
       "// Portions derived from RE2/J (https://github.com/google/re2j),";
-  private static final String RE2J_LINE_4 =
-      "// Copyright (c) 2009 The Go Authors.";
+  private static final String RE2J_LINE_4 = "// Copyright (c) 2009 The Go Authors.";
   private static final String RE2J_LINE_5 =
       "// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.";
   private static final String RE2J_LINE_6 =

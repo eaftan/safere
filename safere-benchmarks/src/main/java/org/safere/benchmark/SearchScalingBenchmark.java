@@ -15,7 +15,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
 
 /**
  * Benchmarks for searching through large text, ported from RE2 C++ {@code regexp_benchmark.cc}.

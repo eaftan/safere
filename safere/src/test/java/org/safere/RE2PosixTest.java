@@ -25,8 +25,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests parsed from AT&amp;T POSIX regex test data files: {@code basic.dat},
- * {@code nullsubexpr.dat}, and {@code repetition.dat}.
+ * Tests parsed from AT&amp;T POSIX regex test data files: {@code basic.dat}, {@code
+ * nullsubexpr.dat}, and {@code repetition.dat}.
  *
  * <p>Each test line has the format: {@code FLAGS PATTERN TEXT EXPECTED [GROUPS...]}, where:
  *
@@ -57,8 +57,7 @@ class RE2PosixTest {
     @Override
     public String toString() {
       return String.format(
-          "%s:%d pat=\"%s\" text=\"%s\" match=%b",
-          file, lineNum, pattern, text, expectMatch);
+          "%s:%d pat=\"%s\" text=\"%s\" match=%b", file, lineNum, pattern, text, expectMatch);
     }
   }
 
@@ -69,10 +68,22 @@ class RE2PosixTest {
       if (s.charAt(i) == '\\' && i + 1 < s.length()) {
         char next = s.charAt(i + 1);
         switch (next) {
-          case 'n' -> { sb.append('\n'); i++; }
-          case 't' -> { sb.append('\t'); i++; }
-          case 'r' -> { sb.append('\r'); i++; }
-          case '\\' -> { sb.append('\\'); i++; }
+          case 'n' -> {
+            sb.append('\n');
+            i++;
+          }
+          case 't' -> {
+            sb.append('\t');
+            i++;
+          }
+          case 'r' -> {
+            sb.append('\r');
+            i++;
+          }
+          case '\\' -> {
+            sb.append('\\');
+            i++;
+          }
           case 'x' -> {
             if (i + 3 < s.length()) {
               sb.append((char) Integer.parseInt(s.substring(i + 2, i + 4), 16));
@@ -125,8 +136,8 @@ class RE2PosixTest {
     }
 
     String currentPattern = null;
-    try (BufferedReader reader = new BufferedReader(
-        new InputStreamReader(is, StandardCharsets.UTF_8))) {
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
       String line;
       int lineNum = 0;
       while ((line = reader.readLine()) != null) {
@@ -209,9 +220,12 @@ class RE2PosixTest {
         }
 
         // Handle some special expected values
-        if (expected.equals("BADBR") || expected.equals("ECOLLATE")
-            || expected.equals("EBRACK") || expected.equals("EPAREN")
-            || expected.equals("ERANGE") || expected.equals("BADRPT")) {
+        if (expected.equals("BADBR")
+            || expected.equals("ECOLLATE")
+            || expected.equals("EBRACK")
+            || expected.equals("EPAREN")
+            || expected.equals("ERANGE")
+            || expected.equals("BADRPT")) {
           // Expect compilation error — skip, SafeRE may handle differently
           continue;
         }
@@ -287,8 +301,8 @@ class RE2PosixTest {
 
   /**
    * Check if a pattern has a known behavioral difference from POSIX/RE2 expected results. SafeRE
-   * uses leftmost-first semantics (like RE2/Go), not POSIX leftmost-longest. Patterns like
-   * {@code (a|ab|c|bcd)*} where POSIX picks longer alternates are skipped by design.
+   * uses leftmost-first semantics (like RE2/Go), not POSIX leftmost-longest. Patterns like {@code
+   * (a|ab|c|bcd)*} where POSIX picks longer alternates are skipped by design.
    */
   private static boolean hasKnownDifference(String pattern) {
     // POSIX leftmost-longest patterns: (a|ab|c|bcd) where alternates are prefixes
@@ -323,11 +337,9 @@ class RE2PosixTest {
 
     if (found && tc.expectMatch()) {
       // Skip detailed verification for patterns with known SafeRE differences
-      boolean knownDifference =
-          hasKnownDifference(tc.pattern());
+      boolean knownDifference = hasKnownDifference(tc.pattern());
       Assumptions.assumeFalse(
-          knownDifference,
-          "SafeRE bug: pattern has known behavioral difference from POSIX/RE2");
+          knownDifference, "SafeRE bug: pattern has known behavioral difference from POSIX/RE2");
 
       // Check if SafeRE's result matches JDK; if so, skip when RE2 expects something different.
       // This handles intentional divergence from RE2 POSIX (e.g., zero-width loop termination).
@@ -387,9 +399,7 @@ class RE2PosixTest {
     }
   }
 
-  /**
-   * Returns true if SafeRE's match result matches JDK's behavior for the same pattern and text.
-   */
+  /** Returns true if SafeRE's match result matches JDK's behavior for the same pattern and text. */
   private static boolean matchesJdk(PosixTestCase tc, Matcher safereM, int flags) {
     try {
       int jdkFlags = 0;

@@ -83,8 +83,12 @@ final class Dfa {
   private static final class State {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
-    /** Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable. */
+
+    /**
+     * Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable.
+     */
     final int[] wordBoundaryMatchIds;
+
     /** Transitions indexed by equivalence class; null entry = not yet computed. */
     final State[] next;
 
@@ -154,6 +158,7 @@ final class Dfa {
 
   /** Pre-allocated visited generation array for {@link #expand}, reused across calls. */
   private final int[] expandVisitedGen;
+
   private int expandGeneration;
 
   /**
@@ -174,9 +179,9 @@ final class Dfa {
   /**
    * Cache of DFA start states indexed by position context. The start state depends on four factors:
    * whether the search is anchored, whether it's a reverse context, the empty-width flags at the
-   * position, and whether the previous character was a word
-   * character. This gives at most 2 × 2 × 1024 × 2 × 2 combinations. Caching avoids the expensive
-   * {@link #expand} call and its {@code Arrays.copyOf} allocation on every DFA search.
+   * position, and whether the previous character was a word character. This gives at most 2 × 2 ×
+   * 1024 × 2 × 2 combinations. Caching avoids the expensive {@link #expand} call and its {@code
+   * Arrays.copyOf} allocation on every DFA search.
    */
   private final State[] startStateByContext;
 
@@ -188,9 +193,9 @@ final class Dfa {
   // ---------------------------------------------------------------------------
 
   /**
-   * Pre-computed immutable DFA setup: equivalence class boundaries and ASCII lookup table. These are
-   * derived solely from the compiled {@link Prog} and can be shared across all DFA instances for the
-   * same program (e.g., across multiple {@link org.safere.Matcher} instances).
+   * Pre-computed immutable DFA setup: equivalence class boundaries and ASCII lookup table. These
+   * are derived solely from the compiled {@link Prog} and can be shared across all DFA instances
+   * for the same program (e.g., across multiple {@link org.safere.Matcher} instances).
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
@@ -215,8 +220,7 @@ final class Dfa {
         hasGraphemeClusterBoundary
             ? EmptyOp.ALL_FLAGS
             : EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-    this.startCacheEmptyFlagsMask =
-        hasGraphemeClusterBoundary ? EmptyOp.ALL_FLAGS : 0x7F;
+    this.startCacheEmptyFlagsMask = hasGraphemeClusterBoundary ? EmptyOp.ALL_FLAGS : 0x7F;
     this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
     this.anchoredCacheBit = reverseCacheBit << 1;
     this.startStateByContext = new State[anchoredCacheBit << 1];
@@ -264,9 +268,7 @@ final class Dfa {
         if ((inst.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY)) != 0) {
           hasWordBoundary = true;
         }
-        if ((inst.arg
-                & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY))
-            != 0) {
+        if ((inst.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY)) != 0) {
           hasWordBoundary = true;
         }
         if ((inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
@@ -278,10 +280,10 @@ final class Dfa {
       // Line terminator characters trigger BEGIN_LINE (at the position after them) and
       // END_LINE (at their position). Give each its own equivalence class so the DFA can
       // cache different transitions for line terminators vs other characters.
-      bounds.add(0x0A);   // '\n'
-      bounds.add(0x0B);   // '\n' + 1
-      bounds.add(0x0D);   // '\r'
-      bounds.add(0x0E);   // '\r' + 1
+      bounds.add(0x0A); // '\n'
+      bounds.add(0x0B); // '\n' + 1
+      bounds.add(0x0D); // '\r'
+      bounds.add(0x0E); // '\r' + 1
       // Additional JDK line terminators: \u0085, \u2028, \u2029
       bounds.add(0x0085); // NEXT LINE
       bounds.add(0x0086); // NEXT LINE + 1
@@ -290,14 +292,14 @@ final class Dfa {
     }
     if (hasWordBoundary) {
       // Add boundaries at the edges of word-character ranges [0-9A-Za-z_].
-      bounds.add(0x30);   // '0'
-      bounds.add(0x3A);   // '9' + 1
-      bounds.add(0x41);   // 'A'
-      bounds.add(0x5B);   // 'Z' + 1
-      bounds.add(0x5F);   // '_'
-      bounds.add(0x60);   // '_' + 1
-      bounds.add(0x61);   // 'a'
-      bounds.add(0x7B);   // 'z' + 1
+      bounds.add(0x30); // '0'
+      bounds.add(0x3A); // '9' + 1
+      bounds.add(0x41); // 'A'
+      bounds.add(0x5B); // 'Z' + 1
+      bounds.add(0x5F); // '_'
+      bounds.add(0x60); // '_' + 1
+      bounds.add(0x61); // 'a'
+      bounds.add(0x7B); // 'z' + 1
     }
     return bounds.stream().mapToInt(Integer::intValue).toArray();
   }
@@ -311,10 +313,10 @@ final class Dfa {
   }
 
   /**
-   * Adds boundaries for all case-fold equivalents of each code point in [lo, hi]. When a
-   * CHAR_RANGE instruction has the fold-case flag, characters outside [lo, hi] that fold into
-   * the range must have their own equivalence classes so the DFA doesn't conflate them with
-   * non-matching characters in the same class.
+   * Adds boundaries for all case-fold equivalents of each code point in [lo, hi]. When a CHAR_RANGE
+   * instruction has the fold-case flag, characters outside [lo, hi] that fold into the range must
+   * have their own equivalence classes so the DFA doesn't conflate them with non-matching
+   * characters in the same class.
    */
   private static void addCaseFoldBoundaries(NavigableSet<Integer> bounds, int lo, int hi) {
     for (int cp = lo; cp <= hi; cp++) {
@@ -472,8 +474,8 @@ final class Dfa {
   }
 
   /**
-   * Gets or creates a cached state with optional word-boundary match IDs. Returns null if the
-   * state budget is exceeded.
+   * Gets or creates a cached state with optional word-boundary match IDs. Returns null if the state
+   * budget is exceeded.
    */
   private State getOrCreate(int[] insts, int flags, int[] wordBoundaryMatchIds) {
     if (insts.length == 0 && (flags & FLAG_MATCH) == 0) {
@@ -506,16 +508,15 @@ final class Dfa {
   /**
    * Computes the start state with an explicit "last word" override for reverse searches.
    *
-   * @param reverseContext if true, FLAG_LAST_WORD is set based on the character AT pos (the char
-   *     to the right of where a reverse scan begins), rather than the character BEFORE pos
+   * @param reverseContext if true, FLAG_LAST_WORD is set based on the character AT pos (the char to
+   *     the right of where a reverse scan begins), rather than the character BEFORE pos
    */
   private State startState(String text, int pos, boolean anchored, boolean reverseContext) {
     int startInst = anchored ? prog.start() : prog.startUnanchored();
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags =
-        Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeClusterBoundary);
+    int emptyFlags = Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeClusterBoundary);
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
@@ -531,9 +532,12 @@ final class Dfa {
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
     // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
     // start state.
-    int cacheKey = (anchored ? anchoredCacheBit : 0) | (reverseContext ? reverseCacheBit : 0)
-        | ((emptyFlags & startCacheEmptyFlagsMask) << 2) | (lastWord ? 2 : 0)
-        | (lastUnicodeWord ? 1 : 0);
+    int cacheKey =
+        (anchored ? anchoredCacheBit : 0)
+            | (reverseContext ? reverseCacheBit : 0)
+            | ((emptyFlags & startCacheEmptyFlagsMask) << 2)
+            | (lastWord ? 2 : 0)
+            | (lastUnicodeWord ? 1 : 0);
     State cached = startStateByContext[cacheKey];
     if (cached != null) {
       return cached;
@@ -560,8 +564,8 @@ final class Dfa {
 
   /**
    * Returns the lowest position at which text-length-dependent emptyFlags (END_TEXT or DOLLAR_END)
-   * are active. Transitions whose destination is at or beyond this threshold must bypass the
-   * {@code State.next[]} cache, because the cache is keyed by (state, character-class) which is
+   * are active. Transitions whose destination is at or beyond this threshold must bypass the {@code
+   * State.next[]} cache, because the cache is keyed by (state, character-class) which is
    * position-independent, but END_TEXT/DOLLAR_END depend on the absolute position relative to
    * {@code text.length()}.
    *
@@ -572,8 +576,8 @@ final class Dfa {
    * </ul>
    *
    * <p>For most of the text, transitions are cached normally. Only the last 1–3 character
-   * transitions (near end-of-text) bypass the cache. The end-of-text sentinel ({@code cp < 0})
-   * is always safe to cache because it always represents "at text end".
+   * transitions (near end-of-text) bypass the cache. The end-of-text sentinel ({@code cp < 0}) is
+   * always safe to cache because it always represents "at text end".
    */
   private int positionDependentThreshold(String text) {
     if (hasGraphemeClusterBoundary) {
@@ -593,9 +597,9 @@ final class Dfa {
   }
 
   /**
-   * Returns the start position of the trailing line terminator at the end of text, or
-   * {@code text.length()} if no trailing line terminator exists. This is the earliest position
-   * where non-multiline {@code $} can match before a trailing line terminator.
+   * Returns the start position of the trailing line terminator at the end of text, or {@code
+   * text.length()} if no trailing line terminator exists. This is the earliest position where
+   * non-multiline {@code $} can match before a trailing line terminator.
    */
   private int trailingLineTermStart(String text) {
     int len = text.length();
@@ -626,8 +630,7 @@ final class Dfa {
     // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
       // Compute empty flags for end-of-text, but override word boundary using state context.
-      int emptyFlags =
-          Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
+      int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
       // At end-of-text the "current" character is not a word char.
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
@@ -682,12 +685,13 @@ final class Dfa {
     // reached through these assertions are detected at the correct position.
     boolean isWord = Nfa.isWordChar(cp);
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
-    int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY
-        : EmptyOp.NON_WORD_BOUNDARY;
+    int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
     boolean isUnicodeWord = Nfa.isUnicodeWordChar(cp);
     boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
-    int unicodeWordBeforeFlags = (isUnicodeWord != wasUnicodeWord)
-        ? EmptyOp.UNICODE_WORD_BOUNDARY : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    int unicodeWordBeforeFlags =
+        (isUnicodeWord != wasUnicodeWord)
+            ? EmptyOp.UNICODE_WORD_BOUNDARY
+            : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     boolean endLineHere;
     if (prog.unixLines()) {
       endLineHere = (cp == '\n');
@@ -695,8 +699,7 @@ final class Dfa {
       endLineHere = Nfa.isLineTerminator(cp);
       // Don't fire END_LINE at the \n of an atomic \r\n pair. END_LINE fires before the \r
       // (the start of the pair), not between \r and \n.
-      if (endLineHere && cp == '\n'
-          && nextPos >= 2 && text.charAt(nextPos - 2) == '\r') {
+      if (endLineHere && cp == '\n' && nextPos >= 2 && text.charAt(nextPos - 2) == '\r') {
         endLineHere = false;
       }
     }
@@ -704,9 +707,12 @@ final class Dfa {
     // Collect successors of unsatisfied EMPTY_WIDTH instructions whose deferred flags
     // are now satisfiable and that have no other unsatisfied flags.
     int reExpandCount = 0;
-    int deferredMask = EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
-        | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY
-        | EmptyOp.END_LINE;
+    int deferredMask =
+        EmptyOp.WORD_BOUNDARY
+            | EmptyOp.NON_WORD_BOUNDARY
+            | EmptyOp.UNICODE_WORD_BOUNDARY
+            | EmptyOp.UNICODE_NON_WORD_BOUNDARY
+            | EmptyOp.END_LINE;
     for (int id : s.insts) {
       Inst ip = prog.inst(id);
       if (ip.opCode == InstOp.OP_EMPTY_WIDTH) {
@@ -784,8 +790,10 @@ final class Dfa {
       // return a match state. FLAG_MATCH_BEFORE indicates the match position should be
       // recorded at the current position (before consuming cp), not after.
       if (hasMatchFromDeferred) {
-        return getOrCreate(EMPTY_INSTS,
-            FLAG_MATCH | FLAG_MATCH_BEFORE
+        return getOrCreate(
+            EMPTY_INSTS,
+            FLAG_MATCH
+                | FLAG_MATCH_BEFORE
                 | (isWord ? FLAG_LAST_WORD : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
@@ -797,18 +805,22 @@ final class Dfa {
     // word boundary (depends on the next character) and END_LINE (depends on what's at
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
-    int emptyFlags =
-        Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
-    emptyFlags &= ~(EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
-        | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY
-        | EmptyOp.END_LINE);
+    int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
+    emptyFlags &=
+        ~(EmptyOp.WORD_BOUNDARY
+            | EmptyOp.NON_WORD_BOUNDARY
+            | EmptyOp.UNICODE_WORD_BOUNDARY
+            | EmptyOp.UNICODE_NON_WORD_BOUNDARY
+            | EmptyOp.END_LINE);
 
     int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
 
     if (nextInsts.length == 0) {
       if (hasMatchFromDeferred) {
-        return getOrCreate(EMPTY_INSTS,
-            FLAG_MATCH | FLAG_MATCH_BEFORE
+        return getOrCreate(
+            EMPTY_INSTS,
+            FLAG_MATCH
+                | FLAG_MATCH_BEFORE
                 | (isWord ? FLAG_LAST_WORD : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
@@ -959,7 +971,8 @@ final class Dfa {
 
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
-      if (!needEndMatch || textLen == startPos
+      if (!needEndMatch
+          || textLen == startPos
           || (trailingTermStart < textLen && trailingTermStart == startPos)) {
         matched = true;
         matchEnd = startPos;
@@ -985,7 +998,8 @@ final class Dfa {
           cp = ch;
           nextPos = pos + 1;
           cls = asciiClassMap[ch];
-        } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen
+        } else if (Character.isHighSurrogate(ch)
+            && pos + 1 < textLen
             && Character.isLowSurrogate(text.charAt(pos + 1))) {
           cp = Character.toCodePoint(ch, text.charAt(pos + 1));
           nextPos = pos + 2;
@@ -1036,7 +1050,8 @@ final class Dfa {
         // first (it's at an earlier position, preserving leftmost-first semantics).
         if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
           int endPos = pos;
-          if (!needEndMatch || endPos == textLen
+          if (!needEndMatch
+              || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
@@ -1048,10 +1063,10 @@ final class Dfa {
         // Try the after-consume position: either no before-consume match exists, or it was
         // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
         // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0
-            || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
           int endPos = Math.min(nextPos, textLen);
-          if (!needEndMatch || endPos == textLen
+          if (!needEndMatch
+              || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
@@ -1085,18 +1100,17 @@ final class Dfa {
    * on the entire remaining text, we can narrow the search to just {@code [matchStart, matchEnd]}.
    *
    * @param text the full input text
-   * @param endPos the position to start scanning backward from (exclusive upper bound of the
-   *     match)
+   * @param endPos the position to start scanning backward from (exclusive upper bound of the match)
    * @param startLimit the earliest position to scan back to (inclusive), typically 0 or the
    *     prefix-acceleration start
    * @param anchored if true, the reverse match must start at {@code endPos} (meaning the forward
    *     match ends exactly there)
    * @param longest if true, find the longest reverse match (earliest start position)
-   * @return search result where {@code pos} is the match start position, or {@code null} if the
-   *     DFA exceeded its state budget
+   * @return search result where {@code pos} is the match start position, or {@code null} if the DFA
+   *     exceeded its state budget
    */
-  SearchResult doSearchReverse(String text, int endPos, int startLimit,
-      boolean anchored, boolean longest) {
+  SearchResult doSearchReverse(
+      String text, int endPos, int startLimit, boolean anchored, boolean longest) {
     // The reversed program's "start of text" corresponds to endPos (the right edge of the match
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
     // endPos backward to startLimit, feeding characters in reverse order.
@@ -1143,7 +1157,8 @@ final class Dfa {
           cp = ch;
           prevPos = pos - 1;
           cls = asciiClassMap[ch];
-        } else if (Character.isLowSurrogate(ch) && pos - 2 >= startLimit
+        } else if (Character.isLowSurrogate(ch)
+            && pos - 2 >= startLimit
             && Character.isHighSurrogate(text.charAt(pos - 2))) {
           // Surrogate pair: the low surrogate is at pos-1, high at pos-2.
           cp = Character.toCodePoint(text.charAt(pos - 2), ch);
@@ -1187,8 +1202,7 @@ final class Dfa {
 
       if (s.isMatch()) {
         // For reverse search, FLAG_MATCH_BEFORE means the match happened at pos, not prevPos.
-        int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0
-            ? pos : Math.max(prevPos, startLimit);
+        int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.max(prevPos, startLimit);
         if (!needEndMatch || startPos == startLimit) {
           matched = true;
           matchStart = startPos;
@@ -1256,7 +1270,8 @@ final class Dfa {
 
     // Check if start state is already a match.
     if (s.isMatch()) {
-      if (!needEndMatch || textLen == 0
+      if (!needEndMatch
+          || textLen == 0
           || (trailingTermStart < textLen && trailingTermStart == 0)) {
         for (int id : collectMatchIds(s.insts)) {
           seen.set(id);
@@ -1276,7 +1291,8 @@ final class Dfa {
             cp = ch;
             nextPos = pos + 1;
             cls = asciiClassMap[ch];
-          } else if (Character.isHighSurrogate(ch) && pos + 1 < textLen
+          } else if (Character.isHighSurrogate(ch)
+              && pos + 1 < textLen
               && Character.isLowSurrogate(text.charAt(pos + 1))) {
             cp = Character.toCodePoint(ch, text.charAt(pos + 1));
             nextPos = pos + 2;
@@ -1317,9 +1333,9 @@ final class Dfa {
         }
 
         if (s.isMatch()) {
-          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0
-              ? pos : Math.min(nextPos, textLen);
-          if (!needEndMatch || endPos == textLen
+          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.min(nextPos, textLen);
+          if (!needEndMatch
+              || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             // Collect match IDs from the state's instructions.
             for (int id : collectMatchIds(s.insts)) {

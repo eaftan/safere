@@ -16,11 +16,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Random/fuzz testing of SafeRE against {@code java.util.regex}. Ported from RE2 C++
- * {@code random_test.cc}.
+ * Random/fuzz testing of SafeRE against {@code java.util.regex}. Ported from RE2 C++ {@code
+ * random_test.cc}.
  *
- * <p>Generates random regular expressions and random strings, then verifies that SafeRE and
- * {@code java.util.regex} agree on match/no-match results and matched text. Uses fixed seeds for
+ * <p>Generates random regular expressions and random strings, then verifies that SafeRE and {@code
+ * java.util.regex} agree on match/no-match results and matched text. Uses fixed seeds for
  * reproducibility.
  */
 @DisabledForCrosscheck("random differential fuzzing already compares SafeRE with java.util.regex")
@@ -35,35 +35,30 @@ class RandomTest {
   /** Small egrep-style patterns with literal alphabet. */
   @Test
   void smallEgrepLiterals() {
-    randomTest(5, 5, new String[] {"a", "b", "c", "."},
-        EGREP_OPS, 15, "abc");
+    randomTest(5, 5, new String[] {"a", "b", "c", "."}, EGREP_OPS, 15, "abc");
   }
 
   /** Bigger egrep-style patterns. */
   @Test
   void bigEgrepLiterals() {
-    randomTest(8, 8, new String[] {"a", "b", "c", "."},
-        EGREP_OPS, 15, "abc");
+    randomTest(8, 8, new String[] {"a", "b", "c", "."}, EGREP_OPS, 15, "abc");
   }
 
   /** Patterns with capturing groups. */
   @Test
   void smallEgrepCaptures() {
-    randomTest(5, 5, new String[] {"a", "(b)", "."},
-        EGREP_OPS, 15, "abc");
+    randomTest(5, 5, new String[] {"a", "(b)", "."}, EGREP_OPS, 15, "abc");
   }
 
   /** Complex patterns with character classes, anchors, and quantifiers. */
   @Test
   void complicated() {
     String[] atoms = {
-        ".", "\\d", "\\D", "\\s", "\\S", "\\w", "\\W",
-        "a", "(a)", "b", "c", "-", "\\\\"
+      ".", "\\d", "\\D", "\\s", "\\S", "\\w", "\\W", "a", "(a)", "b", "c", "-", "\\\\"
     };
     String[] ops = {
-        "%s%s", "%s|%s", "%s*", "%s*?", "%s+", "%s+?", "%s?", "%s??",
-        "%s{0}", "%s{0,}", "%s{1}", "%s{1,}", "%s{0,1}", "%s{0,2}",
-        "%s{1,2}", "%s{2}", "%s{2,}", "%s{3,4}"
+      "%s%s", "%s|%s", "%s*", "%s*?", "%s+", "%s+?", "%s?", "%s??", "%s{0}", "%s{0,}", "%s{1}",
+      "%s{1,}", "%s{0,1}", "%s{0,2}", "%s{1,2}", "%s{2}", "%s{2,}", "%s{3,4}"
     };
     randomTest(8, 8, atoms, ops, 20, "abc123\t\n");
   }
@@ -73,15 +68,15 @@ class RandomTest {
   // -----------------------------------------------------------------------
 
   private static final String[] EGREP_OPS = {
-      "%s%s", "%s|%s", "%s*", "%s*?", "%s+", "%s+?", "%s?", "%s??"
+    "%s%s", "%s|%s", "%s*", "%s*?", "%s+", "%s+?", "%s?", "%s??"
   };
 
   // -----------------------------------------------------------------------
   // Core test logic
   // -----------------------------------------------------------------------
 
-  private void randomTest(int maxAtoms, int maxOps, String[] atoms, String[] ops,
-      int maxStrLen, String strAlphabet) {
+  private void randomTest(
+      int maxAtoms, int maxOps, String[] atoms, String[] ops, int maxStrLen, String strAlphabet) {
     Random regexpRng = new Random(REGEXP_SEED);
     Random stringRng = new Random(STRING_SEED);
 
@@ -133,9 +128,10 @@ class RandomTest {
         boolean jdkFound = jdkMatcher.find();
 
         if (safereFound != jdkFound) {
-          failures.add(String.format(
-              "find() disagree: pat=\"%s\" text=\"%s\" safere=%b jdk=%b",
-              escape(pattern), escape(text), safereFound, jdkFound));
+          failures.add(
+              String.format(
+                  "find() disagree: pat=\"%s\" text=\"%s\" safere=%b jdk=%b",
+                  escape(pattern), escape(text), safereFound, jdkFound));
           if (failures.size() >= 50) {
             break;
           }
@@ -146,9 +142,10 @@ class RandomTest {
           String safereGroup = safereMatcher.group();
           String jdkGroup = jdkMatcher.group();
           if (!safereGroup.equals(jdkGroup)) {
-            failures.add(String.format(
-                "find() group disagree: pat=\"%s\" text=\"%s\" safere=\"%s\" jdk=\"%s\"",
-                escape(pattern), escape(text), escape(safereGroup), escape(jdkGroup)));
+            failures.add(
+                String.format(
+                    "find() group disagree: pat=\"%s\" text=\"%s\" safere=\"%s\" jdk=\"%s\"",
+                    escape(pattern), escape(text), escape(safereGroup), escape(jdkGroup)));
             if (failures.size() >= 50) {
               break;
             }
@@ -160,9 +157,10 @@ class RandomTest {
         boolean safereMatches = saferePattern.matcher(text).matches();
         boolean jdkMatches = jdkPattern.matcher(text).matches();
         if (safereMatches != jdkMatches) {
-          failures.add(String.format(
-              "matches() disagree: pat=\"%s\" text=\"%s\" safere=%b jdk=%b",
-              escape(pattern), escape(text), safereMatches, jdkMatches));
+          failures.add(
+              String.format(
+                  "matches() disagree: pat=\"%s\" text=\"%s\" safere=%b jdk=%b",
+                  escape(pattern), escape(text), safereMatches, jdkMatches));
           if (failures.size() >= 50) {
             break;
           }
@@ -195,8 +193,8 @@ class RandomTest {
   // Random regexp generation
   // -----------------------------------------------------------------------
 
-  private static String generateRandomRegexp(Random rng, String[] atoms, String[] ops,
-      int maxAtoms, int maxOps) {
+  private static String generateRandomRegexp(
+      Random rng, String[] atoms, String[] ops, int maxAtoms, int maxOps) {
     int numOps = rng.nextInt(maxOps) + 1;
     // Start with a random atom.
     String expr = atoms[rng.nextInt(atoms.length)];

@@ -51,8 +51,7 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(a){1,2}?)*", "aaa"),
         Arguments.of("((ab)?)*", "abab"),
         Arguments.of("((a?))*", "aa"),
-        Arguments.of(
-            "(.*)+/([a-zA-Z]+)/([^/]+)", "projects/123/locations/test-location/foo/bar"),
+        Arguments.of("(.*)+/([a-zA-Z]+)/([^/]+)", "projects/123/locations/test-location/foo/bar"),
         Arguments.of("(.?)+/([a-z]+)/([^/]+)", "abc/foo/bar"),
         Arguments.of("(.?)+([a-z]+)", "abc"),
         Arguments.of("x(?:(a){1,2})*y", "xaaay"),
@@ -90,28 +89,31 @@ class QuantifiedCaptureSemanticsTest {
 
     cases.add(new GeneratedCase("named repeated capture", "(?:(?<word>a)){1,2}", "aa", "word"));
     cases.add(
-        new GeneratedCase("named nullable repeated capture", "(?:(?<word>a)?){1,2}", "a",
-            "word"));
+        new GeneratedCase("named nullable repeated capture", "(?:(?<word>a)?){1,2}", "a", "word"));
     cases.add(
-        new GeneratedCase("named alternation repeated capture", "(?:(?<word>a|aa)){1,2}", "aaa",
-            "word"));
+        new GeneratedCase(
+            "named alternation repeated capture", "(?:(?<word>a|aa)){1,2}", "aaa", "word"));
 
     return cases.stream().map(Arguments::of);
   }
 
   private static void addGeneratedCases(
       List<GeneratedCase> cases, String family, String atom, List<String> inputs) {
-    List<String> quantifiers = List.of("*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??",
-        "{0,2}?", "{1,2}?");
+    List<String> quantifiers =
+        List.of("*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??", "{0,2}?", "{1,2}?");
     for (String quantifier : quantifiers) {
       String regex = "(?:" + atom + ")" + quantifier;
       for (String input : inputs) {
         cases.add(new GeneratedCase(family + " " + quantifier, regex, input, null));
-        cases.add(new GeneratedCase(
-            family + " " + quantifier + " with suffix", regex + "c", input + "c", null));
-        cases.add(new GeneratedCase(
-            family + " " + quantifier + " in context", "x" + regex + "y", "x" + input + "y",
-            null));
+        cases.add(
+            new GeneratedCase(
+                family + " " + quantifier + " with suffix", regex + "c", input + "c", null));
+        cases.add(
+            new GeneratedCase(
+                family + " " + quantifier + " in context",
+                "x" + regex + "y",
+                "x" + input + "y",
+                null));
       }
     }
   }
@@ -261,9 +263,7 @@ class QuantifiedCaptureSemanticsTest {
           case LOOKING_AT -> safere.lookingAt();
         };
 
-    assertThat(safereMatched)
-        .as("%s result for %s", operation, testCase)
-        .isEqualTo(jdkMatched);
+    assertThat(safereMatched).as("%s result for %s", operation, testCase).isEqualTo(jdkMatched);
     assertGroupsMatch(testCase.regex(), testCase.input(), jdkMatched, jdk, safere);
     if (jdkMatched) {
       assertMatchResultMatchesJdk(testCase, jdk.toMatchResult(), safere.toMatchResult());
@@ -320,11 +320,11 @@ class QuantifiedCaptureSemanticsTest {
     assertThat(appendReplacementResult(saferePattern.matcher(testCase.input())))
         .as("generated appendReplacement for %s", testCase)
         .isEqualTo(appendReplacementResult(jdkPattern.matcher(testCase.input())));
-    assertThat(saferePattern.matcher(testCase.input()).replaceAll(match -> "[" + match.group(1)
-        + "]"))
+    assertThat(
+            saferePattern.matcher(testCase.input()).replaceAll(match -> "[" + match.group(1) + "]"))
         .as("generated replaceAll(Function) for %s", testCase)
-        .isEqualTo(jdkPattern.matcher(testCase.input()).replaceAll(match -> "[" + match.group(1)
-            + "]"));
+        .isEqualTo(
+            jdkPattern.matcher(testCase.input()).replaceAll(match -> "[" + match.group(1) + "]"));
 
     if (testCase.namedGroup() != null) {
       String namedReplacement = "[${" + testCase.namedGroup() + "}]";

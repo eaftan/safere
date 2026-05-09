@@ -46,17 +46,17 @@ enum InstOp {
   FAIL,
 
   /**
-   * Match a code point against a multi-range character class. Stores a flat array of
-   * {@code [lo, hi]} range pairs and optional ASCII bitmap for O(1) lookup.
+   * Match a code point against a multi-range character class. Stores a flat array of {@code [lo,
+   * hi]} range pairs and optional ASCII bitmap for O(1) lookup.
    */
   CHAR_CLASS,
 
   /**
-   * Loop progress check for zero-width repetition breaking. Emitted at the entry point of each
-   * loop iteration for {@code *}/{@code +} with nullable bodies. On first visit (saved == -1),
-   * saves the current position and continues. On subsequent visits, compares position to saved: if
-   * unchanged (zero-width body match), acts as {@link #FAIL}; if different, updates saved position
-   * and continues to {@code out}.
+   * Loop progress check for zero-width repetition breaking. Emitted at the entry point of each loop
+   * iteration for {@code *}/{@code +} with nullable bodies. On first visit (saved == -1), saves the
+   * current position and continues. On subsequent visits, compares position to saved: if unchanged
+   * (zero-width body match), acts as {@link #FAIL}; if different, updates saved position and
+   * continues to {@code out}.
    *
    * <p>The register index is stored in {@link Inst#arg}. Each engine maintains per-thread loop
    * registers to track positions.

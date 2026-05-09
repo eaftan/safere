@@ -26,11 +26,15 @@ class AlternationCaptureSemanticsTest {
         Arguments.of("a(|b)|ac", 0, "ac"),
         Arguments.of("(?:|(a))b", 0, "b"),
         Arguments.of("(?:a|(b)|())", 0, "a"),
+        Arguments.of(".|(){2}", Pattern.MULTILINE | Pattern.UNICODE_CASE, "a"),
+        Arguments.of(".|(?:()){2}", 0, "a"),
+        Arguments.of("a|(){2}", 0, "a"),
+        Arguments.of("a|(?:(b)?){2}", 0, "a"),
         Arguments.of("(?:(a)|^)", 0, ""),
         Arguments.of(
-            "|#\\^@G\uE000\\^@\\^A\\^@\\b(..|^)|"
-                + "k\\^N\uFBA1aaaaaaaaa0aaaaaaa\\^@\\^@\\^@m",
-            Pattern.CASE_INSENSITIVE | Pattern.COMMENTS, ""));
+            "|#\\^@G\uE000\\^@\\^A\\^@\\b(..|^)|" + "k\\^N\uFBA1aaaaaaaaa0aaaaaaa\\^@\\^@\\^@m",
+            Pattern.CASE_INSENSITIVE | Pattern.COMMENTS,
+            ""));
   }
 
   @ParameterizedTest(name = "[{index}] /{0}/ flags={1} on \"{2}\"")

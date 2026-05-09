@@ -228,17 +228,16 @@ class RE2ExhaustiveTest {
   }
 
   /**
-   * Cross-check SafeRE's result against JDK's java.util.regex when a mismatch with the RE2
-   * expected value is detected. Returns {@code true} if JDK agrees with SafeRE (known behavioral
-   * difference, e.g., {@code $} matches before trailing {@code \n}).
+   * Cross-check SafeRE's result against JDK's java.util.regex when a mismatch with the RE2 expected
+   * value is detected. Returns {@code true} if JDK agrees with SafeRE (known behavioral difference,
+   * e.g., {@code $} matches before trailing {@code \n}).
    */
   private static boolean jdkAgrees(
       String pattern, String text, String method, boolean safeReResult, Matcher safeReMatcher) {
     try {
       java.util.regex.Pattern jdkPat = java.util.regex.Pattern.compile(pattern);
       java.util.regex.Matcher jdkMatcher = jdkPat.matcher(text);
-      boolean jdkResult =
-          method.equals("matches") ? jdkMatcher.matches() : jdkMatcher.find();
+      boolean jdkResult = method.equals("matches") ? jdkMatcher.matches() : jdkMatcher.find();
       if (jdkResult != safeReResult) {
         return false;
       }
@@ -285,8 +284,14 @@ class RE2ExhaustiveTest {
         failures.add(
             String.format(
                 "%s() group %d pat=\"%s\" text=\"%s\": got [%d,%d), want [%d,%d)",
-                method, g, escape(pattern), escape(text),
-                actualStart, actualEnd, expectStart, expectEnd));
+                method,
+                g,
+                escape(pattern),
+                escape(text),
+                actualStart,
+                actualEnd,
+                expectStart,
+                expectEnd));
         break; // one failure per test case is enough
       }
     }
@@ -327,23 +332,26 @@ class RE2ExhaustiveTest {
         failures.add(
             String.format(
                 "%s() group %d pat=\"%s\" text=\"%s\": got [%d,%d), want [%d,%d)",
-                method, g, escape(pattern), escape(text),
-                actualStart, actualEnd, expectStart, expectEnd));
+                method,
+                g,
+                escape(pattern),
+                escape(text),
+                actualStart,
+                actualEnd,
+                expectStart,
+                expectEnd));
         break;
       }
     }
   }
 
-  /**
-   * Check if JDK's group positions agree with SafeRE's for a given match.
-   */
+  /** Check if JDK's group positions agree with SafeRE's for a given match. */
   private static boolean jdkAgreesOnGroups(
       String pattern, String text, String method, Matcher safeReMatcher) {
     try {
       java.util.regex.Pattern jdkPat = java.util.regex.Pattern.compile(pattern);
       java.util.regex.Matcher jdkMatcher = jdkPat.matcher(text);
-      boolean jdkResult =
-          method.equals("matches") ? jdkMatcher.matches() : jdkMatcher.find();
+      boolean jdkResult = method.equals("matches") ? jdkMatcher.matches() : jdkMatcher.find();
       if (!jdkResult) {
         return false;
       }
@@ -372,15 +380,13 @@ class RE2ExhaustiveTest {
 
     try {
       org.safere.Matcher safeReMatcher = org.safere.Pattern.compile(pattern).matcher(text);
-      java.util.regex.Matcher jdkMatcher =
-          java.util.regex.Pattern.compile(pattern).matcher(text);
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(pattern).matcher(text);
       boolean safeReFound = safeReMatcher.find();
       boolean jdkFound = jdkMatcher.find();
       if (safeReFound != jdkFound || !safeReFound) {
         return false;
       }
-      if (safeReMatcher.start() != jdkMatcher.start()
-          || safeReMatcher.end() != jdkMatcher.end()) {
+      if (safeReMatcher.start() != jdkMatcher.start() || safeReMatcher.end() != jdkMatcher.end()) {
         return false;
       }
 
@@ -414,11 +420,11 @@ class RE2ExhaustiveTest {
   }
 
   /**
-   * Parse a result field like {@code "0-5"}, {@code "0-5 2-3"}, {@code "0-5 - 2-3"}, or
-   * {@code "-"}.
+   * Parse a result field like {@code "0-5"}, {@code "0-5 2-3"}, {@code "0-5 - 2-3"}, or {@code
+   * "-"}.
    *
-   * <p>Returns {@code null} for {@code "-"} (no match). Each {@code int[2]} pair is
-   * {@code [start, end]} as UTF-8 byte offsets. Unmatched subgroups appear as {@code [-1, -1]}.
+   * <p>Returns {@code null} for {@code "-"} (no match). Each {@code int[2]} pair is {@code [start,
+   * end]} as UTF-8 byte offsets. Unmatched subgroups appear as {@code [-1, -1]}.
    */
   static int[][] parseResult(String field) {
     field = field.trim();
@@ -440,9 +446,7 @@ class RE2ExhaustiveTest {
     return result;
   }
 
-  /**
-   * Convert a UTF-8 byte offset to a Java char offset.
-   */
+  /** Convert a UTF-8 byte offset to a Java char offset. */
   static int utf8ByteToCharOffset(String text, int byteOffset) {
     if (byteOffset < 0) {
       return -1;
@@ -460,9 +464,9 @@ class RE2ExhaustiveTest {
   /**
    * Unescape a Go-style double-quoted string from the test data.
    *
-   * <p>Handles standard Go escape sequences: {@code \a}, {@code \b}, {@code \f}, {@code \n},
-   * {@code \r}, {@code \t}, {@code \v}, {@code \\}, {@code \"}, {@code \xHH},
-   * {@code \}{@code uHHHH}, {@code \UHHHHHHHH}, and octal {@code \OOO}.
+   * <p>Handles standard Go escape sequences: {@code \a}, {@code \b}, {@code \f}, {@code \n}, {@code
+   * \r}, {@code \t}, {@code \v}, {@code \\}, {@code \"}, {@code \xHH}, {@code \}{@code uHHHH},
+   * {@code \UHHHHHHHH}, and octal {@code \OOO}.
    */
   static String unescapeString(String s) {
     if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
@@ -552,10 +556,10 @@ class RE2ExhaustiveTest {
   }
 
   /**
-   * A line reader that uses only {@code \n} as the line terminator, not {@code \r} or
-   * {@code \r\n}. This is necessary because the RE2 test data contains literal {@code \r} (0x0D)
-   * characters inside quoted strings, and Java's {@code BufferedReader.readLine()} would incorrectly
-   * treat those as line terminators.
+   * A line reader that uses only {@code \n} as the line terminator, not {@code \r} or {@code \r\n}.
+   * This is necessary because the RE2 test data contains literal {@code \r} (0x0D) characters
+   * inside quoted strings, and Java's {@code BufferedReader.readLine()} would incorrectly treat
+   * those as line terminators.
    */
   private static final class UnixLineReader implements AutoCloseable {
     private final Reader in;

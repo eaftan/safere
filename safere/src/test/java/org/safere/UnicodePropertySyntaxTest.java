@@ -107,6 +107,13 @@ class UnicodePropertySyntaxTest {
       assertThat(find("\\p{IsLatin}", "A")).isTrue();
     }
 
+    @Test
+    @DisplayName("\\p{IsUnknown} matches unknown script characters")
+    void isUnknownMatchesUnknownScript() {
+      assertThat(find("\\p{IsUnknown}", "\uE000")).isTrue();
+      assertThat(find("\\p{IsUnknown}", "A")).isFalse();
+    }
+
     @ParameterizedTest
     @CsvSource({
       "\\p{IsLatin}, A",
@@ -115,6 +122,7 @@ class UnicodePropertySyntaxTest {
       "\\p{IsCyrillic}, Б",
       "\\p{IsLATIN}, A",
       "\\p{Islatin}, A",
+      "\\p{IsUnknown}, \uE000",
     })
     @DisplayName("Is prefix scripts cross-validate against JDK")
     void isScriptCrossValidation(String regex, String input) {
@@ -694,13 +702,14 @@ class UnicodePropertySyntaxTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-      "\\p{^IsLatin}",
-      "\\p{^InBasicLatin}",
-      "\\p{^script=Latin}",
-      "\\p{^gc=Lu}",
-      "\\p{^javaLowerCase}",
-    })
+    @ValueSource(
+        strings = {
+          "\\p{^IsLatin}",
+          "\\p{^InBasicLatin}",
+          "\\p{^script=Latin}",
+          "\\p{^gc=Lu}",
+          "\\p{^javaLowerCase}",
+        })
     @DisplayName("Caret negation in property names is rejected")
     void caretNegationInPropertyNameRejected(String regex) {
       assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
@@ -836,8 +845,7 @@ class UnicodePropertySyntaxTest {
     void re2StyleBareUnicodePropertyNamesAreRejected(String regex) {
       assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
           .isInstanceOf(PatternSyntaxException.class);
-      assertThatThrownBy(() -> Pattern.compile(regex))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
     }
   }
 }

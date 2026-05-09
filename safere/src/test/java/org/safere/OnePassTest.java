@@ -21,8 +21,7 @@ import org.junit.jupiter.api.Test;
 class OnePassTest {
 
   private static final int FLAGS =
-      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
-          | ParseFlags.UNICODE_GROUPS;
+      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   /** Helper: build a OnePass automaton, or null if not one-pass. */
   private static OnePass build(String pattern) {
@@ -59,14 +58,17 @@ class OnePassTest {
     }
     int[] opResult = op.search(text, endMatch, prog.numCaptures());
     Nfa.MatchKind kind = endMatch ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    Nfa.SearchResult nfaSearchResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
+    Nfa.SearchResult nfaSearchResult =
+        Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
     int[] nfaResult = nfaSearchResult.groups();
 
     if (nfaResult == null) {
-      assertThat(opResult).as("/%s/ on \"%s\": NFA=null, OnePass should too", pattern, text)
+      assertThat(opResult)
+          .as("/%s/ on \"%s\": NFA=null, OnePass should too", pattern, text)
           .isNull();
     } else {
-      assertThat(opResult).as("/%s/ on \"%s\": NFA matched, OnePass should too", pattern, text)
+      assertThat(opResult)
+          .as("/%s/ on \"%s\": NFA matched, OnePass should too", pattern, text)
           .isNotNull();
       // Compare capture groups.
       int len = Math.min(opResult.length, nfaResult.length);
@@ -100,8 +102,8 @@ class OnePassTest {
     @Test
     void notOnePassPatterns() {
       // These should NOT be one-pass.
-      assertThat(build("(xy|xz)")).isNull();   // both start with x
-      assertThat(build("(.*)(.*)")).isNull();   // two greedy .* compete
+      assertThat(build("(xy|xz)")).isNull(); // both start with x
+      assertThat(build("(.*)(.*)")).isNull(); // two greedy .* compete
     }
 
     @Test

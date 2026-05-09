@@ -67,6 +67,26 @@ if (m.find()) {
 SafeRE is a drop-in replacement for `java.util.regex.Pattern` and
 `java.util.regex.Matcher`. Just change your imports.
 
+## Development
+
+SafeRE uses google-java-format through Spotless. To format Java sources, run:
+
+```bash
+mvn spotless:apply
+```
+
+CI checks formatting with:
+
+```bash
+mvn spotless:check
+```
+
+To have commits format Java sources automatically, enable the repo hooks once:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Why SafeRE?
 
 `java.util.regex` uses a backtracking NFA that can exhibit **exponential**

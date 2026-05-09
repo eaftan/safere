@@ -175,8 +175,6 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   and use `Refs #N` or `Part of #N` for partial work. GitHub's Development
   sidebar links open PRs to issues based on the PR description; commit-message
   keywords may only close the issue after merge as a commit reference.
-- Whenever you create a PR, enable auto-merge on it:
-  `gh pr merge <number> --auto --squash`
 - For performance optimization PRs, include before/after benchmark results in
   the PR description and state the measured improvement or regression for the
   specific change. If using quick benchmarks, clearly label them as quick

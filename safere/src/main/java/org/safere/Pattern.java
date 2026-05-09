@@ -115,16 +115,17 @@ public final class Pattern implements Serializable {
   private final transient EnginePathOptions enginePathOptions;
 
   /**
-   * Precomputed character class data for the "repeated character class" fast path in
-   * {@code matches()}. Non-null when the pattern is structurally {@code [class]+},
-   * {@code [class]*}, {@code [class]{n,}}, or similar — a single character class quantified to
-   * cover the entire string. Stored as a flat {@code [lo0, hi0, lo1, hi1, ...]} array of
-   * inclusive Unicode code point ranges plus precomputed ASCII bitmaps for O(1) lookup.
+   * Precomputed character class data for the "repeated character class" fast path in {@code
+   * matches()}. Non-null when the pattern is structurally {@code [class]+}, {@code [class]*},
+   * {@code [class]{n,}}, or similar — a single character class quantified to cover the entire
+   * string. Stored as a flat {@code [lo0, hi0, lo1, hi1, ...]} array of inclusive Unicode code
+   * point ranges plus precomputed ASCII bitmaps for O(1) lookup.
    *
    * <p>When non-null, {@code matches()} can bypass the full engine cascade and use a tight
    * character-scanning loop instead.
    */
   private final transient int[] charClassMatchRanges;
+
   private final transient long charClassMatchBitmap0;
   private final transient long charClassMatchBitmap1;
   private final transient boolean charClassMatchAllowEmpty;
@@ -151,6 +152,7 @@ public final class Pattern implements Serializable {
 
   /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
+
   /**
    * Thread-local cached BitState instance. Shared across all Matchers created from this Pattern
    * within the same thread, enabling reuse even with the common {@code pattern.matcher(t).find()}
@@ -159,39 +161,54 @@ public final class Pattern implements Serializable {
   // Per-Pattern ThreadLocals are intentional: each Pattern caches its own DFA/BitState per thread,
   // so the warm state cache persists across the common pattern.matcher(t).find() idiom.
   @SuppressWarnings("ThreadLocalUsage")
-  private transient final ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
+  private final transient ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
 
   /**
    * Thread-local cached forward DFA. Shared across all Matchers created from this Pattern within
-   * the same thread, so the DFA state cache persists across the common
-   * {@code pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by
-   * NFA instruction sets and flags), so it remains valid for any input text.
+   * the same thread, so the DFA state cache persists across the common {@code
+   * pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by NFA
+   * instruction sets and flags), so it remains valid for any input text.
    */
   // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
   @SuppressWarnings("ThreadLocalUsage")
-  private transient final ThreadLocal<Dfa> cachedForwardDfa = new ThreadLocal<>();
+  private final transient ThreadLocal<Dfa> cachedForwardDfa = new ThreadLocal<>();
 
   /**
-   * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to
-   * run with a warm state cache across Matcher instances.
+   * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to run
+   * with a warm state cache across Matcher instances.
    */
   // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
   @SuppressWarnings("ThreadLocalUsage")
-  private transient final ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
+  private final transient ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
 
   /** Holder for lazily computed OnePass analysis results. */
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {}
 
-  private Pattern(String pattern, int flags, Prog prog, Regexp ast,
-      Map<String, Integer> namedGroups, String prefix, boolean prefixFoldCase,
-      String literalMatch, boolean hasLazy, boolean hasAlternation,
+  private Pattern(
+      String pattern,
+      int flags,
+      Prog prog,
+      Regexp ast,
+      Map<String, Integer> namedGroups,
+      String prefix,
+      boolean prefixFoldCase,
+      String literalMatch,
+      boolean hasLazy,
+      boolean hasAlternation,
       boolean hasNullableAlternation,
-      boolean hasBoundedRepeat, boolean hasAnchorInQuant, boolean hasEndConstraint,
-      boolean hasHitEndConstraint, boolean[] charClassPrefixAscii,
-      StartAcceleration startAcceleration, KeywordAlternation keywordAlternation,
-      int[] charClassMatchRanges, long charClassMatchBitmap0, long charClassMatchBitmap1,
-      boolean charClassMatchAllowEmpty, EnginePathOptions enginePathOptions) {
+      boolean hasBoundedRepeat,
+      boolean hasAnchorInQuant,
+      boolean hasEndConstraint,
+      boolean hasHitEndConstraint,
+      boolean[] charClassPrefixAscii,
+      StartAcceleration startAcceleration,
+      KeywordAlternation keywordAlternation,
+      int[] charClassMatchRanges,
+      long charClassMatchBitmap0,
+      long charClassMatchBitmap1,
+      boolean charClassMatchAllowEmpty,
+      EnginePathOptions enginePathOptions) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -232,13 +249,12 @@ public final class Pattern implements Serializable {
    * Compiles the given regular expression into a pattern with the given flags.
    *
    * @param regex the expression to be compiled
-   * @param flags match flags, a bit mask of {@link #CASE_INSENSITIVE}, {@link #MULTILINE},
-   *     {@link #DOTALL}, {@link #UNICODE_CHARACTER_CLASS}, {@link #LITERAL}, {@link #COMMENTS},
-   *     {@link #UNIX_LINES}, and {@link #UNICODE_CASE}
+   * @param flags match flags, a bit mask of {@link #CASE_INSENSITIVE}, {@link #MULTILINE}, {@link
+   *     #DOTALL}, {@link #UNICODE_CHARACTER_CLASS}, {@link #LITERAL}, {@link #COMMENTS}, {@link
+   *     #UNIX_LINES}, and {@link #UNICODE_CASE}
    * @return the compiled pattern
    * @throws PatternSyntaxException if the expression's syntax is invalid
-   * @throws IllegalArgumentException if the flags contain unsupported bits (e.g.,
-   *     {@code CANON_EQ})
+   * @throws IllegalArgumentException if the flags contain unsupported bits (e.g., {@code CANON_EQ})
    */
   public static Pattern compile(String regex, int flags) {
     return compile(regex, flags, EnginePathOptions.allEnabled());
@@ -275,17 +291,32 @@ public final class Pattern implements Serializable {
     boolean hasEndConst = hasEndConstraint(re);
     boolean hasHitEndConst = hasHitEndConstraint(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
-    boolean[] ccPrefixAscii = (prefix == null)
-        ? extractCharClassPrefixAscii(metadataAst) : null;
+    boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
     StartAcceleration startAcceleration =
         (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(metadataAst) : null;
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
-    return new Pattern(regex, effectiveFlags, compiled, re, named, prefix, prefixFoldCase,
-        literalMatch, hasLazy, hasAlt, hasNullableAlt, hasBounded, hasAnchorQuant,
-        hasEndConst, hasHitEndConst, ccPrefixAscii, startAcceleration, keywordAlternation,
+    return new Pattern(
+        regex,
+        effectiveFlags,
+        compiled,
+        re,
+        named,
+        prefix,
+        prefixFoldCase,
+        literalMatch,
+        hasLazy,
+        hasAlt,
+        hasNullableAlt,
+        hasBounded,
+        hasAnchorQuant,
+        hasEndConst,
+        hasHitEndConst,
+        ccPrefixAscii,
+        startAcceleration,
+        keywordAlternation,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -390,6 +421,7 @@ public final class Pattern implements Serializable {
    * Splits the given input around matches of this pattern.
    *
    * <p>The {@code limit} parameter controls the number of times the pattern is applied:
+   *
    * <ul>
    *   <li>If {@code limit > 0}, the pattern is applied at most {@code limit - 1} times, and the
    *       resulting array will have at most {@code limit} entries.
@@ -464,6 +496,7 @@ public final class Pattern implements Serializable {
    * matches and the matching delimiters, interleaved.
    *
    * <p>The {@code limit} parameter controls the number of times the pattern is applied:
+   *
    * <ul>
    *   <li>If {@code limit > 0}, the pattern is applied at most {@code limit - 1} times, and the
    *       resulting array will have at most {@code 2 * limit - 1} entries.
@@ -617,8 +650,8 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data race
-   * at worst computes twice, but the result is the same since all inputs are immutable.
+   * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data
+   * race at worst computes twice, but the result is the same since all inputs are immutable.
    */
   private OnePassAnalysis onePassAnalysis() {
     OnePassAnalysis analysis = onePassAnalysis;
@@ -628,10 +661,8 @@ public final class Pattern implements Serializable {
       // pattern is non-nullable and has no lazy quantifiers. Nullable patterns (e.g., a*|c.)
       // must be excluded because OnePass returns leftmost-longest semantics, which disagrees
       // with JDK's leftmost-first (biased) semantics for nullable alternations.
-      boolean canPrimary = op != null
-          && op.search("", false, 0) == null
-          && !hasLazy
-          && !hasNullableAlternation;
+      boolean canPrimary =
+          op != null && op.search("", false, 0) == null && !hasLazy && !hasNullableAlternation;
       // canFind is canPrimary restricted to anchored patterns (legacy flag).
       boolean canFind = canPrimary && prog.anchorStart();
       // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
@@ -652,11 +683,11 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns whether OnePass can be used as the primary matching engine, bypassing the DFA
-   * entirely. This is true when the pattern is OnePass-eligible, non-nullable, and has no lazy
-   * quantifiers. The non-nullable restriction prevents leftmost-first ambiguity bugs where a
-   * nullable alternative (e.g., {@code a*} in {@code a*|c.}) would incorrectly lose to a longer
-   * alternative under OnePass's longest-match semantics.
+   * Returns whether OnePass can be used as the primary matching engine, bypassing the DFA entirely.
+   * This is true when the pattern is OnePass-eligible, non-nullable, and has no lazy quantifiers.
+   * The non-nullable restriction prevents leftmost-first ambiguity bugs where a nullable
+   * alternative (e.g., {@code a*} in {@code a*|c.}) would incorrectly lose to a longer alternative
+   * under OnePass's longest-match semantics.
    */
   boolean canOnePassPrimary() {
     return onePassAnalysis().canPrimary();
@@ -696,7 +727,10 @@ public final class Pattern implements Serializable {
    * (BitState/NFA) determines the correct match boundaries.
    */
   boolean dfaGroupZeroReliable() {
-    return !hasLazy && !hasAlternation && !hasBoundedRepeat && !hasAnchorInQuant
+    return !hasLazy
+        && !hasAlternation
+        && !hasBoundedRepeat
+        && !hasAnchorInQuant
         && prog.numLoopRegs() == 0;
   }
 
@@ -710,13 +744,13 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the pattern contains an alternation where at least one branch can
-   * match zero characters. This is the specific case where OnePass's longest-match semantics
-   * produce incorrect results: a zero-width branch (assertion, nullable repetition) loses to
-   * a consuming branch under longest-match, but should win under first-match (leftmost-first).
+   * Returns {@code true} if the pattern contains an alternation where at least one branch can match
+   * zero characters. This is the specific case where OnePass's longest-match semantics produce
+   * incorrect results: a zero-width branch (assertion, nullable repetition) loses to a consuming
+   * branch under longest-match, but should win under first-match (leftmost-first).
    *
-   * <p>When this returns {@code false}, alternations are safe for OnePass because all branches
-   * must consume at least one character, making longest-match and first-match equivalent.
+   * <p>When this returns {@code false}, alternations are safe for OnePass because all branches must
+   * consume at least one character, making longest-match and first-match equivalent.
    */
   boolean hasNullableAlternation() {
     return hasNullableAlternation;
@@ -740,10 +774,10 @@ public final class Pattern implements Serializable {
    *       return the later start.
    *   <li>Anchors inside quantifiers: the reverse DFA mishandles position-dependent assertions.
    *   <li>Alternation: when alternatives can match at different start positions with different
-   *       endpoints, the forward DFA's earliest-end result may come from a non-leftmost match.
-   *       For example, {@code (bcd|abcde)} on text containing "abcde" — the forward DFA returns
-   *       the end of the "bcd" match (which ends earlier) instead of the "abcde" match (which
-   *       starts earlier). The reverse DFA from that wrong endpoint cannot find the leftmost start.
+   *       endpoints, the forward DFA's earliest-end result may come from a non-leftmost match. For
+   *       example, {@code (bcd|abcde)} on text containing "abcde" — the forward DFA returns the end
+   *       of the "bcd" match (which ends earlier) instead of the "abcde" match (which starts
+   *       earlier). The reverse DFA from that wrong endpoint cannot find the leftmost start.
    * </ul>
    */
   boolean dfaStartReliable() {
@@ -765,8 +799,8 @@ public final class Pattern implements Serializable {
 
   /**
    * Returns a {@code boolean[128]} ASCII bitmap of the character-class prefix, or {@code null} if
-   * the pattern has no character-class prefix. Used for prefix acceleration in
-   * {@link Matcher#doFind()} when no literal prefix exists.
+   * the pattern has no character-class prefix. Used for prefix acceleration in {@link
+   * Matcher#doFind()} when no literal prefix exists.
    */
   boolean[] charClassPrefixAscii() {
     return charClassPrefixAscii;
@@ -783,9 +817,9 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the precomputed ranges for the character-class-match fast path, or {@code null} if
-   * the pattern is not a simple repeated character class. When non-null, {@code matches()} can
-   * use a tight scanning loop instead of the full engine cascade.
+   * Returns the precomputed ranges for the character-class-match fast path, or {@code null} if the
+   * pattern is not a simple repeated character class. When non-null, {@code matches()} can use a
+   * tight scanning loop instead of the full engine cascade.
    */
   int[] charClassMatchRanges() {
     return charClassMatchRanges;
@@ -801,7 +835,9 @@ public final class Pattern implements Serializable {
     return charClassMatchBitmap1;
   }
 
-  /** Whether the character-class-match fast path allows empty input (from {@code *} or {@code ?}). */
+  /**
+   * Whether the character-class-match fast path allows empty input (from {@code *} or {@code ?}).
+   */
   boolean charClassMatchAllowEmpty() {
     return charClassMatchAllowEmpty;
   }
@@ -848,9 +884,9 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the full literal string for patterns that are entirely literal (no metacharacters),
-   * or {@code null} if the pattern is not fully literal. For case-insensitive patterns, returns
-   * the lowercase version.
+   * Returns the full literal string for patterns that are entirely literal (no metacharacters), or
+   * {@code null} if the pattern is not fully literal. For case-insensitive patterns, returns the
+   * lowercase version.
    */
   String literalMatch() {
     return literalMatch;
@@ -887,9 +923,9 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the pattern contains end-of-input or end-of-line assertions
-   * ({@code $}, {@code \z}, {@code \b}, {@code \B}). Used by {@link Matcher#requireEnd()} to
-   * conservatively determine whether more input could invalidate a positive match.
+   * Returns {@code true} if the pattern contains end-of-input or end-of-line assertions ({@code $},
+   * {@code \z}, {@code \b}, {@code \B}). Used by {@link Matcher#requireEnd()} to conservatively
+   * determine whether more input could invalidate a positive match.
    */
   boolean hasEndConstraint() {
     return hasEndConstraint;
@@ -909,15 +945,22 @@ public final class Pattern implements Serializable {
 
   /** The set of all flag bits we support. */
   private static final int SUPPORTED_FLAGS =
-      UNIX_LINES | CASE_INSENSITIVE | COMMENTS | MULTILINE
-          | LITERAL | DOTALL | UNICODE_CASE | UNICODE_CHARACTER_CLASS;
+      UNIX_LINES
+          | CASE_INSENSITIVE
+          | COMMENTS
+          | MULTILINE
+          | LITERAL
+          | DOTALL
+          | UNICODE_CASE
+          | UNICODE_CHARACTER_CLASS;
 
   /** Validates that no unsupported flag bits are set. */
   private static void validateFlags(int flags) {
     int unsupported = flags & ~SUPPORTED_FLAGS;
     if (unsupported != 0) {
       throw new IllegalArgumentException(
-          "Unsupported flags: 0x" + Integer.toHexString(unsupported)
+          "Unsupported flags: 0x"
+              + Integer.toHexString(unsupported)
               + ". CANON_EQ is not supported by SafeRE.");
     }
   }
@@ -994,10 +1037,10 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the AST contains any lazy (non-greedy) quantifiers ({@code +?},
-   * {@code *?}, {@code ??}, or {@code {n,m}?}). OnePass does not respect lazy vs greedy semantics
-   * for overall match boundaries, so patterns with lazy quantifiers must use the DFA pipeline in
-   * {@code find()}.
+   * Returns {@code true} if the AST contains any lazy (non-greedy) quantifiers ({@code +?}, {@code
+   * *?}, {@code ??}, or {@code {n,m}?}). OnePass does not respect lazy vs greedy semantics for
+   * overall match boundaries, so patterns with lazy quantifiers must use the DFA pipeline in {@code
+   * find()}.
    */
   private static boolean hasLazyQuantifiers(Regexp re) {
     Deque<Regexp> stack = new ArrayDeque<>();
@@ -1086,10 +1129,17 @@ public final class Pattern implements Serializable {
     protected Boolean postVisit(
         Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
       return switch (re.op) {
-        case EMPTY_MATCH, BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY,
-             NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> true;
+        case EMPTY_MATCH,
+            BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            END_TEXT,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY,
+            GRAPHEME_CLUSTER_BOUNDARY ->
+            true;
         case STAR, QUEST -> true;
-        case REPEAT -> re.min == 0;
+        case REPEAT -> re.min == 0 || (!childArgs.isEmpty() && childArgs.getFirst());
         case PLUS, NON_CAPTURE, CAPTURE -> !childArgs.isEmpty() && childArgs.getFirst();
         case CONCAT -> {
           for (boolean childCanMatchEmpty : childArgs) {
@@ -1115,9 +1165,8 @@ public final class Pattern implements Serializable {
   /**
    * Returns {@code true} if the AST contains a bounded repetition ({@code a{3,4}}, {@code a?}).
    * Bounded repetitions have min &lt; max with a finite max, creating ambiguity: greedy matching
-   * maximizes each iteration while the DFA maximizes the overall match. For example,
-   * {@code (?:a{3,4})+} on "aaaaaa": greedy gives 4 (one iteration), DFA gives 6 (two iterations
-   * of 3).
+   * maximizes each iteration while the DFA maximizes the overall match. For example, {@code
+   * (?:a{3,4})+} on "aaaaaa": greedy gives 4 (one iteration), DFA gives 6 (two iterations of 3).
    */
   private static boolean hasBoundedRepeat(Regexp re) {
     Deque<Regexp> stack = new ArrayDeque<>();
@@ -1125,7 +1174,8 @@ public final class Pattern implements Serializable {
     while (!stack.isEmpty()) {
       Regexp node = stack.pop();
       if ((node.op == RegexpOp.REPEAT || node.op == RegexpOp.QUEST)
-          && node.min < node.max && node.max > 0) {
+          && node.min < node.max
+          && node.max > 0) {
         return true;
       }
       if (node.subs != null) {
@@ -1138,10 +1188,10 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the AST contains positional assertions that the JDK's
-   * {@code Matcher.requireEnd()} tracks: {@code $} ({@link RegexpOp#END_LINE} in multiline, or
-   * {@link RegexpOp#END_TEXT} with {@link ParseFlags#WAS_DOLLAR} in non-multiline), {@code \b}
-   * ({@link RegexpOp#WORD_BOUNDARY}), or {@code \B} ({@link RegexpOp#NO_WORD_BOUNDARY}).
+   * Returns {@code true} if the AST contains positional assertions that the JDK's {@code
+   * Matcher.requireEnd()} tracks: {@code $} ({@link RegexpOp#END_LINE} in multiline, or {@link
+   * RegexpOp#END_TEXT} with {@link ParseFlags#WAS_DOLLAR} in non-multiline), {@code \b} ({@link
+   * RegexpOp#WORD_BOUNDARY}), or {@code \B} ({@link RegexpOp#NO_WORD_BOUNDARY}).
    *
    * <p>Note: {@code \z} ({@link RegexpOp#END_TEXT} without WAS_DOLLAR) is intentionally excluded
    * because the JDK does not set {@code requireEnd} for it.
@@ -1192,11 +1242,11 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the AST contains an anchor ({@code ^}, {@code $}, {@code \A},
-   * {@code \z}, {@code \b}, {@code \B}) inside a quantifier ({@code *}, {@code +}, {@code ?},
-   * {@code {n,m}}). The DFA sandwich's reverse pass cannot correctly handle anchors inside
-   * repeats — the reverse program translates {@code ^} into an end-of-text assertion that may
-   * match at a different position than the forward program's start-of-text assertion.
+   * Returns {@code true} if the AST contains an anchor ({@code ^}, {@code $}, {@code \A}, {@code
+   * \z}, {@code \b}, {@code \B}) inside a quantifier ({@code *}, {@code +}, {@code ?}, {@code
+   * {n,m}}). The DFA sandwich's reverse pass cannot correctly handle anchors inside repeats — the
+   * reverse program translates {@code ^} into an end-of-text assertion that may match at a
+   * different position than the forward program's start-of-text assertion.
    */
   private static boolean hasAnchorInQuantifier(Regexp re) {
     record Entry(Regexp node, boolean insideQuant) {}
@@ -1209,8 +1259,15 @@ public final class Pattern implements Serializable {
       boolean insideQuant = entry.insideQuant();
       if (insideQuant) {
         switch (node.op) {
-          case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY,
-               GRAPHEME_CLUSTER_BOUNDARY -> { return true; }
+          case BEGIN_LINE,
+              END_LINE,
+              BEGIN_TEXT,
+              END_TEXT,
+              WORD_BOUNDARY,
+              NO_WORD_BOUNDARY,
+              GRAPHEME_CLUSTER_BOUNDARY -> {
+            return true;
+          }
           default -> {}
         }
       }
@@ -1234,9 +1291,9 @@ public final class Pattern implements Serializable {
   /**
    * Conservative start-position accelerator.
    *
-   * <p>Every match must start at a multiline {@code ^} position, optionally with the first
-   * consumed ASCII character in {@code asciiStart}. The accelerator only advances the initial
-   * search position before handing off to the normal linear engine pipeline.
+   * <p>Every match must start at a multiline {@code ^} position, optionally with the first consumed
+   * ASCII character in {@code asciiStart}. The accelerator only advances the initial search
+   * position before handing off to the normal linear engine pipeline.
    */
   static final class StartAcceleration {
     final boolean requireLineStart;
@@ -1323,9 +1380,9 @@ public final class Pattern implements Serializable {
    * skip ahead to positions where the first character could start a match, avoiding unnecessary
    * engine invocations.
    *
-   * <p>Handles bare {@link RegexpOp#CHAR_CLASS}, {@link RegexpOp#PLUS} and
-   * {@link RegexpOp#REPEAT} (with {@code min >= 1}) wrapping a character class, since these all
-   * require at least one character from the class.
+   * <p>Handles bare {@link RegexpOp#CHAR_CLASS}, {@link RegexpOp#PLUS} and {@link RegexpOp#REPEAT}
+   * (with {@code min >= 1}) wrapping a character class, since these all require at least one
+   * character from the class.
    *
    * @return a {@code boolean[128]} ASCII bitmap, or {@code null} if no suitable prefix exists
    */
@@ -1349,8 +1406,7 @@ public final class Pattern implements Serializable {
     }
 
     // See through required quantifiers (PLUS, REPEAT with min >= 1).
-    if (node.op == RegexpOp.PLUS
-        || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
+    if (node.op == RegexpOp.PLUS || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
       node = node.sub();
     }
 
@@ -1415,8 +1471,10 @@ public final class Pattern implements Serializable {
     Regexp before = unwrapImplicitCapture(node.subs.get(0));
     Regexp middle = unwrapImplicitCapture(node.subs.get(1));
     Regexp after = unwrapImplicitCapture(node.subs.get(2));
-    if (before == null || before.op != RegexpOp.WORD_BOUNDARY
-        || after == null || after.op != RegexpOp.WORD_BOUNDARY) {
+    if (before == null
+        || before.op != RegexpOp.WORD_BOUNDARY
+        || after == null
+        || after.op != RegexpOp.WORD_BOUNDARY) {
       return null;
     }
 
@@ -1425,7 +1483,9 @@ public final class Pattern implements Serializable {
       captureGroup = middle.cap;
       middle = unwrapImplicitCapture(middle.sub());
     }
-    if (middle == null || middle.op != RegexpOp.ALTERNATE || middle.subs == null
+    if (middle == null
+        || middle.op != RegexpOp.ALTERNATE
+        || middle.subs == null
         || middle.subs.isEmpty()) {
       return null;
     }
@@ -1542,8 +1602,10 @@ public final class Pattern implements Serializable {
   }
 
   private static boolean isAsciiLiteralKeywordChar(int cp) {
-    return ('A' <= cp && cp <= 'Z') || ('a' <= cp && cp <= 'z')
-        || ('0' <= cp && cp <= '9') || cp == '_';
+    return ('A' <= cp && cp <= 'Z')
+        || ('a' <= cp && cp <= 'z')
+        || ('0' <= cp && cp <= '9')
+        || cp == '_';
   }
 
   private static int asciiLower(int cp) {
@@ -1586,8 +1648,7 @@ public final class Pattern implements Serializable {
     if (node == null) {
       return null;
     }
-    if (node.op == RegexpOp.PLUS
-        || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
+    if (node.op == RegexpOp.PLUS || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
       node = firstMeaningfulNode(node.sub());
     }
     if (node == null) {
@@ -1632,17 +1693,16 @@ public final class Pattern implements Serializable {
   /** Holds precomputed data for the character-class-match fast path. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  private record CharClassMatchInfo(
-      int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
+  private record CharClassMatchInfo(int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
 
   /**
-   * Detects patterns that are structurally a single character class under a quantifier covering
-   * the entire string — e.g., {@code [a-zA-Z]+}, {@code \d*}, {@code \w{1,}}, {@code [0-9]+}.
-   * When detected, {@code matches()} can use a tight character-scanning loop with precomputed
-   * bitmaps instead of the full engine cascade.
+   * Detects patterns that are structurally a single character class under a quantifier covering the
+   * entire string — e.g., {@code [a-zA-Z]+}, {@code \d*}, {@code \w{1,}}, {@code [0-9]+}. When
+   * detected, {@code matches()} can use a tight character-scanning loop with precomputed bitmaps
+   * instead of the full engine cascade.
    *
-   * <p>Sees through the implicit group-0 CAPTURE wrapper. Returns {@code null} if the pattern
-   * has any user capture groups (the fast path only produces group 0).
+   * <p>Sees through the implicit group-0 CAPTURE wrapper. Returns {@code null} if the pattern has
+   * any user capture groups (the fast path only produces group 0).
    */
   private static CharClassMatchInfo extractCharClassMatch(Regexp re) {
     Regexp node = re;

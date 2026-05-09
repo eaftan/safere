@@ -11,16 +11,16 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 /**
  * Marks a SafeRE test or test class that should be disabled only in generated crosscheck tests.
  *
- * <p>The annotation is active only when the generated crosscheck test profile sets the
- * {@code org.safere.crosscheck.generatedTests} system property. Use an issue reference in the
- * reason for fixable SafeRE/JDK divergences, and a plain reason for tests that are intentionally not
- * relevant to crosscheck.
+ * <p>The annotation is active only when the generated crosscheck test profile sets the {@code
+ * org.safere.crosscheck.generatedTests} system property. Use an issue reference in the reason for
+ * fixable SafeRE/JDK divergences, and a plain reason for tests that are intentionally not relevant
+ * to crosscheck.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

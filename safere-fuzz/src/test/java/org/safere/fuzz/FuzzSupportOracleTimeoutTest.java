@@ -21,9 +21,12 @@ final class FuzzSupportOracleTimeoutTest {
     String previous = System.getProperty(TIMEOUT_PROPERTY);
     System.setProperty(TIMEOUT_PROPERTY, "1");
     try {
-      assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
-          assertFalse(FuzzSupport.jdkOracleCompletesForTesting(
-              "(?:(?:(a|aa))+)+y", "a".repeat(64) + "x")));
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(2),
+          () ->
+              assertFalse(
+                  FuzzSupport.jdkOracleCompletesForTesting(
+                      "(?:(?:(a|aa))+)+y", "a".repeat(64) + "x")));
     } finally {
       if (previous == null) {
         System.clearProperty(TIMEOUT_PROPERTY);

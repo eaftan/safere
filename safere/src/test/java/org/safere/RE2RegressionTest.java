@@ -58,43 +58,13 @@ class RE2RegressionTest {
               "abcd-NOSPAM.efghi@google.com",
               "abcd-NOSPAM.efghi-NOSPAM@google-NOSPAM.com-NOSPAM",
               4),
-          Arguments.of(
-              "b",
-              "bb",
-              "ababababab",
-              "abbabababab",
-              "abbabbabbabbabb",
-              5),
-          Arguments.of(
-              "b",
-              "bb",
-              "bbbbbb",
-              "bbbbbbb",
-              "bbbbbbbbbbbb",
-              6),
-          Arguments.of(
-              "b+",
-              "bb",
-              "bbbbbb",
-              "bb",
-              "bb",
-              1),
+          Arguments.of("b", "bb", "ababababab", "abbabababab", "abbabbabbabbabb", 5),
+          Arguments.of("b", "bb", "bbbbbb", "bbbbbbb", "bbbbbbbbbbbb", 6),
+          Arguments.of("b+", "bb", "bbbbbb", "bb", "bb", 1),
           // Note: C++ RE2 gives replaceAll="bb"/count=1, but Java gives "bbbb"/count=2
           // because Java includes the empty match at the end after a non-empty match.
-          Arguments.of(
-              "b*",
-              "bb",
-              "bbbbbb",
-              "bb",
-              "bbbb",
-              2),
-          Arguments.of(
-              "b*",
-              "bb",
-              "aaaaa",
-              "bbaaaaa",
-              "bbabbabbabbabbabb",
-              6));
+          Arguments.of("b*", "bb", "bbbbbb", "bb", "bbbb", 2),
+          Arguments.of("b*", "bb", "aaaaa", "bbaaaaa", "bbabbabbabbabbabb", 6));
     }
 
     @ParameterizedTest
@@ -146,13 +116,7 @@ class RE2RegressionTest {
   class EmptyCharsetTests {
 
     @ParameterizedTest
-    @ValueSource(
-        strings = {
-          "[^\\S\\s]",
-          "[^\\S\\p{Zs}]",
-          "[^\\D\\d]",
-          "[^\\D\\p{Nd}]"
-        })
+    @ValueSource(strings = {"[^\\S\\s]", "[^\\S\\p{Zs}]", "[^\\D\\d]", "[^\\D\\p{Nd}]"})
     void emptyCharsetNeverMatches(String pattern) {
       Matcher m = Pattern.compile(pattern).matcher("abc");
       assertThat(m.find()).isFalse();
@@ -163,10 +127,10 @@ class RE2RegressionTest {
     void bitstateAssumptions() {
       // Captures trigger BitState. Empty charset alternated with nothing should still match.
       String[] patterns = {
-          "((((()))))[^\\S\\s]?",
-          "((((()))))([^\\S\\s])?",
-          "((((()))))([^\\S\\s]|[^\\S\\s])?",
-          "((((()))))((([^\\S\\s]|[^\\S\\s])|))"
+        "((((()))))[^\\S\\s]?",
+        "((((()))))([^\\S\\s])?",
+        "((((()))))([^\\S\\s]|[^\\S\\s])?",
+        "((((()))))((([^\\S\\s]|[^\\S\\s])|))"
       };
       for (String pat : patterns) {
         assertThat(Pattern.compile(pat).matcher("").matches())
@@ -247,24 +211,12 @@ class RE2RegressionTest {
     @DisplayName("\\p{L} for CJK characters (Lo category)")
     void cjkCharacters() {
       for (String ch : new String[] {"譚", "永", "鋒"}) {
-        assertThat(Pattern.matches("\\p{L}", ch))
-            .as("\\p{L} matches %s", ch)
-            .isTrue();
-        assertThat(Pattern.matches("\\p{Lu}", ch))
-            .as("\\p{Lu} does not match %s", ch)
-            .isFalse();
-        assertThat(Pattern.matches("\\p{Ll}", ch))
-            .as("\\p{Ll} does not match %s", ch)
-            .isFalse();
-        assertThat(Pattern.matches("\\P{L}", ch))
-            .as("\\P{L} does not match %s", ch)
-            .isFalse();
-        assertThat(Pattern.matches("\\P{Lu}", ch))
-            .as("\\P{Lu} matches %s", ch)
-            .isTrue();
-        assertThat(Pattern.matches("\\P{Ll}", ch))
-            .as("\\P{Ll} matches %s", ch)
-            .isTrue();
+        assertThat(Pattern.matches("\\p{L}", ch)).as("\\p{L} matches %s", ch).isTrue();
+        assertThat(Pattern.matches("\\p{Lu}", ch)).as("\\p{Lu} does not match %s", ch).isFalse();
+        assertThat(Pattern.matches("\\p{Ll}", ch)).as("\\p{Ll} does not match %s", ch).isFalse();
+        assertThat(Pattern.matches("\\P{L}", ch)).as("\\P{L} does not match %s", ch).isFalse();
+        assertThat(Pattern.matches("\\P{Lu}", ch)).as("\\P{Lu} matches %s", ch).isTrue();
+        assertThat(Pattern.matches("\\P{Ll}", ch)).as("\\P{Ll} matches %s", ch).isTrue();
       }
     }
 
@@ -453,12 +405,12 @@ class RE2RegressionTest {
 
       // Unicode multibyte
       Pattern p2 = Pattern.compile("\u0106*"); // Ć*
-      Matcher m2 = p2.matcher("\u0105\u0107");  // ąć
+      Matcher m2 = p2.matcher("\u0105\u0107"); // ąć
       assertThat(m2.replaceAll("\u0108")).isEqualTo("\u0108\u0105\u0108\u0107\u0108"); // ĈąĈćĈ
 
       // CJK characters
       Pattern p3 = Pattern.compile("\u5927*"); // 大*
-      Matcher m3 = p3.matcher("\u4EBA\u7C7B");  // 人类
+      Matcher m3 = p3.matcher("\u4EBA\u7C7B"); // 人类
       assertThat(m3.replaceAll("\u5C0F")).isEqualTo("\u5C0F\u4EBA\u5C0F\u7C7B\u5C0F"); // 小人小类小
     }
 
@@ -482,22 +434,20 @@ class RE2RegressionTest {
     @ParameterizedTest
     @ValueSource(
         strings = {
-          "(a)\\1",   // backreference
-          "a[x",      // unclosed bracket
-          "a[z-a]",   // invalid range
-          "a(b",      // unclosed paren
-          "a\\"       // trailing backslash
+          "(a)\\1", // backreference
+          "a[x", // unclosed bracket
+          "a[z-a]", // invalid range
+          "a(b", // unclosed paren
+          "a\\" // trailing backslash
         })
     void rejectsInvalidPatterns(String pattern) {
-      assertThatThrownBy(() -> Pattern.compile(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     @DisplayName("No crash on invalid pattern match attempt")
     void noCrashOnBadPattern() {
-      assertThatThrownBy(() -> Pattern.compile("a\\"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> Pattern.compile("a\\")).isInstanceOf(PatternSyntaxException.class);
     }
   }
 

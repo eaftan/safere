@@ -48,8 +48,7 @@ record EnginePathContract(
                   ResultAuthority.CAPTURES,
                   ResultAuthority.SEARCH_CURSOR),
               EnumSet.of(
-                  SemanticGuard.WHOLE_PATTERN_SHAPE,
-                  SemanticGuard.LEFTMOST_FIRST_EQUIVALENT)),
+                  SemanticGuard.WHOLE_PATTERN_SHAPE, SemanticGuard.LEFTMOST_FIRST_EQUIVALENT)),
           new EnginePathContract(
               EnginePath.START_ACCELERATION,
               EnginePathRole.FILTER,
@@ -64,8 +63,7 @@ record EnginePathContract(
                   ResultAuthority.CAPTURES,
                   ResultAuthority.SEARCH_CURSOR),
               EnumSet.of(
-                  SemanticGuard.LEFTMOST_FIRST_EQUIVALENT,
-                  SemanticGuard.CAPTURE_EQUIVALENT)),
+                  SemanticGuard.LEFTMOST_FIRST_EQUIVALENT, SemanticGuard.CAPTURE_EQUIVALENT)),
           new EnginePathContract(
               EnginePath.DFA,
               EnginePathRole.PARTIAL_PRODUCER,
@@ -84,9 +82,7 @@ record EnginePathContract(
                   ResultAuthority.GROUP_ZERO,
                   ResultAuthority.CAPTURES,
                   ResultAuthority.SEARCH_CURSOR),
-              EnumSet.of(
-                  SemanticGuard.BOUNDED_STATE,
-                  SemanticGuard.CAPTURE_EQUIVALENT)),
+              EnumSet.of(SemanticGuard.BOUNDED_STATE, SemanticGuard.CAPTURE_EQUIVALENT)),
           new EnginePathContract(
               EnginePath.LAZY_CAPTURE_EXTRACTION,
               EnginePathRole.PARTIAL_PRODUCER,

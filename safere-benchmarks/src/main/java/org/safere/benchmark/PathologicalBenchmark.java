@@ -19,8 +19,8 @@ import org.openjdk.jmh.annotations.State;
  * Benchmark demonstrating the pathological case that causes backtracking engines to exhibit
  * exponential behavior: {@code a?{n}a{n}} matched against {@code a{n}}.
  *
- * <p>SafeRE (linear-time) should complete in O(n) regardless of n. The JDK backtracking engine
- * will exhibit O(2^n) behavior, becoming unmatchable above n≈25.
+ * <p>SafeRE (linear-time) should complete in O(n) regardless of n. The JDK backtracking engine will
+ * exhibit O(2^n) behavior, becoming unmatchable above n≈25.
  *
  * <p><strong>WARNING:</strong> The JDK benchmark is only safe for small n (≤20). For larger values,
  * only the SafeRE benchmark should be run:

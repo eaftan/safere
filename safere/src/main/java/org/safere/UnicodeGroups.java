@@ -125,9 +125,7 @@ final class UnicodeGroups {
       }
 
       Character.UnicodeScript script = Character.UnicodeScript.of(cp);
-      if (script != Character.UnicodeScript.UNKNOWN) {
-        scriptBuilders.computeIfAbsent(script, k -> new RangeBuilder()).add(cp);
-      }
+      scriptBuilders.computeIfAbsent(script, k -> new RangeBuilder()).add(cp);
     }
 
     // Phase 2: Build range tables from builders.

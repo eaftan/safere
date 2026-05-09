@@ -5,7 +5,6 @@
 
 package org.safere.benchmark;
 
-import org.safere.PatternSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -16,6 +15,7 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.safere.PatternSet;
 
 /**
  * Benchmarks for {@link PatternSet} multi-pattern matching.
@@ -37,15 +37,12 @@ public class PatternSetBenchmark {
   private static final BenchmarkData DATA = BenchmarkData.get();
   private static final String MATCH_TEXT = DATA.getString("patternSet.matchText");
   private static final String NO_MATCH_TEXT = DATA.getString("patternSet.noMatchText");
-  private static final List<String> BASE_PATTERNS =
-      DATA.getStringList("patternSet.basePatterns");
+  private static final List<String> BASE_PATTERNS = DATA.getStringList("patternSet.basePatterns");
 
   @Setup
   public void setup() {
-    PatternSet.Builder unanchoredBuilder =
-        new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
-    PatternSet.Builder anchoredBuilder =
-        new PatternSet.Builder(PatternSet.Anchor.ANCHOR_START);
+    PatternSet.Builder unanchoredBuilder = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+    PatternSet.Builder anchoredBuilder = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_START);
 
     for (int i = 0; i < patternCount; i++) {
       String pat = BASE_PATTERNS.get(i % BASE_PATTERNS.size());

@@ -26,16 +26,17 @@ class PosixPropertyClassTest {
 
   /** All 13 POSIX character class names from the JDK Pattern javadoc. */
   private static final String[] ALL_POSIX_CLASS_NAMES = {
-    "Lower", "Upper", "ASCII", "Alpha", "Digit", "Alnum", "Punct",
-    "Graph", "Print", "Blank", "Cntrl", "XDigit", "Space",
+    "Lower", "Upper", "ASCII", "Alpha", "Digit", "Alnum", "Punct", "Graph", "Print", "Blank",
+    "Cntrl", "XDigit", "Space",
   };
 
   record TestCase(String className, String input, boolean expectedMatch) {
     @Override
     public String toString() {
-      String displayInput = input.length() == 1 && input.charAt(0) < 0x20
-          ? String.format("\\x%02X", (int) input.charAt(0))
-          : input;
+      String displayInput =
+          input.length() == 1 && input.charAt(0) < 0x20
+              ? String.format("\\x%02X", (int) input.charAt(0))
+              : input;
       return "\\p{" + className + "} on \"" + displayInput + "\" → " + expectedMatch;
     }
   }
@@ -209,8 +210,11 @@ class PosixPropertyClassTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Lower", "Upper", "ASCII", "Alpha", "Digit", "Alnum", "Punct",
-        "Graph", "Print", "Blank", "Cntrl", "XDigit", "Space"})
+    @ValueSource(
+        strings = {
+          "Lower", "Upper", "ASCII", "Alpha", "Digit", "Alnum", "Punct", "Graph", "Print", "Blank",
+          "Cntrl", "XDigit", "Space"
+        })
     @DisplayName("\\P{...} negation compiles for all POSIX classes")
     void allNegationsCompile(String className) {
       Pattern.compile("\\P{" + className + "}");
@@ -278,8 +282,11 @@ class PosixPropertyClassTest {
      * every single one.
      */
     @ParameterizedTest
-    @ValueSource(strings = {"Lower", "Upper", "ASCII", "Alpha", "Digit", "Alnum", "Punct",
-        "Graph", "Print", "Blank", "Cntrl", "XDigit", "Space"})
+    @ValueSource(
+        strings = {
+          "Lower", "Upper", "ASCII", "Alpha", "Digit", "Alnum", "Punct", "Graph", "Print", "Blank",
+          "Cntrl", "XDigit", "Space"
+        })
     @DisplayName("Exhaustive ASCII scan matches JDK for all 128 code points")
     void exhaustiveAsciiScan(String className) {
       var jdkPattern = java.util.regex.Pattern.compile("\\p{" + className + "}");

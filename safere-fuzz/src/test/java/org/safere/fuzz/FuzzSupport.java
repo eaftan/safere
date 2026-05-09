@@ -20,25 +20,25 @@ import java.util.regex.MatchResult;
 import java.util.regex.PatternSyntaxException;
 
 final class FuzzSupport {
-  private static final String JDK_ORACLE_TIMEOUT_PROPERTY =
-      "safere.fuzz.jdkOracleTimeoutMillis";
+  private static final String JDK_ORACLE_TIMEOUT_PROPERTY = "safere.fuzz.jdkOracleTimeoutMillis";
   private static final long DEFAULT_JDK_ORACLE_TIMEOUT_MILLIS = 250;
   private static final ExecutorService JDK_ORACLE_EXECUTOR =
-      Executors.newCachedThreadPool(runnable -> {
-        Thread thread = new Thread(runnable, "safere-jdk-regex-oracle");
-        thread.setDaemon(true);
-        return thread;
-      });
+      Executors.newCachedThreadPool(
+          runnable -> {
+            Thread thread = new Thread(runnable, "safere-jdk-regex-oracle");
+            thread.setDaemon(true);
+            return thread;
+          });
 
   private static final int[] FLAGS = {
-      org.safere.Pattern.UNIX_LINES,
-      org.safere.Pattern.CASE_INSENSITIVE,
-      org.safere.Pattern.COMMENTS,
-      org.safere.Pattern.MULTILINE,
-      org.safere.Pattern.LITERAL,
-      org.safere.Pattern.DOTALL,
-      org.safere.Pattern.UNICODE_CASE,
-      org.safere.Pattern.UNICODE_CHARACTER_CLASS
+    org.safere.Pattern.UNIX_LINES,
+    org.safere.Pattern.CASE_INSENSITIVE,
+    org.safere.Pattern.COMMENTS,
+    org.safere.Pattern.MULTILINE,
+    org.safere.Pattern.LITERAL,
+    org.safere.Pattern.DOTALL,
+    org.safere.Pattern.UNICODE_CASE,
+    org.safere.Pattern.UNICODE_CHARACTER_CLASS
   };
 
   private FuzzSupport() {}
@@ -70,16 +70,24 @@ final class FuzzSupport {
       return null;
     }
 
-    String safeRe = safeReException == null
-        ? "compiled successfully"
-        : safeReException.getClass().getSimpleName() + ": " + safeReException.getMessage();
-    String jdk = jdkException == null
-        ? "compiled successfully"
-        : jdkException.getClass().getSimpleName() + ": " + jdkException.getMessage();
-    throw new AssertionError("compile divergence"
-        + "\nRegex: " + javaStringLiteral(regex)
-        + "\nFlags: " + flags
-        + "\nSafeRE: " + safeRe + "\nJDK: " + jdk);
+    String safeRe =
+        safeReException == null
+            ? "compiled successfully"
+            : safeReException.getClass().getSimpleName() + ": " + safeReException.getMessage();
+    String jdk =
+        jdkException == null
+            ? "compiled successfully"
+            : jdkException.getClass().getSimpleName() + ": " + jdkException.getMessage();
+    throw new AssertionError(
+        "compile divergence"
+            + "\nRegex: "
+            + javaStringLiteral(regex)
+            + "\nFlags: "
+            + flags
+            + "\nSafeRE: "
+            + safeRe
+            + "\nJDK: "
+            + jdk);
   }
 
   static void assertFullMatchesJdk(String regex, int flags, List<String> inputs) {
@@ -99,11 +107,7 @@ final class FuzzSupport {
   static boolean jdkOracleCompletesForTesting(String regex, String input) {
     java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
     return runJdkOracle(
-            "matches",
-            regex,
-            0,
-            input,
-            () -> pattern.matcher(interruptible(input)).matches())
+            "matches", regex, 0, input, () -> pattern.matcher(interruptible(input)).matches())
         .available();
   }
 
@@ -157,11 +161,7 @@ final class FuzzSupport {
       if (!jdk.available()) {
         return;
       }
-      assertArrayEquals(
-          "split",
-          inputText,
-          safeRePattern.split(input),
-          jdk.value());
+      assertArrayEquals("split", inputText, safeRePattern.split(input), jdk.value());
     }
 
     void split(CharSequence input, int limit) {
@@ -177,10 +177,7 @@ final class FuzzSupport {
         return;
       }
       assertArrayEquals(
-          "split(" + limit + ")",
-          inputText,
-          safeRePattern.split(input, limit),
-          jdk.value());
+          "split(" + limit + ")", inputText, safeRePattern.split(input, limit), jdk.value());
     }
 
     void splitWithDelimiters(CharSequence input) {
@@ -196,10 +193,7 @@ final class FuzzSupport {
         return;
       }
       assertArrayEquals(
-          "splitWithDelimiters",
-          inputText,
-          safeRePattern.splitWithDelimiters(input),
-          jdk.value());
+          "splitWithDelimiters", inputText, safeRePattern.splitWithDelimiters(input), jdk.value());
     }
 
     void splitWithDelimiters(CharSequence input, int limit) {
@@ -221,15 +215,21 @@ final class FuzzSupport {
           jdk.value());
     }
 
-    private void assertArrayEquals(
-        String operation, String input, String[] safeRe, String[] jdk) {
+    private void assertArrayEquals(String operation, String input, String[] safeRe, String[] jdk) {
       if (!Arrays.equals(safeRe, jdk)) {
-        throw new AssertionError(operation + " divergence"
-            + "\nRegex: " + javaStringLiteral(regex)
-            + "\nFlags: " + flags
-            + "\nInput: " + javaStringLiteral(input)
-            + "\nSafeRE: " + describeArray(safeRe)
-            + "\nJDK: " + describeArray(jdk));
+        throw new AssertionError(
+            operation
+                + " divergence"
+                + "\nRegex: "
+                + javaStringLiteral(regex)
+                + "\nFlags: "
+                + flags
+                + "\nInput: "
+                + javaStringLiteral(input)
+                + "\nSafeRE: "
+                + describeArray(safeRe)
+                + "\nJDK: "
+                + describeArray(jdk));
       }
     }
   }
@@ -450,18 +450,21 @@ final class FuzzSupport {
       StringBuilder safeRe = new StringBuilder();
       StringBuilder jdk = new StringBuilder();
       lastReplacement = replacement;
-      boolean completed = assertSameReplacementOutcome(
-          "appendReplacement",
-          replacement,
-          () -> {
-            safeReMatcher.appendReplacement(safeRe, replacement);
-            return safeRe.toString();
-          },
-          () -> {
-            runJdkOracle(
-                "appendReplacement", null, () -> jdkMatcher.appendReplacement(jdk, replacement));
-            return jdk.toString();
-          });
+      boolean completed =
+          assertSameReplacementOutcome(
+              "appendReplacement",
+              replacement,
+              () -> {
+                safeReMatcher.appendReplacement(safeRe, replacement);
+                return safeRe.toString();
+              },
+              () -> {
+                runJdkOracle(
+                    "appendReplacement",
+                    null,
+                    () -> jdkMatcher.appendReplacement(jdk, replacement));
+                return jdk.toString();
+              });
       if (completed) {
         output.append(safeRe);
       }
@@ -472,18 +475,21 @@ final class FuzzSupport {
       StringBuffer safeRe = new StringBuffer();
       StringBuffer jdk = new StringBuffer();
       lastReplacement = replacement;
-      boolean completed = assertSameReplacementOutcome(
-          "appendReplacement",
-          replacement,
-          () -> {
-            safeReMatcher.appendReplacement(safeRe, replacement);
-            return safeRe.toString();
-          },
-          () -> {
-            runJdkOracle(
-                "appendReplacement", null, () -> jdkMatcher.appendReplacement(jdk, replacement));
-            return jdk.toString();
-          });
+      boolean completed =
+          assertSameReplacementOutcome(
+              "appendReplacement",
+              replacement,
+              () -> {
+                safeReMatcher.appendReplacement(safeRe, replacement);
+                return safeRe.toString();
+              },
+              () -> {
+                runJdkOracle(
+                    "appendReplacement",
+                    null,
+                    () -> jdkMatcher.appendReplacement(jdk, replacement));
+                return jdk.toString();
+              });
       if (completed) {
         output.append(safeRe);
       }
@@ -523,9 +529,13 @@ final class FuzzSupport {
     }
 
     private void assertMatchState(String operation) {
-      assertSame(operation + ".start", safeReMatcher.start(),
+      assertSame(
+          operation + ".start",
+          safeReMatcher.start(),
           runJdkOracle(operation + ".start", safeReMatcher.start(), () -> jdkMatcher.start()));
-      assertSame(operation + ".end", safeReMatcher.end(),
+      assertSame(
+          operation + ".end",
+          safeReMatcher.end(),
           runJdkOracle(operation + ".end", safeReMatcher.end(), () -> jdkMatcher.end()));
       int groupCount = groupCount();
       for (int i = 0; i <= groupCount; i++) {
@@ -579,12 +589,20 @@ final class FuzzSupport {
 
     private AssertionError divergence(
         String operation, String replacement, Object safeRe, Object jdk) {
-      return new AssertionError(operation + " divergence"
-          + "\nRegex: " + javaStringLiteral(regex)
-          + "\nFlags: " + flags
-          + "\nInput: " + javaStringLiteral(input)
-          + (replacement == null ? "" : "\nReplacement: " + javaStringLiteral(replacement))
-          + "\nSafeRE: " + safeRe + "\nJDK: " + jdk);
+      return new AssertionError(
+          operation
+              + " divergence"
+              + "\nRegex: "
+              + javaStringLiteral(regex)
+              + "\nFlags: "
+              + flags
+              + "\nInput: "
+              + javaStringLiteral(input)
+              + (replacement == null ? "" : "\nReplacement: " + javaStringLiteral(replacement))
+              + "\nSafeRE: "
+              + safeRe
+              + "\nJDK: "
+              + jdk);
     }
 
     private void assertSame(String operation, Object safeRe, Object jdk) {
@@ -597,8 +615,7 @@ final class FuzzSupport {
       }
     }
 
-    private <T> T runJdkOracle(
-        String operation, T fallback, JdkOracleOperation<T> jdkOperation) {
+    private <T> T runJdkOracle(String operation, T fallback, JdkOracleOperation<T> jdkOperation) {
       if (!jdkOracleAvailable) {
         return fallback;
       }
@@ -639,11 +656,7 @@ final class FuzzSupport {
   private record JdkOracleResult<T>(boolean available, T value) {}
 
   private static <T> JdkOracleResult<T> runJdkOracle(
-      String operation,
-      String regex,
-      int flags,
-      String input,
-      JdkOracleOperation<T> jdkOperation) {
+      String operation, String regex, int flags, String input, JdkOracleOperation<T> jdkOperation) {
     Future<T> task = JDK_ORACLE_EXECUTOR.submit(jdkOperation::run);
 
     try {
@@ -733,10 +746,7 @@ final class FuzzSupport {
   }
 
   private static String describeArray(String[] values) {
-    return Arrays.stream(values)
-        .map(FuzzSupport::javaStringLiteral)
-        .toList()
-        .toString();
+    return Arrays.stream(values).map(FuzzSupport::javaStringLiteral).toList().toString();
   }
 
   private static String javaStringLiteral(String value) {

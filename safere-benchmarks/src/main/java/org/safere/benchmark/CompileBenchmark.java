@@ -14,9 +14,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-/**
- * Benchmarks for pattern compilation time: SafeRE vs {@code java.util.regex}.
- */
+/** Benchmarks for pattern compilation time: SafeRE vs {@code java.util.regex}. */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Thread)

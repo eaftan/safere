@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
  * <p>{@code UNICODE_CASE} controls <i>how</i> case folding works (Unicode vs ASCII-only) when
  * {@link Pattern#CASE_INSENSITIVE} is also set. By itself, it should have no effect on matching.
  *
- * <p>{@code CASE_INSENSITIVE} alone folds ASCII only, matching the JDK. Add
- * {@code UNICODE_CASE} for Unicode-aware folding.
+ * <p>{@code CASE_INSENSITIVE} alone folds ASCII only, matching the JDK. Add {@code UNICODE_CASE}
+ * for Unicode-aware folding.
  */
 class UnicodeCaseTest {
 
@@ -32,8 +32,7 @@ class UnicodeCaseTest {
   @Test
   void unicodeCaseFoldingWithBothFlags() {
     // With both CASE_INSENSITIVE | UNICODE_CASE, Unicode folding should work.
-    Pattern p = Pattern.compile("café",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("café", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("CAFÉ").matches()).isTrue();
     assertThat(p.matcher("Café").matches()).isTrue();
   }
@@ -48,32 +47,28 @@ class UnicodeCaseTest {
   @Test
   void germanEszett() {
     // German ß — SafeRE folds case for non-ASCII characters.
-    Pattern p = Pattern.compile("straße",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("straße", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("STRASSE").matches()).isFalse(); // ß doesn't fold to SS in simple folding
     assertThat(p.matcher("STRAßE").matches()).isTrue();
   }
 
   @Test
   void greekLettersFolding() {
-    Pattern p = Pattern.compile("αβγ",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("αβγ", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("ΑΒΓ").matches()).isTrue();
     assertThat(p.matcher("αβγ").matches()).isTrue();
   }
 
   @Test
   void cyrillicLettersFolding() {
-    Pattern p = Pattern.compile("привет",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("привет", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("ПРИВЕТ").matches()).isTrue();
     assertThat(p.matcher("Привет").matches()).isTrue();
   }
 
   @Test
   void characterClassWithUnicodeCase() {
-    Pattern p = Pattern.compile("[à-ã]",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("[à-ã]", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("á").matches()).isTrue();
     assertThat(p.matcher("Á").matches()).isTrue();
     assertThat(p.matcher("ã").matches()).isTrue();
@@ -89,8 +84,7 @@ class UnicodeCaseTest {
 
   @Test
   void findWithUnicodeCase() {
-    Pattern p = Pattern.compile("über",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("über", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     Matcher m = p.matcher("Das ist ÜBER cool");
     assertThat(m.find()).isTrue();
     assertThat(m.group()).isEqualTo("ÜBER");
@@ -98,16 +92,14 @@ class UnicodeCaseTest {
 
   @Test
   void splitWithUnicodeCase() {
-    Pattern p = Pattern.compile("café",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("café", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     String[] parts = p.split("xCAFÉyCaféz");
     assertThat(parts).containsExactly("x", "y", "z");
   }
 
   @Test
   void replaceAllWithUnicodeCase() {
-    Pattern p = Pattern.compile("naïve",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("naïve", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("He is NAÏVE").replaceAll("smart")).isEqualTo("He is smart");
   }
 
@@ -144,8 +136,7 @@ class UnicodeCaseTest {
   void turkishDotlessI() {
     // Turkish dotless ı (U+0131) and İ (U+0130) — these are special in Turkish locale
     // but SafeRE uses simple case folding which maps İ→i and I→ı through Unicode tables.
-    Pattern p = Pattern.compile("i",
-        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    Pattern p = Pattern.compile("i", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("I").matches()).isTrue();
   }
 }

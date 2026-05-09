@@ -6,6 +6,11 @@ package org.safere.crosscheck;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,6 +40,22 @@ class CrosscheckTest {
     void compileWithFlags() {
       Pattern p = Pattern.compile("abc", Pattern.CASE_INSENSITIVE);
       assertThat(p.flags()).isEqualTo(Pattern.CASE_INSENSITIVE);
+    }
+
+    @Test
+    @DisplayName("serialized pattern round-trips through regex and flags")
+    void serializedPatternRoundTripsThroughRegexAndFlags() throws Exception {
+      Pattern p = Pattern.compile("(?<word>[a-z]+)-(\\d+)", Pattern.CASE_INSENSITIVE);
+
+      Pattern restored = roundTrip(p);
+
+      assertThat(restored).isInstanceOf(Serializable.class);
+      assertThat(restored.pattern()).isEqualTo("(?<word>[a-z]+)-(\\d+)");
+      assertThat(restored.flags()).isEqualTo(Pattern.CASE_INSENSITIVE);
+      Matcher m = restored.matcher("Abc-123");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.group("word")).isEqualTo("Abc");
+      assertThat(m.group(2)).isEqualTo("123");
     }
 
     @Test
@@ -274,20 +295,21 @@ class CrosscheckTest {
     void resultsComparesNamedSnapshots() {
       Matcher m = Pattern.compile("(?<word>\\w+)-(?<digits>\\d+)").matcher("a-12 b-345");
 
-      assertThat(m.results()
-          .map(result -> result.group("word")
-              + ":"
-              + result.start("digits")
-              + "-"
-              + result.end("digits")
-              + ":"
-              + result.namedGroups().get("word")
-              + ","
-              + result.namedGroups().get("digits"))
-          .toList())
-          .containsExactly(
-              "a:2-4:1,2",
-              "b:7-10:1,2");
+      assertThat(
+              m.results()
+                  .map(
+                      result ->
+                          result.group("word")
+                              + ":"
+                              + result.start("digits")
+                              + "-"
+                              + result.end("digits")
+                              + ":"
+                              + result.namedGroups().get("word")
+                              + ","
+                              + result.namedGroups().get("digits"))
+                  .toList())
+          .containsExactly("a:2-4:1,2", "b:7-10:1,2");
     }
 
     @Test
@@ -297,10 +319,11 @@ class CrosscheckTest {
 
       assertThatThrownBy(() -> m.results().toList())
           .isInstanceOf(CrosscheckException.class)
-          .satisfies(ex -> {
-            CrosscheckException ce = (CrosscheckException) ex;
-            assertThat(ce.trace()).contains("DIVERGENCE");
-          });
+          .satisfies(
+              ex -> {
+                CrosscheckException ce = (CrosscheckException) ex;
+                assertThat(ce.trace()).contains("DIVERGENCE");
+              });
     }
   }
 
@@ -466,10 +489,11 @@ class CrosscheckTest {
       // JDK:    group(1) = "a" (leaked from failed attempt at earlier position)
       assertThatThrownBy(() -> m.find())
           .isInstanceOf(CrosscheckException.class)
-          .satisfies(ex -> {
-            CrosscheckException ce = (CrosscheckException) ex;
-            assertThat(ce.trace()).contains("DIVERGENCE");
-          });
+          .satisfies(
+              ex -> {
+                CrosscheckException ce = (CrosscheckException) ex;
+                assertThat(ce.trace()).contains("DIVERGENCE");
+              });
     }
   }
 
@@ -530,8 +554,8 @@ class CrosscheckTest {
     void namedGroupsMap() {
       Pattern p = Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})");
       assertThat(p.namedGroups())
-          .isEqualTo(java.util.regex.Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})")
-              .namedGroups());
+          .isEqualTo(
+              java.util.regex.Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})").namedGroups());
     }
 
     @Test
@@ -550,6 +574,17 @@ class CrosscheckTest {
       Matcher m = p.matcher("fort");
       m.find();
       assertThat(m.hitEnd()).isFalse();
+    }
+  }
+
+  private static Pattern roundTrip(Pattern pattern) throws Exception {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+      out.writeObject(pattern);
+    }
+    try (ObjectInputStream in =
+        new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+      return (Pattern) in.readObject();
     }
   }
 }

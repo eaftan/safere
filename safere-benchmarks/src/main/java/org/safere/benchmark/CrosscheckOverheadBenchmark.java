@@ -16,8 +16,8 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
 /**
- * Measures overhead added by the crosscheck facade for replacement loops that call
- * {@code appendReplacement} once per match.
+ * Measures overhead added by the crosscheck facade for replacement loops that call {@code
+ * appendReplacement} once per match.
  *
  * <p>This is a diagnostic benchmark for crosscheck optimization work. The Java benchmark wrapper
  * excludes it from default no-argument runs; run this class explicitly when needed.

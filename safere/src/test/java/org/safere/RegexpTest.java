@@ -227,8 +227,7 @@ class RegexpTest {
 
   @Test
   void toStringNonGreedyRepeat() {
-    Regexp re =
-        Regexp.repeat(Regexp.literal('a', 0), ParseFlags.NON_GREEDY, 2, 5);
+    Regexp re = Regexp.repeat(Regexp.literal('a', 0), ParseFlags.NON_GREEDY, 2, 5);
     assertThat(re.toString()).isEqualTo("a{2,5}?");
   }
 
@@ -241,9 +240,7 @@ class RegexpTest {
   @Test
   void toStringConcatNeedsParen() {
     // Concat inside a quantifier needs (?:...) wrapping.
-    Regexp ab =
-        Regexp.concat(
-            List.of(Regexp.literal('a', 0), Regexp.literal('b', 0)), 0);
+    Regexp ab = Regexp.concat(List.of(Regexp.literal('a', 0), Regexp.literal('b', 0)), 0);
     Regexp star = Regexp.star(ab, 0);
     assertThat(star.toString()).isEqualTo("(?:ab)*");
   }

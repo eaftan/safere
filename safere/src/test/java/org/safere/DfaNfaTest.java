@@ -37,15 +37,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 class DfaNfaTest {
 
   private static final int FLAGS =
-      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
-          | ParseFlags.UNICODE_GROUPS;
+      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   /** A single test case: pattern + input text. */
   record TestCase(String pattern, String input) {
     @Override
     public String toString() {
-      return "/" + pattern.replace("\n", "\\n") + "/ on \""
-          + input.replace("\n", "\\n") + "\"";
+      return "/" + pattern.replace("\n", "\\n") + "/ on \"" + input.replace("\n", "\\n") + "\"";
     }
   }
 
@@ -334,8 +332,7 @@ class DfaNfaTest {
     }
 
     boolean nfaMatched = (nfaResult.groups() != null);
-    String mode = (anchored ? "anchored" : "unanchored")
-        + " " + (longest ? "longest" : "first");
+    String mode = (anchored ? "anchored" : "unanchored") + " " + (longest ? "longest" : "first");
 
     assertThat(dfaResult.matched())
         .as("match/no-match for /%s/ on \"%s\" (%s)", tc.pattern(), tc.input(), mode)
@@ -362,8 +359,7 @@ class DfaNfaTest {
     }
 
     boolean nfaMatched = (nfaResult != null);
-    String mode = (anchored ? "anchored" : "unanchored")
-        + " " + (longest ? "longest" : "first");
+    String mode = (anchored ? "anchored" : "unanchored") + " " + (longest ? "longest" : "first");
 
     assertThat(dfaResult.matched())
         .as("match/no-match for /%s/ on \"%s\" (%s)", tc.pattern(), tc.input(), mode)
@@ -372,7 +368,8 @@ class DfaNfaTest {
     if (dfaResult.matched() && nfaMatched) {
       int nfaEnd = nfaResult[1]; // group(0) end
       assertThat(dfaResult.pos())
-          .as("match end for /%s/ on \"%s\" (%s): DFA=%d, NFA=%d",
+          .as(
+              "match end for /%s/ on \"%s\" (%s): DFA=%d, NFA=%d",
               tc.pattern(), tc.input(), mode, dfaResult.pos(), nfaEnd)
           .isEqualTo(nfaEnd);
     }

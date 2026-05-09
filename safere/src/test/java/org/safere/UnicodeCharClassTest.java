@@ -11,9 +11,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link Pattern#UNICODE_CHARACTER_CLASS} flag behavior. When this flag is set,
- * {@code \d}, {@code \w}, {@code \s}, and {@code \b} use Unicode definitions instead of
- * ASCII-only.
+ * Tests for {@link Pattern#UNICODE_CHARACTER_CLASS} flag behavior. When this flag is set, {@code
+ * \d}, {@code \w}, {@code \s}, and {@code \b} use Unicode definitions instead of ASCII-only.
  */
 class UnicodeCharClassTest {
 

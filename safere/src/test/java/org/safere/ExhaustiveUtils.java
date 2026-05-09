@@ -8,7 +8,6 @@ package org.safere;
 import static org.assertj.core.api.Assertions.fail;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
@@ -56,8 +55,7 @@ final class ExhaustiveUtils {
   }
 
   // Standard egrep operators (like RE2's EgrepOps, minus \C*)
-  static final List<String> EGREP_OPS =
-      List.of("%s%s", "%s|%s", "%s*", "%s+", "%s?");
+  static final List<String> EGREP_OPS = List.of("%s%s", "%s|%s", "%s*", "%s+", "%s?");
 
   /**
    * Run an exhaustive test with the given configuration. Generates all regexps from atoms+ops, all
@@ -90,10 +88,7 @@ final class ExhaustiveUtils {
                 if (config.testLongText()) {
                   testCount.addAndGet(
                       testPair(
-                          regexp,
-                          Config.LONG_TEXT_PREFIX + text,
-                          config.flags(),
-                          localFailures));
+                          regexp, Config.LONG_TEXT_PREFIX + text, config.flags(), localFailures));
                 }
               }
               if (!localFailures.isEmpty()) {
@@ -206,10 +201,8 @@ final class ExhaustiveUtils {
                 String.valueOf(jdkFound)));
       } else if (jdkFound) {
         // Compare group(0) positions
-        String jdkMatch =
-            String.format("[%d,%d)", jdkM.start(), jdkM.end());
-        String safereMatch =
-            String.format("[%d,%d)", safereM.start(), safereM.end());
+        String jdkMatch = String.format("[%d,%d)", jdkM.start(), jdkM.end());
+        String safereMatch = String.format("[%d,%d)", safereM.start(), safereM.end());
         if (!jdkMatch.equals(safereMatch)) {
           failures.add(new TestResult(regexp, text, flags, "find/pos", safereMatch, jdkMatch));
         } else {
@@ -285,8 +278,8 @@ final class ExhaustiveUtils {
   }
 
   /**
-   * Generate all possible regular expressions from atoms and operators using RE2's postfix approach.
-   * For each generated regexp, also generates anchored variants: ^(re)$, ^(re), (re)$.
+   * Generate all possible regular expressions from atoms and operators using RE2's postfix
+   * approach. For each generated regexp, also generates anchored variants: ^(re)$, ^(re), (re)$.
    */
   static void generateRegexps(
       int maxAtoms,
@@ -329,8 +322,8 @@ final class ExhaustiveUtils {
     if (atomsUsed < maxAtoms) {
       for (String atom : atoms) {
         post.add(atom);
-        generatePostfix(post, nstk + 1, opsUsed, atomsUsed + 1, maxAtoms, maxOps, atoms, ops,
-            wrapper, handler);
+        generatePostfix(
+            post, nstk + 1, opsUsed, atomsUsed + 1, maxAtoms, maxOps, atoms, ops, wrapper, handler);
         post.removeLast();
       }
     }
@@ -341,8 +334,17 @@ final class ExhaustiveUtils {
         int nargs = countArgs(op);
         if (nargs <= nstk) {
           post.add(op);
-          generatePostfix(post, nstk - nargs + 1, opsUsed + 1, atomsUsed, maxAtoms, maxOps,
-              atoms, ops, wrapper, handler);
+          generatePostfix(
+              post,
+              nstk - nargs + 1,
+              opsUsed + 1,
+              atomsUsed,
+              maxAtoms,
+              maxOps,
+              atoms,
+              ops,
+              wrapper,
+              handler);
           post.removeLast();
         }
       }
@@ -426,16 +428,16 @@ final class ExhaustiveUtils {
   }
 
   /**
-   * Pattern detecting capture groups inside zero-or-more repetition ({@code *}, {@code +?},
-   * {@code {N,}}, etc.) anchored by {@code $}. NFA engines start a fresh thread at each position
-   * with captures initialized to -1. When a {@code {0,}}/{@code *} repetition matches zero times,
+   * Pattern detecting capture groups inside zero-or-more repetition ({@code *}, {@code +?}, {@code
+   * {N,}}, etc.) anchored by {@code $}. NFA engines start a fresh thread at each position with
+   * captures initialized to -1. When a {@code {0,}}/{@code *} repetition matches zero times,
    * captures from earlier (failed) starting positions are not preserved. JDK's backtracking engine
-   * leaks captures from failed attempts (and is itself inconsistent: {@code (a)*$} vs
-   * {@code (?:(a))*$} give different g1 results). This is an inherent NFA vs backtracking
-   * difference — a suspected JDK bug, not a SafeRE bug.
+   * leaks captures from failed attempts (and is itself inconsistent: {@code (a)*$} vs {@code
+   * (?:(a))*$} give different g1 results). This is an inherent NFA vs backtracking difference — a
+   * suspected JDK bug, not a SafeRE bug.
    *
-   * <p>See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 2) and
-   * <a href="https://github.com/eaftan/safere/issues/52">issue #52</a> for detailed analysis.
+   * <p>See <a href="https://github.com/eaftan/safere/issues/42">issue #42</a> (bug 2) and <a
+   * href="https://github.com/eaftan/safere/issues/52">issue #52</a> for detailed analysis.
    */
   private static final java.util.regex.Pattern NESTED_REP_CAPTURE =
       java.util.regex.Pattern.compile(

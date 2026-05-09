@@ -152,13 +152,26 @@ final class Nfa {
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
    *     indices into the full text.
    */
-  static SearchResult search(Prog prog, String text, int startPos, int searchLimit, Anchor anchor,
-      MatchKind kind, int nsubmatch) {
+  static SearchResult search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch) {
     return search(prog, text, startPos, searchLimit, text.length(), anchor, kind, nsubmatch);
   }
 
-  static SearchResult search(Prog prog, String text, int startPos, int searchLimit, int endPos,
-      Anchor anchor, MatchKind kind, int nsubmatch) {
+  static SearchResult search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch) {
     if (prog.start() == 0) {
       return new SearchResult(null, false);
     }
@@ -197,8 +210,15 @@ final class Nfa {
     return new SearchResult(result, nfa.hitEnd);
   }
 
-  static EndStateMatch searchEndState(Prog prog, String text, int startPos, int searchLimit,
-      int endPos, Anchor anchor, MatchKind kind, int nsubmatch) {
+  static EndStateMatch searchEndState(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch) {
     if (prog.start() == 0) {
       return null;
     }
@@ -329,7 +349,12 @@ final class Nfa {
    * @param t0 the current capture array (shared — will be cloned before mutation)
    */
   private void addToThreadq(
-      List<NfaThread> q, Set<Integer> visited, int id0, String text, int pos, int[] t0,
+      List<NfaThread> q,
+      Set<Integer> visited,
+      int id0,
+      String text,
+      int pos,
+      int[] t0,
       int terminalEmptyFlags0) {
     if (id0 == 0) {
       return;
@@ -339,7 +364,7 @@ final class Nfa {
     // We push entries and process them LIFO. The capture array may be shared
     // and is cloned when a CAPTURE instruction modifies it.
     List<int[]> stack = new ArrayList<>();
-    stack.add(new int[]{id0, -1}); // -1 = use current t0
+    stack.add(new int[] {id0, -1}); // -1 = use current t0
 
     // Parallel list of capture arrays for stack entries that need a specific capture.
     // Index corresponds to stack index. null means "use current t0".
@@ -371,9 +396,7 @@ final class Nfa {
       // same alternation or capture instruction at the same input position with different capture
       // registers. The later zero-width iteration is JDK-visible and must not be discarded.
       Inst ip = prog.inst(id);
-      if (ip.op != InstOp.PROGRESS_CHECK
-          && ip.op != InstOp.ALT
-          && ip.op != InstOp.CAPTURE) {
+      if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
         visited.add(id);
       }
       switch (ip.op) {
@@ -381,10 +404,10 @@ final class Nfa {
 
         case ALT -> {
           // Push out1 first (lower priority), then out (higher priority).
-          stack.add(new int[]{ip.out1, -1});
+          stack.add(new int[] {ip.out1, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
-          stack.add(new int[]{ip.out, -1});
+          stack.add(new int[] {ip.out, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
         }
@@ -393,16 +416,16 @@ final class Nfa {
           // Enqueue this state and also explore the next alt branch.
           q.add(new NfaThread(id, t0, terminalEmptyFlags));
           // Explore the next instruction after this one (the other alt branch).
-          stack.add(new int[]{ip.out, -1});
+          stack.add(new int[] {ip.out, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
-          stack.add(new int[]{ip.out1, -1});
+          stack.add(new int[] {ip.out1, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
         }
 
         case NOP -> {
-          stack.add(new int[]{ip.out, -1});
+          stack.add(new int[] {ip.out, -1});
           captureStack.add(null);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
         }
@@ -412,12 +435,12 @@ final class Nfa {
             // Clone the capture and record the current position.
             int[] newCap = t0.clone();
             newCap[ip.arg] = pos;
-            stack.add(new int[]{ip.out, -1});
+            stack.add(new int[] {ip.out, -1});
             captureStack.add(newCap);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
           } else {
             // Capture register not tracked; just follow the transition.
-            stack.add(new int[]{ip.out, -1});
+            stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
           }
@@ -430,7 +453,7 @@ final class Nfa {
             if (pos == endPos || isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
               nextTerminalEmptyFlags |= ip.arg;
             }
-            stack.add(new int[]{ip.out, -1});
+            stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
             terminalEmptyFlagsStack.add(nextTerminalEmptyFlags);
           }
@@ -444,12 +467,12 @@ final class Nfa {
             // First visit: must enter body at least once (plus semantics).
             int[] newCap = t0.clone();
             newCap[regIdx] = pos;
-            stack.add(new int[]{ip.out, -1});
+            stack.add(new int[] {ip.out, -1});
             captureStack.add(newCap);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
           } else if (saved == pos) {
             // Zero-width body match: only exit.
-            stack.add(new int[]{ip.out1, -1});
+            stack.add(new int[] {ip.out1, -1});
             captureStack.add(t0);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
           } else {
@@ -459,18 +482,18 @@ final class Nfa {
             boolean nonGreedy = ip.foldCase;
             if (nonGreedy) {
               // Non-greedy: prefer exit (push body first = lower pri, exit second = higher pri).
-              stack.add(new int[]{ip.out, -1});
+              stack.add(new int[] {ip.out, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
-              stack.add(new int[]{ip.out1, -1});
+              stack.add(new int[] {ip.out1, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
             } else {
               // Greedy: prefer body (push exit first = lower pri, body second = higher pri).
-              stack.add(new int[]{ip.out1, -1});
+              stack.add(new int[] {ip.out1, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
-              stack.add(new int[]{ip.out, -1});
+              stack.add(new int[] {ip.out, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
             }
@@ -478,9 +501,9 @@ final class Nfa {
         }
 
         case CHAR_RANGE, CHAR_CLASS, MATCH ->
-          // These are "real" states. Capture arrays are immutable from this point
-          // until a later CAPTURE or PROGRESS_CHECK transition clones them.
-          q.add(new NfaThread(id, t0, terminalEmptyFlags));
+            // These are "real" states. Capture arrays are immutable from this point
+            // until a later CAPTURE or PROGRESS_CHECK transition clones them.
+            q.add(new NfaThread(id, t0, terminalEmptyFlags));
 
         default -> {}
       }
@@ -495,8 +518,14 @@ final class Nfa {
    * @return true if the search should stop (first-match found and remaining threads cut off)
    */
   private boolean step(
-      List<NfaThread> rq, Set<Integer> rqSet, List<NfaThread> nq, Set<Integer> nqSet,
-      int cp, String text, int matchPos, int nextPos) {
+      List<NfaThread> rq,
+      Set<Integer> rqSet,
+      List<NfaThread> nq,
+      Set<Integer> nqSet,
+      int cp,
+      String text,
+      int matchPos,
+      int nextPos) {
     nq.clear();
     nqSet.clear();
 
@@ -505,7 +534,10 @@ final class Nfa {
       int[] capture = t.capture();
       int terminalEmptyFlags = t.terminalEmptyFlags();
 
-      if (longest && matched && bestMatch[0] != -1 && capture[0] != -1
+      if (longest
+          && matched
+          && bestMatch[0] != -1
+          && capture[0] != -1
           && bestMatch[0] < capture[0]) {
         continue;
       }
@@ -525,12 +557,15 @@ final class Nfa {
         }
 
         case MATCH -> {
-          boolean skip = endmatch && matchPos != endPos
-              && (!prog.dollarAnchorEnd()
-                  || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines()));
+          boolean skip =
+              endmatch
+                  && matchPos != endPos
+                  && (!prog.dollarAnchorEnd()
+                      || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines()));
           if (!skip) {
             if (longest) {
-              if (!matched || capture[0] < bestMatch[0]
+              if (!matched
+                  || capture[0] < bestMatch[0]
                   || (capture[0] == bestMatch[0] && matchPos > bestMatch[1])) {
                 System.arraycopy(capture, 0, bestMatch, 0, ncapture);
                 bestMatch[1] = matchPos;
@@ -575,8 +610,8 @@ final class Nfa {
 
   /**
    * Returns true if the code point is a JDK line terminator character: {@code '\n'}, {@code '\r'},
-   * {@code '\u0085'} (NEXT LINE), {@code '\u2028'} (LINE SEPARATOR), or {@code '\u2029'}
-   * (PARAGRAPH SEPARATOR).
+   * {@code '\u0085'} (NEXT LINE), {@code '\u2028'} (LINE SEPARATOR), or {@code '\u2029'} (PARAGRAPH
+   * SEPARATOR).
    */
   static boolean isLineTerminator(int cp) {
     return cp == '\n' || cp == '\r' || cp == '\u0085' || cp == '\u2028' || cp == '\u2029';
@@ -711,9 +746,8 @@ final class Nfa {
   }
 
   /**
-   * Returns true if {@code pos} is a grapheme cluster boundary for SafeRE's supported
-   * approximation of JDK {@code \X}: CRLF is atomic, and combining marks extend the preceding
-   * cluster.
+   * Returns true if {@code pos} is a grapheme cluster boundary for SafeRE's supported approximation
+   * of JDK {@code \X}: CRLF is atomic, and combining marks extend the preceding cluster.
    */
   static boolean isGraphemeClusterBoundary(String text, int pos) {
     if (pos < 0 || pos > text.length()) {
@@ -742,8 +776,7 @@ final class Nfa {
 
   /** Returns true if the code point is a word character ({@code [A-Za-z0-9_]}). */
   static boolean isWordChar(int c) {
-    return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z')
-        || ('0' <= c && c <= '9') || c == '_';
+    return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || ('0' <= c && c <= '9') || c == '_';
   }
 
   /** Returns true if the code point is a Unicode word character (matching {@code \w} under UCC). */
@@ -754,7 +787,7 @@ final class Nfa {
         || Character.getType(c) == Character.COMBINING_SPACING_MARK
         || Character.isDigit(c)
         || Character.getType(c) == Character.CONNECTOR_PUNCTUATION
-        || c == 0x200C  // ZWNJ
+        || c == 0x200C // ZWNJ
         || c == 0x200D; // ZWJ
   }
 

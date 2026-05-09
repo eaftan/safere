@@ -48,12 +48,9 @@ public final class MemoryBenchmark {
     for (String name : patternNames) {
       String pattern = data.getString("compile." + name + ".pattern");
 
-      long safereSize = measureRetainedSize(
-          () -> org.safere.Pattern.compile(pattern));
-      long jdkSize = measureRetainedSize(
-          () -> java.util.regex.Pattern.compile(pattern));
-      long re2jSize = measureRetainedSize(
-          () -> com.google.re2j.Pattern.compile(pattern));
+      long safereSize = measureRetainedSize(() -> org.safere.Pattern.compile(pattern));
+      long jdkSize = measureRetainedSize(() -> java.util.regex.Pattern.compile(pattern));
+      long re2jSize = measureRetainedSize(() -> com.google.re2j.Pattern.compile(pattern));
 
       System.out.printf("%-18s %,10d %,10d %,10d%n", name, safereSize, jdkSize, re2jSize);
     }
@@ -66,24 +63,21 @@ public final class MemoryBenchmark {
     System.out.println("─".repeat(52));
 
     String[][] regexPatterns = {
-        {"literalMatch", "regex.literalMatch.pattern"},
-        {"charClassMatch", "regex.charClassMatch.pattern"},
-        {"alternationFind", "regex.alternationFind.pattern"},
-        {"captureGroups", "regex.captureGroups.pattern"},
-        {"findInText", "regex.findInText.pattern"},
-        {"emailFind", "regex.emailFind.pattern"},
+      {"literalMatch", "regex.literalMatch.pattern"},
+      {"charClassMatch", "regex.charClassMatch.pattern"},
+      {"alternationFind", "regex.alternationFind.pattern"},
+      {"captureGroups", "regex.captureGroups.pattern"},
+      {"findInText", "regex.findInText.pattern"},
+      {"emailFind", "regex.emailFind.pattern"},
     };
 
     for (String[] entry : regexPatterns) {
       String name = entry[0];
       String pattern = data.getString(entry[1]);
 
-      long safereSize = measureRetainedSize(
-          () -> org.safere.Pattern.compile(pattern));
-      long jdkSize = measureRetainedSize(
-          () -> java.util.regex.Pattern.compile(pattern));
-      long re2jSize = measureRetainedSize(
-          () -> com.google.re2j.Pattern.compile(pattern));
+      long safereSize = measureRetainedSize(() -> org.safere.Pattern.compile(pattern));
+      long jdkSize = measureRetainedSize(() -> java.util.regex.Pattern.compile(pattern));
+      long re2jSize = measureRetainedSize(() -> com.google.re2j.Pattern.compile(pattern));
 
       System.out.printf("%-18s %,10d %,10d %,10d%n", name, safereSize, jdkSize, re2jSize);
     }

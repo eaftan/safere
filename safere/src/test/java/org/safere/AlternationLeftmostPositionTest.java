@@ -53,14 +53,14 @@ class AlternationLeftmostPositionTest {
     boolean jdkFound = jdkM.find();
     boolean safereFound = safereM.find();
 
-    assertThat(safereFound)
-        .as("find() for /%s/ on \"%s\"", pattern, input)
-        .isEqualTo(jdkFound);
+    assertThat(safereFound).as("find() for /%s/ on \"%s\"", pattern, input).isEqualTo(jdkFound);
 
     if (jdkFound && safereFound) {
       assertThat(safereM.start())
-          .as("start() for /%s/ on \"%s\": SafeRE matched '%s', JDK matched '%s'",
-              pattern, input,
+          .as(
+              "start() for /%s/ on \"%s\": SafeRE matched '%s', JDK matched '%s'",
+              pattern,
+              input,
               input.substring(safereM.start(), safereM.end()),
               input.substring(jdkM.start(), jdkM.end()))
           .isEqualTo(jdkM.start());
@@ -88,8 +88,7 @@ class AlternationLeftmostPositionTest {
     }
     List<String> jdkResults = new ArrayList<>();
     while (jdkM.find()) {
-      jdkResults.add(
-          String.format("[%d,%d)='%s'", jdkM.start(), jdkM.end(), jdkM.group()));
+      jdkResults.add(String.format("[%d,%d)='%s'", jdkM.start(), jdkM.end(), jdkM.group()));
     }
 
     assertThat(safereResults)
@@ -108,9 +107,7 @@ class AlternationLeftmostPositionTest {
     boolean jdkFound = jdkM.find();
     boolean safereFound = safereM.find();
 
-    assertThat(safereFound)
-        .as("find() for /%s/ on \"%s\"", pattern, input)
-        .isEqualTo(jdkFound);
+    assertThat(safereFound).as("find() for /%s/ on \"%s\"", pattern, input).isEqualTo(jdkFound);
 
     if (jdkFound && safereFound) {
       assertThat(safereM.start())
@@ -680,10 +677,11 @@ class AlternationLeftmostPositionTest {
         // Pattern: (short_suffix|full_string) where short_suffix appears later
         String full = prefix + "ABC";
         String shortAlt = "ABC";
-        cases.add(Arguments.of(
-            String.format("offset=%d: (%s|%s) on '%s'", offset, shortAlt, full, full),
-            "(" + shortAlt + "|" + full + ")",
-            full));
+        cases.add(
+            Arguments.of(
+                String.format("offset=%d: (%s|%s) on '%s'", offset, shortAlt, full, full),
+                "(" + shortAlt + "|" + full + ")",
+                full));
       }
       return cases.stream();
     }
@@ -930,15 +928,13 @@ class AlternationLeftmostPositionTest {
     @Test
     @DisplayName("Simplified generics with charclass: ([A-Z]<[A-Z]>|[A-Z]<[A-Z]<[A-Z]>>)")
     void simplifiedGenericsCharClass() {
-      assertMatchesJdk(
-          "([A-Z]<[A-Z]>|[A-Z]<[A-Z]<[A-Z]>>)", "A<B<C>>");
+      assertMatchesJdk("([A-Z]<[A-Z]>|[A-Z]<[A-Z]<[A-Z]>>)", "A<B<C>>");
     }
 
     @Test
     @DisplayName("With + quantifier: ([a-z]+<[a-z]+>|[a-z]+<[a-z]+<[a-z]+>>)")
     void withPlusQuantifier() {
-      assertMatchesJdk(
-          "([a-z]+<[a-z]+>|[a-z]+<[a-z]+<[a-z]+>>)", "ab<cd<ef>>");
+      assertMatchesJdk("([a-z]+<[a-z]+>|[a-z]+<[a-z]+<[a-z]+>>)", "ab<cd<ef>>");
     }
 
     @Test

@@ -18,15 +18,15 @@ import org.junit.jupiter.api.Test;
 class NfaTest {
 
   private static final int FLAGS =
-      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B
-          | ParseFlags.UNICODE_GROUPS;
+      ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   /** Search with default first-match, unanchored semantics. */
   private static int[] search(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures()).groups();
+            prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures())
+        .groups();
   }
 
   /** Search with full-match semantics. */
@@ -34,7 +34,8 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures()).groups();
+            prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures())
+        .groups();
   }
 
   /** Search with longest-match semantics. */
@@ -42,7 +43,8 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.LONGEST_MATCH, prog.numCaptures()).groups();
+            prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.LONGEST_MATCH, prog.numCaptures())
+        .groups();
   }
 
   /** Search with anchored semantics. */
@@ -50,7 +52,8 @@ class NfaTest {
     Regexp re = Parser.parse(pattern, FLAGS);
     Prog prog = Compiler.compile(re);
     return Nfa.search(
-        prog, text, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures()).groups();
+            prog, text, Nfa.Anchor.ANCHORED, Nfa.MatchKind.FIRST_MATCH, prog.numCaptures())
+        .groups();
   }
 
   @Nested
@@ -443,9 +446,9 @@ class NfaTest {
     void digitsDotDigits() {
       int[] m = search("(\\d+)\\.(\\d+)", "version 3.14 here");
       assertThat(m).isNotNull();
-      assertThat(m[0]).isEqualTo(8);  // "3.14" start
+      assertThat(m[0]).isEqualTo(8); // "3.14" start
       assertThat(m[1]).isEqualTo(12); // "3.14" end
-      assertThat(m[2]).isEqualTo(8);  // group 1: "3"
+      assertThat(m[2]).isEqualTo(8); // group 1: "3"
       assertThat(m[3]).isEqualTo(9);
       assertThat(m[4]).isEqualTo(10); // group 2: "14"
       assertThat(m[5]).isEqualTo(12);

@@ -27,12 +27,14 @@ final class Prog {
   private int numCaptures;
   private boolean anchorStart;
   private boolean anchorEnd;
+
   /**
-   * True when the end anchor was {@code $} (not {@code \z}). When true, the match may end
-   * before a trailing {@code \n} at the end of the text, not just at the absolute end. This
-   * mirrors JDK's default (non-MULTILINE) {@code $} behavior.
+   * True when the end anchor was {@code $} (not {@code \z}). When true, the match may end before a
+   * trailing {@code \n} at the end of the text, not just at the absolute end. This mirrors JDK's
+   * default (non-MULTILINE) {@code $} behavior.
    */
   private boolean dollarAnchorEnd;
+
   private boolean reversed;
   private boolean unixLines;
   private int numLoopRegs;
@@ -136,8 +138,8 @@ final class Prog {
   }
 
   /**
-   * Returns true if the end anchor was {@code $} (not {@code \z}), meaning the match may end
-   * before a trailing newline at the end of the text.
+   * Returns true if the end anchor was {@code $} (not {@code \z}), meaning the match may end before
+   * a trailing newline at the end of the text.
    */
   public boolean dollarAnchorEnd() {
     return dollarAnchorEnd;
@@ -177,8 +179,8 @@ final class Prog {
   }
 
   /**
-   * Returns true if Unix lines mode is active. When true, only {@code '\n'} is recognized as a
-   * line terminator. When false (default), all JDK line terminators are recognized.
+   * Returns true if Unix lines mode is active. When true, only {@code '\n'} is recognized as a line
+   * terminator. When false (default), all JDK line terminators are recognized.
    */
   public boolean unixLines() {
     return unixLines;
@@ -190,14 +192,18 @@ final class Prog {
   }
 
   /**
-   * Returns true if the program contains EMPTY_WIDTH instructions with {@link EmptyOp#WORD_BOUNDARY},
-   * {@link EmptyOp#NON_WORD_BOUNDARY}, {@link EmptyOp#UNICODE_WORD_BOUNDARY}, or
-   * {@link EmptyOp#UNICODE_NON_WORD_BOUNDARY} flags. The DFA handles these as deferred assertions
-   * that are re-expanded when the word-character context is known.
+   * Returns true if the program contains EMPTY_WIDTH instructions with {@link
+   * EmptyOp#WORD_BOUNDARY}, {@link EmptyOp#NON_WORD_BOUNDARY}, {@link
+   * EmptyOp#UNICODE_WORD_BOUNDARY}, or {@link EmptyOp#UNICODE_NON_WORD_BOUNDARY} flags. The DFA
+   * handles these as deferred assertions that are re-expanded when the word-character context is
+   * known.
    */
   public boolean hasWordBoundary() {
-    int mask = EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY
-        | EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    int mask =
+        EmptyOp.WORD_BOUNDARY
+            | EmptyOp.NON_WORD_BOUNDARY
+            | EmptyOp.UNICODE_WORD_BOUNDARY
+            | EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     int n = size();
     for (int i = 0; i < n; i++) {
       Inst ip = inst(i);
@@ -217,8 +223,7 @@ final class Prog {
     int n = instArray.length;
     for (int i = 0; i < n; i++) {
       Inst ip = instArray[i];
-      if (ip.op == InstOp.EMPTY_WIDTH
-          && (ip.arg & EmptyOp.GRAPHEME_CLUSTER_BOUNDARY) != 0) {
+      if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & EmptyOp.GRAPHEME_CLUSTER_BOUNDARY) != 0) {
         return true;
       }
     }
@@ -244,7 +249,8 @@ final class Prog {
       } else {
         sb.append(' ');
       }
-      sb.append(String.format("%d. %s\n", i, instArray != null ? instArray[i] : instructions.get(i)));
+      sb.append(
+          String.format("%d. %s\n", i, instArray != null ? instArray[i] : instructions.get(i)));
     }
     return sb.toString();
   }

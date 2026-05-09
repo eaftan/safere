@@ -40,8 +40,7 @@ class MatcherResultsStreamTest {
   void resultsPositions() {
     Pattern p = Pattern.compile("[a-z]+");
     Matcher m = p.matcher("123 abc 456 def");
-    java.util.List<MatchResult> results =
-        m.results().collect(java.util.stream.Collectors.toList());
+    java.util.List<MatchResult> results = m.results().collect(java.util.stream.Collectors.toList());
     assertThat(results).hasSize(2);
     assertThat(results.get(0).start()).isEqualTo(4);
     assertThat(results.get(0).end()).isEqualTo(7);

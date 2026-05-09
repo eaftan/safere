@@ -24,8 +24,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests parsed from RE2's {@code re2-search.txt} test data file.
  *
- * <p>The file format defines sets of test strings and regexps. For each (regexp, string) pair,
- * four result fields are given (semicolon-separated):
+ * <p>The file format defines sets of test strings and regexps. For each (regexp, string) pair, four
+ * result fields are given (semicolon-separated):
  *
  * <ol>
  *   <li>Full match without submatch extraction ({@code matches()})
@@ -50,8 +50,7 @@ class RE2SearchTest {
     @Override
     public String toString() {
       return String.format(
-          "pat=\"%s\" text=\"%s\" matches=%b find=%b",
-          pattern, text, expectFullMatch, expectFind);
+          "pat=\"%s\" text=\"%s\" matches=%b find=%b", pattern, text, expectFullMatch, expectFind);
     }
   }
 
@@ -98,11 +97,26 @@ class RE2SearchTest {
       if (s.charAt(i) == '\\' && i + 1 < s.length()) {
         char next = s.charAt(i + 1);
         switch (next) {
-          case 'n' -> { sb.append('\n'); i++; }
-          case 't' -> { sb.append('\t'); i++; }
-          case 'r' -> { sb.append('\r'); i++; }
-          case '\\' -> { sb.append('\\'); i++; }
-          case '"' -> { sb.append('"'); i++; }
+          case 'n' -> {
+            sb.append('\n');
+            i++;
+          }
+          case 't' -> {
+            sb.append('\t');
+            i++;
+          }
+          case 'r' -> {
+            sb.append('\r');
+            i++;
+          }
+          case '\\' -> {
+            sb.append('\\');
+            i++;
+          }
+          case '"' -> {
+            sb.append('"');
+            i++;
+          }
           case 'x' -> {
             if (i + 3 < s.length()) {
               sb.append((char) Integer.parseInt(s.substring(i + 2, i + 4), 16));
@@ -112,7 +126,10 @@ class RE2SearchTest {
               i++;
             }
           }
-          default -> { sb.append(next); i++; }
+          default -> {
+            sb.append(next);
+            i++;
+          }
         }
       } else {
         sb.append(s.charAt(i));
@@ -159,8 +176,8 @@ class RE2SearchTest {
       throw new IOException("Cannot find re2-search.txt in test resources");
     }
 
-    try (BufferedReader reader = new BufferedReader(new InputStreamReader(is,
-        StandardCharsets.UTF_8))) {
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
       List<String> strings = new ArrayList<>();
       String line;
 
@@ -221,11 +238,7 @@ class RE2SearchTest {
             tests.add(
                 Arguments.of(
                     new SearchTestCase(
-                        pattern,
-                        text,
-                        fullMatch != null,
-                        findMatch != null,
-                        expectedFindText)));
+                        pattern, text, fullMatch != null, findMatch != null, expectedFindText)));
           }
         }
         if (line == null) {
@@ -279,5 +292,4 @@ class RE2SearchTest {
           .isEqualTo(tc.expectedFindGroup());
     }
   }
-
 }

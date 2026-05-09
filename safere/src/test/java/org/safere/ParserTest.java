@@ -8,8 +8,8 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static safere.google.FakeAssertJ.assertThatNoException;
 
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Nested;
@@ -48,8 +48,8 @@ class ParserTest {
   private static boolean fullMatch(String pattern, String text, int flags) {
     Regexp re = Parser.parse(pattern, flags);
     Prog prog = Compiler.compile(re);
-    Nfa.SearchResult result = Nfa.search(
-        prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+    Nfa.SearchResult result =
+        Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
     return result.groups() != null;
   }
 
@@ -803,8 +803,7 @@ class ParserTest {
 
     @Test
     void namedCapture_pythonSyntaxRejected() {
-      assertThatThrownBy(() -> parse("(?P<name>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?P<name>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -1163,8 +1162,7 @@ class ParserTest {
 
     @Test
     void octal_nul() {
-      assertThatThrownBy(() -> parse("\\0"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("\\0")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -1198,15 +1196,13 @@ class ParserTest {
     @ParameterizedTest
     @ValueSource(strings = {"(a)\\1", "(a)\\12", "(a)\\123", "(a)(b)\\12"})
     void numericBackreferenceWithGroupRejected(String pattern) {
-      assertThatThrownBy(() -> parse(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"[\\1]", "[\\9]", "[\\12]", "[\\123]"})
     void numericBackreferenceInCharClassRejected(String pattern) {
-      assertThatThrownBy(() -> parse(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     // ---- Escape char and control chars ----
@@ -1382,93 +1378,78 @@ class ParserTest {
 
     @Test
     void missingCloseParen() {
-      assertThatThrownBy(() -> parse("(abc"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(abc")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void missingCloseBracket() {
-      assertThatThrownBy(() -> parse("[abc"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("[abc")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unexpectedCloseParen() {
-      assertThatThrownBy(() -> parse("abc)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("abc)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void nothingToRepeat_star() {
-      assertThatThrownBy(() -> parse("*"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("*")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void nothingToRepeat_plus() {
-      assertThatThrownBy(() -> parse("+abc"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("+abc")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"{", "{?", "a{?", "a{,2}", "a{x}", "\\\\Q{?\\\\E"})
     void malformedUnescapedCountedRepetition(String pattern) {
-      assertThatThrownBy(() -> parse(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void trailingBackslash() {
-      assertThatThrownBy(() -> parse("\\"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("\\")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void repeatTooLarge_1001() {
-      assertThatThrownBy(() -> parse("a{1001}"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("a{1001}")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void repeatTooLarge_unbounded() {
-      assertThatThrownBy(() -> parse("a{1001,}"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("a{1001,}")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void repeatTooLarge_huge() {
-      assertThatThrownBy(() -> parse("a{100000}"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("a{100000}")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void repeatTooLarge_hugeUnbounded() {
-      assertThatThrownBy(() -> parse("a{100000,}"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("a{100000,}")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void pythonStyleNamedCapture_emptyNameRejected() {
-      assertThatThrownBy(() -> parse("(?P<>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?P<>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void invalidNamedCapture_empty_angle() {
-      assertThatThrownBy(() -> parse("(?<>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void pythonStyleNamedCapture_spaceInNameRejected() {
-      assertThatThrownBy(() -> parse("(?P<x y>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?P<x y>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void invalidNamedCapture_spaceInName_angle() {
-      assertThatThrownBy(() -> parse("(?<x y>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<x y>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -1480,20 +1461,17 @@ class ParserTest {
 
     @Test
     void invalidNamedCapture_startsWithDigit() {
-      assertThatThrownBy(() -> parse("(?<1abc>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<1abc>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void pythonStyleNamedCapture_startsWithDigitRejected() {
-      assertThatThrownBy(() -> parse("(?P<1abc>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?P<1abc>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void invalidNamedCapture_unicodeLetter() {
-      assertThatThrownBy(() -> parse("(?<caf\u00e9>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<caf\u00e9>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
@@ -1504,40 +1482,37 @@ class ParserTest {
 
     @Test
     void invalidNamedCapture_allDigits() {
-      assertThatThrownBy(() -> parse("(?<123>a)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<123>a)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void invalidPerlOp() {
-      assertThatThrownBy(() -> parse("(?z)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?z)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unclosedGroup_withAlternation() {
-      assertThatThrownBy(() -> parse("(a|b|"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(a|b|")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"a|(", "|(", "(a|b)|(", "a|b|(", "a|(?:b)|("})
     void unclosedGroup_afterAlternationBoundary(String pattern) {
-      assertThatThrownBy(() -> parse(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "a#\0|(",
-        "#\0(",
-        "a#\0b|(",
-        "a#\0(?:b)|(",
-        "a#\r(",
-        "a#\u0085(",
-        "a#\u2028(",
-        "a#\u2029("
-    })
+    @ValueSource(
+        strings = {
+          "a#\0|(",
+          "#\0(",
+          "a#\0b|(",
+          "a#\0(?:b)|(",
+          "a#\r(",
+          "a#\u0085(",
+          "a#\u2028(",
+          "a#\u2029("
+        })
     void unclosedGroup_afterCommentsModeTerminatedComment(String pattern) {
       assertThatThrownBy(() -> parse(pattern, PERL | ParseFlags.COMMENTS))
           .isInstanceOf(PatternSyntaxException.class);
@@ -1546,82 +1521,69 @@ class ParserTest {
     @ParameterizedTest
     @ValueSource(strings = {"a#\0|(", "#\0("})
     void unclosedGroup_afterUnixLinesCommentsModeNulTerminatedComment(String pattern) {
-      assertThatThrownBy(() -> parse(
-          pattern, PERL | ParseFlags.COMMENTS | ParseFlags.UNIX_LINES))
+      assertThatThrownBy(() -> parse(pattern, PERL | ParseFlags.COMMENTS | ParseFlags.UNIX_LINES))
           .isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unclosedGroup_partial() {
-      assertThatThrownBy(() -> parse("(a|b"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(a|b")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void mismatchedBrackets() {
-      assertThatThrownBy(() -> parse("([a-z)"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("([a-z)")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void pythonStyleNamedCapture_unclosedGroupRejected() {
-      assertThatThrownBy(() -> parse("(?P<name>a"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?P<name>a")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unclosedNamedCapture_angle() {
-      assertThatThrownBy(() -> parse("(?<name>a"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<name>a")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void invalidCharRange() {
-      assertThatThrownBy(() -> parse("[z-a]"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("[z-a]")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void invalidCharRange_caseInsensitive() {
-      assertThatThrownBy(() -> parse("(?i)[a-Z]"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?i)[a-Z]")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"a**", "a++", "a+*", "a?*"})
     void invalidNestedRepetition(String pattern) {
-      assertThatThrownBy(() -> parse(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unclosedParen_solo() {
-      assertThatThrownBy(() -> parse("("))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unexpectedCloseParen_solo() {
-      assertThatThrownBy(() -> parse(")"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(")")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void pythonStyleNamedCapture_incompleteRejected() {
-      assertThatThrownBy(() -> parse("(?P<name"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?P<name")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void incompleteNamedCapture_angle() {
-      assertThatThrownBy(() -> parse("(?<name"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(?<name")).isInstanceOf(PatternSyntaxException.class);
     }
 
     @Test
     void unclosedGroup_solo_a() {
-      assertThatThrownBy(() -> parse("(a"))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse("(a")).isInstanceOf(PatternSyntaxException.class);
     }
   }
 
