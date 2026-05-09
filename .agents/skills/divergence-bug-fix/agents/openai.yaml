@@ -1,0 +1,4 @@
+interface:
+  display_name: "Divergence Bug Fix"
+  short_description: "Fix or classify SafeRE/JDK divergence bugs with spec checks"
+  default_prompt: "Use $divergence-bug-fix when fixing or classifying a SafeRE bug where behavior diverges from java.util.regex. First assess SafeRE and JDK behavior against the JDK 26 Pattern and Matcher Javadocs, then add regression and fuzz coverage when applicable."
