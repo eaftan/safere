@@ -196,9 +196,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 
 ## Bug Fixing Philosophy
 
-- **Parser bugs**: Use the `parser-bug-fix` skill for parser bug work. It
-  consolidates this bug-fixing discipline with parser-specific regression and
-  grammar-biased fuzz coverage requirements.
+- **SafeRE/JDK divergence bugs**: Use the `divergence-bug-fix` skill for bugs
+  where SafeRE behavior diverges from `java.util.regex`. It consolidates the
+  compatibility policy, JDK 26 `Pattern`/`Matcher` Javadoc assessment,
+  test-driven regression coverage, and fuzz coverage requirements.
 - **Make principled fixes.** Understand the root cause before changing code.
   Do not add special cases, flags, or if-statements that paper over symptoms.
   A correct fix addresses the underlying design flaw — if a DFA cache key is
@@ -226,13 +227,15 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 ## Key Constraints
 
 - **JDK compatibility**: SafeRE aims to be a drop-in replacement for
-  `java.util.regex`. Match JDK behavior unless (a) the difference is
-  fundamental to SafeRE's approach (e.g., linear-time guarantees require
-  rejecting backreferences) or (b) the JDK's behavior is likely a bug
-  (e.g., JDK is internally inconsistent). When diverging, document the
-  reason. When changing behavior to match `java.util.regex`, use the
-  official JDK Javadoc as the specification; do not rely on memory or infer
-  semantics from implementation details.
+  `java.util.regex`, subject first to SafeRE's linear-time guarantee. Never
+  choose JDK specification compliance or observed JDK behavior compatibility
+  when doing so would violate the linear-time guarantee. Within that
+  constraint, comply with the official JDK Javadoc specification. If the
+  specification is ambiguous or unspecified, match observed JDK behavior when
+  doing so preserves linear time. If observed JDK behavior contradicts the
+  specification, stop and explain the contradiction to the project owner; if
+  they confirm proceeding, match the specification subject to linear time and
+  document the intentional divergence from observed JDK behavior.
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
   quantifiers. These features violate linear-time guarantees and must be
   rejected at parse time with a clear error.
