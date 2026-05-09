@@ -26,7 +26,7 @@ final class UnicodeFuzzer {
           "\uAC00\u11A8",
           "\u0600a");
   private static final List<String> NEGATED_CLASS_REGEXES =
-      List.of("\\S", "\\D", "\\W", "[^a]", "\\P{javaWhitespace}");
+      List.of("\\S", "\\D", "\\W", "[^a]", "\\P{javaWhitespace}", "\\P{Cs}", "[^\\p{Cs}]");
   private static final List<Integer> NEGATED_CLASS_FLAGS =
       List.of(
           0,
