@@ -3,9 +3,35 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-threads=1
+physical_core_count() {
+  local cores
+  if command -v lscpu >/dev/null 2>&1; then
+    cores="$(
+      lscpu -p=Core,Socket 2>/dev/null \
+        | awk -F, '!/^#/ && NF >= 2 { print $1 "," $2 }' \
+        | sort -u \
+        | wc -l \
+        | tr -d '[:space:]'
+    )"
+    if [[ "$cores" =~ ^[0-9]+$ ]] && [[ "$cores" -gt 0 ]]; then
+      echo "$cores"
+      return
+    fi
+  fi
+
+  if [[ "$(uname -s)" == "Darwin" ]] && command -v sysctl >/dev/null 2>&1; then
+    cores="$(sysctl -n hw.physicalcpu 2>/dev/null || true)"
+    if [[ "$cores" =~ ^[0-9]+$ ]] && [[ "$cores" -gt 0 ]]; then
+      echo "$cores"
+      return
+    fi
+  fi
+
+  echo 1
+}
+
+threads="$(physical_core_count)"
 output_dir="target/exhaustive-reports/character-class-sweep"
-heap_size="512m"
 java_args=()
 for arg in "$@"; do
   case "$arg" in
@@ -14,9 +40,6 @@ for arg in "$@"; do
       ;;
     --output-dir=*)
       output_dir="${arg#--output-dir=}"
-      ;;
-    --heap=*)
-      heap_size="${arg#--heap=}"
       ;;
     *)
       java_args+=("$arg")
@@ -33,8 +56,7 @@ mvn -pl safere-exhaustive -am -DskipTests package -q
 classpath="safere-exhaustive/target/classes:safere/target/classes"
 main_class="org.safere.exhaustive.CharacterClassDivergenceSweep"
 
-java "-Xmx$heap_size" \
-  -cp "$classpath" "$main_class" \
+java -cp "$classpath" "$main_class" \
   "${java_args[@]}" \
   "--threads=$threads" \
   "--output-dir=$output_dir"
