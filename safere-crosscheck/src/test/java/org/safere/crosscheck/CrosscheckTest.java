@@ -141,6 +141,13 @@ class CrosscheckTest {
     }
 
     @Test
+    @DisplayName("crosscheck for [^a-z].. with surrogate pair")
+    void crosscheckWithSurrogatePair() {
+      Matcher m = Pattern.compile("[^a-z]..").matcher("\ud801\ud800\udc00xyz");
+      m.find();
+    }
+
+    @Test
     @DisplayName("find() iterates all matches")
     void findAll() {
       Matcher m = Pattern.compile("\\d+").matcher("a1b23c456");
