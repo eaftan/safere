@@ -427,6 +427,21 @@ class JdkSyntaxCompatibilityTest {
                   "comments-mode leading intersection followed by zero-width syntax "
                       + "and repeated marker",
                   "(?x)[&& \\Q\\E&&a]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode raw ampersand separator before class close",
+                  "(?x)[a& &&&& -a& ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode range tail raw ampersand before class close", "(?x)[a&&&-a& ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode escaped ampersand range tail raw ampersand before class close",
+                  "(?x)[\\&&&&-a& ]")),
+          Arguments.of(
+              new DialectRejection(
+                  "comments-mode zero-width range tail raw ampersand before class close",
+                  "(?x)[a&&&-a\\Q\\E& ]")),
           Arguments.of(new DialectRejection("range ending at nested class opener", "[a-[]")),
           Arguments.of(
               new DialectRejection(
@@ -1252,6 +1267,16 @@ class JdkSyntaxCompatibilityTest {
               new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&& [0]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a[b]&& [a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E\\d &&\\Q\\E &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qa\\E\\d &&\\Q\\E &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E\\w &&\\Q\\E &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E\\d &&\\Q\\E &-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d &&  &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d && &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d && &\\d]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&[a] && &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d&&[a] && &-a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[0-1ab&&[a]&]", inputs)),
           Arguments.of(
               new CharacterClassMembershipCase("(?x)[^ab\\p{javaLowerCase}&&\\Q\\E [a]&]", inputs)),
@@ -1272,7 +1297,7 @@ class JdkSyntaxCompatibilityTest {
       List<String> inputs =
           List.of(
               "", "a", "b", "c", "&", "-", "0", "1", "9", "A", "Z", "_", "`", "x", " ", "\t", "Ā",
-              "é");
+              "é", "\n", "]");
       return Stream.of(
           Arguments.of(new CharacterClassMembershipCase("[ab&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-b&&]", inputs)),
@@ -1324,8 +1349,158 @@ class JdkSyntaxCompatibilityTest {
                   "(?x)[a& &&&& -a&]", List.of("", "a", "&", "-", "z", "0", "A", " "))),
           Arguments.of(
               new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&& &&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&\\Q\\E &&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a && &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a\\d&&&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ab\\d&&&-&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a\\d&&&\\Q\\E-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a\\d&&&\\Q\\E\\Q\\E-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&&\\Q\\E&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&&\\Q\\E&&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a0-1&&&\\Q\\E&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a[b]&&&\\Q\\E&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a0-1&&& &&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\&&&&\\Q\\E&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[\\&&&&&&\\Q\\E&&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[0&\\Q\\E\\Q\\E&& -&&a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&&&\\Q\\E&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&&&[a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d&&&[a]&&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&&[a]&&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&&[a][b]&&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d&&&[a] && &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d&&&[a] && &-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d&&&&[ab] && &-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]a && [b]&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&&[b] && &-&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[0&\\Q\\E\\Q\\E&&[a] && &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[1&&[a]&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[01&&[a]&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[ab&&[a]&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a\\d&&[b]&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[1&&[ab]\\Q\\E&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[1&&[ab]\\Q\\E&-0]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&[ab]\\Q\\E&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[1\\Q&\\E && [ab]&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& &-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& [b]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a && [b] &&& &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[ab && [b] &&& &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a]&&&\\Q\\E&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a]&&&&& &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[b]&&&#x\n&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[^b]&&&\\Q\\E&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&[b]&&&\\Q\\E&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]a&&[b]&&&#x\n&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[-[ab] &&& &&& &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a] &&& &&& &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&[b] &&& &&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a &&& & && b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a &&& #x\n& && b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& a-b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& [a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&&&[b]&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q\\E&\\Q\\E&&\\w]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q\\E&\\Q\\E&&[a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q\\E&\\Q\\E&&[b]&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& &&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& [b]&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& &-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& #x\n\\Q\\E-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&&&\\Q\\E[b]&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase(
+                  "(?x)[a&\\Q\\E&& \\Q\\E]]", List.of("", "a", "&", "]"))),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& #x\n]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\&&&& ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&& #x\n]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E\\d &&\\Q\\E &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-b&\\Q\\E&&[a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-b&\\Q\\E\\Q\\E&&[b]-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a-b& &&[a]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & & ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& && ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[-[ab]&&& && ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a]&&& && ]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&\\Q\\E[a]&&&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&\\Q\\E[a][b]&&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&&& [a]&&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&&& #x\n [a]&&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[0&&&\\Q\\E [a]&&&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[[0]&\\Q\\E\\Q\\E&&[a] && &]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[[0]&\\Q\\E\\Q\\E&&[a] && &-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\w&\\Q\\E&&[a] && &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\Ā]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\Ā&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\d]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\d&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\d-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&&& #x\n&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&\\Q\\E&-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a] && &]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[b] && &-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^[a]a-b&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[^[a]& &&]", inputs)));
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^[a]& &&]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[^a&&\\&\\Q\\E\\Q\\E&&& #x\n]]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[b&&\\Q\\E& &&&\\Q\\E\\Q\\E[a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[b&&&& & &&&[a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E &&&& & &&& [a]&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[0&&&&& &&& &&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\d&&& && \\Q\\E&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\w&&&&& #x\n&&& #x\n&&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^0&&&&&&& &&& &&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^\\w&&&&& &&& &&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[^b]&&& #x\n\\Q\\E&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&a-b &&&&& &\\&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[0&&& &&&\\Q\\E-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[^b][a]&&&\\Q\\E b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\D[a]&&& -a]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[[^b][a]\\Q\\E\\Q\\E&&& \\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^0&&& & #x\n&& \\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&[a]&&& #x\nb]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&[a]&&& #x\n\\Qa\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&[b]&&&\\Q\\E b]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&&&[b]&&& #x\nb]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& [a]\\Q\\E-\\D]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[a&&\\Q&\\E&&& [b]\\Q\\E-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^a&&\\&&&& [ab]\\Q\\E-\\D]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&&-&&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[&&[a]&-&&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a-b&&&-&\\Q\\E\\Q\\E&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\d&&& && \\Q\\E&-a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a]-&\\Q\\E -a]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\d&&[a]-&\\Q\\E -a]", inputs)),
+          Arguments.of(
+              new CharacterClassMembershipCase("(?x)[a&&[b]&-& \\Q\\E\\P{Lower}]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& [a]-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q&\\E&&& [b]-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a #x\n&&&& \\&&&& [a]-&&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&\\d-&\\Q\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Q&\\E&&\\d-&\\Q\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[ab]-&\\Q\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("[a&&[b]&-&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&[b]&-&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^a&&[b]&-&-&]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a-b&&&[a]&&& #x\n\\Qa\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&&[a]&&& #x\n\\Qa\\E]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a-b&&&\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&&\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^a&&&\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&&&\\Q\\E\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&&\\Q\\E]]", inputs)),
+          Arguments.of(new CharacterClassMembershipCase("(?x)[^a&&&&&\\Q\\E\\Q\\E]]", inputs)));
     }
 
     @ParameterizedTest
@@ -1333,6 +1508,35 @@ class JdkSyntaxCompatibilityTest {
         strings = {"(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]", "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]"})
     @DisplayName("character-class ampersand runs with empty quotes reject malformed syntax")
     void characterClassAmpersandRunsWithEmptyQuotesRejectMalformedSyntax(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "[&&\\Q\\E&&&]",
+          "[[a]a&&\\Q\\E&&&]",
+          "(?x)[&&[a]&&& ]",
+          "(?x)[&&[a]&&&#x\n]",
+          "(?x)[&&[a]\\Q\\E&&& ]",
+          "(?x)[&&[a][b]&&& ]"
+        })
+    @DisplayName("empty character-class intersection RHS rejects without parser crash")
+    void emptyCharacterClassIntersectionRhsRejectsWithoutParserCrash(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "(?x)[a& &&&& & & ]",
+          "(?x)[a& &&&& && ]",
+          "(?x)[-[ab]&&& && ]",
+          "(?x)[a&&&\\Q\\E&& -&&]",
+          "(?x)[a&&&\\Q\\E&&&a-b-&&]"
+        })
+    @DisplayName("comments-mode split ampersand runs reject before class close")
+    void commentsModeSplitAmpersandRunsRejectBeforeClassClose(String regex) {
       assertRejectedByJdkAndSafeRe(regex);
     }
 
