@@ -31,7 +31,10 @@ The character-class sweep includes the original product matrix plus a bounded
 grammar-sequence matrix. The grammar-sequence matrix composes class atoms,
 intersection operators, nested classes, range tails, empty quoted literals,
 comments-mode trivia, close brackets, and property classes in freer token
-sequences so bugs in tail composition are not hidden by fixed templates.
+sequences so bugs in tail composition are not hidden by fixed templates. It also
+includes a targeted comments-mode matrix for raw ampersands immediately before a
+class close after range tails, where JDK syntax handling is especially sensitive
+to zero-width quoted literals and skipped trivia.
 
 The output JSONL path is printed at the end of each run. Generated reports should
 stay out of git.

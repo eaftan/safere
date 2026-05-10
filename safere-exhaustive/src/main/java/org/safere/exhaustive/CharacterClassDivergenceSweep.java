@@ -188,6 +188,19 @@ public final class CharacterClassDivergenceSweep {
           piece("emptyQuoteSpace", "\\Q\\E "),
           piece("spaceEmptyQuote", " \\Q\\E"));
 
+  private static final List<Piece> RAW_AMPERSAND_CLOSE_TAILS =
+      List.of(
+          piece("rawAmpSpace", "& "),
+          piece("rawAmpEmptyQuote", "&\\Q\\E"),
+          piece("rawAmpEmptyQuoteSpace", "&\\Q\\E "),
+          piece("rangeToAmpRawAmp", "-&&"),
+          piece("rangeToAmpRawAmpSpace", "-& &"),
+          piece("rangeToAmpEmptyQuoteRawAmp", "-&\\Q\\E&"),
+          piece("rangeToAmpCommentRawAmp", "-& #x\n&"),
+          piece("rangeToARawAmp", "-a&"),
+          piece("rangeToARawAmpSpace", "-a& "),
+          piece("rangeToAEmptyQuoteRawAmpSpace", "-a\\Q\\E& "));
+
   private static final List<Piece> NESTED_RIGHTS =
       List.of(
           piece("nestedA", "[a]"),
@@ -226,6 +239,7 @@ public final class CharacterClassDivergenceSweep {
         runClassicMatrix(worker);
         runChainedAmpersandMatrix(worker);
         runGrammarSequenceMatrix(worker);
+        runRawAmpersandBeforeCloseMatrix(worker);
         worker.finish();
         return runState;
       }
@@ -242,6 +256,7 @@ public final class CharacterClassDivergenceSweep {
                     runClassicMatrix(state);
                     runChainedAmpersandMatrix(state);
                     runGrammarSequenceMatrix(state);
+                    runRawAmpersandBeforeCloseMatrix(state);
                     state.finish();
                   } catch (Throwable t) {
                     failure.compareAndSet(null, t);
@@ -563,6 +578,33 @@ public final class CharacterClassDivergenceSweep {
                         separator,
                         tail2);
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private static void runRawAmpersandBeforeCloseMatrix(SweepState state) {
+    for (boolean negated : List.of(false, true)) {
+      for (Piece left : LEFT_PIECES) {
+        for (Piece ampersand : AMPERSAND_PIECES) {
+          for (Piece beforeOperator : COMMENT_SEPARATORS) {
+            for (Piece operator : OPERATORS) {
+              for (Piece afterOperator : COMMENT_SEPARATORS) {
+                for (Piece tail : RAW_AMPERSAND_CLOSE_TAILS) {
+                  state.check6(
+                      "raw-ampersand-before-close",
+                      true,
+                      negated,
+                      left,
+                      ampersand,
+                      beforeOperator,
+                      operator,
+                      afterOperator,
+                      tail);
                 }
               }
             }
