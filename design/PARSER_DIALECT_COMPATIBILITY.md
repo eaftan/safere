@@ -727,9 +727,9 @@ This design track is complete when:
   rejected;
 - character-class intersection and subtraction tests include zero-width class
   syntax, empty RHS, and repeated-operator edge cases;
-- the generated character-class expression matrix is available behind an
-  explicit long-running property, supports direct contiguous sharding, and is
-  documented in the testing guide;
+- the generated character-class expression sweep is available as a long-running
+  exhaustive validation tool, supports direct contiguous generated-case ranges,
+  and is documented in the testing guide;
 - character-class item-state tests prove that leading operators do not consume
   first-item privileges for the following class item;
 - character-class range tests prove that only valid scalar endpoints are

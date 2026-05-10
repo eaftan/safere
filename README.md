@@ -264,29 +264,20 @@ run either as regression tests over checked-in seeds or as coverage-guided
 fuzzers with `JAZZER_FUZZ=1`.
 
 For parser dialect work, SafeRE also has an explicit long-running
-character-class syntax matrix. It is disabled by default because it enumerates
-a large generated matrix against `java.util.regex`; enable it only when working
-on character-class parsing:
+character-class syntax sweep. It lives outside the ordinary JUnit path because
+it enumerates a large generated matrix against `java.util.regex`; run it when
+working on character-class parsing:
 
 ```bash
-mvn -pl safere \
-  -Dtest='JdkSyntaxCompatibilityTest$CharacterClasses#generatedCharacterClassExpressionMatrixMatchesJdk' \
-  -Dsafere.longSyntaxMatrix=true \
-  test
+tools/exhaustive/run-character-class-sweep.sh --threads=8 \
+  --output-dir=target/exhaustive-reports/character-class-sweep-full
 ```
 
-Use contiguous shards or a bounded prefix when debugging a specific matrix
-region:
+Use generated-case ranges when debugging a specific matrix region:
 
 ```bash
-mvn -pl safere \
-  -Dtest='JdkSyntaxCompatibilityTest$CharacterClasses#generatedCharacterClassExpressionMatrixMatchesJdk' \
-  -Dsafere.longSyntaxMatrix=true \
-  -Dsafere.syntaxMatrix.shards=8 \
-  -Dsafere.syntaxMatrix.shard=3 \
-  -Dsafere.syntaxMatrix.limit=50000 \
-  -Dsafere.syntaxMatrix.parallel=false \
-  test
+tools/exhaustive/run-character-class-sweep.sh --threads=4 --range=:1000000 \
+  --output-dir=target/exhaustive-reports/character-class-sweep-smoke
 ```
 
 See [TESTING.md](TESTING.md) for the full testing workflow.
