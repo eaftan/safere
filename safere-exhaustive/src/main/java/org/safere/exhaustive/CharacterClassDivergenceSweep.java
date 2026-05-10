@@ -6,8 +6,8 @@
 package org.safere.exhaustive;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -188,6 +188,13 @@ public final class CharacterClassDivergenceSweep {
           piece("emptyQuoteSpace", "\\Q\\E "),
           piece("spaceEmptyQuote", " \\Q\\E"));
 
+  private static final List<Piece> NESTED_RIGHTS =
+      List.of(
+          piece("nestedA", "[a]"),
+          piece("nestedB", "[b]"),
+          piece("nestedAB", "[ab]"),
+          piece("nestedNotB", "[^b]"));
+
   private static final int DEFAULT_MAX_PER_BUCKET = Integer.MAX_VALUE;
 
   private CharacterClassDivergenceSweep() {}
@@ -213,56 +220,57 @@ public final class CharacterClassDivergenceSweep {
   }
 
   private static RunState runSweep(Options options) throws IOException {
-    RunState runState = new RunState(options);
-    if (options.threads() == 1) {
-      SweepState worker = new SweepState(runState, 0);
-      runClassicMatrix(worker);
-      runChainedAmpersandMatrix(worker);
-      runGrammarSequenceMatrix(worker);
-      worker.finish();
+    try (RunState runState = new RunState(options)) {
+      if (options.threads() == 1) {
+        SweepState worker = new SweepState(runState, 0);
+        runClassicMatrix(worker);
+        runChainedAmpersandMatrix(worker);
+        runGrammarSequenceMatrix(worker);
+        worker.finish();
+        return runState;
+      }
+
+      AtomicReference<Throwable> failure = new AtomicReference<>();
+      List<Thread> workers = new ArrayList<>();
+      for (int i = 0; i < options.threads(); i++) {
+        int workerIndex = i;
+        Thread worker =
+            new Thread(
+                () -> {
+                  try {
+                    SweepState state = new SweepState(runState, workerIndex);
+                    runClassicMatrix(state);
+                    runChainedAmpersandMatrix(state);
+                    runGrammarSequenceMatrix(state);
+                    state.finish();
+                  } catch (Throwable t) {
+                    failure.compareAndSet(null, t);
+                  }
+                },
+                "character-class-sweep-" + workerIndex);
+        worker.start();
+        workers.add(worker);
+      }
+      for (Thread worker : workers) {
+        try {
+          worker.join();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IOException("interrupted while waiting for sweep workers", e);
+        }
+      }
+      Throwable throwable = failure.get();
+      if (throwable != null) {
+        if (throwable instanceof Error error) {
+          throw error;
+        }
+        if (throwable instanceof RuntimeException runtimeException) {
+          throw runtimeException;
+        }
+        throw new IOException("sweep worker failed", throwable);
+      }
       return runState;
     }
-
-    AtomicReference<Throwable> failure = new AtomicReference<>();
-    List<Thread> workers = new ArrayList<>();
-    for (int i = 0; i < options.threads(); i++) {
-      int workerIndex = i;
-      Thread worker =
-          new Thread(
-              () -> {
-                try {
-                  SweepState state = new SweepState(runState, workerIndex);
-                  runClassicMatrix(state);
-                  runChainedAmpersandMatrix(state);
-                  runGrammarSequenceMatrix(state);
-                  state.finish();
-                } catch (Throwable t) {
-                  failure.compareAndSet(null, t);
-                }
-              },
-              "character-class-sweep-" + workerIndex);
-      worker.start();
-      workers.add(worker);
-    }
-    for (Thread worker : workers) {
-      try {
-        worker.join();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IOException("interrupted while waiting for sweep workers", e);
-      }
-    }
-    Throwable throwable = failure.get();
-    if (throwable != null) {
-      if (throwable instanceof Error error) {
-        throw error;
-      }
-      if (throwable instanceof RuntimeException runtimeException) {
-        throw runtimeException;
-      }
-      throw new IOException("sweep worker failed", throwable);
-    }
-    return runState;
   }
 
   private static void runReplay(Options options) throws IOException {
@@ -398,19 +406,17 @@ public final class CharacterClassDivergenceSweep {
                 for (Piece afterOperator : separators) {
                   for (Piece right : RIGHT_PIECES) {
                     for (Piece trailing : TRAILING_PIECES) {
-                      state.check(
-                          new CaseSpec(
-                              "classic-two-lefts",
-                              comments,
-                              negated,
-                              List.of(
-                                  first,
-                                  second,
-                                  separator,
-                                  operator,
-                                  afterOperator,
-                                  right,
-                                  trailing)));
+                      state.check7(
+                          "classic-two-lefts",
+                          comments,
+                          negated,
+                          first,
+                          second,
+                          separator,
+                          operator,
+                          afterOperator,
+                          right,
+                          trailing);
                     }
                   }
                 }
@@ -425,19 +431,17 @@ public final class CharacterClassDivergenceSweep {
                 for (Piece afterOperator : separators) {
                   for (Piece right : RIGHT_PIECES) {
                     for (Piece trailing : TRAILING_PIECES) {
-                      state.check(
-                          new CaseSpec(
-                              "classic-raw-amp-left",
-                              comments,
-                              negated,
-                              List.of(
-                                  first,
-                                  ampersand,
-                                  separator,
-                                  operator,
-                                  afterOperator,
-                                  right,
-                                  trailing)));
+                      state.check7(
+                          "classic-raw-amp-left",
+                          comments,
+                          negated,
+                          first,
+                          ampersand,
+                          separator,
+                          operator,
+                          afterOperator,
+                          right,
+                          trailing);
                     }
                   }
                 }
@@ -450,12 +454,15 @@ public final class CharacterClassDivergenceSweep {
             for (Piece afterOperator : separators) {
               for (Piece right : RIGHT_PIECES) {
                 for (Piece trailing : TRAILING_PIECES) {
-                  state.check(
-                      new CaseSpec(
-                          "classic-no-left",
-                          comments,
-                          negated,
-                          List.of(separator, operator, afterOperator, right, trailing)));
+                  state.check5(
+                      "classic-no-left",
+                      comments,
+                      negated,
+                      separator,
+                      operator,
+                      afterOperator,
+                      right,
+                      trailing);
                 }
               }
             }
@@ -477,22 +484,20 @@ public final class CharacterClassDivergenceSweep {
                     for (Piece separator4 : COMMENT_SEPARATORS) {
                       for (Piece right : RIGHT_PIECES) {
                         for (Piece trailing : TRAILING_PIECES) {
-                          state.check(
-                              new CaseSpec(
-                                  "chained-raw-amp",
-                                  true,
-                                  negated,
-                                  List.of(
-                                      left,
-                                      separator1,
-                                      firstOperator,
-                                      separator2,
-                                      ampersand,
-                                      separator3,
-                                      secondOperator,
-                                      separator4,
-                                      right,
-                                      trailing)));
+                          state.check10(
+                              "chained-raw-amp",
+                              true,
+                              negated,
+                              left,
+                              separator1,
+                              firstOperator,
+                              separator2,
+                              ampersand,
+                              separator3,
+                              secondOperator,
+                              separator4,
+                              right,
+                              trailing);
                         }
                       }
                     }
@@ -512,21 +517,19 @@ public final class CharacterClassDivergenceSweep {
                   for (Piece secondOperator : SECOND_OPERATORS) {
                     for (Piece separator4 : COMMENT_SEPARATORS) {
                       for (Piece right : RIGHT_PIECES) {
-                        state.check(
-                            new CaseSpec(
-                                "chained-nested-rhs",
-                                true,
-                                negated,
-                                List.of(
-                                    left,
-                                    separator1,
-                                    firstOperator,
-                                    separator2,
-                                    nested,
-                                    separator3,
-                                    secondOperator,
-                                    separator4,
-                                    right)));
+                        state.check9(
+                            "chained-nested-rhs",
+                            true,
+                            negated,
+                            left,
+                            separator1,
+                            firstOperator,
+                            separator2,
+                            nested,
+                            separator3,
+                            secondOperator,
+                            separator4,
+                            right);
                       }
                     }
                   }
@@ -549,12 +552,16 @@ public final class CharacterClassDivergenceSweep {
               for (Piece tail1 : GRAMMAR_TAILS) {
                 for (Piece separator : trivia) {
                   for (Piece tail2 : GRAMMAR_TAILS) {
-                    state.check(
-                        new CaseSpec(
-                            "grammar-sequence",
-                            comments,
-                            negated,
-                            List.of(left, operator, right, tail1, separator, tail2)));
+                    state.check6(
+                        "grammar-sequence",
+                        comments,
+                        negated,
+                        left,
+                        operator,
+                        right,
+                        tail1,
+                        separator,
+                        tail2);
                   }
                 }
               }
@@ -566,11 +573,7 @@ public final class CharacterClassDivergenceSweep {
   }
 
   private static List<Piece> nestedRights() {
-    return List.of(
-        piece("nestedA", "[a]"),
-        piece("nestedB", "[b]"),
-        piece("nestedAB", "[ab]"),
-        piece("nestedNotB", "[^b]"));
+    return NESTED_RIGHTS;
   }
 
   private static List<Piece> nonCommentSeparators() {
@@ -799,16 +802,23 @@ public final class CharacterClassDivergenceSweep {
         .replace("\t", "\\t");
   }
 
-  private static final class RunState {
+  private static final class RunState implements AutoCloseable {
     final Options options;
     final Map<String, Bucket> buckets = new LinkedHashMap<>();
     final LongAdder checked = new LongAdder();
     final LongAdder divergences = new LongAdder();
+    final BufferedWriter jsonlWriter;
     long generated;
     long nextProgressReport;
 
-    RunState(Options options) {
+    RunState(Options options) throws IOException {
       this.options = options;
+      this.jsonlWriter =
+          Files.newBufferedWriter(
+              options.jsonlPath(),
+              StandardCharsets.UTF_8,
+              StandardOpenOption.CREATE,
+              StandardOpenOption.APPEND);
       this.nextProgressReport =
           firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
     }
@@ -846,15 +856,16 @@ public final class CharacterClassDivergenceSweep {
 
     synchronized void appendJsonl(Divergence divergence) {
       try {
-        Files.writeString(
-            options.jsonlPath(),
-            divergence.toJson() + "\n",
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND);
+        jsonlWriter.write(divergence.toJson());
+        jsonlWriter.newLine();
       } catch (IOException e) {
-        throw new UncheckedIOException(e);
+        throw new IllegalStateException("failed to write divergence report", e);
       }
+    }
+
+    @Override
+    public synchronized void close() throws IOException {
+      jsonlWriter.close();
     }
   }
 
@@ -873,20 +884,114 @@ public final class CharacterClassDivergenceSweep {
           firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
     }
 
-    void check(CaseSpec spec) {
-      if (generated >= options.rangeEndExclusive()) {
+    void check5(
+        String template,
+        boolean comments,
+        boolean negated,
+        Piece p1,
+        Piece p2,
+        Piece p3,
+        Piece p4,
+        Piece p5) {
+      if (!beginCase()) {
         return;
+      }
+      checkOwned(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5)));
+    }
+
+    void check6(
+        String template,
+        boolean comments,
+        boolean negated,
+        Piece p1,
+        Piece p2,
+        Piece p3,
+        Piece p4,
+        Piece p5,
+        Piece p6) {
+      if (!beginCase()) {
+        return;
+      }
+      checkOwned(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6)));
+    }
+
+    void check7(
+        String template,
+        boolean comments,
+        boolean negated,
+        Piece p1,
+        Piece p2,
+        Piece p3,
+        Piece p4,
+        Piece p5,
+        Piece p6,
+        Piece p7) {
+      if (!beginCase()) {
+        return;
+      }
+      checkOwned(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7)));
+    }
+
+    void check9(
+        String template,
+        boolean comments,
+        boolean negated,
+        Piece p1,
+        Piece p2,
+        Piece p3,
+        Piece p4,
+        Piece p5,
+        Piece p6,
+        Piece p7,
+        Piece p8,
+        Piece p9) {
+      if (!beginCase()) {
+        return;
+      }
+      checkOwned(
+          new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7, p8, p9)));
+    }
+
+    void check10(
+        String template,
+        boolean comments,
+        boolean negated,
+        Piece p1,
+        Piece p2,
+        Piece p3,
+        Piece p4,
+        Piece p5,
+        Piece p6,
+        Piece p7,
+        Piece p8,
+        Piece p9,
+        Piece p10) {
+      if (!beginCase()) {
+        return;
+      }
+      checkOwned(
+          new CaseSpec(
+              template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)));
+    }
+
+    boolean beginCase() {
+      if (generated >= options.rangeEndExclusive()) {
+        return false;
       }
       long caseIndex = generated++;
       if (caseIndex < options.rangeStartInclusive()) {
         reportProgressIfNeeded();
-        return;
+        return false;
       }
       if (caseIndex % options.threads() != workerIndex) {
         reportProgressIfNeeded();
-        return;
+        return false;
       }
       runState.checked.increment();
+      return true;
+    }
+
+    void checkOwned(CaseSpec spec) {
       String regex = spec.regex();
       Outcome jdk = jdkOutcome(regex);
       Outcome safere = safeReOutcome(regex);

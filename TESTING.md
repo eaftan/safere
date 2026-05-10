@@ -172,11 +172,11 @@ mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
 mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
 
 # Run the long generated character-class syntax sweep
-tools/exhaustive/run-character-class-sweep.sh --threads=8 \
+tools/exhaustive/run-character-class-sweep.sh \
   --output-dir=target/exhaustive-reports/character-class-sweep-full
 
 # Run a bounded generated-case range for local debugging
-tools/exhaustive/run-character-class-sweep.sh --threads=4 --range=:1000000 \
+tools/exhaustive/run-character-class-sweep.sh --range=:1000000 \
   --output-dir=target/exhaustive-reports/character-class-sweep-smoke
 
 # Run Jazzer fuzz targets in regression mode
