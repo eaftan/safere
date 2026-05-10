@@ -236,6 +236,7 @@ public final class CharacterClassDivergenceSweep {
     try (RunState runState = new RunState(options)) {
       if (options.threads() == 1) {
         SweepState worker = new SweepState(runState, 0);
+        runSeparatedSingleAmpersandMatrix(worker);
         runClassicMatrix(worker);
         runChainedAmpersandMatrix(worker);
         runGrammarSequenceMatrix(worker);
@@ -253,6 +254,7 @@ public final class CharacterClassDivergenceSweep {
                 () -> {
                   try {
                     SweepState state = new SweepState(runState, workerIndex);
+                    runSeparatedSingleAmpersandMatrix(state);
                     runClassicMatrix(state);
                     runChainedAmpersandMatrix(state);
                     runGrammarSequenceMatrix(state);
@@ -605,6 +607,36 @@ public final class CharacterClassDivergenceSweep {
                       operator,
                       afterOperator,
                       tail);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private static void runSeparatedSingleAmpersandMatrix(SweepState state) {
+    for (boolean negated : List.of(false, true)) {
+      for (Piece left : LEFT_PIECES) {
+        for (Piece beforeFirstAmp : COMMENT_SEPARATORS) {
+          for (Piece firstAmp : AMPERSAND_PIECES) {
+            for (Piece betweenAmps : COMMENT_SEPARATORS) {
+              for (Piece secondAmp : AMPERSAND_PIECES) {
+                for (Piece nested : nestedRights()) {
+                  for (Piece tail : RAW_AMPERSAND_CLOSE_TAILS) {
+                    state.check7(
+                        "separated-single-ampersands-before-nested",
+                        true,
+                        negated,
+                        left,
+                        beforeFirstAmp,
+                        firstAmp,
+                        betweenAmps,
+                        secondAmp,
+                        nested,
+                        tail);
+                  }
                 }
               }
             }
