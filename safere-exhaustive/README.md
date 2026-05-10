@@ -10,14 +10,14 @@ failed or interrupted run still leaves useful repro data.
 Run through the wrapper script:
 
 ```bash
-tools/exhaustive/run-character-class-sweep.sh --threads=8 \
+tools/exhaustive/run-character-class-sweep.sh \
   --output-dir=target/exhaustive-reports/character-class-sweep-full
 ```
 
 For a smaller ad hoc local check, run a generated-case index range:
 
 ```bash
-tools/exhaustive/run-character-class-sweep.sh --threads=4 --range=:1000000 \
+tools/exhaustive/run-character-class-sweep.sh --range=:1000000 \
   --output-dir=target/exhaustive-reports/character-class-sweep-smoke
 ```
 
