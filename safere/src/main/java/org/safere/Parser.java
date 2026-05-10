@@ -3968,11 +3968,7 @@ final class Parser {
         }
         int ctrl = pattern.codePointAt(pos);
         pos += Character.charCount(ctrl);
-        // JDK accepts ASCII letters and some symbols; the result is ctrl ^ 0x40.
-        if (ctrl >= 0x40 && ctrl <= 0x7F) {
-          return ctrl ^ 0x40;
-        }
-        throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 1);
+        return ctrl ^ 0x40;
       }
       default -> {
         // JDK reserves backslash before ASCII alphabetic characters for escaped constructs.

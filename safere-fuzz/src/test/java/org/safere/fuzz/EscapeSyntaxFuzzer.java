@@ -33,6 +33,10 @@ final class EscapeSyntaxFuzzer {
     "\\e",
     "\\cA",
     "\\ca",
+    "\\c!",
+    "\\cĀ",
+    "\\c",
+    "\\c😀",
     "\\©",
     "\\Ā",
     "\\é",
@@ -45,10 +49,13 @@ final class EscapeSyntaxFuzzer {
   };
   private static final String[] SUFFIXES = {"", "$", "]", "a", "-", "-z", "&&[a]"};
   private static final List<String> INPUTS =
-      List.of("", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "\u0000");
+      List.of(
+          "", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "🙀", "\u0000",
+          "\u0140", "\uf57f");
   private static final String[] REGRESSION_REGEXES = {
     "^\\©", "[\\©]", "\\Ā", "[\\Ā]", "\\☃", "[\\☃]", "\\😀", "[\\😀]", "\\0", "\\08", "\\400",
-    "\\777", "\\123", "(a)\\12", "\\h", "\\H", "\\v", "\\V"
+    "\\777", "\\123", "(a)\\12", "\\h", "\\H", "\\v", "\\V", "\\c!", "[\\c!]", "^\\c", "[\\c]",
+    "\\cĀ", "[\\cĀ]", "\\c😀"
   };
 
   @FuzzTest(maxDuration = "30s")

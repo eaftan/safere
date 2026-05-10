@@ -889,6 +889,24 @@ class JdkSyntaxCompatibilityTest {
     void controlCharM() {
       assertMatchesSame("\\cM", "\r");
     }
+
+    static Stream<Arguments> nonAsciiControlEscapes() {
+      return Stream.of(
+          Arguments.of("\\c!", "a"),
+          Arguments.of("[\\c!]", "a"),
+          Arguments.of("\\c\uf53f", "\uf57f"),
+          Arguments.of("^\\c\uf53f", "\uf57f"),
+          Arguments.of("[\\c\uf53f]", "\uf57f"),
+          Arguments.of("\\c\u0100", "\u0140"),
+          Arguments.of("[\\c\u0100]", "\u0140"));
+    }
+
+    @ParameterizedTest(name = "/{0}/ matches \"{1}\"")
+    @MethodSource("nonAsciiControlEscapes")
+    @DisplayName("control escapes accept non-ASCII targets like JDK")
+    void controlEscapesAcceptNonAsciiTargetsLikeJdk(String regex, String input) {
+      assertMatchesSame(regex, input);
+    }
   }
 
   // ===========================================================================
