@@ -10,7 +10,9 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -61,6 +63,14 @@ class ParserTest {
     pattern.append('a');
     for (int i = 0; i < depth; i++) {
       pattern.append(']');
+    }
+    return pattern.toString();
+  }
+
+  private static String repeatedPlainCharacterClasses(int count) {
+    StringBuilder pattern = new StringBuilder(count * 3);
+    for (int i = 0; i < count; i++) {
+      pattern.append("[a]");
     }
     return pattern.toString();
   }
@@ -326,6 +336,13 @@ class ParserTest {
 
       assertThat(fullMatch(pattern, "a", ParseFlags.LIKE_PERL)).isTrue();
       assertThat(fullMatch(pattern, "b", ParseFlags.LIKE_PERL)).isFalse();
+    }
+
+    @Test
+    void manyPlainCharacterClassesCompileWithinRegressionBound() {
+      String pattern = repeatedPlainCharacterClasses(100_000);
+
+      assertTimeoutPreemptively(Duration.ofSeconds(10), () -> parse(pattern));
     }
 
     @Test

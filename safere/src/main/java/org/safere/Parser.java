@@ -118,6 +118,7 @@ final class Parser {
   // Parse state
   private int flags;
   private final String pattern;
+  private final boolean containsEmptyQuotedLiteral;
   private int pos; // current parse position (char index into pattern)
   private StackEntry stacktop;
   private int ncap;
@@ -128,6 +129,7 @@ final class Parser {
 
   private Parser(String pattern, int flags) {
     this.pattern = pattern;
+    this.containsEmptyQuotedLiteral = pattern.contains("\\Q\\E");
     this.flags = flags;
     this.pos = 0;
     this.stacktop = null;
@@ -1070,6 +1072,9 @@ final class Parser {
           if (token.isSingleAmpersand()
               && token.skippedZeroWidthSyntax()
               && !token.skippedCommentsTrivia()) {
+            if (rawAmpersandBeforeCommentsModeCloseAt(pos)) {
+              throw new PatternSyntaxException("bad class syntax", pattern, pos);
+            }
             if (hasInvalidRangeTailAfterRawAmpersand(pos)) {
               throw new PatternSyntaxException("illegal character range", pattern, pos + 1);
             }
@@ -1153,6 +1158,9 @@ final class Parser {
                 && tail.pos() < pattern.length()
                 && pattern.charAt(tail.pos()) == '&'
                 && token.ampersandTailHasSingleAmpersand()) {
+              if (rawAmpersandBeforeCommentsModeCloseAt(tail.pos())) {
+                throw new PatternSyntaxException("bad class syntax", pattern, tail.pos());
+              }
               if (hasInvalidRangeTailAfterRawAmpersand(tail.pos())) {
                 throw new PatternSyntaxException(
                     "illegal character range", pattern, tail.pos() + 1);
@@ -1195,6 +1203,9 @@ final class Parser {
             }
           }
           if (token.isSingleAmpersand() && frame.intersectionRightStartedAfterCommentsTrivia) {
+            if (rawAmpersandBeforeCommentsModeCloseAt(pos)) {
+              throw new PatternSyntaxException("bad class syntax", pattern, pos);
+            }
             if (frame.intersectionRightHasExpression && frame.intersectionRightOnlyNestedClasses) {
               finishNestedRightBeforeTrailingAmpersand(frame);
               continue;
@@ -1240,6 +1251,9 @@ final class Parser {
                 && tail.pos() < pattern.length()
                 && pattern.charAt(tail.pos()) == '&'
                 && token.ampersandTailHasSingleAmpersand()) {
+              if (rawAmpersandBeforeCommentsModeCloseAt(tail.pos())) {
+                throw new PatternSyntaxException("bad class syntax", pattern, tail.pos());
+              }
               if (frame.intersectionRightHasExpression
                   && frame.intersectionRightOnlyNestedClasses) {
                 pos = tail.pos();
@@ -1432,7 +1446,7 @@ final class Parser {
   }
 
   private NormalizedClassPattern removeEmptyQuotedLiteralsFromClassIfNeeded() {
-    if ((flags & ParseFlags.COMMENTS) == 0 && pattern.indexOf("\\Q\\E", pos) < 0) {
+    if ((flags & ParseFlags.COMMENTS) == 0 && !containsEmptyQuotedLiteral) {
       return null;
     }
     if (pos >= pattern.length() || pattern.charAt(pos) != '[') {
@@ -1541,15 +1555,16 @@ final class Parser {
             && trailingAmpersandRunSkippedCommentsTrivia
             && frame != null
             && frame.hasContent
-            && trailingAmpersandRun % 2 == 1
-            && index + 1 < pattern.length()
-            && pattern.charAt(index + 1) == ']') {
-          appendMapped(normalized, originalIndexes, c, index);
-          markClassPatternContent(frame);
-          trailingAmpersandRun = 0;
-          trailingAmpersandRunSkippedCommentsTrivia = false;
-          index++;
-          continue;
+            && trailingAmpersandRun % 2 == 1) {
+          if (index + 1 < pattern.length() && pattern.charAt(index + 1) == ']') {
+            appendMapped(normalized, originalIndexes, c, index);
+            markClassPatternContent(frame);
+            trailingAmpersandRun = 0;
+            trailingAmpersandRunSkippedCommentsTrivia = false;
+            index++;
+            continue;
+          }
+          return null;
         }
         appendMapped(normalized, originalIndexes, c, index);
         if (frame != null && frame.hasContent) {
@@ -1872,6 +1887,9 @@ final class Parser {
 
   private void finishNestedRightBeforeTrailingAmpersand(ClassExpressionFrame frame) {
     boolean rawAmpersandRangeTail = rawAmpersandStartsRangeAt(pos);
+    if (!rawAmpersandRangeTail && rawAmpersandBeforeCommentsModeCloseAt(pos)) {
+      throw new PatternSyntaxException("bad class syntax", pattern, pos);
+    }
     boolean rawAmpersandRangeTailPreservesDeferredScalars =
         rawAmpersandRangeTail && rawAmpersandRangeAtAmpersandPreservesDeferredScalars(pos);
     boolean preserveDeferredOrdinaryScalars =
@@ -1905,6 +1923,16 @@ final class Parser {
     frame.intersectionRight = null;
     frame.intersectionRightHasExpression = false;
     frame.intersectionRightOnlyNestedClasses = false;
+  }
+
+  private boolean rawAmpersandBeforeCommentsModeCloseAt(int ampersandIndex) {
+    if ((flags & ParseFlags.COMMENTS) == 0) {
+      return false;
+    }
+    ClassSyntaxLookahead tail = inspectNormalizedClassSyntax(ampersandIndex + 1);
+    return tail.skippedCommentsTrivia()
+        && tail.pos() < pattern.length()
+        && pattern.charAt(tail.pos()) == ']';
   }
 
   private CharClassBuilder nestedRightBeforeTrailingAmpersandExpression(
