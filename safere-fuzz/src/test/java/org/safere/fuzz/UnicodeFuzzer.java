@@ -11,10 +11,14 @@ import java.util.List;
 
 final class UnicodeFuzzer {
 
+  private static final List<String> GRAPHEME_CLUSTER_REGEXES = List.of("\\X", "^\\^?\\X\\X");
+
   private static final List<String> GRAPHEME_CLUSTER_INPUTS =
       List.of(
           "a",
           "e\u0301",
+          "\u0301\u0301a",
+          "\u0301".repeat(44) + "a".repeat(8),
           "\r\n",
           "\uD83C\uDDFA\uD83C\uDDF8",
           "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8",
@@ -28,11 +32,13 @@ final class UnicodeFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void unicode(FuzzedDataProvider data) {
-    FuzzSupport.CompiledPattern graphemePattern = FuzzSupport.compileOrSkip("\\X", 0);
-    for (String input : GRAPHEME_CLUSTER_INPUTS) {
-      FuzzSupport.MatcherPair matcher = graphemePattern.matcher(input);
-      while (matcher.find()) {
-        // Continue through the sequence so group boundaries are compared at every cluster.
+    for (String regex : GRAPHEME_CLUSTER_REGEXES) {
+      FuzzSupport.CompiledPattern graphemePattern = FuzzSupport.compileOrSkip(regex, 0);
+      for (String input : GRAPHEME_CLUSTER_INPUTS) {
+        FuzzSupport.MatcherPair matcher = graphemePattern.matcher(input);
+        while (matcher.find()) {
+          // Continue through the sequence so group boundaries are compared at every cluster.
+        }
       }
     }
 

@@ -4701,20 +4701,25 @@ final class Parser {
         Regexp.concat(
             List.of(Regexp.plus(buildGraphemePrependClass(), flags), baseWithExtends), flags);
 
+    Regexp leadingExtends = Regexp.plus(extend, flags);
+
     // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
     // Use ANY_CHAR with DOT_NL to match all characters including newlines.
     Regexp anyOne = Regexp.anyChar(flags | ParseFlags.DOT_NL);
 
-    return Regexp.alternate(
-        List.of(
-            crLf,
-            zwjSequence,
-            regionalIndicatorPair,
-            hangulCluster,
-            prependCluster,
-            baseWithExtends,
-            anyOne),
-        flags);
+    Regexp clusterBody =
+        Regexp.alternate(
+            List.of(
+                crLf,
+                zwjSequence,
+                regionalIndicatorPair,
+                hangulCluster,
+                prependCluster,
+                baseWithExtends,
+                leadingExtends,
+                anyOne),
+            flags);
+    return Regexp.concat(List.of(clusterBody, Regexp.graphemeClusterBoundary(flags)), flags);
   }
 
   private Regexp buildGraphemeExtendClass(boolean includeZwj) {

@@ -39,6 +39,34 @@ to zero-width quoted literals and skipped trivia.
 The output JSONL path is printed at the end of each run. Generated reports should
 stay out of git.
 
+## Grapheme Cluster Sweep
+
+Run through the wrapper script:
+
+```bash
+tools/exhaustive/run-grapheme-cluster-sweep.sh \
+  --output-dir=target/exhaustive-reports/grapheme-cluster-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+tools/exhaustive/run-grapheme-cluster-sweep.sh --range=:250 \
+  --output-dir=target/exhaustive-reports/grapheme-cluster-sweep-smoke
+```
+
+The grapheme-cluster sweep compares SafeRE with `java.util.regex` for anchored
+and region-start `\X` and `\b{g}` compile acceptance, `matches()`,
+`lookingAt()`, and repeated `find()` traces including match bounds and captured
+group text. It covers bounded combinations of leading combining marks,
+base-plus-extend clusters, CRLF, Prepend characters, Hangul sequences, regional
+indicators, emoji modifiers, ZWJ emoji sequences, supplementary code points, and
+full/wrapped/prefixed regions.
+
+Use this sweep before review when changing grapheme-cluster parsing or boundary
+behavior. Range bounds and replay files use the same conventions as the other
+exhaustive sweeps.
+
 ## Control Escape Sweep
 
 Run through the wrapper script:
