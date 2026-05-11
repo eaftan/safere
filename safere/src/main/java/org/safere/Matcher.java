@@ -142,6 +142,7 @@ public final class Matcher implements MatchResult {
   private boolean lastRequireEnd;
   private boolean findExhaustedAfterTerminalEmptyMatch;
   private int modCount;
+  private boolean regionSubstitutionEndSplitsSurrogatePair;
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -426,6 +427,10 @@ public final class Matcher implements MatchResult {
     int i = fromIndex;
     int len = text.length();
     while (i < len) {
+      if (isRegionSubstitutionSplitHighSurrogate(i, len)) {
+        i++;
+        continue;
+      }
       int cp = text.codePointAt(i);
       if (charClassContains(ranges, b0, b1, cp)) {
         return applyEngineResult(new FullMatchResult(new int[] {i, i + Character.charCount(cp)}));
@@ -433,6 +438,36 @@ public final class Matcher implements MatchResult {
       i += Character.charCount(cp);
     }
     return applyEngineResult(new NoMatchResult());
+  }
+
+  private boolean singleCharClassAtStartFastPath(int[] ranges, boolean fullMatch) {
+    if (text.isEmpty() || isRegionSubstitutionSplitHighSurrogate(0, text.length())) {
+      return applyEngineResult(new NoMatchResult());
+    }
+
+    int cp = text.codePointAt(0);
+    int end = Character.charCount(cp);
+    if (fullMatch && end != text.length()) {
+      return applyEngineResult(new NoMatchResult());
+    }
+
+    long b0 = parentPattern.singleCharClassBitmap0();
+    long b1 = parentPattern.singleCharClassBitmap1();
+    if (!charClassContains(ranges, b0, b1, cp)) {
+      return applyEngineResult(new NoMatchResult());
+    }
+    return applyEngineResult(new FullMatchResult(new int[] {0, end}));
+  }
+
+  private boolean isRegionSubstitutionSplitHighSurrogate(int pos, int len) {
+    return regionSubstitutionEndSplitsSurrogatePair && pos == len - 1;
+  }
+
+  private boolean regionEndSplitsSurrogatePair(String originalText) {
+    return regionEnd < originalText.length()
+        && regionStart < regionEnd
+        && Character.isHighSurrogate(originalText.charAt(regionEnd - 1))
+        && Character.isLowSurrogate(originalText.charAt(regionEnd));
   }
 
   private static boolean charClassContains(int[] ranges, long b0, long b1, int cp) {
@@ -639,12 +674,14 @@ public final class Matcher implements MatchResult {
         return matchesTransparentRegion();
       }
       if (regionActive) {
+        regionSubstitutionEndSplitsSurrogatePair = regionEndSplitsSurrogatePair(savedText);
         text = savedText.substring(regionStart, regionEnd);
         regionSubstituted = true;
       }
       return matchesCore();
     } finally {
       if (regionSubstituted) {
+        regionSubstitutionEndSplitsSurrogatePair = false;
         text = savedText;
         if (groups != null) {
           for (int i = 0; i < groups.length; i++) {
@@ -692,6 +729,11 @@ public final class Matcher implements MatchResult {
     int[] ccRanges = parentPattern.charClassMatchRanges();
     if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null) {
       return charClassMatchFastPath(ccRanges);
+    }
+
+    int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
+    if (enginePathOptions().charClassMatchFastPaths() && singleCharClassRanges != null) {
+      return singleCharClassAtStartFastPath(singleCharClassRanges, true);
     }
 
     Prog prog = parentPattern.prog();
@@ -767,12 +809,14 @@ public final class Matcher implements MatchResult {
         return lookingAtTransparentRegion();
       }
       if (regionActive) {
+        regionSubstitutionEndSplitsSurrogatePair = regionEndSplitsSurrogatePair(savedText);
         text = savedText.substring(regionStart, regionEnd);
         regionSubstituted = true;
       }
       return lookingAtCore();
     } finally {
       if (regionSubstituted) {
+        regionSubstitutionEndSplitsSurrogatePair = false;
         text = savedText;
         if (groups != null) {
           for (int i = 0; i < groups.length; i++) {
@@ -817,6 +861,11 @@ public final class Matcher implements MatchResult {
     }
 
     Prog prog = parentPattern.prog();
+
+    int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
+    if (enginePathOptions().charClassMatchFastPaths() && singleCharClassRanges != null) {
+      return singleCharClassAtStartFastPath(singleCharClassRanges, false);
+    }
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
     if (enginePathOptions().onePass()
@@ -950,6 +999,7 @@ public final class Matcher implements MatchResult {
         return doFindTransparentRegion();
       }
       if (regionActive) {
+        regionSubstitutionEndSplitsSurrogatePair = regionEndSplitsSurrogatePair(savedText);
         text = savedText.substring(regionStart, regionEnd);
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
@@ -957,6 +1007,7 @@ public final class Matcher implements MatchResult {
       return doFindCore(regionActive);
     } finally {
       if (regionSubstituted) {
+        regionSubstitutionEndSplitsSurrogatePair = false;
         text = savedText;
         searchFrom = savedSearchFrom;
         if (groups != null) {

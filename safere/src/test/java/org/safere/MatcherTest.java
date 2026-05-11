@@ -1421,6 +1421,43 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(3); // 'a'=0, smiley=1,2, 'b'=3
       assertThat(m.end()).isEqualTo(4);
     }
+
+    @Test
+    @DisplayName("single character classes preserve surrogate-pair context at region end")
+    void singleCharacterClassesPreserveSurrogatePairContextAtRegionEnd() {
+      String text = "\uD83D\uDE00";
+
+      for (String regex : new String[] {"[^a]", ".", "\\P{Cs}", "[^\\p{Cs}]"}) {
+        java.util.regex.Matcher jdkMatcher =
+            java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.DOTALL)
+                .matcher(text)
+                .region(0, 1);
+        Matcher safeReMatcher = Pattern.compile(regex, Pattern.DOTALL).matcher(text).region(0, 1);
+
+        assertThat(safeReMatcher.find()).as(regex).isEqualTo(jdkMatcher.find());
+
+        jdkMatcher.reset().region(0, 1);
+        safeReMatcher.reset().region(0, 1);
+        assertThat(safeReMatcher.lookingAt()).as(regex).isEqualTo(jdkMatcher.lookingAt());
+
+        jdkMatcher.reset().region(0, 1);
+        safeReMatcher.reset().region(0, 1);
+        assertThat(safeReMatcher.matches()).as(regex).isEqualTo(jdkMatcher.matches());
+      }
+    }
+
+    @Test
+    @DisplayName("single character classes keep JDK behavior for region start low surrogates")
+    void singleCharacterClassesKeepJdkBehaviorForRegionStartLowSurrogates() {
+      String text = "\uD83D\uDE00";
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile("[^a]").matcher(text).region(1, 2);
+      Matcher safeReMatcher = Pattern.compile("[^a]").matcher(text).region(1, 2);
+
+      assertThat(safeReMatcher.find()).isEqualTo(jdkMatcher.find());
+      assertThat(safeReMatcher.start()).isEqualTo(jdkMatcher.start());
+      assertThat(safeReMatcher.end()).isEqualTo(jdkMatcher.end());
+    }
   }
 
   @Nested

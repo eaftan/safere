@@ -1832,6 +1832,10 @@ public final class Pattern implements Serializable {
     if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
       node = node.sub();
     }
+    if (node.op == RegexpOp.ANY_CHAR && !hasUserCaptures(re)) {
+      return buildCharClassScanInfo(
+          new CharClass(new int[] {0, Utils.MAX_RUNE}, Utils.MAX_RUNE + 1));
+    }
     if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null || hasUserCaptures(re)) {
       return null;
     }

@@ -39,10 +39,38 @@ class UnicodeMatchBoundsTest {
         new Case("dot-valid-surrogate-pair", ".", Pattern.DOTALL, "\ud83d\ude00"));
   }
 
+  static Stream<Case> negatedClassesMatchJdkOnUnpairedSurrogates() {
+    return Stream.of(
+        new Case(
+            "non-whitespace-high-surrogate",
+            "\\S",
+            Pattern.CASE_INSENSITIVE,
+            "\n".repeat(34) + "\ud998" + "a".repeat(41)),
+        new Case("non-whitespace-low-surrogate", "\\S", Pattern.CASE_INSENSITIVE, "\ude00"),
+        new Case("non-digit-high-surrogate", "\\D", Pattern.CASE_INSENSITIVE, "\ud998"),
+        new Case("non-word-low-surrogate", "\\W", Pattern.CASE_INSENSITIVE, "\ude00"),
+        new Case("negated-literal-class", "[^a]", Pattern.CASE_INSENSITIVE, "\ud998"),
+        new Case(
+            "negated-java-property", "\\P{javaWhitespace}", Pattern.CASE_INSENSITIVE, "\ud998"),
+        new Case("surrogate-category-complement", "\\P{Cs}", 0, "\ud998a"),
+        new Case("negated-surrogate-category-class", "[^\\p{Cs}]", 0, "\ude00a"));
+  }
+
   @ParameterizedTest
   @MethodSource
   @DisplayName("dot and anchor bounds match java.util.regex")
   void dotAndAnchorBoundsMatchJdk(Case c) {
+    assertOutcomesMatchJdk(c);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  @DisplayName("negated character classes match java.util.regex on unpaired surrogates")
+  void negatedClassesMatchJdkOnUnpairedSurrogates(Case c) {
+    assertOutcomesMatchJdk(c);
+  }
+
+  private static void assertOutcomesMatchJdk(Case c) {
     Pattern safePattern = Pattern.compile(c.regex(), c.flags());
     java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(c.regex(), c.flags());
 
