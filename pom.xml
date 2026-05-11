@@ -40,6 +40,7 @@
     <module>safere</module>
     <module>safere-crosscheck</module>
     <module>safere-fuzz</module>
+    <module>safere-exhaustive</module>
     <module>safere-ffm-re2</module>
     <module>safere-benchmarks</module>
   </modules>

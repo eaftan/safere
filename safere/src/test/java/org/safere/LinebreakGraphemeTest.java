@@ -248,6 +248,37 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("\\X groups leading combining marks before the next base character")
+    void groupsLeadingCombiningMarksBeforeNextBaseCharacter() {
+      String text = "\u0301\u0301a";
+      Matcher m = Pattern.compile("\\X").matcher(text);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isZero();
+      assertThat(m.end()).isEqualTo(2);
+      assertThat(m.group()).isEqualTo("\u0301\u0301");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.group()).isEqualTo("a");
+
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("consecutive \\X atoms preserve match bounds after leading combining marks")
+    void consecutiveAtomsPreserveBoundsAfterLeadingCombiningMarks() {
+      String text = "\u0301".repeat(44) + "a".repeat(8);
+      Matcher m = Pattern.compile("^\\^?\\X\\X").matcher(text);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isZero();
+      assertThat(m.end()).isEqualTo(45);
+      assertThat(m.group()).isEqualTo("\u0301".repeat(44) + "a");
+    }
+
+    @Test
     @DisplayName("\\X matches multiple combining marks with a base character")
     void matchesMultipleCombiningMarks() {
       // a + combining tilde (U+0303) + combining acute accent (U+0301)
@@ -299,7 +330,21 @@ class LinebreakGraphemeTest {
       Pattern p = Pattern.compile("\\X{2}");
       assertThat(p.matcher("ab").matches()).isTrue();
       assertThat(p.matcher("e\u0301a\u0302").matches()).isTrue();
+      assertThat(p.matcher("e\u0301").matches()).isFalse();
       assertThat(p.matcher("a").matches()).isFalse();
+    }
+
+    @Test
+    @DisplayName("consecutive \\X atoms do not split a single grapheme cluster")
+    void consecutiveAtomsDoNotSplitSingleCluster() {
+      Pattern p = Pattern.compile("^\\X\\X$");
+
+      assertThat(p.matcher("e\u0301").matches()).isFalse();
+      assertThat(p.matcher("\uD83D\uDC4D\uD83C\uDFFD").matches()).isFalse();
+      assertThat(p.matcher("\uD83C\uDDFA\uD83C\uDDF8").matches()).isFalse();
+      assertThat(p.matcher("\u0600a").matches()).isFalse();
+      assertThat(p.matcher("\u1100\u1161").matches()).isFalse();
+      assertThat(p.matcher("e\u0301a").matches()).isTrue();
     }
 
     @Test

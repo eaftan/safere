@@ -218,13 +218,13 @@ class CharClassTest {
   }
 
   @Test
-  void negateSkipsSurrogates() {
-    // A negated class should not include surrogates (0xD800-0xDFFF).
+  void negateIncludesLoneSurrogates() {
+    // java.util.regex character-class negation can match lone surrogate code units.
     CharClass empty = CharClass.EMPTY.negate();
-    assertThat(empty.contains(0xD800)).isFalse();
-    assertThat(empty.contains(0xDBFF)).isFalse();
-    assertThat(empty.contains(0xDC00)).isFalse();
-    assertThat(empty.contains(0xDFFF)).isFalse();
+    assertThat(empty.contains(0xD800)).isTrue();
+    assertThat(empty.contains(0xDBFF)).isTrue();
+    assertThat(empty.contains(0xDC00)).isTrue();
+    assertThat(empty.contains(0xDFFF)).isTrue();
     assertThat(empty.contains(0xD7FF)).isTrue();
     assertThat(empty.contains(0xE000)).isTrue();
   }

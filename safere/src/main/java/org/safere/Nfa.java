@@ -29,6 +29,8 @@ import java.util.Set;
  * </pre>
  */
 final class Nfa {
+  private static final int[][] EXTENDED_PICTOGRAPHIC =
+      UnicodeProperties.lookupBinaryProperty("Extended_Pictographic");
 
   /** Anchor mode for matching. */
   enum Anchor {
@@ -749,7 +751,7 @@ final class Nfa {
 
   /**
    * Returns true if {@code pos} is a grapheme cluster boundary for SafeRE's supported approximation
-   * of JDK {@code \X}: CRLF is atomic, and combining marks extend the preceding cluster.
+   * of JDK {@code \X}.
    */
   static boolean isGraphemeClusterBoundary(String text, int pos) {
     if (pos < 0 || pos > text.length()) {
@@ -766,7 +768,25 @@ final class Nfa {
     if (prevChar == '\r' && nextChar == '\n') {
       return false;
     }
-    return !isCombiningMark(text.codePointAt(pos));
+    int prev = text.codePointBefore(pos);
+    int next = text.codePointAt(pos);
+    if (isGraphemeExtend(next) || isGraphemePrepend(prev)) {
+      return false;
+    }
+    if (isHangulGraphemeContinuation(prev, next)) {
+      return false;
+    }
+    if (prev == 0x200D && containsCodePoint(EXTENDED_PICTOGRAPHIC, next)) {
+      return false;
+    }
+    if (isRegionalIndicator(prev) && isRegionalIndicator(next)) {
+      return countPrecedingRegionalIndicators(text, pos) % 2 == 0;
+    }
+    return true;
+  }
+
+  private static boolean isGraphemeExtend(int c) {
+    return isCombiningMark(c) || isEmojiModifier(c) || c == 0x200D;
   }
 
   private static boolean isCombiningMark(int c) {
@@ -774,6 +794,81 @@ final class Nfa {
     return type == Character.NON_SPACING_MARK
         || type == Character.ENCLOSING_MARK
         || type == Character.COMBINING_SPACING_MARK;
+  }
+
+  private static boolean isEmojiModifier(int c) {
+    return 0x1F3FB <= c && c <= 0x1F3FF;
+  }
+
+  private static boolean isGraphemePrepend(int c) {
+    return (0x0600 <= c && c <= 0x0605)
+        || c == 0x06DD
+        || c == 0x070F
+        || (0x0890 <= c && c <= 0x0891)
+        || c == 0x08E2
+        || c == 0x110BD
+        || c == 0x110CD;
+  }
+
+  private static boolean isHangulGraphemeContinuation(int prev, int next) {
+    return (isHangulL(prev) && (isHangulL(next) || isHangulV(next) || isHangulLv(next)))
+        || ((isHangulV(prev) || isHangulLv(prev)) && (isHangulV(next) || isHangulT(next)))
+        || ((isHangulT(prev) || isHangulLvt(prev)) && isHangulT(next));
+  }
+
+  private static boolean isHangulL(int c) {
+    return (0x1100 <= c && c <= 0x115F) || (0xA960 <= c && c <= 0xA97C);
+  }
+
+  private static boolean isHangulV(int c) {
+    return (0x1160 <= c && c <= 0x11A7) || (0xD7B0 <= c && c <= 0xD7C6);
+  }
+
+  private static boolean isHangulT(int c) {
+    return (0x11A8 <= c && c <= 0x11FF) || (0xD7CB <= c && c <= 0xD7FB);
+  }
+
+  private static boolean isHangulLv(int c) {
+    return 0xAC00 <= c && c <= 0xD7A3 && (c - 0xAC00) % 28 == 0;
+  }
+
+  private static boolean isHangulLvt(int c) {
+    return 0xAC00 <= c && c <= 0xD7A3 && (c - 0xAC00) % 28 != 0;
+  }
+
+  private static boolean isRegionalIndicator(int c) {
+    return 0x1F1E6 <= c && c <= 0x1F1FF;
+  }
+
+  private static int countPrecedingRegionalIndicators(String text, int pos) {
+    int count = 0;
+    int current = pos;
+    while (current > 0) {
+      int cp = text.codePointBefore(current);
+      if (!isRegionalIndicator(cp)) {
+        break;
+      }
+      count++;
+      current -= Character.charCount(cp);
+    }
+    return count;
+  }
+
+  private static boolean containsCodePoint(int[][] ranges, int c) {
+    int lo = 0;
+    int hi = ranges.length - 1;
+    while (lo <= hi) {
+      int mid = (lo + hi) >>> 1;
+      int[] range = ranges[mid];
+      if (c < range[0]) {
+        hi = mid - 1;
+      } else if (c > range[1]) {
+        lo = mid + 1;
+      } else {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Returns true if the code point is a word character ({@code [A-Za-z0-9_]}). */
