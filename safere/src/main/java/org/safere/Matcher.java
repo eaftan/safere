@@ -433,6 +433,7 @@ public final class Matcher implements MatchResult {
       }
       i += Character.charCount(cp);
     }
+    this.lastEngineHitEnd = true;
     return applyEngineResult(new NoMatchResult());
   }
 

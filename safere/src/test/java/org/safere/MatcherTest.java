@@ -1886,6 +1886,15 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("hitEnd is true for failed character class match")
+    void hitEndTrueForFailedCharClassMatch() {
+      Pattern p = Pattern.compile("[abc]");
+      Matcher m = p.matcher("xyz");
+      assertThat(m.find()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
     @DisplayName("hitEnd is true when a variable-length match reaches region end")
     void hitEndTrueForVariableLengthMatchAtRegionEnd() {
       Pattern p = Pattern.compile("\\d+");
@@ -1943,6 +1952,24 @@ class MatcherTest {
       Matcher m = p.matcher("abx");
       assertThat(m.matches()).isFalse();
       assertThat(m.hitEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for failed matches() on shorter input")
+    void hitEndTrueForFailedLiteralMatchesShorterInput() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("ab");
+      assertThat(m.matches()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for failed lookingAt() on shorter input")
+    void hitEndTrueForFailedLiteralLookingAtShorterInput() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("ab");
+      assertThat(m.lookingAt()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
     }
 
     @Test
