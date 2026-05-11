@@ -1421,6 +1421,12 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(3); // 'a'=0, smiley=1,2, 'b'=3
       assertThat(m.end()).isEqualTo(4);
     }
+
+    @Test
+    @DisplayName("find() with negated classes can start at lone surrogates like JDK")
+    void findWithNegatedClassesCanStartAtLoneSurrogatesLikeJdk() {
+      assertFirstFindMatchesJdk("[^a-z]..", "\uD801\uD800\uDC00xyz");
+    }
   }
 
   @Nested

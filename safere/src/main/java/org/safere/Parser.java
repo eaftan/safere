@@ -3991,6 +3991,9 @@ final class Parser {
       }
       // Control character: \cX → X ^ 0x40
       case 'c' -> {
+        if ((flags & ParseFlags.COMMENTS) != 0) {
+          skipCommentsAndWhitespace();
+        }
         if (pos >= pattern.length()) {
           throw new PatternSyntaxException("invalid escape sequence", pattern, pos - 2);
         }

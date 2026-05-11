@@ -6,7 +6,6 @@
 package org.safere;
 
 import java.util.Iterator;
-import java.util.NavigableSet;
 import java.util.TreeSet;
 
 /**
@@ -151,8 +150,8 @@ final class CharClassBuilder {
   }
 
   /**
-   * Negates this character class in place, so it matches all valid Unicode code points not
-   * previously matched, and vice versa.
+   * Negates this character class in place, so it matches all Java string code points not previously
+   * matched, and vice versa.
    *
    * @return this builder, for chaining
    */
@@ -161,19 +160,14 @@ final class CharClassBuilder {
     int next = 0;
 
     for (Range r : ranges) {
-      // Skip surrogates: gap from 0xD800 to 0xDFFF.
-      int lo = r.lo;
-      int hi = r.hi;
-
-      if (next < lo) {
-        // Add gap [next, lo-1], but skip surrogates.
-        addGapSkippingSurrogates(negated, next, lo - 1);
+      if (next < r.lo) {
+        negated.add(new Range(next, r.lo - 1));
       }
-      next = hi + 1;
+      next = r.hi + 1;
     }
 
     if (next <= Utils.MAX_RUNE) {
-      addGapSkippingSurrogates(negated, next, Utils.MAX_RUNE);
+      negated.add(new Range(next, Utils.MAX_RUNE));
     }
 
     ranges.clear();
@@ -185,23 +179,6 @@ final class CharClassBuilder {
       nrunes += (r.hi - r.lo + 1);
     }
     return this;
-  }
-
-  private static void addGapSkippingSurrogates(NavigableSet<Range> dest, int lo, int hi) {
-    if (lo > hi) {
-      return;
-    }
-    // Split around surrogate range [0xD800, 0xDFFF].
-    if (hi < Utils.MIN_SURROGATE || lo > Utils.MAX_SURROGATE) {
-      dest.add(new Range(lo, hi));
-    } else {
-      if (lo < Utils.MIN_SURROGATE) {
-        dest.add(new Range(lo, Utils.MIN_SURROGATE - 1));
-      }
-      if (hi > Utils.MAX_SURROGATE) {
-        dest.add(new Range(Utils.MAX_SURROGATE + 1, hi));
-      }
-    }
   }
 
   /**
