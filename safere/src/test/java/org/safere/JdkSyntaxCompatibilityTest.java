@@ -907,6 +907,48 @@ class JdkSyntaxCompatibilityTest {
     void controlEscapesAcceptNonAsciiTargetsLikeJdk(String regex, String input) {
       assertMatchesSame(regex, input);
     }
+
+    static Stream<Arguments> commentsModeControlEscapesSkipTriviaBeforeTarget() {
+      return Stream.of(
+          Arguments.of("(?x)\\c\ta", "!"),
+          Arguments.of("(?x)^\\c\t$", "d"),
+          Arguments.of("(?x)\\c\t?", "\u007f"),
+          Arguments.of("(?x)\\c#\na", "!"));
+    }
+
+    @ParameterizedTest(name = "/{0}/ matches \"{1}\"")
+    @MethodSource("commentsModeControlEscapesSkipTriviaBeforeTarget")
+    @DisplayName("comments-mode control escapes skip trivia before target like JDK")
+    void commentsModeControlEscapesSkipTriviaBeforeTargetLikeJdk(String regex, String input) {
+      assertMatchesFull(regex, input);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"(?x)\\c\t", "(?x)\\c#", "(?x)[\\c\t]", "(?x)[^\\c#]"})
+    @DisplayName("comments-mode control escapes reject when skipped trivia leaves no valid target")
+    void commentsModeControlEscapesRejectWhenSkippedTriviaLeavesNoValidTarget(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
+    static Stream<Arguments> controlEscapeNegatedClassesIncludeLoneSurrogates() {
+      return Stream.of(
+          Arguments.of("[^\\c\uD800]", "\uD840", false),
+          Arguments.of("[^\\c\uD800]", "\uD800", true),
+          Arguments.of("[^\\c\ud7bf]", "\uD800", true),
+          Arguments.of("[\\c\uD800]", "\uD840", true));
+    }
+
+    @ParameterizedTest(name = "/{0}/ matches \"{1}\" = {2}")
+    @MethodSource("controlEscapeNegatedClassesIncludeLoneSurrogates")
+    @DisplayName("control escape character classes handle lone surrogates like JDK")
+    void controlEscapeCharacterClassesHandleLoneSurrogatesLikeJdk(
+        String regex, String input, boolean expected) {
+      java.util.regex.Matcher jdkM = java.util.regex.Pattern.compile(regex).matcher(input);
+      assertThat(jdkM.matches()).as("JDK sanity for /%s/", regex).isEqualTo(expected);
+
+      Matcher safeM = Pattern.compile(regex).matcher(input);
+      assertThat(safeM.matches()).as("SafeRE matches() for /%s/", regex).isEqualTo(expected);
+    }
   }
 
   // ===========================================================================
