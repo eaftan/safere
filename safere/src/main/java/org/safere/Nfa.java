@@ -53,7 +53,7 @@ final class Nfa {
   /** A thread in the NFA: an instruction index paired with capture and end-state metadata. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  private record NfaThread(int id, int[] capture, int terminalEmptyFlags) {}
+  private record NfaThread(int id, int[] capture, int terminalEmptyFlags, boolean consumedInput) {}
 
   static final class EndStateMatch {
     private final int[] groups;
@@ -82,6 +82,7 @@ final class Nfa {
   private final boolean longest;
   private final boolean endmatch;
   private final int endPos;
+  private final int regionStart;
 
   private boolean matched;
   private int[] bestMatch;
@@ -91,13 +92,15 @@ final class Nfa {
   private List<NfaThread> runq;
   private List<NfaThread> nextq;
 
-  private Nfa(Prog prog, int ncapture, boolean longest, boolean endmatch, int endPos) {
+  private Nfa(
+      Prog prog, int ncapture, boolean longest, boolean endmatch, int endPos, int regionStart) {
     this.prog = prog;
     this.ncapture = ncapture;
     this.threadArraySize = ncapture + prog.numLoopRegs();
     this.longest = longest;
     this.endmatch = endmatch;
     this.endPos = endPos;
+    this.regionStart = regionStart;
     this.runq = new ArrayList<>();
     this.nextq = new ArrayList<>();
     this.bestMatch = new int[ncapture];
@@ -172,6 +175,19 @@ final class Nfa {
       Anchor anchor,
       MatchKind kind,
       int nsubmatch) {
+    return search(prog, text, startPos, searchLimit, endPos, 0, anchor, kind, nsubmatch);
+  }
+
+  static int[] search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int regionStart,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch) {
     if (prog.start() == 0) {
       return null;
     }
@@ -191,8 +207,12 @@ final class Nfa {
     // We always need at least capture[0..1] to track the match boundaries.
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
-    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos);
-    nfa.doSearch(text, startPos, searchLimit, anchored);
+    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos, regionStart);
+    if (!anchored && prog.hasMultipleGraphemeClusterBoundaries()) {
+      nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
+    } else {
+      nfa.doSearch(text, startPos, searchLimit, anchored);
+    }
 
     if (!nfa.matched) {
       return null;
@@ -236,8 +256,12 @@ final class Nfa {
     }
 
     int ncapture = 2 * Math.max(nsubmatch, 1);
-    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos);
-    nfa.doSearch(text, startPos, searchLimit, anchored);
+    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos, 0);
+    if (!anchored && prog.hasMultipleGraphemeClusterBoundaries()) {
+      nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
+    } else {
+      nfa.doSearch(text, startPos, searchLimit, anchored);
+    }
 
     if (!nfa.matched) {
       return null;
@@ -286,7 +310,7 @@ final class Nfa {
         // Always use prog.start() (anchored start). Unanchored matching is achieved
         // by starting a new thread at each position. The startUnanchored() entry point
         // (which includes a .*? prefix) is only for the DFA engine.
-        addToThreadq(runq, runqSet, prog.start(), text, pos, cap, 0);
+        addToThreadq(runq, runqSet, prog.start(), text, pos, cap, 0, false);
       }
 
       // If all threads have died, stop if anchored or we already have a match.
@@ -331,6 +355,59 @@ final class Nfa {
   }
 
   /**
+   * Unanchored search variant for grapheme programs.
+   *
+   * <p>Active threads still consume Unicode code points, but new candidate matches are started at
+   * every Java character offset. That matches {@link java.util.regex.Matcher}'s character-index
+   * search contract for grapheme constructs without changing the code-point stepping used by
+   * ordinary SafeRE programs.
+   */
+  private void doSearchEveryCharPosition(String text, int startPos, int searchLimit) {
+    int queueCount = endPos + 2;
+    List<List<NfaThread>> queues = new ArrayList<>(queueCount);
+    List<Set<Integer>> queueSets = new ArrayList<>(queueCount);
+    for (int i = 0; i < queueCount; i++) {
+      queues.add(new ArrayList<>());
+      queueSets.add(new HashSet<>());
+    }
+
+    int start = Math.max(0, startPos);
+    for (int pos = start; pos <= endPos; pos++) {
+      List<NfaThread> currentQueue = queues.get(pos);
+      Set<Integer> currentSet = queueSets.get(pos);
+
+      if (!matched && pos <= searchLimit) {
+        int[] cap = new int[threadArraySize];
+        Arrays.fill(cap, -1);
+        cap[0] = pos;
+        addToThreadq(currentQueue, currentSet, prog.start(), text, pos, cap, 0, false);
+      }
+
+      if (currentQueue.isEmpty()) {
+        continue;
+      }
+
+      int cp = (pos < endPos) ? text.codePointAt(pos) : -1;
+      int nextPos = (pos < endPos) ? pos + Character.charCount(cp) : endPos + 1;
+      List<NfaThread> destinationQueue = queues.get(nextPos);
+      Set<Integer> destinationSet = queueSets.get(nextPos);
+      step(
+          currentQueue,
+          currentSet,
+          destinationQueue,
+          destinationSet,
+          cp,
+          text,
+          pos,
+          nextPos,
+          false);
+      if (matched && !longest) {
+        break;
+      }
+    }
+  }
+
+  /**
    * Follows all empty transitions from {@code id0} and enqueues consuming/accepting instructions
    * (CHAR_RANGE and MATCH) into the thread queue.
    *
@@ -351,7 +428,8 @@ final class Nfa {
       String text,
       int pos,
       int[] t0,
-      int terminalEmptyFlags0) {
+      int terminalEmptyFlags0,
+      boolean consumedInput0) {
     if (id0 == 0) {
       return;
     }
@@ -368,12 +446,15 @@ final class Nfa {
     captureStack.add(null);
     List<Integer> terminalEmptyFlagsStack = new ArrayList<>();
     terminalEmptyFlagsStack.add(terminalEmptyFlags0);
+    List<Boolean> consumedInputStack = new ArrayList<>();
+    consumedInputStack.add(consumedInput0);
 
     while (!stack.isEmpty()) {
       int last = stack.size() - 1;
       int[] entry = stack.remove(last);
       int[] entryCap = captureStack.remove(last);
       int terminalEmptyFlags = terminalEmptyFlagsStack.remove(last);
+      boolean consumedInput = consumedInputStack.remove(last);
 
       int id = entry[0];
 
@@ -403,27 +484,32 @@ final class Nfa {
           stack.add(new int[] {ip.out1, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
+          consumedInputStack.add(consumedInput);
           stack.add(new int[] {ip.out, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
+          consumedInputStack.add(consumedInput);
         }
 
         case ALT_MATCH -> {
           // Enqueue this state and also explore the next alt branch.
-          q.add(new NfaThread(id, t0, terminalEmptyFlags));
+          q.add(new NfaThread(id, t0, terminalEmptyFlags, consumedInput));
           // Explore the next instruction after this one (the other alt branch).
           stack.add(new int[] {ip.out, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
+          consumedInputStack.add(consumedInput);
           stack.add(new int[] {ip.out1, -1});
           captureStack.add(t0);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
+          consumedInputStack.add(consumedInput);
         }
 
         case NOP -> {
           stack.add(new int[] {ip.out, -1});
           captureStack.add(null);
           terminalEmptyFlagsStack.add(terminalEmptyFlags);
+          consumedInputStack.add(consumedInput);
         }
 
         case CAPTURE -> {
@@ -434,16 +520,26 @@ final class Nfa {
             stack.add(new int[] {ip.out, -1});
             captureStack.add(newCap);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
+            consumedInputStack.add(consumedInput);
           } else {
             // Capture register not tracked; just follow the transition.
             stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
+            consumedInputStack.add(consumedInput);
           }
         }
 
         case EMPTY_WIDTH -> {
-          int flags = emptyFlags(text, pos, prog.unixLines(), prog.hasGraphemeClusterBoundary());
+          int flags =
+              emptyFlags(
+                  text,
+                  pos,
+                  prog.unixLines(),
+                  prog.hasGraphemeClusterBoundary(),
+                  t0[0],
+                  regionStart,
+                  consumedInput);
           if ((ip.arg & ~flags) == 0) {
             int nextTerminalEmptyFlags = terminalEmptyFlags;
             if (pos == endPos || isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
@@ -452,6 +548,7 @@ final class Nfa {
             stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
             terminalEmptyFlagsStack.add(nextTerminalEmptyFlags);
+            consumedInputStack.add(consumedInput);
           }
         }
 
@@ -466,11 +563,13 @@ final class Nfa {
             stack.add(new int[] {ip.out, -1});
             captureStack.add(newCap);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
+            consumedInputStack.add(consumedInput);
           } else if (saved == pos) {
             // Zero-width body match: only exit.
             stack.add(new int[] {ip.out1, -1});
             captureStack.add(t0);
             terminalEmptyFlagsStack.add(terminalEmptyFlags);
+            consumedInputStack.add(consumedInput);
           } else {
             // Progress: push both paths like ALT, respecting greediness.
             int[] newCap = t0.clone();
@@ -481,17 +580,21 @@ final class Nfa {
               stack.add(new int[] {ip.out, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
+              consumedInputStack.add(consumedInput);
               stack.add(new int[] {ip.out1, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
+              consumedInputStack.add(consumedInput);
             } else {
               // Greedy: prefer body (push exit first = lower pri, body second = higher pri).
               stack.add(new int[] {ip.out1, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
+              consumedInputStack.add(consumedInput);
               stack.add(new int[] {ip.out, -1});
               captureStack.add(newCap);
               terminalEmptyFlagsStack.add(terminalEmptyFlags);
+              consumedInputStack.add(consumedInput);
             }
           }
         }
@@ -499,7 +602,7 @@ final class Nfa {
         case CHAR_RANGE, CHAR_CLASS, MATCH ->
             // These are "real" states. Capture arrays are immutable from this point
             // until a later CAPTURE or PROGRESS_CHECK transition clones them.
-            q.add(new NfaThread(id, t0, terminalEmptyFlags));
+            q.add(new NfaThread(id, t0, terminalEmptyFlags, consumedInput));
 
         default -> {}
       }
@@ -522,8 +625,23 @@ final class Nfa {
       String text,
       int matchPos,
       int nextPos) {
-    nq.clear();
-    nqSet.clear();
+    return step(rq, rqSet, nq, nqSet, cp, text, matchPos, nextPos, true);
+  }
+
+  private boolean step(
+      List<NfaThread> rq,
+      Set<Integer> rqSet,
+      List<NfaThread> nq,
+      Set<Integer> nqSet,
+      int cp,
+      String text,
+      int matchPos,
+      int nextPos,
+      boolean clearDestination) {
+    if (clearDestination) {
+      nq.clear();
+      nqSet.clear();
+    }
 
     for (NfaThread t : rq) {
       int id = t.id();
@@ -542,13 +660,13 @@ final class Nfa {
       switch (ip.op) {
         case CHAR_RANGE -> {
           if (cp >= 0 && ip.matchesChar(cp)) {
-            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, terminalEmptyFlags);
+            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, terminalEmptyFlags, true);
           }
         }
 
         case CHAR_CLASS -> {
           if (cp >= 0 && ip.matchesCharClass(cp)) {
-            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, terminalEmptyFlags);
+            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, terminalEmptyFlags, true);
           }
         }
 
@@ -654,6 +772,37 @@ final class Nfa {
 
   static int emptyFlags(
       String text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
+    return emptyFlags(text, pos, unixLines, includeGraphemeClusterBoundary, -1);
+  }
+
+  static int emptyFlags(
+      String text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      int matchStart) {
+    return emptyFlags(text, pos, unixLines, includeGraphemeClusterBoundary, matchStart, 0);
+  }
+
+  static int emptyFlags(
+      String text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      int matchStart,
+      int regionStart) {
+    return emptyFlags(
+        text, pos, unixLines, includeGraphemeClusterBoundary, matchStart, regionStart, false);
+  }
+
+  private static int emptyFlags(
+      String text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      int matchStart,
+      int regionStart,
+      boolean consumedInput) {
     int flags = 0;
 
     // ^ and \A
@@ -734,8 +883,28 @@ final class Nfa {
       flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     }
 
-    if (includeGraphemeClusterBoundary && isGraphemeClusterBoundary(text, pos)) {
-      flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+    if (includeGraphemeClusterBoundary) {
+      if (isGraphemeClusterBoundary(text, pos)) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      } else if (isLowHighSurrogateBoundary(text, pos) && matchStart > 0 && pos > matchStart) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      } else if (startsAtLowSurrogate(text, matchStart) && pos > matchStart) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+        if (!suppressesRegionStartSplitExplicitBoundary(regionStart, matchStart, consumedInput)) {
+          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+        }
+      } else if (startsAtStandaloneZwj(text, matchStart, regionStart) && pos == matchStart + 1) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+        if (!suppressesRegionStartSplitExplicitBoundary(regionStart, matchStart, consumedInput)) {
+          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+        }
+      } else if (!consumedInput
+          && (isLowSurrogateBeforeZwjBoundary(text, pos, matchStart, regionStart)
+              || isStandaloneZwjAfterLowSurrogateBoundary(text, pos, matchStart, regionStart))) {
+        flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      } else if (isExplicitGraphemeClusterBoundary(text, pos, matchStart, regionStart)) {
+        flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      }
     }
 
     return flags;
@@ -775,6 +944,84 @@ final class Nfa {
       return countPrecedingRegionalIndicators(text, pos) % 2 == 0;
     }
     return true;
+  }
+
+  private static boolean isExplicitGraphemeClusterBoundary(
+      String text, int pos, int matchStart, int regionStart) {
+    if (matchStart <= 0 || pos <= matchStart || pos <= 1 || pos >= text.length()) {
+      return false;
+    }
+    char prevChar = text.charAt(pos - 1);
+    char nextChar = text.charAt(pos);
+    if (Character.isLowSurrogate(prevChar) && Character.isHighSurrogate(nextChar)) {
+      return true;
+    }
+    if (prevChar == '\r' && nextChar == '\n') {
+      return true;
+    }
+    if (isGraphemeExtend(nextChar)
+        && Character.isLowSurrogate(prevChar)
+        && hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
+      return false;
+    }
+    int prev = text.codePointBefore(pos);
+    int next = text.codePointAt(pos);
+    return isGraphemeExtend(next) || isGraphemePrepend(prev);
+  }
+
+  private static boolean isLowHighSurrogateBoundary(String text, int pos) {
+    return pos > 0
+        && pos < text.length()
+        && Character.isLowSurrogate(text.charAt(pos - 1))
+        && Character.isHighSurrogate(text.charAt(pos));
+  }
+
+  private static boolean isLowSurrogateBeforeZwjBoundary(
+      String text, int pos, int matchStart, int regionStart) {
+    return pos == matchStart
+        && pos > 0
+        && pos < text.length()
+        && Character.isLowSurrogate(text.charAt(pos - 1))
+        && text.charAt(pos) == 0x200D
+        && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart);
+  }
+
+  private static boolean suppressesRegionStartSplitExplicitBoundary(
+      int regionStart, int matchStart, boolean consumedInput) {
+    return regionStart < 0 && matchStart <= 1 && consumedInput;
+  }
+
+  private static boolean isStandaloneZwjAfterLowSurrogateBoundary(
+      String text, int pos, int matchStart, int regionStart) {
+    return pos == matchStart
+        && pos > 1
+        && pos < text.length()
+        && text.charAt(pos - 1) == 0x200D
+        && Character.isLowSurrogate(text.charAt(pos - 2))
+        && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 2, regionStart);
+  }
+
+  private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(
+      String text, int lowSurrogatePos, int regionStart) {
+    return lowSurrogatePos > regionStart
+        && lowSurrogatePos > 0
+        && Character.isHighSurrogate(text.charAt(lowSurrogatePos - 1));
+  }
+
+  private static boolean startsAtLowSurrogate(String text, int matchStart) {
+    return matchStart >= 0
+        && matchStart < text.length()
+        && Character.isLowSurrogate(text.charAt(matchStart));
+  }
+
+  private static boolean startsAtStandaloneZwj(String text, int matchStart, int regionStart) {
+    return matchStart >= 0
+        && matchStart < text.length()
+        && text.charAt(matchStart) == 0x200D
+        && (matchStart == 0
+            || matchStart <= regionStart
+            || !Character.isLowSurrogate(text.charAt(matchStart - 1))
+            || !hasHighSurrogateBeforeLowSurrogateInRegion(text, matchStart - 1, regionStart));
   }
 
   private static boolean isGraphemeExtend(int c) {

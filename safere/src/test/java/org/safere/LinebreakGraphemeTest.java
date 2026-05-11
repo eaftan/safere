@@ -335,6 +335,14 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("unanchored consecutive \\X atoms follow JDK search positions")
+    void unanchoredConsecutiveAtomsFollowJdkSearchPositions() {
+      assertFindBoundsSameAsJdk("\\X\\X", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("\\X{2}", "\uD83D\uDC4D\uD83C\uDFFD");
+      assertFindBoundsSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDCBB");
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms do not split a single grapheme cluster")
     void consecutiveAtomsDoNotSplitSingleCluster() {
       Pattern p = Pattern.compile("^\\X\\X$");
@@ -490,6 +498,25 @@ class LinebreakGraphemeTest {
         clusters.add(m.group());
       }
       assertThat(clusters).containsExactly("H", "e\u0301", "l", "l", "o");
+    }
+
+    private void assertFindBoundsSameAsJdk(String regex, String input) {
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(regex).matcher(input);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input);
+
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s", regex, input)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
     }
   }
 }

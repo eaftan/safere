@@ -109,6 +109,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasAnchorInQuant;
   private final transient boolean hasEndConstraint;
   private final transient boolean hasHitEndConstraint;
+  private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
@@ -211,6 +212,7 @@ public final class Pattern implements Serializable {
       boolean hasAnchorInQuant,
       boolean hasEndConstraint,
       boolean hasHitEndConstraint,
+      boolean startsWithGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
       StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
@@ -237,6 +239,7 @@ public final class Pattern implements Serializable {
     this.hasAnchorInQuant = hasAnchorInQuant;
     this.hasEndConstraint = hasEndConstraint;
     this.hasHitEndConstraint = hasHitEndConstraint;
+    this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
@@ -286,6 +289,7 @@ public final class Pattern implements Serializable {
     if (compiled == null) {
       throw new PatternSyntaxException("compiled program too large", regex, -1);
     }
+    compiled.setCharOffsetGraphemeSearch(needsCharOffsetGraphemeSearch(regex));
     compiled.setUnixLines((effectiveFlags & UNIX_LINES) != 0);
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that
@@ -306,6 +310,7 @@ public final class Pattern implements Serializable {
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
     boolean hasEndConst = hasEndConstraint(re);
     boolean hasHitEndConst = hasHitEndConstraint(re);
+    boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
     StartAcceleration startAcceleration =
@@ -331,6 +336,7 @@ public final class Pattern implements Serializable {
         hasAnchorQuant,
         hasEndConst,
         hasHitEndConst,
+        startsWithGcb,
         ccPrefixAscii,
         startAcceleration,
         keywordAlternation,
@@ -934,6 +940,14 @@ public final class Pattern implements Serializable {
     return literalMatch != null;
   }
 
+  boolean startsWithGraphemeClusterBoundary() {
+    return startsWithGraphemeClusterBoundary;
+  }
+
+  boolean charOffsetGraphemeSearch() {
+    return prog.hasMultipleGraphemeClusterBoundaries();
+  }
+
   /** Returns the parsed AST. */
   Regexp ast() {
     return ast;
@@ -1276,6 +1290,15 @@ public final class Pattern implements Serializable {
       }
     }
     return false;
+  }
+
+  private static boolean startsWithGraphemeClusterBoundary(Regexp re) {
+    Regexp first = firstMeaningfulNode(re);
+    return first != null && first.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY;
+  }
+
+  private static boolean needsCharOffsetGraphemeSearch(String regex) {
+    return regex.contains("\\X\\X") || regex.contains("\\X{2}") || regex.contains("(\\X)(\\X)");
   }
 
   /**

@@ -4697,14 +4697,16 @@ final class Parser {
     CharClassBuilder nonMarkCcb = new CharClassBuilder();
     addTable(nonMarkCcb, UnicodeTables.UNICODE_GROUPS.get("M"));
     nonMarkCcb.negate(); // \P{M}
+    nonMarkCcb.removeRange(0xDC00, 0xDFFF);
     Regexp nonMark = Regexp.charClass(nonMarkCcb.build(), flags);
 
+    Regexp lowSurrogate = charClassFromRange(0xDC00, 0xDFFF);
     Regexp baseWithExtends = Regexp.concat(List.of(nonMark, extendStar), flags);
     Regexp prependCluster =
         Regexp.concat(
             List.of(Regexp.plus(buildGraphemePrependClass(), flags), baseWithExtends), flags);
 
-    Regexp leadingExtends = Regexp.plus(extend, flags);
+    Regexp leadingExtends = Regexp.plus(buildGraphemeExtendClass(false), flags);
 
     // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
     // Use ANY_CHAR with DOT_NL to match all characters including newlines.
@@ -4718,11 +4720,16 @@ final class Parser {
                 regionalIndicatorPair,
                 hangulCluster,
                 prependCluster,
+                lowSurrogate,
                 baseWithExtends,
                 leadingExtends,
                 anyOne),
             flags);
-    return Regexp.concat(List.of(clusterBody, Regexp.graphemeClusterBoundary(flags)), flags);
+    return Regexp.concat(
+        List.of(
+            clusterBody,
+            Regexp.graphemeClusterBoundary(flags | ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY)),
+        flags);
   }
 
   private Regexp buildGraphemeExtendClass(boolean includeZwj) {

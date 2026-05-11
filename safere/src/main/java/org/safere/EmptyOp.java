@@ -48,8 +48,11 @@ final class EmptyOp {
   /** {@code \b{g}} — Unicode extended grapheme cluster boundary. */
   public static final int GRAPHEME_CLUSTER_BOUNDARY = 1 << 9;
 
+  /** Explicit {@code \b{g}} boundary, including JDK consumed-prefix compatibility. */
+  public static final int EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY = 1 << 10;
+
   /** All flags combined. */
-  public static final int ALL_FLAGS = (1 << 10) - 1;
+  public static final int ALL_FLAGS = (1 << 11) - 1;
 
   private EmptyOp() {} // Non-instantiable.
 }

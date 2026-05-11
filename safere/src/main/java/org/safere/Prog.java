@@ -40,6 +40,7 @@ final class Prog {
   private int numLoopRegs;
   private boolean requiresPikeNfaCaptureSemantics;
   private boolean hasGraphemeClusterBoundary;
+  private boolean charOffsetGraphemeSearch;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -219,11 +220,23 @@ final class Prog {
     return hasGraphemeClusterBoundary;
   }
 
+  boolean hasMultipleGraphemeClusterBoundaries() {
+    return charOffsetGraphemeSearch;
+  }
+
+  void setCharOffsetGraphemeSearch(boolean charOffsetGraphemeSearch) {
+    this.charOffsetGraphemeSearch = charOffsetGraphemeSearch;
+  }
+
   private boolean computeHasGraphemeClusterBoundary() {
     int n = instArray.length;
     for (int i = 0; i < n; i++) {
       Inst ip = instArray[i];
-      if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & EmptyOp.GRAPHEME_CLUSTER_BOUNDARY) != 0) {
+      if (ip.op == InstOp.EMPTY_WIDTH
+          && (ip.arg
+                  & (EmptyOp.GRAPHEME_CLUSTER_BOUNDARY
+                      | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY))
+              != 0) {
         return true;
       }
     }

@@ -28,16 +28,29 @@ public final class GraphemeClusterDivergenceSweep {
   private static final List<RegexTemplate> REGEX_TEMPLATES =
       List.of(
           regex("oneCluster", "\\X"),
+          regex("twoClusters", "\\X\\X"),
           regex("anchoredTwoClusters", "^\\X\\X"),
           regex("anchoredOptionalCaretTwoClusters", "^\\^?\\X\\X"),
           regex("exactTwoClusters", "^\\X\\X$"),
+          regex("twoClusterRepeat", "\\X{2}"),
           regex("anchoredTwoClusterRepeat", "^\\X{2}"),
           regex("exactTwoClusterRepeat", "^\\X{2}$"),
           regex("capturedCluster", "(\\X)"),
+          regex("capturedTwoClusters", "(\\X)(\\X)"),
           regex("anchoredCapturedTwoClusters", "^(\\X)(\\X)"),
+          regex("clusterPlus", "\\X+"),
           regex("anchoredClusterPlus", "^\\X+"),
+          regex("invalidClusterInClass", "[\\X]"),
           regex("boundary", "\\b{g}"),
+          regex("capturedBoundary", "(\\b{g})"),
+          regex("optionalBoundary", "\\b{g}?"),
+          regex("invalidBoundaryInClass", "[\\b{g}]"),
+          regex("boundaryBetweenBaseAndMark", "a\\b{g}\\u0300"),
+          regex("boundaryAroundBaseMark", "\\b{g}a\\u0300\\b{g}"),
+          regex("boundaryBetweenCrLf", "\\r\\b{g}\\n"),
+          regex("clusterThenBoundary", "\\X\\b{g}"),
           regex("anchoredClusterThenBoundary", "^\\X\\b{g}"),
+          regex("boundaryClusterBoundary", "\\b{g}\\X\\b{g}"),
           regex("anchoredBoundaryClusterBoundary", "^\\b{g}\\X\\b{g}"));
 
   private static final List<InputTemplate> INPUT_TEMPLATES =
@@ -45,6 +58,7 @@ public final class GraphemeClusterDivergenceSweep {
           input("empty", ""),
           input("ascii", "a"),
           input("twoAscii", "ab"),
+          input("baseMark", "a\u0300"),
           input("baseExtend", "e\u0301"),
           input("baseExtendAscii", "e\u0301a"),
           input("leadingExtend", "\u0301"),
@@ -57,17 +71,26 @@ public final class GraphemeClusterDivergenceSweep {
           input("hangulSyllableTail", "\uAC00\u11A8"),
           input("regionalPair", "\uD83C\uDDFA\uD83C\uDDF8"),
           input("regionalTriple", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8"),
+          input("regionalQuad", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8\uD83C\uDDE6"),
           input("emojiModifier", "\uD83D\uDC4D\uD83C\uDFFD"),
+          input("emojiModifierThenAscii", "\uD83D\uDC4D\uD83C\uDFFDa"),
           input("zwjEmoji", "\uD83D\uDC69\u200D\uD83D\uDCBB"),
+          input("lowSurrogateZwj", "\uDC69\u200D\uD83D\uDCBB"),
           input("zwjEmojiModifier", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB"),
+          input("zwjEmojiThenAscii", "\uD83D\uDC69\u200D\uD83D\uDCBBa"),
+          input("hangulLeadingVowel", "\u1161\u11A8"),
+          input("hangulLeadingTrail", "\u11A8\u11A8"),
           input("supplementary", "\uD83D\uDE00"),
+          input("twoSupplementary", "\uD83D\uDE00\uD83D\uDE01"),
           input("zwjAfterAscii", "a\u200D"));
 
   private static final List<RegionMode> REGION_MODES =
       List.of(
           new RegionMode("full", "", ""),
           new RegionMode("wrapped", "#", "$"),
-          new RegionMode("prefixed", "zz", ""));
+          new RegionMode("prefixed", "zz", ""),
+          new RegionMode("insideSupplementaryPrefix", "\uD83D", "\uDE00"),
+          new RegionMode("afterBaseBeforeMark", "a", "\u0300"));
 
   private GraphemeClusterDivergenceSweep() {}
 

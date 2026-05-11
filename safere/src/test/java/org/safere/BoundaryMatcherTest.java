@@ -225,6 +225,38 @@ class BoundaryMatcherTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
+    private void assertTraceSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+
+      assertThat(safeMatcher.matches())
+          .as("matches() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.matches());
+
+      jdkMatcher.reset(input).region(start, end);
+      safeMatcher.reset(input).region(start, end);
+      assertThat(safeMatcher.lookingAt())
+          .as("lookingAt() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.lookingAt());
+
+      jdkMatcher.reset(input).region(start, end);
+      safeMatcher.reset(input).region(start, end);
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
     @Test
     @DisplayName("\\b{g} compiles without error")
     void compiles() {
@@ -259,6 +291,22 @@ class BoundaryMatcherTest {
     @DisplayName("\\b{g} does not split CRLF")
     void doesNotSplitCrLf() {
       assertFindSameAsJdk("\\r\\b{g}\\n", "\r\n");
+    }
+
+    @Test
+    @DisplayName("\\b{g} respects opaque region bounds for base-plus-mark clusters")
+    void respectsOpaqueRegionBoundsForBaseMarkClusters() {
+      assertTraceSameAsJdk("a\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertTraceSameAsJdk("\\r\\b{g}\\n", "#\r\n$", 1, 3);
+    }
+
+    @Test
+    @DisplayName("\\b{g}\\X\\b{g} find() follows JDK repeated-search positions")
+    void boundaryClusterBoundaryFindFollowsJdkPositions() {
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "ab", 0, 2);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "e\u0301a", 0, 3);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\u0301a", 0, 2);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8", 0, 6);
     }
 
     @Test

@@ -55,17 +55,18 @@ tools/exhaustive/run-grapheme-cluster-sweep.sh --range=:250 \
   --output-dir=target/exhaustive-reports/grapheme-cluster-sweep-smoke
 ```
 
-The grapheme-cluster sweep compares SafeRE with `java.util.regex` for anchored
-and region-start `\X` and `\b{g}` compile acceptance, `matches()`,
-`lookingAt()`, and repeated `find()` traces including match bounds and captured
-group text. It covers bounded combinations of leading combining marks,
-base-plus-extend clusters, CRLF, Prepend characters, Hangul sequences, regional
-indicators, emoji modifiers, ZWJ emoji sequences, supplementary code points, and
-full/wrapped/prefixed regions.
+The grapheme-cluster sweep compares SafeRE with `java.util.regex` for `\X` and
+`\b{g}` compile acceptance, `matches()`, `lookingAt()`, and repeated `find()`
+traces including match bounds and captured group text. It covers bounded
+combinations of leading combining marks, base-plus-extend clusters, CRLF,
+Prepend characters, Hangul sequences, regional indicators, emoji modifiers, ZWJ
+emoji sequences, supplementary code points, invalid character-class contexts,
+and regions that start at or near grapheme and surrogate boundaries.
 
 Use this sweep before review when changing grapheme-cluster parsing or boundary
-behavior. Range bounds and replay files use the same conventions as the other
-exhaustive sweeps.
+behavior. A run may report known or newly discovered divergences; inspect the
+JSONL output and bucket summary to triage them. Range bounds and replay files
+use the same conventions as the other exhaustive sweeps.
 
 ## Control Escape Sweep
 
