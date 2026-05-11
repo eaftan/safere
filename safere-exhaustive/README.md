@@ -38,3 +38,31 @@ to zero-width quoted literals and skipped trivia.
 
 The output JSONL path is printed at the end of each run. Generated reports should
 stay out of git.
+
+## Control Escape Sweep
+
+Run through the wrapper script:
+
+```bash
+tools/exhaustive/run-control-escape-sweep.sh \
+  --output-dir=target/exhaustive-reports/control-escape-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+tools/exhaustive/run-control-escape-sweep.sh --range=:100000 \
+  --output-dir=target/exhaustive-reports/control-escape-sweep-smoke
+```
+
+The control-escape sweep enumerates every possible Java code point as the target
+of a `\cX` escape, including lone UTF-16 surrogate values. For each target it
+checks bare, anchored, character-class, negated character-class, adjacent
+literal, captured, and quantified contexts under no flags, comments mode,
+case-insensitive mode, and both flags together. Each generated case compares
+compile acceptance and full-match membership between SafeRE and
+`java.util.regex`.
+
+Use this sweep before review when changing control-escape parsing behavior. The
+full matrix is bounded and has roughly 36 million generated cases. Range bounds
+and replay files use the same conventions as the character-class sweep.
