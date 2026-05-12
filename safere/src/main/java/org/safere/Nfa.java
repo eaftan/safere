@@ -208,7 +208,7 @@ final class Nfa {
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
     Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos, regionStart);
-    if (!anchored && prog.hasMultipleGraphemeClusterBoundaries()) {
+    if (!anchored && prog.hasGraphemeClusterBoundary()) {
       nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
     } else {
       nfa.doSearch(text, startPos, searchLimit, anchored);
@@ -540,7 +540,7 @@ final class Nfa {
                   endPos);
           if ((ip.arg & ~flags) == 0) {
             int nextTerminalEmptyFlags = terminalEmptyFlags;
-            if (pos == endPos || isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
+            if (pos == endPos || isAtTrailingLineTerminator(text, pos, prog.unixLines(), endPos)) {
               nextTerminalEmptyFlags |= ip.arg;
             }
             stack.add(new int[] {ip.out, -1});
@@ -673,7 +673,7 @@ final class Nfa {
               endmatch
                   && matchPos != endPos
                   && (!prog.dollarAnchorEnd()
-                      || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines()));
+                      || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), endPos));
           if (!skip) {
             if (longest) {
               if (!matched
@@ -736,7 +736,12 @@ final class Nfa {
    * @param unixLines if true, only {@code '\n'} is recognized as a line terminator
    */
   static boolean isAtTrailingLineTerminator(String text, int pos, boolean unixLines) {
-    int len = text.length();
+    return isAtTrailingLineTerminator(text, pos, unixLines, text.length());
+  }
+
+  private static boolean isAtTrailingLineTerminator(
+      String text, int pos, boolean unixLines, int logicalEndPos) {
+    int len = logicalEndPos;
     if (pos < 0 || pos >= len) {
       return false;
     }
@@ -750,7 +755,8 @@ final class Nfa {
       return pos == 0 || text.charAt(pos - 1) != '\r';
     }
     if (ch == '\r') {
-      return pos + 1 == len || (pos + 2 == len && text.charAt(pos + 1) == '\n');
+      return pos + 1 == len
+          || (pos + 2 == len && pos + 1 < text.length() && text.charAt(pos + 1) == '\n');
     }
     return (ch == '\u0085' || ch == '\u2028' || ch == '\u2029') && pos + 1 == len;
   }
@@ -876,7 +882,7 @@ final class Nfa {
         boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
         if (!isAtomicLF) {
           flags |= EmptyOp.END_LINE;
-          if (isAtTrailingLineTerminator(text, pos, false)) {
+          if (isAtTrailingLineTerminator(text, pos, false, logicalEndPos)) {
             flags |= EmptyOp.DOLLAR_END;
           }
         }
@@ -907,29 +913,44 @@ final class Nfa {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
       } else if (isAfterRegionStartSplitLowSurrogateBoundary(text, pos, regionStart)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!(consumedInput && pos < logicalEndPos && isBeforeZwj(text, pos))) {
+        if (!(consumedInput && pos < logicalEndPos && hasGraphemeExtendAt(text, pos))) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
-      } else if (isGraphemeClusterBoundary(text, pos)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      } else if (consumedInput
+          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart)) {
+          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+        }
+      } else if (isGraphemeClusterBoundary(text, pos, regionStart)) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart)
+            || !isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
+          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+        }
       } else if (isLowHighSurrogateBoundary(text, pos) && matchStart > 0 && pos > matchStart) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (startsAtLowSurrogate(text, matchStart) && pos > matchStart) {
+      } else if (startsAtLowSurrogate(text, matchStart) && pos == matchStart + 1) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!suppressesRegionStartSplitExplicitBoundary(
-            text, regionStart, matchStart, consumedInput)) {
+        if (!hasGraphemeExtendAt(text, pos)
+            && !suppressesRegionStartSplitExplicitBoundary(
+                text, regionStart, matchStart, consumedInput)) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
-      } else if (startsAtStandaloneZwj(text, matchStart, regionStart) && pos == matchStart + 1) {
+      } else if (startsAtStandaloneZwj(text, matchStart, regionStart)
+          && pos == matchStart + 1
+          && !hasGraphemeExtendAt(text, pos)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!suppressesRegionStartSplitExplicitBoundary(
-            text, regionStart, matchStart, consumedInput)) {
+        if (!consumedInput
+            && !suppressesRegionStartSplitExplicitBoundary(
+                text, regionStart, matchStart, consumedInput)) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
       } else if (!consumedInput
           && (isLowSurrogateBeforeZwjBoundary(text, pos, matchStart, regionStart)
               || isStandaloneZwjAfterLowSurrogateBoundary(text, pos, matchStart, regionStart))
-          && !isAfterRegionStartSplitLowSurrogate(text, pos, regionStart)) {
+          && !isAfterRegionStartSplitLowSurrogate(text, pos, regionStart)
+          && !hasGraphemeExtendAt(text, pos)) {
         flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
       } else if (!consumedInput
           && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
@@ -947,6 +968,10 @@ final class Nfa {
    * of JDK {@code \X}.
    */
   static boolean isGraphemeClusterBoundary(String text, int pos) {
+    return isGraphemeClusterBoundary(text, pos, 0);
+  }
+
+  private static boolean isGraphemeClusterBoundary(String text, int pos, int regionStart) {
     if (pos < 0 || pos > text.length()) {
       return false;
     }
@@ -961,15 +986,30 @@ final class Nfa {
     if (prevChar == '\r' && nextChar == '\n') {
       return false;
     }
+    if (isGraphemeControl(prevChar) || isGraphemeControl(nextChar)) {
+      return true;
+    }
+    if (Character.isHighSurrogate(prevChar) && !Character.isLowSurrogate(nextChar)) {
+      return true;
+    }
+    if (Character.isLowSurrogate(prevChar)
+        && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
+      return true;
+    }
     int prev = text.codePointBefore(pos);
     int next = text.codePointAt(pos);
+    if (isGraphemePrepend(prev) && isUnpairedSurrogateAt(text, pos)) {
+      return true;
+    }
     if (isGraphemeExtend(next) || isGraphemePrepend(prev)) {
       return false;
     }
     if (isHangulGraphemeContinuation(prev, next)) {
       return false;
     }
-    if (prev == 0x200D && containsCodePoint(EXTENDED_PICTOGRAPHIC, next)) {
+    if (prev == 0x200D
+        && containsCodePoint(EXTENDED_PICTOGRAPHIC, next)
+        && hasExtendedPictographicBeforeZwj(text, pos - 1, regionStart)) {
       return false;
     }
     if (isRegionalIndicator(prev) && isRegionalIndicator(next)) {
@@ -1023,10 +1063,6 @@ final class Nfa {
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
-  private static boolean isBeforeZwj(String text, int pos) {
-    return pos >= 0 && pos < text.length() && text.charAt(pos) == 0x200D;
-  }
-
   private static boolean isRegionEndSplitSurrogateBoundary(String text, int pos, int regionEnd) {
     return pos == regionEnd
         && regionEnd > 0
@@ -1072,14 +1108,26 @@ final class Nfa {
         && !hasExtendedPictographicBeforeZwj(text, pos - 1, regionStart);
   }
 
+  private static boolean isAfterPairedExtendedPictographicZwj(
+      String text, int pos, int regionStart) {
+    int lowSurrogatePos = pos - 2;
+    if (regionStart <= lowSurrogatePos && regionStart > 0) {
+      return false;
+    }
+    return pos > 2
+        && text.charAt(pos - 1) == 0x200D
+        && Character.isLowSurrogate(text.charAt(lowSurrogatePos))
+        && Character.isHighSurrogate(text.charAt(pos - 3))
+        && hasExtendedPictographicBeforeZwj(text, pos - 1, 0);
+  }
+
   private static boolean isAfterRegionStartSplitLowSurrogate(
       String text, int pos, int regionStart) {
     return pos == regionStart + 1
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
-  private static boolean hasExtendedPictographicBeforeZwj(
-      String text, int zwjPos, int regionStart) {
+  static boolean hasExtendedPictographicBeforeZwj(String text, int zwjPos, int regionStart) {
     int pos = zwjPos;
     while (pos > regionStart && pos > 0) {
       int previous = text.codePointBefore(pos);
@@ -1088,7 +1136,7 @@ final class Nfa {
         return false;
       }
       if (containsCodePoint(EXTENDED_PICTOGRAPHIC, previous)) {
-        return true;
+        return !hasPrependImmediatelyBefore(text, previousPos, regionStart);
       }
       if (!isGraphemeExtend(previous)) {
         return false;
@@ -1096,6 +1144,13 @@ final class Nfa {
       pos = previousPos;
     }
     return false;
+  }
+
+  private static boolean hasPrependImmediatelyBefore(String text, int pos, int regionStart) {
+    if (pos <= regionStart || pos <= 0) {
+      return false;
+    }
+    return isGraphemePrepend(text.codePointBefore(pos));
   }
 
   private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(
@@ -1125,6 +1180,32 @@ final class Nfa {
     return isCombiningMark(c) || isEmojiModifier(c) || c == 0x200D;
   }
 
+  private static boolean isUnpairedSurrogateAt(String text, int pos) {
+    char c = text.charAt(pos);
+    if (Character.isLowSurrogate(c)) {
+      return true;
+    }
+    return Character.isHighSurrogate(c)
+        && (pos + 1 >= text.length() || !Character.isLowSurrogate(text.charAt(pos + 1)));
+  }
+
+  static boolean hasGraphemeExtendAt(String text, int pos) {
+    return pos >= 0 && pos < text.length() && isGraphemeExtend(text.codePointAt(pos));
+  }
+
+  static boolean isExtendedPictographicAt(String text, int pos) {
+    return pos >= 0
+        && pos < text.length()
+        && containsCodePoint(EXTENDED_PICTOGRAPHIC, text.codePointAt(pos));
+  }
+
+  private static boolean isGraphemeControl(int c) {
+    int type = Character.getType(c);
+    return type == Character.CONTROL
+        || type == Character.LINE_SEPARATOR
+        || type == Character.PARAGRAPH_SEPARATOR;
+  }
+
   private static boolean isCombiningMark(int c) {
     int type = Character.getType(c);
     return type == Character.NON_SPACING_MARK
@@ -1147,7 +1228,8 @@ final class Nfa {
   }
 
   private static boolean isHangulGraphemeContinuation(int prev, int next) {
-    return (isHangulL(prev) && (isHangulL(next) || isHangulV(next) || isHangulLv(next)))
+    return (isHangulL(prev)
+            && (isHangulL(next) || isHangulV(next) || isHangulLv(next) || isHangulLvt(next)))
         || ((isHangulV(prev) || isHangulLv(prev)) && (isHangulV(next) || isHangulT(next)))
         || ((isHangulT(prev) || isHangulLvt(prev)) && isHangulT(next));
   }

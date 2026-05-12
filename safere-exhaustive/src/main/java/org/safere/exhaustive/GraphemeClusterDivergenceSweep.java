@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.PatternSyntaxException;
@@ -24,6 +26,10 @@ import java.util.regex.PatternSyntaxException;
 public final class GraphemeClusterDivergenceSweep {
   private static final int DEFAULT_MAX_PER_BUCKET = Integer.MAX_VALUE;
   private static final int FIND_LIMIT = 32;
+  private static final ConcurrentMap<String, java.util.regex.Pattern> JDK_PATTERN_CACHE =
+      new ConcurrentHashMap<>();
+  private static final ConcurrentMap<String, org.safere.Pattern> SAFERE_PATTERN_CACHE =
+      new ConcurrentHashMap<>();
 
   private static final List<GraphemeAtom> GRAPHEME_CLASS_ATOMS =
       List.of(
@@ -295,7 +301,8 @@ public final class GraphemeClusterDivergenceSweep {
 
   private static Outcome jdkOutcome(CaseSpec spec) {
     try {
-      java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(spec.regex());
+      java.util.regex.Pattern pattern =
+          JDK_PATTERN_CACHE.computeIfAbsent(spec.regex(), java.util.regex.Pattern::compile);
       return new Outcome(true, operationTrace(pattern, spec), "");
     } catch (PatternSyntaxException e) {
       return new Outcome(false, "", e.getDescription());
@@ -306,7 +313,8 @@ public final class GraphemeClusterDivergenceSweep {
 
   private static Outcome safeReOutcome(CaseSpec spec) {
     try {
-      org.safere.Pattern pattern = org.safere.Pattern.compile(spec.regex());
+      org.safere.Pattern pattern =
+          SAFERE_PATTERN_CACHE.computeIfAbsent(spec.regex(), org.safere.Pattern::compile);
       return new Outcome(true, operationTrace(pattern, spec), "");
     } catch (PatternSyntaxException e) {
       return new Outcome(false, "", e.getDescription());
@@ -1138,19 +1146,20 @@ public final class GraphemeClusterDivergenceSweep {
 
     void run() {
       long end = Math.min(options.rangeEndExclusive(), totalCases());
+      generated = firstOwnedCaseIndex();
       while (generated < end) {
-        long caseIndex = generated++;
-        if (caseIndex < options.rangeStartInclusive()) {
-          reportProgressIfNeeded();
-          continue;
-        }
-        if (caseIndex % options.threads() != workerIndex) {
-          reportProgressIfNeeded();
-          continue;
-        }
+        long caseIndex = generated;
+        generated += options.threads();
         runState.checked.increment();
         checkOwned(caseAt(caseIndex));
       }
+    }
+
+    private long firstOwnedCaseIndex() {
+      long start = options.rangeStartInclusive();
+      long remainder = start % options.threads();
+      long delta = (workerIndex - remainder + options.threads()) % options.threads();
+      return start + delta;
     }
 
     void checkOwned(CaseSpec spec) {
@@ -1221,7 +1230,7 @@ public final class GraphemeClusterDivergenceSweep {
       long rangeEndExclusive = Long.MAX_VALUE;
       int maxPerBucket = DEFAULT_MAX_PER_BUCKET;
       Path outputDir = Path.of("target", "exhaustive-reports", "grapheme-cluster-sweep");
-      long progressInterval = 1_000;
+      long progressInterval = 1_000_000;
       int threads = 1;
       Path replayFile = null;
       for (String arg : args) {

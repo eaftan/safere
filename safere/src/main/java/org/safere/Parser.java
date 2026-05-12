@@ -4673,14 +4673,15 @@ final class Parser {
 
     Regexp extend = buildGraphemeExtendClass(true);
     Regexp extendStar = Regexp.star(extend, flags);
-    Regexp extendNoZwjStar = Regexp.star(buildGraphemeExtendClass(false), flags);
+    Regexp connectorExtends = Regexp.star(extend, flags | ParseFlags.NON_GREEDY);
 
     // Extended pictographic sequences joined by ZWJ, e.g. emoji presentation chains.
     Regexp pictographic =
         charClassFromTable(UnicodeProperties.lookupBinaryProperty("Extended_Pictographic"));
-    Regexp pictographicWithExtends = Regexp.concat(List.of(pictographic, extendNoZwjStar), flags);
+    Regexp pictographicWithExtends = Regexp.concat(List.of(pictographic, connectorExtends), flags);
     Regexp zwjPictographicSegment =
-        Regexp.concat(List.of(Regexp.literal(0x200D, flags), pictographic, extendNoZwjStar), flags);
+        Regexp.concat(
+            List.of(Regexp.literal(0x200D, flags), pictographic, connectorExtends), flags);
     Regexp zwjSequence =
         Regexp.concat(
             List.of(pictographicWithExtends, Regexp.plus(zwjPictographicSegment, flags)), flags);
@@ -4688,25 +4689,38 @@ final class Parser {
     // Regional indicators pair into flag clusters.
     Regexp regionalIndicator = charClassFromRange(0x1F1E6, 0x1F1FF);
     Regexp regionalIndicatorPair =
-        Regexp.concat(List.of(regionalIndicator, regionalIndicator), flags);
+        Regexp.concat(List.of(regionalIndicator, regionalIndicator, extendStar), flags);
+    Regexp regionalIndicatorWithExtends =
+        Regexp.concat(List.of(regionalIndicator, extendStar), flags);
 
-    Regexp hangulCluster = buildHangulGraphemeCluster();
+    Regexp hangulCluster = Regexp.concat(List.of(buildHangulGraphemeCluster(), extendStar), flags);
 
     // \P{M} plus grapheme-extending code points keeps the historical base+mark behavior and
     // covers emoji modifier sequences such as thumbs-up plus skin tone.
     CharClassBuilder nonMarkCcb = new CharClassBuilder();
     addTable(nonMarkCcb, UnicodeTables.UNICODE_GROUPS.get("M"));
     nonMarkCcb.negate(); // \P{M}
-    nonMarkCcb.removeRange(0xDC00, 0xDFFF);
+    removeGraphemeControlCodePoints(nonMarkCcb);
+    nonMarkCcb.removeRange(0xD800, 0xDFFF);
+    nonMarkCcb.removeRange(0x1F1E6, 0x1F1FF);
     Regexp nonMark = Regexp.charClass(nonMarkCcb.build(), flags);
 
     Regexp lowSurrogate = charClassFromRange(0xDC00, 0xDFFF);
     Regexp baseWithExtends = Regexp.concat(List.of(nonMark, extendStar), flags);
+    Regexp leadingExtends = Regexp.plus(extend, flags);
     Regexp prependCluster =
         Regexp.concat(
-            List.of(Regexp.plus(buildGraphemePrependClass(), flags), baseWithExtends), flags);
-
-    Regexp leadingExtends = Regexp.plus(extend, flags);
+            List.of(
+                Regexp.plus(buildGraphemePrependClass(), flags),
+                Regexp.alternate(
+                    List.of(
+                        regionalIndicatorPair,
+                        regionalIndicatorWithExtends,
+                        hangulCluster,
+                        baseWithExtends,
+                        leadingExtends),
+                    flags)),
+            flags);
 
     // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
     // Use ANY_CHAR with DOT_NL to match all characters including newlines.
@@ -4718,6 +4732,7 @@ final class Parser {
                 crLf,
                 zwjSequence,
                 regionalIndicatorPair,
+                regionalIndicatorWithExtends,
                 hangulCluster,
                 prependCluster,
                 lowSurrogate,
@@ -4740,6 +4755,12 @@ final class Parser {
       ccb.addRune(0x200D);
     }
     return Regexp.charClass(ccb.build(), flags);
+  }
+
+  private static void removeGraphemeControlCodePoints(CharClassBuilder ccb) {
+    ccb.removeRange(0x0000, 0x001F);
+    ccb.removeRange(0x007F, 0x009F);
+    ccb.removeRange(0x2028, 0x2029);
   }
 
   private Regexp buildGraphemePrependClass() {
