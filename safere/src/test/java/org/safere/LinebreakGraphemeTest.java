@@ -267,6 +267,15 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("\\X keeps ZWJ with leading grapheme extenders")
+    void keepsZwjWithLeadingGraphemeExtenders() {
+      assertTraceSameAsJdk("\\X", "\u0301\u200D", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0301\u0301\u200D", 0, 3);
+      assertTraceSameAsJdk("\\X", "\u0301\u200Da", 0, 3);
+      assertTraceSameAsJdk("\\X\\X", "\u0301\u200Da", 0, 3);
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms preserve match bounds after leading combining marks")
     void consecutiveAtomsPreserveBoundsAfterLeadingCombiningMarks() {
       String text = "\u0301".repeat(44) + "a".repeat(8);

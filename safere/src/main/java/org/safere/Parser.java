@@ -4706,7 +4706,7 @@ final class Parser {
         Regexp.concat(
             List.of(Regexp.plus(buildGraphemePrependClass(), flags), baseWithExtends), flags);
 
-    Regexp leadingExtends = Regexp.plus(buildGraphemeExtendClass(false), flags);
+    Regexp leadingExtends = Regexp.plus(extend, flags);
 
     // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
     // Use ANY_CHAR with DOT_NL to match all characters including newlines.

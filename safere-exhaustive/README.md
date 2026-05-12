@@ -58,12 +58,25 @@ tools/exhaustive/run-grapheme-cluster-sweep.sh --range=:250 \
 The grapheme-cluster sweep compares SafeRE with `java.util.regex` for `\X` and
 `\b{g}` compile acceptance, `matches()`, `lookingAt()`, first `find()`, and
 reset/reused repeated `find()` traces including match bounds and captured group
-text. It covers bounded combinations of leading combining marks,
-base-plus-extend clusters, CRLF, Prepend characters, Hangul sequences, regional
-indicators, emoji modifiers, ZWJ emoji sequences, supplementary code points,
-invalid character-class contexts, opaque anchoring and non-anchoring bounds, and
-regions that start, end, or become empty inside surrogate pairs or adjacent to
-grapheme boundaries.
+text.
+
+The input axis is generated from Unicode grapheme-break structure rather than
+only hand-picked examples. It keeps the older curated regression corpus, then
+adds exhaustive short sequences over representative grapheme classes: CR, LF,
+Control, Extend, ZWJ, Regional_Indicator, Prepend, SpacingMark, Hangul
+L/V/T/LV/LVT, emoji modifier, Extended_Pictographic, ordinary BMP,
+supplementary, and lone surrogate code units. Additional focused families cover
+longer high-risk sequences around leading Extend/ZWJ runs, regional-indicator
+parity, emoji ZWJ chains, Hangul composition chains, and surrogate boundaries.
+Generated input labels include the grapheme-class sequence, so JSONL buckets
+make missed rule neighborhoods visible instead of hiding them behind opaque
+seed names.
+
+The regex and matcher axes exercise adjacent, captured, quantified, grouped,
+anchored, and source-equivalent spellings of `\X` and `\b{g}`, invalid
+character-class contexts, opaque anchoring and non-anchoring bounds, and regions
+that start, end, or become empty inside surrogate pairs or adjacent to grapheme
+boundaries.
 
 The sweep intentionally excludes `find()` continuation immediately after
 `matches()` or `lookingAt()`: the JDK `Matcher.find()` specification defines the
