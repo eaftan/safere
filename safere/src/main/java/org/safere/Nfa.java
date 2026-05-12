@@ -576,9 +576,6 @@ final class Nfa {
                 bestTerminalEmptyFlags = terminalEmptyFlags;
                 matched = true;
               }
-              if (matchPos == endPos) {
-                return true;
-              }
             } else {
               // First match mode: this is the best match (leftmost, due to priority).
               // Cut off threads that can only find worse matches (remaining runq),

@@ -2461,7 +2461,7 @@ public final class Matcher implements MatchResult {
                         0,
                         probeText.length(),
                         Nfa.Anchor.ANCHORED,
-                        Nfa.MatchKind.FIRST_MATCH,
+                        Nfa.MatchKind.FULL_MATCH,
                         1)
                     .groups();
             case LOOKING_AT, FIND ->
@@ -2471,7 +2471,7 @@ public final class Matcher implements MatchResult {
                         relativeStart,
                         probeText.length(),
                         Nfa.Anchor.ANCHORED,
-                        Nfa.MatchKind.FIRST_MATCH,
+                        Nfa.MatchKind.LONGEST_MATCH,
                         1)
                     .groups();
           };
