@@ -53,44 +53,37 @@ public final class GraphemeClusterDivergenceSweep {
           regex("boundaryClusterBoundary", "\\b{g}\\X\\b{g}"),
           regex("anchoredBoundaryClusterBoundary", "^\\b{g}\\X\\b{g}"));
 
-  private static final List<InputTemplate> INPUT_TEMPLATES =
-      List.of(
-          input("empty", ""),
-          input("ascii", "a"),
-          input("twoAscii", "ab"),
-          input("baseMark", "a\u0300"),
-          input("baseExtend", "e\u0301"),
-          input("baseExtendAscii", "e\u0301a"),
-          input("leadingExtend", "\u0301"),
-          input("twoLeadingExtends", "\u0301\u0301"),
-          input("leadingExtendsThenBase", "\u0301\u0301a"),
-          input("longLeadingExtendsThenBase", "\u0301".repeat(44) + "a".repeat(8)),
-          input("crlf", "\r\n"),
-          input("prependBase", "\u0600a"),
-          input("hangulJamo", "\u1100\u1161"),
-          input("hangulSyllableTail", "\uAC00\u11A8"),
-          input("regionalPair", "\uD83C\uDDFA\uD83C\uDDF8"),
-          input("regionalTriple", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8"),
-          input("regionalQuad", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8\uD83C\uDDE6"),
-          input("emojiModifier", "\uD83D\uDC4D\uD83C\uDFFD"),
-          input("emojiModifierThenAscii", "\uD83D\uDC4D\uD83C\uDFFDa"),
-          input("zwjEmoji", "\uD83D\uDC69\u200D\uD83D\uDCBB"),
-          input("lowSurrogateZwj", "\uDC69\u200D\uD83D\uDCBB"),
-          input("zwjEmojiModifier", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB"),
-          input("zwjEmojiThenAscii", "\uD83D\uDC69\u200D\uD83D\uDCBBa"),
-          input("hangulLeadingVowel", "\u1161\u11A8"),
-          input("hangulLeadingTrail", "\u11A8\u11A8"),
-          input("supplementary", "\uD83D\uDE00"),
-          input("twoSupplementary", "\uD83D\uDE00\uD83D\uDE01"),
-          input("zwjAfterAscii", "a\u200D"));
+  private static final List<InputTemplate> INPUT_TEMPLATES = buildInputTemplates();
 
   private static final List<RegionMode> REGION_MODES =
       List.of(
-          new RegionMode("full", "", ""),
-          new RegionMode("wrapped", "#", "$"),
-          new RegionMode("prefixed", "zz", ""),
-          new RegionMode("insideSupplementaryPrefix", "\uD83D", "\uDE00"),
-          new RegionMode("afterBaseBeforeMark", "a", "\u0300"));
+          region("full", "", "", 0, 0),
+          region("wrapped", "#", "$", 0, 0),
+          region("prefixed", "zz", "", 0, 0),
+          region("insideSupplementaryPrefix", "\uD83D", "\uDE00", 0, 0),
+          region("afterBaseBeforeMark", "a", "\u0300", 0, 0),
+          fixedRegion("emptyInsideSupplementaryPrefix", "\uD83D", "\uDE00", 1, 1),
+          fixedRegion("lowSurrogateOnlyPrefix", "\uD83D\uDE00", "", 1, 2),
+          region("startAtLowSurrogatePrefix", "\uD83D", "", 0, 0),
+          region("endBeforeSuffixLowSurrogate", "", "\uDE00", 0, 0),
+          region("bothEndsSplitSurrogates", "\uD83D", "\uDE00", 0, 0));
+
+  private static final List<BoundsMode> BOUNDS_MODES =
+      List.of(bounds("opaqueAnchoring", false, true), bounds("opaqueNonAnchoring", false, false));
+
+  private static final List<OperationMode> OPERATION_MODES =
+      // Matcher.find() is specified in terms of the first find in a region and previous successful
+      // find() invocations. Keep this sweep focused on those specified find sequences rather than
+      // implementation-specific matcher state after matches() or lookingAt().
+      List.of(
+          operation(
+              "freshTrace",
+              GraphemeClusterDivergenceSweep::freshTrace,
+              GraphemeClusterDivergenceSweep::freshTrace),
+          operation(
+              "resetRegionReuse",
+              GraphemeClusterDivergenceSweep::resetRegionReuseTrace,
+              GraphemeClusterDivergenceSweep::resetRegionReuseTrace));
 
   private GraphemeClusterDivergenceSweep() {}
 
@@ -206,10 +199,18 @@ public final class GraphemeClusterDivergenceSweep {
   }
 
   private static long totalCases() {
-    return (long) REGEX_TEMPLATES.size() * INPUT_TEMPLATES.size() * REGION_MODES.size();
+    return (long) REGEX_TEMPLATES.size()
+        * INPUT_TEMPLATES.size()
+        * REGION_MODES.size()
+        * BOUNDS_MODES.size()
+        * OPERATION_MODES.size();
   }
 
   private static CaseSpec caseAt(long index) {
+    int operationIndex = (int) (index % OPERATION_MODES.size());
+    index /= OPERATION_MODES.size();
+    int boundsIndex = (int) (index % BOUNDS_MODES.size());
+    index /= BOUNDS_MODES.size();
     int regionIndex = (int) (index % REGION_MODES.size());
     index /= REGION_MODES.size();
     int inputIndex = (int) (index % INPUT_TEMPLATES.size());
@@ -218,7 +219,9 @@ public final class GraphemeClusterDivergenceSweep {
     return new CaseSpec(
         REGEX_TEMPLATES.get(regexIndex),
         INPUT_TEMPLATES.get(inputIndex),
-        REGION_MODES.get(regionIndex));
+        REGION_MODES.get(regionIndex),
+        BOUNDS_MODES.get(boundsIndex),
+        OPERATION_MODES.get(operationIndex));
   }
 
   private static Outcome jdkOutcome(CaseSpec spec) {
@@ -244,33 +247,71 @@ public final class GraphemeClusterDivergenceSweep {
   }
 
   private static String operationTrace(java.util.regex.Pattern pattern, CaseSpec spec) {
+    return spec.operationMode().jdkTrace().trace(pattern, spec);
+  }
+
+  private static String operationTrace(org.safere.Pattern pattern, CaseSpec spec) {
+    return spec.operationMode().safeReTrace().trace(pattern, spec);
+  }
+
+  private static String freshTrace(java.util.regex.Pattern pattern, CaseSpec spec) {
     StringBuilder result = new StringBuilder();
     String text = spec.text();
     int start = spec.regionStart();
     int end = spec.regionEnd();
-    java.util.regex.Matcher matcher = pattern.matcher(text).region(start, end);
+    java.util.regex.Matcher matcher = configure(pattern.matcher(text).region(start, end), spec);
     result.append("matches=").append(matchResult(matcher.matches(), matcher));
-    matcher.reset(text).region(start, end);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
     result.append(";lookingAt=").append(matchResult(matcher.lookingAt(), matcher));
-    matcher.reset(text).region(start, end);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
     result.append(";find=");
     appendFindTrace(result, matcher);
     return result.toString();
   }
 
-  private static String operationTrace(org.safere.Pattern pattern, CaseSpec spec) {
+  private static String freshTrace(org.safere.Pattern pattern, CaseSpec spec) {
     StringBuilder result = new StringBuilder();
     String text = spec.text();
     int start = spec.regionStart();
     int end = spec.regionEnd();
-    org.safere.Matcher matcher = pattern.matcher(text).region(start, end);
+    org.safere.Matcher matcher = configure(pattern.matcher(text).region(start, end), spec);
     result.append("matches=").append(matchResult(matcher.matches(), matcher));
-    matcher.reset(text).region(start, end);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
     result.append(";lookingAt=").append(matchResult(matcher.lookingAt(), matcher));
-    matcher.reset(text).region(start, end);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
     result.append(";find=");
     appendFindTrace(result, matcher);
     return result.toString();
+  }
+
+  private static String resetRegionReuseTrace(java.util.regex.Pattern pattern, CaseSpec spec) {
+    java.util.regex.Matcher matcher =
+        configure(pattern.matcher(spec.text()).region(spec.regionStart(), spec.regionEnd()), spec);
+    String first = findTrace(matcher);
+    matcher =
+        configure(matcher.reset(spec.text()).region(spec.regionStart(), spec.regionEnd()), spec);
+    return "firstFind=" + first + ";afterResetFind=" + findTrace(matcher);
+  }
+
+  private static String resetRegionReuseTrace(org.safere.Pattern pattern, CaseSpec spec) {
+    org.safere.Matcher matcher =
+        configure(pattern.matcher(spec.text()).region(spec.regionStart(), spec.regionEnd()), spec);
+    String first = findTrace(matcher);
+    matcher =
+        configure(matcher.reset(spec.text()).region(spec.regionStart(), spec.regionEnd()), spec);
+    return "firstFind=" + first + ";afterResetFind=" + findTrace(matcher);
+  }
+
+  private static java.util.regex.Matcher configure(java.util.regex.Matcher matcher, CaseSpec spec) {
+    return matcher
+        .useTransparentBounds(spec.boundsMode().transparentBounds())
+        .useAnchoringBounds(spec.boundsMode().anchoringBounds());
+  }
+
+  private static org.safere.Matcher configure(org.safere.Matcher matcher, CaseSpec spec) {
+    return matcher
+        .useTransparentBounds(spec.boundsMode().transparentBounds())
+        .useAnchoringBounds(spec.boundsMode().anchoringBounds());
   }
 
   private static String matchResult(boolean matched, java.util.regex.Matcher matcher) {
@@ -304,6 +345,12 @@ public final class GraphemeClusterDivergenceSweep {
     }
   }
 
+  private static String findTrace(java.util.regex.Matcher matcher) {
+    StringBuilder result = new StringBuilder();
+    appendFindTrace(result, matcher);
+    return result.toString();
+  }
+
   private static void appendFindTrace(StringBuilder result, org.safere.Matcher matcher) {
     int count = 0;
     while (matcher.find()) {
@@ -319,6 +366,12 @@ public final class GraphemeClusterDivergenceSweep {
     if (count == 0) {
       result.append("false");
     }
+  }
+
+  private static String findTrace(org.safere.Matcher matcher) {
+    StringBuilder result = new StringBuilder();
+    appendFindTrace(result, matcher);
+    return result.toString();
   }
 
   private static String matchSpan(java.util.regex.Matcher matcher) {
@@ -345,13 +398,17 @@ public final class GraphemeClusterDivergenceSweep {
     String input = jsonField(line, "input");
     String prefix = jsonField(line, "prefix");
     String suffix = jsonField(line, "suffix");
+    String bounds = jsonField(line, "bounds");
+    String operation = jsonField(line, "operation");
     if (regex == null || input == null || prefix == null || suffix == null) {
       throw new IllegalArgumentException("replay line must contain regex, input, prefix, suffix");
     }
     return new CaseSpec(
         new RegexTemplate("replay", regex),
         new InputTemplate("replay", input),
-        new RegionMode("replay", prefix, suffix));
+        region("replay", prefix, suffix, 0, 0),
+        bounds == null ? BOUNDS_MODES.get(0) : boundsMode(bounds),
+        operation == null ? OPERATION_MODES.get(0) : operationMode(operation));
   }
 
   private static String bucketFor(CaseSpec spec, Outcome jdk, Outcome safere) {
@@ -362,7 +419,9 @@ public final class GraphemeClusterDivergenceSweep {
         "direction=" + direction(jdk, safere),
         "regex=" + spec.regexTemplate().label(),
         "input=" + spec.inputTemplate().label(),
-        "region=" + spec.regionMode().label());
+        "region=" + spec.regionMode().label(),
+        "bounds=" + spec.boundsMode().label(),
+        "operation=" + spec.operationMode().label());
   }
 
   private static String direction(Outcome jdk, Outcome safere) {
@@ -493,18 +552,142 @@ public final class GraphemeClusterDivergenceSweep {
     return new InputTemplate(label, input);
   }
 
+  private static RegionMode region(
+      String label, String prefix, String suffix, int startAdjustment, int endAdjustment) {
+    return new RegionMode(label, prefix, suffix, startAdjustment, endAdjustment, null, null);
+  }
+
+  private static RegionMode fixedRegion(
+      String label, String prefix, String suffix, int regionStart, int regionEnd) {
+    return new RegionMode(label, prefix, suffix, 0, 0, regionStart, regionEnd);
+  }
+
+  private static BoundsMode bounds(
+      String label, boolean transparentBounds, boolean anchoringBounds) {
+    return new BoundsMode(label, transparentBounds, anchoringBounds);
+  }
+
+  private static OperationMode operation(String label, JdkTrace jdkTrace, SafeReTrace safeReTrace) {
+    return new OperationMode(label, jdkTrace, safeReTrace);
+  }
+
+  private static BoundsMode boundsMode(String label) {
+    return BOUNDS_MODES.stream()
+        .filter(mode -> mode.label().equals(label))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("unknown bounds mode: " + label));
+  }
+
+  private static OperationMode operationMode(String label) {
+    return OPERATION_MODES.stream()
+        .filter(mode -> mode.label().equals(label))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("unknown operation mode: " + label));
+  }
+
+  private static List<InputTemplate> buildInputTemplates() {
+    Map<String, InputTemplate> inputs = new LinkedHashMap<>();
+    addInput(inputs, input("empty", ""));
+    addInput(inputs, input("ascii", "a"));
+    addInput(inputs, input("twoAscii", "ab"));
+    addInput(inputs, input("baseMark", "a\u0300"));
+    addInput(inputs, input("baseExtend", "e\u0301"));
+    addInput(inputs, input("baseExtendAscii", "e\u0301a"));
+    addInput(inputs, input("leadingExtend", "\u0301"));
+    addInput(inputs, input("twoLeadingExtends", "\u0301\u0301"));
+    addInput(inputs, input("leadingExtendsThenBase", "\u0301\u0301a"));
+    addInput(inputs, input("longLeadingExtendsThenBase", "\u0301".repeat(44) + "a".repeat(8)));
+    addInput(inputs, input("crlf", "\r\n"));
+    addInput(inputs, input("prependBase", "\u0600a"));
+    addInput(inputs, input("hangulJamo", "\u1100\u1161"));
+    addInput(inputs, input("hangulSyllableTail", "\uAC00\u11A8"));
+    addInput(inputs, input("regionalPair", "\uD83C\uDDFA\uD83C\uDDF8"));
+    addInput(inputs, input("regionalTriple", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8"));
+    addInput(inputs, input("regionalQuad", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8\uD83C\uDDE6"));
+    addInput(inputs, input("emojiModifier", "\uD83D\uDC4D\uD83C\uDFFD"));
+    addInput(inputs, input("emojiModifierThenAscii", "\uD83D\uDC4D\uD83C\uDFFDa"));
+    addInput(inputs, input("zwjEmoji", "\uD83D\uDC69\u200D\uD83D\uDCBB"));
+    addInput(inputs, input("lowSurrogateZwj", "\uDC69\u200D\uD83D\uDCBB"));
+    addInput(inputs, input("zwjEmojiModifier", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDCBB"));
+    addInput(inputs, input("zwjEmojiThenAscii", "\uD83D\uDC69\u200D\uD83D\uDCBBa"));
+    addInput(inputs, input("hangulLeadingVowel", "\u1161\u11A8"));
+    addInput(inputs, input("hangulLeadingTrail", "\u11A8\u11A8"));
+    addInput(inputs, input("supplementary", "\uD83D\uDE00"));
+    addInput(inputs, input("twoSupplementary", "\uD83D\uDE00\uD83D\uDE01"));
+    addInput(inputs, input("zwjAfterAscii", "a\u200D"));
+
+    List<InputTemplate> atoms =
+        List.of(
+            input("atomHighSurrogate", "\uD83D"),
+            input("atomLowSurrogate", "\uDE00"),
+            input("atomZwj", "\u200D"),
+            input("atomCombiningMark", "\u0301"),
+            input("atomEmojiModifier", "\uD83C\uDFFD"),
+            input("atomExtendedPictographic", "\uD83D\uDC69"),
+            input("atomRegionalIndicator", "\uD83C\uDDFA"),
+            input("atomCr", "\r"),
+            input("atomLf", "\n"),
+            input("atomPrepend", "\u0600"),
+            input("atomAscii", "a"));
+    for (InputTemplate atom : atoms) {
+      addInput(inputs, atom);
+    }
+    addInput(inputs, input("generatedHighLow", "\uD83D\uDE00"));
+    addInput(inputs, input("generatedLowHigh", "\uDE00\uD83D"));
+    addInput(inputs, input("generatedLowZwj", "\uDE00\u200D"));
+    addInput(inputs, input("generatedZwjPictographic", "\u200D\uD83D\uDC69"));
+    addInput(inputs, input("generatedPictographicZwj", "\uD83D\uDC69\u200D"));
+    addInput(inputs, input("generatedAsciiMark", "a\u0301"));
+    addInput(inputs, input("generatedMarkAscii", "\u0301a"));
+    addInput(inputs, input("generatedCrLf", "\r\n"));
+    addInput(inputs, input("generatedRegionalPair", "\uD83C\uDDFA\uD83C\uDDF8"));
+    addInput(inputs, input("generatedPrependAscii", "\u0600a"));
+    addInput(inputs, input("generatedLowZwjPictographic", "\uDE00\u200D\uD83D\uDC69"));
+    addInput(inputs, input("generatedHighLowZwj", "\uD83D\uDE00\u200D"));
+    addInput(inputs, input("generatedCrLfAscii", "\r\na"));
+    addInput(inputs, input("generatedRegionalPairAscii", "\uD83C\uDDFA\uD83C\uDDF8a"));
+    return List.copyOf(inputs.values());
+  }
+
+  private static void addInput(Map<String, InputTemplate> inputs, InputTemplate input) {
+    inputs.putIfAbsent(input.label(), input);
+  }
+
   private interface GroupValue {
     String group(int group);
+  }
+
+  private interface JdkTrace {
+    String trace(java.util.regex.Pattern pattern, CaseSpec spec);
+  }
+
+  private interface SafeReTrace {
+    String trace(org.safere.Pattern pattern, CaseSpec spec);
   }
 
   private record RegexTemplate(String label, String regex) {}
 
   private record InputTemplate(String label, String input) {}
 
-  private record RegionMode(String label, String prefix, String suffix) {}
+  private record RegionMode(
+      String label,
+      String prefix,
+      String suffix,
+      int startAdjustment,
+      int endAdjustment,
+      Integer fixedStart,
+      Integer fixedEnd) {}
+
+  private record BoundsMode(String label, boolean transparentBounds, boolean anchoringBounds) {}
+
+  private record OperationMode(String label, JdkTrace jdkTrace, SafeReTrace safeReTrace) {}
 
   private record CaseSpec(
-      RegexTemplate regexTemplate, InputTemplate inputTemplate, RegionMode regionMode) {
+      RegexTemplate regexTemplate,
+      InputTemplate inputTemplate,
+      RegionMode regionMode,
+      BoundsMode boundsMode,
+      OperationMode operationMode) {
     String regex() {
       return regexTemplate.regex();
     }
@@ -518,11 +701,17 @@ public final class GraphemeClusterDivergenceSweep {
     }
 
     int regionStart() {
-      return regionMode.prefix().length();
+      if (regionMode.fixedStart() != null) {
+        return regionMode.fixedStart();
+      }
+      return regionMode.prefix().length() + regionMode.startAdjustment();
     }
 
     int regionEnd() {
-      return regionStart() + input().length();
+      if (regionMode.fixedEnd() != null) {
+        return regionMode.fixedEnd();
+      }
+      return regionMode.prefix().length() + input().length() + regionMode.endAdjustment();
     }
 
     String labels() {
@@ -531,7 +720,11 @@ public final class GraphemeClusterDivergenceSweep {
           + ",input="
           + inputTemplate.label()
           + ",region="
-          + regionMode.label();
+          + regionMode.label()
+          + ",bounds="
+          + boundsMode.label()
+          + ",operation="
+          + operationMode.label();
     }
   }
 
@@ -557,6 +750,12 @@ public final class GraphemeClusterDivergenceSweep {
           + "\","
           + "\"suffix\":\""
           + json(spec.regionMode().suffix())
+          + "\","
+          + "\"bounds\":\""
+          + json(spec.boundsMode().label())
+          + "\","
+          + "\"operation\":\""
+          + json(spec.operationMode().label())
           + "\","
           + "\"regionStart\":"
           + spec.regionStart()

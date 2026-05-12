@@ -310,6 +310,19 @@ class BoundaryMatcherTest {
     }
 
     @Test
+    @DisplayName("\\b{g} and \\X respect regions split inside surrogate pairs")
+    void graphemeBoundariesRespectRegionsSplitInsideSurrogatePairs() {
+      String splitBeforeZwj = "\uD83D\uDC69\u200D\uD83D\uDCBB";
+      assertTraceSameAsJdk("\\b{g}", splitBeforeZwj, 1, 5);
+      assertTraceSameAsJdk("\\X\\b{g}", splitBeforeZwj, 1, 5);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", splitBeforeZwj, 1, 5);
+
+      String lowSurrogateThenZwj = "\uD83D\uDE00\u200D";
+      assertTraceSameAsJdk("\\b{g}", lowSurrogateThenZwj, 1, 3);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", lowSurrogateThenZwj, 1, 3);
+    }
+
+    @Test
     @DisplayName("\\b without {g} still works as word boundary")
     void plainWordBoundaryStillWorks() {
       Pattern p = Pattern.compile("\\bword\\b");

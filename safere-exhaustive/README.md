@@ -56,12 +56,20 @@ tools/exhaustive/run-grapheme-cluster-sweep.sh --range=:250 \
 ```
 
 The grapheme-cluster sweep compares SafeRE with `java.util.regex` for `\X` and
-`\b{g}` compile acceptance, `matches()`, `lookingAt()`, and repeated `find()`
-traces including match bounds and captured group text. It covers bounded
-combinations of leading combining marks, base-plus-extend clusters, CRLF,
-Prepend characters, Hangul sequences, regional indicators, emoji modifiers, ZWJ
-emoji sequences, supplementary code points, invalid character-class contexts,
-and regions that start at or near grapheme and surrogate boundaries.
+`\b{g}` compile acceptance, `matches()`, `lookingAt()`, first `find()`, and
+reset/reused repeated `find()` traces including match bounds and captured group
+text. It covers bounded combinations of leading combining marks,
+base-plus-extend clusters, CRLF, Prepend characters, Hangul sequences, regional
+indicators, emoji modifiers, ZWJ emoji sequences, supplementary code points,
+invalid character-class contexts, opaque anchoring and non-anchoring bounds, and
+regions that start, end, or become empty inside surrogate pairs or adjacent to
+grapheme boundaries.
+
+The sweep intentionally excludes `find()` continuation immediately after
+`matches()` or `lookingAt()`: the JDK `Matcher.find()` specification defines the
+starting position for the first `find()` in a region and for later successful
+`find()` invocations, not for implementation state left by other match
+operations.
 
 Use this sweep before review when changing grapheme-cluster parsing or boundary
 behavior. A run may report known or newly discovered divergences; inspect the

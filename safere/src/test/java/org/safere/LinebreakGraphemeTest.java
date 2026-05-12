@@ -356,6 +356,17 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("consecutive \\X atoms respect regions split inside surrogate pairs")
+    void consecutiveAtomsRespectRegionsSplitInsideSurrogatePairs() {
+      String regionEndsInsidePair = "\uDE00\uD83D\uDE00";
+      assertTraceSameAsJdk("^\\X\\X$", regionEndsInsidePair, 0, 2);
+      assertTraceSameAsJdk("\\X{2}", regionEndsInsidePair, 0, 2);
+
+      String regionStartsInsidePair = "\uD83D\uDE00\uD83D\uDE01";
+      assertTraceSameAsJdk("\\X{2}", regionStartsInsidePair, 1, 4);
+    }
+
+    @Test
     @DisplayName("\\X matches control characters")
     void matchesControlChars() {
       Pattern p = Pattern.compile("\\X");
@@ -516,6 +527,38 @@ class LinebreakGraphemeTest {
 
       assertThat(safeMatches)
           .as("find() positions for /%s/ on %s", regex, input)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private void assertTraceSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+
+      assertThat(safeMatcher.matches())
+          .as("matches() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.matches());
+
+      jdkMatcher.reset(input).region(start, end);
+      safeMatcher.reset(input).region(start, end);
+      assertThat(safeMatcher.lookingAt())
+          .as("lookingAt() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.lookingAt());
+
+      jdkMatcher.reset(input).region(start, end);
+      safeMatcher.reset(input).region(start, end);
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
   }
