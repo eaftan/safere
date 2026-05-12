@@ -645,12 +645,47 @@ class CrosscheckTest {
       m.hitEnd();
     }
 
-    @Disabled("Fix hitEnd for alternations")
     @Test
     @DisplayName("hitEnd is true for alternation needing more input")
     void hitEndTrueForAlternationNeedingMoreInput() {
       Pattern p = Pattern.compile("abc|abcd");
       Matcher m = p.matcher("abc");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for alternation with longer branch first")
+    void hitEndTrueForAlternationWithLongerBranchFirst() {
+      Pattern p = Pattern.compile("abcd|abc");
+      Matcher m = p.matcher("abc");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for alternation where all branches fail and hit end")
+    void hitEndTrueForAlternationWhereAllBranchesFailAndHitEnd() {
+      Pattern p = Pattern.compile("abc|abcd");
+      Matcher m = p.matcher("ab");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for greedy quantifier matches()")
+    void hitEndTrueForGreedyQuantifierMatches() {
+      Pattern p = Pattern.compile("a*");
+      Matcher m = p.matcher("a");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is false for non-greedy quantifier matches()")
+    void hitEndFalseForNonGreedyQuantifierMatches() {
+      Pattern p = Pattern.compile("a*?");
+      Matcher m = p.matcher("a");
       m.matches();
       m.hitEnd();
     }

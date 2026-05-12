@@ -729,6 +729,7 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().dfa()) {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
+        this.lastEngineHitEnd = dfaResult.hitEnd();
         return applyEngineResult(new NoMatchResult());
       }
       if (dfaResult != null && dfaResult.pos() != text.length()) {
@@ -2460,7 +2461,7 @@ public final class Matcher implements MatchResult {
                         0,
                         probeText.length(),
                         Nfa.Anchor.ANCHORED,
-                        Nfa.MatchKind.FULL_MATCH,
+                        Nfa.MatchKind.FIRST_MATCH,
                         1)
                     .groups();
             case LOOKING_AT, FIND ->
@@ -2470,7 +2471,7 @@ public final class Matcher implements MatchResult {
                         relativeStart,
                         probeText.length(),
                         Nfa.Anchor.ANCHORED,
-                        Nfa.MatchKind.LONGEST_MATCH,
+                        Nfa.MatchKind.FIRST_MATCH,
                         1)
                     .groups();
           };
