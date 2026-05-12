@@ -15,6 +15,7 @@ import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 /** Tests for the safere-crosscheck module. */
 class CrosscheckTest {
@@ -557,6 +558,11 @@ class CrosscheckTest {
           .isEqualTo(
               java.util.regex.Pattern.compile("(?<year>\\d{4})-(?<month>\\d{2})").namedGroups());
     }
+  }
+
+  @Nested
+  @DisplayName("hitEnd()")
+  class HitEndTests {
 
     @Test
     @DisplayName("hitEnd after partial match")
@@ -574,6 +580,88 @@ class CrosscheckTest {
       Matcher m = p.matcher("fort");
       m.find();
       assertThat(m.hitEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for failed matches() on empty input with quantified char class")
+    void hitEndTrueForFailedCharClassMatchesEmptyInput() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for failed matches() on shorter input")
+    void hitEndTrueForFailedLiteralMatchesShorterInput() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("ab");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for failed lookingAt() on shorter input")
+    void hitEndTrueForFailedLiteralLookingAtShorterInput() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("ab");
+      m.lookingAt();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for variable-length match at end")
+    void hitEndTrueForVariableLengthMatchAtEnd() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("a");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is false for literal matches()")
+    void hitEndFalseForLiteralMatches() {
+      Pattern p = Pattern.compile("abc");
+      Matcher m = p.matcher("abc");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for alternation hitting end")
+    void hitEndTrueForAlternationHittingEnd() {
+      Pattern p = Pattern.compile("abc|ab");
+      Matcher m = p.matcher("ab");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for greedy lookingAt() at end")
+    void hitEndTrueForGreedyLookingAtAtEnd() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("a");
+      m.lookingAt();
+      m.hitEnd();
+    }
+
+    @Disabled("Fix hitEnd for alternations")
+    @Test
+    @DisplayName("hitEnd is true for alternation needing more input")
+    void hitEndTrueForAlternationNeedingMoreInput() {
+      Pattern p = Pattern.compile("abc|abcd");
+      Matcher m = p.matcher("abc");
+      m.matches();
+      m.hitEnd();
+    }
+
+    @Test
+    @DisplayName("hitEnd is false for failed matches in middle")
+    void hitEndFalseForFailedMatchesInMiddle() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("a1");
+      m.matches();
+      m.hitEnd();
     }
   }
 

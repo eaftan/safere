@@ -390,6 +390,7 @@ public final class Matcher implements MatchResult {
       if (allowEmpty) {
         return applyEngineResult(new FullMatchResult(new int[] {0, 0}));
       }
+      this.lastEngineHitEnd = true;
       return applyEngineResult(new NoMatchResult());
     }
 
@@ -435,6 +436,18 @@ public final class Matcher implements MatchResult {
     }
     this.lastEngineHitEnd = true;
     return applyEngineResult(new NoMatchResult());
+  }
+
+  /**
+   * Checks if the remaining input from {@code offset} is a prefix of the literal pattern but
+   * shorter than it, meaning more input could potentially result in a match.
+   */
+  private boolean isPartialLiteralMatch(String literal, int offset) {
+    int remainingLen = text.length() - offset;
+    if (remainingLen >= literal.length()) {
+      return false;
+    }
+    return text.regionMatches(parentPattern.prefixFoldCase(), offset, literal, 0, remainingLen);
   }
 
   private static boolean charClassContains(int[] ranges, long b0, long b1, int cp) {
@@ -685,6 +698,9 @@ public final class Matcher implements MatchResult {
       if (matched) {
         applyEngineResult(new FullMatchResult(new int[] {0, text.length()}));
       } else {
+        if (isPartialLiteralMatch(literal, 0)) {
+          this.lastEngineHitEnd = true;
+        }
         applyEngineResult(new NoMatchResult());
       }
       return hasMatch;
@@ -817,6 +833,9 @@ public final class Matcher implements MatchResult {
       if (matched) {
         applyEngineResult(new FullMatchResult(new int[] {0, literal.length()}));
       } else {
+        if (isPartialLiteralMatch(literal, 0)) {
+          this.lastEngineHitEnd = true;
+        }
         applyEngineResult(new NoMatchResult());
       }
       return hasMatch;
@@ -1090,10 +1109,7 @@ public final class Matcher implements MatchResult {
         if (!prog.anchorStart()) {
           this.lastEngineHitEnd = true;
         } else {
-          int remainingLen = text.length() - searchFrom;
-          if (remainingLen < literal.length()
-              && text.regionMatches(
-                  parentPattern.prefixFoldCase(), searchFrom, literal, 0, remainingLen)) {
+          if (isPartialLiteralMatch(literal, searchFrom)) {
             this.lastEngineHitEnd = true;
           }
         }
@@ -2380,7 +2396,7 @@ public final class Matcher implements MatchResult {
 
   private void updateEndState(MatchOperation operation) {
     if (!hasMatch || groups == null) {
-      lastHitEnd = (operation == MatchOperation.FIND) && lastEngineHitEnd;
+      lastHitEnd = lastEngineHitEnd;
       lastRequireEnd = false;
       return;
     }
@@ -2492,6 +2508,12 @@ public final class Matcher implements MatchResult {
             work.addFirst(current.subs.get(i));
           }
         }
+        case LITERAL_STRING -> {
+          for (int i = 0; i < current.runes.length; i++) {
+            samples.add(new String(Character.toChars(current.runes[i])));
+          }
+        }
+        case LITERAL, CHAR_CLASS, ANY_CHAR -> addSample(current, samples);
         default -> {}
       }
     }

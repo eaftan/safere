@@ -1964,6 +1964,24 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("hitEnd is true for failed matches() on empty input with quantified char class")
+    void hitEndTrueForFailedCharClassMatchesEmptyInput() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("");
+      assertThat(m.matches()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
+    @DisplayName("hitEnd is true for alternation hitting end")
+    void hitEndTrueForAlternationHittingEnd() {
+      Pattern p = Pattern.compile("abc|ab");
+      Matcher m = p.matcher("ab");
+      assertThat(m.matches()).isTrue();
+      assertThat(m.hitEnd()).isTrue();
+    }
+
+    @Test
     @DisplayName("hitEnd is true for failed lookingAt() on shorter input")
     void hitEndTrueForFailedLiteralLookingAtShorterInput() {
       Pattern p = Pattern.compile("abc");
