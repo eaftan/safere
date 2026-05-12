@@ -6,18 +6,13 @@
 package org.safere.exhaustive;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.PatternSyntaxException;
 
 /** Offline differential sweep for SafeRE character-class expression bugs. */
@@ -208,21 +203,25 @@ public final class CharacterClassDivergenceSweep {
           piece("nestedAB", "[ab]"),
           piece("nestedNotB", "[^b]"));
 
-  private static final int DEFAULT_MAX_PER_BUCKET = Integer.MAX_VALUE;
-
   private CharacterClassDivergenceSweep() {}
 
   public static void main(String[] args) throws IOException {
-    Options options = Options.parse(args);
+    SweepOptions options =
+        SweepOptions.parse(
+            args,
+            Path.of("target", "exhaustive-reports", "character-class-sweep"),
+            "character-class-divergences.jsonl",
+            1_000_000);
     Files.createDirectories(options.outputDir());
     Files.deleteIfExists(options.jsonlPath());
+    options.printStartup("character-class");
 
     if (options.replayFile() != null) {
       runReplay(options);
       return;
     }
 
-    RunState state = runSweep(options);
+    SweepRunState state = runSweep(options);
 
     System.out.println("checked=" + state.checked.sum());
     System.out.println("generated=" + state.generated);
@@ -232,65 +231,25 @@ public final class CharacterClassDivergenceSweep {
     System.out.println("jsonl=" + options.jsonlPath());
   }
 
-  private static RunState runSweep(Options options) throws IOException {
-    try (RunState runState = new RunState(options)) {
-      if (options.threads() == 1) {
-        SweepState worker = new SweepState(runState, 0);
-        runSeparatedSingleAmpersandMatrix(worker);
-        runClassicMatrix(worker);
-        runChainedAmpersandMatrix(worker);
-        runGrammarSequenceMatrix(worker);
-        runRawAmpersandBeforeCloseMatrix(worker);
-        worker.finish();
-        return runState;
-      }
-
-      AtomicReference<Throwable> failure = new AtomicReference<>();
-      List<Thread> workers = new ArrayList<>();
-      for (int i = 0; i < options.threads(); i++) {
-        int workerIndex = i;
-        Thread worker =
-            new Thread(
-                () -> {
-                  try {
-                    SweepState state = new SweepState(runState, workerIndex);
-                    runSeparatedSingleAmpersandMatrix(state);
-                    runClassicMatrix(state);
-                    runChainedAmpersandMatrix(state);
-                    runGrammarSequenceMatrix(state);
-                    runRawAmpersandBeforeCloseMatrix(state);
-                    state.finish();
-                  } catch (Throwable t) {
-                    failure.compareAndSet(null, t);
-                  }
-                },
-                "character-class-sweep-" + workerIndex);
-        worker.start();
-        workers.add(worker);
-      }
-      for (Thread worker : workers) {
-        try {
-          worker.join();
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new IOException("interrupted while waiting for sweep workers", e);
-        }
-      }
-      Throwable throwable = failure.get();
-      if (throwable != null) {
-        if (throwable instanceof Error error) {
-          throw error;
-        }
-        if (throwable instanceof RuntimeException runtimeException) {
-          throw runtimeException;
-        }
-        throw new IOException("sweep worker failed", throwable);
-      }
+  private static SweepRunState runSweep(SweepOptions options) throws IOException {
+    try (SweepRunState runState = new SweepRunState(options)) {
+      SweepWorkers.run(
+          options.threads(),
+          "character-class-sweep-",
+          workerIndex -> {
+            SweepState worker = new SweepState(runState, workerIndex);
+            runSeparatedSingleAmpersandMatrix(worker);
+            runClassicMatrix(worker);
+            runChainedAmpersandMatrix(worker);
+            runGrammarSequenceMatrix(worker);
+            runRawAmpersandBeforeCloseMatrix(worker);
+            worker.finish();
+          });
       return runState;
     }
   }
 
-  private static void runReplay(Options options) throws IOException {
+  private static void runReplay(SweepOptions options) throws IOException {
     long generated = 0;
     long checked = 0;
     long divergences = 0;
@@ -304,38 +263,15 @@ public final class CharacterClassDivergenceSweep {
         }
         generated++;
         checked++;
-        String regex = jsonField(trimmed, "regex");
-        regex = regex == null ? unjson(trimmed) : regex;
+        String regex = SweepJson.field(trimmed, "regex");
+        regex = regex == null ? SweepJson.legacyUnescape(trimmed) : regex;
         Outcome jdk = jdkOutcome(regex);
         Outcome safere = safeReOutcome(regex);
         if (semanticallyEqual(jdk, safere)) {
           continue;
         }
         divergences++;
-        String replayLine =
-            "{"
-                + "\"regex\":\""
-                + json(regex)
-                + "\","
-                + "\"jdkAccepted\":"
-                + jdk.accepted()
-                + ","
-                + "\"safeReAccepted\":"
-                + safere.accepted()
-                + ","
-                + "\"jdkMatches\":\""
-                + json(jdk.matches())
-                + "\","
-                + "\"safeReMatches\":\""
-                + json(safere.matches())
-                + "\","
-                + "\"jdkError\":\""
-                + json(jdk.error())
-                + "\","
-                + "\"safeReError\":\""
-                + json(safere.error())
-                + "\""
-                + "}";
+        String replayLine = replayJson(regex, jdk, safere);
         Files.writeString(
             options.jsonlPath(),
             replayLine + "\n",
@@ -355,61 +291,16 @@ public final class CharacterClassDivergenceSweep {
     }
   }
 
-  private static String jsonField(String line, String field) {
-    String prefix = "\"" + field + "\":\"";
-    int start = line.indexOf(prefix);
-    if (start < 0) {
-      return null;
-    }
-    start += prefix.length();
-    StringBuilder value = new StringBuilder();
-    boolean escaped = false;
-    for (int i = start; i < line.length(); i++) {
-      char c = line.charAt(i);
-      if (escaped) {
-        value.append('\\').append(c);
-        escaped = false;
-      } else if (c == '\\') {
-        escaped = true;
-      } else if (c == '"') {
-        return unjson(value.toString());
-      } else {
-        value.append(c);
-      }
-    }
-    throw new IllegalArgumentException("unterminated JSON field in line: " + line);
-  }
-
-  private static String unjson(String value) {
-    StringBuilder result = new StringBuilder();
-    for (int i = 0; i < value.length(); i++) {
-      char c = value.charAt(i);
-      if (c != '\\') {
-        result.append(c);
-        continue;
-      }
-      if (++i >= value.length()) {
-        throw new IllegalArgumentException("trailing JSON escape in: " + value);
-      }
-      char escaped = value.charAt(i);
-      switch (escaped) {
-        case 'n' -> result.append('\n');
-        case 't' -> result.append('\t');
-        case 'r' -> result.append('\r');
-        case 'b' -> result.append('\b');
-        case 'f' -> result.append('\f');
-        case '"', '\\' -> result.append(escaped);
-        case 'u' -> {
-          if (i + 4 >= value.length()) {
-            throw new IllegalArgumentException("short JSON unicode escape in: " + value);
-          }
-          result.append((char) Integer.parseInt(value.substring(i + 1, i + 5), 16));
-          i += 4;
-        }
-        default -> result.append(escaped);
-      }
-    }
-    return result.toString();
+  private static String replayJson(String regex, Outcome jdk, Outcome safere) {
+    var object = SweepJson.object();
+    object.addProperty("regex", regex);
+    object.addProperty("jdkAccepted", jdk.accepted());
+    object.addProperty("safeReAccepted", safere.accepted());
+    object.addProperty("jdkMatches", jdk.matches());
+    object.addProperty("safeReMatches", safere.matches());
+    object.addProperty("jdkError", jdk.error());
+    object.addProperty("safeReError", safere.error());
+    return SweepJson.toJson(object);
   }
 
   private static void runClassicMatrix(SweepState state) {
@@ -830,132 +721,35 @@ public final class CharacterClassDivergenceSweep {
   private record Divergence(
       CaseSpec spec, String regex, Outcome jdk, Outcome safere, String bucket, String reduced) {
     String toJson() {
-      return "{"
-          + "\"bucket\":\""
-          + json(bucket)
-          + "\","
-          + "\"template\":\""
-          + json(spec.template())
-          + "\","
-          + "\"labels\":\""
-          + json(spec.labels())
-          + "\","
-          + "\"regex\":\""
-          + json(regex)
-          + "\","
-          + "\"reduced\":\""
-          + json(reduced)
-          + "\","
-          + "\"jdkAccepted\":"
-          + jdk.accepted()
-          + ","
-          + "\"safeReAccepted\":"
-          + safere.accepted()
-          + ","
-          + "\"jdkMatches\":\""
-          + json(jdk.matches())
-          + "\","
-          + "\"safeReMatches\":\""
-          + json(safere.matches())
-          + "\","
-          + "\"jdkError\":\""
-          + json(jdk.error())
-          + "\","
-          + "\"safeReError\":\""
-          + json(safere.error())
-          + "\""
-          + "}";
-    }
-  }
-
-  private static String json(String value) {
-    return value
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\t", "\\t");
-  }
-
-  private static final class RunState implements AutoCloseable {
-    final Options options;
-    final Map<String, Bucket> buckets = new LinkedHashMap<>();
-    final LongAdder checked = new LongAdder();
-    final LongAdder divergences = new LongAdder();
-    final BufferedWriter jsonlWriter;
-    long generated;
-    long nextProgressReport;
-
-    RunState(Options options) throws IOException {
-      this.options = options;
-      this.jsonlWriter =
-          Files.newBufferedWriter(
-              options.jsonlPath(),
-              StandardCharsets.UTF_8,
-              StandardOpenOption.CREATE,
-              StandardOpenOption.APPEND);
-      this.nextProgressReport =
-          firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
-    }
-
-    synchronized void recordGenerated(long workerGenerated) {
-      if (workerGenerated > generated) {
-        generated = workerGenerated;
-      }
-    }
-
-    synchronized void reportProgressIfNeeded(long workerGenerated) {
-      recordGenerated(workerGenerated);
-      if (generated < nextProgressReport) {
-        return;
-      }
-      System.out.printf(
-          "progress generated=%,d checked=%,d divergences=%,d buckets=%,d jsonl=%s%n",
-          generated, checked.sum(), divergences.sum(), buckets.size(), options.jsonlPath());
-      while (nextProgressReport <= generated) {
-        nextProgressReport += options.progressInterval();
-      }
-    }
-
-    boolean reserveDivergenceExample(String bucketName) {
-      synchronized (this) {
-        divergences.increment();
-        Bucket bucket = buckets.computeIfAbsent(bucketName, Bucket::new);
-        if (bucket.savedExamples >= options.maxPerBucket()) {
-          return false;
-        }
-        bucket.savedExamples++;
-        return true;
-      }
-    }
-
-    synchronized void appendJsonl(Divergence divergence) {
-      try {
-        jsonlWriter.write(divergence.toJson());
-        jsonlWriter.newLine();
-      } catch (IOException e) {
-        throw new IllegalStateException("failed to write divergence report", e);
-      }
-    }
-
-    @Override
-    public synchronized void close() throws IOException {
-      jsonlWriter.close();
+      var object = SweepJson.object();
+      object.addProperty("bucket", bucket);
+      object.addProperty("template", spec.template());
+      object.addProperty("labels", spec.labels());
+      object.addProperty("regex", regex);
+      object.addProperty("reduced", reduced);
+      object.addProperty("jdkAccepted", jdk.accepted());
+      object.addProperty("safeReAccepted", safere.accepted());
+      object.addProperty("jdkMatches", jdk.matches());
+      object.addProperty("safeReMatches", safere.matches());
+      object.addProperty("jdkError", jdk.error());
+      object.addProperty("safeReError", safere.error());
+      return SweepJson.toJson(object);
     }
   }
 
   private static final class SweepState {
-    final RunState runState;
-    final Options options;
+    final SweepRunState runState;
+    final SweepOptions options;
     final int workerIndex;
     long generated;
     long nextProgressReport;
 
-    SweepState(RunState runState, int workerIndex) {
+    SweepState(SweepRunState runState, int workerIndex) {
       this.runState = runState;
       this.options = runState.options;
       this.workerIndex = workerIndex;
       this.nextProgressReport =
-          firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
+          SweepWorkers.firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
     }
 
     void check5(
@@ -1080,7 +874,7 @@ public final class CharacterClassDivergenceSweep {
       }
       Divergence divergence =
           new Divergence(spec, regex, jdk, safere, bucketName, reduce(spec, jdk, safere));
-      runState.appendJsonl(divergence);
+      runState.appendJsonl(divergence.toJson());
       reportProgressIfNeeded();
     }
 
@@ -1133,104 +927,5 @@ public final class CharacterClassDivergenceSweep {
 
   private static String printable(String value) {
     return value.replace("\n", "\\n").replace("\t", "\\t");
-  }
-
-  private static final class Bucket {
-    final String name;
-    int savedExamples;
-
-    Bucket(String name) {
-      this.name = name;
-    }
-  }
-
-  private static String maxPerBucketDescription(int maxPerBucket) {
-    return maxPerBucket == Integer.MAX_VALUE ? "uncapped" : Integer.toString(maxPerBucket);
-  }
-
-  private static long firstProgressAt(long rangeStartInclusive, long progressInterval) {
-    if (rangeStartInclusive <= 0) {
-      return progressInterval;
-    }
-    long remainder = rangeStartInclusive % progressInterval;
-    if (remainder == 0) {
-      return rangeStartInclusive;
-    }
-    return rangeStartInclusive + (progressInterval - remainder);
-  }
-
-  private record Options(
-      long rangeStartInclusive,
-      long rangeEndExclusive,
-      int maxPerBucket,
-      Path outputDir,
-      long progressInterval,
-      int threads,
-      Path replayFile) {
-    Path jsonlPath() {
-      return outputDir.resolve("character-class-divergences.jsonl");
-    }
-
-    static Options parse(String[] args) {
-      long rangeStartInclusive = 0;
-      long rangeEndExclusive = Long.MAX_VALUE;
-      int maxPerBucket = DEFAULT_MAX_PER_BUCKET;
-      Path outputDir = Path.of("target", "exhaustive-reports", "character-class-sweep");
-      long progressInterval = 1_000_000;
-      int threads = 1;
-      Path replayFile = null;
-      for (String arg : args) {
-        if (arg.startsWith("--range=")) {
-          String value = arg.substring("--range=".length());
-          int colon = value.indexOf(':');
-          if (colon < 0) {
-            throw new IllegalArgumentException("--range must use start:end syntax");
-          }
-          String start = value.substring(0, colon);
-          String end = value.substring(colon + 1);
-          rangeStartInclusive = start.isEmpty() ? 0 : Long.parseLong(start);
-          rangeEndExclusive = end.isEmpty() ? Long.MAX_VALUE : Long.parseLong(end);
-        } else if (arg.startsWith("--max-per-bucket=")) {
-          String value = arg.substring("--max-per-bucket=".length());
-          maxPerBucket = value.equals("uncapped") ? Integer.MAX_VALUE : Integer.parseInt(value);
-        } else if (arg.startsWith("--output-dir=")) {
-          outputDir = Path.of(arg.substring("--output-dir=".length()));
-        } else if (arg.startsWith("--progress-interval=")) {
-          progressInterval = Long.parseLong(arg.substring("--progress-interval=".length()));
-        } else if (arg.startsWith("--threads=")) {
-          threads = Integer.parseInt(arg.substring("--threads=".length()));
-        } else if (arg.startsWith("--replay-file=")) {
-          replayFile = Path.of(arg.substring("--replay-file=".length()));
-        } else {
-          throw new IllegalArgumentException("unknown argument: " + arg);
-        }
-      }
-      if (rangeStartInclusive < 0 || rangeEndExclusive < 0) {
-        throw new IllegalArgumentException("--range bounds must be non-negative");
-      }
-      if (rangeEndExclusive < rangeStartInclusive) {
-        throw new IllegalArgumentException("--range end must be greater than or equal to start");
-      }
-      if (maxPerBucket < 0) {
-        throw new IllegalArgumentException("--max-per-bucket must be non-negative");
-      }
-      if (progressInterval < 1) {
-        throw new IllegalArgumentException("--progress-interval must be at least 1");
-      }
-      if (threads < 1) {
-        throw new IllegalArgumentException("--threads must be at least 1");
-      }
-      if (replayFile != null && !Files.isRegularFile(replayFile)) {
-        throw new IllegalArgumentException("--replay-file must be a regular file");
-      }
-      return new Options(
-          rangeStartInclusive,
-          rangeEndExclusive,
-          maxPerBucket,
-          outputDir,
-          progressInterval,
-          threads,
-          replayFile);
-    }
   }
 }

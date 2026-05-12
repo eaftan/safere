@@ -7,17 +7,17 @@ failed or interrupted run still leaves useful repro data.
 
 ## Character Class Sweep
 
-Run through the wrapper script:
+Run through the dispatcher script so dependency classpaths are handled by Maven:
 
 ```bash
-tools/exhaustive/run-character-class-sweep.sh \
+./run-exhaustive-sweep.sh character-class \
   --output-dir=target/exhaustive-reports/character-class-sweep-full
 ```
 
 For a smaller ad hoc local check, run a generated-case index range:
 
 ```bash
-tools/exhaustive/run-character-class-sweep.sh --range=:1000000 \
+./run-exhaustive-sweep.sh character-class --range=:1000000 \
   --output-dir=target/exhaustive-reports/character-class-sweep-smoke
 ```
 
@@ -41,17 +41,17 @@ stay out of git.
 
 ## Grapheme Cluster Sweep
 
-Run through the wrapper script:
+Run through the dispatcher script:
 
 ```bash
-tools/exhaustive/run-grapheme-cluster-sweep.sh \
+./run-exhaustive-sweep.sh grapheme-cluster \
   --output-dir=target/exhaustive-reports/grapheme-cluster-sweep-full
 ```
 
 For a smaller ad hoc local check, run a generated-case index range:
 
 ```bash
-tools/exhaustive/run-grapheme-cluster-sweep.sh --range=:250 \
+./run-exhaustive-sweep.sh grapheme-cluster --range=:250 \
   --output-dir=target/exhaustive-reports/grapheme-cluster-sweep-smoke
 ```
 
@@ -91,19 +91,22 @@ use the same conventions as the other exhaustive sweeps.
 
 ## Control Escape Sweep
 
-Run through the wrapper script:
+Run through the dispatcher script:
 
 ```bash
-tools/exhaustive/run-control-escape-sweep.sh \
+./run-exhaustive-sweep.sh control-escape \
   --output-dir=target/exhaustive-reports/control-escape-sweep-full
 ```
 
 For a smaller ad hoc local check, run a generated-case index range:
 
 ```bash
-tools/exhaustive/run-control-escape-sweep.sh --range=:100000 \
+./run-exhaustive-sweep.sh control-escape --range=:100000 \
   --output-dir=target/exhaustive-reports/control-escape-sweep-smoke
 ```
+
+The first argument selects the sweep. All remaining arguments are passed through
+unchanged to the Java sweep, which owns option defaults and validation.
 
 The control-escape sweep enumerates every possible Java code point as the target
 of a `\cX` escape, including lone UTF-16 surrogate values. For each target it

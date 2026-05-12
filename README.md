@@ -269,14 +269,14 @@ it enumerates a large generated matrix against `java.util.regex`; run it when
 working on character-class parsing:
 
 ```bash
-tools/exhaustive/run-character-class-sweep.sh \
+./run-exhaustive-sweep.sh character-class \
   --output-dir=target/exhaustive-reports/character-class-sweep-full
 ```
 
 Use generated-case ranges when debugging a specific matrix region:
 
 ```bash
-tools/exhaustive/run-character-class-sweep.sh --range=:1000000 \
+./run-exhaustive-sweep.sh character-class --range=:1000000 \
   --output-dir=target/exhaustive-reports/character-class-sweep-smoke
 ```
 
