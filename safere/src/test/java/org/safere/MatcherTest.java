@@ -279,8 +279,6 @@ class MatcherTest {
     }
   }
 
-
-
   @Nested
   @DisplayName("find()")
   class FindTests {
