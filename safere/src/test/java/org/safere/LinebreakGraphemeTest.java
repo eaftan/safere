@@ -340,6 +340,10 @@ class LinebreakGraphemeTest {
       assertFindBoundsSameAsJdk("\\X\\X", "\uD83C\uDDFA\uD83C\uDDF8");
       assertFindBoundsSameAsJdk("\\X{2}", "\uD83D\uDC4D\uD83C\uDFFD");
       assertFindBoundsSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDCBB");
+      assertFindBoundsSameAsJdk("(?:\\X)(?:\\X)", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("\\X{1}\\X", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("(?:\\X){2}", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("\\X+", "ab");
     }
 
     @Test

@@ -110,6 +110,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasEndConstraint;
   private final transient boolean hasHitEndConstraint;
   private final transient boolean startsWithGraphemeClusterBoundary;
+  private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
@@ -213,6 +214,7 @@ public final class Pattern implements Serializable {
       boolean hasEndConstraint,
       boolean hasHitEndConstraint,
       boolean startsWithGraphemeClusterBoundary,
+      boolean hasInternalGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
       StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
@@ -240,6 +242,7 @@ public final class Pattern implements Serializable {
     this.hasEndConstraint = hasEndConstraint;
     this.hasHitEndConstraint = hasHitEndConstraint;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
+    this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
@@ -289,7 +292,7 @@ public final class Pattern implements Serializable {
     if (compiled == null) {
       throw new PatternSyntaxException("compiled program too large", regex, -1);
     }
-    compiled.setCharOffsetGraphemeSearch(needsCharOffsetGraphemeSearch(regex));
+    compiled.setCharOffsetGraphemeSearch(needsCharOffsetGraphemeSearch(re));
     compiled.setUnixLines((effectiveFlags & UNIX_LINES) != 0);
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that
@@ -311,6 +314,7 @@ public final class Pattern implements Serializable {
     boolean hasEndConst = hasEndConstraint(re);
     boolean hasHitEndConst = hasHitEndConstraint(re);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
+    boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
     StartAcceleration startAcceleration =
@@ -337,6 +341,7 @@ public final class Pattern implements Serializable {
         hasEndConst,
         hasHitEndConst,
         startsWithGcb,
+        hasInternalGcb,
         ccPrefixAscii,
         startAcceleration,
         keywordAlternation,
@@ -944,6 +949,10 @@ public final class Pattern implements Serializable {
     return startsWithGraphemeClusterBoundary;
   }
 
+  boolean hasInternalGraphemeClusterBoundary() {
+    return hasInternalGraphemeClusterBoundary;
+  }
+
   boolean charOffsetGraphemeSearch() {
     return prog.hasMultipleGraphemeClusterBoundaries();
   }
@@ -1297,8 +1306,248 @@ public final class Pattern implements Serializable {
     return first != null && first.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY;
   }
 
-  private static boolean needsCharOffsetGraphemeSearch(String regex) {
-    return regex.contains("\\X\\X") || regex.contains("\\X{2}") || regex.contains("(\\X)(\\X)");
+  private static boolean needsCharOffsetGraphemeSearch(Regexp re) {
+    return new SyntheticGraphemeCapacityWalker().walk(re, 0) >= 2;
+  }
+
+  private static boolean hasInternalExplicitGraphemeBoundary(Regexp re) {
+    return new GraphemeBoundaryContextWalker()
+        .walk(re, GraphemeBoundaryContext.noMatch())
+        .hasInternalExplicitBoundary();
+  }
+
+  private record GraphemeBoundaryContext(
+      boolean canMatchEmpty,
+      boolean canConsume,
+      boolean startsWithExplicitBoundary,
+      boolean endsWithExplicitBoundary,
+      boolean hasInternalExplicitBoundary) {
+    static GraphemeBoundaryContext noMatch() {
+      return new GraphemeBoundaryContext(false, false, false, false, false);
+    }
+
+    static GraphemeBoundaryContext empty() {
+      return new GraphemeBoundaryContext(true, false, false, false, false);
+    }
+
+    static GraphemeBoundaryContext consuming() {
+      return new GraphemeBoundaryContext(false, true, false, false, false);
+    }
+
+    static GraphemeBoundaryContext explicitBoundary() {
+      return new GraphemeBoundaryContext(true, false, true, true, false);
+    }
+  }
+
+  private static final class GraphemeBoundaryContextWalker extends Walker<GraphemeBoundaryContext> {
+
+    @Override
+    protected GraphemeBoundaryContext shortVisit(Regexp re, GraphemeBoundaryContext parentArg) {
+      return GraphemeBoundaryContext.noMatch();
+    }
+
+    @Override
+    protected GraphemeBoundaryContext copy(GraphemeBoundaryContext arg) {
+      return arg;
+    }
+
+    @Override
+    protected GraphemeBoundaryContext postVisit(
+        Regexp re,
+        GraphemeBoundaryContext parentArg,
+        GraphemeBoundaryContext preArg,
+        List<GraphemeBoundaryContext> childArgs) {
+      return switch (re.op) {
+        case NO_MATCH -> GraphemeBoundaryContext.noMatch();
+        case EMPTY_MATCH,
+            BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            END_TEXT,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY,
+            HAVE_MATCH ->
+            GraphemeBoundaryContext.empty();
+        case LITERAL, LITERAL_STRING, ANY_CHAR, ANY_BYTE, CHAR_CLASS ->
+            GraphemeBoundaryContext.consuming();
+        case GRAPHEME_CLUSTER_BOUNDARY ->
+            (re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) == 0
+                ? GraphemeBoundaryContext.explicitBoundary()
+                : GraphemeBoundaryContext.empty();
+        case CONCAT -> concatBoundaryContext(childArgs);
+        case ALTERNATE -> alternateBoundaryContext(childArgs);
+        case STAR, QUEST -> optionalBoundaryContext(childArgs);
+        case PLUS, NON_CAPTURE, CAPTURE -> childBoundaryContext(childArgs);
+        case REPEAT -> repeatBoundaryContext(re, childArgs);
+      };
+    }
+
+    private static GraphemeBoundaryContext concatBoundaryContext(
+        List<GraphemeBoundaryContext> childArgs) {
+      boolean canMatchEmpty = true;
+      boolean canConsume = false;
+      boolean startsWithExplicitBoundary = false;
+      boolean canStillStartAtChild = true;
+      boolean hasInternalExplicitBoundary = false;
+      boolean hasConsumingPrefix = false;
+      boolean[] consumingSuffix = new boolean[childArgs.size()];
+      boolean hasConsumingSuffix = false;
+      for (int i = childArgs.size() - 1; i >= 0; i--) {
+        consumingSuffix[i] = hasConsumingSuffix;
+        hasConsumingSuffix |= childArgs.get(i).canConsume();
+      }
+      for (int i = 0; i < childArgs.size(); i++) {
+        GraphemeBoundaryContext child = childArgs.get(i);
+        canMatchEmpty &= child.canMatchEmpty();
+        canConsume |= child.canConsume();
+        if (canStillStartAtChild && child.startsWithExplicitBoundary()) {
+          startsWithExplicitBoundary = true;
+        }
+        canStillStartAtChild &= child.canMatchEmpty();
+        hasInternalExplicitBoundary |= child.hasInternalExplicitBoundary();
+        if ((child.startsWithExplicitBoundary() || child.endsWithExplicitBoundary())
+            && hasConsumingPrefix
+            && consumingSuffix[i]) {
+          hasInternalExplicitBoundary = true;
+        }
+        hasConsumingPrefix |= child.canConsume();
+      }
+
+      boolean endsWithExplicitBoundary = false;
+      boolean canStillEndAtChild = true;
+      for (int i = childArgs.size() - 1; i >= 0; i--) {
+        GraphemeBoundaryContext child = childArgs.get(i);
+        if (canStillEndAtChild && child.endsWithExplicitBoundary()) {
+          endsWithExplicitBoundary = true;
+        }
+        canStillEndAtChild &= child.canMatchEmpty();
+      }
+      return new GraphemeBoundaryContext(
+          canMatchEmpty,
+          canConsume,
+          startsWithExplicitBoundary,
+          endsWithExplicitBoundary,
+          hasInternalExplicitBoundary);
+    }
+
+    private static GraphemeBoundaryContext alternateBoundaryContext(
+        List<GraphemeBoundaryContext> childArgs) {
+      boolean canMatchEmpty = childArgs.isEmpty();
+      boolean canConsume = false;
+      boolean startsWithExplicitBoundary = false;
+      boolean endsWithExplicitBoundary = false;
+      boolean hasInternalExplicitBoundary = false;
+      for (GraphemeBoundaryContext child : childArgs) {
+        canMatchEmpty |= child.canMatchEmpty();
+        canConsume |= child.canConsume();
+        startsWithExplicitBoundary |= child.startsWithExplicitBoundary();
+        endsWithExplicitBoundary |= child.endsWithExplicitBoundary();
+        hasInternalExplicitBoundary |= child.hasInternalExplicitBoundary();
+      }
+      return new GraphemeBoundaryContext(
+          canMatchEmpty,
+          canConsume,
+          startsWithExplicitBoundary,
+          endsWithExplicitBoundary,
+          hasInternalExplicitBoundary);
+    }
+
+    private static GraphemeBoundaryContext optionalBoundaryContext(
+        List<GraphemeBoundaryContext> childArgs) {
+      GraphemeBoundaryContext child = childBoundaryContext(childArgs);
+      return new GraphemeBoundaryContext(
+          true,
+          child.canConsume(),
+          child.startsWithExplicitBoundary(),
+          child.endsWithExplicitBoundary(),
+          child.hasInternalExplicitBoundary());
+    }
+
+    private static GraphemeBoundaryContext repeatBoundaryContext(
+        Regexp re, List<GraphemeBoundaryContext> childArgs) {
+      GraphemeBoundaryContext child = childBoundaryContext(childArgs);
+      boolean canMatchEmpty = re.min == 0 || child.canMatchEmpty();
+      boolean canConsume = re.max != 0 && child.canConsume();
+      return new GraphemeBoundaryContext(
+          canMatchEmpty,
+          canConsume,
+          child.startsWithExplicitBoundary(),
+          child.endsWithExplicitBoundary(),
+          child.hasInternalExplicitBoundary());
+    }
+
+    private static GraphemeBoundaryContext childBoundaryContext(
+        List<GraphemeBoundaryContext> childArgs) {
+      return childArgs.isEmpty() ? GraphemeBoundaryContext.noMatch() : childArgs.getFirst();
+    }
+  }
+
+  private static final class SyntheticGraphemeCapacityWalker extends Walker<Integer> {
+    private static final int TWO_OR_MORE = 2;
+
+    @Override
+    protected Integer shortVisit(Regexp re, Integer parentArg) {
+      return 0;
+    }
+
+    @Override
+    protected Integer copy(Integer arg) {
+      return arg;
+    }
+
+    @Override
+    protected Integer postVisit(
+        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
+      return switch (re.op) {
+        case GRAPHEME_CLUSTER_BOUNDARY ->
+            (re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) != 0 ? 1 : 0;
+        case CONCAT -> sumCapacity(childArgs);
+        case ALTERNATE -> maxCapacity(childArgs);
+        case STAR, PLUS -> repeatsCapacity(childArgs);
+        case QUEST, NON_CAPTURE, CAPTURE -> childCapacity(childArgs);
+        case REPEAT -> repeatCapacity(re, childArgs);
+        default -> 0;
+      };
+    }
+
+    private static int sumCapacity(List<Integer> childArgs) {
+      int total = 0;
+      for (int childCapacity : childArgs) {
+        total += childCapacity;
+        if (total >= TWO_OR_MORE) {
+          return TWO_OR_MORE;
+        }
+      }
+      return total;
+    }
+
+    private static int maxCapacity(List<Integer> childArgs) {
+      int max = 0;
+      for (int childCapacity : childArgs) {
+        max = Math.max(max, childCapacity);
+      }
+      return Math.min(max, TWO_OR_MORE);
+    }
+
+    private static int repeatsCapacity(List<Integer> childArgs) {
+      int childCapacity = childCapacity(childArgs);
+      return childCapacity == 0 ? 0 : TWO_OR_MORE;
+    }
+
+    private static int repeatCapacity(Regexp re, List<Integer> childArgs) {
+      int childCapacity = childCapacity(childArgs);
+      if (childCapacity == 0 || re.max == 0) {
+        return 0;
+      }
+      if (childCapacity >= TWO_OR_MORE || re.max == -1 || re.max >= 2) {
+        return TWO_OR_MORE;
+      }
+      return childCapacity;
+    }
+
+    private static int childCapacity(List<Integer> childArgs) {
+      return childArgs.isEmpty() ? 0 : childArgs.getFirst();
+    }
   }
 
   /**

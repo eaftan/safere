@@ -297,7 +297,15 @@ class BoundaryMatcherTest {
     @DisplayName("\\b{g} respects opaque region bounds for base-plus-mark clusters")
     void respectsOpaqueRegionBoundsForBaseMarkClusters() {
       assertTraceSameAsJdk("a\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertTraceSameAsJdk("(?:a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertTraceSameAsJdk("(a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
+      assertTraceSameAsJdk("a(?:\\b{g})\\u0300", "#a\u0300$", 1, 3);
+      assertTraceSameAsJdk("\\u0061\\b{g}\\u0300", "#a\u0300$", 1, 3);
       assertTraceSameAsJdk("\\r\\b{g}\\n", "#\r\n$", 1, 3);
+      assertTraceSameAsJdk("(?:\\r)\\b{g}\\n", "#\r\n$", 1, 3);
+      assertTraceSameAsJdk("(\\r)\\b{g}\\n", "#\r\n$", 1, 3);
+      assertTraceSameAsJdk("\\r(?:\\b{g})\\n", "#\r\n$", 1, 3);
+      assertTraceSameAsJdk("\\u000D\\b{g}\\u000A", "#\r\n$", 1, 3);
     }
 
     @Test

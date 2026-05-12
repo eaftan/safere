@@ -401,9 +401,6 @@ final class Nfa {
           pos,
           nextPos,
           false);
-      if (matched && !longest) {
-        break;
-      }
     }
   }
 

@@ -1016,9 +1016,7 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean needsFullTextGraphemeRegion() {
-    String regex = parentPattern.pattern();
-    return regex.equals("a\\b{g}\\u0300")
-        || regex.equals("\\r\\b{g}\\n")
+    return parentPattern.hasInternalGraphemeClusterBoundary()
         || regionStartsInsideSurrogatePair()
         || regionEndsInsideSurrogatePair();
   }
