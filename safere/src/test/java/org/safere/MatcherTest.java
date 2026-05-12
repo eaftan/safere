@@ -1857,6 +1857,7 @@ class MatcherTest {
 
     @Test
     @DisplayName("hitEnd is true for alternation needing more input (diverges from JDK)")
+    @DisabledForCrosscheck("diverges from JDK")
     void hitEndTrueForAlternationNeedingMoreInput() {
       Pattern p = Pattern.compile("abc|abcd");
       Matcher m = p.matcher("abc");
@@ -1868,6 +1869,7 @@ class MatcherTest {
 
     @Test
     @DisplayName("hitEnd is true for non-greedy quantifier matches (diverges from JDK)")
+    @DisabledForCrosscheck("diverges from JDK")
     void hitEndTrueForNonGreedyQuantifierMatches() {
       Pattern p = Pattern.compile("a*?");
       Matcher m = p.matcher("a");
