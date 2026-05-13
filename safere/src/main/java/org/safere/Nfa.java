@@ -363,44 +363,43 @@ final class Nfa {
    * ordinary SafeRE programs.
    */
   private void doSearchEveryCharPosition(String text, int startPos, int searchLimit) {
-    int queueCount = endPos + 2;
-    List<List<NfaThread>> queues = new ArrayList<>(queueCount);
-    List<Set<Integer>> queueSets = new ArrayList<>(queueCount);
-    for (int i = 0; i < queueCount; i++) {
-      queues.add(new ArrayList<>());
-      queueSets.add(new HashSet<>());
-    }
-
     int start = Math.max(0, startPos);
-    for (int pos = start; pos < queueCount; pos++) {
-      List<NfaThread> currentQueue = queues.get(pos);
-      Set<Integer> currentSet = queueSets.get(pos);
+    Set<Integer> runqSet = new HashSet<>();
+    Set<Integer> nextqSet = new HashSet<>();
+    List<NfaThread> secondq = new ArrayList<>();
+    Set<Integer> secondqSet = new HashSet<>();
 
+    for (int pos = start; pos < endPos + 2; pos++) {
       if (!matched && pos <= searchLimit) {
         int[] cap = new int[threadArraySize];
         Arrays.fill(cap, -1);
         cap[0] = pos;
-        addToThreadq(currentQueue, currentSet, prog.start(), text, pos, cap, 0, false);
+        addToThreadq(runq, runqSet, prog.start(), text, pos, cap, 0, false);
       }
 
-      if (currentQueue.isEmpty()) {
-        continue;
+      if (!runq.isEmpty()) {
+        int cp = (pos < endPos) ? text.codePointAt(pos) : -1;
+        int nextPos = (pos < endPos) ? pos + Character.charCount(cp) : endPos + 1;
+        List<NfaThread> destinationQueue = (nextPos == pos + 1) ? nextq : secondq;
+        Set<Integer> destinationSet = (nextPos == pos + 1) ? nextqSet : secondqSet;
+        step(runq, runqSet, destinationQueue, destinationSet, cp, text, pos, nextPos, false);
       }
 
-      int cp = (pos < endPos) ? text.codePointAt(pos) : -1;
-      int nextPos = (pos < endPos) ? pos + Character.charCount(cp) : endPos + 1;
-      List<NfaThread> destinationQueue = queues.get(nextPos);
-      Set<Integer> destinationSet = queueSets.get(nextPos);
-      step(
-          currentQueue,
-          currentSet,
-          destinationQueue,
-          destinationSet,
-          cp,
-          text,
-          pos,
-          nextPos,
-          false);
+      if (matched && runq.isEmpty() && nextq.isEmpty() && secondq.isEmpty()) {
+        break;
+      }
+
+      List<NfaThread> oldRunq = runq;
+      runq = nextq;
+      nextq = secondq;
+      secondq = oldRunq;
+      secondq.clear();
+
+      Set<Integer> oldRunqSet = runqSet;
+      runqSet = nextqSet;
+      nextqSet = secondqSet;
+      secondqSet = oldRunqSet;
+      secondqSet.clear();
     }
   }
 

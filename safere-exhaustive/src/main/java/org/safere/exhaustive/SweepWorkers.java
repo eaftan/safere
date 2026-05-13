@@ -79,6 +79,39 @@ final class SweepWorkers {
     return rangeStartInclusive + (progressInterval - remainder);
   }
 
+  static long progressProbeInterval(long progressInterval, int threads) {
+    return Math.max(1, progressInterval / threads);
+  }
+
+  static final class ProgressReporter {
+    private final SweepRunState runState;
+    private final long probeInterval;
+    private long checkedByWorker;
+    private long nextProbe;
+
+    ProgressReporter(SweepRunState runState) {
+      this.runState = runState;
+      this.probeInterval =
+          progressProbeInterval(runState.options.progressInterval(), runState.options.threads());
+      this.nextProbe = probeInterval;
+    }
+
+    void checked() {
+      checkedByWorker++;
+      runState.checked.increment();
+    }
+
+    void reportIfNeeded(long generated) {
+      if (checkedByWorker < nextProbe) {
+        return;
+      }
+      runState.reportProgressIfNeeded(generated);
+      while (nextProbe <= checkedByWorker) {
+        nextProbe += probeInterval;
+      }
+    }
+  }
+
   interface Worker {
     void run(int workerIndex) throws Exception;
   }

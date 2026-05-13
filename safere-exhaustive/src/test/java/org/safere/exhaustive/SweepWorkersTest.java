@@ -69,4 +69,10 @@ class SweepWorkersTest {
     assertThat(SweepWorkers.firstProgressAt(20, 10)).isEqualTo(20);
     assertThat(SweepWorkers.firstProgressAt(21, 10)).isEqualTo(30);
   }
+
+  @Test
+  void progressProbeIntervalSplitsProgressIntervalAcrossWorkers() {
+    assertThat(SweepWorkers.progressProbeInterval(1_000, 4)).isEqualTo(250);
+    assertThat(SweepWorkers.progressProbeInterval(10, 16)).isEqualTo(1);
+  }
 }

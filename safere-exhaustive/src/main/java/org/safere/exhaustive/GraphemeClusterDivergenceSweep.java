@@ -918,16 +918,15 @@ public final class GraphemeClusterDivergenceSweep {
   private static final class SweepState {
     final SweepRunState runState;
     final SweepOptions options;
+    final SweepWorkers.ProgressReporter progressReporter;
     final int workerIndex;
     long generated;
-    long nextProgressReport;
 
     SweepState(SweepRunState runState, int workerIndex) {
       this.runState = runState;
       this.options = runState.options;
+      this.progressReporter = new SweepWorkers.ProgressReporter(runState);
       this.workerIndex = workerIndex;
-      this.nextProgressReport =
-          SweepWorkers.firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
     }
 
     void run() {
@@ -936,7 +935,7 @@ public final class GraphemeClusterDivergenceSweep {
       while (generated < end) {
         long caseIndex = generated;
         generated += options.threads();
-        runState.checked.increment();
+        progressReporter.checked();
         checkOwned(caseAt(caseIndex));
       }
     }
@@ -969,13 +968,7 @@ public final class GraphemeClusterDivergenceSweep {
     }
 
     void reportProgressIfNeeded() {
-      if (generated < nextProgressReport) {
-        return;
-      }
-      runState.reportProgressIfNeeded(generated);
-      while (nextProgressReport <= generated) {
-        nextProgressReport += options.progressInterval();
-      }
+      progressReporter.reportIfNeeded(generated);
     }
   }
 }

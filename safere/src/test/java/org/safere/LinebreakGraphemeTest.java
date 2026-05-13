@@ -8,9 +8,12 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -477,6 +480,27 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("unanchored multi-boundary \\X search keeps bounded startup allocation")
+    void unanchoredMultiBoundarySearchKeepsBoundedStartupAllocation() {
+      AllocationTracker allocationTracker = allocationTracker();
+      long threadId = Thread.currentThread().threadId();
+      String text = "ab" + "c".repeat(100_000);
+
+      for (String regex : List.of("\\X\\X", "\\X{2}", "(?:\\X)(?:\\X)")) {
+        Pattern pattern = Pattern.compile(regex);
+
+        long before = allocationTracker.allocatedBytes(threadId);
+        Matcher matcher = pattern.matcher(text);
+        assertThat(matcher.find()).as("find() for /%s/", regex).isTrue();
+        assertThat(matcher.start()).as("start for /%s/", regex).isEqualTo(0);
+        assertThat(matcher.end()).as("end for /%s/", regex).isEqualTo(2);
+        long allocated = allocationTracker.allocatedBytes(threadId) - before;
+
+        assertThat(allocated).as("allocated bytes for /%s/", regex).isLessThan(4_000_000L);
+      }
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms do not split a single grapheme cluster")
     void consecutiveAtomsDoNotSplitSingleCluster() {
       Pattern p = Pattern.compile("^\\X\\X$");
@@ -708,6 +732,43 @@ class LinebreakGraphemeTest {
       assertThat(safeMatches)
           .as("find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
           .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private AllocationTracker allocationTracker() {
+      try {
+        Class<?> managementFactoryClass = Class.forName("java.lang.management.ManagementFactory");
+        Object threadBean = managementFactoryClass.getMethod("getThreadMXBean").invoke(null);
+        Class<?> allocationBeanClass = Class.forName("com.sun.management.ThreadMXBean");
+        Assumptions.assumeTrue(allocationBeanClass.isInstance(threadBean));
+
+        Method supportedMethod = allocationBeanClass.getMethod("isThreadAllocatedMemorySupported");
+        Method enabledMethod = allocationBeanClass.getMethod("isThreadAllocatedMemoryEnabled");
+        Method setEnabledMethod =
+            allocationBeanClass.getMethod("setThreadAllocatedMemoryEnabled", boolean.class);
+        Method allocatedBytesMethod =
+            allocationBeanClass.getMethod("getThreadAllocatedBytes", long.class);
+
+        Assumptions.assumeTrue((Boolean) supportedMethod.invoke(threadBean));
+        if (!(Boolean) enabledMethod.invoke(threadBean)) {
+          setEnabledMethod.invoke(threadBean, true);
+        }
+        return new AllocationTracker(threadBean, allocatedBytesMethod);
+      } catch (ReflectiveOperationException e) {
+        Assumptions.abort("thread allocation tracking is unavailable: " + e);
+        throw new AssertionError("unreachable");
+      }
+    }
+
+    private record AllocationTracker(Object threadBean, Method allocatedBytesMethod) {
+      long allocatedBytes(long threadId) {
+        try {
+          return (Long) allocatedBytesMethod.invoke(threadBean, threadId);
+        } catch (IllegalAccessException e) {
+          throw new AssertionError(e);
+        } catch (InvocationTargetException e) {
+          throw new AssertionError(e.getCause());
+        }
+      }
     }
   }
 }

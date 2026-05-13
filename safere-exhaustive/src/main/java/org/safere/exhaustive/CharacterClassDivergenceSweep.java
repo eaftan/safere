@@ -740,16 +740,15 @@ public final class CharacterClassDivergenceSweep {
   private static final class SweepState {
     final SweepRunState runState;
     final SweepOptions options;
+    final SweepWorkers.ProgressReporter progressReporter;
     final int workerIndex;
     long generated;
-    long nextProgressReport;
 
     SweepState(SweepRunState runState, int workerIndex) {
       this.runState = runState;
       this.options = runState.options;
+      this.progressReporter = new SweepWorkers.ProgressReporter(runState);
       this.workerIndex = workerIndex;
-      this.nextProgressReport =
-          SweepWorkers.firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
     }
 
     void check5(
@@ -852,10 +851,9 @@ public final class CharacterClassDivergenceSweep {
         return false;
       }
       if (caseIndex % options.threads() != workerIndex) {
-        reportProgressIfNeeded();
         return false;
       }
-      runState.checked.increment();
+      progressReporter.checked();
       return true;
     }
 
@@ -883,13 +881,7 @@ public final class CharacterClassDivergenceSweep {
     }
 
     void reportProgressIfNeeded() {
-      if (generated < nextProgressReport) {
-        return;
-      }
-      runState.reportProgressIfNeeded(generated);
-      while (nextProgressReport <= generated) {
-        nextProgressReport += options.progressInterval();
-      }
+      progressReporter.reportIfNeeded(generated);
     }
   }
 

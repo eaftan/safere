@@ -22,7 +22,7 @@ final class SweepRunState implements AutoCloseable {
   final LongAdder divergences = new LongAdder();
   private final BufferedWriter jsonlWriter;
   long generated;
-  long nextProgressReport;
+  long nextCheckedProgressReport;
 
   SweepRunState(SweepOptions options) throws IOException {
     this.options = options;
@@ -32,8 +32,7 @@ final class SweepRunState implements AutoCloseable {
             StandardCharsets.UTF_8,
             StandardOpenOption.CREATE,
             StandardOpenOption.APPEND);
-    this.nextProgressReport =
-        SweepWorkers.firstProgressAt(options.rangeStartInclusive(), options.progressInterval());
+    this.nextCheckedProgressReport = options.progressInterval();
   }
 
   synchronized void recordGenerated(long workerGenerated) {
@@ -44,14 +43,15 @@ final class SweepRunState implements AutoCloseable {
 
   synchronized void reportProgressIfNeeded(long workerGenerated) {
     recordGenerated(workerGenerated);
-    if (generated < nextProgressReport) {
+    long checkedCount = checked.sum();
+    if (checkedCount < nextCheckedProgressReport) {
       return;
     }
     System.out.printf(
         "progress generated=%,d checked=%,d divergences=%,d buckets=%,d jsonl=%s%n",
-        generated, checked.sum(), divergences.sum(), buckets.size(), options.jsonlPath());
-    while (nextProgressReport <= generated) {
-      nextProgressReport += options.progressInterval();
+        generated, checkedCount, divergences.sum(), buckets.size(), options.jsonlPath());
+    while (nextCheckedProgressReport <= checkedCount) {
+      nextCheckedProgressReport += options.progressInterval();
     }
   }
 

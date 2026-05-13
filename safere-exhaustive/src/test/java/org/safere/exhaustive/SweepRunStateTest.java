@@ -7,6 +7,9 @@ package org.safere.exhaustive;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -53,7 +56,54 @@ class SweepRunStateTest {
     }
   }
 
+  @Test
+  void progressReportsAreTriggeredByCheckedCases() throws Exception {
+    SweepOptions options = options(Integer.MAX_VALUE, 0);
+    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 10);
+
+    assertThat(output.toString(StandardCharsets.UTF_8))
+        .contains("progress generated=10 checked=10 divergences=0 buckets=0");
+  }
+
+  @Test
+  void progressReportsUseCurrentRunCheckedCountForNonzeroRanges() throws Exception {
+    SweepOptions options = options(Integer.MAX_VALUE, 1_000_000);
+    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 1_010_000);
+
+    assertThat(output.toString(StandardCharsets.UTF_8))
+        .contains("progress generated=1,010,000 checked=10 divergences=0 buckets=0");
+  }
+
+  private ByteArrayOutputStream progressOutputAfterCheckedCases(
+      SweepOptions options, long generated) throws Exception {
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    PrintStream originalOut = System.out;
+
+    try (SweepRunState state = new SweepRunState(options)) {
+      try {
+        System.setOut(new PrintStream(output, true, StandardCharsets.UTF_8));
+
+        state.reportProgressIfNeeded(generated);
+        assertThat(output.toString(StandardCharsets.UTF_8)).isEmpty();
+
+        for (int i = 0; i < 10; i++) {
+          state.checked.increment();
+        }
+        state.reportProgressIfNeeded(generated);
+      } finally {
+        System.setOut(originalOut);
+      }
+    }
+
+    return output;
+  }
+
   private SweepOptions options(int maxPerBucket) {
-    return new SweepOptions(0, Long.MAX_VALUE, maxPerBucket, tempDir, 10, 1, null, "out.jsonl");
+    return options(maxPerBucket, 0);
+  }
+
+  private SweepOptions options(int maxPerBucket, long rangeStartInclusive) {
+    return new SweepOptions(
+        rangeStartInclusive, Long.MAX_VALUE, maxPerBucket, tempDir, 10, 1, null, "out.jsonl");
   }
 }
