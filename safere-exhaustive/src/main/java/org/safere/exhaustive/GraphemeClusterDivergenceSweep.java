@@ -186,7 +186,7 @@ public final class GraphemeClusterDivergenceSweep {
   }
 
   private static SweepRunState runSweep(SweepOptions options) throws IOException {
-    try (SweepRunState runState = new SweepRunState(options)) {
+    try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
       SweepWorkers.run(
           options.threads(),
           "grapheme-cluster-sweep-",

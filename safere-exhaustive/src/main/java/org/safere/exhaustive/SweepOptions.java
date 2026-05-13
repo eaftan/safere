@@ -22,6 +22,14 @@ record SweepOptions(
     return outputDir.resolve(jsonlFileName);
   }
 
+  long totalChecks(long totalCases) {
+    long end = Math.min(rangeEndExclusive, totalCases);
+    if (rangeStartInclusive >= end) {
+      return 0;
+    }
+    return end - rangeStartInclusive;
+  }
+
   void printStartup(String sweepName) {
     System.out.println("sweep=" + sweepName);
     System.out.println("mode=" + (replayFile == null ? "sweep" : "replay"));
