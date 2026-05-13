@@ -232,7 +232,7 @@ public final class CharacterClassDivergenceSweep {
   }
 
   private static SweepRunState runSweep(SweepOptions options) throws IOException {
-    try (SweepRunState runState = new SweepRunState(options)) {
+    try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
       SweepWorkers.run(
           options.threads(),
           "character-class-sweep-",
@@ -247,6 +247,15 @@ public final class CharacterClassDivergenceSweep {
           });
       return runState;
     }
+  }
+
+  private static long totalCases() {
+    return sum(
+        separatedSingleAmpersandCases(),
+        classicCases(),
+        chainedAmpersandCases(),
+        grammarSequenceCases(),
+        rawAmpersandBeforeCloseCases());
   }
 
   private static void runReplay(SweepOptions options) throws IOException {
@@ -301,6 +310,40 @@ public final class CharacterClassDivergenceSweep {
     object.addProperty("jdkError", jdk.error());
     object.addProperty("safeReError", safere.error());
     return SweepJson.toJson(object);
+  }
+
+  private static long classicCases() {
+    long cases = 0;
+    for (boolean comments : List.of(false, true)) {
+      long separators = comments ? COMMENT_SEPARATORS.size() : nonCommentSeparators().size();
+      long twoLeftCases =
+          product(
+              BASE_PIECES.size(),
+              BASE_PIECES.size(),
+              separators,
+              OPERATORS.size(),
+              separators,
+              RIGHT_PIECES.size(),
+              TRAILING_PIECES.size());
+      long rawAmpLeftCases =
+          product(
+              BASE_PIECES.size(),
+              AMPERSAND_PIECES.size(),
+              separators,
+              OPERATORS.size(),
+              separators,
+              RIGHT_PIECES.size(),
+              TRAILING_PIECES.size());
+      long noLeftCases =
+          product(
+              separators,
+              OPERATORS.size(),
+              separators,
+              RIGHT_PIECES.size(),
+              TRAILING_PIECES.size());
+      cases = Math.addExact(cases, product(2, sum(twoLeftCases, rawAmpLeftCases, noLeftCases)));
+    }
+    return cases;
   }
 
   private static void runClassicMatrix(SweepState state) {
@@ -380,6 +423,33 @@ public final class CharacterClassDivergenceSweep {
     }
   }
 
+  private static long chainedAmpersandCases() {
+    long rawAmpCases =
+        product(
+            LEFT_PIECES.size(),
+            COMMENT_SEPARATORS.size(),
+            OPERATORS.size(),
+            COMMENT_SEPARATORS.size(),
+            AMPERSAND_PIECES.size(),
+            COMMENT_SEPARATORS.size(),
+            SECOND_OPERATORS.size(),
+            COMMENT_SEPARATORS.size(),
+            RIGHT_PIECES.size(),
+            TRAILING_PIECES.size());
+    long nestedRhsCases =
+        product(
+            LEFT_PIECES.size(),
+            COMMENT_SEPARATORS.size(),
+            OPERATORS.size(),
+            COMMENT_SEPARATORS.size(),
+            nestedRights().size(),
+            COMMENT_SEPARATORS.size(),
+            SECOND_OPERATORS.size(),
+            COMMENT_SEPARATORS.size(),
+            RIGHT_PIECES.size());
+    return product(2, sum(rawAmpCases, nestedRhsCases));
+  }
+
   private static void runChainedAmpersandMatrix(SweepState state) {
     for (boolean negated : List.of(false, true)) {
       for (Piece left : LEFT_PIECES) {
@@ -450,6 +520,25 @@ public final class CharacterClassDivergenceSweep {
     }
   }
 
+  private static long grammarSequenceCases() {
+    long cases = 0;
+    for (boolean comments : List.of(false, true)) {
+      long trivia = comments ? GRAMMAR_ZERO_WIDTH_AND_TRIVIA.size() : nonCommentSeparators().size();
+      cases =
+          Math.addExact(
+              cases,
+              product(
+                  2,
+                  GRAMMAR_LEFT_ATOMS.size(),
+                  OPERATORS.size(),
+                  GRAMMAR_RHS_ATOMS.size(),
+                  GRAMMAR_TAILS.size(),
+                  trivia,
+                  GRAMMAR_TAILS.size()));
+    }
+    return cases;
+  }
+
   private static void runGrammarSequenceMatrix(SweepState state) {
     for (boolean comments : List.of(false, true)) {
       for (boolean negated : List.of(false, true)) {
@@ -480,6 +569,17 @@ public final class CharacterClassDivergenceSweep {
     }
   }
 
+  private static long rawAmpersandBeforeCloseCases() {
+    return product(
+        2,
+        LEFT_PIECES.size(),
+        AMPERSAND_PIECES.size(),
+        COMMENT_SEPARATORS.size(),
+        OPERATORS.size(),
+        COMMENT_SEPARATORS.size(),
+        RAW_AMPERSAND_CLOSE_TAILS.size());
+  }
+
   private static void runRawAmpersandBeforeCloseMatrix(SweepState state) {
     for (boolean negated : List.of(false, true)) {
       for (Piece left : LEFT_PIECES) {
@@ -505,6 +605,18 @@ public final class CharacterClassDivergenceSweep {
         }
       }
     }
+  }
+
+  private static long separatedSingleAmpersandCases() {
+    return product(
+        2,
+        LEFT_PIECES.size(),
+        COMMENT_SEPARATORS.size(),
+        AMPERSAND_PIECES.size(),
+        COMMENT_SEPARATORS.size(),
+        AMPERSAND_PIECES.size(),
+        nestedRights().size(),
+        RAW_AMPERSAND_CLOSE_TAILS.size());
   }
 
   private static void runSeparatedSingleAmpersandMatrix(SweepState state) {
@@ -547,6 +659,22 @@ public final class CharacterClassDivergenceSweep {
 
   private static Piece piece(String label, String text) {
     return new Piece(label, text);
+  }
+
+  private static long product(long... factors) {
+    long result = 1;
+    for (long factor : factors) {
+      result = Math.multiplyExact(result, factor);
+    }
+    return result;
+  }
+
+  private static long sum(long... values) {
+    long result = 0;
+    for (long value : values) {
+      result = Math.addExact(result, value);
+    }
+    return result;
   }
 
   private static Outcome jdkOutcome(String regex) {

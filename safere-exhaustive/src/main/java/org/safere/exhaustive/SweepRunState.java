@@ -11,21 +11,37 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.LongSupplier;
 
 /** Shared state and reporting for exhaustive sweep runs. */
 final class SweepRunState implements AutoCloseable {
   final SweepOptions options;
+  final long totalChecks;
   final Map<String, Bucket> buckets = new LinkedHashMap<>();
   final LongAdder checked = new LongAdder();
   final LongAdder divergences = new LongAdder();
   private final BufferedWriter jsonlWriter;
+  private final LongSupplier nanoTime;
+  private final long startNanos;
   long generated;
   long nextCheckedProgressReport;
 
-  SweepRunState(SweepOptions options) throws IOException {
+  SweepRunState(SweepOptions options, long totalChecks) throws IOException {
+    this(options, totalChecks, System::nanoTime);
+  }
+
+  SweepRunState(SweepOptions options, long totalChecks, LongSupplier nanoTime) throws IOException {
+    if (totalChecks < 0) {
+      throw new IllegalArgumentException("totalChecks must be non-negative");
+    }
     this.options = options;
+    this.totalChecks = totalChecks;
+    this.nanoTime = nanoTime;
+    this.startNanos = nanoTime.getAsLong();
     this.jsonlWriter =
         Files.newBufferedWriter(
             options.jsonlPath(),
@@ -47,12 +63,43 @@ final class SweepRunState implements AutoCloseable {
     if (checkedCount < nextCheckedProgressReport) {
       return;
     }
+    double progress = totalChecks == 0 ? 100.0 : checkedCount * 100.0 / totalChecks;
+    long elapsedNanos = Math.max(0, nanoTime.getAsLong() - startNanos);
+    long remainingNanos = estimatedRemainingNanos(elapsedNanos, checkedCount);
     System.out.printf(
-        "progress generated=%,d checked=%,d divergences=%,d buckets=%,d jsonl=%s%n",
-        generated, checkedCount, divergences.sum(), buckets.size(), options.jsonlPath());
+        Locale.ROOT,
+        "progress=%.1f%% elapsed=%s eta=%s total=%,d checked=%,d divergences=%,d%n",
+        progress,
+        formatDuration(elapsedNanos),
+        formatDuration(remainingNanos),
+        totalChecks,
+        checkedCount,
+        divergences.sum());
     while (nextCheckedProgressReport <= checkedCount) {
       nextCheckedProgressReport += options.progressInterval();
     }
+  }
+
+  private long estimatedRemainingNanos(long elapsedNanos, long checkedCount) {
+    if (checkedCount == 0 || checkedCount >= totalChecks) {
+      return 0;
+    }
+    long remainingChecks = totalChecks - checkedCount;
+    return (long) (elapsedNanos * ((double) remainingChecks / checkedCount));
+  }
+
+  private static String formatDuration(long nanos) {
+    long totalSeconds = TimeUnit.NANOSECONDS.toSeconds(nanos);
+    long hours = totalSeconds / 3_600;
+    long minutes = (totalSeconds % 3_600) / 60;
+    long seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return String.format(Locale.ROOT, "%dh%02dm%02ds", hours, minutes, seconds);
+    }
+    if (minutes > 0) {
+      return String.format(Locale.ROOT, "%dm%02ds", minutes, seconds);
+    }
+    return seconds + "s";
   }
 
   boolean reserveDivergenceExample(String bucketName) {

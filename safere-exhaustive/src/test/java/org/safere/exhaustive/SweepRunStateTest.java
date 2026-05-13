@@ -12,6 +12,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -23,7 +24,7 @@ class SweepRunStateTest {
   void bucketReservationCountsDivergencesEvenPastSavedExampleCap() throws Exception {
     SweepOptions options = options(1);
 
-    try (SweepRunState state = new SweepRunState(options)) {
+    try (SweepRunState state = new SweepRunState(options, 10)) {
       assertThat(state.reserveDivergenceExample("bucket")).isTrue();
       assertThat(state.reserveDivergenceExample("bucket")).isFalse();
 
@@ -36,7 +37,7 @@ class SweepRunStateTest {
   void appendJsonlWritesOneLinePerCall() throws Exception {
     SweepOptions options = options(Integer.MAX_VALUE);
 
-    try (SweepRunState state = new SweepRunState(options)) {
+    try (SweepRunState state = new SweepRunState(options, 10)) {
       state.appendJsonl("{\"a\":1}");
       state.appendJsonl("{\"b\":2}");
     }
@@ -48,7 +49,7 @@ class SweepRunStateTest {
   void recordsLargestGeneratedValue() throws Exception {
     SweepOptions options = options(Integer.MAX_VALUE);
 
-    try (SweepRunState state = new SweepRunState(options)) {
+    try (SweepRunState state = new SweepRunState(options, 10)) {
       state.recordGenerated(10);
       state.recordGenerated(5);
 
@@ -59,34 +60,45 @@ class SweepRunStateTest {
   @Test
   void progressReportsAreTriggeredByCheckedCases() throws Exception {
     SweepOptions options = options(Integer.MAX_VALUE, 0);
-    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 10);
+    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 10, 10, 10);
 
     assertThat(output.toString(StandardCharsets.UTF_8))
-        .contains("progress generated=10 checked=10 divergences=0 buckets=0");
+        .contains("progress=100.0% elapsed=1m40s eta=0s total=10 checked=10 divergences=0");
+  }
+
+  @Test
+  void progressReportsPercentageOfTotalChecks() throws Exception {
+    SweepOptions options = options(Integer.MAX_VALUE, 0);
+    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 853, 853, 1_000);
+
+    assertThat(output.toString(StandardCharsets.UTF_8))
+        .contains("progress=85.3% elapsed=1m40s eta=17s total=1,000 checked=853 divergences=0");
   }
 
   @Test
   void progressReportsUseCurrentRunCheckedCountForNonzeroRanges() throws Exception {
     SweepOptions options = options(Integer.MAX_VALUE, 1_000_000);
-    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 1_010_000);
+    ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 10, 1_010_000, 10);
 
     assertThat(output.toString(StandardCharsets.UTF_8))
-        .contains("progress generated=1,010,000 checked=10 divergences=0 buckets=0");
+        .contains("progress=100.0% elapsed=1m40s eta=0s total=10 checked=10 divergences=0");
   }
 
   private ByteArrayOutputStream progressOutputAfterCheckedCases(
-      SweepOptions options, long generated) throws Exception {
+      SweepOptions options, long checkedCases, long generated, long totalChecks) throws Exception {
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     PrintStream originalOut = System.out;
+    TestClock clock = new TestClock();
 
-    try (SweepRunState state = new SweepRunState(options)) {
+    try (SweepRunState state = new SweepRunState(options, totalChecks, clock::nanoTime)) {
       try {
         System.setOut(new PrintStream(output, true, StandardCharsets.UTF_8));
 
         state.reportProgressIfNeeded(generated);
         assertThat(output.toString(StandardCharsets.UTF_8)).isEmpty();
 
-        for (int i = 0; i < 10; i++) {
+        clock.advanceSeconds(100);
+        for (long i = 0; i < checkedCases; i++) {
           state.checked.increment();
         }
         state.reportProgressIfNeeded(generated);
@@ -105,5 +117,17 @@ class SweepRunStateTest {
   private SweepOptions options(int maxPerBucket, long rangeStartInclusive) {
     return new SweepOptions(
         rangeStartInclusive, Long.MAX_VALUE, maxPerBucket, tempDir, 10, 1, null, "out.jsonl");
+  }
+
+  private static final class TestClock {
+    private long nanos;
+
+    long nanoTime() {
+      return nanos;
+    }
+
+    void advanceSeconds(long seconds) {
+      nanos += TimeUnit.SECONDS.toNanos(seconds);
+    }
   }
 }
