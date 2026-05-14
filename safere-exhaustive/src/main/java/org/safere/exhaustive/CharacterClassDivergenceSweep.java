@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
@@ -258,56 +257,44 @@ public final class CharacterClassDivergenceSweep {
   }
 
   private static void runReplay(SweepOptions options) throws IOException {
-    long generated = 0;
-    long checked = 0;
-    long divergences = 0;
     try (BufferedReader reader =
-        Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8)) {
-      String line;
-      while ((line = reader.readLine()) != null) {
-        String trimmed = line.trim();
-        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-          continue;
-        }
-        generated++;
-        checked++;
-        String regex = SweepJson.field(trimmed, "regex");
-        regex = regex == null ? SweepJson.legacyUnescape(trimmed) : regex;
-        Outcome jdk = jdkOutcome(regex);
-        Outcome safere = safeReOutcome(regex);
-        if (semanticallyEqual(jdk, safere)) {
-          continue;
-        }
-        divergences++;
-        String replayLine = replayJson(regex, jdk, safere);
-        Files.writeString(
-            options.jsonlPath(),
-            replayLine + "\n",
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND);
+            Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8);
+        SweepRunState runState = new SweepRunState(options, 0)) {
+      long generated =
+          SweepWorkers.runStreamingLines(
+              options.threads(),
+              "character-class-replay-",
+              reader,
+              line -> {
+                runState.checked.increment();
+                evaluateCase(runState, replayCase(line));
+              });
+      runState.recordGenerated(generated);
+      System.out.println("checked=" + runState.checked.sum());
+      System.out.println("generated=" + runState.generated);
+      System.out.println("divergences=" + runState.divergences.sum());
+      System.out.println("threads=" + options.threads());
+      System.out.println("jsonl=" + options.jsonlPath());
+      if (runState.divergences.sum() > 0) {
+        throw new IllegalStateException(
+            "replay found " + runState.divergences.sum() + " behavioral divergences");
       }
-    }
-    System.out.println("checked=" + checked);
-    System.out.println("generated=" + generated);
-    System.out.println("divergences=" + divergences);
-    System.out.println("threads=1");
-    System.out.println("jsonl=" + options.jsonlPath());
-    if (divergences > 0) {
-      throw new IllegalStateException("replay found " + divergences + " behavioral divergences");
     }
   }
 
-  private static String replayJson(String regex, Outcome jdk, Outcome safere) {
-    var object = SweepJson.object();
-    object.addProperty("regex", regex);
-    object.addProperty("jdkAccepted", jdk.accepted());
-    object.addProperty("safeReAccepted", safere.accepted());
-    object.addProperty("jdkMatches", jdk.matches());
-    object.addProperty("safeReMatches", safere.matches());
-    object.addProperty("jdkError", jdk.error());
-    object.addProperty("safeReError", safere.error());
-    return SweepJson.toJson(object);
+  private static CaseSpec replayCase(String line) {
+    var object = SweepJson.parseObject(line);
+    var caseObject = SweepJson.object(object, "case");
+    List<Piece> pieces = new ArrayList<>();
+    for (var element : SweepJson.array(caseObject, "pieces")) {
+      var piece = element.getAsJsonObject();
+      pieces.add(new Piece(SweepJson.string(piece, "label"), SweepJson.string(piece, "text")));
+    }
+    return new CaseSpec(
+        SweepJson.string(caseObject, "template"),
+        SweepJson.bool(caseObject, "comments"),
+        SweepJson.bool(caseObject, "negated"),
+        pieces);
   }
 
   private static long classicCases() {
@@ -848,6 +835,7 @@ public final class CharacterClassDivergenceSweep {
       CaseSpec spec, String regex, Outcome jdk, Outcome safere, String bucket, String reduced) {
     String toJson() {
       var object = SweepJson.object();
+      object.add("case", caseJson(spec));
       object.addProperty("bucket", bucket);
       object.addProperty("template", spec.template());
       object.addProperty("labels", spec.labels());
@@ -860,6 +848,22 @@ public final class CharacterClassDivergenceSweep {
       object.addProperty("jdkError", jdk.error());
       object.addProperty("safeReError", safere.error());
       return SweepJson.toJson(object);
+    }
+
+    private static com.google.gson.JsonObject caseJson(CaseSpec spec) {
+      var object = SweepJson.object();
+      object.addProperty("template", spec.template());
+      object.addProperty("comments", spec.comments());
+      object.addProperty("negated", spec.negated());
+      var pieces = new com.google.gson.JsonArray();
+      for (Piece piece : spec.pieces()) {
+        var pieceObject = SweepJson.object();
+        pieceObject.addProperty("label", piece.label());
+        pieceObject.addProperty("text", piece.text());
+        pieces.add(pieceObject);
+      }
+      object.add("pieces", pieces);
+      return object;
     }
   }
 
@@ -889,7 +893,7 @@ public final class CharacterClassDivergenceSweep {
       if (!beginCase()) {
         return;
       }
-      checkOwned(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5)));
+      evaluateCase(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5)));
     }
 
     void check6(
@@ -905,7 +909,7 @@ public final class CharacterClassDivergenceSweep {
       if (!beginCase()) {
         return;
       }
-      checkOwned(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6)));
+      evaluateCase(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6)));
     }
 
     void check7(
@@ -922,7 +926,7 @@ public final class CharacterClassDivergenceSweep {
       if (!beginCase()) {
         return;
       }
-      checkOwned(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7)));
+      evaluateCase(new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7)));
     }
 
     void check9(
@@ -941,7 +945,7 @@ public final class CharacterClassDivergenceSweep {
       if (!beginCase()) {
         return;
       }
-      checkOwned(
+      evaluateCase(
           new CaseSpec(template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7, p8, p9)));
     }
 
@@ -962,7 +966,7 @@ public final class CharacterClassDivergenceSweep {
       if (!beginCase()) {
         return;
       }
-      checkOwned(
+      evaluateCase(
           new CaseSpec(
               template, comments, negated, List.of(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)));
     }
@@ -983,19 +987,8 @@ public final class CharacterClassDivergenceSweep {
       return true;
     }
 
-    void checkOwned(CaseSpec spec) {
-      String regex = spec.regex();
-      Outcome jdk = jdkOutcome(regex);
-      Outcome safere = safeReOutcome(regex);
-      if (semanticallyEqual(jdk, safere)) {
-        reportProgressIfNeeded();
-        return;
-      }
-      String bucketName = bucketFor(spec, jdk, safere);
-      runState.recordDivergence();
-      Divergence divergence =
-          new Divergence(spec, regex, jdk, safere, bucketName, reduce(spec, jdk, safere));
-      runState.appendJsonl(divergence.toJson());
+    void evaluateCase(CaseSpec spec) {
+      CharacterClassDivergenceSweep.evaluateCase(runState, spec);
       reportProgressIfNeeded();
     }
 
@@ -1006,6 +999,20 @@ public final class CharacterClassDivergenceSweep {
     void reportProgressIfNeeded() {
       progressReporter.reportIfNeeded(generated);
     }
+  }
+
+  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+    String regex = spec.regex();
+    Outcome jdk = jdkOutcome(regex);
+    Outcome safere = safeReOutcome(regex);
+    if (semanticallyEqual(jdk, safere)) {
+      return;
+    }
+    String bucketName = bucketFor(spec, jdk, safere);
+    runState.recordDivergence();
+    Divergence divergence =
+        new Divergence(spec, regex, jdk, safere, bucketName, reduce(spec, jdk, safere));
+    runState.appendJsonl(divergence.toJson());
   }
 
   private static String reduce(CaseSpec spec, Outcome expectedJdk, Outcome expectedSafeRe) {

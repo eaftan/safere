@@ -5,9 +5,14 @@
 
 package org.safere.exhaustive;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Threading utilities for exhaustive sweep workers. */
@@ -83,6 +88,104 @@ final class SweepWorkers {
     return Math.max(1, progressInterval / threads);
   }
 
+  static long runStreamingLines(
+      int threads, String threadNamePrefix, BufferedReader reader, LineWorker worker)
+      throws IOException {
+    BlockingQueue<QueuedLine> queue = new ArrayBlockingQueue<>(Math.max(128, threads * 32));
+    AtomicLong produced = new AtomicLong();
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    Thread producer =
+        new Thread(
+            () -> produceLines(reader, threads, queue, produced, failure),
+            threadNamePrefix + "reader");
+    List<Thread> workers = new ArrayList<>();
+    producer.start();
+    for (int i = 0; i < threads; i++) {
+      Thread thread = new Thread(() -> consumeLines(queue, worker, failure), threadNamePrefix + i);
+      thread.start();
+      workers.add(thread);
+    }
+    join(producer, "interrupted while waiting for replay reader");
+    for (Thread thread : workers) {
+      join(thread, "interrupted while waiting for replay workers");
+    }
+    Throwable throwable = failure.get();
+    if (throwable != null) {
+      propagate(throwable);
+    }
+    return produced.get();
+  }
+
+  private static void produceLines(
+      BufferedReader reader,
+      int threads,
+      BlockingQueue<QueuedLine> queue,
+      AtomicLong produced,
+      AtomicReference<Throwable> failure) {
+    try {
+      String line;
+      while (failure.get() == null && (line = reader.readLine()) != null) {
+        String trimmed = line.trim();
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+          continue;
+        }
+        putQueuedLine(queue, new QueuedLine(trimmed, false), failure);
+        produced.incrementAndGet();
+      }
+    } catch (Throwable t) {
+      failure.compareAndSet(null, t);
+    } finally {
+      if (failure.get() != null) {
+        queue.clear();
+      }
+      for (int i = 0; i < threads; i++) {
+        putQueuedLine(queue, new QueuedLine("", true), failure);
+      }
+    }
+  }
+
+  private static void consumeLines(
+      BlockingQueue<QueuedLine> queue, LineWorker worker, AtomicReference<Throwable> failure) {
+    try {
+      while (true) {
+        QueuedLine queuedLine = queue.poll(100, TimeUnit.MILLISECONDS);
+        if (queuedLine == null) {
+          if (failure.get() != null) {
+            return;
+          }
+          continue;
+        }
+        if (queuedLine.poison()) {
+          return;
+        }
+        worker.run(queuedLine.line());
+      }
+    } catch (Throwable t) {
+      failure.compareAndSet(null, t);
+    }
+  }
+
+  private static void putQueuedLine(
+      BlockingQueue<QueuedLine> queue, QueuedLine queuedLine, AtomicReference<Throwable> failure) {
+    try {
+      while (failure.get() == null && !queue.offer(queuedLine, 100, TimeUnit.MILLISECONDS)) {
+        // Retry until a worker drains the bounded queue or another thread fails.
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      failure.compareAndSet(null, e);
+    }
+  }
+
+  private static void join(Thread thread, String message) throws IOException {
+    try {
+      thread.join();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(message, e);
+    }
+  }
+
   static final class ProgressReporter {
     private final SweepRunState runState;
     private final long probeInterval;
@@ -115,4 +218,10 @@ final class SweepWorkers {
   interface Worker {
     void run(int workerIndex) throws Exception;
   }
+
+  interface LineWorker {
+    void run(String line) throws Exception;
+  }
+
+  private record QueuedLine(String line, boolean poison) {}
 }

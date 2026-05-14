@@ -6,6 +6,7 @@
 package org.safere.exhaustive;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
@@ -26,6 +27,72 @@ final class SweepJson {
   }
 
   static String field(String line, String field) {
+    JsonObject object = parseObjectOrNull(line);
+    if (object == null) {
+      return null;
+    }
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      return null;
+    }
+    return value.getAsString();
+  }
+
+  static JsonObject parseObject(String line) {
+    JsonObject object = parseObjectOrNull(line);
+    if (object == null) {
+      throw new IllegalArgumentException("expected JSON object: " + line);
+    }
+    return object;
+  }
+
+  static JsonObject object(JsonObject object, String field) {
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      throw new IllegalArgumentException("missing JSON object field: " + field);
+    }
+    if (!value.isJsonObject()) {
+      throw new IllegalArgumentException("expected JSON object field: " + field);
+    }
+    return value.getAsJsonObject();
+  }
+
+  static JsonArray array(JsonObject object, String field) {
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      throw new IllegalArgumentException("missing JSON array field: " + field);
+    }
+    if (!value.isJsonArray()) {
+      throw new IllegalArgumentException("expected JSON array field: " + field);
+    }
+    return value.getAsJsonArray();
+  }
+
+  static String string(JsonObject object, String field) {
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      throw new IllegalArgumentException("missing JSON string field: " + field);
+    }
+    return value.getAsString();
+  }
+
+  static boolean bool(JsonObject object, String field) {
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      throw new IllegalArgumentException("missing JSON boolean field: " + field);
+    }
+    return value.getAsBoolean();
+  }
+
+  static int integer(JsonObject object, String field) {
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      throw new IllegalArgumentException("missing JSON integer field: " + field);
+    }
+    return value.getAsInt();
+  }
+
+  private static JsonObject parseObjectOrNull(String line) {
     JsonElement element;
     try {
       element = JsonParser.parseString(line);
@@ -35,42 +102,6 @@ final class SweepJson {
     if (!element.isJsonObject()) {
       return null;
     }
-    JsonElement value = element.getAsJsonObject().get(field);
-    if (value == null || value.isJsonNull()) {
-      return null;
-    }
-    return value.getAsString();
-  }
-
-  static String legacyUnescape(String value) {
-    StringBuilder result = new StringBuilder();
-    for (int i = 0; i < value.length(); i++) {
-      char c = value.charAt(i);
-      if (c != '\\') {
-        result.append(c);
-        continue;
-      }
-      if (++i >= value.length()) {
-        throw new IllegalArgumentException("trailing JSON escape in: " + value);
-      }
-      char escaped = value.charAt(i);
-      switch (escaped) {
-        case 'n' -> result.append('\n');
-        case 't' -> result.append('\t');
-        case 'r' -> result.append('\r');
-        case 'b' -> result.append('\b');
-        case 'f' -> result.append('\f');
-        case '"', '\\' -> result.append(escaped);
-        case 'u' -> {
-          if (i + 4 >= value.length()) {
-            throw new IllegalArgumentException("short JSON unicode escape in: " + value);
-          }
-          result.append((char) Integer.parseInt(value.substring(i + 1, i + 5), 16));
-          i += 4;
-        }
-        default -> result.append(escaped);
-      }
-    }
-    return result.toString();
+    return element.getAsJsonObject();
   }
 }
