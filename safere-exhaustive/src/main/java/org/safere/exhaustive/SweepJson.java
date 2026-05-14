@@ -23,7 +23,7 @@ final class SweepJson {
   }
 
   static String toJson(JsonObject object) {
-    return GSON.toJson(object);
+    return escapeUnpairedSurrogates(GSON.toJson(object));
   }
 
   static String field(String line, String field) {
@@ -103,5 +103,35 @@ final class SweepJson {
       return null;
     }
     return element.getAsJsonObject();
+  }
+
+  private static String escapeUnpairedSurrogates(String json) {
+    StringBuilder result = new StringBuilder(json.length());
+    for (int i = 0; i < json.length(); i++) {
+      char c = json.charAt(i);
+      if (Character.isHighSurrogate(c)) {
+        if (i + 1 < json.length() && Character.isLowSurrogate(json.charAt(i + 1))) {
+          result.append(c);
+          result.append(json.charAt(i + 1));
+          i++;
+        } else {
+          appendUnicodeEscape(result, c);
+        }
+      } else if (Character.isLowSurrogate(c)) {
+        appendUnicodeEscape(result, c);
+      } else {
+        result.append(c);
+      }
+    }
+    return result.toString();
+  }
+
+  private static void appendUnicodeEscape(StringBuilder result, char c) {
+    result.append("\\u");
+    String hex = Integer.toHexString(c);
+    for (int i = hex.length(); i < 4; i++) {
+      result.append('0');
+    }
+    result.append(hex);
   }
 }

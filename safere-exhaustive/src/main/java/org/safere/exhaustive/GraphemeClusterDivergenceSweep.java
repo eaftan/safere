@@ -436,7 +436,7 @@ public final class GraphemeClusterDivergenceSweep {
         new RegexTemplate(regexLabel, regex),
         new InputTemplate(inputLabel, input),
         new RegionMode(regionLabel, prefix, suffix, 0, 0, regionStart, regionEnd),
-        boundsMode(SweepJson.string(caseObject, "bounds")),
+        replayBoundsMode(SweepJson.string(caseObject, "bounds")),
         operationMode(SweepJson.string(caseObject, "operation")));
   }
 
@@ -528,6 +528,14 @@ public final class GraphemeClusterDivergenceSweep {
         .filter(mode -> mode.label().equals(label))
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException("unknown bounds mode: " + label));
+  }
+
+  private static BoundsMode replayBoundsMode(String label) {
+    return switch (label) {
+      case "transparentAnchoring" -> bounds("transparentAnchoring", true, true);
+      case "transparentNonAnchoring" -> bounds("transparentNonAnchoring", true, false);
+      default -> boundsMode(label);
+    };
   }
 
   private static OperationMode operationMode(String label) {

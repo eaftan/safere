@@ -26,6 +26,19 @@ class SweepJsonTest {
   }
 
   @Test
+  void toJsonEscapesUnpairedSurrogates() {
+    var object = SweepJson.object();
+    object.addProperty("high", "\uD83D");
+    object.addProperty("low", "\uDE00");
+    object.addProperty("pair", "\uD83D\uDE00");
+
+    String line = SweepJson.toJson(object);
+
+    assertThat(line).contains("\"high\":\"\\ud83d\"", "\"low\":\"\\ude00\"");
+    assertThat(line).contains("😀");
+  }
+
+  @Test
   void fieldReturnsNullForLegacyRawReplayLine() {
     assertThat(SweepJson.field("\\Qabc\\E", "regex")).isNull();
   }
