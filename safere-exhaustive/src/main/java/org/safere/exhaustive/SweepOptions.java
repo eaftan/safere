@@ -12,7 +12,6 @@ import java.nio.file.Path;
 record SweepOptions(
     long rangeStartInclusive,
     long rangeEndExclusive,
-    int maxPerBucket,
     Path outputDir,
     long progressInterval,
     int threads,
@@ -34,7 +33,6 @@ record SweepOptions(
     System.out.println("sweep=" + sweepName);
     System.out.println("mode=" + (replayFile == null ? "sweep" : "replay"));
     System.out.println("range=" + rangeDescription());
-    System.out.println("maxPerBucket=" + maxPerBucketDescription());
     System.out.println("outputDir=" + outputDir);
     System.out.println("progressInterval=" + progressInterval);
     System.out.println("threads=" + threads);
@@ -46,7 +44,6 @@ record SweepOptions(
       String[] args, Path defaultOutputDir, String jsonlFileName, long defaultProgressInterval) {
     long rangeStartInclusive = 0;
     long rangeEndExclusive = Long.MAX_VALUE;
-    int maxPerBucket = Integer.MAX_VALUE;
     Path outputDir = defaultOutputDir;
     long progressInterval = defaultProgressInterval;
     int threads = Runtime.getRuntime().availableProcessors();
@@ -62,9 +59,6 @@ record SweepOptions(
         String end = value.substring(colon + 1);
         rangeStartInclusive = start.isEmpty() ? 0 : Long.parseLong(start);
         rangeEndExclusive = end.isEmpty() ? Long.MAX_VALUE : Long.parseLong(end);
-      } else if (arg.startsWith("--max-per-bucket=")) {
-        String value = arg.substring("--max-per-bucket=".length());
-        maxPerBucket = value.equals("uncapped") ? Integer.MAX_VALUE : Integer.parseInt(value);
       } else if (arg.startsWith("--output-dir=")) {
         outputDir = Path.of(arg.substring("--output-dir=".length()));
       } else if (arg.startsWith("--progress-interval=")) {
@@ -83,9 +77,6 @@ record SweepOptions(
     if (rangeEndExclusive < rangeStartInclusive) {
       throw new IllegalArgumentException("--range end must be greater than or equal to start");
     }
-    if (maxPerBucket < 0) {
-      throw new IllegalArgumentException("--max-per-bucket must be non-negative");
-    }
     if (progressInterval < 1) {
       throw new IllegalArgumentException("--progress-interval must be at least 1");
     }
@@ -98,7 +89,6 @@ record SweepOptions(
     return new SweepOptions(
         rangeStartInclusive,
         rangeEndExclusive,
-        maxPerBucket,
         outputDir,
         progressInterval,
         threads,
@@ -109,9 +99,5 @@ record SweepOptions(
   private String rangeDescription() {
     String end = rangeEndExclusive == Long.MAX_VALUE ? "" : Long.toString(rangeEndExclusive);
     return rangeStartInclusive + ":" + end;
-  }
-
-  private String maxPerBucketDescription() {
-    return maxPerBucket == Integer.MAX_VALUE ? "uncapped" : Integer.toString(maxPerBucket);
   }
 }

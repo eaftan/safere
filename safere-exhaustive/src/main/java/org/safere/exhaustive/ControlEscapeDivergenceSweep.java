@@ -65,7 +65,6 @@ public final class ControlEscapeDivergenceSweep {
     System.out.println("generated=" + state.generated);
     System.out.println("totalCases=" + totalCases());
     System.out.println("divergences=" + state.divergences.sum());
-    System.out.println("buckets=" + state.buckets.size());
     System.out.println("threads=" + options.threads());
     System.out.println("jsonl=" + options.jsonlPath());
   }
@@ -118,7 +117,6 @@ public final class ControlEscapeDivergenceSweep {
     System.out.println("checked=" + checked);
     System.out.println("generated=" + generated);
     System.out.println("divergences=" + divergences);
-    System.out.println("buckets=" + divergences);
     System.out.println("threads=1");
     System.out.println("jsonl=" + options.jsonlPath());
     if (divergences > 0) {
@@ -422,10 +420,7 @@ public final class ControlEscapeDivergenceSweep {
         return;
       }
       String bucketName = bucketFor(spec, jdk, safere);
-      if (!runState.reserveDivergenceExample(bucketName)) {
-        reportProgressIfNeeded();
-        return;
-      }
+      runState.recordDivergence();
       runState.appendJsonl(new Divergence(spec, regex, jdk, safere, bucketName).toJson());
       reportProgressIfNeeded();
     }
