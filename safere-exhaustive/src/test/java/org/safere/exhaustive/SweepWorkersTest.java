@@ -8,7 +8,9 @@ package org.safere.exhaustive;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,34 @@ class SweepWorkersTest {
                     2,
                     "test-",
                     workerIndex -> {
+                      throw failure;
+                    }))
+        .isSameAs(failure);
+  }
+
+  @Test
+  void streamingLinesUsesWorkersAndSkipsBlankAndCommentLines() throws Exception {
+    Set<String> lines = new ConcurrentSkipListSet<>();
+
+    long produced =
+        SweepWorkers.runStreamingLines(
+            3, "test-", new BufferedReader(new StringReader("a\n\n# comment\nb\nc\n")), lines::add);
+
+    assertThat(produced).isEqualTo(3);
+    assertThat(lines).containsExactly("a", "b", "c");
+  }
+
+  @Test
+  void streamingLineWorkerExceptionsPropagateWithoutWrapping() {
+    IllegalStateException failure = new IllegalStateException("boom");
+
+    assertThatThrownBy(
+            () ->
+                SweepWorkers.runStreamingLines(
+                    2,
+                    "test-",
+                    new BufferedReader(new StringReader("a\nb\n")),
+                    line -> {
                       throw failure;
                     }))
         .isSameAs(failure);

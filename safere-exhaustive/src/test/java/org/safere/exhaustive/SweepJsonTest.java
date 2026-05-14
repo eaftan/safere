@@ -6,6 +6,7 @@
 package org.safere.exhaustive;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +31,26 @@ class SweepJsonTest {
   }
 
   @Test
-  void legacyUnescapeDecodesOldReplayEscapes() {
-    assertThat(SweepJson.legacyUnescape("a\\nb\\t\\u0041\\\\\\\"")).isEqualTo("a\nb\tA\\\"");
+  void readsStructuredJsonFields() {
+    var object = SweepJson.object();
+    var nested = SweepJson.object();
+    nested.addProperty("text", "abc");
+    nested.addProperty("enabled", true);
+    nested.addProperty("count", 7);
+    object.add("nested", nested);
+
+    var parsed = SweepJson.parseObject(SweepJson.toJson(object));
+    var parsedNested = SweepJson.object(parsed, "nested");
+
+    assertThat(SweepJson.string(parsedNested, "text")).isEqualTo("abc");
+    assertThat(SweepJson.bool(parsedNested, "enabled")).isTrue();
+    assertThat(SweepJson.integer(parsedNested, "count")).isEqualTo(7);
+  }
+
+  @Test
+  void parseObjectRejectsLegacyRawReplayLine() {
+    assertThatThrownBy(() -> SweepJson.parseObject("\\Qabc\\E"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("expected JSON object");
   }
 }

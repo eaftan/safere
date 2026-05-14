@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -199,41 +198,28 @@ public final class GraphemeClusterDivergenceSweep {
   }
 
   private static void runReplay(SweepOptions options) throws IOException {
-    long generated = 0;
-    long checked = 0;
-    long divergences = 0;
     try (BufferedReader reader =
-        Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8)) {
-      String line;
-      while ((line = reader.readLine()) != null) {
-        String trimmed = line.trim();
-        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-          continue;
-        }
-        generated++;
-        checked++;
-        CaseSpec spec = replayCase(trimmed);
-        Outcome jdk = jdkOutcome(spec);
-        Outcome safere = safeReOutcome(spec);
-        if (semanticallyEqual(jdk, safere)) {
-          continue;
-        }
-        divergences++;
-        Files.writeString(
-            options.jsonlPath(),
-            new Divergence(spec, jdk, safere, bucketFor(spec, jdk, safere)).toJson() + "\n",
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND);
+            Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8);
+        SweepRunState runState = new SweepRunState(options, 0)) {
+      long generated =
+          SweepWorkers.runStreamingLines(
+              options.threads(),
+              "grapheme-cluster-replay-",
+              reader,
+              line -> {
+                runState.checked.increment();
+                evaluateCase(runState, replayCase(line));
+              });
+      runState.recordGenerated(generated);
+      System.out.println("checked=" + runState.checked.sum());
+      System.out.println("generated=" + runState.generated);
+      System.out.println("divergences=" + runState.divergences.sum());
+      System.out.println("threads=" + options.threads());
+      System.out.println("jsonl=" + options.jsonlPath());
+      if (runState.divergences.sum() > 0) {
+        throw new IllegalStateException(
+            "replay found " + runState.divergences.sum() + " behavioral divergences");
       }
-    }
-    System.out.println("checked=" + checked);
-    System.out.println("generated=" + generated);
-    System.out.println("divergences=" + divergences);
-    System.out.println("threads=1");
-    System.out.println("jsonl=" + options.jsonlPath());
-    if (divergences > 0) {
-      throw new IllegalStateException("replay found " + divergences + " behavioral divergences");
     }
   }
 
@@ -435,21 +421,23 @@ public final class GraphemeClusterDivergenceSweep {
   }
 
   private static CaseSpec replayCase(String line) {
-    String regex = SweepJson.field(line, "regex");
-    String input = SweepJson.field(line, "input");
-    String prefix = SweepJson.field(line, "prefix");
-    String suffix = SweepJson.field(line, "suffix");
-    String bounds = SweepJson.field(line, "bounds");
-    String operation = SweepJson.field(line, "operation");
-    if (regex == null || input == null || prefix == null || suffix == null) {
-      throw new IllegalArgumentException("replay line must contain regex, input, prefix, suffix");
-    }
+    var object = SweepJson.parseObject(line);
+    var caseObject = SweepJson.object(object, "case");
+    String regex = SweepJson.string(caseObject, "regex");
+    String regexLabel = SweepJson.string(caseObject, "regexLabel");
+    String input = SweepJson.string(caseObject, "input");
+    String inputLabel = SweepJson.string(caseObject, "inputLabel");
+    String regionLabel = SweepJson.string(caseObject, "region");
+    String prefix = SweepJson.string(caseObject, "prefix");
+    String suffix = SweepJson.string(caseObject, "suffix");
+    int regionStart = SweepJson.integer(caseObject, "regionStart");
+    int regionEnd = SweepJson.integer(caseObject, "regionEnd");
     return new CaseSpec(
-        new RegexTemplate("replay", regex),
-        new InputTemplate("replay", input),
-        region("replay", prefix, suffix, 0, 0),
-        bounds == null ? BOUNDS_MODES.get(0) : boundsMode(bounds),
-        operation == null ? OPERATION_MODES.get(0) : operationMode(operation));
+        new RegexTemplate(regexLabel, regex),
+        new InputTemplate(inputLabel, input),
+        new RegionMode(regionLabel, prefix, suffix, 0, 0, regionStart, regionEnd),
+        boundsMode(SweepJson.string(caseObject, "bounds")),
+        operationMode(SweepJson.string(caseObject, "operation")));
   }
 
   private static String bucketFor(CaseSpec spec, Outcome jdk, Outcome safere) {
@@ -893,6 +881,7 @@ public final class GraphemeClusterDivergenceSweep {
   private record Divergence(CaseSpec spec, Outcome jdk, Outcome safere, String bucket) {
     String toJson() {
       var object = SweepJson.object();
+      object.add("case", caseJson(spec));
       object.addProperty("bucket", bucket);
       object.addProperty("labels", spec.labels());
       object.addProperty("regex", spec.regex());
@@ -910,6 +899,22 @@ public final class GraphemeClusterDivergenceSweep {
       object.addProperty("jdkError", jdk.error());
       object.addProperty("safeReError", safere.error());
       return SweepJson.toJson(object);
+    }
+
+    private static com.google.gson.JsonObject caseJson(CaseSpec spec) {
+      var object = SweepJson.object();
+      object.addProperty("regexLabel", spec.regexTemplate().label());
+      object.addProperty("regex", spec.regex());
+      object.addProperty("inputLabel", spec.inputTemplate().label());
+      object.addProperty("input", spec.input());
+      object.addProperty("region", spec.regionMode().label());
+      object.addProperty("prefix", spec.regionMode().prefix());
+      object.addProperty("suffix", spec.regionMode().suffix());
+      object.addProperty("regionStart", spec.regionStart());
+      object.addProperty("regionEnd", spec.regionEnd());
+      object.addProperty("bounds", spec.boundsMode().label());
+      object.addProperty("operation", spec.operationMode().label());
+      return object;
     }
   }
 
@@ -934,7 +939,7 @@ public final class GraphemeClusterDivergenceSweep {
         long caseIndex = generated;
         generated += options.threads();
         progressReporter.checked();
-        checkOwned(caseAt(caseIndex));
+        evaluateCase(caseAt(caseIndex));
       }
     }
 
@@ -945,16 +950,8 @@ public final class GraphemeClusterDivergenceSweep {
       return start + delta;
     }
 
-    void checkOwned(CaseSpec spec) {
-      Outcome jdk = jdkOutcome(spec);
-      Outcome safere = safeReOutcome(spec);
-      if (semanticallyEqual(jdk, safere)) {
-        reportProgressIfNeeded();
-        return;
-      }
-      String bucketName = bucketFor(spec, jdk, safere);
-      runState.recordDivergence();
-      runState.appendJsonl(new Divergence(spec, jdk, safere, bucketName).toJson());
+    void evaluateCase(CaseSpec spec) {
+      GraphemeClusterDivergenceSweep.evaluateCase(runState, spec);
       reportProgressIfNeeded();
     }
 
@@ -965,5 +962,16 @@ public final class GraphemeClusterDivergenceSweep {
     void reportProgressIfNeeded() {
       progressReporter.reportIfNeeded(generated);
     }
+  }
+
+  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+    Outcome jdk = jdkOutcome(spec);
+    Outcome safere = safeReOutcome(spec);
+    if (semanticallyEqual(jdk, safere)) {
+      return;
+    }
+    String bucketName = bucketFor(spec, jdk, safere);
+    runState.recordDivergence();
+    runState.appendJsonl(new Divergence(spec, jdk, safere, bucketName).toJson());
   }
 }

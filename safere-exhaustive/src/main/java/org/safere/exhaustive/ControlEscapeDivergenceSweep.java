@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -84,56 +83,43 @@ public final class ControlEscapeDivergenceSweep {
   }
 
   private static void runReplay(SweepOptions options) throws IOException {
-    long generated = 0;
-    long checked = 0;
-    long divergences = 0;
     try (BufferedReader reader =
-        Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8)) {
-      String line;
-      while ((line = reader.readLine()) != null) {
-        String trimmed = line.trim();
-        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-          continue;
-        }
-        generated++;
-        checked++;
-        String regex = SweepJson.field(trimmed, "regex");
-        regex = regex == null ? SweepJson.legacyUnescape(trimmed) : regex;
-        Outcome jdk = jdkOutcome(regex);
-        Outcome safere = safeReOutcome(regex);
-        if (semanticallyEqual(jdk, safere)) {
-          continue;
-        }
-        divergences++;
-        String replayLine = replayJson(regex, jdk, safere);
-        Files.writeString(
-            options.jsonlPath(),
-            replayLine + "\n",
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND);
+            Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8);
+        SweepRunState runState = new SweepRunState(options, 0)) {
+      long generated =
+          SweepWorkers.runStreamingLines(
+              options.threads(),
+              "control-escape-replay-",
+              reader,
+              line -> {
+                runState.checked.increment();
+                evaluateCase(runState, replayCase(line));
+              });
+      runState.recordGenerated(generated);
+      System.out.println("checked=" + runState.checked.sum());
+      System.out.println("generated=" + runState.generated);
+      System.out.println("divergences=" + runState.divergences.sum());
+      System.out.println("threads=" + options.threads());
+      System.out.println("jsonl=" + options.jsonlPath());
+      if (runState.divergences.sum() > 0) {
+        throw new IllegalStateException(
+            "replay found " + runState.divergences.sum() + " behavioral divergences");
       }
-    }
-    System.out.println("checked=" + checked);
-    System.out.println("generated=" + generated);
-    System.out.println("divergences=" + divergences);
-    System.out.println("threads=1");
-    System.out.println("jsonl=" + options.jsonlPath());
-    if (divergences > 0) {
-      throw new IllegalStateException("replay found " + divergences + " behavioral divergences");
     }
   }
 
-  private static String replayJson(String regex, Outcome jdk, Outcome safere) {
-    var object = SweepJson.object();
-    object.addProperty("regex", regex);
-    object.addProperty("jdkAccepted", jdk.accepted());
-    object.addProperty("safeReAccepted", safere.accepted());
-    object.addProperty("jdkMatches", jdk.matches());
-    object.addProperty("safeReMatches", safere.matches());
-    object.addProperty("jdkError", jdk.error());
-    object.addProperty("safeReError", safere.error());
-    return SweepJson.toJson(object);
+  private static CaseSpec replayCase(String line) {
+    var object = SweepJson.parseObject(line);
+    var caseObject = SweepJson.object(object, "case");
+    return new CaseSpec(
+        SweepJson.integer(caseObject, "target"),
+        new Context(
+            SweepJson.string(caseObject, "contextLabel"),
+            SweepJson.string(caseObject, "contextTemplate")),
+        new FlagMode(
+            SweepJson.string(caseObject, "flagLabel"),
+            SweepJson.string(caseObject, "flagPrefix"),
+            SweepJson.integer(caseObject, "flags")));
   }
 
   private static long totalCases() {
@@ -364,6 +350,7 @@ public final class ControlEscapeDivergenceSweep {
       CaseSpec spec, String regex, Outcome jdk, Outcome safere, String bucket) {
     String toJson() {
       var object = SweepJson.object();
+      object.add("case", caseJson(spec));
       object.addProperty("bucket", bucket);
       object.addProperty("labels", spec.labels());
       object.addProperty("regex", regex);
@@ -377,6 +364,17 @@ public final class ControlEscapeDivergenceSweep {
       object.addProperty("jdkError", jdk.error());
       object.addProperty("safeReError", safere.error());
       return SweepJson.toJson(object);
+    }
+
+    private static com.google.gson.JsonObject caseJson(CaseSpec spec) {
+      var object = SweepJson.object();
+      object.addProperty("target", spec.target());
+      object.addProperty("contextLabel", spec.context().label());
+      object.addProperty("contextTemplate", spec.context().template());
+      object.addProperty("flagLabel", spec.flagMode().label());
+      object.addProperty("flagPrefix", spec.flagMode().prefix());
+      object.addProperty("flags", spec.flagMode().flags());
+      return object;
     }
   }
 
@@ -406,22 +404,12 @@ public final class ControlEscapeDivergenceSweep {
           continue;
         }
         progressReporter.checked();
-        checkOwned(caseAt(caseIndex));
+        evaluateCase(caseAt(caseIndex));
       }
     }
 
-    void checkOwned(CaseSpec spec) {
-      String regex = spec.regex();
-      List<String> inputs = inputsFor(spec);
-      Outcome jdk = jdkOutcome(regex, spec.flagMode().flags(), inputs);
-      Outcome safere = safeReOutcome(regex, spec.flagMode().flags(), inputs);
-      if (semanticallyEqual(jdk, safere)) {
-        reportProgressIfNeeded();
-        return;
-      }
-      String bucketName = bucketFor(spec, jdk, safere);
-      runState.recordDivergence();
-      runState.appendJsonl(new Divergence(spec, regex, jdk, safere, bucketName).toJson());
+    void evaluateCase(CaseSpec spec) {
+      ControlEscapeDivergenceSweep.evaluateCase(runState, spec);
       reportProgressIfNeeded();
     }
 
@@ -432,5 +420,18 @@ public final class ControlEscapeDivergenceSweep {
     void reportProgressIfNeeded() {
       progressReporter.reportIfNeeded(generated);
     }
+  }
+
+  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+    String regex = spec.regex();
+    List<String> inputs = inputsFor(spec);
+    Outcome jdk = jdkOutcome(regex, spec.flagMode().flags(), inputs);
+    Outcome safere = safeReOutcome(regex, spec.flagMode().flags(), inputs);
+    if (semanticallyEqual(jdk, safere)) {
+      return;
+    }
+    String bucketName = bucketFor(spec, jdk, safere);
+    runState.recordDivergence();
+    runState.appendJsonl(new Divergence(spec, regex, jdk, safere, bucketName).toJson());
   }
 }
