@@ -86,8 +86,8 @@ operations.
 
 Use this sweep before review when changing grapheme-cluster parsing or boundary
 behavior. A run may report known or newly discovered divergences; inspect the
-JSONL output and bucket summary to triage them. Range bounds and replay files
-use the same conventions as the other exhaustive sweeps.
+JSONL output to triage them. Range bounds and replay files use the same
+conventions as the other exhaustive sweeps.
 
 ## Control Escape Sweep
 

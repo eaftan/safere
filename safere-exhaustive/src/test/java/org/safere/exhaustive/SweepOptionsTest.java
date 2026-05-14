@@ -24,7 +24,6 @@ class SweepOptionsTest {
 
     assertThat(options.rangeStartInclusive()).isZero();
     assertThat(options.rangeEndExclusive()).isEqualTo(Long.MAX_VALUE);
-    assertThat(options.maxPerBucket()).isEqualTo(Integer.MAX_VALUE);
     assertThat(options.outputDir()).isEqualTo(tempDir.resolve("out"));
     assertThat(options.progressInterval()).isEqualTo(123);
     assertThat(options.threads()).isEqualTo(Runtime.getRuntime().availableProcessors());
@@ -41,7 +40,6 @@ class SweepOptionsTest {
         SweepOptions.parse(
             new String[] {
               "--range=5:10",
-              "--max-per-bucket=7",
               "--output-dir=" + tempDir.resolve("custom"),
               "--progress-interval=99",
               "--threads=3",
@@ -53,7 +51,6 @@ class SweepOptionsTest {
 
     assertThat(options.rangeStartInclusive()).isEqualTo(5);
     assertThat(options.rangeEndExclusive()).isEqualTo(10);
-    assertThat(options.maxPerBucket()).isEqualTo(7);
     assertThat(options.outputDir()).isEqualTo(tempDir.resolve("custom"));
     assertThat(options.progressInterval()).isEqualTo(99);
     assertThat(options.threads()).isEqualTo(3);
@@ -61,17 +58,13 @@ class SweepOptionsTest {
   }
 
   @Test
-  void parsesOpenEndedRangeAndUncappedBucketLimit() {
+  void parsesOpenEndedRange() {
     SweepOptions options =
         SweepOptions.parse(
-            new String[] {"--range=5:", "--max-per-bucket=uncapped"},
-            tempDir.resolve("out"),
-            "divergences.jsonl",
-            123);
+            new String[] {"--range=5:"}, tempDir.resolve("out"), "divergences.jsonl", 123);
 
     assertThat(options.rangeStartInclusive()).isEqualTo(5);
     assertThat(options.rangeEndExclusive()).isEqualTo(Long.MAX_VALUE);
-    assertThat(options.maxPerBucket()).isEqualTo(Integer.MAX_VALUE);
   }
 
   @Test

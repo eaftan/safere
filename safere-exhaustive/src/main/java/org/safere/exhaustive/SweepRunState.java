@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongSupplier;
@@ -21,7 +19,6 @@ import java.util.function.LongSupplier;
 final class SweepRunState implements AutoCloseable {
   final SweepOptions options;
   final long totalChecks;
-  final Map<String, Bucket> buckets = new LinkedHashMap<>();
   final LongAdder checked = new LongAdder();
   final LongAdder divergences = new LongAdder();
   private final BufferedWriter jsonlWriter;
@@ -102,16 +99,8 @@ final class SweepRunState implements AutoCloseable {
     return seconds + "s";
   }
 
-  boolean reserveDivergenceExample(String bucketName) {
-    synchronized (this) {
-      divergences.increment();
-      Bucket bucket = buckets.computeIfAbsent(bucketName, Bucket::new);
-      if (bucket.savedExamples >= options.maxPerBucket()) {
-        return false;
-      }
-      bucket.savedExamples++;
-      return true;
-    }
+  void recordDivergence() {
+    divergences.increment();
   }
 
   synchronized void appendJsonl(String line) {
@@ -126,11 +115,5 @@ final class SweepRunState implements AutoCloseable {
   @Override
   public synchronized void close() throws IOException {
     jsonlWriter.close();
-  }
-
-  private static final class Bucket {
-    int savedExamples;
-
-    Bucket(String name) {}
   }
 }

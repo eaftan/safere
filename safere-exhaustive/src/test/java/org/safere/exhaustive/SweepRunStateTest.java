@@ -21,21 +21,20 @@ class SweepRunStateTest {
   @TempDir Path tempDir;
 
   @Test
-  void bucketReservationCountsDivergencesEvenPastSavedExampleCap() throws Exception {
-    SweepOptions options = options(1);
+  void recordDivergenceCountsEveryDivergence() throws Exception {
+    SweepOptions options = options();
 
     try (SweepRunState state = new SweepRunState(options, 10)) {
-      assertThat(state.reserveDivergenceExample("bucket")).isTrue();
-      assertThat(state.reserveDivergenceExample("bucket")).isFalse();
+      state.recordDivergence();
+      state.recordDivergence();
 
       assertThat(state.divergences.sum()).isEqualTo(2);
-      assertThat(state.buckets).hasSize(1);
     }
   }
 
   @Test
   void appendJsonlWritesOneLinePerCall() throws Exception {
-    SweepOptions options = options(Integer.MAX_VALUE);
+    SweepOptions options = options();
 
     try (SweepRunState state = new SweepRunState(options, 10)) {
       state.appendJsonl("{\"a\":1}");
@@ -47,7 +46,7 @@ class SweepRunStateTest {
 
   @Test
   void recordsLargestGeneratedValue() throws Exception {
-    SweepOptions options = options(Integer.MAX_VALUE);
+    SweepOptions options = options();
 
     try (SweepRunState state = new SweepRunState(options, 10)) {
       state.recordGenerated(10);
@@ -59,7 +58,7 @@ class SweepRunStateTest {
 
   @Test
   void progressReportsAreTriggeredByCheckedCases() throws Exception {
-    SweepOptions options = options(Integer.MAX_VALUE, 0);
+    SweepOptions options = options(0);
     ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 10, 10, 10);
 
     assertThat(output.toString(StandardCharsets.UTF_8))
@@ -68,7 +67,7 @@ class SweepRunStateTest {
 
   @Test
   void progressReportsPercentageOfTotalChecks() throws Exception {
-    SweepOptions options = options(Integer.MAX_VALUE, 0);
+    SweepOptions options = options(0);
     ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 853, 853, 1_000);
 
     assertThat(output.toString(StandardCharsets.UTF_8))
@@ -77,7 +76,7 @@ class SweepRunStateTest {
 
   @Test
   void progressReportsUseCurrentRunCheckedCountForNonzeroRanges() throws Exception {
-    SweepOptions options = options(Integer.MAX_VALUE, 1_000_000);
+    SweepOptions options = options(1_000_000);
     ByteArrayOutputStream output = progressOutputAfterCheckedCases(options, 10, 1_010_000, 10);
 
     assertThat(output.toString(StandardCharsets.UTF_8))
@@ -110,13 +109,12 @@ class SweepRunStateTest {
     return output;
   }
 
-  private SweepOptions options(int maxPerBucket) {
-    return options(maxPerBucket, 0);
+  private SweepOptions options() {
+    return options(0);
   }
 
-  private SweepOptions options(int maxPerBucket, long rangeStartInclusive) {
-    return new SweepOptions(
-        rangeStartInclusive, Long.MAX_VALUE, maxPerBucket, tempDir, 10, 1, null, "out.jsonl");
+  private SweepOptions options(long rangeStartInclusive) {
+    return new SweepOptions(rangeStartInclusive, Long.MAX_VALUE, tempDir, 10, 1, null, "out.jsonl");
   }
 
   private static final class TestClock {
