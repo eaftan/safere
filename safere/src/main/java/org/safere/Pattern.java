@@ -94,6 +94,9 @@ public final class Pattern implements Serializable {
   public static final int UNICODE_CHARACTER_CLASS =
       java.util.regex.Pattern.UNICODE_CHARACTER_CLASS; // 256
 
+  /** Enables RE2 style named capturing group syntax {@code (?P<name>...)}. */
+  public static final int RE2_NAMED_GROUPS = 1 << 20;
+
   private final String pattern;
   private final int flags;
   private final transient Prog prog;
@@ -1051,7 +1054,8 @@ public final class Pattern implements Serializable {
           | LITERAL
           | DOTALL
           | UNICODE_CASE
-          | UNICODE_CHARACTER_CLASS;
+          | UNICODE_CHARACTER_CLASS
+          | RE2_NAMED_GROUPS;
 
   /** Validates that no unsupported flag bits are set. */
   private static void validateFlags(int flags) {
@@ -1107,6 +1111,9 @@ public final class Pattern implements Serializable {
     }
     if ((flags & UNIX_LINES) != 0) {
       pf |= ParseFlags.UNIX_LINES;
+    }
+    if ((flags & RE2_NAMED_GROUPS) != 0) {
+      pf |= ParseFlags.RE2_NAMED_GROUPS;
     }
 
     return pf;

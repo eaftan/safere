@@ -33,6 +33,9 @@ class ParseFlagsTest {
     assertThat(ParseFlags.NEVER_CAPTURE).isEqualTo(16384);
     assertThat(ParseFlags.WAS_DOLLAR).isEqualTo(32768);
     assertThat(ParseFlags.UNIX_LINES).isEqualTo(65536);
+    assertThat(ParseFlags.UNICODE_CASE).isEqualTo(131072);
+    assertThat(ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY).isEqualTo(262144);
+    assertThat(ParseFlags.RE2_NAMED_GROUPS).isEqualTo(524288);
   }
 
   @Test
@@ -54,7 +57,7 @@ class ParseFlagsTest {
 
   @Test
   void allFlagsCoversAllBits() {
-    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 19) - 1);
+    assertThat(ParseFlags.ALL_FLAGS).isEqualTo((1 << 20) - 1);
   }
 
   @Test
