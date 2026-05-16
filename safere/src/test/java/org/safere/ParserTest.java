@@ -768,8 +768,7 @@ class ParserTest {
     @ParameterizedTest
     @ValueSource(strings = {"^+?+", "$*?+", "\\b+?+", "()+?+", "a+?+"})
     void danglingQuantifierOnReluctantQuantifierRejected(String pattern) {
-      assertThatThrownBy(() -> parse(pattern))
-          .isInstanceOf(PatternSyntaxException.class);
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
   }
 
