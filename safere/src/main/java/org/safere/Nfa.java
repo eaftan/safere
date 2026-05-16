@@ -182,7 +182,7 @@ final class Nfa {
     return search(prog, text, startPos, searchLimit, endPos, 0, anchor, kind, nsubmatch);
   }
 
-  static int[] search(
+  static SearchResult search(
       Prog prog,
       String text,
       int startPos,
