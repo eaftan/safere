@@ -50,9 +50,10 @@ jobs:
       - name: Check Java formatting
         run: mvn spotless:check --batch-mode --no-transfer-progress
 
-      - name: Build and test SafeRE and crosscheck modules
+      - name: Build and test SafeRE, crosscheck, and exhaustive modules
         run: >
-          mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests
+          mvn verify -pl safere,safere-crosscheck,safere-exhaustive -am
+          -Pcrosscheck-public-api-tests
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 

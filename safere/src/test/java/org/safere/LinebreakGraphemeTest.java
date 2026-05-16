@@ -8,9 +8,12 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -267,6 +270,136 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("\\X keeps ZWJ with leading grapheme extenders")
+    void keepsZwjWithLeadingGraphemeExtenders() {
+      assertTraceSameAsJdk("\\X", "\u0301\u200D", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0301\u0301\u200D", 0, 3);
+      assertTraceSameAsJdk("\\X", "\u0301\u200Da", 0, 3);
+      assertTraceSameAsJdk("\\X", "a\u0301\u200D\uD83D\uDE00\u0300", 1, 5);
+      assertTraceSameAsJdk("\\X", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
+      assertTraceSameAsJdk("\\X\\X", "\u0301\u200Da", 0, 3);
+      assertTraceSameAsJdk("\\X\\b{g}", "\u200D\uD83D\uDC69", 0, 3);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uDE00\u200D\uD83D\uDC69", 0, 4);
+    }
+
+    @Test
+    @DisplayName("\\X treats controls as standalone grapheme clusters")
+    void treatsControlsAsStandaloneGraphemeClusters() {
+      assertTraceSameAsJdk("\\X", "\r\u0301", 0, 2);
+      assertTraceSameAsJdk("\\X", "\n\u0301", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0000\u0301", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0600\r", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0600\n", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0600\uDE00", 0, 2);
+      assertTraceSameAsJdk("\\X", "\uD83D\u0301", 0, 2);
+      assertTraceSameAsJdk("\\X", "\uD83D\u200D", 0, 2);
+    }
+
+    @Test
+    @DisplayName("\\X keeps trailing extenders with non-base cluster forms")
+    void keepsTrailingExtendersWithNonBaseClusterForms() {
+      assertTraceSameAsJdk("\\X", "\uD83C\uDDFA\uD83C\uDDFA\u0301", 0, 5);
+      assertTraceSameAsJdk("\\X", "\uD83C\uDDFA\uD83C\uDDFA\u200D", 0, 5);
+      assertTraceSameAsJdk("\\X", "\uD83C\uDDFA\uD83C\uDDFA\uD83C\uDFFD", 0, 6);
+      assertTraceSameAsJdk("\\X\\X", "#\r\r\uD83C\uDDFA\uD83C\uDDFA\u0301$", 1, 8);
+      assertTraceSameAsJdk("\\X", "\u1100\u1161\u0301", 0, 3);
+      assertTraceSameAsJdk("\\X", "\uAC00\u11A8\u0301", 0, 3);
+    }
+
+    @Test
+    @DisplayName("\\X keeps prepend characters with following non-base cluster forms")
+    void keepsPrependCharactersWithFollowingNonBaseClusterForms() {
+      assertTraceSameAsJdk("\\X", "\u0600\uD83C\uDDFA\uD83C\uDDFA", 0, 5);
+      assertTraceSameAsJdk("\\X", "\u0600\u1100\u1161", 0, 3);
+      assertTraceSameAsJdk("\\X", "\u0600\uAC00\u11A8", 0, 3);
+      assertTraceSameAsJdk("\\X", "\u0600\u0301", 0, 2);
+      assertTraceSameAsJdk("\\X", "\u0600\uD83D\uDC69\u200D\uD83D\uDC69", 0, 6);
+      assertTraceSameAsJdk("\\X\\b{g}", "\u0600\uD83D\uDC69\u200D\uD83D\uDC69", 0, 6);
+    }
+
+    @Test
+    @DisplayName("\\X keeps ZWJ extenders inside pictographic sequences")
+    void keepsZwjExtendersInsidePictographicSequences() {
+      assertTraceSameAsJdk("\\X", "\uD83D\uDC69\u200D\u200D\uD83D\uDC69", 0, 6);
+      assertTraceSameAsJdk("\\X", "\uD83D\uDC69\u200D\u0301\u200D\uD83D\uDC69", 0, 7);
+      assertTraceSameAsJdk("\\X", "\uD83D\uDC69\u200D\uD83D\uDC69\u200D", 0, 6);
+      assertTraceSameAsJdk("\\X", "\uD83D\uDC69\u200D\uD83D\uDC69\u200D\u0301", 0, 7);
+      assertTraceSameAsJdk(
+          "\\X\\X", "#\uDE00\uD83D\uDC69\u200D\uD83D\uDC69\u200D\uD83D\uDC69$", 1, 10);
+    }
+
+    @Test
+    @DisplayName("repeated find with an internal grapheme boundary follows JDK CRLF state")
+    void repeatedFindWithInternalGraphemeBoundaryFollowsJdkCrLfState() {
+      assertTraceSameAsJdk("\\r\\b{g}\\n", "#\r\n\r\n$", 1, 5);
+    }
+
+    @Test
+    @DisplayName("consecutive \\X atoms do not split leading extenders or Hangul clusters")
+    void consecutiveAtomsDoNotSplitLeadingExtendersOrHangulClusters() {
+      assertTraceSameAsJdk("\\X\\X", "\u200D\u0301", 0, 2);
+      assertTraceSameAsJdk("\\X\\X", "\u200D\u200D", 0, 2);
+      assertTraceSameAsJdk("\\X\\X", "\u1100\uAC01", 0, 2);
+    }
+
+    @Test
+    @DisplayName("\\X treats standalone low surrogates as separate from following extenders")
+    void treatsStandaloneLowSurrogatesAsSeparateFromFollowingExtenders() {
+      assertTraceSameAsJdk("\\X", "\uDE00\u0301", 0, 2);
+      assertTraceSameAsJdk("\\b{g}", "\uD83D\u0600\uD83D\uDE00", 1, 3);
+      assertTraceSameAsJdk("\\b{g}", "#\uDE00\u200D\u0301$", 1, 4);
+      assertTraceSameAsJdk("\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
+      assertFindGroupsSameAsJdk("(\\b{g})", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D\uDE00", 1, 6);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u200D\uD83D\uDE00", 1, 6);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uDE00", 1, 4);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\uD83C\uDDFA", 1, 5);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83C\uDDFA", 1, 6);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uD83C\uDDFA", 1, 6);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\uD83C\uDFFD\uD83D\uDE00", 1, 6);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\uD83C\uDFFD\u200D\uD83D\uDE00", 1, 7);
+      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDC69\u200D\uD83D\uDCBB\uDE00", 1, 5);
+      assertTraceSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDC69", 0, 5);
+      assertFindGroupsSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDC69", 0, 5);
+      assertTraceSameAsJdk("\\X\\X", "\r\uDE00\u0301", 0, 3);
+      assertTraceSameAsJdk("\\X\\X", "\uDE00\uDE00\u0301", 0, 3);
+      assertTraceSameAsJdk("\\X\\X", "#\uDE00\uD83D\uDC69\u200D\uD83D\uDC69\u0301$", 1, 8);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "#\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8$", 1, 7);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "#\r\uD83C\uDDFA$", 1, 4);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "#\u200D\uD83D\uDC69$", 1, 4);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\r\r\uDE00", 1, 5);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\r\r", 1, 5);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\r\n", 1, 5);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uDE00\uDE00", 1, 5);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDC69\u0301\r", 1, 7);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDC69\u200D\uDE00a", 1, 8);
+      assertTraceSameAsJdk(
+          "\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDC69\u200D\uD83D\uDC69", 1, 8);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D\uDC69\u0301a", 1, 8);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\u200D\uD83D\uDC69\u200Da", 1, 8);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D\uDE00", 1, 6);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83C\uDDFA", 1, 6);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D", 1, 5);
+      assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00\r\r\uDE00", 1, 4);
+      assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00a\u0903\r\n\uDE00", 1, 6);
+      assertTraceSameAsJdk(
+          "\\X\\X",
+          "#\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDC69\uD83C\uDFFD"
+              + "\u200D\uD83D\uDC69\uD83C\uDFFD$",
+          1,
+          15);
+    }
+
+    @Test
+    @DisplayName("repeated find does not split regional-indicator pairs after controls")
+    void repeatedFindDoesNotSplitRegionalIndicatorPairsAfterControls() {
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uAC01\uD83C\uDDFA\uD83C\uDDFA\r", 0, 6);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "a\uD83C\uDDFA\u200D\uD83C\uDDFA", 0, 6);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\r\u0903\u0903\u0903\u1100", 0, 5);
+      assertTraceSameAsJdk("\\X\\X", "#\r\r\uD83C\uDDFA\uD83C\uDDFA$", 1, 7);
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms preserve match bounds after leading combining marks")
     void consecutiveAtomsPreserveBoundsAfterLeadingCombiningMarks() {
       String text = "\u0301".repeat(44) + "a".repeat(8);
@@ -335,6 +468,39 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("unanchored consecutive \\X atoms follow JDK search positions")
+    void unanchoredConsecutiveAtomsFollowJdkSearchPositions() {
+      assertFindBoundsSameAsJdk("\\X\\X", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("\\X{2}", "\uD83D\uDC4D\uD83C\uDFFD");
+      assertFindBoundsSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDCBB");
+      assertFindBoundsSameAsJdk("(?:\\X)(?:\\X)", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("\\X{1}\\X", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("(?:\\X){2}", "\uD83C\uDDFA\uD83C\uDDF8");
+      assertFindBoundsSameAsJdk("\\X+", "ab");
+    }
+
+    @Test
+    @DisplayName("unanchored multi-boundary \\X search keeps bounded startup allocation")
+    void unanchoredMultiBoundarySearchKeepsBoundedStartupAllocation() {
+      AllocationTracker allocationTracker = allocationTracker();
+      long threadId = Thread.currentThread().threadId();
+      String text = "ab" + "c".repeat(100_000);
+
+      for (String regex : List.of("\\X\\X", "\\X{2}", "(?:\\X)(?:\\X)")) {
+        Pattern pattern = Pattern.compile(regex);
+
+        long before = allocationTracker.allocatedBytes(threadId);
+        Matcher matcher = pattern.matcher(text);
+        assertThat(matcher.find()).as("find() for /%s/", regex).isTrue();
+        assertThat(matcher.start()).as("start for /%s/", regex).isEqualTo(0);
+        assertThat(matcher.end()).as("end for /%s/", regex).isEqualTo(2);
+        long allocated = allocationTracker.allocatedBytes(threadId) - before;
+
+        assertThat(allocated).as("allocated bytes for /%s/", regex).isLessThan(4_000_000L);
+      }
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms do not split a single grapheme cluster")
     void consecutiveAtomsDoNotSplitSingleCluster() {
       Pattern p = Pattern.compile("^\\X\\X$");
@@ -345,6 +511,17 @@ class LinebreakGraphemeTest {
       assertThat(p.matcher("\u0600a").matches()).isFalse();
       assertThat(p.matcher("\u1100\u1161").matches()).isFalse();
       assertThat(p.matcher("e\u0301a").matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("consecutive \\X atoms respect regions split inside surrogate pairs")
+    void consecutiveAtomsRespectRegionsSplitInsideSurrogatePairs() {
+      String regionEndsInsidePair = "\uDE00\uD83D\uDE00";
+      assertTraceSameAsJdk("^\\X\\X$", regionEndsInsidePair, 0, 2);
+      assertTraceSameAsJdk("\\X{2}", regionEndsInsidePair, 0, 2);
+
+      String regionStartsInsidePair = "\uD83D\uDE00\uD83D\uDE01";
+      assertTraceSameAsJdk("\\X{2}", regionStartsInsidePair, 1, 4);
     }
 
     @Test
@@ -490,6 +667,108 @@ class LinebreakGraphemeTest {
         clusters.add(m.group());
       }
       assertThat(clusters).containsExactly("H", "e\u0301", "l", "l", "o");
+    }
+
+    private void assertFindBoundsSameAsJdk(String regex, String input) {
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(regex).matcher(input);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input);
+
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s", regex, input)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private void assertFindGroupsSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+
+      assertThat(safeMatcher.find()).as("SafeRE find() should match").isEqualTo(jdkMatcher.find());
+      assertThat(safeMatcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
+      for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
+        assertThat(safeMatcher.group(group))
+            .as("group %s for /%s/ on %s region [%s,%s]", group, regex, input, start, end)
+            .isEqualTo(jdkMatcher.group(group));
+      }
+    }
+
+    private void assertTraceSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+
+      assertThat(safeMatcher.matches())
+          .as("matches() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.matches());
+
+      jdkMatcher.reset(input).region(start, end);
+      safeMatcher.reset(input).region(start, end);
+      assertThat(safeMatcher.lookingAt())
+          .as("lookingAt() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.lookingAt());
+
+      jdkMatcher.reset(input).region(start, end);
+      safeMatcher.reset(input).region(start, end);
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private AllocationTracker allocationTracker() {
+      try {
+        Class<?> managementFactoryClass = Class.forName("java.lang.management.ManagementFactory");
+        Object threadBean = managementFactoryClass.getMethod("getThreadMXBean").invoke(null);
+        Class<?> allocationBeanClass = Class.forName("com.sun.management.ThreadMXBean");
+        Assumptions.assumeTrue(allocationBeanClass.isInstance(threadBean));
+
+        Method supportedMethod = allocationBeanClass.getMethod("isThreadAllocatedMemorySupported");
+        Method enabledMethod = allocationBeanClass.getMethod("isThreadAllocatedMemoryEnabled");
+        Method setEnabledMethod =
+            allocationBeanClass.getMethod("setThreadAllocatedMemoryEnabled", boolean.class);
+        Method allocatedBytesMethod =
+            allocationBeanClass.getMethod("getThreadAllocatedBytes", long.class);
+
+        Assumptions.assumeTrue((Boolean) supportedMethod.invoke(threadBean));
+        if (!(Boolean) enabledMethod.invoke(threadBean)) {
+          setEnabledMethod.invoke(threadBean, true);
+        }
+        return new AllocationTracker(threadBean, allocatedBytesMethod);
+      } catch (ReflectiveOperationException e) {
+        Assumptions.abort("thread allocation tracking is unavailable: " + e);
+        throw new AssertionError("unreachable");
+      }
+    }
+
+    private record AllocationTracker(Object threadBean, Method allocatedBytesMethod) {
+      long allocatedBytes(long threadId) {
+        try {
+          return (Long) allocatedBytesMethod.invoke(threadBean, threadId);
+        } catch (IllegalAccessException e) {
+          throw new AssertionError(e);
+        } catch (InvocationTargetException e) {
+          throw new AssertionError(e.getCause());
+        }
+      }
     }
   }
 }

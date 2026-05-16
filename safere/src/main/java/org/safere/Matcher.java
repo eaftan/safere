@@ -138,10 +138,13 @@ public final class Matcher implements MatchResult {
   private boolean anchoringBounds = true;
   private int regionStart;
   private int regionEnd;
+  private boolean regionStartInsideSurrogatePairContext;
+  private boolean opaqueGraphemeRegionContext;
   private boolean lastHitEnd;
   private boolean lastEngineHitEnd;
   private boolean lastRequireEnd;
   private boolean findExhaustedAfterTerminalEmptyMatch;
+  private boolean boundaryStartedRepeatedFindAdvance;
   private int modCount;
 
   /**
@@ -647,10 +650,14 @@ public final class Matcher implements MatchResult {
     boolean regionSubstituted = false;
 
     try {
+      if (regionActive) {
+        regionStartInsideSurrogatePairContext = regionStartsInsideSurrogatePair();
+        opaqueGraphemeRegionContext = !transparentBounds && needsFullTextGraphemeRegion();
+      }
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
         return applyEngineResult(new NoMatchResult());
       }
-      if (regionActive && transparentBounds) {
+      if (regionActive && (transparentBounds || needsFullTextGraphemeRegion())) {
         return matchesTransparentRegion();
       }
       if (regionActive) {
@@ -673,6 +680,8 @@ public final class Matcher implements MatchResult {
           deferredMatchEnd += regionStart;
         }
       }
+      regionStartInsideSurrogatePairContext = false;
+      opaqueGraphemeRegionContext = false;
       updateEndState(MatchOperation.MATCHES);
     }
   }
@@ -718,6 +727,7 @@ public final class Matcher implements MatchResult {
     EnginePathOptions options = enginePathOptions();
     OnePass onePass = options.onePass() ? parentPattern.onePass() : null;
     if (onePass != null
+        && !prog.hasGraphemeClusterBoundary()
         && (!options.semanticGuards() || !parentPattern.hasNullableAlternation())
         && canUsePikeEquivalentCaptures(prog)) {
       OnePass.SearchResult result = onePass.search(text, true, prog.numCaptures());
@@ -726,7 +736,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if a full match exists.
-    if (enginePathOptions().dfa()) {
+    if (enginePathOptions().dfa() && !prog.hasGraphemeClusterBoundary()) {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         this.lastEngineHitEnd = dfaResult.hitEnd();
@@ -783,10 +793,14 @@ public final class Matcher implements MatchResult {
     boolean regionSubstituted = false;
 
     try {
+      if (regionActive) {
+        regionStartInsideSurrogatePairContext = regionStartsInsideSurrogatePair();
+        opaqueGraphemeRegionContext = !transparentBounds && needsFullTextGraphemeRegion();
+      }
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
         return applyEngineResult(new NoMatchResult());
       }
-      if (regionActive && transparentBounds) {
+      if (regionActive && (transparentBounds || needsFullTextGraphemeRegion())) {
         return lookingAtTransparentRegion();
       }
       if (regionActive) {
@@ -809,6 +823,8 @@ public final class Matcher implements MatchResult {
           deferredMatchEnd += regionStart;
         }
       }
+      regionStartInsideSurrogatePairContext = false;
+      opaqueGraphemeRegionContext = false;
       updateEndState(MatchOperation.LOOKING_AT);
     }
   }
@@ -847,6 +863,7 @@ public final class Matcher implements MatchResult {
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
     if (enginePathOptions().onePass()
         && parentPattern.canOnePassPrimary()
+        && !prog.hasGraphemeClusterBoundary()
         && canUsePikeEquivalentCaptures(prog)) {
       OnePass onePass = parentPattern.onePass();
       OnePass.SearchResult result = onePass.search(text, false, prog.numCaptures());
@@ -855,7 +872,7 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    if (enginePathOptions().dfa()) {
+    if (enginePathOptions().dfa() && !prog.hasGraphemeClusterBoundary()) {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         return applyEngineResult(new NoMatchResult());
@@ -908,9 +925,28 @@ public final class Matcher implements MatchResult {
           return false;
         }
         searchFrom++;
+      } else if (parentPattern.startsWithGraphemeClusterBoundary() && searchFrom < regionEnd) {
+        searchFrom = nextGraphemeClusterBoundary(searchFrom);
+        boundaryStartedRepeatedFindAdvance = true;
+      } else if (parentPattern.hasInternalGraphemeClusterBoundary()
+          && searchFrom < regionEnd
+          && endedAfterCrLf(searchFrom)) {
+        searchFrom++;
       }
     }
     return doFind();
+  }
+
+  private boolean endedAfterCrLf(int pos) {
+    return pos >= 2 && text.charAt(pos - 2) == '\r' && text.charAt(pos - 1) == '\n';
+  }
+
+  private int nextGraphemeClusterBoundary(int start) {
+    int pos = Math.min(start + 1, regionEnd);
+    while (pos < regionEnd && !Nfa.isGraphemeClusterBoundary(text, pos)) {
+      pos++;
+    }
+    return pos;
   }
 
   /**
@@ -970,10 +1006,14 @@ public final class Matcher implements MatchResult {
     boolean regionSubstituted = false;
 
     try {
+      if (regionActive) {
+        regionStartInsideSurrogatePairContext = regionStartsInsideSurrogatePair();
+        opaqueGraphemeRegionContext = !transparentBounds && needsFullTextGraphemeRegion();
+      }
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
         return applyEngineResult(new NoMatchResult());
       }
-      if (regionActive && transparentBounds) {
+      if (regionActive && (transparentBounds || needsFullTextGraphemeRegion())) {
         return doFindTransparentRegion();
       }
       if (regionActive) {
@@ -998,7 +1038,10 @@ public final class Matcher implements MatchResult {
           deferredMatchEnd += regionStart;
         }
       }
+      regionStartInsideSurrogatePairContext = false;
+      opaqueGraphemeRegionContext = false;
       updateEndState(MatchOperation.FIND);
+      boundaryStartedRepeatedFindAdvance = false;
     }
   }
 
@@ -1018,8 +1061,43 @@ public final class Matcher implements MatchResult {
     if (regionEnd == text.length()) {
       return true;
     }
+    if (prog.hasGraphemeClusterBoundary() && regionEndsInsideSurrogatePair()) {
+      return true;
+    }
     return prog.dollarAnchorEnd()
         && Nfa.isAtTrailingLineTerminator(text, regionEnd, prog.unixLines());
+  }
+
+  private boolean needsFullTextGraphemeRegion() {
+    return parentPattern.hasInternalGraphemeClusterBoundary()
+        || regionStartsInsideSurrogatePair()
+        || regionStartsAtZwjAfterPairedLowSurrogate()
+        || regionEndsInsideSurrogatePair();
+  }
+
+  private boolean regionStartsAtZwjAfterPairedLowSurrogate() {
+    return parentPattern.prog().hasGraphemeClusterBoundary()
+        && regionStart > 1
+        && regionStart < text.length()
+        && text.charAt(regionStart) == 0x200D
+        && Character.isLowSurrogate(text.charAt(regionStart - 1))
+        && Character.isHighSurrogate(text.charAt(regionStart - 2));
+  }
+
+  private boolean regionStartsInsideSurrogatePair() {
+    return parentPattern.prog().hasGraphemeClusterBoundary()
+        && regionStart > 0
+        && regionStart < text.length()
+        && Character.isHighSurrogate(text.charAt(regionStart - 1))
+        && Character.isLowSurrogate(text.charAt(regionStart));
+  }
+
+  private boolean regionEndsInsideSurrogatePair() {
+    return parentPattern.prog().hasGraphemeClusterBoundary()
+        && regionEnd > 0
+        && regionEnd < text.length()
+        && Character.isHighSurrogate(text.charAt(regionEnd - 1))
+        && Character.isLowSurrogate(text.charAt(regionEnd));
   }
 
   private boolean matchesTransparentRegion() {
@@ -1044,6 +1122,7 @@ public final class Matcher implements MatchResult {
     capturesResolved = true;
     groupZeroResolved = true;
     Prog prog = parentPattern.prog();
+    int endPos = anchoredGraphemeSearchEndPos(prog);
     return applyEngineResult(
         new FullMatchResult(
             searchWithBitStateOrNfa(
@@ -1051,7 +1130,7 @@ public final class Matcher implements MatchResult {
                 text,
                 regionStart,
                 regionStart,
-                regionEnd,
+                endPos,
                 true,
                 false,
                 false,
@@ -1065,18 +1144,62 @@ public final class Matcher implements MatchResult {
     capturesResolved = true;
     groupZeroResolved = true;
     Prog prog = parentPattern.prog();
-    return applyEngineResult(
-        new FullMatchResult(
-            searchWithBitStateOrNfa(
-                prog,
-                text,
-                searchFrom,
-                regionEnd,
-                regionEnd,
-                false,
-                false,
-                false,
-                prog.numCaptures())));
+    if (prog.anchorStart() && searchFrom > regionStart) {
+      return applyEngineResult(new NoMatchResult());
+    }
+    int endPos = anchoredGraphemeSearchEndPos(prog);
+    int[] result =
+        searchWithBitStateOrNfa(
+            prog, text, searchFrom, regionEnd, endPos, false, false, false, prog.numCaptures());
+    if (prog.hasGraphemeClusterBoundary() && !prog.anchorStart()) {
+      result =
+          nextValidGraphemeCandidate(
+              result, text, searchFrom, regionEnd, endPos, prog.numCaptures(), regionStart);
+      if (result == null && !parentPattern.startsWithGraphemeClusterBoundary()) {
+        result = searchLowSurrogateStarts(text, searchFrom, regionEnd, prog.numCaptures());
+      }
+    }
+    return applyEngineResult(new FullMatchResult(result));
+  }
+
+  private int anchoredGraphemeSearchEndPos(Prog prog) {
+    return prog.anchorEnd() && regionEndsInsideSurrogatePair() ? regionEnd + 1 : regionEnd;
+  }
+
+  private boolean startsAtRegionStartSplitLowSurrogateZwjBoundaryWrappedMatch(int start) {
+    return hasBoundaryWrappedConsumingBody(parentPattern.ast())
+        && regionStartsInsideSurrogatePair()
+        && startsAtRegionStartSplitLowSurrogateZwj(start);
+  }
+
+  private boolean startsAtRegionStartSplitLowSurrogateZwj(int start) {
+    return start == regionStart + 1 && start < text.length() && text.charAt(start) == 0x200D;
+  }
+
+  private static boolean hasBoundaryWrappedConsumingBody(Regexp re) {
+    Regexp node = unwrapCaptures(re);
+    if (node.op != RegexpOp.CONCAT || node.nsub() < 3) {
+      return false;
+    }
+    if (unwrapCaptures(node.subs.getFirst()).op != RegexpOp.GRAPHEME_CLUSTER_BOUNDARY
+        || unwrapCaptures(node.subs.getLast()).op != RegexpOp.GRAPHEME_CLUSTER_BOUNDARY) {
+      return false;
+    }
+    for (int i = 1; i < node.nsub() - 1; i++) {
+      Regexp sub = unwrapCaptures(node.subs.get(i));
+      if (sub.op != RegexpOp.GRAPHEME_CLUSTER_BOUNDARY) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static Regexp unwrapCaptures(Regexp re) {
+    Regexp node = re;
+    while (node.op == RegexpOp.CAPTURE) {
+      node = node.sub();
+    }
+    return node;
   }
 
   /**
@@ -1236,6 +1359,7 @@ public final class Matcher implements MatchResult {
     if (options.onePass()
         && (parentPattern.canOnePassPrimary()
             || (!options.semanticGuards() && parentPattern.onePass() != null))
+        && !prog.hasGraphemeClusterBoundary()
         && text.length() <= 256
         && canUsePikeEquivalentCaptures(prog)
         && (!options.semanticGuards() || !parentPattern.hasNullableAlternation())) {
@@ -1363,7 +1487,7 @@ public final class Matcher implements MatchResult {
     // precheck cannot produce reusable bounds and would fall through to the complete fallback
     // search anyway.
     Dfa.SearchResult fwdResult;
-    if (!options.dfa() || directFallback) {
+    if (!options.dfa() || directFallback || prog.hasGraphemeClusterBoundary()) {
       fwdResult = null;
     } else {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
@@ -1512,15 +1636,275 @@ public final class Matcher implements MatchResult {
             false,
             false,
             nsubmatch);
+    boolean fullCapturesFromGraphemeFallback = false;
+    if (prog.hasGraphemeClusterBoundary() && !prog.anchorStart()) {
+      int candidateRegionStart = regionActive ? 0 : regionStart;
+      result =
+          nextValidGraphemeCandidate(
+              result,
+              text,
+              effectiveStart,
+              text.length(),
+              text.length(),
+              nsubmatch,
+              candidateRegionStart);
+      if (result == null && !parentPattern.startsWithGraphemeClusterBoundary()) {
+        result = searchLowSurrogateStarts(text, effectiveStart, text.length(), prog.numCaptures());
+        fullCapturesFromGraphemeFallback = result != null;
+      }
+    }
     if (result == null) {
       return applyEngineResult(new NoMatchResult());
     }
-    if (!lazyFallbackCaptures || prog.numCaptures() <= 1) {
+    if (!lazyFallbackCaptures || prog.numCaptures() <= 1 || fullCapturesFromGraphemeFallback) {
       return applyEngineResult(new FullMatchResult(result));
     } else {
       return applyEngineResult(
           new DeferredMatchResult(result[0], result[1], prog.numCaptures(), true, false));
     }
+  }
+
+  private int[] searchLowSurrogateStarts(
+      String text, int effectiveStart, int searchLimit, int nsubmatch) {
+    for (int pos = Math.max(0, effectiveStart); pos < searchLimit; pos++) {
+      if (!Character.isLowSurrogate(text.charAt(pos))) {
+        continue;
+      }
+      Matcher verifier = parentPattern.matcher(text).region(pos, searchLimit);
+      if (verifier.lookingAt()) {
+        int ncap = 2 * Math.max(nsubmatch, 1);
+        return Arrays.copyOf(verifier.groups, ncap);
+      }
+    }
+    return null;
+  }
+
+  private int[] nextValidGraphemeCandidate(
+      int[] result,
+      String text,
+      int start,
+      int searchLimit,
+      int endPos,
+      int nsubmatch,
+      int candidateRegionStart) {
+    Prog prog = parentPattern.prog();
+    int retryStart = start;
+    while (result != null
+        && result[0] != result[1]
+        && (!isAnchoredCandidate(result, text, searchLimit)
+            || startsAtNonRegionLowSurrogateAfterExplicitGraphemeBoundary(
+                text, result[0], candidateRegionStart)
+            || startsAtExtenderAfterRegionStartSplitLowSurrogate(
+                text, result[0], candidateRegionStart)
+            || startsAtSupplementaryAfterRegionStartSplitLowSurrogateZwj(
+                text, result[0], candidateRegionStart)
+            || startsAtRegionStartSplitLowSurrogateZwjBoundaryWrappedMatch(result[0])
+            || startsInsideRegionStartSplitLowSurrogateZwjPictographicContinuation(
+                text, result[0], candidateRegionStart)
+            || startsInsidePairedSupplementaryClusterAfterRepeatedBoundaryFind(text, result[0])
+            || (hasExplicitGraphemeClusterBoundary(parentPattern.ast())
+                && endsInsideFullTextPictographicZwjSequence(
+                    text, result[0], result[1], candidateRegionStart)))) {
+      retryStart = Math.max(result[0] + 1, retryStart + 1);
+      if (retryStart > searchLimit) {
+        return null;
+      }
+      result =
+          searchWithBitStateOrNfa(
+              prog, text, retryStart, searchLimit, endPos, false, false, false, nsubmatch);
+    }
+    if (result != null && result[0] != result[1] && result[0] > start) {
+      int[] earlier =
+          searchAnchoredGraphemeCandidates(
+              text, start, result[0], searchLimit, nsubmatch, candidateRegionStart);
+      if (earlier != null) {
+        return earlier;
+      }
+    }
+    return result;
+  }
+
+  private boolean endsInsideFullTextPictographicZwjSequence(
+      String text, int pos, int end, int candidateRegionStart) {
+    if (pos <= candidateRegionStart
+        || candidateRegionStart < 0
+        || candidateRegionStart >= text.length()
+        || !Character.isLowSurrogate(text.charAt(candidateRegionStart))
+        || candidateRegionStart == 0
+        || !Character.isHighSurrogate(text.charAt(candidateRegionStart - 1))
+        || !Nfa.isExtendedPictographicAt(text, end)) {
+      return false;
+    }
+    int lastZwj = -1;
+    int scan = pos;
+    while (scan < end) {
+      if (!Nfa.hasGraphemeExtendAt(text, scan)) {
+        return false;
+      }
+      if (text.charAt(scan) == 0x200D) {
+        lastZwj = scan;
+      }
+      scan += Character.charCount(text.codePointAt(scan));
+    }
+    return lastZwj == end - 1 && Nfa.hasExtendedPictographicBeforeZwj(text, lastZwj, 0);
+  }
+
+  private boolean startsAtNonRegionLowSurrogateAfterExplicitGraphemeBoundary(
+      String text, int pos, int candidateRegionStart) {
+    return parentPattern.startsWithGraphemeClusterBoundary()
+        && pos != candidateRegionStart
+        && pos > 0
+        && pos < text.length()
+        && Character.isHighSurrogate(text.charAt(pos - 1))
+        && Character.isLowSurrogate(text.charAt(pos));
+  }
+
+  private boolean startsAtExtenderAfterRegionStartSplitLowSurrogate(
+      String text, int pos, int candidateRegionStart) {
+    if (!parentPattern.startsWithGraphemeClusterBoundary()
+        || pos <= candidateRegionStart
+        || candidateRegionStart <= 0
+        || candidateRegionStart >= text.length()
+        || !Character.isLowSurrogate(text.charAt(candidateRegionStart))
+        || !Character.isHighSurrogate(text.charAt(candidateRegionStart - 1))
+        || !Nfa.hasGraphemeExtendAt(text, pos)) {
+      return false;
+    }
+    int scan = pos;
+    while (scan > candidateRegionStart + 1) {
+      int previous = text.codePointBefore(scan);
+      int previousPos = scan - Character.charCount(previous);
+      if (!Nfa.hasGraphemeExtendAt(text, previousPos)) {
+        return false;
+      }
+      scan = previousPos;
+    }
+    return scan == candidateRegionStart + 1;
+  }
+
+  private boolean startsAtSupplementaryAfterRegionStartSplitLowSurrogateZwj(
+      String text, int pos, int candidateRegionStart) {
+    return parentPattern.startsWithGraphemeClusterBoundary()
+        && pos > candidateRegionStart + 1
+        && pos < text.length()
+        && Nfa.isExtendedPictographicAt(text, pos)
+        && text.charAt(pos - 1) == 0x200D
+        && startsAtExtenderAfterRegionStartSplitLowSurrogate(text, pos - 1, candidateRegionStart);
+  }
+
+  private boolean startsInsideRegionStartSplitLowSurrogateZwjPictographicContinuation(
+      String text, int pos, int candidateRegionStart) {
+    if (!parentPattern.startsWithGraphemeClusterBoundary()
+        || candidateRegionStart <= 0
+        || !Character.isLowSurrogate(text.charAt(candidateRegionStart))
+        || !Character.isHighSurrogate(text.charAt(candidateRegionStart - 1))) {
+      return false;
+    }
+    int firstPictographic = -1;
+    boolean sawZwj = false;
+    int scan = candidateRegionStart + 1;
+    while (scan < pos && scan < text.length()) {
+      if (Nfa.isExtendedPictographicAt(text, scan)) {
+        firstPictographic = scan;
+        break;
+      }
+      if (!Nfa.hasGraphemeExtendAt(text, scan)) {
+        return false;
+      }
+      sawZwj |= text.codePointAt(scan) == 0x200D;
+      scan += Character.charCount(text.codePointAt(scan));
+    }
+    if (firstPictographic < 0 || !sawZwj || pos <= firstPictographic) {
+      return false;
+    }
+    scan = firstPictographic + Character.charCount(text.codePointAt(firstPictographic));
+    while (scan < pos) {
+      if (!Nfa.hasGraphemeExtendAt(text, scan)) {
+        return false;
+      }
+      scan += Character.charCount(text.codePointAt(scan));
+    }
+    if (scan != pos) {
+      return false;
+    }
+    if (Nfa.hasGraphemeExtendAt(text, pos)) {
+      return true;
+    }
+    return Nfa.isExtendedPictographicAt(text, pos)
+        && pos > 0
+        && text.codePointBefore(pos) == 0x200D;
+  }
+
+  private boolean startsInsidePairedSupplementaryClusterAfterRepeatedBoundaryFind(
+      String text, int pos) {
+    if (!boundaryStartedRepeatedFindAdvance || !Nfa.hasGraphemeExtendAt(text, pos)) {
+      return false;
+    }
+    int scan = pos;
+    while (scan > 0) {
+      int previous = text.codePointBefore(scan);
+      int previousPos = scan - Character.charCount(previous);
+      if (Character.charCount(previous) == 2) {
+        return true;
+      }
+      if (!Nfa.hasGraphemeExtendAt(text, previousPos)) {
+        return false;
+      }
+      scan = previousPos;
+    }
+    return false;
+  }
+
+  private int[] searchAnchoredGraphemeCandidates(
+      String text,
+      int start,
+      int endExclusive,
+      int searchLimit,
+      int nsubmatch,
+      int candidateRegionStart) {
+    for (int pos = Math.max(0, start); pos < endExclusive; pos++) {
+      Matcher verifier = parentPattern.matcher(text).region(pos, searchLimit);
+      if (verifier.lookingAt()
+          && !startsAtNonRegionLowSurrogateAfterExplicitGraphemeBoundary(
+              text, pos, candidateRegionStart)
+          && !startsAtExtenderAfterRegionStartSplitLowSurrogate(text, pos, candidateRegionStart)
+          && !startsAtSupplementaryAfterRegionStartSplitLowSurrogateZwj(
+              text, pos, candidateRegionStart)
+          && !startsAtRegionStartSplitLowSurrogateZwjBoundaryWrappedMatch(pos)
+          && !startsInsideRegionStartSplitLowSurrogateZwjPictographicContinuation(
+              text, pos, candidateRegionStart)
+          && !startsInsidePairedSupplementaryClusterAfterRepeatedBoundaryFind(text, pos)
+          && (!hasExplicitGraphemeClusterBoundary(parentPattern.ast())
+              || !endsInsideFullTextPictographicZwjSequence(
+                  text, pos, verifier.end(), candidateRegionStart))) {
+        int ncap = 2 * Math.max(nsubmatch, 1);
+        return Arrays.copyOf(verifier.groups, ncap);
+      }
+    }
+    return null;
+  }
+
+  private static boolean hasExplicitGraphemeClusterBoundary(Regexp re) {
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      if (node.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY
+          && (node.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) == 0) {
+        return true;
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return false;
+  }
+
+  private boolean isAnchoredCandidate(int[] result, String text, int searchLimit) {
+    Matcher verifier = parentPattern.matcher(text).region(result[0], searchLimit);
+    return verifier.lookingAt() && verifier.start() == result[0] && verifier.end() == result[1];
   }
 
   private boolean findKeywordAlternation(
@@ -1680,6 +2064,8 @@ public final class Matcher implements MatchResult {
     int maxBitStateLen = BitState.maxTextSize(prog);
     boolean canUseBitState =
         enginePathOptions().bitState()
+            && !(prog.hasGraphemeClusterBoundary() && !anchored)
+            && !prog.hasGraphemeClusterBoundary()
             && (!enginePathOptions().semanticGuards()
                 || !prog.requiresPikeNfaCaptureSemantics()
                 || nsubmatch <= 1);
@@ -1722,8 +2108,19 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
+    int nfaRegionStart =
+        (regionStartInsideSurrogatePairContext || opaqueGraphemeRegionContext) ? regionStart : 0;
     Nfa.SearchResult nfaResult =
-        Nfa.search(prog, text, startPos, searchLimit, endPos, nfaAnchor, nfaKind, nsubmatch);
+        Nfa.search(
+            prog,
+            text,
+            startPos,
+            searchLimit,
+            endPos,
+            nfaRegionStart,
+            nfaAnchor,
+            nfaKind,
+            nsubmatch);
     this.lastEngineHitEnd = nfaResult.hitEnd();
     return nfaResult.groups();
   }

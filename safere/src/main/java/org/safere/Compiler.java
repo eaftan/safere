@@ -1066,7 +1066,12 @@ final class Compiler extends Walker<Compiler.Frag> {
         yield emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
       }
 
-      case GRAPHEME_CLUSTER_BOUNDARY -> emptyWidth(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY);
+      case GRAPHEME_CLUSTER_BOUNDARY -> {
+        if ((re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) != 0) {
+          yield emptyWidth(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY);
+        }
+        yield emptyWidth(EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
+      }
 
       default -> {
         failed = true;
