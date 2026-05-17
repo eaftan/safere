@@ -70,6 +70,33 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void zeroWidthQuantifierSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("zero-width");
+
+    ZeroWidthQuantifierDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl"))).isTrue();
+  }
+
+  @Test
+  void zeroWidthQuantifierSweepIncludesRepeatedQuantifierRegressions() {
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsAllGeneratedRegexesForTesting(
+                java.util.List.of(
+                    "^*+",
+                    "^?+",
+                    "^{2}+",
+                    "$*+",
+                    "()*+",
+                    "(?:^|$)*+",
+                    "(?x)^ * +",
+                    "^*??",
+                    "^*{1}+",
+                    "\\b{g}{0,2}++")))
+        .isTrue();
+  }
+
+  @Test
   void characterClassReplayUsesConfiguredThreads() throws Exception {
     Path replayFile = tempDir.resolve("character-replay.jsonl");
     Path outputDir = tempDir.resolve("character-replay");
@@ -151,6 +178,24 @@ class SweepCliSmokeTest {
 
     String output =
         captureOutput(() -> GraphemeClusterDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("mode=replay", "checked=1", "generated=1", "threads=2");
+    assertThat(output).doesNotContain("threads=1");
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayUsesConfiguredThreads() throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"beginLine","operandRegex":"^","wrapperLabel":"bare","wrapperTemplate":"%s","firstQuantifierLabel":"plus","firstQuantifier":"+","suffixQuantifierLabel":"plus","suffixQuantifier":"+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
 
     assertThat(output).contains("mode=replay", "checked=1", "generated=1", "threads=2");
     assertThat(output).doesNotContain("threads=1");

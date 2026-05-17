@@ -205,3 +205,34 @@ titlecase-category case. Flag axes include `CASE_INSENSITIVE`,
 Use this sweep before review when changing case-folding, Unicode category, or
 character-class expansion behavior. Range bounds and replay files use the same
 conventions as the other exhaustive sweeps.
+
+## Zero-Width Quantifier Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh ZeroWidthQuantifierDivergenceSweep \
+  --output-dir=target/exhaustive-reports/zero-width-quantifier-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh ZeroWidthQuantifierDivergenceSweep --range=:10000 \
+  --output-dir=target/exhaustive-reports/zero-width-quantifier-sweep-smoke
+```
+
+The zero-width quantifier sweep compares SafeRE with `java.util.regex` for
+already-quantified zero-width operands followed by another quantifier suffix.
+It is exhaustive over the committed bounded grammar: 253 zero-width operands
+(single atoms plus all ordered two-atom concatenations and alternations), 4
+wrappers, 8 first quantifiers, 21 suffix quantifier spellings, 9 contexts, and 6
+flag/trivia modes, for 9,180,864 generated cases.
+
+Each case compares compile acceptance plus `matches()`, `lookingAt()`, and a
+bounded `find()` trace over short inputs that exercise empty text, literals,
+line endings, word boundaries, and grapheme-boundary-sensitive strings. The
+JSONL bucket labels include operand, wrapper, first quantifier, suffix
+quantifier, context, and flag mode so repeated-quantifier parser neighborhoods
+are visible in reports. Range bounds and replay files use the same conventions
+as the other exhaustive sweeps.
