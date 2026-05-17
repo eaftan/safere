@@ -764,6 +764,12 @@ class ParserTest {
       Regexp re = parse("a*\\{");
       assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"^+?+", "$*?+", "\\b+?+", "()+?+", "a+?+"})
+    void danglingQuantifierOnReluctantQuantifierRejected(String pattern) {
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
+    }
   }
 
   // ---------------------------------------------------------------------------

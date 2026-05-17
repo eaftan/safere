@@ -684,7 +684,11 @@ final class Parser {
   }
 
   private boolean canRepeatAfterUnary(RegexpOp op) {
-    return op == RegexpOp.PLUS && stacktop != null && isQuantifiedZeroWidth(stacktop.re);
+    return op == RegexpOp.PLUS
+        && stacktop != null
+        && stacktop.re.op == RegexpOp.PLUS
+        && !stacktop.re.nonGreedy()
+        && isQuantifiedZeroWidth(stacktop.re);
   }
 
   private boolean isQuantifiedZeroWidth(Regexp re) {
