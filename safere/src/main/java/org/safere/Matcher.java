@@ -2481,6 +2481,11 @@ public final class Matcher implements MatchResult {
    * performed by this matcher. When this method returns true, it is possible that more input would
    * have changed the result of the last search.
    *
+   * <p><strong>Warning:</strong> support for this method is best effort. SafeRE's linear-time
+   * engines explore matches differently from the JDK's backtracking engine, so exactly matching JDK
+   * behavior for this method is fundamentally difficult and may be impossible in some cases. Use
+   * this method with caution if exact JDK parity is required.
+   *
    * @return true if the end of input was hit in the last match; false otherwise
    */
   public boolean hitEnd() {
@@ -2497,6 +2502,11 @@ public final class Matcher implements MatchResult {
    * {@code $}, {@code \Z}, or word-boundary assertions ({@code \b}, {@code \B}) and the last match
    * reached the end of the input region. Like the JDK, {@code \z} does not trigger {@code
    * requireEnd}.
+   *
+   * <p><strong>Warning:</strong> support for this method is best effort. SafeRE's linear-time
+   * engines explore matches differently from the JDK's backtracking engine, so exactly matching JDK
+   * behavior for this method is fundamentally difficult and may be impossible in some cases. Use
+   * this method with caution if exact JDK parity is required.
    *
    * @return true if more input could change a positive match into a negative one
    */
