@@ -41,6 +41,12 @@ final class OnePass {
 
   private static final int MAX_CAP_REGS = 2 * MAX_CAPTURE_GROUPS;
 
+  // OnePass is an optional accelerator. Keep its dense transition table within a fixed raw
+  // payload budget and fall back to the other engines when a pattern would exceed it.
+  private static final int MAX_STATES = 65_000;
+  private static final long MAX_ACTION_BYTES = 16L * 1024L * 1024L;
+  static final long MAX_ACTION_CELLS = MAX_ACTION_BYTES / Long.BYTES;
+
   // -------------------------------------------------------------------------
   // Action encoding: each action is packed into a single long.
   //
@@ -118,20 +124,17 @@ final class OnePass {
   private final long matchStateBits;
 
   private OnePass(
-      long[][] actions,
+      long[] flatActions,
+      int numStates,
+      int numClasses,
       long[] matchAction,
       int[] boundaries,
       boolean anchorEnd,
       boolean dollarAnchorEnd,
       boolean unixLines,
       boolean hasGraphemeClusterBoundary) {
-    int numStates = actions.length;
-    int nc = (numStates > 0) ? actions[0].length : 0;
-    this.numClasses = nc;
-    this.flatActions = new long[numStates * nc];
-    for (int s = 0; s < numStates; s++) {
-      System.arraycopy(actions[s], 0, flatActions, s * nc, nc);
-    }
+    this.numClasses = numClasses;
+    this.flatActions = flatActions;
     this.matchAction = matchAction;
     this.boundaries = boundaries;
     this.asciiClassMap = buildAsciiClassMap(boundaries);
@@ -160,7 +163,8 @@ final class OnePass {
 
   /**
    * Attempts to build a one-pass automaton from the compiled program. Returns {@code null} if the
-   * pattern is not one-pass or exceeds the capture group limit.
+   * pattern is not one-pass, exceeds the capture group limit, or exceeds the transition-table
+   * memory budget.
    */
   static OnePass build(Prog prog) {
     if (prog.start() == 0) {
@@ -181,24 +185,20 @@ final class OnePass {
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length;
 
+    int maxStates = maxOnePassStates(prog);
+    if (maxStates > MAX_STATES || exceedsActionBudget(maxStates, numClasses)) {
+      return null;
+    }
+
     // State table. States are identified by instruction IDs.
     // nodeMap: instruction ID -> state index.
     Map<Integer, Integer> nodeMap = new HashMap<>();
-    int stateCount = 0;
-
-    // Pre-allocate generously; we'll trim later.
-    int maxStates = prog.size();
-    long[][] actions = new long[maxStates][numClasses];
-    long[] matchActions = new long[maxStates];
-    for (long[] row : actions) {
-      Arrays.fill(row, NO_ACTION);
-    }
-    Arrays.fill(matchActions, NO_ACTION);
+    BuildTables tables = new BuildTables(numClasses, maxStates);
 
     // BFS: process each state (instruction ID).
     Deque<Integer> worklist = new ArrayDeque<>();
     int startInst = prog.start();
-    nodeMap.put(startInst, stateCount++);
+    nodeMap.put(startInst, tables.addState());
     worklist.add(startInst);
 
     while (!worklist.isEmpty()) {
@@ -266,20 +266,21 @@ final class OnePass {
               if (nodeMap.containsKey(ip.out)) {
                 nextState = nodeMap.get(ip.out);
               } else {
-                if (stateCount >= maxStates) {
+                if (tables.stateCount() >= maxStates) {
                   return null; // too many states
                 }
-                nextState = stateCount++;
+                nextState = tables.addState();
                 nodeMap.put(ip.out, nextState);
                 worklist.add(ip.out);
               }
 
               long action = encodeAction(nextState, capMask, emptyFlags);
-              if (actions[stateIndex][cls] != NO_ACTION && actions[stateIndex][cls] != action) {
+              long existing = tables.action(stateIndex, cls);
+              if (existing != NO_ACTION && existing != action) {
                 // Two different transitions for the same equivalence class -> not one-pass.
                 return null;
               }
-              actions[stateIndex][cls] = action;
+              tables.setAction(stateIndex, cls, action);
             }
           }
           case CHAR_CLASS -> {
@@ -301,46 +302,123 @@ final class OnePass {
                 if (nodeMap.containsKey(ip.out)) {
                   nextState = nodeMap.get(ip.out);
                 } else {
-                  if (stateCount >= maxStates) {
+                  if (tables.stateCount() >= maxStates) {
                     return null;
                   }
-                  nextState = stateCount++;
+                  nextState = tables.addState();
                   nodeMap.put(ip.out, nextState);
                   worklist.add(ip.out);
                 }
 
                 long action = encodeAction(nextState, capMask, emptyFlags);
-                if (actions[stateIndex][cls] != NO_ACTION && actions[stateIndex][cls] != action) {
+                long existing = tables.action(stateIndex, cls);
+                if (existing != NO_ACTION && existing != action) {
                   return null;
                 }
-                actions[stateIndex][cls] = action;
+                tables.setAction(stateIndex, cls, action);
               }
             }
           }
           case MATCH -> {
             long action = encodeAction(0, capMask, emptyFlags);
-            if (matchActions[stateIndex] != NO_ACTION && matchActions[stateIndex] != action) {
+            long existing = tables.matchAction(stateIndex);
+            if (existing != NO_ACTION && existing != action) {
               // Two match paths with different conditions -> not one-pass.
               return null;
             }
-            matchActions[stateIndex] = action;
+            tables.setMatchAction(stateIndex, action);
           }
           default -> {}
         }
       }
     }
 
-    // Trim tables to actual state count.
-    long[][] trimmedActions = Arrays.copyOf(actions, stateCount);
-    long[] trimmedMatch = Arrays.copyOf(matchActions, stateCount);
     return new OnePass(
-        trimmedActions,
-        trimmedMatch,
+        tables.actions(),
+        tables.stateCount(),
+        numClasses,
+        tables.matchActions(),
         boundaries,
         prog.anchorEnd(),
         prog.dollarAnchorEnd(),
         prog.unixLines(),
         prog.hasGraphemeClusterBoundary());
+  }
+
+  private static boolean exceedsActionBudget(int maxStates, int numClasses) {
+    return maxStates > MAX_ACTION_CELLS / numClasses;
+  }
+
+  private static int maxOnePassStates(Prog prog) {
+    int maxStates = 1; // start state
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.op == InstOp.CHAR_RANGE || inst.op == InstOp.CHAR_CLASS) {
+        maxStates++;
+      }
+    }
+    return maxStates;
+  }
+
+  private static final class BuildTables {
+    private final int numClasses;
+    private final int maxStates;
+    private long[] actions = new long[0];
+    private long[] matchActions = new long[0];
+    private int allocatedStates;
+    private int stateCount;
+
+    BuildTables(int numClasses, int maxStates) {
+      this.numClasses = numClasses;
+      this.maxStates = maxStates;
+    }
+
+    int stateCount() {
+      return stateCount;
+    }
+
+    int addState() {
+      ensureStateCapacity(stateCount + 1);
+      int state = stateCount++;
+      Arrays.fill(actions, state * numClasses, (state + 1) * numClasses, NO_ACTION);
+      matchActions[state] = NO_ACTION;
+      return state;
+    }
+
+    long action(int state, int cls) {
+      return actions[state * numClasses + cls];
+    }
+
+    void setAction(int state, int cls, long action) {
+      actions[state * numClasses + cls] = action;
+    }
+
+    long matchAction(int state) {
+      return matchActions[state];
+    }
+
+    void setMatchAction(int state, long action) {
+      matchActions[state] = action;
+    }
+
+    long[] actions() {
+      return actions;
+    }
+
+    long[] matchActions() {
+      return Arrays.copyOf(matchActions, stateCount);
+    }
+
+    private void ensureStateCapacity(int minStates) {
+      if (allocatedStates >= minStates) {
+        return;
+      }
+      int newStates = Math.max(minStates, Math.max(4, allocatedStates * 2));
+      newStates = Math.min(newStates, maxStates);
+      actions = Arrays.copyOf(actions, Math.toIntExact((long) newStates * numClasses));
+      matchActions = Arrays.copyOf(matchActions, newStates);
+      allocatedStates = newStates;
+    }
   }
 
   /** Builds sorted code point boundaries from all CHAR_RANGE and CHAR_CLASS instructions. */

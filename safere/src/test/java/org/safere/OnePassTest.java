@@ -30,6 +30,14 @@ class OnePassTest {
     return OnePass.build(prog);
   }
 
+  private static String distinctLiteralRun(int count) {
+    StringBuilder pattern = new StringBuilder(count);
+    for (int i = 0; i < count; i++) {
+      pattern.appendCodePoint(0x1000 + i * 2);
+    }
+    return pattern.toString();
+  }
+
   /** Helper: run one-pass search (anchored, endMatch=false). */
   private static int[] search(String pattern, String text) {
     Regexp re = Parser.parse(pattern, FLAGS);
@@ -122,6 +130,14 @@ class OnePassTest {
     @Test
     void emptyPattern() {
       assertThat(build("")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("oversized transition tables are rejected before allocation")
+    void oversizedTransitionTablesAreRejectedBeforeAllocation() {
+      int literalCount = (int) Math.ceil(Math.sqrt(OnePass.MAX_ACTION_CELLS / 2.0)) + 64;
+
+      assertThat(build(distinctLiteralRun(literalCount))).isNull();
     }
   }
 

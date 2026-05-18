@@ -12,9 +12,20 @@ final class MatchFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void match(FuzzedDataProvider data) {
-    String regex = data.consumeString(256);
-    int flags = FuzzSupport.consumeFlags(data);
-    String input = data.consumeRemainingAsString();
+    String regex;
+    int flags;
+    String input;
+    if (data.consumeBoolean()) {
+      String atom = distinctLiteralRun(data.consumeInt(16, 192));
+      int repetitions = data.consumeInt(1, 16);
+      regex = "(?:" + atom + "){" + repetitions + "}";
+      flags = 0;
+      input = data.consumeBoolean() ? atom.repeat(repetitions) : data.consumeString(512);
+    } else {
+      regex = data.consumeString(256);
+      flags = FuzzSupport.consumeFlags(data);
+      input = data.consumeRemainingAsString();
+    }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
@@ -28,5 +39,13 @@ final class MatchFuzzer {
     matcher.find();
     matcher.reset();
     matcher.find(FuzzSupport.consumeIndex(data, input));
+  }
+
+  private static String distinctLiteralRun(int count) {
+    StringBuilder pattern = new StringBuilder(count);
+    for (int i = 0; i < count; i++) {
+      pattern.appendCodePoint(0x1000 + i * 2);
+    }
+    return pattern.toString();
   }
 }

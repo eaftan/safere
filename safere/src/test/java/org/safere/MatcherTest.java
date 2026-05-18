@@ -201,6 +201,23 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() falls back when OnePass analysis exceeds its memory budget")
+    void findFallsBackWhenOnePassAnalysisExceedsMemoryBudget() {
+      String regex =
+          "SELECT"
+              + " REGE|||~\\u06ec?<?|||GEXP_REPLACe(^\"\\uffff\\uffff\\uffff\\uffff"
+              + "\\uffff\\uffff\\uffff\\uffff"
+              + " \\u00bf\\u7000\\u0400\\u5000\\u07b7@\\u02aa \\X@?` \\u0296"
+              + " \\ua03d,\\u0106mv &.\\u017c&.?\t\t?\t\\uffff\\ufff1end1 68  ){680}"
+              + "$ .1";
+      String input = ",69\u00c3";
+
+      boolean expected = java.util.regex.Pattern.compile(regex).matcher(input).find();
+
+      assertThat(Pattern.compile(regex).matcher(input).find()).isEqualTo(expected);
+    }
+
+    @Test
     @DisplayName("group access after lookingAt() works correctly")
     void lookingAtUpdatesGroupInfo() {
       Pattern p = Pattern.compile("(\\d+)(\\w+)");
