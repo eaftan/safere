@@ -1108,6 +1108,7 @@ public final class Pattern implements Serializable {
     if ((flags & UNIX_LINES) != 0) {
       pf |= ParseFlags.UNIX_LINES;
     }
+    pf |= ParseFlags.PYTHON_NAMED_GROUPS;
 
     return pf;
   }
