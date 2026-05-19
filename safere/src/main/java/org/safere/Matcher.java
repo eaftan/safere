@@ -441,6 +441,22 @@ public final class Matcher implements MatchResult {
     return applyEngineResult(new NoMatchResult());
   }
 
+  private boolean containsRequiredMatchClass(int[] ranges) {
+    long b0 = parentPattern.requiredMatchClassBitmap0();
+    long b1 = parentPattern.requiredMatchClassBitmap1();
+
+    int i = 0;
+    int len = text.length();
+    while (i < len) {
+      int cp = text.codePointAt(i);
+      if (charClassContains(ranges, b0, b1, cp)) {
+        return true;
+      }
+      i += Character.charCount(cp);
+    }
+    return false;
+  }
+
   /**
    * Checks if the remaining input from {@code offset} is a prefix of the literal pattern but
    * shorter than it, meaning more input could potentially result in a match.
@@ -719,6 +735,16 @@ public final class Matcher implements MatchResult {
     int[] ccRanges = parentPattern.charClassMatchRanges();
     if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null) {
       return charClassMatchFastPath(ccRanges);
+    }
+
+    int[] requiredRanges = parentPattern.requiredMatchClassRanges();
+    if (enginePathOptions().charClassMatchFastPaths()
+        && requiredRanges != null
+        && !containsRequiredMatchClass(requiredRanges)) {
+      // This negative-only accelerator may conservatively over-report hitEnd for some failed
+      // matches; hitEnd/requireEnd compatibility is best-effort. See #435.
+      this.lastEngineHitEnd = true;
+      return applyEngineResult(new NoMatchResult());
     }
 
     Prog prog = parentPattern.prog();

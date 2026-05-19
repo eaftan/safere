@@ -143,6 +143,17 @@ public final class Pattern implements Serializable {
   private final transient long singleCharClassBitmap1;
 
   /**
+   * Precomputed character class data for a mandatory character class in a full-match pattern.
+   * Non-null when {@code matches()} can reject by scanning for an absent required code point before
+   * invoking the full engine cascade. This is intentionally a negative-only accelerator: if the
+   * class is present, normal matching still determines the result.
+   */
+  private final transient int[] requiredMatchClassRanges;
+
+  private final transient long requiredMatchClassBitmap0;
+  private final transient long requiredMatchClassBitmap1;
+
+  /**
    * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
    * flags ({@code canOnePassFind}, {@code canOnePassSubmatch}). Computed on first access to avoid
    * paying the OnePass BFS cost at compile time.
@@ -225,6 +236,9 @@ public final class Pattern implements Serializable {
       int[] singleCharClassRanges,
       long singleCharClassBitmap0,
       long singleCharClassBitmap1,
+      int[] requiredMatchClassRanges,
+      long requiredMatchClassBitmap0,
+      long requiredMatchClassBitmap1,
       EnginePathOptions enginePathOptions) {
     this.pattern = pattern;
     this.flags = flags;
@@ -254,6 +268,9 @@ public final class Pattern implements Serializable {
     this.singleCharClassRanges = singleCharClassRanges;
     this.singleCharClassBitmap0 = singleCharClassBitmap0;
     this.singleCharClassBitmap1 = singleCharClassBitmap1;
+    this.requiredMatchClassRanges = requiredMatchClassRanges;
+    this.requiredMatchClassBitmap0 = requiredMatchClassBitmap0;
+    this.requiredMatchClassBitmap1 = requiredMatchClassBitmap1;
   }
 
   /**
@@ -323,6 +340,7 @@ public final class Pattern implements Serializable {
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
+    CharClassScanInfo requiredMatchClass = extractRequiredMatchClass(metadataAst);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(
         regex,
@@ -352,6 +370,9 @@ public final class Pattern implements Serializable {
         singleCharClass != null ? singleCharClass.ranges : null,
         singleCharClass != null ? singleCharClass.bitmap0 : 0,
         singleCharClass != null ? singleCharClass.bitmap1 : 0,
+        requiredMatchClass != null ? requiredMatchClass.ranges : null,
+        requiredMatchClass != null ? requiredMatchClass.bitmap0 : 0,
+        requiredMatchClass != null ? requiredMatchClass.bitmap1 : 0,
         enginePathOptions);
   }
 
@@ -888,6 +909,24 @@ public final class Pattern implements Serializable {
   /** ASCII bitmap (code points 64–127) for the single-character-class fast path. */
   long singleCharClassBitmap1() {
     return singleCharClassBitmap1;
+  }
+
+  /**
+   * Returns precomputed ranges for a required character class in {@code matches()}, or {@code
+   * null}.
+   */
+  int[] requiredMatchClassRanges() {
+    return requiredMatchClassRanges;
+  }
+
+  /** ASCII bitmap (code points 0–63) for the required-character-class fast path. */
+  long requiredMatchClassBitmap0() {
+    return requiredMatchClassBitmap0;
+  }
+
+  /** ASCII bitmap (code points 64–127) for the required-character-class fast path. */
+  long requiredMatchClassBitmap1() {
+    return requiredMatchClassBitmap1;
   }
 
   /**
@@ -2112,6 +2151,49 @@ public final class Pattern implements Serializable {
       return null;
     }
     return buildCharClassScanInfo(cc);
+  }
+
+  /**
+   * Detects a mandatory character class in a full-match pattern, such as {@code .*\\s+.*}. The
+   * resulting class is only used to reject inputs that contain no matching code point; positive
+   * results still go through the normal engine to preserve full regex semantics.
+   */
+  private static CharClassScanInfo extractRequiredMatchClass(Regexp re) {
+    if (hasUserCaptures(re)) {
+      return null;
+    }
+    Regexp node = re;
+    if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
+      node = node.sub();
+    }
+    if (node.op != RegexpOp.CONCAT || node.subs == null) {
+      CharClass cc = requiredCharClass(node);
+      return cc != null ? buildCharClassScanInfo(cc) : null;
+    }
+    for (Regexp sub : node.subs) {
+      CharClass cc = requiredCharClass(sub);
+      if (cc != null) {
+        return buildCharClassScanInfo(cc);
+      }
+    }
+    return null;
+  }
+
+  private static CharClass requiredCharClass(Regexp re) {
+    Regexp node = re;
+    if (node.op == RegexpOp.NON_CAPTURE) {
+      node = node.sub();
+    }
+    if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null) {
+      return node.charClass.isEmpty() ? null : node.charClass;
+    }
+    if ((node.op == RegexpOp.PLUS || (node.op == RegexpOp.REPEAT && node.min > 0))
+        && node.sub().op == RegexpOp.CHAR_CLASS
+        && node.sub().charClass != null
+        && !node.sub().charClass.isEmpty()) {
+      return node.sub().charClass;
+    }
+    return null;
   }
 
   private static CharClassScanInfo buildCharClassScanInfo(CharClass cc) {

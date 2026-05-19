@@ -110,6 +110,28 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("matches() fast-rejects when required whitespace is absent")
+    void matchesFastRejectsWhenRequiredWhitespaceIsAbsent() {
+      Matcher m = Pattern.compile(".*\\s+.*").matcher("44241504-44f6-4d2a-bdcb-1bf7fd927ba9");
+
+      assertThat(m.matches()).isFalse();
+      assertThat(m.hitEnd()).isTrue();
+      assertThat(m.requireEnd()).isFalse();
+    }
+
+    @Test
+    @DisplayName("matches() required-class precheck preserves positive cases")
+    void matchesRequiredClassPrecheckPreservesPositiveCases() {
+      Pattern p = Pattern.compile(".*\\s+.*");
+
+      for (String input : new String[] {"a b", "a\nb c", "a\n \nc", "a\n\nc"}) {
+        assertThat(p.matcher(input).matches())
+            .as("SafeRE and JDK should agree on %s", input.replace("\n", "\\n"))
+            .isEqualTo(java.util.regex.Pattern.compile(".*\\s+.*").matcher(input).matches());
+      }
+    }
+
+    @Test
     @DisplayName("matches() with alternation and non-participating group")
     void matchesAlternation() {
       Pattern p = Pattern.compile("(a)|(b)");
