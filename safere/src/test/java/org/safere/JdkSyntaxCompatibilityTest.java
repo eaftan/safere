@@ -2464,6 +2464,7 @@ class JdkSyntaxCompatibilityTest {
 
     @Test
     @DisplayName("Python-style named capturing group (?P<name>X) is accepted")
+    @DisabledForCrosscheck("SafeRE supports Python-style named capturing groups")
     void pythonStyleNamedCapturingGroupRejected() {
       String regex = "(?" + "P<word>\\w+)";
       assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))

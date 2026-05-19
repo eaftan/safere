@@ -526,7 +526,8 @@ class PatternTest {
 
     @Test
     @DisplayName("PYTHON_NAMED_GROUPS flag enables (?P<name>expr) syntax with underscores")
-    void re2NamedGroups() {
+    @DisabledForCrosscheck("SafeRE supports Python-style named capturing groups")
+    void pythonNamedGroups() {
       Pattern p = Pattern.compile("(?P<user_name>[\\w.]+)@(?P<host_name>[\\w.]+)");
       assertThat(p.namedGroups()).containsEntry("user_name", 1);
       assertThat(p.namedGroups()).containsEntry("host_name", 2);
