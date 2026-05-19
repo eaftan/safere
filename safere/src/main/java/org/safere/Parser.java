@@ -4604,12 +4604,6 @@ final class Parser {
     if (pos >= pattern.length() || !Utils.isDigit(pattern.charAt(pos))) {
       return -1;
     }
-    // Disallow leading zeros.
-    if (pos + 1 < pattern.length()
-        && pattern.charAt(pos) == '0'
-        && Utils.isDigit(pattern.charAt(pos + 1))) {
-      return -1;
-    }
     int n = 0;
     while (pos < pattern.length() && Utils.isDigit(pattern.charAt(pos))) {
       if (n >= 100_000_000) return -1; // avoid overflow
