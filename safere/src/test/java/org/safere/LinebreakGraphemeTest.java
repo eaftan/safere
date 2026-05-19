@@ -480,23 +480,27 @@ class LinebreakGraphemeTest {
     }
 
     @Test
-    @DisplayName("unanchored multi-boundary \\X search keeps bounded startup allocation")
-    void unanchoredMultiBoundarySearchKeepsBoundedStartupAllocation() {
+    @DisplayName("unanchored multi-boundary \\X search allocation does not scale with input tail")
+    void unanchoredMultiBoundarySearchDoesNotAllocatePerInputPosition() {
       AllocationTracker allocationTracker = allocationTracker();
       long threadId = Thread.currentThread().threadId();
-      String text = "ab" + "c".repeat(100_000);
 
       for (String regex : List.of("\\X\\X", "\\X{2}", "(?:\\X)(?:\\X)")) {
         Pattern pattern = Pattern.compile(regex);
 
-        long before = allocationTracker.allocatedBytes(threadId);
-        Matcher matcher = pattern.matcher(text);
-        assertThat(matcher.find()).as("find() for /%s/", regex).isTrue();
-        assertThat(matcher.start()).as("start for /%s/", regex).isEqualTo(0);
-        assertThat(matcher.end()).as("end for /%s/", regex).isEqualTo(2);
-        long allocated = allocationTracker.allocatedBytes(threadId) - before;
+        assertImmediateTwoClusterMatch(pattern, "ab" + "c".repeat(1_000));
+        assertImmediateTwoClusterMatch(pattern, "ab" + "c".repeat(10_000));
 
-        assertThat(allocated).as("allocated bytes for /%s/", regex).isLessThan(4_000_000L);
+        long shortAllocated =
+            allocatedForImmediateTwoClusterFind(
+                allocationTracker, threadId, pattern, "ab" + "c".repeat(10_000));
+        long longAllocated =
+            allocatedForImmediateTwoClusterFind(
+                allocationTracker, threadId, pattern, "ab" + "c".repeat(100_000));
+
+        assertThat(longAllocated - shortAllocated)
+            .as("extra allocated bytes when input tail grows for /%s/", regex)
+            .isLessThan(64_000L);
       }
     }
 
@@ -732,6 +736,20 @@ class LinebreakGraphemeTest {
       assertThat(safeMatches)
           .as("find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
           .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private long allocatedForImmediateTwoClusterFind(
+        AllocationTracker allocationTracker, long threadId, Pattern pattern, String text) {
+      long before = allocationTracker.allocatedBytes(threadId);
+      assertImmediateTwoClusterMatch(pattern, text);
+      return allocationTracker.allocatedBytes(threadId) - before;
+    }
+
+    private void assertImmediateTwoClusterMatch(Pattern pattern, String text) {
+      Matcher matcher = pattern.matcher(text);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isEqualTo(2);
     }
 
     private AllocationTracker allocationTracker() {
