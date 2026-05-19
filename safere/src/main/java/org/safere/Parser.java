@@ -506,8 +506,6 @@ final class Parser {
   }
 
   private void pushRegexp(Regexp re) {
-    maybeConcatString(-1, 0);
-
     // Special case: a character class of one character is just a literal.
     if (re.op == RegexpOp.CHAR_CLASS && re.charClass != null) {
       CharClass cc = re.charClass;
@@ -570,10 +568,6 @@ final class Parser {
         && !('a' <= r && r <= 'z')) {
       literalFlags &= ~ParseFlags.FOLD_CASE;
     }
-    if (maybeConcatString(r, literalFlags)) {
-      return;
-    }
-
     Regexp re = Regexp.literal(r, literalFlags);
     pushRegexp(re);
   }
@@ -821,7 +815,6 @@ final class Parser {
   }
 
   private void doVerticalBar() {
-    maybeConcatString(-1, 0);
     doConcatenation();
 
     // Below the vertical bar is a list to alternate.
@@ -940,68 +933,88 @@ final class Parser {
       }
     }
     Collections.reverse(subs);
+    if (op == RegexpOp.CONCAT) {
+      subs = coalesceLiteralStrings(subs);
+    }
 
-    Regexp re = op == RegexpOp.CONCAT ? Regexp.concat(subs, flags) : Regexp.alternate(subs, flags);
+    Regexp re;
+    if (op == RegexpOp.CONCAT && subs.size() == 1) {
+      re = subs.getFirst();
+    } else {
+      re = op == RegexpOp.CONCAT ? Regexp.concat(subs, flags) : Regexp.alternate(subs, flags);
+    }
     StackEntry entry = new StackEntry(re);
     entry.down = stacktop;
     stacktop = entry;
   }
 
-  // ---- MaybeConcatString ----
+  // ---- Literal string coalescing ----
 
-  /**
-   * Tries to merge the top two stack entries if they're both literals/literal-strings with the same
-   * flags. If r >= 0, consider pushing a literal r on the stack. Returns true if that happened.
-   */
-  private boolean maybeConcatString(int r, int fl) {
-    StackEntry re1Entry = stacktop;
-    if (re1Entry == null) return false;
-    StackEntry re2Entry = re1Entry.down;
-    if (re2Entry == null) return false;
+  private List<Regexp> coalesceLiteralStrings(List<Regexp> subs) {
+    List<Regexp> coalesced = new ArrayList<>(subs.size());
+    int literalStart = -1;
+    int literalLength = 0;
+    int literalFlags = 0;
+    for (int i = 0; i < subs.size(); i++) {
+      Regexp re = subs.get(i);
+      if (!isLiteralStringPart(re)
+          || (literalStart >= 0 && literalFold(literalFlags) != literalFold(re.flags))) {
+        flushLiteralString(subs, coalesced, literalStart, i, literalLength, literalFlags);
+        literalStart = -1;
+        literalLength = 0;
+        coalesced.add(re);
+        continue;
+      }
 
-    Regexp re1 = re1Entry.re;
-    Regexp re2 = re2Entry.re;
+      if (literalStart < 0) {
+        literalStart = i;
+        literalFlags = re.flags;
+      }
+      literalLength += literalLength(re);
+    }
+    flushLiteralString(subs, coalesced, literalStart, subs.size(), literalLength, literalFlags);
+    return coalesced;
+  }
 
-    if (re1.op != RegexpOp.LITERAL && re1.op != RegexpOp.LITERAL_STRING) return false;
-    if (re2.op != RegexpOp.LITERAL && re2.op != RegexpOp.LITERAL_STRING) return false;
-
-    boolean re1Fold = (re1.flags & ParseFlags.FOLD_CASE) != 0;
-    boolean re2Fold = (re2.flags & ParseFlags.FOLD_CASE) != 0;
-    if (re1Fold != re2Fold) return false;
-
-    // Convert re2 to LITERAL_STRING if it's a LITERAL.
-    int[] re2Runes;
-    if (re2.op == RegexpOp.LITERAL) {
-      re2Runes = new int[] {re2.rune};
-    } else {
-      re2Runes = re2.runes;
+  private void flushLiteralString(
+      List<Regexp> source,
+      List<Regexp> target,
+      int start,
+      int end,
+      int runeCount,
+      int literalFlags) {
+    if (start < 0) {
+      return;
+    }
+    if (runeCount == 1) {
+      target.add(source.get(start));
+      return;
     }
 
-    // Append re1 runes.
-    int[] re1Runes;
-    if (re1.op == RegexpOp.LITERAL) {
-      re1Runes = new int[] {re1.rune};
-    } else {
-      re1Runes = re1.runes;
+    int[] runes = new int[runeCount];
+    int out = 0;
+    for (int i = start; i < end; i++) {
+      Regexp re = source.get(i);
+      if (re.op == RegexpOp.LITERAL) {
+        runes[out++] = re.rune;
+      } else {
+        System.arraycopy(re.runes, 0, runes, out, re.runes.length);
+        out += re.runes.length;
+      }
     }
+    target.add(Regexp.literalString(runes, literalFlags));
+  }
 
-    int[] combined = new int[re2Runes.length + re1Runes.length];
-    System.arraycopy(re2Runes, 0, combined, 0, re2Runes.length);
-    System.arraycopy(re1Runes, 0, combined, re2Runes.length, re1Runes.length);
+  private boolean isLiteralStringPart(Regexp re) {
+    return re.op == RegexpOp.LITERAL || re.op == RegexpOp.LITERAL_STRING;
+  }
 
-    Regexp newRe2 = Regexp.literalString(combined, re2.flags);
+  private boolean literalFold(int flags) {
+    return (flags & ParseFlags.FOLD_CASE) != 0;
+  }
 
-    // Reuse re1 slot if r >= 0.
-    if (r >= 0) {
-      re1Entry.re = Regexp.literal(r, fl);
-      re2Entry.re = newRe2;
-      return true;
-    }
-
-    // Pop re1, replace re2.
-    stacktop = re2Entry;
-    re2Entry.re = newRe2;
-    return false;
+  private int literalLength(Regexp re) {
+    return re.op == RegexpOp.LITERAL ? 1 : re.runes.length;
   }
 
   // ---- Character class parsing ----
