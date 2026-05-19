@@ -37,7 +37,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @DisplayName("JDK syntax compatibility")
 class JdkSyntaxCompatibilityTest {
-
   // ---- Helpers ----
 
   /** Asserts SafeRE compiles the pattern without error. */
@@ -269,7 +268,6 @@ class JdkSyntaxCompatibilityTest {
 
     static Stream<Arguments> nonJdkDialectSpellings() {
       return Stream.of(
-          Arguments.of(new DialectRejection("Python named capture", "(?P<word>a)")),
           Arguments.of(new DialectRejection("PCRE single-quoted named capture", "(?'word'a)")),
           Arguments.of(new DialectRejection("Python named backreference", "(?P=word)")),
           Arguments.of(new DialectRejection("PCRE subroutine call", "(?&word)")),
@@ -299,7 +297,6 @@ class JdkSyntaxCompatibilityTest {
     static Stream<Arguments> generatedNonJdkDialectSpellings() {
       List<DialectRejection> groupSpellings =
           List.of(
-              new DialectRejection("Python named capture", "(?P<name>a)"),
               new DialectRejection("PCRE single-quoted named capture", "(?'name'a)"),
               new DialectRejection("Python named backreference", "(?P=name)"),
               new DialectRejection("PCRE subroutine call", "(?&name)"),
@@ -2466,12 +2463,12 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("Python-style named capturing group (?P<name>X) is rejected")
+    @DisplayName("Python-style named capturing group (?P<name>X) is accepted")
     void pythonStyleNamedCapturingGroupRejected() {
       String regex = "(?" + "P<word>\\w+)";
       assertThatThrownBy(() -> java.util.regex.Pattern.compile(regex))
           .isInstanceOf(PatternSyntaxException.class);
-      assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
+      var unused = Pattern.compile(regex);
     }
 
     @Test

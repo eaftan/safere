@@ -109,8 +109,8 @@ final class ParseFlags {
    */
   public static final int SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY = 1 << 18;
 
-  /** Allow RE2 named capturing group syntax {@code (?P<name>...)}. */
-  public static final int RE2_NAMED_GROUPS = 1 << 19;
+  /** Allow python named capturing group syntax {@code (?P<name>...)}. */
+  public static final int PYTHON_NAMED_GROUPS = 1 << 19;
 
   /** Mask of all valid parse flags. */
   public static final int ALL_FLAGS = (1 << 20) - 1;

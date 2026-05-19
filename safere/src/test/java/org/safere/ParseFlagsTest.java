@@ -35,7 +35,7 @@ class ParseFlagsTest {
     assertThat(ParseFlags.UNIX_LINES).isEqualTo(65536);
     assertThat(ParseFlags.UNICODE_CASE).isEqualTo(131072);
     assertThat(ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY).isEqualTo(262144);
-    assertThat(ParseFlags.RE2_NAMED_GROUPS).isEqualTo(524288);
+    assertThat(ParseFlags.PYTHON_NAMED_GROUPS).isEqualTo(524288);
   }
 
   @Test

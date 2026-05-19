@@ -4466,7 +4466,7 @@ final class Parser {
           throw new PatternSyntaxException("invalid named capture", pattern, pos);
         }
         String name = pattern.substring(begin, end);
-        boolean allowUnderscores = (flags & ParseFlags.RE2_NAMED_GROUPS) != 0;
+        boolean allowUnderscores = (flags & ParseFlags.PYTHON_NAMED_GROUPS) != 0;
         if (!isValidCaptureName(name, allowUnderscores)) {
           throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
         }
@@ -4476,7 +4476,7 @@ final class Parser {
       }
     }
     // (?P<name>expr)
-    if ((flags & ParseFlags.RE2_NAMED_GROUPS) != 0 && pos + 4 < pattern.length()) {
+    if ((flags & ParseFlags.PYTHON_NAMED_GROUPS) != 0 && pos + 4 < pattern.length()) {
       if (pattern.charAt(pos + 2) == 'P' && pattern.charAt(pos + 3) == '<') {
         int begin = pos + 4;
         int end = pattern.indexOf('>', begin);
@@ -4484,7 +4484,7 @@ final class Parser {
           throw new PatternSyntaxException("invalid named capture", pattern, pos);
         }
         String name = pattern.substring(begin, end);
-        boolean allowUnderscores = (flags & ParseFlags.RE2_NAMED_GROUPS) != 0;
+        boolean allowUnderscores = (flags & ParseFlags.PYTHON_NAMED_GROUPS) != 0;
         if (!isValidCaptureName(name, allowUnderscores)) {
           throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
         }

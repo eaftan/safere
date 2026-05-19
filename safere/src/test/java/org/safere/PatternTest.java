@@ -525,24 +525,15 @@ class PatternTest {
     }
 
     @Test
-    @DisplayName("RE2_NAMED_GROUPS flag enables (?P<name>expr) syntax with underscores")
+    @DisplayName("PYTHON_NAMED_GROUPS flag enables (?P<name>expr) syntax with underscores")
     void re2NamedGroups() {
-      Pattern p =
-          Pattern.compile(
-              "(?P<user_name>[\\w.]+)@(?P<host_name>[\\w.]+)", Pattern.RE2_NAMED_GROUPS);
+      Pattern p = Pattern.compile("(?P<user_name>[\\w.]+)@(?P<host_name>[\\w.]+)");
       assertThat(p.namedGroups()).containsEntry("user_name", 1);
       assertThat(p.namedGroups()).containsEntry("host_name", 2);
       Matcher m = p.matcher("alice_smith@example.com");
       assertThat(m.matches()).isTrue();
       assertThat(m.group("user_name")).isEqualTo("alice_smith");
       assertThat(m.group("host_name")).isEqualTo("example.com");
-    }
-
-    @Test
-    @DisplayName("(?P<name>expr) syntax is rejected without RE2_NAMED_GROUPS flag")
-    void re2NamedGroupsRejectedWithoutFlag() {
-      assertThatThrownBy(() -> Pattern.compile("(?P<user_name>\\w+)@(?P<host_name>\\w+)"))
-          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 
