@@ -54,6 +54,20 @@ class PatternInternalTest {
     assertThat(p.keywordAlternation()).isNotNull();
   }
 
+  @Test
+  void dotStarAroundWhitespaceRecordsRequiredWhitespaceClass() {
+    Pattern p = Pattern.compile(".*\\s+.*");
+
+    assertThat(p.requiredMatchClassRanges()).isNotNull();
+  }
+
+  @Test
+  void pureNullablePatternsDoNotRecordRequiredCharacterClasses() {
+    Pattern p = Pattern.compile(".*");
+
+    assertThat(p.requiredMatchClassRanges()).isNull();
+  }
+
   @ParameterizedTest(name = "compile(\"{0}\").numGroups() == {1}")
   @CsvSource({
     "'',         0",

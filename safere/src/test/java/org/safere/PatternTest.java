@@ -99,28 +99,6 @@ class PatternTest {
   }
 
   @Nested
-  @DisplayName("required character class acceleration")
-  @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
-  class RequiredCharacterClassAcceleration {
-
-    @Test
-    @DisplayName("dot-star around whitespace records required whitespace class")
-    void dotStarAroundWhitespaceRecordsRequiredWhitespaceClass() {
-      Pattern p = Pattern.compile(".*\\s+.*");
-
-      assertThat(p.requiredMatchClassRanges()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("pure nullable patterns do not record required character classes")
-    void pureNullablePatternsDoNotRecordRequiredCharacterClasses() {
-      Pattern p = Pattern.compile(".*");
-
-      assertThat(p.requiredMatchClassRanges()).isNull();
-    }
-  }
-
-  @Nested
   @DisplayName("Unsupported features")
   class UnsupportedFeatures {
     @Test
