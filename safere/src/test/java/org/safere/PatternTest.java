@@ -100,6 +100,7 @@ class PatternTest {
 
   @Nested
   @DisplayName("required character class acceleration")
+  @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
   class RequiredCharacterClassAcceleration {
 
     @Test
