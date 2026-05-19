@@ -2175,6 +2175,62 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("a{2,4}", "aaaaa");
     }
 
+    @ParameterizedTest(name = "/{0}/ on \"{1}\"")
+    @MethodSource("countedRepetitionBoundsWithLeadingZeros")
+    @DisplayName("counted repetition bounds allow leading zeros")
+    void countedRepetitionBoundsAllowLeadingZeros(String regex, String input) {
+      assertMatchesSame(regex, input);
+    }
+
+    static Stream<Arguments> countedRepetitionBoundsWithLeadingZeros() {
+      return Stream.of(
+          Arguments.of("a{05}", "aaaaa"),
+          Arguments.of("a{000}", "b"),
+          Arguments.of("a{00001}", "a"),
+          Arguments.of("a{01,02}", "aa"),
+          Arguments.of("a{01,}", "aaaaa"),
+          Arguments.of("a{0,05}", "aaaaa"),
+          Arguments.of("a{00,00}", "b"),
+          Arguments.of("a{00,01}", "a"),
+          Arguments.of("a{05}?", "aaaaa"),
+          Arguments.of("a{01}{02}", "aa"),
+          Arguments.of("a?{02}", "a"),
+          Arguments.of("^{02}", ""),
+          Arguments.of("{02}", ""),
+          Arguments.of("a|{02}", ""));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "a{05,04}",
+          "a{+5}",
+          "a{-5}",
+          "a{ 5}",
+          "a{5 }",
+          "a{5, 6}",
+          "a{5,+6}",
+          "a{5,-6}",
+          "a{\u0665}",
+          "a{\uff11\uff12}"
+        })
+    @DisplayName("counted repetition bounds reject invalid decimal forms")
+    void countedRepetitionBoundsRejectInvalidDecimalForms(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
+    @Test
+    @DisplayName("counted repetition leading zeros do not bypass repeat limit")
+    void countedRepetitionLeadingZerosDoNotBypassRepeatLimit() {
+      String regex = "a{0000000000000000000000000000001001}";
+      assertThatNoException()
+          .as("JDK should accept repeat counts above SafeRE's expansion limit: %s", regex)
+          .isThrownBy(() -> java.util.regex.Pattern.compile(regex));
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should still enforce its repeat limit after parsing leading zeros: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"{", "{?", "a{?", "a{,2}", "a{x}", "\\\\Q{?\\\\E"})
     @DisplayName("malformed unescaped counted repetition")
