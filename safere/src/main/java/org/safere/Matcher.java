@@ -116,6 +116,14 @@ public final class Matcher implements MatchResult {
    */
   private static final int DIRECT_FALLBACK_TEXT_LIMIT = 512;
 
+  /**
+   * Maximum approximate work for exact accepted-path end-state replay when only best-effort {@link
+   * #hitEnd()} reporting is at stake.
+   *
+   * <p>Exact {@link #requireEnd()} behavior still uses the accepted path replay.
+   */
+  private static final long MAX_EXACT_END_STATE_REPLAY_WORK = 1_000_000L;
+
   private static final int REQUIRE_END_EMPTY_FLAGS =
       EmptyOp.DOLLAR_END
           | EmptyOp.END_LINE
@@ -2835,12 +2843,36 @@ public final class Matcher implements MatchResult {
       return;
     }
     boolean endedAtSensitiveEnd = matchEndsAtSensitiveEnd();
+    if (!shouldReplayAcceptedPathForEndState(operation, endedAtSensitiveEnd)) {
+      updateBestEffortEndState(endedAtSensitiveEnd);
+      return;
+    }
     int terminalEmptyFlags = endedAtSensitiveEnd ? terminalEmptyFlagsForAcceptedPath(operation) : 0;
     lastRequireEnd = (terminalEmptyFlags & REQUIRE_END_EMPTY_FLAGS) != 0;
     lastHitEnd =
         lastRequireEnd
             || ((terminalEmptyFlags & HIT_END_EMPTY_FLAGS) != 0)
             || (endedAtSensitiveEnd && matchCanExtendAtEnd(operation));
+  }
+
+  private boolean shouldReplayAcceptedPathForEndState(
+      MatchOperation operation, boolean endedAtSensitiveEnd) {
+    if (!endedAtSensitiveEnd) {
+      return true;
+    }
+    if (parentPattern.hasEndConstraint() || !parentPattern.hasHitEndConstraint()) {
+      return true;
+    }
+    int start = Math.max(0, groups[0]);
+    int end = operation == MatchOperation.MATCHES ? regionEnd : groups[1];
+    long span = Math.max(1, (long) end - start);
+    long work = span * parentPattern.prog().size();
+    return work <= MAX_EXACT_END_STATE_REPLAY_WORK;
+  }
+
+  private void updateBestEffortEndState(boolean endedAtSensitiveEnd) {
+    lastRequireEnd = false;
+    lastHitEnd = lastEngineHitEnd || endedAtSensitiveEnd;
   }
 
   private int terminalEmptyFlagsForAcceptedPath(MatchOperation operation) {
