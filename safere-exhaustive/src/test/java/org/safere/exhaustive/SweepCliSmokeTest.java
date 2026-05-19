@@ -47,6 +47,16 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void unicodeCharacterClassSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("unicode-character");
+
+    UnicodeCharacterClassDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("unicode-character-class-divergences.jsonl")))
+        .isTrue();
+  }
+
+  @Test
   void characterClassReplayUsesConfiguredThreads() throws Exception {
     Path replayFile = tempDir.resolve("character-replay.jsonl");
     Path outputDir = tempDir.resolve("character-replay");
@@ -75,6 +85,24 @@ class SweepCliSmokeTest {
 
     String output =
         captureOutput(() -> ControlEscapeDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("mode=replay", "checked=1", "generated=1", "threads=2");
+    assertThat(output).doesNotContain("threads=1");
+  }
+
+  @Test
+  void unicodeCharacterClassReplayUsesConfiguredThreads() throws Exception {
+    Path replayFile = tempDir.resolve("unicode-character-replay.jsonl");
+    Path outputDir = tempDir.resolve("unicode-character-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"label":"word","regex":"\\\\w","codePoint":65}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> UnicodeCharacterClassDivergenceSweep.main(replayArgs(outputDir, replayFile)));
 
     assertThat(output).contains("mode=replay", "checked=1", "generated=1", "threads=2");
     assertThat(output).doesNotContain("threads=1");

@@ -187,7 +187,7 @@ class UnicodeCharClassTest {
   }
 
   // -------------------------------------------------------------------------
-  // \w — Unicode word character (L + M + Nd + Nl + Pc + Join_Control)
+  // \w — Unicode word character (Alpha + M + Nd + Nl + Pc + Join_Control)
   // -------------------------------------------------------------------------
 
   @Nested
@@ -230,6 +230,19 @@ class UnicodeCharClassTest {
     }
 
     @Test
+    void alphabeticSymbolsMatchWithFlag() {
+      Pattern p = Pattern.compile("\\w+", UCC);
+      assertThat(p.matcher("ⓓⓔⓕ").matches()).isTrue();
+    }
+
+    @Test
+    void bracketedWordIntersectionUsesUnicodeAlphabeticWithFlag() {
+      Pattern p = Pattern.compile("[\\w&&[^_]]{3,20}", UCC);
+      assertThat(p.matcher("Aᶛᶜⓓⓔⓕäöüकफ").matches()).isTrue();
+      assertThat(p.matcher("_").matches()).isFalse();
+    }
+
+    @Test
     void connectorPunctuationMatchesWithFlag() {
       // Undertie ‿ (U+203F) and ﹏ (U+FE4F) are category Pc.
       Pattern p = Pattern.compile("\\w", UCC);
@@ -251,6 +264,24 @@ class UnicodeCharClassTest {
       assertThat(p.matcher(" !@#").matches()).isTrue();
       // Accented letters should NOT match \W
       assertThat(p.matcher("é").matches()).isFalse();
+    }
+  }
+
+  @Nested
+  class PosixUnicodeEdgeTests {
+
+    @Test
+    void xdigitIncludesAllUnicodeDigitsWithFlag() {
+      Pattern p = Pattern.compile("\\p{XDigit}+", UCC);
+      assertThat(p.matcher("०۱۲٣").matches()).isTrue();
+    }
+
+    @Test
+    void printExcludesControlBlankWithFlag() {
+      Pattern p = Pattern.compile("\\p{Print}", UCC);
+      assertThat(p.matcher(" ").matches()).isTrue();
+      assertThat(p.matcher("\u00A0").matches()).isTrue();
+      assertThat(p.matcher("\t").matches()).isFalse();
     }
   }
 

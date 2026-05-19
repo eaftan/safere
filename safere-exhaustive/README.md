@@ -39,6 +39,27 @@ to zero-width quoted literals and skipped trivia.
 The output JSONL path is printed at the end of each run. Generated reports should
 stay out of git.
 
+## Unicode Character Class Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh UnicodeCharacterClassDivergenceSweep \
+  --output-dir=target/exhaustive-reports/unicode-character-class-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh UnicodeCharacterClassDivergenceSweep --range=:1000000 \
+  --output-dir=target/exhaustive-reports/unicode-character-class-sweep-smoke
+```
+
+The Unicode character-class sweep compares SafeRE with `java.util.regex` under
+`UNICODE_CHARACTER_CLASS` for predefined classes, POSIX classes, and a bracketed
+`\w` intersection over every Unicode scalar value. Use it before review when
+changing Unicode predefined or POSIX class tables.
+
 ## Grapheme Cluster Sweep
 
 Run through the dispatcher script:

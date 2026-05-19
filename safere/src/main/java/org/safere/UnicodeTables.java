@@ -114,15 +114,15 @@ final class UnicodeTables {
     static final int[][] UNICODE_ALNUM = mergeRangeTables(UNICODE_ALPHA, UNICODE_DIGIT);
     static final int[][] UNICODE_PUNCT = UnicodeProperties.lookupBinaryProperty("Punctuation");
     static final int[][] UNICODE_CNTRL = UnicodeProperties.lookupBinaryProperty("Control");
-    static final int[][] UNICODE_XDIGIT = UnicodeProperties.lookupBinaryProperty("Hex_Digit");
-    static final int[][] UNICODE_GRAPH =
+    static final int[][] UNICODE_BLANK = buildRanges(UnicodeTables::isUnicodeBlank);
+    static final int[][] UNICODE_XDIGIT =
+        mergeRangeTables(UNICODE_DIGIT, UnicodeProperties.lookupBinaryProperty("Hex_Digit"));
+    static final int[][] UNICODE_GRAPH = buildRanges(UnicodeTables::isUnicodeGraph);
+    static final int[][] UNICODE_PRINT =
         buildRanges(
             cp ->
-                Character.isDefined(cp)
-                    && Character.getType(cp) != Character.CONTROL
-                    && Character.getType(cp) != Character.SURROGATE
-                    && !isUnicodeWhiteSpace(cp));
-    static final int[][] UNICODE_PRINT = mergeRangeTables(UNICODE_GRAPH, HORIZ_SPACE);
+                isUnicodeGraph(cp)
+                    || (isUnicodeBlank(cp) && Character.getType(cp) != Character.CONTROL));
 
     static final Map<String, int[][]> UNICODE_POSIX_PROPERTY_GROUPS =
         Map.ofEntries(
@@ -135,7 +135,7 @@ final class UnicodeTables {
             Map.entry("Punct", UNICODE_PUNCT),
             Map.entry("Graph", UNICODE_GRAPH),
             Map.entry("Print", UNICODE_PRINT),
-            Map.entry("Blank", HORIZ_SPACE),
+            Map.entry("Blank", UNICODE_BLANK),
             Map.entry("Cntrl", UNICODE_CNTRL),
             Map.entry("XDigit", UNICODE_XDIGIT),
             Map.entry("Space", unicodeSpace()));
@@ -147,6 +147,17 @@ final class UnicodeTables {
 
   private static boolean isUnicodeWhiteSpace(int cp) {
     return Character.isWhitespace(cp) || Character.isSpaceChar(cp);
+  }
+
+  private static boolean isUnicodeGraph(int cp) {
+    return Character.isDefined(cp)
+        && Character.getType(cp) != Character.CONTROL
+        && Character.getType(cp) != Character.SURROGATE
+        && !isUnicodeWhiteSpace(cp);
+  }
+
+  private static boolean isUnicodeBlank(int cp) {
+    return cp == '\t' || Character.getType(cp) == Character.SPACE_SEPARATOR;
   }
 
   private static int[][] buildRanges(IntPredicate predicate) {
@@ -845,9 +856,9 @@ final class UnicodeTables {
    * Join_Control. JDK defines {@code \w} under UNICODE_CHARACTER_CLASS as {@code
    * [\p{Alpha}\p{gc=Mn}\p{gc=Me}\p{gc=Mc}\p{Digit}\p{gc=Pc}\p{IsJoin_Control}]}.
    *
-   * <p>Built by merging the runtime-generated L (Letter), M (Mark), Nd (Decimal Number), Nl (Letter
-   * Number), Pc (Connector Punctuation) tables, plus the two Join_Control characters (U+200C,
-   * U+200D).
+   * <p>Built by merging the runtime-generated Alphabetic binary property, M (Mark), Nd (Decimal
+   * Number), Nl (Letter Number), Pc (Connector Punctuation) tables, plus the two Join_Control
+   * characters (U+200C, U+200D).
    */
   public static int[][] unicodeWord() {
     return UnicodePerlHolder.UNICODE_WORD;
@@ -860,7 +871,7 @@ final class UnicodeTables {
   private static final class UnicodePerlHolder {
     static final int[][] UNICODE_WORD =
         mergeRangeTables(
-            UNICODE_GROUPS.get("L"),
+            UnicodeProperties.lookupBinaryProperty("Alphabetic"),
             UNICODE_GROUPS.get("M"),
             UNICODE_GROUPS.get("Nd"),
             UNICODE_GROUPS.get("Nl"),
