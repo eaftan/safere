@@ -132,6 +132,22 @@ class MatcherTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex backtracking is not the SafeRE performance target")
+    @DisplayName("matches() end-state bookkeeping does not dominate nullable counted repeats")
+    void matchesEndStateBookkeepingDoesNotDominateNullableCountedRepeats() {
+      Pattern p = Pattern.compile(scimFilterPattern(), Pattern.UNIX_LINES | Pattern.MULTILINE);
+
+      long smallNanos =
+          runtimeNanos(() -> assertThat(p.matcher(scimFilterInput(10)).matches()).isTrue());
+      long largeNanos =
+          runtimeNanos(() -> assertThat(p.matcher(scimFilterInput(500)).matches()).isTrue());
+
+      assertThat(largeNanos)
+          .as("large accepted input should not be dominated by end-state replay")
+          .isLessThan(smallNanos * 20);
+    }
+
+    @Test
     @DisplayName("matches() with alternation and non-participating group")
     void matchesAlternation() {
       Pattern p = Pattern.compile("(a)|(b)");
@@ -2753,6 +2769,20 @@ class MatcherTest {
     return Pattern.compile(
         ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+  }
+
+  private static String scimFilterPattern() {
+    return "\\A"
+        + "([Uu][Rr][Nn]:[Ii][Ee][Tt][Ff]:[Pp][Aa][Rr][Aa][Mm][Ss]:"
+        + "[Ss][Cc][Ii][Mm]:[Ss][Cc][Hh][Ee][Mm][Aa][Ss]:[Cc][Oo][Rr][Ee]:"
+        + "2\\.0:[Uu][Ss][Ee][Rr]:)?"
+        + "[Ii][Dd] [Ee][Qq] "
+        + "(?:\"(?:(?:[^\"\\\\]|(\\\\)+\")*){3,500}\"|null)"
+        + "\\z";
+  }
+
+  private static String scimFilterInput(int valueLength) {
+    return "id eq \"" + "a".repeat(valueLength) + "\"";
   }
 
   private static String nestedCapturingGroups(int depth) {
