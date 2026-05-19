@@ -10,9 +10,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import java.time.Duration;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,6 +24,8 @@ class ParserTest {
 
   /** Perl-compatible flags, used as the default for most tests. */
   private static final int PERL = ParseFlags.LIKE_PERL;
+
+  private static Regexp parseTimingSink;
 
   /**
    * Flags matching the RE2 C++ test suite's default ({@code MatchNL | PerlX | PerlClasses |
@@ -53,6 +53,17 @@ class ParserTest {
     Nfa.SearchResult result =
         Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
     return result.groups() != null;
+  }
+
+  private static long bestParseTimeNanos(String pattern) {
+    long best = Long.MAX_VALUE;
+    for (int i = 0; i < 3; i++) {
+      long start = System.nanoTime();
+      parseTimingSink = parse(pattern);
+      long elapsed = System.nanoTime() - start;
+      best = Math.min(best, elapsed);
+    }
+    return best;
   }
 
   private static String nestedCharacterClass(int depth) {
@@ -339,10 +350,18 @@ class ParserTest {
     }
 
     @Test
-    void manyPlainCharacterClassesCompileWithinRegressionBound() {
-      String pattern = repeatedPlainCharacterClasses(100_000);
+    void manyPlainCharacterClassesParseWithLinearScaling() {
+      String smaller = repeatedPlainCharacterClasses(8_000);
+      String larger = repeatedPlainCharacterClasses(32_000);
 
-      assertTimeoutPreemptively(Duration.ofSeconds(10), () -> parse(pattern));
+      long smallerNanos = bestParseTimeNanos(smaller);
+      long largerNanos = bestParseTimeNanos(larger);
+
+      assertThat(largerNanos)
+          .as(
+              "4x input should stay near linear, smaller=%dns larger=%dns",
+              smallerNanos, largerNanos)
+          .isLessThan(smallerNanos * 10);
     }
 
     @Test
