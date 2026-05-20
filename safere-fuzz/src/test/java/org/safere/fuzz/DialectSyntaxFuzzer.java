@@ -13,7 +13,6 @@ final class DialectSyntaxFuzzer {
 
   private static final String[] CONTEXT_PREFIXES = {"", "^", "(?:", "a|", "[", "[^"};
   private static final String[] DIALECT_FRAGMENTS = {
-    "(?P<name>a)",
     "(?P=name)",
     "(?'name'a)",
     "\\g{name}",
@@ -42,7 +41,6 @@ final class DialectSyntaxFuzzer {
           "", "a", "b", "a\u0300", "\r\n", "Braille", "Latin", ":", "[", "]", "l", "o", "w", "e",
           "r");
   private static final String[] REGRESSION_REGEXES = {
-    "(?P<name>a)",
     "\\p{Braille}",
     "\\p{Latin}",
     "[[:lower:]]",
@@ -55,9 +53,13 @@ final class DialectSyntaxFuzzer {
     "a{,2}",
     "a{2,1}"
   };
+  private static final String[] SAFE_RE_EXTENSION_REGEXES = {"(?P<name>a)", "(?P<test_group>a)"};
 
   @FuzzTest(maxDuration = "30s")
   void dialectSyntax(FuzzedDataProvider data) {
+    for (String regex : SAFE_RE_EXTENSION_REGEXES) {
+      assertSafeRePythonNamedGroupExtension(regex);
+    }
     for (String regex : REGRESSION_REGEXES) {
       FuzzSupport.assertFullMatchesJdk(regex, 0, INPUTS);
     }
@@ -76,5 +78,16 @@ final class DialectSyntaxFuzzer {
 
     String regex = prefix + data.pickValue(DIALECT_FRAGMENTS) + suffix;
     FuzzSupport.assertFullMatchesJdk(regex, FuzzSupport.consumeParserFlags(data), INPUTS);
+  }
+
+  private static void assertSafeRePythonNamedGroupExtension(String regex) {
+    org.safere.Pattern pattern = org.safere.Pattern.compile(regex);
+    org.safere.Matcher matcher = pattern.matcher("a");
+    if (!matcher.matches()) {
+      throw new AssertionError("SafeRE Python-style named group did not match: " + regex);
+    }
+    if (!"a".equals(matcher.group(1))) {
+      throw new AssertionError("SafeRE Python-style named group captured wrong text: " + regex);
+    }
   }
 }

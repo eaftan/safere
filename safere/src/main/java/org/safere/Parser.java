@@ -4466,7 +4466,25 @@ final class Parser {
           throw new PatternSyntaxException("invalid named capture", pattern, pos);
         }
         String name = pattern.substring(begin, end);
-        if (!isValidCaptureName(name)) {
+        if (!isValidCaptureName(name, false)) {
+          throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
+        }
+        doLeftParen(name);
+        pos = end + 1; // skip past '>'
+        return false;
+      }
+    }
+    // (?P<name>expr) is a SafeRE extension that supports Python-style named groups in
+    // addition to the JDK (?<name>expr) syntax above.
+    if (pos + 4 < pattern.length()) {
+      if (pattern.charAt(pos + 2) == 'P' && pattern.charAt(pos + 3) == '<') {
+        int begin = pos + 4;
+        int end = pattern.indexOf('>', begin);
+        if (end < 0) {
+          throw new PatternSyntaxException("invalid named capture", pattern, pos);
+        }
+        String name = pattern.substring(begin, end);
+        if (!isValidCaptureName(name, true)) {
           throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
         }
         doLeftParen(name);
@@ -4628,17 +4646,23 @@ final class Parser {
 
   // ---- Capture name validation ----
 
-  private static boolean isValidCaptureName(String name) {
+  private static boolean isValidCaptureName(String name, boolean allowUnderscores) {
     if (name.isEmpty()) return false;
     // Match java.util.regex.Pattern rules: first character must be an ASCII letter,
-    // subsequent characters must be ASCII letters or digits.
+    // subsequent characters must be ASCII letters or digits. When allowUnderscores is true,
+    // underscores are also permitted.
     char first = name.charAt(0);
-    if (!((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z'))) {
+    if (!((first >= 'A' && first <= 'Z')
+        || (first >= 'a' && first <= 'z')
+        || (allowUnderscores && first == '_'))) {
       return false;
     }
     for (int i = 1; i < name.length(); i++) {
       char c = name.charAt(i);
-      if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+      if ((c >= 'A' && c <= 'Z')
+          || (c >= 'a' && c <= 'z')
+          || (c >= '0' && c <= '9')
+          || (allowUnderscores && c == '_')) {
         continue;
       }
       return false;

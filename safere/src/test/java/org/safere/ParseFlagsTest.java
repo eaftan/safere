@@ -33,6 +33,8 @@ class ParseFlagsTest {
     assertThat(ParseFlags.NEVER_CAPTURE).isEqualTo(16384);
     assertThat(ParseFlags.WAS_DOLLAR).isEqualTo(32768);
     assertThat(ParseFlags.UNIX_LINES).isEqualTo(65536);
+    assertThat(ParseFlags.UNICODE_CASE).isEqualTo(131072);
+    assertThat(ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY).isEqualTo(262144);
   }
 
   @Test

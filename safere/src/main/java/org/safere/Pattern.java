@@ -1108,7 +1108,6 @@ public final class Pattern implements Serializable {
     if ((flags & UNIX_LINES) != 0) {
       pf |= ParseFlags.UNIX_LINES;
     }
-
     return pf;
   }
 
