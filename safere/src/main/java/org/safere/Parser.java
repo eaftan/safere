@@ -4466,8 +4466,7 @@ final class Parser {
           throw new PatternSyntaxException("invalid named capture", pattern, pos);
         }
         String name = pattern.substring(begin, end);
-        boolean allowUnderscores = (flags & ParseFlags.PYTHON_NAMED_GROUPS) != 0;
-        if (!isValidCaptureName(name, allowUnderscores)) {
+        if (!isValidCaptureName(name, false)) {
           throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
         }
         doLeftParen(name);
@@ -4475,8 +4474,9 @@ final class Parser {
         return false;
       }
     }
-    // (?P<name>expr)
-    if ((flags & ParseFlags.PYTHON_NAMED_GROUPS) != 0 && pos + 4 < pattern.length()) {
+    // (?P<name>expr) is a SafeRE extension that supports Python-style named groups in
+    // addition to the JDK (?<name>expr) syntax above.
+    if (pos + 4 < pattern.length()) {
       if (pattern.charAt(pos + 2) == 'P' && pattern.charAt(pos + 3) == '<') {
         int begin = pos + 4;
         int end = pattern.indexOf('>', begin);
@@ -4484,8 +4484,7 @@ final class Parser {
           throw new PatternSyntaxException("invalid named capture", pattern, pos);
         }
         String name = pattern.substring(begin, end);
-        boolean allowUnderscores = (flags & ParseFlags.PYTHON_NAMED_GROUPS) != 0;
-        if (!isValidCaptureName(name, allowUnderscores)) {
+        if (!isValidCaptureName(name, true)) {
           throw new PatternSyntaxException("invalid named capture: " + name, pattern, pos);
         }
         doLeftParen(name);

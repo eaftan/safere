@@ -844,8 +844,10 @@ class ParserTest {
     }
 
     @Test
-    void namedCapture_pythonSyntaxRejected() {
-      assertThatThrownBy(() -> parse("(?P<name>a)")).isInstanceOf(PatternSyntaxException.class);
+    void namedCapture_pythonSyntax() {
+      Regexp re = parse("(?P<name>a)");
+      assertThat(re.op).isEqualTo(RegexpOp.CAPTURE);
+      assertThat(re.name).isEqualTo("name");
     }
 
     @Test
@@ -1499,6 +1501,13 @@ class ParserTest {
     void invalidNamedCapture_underscore() {
       assertThatThrownBy(() -> parse("(?<test_group>.*)"))
           .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @Test
+    void pythonStyleNamedCapture_underscoreAccepted() {
+      Regexp re = parse("(?P<test_group>.*)");
+      assertThat(re.op).isEqualTo(RegexpOp.CAPTURE);
+      assertThat(re.name).isEqualTo("test_group");
     }
 
     @Test

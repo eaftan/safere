@@ -525,7 +525,7 @@ class PatternTest {
     }
 
     @Test
-    @DisplayName("PYTHON_NAMED_GROUPS flag enables (?P<name>expr) syntax with underscores")
+    @DisplayName("Python-style named groups support (?P<name>expr) syntax with underscores")
     @DisabledForCrosscheck("SafeRE supports Python-style named capturing groups")
     void pythonNamedGroups() {
       Pattern p = Pattern.compile("(?P<user_name>[\\w.]+)@(?P<host_name>[\\w.]+)");
@@ -535,6 +535,13 @@ class PatternTest {
       assertThat(m.matches()).isTrue();
       assertThat(m.group("user_name")).isEqualTo("alice_smith");
       assertThat(m.group("host_name")).isEqualTo("example.com");
+    }
+
+    @Test
+    @DisplayName("Java-style named groups keep JDK name rules")
+    void javaStyleNamedGroupsRejectUnderscores() {
+      assertThatThrownBy(() -> Pattern.compile("(?<user_name>a)"))
+          .isInstanceOf(PatternSyntaxException.class);
     }
   }
 
