@@ -86,12 +86,11 @@ Examples:
 
 - #225: after `usePattern`, SafeRE restarted `find()` from a different position
   than `java.util.regex`.
-- #226: `hitEnd()` and `requireEnd()` diverged after `reset()` and `region()`
-  transitions following end-sensitive matches.
+- #226: SafeRE previously tried to emulate `hitEnd()` and `requireEnd()` across matcher lifecycle transitions. These APIs are now intentionally unsupported because they expose JDK backtracking-engine state.
 
 The common invariant is that every public transition must define how it updates
 the matcher cursor, region bounds, append position, cached match result,
-deferred capture state, `hitEnd`, `requireEnd`, and engine caches.  Those state
+deferred capture state and engine caches.  Those state
 updates must be compatible with the JDK even when the next operation uses a
 different SafeRE engine path.
 
@@ -104,8 +103,9 @@ Examples:
 
 - #216: POSIX bracket class spellings inside Java character classes were parsed
   with RE2/POSIX semantics rather than JDK semantics.
-- #217: `(?P<name>...)` was accepted even though JDK-compatible named captures
-  use `(?<name>...)`.
+- #217: SafeRE now intentionally accepts Python-style named captures
+  (`(?P<name>...)`) as a documented extension alongside JDK-compatible
+  `(?<name>...)` named captures.
 - #220: empty left side character-class intersections behaved differently from
   the JDK.
 - #224: octal escape acceptance and interpretation diverged from
@@ -189,8 +189,7 @@ The focused designs differ:
 
 Those tracks should share vocabulary and acceptance criteria, but their
 implementation designs should remain separate.  A capture-retention instruction
-does not solve octal parsing.  A parser compatibility matrix does not solve
-`hitEnd()` state after `region()`.  A forced-engine test harness does not by
+does not solve octal parsing.  A parser compatibility matrix does not solve matcher lifecycle state after `region()`.  A forced-engine test harness does not by
 itself define correct quantified capture semantics.  The umbrella doc should
 therefore define the common invariant and point to focused designs for the
 mechanics.
@@ -237,8 +236,7 @@ be guarded out for that case.
 Fast paths should share canonical search and cursor semantics wherever
 possible.  If a fast path cannot share the implementation, it must have
 cross-path tests that prove equivalence for anchors, empty matches, regions,
-capture access, replacement templates, functional replacements, and end-state
-flags.
+capture access, replacement templates, and functional replacements.
 
 ### 3. Matcher State-Machine Invariant
 
@@ -249,7 +247,6 @@ define its effects on:
 - active region and transparent/anchoring bounds;
 - append position and replacement state;
 - deferred capture and group-zero resolution state;
-- `hitEnd()` and `requireEnd()`;
 - cached engine instances and pattern-dependent metadata.
 
 Changing pattern, input, region, or operation mode must invalidate or preserve
@@ -307,7 +304,7 @@ missed an anchor invariant.  This design should define which search and
 replacement semantics are canonical, which fast paths are allowed to bypass
 shared code, and what guardrails or forced-engine tests prove equivalence.  It
 should cover anchors, empty matches, regions, replacement cursor updates, group
-access, and end-state flags.
+access.
 
 ### Matcher State-Machine Design
 
@@ -317,8 +314,7 @@ Scope: #225, #226, and related public API lifecycle behavior.
 
 This design should model `Matcher` as an explicit state machine.  It should
 define state transitions for `find`, `matches`, `lookingAt`, `reset`, `region`,
-`usePattern`, replacement operations, `results`, `hitEnd`, and `requireEnd`,
-then map each transition to JDK-compatible behavior.
+`usePattern`, replacement operations, and `results`, then map each transition to JDK-compatible behavior.
 
 ### Parser Dialect Compatibility Design
 

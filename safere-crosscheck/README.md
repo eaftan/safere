@@ -119,7 +119,10 @@ The crosscheck facade covers:
 | **Replace** | `replaceAll(String)`, `replaceFirst(String)`, `appendReplacement()`, `appendTail()` |
 | **Split** | `Pattern.split()`, `Pattern.splitWithDelimiters()` |
 | **State** | `reset()`, `region()`, `useTransparentBounds()`, `useAnchoringBounds()` |
-| **Other** | `hitEnd()`, `requireEnd()`, `toMatchResult()`, `namedGroups()` |
+| **Other** | `toMatchResult()`, `namedGroups()` |
+
+`Matcher.hitEnd()` and `Matcher.requireEnd()` are intentionally not covered
+because SafeRE does not support those APIs.
 
 ## Crosschecking SafeRE Tests
 

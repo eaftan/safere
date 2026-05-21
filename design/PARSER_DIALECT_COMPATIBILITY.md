@@ -16,8 +16,8 @@ Recent bugs show the class:
 
 - #216: POSIX bracket spellings such as `[[:lower:]]` were interpreted with
   RE2/POSIX semantics instead of JDK character-class text semantics.
-- #217: `(?P<name>...)` was accepted even though the JDK named-capture spelling
-  is `(?<name>...)`.
+- #217: `(?P<name>...)` is now a documented SafeRE extension for
+  Python-style named captures alongside the JDK spelling `(?<name>...)`.
 - #220: empty left-side character-class intersections such as `[&&abc]` and
   `[a&&&&b]` diverged from the JDK.
 - #224: octal escape acceptance and interpretation drifted from
@@ -96,7 +96,8 @@ intentionally diverges from JDK behavior under the rules above.
 | Accepted JDK syntax | JDK accepts the spelling and SafeRE implements the same syntax and semantics. | literals, character classes, quantifiers, `(?<name>...)`, `\p{Lu}`, `\Q...\E`, `\R`, `\X`, JDK flags |
 | JDK-compatible with linear implementation | JDK accepts the spelling, and SafeRE implements the same observable behavior with a linear engine rather than backtracking. | alternation priority, captures in supported regular syntax, anchors, regions |
 | Rejected non-regular JDK syntax | JDK accepts the spelling, but supporting it would violate SafeRE's linear-time guarantee or architecture. | backreferences, lookahead, lookbehind, possessive quantifiers |
-| Rejected non-JDK syntax | Another regex dialect accepts the spelling, but JDK does not. | `(?P<name>...)`, RE2/Python-only or POSIX-only spellings |
+| Accepted SafeRE extension | JDK rejects the spelling, but SafeRE intentionally supports it because it preserves linear-time matching and has documented behavior. | Python-style named captures `(?P<name>...)` |
+| Rejected non-JDK syntax | Another regex dialect accepts the spelling, but JDK does not. | Python named backreferences `(?P=name)`, RE2/Python-only or POSIX-only spellings |
 | JDK accepted literal text | A spelling resembles another dialect's metasyntax but is ordinary text in the JDK. | POSIX bracket fragments inside Java character classes such as `[[:lower:]]` |
 | JDK rejected malformed syntax | Both JDK and SafeRE should throw `PatternSyntaxException`. | malformed octal escapes such as `\0`, bad property names, invalid group syntax |
 | Documented explicit exception | SafeRE intentionally differs from JDK behavior for a stated reason and has regression coverage. This is not a dialect category; it is an exception that must be reviewed and documented. | unspecified character-class edge behavior where exact JDK compatibility would break linear time or make the parser materially brittle |
@@ -126,9 +127,9 @@ The focused compatibility matrix should cover at least these syntax families.
 | POSIX bracket fragments `[[:lower:]]` | ordinary JDK character-class text, not POSIX metasyntax | membership tests proving characters like `l`, `o`, `w`, `e`, `r`, `:`, `[`, and `]` behave like JDK |
 | Unicode scripts, blocks, categories, and binary properties | JDK-compatible, tied to the running JDK where possible | property lookup and membership crosschecks |
 | Character-class union, range, intersection, subtraction, and negation | JDK-compatible for documented grammar; unspecified observable edge behavior follows the character-class policy below | generated membership tests for edge shapes, including zero-width class syntax, empty RHS expressions, and malformed range endpoints |
-| Group syntax | JDK-compatible accepted forms; reject non-JDK forms | compile/error tests for capturing, non-capturing, flags, named groups, and rejected dialect spellings |
+| Group syntax | JDK-compatible accepted forms plus documented SafeRE extensions; reject unsupported non-JDK forms | compile/error tests for capturing, non-capturing, flags, named groups, and rejected dialect spellings |
 | Quantifier syntax | JDK-compatible where regular; reject unsupported non-regular forms | compile/error tests plus membership for greedy/lazy and bounded forms |
-| Boundary matchers and line terminators | JDK-compatible where supported | membership and `hitEnd`/`requireEnd` tests where observable |
+| Boundary matchers and line terminators | JDK-compatible where supported | membership tests |
 | Comments and embedded flags | JDK-compatible | compile and membership tests for whitespace, comments, scoped flags, and flag restoration |
 | Unsupported non-regular constructs | rejected with clear errors | compile-error tests against known feature spellings |
 
@@ -589,7 +590,7 @@ The structural requirements are:
 
 - Parse branches should name the JDK syntax family they implement.
 - Dialect spellings from RE2, POSIX, Python, or PCRE should be accepted only
-  when they are also JDK-compatible.
+  when they are JDK-compatible or documented as explicit SafeRE extensions.
 - Character-class parsing should have explicit handling for JDK intersection
   and subtraction edge cases, not a generic POSIX class interpretation.
 - Character-class parser state should distinguish operator tokens, trivia,
@@ -720,11 +721,11 @@ This design track is complete when:
 - `JdkSyntaxCompatibilityTest` or an equivalent focused suite contains a
   syntax-family matrix matching the table above;
 - every known RE2/POSIX/Python-only spelling that SafeRE might accidentally
-  accept has an explicit accept/reject test;
+  accept has an explicit accept/reject or extension test;
 - POSIX bracket fragments inside Java character classes are tested as ordinary
   JDK character-class text;
-- named-capture tests prove `(?<name>...)` is accepted and `(?P<name>...)` is
-  rejected;
+- named-capture tests prove `(?<name>...)` and `(?P<name>...)` are accepted,
+  while unsupported named-reference spellings are rejected;
 - character-class intersection and subtraction tests include zero-width class
   syntax, empty RHS, and repeated-operator edge cases;
 - the generated character-class expression sweep is available as a long-running

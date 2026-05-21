@@ -8,7 +8,6 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
@@ -115,8 +114,6 @@ class MatcherTest {
       Matcher m = Pattern.compile(".*\\s+.*").matcher("44241504-44f6-4d2a-bdcb-1bf7fd927ba9");
 
       assertThat(m.matches()).isFalse();
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isFalse();
     }
 
     @Test
@@ -129,22 +126,6 @@ class MatcherTest {
             .as("SafeRE and JDK should agree on %s", input.replace("\n", "\\n"))
             .isEqualTo(java.util.regex.Pattern.compile(".*\\s+.*").matcher(input).matches());
       }
-    }
-
-    @Test
-    @DisabledForCrosscheck("java.util.regex backtracking is not the SafeRE performance target")
-    @DisplayName("matches() end-state bookkeeping does not dominate nullable counted repeats")
-    void matchesEndStateBookkeepingDoesNotDominateNullableCountedRepeats() {
-      Pattern p = Pattern.compile(scimFilterPattern(), Pattern.UNIX_LINES | Pattern.MULTILINE);
-
-      long smallNanos =
-          runtimeNanos(() -> assertThat(p.matcher(scimFilterInput(10)).matches()).isTrue());
-      long largeNanos =
-          runtimeNanos(() -> assertThat(p.matcher(scimFilterInput(500)).matches()).isTrue());
-
-      assertThat(largeNanos)
-          .as("large accepted input should not be dominated by end-state replay")
-          .isLessThan(smallNanos * 20);
     }
 
     @Test
@@ -211,30 +192,6 @@ class MatcherTest {
             Matcher m = Pattern.compile("(a)*").matcher("a".repeat(20_000));
             assertThat(m.matches()).isTrue();
             assertThat(m.group(1)).isEqualTo("a");
-          });
-    }
-
-    @Test
-    @DisabledForCrosscheck("JDK stack overflows on this SafeRE stack-safety stress case")
-    @DisplayName("terminal repeat end-state sampling stays stack-safe for deep groups")
-    void terminalRepeatEndStateSamplingStaysStackSafeForDeepGroups() {
-      Pattern p = Pattern.compile(nestedCapturingGroups(10_000) + "*");
-
-      assertCompletesWithinPerformanceTimeout(
-          () -> {
-            Matcher matches = p.matcher("a");
-            assertThat(matches.matches()).isTrue();
-            assertThat(matches.hitEnd()).isTrue();
-            assertThat(matches.requireEnd()).isFalse();
-
-            Matcher lookingAt = p.matcher("a!");
-            assertThat(lookingAt.lookingAt()).isTrue();
-            assertThat(lookingAt.hitEnd()).isFalse();
-
-            Matcher find = p.matcher("a");
-            assertThat(find.find()).isTrue();
-            assertThat(find.hitEnd()).isTrue();
-            assertThat(find.requireEnd()).isFalse();
           });
     }
 
@@ -1773,20 +1730,6 @@ class MatcherTest {
     }
 
     @Test
-    @DisplayName("region preserves end-state flags until next match attempt")
-    void regionPreservesEndStateFlagsUntilNextMatchAttempt() {
-      Pattern p = Pattern.compile("a$");
-      Matcher m = p.matcher("a");
-      assertThat(m.find()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-
-      m.region(0, 1);
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
     @DisplayName("^ matches at region start with anchoring bounds")
     void caretMatchesAtRegionStart() {
       Pattern p = Pattern.compile("^\\d+");
@@ -1903,189 +1846,6 @@ class MatcherTest {
       m.region(0, 3); // "foo", followed by word char outside the region
       m.useTransparentBounds(true);
       assertThat(m.find()).isFalse();
-    }
-  }
-
-  @Nested
-  @DisplayName("hitEnd()")
-  class HitEndTests {
-
-    @Test
-    @DisplayName("hitEnd is true for alternation needing more input (diverges from JDK)")
-    @DisabledForCrosscheck("diverges from JDK")
-    void hitEndTrueForAlternationNeedingMoreInput() {
-      Pattern p = Pattern.compile("abc|abcd");
-      Matcher m = p.matcher("abc");
-      assertThat(m.matches()).isTrue();
-      // SafeRE returns true because it detects that more input ('d') could change the result.
-      // JDK returns false because it stops at the first matching branch.
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for non-greedy quantifier matches (diverges from JDK)")
-    @DisabledForCrosscheck("diverges from JDK")
-    void hitEndTrueForNonGreedyQuantifierMatches() {
-      Pattern p = Pattern.compile("a*?");
-      Matcher m = p.matcher("a");
-      assertThat(m.matches()).isTrue();
-      // SafeRE returns true because it detects that more input ('a') could change the result.
-      // JDK returns false because it prefers shortest match.
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true when a variable-length match reaches end")
-    void hitEndTrueForVariableLengthMatchAtEnd() {
-      Pattern p = Pattern.compile("\\w+");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.group()).isEqualTo("abc");
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is false when match does not reach end")
-    void hitEndMatchNotAtEnd() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("123 abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.group()).isEqualTo("123");
-      assertThat(m.hitEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true when no match found")
-    void hitEndNoMatch() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("no digits");
-      assertThat(m.find()).isFalse();
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for failed character class match")
-    void hitEndTrueForFailedCharClassMatch() {
-      Pattern p = Pattern.compile("[abc]");
-      Matcher m = p.matcher("xyz");
-      assertThat(m.find()).isFalse();
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true when a variable-length match reaches region end")
-    void hitEndTrueForVariableLengthMatchAtRegionEnd() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("abc123def456ghi");
-      m.region(3, 6); // "123"
-      assertThat(m.find()).isTrue();
-      assertThat(m.group()).isEqualTo("123");
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd false with region when match doesn't reach end")
-    void hitEndFalseWithRegion() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("abc123def456ghi");
-      m.region(3, 9); // "123def"
-      assertThat(m.find()).isTrue();
-      assertThat(m.group()).isEqualTo("123");
-      assertThat(m.hitEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is false for literal matches()")
-    void hitEndFalseForLiteralMatches() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abc");
-      assertThat(m.matches()).isTrue();
-      assertThat(m.hitEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for variable-length matches() at end")
-    void hitEndTrueForVariableLengthMatchesAtEnd() {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("123");
-      assertThat(m.matches()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is false for literal lookingAt()")
-    void hitEndFalseForLiteralLookingAt() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abc");
-      assertThat(m.lookingAt()).isTrue();
-      assertThat(m.hitEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is false for failed matches() that does not need more input")
-    void hitEndFalseForFailedLiteralMatches() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abx");
-      assertThat(m.matches()).isFalse();
-      assertThat(m.hitEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for failed matches() on shorter input")
-    void hitEndTrueForFailedLiteralMatchesShorterInput() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("ab");
-      assertThat(m.matches()).isFalse();
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for failed matches() on empty input with quantified char class")
-    void hitEndTrueForFailedCharClassMatchesEmptyInput() {
-      Pattern p = Pattern.compile("[a-z]+");
-      Matcher m = p.matcher("");
-      assertThat(m.matches()).isFalse();
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for alternation hitting end")
-    void hitEndTrueForAlternationHittingEnd() {
-      Pattern p = Pattern.compile("abc|ab");
-      Matcher m = p.matcher("ab");
-      assertThat(m.matches()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd is true for failed lookingAt() on shorter input")
-    void hitEndTrueForFailedLiteralLookingAtShorterInput() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("ab");
-      assertThat(m.lookingAt()).isFalse();
-      assertThat(m.hitEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("hitEnd false with lookingAt() not reaching end")
-    void hitEndFalseWithLookingAt() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abcdef");
-      assertThat(m.lookingAt()).isTrue();
-      assertThat(m.hitEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("hitEnd tracks whether the matched path used a terminal boundary")
-    void hitEndTracksMatchedPathTerminalBoundaryUse() {
-      assertEndStateAfterFindMatchesJdk("\\ba", "a");
-      assertEndStateAfterFindMatchesJdk("\\Ba", "ba");
-      assertEndStateAfterFindMatchesJdk("(?:\\b|a)", "a");
-      assertEndStateAfterFindMatchesJdk("abc|x\\b", "abc");
-      assertEndStateAfterFindMatchesJdk("a\\b", "a");
     }
   }
 
@@ -2462,149 +2222,6 @@ class MatcherTest {
   }
 
   @Nested
-  @DisplayName("requireEnd()")
-  class RequireEndTests {
-
-    @Test
-    @DisplayName("requireEnd() is false for simple literal find")
-    void requireEndFalseForLiteralFind() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("requireEnd() is true for dollar-anchored find at end")
-    void requireEndTrueForDollarAnchor() {
-      Pattern p = Pattern.compile("abc$");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("requireEnd() is true for dollar anchor before trailing terminator")
-    void requireEndTrueForDollarAnchorBeforeTrailingTerminator() {
-      Pattern p = Pattern.compile("abc$");
-      Matcher m = p.matcher("abc\n");
-      assertThat(m.find()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("requireEnd() is false for \\z anchor (JDK does not track \\z)")
-    void requireEndFalseForEndTextAnchor() {
-      Pattern p = Pattern.compile("abc\\z");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      // JDK does not set requireEnd for \z, only for $.
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("requireEnd() is true for word boundary at end")
-    void requireEndTrueForWordBoundary() {
-      Pattern p = Pattern.compile("\\babc\\b");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("reset preserves end-state flags until next match attempt")
-    void resetPreservesEndStateFlagsUntilNextMatchAttempt() {
-      Pattern p = Pattern.compile("abc$");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-      m.reset();
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("reset(CharSequence) preserves end-state flags until next match attempt")
-    void resetWithNewInputPreservesEndStateFlagsUntilNextMatchAttempt() {
-      Pattern p = Pattern.compile("abc$");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-      m.reset("x");
-      assertThat(m.hitEnd()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("requireEnd() is false when match does not hit end")
-    void requireEndFalseWhenNotAtEnd() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abcdef");
-      assertThat(m.find()).isTrue();
-      assertThat(m.hitEnd()).isFalse();
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("requireEnd() with matches()")
-    void requireEndWithMatches() {
-      Pattern p = Pattern.compile("abc$");
-      Matcher m = p.matcher("abc");
-      assertThat(m.matches()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("requireEnd() with lookingAt()")
-    void requireEndWithLookingAt() {
-      Pattern p = Pattern.compile("abc$");
-      Matcher m = p.matcher("abc");
-      assertThat(m.lookingAt()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
-    @DisplayName("requireEnd() is false for literal matches()")
-    void requireEndFalseForLiteralMatches() {
-      Pattern p = Pattern.compile("abc");
-      Matcher m = p.matcher("abc");
-      assertThat(m.matches()).isTrue();
-      // No end assertions in pattern — match doesn't depend on end position.
-      assertThat(m.requireEnd()).isFalse();
-    }
-
-    @Test
-    @DisplayName("requireEnd() tracks whether the matched path used a terminal boundary")
-    void requireEndTracksMatchedPathTerminalBoundaryUse() {
-      assertEndStateAfterFindMatchesJdk("\\ba", "a");
-      assertEndStateAfterFindMatchesJdk("\\Ba", "ba");
-      assertEndStateAfterFindMatchesJdk("(?:\\b|a)", "a");
-      assertEndStateAfterFindMatchesJdk("abc|x\\b", "abc");
-      assertEndStateAfterFindMatchesJdk("\\babc\\b", "abc");
-      assertEndStateAfterFindMatchesJdk("abc$", "abc");
-      assertEndStateAfterFindMatchesJdk("abc\\Z", "abc");
-      assertEndStateAfterFindMatchesJdk("abc\\z", "abc");
-    }
-
-    @Test
-    @DisplayName("terminal extension sampling is stack-safe through deep groups")
-    @DisabledForCrosscheck("JDK java.util.regex can overflow on this intentionally deep pattern")
-    void terminalExtensionSamplingIsStackSafeThroughDeepGroups() {
-      String regex = "(".repeat(10_000) + "a" + ")".repeat(10_000) + "*$";
-
-      assertThatNoException()
-          .isThrownBy(
-              () -> {
-                Matcher matcher = Pattern.compile(regex).matcher("a");
-                assertThat(matcher.find()).isTrue();
-                assertThat(matcher.hitEnd()).isTrue();
-              });
-    }
-  }
-
-  @Nested
   @DisplayName("Repetition with nullable bodies")
   class RepetitionWithNullableBodies {
 
@@ -2873,19 +2490,6 @@ class MatcherTest {
           .as("end(%d) for /%s/ on %s", group, regex, input)
           .isEqualTo(jdk.end(group));
     }
-  }
-
-  private static void assertEndStateAfterFindMatchesJdk(String regex, String input) {
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
-    Matcher safere = Pattern.compile(regex).matcher(input);
-
-    assertThat(safere.find()).as("find() for /%s/ on %s", regex, input).isEqualTo(jdk.find());
-    assertThat(safere.start()).as("start() for /%s/ on %s", regex, input).isEqualTo(jdk.start());
-    assertThat(safere.end()).as("end() for /%s/ on %s", regex, input).isEqualTo(jdk.end());
-    assertThat(safere.hitEnd()).as("hitEnd() for /%s/ on %s", regex, input).isEqualTo(jdk.hitEnd());
-    assertThat(safere.requireEnd())
-        .as("requireEnd() for /%s/ on %s", regex, input)
-        .isEqualTo(jdk.requireEnd());
   }
 
   private static String repeatedDotStarCapturePattern(int repetitions, int captures) {

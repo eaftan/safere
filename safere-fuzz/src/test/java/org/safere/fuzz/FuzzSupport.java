@@ -360,20 +360,6 @@ final class FuzzSupport {
       return safeRe;
     }
 
-    boolean hitEnd() {
-      boolean safeRe = safeReMatcher.hitEnd();
-      boolean jdk = runJdkOracle("hitEnd", safeRe, () -> jdkMatcher.hitEnd());
-      assertSame("hitEnd", safeRe, jdk);
-      return safeRe;
-    }
-
-    boolean requireEnd() {
-      boolean safeRe = safeReMatcher.requireEnd();
-      boolean jdk = runJdkOracle("requireEnd", safeRe, () -> jdkMatcher.requireEnd());
-      assertSame("requireEnd", safeRe, jdk);
-      return safeRe;
-    }
-
     MatcherPair region(int start, int end) {
       safeReMatcher.region(start, end);
       runJdkOracle("region", null, () -> jdkMatcher.region(start, end));

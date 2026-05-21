@@ -25,8 +25,6 @@ class MatcherStateMachineTraceTest {
         "a",
         "ba",
         Step.matches(),
-        Step.hitEnd(),
-        Step.requireEnd(),
         Step.find(),
         Step.group(),
         Step.start(),
@@ -41,8 +39,6 @@ class MatcherStateMachineTraceTest {
         "a",
         "ba",
         Step.lookingAt(),
-        Step.hitEnd(),
-        Step.requireEnd(),
         Step.find(),
         Step.group(),
         Step.start(),
@@ -63,58 +59,6 @@ class MatcherStateMachineTraceTest {
         Step.find(),
         Step.group(),
         Step.find());
-  }
-
-  @Test
-  @DisplayName("final nullable find at input end preserves JDK-compatible hitEnd")
-  void finalNullableFindAtInputEndPreservesJdkCompatibleHitEnd() {
-    assertTrace(
-        "(?:(a)?)??c?",
-        "c" + "b".repeat(3),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd());
-  }
-
-  @Test
-  @DisplayName("find failure after terminal empty-pattern match preserves JDK-compatible hitEnd")
-  void findFailureAfterTerminalEmptyPatternMatchPreservesJdkCompatibleHitEnd() {
-    assertTrace(
-        "",
-        "abc",
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd());
   }
 
   @Test
@@ -165,36 +109,6 @@ class MatcherStateMachineTraceTest {
   }
 
   @Test
-  @DisplayName("reset and region preserve end-state flags until the next match attempt")
-  void resetAndRegionPreserveEndStateUntilNextAttempt() {
-    assertTrace(
-        "a+$",
-        "aaa",
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.reset(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.region(0, 2),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd());
-  }
-
-  @Test
-  @DisplayName("end-state traces match the JDK across anchors, regions, and resets")
-  void endStateTracesMatchJdkAcrossAnchorsRegionsAndResets() {
-    assertEndStateTrace("a$", "a");
-    assertEndStateTrace("a\\Z", "a");
-    assertEndStateTrace("a\\z", "a");
-    assertEndStateTrace("a\\b", "a");
-    assertEndStateTrace("(?m)^b$", "a\r\nb");
-  }
-
-  @Test
   @DisplayName("structural mutations during results() traversal match the JDK")
   void structuralMutationsDuringResultsTraversalMatchJdk() {
     for (Mutation mutation : structuralMutations()) {
@@ -217,30 +131,6 @@ class MatcherStateMachineTraceTest {
       assertThat(safereAll).as("replaceAll %s", mutation.name()).isEqualTo(jdkAll);
       assertThat(safereFirst).as("replaceFirst %s", mutation.name()).isEqualTo(jdkFirst);
     }
-  }
-
-  private static void assertEndStateTrace(String regex, String input) {
-    assertTrace(
-        regex,
-        input,
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.reset(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.region(0, input.length()),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.useAnchoringBounds(false),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd(),
-        Step.find(),
-        Step.hitEnd(),
-        Step.requireEnd());
   }
 
   private static List<Mutation> structuralMutations() {
@@ -324,10 +214,6 @@ class MatcherStateMachineTraceTest {
 
     int end(int group);
 
-    boolean hitEnd();
-
-    boolean requireEnd();
-
     void reset();
 
     void region(int start, int end);
@@ -410,16 +296,6 @@ class MatcherStateMachineTraceTest {
     @Override
     public int end(int group) {
       return matcher.end(group);
-    }
-
-    @Override
-    public boolean hitEnd() {
-      return matcher.hitEnd();
-    }
-
-    @Override
-    public boolean requireEnd() {
-      return matcher.requireEnd();
     }
 
     @Override
@@ -560,16 +436,6 @@ class MatcherStateMachineTraceTest {
     }
 
     @Override
-    public boolean hitEnd() {
-      return matcher.hitEnd();
-    }
-
-    @Override
-    public boolean requireEnd() {
-      return matcher.requireEnd();
-    }
-
-    @Override
     public void reset() {
       matcher.reset();
     }
@@ -694,14 +560,6 @@ class MatcherStateMachineTraceTest {
 
     static Step end(int group) {
       return value("end(" + group + ")", subject -> subject.end(group));
-    }
-
-    static Step hitEnd() {
-      return value("hitEnd", subject -> subject.hitEnd());
-    }
-
-    static Step requireEnd() {
-      return value("requireEnd", subject -> subject.requireEnd());
     }
 
     static Step reset() {

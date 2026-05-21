@@ -35,7 +35,7 @@ import java.util.TreeSet;
 final class Dfa {
 
   /** Result of a DFA search. */
-  record SearchResult(boolean matched, int pos, boolean hitEnd) {}
+  record SearchResult(boolean matched, int pos) {}
 
   /** Result of a multi-match DFA search. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
@@ -967,8 +967,6 @@ final class Dfa {
 
     boolean matched = false;
     int matchEnd = -1;
-    boolean hitEnd = false;
-
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
       if (!needEndMatch
@@ -977,13 +975,13 @@ final class Dfa {
         matched = true;
         matchEnd = startPos;
         if (!longest && (!needEndMatch || startPos == textLen)) {
-          return new SearchResult(true, startPos, startPos == textLen);
+          return new SearchResult(true, startPos);
         }
       }
     }
 
     if (s == deadState) {
-      return new SearchResult(matched, matchEnd, startPos == textLen);
+      return new SearchResult(matched, matchEnd);
     }
 
     int pos = startPos;
@@ -1040,7 +1038,6 @@ final class Dfa {
       s = ns;
 
       if (s == deadState) {
-        hitEnd = (pos == textLen);
         break;
       }
 
@@ -1056,7 +1053,7 @@ final class Dfa {
             matched = true;
             matchEnd = endPos;
             if (!longest && (!needEndMatch || endPos == textLen)) {
-              return new SearchResult(true, matchEnd, endPos == textLen);
+              return new SearchResult(true, matchEnd);
             }
           }
         }
@@ -1071,20 +1068,19 @@ final class Dfa {
             matched = true;
             matchEnd = endPos;
             if (!longest && (!needEndMatch || endPos == textLen)) {
-              return new SearchResult(true, matchEnd, endPos == textLen);
+              return new SearchResult(true, matchEnd);
             }
           }
         }
       }
 
       if (pos >= textLen) {
-        hitEnd = true;
         break;
       }
       pos = nextPos;
     }
 
-    return new SearchResult(matched, matchEnd, hitEnd);
+    return new SearchResult(matched, matchEnd);
   }
 
   // ---------------------------------------------------------------------------
@@ -1135,13 +1131,13 @@ final class Dfa {
         matched = true;
         matchStart = endPos;
         if (!longest && !needEndMatch) {
-          return new SearchResult(true, matchStart, false);
+          return new SearchResult(true, matchStart);
         }
       }
     }
 
     if (s == deadState) {
-      return new SearchResult(matched, matchStart, false);
+      return new SearchResult(matched, matchStart);
     }
 
     int pos = endPos;
@@ -1207,7 +1203,7 @@ final class Dfa {
           matched = true;
           matchStart = startPos;
           if (!longest && !needEndMatch) {
-            return new SearchResult(true, matchStart, false);
+            return new SearchResult(true, matchStart);
           }
         }
       }
@@ -1218,7 +1214,7 @@ final class Dfa {
       pos = prevPos;
     }
 
-    return new SearchResult(matched, matchStart, false);
+    return new SearchResult(matched, matchStart);
   }
 
   // ---------------------------------------------------------------------------

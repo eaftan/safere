@@ -54,13 +54,6 @@ final class MatcherTransitionInventory {
     NONE
   }
 
-  enum EndStateEffect {
-    UPDATE_FROM_ATTEMPT,
-    PRESERVE,
-    FOLLOWS_OPERATIONS,
-    NONE
-  }
-
   enum StructuralMutationEffect {
     INVALIDATES_ACTIVE_TRAVERSAL,
     DETECTS_CALLBACK_MUTATION,
@@ -89,14 +82,12 @@ final class MatcherTransitionInventory {
       DeferredCaptureEffect deferredCaptureEffect,
       CursorEffect cursorEffect,
       ReplacementEffect replacementEffect,
-      EndStateEffect endStateEffect,
       StructuralMutationEffect structuralMutationEffect,
       CacheEffect cacheEffect,
       Set<String> legalObservationGroups) {}
 
   private static final Set<String> OBSERVER_ONLY = Set.of("observer-only");
   private static final Set<String> MATCH_RESULT = Set.of("observer-only", "match-result");
-  private static final Set<String> END_STATE_ONLY = Set.of("observer-only", "end-state");
   private static final Set<String> REPLACEMENT = Set.of("observer-only", "replacement");
   private static final Set<String> STATIC_UTILITY = Set.of("static-utility");
 
@@ -108,47 +99,42 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.MAY_DEFER,
               CursorEffect.RESET_TO_REGION_START,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.UPDATE_FROM_ATTEMPT,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.PRESERVE,
-              END_STATE_ONLY),
+              OBSERVER_ONLY),
           transition(
               signature("lookingAt"),
               ResultEffect.MATCH_ATTEMPT,
               DeferredCaptureEffect.MAY_DEFER,
               CursorEffect.RESET_TO_REGION_START,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.UPDATE_FROM_ATTEMPT,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.PRESERVE,
-              END_STATE_ONLY),
+              OBSERVER_ONLY),
           transition(
               signature("find"),
               ResultEffect.MATCH_ATTEMPT,
               DeferredCaptureEffect.MAY_DEFER,
               CursorEffect.DERIVE_FROM_PREVIOUS_RESULT_THEN_SEARCH,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.UPDATE_FROM_ATTEMPT,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.PRESERVE,
-              END_STATE_ONLY),
+              OBSERVER_ONLY),
           transition(
               signature("find", int.class),
               ResultEffect.MATCH_ATTEMPT,
               DeferredCaptureEffect.CLEAR,
               CursorEffect.SET_FROM_ARGUMENT_THEN_SEARCH,
               ReplacementEffect.RESET_APPEND_POSITION,
-              EndStateEffect.UPDATE_FROM_ATTEMPT,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.PRESERVE,
-              END_STATE_ONLY),
+              OBSERVER_ONLY),
           transition(
               signature("results"),
               ResultEffect.MATCH_ATTEMPT,
               DeferredCaptureEffect.RESOLVE_FOR_SNAPSHOT,
               CursorEffect.DERIVE_FROM_PREVIOUS_RESULT_THEN_SEARCH,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.FOLLOWS_OPERATIONS,
               StructuralMutationEffect.DETECTS_CALLBACK_MUTATION,
               CacheEffect.PRESERVE,
               MATCH_RESULT),
@@ -158,7 +144,6 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.PRESERVE,
               CursorEffect.PRESERVE,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.PRESERVE,
               StructuralMutationEffect.NOT_STRUCTURAL,
               CacheEffect.PRESERVE,
               OBSERVER_ONLY),
@@ -177,7 +162,6 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.NONE,
               CursorEffect.NONE,
               ReplacementEffect.NONE,
-              EndStateEffect.NONE,
               StructuralMutationEffect.NONE,
               CacheEffect.NONE,
               STATIC_UTILITY),
@@ -195,7 +179,6 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.CLEAR,
               CursorEffect.RESET_TO_INPUT_START,
               ReplacementEffect.RESET_APPEND_POSITION,
-              EndStateEffect.PRESERVE,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.PRESERVE,
               OBSERVER_ONLY),
@@ -205,7 +188,6 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.CLEAR,
               CursorEffect.RESET_TO_INPUT_START,
               ReplacementEffect.RESET_APPEND_POSITION,
-              EndStateEffect.PRESERVE,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.INVALIDATE_INPUT_CACHES,
               OBSERVER_ONLY),
@@ -215,14 +197,11 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.CLEAR,
               CursorEffect.RESET_TO_REGION_START,
               ReplacementEffect.RESET_APPEND_POSITION,
-              EndStateEffect.PRESERVE,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.INVALIDATE_REGION_ASSUMPTIONS,
               OBSERVER_ONLY),
           observer(signature("regionStart")),
           observer(signature("regionEnd")),
-          observer(signature("hitEnd")),
-          observer(signature("requireEnd")),
           observer(signature("namedGroups")),
           observer(signature("pattern")),
           observer(signature("toString")),
@@ -232,7 +211,6 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.CLEAR,
               CursorEffect.DERIVE_FROM_PREVIOUS_RESULT_THEN_SEARCH,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.PRESERVE,
               StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
               CacheEffect.INVALIDATE_PATTERN_CACHES,
               OBSERVER_ONLY),
@@ -246,7 +224,6 @@ final class MatcherTransitionInventory {
               DeferredCaptureEffect.RESOLVE_FOR_SNAPSHOT,
               CursorEffect.PRESERVE,
               ReplacementEffect.PRESERVE,
-              EndStateEffect.PRESERVE,
               StructuralMutationEffect.NOT_STRUCTURAL,
               CacheEffect.PRESERVE,
               MATCH_RESULT));
@@ -282,7 +259,6 @@ final class MatcherTransitionInventory {
         DeferredCaptureEffect.PRESERVE,
         CursorEffect.PRESERVE,
         ReplacementEffect.PRESERVE,
-        EndStateEffect.PRESERVE,
         StructuralMutationEffect.NOT_STRUCTURAL,
         CacheEffect.PRESERVE,
         OBSERVER_ONLY);
@@ -295,7 +271,6 @@ final class MatcherTransitionInventory {
         DeferredCaptureEffect.RESOLVE_AS_NEEDED,
         CursorEffect.PRESERVE,
         ReplacementEffect.PRESERVE,
-        EndStateEffect.PRESERVE,
         StructuralMutationEffect.NOT_STRUCTURAL,
         CacheEffect.PRESERVE,
         MATCH_RESULT);
@@ -308,7 +283,6 @@ final class MatcherTransitionInventory {
         DeferredCaptureEffect.MAY_DEFER,
         CursorEffect.DERIVE_FROM_PREVIOUS_RESULT_THEN_SEARCH,
         ReplacementEffect.MANAGED_BY_APPEND_OPERATIONS,
-        EndStateEffect.FOLLOWS_OPERATIONS,
         StructuralMutationEffect.DETECTS_CALLBACK_MUTATION,
         CacheEffect.PRESERVE,
         REPLACEMENT);
@@ -321,7 +295,6 @@ final class MatcherTransitionInventory {
         DeferredCaptureEffect.RESOLVE_FOR_REPLACEMENT,
         CursorEffect.PRESERVE,
         ReplacementEffect.ADVANCE_APPEND_POSITION,
-        EndStateEffect.PRESERVE,
         StructuralMutationEffect.ORACLE_DEFINED,
         CacheEffect.PRESERVE,
         REPLACEMENT);
@@ -334,7 +307,6 @@ final class MatcherTransitionInventory {
         DeferredCaptureEffect.PRESERVE,
         CursorEffect.PRESERVE,
         ReplacementEffect.PRESERVE,
-        EndStateEffect.PRESERVE,
         StructuralMutationEffect.ORACLE_DEFINED,
         CacheEffect.PRESERVE,
         REPLACEMENT);
@@ -347,7 +319,6 @@ final class MatcherTransitionInventory {
         DeferredCaptureEffect.RESOLVE_BEFORE_BOUNDS_CHANGE,
         CursorEffect.PRESERVE,
         ReplacementEffect.PRESERVE,
-        EndStateEffect.PRESERVE,
         StructuralMutationEffect.ORACLE_DEFINED,
         CacheEffect.INVALIDATE_REGION_ASSUMPTIONS,
         OBSERVER_ONLY);
@@ -359,7 +330,6 @@ final class MatcherTransitionInventory {
       DeferredCaptureEffect deferredCaptureEffect,
       CursorEffect cursorEffect,
       ReplacementEffect replacementEffect,
-      EndStateEffect endStateEffect,
       StructuralMutationEffect structuralMutationEffect,
       CacheEffect cacheEffect,
       Set<String> legalObservationGroups) {
@@ -369,7 +339,6 @@ final class MatcherTransitionInventory {
         deferredCaptureEffect,
         cursorEffect,
         replacementEffect,
-        endStateEffect,
         structuralMutationEffect,
         cacheEffect,
         legalObservationGroups);

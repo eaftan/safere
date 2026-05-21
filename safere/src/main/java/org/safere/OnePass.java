@@ -450,7 +450,7 @@ final class OnePass {
   // -------------------------------------------------------------------------
 
   @SuppressWarnings("ArrayRecordComponent")
-  record SearchResult(int[] groups, boolean hitEnd) {}
+  record SearchResult(int[] groups) {}
 
   /**
    * Searches for a match in the given text starting at position 0. Convenience overload that
@@ -583,21 +583,19 @@ final class OnePass {
       }
     }
 
-    boolean hitEnd = (pos == endPos);
-
     if (!matched) {
-      return new SearchResult(null, hitEnd);
+      return new SearchResult(null);
     }
     if (endMatch && bestCap[1] != endPos) {
-      return new SearchResult(null, hitEnd);
+      return new SearchResult(null);
     }
     if (anchorEnd && bestCap[1] != endPos) {
       // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
       if (!dollarAnchorEnd || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
-        return new SearchResult(null, hitEnd);
+        return new SearchResult(null);
       }
     }
-    return new SearchResult(bestCap, hitEnd);
+    return new SearchResult(bestCap);
   }
 
   /**
