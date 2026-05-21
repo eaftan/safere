@@ -282,6 +282,14 @@ groups are all rejected at parse time with a clear error message.  This
 is a deliberate trade-off — these features are useful but incompatible
 with worst-case linear time.
 
+SafeRE also does not support `Matcher.hitEnd()` or `Matcher.requireEnd()`.
+Those methods expose the JDK backtracking engine's end-state observations:
+whether the engine hit the input end during its ordered search, and whether
+the accepted match depended on end-sensitive paths.  SafeRE's engines explore
+sets of states in lockstep and intentionally do not preserve the JDK's
+backtracking trace.  Reconstructing that trace exactly would undermine the
+linear-time design for rarely used streaming-tokenizer APIs.
+
 ### Unicode Code Points, Not UTF-16
 
 Java strings are UTF-16, but SafeRE operates on Unicode code points

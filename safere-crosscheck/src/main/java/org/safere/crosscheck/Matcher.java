@@ -348,22 +348,6 @@ public final class Matcher implements MatchResult {
     return this;
   }
 
-  /** Returns whether the last match hit the end of input. */
-  public boolean hitEnd() {
-    boolean sr = safereMatcher.hitEnd();
-    boolean jr = jdkMatcher.hitEnd();
-    checkBoolean("hitEnd", "", sr, jr);
-    return sr;
-  }
-
-  /** Returns whether more input could change a positive match into a negative one. */
-  public boolean requireEnd() {
-    boolean sr = safereMatcher.requireEnd();
-    boolean jr = jdkMatcher.requireEnd();
-    checkBoolean("requireEnd", "", sr, jr);
-    return sr;
-  }
-
   /** Returns the crosscheck pattern associated with this matcher. */
   public Pattern pattern() {
     return crosscheckPattern;

@@ -128,7 +128,7 @@ The focused compatibility matrix should cover at least these syntax families.
 | Character-class union, range, intersection, subtraction, and negation | JDK-compatible for documented grammar; unspecified observable edge behavior follows the character-class policy below | generated membership tests for edge shapes, including zero-width class syntax, empty RHS expressions, and malformed range endpoints |
 | Group syntax | JDK-compatible accepted forms; reject non-JDK forms | compile/error tests for capturing, non-capturing, flags, named groups, and rejected dialect spellings |
 | Quantifier syntax | JDK-compatible where regular; reject unsupported non-regular forms | compile/error tests plus membership for greedy/lazy and bounded forms |
-| Boundary matchers and line terminators | JDK-compatible where supported | membership and `hitEnd`/`requireEnd` tests where observable |
+| Boundary matchers and line terminators | JDK-compatible where supported | membership tests |
 | Comments and embedded flags | JDK-compatible | compile and membership tests for whitespace, comments, scoped flags, and flag restoration |
 | Unsupported non-regular constructs | rejected with clear errors | compile-error tests against known feature spellings |
 

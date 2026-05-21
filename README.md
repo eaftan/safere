@@ -172,12 +172,28 @@ matching based on Unicode canonical equivalence (e.g., treating a precomposed
 character the same as its decomposed form).  It is rarely used and adds
 significant implementation complexity.
 
+The `Matcher.hitEnd()` and `Matcher.requireEnd()` APIs are not supported.
+These methods expose details of the JDK backtracking engine's search order,
+including which alternatives and quantified paths the engine tried before
+stopping.  SafeRE's linear-time engines explore possible states in lockstep
+instead, and exactly reproducing the JDK's observer state would require
+simulating backtracking-style path priority in cases that are incompatible
+with SafeRE's performance model.  Direct use of these methods appears rare;
+they were primarily introduced for streaming-tokenizer use cases such as
+`java.util.Scanner`.
+
 ## Semantic Compatibility with java.util.regex
 
-SafeRE aims to match `java.util.regex` behavior exactly, and does so in all
-cases that we know of except where JDK behavior is suspected to be a bug:
+SafeRE aims to match `java.util.regex` behavior exactly, except where doing so
+would conflict with the linear-time guarantee or where JDK behavior is
+suspected to be a bug:
 
-1. **Nested repetition with captures** — In patterns like `(a)*$`, JDK's
+1. **`Matcher.hitEnd()` and `Matcher.requireEnd()` are unsupported** — These
+   APIs report backtracking-engine end-state behavior rather than ordinary
+   regex match semantics.  Supporting them exactly would require preserving
+   JDK search-order details that SafeRE deliberately avoids in order to
+   guarantee linear-time matching.
+2. **Nested repetition with captures** — In patterns like `(a)*$`, JDK's
    backtracking engine leaks captures from failed starting positions.  JDK is
    itself internally inconsistent here (`(a)*$` vs `(?:(a))*$` give different
    group 1 results).  SafeRE follows NFA-correct semantics.  See
@@ -297,7 +313,8 @@ See [TESTING.md](TESTING.md) for the full testing workflow.
    `PatternSyntaxException` at compile time.
 2. **Lookahead / lookbehind** (`(?=...)`, `(?<=...)`) — not supported.
 3. **Possessive quantifiers** (`*+`, `++`) — not supported.
-4. **Named captures** use Java-compatible `(?<name>...)` syntax.
+4. **`Matcher.hitEnd()` and `Matcher.requireEnd()`** are not available.
+5. **Named captures** use Java-compatible `(?<name>...)` syntax.
    RE2/Python-style `(?P<name>...)` is rejected.
 
 See [Semantic Compatibility](#semantic-compatibility-with-javautilregex) for

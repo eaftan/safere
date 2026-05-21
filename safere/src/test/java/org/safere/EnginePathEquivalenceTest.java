@@ -294,7 +294,7 @@ class EnginePathEquivalenceTest {
         groups.add(new GroupTrace(matcher.group(group), matcher.start(group), matcher.end(group)));
       }
     }
-    return new MatchTrace(matched, groups, matcher.hitEnd(), matcher.requireEnd());
+    return new MatchTrace(matched, groups);
   }
 
   private enum Operation {
@@ -302,8 +302,7 @@ class EnginePathEquivalenceTest {
     LOOKING_AT
   }
 
-  private record MatchTrace(
-      boolean matched, List<GroupTrace> groups, boolean hitEnd, boolean requireEnd) {}
+  private record MatchTrace(boolean matched, List<GroupTrace> groups) {}
 
   private record GroupTrace(String value, int start, int end) {}
 }

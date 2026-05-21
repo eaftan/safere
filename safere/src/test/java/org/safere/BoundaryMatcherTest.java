@@ -124,15 +124,6 @@ class BoundaryMatcherTest {
     }
 
     @Test
-    @DisplayName("\\Z sets requireEnd to true")
-    void setsRequireEnd() {
-      Pattern p = Pattern.compile("abc\\Z");
-      Matcher m = p.matcher("abc");
-      assertThat(m.find()).isTrue();
-      assertThat(m.requireEnd()).isTrue();
-    }
-
-    @Test
     @DisplayName("matches() with \\Z — matches bare string")
     void matchesBareString() {
       assertThat(Pattern.compile("abc\\Z").matcher("abc").matches()).isTrue();

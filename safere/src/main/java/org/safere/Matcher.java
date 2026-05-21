@@ -61,28 +61,10 @@ public final class Matcher implements MatchResult {
       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch)
       implements EngineResult {}
 
-  private enum MatchOperation {
-    MATCHES,
-    LOOKING_AT,
-    FIND
-  }
-
   private enum ResultStatus {
     RESET_NO_ATTEMPT,
     MATCHED,
     FAILED
-  }
-
-  private static final class SampleFrame {
-    private Regexp re;
-    private int nextSub;
-    private StringBuilder builder;
-    private String chosen;
-    private boolean failed;
-
-    private SampleFrame(Regexp re) {
-      this.re = re;
-    }
   }
 
   /**
@@ -116,24 +98,6 @@ public final class Matcher implements MatchResult {
    */
   private static final int DIRECT_FALLBACK_TEXT_LIMIT = 512;
 
-  /**
-   * Maximum approximate work for exact accepted-path end-state replay when only best-effort {@link
-   * #hitEnd()} reporting is at stake.
-   *
-   * <p>Exact {@link #requireEnd()} behavior still uses the accepted path replay.
-   */
-  private static final long MAX_EXACT_END_STATE_REPLAY_WORK = 1_000_000L;
-
-  private static final int REQUIRE_END_EMPTY_FLAGS =
-      EmptyOp.DOLLAR_END
-          | EmptyOp.END_LINE
-          | EmptyOp.WORD_BOUNDARY
-          | EmptyOp.NON_WORD_BOUNDARY
-          | EmptyOp.UNICODE_WORD_BOUNDARY
-          | EmptyOp.UNICODE_NON_WORD_BOUNDARY;
-
-  private static final int HIT_END_EMPTY_FLAGS = REQUIRE_END_EMPTY_FLAGS | EmptyOp.END_TEXT;
-
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -148,9 +112,6 @@ public final class Matcher implements MatchResult {
   private int regionEnd;
   private boolean regionStartInsideSurrogatePairContext;
   private boolean opaqueGraphemeRegionContext;
-  private boolean lastHitEnd;
-  private boolean lastEngineHitEnd;
-  private boolean lastRequireEnd;
   private boolean findExhaustedAfterTerminalEmptyMatch;
   private boolean boundaryStartedRepeatedFindAdvance;
   private int modCount;
@@ -401,7 +362,6 @@ public final class Matcher implements MatchResult {
       if (allowEmpty) {
         return applyEngineResult(new FullMatchResult(new int[] {0, 0}));
       }
-      this.lastEngineHitEnd = true;
       return applyEngineResult(new NoMatchResult());
     }
 
@@ -445,7 +405,6 @@ public final class Matcher implements MatchResult {
       }
       i += Character.charCount(cp);
     }
-    this.lastEngineHitEnd = true;
     return applyEngineResult(new NoMatchResult());
   }
 
@@ -706,7 +665,6 @@ public final class Matcher implements MatchResult {
       }
       regionStartInsideSurrogatePairContext = false;
       opaqueGraphemeRegionContext = false;
-      updateEndState(MatchOperation.MATCHES);
     }
   }
 
@@ -731,9 +689,7 @@ public final class Matcher implements MatchResult {
       if (matched) {
         applyEngineResult(new FullMatchResult(new int[] {0, text.length()}));
       } else {
-        if (isPartialLiteralMatch(literal, 0)) {
-          this.lastEngineHitEnd = true;
-        }
+        if (isPartialLiteralMatch(literal, 0)) {}
         applyEngineResult(new NoMatchResult());
       }
       return hasMatch;
@@ -749,9 +705,6 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().charClassMatchFastPaths()
         && requiredRanges != null
         && !containsRequiredMatchClass(requiredRanges)) {
-      // This negative-only accelerator may conservatively over-report hitEnd for some failed
-      // matches; hitEnd/requireEnd compatibility is best-effort. See #435.
-      this.lastEngineHitEnd = true;
       return applyEngineResult(new NoMatchResult());
     }
 
@@ -765,7 +718,6 @@ public final class Matcher implements MatchResult {
         && (!options.semanticGuards() || !parentPattern.hasNullableAlternation())
         && canUsePikeEquivalentCaptures(prog)) {
       OnePass.SearchResult result = onePass.search(text, true, prog.numCaptures());
-      this.lastEngineHitEnd = result.hitEnd();
       return applyEngineResult(new FullMatchResult(result.groups()));
     }
 
@@ -773,7 +725,6 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().dfa() && !prog.hasGraphemeClusterBoundary()) {
       Dfa.SearchResult dfaResult = dfa().doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
-        this.lastEngineHitEnd = dfaResult.hitEnd();
         return applyEngineResult(new NoMatchResult());
       }
       if (dfaResult != null && dfaResult.pos() != text.length()) {
@@ -803,7 +754,6 @@ public final class Matcher implements MatchResult {
               Nfa.MatchKind.FULL_MATCH,
               prog.numCaptures());
       result = nfaResult.groups();
-      this.lastEngineHitEnd = nfaResult.hitEnd();
     }
     return applyEngineResult(new FullMatchResult(result));
   }
@@ -859,7 +809,6 @@ public final class Matcher implements MatchResult {
       }
       regionStartInsideSurrogatePairContext = false;
       opaqueGraphemeRegionContext = false;
-      updateEndState(MatchOperation.LOOKING_AT);
     }
   }
 
@@ -884,9 +833,7 @@ public final class Matcher implements MatchResult {
       if (matched) {
         applyEngineResult(new FullMatchResult(new int[] {0, literal.length()}));
       } else {
-        if (isPartialLiteralMatch(literal, 0)) {
-          this.lastEngineHitEnd = true;
-        }
+        if (isPartialLiteralMatch(literal, 0)) {}
         applyEngineResult(new NoMatchResult());
       }
       return hasMatch;
@@ -901,7 +848,6 @@ public final class Matcher implements MatchResult {
         && canUsePikeEquivalentCaptures(prog)) {
       OnePass onePass = parentPattern.onePass();
       OnePass.SearchResult result = onePass.search(text, false, prog.numCaptures());
-      this.lastEngineHitEnd = result.hitEnd();
       return applyEngineResult(new FullMatchResult(result.groups()));
     }
 
@@ -1074,7 +1020,6 @@ public final class Matcher implements MatchResult {
       }
       regionStartInsideSurrogatePairContext = false;
       opaqueGraphemeRegionContext = false;
-      updateEndState(MatchOperation.FIND);
       boundaryStartedRepeatedFindAdvance = false;
     }
   }
@@ -1265,11 +1210,8 @@ public final class Matcher implements MatchResult {
       }
       if (idx < 0) {
         if (!prog.anchorStart()) {
-          this.lastEngineHitEnd = true;
         } else {
-          if (isPartialLiteralMatch(literal, searchFrom)) {
-            this.lastEngineHitEnd = true;
-          }
+          if (isPartialLiteralMatch(literal, searchFrom)) {}
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1320,7 +1262,6 @@ public final class Matcher implements MatchResult {
           parentPattern
               .onePass()
               .search(text, searchFrom, text.length(), false, prog.numCaptures());
-      this.lastEngineHitEnd = result.hitEnd();
       return applyEngineResult(new FullMatchResult(result.groups()));
     }
 
@@ -1337,14 +1278,11 @@ public final class Matcher implements MatchResult {
       }
       if (idx < 0) {
         if (!prog.anchorStart()) {
-          this.lastEngineHitEnd = true;
         } else {
           int remainingLen = text.length() - searchFrom;
           if (remainingLen < prefix.length()
               && text.regionMatches(
-                  parentPattern.prefixFoldCase(), searchFrom, prefix, 0, remainingLen)) {
-            this.lastEngineHitEnd = true;
-          }
+                  parentPattern.prefixFoldCase(), searchFrom, prefix, 0, remainingLen)) {}
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1359,11 +1297,8 @@ public final class Matcher implements MatchResult {
       int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         if (!prog.anchorStart()) {
-          this.lastEngineHitEnd = true;
         } else {
-          if (searchFrom == text.length()) {
-            this.lastEngineHitEnd = true;
-          }
+          if (searchFrom == text.length()) {}
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1375,11 +1310,8 @@ public final class Matcher implements MatchResult {
       int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
       if (idx < 0) {
         if (!prog.anchorStart()) {
-          this.lastEngineHitEnd = true;
         } else {
-          if (searchFrom == text.length()) {
-            this.lastEngineHitEnd = true;
-          }
+          if (searchFrom == text.length()) {}
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1404,7 +1336,6 @@ public final class Matcher implements MatchResult {
       if (result != null) {
         return applyEngineResult(new FullMatchResult(result));
       }
-      this.lastEngineHitEnd = true;
       return applyEngineResult(new NoMatchResult());
     }
 
@@ -1485,7 +1416,6 @@ public final class Matcher implements MatchResult {
         if (!budgetExceeded) {
           if (matchStart < 0) {
             // No match possible at end of text — fail immediately without forward scan.
-            this.lastEngineHitEnd = true;
             return applyEngineResult(new NoMatchResult());
           }
 
@@ -1526,7 +1456,6 @@ public final class Matcher implements MatchResult {
     } else {
       fwdResult = dfa().doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
-        this.lastEngineHitEnd = fwdResult.hitEnd();
         return applyEngineResult(new NoMatchResult());
       }
     }
@@ -1969,7 +1898,6 @@ public final class Matcher implements MatchResult {
       int cp = text.codePointAt(i);
       i += Character.charCount(cp) - 1;
     }
-    this.lastEngineHitEnd = true;
     return applyEngineResult(new NoMatchResult());
   }
 
@@ -2124,9 +2052,7 @@ public final class Matcher implements MatchResult {
       parentPattern.returnBitState(bs);
       if (!bs.budgetExceeded()) {
         // BitState is a complete engine — if it searched and found no match, NFA won't either.
-        if (result == null) {
-          this.lastEngineHitEnd = true;
-        }
+        if (result == null) {}
         return result;
       }
     }
@@ -2155,7 +2081,6 @@ public final class Matcher implements MatchResult {
             nfaAnchor,
             nfaKind,
             nsubmatch);
-    this.lastEngineHitEnd = nfaResult.hitEnd();
     return nfaResult.groups();
   }
 
@@ -2588,44 +2513,6 @@ public final class Matcher implements MatchResult {
   }
 
   /**
-   * Returns true if the end of input was hit by the search engine in the last match operation
-   * performed by this matcher. When this method returns true, it is possible that more input would
-   * have changed the result of the last search.
-   *
-   * <p><strong>Warning:</strong> support for this method is best effort. SafeRE's linear-time
-   * engines explore matches differently from the JDK's backtracking engine, so exactly matching JDK
-   * behavior for this method is fundamentally difficult and may be impossible in some cases. Use
-   * this method with caution if exact JDK parity is required.
-   *
-   * @return true if the end of input was hit in the last match; false otherwise
-   */
-  public boolean hitEnd() {
-    return lastHitEnd;
-  }
-
-  /**
-   * Returns true if more input could change a positive match into a negative one. If this method
-   * returns true, and a match was found, then more input could cause the match to be lost. If this
-   * method returns false and a match was found, then more input might change the match but the
-   * match won't be lost. If a match was not found, then requireEnd has no meaning.
-   *
-   * <p>This is a conservative approximation: it returns {@code true} when the pattern contains
-   * {@code $}, {@code \Z}, or word-boundary assertions ({@code \b}, {@code \B}) and the last match
-   * reached the end of the input region. Like the JDK, {@code \z} does not trigger {@code
-   * requireEnd}.
-   *
-   * <p><strong>Warning:</strong> support for this method is best effort. SafeRE's linear-time
-   * engines explore matches differently from the JDK's backtracking engine, so exactly matching JDK
-   * behavior for this method is fundamentally difficult and may be impossible in some cases. Use
-   * this method with caution if exact JDK parity is required.
-   *
-   * @return true if more input could change a positive match into a negative one
-   */
-  public boolean requireEnd() {
-    return lastRequireEnd;
-  }
-
-  /**
    * Returns an unmodifiable map of named capturing groups to their 1-based group indices. This
    * method overrides the default {@link java.util.regex.MatchResult#namedGroups()} method which
    * throws {@link UnsupportedOperationException}.
@@ -2833,269 +2720,6 @@ public final class Matcher implements MatchResult {
   private void checkConcurrentModification(int expectedModCount) {
     if (modCount != expectedModCount) {
       throw new ConcurrentModificationException();
-    }
-  }
-
-  private void updateEndState(MatchOperation operation) {
-    if (!hasMatch || groups == null) {
-      lastHitEnd = lastEngineHitEnd;
-      lastRequireEnd = false;
-      return;
-    }
-    boolean endedAtSensitiveEnd = matchEndsAtSensitiveEnd();
-    if (!shouldReplayAcceptedPathForEndState(operation, endedAtSensitiveEnd)) {
-      updateBestEffortEndState(endedAtSensitiveEnd);
-      return;
-    }
-    int terminalEmptyFlags = endedAtSensitiveEnd ? terminalEmptyFlagsForAcceptedPath(operation) : 0;
-    lastRequireEnd = (terminalEmptyFlags & REQUIRE_END_EMPTY_FLAGS) != 0;
-    lastHitEnd =
-        lastRequireEnd
-            || ((terminalEmptyFlags & HIT_END_EMPTY_FLAGS) != 0)
-            || (endedAtSensitiveEnd && matchCanExtendAtEnd(operation));
-  }
-
-  private boolean shouldReplayAcceptedPathForEndState(
-      MatchOperation operation, boolean endedAtSensitiveEnd) {
-    if (!endedAtSensitiveEnd) {
-      return true;
-    }
-    if (parentPattern.hasEndConstraint() || !parentPattern.hasHitEndConstraint()) {
-      return true;
-    }
-    int start = Math.max(0, groups[0]);
-    int end = operation == MatchOperation.MATCHES ? regionEnd : groups[1];
-    long span = Math.max(1, (long) end - start);
-    long work = span * parentPattern.prog().size();
-    return work <= MAX_EXACT_END_STATE_REPLAY_WORK;
-  }
-
-  private void updateBestEffortEndState(boolean endedAtSensitiveEnd) {
-    lastRequireEnd = false;
-    lastHitEnd = lastEngineHitEnd || endedAtSensitiveEnd;
-  }
-
-  private int terminalEmptyFlagsForAcceptedPath(MatchOperation operation) {
-    Prog prog = parentPattern.prog();
-    int start = groups[0];
-    int end = operation == MatchOperation.MATCHES ? regionEnd : groups[1];
-    Nfa.MatchKind kind =
-        operation == MatchOperation.MATCHES ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    Nfa.EndStateMatch match =
-        Nfa.searchEndState(prog, text, start, start, end, Nfa.Anchor.ANCHORED, kind, 1);
-    if (match == null || match.groups()[0] != groups[0] || match.groups()[1] != groups[1]) {
-      return 0;
-    }
-    int flags = match.terminalEmptyFlags();
-    if (prog.anchorEnd()) {
-      flags |= prog.dollarAnchorEnd() ? EmptyOp.DOLLAR_END : EmptyOp.END_TEXT;
-    }
-    return flags;
-  }
-
-  private boolean matchEndsAtSensitiveEnd() {
-    if (groups[1] == regionEnd) {
-      return true;
-    }
-    Prog prog = parentPattern.prog();
-    return prog.dollarAnchorEnd()
-        && Nfa.isAtTrailingLineTerminator(text, groups[1], prog.unixLines());
-  }
-
-  private boolean matchCanExtendAtEnd(MatchOperation operation) {
-    java.util.List<String> samples = new java.util.ArrayList<>();
-    collectTerminalExtensionSamples(parentPattern.ast(), samples);
-    if (samples.isEmpty()) {
-      return false;
-    }
-    int relativeStart = groups[0] - regionStart;
-    int relativeEnd = groups[1] - regionStart;
-    String regionText = text.substring(regionStart, regionEnd);
-    Prog prog = parentPattern.prog();
-    for (String sample : samples) {
-      if (sample.isEmpty()) {
-        continue;
-      }
-      String probeText = regionText + sample;
-      int[] result =
-          switch (operation) {
-            case MATCHES ->
-                Nfa.search(
-                        prog,
-                        probeText,
-                        0,
-                        probeText.length(),
-                        Nfa.Anchor.ANCHORED,
-                        Nfa.MatchKind.FULL_MATCH,
-                        1)
-                    .groups();
-            case LOOKING_AT, FIND ->
-                Nfa.search(
-                        prog,
-                        probeText,
-                        relativeStart,
-                        probeText.length(),
-                        Nfa.Anchor.ANCHORED,
-                        Nfa.MatchKind.LONGEST_MATCH,
-                        1)
-                    .groups();
-          };
-      if (result != null && result[0] == relativeStart && result[1] > relativeEnd) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static void collectTerminalExtensionSamples(Regexp re, java.util.List<String> samples) {
-    ArrayDeque<Regexp> work = new ArrayDeque<>();
-    work.addFirst(re);
-    while (!work.isEmpty()) {
-      Regexp current = work.removeFirst();
-      switch (current.op) {
-        case STAR, PLUS, QUEST -> addSample(current.subs.get(0), samples);
-        case REPEAT -> {
-          if (current.max < 0 || current.max > current.min) {
-            addSample(current.subs.get(0), samples);
-          }
-        }
-        case NON_CAPTURE, CAPTURE -> work.addFirst(current.subs.get(0));
-        case CONCAT -> {
-          int firstTerminal = current.subs.size() - 1;
-          while (firstTerminal > 0 && Pattern.canMatchEmpty(current.subs.get(firstTerminal))) {
-            firstTerminal--;
-          }
-          for (int i = firstTerminal; i < current.subs.size(); i++) {
-            work.addFirst(current.subs.get(i));
-          }
-        }
-        case ALTERNATE -> {
-          for (int i = current.subs.size() - 1; i >= 0; i--) {
-            work.addFirst(current.subs.get(i));
-          }
-        }
-        case LITERAL_STRING -> {
-          for (int i = 0; i < current.runes.length; i++) {
-            samples.add(new String(Character.toChars(current.runes[i])));
-          }
-        }
-        case LITERAL, CHAR_CLASS, ANY_CHAR -> addSample(current, samples);
-        default -> {}
-      }
-    }
-  }
-
-  private static void addSample(Regexp re, java.util.List<String> samples) {
-    String sample = sampleString(re);
-    if (sample != null && !sample.isEmpty()) {
-      samples.add(sample);
-    }
-  }
-
-  private static String sampleString(Regexp re) {
-    ArrayDeque<SampleFrame> stack = new ArrayDeque<>();
-    stack.addFirst(new SampleFrame(re));
-    while (!stack.isEmpty()) {
-      SampleFrame frame = stack.peekFirst();
-      Regexp current = frame.re;
-      switch (current.op) {
-        case LITERAL -> {
-          String sample = new String(Character.toChars(current.rune));
-          stack.removeFirst();
-          if (stack.isEmpty()) {
-            return sample;
-          }
-          acceptSample(stack.peekFirst(), sample);
-        }
-        case LITERAL_STRING -> {
-          String sample = new String(current.runes, 0, current.runes.length);
-          stack.removeFirst();
-          if (stack.isEmpty()) {
-            return sample;
-          }
-          acceptSample(stack.peekFirst(), sample);
-        }
-        case CHAR_CLASS -> {
-          String sample =
-              current.charClass.isEmpty()
-                  ? null
-                  : new String(Character.toChars(current.charClass.lo(0)));
-          stack.removeFirst();
-          if (stack.isEmpty()) {
-            return sample;
-          }
-          acceptSample(stack.peekFirst(), sample);
-        }
-        case ANY_CHAR -> {
-          stack.removeFirst();
-          if (stack.isEmpty()) {
-            return "a";
-          }
-          acceptSample(stack.peekFirst(), "a");
-        }
-        case NON_CAPTURE, CAPTURE -> frame.re = current.subs.get(0);
-        case CONCAT -> {
-          if (frame.failed) {
-            stack.removeFirst();
-            if (stack.isEmpty()) {
-              return null;
-            }
-            acceptSample(stack.peekFirst(), null);
-          } else if (frame.nextSub == current.subs.size()) {
-            String sample = frame.builder == null ? "" : frame.builder.toString();
-            stack.removeFirst();
-            if (stack.isEmpty()) {
-              return sample;
-            }
-            acceptSample(stack.peekFirst(), sample);
-          } else {
-            if (frame.builder == null) {
-              frame.builder = new StringBuilder();
-            }
-            stack.addFirst(new SampleFrame(current.subs.get(frame.nextSub)));
-            frame.nextSub++;
-          }
-        }
-        case ALTERNATE -> {
-          if (frame.chosen != null || frame.nextSub == current.subs.size()) {
-            String sample = frame.chosen;
-            stack.removeFirst();
-            if (stack.isEmpty()) {
-              return sample;
-            }
-            acceptSample(stack.peekFirst(), sample);
-          } else {
-            stack.addFirst(new SampleFrame(current.subs.get(frame.nextSub)));
-            frame.nextSub++;
-          }
-        }
-        default -> {
-          stack.removeFirst();
-          if (stack.isEmpty()) {
-            return null;
-          }
-          acceptSample(stack.peekFirst(), null);
-        }
-      }
-    }
-    return null;
-  }
-
-  private static void acceptSample(SampleFrame frame, String sample) {
-    switch (frame.re.op) {
-      case CONCAT -> {
-        if (sample == null) {
-          frame.failed = true;
-        } else {
-          frame.builder.append(sample);
-        }
-      }
-      case ALTERNATE -> {
-        if (sample != null) {
-          frame.chosen = sample;
-        }
-      }
-      default -> throw new AssertionError("unexpected sample parent: " + frame.re.op);
     }
   }
 

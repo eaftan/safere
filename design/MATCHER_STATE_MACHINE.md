@@ -5,7 +5,7 @@
 SafeRE's `Matcher` is not just a lightweight wrapper around a pattern and an
 input string.  It is a mutable public object whose state is observable through
 later calls.  A search operation updates the current match, the next search
-position, deferred capture state, append position, and end-state flags.  A
+position, deferred capture state, append position.  A
 later `group()`, `find()`, `appendReplacement()`, `reset()`, `region()`, or
 `usePattern()` call observes or mutates that state.
 
@@ -18,13 +18,12 @@ Recent bugs show the risk:
 
 - #225: after `usePattern`, SafeRE restarted `find()` from a different position
   than `java.util.regex`.
-- #226: `hitEnd()` and `requireEnd()` diverged after `reset()` and `region()`
-  transitions following end-sensitive matches.
+- #226: SafeRE previously tried to emulate `hitEnd()` and `requireEnd()` across matcher lifecycle transitions. These APIs are now intentionally unsupported because they expose JDK backtracking-engine state.
 
 The common failure mode is that local methods update the fields they need
 immediately, but the full public state transition is not represented as one
 contract.  That makes it easy to fix one method and leave a neighboring method
-with stale match bounds, stale end-state flags, stale deferred captures, or a
+with stale match bounds, stale deferred captures, or a
 wrong next-search cursor.
 
 ## Current State
@@ -40,7 +39,6 @@ wrong next-search cursor.
   `deferredEndMatch`;
 - cursor state: `searchFrom`;
 - replacement state: `appendPos`;
-- end-state flags: `lastHitEnd` and `lastRequireEnd`;
 - cached engine state: cached DFA and BitState references;
 - stream and functional replacement mutation detection: `modCount`.
 
@@ -89,7 +87,6 @@ The matcher state can be modeled as these logical components.
 | Search cursor | The stored position used as the base for parameterless `find()`. |
 | Next-find derivation | The rule that derives the next `find()` start from the previous result. |
 | Replacement | The append position used by `appendReplacement`/`appendTail`. |
-| End state | `hitEnd()` and `requireEnd()` observations from the last match attempt. |
 | Structural mutation | Whether an operation invalidates active streams or replacement callbacks. |
 
 Those components should be represented in code either by small helper methods
@@ -108,37 +105,35 @@ The result status should distinguish at least:
   has not attempted a match, or a lifecycle transition cleared the result;
 - **matched:** the last match attempt succeeded and group observations are
   legal;
-- **failed:** the last match attempt failed, group observations are illegal,
-  and end-state flags describe that failed attempt.
+- **failed:** the last match attempt failed and group observations are illegal.
 
 `reset`, `reset(input)`, `region`, and `usePattern` should move the matcher to
-reset/no-attempt for group-observation purposes without erasing the previous
-`hitEnd()` and `requireEnd()` values.
+reset/no-attempt for group-observation purposes.
 
-| Operation | Result state | Deferred captures | Search cursor and next-find rule | Replacement state | End-state flags | Structural mutation | Caches |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| successful `matches()` | matched | resolved or deferred with full-match anchored bounds compatible with later `group()` and `toMatchResult()` | next `find()` derives from the full-region match result | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| failed `matches()` | failed | cleared | next-find state is set by the match-operation trace oracle for failed whole-region attempts | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| successful `lookingAt()` | matched | resolved or deferred with region-start anchored prefix bounds compatible with later `group()` and `toMatchResult()` | next `find()` derives from the prefix match result | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| failed `lookingAt()` | failed | cleared | next-find state is set by the match-operation trace oracle for failed anchored-prefix attempts | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| `find()` before first success | matched or failed | resolved, validly deferred, or cleared on failure | starts from stored search cursor | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| `find()` after non-empty success | matched or failed | resolves prior group zero if needed; new result may be resolved, validly deferred, or cleared | derives next start from previous end, then searches | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| `find()` after empty success | matched or failed | resolves prior group zero if needed; new result may be resolved, validly deferred, or cleared | derives next start from previous end plus one code unit unless at region end, then searches | preserved | updated from this attempt | invalidates active traversal/callback | preserved |
-| `find(start)` | matched or failed after reset/no-attempt | reset clears old deferred state; new result may be resolved, validly deferred, or cleared | resets region to full input per JDK behavior, sets stored cursor from `start`, then searches | append position reset by reset semantics | updated from this attempt | invalidates active traversal/callback | preserved |
-| `reset()` | reset/no-attempt | cleared | set to input start | set to 0 | preserved from the last match attempt until the next match attempt | invalidates active traversal/callback | engine caches may remain if pattern/input-compatible |
-| `reset(input)` | reset/no-attempt | cleared | set to new input start | set to 0 | preserved from the last match attempt until the next match attempt | invalidates active traversal/callback | input-dependent cached state invalidated if needed |
-| `region(start, end)` | reset/no-attempt | cleared | set to region start | set to 0 | preserved from the last match attempt until the next match attempt | invalidates active traversal/callback | pattern caches preserved; input/region assumptions invalidated |
-| `usePattern(newPattern)` | reset/no-attempt | cleared | preserves the JDK-compatible next-search position derived from the prior result | preserved unless JDK requires otherwise | preserved from the last match attempt until the next match attempt | invalidates active traversal/callback | old pattern caches invalidated |
-| `useTransparentBounds` | preserves result status and data | resolves unresolved captures under the pre-change bounds before clearing deferred markers unless a named predicate proves deferred resolution is bounds-independent | preserves cursor and next-find derivation | preserves append position | preserved | oracle-defined and recorded in the transition inventory | preserves caches unless bounds affect them |
-| `useAnchoringBounds` | preserves result status and data | resolves unresolved captures under the pre-change bounds before clearing deferred markers unless a named predicate proves deferred resolution is bounds-independent | preserves cursor and next-find derivation | preserves append position | preserved | oracle-defined and recorded in the transition inventory | preserves caches unless bounds affect them |
-| `appendReplacement` | requires matched result | resolves captures needed by replacement | preserves cursor and next-find derivation | advances append position to current match end | preserves last match end-state | oracle-defined and recorded in the transition inventory | preserved |
-| `appendTail` | preserves result status and data | preserves deferred state | preserves cursor and next-find derivation | preserves append position | preserves end-state | oracle-defined and recorded in the transition inventory | preserved |
-| `replaceFirst` | begins with reset/no-attempt, consumes at most one `find()` result | follows operations run | follows canonical `find()` | managed by append operations | final value follows the operations run | detects callback mutation | preserved |
-| `replaceAll` | begins with reset/no-attempt, consumes canonical `find()` sequence | follows operations run | follows canonical `find()` | managed by append operations | final value follows the operations run | detects callback mutation | preserved |
-| `results()` | lazily consumes canonical `find()` sequence | follows operations run | follows canonical `find()` | preserved | follows the last produced or failed match attempt | detects mutation between producing a result and returning from the action | preserved |
-| `toMatchResult()` | requires matched result, resolves captures, snapshots result | resolved before snapshot | preserves cursor and next-find derivation | preserves append position | preserves end-state | not a structural mutation | preserved |
-| `group()`/`start()`/`end()` | requires matched result, resolves captures as needed | resolved as needed | preserves cursor and next-find derivation | preserves append position | preserves end-state | not a structural mutation | preserved |
-| observer-only methods | preserve result status and data | preserve deferred state | preserve cursor and next-find derivation | preserve append position | preserve end-state | not structural mutations | preserve caches |
+| Operation | Result state | Deferred captures | Search cursor and next-find rule | Replacement state | Structural mutation | Caches |
+| --- | --- | --- | --- | --- | --- | --- |
+| successful `matches()` | matched | resolved or deferred with full-match anchored bounds compatible with later `group()` and `toMatchResult()` | next `find()` derives from the full-region match result | preserved | invalidates active traversal/callback | preserved |
+| failed `matches()` | failed | cleared | next-find state is set by the match-operation trace oracle for failed whole-region attempts | preserved | invalidates active traversal/callback | preserved |
+| successful `lookingAt()` | matched | resolved or deferred with region-start anchored prefix bounds compatible with later `group()` and `toMatchResult()` | next `find()` derives from the prefix match result | preserved | invalidates active traversal/callback | preserved |
+| failed `lookingAt()` | failed | cleared | next-find state is set by the match-operation trace oracle for failed anchored-prefix attempts | preserved | invalidates active traversal/callback | preserved |
+| `find()` before first success | matched or failed | resolved, validly deferred, or cleared on failure | starts from stored search cursor | preserved | invalidates active traversal/callback | preserved |
+| `find()` after non-empty success | matched or failed | resolves prior group zero if needed; new result may be resolved, validly deferred, or cleared | derives next start from previous end, then searches | preserved | invalidates active traversal/callback | preserved |
+| `find()` after empty success | matched or failed | resolves prior group zero if needed; new result may be resolved, validly deferred, or cleared | derives next start from previous end plus one code unit unless at region end, then searches | preserved | invalidates active traversal/callback | preserved |
+| `find(start)` | matched or failed after reset/no-attempt | reset clears old deferred state; new result may be resolved, validly deferred, or cleared | resets region to full input per JDK behavior, sets stored cursor from `start`, then searches | append position reset by reset semantics | invalidates active traversal/callback | preserved |
+| `reset()` | reset/no-attempt | cleared | set to input start | set to 0 | invalidates active traversal/callback | engine caches may remain if pattern/input-compatible |
+| `reset(input)` | reset/no-attempt | cleared | set to new input start | set to 0 | invalidates active traversal/callback | input-dependent cached state invalidated if needed |
+| `region(start, end)` | reset/no-attempt | cleared | set to region start | set to 0 | invalidates active traversal/callback | pattern caches preserved; input/region assumptions invalidated |
+| `usePattern(newPattern)` | reset/no-attempt | cleared | preserves the JDK-compatible next-search position derived from the prior result | preserved unless JDK requires otherwise | invalidates active traversal/callback | old pattern caches invalidated |
+| `useTransparentBounds` | preserves result status and data | resolves unresolved captures under the pre-change bounds before clearing deferred markers unless a named predicate proves deferred resolution is bounds-independent | preserves cursor and next-find derivation | preserves append position | oracle-defined and recorded in the transition inventory | preserves caches unless bounds affect them |
+| `useAnchoringBounds` | preserves result status and data | resolves unresolved captures under the pre-change bounds before clearing deferred markers unless a named predicate proves deferred resolution is bounds-independent | preserves cursor and next-find derivation | preserves append position | oracle-defined and recorded in the transition inventory | preserves caches unless bounds affect them |
+| `appendReplacement` | requires matched result | resolves captures needed by replacement | preserves cursor and next-find derivation | advances append position to current match end | oracle-defined and recorded in the transition inventory | preserved |
+| `appendTail` | preserves result status and data | preserves deferred state | preserves cursor and next-find derivation | preserves append position | oracle-defined and recorded in the transition inventory | preserved |
+| `replaceFirst` | begins with reset/no-attempt, consumes at most one `find()` result | follows operations run | follows canonical `find()` | managed by append operations | detects callback mutation | preserved |
+| `replaceAll` | begins with reset/no-attempt, consumes canonical `find()` sequence | follows operations run | follows canonical `find()` | managed by append operations | detects callback mutation | preserved |
+| `results()` | lazily consumes canonical `find()` sequence | follows operations run | follows canonical `find()` | preserved | detects mutation between producing a result and returning from the action | preserved |
+| `toMatchResult()` | requires matched result, resolves captures, snapshots result | resolved before snapshot | preserves cursor and next-find derivation | preserves append position | not a structural mutation | preserved |
+| `group()`/`start()`/`end()` | requires matched result, resolves captures as needed | resolved as needed | preserves cursor and next-find derivation | preserves append position | not a structural mutation | preserved |
+| observer-only methods | preserve result status and data | preserve deferred state | preserve cursor and next-find derivation | preserve append position | not structural mutations | preserve caches |
 
 This table intentionally separates "clears the match result" from "resets the
 next search cursor."  #225 happened because those two concepts were coupled
@@ -165,21 +160,15 @@ does not say what callers may observe next.
 
 The target legality rules are:
 
-- in reset/no-attempt state, observer-only methods such as `groupCount()`,
-  `hitEnd()`, and `requireEnd()` are legal, but `group()`, `start()`, `end()`,
+- in reset/no-attempt state, observer-only methods such as `groupCount()` are legal, but `group()`, `start()`, `end()`,
   `toMatchResult()`, and `appendReplacement()` must throw the JDK-compatible
   exception;
 - after a successful match operation, observer-only methods are legal, and
   match-result methods such as `group()`, `start()`, `end()`, `toMatchResult()`,
   and `appendReplacement()` are also legal;
-- after a failed match operation, observer-only methods are legal, including
-  `hitEnd()` and `requireEnd()`, but `group()`, `start()`, `end()`,
+- after a failed match operation, observer-only methods are legal, but `group()`, `start()`, `end()`,
   `toMatchResult()`, and `appendReplacement()` must throw the JDK-compatible
   exception;
-- after `reset`, `reset(input)`, `region`, and `usePattern`, previous match
-  groups and snapshots are invalid for the matcher, but `hitEnd()` and
-  `requireEnd()` still report the flags from the last match attempt until the
-  next match attempt updates them;
 - after `appendTail`, the previous match result remains the current result for
   observation purposes;
 - after `toMatchResult`, the returned snapshot must remain valid even if later
@@ -205,34 +194,7 @@ mutate state.  The inventory should include at least `groupCount()`,
 `pattern()`, `regionStart()`, `regionEnd()`, `hasTransparentBounds()`,
 `hasAnchoringBounds()`, `namedGroups()`, and `toString()`.  Their contract is to
 report current matcher state without changing result status, next-search
-behavior, replacement position, end-state flags, or active traversal validity.
-
-## End-State Contract
-
-`hitEnd()` and `requireEnd()` are matcher state, not engine-local details.  A
-public match attempt must leave them in the JDK-compatible state for that
-attempt, whether the attempt succeeds or fails.
-
-The state-machine design should treat end-state flags as part of the completion
-step for `find()`, `matches()`, and `lookingAt()`.  Engine paths may provide
-facts that help compute the flags, but they should not leave those flags stale
-from an earlier operation.
-
-The contract should answer these cases explicitly:
-
-- successful match that reaches the region end;
-- failed search that scanned to the region end;
-- `reset()`, `reset(input)`, and `region()` after an end-sensitive prior match,
-  which should preserve the previous flags until the next match attempt;
-- `usePattern()` after an end-sensitive prior match, which should also preserve
-  the previous flags until the next match attempt;
-- region bounds with anchoring enabled and disabled;
-- transparent bounds, even though SafeRE rejects lookaround, because the flag
-  remains public matcher state.
-
-If SafeRE intentionally uses a conservative approximation for `requireEnd()`,
-that approximation must be documented as a stable product behavior and applied
-consistently after every relevant transition.
+behavior, replacement position, or active traversal validity.
 
 ## Deferred Capture Contract
 
@@ -318,7 +280,6 @@ machine-checkable metadata that names:
 - next-find derivation effect;
 - append-position effect;
 - deferred-capture effect;
-- end-state effect;
 - structural-mutation effect for active streams and callbacks;
 - cache effect;
 - legal and illegal public observations after the transition.
@@ -361,22 +322,7 @@ Generated public API crosscheck should be the primary oracle.  Package-private
 tests should supplement it where internal deferred-capture or engine-cache
 state needs to be forced.
 
-### 4. Make End-State Tests Systematic
-
-`hitEnd()` and `requireEnd()` need trace-based coverage.  The tests should
-compare the flags after every relevant transition, including failed operations,
-not only after successful matches.
-
-The matrix should include:
-
-- `$`, `\Z`, `\z`, word boundaries, multiline anchors, and CRLF-sensitive
-  cases;
-- full input and active regions;
-- anchoring bounds enabled and disabled;
-- reset and region calls after a prior end-sensitive result;
-- find loops where the final failed `find()` changes the flags.
-
-### 5. Define Public Divergences
+### 4. Define Public Divergences
 
 If SafeRE intentionally differs from the JDK for any matcher lifecycle behavior
 because linear-time matching cannot support the JDK behavior, document that
@@ -447,8 +393,6 @@ This design is complete when:
 - observer-only methods have explicit no-mutation transition contracts;
 - failed `matches()` and `lookingAt()` next-find behavior is verified by
   operation-trace oracles rather than left as prose;
-- `hitEnd()` and `requireEnd()` are verified after success, failure, reset,
-  region, bounds, and pattern-change transitions;
 - replacement append-position behavior is verified across manual and
   convenience replacement APIs;
 - `usePattern` preserves the JDK-compatible next-search position while clearing

@@ -107,8 +107,6 @@ public final class Pattern implements Serializable {
   private final transient boolean hasNullableAlternation;
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
-  private final transient boolean hasEndConstraint;
-  private final transient boolean hasHitEndConstraint;
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
@@ -222,8 +220,6 @@ public final class Pattern implements Serializable {
       boolean hasNullableAlternation,
       boolean hasBoundedRepeat,
       boolean hasAnchorInQuant,
-      boolean hasEndConstraint,
-      boolean hasHitEndConstraint,
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
@@ -253,8 +249,6 @@ public final class Pattern implements Serializable {
     this.hasNullableAlternation = hasNullableAlternation;
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
-    this.hasEndConstraint = hasEndConstraint;
-    this.hasHitEndConstraint = hasHitEndConstraint;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
@@ -328,8 +322,6 @@ public final class Pattern implements Serializable {
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
-    boolean hasEndConst = hasEndConstraint(re);
-    boolean hasHitEndConst = hasHitEndConstraint(re);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
@@ -356,8 +348,6 @@ public final class Pattern implements Serializable {
         hasNullableAlt,
         hasBounded,
         hasAnchorQuant,
-        hasEndConst,
-        hasHitEndConst,
         startsWithGcb,
         hasInternalGcb,
         ccPrefixAscii,
@@ -1021,23 +1011,6 @@ public final class Pattern implements Serializable {
     return prog.numCaptures() - 1;
   }
 
-  /**
-   * Returns {@code true} if the pattern contains end-of-input or end-of-line assertions ({@code $},
-   * {@code \z}, {@code \b}, {@code \B}). Used by {@link Matcher#requireEnd()} to conservatively
-   * determine whether more input could invalidate a positive match.
-   */
-  boolean hasEndConstraint() {
-    return hasEndConstraint;
-  }
-
-  /**
-   * Returns {@code true} if the pattern contains an assertion that observes the end of the input
-   * for {@link Matcher#hitEnd()} purposes.
-   */
-  boolean hasHitEndConstraint() {
-    return hasHitEndConstraint;
-  }
-
   // ---------------------------------------------------------------------------
   // Flag mapping
   // ---------------------------------------------------------------------------
@@ -1275,60 +1248,6 @@ public final class Pattern implements Serializable {
           && node.min < node.max
           && node.max > 0) {
         return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns {@code true} if the AST contains positional assertions that the JDK's {@code
-   * Matcher.requireEnd()} tracks: {@code $} ({@link RegexpOp#END_LINE} in multiline, or {@link
-   * RegexpOp#END_TEXT} with {@link ParseFlags#WAS_DOLLAR} in non-multiline), {@code \b} ({@link
-   * RegexpOp#WORD_BOUNDARY}), or {@code \B} ({@link RegexpOp#NO_WORD_BOUNDARY}).
-   *
-   * <p>Note: {@code \z} ({@link RegexpOp#END_TEXT} without WAS_DOLLAR) is intentionally excluded
-   * because the JDK does not set {@code requireEnd} for it.
-   */
-  private static boolean hasEndConstraint(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      switch (node.op) {
-        case END_LINE, WORD_BOUNDARY, NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {
-          return true;
-        }
-        case END_TEXT -> {
-          if ((node.flags & ParseFlags.WAS_DOLLAR) != 0) {
-            return true;
-          }
-        }
-        default -> {}
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static boolean hasHitEndConstraint(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      switch (node.op) {
-        case END_LINE, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY, GRAPHEME_CLUSTER_BOUNDARY -> {
-          return true;
-        }
-        default -> {}
       }
       if (node.subs != null) {
         for (Regexp sub : node.subs) {

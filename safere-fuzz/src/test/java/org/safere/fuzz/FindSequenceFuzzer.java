@@ -12,8 +12,6 @@ final class FindSequenceFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
-    assertTerminalRepeatEndStateSamplingStackSafe();
-
     String regex;
     int flags;
     String input;
@@ -35,8 +33,6 @@ final class FindSequenceFuzzer {
     int maxFinds = Math.min(input.length() + 2, 64);
     for (int i = 0; i < maxFinds; i++) {
       boolean found = findWalker.find();
-      findWalker.hitEnd();
-      findWalker.requireEnd();
       if (!found) {
         break;
       }
@@ -46,7 +42,7 @@ final class FindSequenceFuzzer {
     boolean hasMatch = false;
     int steps = data.consumeInt(1, 32);
     for (int i = 0; i < steps; i++) {
-      switch (data.consumeInt(0, 11)) {
+      switch (data.consumeInt(0, 9)) {
         case 0 -> hasMatch = matcher.matches();
         case 1 -> hasMatch = matcher.lookingAt();
         case 2 -> hasMatch = matcher.find();
@@ -61,9 +57,7 @@ final class FindSequenceFuzzer {
           hasMatch = false;
         }
         case 6 -> matcher.groupCount();
-        case 7 -> matcher.hitEnd();
-        case 8 -> matcher.requireEnd();
-        case 9 -> {
+        case 7 -> {
           if (hasMatch) {
             int group = data.consumeInt(0, matcher.groupCount());
             matcher.group(group);
@@ -71,36 +65,17 @@ final class FindSequenceFuzzer {
             matcher.end(group);
           }
         }
-        case 10 -> {
+        case 8 -> {
           int[] region = FuzzSupport.consumeRegion(data, input);
           matcher.region(region[0], region[1]);
           hasMatch = false;
         }
-        case 11 -> {
+        case 9 -> {
           matcher.useAnchoringBounds(data.consumeBoolean());
           matcher.useTransparentBounds(data.consumeBoolean());
         }
         default -> throw new AssertionError();
       }
-    }
-  }
-
-  private static void assertTerminalRepeatEndStateSamplingStackSafe() {
-    org.safere.Pattern pattern = org.safere.Pattern.compile(nestedCapturingGroups(512) + "*");
-
-    org.safere.Matcher matches = pattern.matcher("a");
-    if (!matches.matches() || !matches.hitEnd() || matches.requireEnd()) {
-      throw new AssertionError("deep terminal repeat matches() end-state divergence");
-    }
-
-    org.safere.Matcher lookingAt = pattern.matcher("a!");
-    if (!lookingAt.lookingAt() || lookingAt.hitEnd()) {
-      throw new AssertionError("deep terminal repeat lookingAt() end-state divergence");
-    }
-
-    org.safere.Matcher find = pattern.matcher("a");
-    if (!find.find() || !find.hitEnd() || find.requireEnd()) {
-      throw new AssertionError("deep terminal repeat find() end-state divergence");
     }
   }
 

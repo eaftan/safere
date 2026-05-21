@@ -13,8 +13,7 @@ semantic risk:
 > run.
 
 That is unacceptable for a drop-in `java.util.regex` replacement.  Users should
-not be able to observe a different match, replacement cursor, capture group,
-`hitEnd()`, or `requireEnd()` result because an input was short enough for
+not be able to observe a different match, replacement cursor, capture group because an input was short enough for
 BitState, long enough for the DFA sandwich, literal enough for `String.indexOf`,
 or shaped enough for OnePass.
 
@@ -64,7 +63,7 @@ to compute:
 Without a common classification and test obligation, it is easy to add a local
 optimization that is correct for match existence but wrong for anchors, empty
 matches, replacement cursor updates, deferred capture access, regions, or
-end-state flags.
+other matcher lifecycle state.
 
 ## Design Principle
 
@@ -109,8 +108,7 @@ Every search-like public operation should be reducible to a request containing:
 - whether a full match or anchored match is required;
 - whether longest-match behavior is being requested internally;
 - whether captures are needed eagerly, lazily, or not at all;
-- whether replacement state will consume the result;
-- the required end-state reporting for `hitEnd()` and `requireEnd()`.
+- whether replacement state will consume the result..
 
 This does not require a new public type.  It can be a private or package-private
 internal model.  The important point is that the same facts are passed through
@@ -125,8 +123,7 @@ authority:
 - group-zero start and end;
 - whether inner captures are resolved;
 - resolved capture registers when available;
-- deferred-capture bounds when captures are not yet resolved;
-- `hitEnd()` and `requireEnd()` observations;
+- deferred-capture bounds when captures are not yet resolved.;
 - next-search cursor behavior for empty and non-empty matches.
 
 Replacement APIs should consume this canonical result sequence.  They should
@@ -137,8 +134,9 @@ zero-width advancement behavior as canonical `find()`.
 A path's contract should name both the result fields it owns and the fields it
 must leave to shared code.  For example, a candidate-start accelerator may own
 only `effectiveStart`; it must not own match end, captures, replacement append
-position, or end-state flags.  A complete-result fast path may own group-zero
-bounds only if it also proves that no omitted public state can differ.
+position, or other matcher lifecycle state.  A complete-result fast path may
+own group-zero bounds only if it also proves that no omitted public state can
+differ.
 
 ## Engine-Path Contracts
 
@@ -153,8 +151,7 @@ For `find()`, literal search may remain an authoritative producer when:
 
 - there are no user capture groups;
 - the match boundaries are exactly the literal occurrence;
-- region and cursor bounds are applied exactly as canonical `find()` would;
-- `hitEnd()` and `requireEnd()` behavior is either computed or proven irrelevant.
+- region and cursor bounds are applied exactly as canonical `find()` would.
 
 If a literal or character-class path cannot satisfy those conditions, it should
 act only as a filter or accelerator and let an engine confirm the public result.
@@ -168,7 +165,6 @@ must not decide:
 - final match end;
 - capture values;
 - replacement append cursor;
-- `hitEnd()` or `requireEnd()`;
 - whether an anchored pattern can continue after its only possible start.
 
 The #251 failure is the motivating example.  Start anchoring is a canonical
@@ -241,8 +237,7 @@ capture observation, append-position updates, and empty-match advancement.
 - observe captures through the same resolution path as `group()`;
 - update append positions from the canonical group-zero bounds;
 - apply the same zero-width advancement rule as `find()`;
-- stop after the only possible anchored match;
-- preserve `hitEnd()` and `requireEnd()` state consistently with the search.
+- stop after the only possible anchored match.
 
 A replacement-only fast path is allowed only if it can be described as an
 authoritative producer for the whole replacement operation and has equivalence
@@ -262,34 +257,10 @@ valid authoritative producer, but its contract must be explicit:
   identical to the canonical replacement loop;
 - append position and copied text must match the sequence of canonical
   `find()` results;
-- `hitEnd()` and `requireEnd()` must either be updated through shared code or
-  documented as unaffected by this public operation.
 
 If any of those conditions cannot be proven, `replaceAll` should use the
 canonical loop and reserve fast-path work for replacement-template parsing or
 literal copying.
-
-## End-State Boundary
-
-`hitEnd()` and `requireEnd()` are observable public state, but they are not
-ordinary engine outputs today.  SafeRE currently recomputes them after the
-match through shared `Matcher` logic, using match bounds, region bounds,
-end-constraint metadata, and limited AST-derived extension samples.
-
-This design should keep that recomputation centralized, but it must make the
-boundary explicit:
-
-- engine paths must provide authoritative match existence and group-zero bounds
-  before end-state is computed;
-- partial producers must mark provisional group-zero bounds so end-state is not
-  computed from stale or approximate data;
-- fast paths that bypass shared `Matcher` completion code must either call the
-  shared end-state updater or document why the public operation cannot expose a
-  different end state;
-- forced-path tests must compare `hitEnd()` and `requireEnd()` after the same
-  public operation, not only the immediate match result.
-
-This boundary keeps end-state handling in the matcher state-machine layer while
 still requiring every engine path to supply enough canonical facts for that
 layer to be correct.
 
@@ -313,7 +284,7 @@ Initial inventory:
 - literal `matches()` and `lookingAt()` paths: authoritative producers for
   group-zero-only literal patterns;
 - literal `find()` path: authoritative producer for group-zero-only literal
-  patterns, subject to cursor, region, and end-state completion;
+  patterns, subject to cursor and region completion;
 - character-class `matches()` path: authoritative producer only for the
   specific whole-pattern character-class forms it recognizes;
 - prefix, character-class prefix, and start acceleration: filters that only
@@ -334,8 +305,7 @@ Initial inventory:
 Introduce a small internal representation for search results or make the
 existing `groups`/deferred-capture state follow the same structure explicitly.
 The goal is to make it impossible for a path to return "matched" without also
-declaring whether group-zero, inner captures, and end-state flags are
-authoritative.
+declaring whether group-zero and inner captures are authoritative.
 
 This can be incremental.  The first version can wrap existing state transitions
 without changing engine internals.
@@ -361,7 +331,6 @@ questions:
 - can this path preserve leftmost-first priority?
 - can this path handle nullable alternation?
 - can this path honor region and boundary semantics?
-- can this path report end-state flags correctly?
 
 This reduces the chance that a new fast path remembers one guard but misses
 another.
@@ -379,7 +348,6 @@ minimum matrix should cover:
 - nullable alternation and optional branches;
 - capture access after direct match, deferred capture resolution, and
   replacement substitution;
-- `hitEnd()` and `requireEnd()` after successful and failed searches;
 - replacement APIs, including `replaceAll`, `replaceFirst`, functional
   replacement, and `appendReplacement`.
 
@@ -406,7 +374,6 @@ configurations and compare:
 - `group`, `start`, and `end` for every group that is legal to observe;
 - `toMatchResult()` snapshots;
 - replacement strings and append positions;
-- `hitEnd()` and `requireEnd()`;
 - subsequent `find()` behavior after empty and non-empty matches.
 
 For paths that are only filters, tests should verify that enabling the filter
@@ -423,7 +390,7 @@ The preferred enforcement shape is:
 
 - use typed internal results, or an equivalent authority wrapper, so a path
   cannot return "matched" without declaring whether it owns no-match, candidate
-  start, group-zero bounds, captures, replacement result, and end-state facts;
+  start, group-zero bounds, captures, and replacement result;
 - use named guard predicates for semantic capabilities, not issue-specific
   booleans;
 - keep a package-private path inventory or registry that tests can inspect to
@@ -546,8 +513,7 @@ engine configurations.  The traces include:
 - `replaceAll`, `replaceFirst`, functional replacement, and
   `appendReplacement`;
 - regions and anchoring-bound behavior;
-- multiline/CRLF anchor behavior;
-- `hitEnd()` and `requireEnd()`.
+- multiline/CRLF anchor behavior.
 
 Second, the registry tests make the contracts machine-checkable.  They verify
 that every controllable path has contract metadata, that default production
