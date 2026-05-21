@@ -314,8 +314,8 @@ See [TESTING.md](TESTING.md) for the full testing workflow.
 2. **Lookahead / lookbehind** (`(?=...)`, `(?<=...)`) — not supported.
 3. **Possessive quantifiers** (`*+`, `++`) — not supported.
 4. **`Matcher.hitEnd()` and `Matcher.requireEnd()`** are not available.
-5. **Named captures** use Java-compatible `(?<name>...)` syntax.
-   RE2/Python-style `(?P<name>...)` is rejected.
+5. **Named captures** support Java-compatible `(?<name>...)` syntax and
+   Python-style `(?P<name>...)` syntax.
 
 See [Semantic Compatibility](#semantic-compatibility-with-javautilregex) for
 minor edge-case differences.

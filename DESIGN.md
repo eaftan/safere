@@ -25,7 +25,8 @@ A stack-based operator-precedence parser (ported from RE2's `parse.cc`)
 converts the pattern string into a `Regexp` AST.  It targets the
 `java.util.regex` dialect, including Java-compatible extensions such as
 non-capturing groups (`(?:...)`), named captures (`(?<name>...)`), shorthand
-classes (`\d`, `\b`, etc.), and Unicode properties.
+classes (`\d`, `\b`, etc.), and Unicode properties.  It also accepts
+Python-style named captures (`(?P<name>...)`) as a documented SafeRE extension.
 
 Key details:
 - Implicit concatenation between adjacent atoms.

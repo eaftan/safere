@@ -103,8 +103,9 @@ Examples:
 
 - #216: POSIX bracket class spellings inside Java character classes were parsed
   with RE2/POSIX semantics rather than JDK semantics.
-- #217: `(?P<name>...)` was accepted even though JDK-compatible named captures
-  use `(?<name>...)`.
+- #217: SafeRE now intentionally accepts Python-style named captures
+  (`(?P<name>...)`) as a documented extension alongside JDK-compatible
+  `(?<name>...)` named captures.
 - #220: empty left side character-class intersections behaved differently from
   the JDK.
 - #224: octal escape acceptance and interpretation diverged from
