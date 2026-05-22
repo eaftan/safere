@@ -163,6 +163,8 @@ public final class Matcher implements MatchResult {
 
   private Dfa cachedReverseDfa;
   private boolean reverseDfaLookedUp;
+  private String graphemeContextText;
+  private Nfa.GraphemeContext graphemeContext;
 
   /**
    * Creates a new matcher that will match the given input against the given pattern.
@@ -272,6 +274,8 @@ public final class Matcher implements MatchResult {
 
   private void resetStateForCurrentInput() {
     text = charSequenceToString(inputSequence);
+    graphemeContextText = null;
+    graphemeContext = null;
     regionStart = 0;
     regionEnd = text.length();
     resetSearchStateForInputStart();
@@ -297,12 +301,16 @@ public final class Matcher implements MatchResult {
       cachedBitState = null;
     }
     bitStateResult = null;
+    graphemeContextText = null;
+    graphemeContext = null;
   }
 
   private void invalidateInputDependentCaches() {
     bitStateBorrowed = false;
     cachedBitState = null;
     bitStateResult = null;
+    graphemeContextText = null;
+    graphemeContext = null;
   }
 
   private void preserveResultAcrossBoundsChange() {
@@ -750,9 +758,12 @@ public final class Matcher implements MatchResult {
               text,
               0,
               text.length(),
+              text.length(),
+              0,
               Nfa.Anchor.ANCHORED,
               Nfa.MatchKind.FULL_MATCH,
-              prog.numCaptures());
+              prog.numCaptures(),
+              graphemeContextFor(prog));
       result = nfaResult.groups();
     }
     return applyEngineResult(new FullMatchResult(result));
@@ -923,10 +934,24 @@ public final class Matcher implements MatchResult {
 
   private int nextGraphemeClusterBoundary(int start) {
     int pos = Math.min(start + 1, regionEnd);
-    while (pos < regionEnd && !Nfa.isGraphemeClusterBoundary(text, pos)) {
+    Nfa.GraphemeContext context = graphemeContext();
+    while (pos < regionEnd && !Nfa.isGraphemeClusterBoundary(text, pos, context)) {
       pos++;
     }
     return pos;
+  }
+
+  private Nfa.GraphemeContext graphemeContext() {
+    if (graphemeContext == null || !Objects.equals(graphemeContextText, text)) {
+      graphemeContextText = text;
+      graphemeContext =
+          Nfa.GraphemeContext.create(text, parentPattern.prog().hasGraphemeClusterBoundary());
+    }
+    return graphemeContext;
+  }
+
+  private Nfa.GraphemeContext graphemeContextFor(Prog prog) {
+    return prog.hasGraphemeClusterBoundary() ? graphemeContext() : null;
   }
 
   /**
@@ -1135,7 +1160,7 @@ public final class Matcher implements MatchResult {
           nextValidGraphemeCandidate(
               result, text, searchFrom, regionEnd, endPos, prog.numCaptures(), regionStart);
       if (result == null && !parentPattern.startsWithGraphemeClusterBoundary()) {
-        result = searchLowSurrogateStarts(text, searchFrom, regionEnd, prog.numCaptures());
+        result = searchLowSurrogateStarts(text, searchFrom, regionEnd, endPos, prog.numCaptures());
       }
     }
     return applyEngineResult(new FullMatchResult(result));
@@ -1612,7 +1637,9 @@ public final class Matcher implements MatchResult {
               nsubmatch,
               candidateRegionStart);
       if (result == null && !parentPattern.startsWithGraphemeClusterBoundary()) {
-        result = searchLowSurrogateStarts(text, effectiveStart, text.length(), prog.numCaptures());
+        result =
+            searchLowSurrogateStarts(
+                text, effectiveStart, text.length(), text.length(), prog.numCaptures());
         fullCapturesFromGraphemeFallback = result != null;
       }
     }
@@ -1628,18 +1655,17 @@ public final class Matcher implements MatchResult {
   }
 
   private int[] searchLowSurrogateStarts(
-      String text, int effectiveStart, int searchLimit, int nsubmatch) {
-    for (int pos = Math.max(0, effectiveStart); pos < searchLimit; pos++) {
-      if (!Character.isLowSurrogate(text.charAt(pos))) {
-        continue;
-      }
-      Matcher verifier = parentPattern.matcher(text).region(pos, searchLimit);
-      if (verifier.lookingAt()) {
-        int ncap = 2 * Math.max(nsubmatch, 1);
-        return Arrays.copyOf(verifier.groups, ncap);
-      }
-    }
-    return null;
+      String text, int effectiveStart, int searchLimit, int endPos, int nsubmatch) {
+    Nfa.SearchResult result =
+        Nfa.searchLowSurrogateStarts(
+            parentPattern.prog(),
+            text,
+            effectiveStart,
+            searchLimit,
+            endPos,
+            nsubmatch,
+            graphemeContext());
+    return result.groups();
   }
 
   private int[] nextValidGraphemeCandidate(
@@ -2080,7 +2106,8 @@ public final class Matcher implements MatchResult {
             nfaRegionStart,
             nfaAnchor,
             nfaKind,
-            nsubmatch);
+            nsubmatch,
+            graphemeContextFor(prog));
     return nfaResult.groups();
   }
 

@@ -7,11 +7,14 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * Validates behavior against JDK 21's {@link java.util.regex.Pattern} specification.
  */
 class LinebreakGraphemeTest {
+  private static final Duration PERFORMANCE_SCENARIO_TIMEOUT = Duration.ofSeconds(30);
 
   @Nested
   @DisplayName("\\R (Unicode linebreak)")
@@ -505,6 +509,46 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex is not the SafeRE linear-time engine")
+    @DisplayName("repeated find() over grapheme clusters reuses per-input context")
+    void repeatedFindOverGraphemeClustersReusesPerInputContext() {
+      Pattern pattern = Pattern.compile("\\X");
+
+      assertFourXInputStaysNearLinear(
+          "repeated find() over grapheme clusters",
+          length -> {
+            Matcher matcher = pattern.matcher("a".repeat(length));
+            int count = 0;
+            while (matcher.find()) {
+              count++;
+            }
+            assertThat(count).isEqualTo(length);
+          });
+    }
+
+    @Test
+    @DisabledForCrosscheck("java.util.regex is not the SafeRE linear-time engine")
+    @DisplayName("JDK-compatible low-surrogate search positions stay near-linear")
+    void lowSurrogateSearchPositionsStayNearLinear() {
+      Pattern pattern = Pattern.compile(".*\\b{g}z");
+
+      assertFourXInputStaysNearLinear(
+          "low-surrogate search-position miss",
+          length -> assertThat(pattern.matcher("\uDC00".repeat(length)).find()).isFalse());
+    }
+
+    @Test
+    @DisabledForCrosscheck("java.util.regex is not the SafeRE linear-time engine")
+    @DisplayName("regional-indicator grapheme boundary misses stay near-linear")
+    void regionalIndicatorBoundaryMissesStayNearLinear() {
+      Pattern pattern = Pattern.compile("\\b{g}z");
+
+      assertFourXInputStaysNearLinear(
+          "regional-indicator boundary miss",
+          length -> assertThat(pattern.matcher("\uD83C\uDDE6".repeat(length)).find()).isFalse());
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms do not split a single grapheme cluster")
     void consecutiveAtomsDoNotSplitSingleCluster() {
       Pattern p = Pattern.compile("^\\X\\X$");
@@ -750,6 +794,36 @@ class LinebreakGraphemeTest {
       assertThat(matcher.find()).isTrue();
       assertThat(matcher.start()).isZero();
       assertThat(matcher.end()).isEqualTo(2);
+    }
+
+    private void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
+      task.accept(100);
+      long smallerNanos = bestRuntimeNanos(() -> task.accept(1_000));
+      long largerNanos = bestRuntimeNanos(() -> task.accept(4_000));
+
+      assertThat(largerNanos)
+          .as(
+              "%s: 4x input should stay near-linear, smaller=%dns larger=%dns",
+              scenario, smallerNanos, largerNanos)
+          .isLessThan(smallerNanos * 10);
+    }
+
+    private long bestRuntimeNanos(Runnable task) {
+      long best = Long.MAX_VALUE;
+      for (int i = 0; i < 3; i++) {
+        best = Math.min(best, runtimeNanos(task));
+      }
+      return best;
+    }
+
+    private long runtimeNanos(Runnable task) {
+      return assertTimeoutPreemptively(
+          PERFORMANCE_SCENARIO_TIMEOUT,
+          () -> {
+            long start = System.nanoTime();
+            task.run();
+            return System.nanoTime() - start;
+          });
     }
 
     private AllocationTracker allocationTracker() {

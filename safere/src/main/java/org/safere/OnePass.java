@@ -482,6 +482,18 @@ final class OnePass {
    * @return submatch positions relative to {@code text}, or null if no match
    */
   SearchResult search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+    Nfa.GraphemeContext graphemeContext =
+        Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
+    return search(text, startPos, endPos, endMatch, nsubmatch, graphemeContext);
+  }
+
+  private SearchResult search(
+      String text,
+      int startPos,
+      int endPos,
+      boolean endMatch,
+      int nsubmatch,
+      Nfa.GraphemeContext graphemeContext) {
     int ncap = 2 * Math.max(nsubmatch, 1);
     int[] cap = new int[ncap];
     Arrays.fill(cap, -1);
@@ -507,7 +519,9 @@ final class OnePass {
         long matchAct = ma[state];
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0
-            || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary))
+            || (reqEmpty
+                    & ~Nfa.emptyFlags(
+                        text, pos, unixLines, hasGraphemeClusterBoundary, graphemeContext))
                 == 0) {
           int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
           if (capMask != 0) {
@@ -551,7 +565,8 @@ final class OnePass {
       if (conditions != 0) {
         int reqEmpty = (int) (conditions & EMPTY_MASK);
         if (reqEmpty != 0) {
-          int curEmpty = Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary);
+          int curEmpty =
+              Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary, graphemeContext);
           if ((reqEmpty & ~curEmpty) != 0) {
             break;
           }
@@ -570,7 +585,10 @@ final class OnePass {
       long matchAct = ma[state];
       int reqEmpty = (int) (matchAct & EMPTY_MASK);
       if (reqEmpty == 0
-          || (reqEmpty & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary)) == 0) {
+          || (reqEmpty
+                  & ~Nfa.emptyFlags(
+                      text, pos, unixLines, hasGraphemeClusterBoundary, graphemeContext))
+              == 0) {
         int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
         if (capMask != 0) {
           applyCaptures(capMask, pos, cap);
@@ -612,8 +630,10 @@ final class OnePass {
   int[] searchUnanchored(String text, int startPos, int searchLimit, int nsubmatch) {
     int textLen = text.length();
     int limit = Math.min(searchLimit, textLen) + 1;
+    Nfa.GraphemeContext graphemeContext =
+        Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
     for (int start = startPos; start < limit; start++) {
-      SearchResult result = search(text, start, textLen, false, nsubmatch);
+      SearchResult result = search(text, start, textLen, false, nsubmatch, graphemeContext);
       if (result.groups() != null) {
         return result.groups();
       }

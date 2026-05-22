@@ -188,6 +188,9 @@ final class Dfa {
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
 
+  /** Per-search grapheme context. Set only while a search method is active. */
+  private Nfa.GraphemeContext graphemeContext;
+
   // ---------------------------------------------------------------------------
   // Construction
   // ---------------------------------------------------------------------------
@@ -516,7 +519,8 @@ final class Dfa {
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags = Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeClusterBoundary);
+    int emptyFlags =
+        Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeClusterBoundary, graphemeContext);
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
@@ -630,7 +634,9 @@ final class Dfa {
     // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
       // Compute empty flags for end-of-text, but override word boundary using state context.
-      int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
+      int emptyFlags =
+          Nfa.emptyFlags(
+              text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary, graphemeContext);
       // At end-of-text the "current" character is not a word char.
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
@@ -805,7 +811,9 @@ final class Dfa {
     // word boundary (depends on the next character) and END_LINE (depends on what's at
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
-    int emptyFlags = Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary);
+    int emptyFlags =
+        Nfa.emptyFlags(
+            text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary, graphemeContext);
     emptyFlags &=
         ~(EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY
@@ -944,6 +952,7 @@ final class Dfa {
    *     exceeded its state budget
    */
   SearchResult doSearch(String text, int startPos, boolean anchored, boolean longest) {
+    graphemeContext = Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
     int textLen = text.length();
     // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
     boolean needEndMatch = prog.anchorEnd();
@@ -1107,6 +1116,7 @@ final class Dfa {
    */
   SearchResult doSearchReverse(
       String text, int endPos, int startLimit, boolean anchored, boolean longest) {
+    graphemeContext = Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
     // The reversed program's "start of text" corresponds to endPos (the right edge of the match
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
     // endPos backward to startLimit, feeding characters in reverse order.
@@ -1248,6 +1258,7 @@ final class Dfa {
    * states reached along the way.
    */
   ManyMatchResult doSearchMany(String text, boolean anchored) {
+    graphemeContext = Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();
