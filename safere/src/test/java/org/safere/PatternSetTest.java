@@ -7,8 +7,11 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.function.IntConsumer;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -17,6 +20,7 @@ import org.junit.jupiter.api.Test;
 /** Tests for {@link PatternSet}. */
 @DisabledForCrosscheck("PatternSet is a SafeRE-only API with no java.util.regex equivalent")
 class PatternSetTest {
+  private static final Duration PERFORMANCE_SCENARIO_TIMEOUT = Duration.ofSeconds(30);
 
   // ---------------------------------------------------------------------------
   // Builder
@@ -141,6 +145,17 @@ class PatternSetTest {
 
       assertThat(set.matches("foo bar")).isTrue();
       assertThat(set.matches("nothing")).isFalse();
+    }
+
+    @Test
+    void regionalIndicatorGraphemeBoundaryMissesStayNearLinear() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("\\b{g}z");
+      PatternSet set = b.compile();
+
+      assertFourXInputStaysNearLinear(
+          "PatternSet regional-indicator boundary miss",
+          length -> assertThat(set.match("\uD83C\uDDE6".repeat(length))).isEmpty());
     }
   }
 
@@ -534,5 +549,35 @@ class PatternSetTest {
       PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_BOTH);
       assertThatThrownBy(b::compile).isInstanceOf(IllegalStateException.class);
     }
+  }
+
+  private static void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
+    task.accept(100);
+    long smallerNanos = bestRuntimeNanos(() -> task.accept(1_000));
+    long largerNanos = bestRuntimeNanos(() -> task.accept(4_000));
+
+    assertThat(largerNanos)
+        .as(
+            "%s: 4x input should stay near-linear, smaller=%dns larger=%dns",
+            scenario, smallerNanos, largerNanos)
+        .isLessThan(smallerNanos * 10);
+  }
+
+  private static long bestRuntimeNanos(Runnable task) {
+    long best = Long.MAX_VALUE;
+    for (int i = 0; i < 3; i++) {
+      best = Math.min(best, runtimeNanos(task));
+    }
+    return best;
+  }
+
+  private static long runtimeNanos(Runnable task) {
+    return assertTimeoutPreemptively(
+        PERFORMANCE_SCENARIO_TIMEOUT,
+        () -> {
+          long start = System.nanoTime();
+          task.run();
+          return System.nanoTime() - start;
+        });
   }
 }

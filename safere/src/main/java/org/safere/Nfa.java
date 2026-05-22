@@ -58,6 +58,62 @@ final class Nfa {
   @SuppressWarnings("ArrayRecordComponent")
   record SearchResult(int[] groups) {}
 
+  /**
+   * Per-input grapheme segmentation context.
+   *
+   * <p>UAX #29 boundary checks are finite-state, but some rules need state from earlier code
+   * points. Keep that state here so engines can answer boundary questions in O(1) while scanning.
+   */
+  static final class GraphemeContext {
+    private static final GraphemeContext EMPTY = new GraphemeContext(null);
+
+    private final String text;
+    private boolean[] computedOddRegionalIndicatorsBefore;
+
+    private GraphemeContext(String text) {
+      this.text = text;
+    }
+
+    static GraphemeContext create(String text, boolean includeGraphemeClusterBoundary) {
+      if (!includeGraphemeClusterBoundary) {
+        return EMPTY;
+      }
+      return new GraphemeContext(text);
+    }
+
+    boolean hasEvenRegionalIndicatorsBefore(int pos) {
+      if (text == null) {
+        return true;
+      }
+      boolean[] oddRegionalIndicatorsBefore = oddRegionalIndicatorsBefore();
+      return pos < 0
+          || pos >= oddRegionalIndicatorsBefore.length
+          || !oddRegionalIndicatorsBefore[pos];
+    }
+
+    private boolean[] oddRegionalIndicatorsBefore() {
+      if (computedOddRegionalIndicatorsBefore != null) {
+        return computedOddRegionalIndicatorsBefore;
+      }
+      computedOddRegionalIndicatorsBefore = computeOddRegionalIndicatorsBefore(text);
+      return computedOddRegionalIndicatorsBefore;
+    }
+
+    private static boolean[] computeOddRegionalIndicatorsBefore(String text) {
+      boolean[] oddRegionalIndicatorsBefore = new boolean[text.length() + 1];
+      int runLength = 0;
+      int pos = 0;
+      while (pos < text.length()) {
+        int cp = text.codePointAt(pos);
+        int next = pos + Character.charCount(cp);
+        runLength = isRegionalIndicator(cp) ? runLength + 1 : 0;
+        oddRegionalIndicatorsBefore[next] = (runLength & 1) != 0;
+        pos = next;
+      }
+      return oddRegionalIndicatorsBefore;
+    }
+  }
+
   private final Prog prog;
   private final int ncapture;
 
@@ -68,6 +124,9 @@ final class Nfa {
   private final boolean endmatch;
   private final int endPos;
   private final int regionStart;
+  private final GraphemeContext graphemeContext;
+  private final boolean useMatchStartAsRegionStart;
+  private final boolean lowSurrogateStartsOnly;
 
   private boolean matched;
   private int[] bestMatch;
@@ -77,7 +136,15 @@ final class Nfa {
   private List<NfaThread> nextq;
 
   private Nfa(
-      Prog prog, int ncapture, boolean longest, boolean endmatch, int endPos, int regionStart) {
+      Prog prog,
+      GraphemeContext graphemeContext,
+      int ncapture,
+      boolean longest,
+      boolean endmatch,
+      int endPos,
+      int regionStart,
+      boolean useMatchStartAsRegionStart,
+      boolean lowSurrogateStartsOnly) {
     this.prog = prog;
     this.ncapture = ncapture;
     this.threadArraySize = ncapture + prog.numLoopRegs();
@@ -85,6 +152,9 @@ final class Nfa {
     this.endmatch = endmatch;
     this.endPos = endPos;
     this.regionStart = regionStart;
+    this.graphemeContext = graphemeContext;
+    this.useMatchStartAsRegionStart = useMatchStartAsRegionStart;
+    this.lowSurrogateStartsOnly = lowSurrogateStartsOnly;
     this.runq = new ArrayList<>();
     this.nextq = new ArrayList<>();
     this.bestMatch = new int[ncapture];
@@ -172,6 +242,21 @@ final class Nfa {
       Anchor anchor,
       MatchKind kind,
       int nsubmatch) {
+    return search(
+        prog, text, startPos, searchLimit, endPos, regionStart, anchor, kind, nsubmatch, null);
+  }
+
+  static SearchResult search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int regionStart,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch,
+      GraphemeContext graphemeContext) {
     if (prog.start() == 0) {
       return new SearchResult(null);
     }
@@ -191,7 +276,12 @@ final class Nfa {
     // We always need at least capture[0..1] to track the match boundaries.
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
-    Nfa nfa = new Nfa(prog, ncapture, longestMode, endmatch, endPos, regionStart);
+    GraphemeContext context =
+        graphemeContext != null
+            ? graphemeContext
+            : GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
+    Nfa nfa =
+        new Nfa(prog, context, ncapture, longestMode, endmatch, endPos, regionStart, false, false);
     if (!anchored && prog.hasGraphemeClusterBoundary()) {
       nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
     } else {
@@ -212,6 +302,32 @@ final class Nfa {
       result[i] = -1;
     }
     return new SearchResult(result);
+  }
+
+  static SearchResult searchLowSurrogateStarts(
+      Prog prog, String text, int startPos, int searchLimit, int endPos, int nsubmatch) {
+    return searchLowSurrogateStarts(prog, text, startPos, searchLimit, endPos, nsubmatch, null);
+  }
+
+  static SearchResult searchLowSurrogateStarts(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int nsubmatch,
+      GraphemeContext graphemeContext) {
+    if (prog.start() == 0) {
+      return new SearchResult(null);
+    }
+    int ncapture = 2 * Math.max(nsubmatch, 1);
+    GraphemeContext context =
+        graphemeContext != null
+            ? graphemeContext
+            : GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
+    Nfa nfa = new Nfa(prog, context, ncapture, false, prog.anchorEnd(), endPos, 0, true, true);
+    nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
+    return new SearchResult(nfa.matched ? nfa.bestMatch : null);
   }
 
   /**
@@ -239,7 +355,10 @@ final class Nfa {
       // (no point starting new threads to the right of an existing match).
       // Also don't start threads past searchLimit — the DFA has already determined
       // there's no match starting beyond that position.
-      if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
+      if (!matched
+          && pos <= searchLimit
+          && (!anchored || pos == startPos)
+          && canStartAt(text, pos)) {
         int[] cap = new int[threadArraySize];
         Arrays.fill(cap, -1);
         cap[0] = pos;
@@ -306,7 +425,7 @@ final class Nfa {
     Set<Integer> secondqSet = new HashSet<>();
 
     for (int pos = start; pos < endPos + 2; pos++) {
-      if (!matched && pos <= searchLimit) {
+      if (!matched && pos <= searchLimit && canStartAt(text, pos)) {
         int[] cap = new int[threadArraySize];
         Arrays.fill(cap, -1);
         cap[0] = pos;
@@ -337,6 +456,11 @@ final class Nfa {
       secondqSet = oldRunqSet;
       secondqSet.clear();
     }
+  }
+
+  private boolean canStartAt(String text, int pos) {
+    return !lowSurrogateStartsOnly
+        || (pos >= 0 && pos < text.length() && Character.isLowSurrogate(text.charAt(pos)));
   }
 
   /**
@@ -452,14 +576,16 @@ final class Nfa {
         }
 
         case EMPTY_WIDTH -> {
+          int effectiveRegionStart = useMatchStartAsRegionStart ? t0[0] : regionStart;
           int flags =
               emptyFlags(
                   text,
                   pos,
                   prog.unixLines(),
                   prog.hasGraphemeClusterBoundary(),
+                  graphemeContext,
                   t0[0],
-                  regionStart,
+                  effectiveRegionStart,
                   consumedInput,
                   endPos);
           if ((ip.arg & ~flags) == 0) {
@@ -685,7 +811,18 @@ final class Nfa {
 
   static int emptyFlags(
       String text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
-    return emptyFlags(text, pos, unixLines, includeGraphemeClusterBoundary, -1);
+    return emptyFlags(
+        text, pos, unixLines, includeGraphemeClusterBoundary, (GraphemeContext) null, -1, 0, false);
+  }
+
+  static int emptyFlags(
+      String text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      GraphemeContext graphemeContext) {
+    return emptyFlags(
+        text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, -1, 0, false);
   }
 
   static int emptyFlags(
@@ -694,7 +831,15 @@ final class Nfa {
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       int matchStart) {
-    return emptyFlags(text, pos, unixLines, includeGraphemeClusterBoundary, matchStart, 0);
+    return emptyFlags(
+        text,
+        pos,
+        unixLines,
+        includeGraphemeClusterBoundary,
+        (GraphemeContext) null,
+        matchStart,
+        0,
+        false);
   }
 
   static int emptyFlags(
@@ -705,7 +850,7 @@ final class Nfa {
       int matchStart,
       int regionStart) {
     return emptyFlags(
-        text, pos, unixLines, includeGraphemeClusterBoundary, matchStart, regionStart, false);
+        text, pos, unixLines, includeGraphemeClusterBoundary, null, matchStart, regionStart, false);
   }
 
   private static int emptyFlags(
@@ -713,6 +858,7 @@ final class Nfa {
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
+      GraphemeContext graphemeContext,
       int matchStart,
       int regionStart,
       boolean consumedInput) {
@@ -721,6 +867,7 @@ final class Nfa {
         pos,
         unixLines,
         includeGraphemeClusterBoundary,
+        graphemeContext,
         matchStart,
         regionStart,
         consumedInput,
@@ -732,6 +879,7 @@ final class Nfa {
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
+      GraphemeContext graphemeContext,
       int matchStart,
       int regionStart,
       boolean consumedInput,
@@ -831,7 +979,7 @@ final class Nfa {
         if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart)) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
-      } else if (isGraphemeClusterBoundary(text, pos, regionStart)) {
+      } else if (isGraphemeClusterBoundary(text, pos, regionStart, graphemeContext)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
         if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart)
             || !isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
@@ -877,10 +1025,15 @@ final class Nfa {
    * of JDK {@code \X}.
    */
   static boolean isGraphemeClusterBoundary(String text, int pos) {
-    return isGraphemeClusterBoundary(text, pos, 0);
+    return isGraphemeClusterBoundary(text, pos, 0, GraphemeContext.create(text, true));
   }
 
-  private static boolean isGraphemeClusterBoundary(String text, int pos, int regionStart) {
+  static boolean isGraphemeClusterBoundary(String text, int pos, GraphemeContext graphemeContext) {
+    return isGraphemeClusterBoundary(text, pos, 0, graphemeContext);
+  }
+
+  private static boolean isGraphemeClusterBoundary(
+      String text, int pos, int regionStart, GraphemeContext graphemeContext) {
     if (pos < 0 || pos > text.length()) {
       return false;
     }
@@ -922,7 +1075,9 @@ final class Nfa {
       return false;
     }
     if (isRegionalIndicator(prev) && isRegionalIndicator(next)) {
-      return countPrecedingRegionalIndicators(text, pos) % 2 == 0;
+      GraphemeContext context =
+          graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
+      return context.hasEvenRegionalIndicatorsBefore(pos);
     }
     return true;
   }
@@ -1165,20 +1320,6 @@ final class Nfa {
 
   private static boolean isRegionalIndicator(int c) {
     return 0x1F1E6 <= c && c <= 0x1F1FF;
-  }
-
-  private static int countPrecedingRegionalIndicators(String text, int pos) {
-    int count = 0;
-    int current = pos;
-    while (current > 0) {
-      int cp = text.codePointBefore(current);
-      if (!isRegionalIndicator(cp)) {
-        break;
-      }
-      count++;
-      current -= Character.charCount(cp);
-    }
-    return count;
   }
 
   private static boolean containsCodePoint(int[][] ranges, int c) {

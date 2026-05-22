@@ -56,8 +56,33 @@ reason each item may threaten linear time. Do not fix issues unless the user exp
      per-capture/per-position matching in ways that scale beyond linear in input for fixed pattern.
    - Public API methods such as `find`, `matches`, replacement, split, regions, and pattern sets
      that may call the engine repeatedly without consuming input or proving progress.
+   - JDK compatibility repairs that happen after engine execution by repeatedly invoking matchers,
+     replaying prefixes, rescanning unbounded context from many positions, or otherwise nesting
+     input-position work inside retry loops.
 
-5. Calibrate findings.
+5. Review JDK-compatibility pressure points explicitly.
+   - UTF-16 search positions: JDK `Matcher` positions are `char` indices, so compatibility may
+     expose starts inside surrogate pairs. Verify these positions are represented in engine state
+     or handled by a bounded linear pass, not by retrying a matcher from every candidate index.
+   - Grapheme constructs: `\X` and `\b{g}` require Unicode boundary context. Verify regional
+     indicator parity, emoji/ZWJ context, and other boundary state are computed incrementally or
+     cached per input instead of scanning backward from each boundary check.
+   - Region and bounds semantics: `region()`, transparent bounds, anchoring bounds, `^`, `$`,
+     `\A`, `\G`, word boundaries, `hitEnd()`, and `requireEnd()` depend on context around the
+     current search range. Verify that context is an explicit input to empty-width checks and
+     engine state rather than a post-hoc correction.
+   - Capture compatibility: JDK-compatible captures, especially quantified captures and
+     alternations, must not be recovered by per-capture or per-position matcher reruns. A bounded
+     extraction pass is acceptable; retry loops over captures or positions are not.
+   - Fallback engine selection: OnePass, DFA, BitState, and NFA fallbacks should compose as a
+     bounded number of passes over the relevant range. Treat repeated fallback invocations over
+     growing or overlapping ranges as high risk.
+   - Compatibility boundary: if observed JDK behavior appears to require nested matching over input
+     positions, report it as a compatibility boundary. Either identify an engine-native linear
+     formulation or recommend documenting an intentional divergence under SafeRE's linear-time
+     guarantee.
+
+6. Calibrate findings.
    - Distinguish proven issues, plausible risks, and false alarms.
    - For potential problems, describe the adversarial pattern/input shape that would expose the
      risk.
@@ -66,7 +91,7 @@ reason each item may threaten linear time. Do not fix issues unless the user exp
    - Do not mark an intentional bounded cost as a problem. Examples: work proportional to compiled
      program size, Unicode table setup at compile time, or a single forward scan of input.
 
-6. Report results.
+7. Report results.
    - Start with findings ordered by severity. Use file and line references.
    - For each finding include: risk, why it may break linear time, suspected trigger, and confidence
      level.

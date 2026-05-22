@@ -236,6 +236,15 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   specification, stop and explain the contradiction to the project owner; if
   they confirm proceeding, match the specification subject to linear time and
   document the intentional divergence from observed JDK behavior.
+- **Compatibility must be engine-native or bounded.** JDK compatibility code
+  may add explicit dimensions to engine state, use bounded per-input context,
+  or perform a bounded number of linear passes over the relevant input range.
+  It must not repair engine results by repeatedly invoking matchers, replaying
+  prefixes, rescanning unbounded context from many positions, or otherwise
+  nesting input-position work inside retry loops. If matching observed JDK
+  behavior appears to require that shape, stop and treat it as a compatibility
+  boundary: either find an engine-native linear formulation, or document an
+  intentional divergence under the linear-time guarantee.
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
   quantifiers. These features violate linear-time guarantees and must be
   rejected at parse time with a clear error.
