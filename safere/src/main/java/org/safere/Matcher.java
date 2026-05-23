@@ -1343,26 +1343,10 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
-    // OnePass primary path for small texts: for OnePass-eligible unanchored patterns on short
-    // input, scan with OnePass directly. OnePass is faster than BitState — no visited bitmap
-    // or job stack allocation, deterministic single-pass traversal per start position.
-    // Skip for nullable alternation (see anchored path comment above).
-    if (options.onePass()
-        && (parentPattern.canOnePassPrimary()
-            || (!options.semanticGuards() && parentPattern.onePass() != null))
-        && !prog.hasGraphemeClusterBoundary()
-        && text.length() <= 256
-        && canUsePikeEquivalentCaptures(prog)
-        && (!options.semanticGuards() || !parentPattern.hasNullableAlternation())) {
-      int[] result =
-          parentPattern
-              .onePass()
-              .searchUnanchored(text, effectiveStart, text.length(), prog.numCaptures());
-      if (result != null) {
-        return applyEngineResult(new FullMatchResult(result));
-      }
-      return applyEngineResult(new NoMatchResult());
-    }
+    // Do not use OnePass as an unanchored find() producer. Even when a pattern is OnePass-eligible
+    // for anchored matching, trying deterministic anchored matches at successive positions can
+    // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
+    // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
 
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
     // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
@@ -1541,6 +1525,7 @@ public final class Matcher implements MatchResult {
               revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
           if (revResult != null && revResult.matched()) {
             int matchStart = revResult.pos();
+            boolean authoritativeStart = !options.semanticGuards() || matchStart == effectiveStart;
 
             // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
             // (it can't return early). But the correct leftmost match may end before the
@@ -1566,6 +1551,7 @@ public final class Matcher implements MatchResult {
                       && altRevResult.matched()
                       && altRevResult.pos() < matchStart) {
                     matchStart = altRevResult.pos();
+                    authoritativeStart = !options.semanticGuards() || matchStart == effectiveStart;
                   }
                 }
                 // For \r\n, try position before \r.
@@ -1576,23 +1562,33 @@ public final class Matcher implements MatchResult {
                       && altRevResult2.matched()
                       && altRevResult2.pos() < matchStart) {
                     matchStart = altRevResult2.pos();
+                    authoritativeStart = !options.semanticGuards() || matchStart == effectiveStart;
                   }
                 }
               }
             }
 
+            // The forward DFA finds the earliest match end, not necessarily the end of the
+            // leftmost-starting match. If the reverse DFA lands after the earliest candidate start,
+            // an earlier match may still exist and end later. Let the submatch engine decide.
+            if (!authoritativeStart) {
+              matchStart = -1;
+            }
+
             // Step 3: Forward DFA anchored at matchStart with longest=true to find actual end.
-            Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
-            if (fwdLongest != null && fwdLongest.matched()) {
-              int matchEnd = fwdLongest.pos();
-              // Step 4: Store group(0) boundaries, defer inner captures until requested.
-              return applyEngineResult(
-                  new DeferredMatchResult(
-                      matchStart,
-                      matchEnd,
-                      prog.numCaptures(),
-                      !options.semanticGuards() || parentPattern.dfaGroupZeroReliable(),
-                      false));
+            if (matchStart >= 0) {
+              Dfa.SearchResult fwdLongest = dfa().doSearch(text, matchStart, true, true);
+              if (fwdLongest != null && fwdLongest.matched()) {
+                int matchEnd = fwdLongest.pos();
+                // Step 4: Store group(0) boundaries, defer inner captures until requested.
+                return applyEngineResult(
+                    new DeferredMatchResult(
+                        matchStart,
+                        matchEnd,
+                        prog.numCaptures(),
+                        !options.semanticGuards() || parentPattern.dfaGroupZeroReliable(),
+                        false));
+              }
             }
             // If anchored forward DFA fails, fall through to full search.
           }

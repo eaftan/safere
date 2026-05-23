@@ -73,7 +73,7 @@ class EnginePathEquivalenceTest {
   @Test
   @DisplayName("OnePass nullable-alternation guard has semantic content")
   void onePassNullableAlternationGuardHasSemanticContent() {
-    String regex = "(?:|a)";
+    String regex = "^(?:|a)";
     String input = "a";
     Pattern canonical = Pattern.compile(regex);
     Pattern unguarded =

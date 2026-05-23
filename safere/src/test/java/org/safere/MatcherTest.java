@@ -573,6 +573,26 @@ class MatcherTest {
       assertAllFindsMatchJdk("(?m)^\\s+at\\s+(\\w+)$", "header\u2028\tat alpha\u2029\tat beta");
     }
 
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "[^{']*(?:'[^']*'[^{']*)*\\{([^}]*)\\}",
+          "[^']*(?:'[^']*'[^']*)*END",
+          "[^<]*(?:<[^>]*>[^<]*)*TARGET"
+        })
+    @DisplayName("find() preserves leftmost start before a later required literal")
+    void findPreservesLeftmostStartBeforeLaterRequiredLiteral(String regex) {
+      String input =
+          switch (regex) {
+            case "[^{']*(?:'[^']*'[^{']*)*\\{([^}]*)\\}" -> "Foo '{0}' Bar: {0}";
+            case "[^']*(?:'[^']*'[^']*)*END" -> "prefix 'not END' suffix END";
+            case "[^<]*(?:<[^>]*>[^<]*)*TARGET" -> "prefix <not TARGET> suffix TARGET";
+            default -> throw new AssertionError("unexpected regex: " + regex);
+          };
+
+      assertFirstFindMatchesJdk(regex, input);
+    }
+
     private void assertAllFindsMatchJdk(String regex, String input) {
       assertAllFindsMatchJdk(regex, 0, input);
     }
