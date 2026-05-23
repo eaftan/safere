@@ -7,22 +7,41 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
+import org.junit.jupiter.api.Test;
 
 final class FindSequenceFuzzer {
+
+  @Test
+  void delimitedPrefixBeforeRequiredSuffixRegression() {
+    FuzzSupport.CompiledPattern pattern =
+        FuzzSupport.compileOrSkip("[^{']*(?:'[^']*'[^{']*)*\\{([^}]*)\\}", 0);
+
+    pattern.matcher("Foo '{0}' Bar: {0}").find();
+  }
 
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
     String regex;
     int flags;
     String input;
-    if (data.consumeBoolean()) {
-      regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
-      flags = 0;
-      input = data.consumeBoolean() ? "a" : "a!";
-    } else {
-      regex = data.consumeString(256);
-      flags = FuzzSupport.consumeFlags(data);
-      input = data.consumeString(2048);
+    switch (data.consumeInt(0, 2)) {
+      case 0 -> {
+        regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
+        flags = 0;
+        input = data.consumeBoolean() ? "a" : "a!";
+      }
+      case 1 -> {
+        String suffix = data.consumeBoolean() ? "\\{([^}]*)\\}" : "END";
+        regex = "[^']*(?:'[^']*'[^']*)*" + suffix;
+        flags = 0;
+        input = data.consumeBoolean() ? "Foo '{0}' Bar: {0}" : "prefix 'not END' suffix END";
+      }
+      case 2 -> {
+        regex = data.consumeString(256);
+        flags = FuzzSupport.consumeFlags(data);
+        input = data.consumeString(2048);
+      }
+      default -> throw new AssertionError();
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
