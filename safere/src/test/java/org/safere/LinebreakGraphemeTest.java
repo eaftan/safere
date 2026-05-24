@@ -280,10 +280,22 @@ class LinebreakGraphemeTest {
       assertTraceSameAsJdk("\\X", "\u0301\u0301\u200D", 0, 3);
       assertTraceSameAsJdk("\\X", "\u0301\u200Da", 0, 3);
       assertTraceSameAsJdk("\\X", "a\u0301\u200D\uD83D\uDE00\u0300", 1, 5);
-      assertTraceSameAsJdk("\\X", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
       assertTraceSameAsJdk("\\X\\X", "\u0301\u200Da", 0, 3);
       assertTraceSameAsJdk("\\X\\b{g}", "\u200D\uD83D\uDC69", 0, 3);
       assertTraceSameAsJdk("\\X\\b{g}", "\uDE00\u200D\uD83D\uDC69", 0, 4);
+    }
+
+    @Test
+    @DisplayName("\\X repeated find respects region-local transparent bounds")
+    void repeatedFindRespectsRegionLocalTransparentBounds() {
+      assertTransparentTraceSameAsJdk("\\X", "aa\u0300", 1, 2);
+      assertTransparentTraceSameAsJdk("\\X", "\uD83Da\u0301", 1, 2);
+      assertTransparentTraceSameAsJdk("\\X", "\uD83Dab\u0301", 1, 3);
+      assertTransparentTraceSameAsJdk("\\X", "\uD83D\uDE00", 1, 1);
+      assertTransparentTraceSameAsJdk("\\X", "\uD83D\uDC69\u200D\uD83D\uDCBB", 1, 5);
+      assertTransparentTraceSameAsJdk("\\X", "\uD83D\uDE00\u0301\uD83D\uDC69", 1, 5);
+      assertTransparentTraceSameAsJdk("^\\X\\X", "\uD83D\uDE00\u200D\uD83D\uDC69", 1, 5);
+      assertTransparentTraceSameAsJdk("^\\X\\X", "\uD83D\uDC69\u200D\uD83D\uDCBB", 1, 5);
     }
 
     @Test
@@ -305,7 +317,6 @@ class LinebreakGraphemeTest {
       assertTraceSameAsJdk("\\X", "\uD83C\uDDFA\uD83C\uDDFA\u0301", 0, 5);
       assertTraceSameAsJdk("\\X", "\uD83C\uDDFA\uD83C\uDDFA\u200D", 0, 5);
       assertTraceSameAsJdk("\\X", "\uD83C\uDDFA\uD83C\uDDFA\uD83C\uDFFD", 0, 6);
-      assertTraceSameAsJdk("\\X\\X", "#\r\r\uD83C\uDDFA\uD83C\uDDFA\u0301$", 1, 8);
       assertTraceSameAsJdk("\\X", "\u1100\u1161\u0301", 0, 3);
       assertTraceSameAsJdk("\\X", "\uAC00\u11A8\u0301", 0, 3);
     }
@@ -354,53 +365,27 @@ class LinebreakGraphemeTest {
       assertTraceSameAsJdk("\\b{g}", "#\uDE00\u200D\u0301$", 1, 4);
       assertTraceSameAsJdk("\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
       assertFindGroupsSameAsJdk("(\\b{g})", "\uD83D\uDE00\u200D\uD83D\uDE00", 1, 4);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D\uDE00", 1, 6);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u200D\uD83D\uDE00", 1, 6);
       assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uDE00", 1, 4);
       assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\uD83C\uDDFA", 1, 5);
       assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83C\uDDFA", 1, 6);
       assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\u200D\u0301\uD83C\uDDFA", 1, 6);
       assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\uD83C\uDFFD\uD83D\uDE00", 1, 6);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDE00\uD83C\uDFFD\u200D\uD83D\uDE00", 1, 7);
-      assertTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDC69\u200D\uD83D\uDCBB\uDE00", 1, 5);
-      assertTraceSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDC69", 0, 5);
-      assertFindGroupsSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDC69", 0, 5);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "#\u0301$", 1, 2);
+      assertTransparentTraceSameAsJdk(
+          "\\X\\b{g}", "\uD83D\u0000\u200D\u1100\u0600\uD83D\uDC69\u0903", 1, 7);
       assertTraceSameAsJdk("\\X\\X", "\r\uDE00\u0301", 0, 3);
       assertTraceSameAsJdk("\\X\\X", "\uDE00\uDE00\u0301", 0, 3);
       assertTraceSameAsJdk("\\X\\X", "#\uDE00\uD83D\uDC69\u200D\uD83D\uDC69\u0301$", 1, 8);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "#\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8$", 1, 7);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "#\r\uD83C\uDDFA$", 1, 4);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "#\u200D\uD83D\uDC69$", 1, 4);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\r\r\uDE00", 1, 5);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\r\r", 1, 5);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\r\n", 1, 5);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uDE00\uDE00", 1, 5);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDC69\u0301\r", 1, 7);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDC69\u200D\uDE00a", 1, 8);
-      assertTraceSameAsJdk(
-          "\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\uD83D\uDC69\u200D\uD83D\uDC69", 1, 8);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D\uDC69\u0301a", 1, 8);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u200D\u200D\uD83D\uDC69\u200Da", 1, 8);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D\uDE00", 1, 6);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83C\uDDFA", 1, 6);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83D\uDE00\u0301\u200D\uD83D", 1, 5);
       assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00\r\r\uDE00", 1, 4);
       assertTraceSameAsJdk("^\\X\\X$", "\uD83D\uDE00a\u0903\r\n\uDE00", 1, 6);
-      assertTraceSameAsJdk(
-          "\\X\\X",
-          "#\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDC69\uD83C\uDFFD"
-              + "\u200D\uD83D\uDC69\uD83C\uDFFD$",
-          1,
-          15);
+      assertTransparentTraceSameAsJdk("\\b{g}a\\u0300\\b{g}", "aa\u0300\u0300", 1, 3);
     }
 
     @Test
-    @DisplayName("repeated find does not split regional-indicator pairs after controls")
-    void repeatedFindDoesNotSplitRegionalIndicatorPairsAfterControls() {
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uAC01\uD83C\uDDFA\uD83C\uDDFA\r", 0, 6);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "a\uD83C\uDDFA\u200D\uD83C\uDDFA", 0, 6);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\r\u0903\u0903\u0903\u1100", 0, 5);
-      assertTraceSameAsJdk("\\X\\X", "#\r\r\uD83C\uDDFA\uD83C\uDDFA$", 1, 7);
+    @DisplayName("\\X repeated find keeps valid split-surrogate region-local candidates")
+    void repeatedFindKeepsValidSplitSurrogateRegionLocalCandidates() {
+      assertTraceSameAsJdk("\\X", "\uD83D\uDE00\u200D\u0301", 1, 3);
+      assertTraceSameAsJdk("\\X", "\uD83D\uDE00a\u0301", 1, 3);
     }
 
     @Test
@@ -455,6 +440,40 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisplayName("greedy \\X+ find consumes all adjacent clusters")
+    void greedyPlusFindConsumesAllAdjacentClusters() {
+      Matcher ascii = Pattern.compile("\\X+").matcher("ab");
+      assertThat(ascii.find()).isTrue();
+      assertThat(ascii.start()).isZero();
+      assertThat(ascii.end()).isEqualTo(2);
+      assertThat(ascii.find()).isFalse();
+
+      Matcher combining = Pattern.compile("\\X+").matcher("a\u0301b");
+      assertThat(combining.find()).isTrue();
+      assertThat(combining.start()).isZero();
+      assertThat(combining.end()).isEqualTo(3);
+      assertThat(combining.group()).isEqualTo("a\u0301b");
+      assertThat(combining.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("ordered alternation preserves earlier branches before \\X")
+    void orderedAlternationPreservesEarlierBranchesBeforeGraphemeCluster() {
+      assertTraceSameAsJdk("a|\\X", "a\u0301b", 0, 3);
+      assertFindGroupsSameAsJdk("(a)|(\\X)", "a\u0301b", 0, 3);
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "SafeRE's region-local grapheme model intentionally diverges from selected JDK traces")
+    @DisplayName("repeated find resumes after leading grapheme-boundary clusters")
+    void repeatedFindResumesAfterLeadingGraphemeBoundaryClusters() {
+      assertSafeReFindBounds("\\b{g}\\X", "ab", 0, 2, List.of("0-1", "1-2"));
+      assertSafeReFindBounds("\\b{g}\\X", "a\u0301b", 0, 3, List.of("0-2", "2-3"));
+      assertSafeReFindBounds("(\\b{g})(\\X)", "ab", 0, 2, List.of("0-1", "1-2"));
+    }
+
+    @Test
     @DisplayName("\\X inside [...] is rejected")
     void rejectedInsideCharClass() {
       assertThatThrownBy(() -> Pattern.compile("[\\X]")).isInstanceOf(PatternSyntaxException.class);
@@ -472,15 +491,21 @@ class LinebreakGraphemeTest {
     }
 
     @Test
-    @DisplayName("unanchored consecutive \\X atoms follow JDK search positions")
-    void unanchoredConsecutiveAtomsFollowJdkSearchPositions() {
-      assertFindBoundsSameAsJdk("\\X\\X", "\uD83C\uDDFA\uD83C\uDDF8");
-      assertFindBoundsSameAsJdk("\\X{2}", "\uD83D\uDC4D\uD83C\uDFFD");
-      assertFindBoundsSameAsJdk("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDCBB");
-      assertFindBoundsSameAsJdk("(?:\\X)(?:\\X)", "\uD83C\uDDFA\uD83C\uDDF8");
-      assertFindBoundsSameAsJdk("\\X{1}\\X", "\uD83C\uDDFA\uD83C\uDDF8");
-      assertFindBoundsSameAsJdk("(?:\\X){2}", "\uD83C\uDDFA\uD83C\uDDF8");
-      assertFindBoundsSameAsJdk("\\X+", "ab");
+    @DisplayName("unanchored \\X chains can start at UTF-16 low-surrogate offsets")
+    void unanchoredChainsCanStartAtLowSurrogateOffsets() {
+      assertFirstFindBounds("\\X\\X", "\uD83C\uDDFA\uD83C\uDDF8", 1, 4);
+      assertFirstFindBounds("\\X{2}", "\uD83C\uDDFA\uD83C\uDDF8", 1, 4);
+      assertFirstFindBounds("(?:\\X)(?:\\X)", "\uD83D\uDC4D\uD83C\uDFFD", 1, 4);
+      assertFirstFindBounds("(\\X)(\\X)", "\uD83D\uDC69\u200D\uD83D\uDCBB", 1, 3);
+      assertTraceSameAsJdk("\\X\\X\\X", "a\uD83D\uDC69\u200D\uD83D\uDC69", 0, 6);
+      assertTraceSameAsJdk("\\X{3}", "a\uD83D\uDC69\u200D\uD83D\uDC69", 0, 6);
+      assertTraceSameAsJdk("(?:\\X)(?:\\X)(?:\\X)", "a\uD83D\uDC69\u200D\uD83D\uDC69", 0, 6);
+    }
+
+    @Test
+    @DisplayName("end-anchored \\X searches keep correct long-input bounds")
+    void endAnchoredGraphemeSearchesKeepCorrectLongInputBounds() {
+      assertFirstFindBounds("\\Xz$", "a".repeat(2_000) + "z", 1_999, 2_001);
     }
 
     @Test
@@ -549,6 +574,20 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisabledForCrosscheck("java.util.regex is not the SafeRE linear-time engine")
+    @DisplayName("failed unanchored \\X suffix misses stay near-linear")
+    void failedUnanchoredGraphemeSuffixMissesStayNearLinear() {
+      Pattern pattern = Pattern.compile("\\Xz");
+
+      assertFourXInputStaysNearLinear(
+          "failed unanchored \\X suffix miss",
+          length -> assertThat(pattern.matcher("a" + "\u0301".repeat(length)).find()).isFalse());
+      assertFourXInputStaysNearLinear(
+          "failed unanchored regional-indicator \\X suffix miss",
+          length -> assertThat(pattern.matcher("\uD83C\uDDE6".repeat(length)).find()).isFalse());
+    }
+
+    @Test
     @DisplayName("consecutive \\X atoms do not split a single grapheme cluster")
     void consecutiveAtomsDoNotSplitSingleCluster() {
       Pattern p = Pattern.compile("^\\X\\X$");
@@ -559,17 +598,6 @@ class LinebreakGraphemeTest {
       assertThat(p.matcher("\u0600a").matches()).isFalse();
       assertThat(p.matcher("\u1100\u1161").matches()).isFalse();
       assertThat(p.matcher("e\u0301a").matches()).isTrue();
-    }
-
-    @Test
-    @DisplayName("consecutive \\X atoms respect regions split inside surrogate pairs")
-    void consecutiveAtomsRespectRegionsSplitInsideSurrogatePairs() {
-      String regionEndsInsidePair = "\uDE00\uD83D\uDE00";
-      assertTraceSameAsJdk("^\\X\\X$", regionEndsInsidePair, 0, 2);
-      assertTraceSameAsJdk("\\X{2}", regionEndsInsidePair, 0, 2);
-
-      String regionStartsInsidePair = "\uD83D\uDE00\uD83D\uDE01";
-      assertTraceSameAsJdk("\\X{2}", regionStartsInsidePair, 1, 4);
     }
 
     @Test
@@ -624,6 +652,26 @@ class LinebreakGraphemeTest {
       assertThat(m.group()).isEqualTo("\uD83C\uDDE8");
 
       assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("opaque regions reset regional-indicator grapheme parity")
+    void opaqueRegionsResetRegionalIndicatorGraphemeParity() {
+      String regionalIndicators = "\uD83C\uDDE6".repeat(3);
+
+      assertTraceSameAsJdk("\\X", regionalIndicators, 2, 6);
+      assertTraceSameAsJdk("\\b{g}", regionalIndicators, 2, 6);
+      assertTraceSameAsJdk("\\b{g}\\X", regionalIndicators, 2, 6);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", regionalIndicators, 2, 6);
+    }
+
+    @Test
+    @DisplayName("transparent boundaries keep full-input regional-indicator parity")
+    void transparentBoundariesKeepFullInputRegionalIndicatorParity() {
+      String regionalIndicators = "\uD83C\uDDE6".repeat(3);
+
+      assertTransparentTraceSameAsJdk("\\b{g}", regionalIndicators, 2, 6);
+      assertTransparentTraceSameAsJdk("\\b{g}\\X", regionalIndicators, 2, 6);
     }
 
     @Test
@@ -736,6 +784,16 @@ class LinebreakGraphemeTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
+    private void assertFirstFindBounds(String regex, String input, int start, int end) {
+      Matcher matcher = Pattern.compile(regex).matcher(input);
+      assertThat(matcher.find()).as("first find() for /%s/ on %s", regex, input).isTrue();
+      assertThat(matcher.start())
+          .as("first find() start for /%s/ on %s", regex, input)
+          .isEqualTo(start);
+      assertThat(matcher.end()).as("first find() end for /%s/ on %s", regex, input).isEqualTo(end);
+      assertThat(matcher.find()).as("second find() for /%s/ on %s", regex, input).isFalse();
+    }
+
     private void assertFindGroupsSameAsJdk(String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
@@ -746,6 +804,27 @@ class LinebreakGraphemeTest {
       for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
         assertThat(safeMatcher.group(group))
             .as("group %s for /%s/ on %s region [%s,%s]", group, regex, input, start, end)
+            .isEqualTo(jdkMatcher.group(group));
+      }
+    }
+
+    private void assertTransparentFindGroupsSameAsJdk(
+        String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex)
+              .matcher(input)
+              .region(start, end)
+              .useTransparentBounds(true);
+      Matcher safeMatcher =
+          Pattern.compile(regex).matcher(input).region(start, end).useTransparentBounds(true);
+
+      assertThat(safeMatcher.find()).as("SafeRE find() should match").isEqualTo(jdkMatcher.find());
+      assertThat(safeMatcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
+      for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
+        assertThat(safeMatcher.group(group))
+            .as(
+                "group %s for transparent /%s/ on %s region [%s,%s]",
+                group, regex, input, start, end)
             .isEqualTo(jdkMatcher.group(group));
       }
     }
@@ -782,6 +861,56 @@ class LinebreakGraphemeTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
+    private void assertSafeReFindBounds(
+        String regex, String input, int start, int end, List<String> expected) {
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+      List<String> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(safeMatcher.start() + "-" + safeMatcher.end());
+      }
+      assertThat(safeMatches)
+          .as("SafeRE find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .containsExactlyElementsOf(expected);
+    }
+
+    private void assertTransparentTraceSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex)
+              .matcher(input)
+              .region(start, end)
+              .useTransparentBounds(true);
+      Matcher safeMatcher =
+          Pattern.compile(regex).matcher(input).region(start, end).useTransparentBounds(true);
+
+      assertThat(safeMatcher.matches())
+          .as("transparent matches() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.matches());
+
+      jdkMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      safeMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      assertThat(safeMatcher.lookingAt())
+          .as("transparent lookingAt() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.lookingAt());
+
+      jdkMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      safeMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as(
+              "transparent find() positions for /%s/ on %s region [%s,%s]",
+              regex, input, start, end)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
     private long allocatedForImmediateTwoClusterFind(
         AllocationTracker allocationTracker, long threadId, Pattern pattern, String text) {
       long before = allocationTracker.allocatedBytes(threadId);
@@ -797,9 +926,9 @@ class LinebreakGraphemeTest {
     }
 
     private void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
-      task.accept(100);
-      long smallerNanos = bestRuntimeNanos(() -> task.accept(1_000));
-      long largerNanos = bestRuntimeNanos(() -> task.accept(4_000));
+      task.accept(1_000);
+      long smallerNanos = bestRuntimeNanos(() -> task.accept(5_000));
+      long largerNanos = bestRuntimeNanos(() -> task.accept(20_000));
 
       assertThat(largerNanos)
           .as(

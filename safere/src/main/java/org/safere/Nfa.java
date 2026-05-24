@@ -7,8 +7,10 @@ package org.safere;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -53,7 +55,28 @@ final class Nfa {
   /** A thread in the NFA: an instruction index paired with capture metadata. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  private record NfaThread(int id, int[] capture, boolean consumedInput) {}
+  private record NfaThread(int id, int[] capture, boolean consumedInput, int graphemeStart) {}
+
+  private static final int VISIT_KEY_VARIANT_BITS = 5;
+  private static final int GRAPHEME_LOW_SURROGATE_PAIR_VISIBLE = 1;
+  private static final int GRAPHEME_EXTENDED_PICTOGRAPHIC_VISIBLE = 1 << 1;
+  private static final int GRAPHEME_REGIONAL_INDICATOR_ODD = 1 << 2;
+  private static final int GRAPHEME_INDIC_CONJUNCT_LINKER_VISIBLE = 1 << 3;
+  private static final int GRAPHEME_INDIC_CONJUNCT_SEQUENCE_VISIBLE = 1 << 4;
+
+  private static final class QueueState {
+    final List<NfaThread> threads = new ArrayList<>();
+    final Set<Long> visited = new HashSet<>();
+
+    boolean isEmpty() {
+      return threads.isEmpty();
+    }
+
+    void clear() {
+      threads.clear();
+      visited.clear();
+    }
+  }
 
   @SuppressWarnings("ArrayRecordComponent")
   record SearchResult(int[] groups) {}
@@ -68,7 +91,12 @@ final class Nfa {
     private static final GraphemeContext EMPTY = new GraphemeContext(null);
 
     private final String text;
-    private boolean[] computedOddRegionalIndicatorsBefore;
+    private int[] regionalIndicatorStartsBefore;
+    private int[] regionalIndicatorRunStartBefore;
+    private int[] extendedPictographicStartBefore;
+    private int[] extendedPictographicPrependBefore;
+    private int[] indicConjunctSequenceStartBefore;
+    private int[] indicConjunctLinkerStartBefore;
 
     private GraphemeContext(String text) {
       this.text = text;
@@ -81,36 +109,155 @@ final class Nfa {
       return new GraphemeContext(text);
     }
 
-    boolean hasEvenRegionalIndicatorsBefore(int pos) {
+    boolean hasEvenRegionalIndicatorsBefore(int pos, int regionStart) {
       if (text == null) {
         return true;
       }
-      boolean[] oddRegionalIndicatorsBefore = oddRegionalIndicatorsBefore();
-      return pos < 0
-          || pos >= oddRegionalIndicatorsBefore.length
-          || !oddRegionalIndicatorsBefore[pos];
-    }
-
-    private boolean[] oddRegionalIndicatorsBefore() {
-      if (computedOddRegionalIndicatorsBefore != null) {
-        return computedOddRegionalIndicatorsBefore;
+      int start = Math.max(0, Math.min(regionStart, text.length()));
+      if (pos <= start || pos > text.length()) {
+        return true;
       }
-      computedOddRegionalIndicatorsBefore = computeOddRegionalIndicatorsBefore(text);
-      return computedOddRegionalIndicatorsBefore;
+      ensureRegionalIndicatorRunData();
+      int runStart = regionalIndicatorRunStartBefore[pos];
+      int countStart = Math.max(start, runStart);
+      int regionalIndicatorsBefore =
+          regionalIndicatorStartsBefore[pos] - regionalIndicatorStartsBefore[countStart];
+      return (regionalIndicatorsBefore & 1) == 0;
     }
 
-    private static boolean[] computeOddRegionalIndicatorsBefore(String text) {
-      boolean[] oddRegionalIndicatorsBefore = new boolean[text.length() + 1];
+    boolean hasExtendedPictographicBefore(int pos, int regionStart) {
+      if (text == null) {
+        return false;
+      }
+      int start = Math.max(0, Math.min(regionStart, text.length()));
+      if (pos <= start || pos > text.length()) {
+        return false;
+      }
+      ensureExtendedPictographicData();
+      int pictographicStart = extendedPictographicStartBefore[pos];
+      if (pictographicStart < start) {
+        return false;
+      }
+      int prependStart = extendedPictographicPrependBefore[pos];
+      return prependStart < start;
+    }
+
+    boolean hasIndicConjunctLinkerBefore(int pos, int regionStart) {
+      if (text == null) {
+        return false;
+      }
+      int start = Math.max(0, Math.min(regionStart, text.length()));
+      if (pos <= start || pos > text.length()) {
+        return false;
+      }
+      ensureIndicConjunctData();
+      return indicConjunctLinkerStartBefore[pos] >= start;
+    }
+
+    boolean hasIndicConjunctSequenceBefore(int pos, int regionStart) {
+      if (text == null) {
+        return false;
+      }
+      int start = Math.max(0, Math.min(regionStart, text.length()));
+      if (pos <= start || pos > text.length()) {
+        return false;
+      }
+      ensureIndicConjunctData();
+      return indicConjunctSequenceStartBefore[pos] >= start;
+    }
+
+    private void ensureRegionalIndicatorRunData() {
+      if (regionalIndicatorStartsBefore != null) {
+        return;
+      }
+      regionalIndicatorStartsBefore = new int[text.length() + 1];
+      regionalIndicatorRunStartBefore = new int[text.length() + 1];
+      int runStart = 0;
       int runLength = 0;
       int pos = 0;
       while (pos < text.length()) {
         int cp = text.codePointAt(pos);
         int next = pos + Character.charCount(cp);
-        runLength = isRegionalIndicator(cp) ? runLength + 1 : 0;
-        oddRegionalIndicatorsBefore[next] = (runLength & 1) != 0;
+        if (isRegionalIndicator(cp)) {
+          if (runLength == 0) {
+            runStart = pos;
+          }
+          runLength++;
+          for (int i = pos + 1; i <= next; i++) {
+            regionalIndicatorStartsBefore[i] = runLength;
+            regionalIndicatorRunStartBefore[i] = runStart;
+          }
+        } else {
+          runLength = 0;
+        }
         pos = next;
       }
-      return oddRegionalIndicatorsBefore;
+    }
+
+    private void ensureIndicConjunctData() {
+      if (indicConjunctLinkerStartBefore != null) {
+        return;
+      }
+      indicConjunctSequenceStartBefore = new int[text.length() + 1];
+      indicConjunctLinkerStartBefore = new int[text.length() + 1];
+      Arrays.fill(indicConjunctSequenceStartBefore, -1);
+      Arrays.fill(indicConjunctLinkerStartBefore, -1);
+
+      int sequenceStart = -1;
+      boolean linkerSeen = false;
+      int pos = 0;
+      while (pos < text.length()) {
+        int cp = text.codePointAt(pos);
+        int next = pos + Character.charCount(cp);
+        if (isIndicConjunctConsonant(cp)) {
+          sequenceStart = pos;
+          linkerSeen = false;
+        } else if (isIndicConjunctLinker(cp)) {
+          if (sequenceStart >= 0) {
+            linkerSeen = true;
+          }
+        } else if (!isIndicConjunctExtend(cp)) {
+          sequenceStart = -1;
+          linkerSeen = false;
+        }
+        int activeSequenceStart = sequenceStart;
+        int linkerStart = linkerSeen ? sequenceStart : -1;
+        for (int i = pos + 1; i <= next; i++) {
+          indicConjunctSequenceStartBefore[i] = activeSequenceStart;
+          indicConjunctLinkerStartBefore[i] = linkerStart;
+        }
+        pos = next;
+      }
+    }
+
+    private void ensureExtendedPictographicData() {
+      if (extendedPictographicStartBefore != null) {
+        return;
+      }
+      extendedPictographicStartBefore = new int[text.length() + 1];
+      extendedPictographicPrependBefore = new int[text.length() + 1];
+      Arrays.fill(extendedPictographicStartBefore, -1);
+      Arrays.fill(extendedPictographicPrependBefore, -1);
+
+      int visiblePictographicStart = -1;
+      int visiblePrependStart = -1;
+      int pos = 0;
+      while (pos < text.length()) {
+        int cp = text.codePointAt(pos);
+        int next = pos + Character.charCount(cp);
+        if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
+          visiblePictographicStart = pos;
+          visiblePrependStart = immediatePrependStartBefore(text, pos);
+        } else if (!isGraphemeExtend(cp)) {
+          visiblePictographicStart = -1;
+          visiblePrependStart = -1;
+        }
+        for (int i = pos + 1; i <= next; i++) {
+          extendedPictographicStartBefore[i] = visiblePictographicStart;
+          extendedPictographicPrependBefore[i] = visiblePrependStart;
+        }
+        pos = next;
+      }
     }
   }
 
@@ -123,17 +270,15 @@ final class Nfa {
   private final boolean longest;
   private final boolean endmatch;
   private final int endPos;
-  private final int regionStart;
+  private final int anchorEndPos;
+  private final int graphemeConsumeEndPos;
+  private final int consumeRegionStart;
+  private final int boundaryRegionStart;
+  private final int boundaryEndPos;
   private final GraphemeContext graphemeContext;
-  private final boolean useMatchStartAsRegionStart;
-  private final boolean lowSurrogateStartsOnly;
 
   private boolean matched;
   private int[] bestMatch;
-
-  // NfaThread queues: ordered lists of threads. The order is the thread priority.
-  private List<NfaThread> runq;
-  private List<NfaThread> nextq;
 
   private Nfa(
       Prog prog,
@@ -142,21 +287,23 @@ final class Nfa {
       boolean longest,
       boolean endmatch,
       int endPos,
-      int regionStart,
-      boolean useMatchStartAsRegionStart,
-      boolean lowSurrogateStartsOnly) {
+      int anchorEndPos,
+      int graphemeConsumeEndPos,
+      int consumeRegionStart,
+      int boundaryRegionStart,
+      int boundaryEndPos) {
     this.prog = prog;
     this.ncapture = ncapture;
     this.threadArraySize = ncapture + prog.numLoopRegs();
     this.longest = longest;
     this.endmatch = endmatch;
     this.endPos = endPos;
-    this.regionStart = regionStart;
+    this.anchorEndPos = anchorEndPos;
+    this.graphemeConsumeEndPos = graphemeConsumeEndPos;
+    this.consumeRegionStart = consumeRegionStart;
+    this.boundaryRegionStart = boundaryRegionStart;
+    this.boundaryEndPos = boundaryEndPos;
     this.graphemeContext = graphemeContext;
-    this.useMatchStartAsRegionStart = useMatchStartAsRegionStart;
-    this.lowSurrogateStartsOnly = lowSurrogateStartsOnly;
-    this.runq = new ArrayList<>();
-    this.nextq = new ArrayList<>();
     this.bestMatch = new int[ncapture];
     Arrays.fill(bestMatch, -1);
   }
@@ -257,6 +404,68 @@ final class Nfa {
       MatchKind kind,
       int nsubmatch,
       GraphemeContext graphemeContext) {
+    return search(
+        prog,
+        text,
+        startPos,
+        searchLimit,
+        endPos,
+        endPos,
+        regionStart,
+        regionStart,
+        endPos,
+        endPos,
+        anchor,
+        kind,
+        nsubmatch,
+        graphemeContext);
+  }
+
+  static SearchResult search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int consumeRegionStart,
+      int boundaryRegionStart,
+      int boundaryEndPos,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch,
+      GraphemeContext graphemeContext) {
+    return search(
+        prog,
+        text,
+        startPos,
+        searchLimit,
+        endPos,
+        endPos,
+        consumeRegionStart,
+        boundaryRegionStart,
+        boundaryEndPos,
+        endPos,
+        anchor,
+        kind,
+        nsubmatch,
+        graphemeContext);
+  }
+
+  static SearchResult search(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      int consumeRegionStart,
+      int boundaryRegionStart,
+      int boundaryEndPos,
+      int anchorEndPos,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch,
+      GraphemeContext graphemeContext) {
     if (prog.start() == 0) {
       return new SearchResult(null);
     }
@@ -281,9 +490,20 @@ final class Nfa {
             ? graphemeContext
             : GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
     Nfa nfa =
-        new Nfa(prog, context, ncapture, longestMode, endmatch, endPos, regionStart, false, false);
-    if (!anchored && prog.hasGraphemeClusterBoundary()) {
-      nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
+        new Nfa(
+            prog,
+            context,
+            ncapture,
+            longestMode,
+            endmatch,
+            endPos,
+            anchorEndPos,
+            graphemeConsumeEndPos,
+            consumeRegionStart,
+            boundaryRegionStart,
+            boundaryEndPos);
+    if (prog.hasGraphemeClusterBoundary()) {
+      nfa.doSearchEveryCharPosition(text, startPos, searchLimit, anchored);
     } else {
       nfa.doSearch(text, startPos, searchLimit, anchored);
     }
@@ -304,32 +524,6 @@ final class Nfa {
     return new SearchResult(result);
   }
 
-  static SearchResult searchLowSurrogateStarts(
-      Prog prog, String text, int startPos, int searchLimit, int endPos, int nsubmatch) {
-    return searchLowSurrogateStarts(prog, text, startPos, searchLimit, endPos, nsubmatch, null);
-  }
-
-  static SearchResult searchLowSurrogateStarts(
-      Prog prog,
-      String text,
-      int startPos,
-      int searchLimit,
-      int endPos,
-      int nsubmatch,
-      GraphemeContext graphemeContext) {
-    if (prog.start() == 0) {
-      return new SearchResult(null);
-    }
-    int ncapture = 2 * Math.max(nsubmatch, 1);
-    GraphemeContext context =
-        graphemeContext != null
-            ? graphemeContext
-            : GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
-    Nfa nfa = new Nfa(prog, context, ncapture, false, prog.anchorEnd(), endPos, 0, true, true);
-    nfa.doSearchEveryCharPosition(text, startPos, searchLimit);
-    return new SearchResult(nfa.matched ? nfa.bestMatch : null);
-  }
-
   /**
    * Main search loop. Iterates over each position in the text starting from {@code startPos} (plus
    * one past the end), stepping the NFA. At each position, starts a new thread if appropriate, then
@@ -342,9 +536,8 @@ final class Nfa {
    * @param anchored whether to anchor the search at {@code startPos}
    */
   private void doSearch(String text, int startPos, int searchLimit, boolean anchored) {
-    // The set of instruction IDs in each queue, for deduplication in addToThreadq.
-    Set<Integer> runqSet = new HashSet<>();
-    Set<Integer> nextqSet = new HashSet<>();
+    QueueState runq = new QueueState();
+    QueueState nextq = new QueueState();
 
     int pos = startPos;
     while (true) {
@@ -355,17 +548,14 @@ final class Nfa {
       // (no point starting new threads to the right of an existing match).
       // Also don't start threads past searchLimit — the DFA has already determined
       // there's no match starting beyond that position.
-      if (!matched
-          && pos <= searchLimit
-          && (!anchored || pos == startPos)
-          && canStartAt(text, pos)) {
+      if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
         int[] cap = new int[threadArraySize];
         Arrays.fill(cap, -1);
         cap[0] = pos;
         // Always use prog.start() (anchored start). Unanchored matching is achieved
         // by starting a new thread at each position. The startUnanchored() entry point
         // (which includes a .*? prefix) is only for the DFA engine.
-        addToThreadq(runq, runqSet, prog.start(), text, pos, cap, false);
+        addToThreadq(runq.threads, runq.visited, prog.start(), text, pos, cap, false);
       }
 
       // If all threads have died, stop if anchored or we already have a match.
@@ -374,28 +564,21 @@ final class Nfa {
         if (anchored || matched) {
           break;
         }
-        // In unanchored mode with no match yet, advance to the next position
-        // and try again. Clear the visited set so instructions can be re-added.
+        // In unanchored mode with no match yet, advance to the next position and try again.
         if (pos >= endPos) {
           break;
         }
-        runqSet.clear();
+        runq.clear();
         pos = nextPos;
         continue;
       }
 
-      boolean done = step(runq, runqSet, nextq, nextqSet, cp, text, pos, nextPos);
+      boolean done = stepCodePoint(runq, nextq, cp, text, pos, nextPos);
 
-      // Swap queues.
-      List<NfaThread> tmpQ = runq;
+      QueueState tmp = runq;
       runq = nextq;
-      nextq = tmpQ;
+      nextq = tmp;
       nextq.clear();
-
-      Set<Integer> tmpS = runqSet;
-      runqSet = nextqSet;
-      nextqSet = tmpS;
-      nextqSet.clear();
 
       if (done) {
         break;
@@ -417,50 +600,170 @@ final class Nfa {
    * search contract for grapheme constructs without changing the code-point stepping used by
    * ordinary SafeRE programs.
    */
-  private void doSearchEveryCharPosition(String text, int startPos, int searchLimit) {
+  private void doSearchEveryCharPosition(
+      String text, int startPos, int searchLimit, boolean anchored) {
     int start = Math.max(0, startPos);
-    Set<Integer> runqSet = new HashSet<>();
-    Set<Integer> nextqSet = new HashSet<>();
-    List<NfaThread> secondq = new ArrayList<>();
-    Set<Integer> secondqSet = new HashSet<>();
+    QueueState runq = new QueueState();
+    Map<Integer, QueueState> delayed = new HashMap<>();
 
-    for (int pos = start; pos < endPos + 2; pos++) {
-      if (!matched && pos <= searchLimit && canStartAt(text, pos)) {
+    int engineEndPos = Math.max(endPos, graphemeConsumeEndPos);
+    for (int pos = start; pos < engineEndPos + 2; pos++) {
+      mergeDelayedQueue(delayed, pos, runq);
+      if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
         int[] cap = new int[threadArraySize];
         Arrays.fill(cap, -1);
         cap[0] = pos;
-        addToThreadq(runq, runqSet, prog.start(), text, pos, cap, false);
+        addToThreadq(runq.threads, runq.visited, prog.start(), text, pos, cap, false);
       }
 
       if (!runq.isEmpty()) {
-        int cp = (pos < endPos) ? text.codePointAt(pos) : -1;
-        int nextPos = (pos < endPos) ? pos + Character.charCount(cp) : endPos + 1;
-        List<NfaThread> destinationQueue = (nextPos == pos + 1) ? nextq : secondq;
-        Set<Integer> destinationSet = (nextPos == pos + 1) ? nextqSet : secondqSet;
-        step(runq, runqSet, destinationQueue, destinationSet, cp, text, pos, nextPos, false);
+        int cp = inputCodePointAt(text, pos);
+        int nextPos = inputNextPos(text, pos);
+        step(runq, delayed, cp, text, pos, nextPos);
+      } else {
+        runq.clear();
       }
-
-      if (matched && runq.isEmpty() && nextq.isEmpty() && secondq.isEmpty()) {
+      if (matched && runq.isEmpty() && delayed.isEmpty()) {
         break;
       }
-
-      List<NfaThread> oldRunq = runq;
-      runq = nextq;
-      nextq = secondq;
-      secondq = oldRunq;
-      secondq.clear();
-
-      Set<Integer> oldRunqSet = runqSet;
-      runqSet = nextqSet;
-      nextqSet = secondqSet;
-      secondqSet = oldRunqSet;
-      secondqSet.clear();
     }
   }
 
-  private boolean canStartAt(String text, int pos) {
-    return !lowSurrogateStartsOnly
-        || (pos >= 0 && pos < text.length() && Character.isLowSurrogate(text.charAt(pos)));
+  private void mergeDelayedQueue(
+      Map<Integer, QueueState> delayed, int pos, QueueState destination) {
+    QueueState source = delayed.remove(pos);
+    if (source == null) {
+      return;
+    }
+    destination.threads.addAll(source.threads);
+    destination.visited.addAll(source.visited);
+  }
+
+  private QueueState delayedQueueAt(Map<Integer, QueueState> delayed, int pos) {
+    int engineEndPos = Math.max(endPos, graphemeConsumeEndPos);
+    if (pos < 0 || pos > engineEndPos + 1) {
+      return null;
+    }
+    return delayed.computeIfAbsent(pos, unused -> new QueueState());
+  }
+
+  private long visitKey(Inst ip, int id, String text, int pos, int graphemeStart) {
+    long instructionKey = ((long) id) << VISIT_KEY_VARIANT_BITS;
+    if (ip.op != InstOp.GRAPHEME_CLUSTER) {
+      return instructionKey;
+    }
+    return instructionKey | graphemeVisitVariant(text, pos, graphemeStart);
+  }
+
+  private int graphemeVisitVariant(String text, int pos, int graphemeStart) {
+    int start = Math.max(consumeRegionStart, graphemeStart);
+    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
+      return 0;
+    }
+
+    int variant = 0;
+    char ch = text.charAt(pos);
+    if (Character.isLowSurrogate(ch)
+        && hasHighSurrogateBeforeLowSurrogateInRegion(text, pos, start)) {
+      variant |= GRAPHEME_LOW_SURROGATE_PAIR_VISIBLE;
+    }
+    if (graphemeContext.hasExtendedPictographicBefore(pos, start)) {
+      variant |= GRAPHEME_EXTENDED_PICTOGRAPHIC_VISIBLE;
+    }
+    int cp = graphemeCodePointAt(text, pos);
+    int scalarEnd = nextRegionLocalScalarEnd(text, pos, graphemeConsumeEndPos);
+    int nextCp = graphemeCodePointAt(text, scalarEnd);
+    // Candidate starts inside a pending Indic conjunct sequence are not equivalent to starts
+    // before that sequence; future linker+consonant boundaries can diverge.
+    if (graphemeContext.hasIndicConjunctSequenceBefore(pos, start)) {
+      variant |= GRAPHEME_INDIC_CONJUNCT_SEQUENCE_VISIBLE;
+    }
+    if ((isIndicConjunctConsonant(cp) && graphemeContext.hasIndicConjunctLinkerBefore(pos, start))
+        || (isIndicConjunctConsonant(nextCp)
+            && graphemeContext.hasIndicConjunctLinkerBefore(scalarEnd, start))) {
+      variant |= GRAPHEME_INDIC_CONJUNCT_LINKER_VISIBLE;
+    }
+    if (isRegionalIndicator(cp)) {
+      if (!graphemeContext.hasEvenRegionalIndicatorsBefore(scalarEnd, start)) {
+        variant |= GRAPHEME_REGIONAL_INDICATOR_ODD;
+      }
+    }
+    return variant;
+  }
+
+  private int inputCodePointAt(String text, int pos) {
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
+      return -1;
+    }
+    if (!prog.hasGraphemeClusterBoundary()) {
+      return text.codePointAt(pos);
+    }
+    char ch = text.charAt(pos);
+    if (Character.isHighSurrogate(ch)
+        && pos + 1 < endPos
+        && pos + 1 < text.length()
+        && Character.isLowSurrogate(text.charAt(pos + 1))) {
+      return Character.toCodePoint(ch, text.charAt(pos + 1));
+    }
+    if (Character.isHighSurrogate(ch)
+        && pos + 1 < text.length()
+        && Character.isLowSurrogate(text.charAt(pos + 1))) {
+      // The scalar is only partially inside the region, so ordinary atoms cannot consume it.
+      return -1;
+    }
+    return ch;
+  }
+
+  private int inputNextPos(String text, int pos) {
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
+      return endPos + 1;
+    }
+    if (!prog.hasGraphemeClusterBoundary()) {
+      return pos + Character.charCount(text.codePointAt(pos));
+    }
+    int cp = inputCodePointAt(text, pos);
+    if (cp < 0) {
+      return endPos + 1;
+    }
+    if (Character.isSupplementaryCodePoint(cp)) {
+      return pos + 2;
+    }
+    return pos + 1;
+  }
+
+  private int graphemeCodePointAt(String text, int pos) {
+    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
+      return -1;
+    }
+    char ch = text.charAt(pos);
+    if (Character.isHighSurrogate(ch)
+        && pos + 1 < graphemeConsumeEndPos
+        && pos + 1 < text.length()
+        && Character.isLowSurrogate(text.charAt(pos + 1))) {
+      return Character.toCodePoint(ch, text.charAt(pos + 1));
+    }
+    return ch;
+  }
+
+  private int graphemeNextPos(String text, int pos) {
+    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
+      return graphemeConsumeEndPos + 1;
+    }
+    return nextRegionLocalScalarEnd(text, pos, graphemeConsumeEndPos);
+  }
+
+  private static int nextRegionLocalScalarEnd(String text, int pos, int endPos) {
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
+      return endPos + 1;
+    }
+    char ch = text.charAt(pos);
+    if (Character.isHighSurrogate(ch)
+        && pos + 1 < endPos
+        && pos + 1 < text.length()
+        && Character.isLowSurrogate(text.charAt(pos + 1))) {
+      return pos + 2;
+    }
+    return pos + 1;
   }
 
   /**
@@ -471,7 +774,7 @@ final class Nfa {
    * already in the queue.
    *
    * @param q the thread queue to add to
-   * @param visited set of instruction IDs already visited/enqueued
+   * @param visited set of instruction keys already visited/enqueued
    * @param id0 starting instruction ID
    * @param text the input text
    * @param pos the current position in the text
@@ -479,7 +782,7 @@ final class Nfa {
    */
   private void addToThreadq(
       List<NfaThread> q,
-      Set<Integer> visited,
+      Set<Long> visited,
       int id0,
       String text,
       int pos,
@@ -514,7 +817,7 @@ final class Nfa {
         t0 = entryCap;
       }
 
-      if (id == 0 || visited.contains(id)) {
+      if (id == 0) {
         continue;
       }
       // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
@@ -526,7 +829,10 @@ final class Nfa {
       // registers. The later zero-width iteration is JDK-visible and must not be discarded.
       Inst ip = prog.inst(id);
       if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
-        visited.add(id);
+        long visitKey = visitKey(ip, id, text, pos, pos);
+        if (!visited.add(visitKey)) {
+          continue;
+        }
       }
       switch (ip.op) {
         case FAIL -> {}
@@ -543,7 +849,7 @@ final class Nfa {
 
         case ALT_MATCH -> {
           // Enqueue this state and also explore the next alt branch.
-          q.add(new NfaThread(id, t0, consumedInput));
+          q.add(new NfaThread(id, t0, consumedInput, -1));
           // Explore the next instruction after this one (the other alt branch).
           stack.add(new int[] {ip.out, -1});
           captureStack.add(t0);
@@ -576,7 +882,10 @@ final class Nfa {
         }
 
         case EMPTY_WIDTH -> {
-          int effectiveRegionStart = useMatchStartAsRegionStart ? t0[0] : regionStart;
+          int effectiveBoundaryEndPos =
+              consumedInput && graphemeConsumeEndPos > boundaryEndPos
+                  ? graphemeConsumeEndPos
+                  : boundaryEndPos;
           int flags =
               emptyFlags(
                   text,
@@ -585,9 +894,10 @@ final class Nfa {
                   prog.hasGraphemeClusterBoundary(),
                   graphemeContext,
                   t0[0],
-                  effectiveRegionStart,
+                  boundaryRegionStart,
                   consumedInput,
-                  endPos);
+                  anchorEndPos,
+                  effectiveBoundaryEndPos);
           if ((ip.arg & ~flags) == 0) {
             stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
@@ -636,10 +946,11 @@ final class Nfa {
           }
         }
 
-        case CHAR_RANGE, CHAR_CLASS, MATCH ->
+        case CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER, MATCH ->
             // These are "real" states. Capture arrays are immutable from this point
             // until a later CAPTURE or PROGRESS_CHECK transition clones them.
-            q.add(new NfaThread(id, t0, consumedInput));
+            q.add(
+                new NfaThread(id, t0, consumedInput, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1));
 
         default -> {}
       }
@@ -648,39 +959,20 @@ final class Nfa {
 
   /**
    * Processes all threads in {@code rq} for the current input character. Threads at CHAR_RANGE
-   * instructions that match the character are advanced to {@code nq}. Threads at MATCH instructions
-   * record the match.
+   * instructions that match the character are advanced to the delayed queues. Threads at MATCH
+   * instructions record the match.
    *
    * @return true if the search should stop (first-match found and remaining threads cut off)
    */
   private boolean step(
-      List<NfaThread> rq,
-      Set<Integer> rqSet,
-      List<NfaThread> nq,
-      Set<Integer> nqSet,
+      QueueState rq,
+      Map<Integer, QueueState> delayed,
       int cp,
       String text,
       int matchPos,
       int nextPos) {
-    return step(rq, rqSet, nq, nqSet, cp, text, matchPos, nextPos, true);
-  }
-
-  private boolean step(
-      List<NfaThread> rq,
-      Set<Integer> rqSet,
-      List<NfaThread> nq,
-      Set<Integer> nqSet,
-      int cp,
-      String text,
-      int matchPos,
-      int nextPos,
-      boolean clearDestination) {
-    if (clearDestination) {
-      nq.clear();
-      nqSet.clear();
-    }
-
-    for (NfaThread t : rq) {
+    for (int threadIndex = 0; threadIndex < rq.threads.size(); threadIndex++) {
+      NfaThread t = rq.threads.get(threadIndex);
       int id = t.id();
       int[] capture = t.capture();
 
@@ -696,22 +988,51 @@ final class Nfa {
       switch (ip.op) {
         case CHAR_RANGE -> {
           if (cp >= 0 && ip.matchesChar(cp)) {
-            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, true);
+            QueueState destination = delayedQueueAt(delayed, nextPos);
+            if (destination != null) {
+              addToThreadq(
+                  destination.threads, destination.visited, ip.out, text, nextPos, capture, true);
+            }
           }
         }
 
         case CHAR_CLASS -> {
           if (cp >= 0 && ip.matchesCharClass(cp)) {
-            addToThreadq(nq, nqSet, ip.out, text, nextPos, capture, true);
+            QueueState destination = delayedQueueAt(delayed, nextPos);
+            if (destination != null) {
+              addToThreadq(
+                  destination.threads, destination.visited, ip.out, text, nextPos, capture, true);
+            }
+          }
+        }
+
+        case GRAPHEME_CLUSTER -> {
+          if (matchPos < endPos) {
+            int graphemeStart =
+                Math.max(consumeRegionStart, t.graphemeStart() >= 0 ? t.graphemeStart() : matchPos);
+            int scalarEnd = graphemeNextPos(text, matchPos);
+            QueueState destination = delayedQueueAt(delayed, scalarEnd);
+            if (destination != null) {
+              if (scalarEnd == graphemeConsumeEndPos
+                  || isGraphemeClusterBoundary(text, scalarEnd, graphemeStart, graphemeContext)) {
+                addToThreadq(
+                    destination.threads,
+                    destination.visited,
+                    ip.out,
+                    text,
+                    scalarEnd,
+                    capture,
+                    true);
+              } else if (destination.visited.add(
+                  visitKey(ip, id, text, scalarEnd, graphemeStart))) {
+                destination.threads.add(new NfaThread(id, capture, true, graphemeStart));
+              }
+            }
           }
         }
 
         case MATCH -> {
-          boolean skip =
-              endmatch
-                  && matchPos != endPos
-                  && (!prog.dollarAnchorEnd()
-                      || !isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), endPos));
+          boolean skip = endmatch && !matchesEndPosition(text, matchPos);
           if (!skip) {
             if (longest) {
               if (!matched
@@ -724,12 +1045,12 @@ final class Nfa {
             } else {
               // First match mode: this is the best match (leftmost, due to priority).
               // Cut off threads that can only find worse matches (remaining runq),
-              // but do NOT stop the main loop — threads already in nextq continue.
+              // but do not stop the main loop: threads already queued for later positions continue.
               System.arraycopy(capture, 0, bestMatch, 0, ncapture);
               bestMatch[1] = matchPos;
               matched = true;
-              // Clear remaining runq entries (they can only find worse matches).
-              // We break out of the for-each loop; rq will be cleared after the loop.
+              // Clear remaining runq entries; they can only find worse matches.
+              rq.clear();
               return false;
             }
           }
@@ -737,7 +1058,7 @@ final class Nfa {
 
         case ALT_MATCH -> {
           // Optimization: if this is the first thread and we want the match, take it.
-          if (longest || rq.indexOf(t) == 0) {
+          if (longest || threadIndex == 0) {
             System.arraycopy(capture, 0, bestMatch, 0, ncapture);
             matched = true;
           }
@@ -747,8 +1068,90 @@ final class Nfa {
       }
     }
     rq.clear();
-    rqSet.clear();
     return false;
+  }
+
+  private boolean stepCodePoint(
+      QueueState rq, QueueState nq, int cp, String text, int matchPos, int nextPos) {
+    nq.clear();
+
+    for (int threadIndex = 0; threadIndex < rq.threads.size(); threadIndex++) {
+      NfaThread t = rq.threads.get(threadIndex);
+      int id = t.id();
+      int[] capture = t.capture();
+
+      if (longest
+          && matched
+          && bestMatch[0] != -1
+          && capture[0] != -1
+          && bestMatch[0] < capture[0]) {
+        continue;
+      }
+
+      Inst ip = prog.inst(id);
+      switch (ip.op) {
+        case CHAR_RANGE -> {
+          if (cp >= 0 && ip.matchesChar(cp)) {
+            addToThreadq(nq.threads, nq.visited, ip.out, text, nextPos, capture, true);
+          }
+        }
+
+        case CHAR_CLASS -> {
+          if (cp >= 0 && ip.matchesCharClass(cp)) {
+            addToThreadq(nq.threads, nq.visited, ip.out, text, nextPos, capture, true);
+          }
+        }
+
+        case MATCH -> {
+          boolean skip = endmatch && !matchesEndPosition(text, matchPos);
+          if (!skip) {
+            if (longest) {
+              if (!matched
+                  || capture[0] < bestMatch[0]
+                  || (capture[0] == bestMatch[0] && matchPos > bestMatch[1])) {
+                System.arraycopy(capture, 0, bestMatch, 0, ncapture);
+                bestMatch[1] = matchPos;
+                matched = true;
+              }
+            } else {
+              // First match mode: this is the best match (leftmost, due to priority).
+              // Cut off threads that can only find worse matches (remaining runq),
+              // but do not stop the main loop: threads already in nextq continue.
+              System.arraycopy(capture, 0, bestMatch, 0, ncapture);
+              bestMatch[1] = matchPos;
+              matched = true;
+              rq.clear();
+              return false;
+            }
+          }
+        }
+
+        case ALT_MATCH -> {
+          // Optimization: if this is the first thread and we want the match, take it.
+          if (longest || threadIndex == 0) {
+            System.arraycopy(capture, 0, bestMatch, 0, ncapture);
+            matched = true;
+          }
+        }
+
+        default -> {}
+      }
+    }
+    rq.clear();
+    return false;
+  }
+
+  private boolean matchesEndPosition(String text, int matchPos) {
+    if (matchPos == anchorEndPos) {
+      return true;
+    }
+    if (matchPos == graphemeConsumeEndPos
+        && graphemeConsumeEndPos != endPos
+        && anchorEndPos == endPos) {
+      return true;
+    }
+    return prog.dollarAnchorEnd()
+        && isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), anchorEndPos);
   }
 
   // ---------------------------------------------------------------------------
@@ -774,26 +1177,32 @@ final class Nfa {
     return isAtTrailingLineTerminator(text, pos, unixLines, text.length());
   }
 
+  static int trailingLineTerminatorStart(String text, boolean unixLines) {
+    return trailingLineTerminatorStart(text, unixLines, text.length());
+  }
+
   private static boolean isAtTrailingLineTerminator(
       String text, int pos, boolean unixLines, int logicalEndPos) {
+    return pos == trailingLineTerminatorStart(text, unixLines, logicalEndPos);
+  }
+
+  private static int trailingLineTerminatorStart(
+      String text, boolean unixLines, int logicalEndPos) {
     int len = logicalEndPos;
-    if (pos < 0 || pos >= len) {
-      return false;
+    if (len <= 0 || len > text.length()) {
+      return -1;
     }
-    char ch = text.charAt(pos);
+    char ch = text.charAt(len - 1);
     if (unixLines) {
-      return ch == '\n' && pos + 1 == len;
+      return ch == '\n' ? len - 1 : -1;
     }
-    if (ch == '\n' && pos + 1 == len) {
-      // Don't treat the \n of an atomic \r\n as a standalone trailing line terminator.
-      // The trailing terminator is the \r\n pair starting at pos-1.
-      return pos == 0 || text.charAt(pos - 1) != '\r';
+    if (ch == '\n') {
+      return len >= 2 && text.charAt(len - 2) == '\r' ? len - 2 : len - 1;
     }
-    if (ch == '\r') {
-      return pos + 1 == len
-          || (pos + 2 == len && pos + 1 < text.length() && text.charAt(pos + 1) == '\n');
+    if (ch == '\r' || ch == '\u0085' || ch == '\u2028' || ch == '\u2029') {
+      return len - 1;
     }
-    return (ch == '\u0085' || ch == '\u2028' || ch == '\u2029') && pos + 1 == len;
+    return -1;
   }
 
   /**
@@ -871,6 +1280,7 @@ final class Nfa {
         matchStart,
         regionStart,
         consumedInput,
+        text.length(),
         text.length());
   }
 
@@ -883,7 +1293,8 @@ final class Nfa {
       int matchStart,
       int regionStart,
       boolean consumedInput,
-      int logicalEndPos) {
+      int anchorEndPos,
+      int boundaryEndPos) {
     int flags = 0;
 
     // ^ and \A
@@ -921,14 +1332,14 @@ final class Nfa {
     // END_TEXT is set only at end of text (used by \z).
     // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
     // text (used by $ without MULTILINE — JDK's default $ behavior).
-    if (pos == logicalEndPos) {
+    if (pos == anchorEndPos) {
       flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
     } else if (pos < text.length()) {
       char ch = text.charAt(pos);
       if (unixLines) {
         if (ch == '\n') {
           flags |= EmptyOp.END_LINE;
-          if (pos + 1 == text.length()) {
+          if (pos + 1 == anchorEndPos) {
             flags |= EmptyOp.DOLLAR_END;
           }
         }
@@ -939,7 +1350,7 @@ final class Nfa {
         boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
         if (!isAtomicLF) {
           flags |= EmptyOp.END_LINE;
-          if (isAtTrailingLineTerminator(text, pos, false, logicalEndPos)) {
+          if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
             flags |= EmptyOp.DOLLAR_END;
           }
         }
@@ -947,8 +1358,8 @@ final class Nfa {
     }
 
     // \b and \B
-    boolean prevWord = pos > 0 && isWordChar(text.codePointBefore(pos));
-    boolean nextWord = pos < text.length() && isWordChar(text.codePointAt(pos));
+    boolean prevWord = pos > regionStart && isWordChar(text.codePointBefore(pos));
+    boolean nextWord = pos < boundaryEndPos && isWordChar(text.codePointAt(pos));
     if (prevWord != nextWord) {
       flags |= EmptyOp.WORD_BOUNDARY;
     } else {
@@ -956,8 +1367,8 @@ final class Nfa {
     }
 
     // Unicode \b and \B
-    boolean prevUnicodeWord = pos > 0 && isUnicodeWordChar(text.codePointBefore(pos));
-    boolean nextUnicodeWord = pos < text.length() && isUnicodeWordChar(text.codePointAt(pos));
+    boolean prevUnicodeWord = pos > regionStart && isUnicodeWordChar(text.codePointBefore(pos));
+    boolean nextUnicodeWord = pos < boundaryEndPos && isUnicodeWordChar(text.codePointAt(pos));
     if (prevUnicodeWord != nextUnicodeWord) {
       flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
     } else {
@@ -965,29 +1376,38 @@ final class Nfa {
     }
 
     if (includeGraphemeClusterBoundary) {
-      if (isRegionStartSplitSurrogateBoundary(text, pos, regionStart)
-          || isRegionEndSplitSurrogateBoundary(text, pos, logicalEndPos)) {
+      if (isGraphemeBoundaryContextEdge(pos, regionStart, boundaryEndPos)) {
+        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      } else if (isRegionStartSplitSurrogateBoundary(text, pos, regionStart)
+          || isRegionEndSplitSurrogateBoundary(text, pos, boundaryEndPos)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
       } else if (isAfterRegionStartSplitLowSurrogateBoundary(text, pos, regionStart)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!(consumedInput && pos < logicalEndPos && hasGraphemeExtendAt(text, pos))) {
+        if (!suppressesConsumedSplitLowSurrogateExplicitBoundary(
+            text, pos, boundaryEndPos, consumedInput)) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
       } else if (consumedInput
-          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
+          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart, graphemeContext)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart)) {
+        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart, graphemeContext)) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
       } else if (isGraphemeClusterBoundary(text, pos, regionStart, graphemeContext)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart)
-            || !isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
+        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart, graphemeContext)
+            || !isStandaloneZwjBeforePictographicBoundary(
+                text, pos, regionStart, graphemeContext)) {
           flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
         }
-      } else if (isLowHighSurrogateBoundary(text, pos) && matchStart > 0 && pos > matchStart) {
+      } else if (isLowHighSurrogateBoundary(text, pos)
+          && matchStart > 0
+          && pos > matchStart
+          && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (startsAtLowSurrogate(text, matchStart) && pos == matchStart + 1) {
+      } else if (startsAtLowSurrogate(text, matchStart)
+          && !hasHighSurrogateBeforeLowSurrogateInRegion(text, matchStart, regionStart)
+          && pos == matchStart + 1) {
         flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
         if (!hasGraphemeExtendAt(text, pos)
             && !suppressesRegionStartSplitExplicitBoundary(
@@ -1010,7 +1430,7 @@ final class Nfa {
           && !hasGraphemeExtendAt(text, pos)) {
         flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
       } else if (!consumedInput
-          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart)) {
+          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart, graphemeContext)) {
         flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
       } else if (isExplicitGraphemeClusterBoundary(text, pos, matchStart, regionStart)) {
         flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
@@ -1018,6 +1438,11 @@ final class Nfa {
     }
 
     return flags;
+  }
+
+  private static boolean isGraphemeBoundaryContextEdge(
+      int pos, int boundaryStart, int boundaryEnd) {
+    return pos == boundaryStart || pos == boundaryEnd;
   }
 
   /**
@@ -1032,7 +1457,7 @@ final class Nfa {
     return isGraphemeClusterBoundary(text, pos, 0, graphemeContext);
   }
 
-  private static boolean isGraphemeClusterBoundary(
+  static boolean isGraphemeClusterBoundary(
       String text, int pos, int regionStart, GraphemeContext graphemeContext) {
     if (pos < 0 || pos > text.length()) {
       return false;
@@ -1069,15 +1494,18 @@ final class Nfa {
     if (isHangulGraphemeContinuation(prev, next)) {
       return false;
     }
+    GraphemeContext context =
+        graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
+    if (isIndicConjunctConsonant(next) && context.hasIndicConjunctLinkerBefore(pos, regionStart)) {
+      return false;
+    }
     if (prev == 0x200D
         && containsCodePoint(EXTENDED_PICTOGRAPHIC, next)
-        && hasExtendedPictographicBeforeZwj(text, pos - 1, regionStart)) {
+        && context.hasExtendedPictographicBefore(pos - 1, regionStart)) {
       return false;
     }
     if (isRegionalIndicator(prev) && isRegionalIndicator(next)) {
-      GraphemeContext context =
-          graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
-      return context.hasEvenRegionalIndicatorsBefore(pos);
+      return context.hasEvenRegionalIndicatorsBefore(pos, regionStart);
     }
     return true;
   }
@@ -1090,7 +1518,7 @@ final class Nfa {
     char prevChar = text.charAt(pos - 1);
     char nextChar = text.charAt(pos);
     if (Character.isLowSurrogate(prevChar) && Character.isHighSurrogate(nextChar)) {
-      return true;
+      return !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart);
     }
     if (prevChar == '\r' && nextChar == '\n') {
       return true;
@@ -1135,6 +1563,31 @@ final class Nfa {
         && Character.isLowSurrogate(text.charAt(regionEnd));
   }
 
+  private static boolean suppressesConsumedSplitLowSurrogateExplicitBoundary(
+      String text, int pos, int boundaryEndPos, boolean consumedInput) {
+    if (!consumedInput || pos >= boundaryEndPos) {
+      return false;
+    }
+    if (hasGraphemeExtendAt(text, pos)) {
+      return true;
+    }
+    return isRegionalIndicator(regionLocalCodePointAt(text, pos, boundaryEndPos));
+  }
+
+  private static int regionLocalCodePointAt(String text, int pos, int endPos) {
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
+      return -1;
+    }
+    char ch = text.charAt(pos);
+    if (Character.isHighSurrogate(ch)
+        && pos + 1 < endPos
+        && pos + 1 < text.length()
+        && Character.isLowSurrogate(text.charAt(pos + 1))) {
+      return Character.toCodePoint(ch, text.charAt(pos + 1));
+    }
+    return ch;
+  }
+
   private static boolean isLowSurrogateBeforeZwjBoundary(
       String text, int pos, int matchStart, int regionStart) {
     return pos == matchStart
@@ -1163,17 +1616,21 @@ final class Nfa {
   }
 
   private static boolean isStandaloneZwjBeforePictographicBoundary(
-      String text, int pos, int regionStart) {
+      String text, int pos, int regionStart, GraphemeContext graphemeContext) {
+    GraphemeContext context =
+        graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
     return pos > 0
         && pos < text.length()
         && text.charAt(pos - 1) == 0x200D
         && containsCodePoint(EXTENDED_PICTOGRAPHIC, text.codePointAt(pos))
         && !isAfterRegionStartSplitLowSurrogate(text, pos - 1, regionStart)
-        && !hasExtendedPictographicBeforeZwj(text, pos - 1, regionStart);
+        && !context.hasExtendedPictographicBefore(pos - 1, regionStart);
   }
 
   private static boolean isAfterPairedExtendedPictographicZwj(
-      String text, int pos, int regionStart) {
+      String text, int pos, int regionStart, GraphemeContext graphemeContext) {
+    GraphemeContext context =
+        graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
     int lowSurrogatePos = pos - 2;
     if (regionStart <= lowSurrogatePos && regionStart > 0) {
       return false;
@@ -1182,7 +1639,7 @@ final class Nfa {
         && text.charAt(pos - 1) == 0x200D
         && Character.isLowSurrogate(text.charAt(lowSurrogatePos))
         && Character.isHighSurrogate(text.charAt(pos - 3))
-        && hasExtendedPictographicBeforeZwj(text, pos - 1, 0);
+        && context.hasExtendedPictographicBefore(pos - 1, regionStart);
   }
 
   private static boolean isAfterRegionStartSplitLowSurrogate(
@@ -1191,30 +1648,15 @@ final class Nfa {
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
-  static boolean hasExtendedPictographicBeforeZwj(String text, int zwjPos, int regionStart) {
-    int pos = zwjPos;
-    while (pos > regionStart && pos > 0) {
-      int previous = text.codePointBefore(pos);
-      int previousPos = pos - Character.charCount(previous);
-      if (previousPos < regionStart) {
-        return false;
-      }
-      if (containsCodePoint(EXTENDED_PICTOGRAPHIC, previous)) {
-        return !hasPrependImmediatelyBefore(text, previousPos, regionStart);
-      }
-      if (!isGraphemeExtend(previous)) {
-        return false;
-      }
-      pos = previousPos;
+  private static int immediatePrependStartBefore(String text, int pos) {
+    if (pos <= 0) {
+      return -1;
     }
-    return false;
-  }
-
-  private static boolean hasPrependImmediatelyBefore(String text, int pos, int regionStart) {
-    if (pos <= regionStart || pos <= 0) {
-      return false;
+    int previous = text.codePointBefore(pos);
+    if (!isGraphemePrepend(previous)) {
+      return -1;
     }
-    return isGraphemePrepend(text.codePointBefore(pos));
+    return pos - Character.charCount(previous);
   }
 
   private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(
@@ -1320,6 +1762,43 @@ final class Nfa {
 
   private static boolean isRegionalIndicator(int c) {
     return 0x1F1E6 <= c && c <= 0x1F1FF;
+  }
+
+  private static boolean isIndicConjunctConsonant(int c) {
+    return (0x0915 <= c && c <= 0x0939)
+        || (0x0958 <= c && c <= 0x095F)
+        || (0x0978 <= c && c <= 0x097F)
+        || (0x0995 <= c && c <= 0x09A8)
+        || (0x09AA <= c && c <= 0x09B0)
+        || c == 0x09B2
+        || (0x09B6 <= c && c <= 0x09B9)
+        || (0x09DC <= c && c <= 0x09DD)
+        || c == 0x09DF
+        || (0x09F0 <= c && c <= 0x09F1)
+        || (0x0A95 <= c && c <= 0x0AA8)
+        || (0x0AAA <= c && c <= 0x0AB0)
+        || (0x0AB2 <= c && c <= 0x0AB3)
+        || (0x0AB5 <= c && c <= 0x0AB9)
+        || c == 0x0AF9
+        || (0x0B15 <= c && c <= 0x0B28)
+        || (0x0B2A <= c && c <= 0x0B30)
+        || (0x0B32 <= c && c <= 0x0B33)
+        || (0x0B35 <= c && c <= 0x0B39)
+        || (0x0B5C <= c && c <= 0x0B5D)
+        || c == 0x0B5F
+        || c == 0x0B71
+        || (0x0C15 <= c && c <= 0x0C28)
+        || (0x0C2A <= c && c <= 0x0C39)
+        || (0x0C58 <= c && c <= 0x0C5A)
+        || (0x0D15 <= c && c <= 0x0D3A);
+  }
+
+  private static boolean isIndicConjunctLinker(int c) {
+    return c == 0x094D || c == 0x09CD || c == 0x0ACD || c == 0x0B4D || c == 0x0C4D || c == 0x0D4D;
+  }
+
+  private static boolean isIndicConjunctExtend(int c) {
+    return isGraphemeExtend(c) || (0xE0020 <= c && c <= 0xE007F);
   }
 
   private static boolean containsCodePoint(int[][] ranges, int c) {

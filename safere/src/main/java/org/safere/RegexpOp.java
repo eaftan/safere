@@ -74,6 +74,9 @@ enum RegexpOp {
   /** Matches a Unicode extended grapheme cluster boundary ({@code \b{g}}). */
   GRAPHEME_CLUSTER_BOUNDARY,
 
+  /** Matches a single Unicode extended grapheme cluster ({@code \X}). */
+  GRAPHEME_CLUSTER,
+
   /** Matches empty string at beginning of text ({@code \A}). */
   BEGIN_TEXT,
 

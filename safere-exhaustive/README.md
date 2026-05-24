@@ -2,8 +2,8 @@
 
 This module contains deterministic, long-running differential validation tools.
 These tools are not ordinary unit tests: they stream large bounded search spaces,
-compare SafeRE with `java.util.regex`, and write every divergence to JSONL so a
-failed or interrupted run still leaves useful repro data.
+compare SafeRE with `java.util.regex`, and write machine-readable divergence
+reports so a failed or interrupted run still leaves useful repro data.
 
 ## Character Class Sweep
 
@@ -88,7 +88,8 @@ Control, Extend, ZWJ, Regional_Indicator, Prepend, SpacingMark, Hangul
 L/V/T/LV/LVT, emoji modifier, Extended_Pictographic, ordinary BMP,
 supplementary, and lone surrogate code units. Additional focused families cover
 longer high-risk sequences around leading Extend/ZWJ runs, regional-indicator
-parity, emoji ZWJ chains, Hangul composition chains, and surrogate boundaries.
+parity, emoji ZWJ chains, Hangul composition chains, Indic conjunct linker/ZWJ
+sequences, and surrogate boundaries.
 Generated input labels include the grapheme-class sequence, so JSONL buckets
 make missed rule neighborhoods visible instead of hiding them behind opaque
 seed names.
@@ -106,9 +107,43 @@ starting position for the first `find()` in a region and for later successful
 operations.
 
 Use this sweep before review when changing grapheme-cluster parsing or boundary
-behavior. A run may report known or newly discovered divergences; inspect the
-JSONL output to triage them. Range bounds and replay files use the same
-conventions as the other exhaustive sweeps.
+behavior. A run may report known intentional divergences, known actionable
+divergences, or newly discovered unknown divergences. Inspect the class-count
+summary first; it is the authoritative exact summary for a completed run.
+Known intentional divergences are summarized there, but are not written into
+the raw divergence JSONL.
+
+This differs from the character-class and control-escape sweeps because the
+grapheme sweep intentionally covers compatibility gray areas around regions,
+transparent bounds, repeated `find()`, `\X`, and explicit `\b{g}` composition.
+Some observed JDK traces are known implementation details rather than SafeRE
+compatibility targets, and those classes can occur in very large numbers. The
+grapheme report format therefore separates exact aggregate counts from bounded
+example files: exact counts remain cheap and complete, while unknown examples
+stay useful without scaling disk or heap usage with every observed divergence.
+
+The grapheme sweep writes these files under `--output-dir`:
+
+- `grapheme-cluster-class-counts.tsv`: exact count by divergence class,
+  classification status, and rationale. Use this first to decide whether the run
+  found anything actionable or unknown.
+- `grapheme-cluster-divergences.jsonl`: full raw JSONL for known actionable
+  divergence classes whose expected count is zero. An empty file means no
+  currently-known actionable grapheme divergences were emitted; it does not mean
+  there were no known intentional divergences.
+- `grapheme-cluster-actionable-examples.jsonl`: bounded representative examples
+  for known actionable divergence classes.
+- `grapheme-cluster-unknown-first.jsonl`: first bounded examples for unknown
+  divergence classes, useful for quick repros near the start of the generated
+  case space.
+- `grapheme-cluster-unknown-stratified.jsonl`: bounded stratified examples for
+  unknown divergence classes, spread across the generated case space so a run
+  with many unknown divergences does not only preserve examples from one early
+  region. Configure the limit with `--unknown-stratified-samples=N`.
+
+The default grapheme sweep progress interval is 10 million checked cases. Use
+`--progress-interval=N` to override it for a particular run. Range bounds and
+replay files use the same conventions as the other exhaustive sweeps.
 
 ## Control Escape Sweep
 

@@ -26,6 +26,7 @@ import java.util.List;
  *   <tr><td>{@link RegexpOp#LITERAL}</td><td>{@link #rune}, {@link #flags}</td></tr>
  *   <tr><td>{@link RegexpOp#LITERAL_STRING}</td><td>{@link #runes}, {@link #flags}</td></tr>
  *   <tr><td>{@link RegexpOp#CHAR_CLASS}</td><td>{@link #charClass}</td></tr>
+ *   <tr><td>{@link RegexpOp#GRAPHEME_CLUSTER}</td><td>{@link #flags}</td></tr>
  *   <tr><td>{@link RegexpOp#CONCAT}, {@link RegexpOp#ALTERNATE}</td><td>{@link #subs}</td></tr>
  *   <tr><td>{@link RegexpOp#STAR}, {@link RegexpOp#PLUS}, {@link RegexpOp#QUEST}</td>
  *       <td>{@link #subs} (length 1), {@link #flags}</td></tr>
@@ -232,6 +233,11 @@ final class Regexp {
     return new Regexp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY, flags);
   }
 
+  /** Creates a GRAPHEME_CLUSTER node. */
+  public static Regexp graphemeCluster(int flags) {
+    return new Regexp(RegexpOp.GRAPHEME_CLUSTER, flags);
+  }
+
   /** Creates a BEGIN_TEXT node. */
   public static Regexp beginText(int flags) {
     return new Regexp(RegexpOp.BEGIN_TEXT, flags);
@@ -333,6 +339,7 @@ final class Regexp {
                 WORD_BOUNDARY,
                 NO_WORD_BOUNDARY,
                 GRAPHEME_CLUSTER_BOUNDARY,
+                GRAPHEME_CLUSTER,
                 CHAR_CLASS,
                 HAVE_MATCH ->
                 PREC_ATOM;
@@ -464,6 +471,7 @@ final class Regexp {
         case WORD_BOUNDARY -> sb.append("\\b");
         case NO_WORD_BOUNDARY -> sb.append("\\B");
         case GRAPHEME_CLUSTER_BOUNDARY -> sb.append("\\b{g}");
+        case GRAPHEME_CLUSTER -> sb.append("\\X");
         case CHAR_CLASS -> appendCharClass(sb, re.charClass);
         case NON_CAPTURE -> sb.append(')');
         case CAPTURE -> sb.append(')');

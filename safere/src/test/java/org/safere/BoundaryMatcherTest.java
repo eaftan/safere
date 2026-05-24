@@ -227,9 +227,16 @@ class BoundaryMatcherTest {
 
       jdkMatcher.reset(input).region(start, end);
       safeMatcher.reset(input).region(start, end);
-      assertThat(safeMatcher.lookingAt())
+      boolean jdkLookingAt = jdkMatcher.lookingAt();
+      boolean safeLookingAt = safeMatcher.lookingAt();
+      assertThat(safeLookingAt)
           .as("lookingAt() for /%s/ on %s region [%s,%s]", regex, input, start, end)
-          .isEqualTo(jdkMatcher.lookingAt());
+          .isEqualTo(jdkLookingAt);
+      if (jdkLookingAt) {
+        assertThat(new int[] {safeMatcher.start(), safeMatcher.end()})
+            .as("lookingAt() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
+            .containsExactly(jdkMatcher.start(), jdkMatcher.end());
+      }
 
       jdkMatcher.reset(input).region(start, end);
       safeMatcher.reset(input).region(start, end);
@@ -246,6 +253,114 @@ class BoundaryMatcherTest {
       assertThat(safeMatches)
           .as("find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
           .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private void assertSafeReFindBounds(
+        String regex, String input, int start, int end, List<String> expected) {
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+      List<String> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(safeMatcher.start() + "-" + safeMatcher.end());
+      }
+      assertThat(safeMatches)
+          .as("SafeRE find() positions for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .containsExactlyElementsOf(expected);
+    }
+
+    private void assertTransparentTraceSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex)
+              .matcher(input)
+              .region(start, end)
+              .useTransparentBounds(true);
+      Matcher safeMatcher =
+          Pattern.compile(regex).matcher(input).region(start, end).useTransparentBounds(true);
+
+      assertThat(safeMatcher.matches())
+          .as("transparent matches() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkMatcher.matches());
+
+      jdkMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      safeMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      boolean jdkLookingAt = jdkMatcher.lookingAt();
+      boolean safeLookingAt = safeMatcher.lookingAt();
+      assertThat(safeLookingAt)
+          .as("transparent lookingAt() for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .isEqualTo(jdkLookingAt);
+      if (jdkLookingAt) {
+        assertThat(new int[] {safeMatcher.start(), safeMatcher.end()})
+            .as(
+                "transparent lookingAt() positions for /%s/ on %s region [%s,%s]",
+                regex, input, start, end)
+            .containsExactly(jdkMatcher.start(), jdkMatcher.end());
+      }
+
+      jdkMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      safeMatcher.reset(input).region(start, end).useTransparentBounds(true);
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as(
+              "transparent find() positions for /%s/ on %s region [%s,%s]",
+              regex, input, start, end)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
+    private void assertCapturedFindTraceSameAsJdk(String regex, String input, int start, int end) {
+      java.util.regex.Matcher jdkMatcher =
+          java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
+
+      List<String> jdkMatches = capturedFindTrace(jdkMatcher);
+      List<String> safeMatches = capturedFindTrace(safeMatcher);
+
+      assertThat(safeMatches)
+          .as("captured find() trace for /%s/ on %s region [%s,%s]", regex, input, start, end)
+          .containsExactlyElementsOf(jdkMatches);
+    }
+
+    private List<String> capturedFindTrace(java.util.regex.Matcher matcher) {
+      List<String> trace = new ArrayList<>();
+      while (matcher.find()) {
+        trace.add(capturedMatchTrace(matcher));
+      }
+      return trace;
+    }
+
+    private List<String> capturedFindTrace(Matcher matcher) {
+      List<String> trace = new ArrayList<>();
+      while (matcher.find()) {
+        trace.add(capturedMatchTrace(matcher));
+      }
+      return trace;
+    }
+
+    private String capturedMatchTrace(java.util.regex.Matcher matcher) {
+      StringBuilder builder = new StringBuilder();
+      builder.append(matcher.start()).append('-').append(matcher.end()).append(':');
+      builder.append(matcher.group());
+      for (int i = 1; i <= matcher.groupCount(); i++) {
+        builder.append(':').append(matcher.group(i));
+      }
+      return builder.toString();
+    }
+
+    private String capturedMatchTrace(Matcher matcher) {
+      StringBuilder builder = new StringBuilder();
+      builder.append(matcher.start()).append('-').append(matcher.end()).append(':');
+      builder.append(matcher.group());
+      for (int i = 1; i <= matcher.groupCount(); i++) {
+        builder.append(':').append(matcher.group(i));
+      }
+      return builder.toString();
     }
 
     @Test
@@ -287,6 +402,10 @@ class BoundaryMatcherTest {
     @Test
     @DisplayName("\\b{g} respects opaque region bounds for base-plus-mark clusters")
     void respectsOpaqueRegionBoundsForBaseMarkClusters() {
+      assertTraceSameAsJdk("\\b{g}", "e\u0301", 1, 2);
+      assertTraceSameAsJdk("(\\b{g})", "e\u0301", 1, 2);
+      assertTraceSameAsJdk("\\b{g}\\X", "e\u0301", 1, 2);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "e\u0301", 1, 2);
       assertTraceSameAsJdk("a\\b{g}\\u0300", "#a\u0300$", 1, 3);
       assertTraceSameAsJdk("(?:a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
       assertTraceSameAsJdk("(a)\\b{g}\\u0300", "#a\u0300$", 1, 3);
@@ -300,12 +419,52 @@ class BoundaryMatcherTest {
     }
 
     @Test
-    @DisplayName("\\b{g}\\X\\b{g} find() follows JDK repeated-search positions")
-    void boundaryClusterBoundaryFindFollowsJdkPositions() {
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "ab", 0, 2);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "e\u0301a", 0, 3);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\u0301a", 0, 2);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8", 0, 6);
+    @DisplayName("\\b{g} treats opaque region edges inside non-surrogate clusters as boundaries")
+    void treatsOpaqueRegionEdgesInsideNonSurrogateClustersAsBoundaries() {
+      assertTraceSameAsJdk("\\b{g}", "a\u0301b", 1, 2);
+      assertTraceSameAsJdk("\\b{g}\\X", "a\u0301b", 1, 2);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", "a\u0301b", 1, 2);
+
+      String hangulCluster = "\u1100\u1161";
+      assertTraceSameAsJdk("\\b{g}", hangulCluster, 1, 2);
+      assertTraceSameAsJdk("\\b{g}\\X", hangulCluster, 1, 2);
+      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", hangulCluster, 1, 2);
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "SafeRE's region-local grapheme model intentionally composes this JDK edge trace")
+    @DisplayName("\\b{g} composes across opaque region edges inside ZWJ sequences")
+    void composesAcrossOpaqueRegionEdgesInsideZwjSequences() {
+      String zwjSequence = "\uD83D\uDC69\u200D\uD83D\uDC69";
+      assertSafeReFindBounds("\\b{g}\\X", zwjSequence, 2, 5, List.of("2-3", "3-5"));
+    }
+
+    @Test
+    @DisplayName("bare \\b{g} alternatives preserve priority after empty find() matches")
+    void boundaryOnlyAlternativesPreserveEmptyMatchPriorityOnRepeatedFind() {
+      assertTraceSameAsJdk("\\b{g}|a", "aa", 0, 2);
+      assertTraceSameAsJdk("(?:\\b{g}|a)", "aa", 0, 2);
+      assertTraceSameAsJdk("(?:(?:\\b{g})|a)", "aa", 0, 2);
+      assertCapturedFindTraceSameAsJdk("(\\b{g})|(a)", "aa", 0, 2);
+      assertTraceSameAsJdk("\\b{g}|\\X", "aa", 0, 2);
+      assertTraceSameAsJdk("(?:\\b{g}|\\X)", "aa", 0, 2);
+      assertCapturedFindTraceSameAsJdk("(\\b{g})|(\\X)", "aa", 0, 2);
+    }
+
+    @Test
+    @DisplayName("transparent trailing \\b{g} sees contextual characters beyond region end")
+    void transparentTrailingGraphemeBoundaryUsesFullTextContext() {
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "a\u0301", 0, 1);
+      assertTransparentTraceSameAsJdk("^\\X\\b{g}", "a\u0301", 0, 1);
+      assertTransparentTraceSameAsJdk("\\b{g}\\X\\b{g}", "a\u0301", 0, 1);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "\r\n", 0, 1);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "a\u200D", 0, 1);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "a\u0903", 0, 1);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "\uD83D\uDC4D\uD83C\uDFFD", 0, 2);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "\uD83C\uDDFA\uD83C\uDDF8", 0, 2);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "\u1100\u1161", 0, 1);
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", "\uAC00\u11A8", 0, 1);
     }
 
     @Test
@@ -313,12 +472,55 @@ class BoundaryMatcherTest {
     void graphemeBoundariesRespectRegionsSplitInsideSurrogatePairs() {
       String splitBeforeZwj = "\uD83D\uDC69\u200D\uD83D\uDCBB";
       assertTraceSameAsJdk("\\b{g}", splitBeforeZwj, 1, 5);
-      assertTraceSameAsJdk("\\X\\b{g}", splitBeforeZwj, 1, 5);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", splitBeforeZwj, 1, 5);
+      assertTransparentTraceSameAsJdk("\\b{g}", "\uD83D\uDE00", 1, 1);
+      assertTransparentTraceSameAsJdk("(\\b{g})", "\uD83D\uDE00", 1, 1);
+      assertTransparentTraceSameAsJdk("\\b{g}", "\uD83D\uDE00\u0301\u0301", 2, 4);
+      assertTransparentTraceSameAsJdk("(\\b{g})", "\uD83D\uDE00\u0301\u0301", 2, 4);
+      assertTransparentTraceSameAsJdk("\\b{g}", "\uD83D\uD83C\uDDFA\uD83C\uDDF8\u200D", 1, 5);
+      assertTransparentTraceSameAsJdk(
+          "\\b{g}", "a\uD83C\uDDFA\uD83C\uDDF8\uD83C\uDDE8\u0300", 1, 7);
 
       String lowSurrogateThenZwj = "\uD83D\uDE00\u200D";
       assertTraceSameAsJdk("\\b{g}", lowSurrogateThenZwj, 1, 3);
-      assertTraceSameAsJdk("\\b{g}\\X\\b{g}", lowSurrogateThenZwj, 1, 3);
+
+      String splitLowSurrogateBeforeModifier = "\uD83D\uDC4D\uD83C\uDFFB";
+      assertTransparentTraceSameAsJdk("\\X\\b{g}", splitLowSurrogateBeforeModifier, 1, 3);
+      assertTransparentTraceSameAsJdk("\\b{g}\\X\\b{g}", splitLowSurrogateBeforeModifier, 1, 3);
+
+      String splitBeforeExtender = "\uD83D\uDE00\uD83D\u0301";
+      assertTraceSameAsJdk("\\b{g}", splitBeforeExtender, 1, 3);
+      assertTraceSameAsJdk("(\\b{g})", splitBeforeExtender, 1, 3);
+      assertTraceSameAsJdk("\\X\\b{g}", splitBeforeExtender, 1, 3);
+    }
+
+    @Test
+    @DisplayName(
+        "\\X preserves full code points when an opaque region ends inside a surrogate pair")
+    void graphemeClustersPreserveCodePointsAtOpaqueRegionEnd() {
+      String emoji = "\uD83D\uDE00";
+      assertTraceSameAsJdk("\\X", emoji, 0, 1);
+      assertTraceSameAsJdk("^\\X$", emoji, 0, 1);
+      assertTraceSameAsJdk("\\b{g}\\X", emoji, 0, 1);
+      assertTraceSameAsJdk("\\X\\b{g}", emoji, 0, 1);
+      assertCapturedFindTraceSameAsJdk("(.)|(\\X)", emoji, 0, 1);
+      assertCapturedFindTraceSameAsJdk("(\\X)|(.)", emoji, 0, 1);
+    }
+
+    @Test
+    @DisplayName("chained \\X find() preserves leftmost starts inside Indic conjunct clusters")
+    void chainedGraphemeClustersPreserveLeftmostStartsInsideIndicConjuncts() {
+      String devanagariConjunct = "\u0915\u094D\u200D\u0915";
+      assertTraceSameAsJdk("\\X\\X", devanagariConjunct, 0, devanagariConjunct.length());
+      assertTraceSameAsJdk("(?:\\X)(?:\\X)", devanagariConjunct, 0, devanagariConjunct.length());
+      assertTraceSameAsJdk("(?:\\X){2}", devanagariConjunct, 0, devanagariConjunct.length());
+      assertTraceSameAsJdk("\\X{1}\\X", devanagariConjunct, 0, devanagariConjunct.length());
+      assertCapturedFindTraceSameAsJdk(
+          "(\\X)(\\X)", devanagariConjunct, 0, devanagariConjunct.length());
+
+      String bengaliConjunct = "\u0995\u09CD\u200D\u0995";
+      assertTraceSameAsJdk("\\X\\X", bengaliConjunct, 0, bengaliConjunct.length());
+      assertTraceSameAsJdk("(?:\\X){2}", bengaliConjunct, 0, bengaliConjunct.length());
+      assertCapturedFindTraceSameAsJdk("(\\X)(\\X)", bengaliConjunct, 0, bengaliConjunct.length());
     }
 
     @Test

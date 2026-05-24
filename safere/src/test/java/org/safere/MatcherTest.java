@@ -1681,6 +1681,21 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("grapheme matches() stays bounded to region without anchoring bounds")
+    void graphemeMatchesStaysRegionBoundedWithoutAnchoringBounds() {
+      java.util.regex.Matcher jdk =
+          java.util.regex.Pattern.compile("\\X").matcher("#a$").region(1, 2);
+      jdk.useAnchoringBounds(false);
+      assertThat(jdk.matches()).isTrue();
+
+      Matcher m = Pattern.compile("\\X").matcher("#a$").region(1, 2);
+      m.useAnchoringBounds(false);
+      assertThat(m.matches()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("matches() fails if region doesn't fully match")
     void matchesFailsPartialRegion() {
       Pattern p = Pattern.compile("\\d+");
@@ -1787,6 +1802,24 @@ class MatcherTest {
       m.region(3, 6); // "123"
       m.useAnchoringBounds(false);
       assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("$ uses full-text trailing terminator context without anchoring bounds")
+    void dollarUsesFullTextTrailingTerminatorContextWithoutAnchoringBounds() {
+      Pattern anchored = Pattern.compile("^[\\s\\S][\\s\\S]$");
+      Matcher anchoredMatcher = anchored.matcher("a\u0000\n\n");
+      anchoredMatcher.region(0, 3);
+      anchoredMatcher.useAnchoringBounds(false);
+      assertThat(anchoredMatcher.find()).isFalse();
+
+      Pattern unanchored = Pattern.compile("[\\s\\S][\\s\\S]$");
+      Matcher unanchoredMatcher = unanchored.matcher("a\u0000\n\n");
+      unanchoredMatcher.region(0, 3);
+      unanchoredMatcher.useAnchoringBounds(false);
+      assertThat(unanchoredMatcher.find()).isTrue();
+      assertThat(unanchoredMatcher.start()).isEqualTo(1);
+      assertThat(unanchoredMatcher.end()).isEqualTo(3);
     }
 
     @Test

@@ -40,7 +40,7 @@ final class Prog {
   private int numLoopRegs;
   private boolean requiresPikeNfaCaptureSemantics;
   private boolean hasGraphemeClusterBoundary;
-  private boolean charOffsetGraphemeSearch;
+  private boolean hasGraphemeClusterInstruction;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -83,6 +83,7 @@ final class Prog {
   public void freeze() {
     instArray = instructions.toArray(new Inst[0]);
     hasGraphemeClusterBoundary = computeHasGraphemeClusterBoundary();
+    hasGraphemeClusterInstruction = computeHasGraphemeClusterInstruction();
   }
 
   /** Returns the start instruction index for anchored matching. */
@@ -215,28 +216,36 @@ final class Prog {
     return false;
   }
 
-  /** Returns true if this program contains a {@code \b{g}} assertion. */
+  /** Returns true if this program contains grapheme-sensitive matching. */
   boolean hasGraphemeClusterBoundary() {
     return hasGraphemeClusterBoundary;
   }
 
-  boolean hasMultipleGraphemeClusterBoundaries() {
-    return charOffsetGraphemeSearch;
-  }
-
-  void setCharOffsetGraphemeSearch(boolean charOffsetGraphemeSearch) {
-    this.charOffsetGraphemeSearch = charOffsetGraphemeSearch;
+  /** Returns true if this program contains a consuming {@code \X} instruction. */
+  boolean hasGraphemeClusterInstruction() {
+    return hasGraphemeClusterInstruction;
   }
 
   private boolean computeHasGraphemeClusterBoundary() {
     int n = instArray.length;
     for (int i = 0; i < n; i++) {
       Inst ip = instArray[i];
-      if (ip.op == InstOp.EMPTY_WIDTH
-          && (ip.arg
-                  & (EmptyOp.GRAPHEME_CLUSTER_BOUNDARY
-                      | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY))
-              != 0) {
+      if (ip.op == InstOp.GRAPHEME_CLUSTER
+          || (ip.op == InstOp.EMPTY_WIDTH
+              && (ip.arg
+                      & (EmptyOp.GRAPHEME_CLUSTER_BOUNDARY
+                          | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY))
+                  != 0)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean computeHasGraphemeClusterInstruction() {
+    int n = instArray.length;
+    for (int i = 0; i < n; i++) {
+      if (instArray[i].op == InstOp.GRAPHEME_CLUSTER) {
         return true;
       }
     }

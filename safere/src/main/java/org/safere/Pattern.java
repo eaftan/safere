@@ -303,7 +303,6 @@ public final class Pattern implements Serializable {
     if (compiled == null) {
       throw new PatternSyntaxException("compiled program too large", regex, -1);
     }
-    compiled.setCharOffsetGraphemeSearch(needsCharOffsetGraphemeSearch(re));
     compiled.setUnixLines((effectiveFlags & UNIX_LINES) != 0);
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that
@@ -982,10 +981,6 @@ public final class Pattern implements Serializable {
     return hasInternalGraphemeClusterBoundary;
   }
 
-  boolean charOffsetGraphemeSearch() {
-    return prog.hasMultipleGraphemeClusterBoundaries();
-  }
-
   /** Returns the parsed AST. */
   Regexp ast() {
     return ast;
@@ -1263,10 +1258,6 @@ public final class Pattern implements Serializable {
     return first != null && first.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY;
   }
 
-  private static boolean needsCharOffsetGraphemeSearch(Regexp re) {
-    return new SyntheticGraphemeCapacityWalker().walk(re, 0) >= 2;
-  }
-
   private static boolean hasInternalExplicitGraphemeBoundary(Regexp re) {
     return new GraphemeBoundaryContextWalker()
         .walk(re, GraphemeBoundaryContext.noMatch())
@@ -1325,12 +1316,9 @@ public final class Pattern implements Serializable {
             NO_WORD_BOUNDARY,
             HAVE_MATCH ->
             GraphemeBoundaryContext.empty();
-        case LITERAL, LITERAL_STRING, ANY_CHAR, ANY_BYTE, CHAR_CLASS ->
+        case LITERAL, LITERAL_STRING, ANY_CHAR, ANY_BYTE, CHAR_CLASS, GRAPHEME_CLUSTER ->
             GraphemeBoundaryContext.consuming();
-        case GRAPHEME_CLUSTER_BOUNDARY ->
-            (re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) == 0
-                ? GraphemeBoundaryContext.explicitBoundary()
-                : GraphemeBoundaryContext.empty();
+        case GRAPHEME_CLUSTER_BOUNDARY -> GraphemeBoundaryContext.explicitBoundary();
         case CONCAT -> concatBoundaryContext(childArgs);
         case ALTERNATE -> alternateBoundaryContext(childArgs);
         case STAR, QUEST -> optionalBoundaryContext(childArgs);
@@ -1436,74 +1424,6 @@ public final class Pattern implements Serializable {
     private static GraphemeBoundaryContext childBoundaryContext(
         List<GraphemeBoundaryContext> childArgs) {
       return childArgs.isEmpty() ? GraphemeBoundaryContext.noMatch() : childArgs.getFirst();
-    }
-  }
-
-  private static final class SyntheticGraphemeCapacityWalker extends Walker<Integer> {
-    private static final int TWO_OR_MORE = 2;
-
-    @Override
-    protected Integer shortVisit(Regexp re, Integer parentArg) {
-      return 0;
-    }
-
-    @Override
-    protected Integer copy(Integer arg) {
-      return arg;
-    }
-
-    @Override
-    protected Integer postVisit(
-        Regexp re, Integer parentArg, Integer preArg, List<Integer> childArgs) {
-      return switch (re.op) {
-        case GRAPHEME_CLUSTER_BOUNDARY ->
-            (re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) != 0 ? 1 : 0;
-        case CONCAT -> sumCapacity(childArgs);
-        case ALTERNATE -> maxCapacity(childArgs);
-        case STAR, PLUS -> repeatsCapacity(childArgs);
-        case QUEST, NON_CAPTURE, CAPTURE -> childCapacity(childArgs);
-        case REPEAT -> repeatCapacity(re, childArgs);
-        default -> 0;
-      };
-    }
-
-    private static int sumCapacity(List<Integer> childArgs) {
-      int total = 0;
-      for (int childCapacity : childArgs) {
-        total += childCapacity;
-        if (total >= TWO_OR_MORE) {
-          return TWO_OR_MORE;
-        }
-      }
-      return total;
-    }
-
-    private static int maxCapacity(List<Integer> childArgs) {
-      int max = 0;
-      for (int childCapacity : childArgs) {
-        max = Math.max(max, childCapacity);
-      }
-      return Math.min(max, TWO_OR_MORE);
-    }
-
-    private static int repeatsCapacity(List<Integer> childArgs) {
-      int childCapacity = childCapacity(childArgs);
-      return childCapacity == 0 ? 0 : TWO_OR_MORE;
-    }
-
-    private static int repeatCapacity(Regexp re, List<Integer> childArgs) {
-      int childCapacity = childCapacity(childArgs);
-      if (childCapacity == 0 || re.max == 0) {
-        return 0;
-      }
-      if (childCapacity >= TWO_OR_MORE || re.max == -1 || re.max >= 2) {
-        return TWO_OR_MORE;
-      }
-      return childCapacity;
-    }
-
-    private static int childCapacity(List<Integer> childArgs) {
-      return childArgs.isEmpty() ? 0 : childArgs.getFirst();
     }
   }
 
