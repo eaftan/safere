@@ -25,6 +25,7 @@ package org.safere;
  *   <li>{@link InstOp#NOP}: No-op, continue to {@code out}
  *   <li>{@link InstOp#FAIL}: Unconditional failure
  *   <li>{@link InstOp#CHAR_CLASS}: Match a code point against a multi-range character class
+ *   <li>{@link InstOp#GRAPHEME_CLUSTER}: Match one Unicode extended grapheme cluster
  * </ul>
  */
 final class Inst {
@@ -212,6 +213,13 @@ final class Inst {
     this.bitmap1 = b1;
   }
 
+  /** Initializes as a GRAPHEME_CLUSTER instruction. */
+  public void initGraphemeCluster(int out) {
+    this.op = InstOp.GRAPHEME_CLUSTER;
+    this.opCode = InstOp.OP_GRAPHEME_CLUSTER;
+    this.out = out;
+  }
+
   /**
    * Returns true if the given code point matches this CHAR_CLASS instruction. Uses the precomputed
    * ASCII bitmap for code points 0–127, falls back to binary search for non-ASCII.
@@ -308,6 +316,7 @@ final class Inst {
       case MATCH -> String.format("match %d", arg);
       case NOP -> String.format("nop -> %d", out);
       case FAIL -> "fail";
+      case GRAPHEME_CLUSTER -> String.format("grapheme_cluster -> %d", out);
       case PROGRESS_CHECK ->
           String.format(
               "progress_check reg=%d body=%d exit=%d %s",

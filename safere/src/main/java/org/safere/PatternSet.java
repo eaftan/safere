@@ -53,6 +53,7 @@ public final class PatternSet {
   private final Prog prog;
   private final int size;
   private final List<String> patterns;
+  private final List<Pattern> fallbackPatterns;
   private final int maxDfaStates;
 
   /** Parse flags for pattern set patterns: Perl-compatible without captures. */
@@ -61,11 +62,18 @@ public final class PatternSet {
   /** Default maximum number of DFA states before falling back to NFA. */
   static final int DEFAULT_MAX_DFA_STATES = 10_000;
 
-  private PatternSet(Anchor anchor, Prog prog, int size, List<String> patterns, int maxDfaStates) {
+  private PatternSet(
+      Anchor anchor,
+      Prog prog,
+      int size,
+      List<String> patterns,
+      List<Pattern> fallbackPatterns,
+      int maxDfaStates) {
     this.anchor = anchor;
     this.prog = prog;
     this.size = size;
     this.patterns = patterns;
+    this.fallbackPatterns = fallbackPatterns;
     this.maxDfaStates = maxDfaStates;
   }
 
@@ -112,6 +120,10 @@ public final class PatternSet {
   public List<Integer> match(String text) {
     boolean anchored = (anchor != Anchor.UNANCHORED);
 
+    if (prog.hasGraphemeClusterInstruction()) {
+      return matchFallback(text);
+    }
+
     // Try DFA multi-match first.
     Dfa.ManyMatchResult dfaResult = Dfa.searchMany(prog, text, anchored, maxDfaStates);
     if (dfaResult != null) {
@@ -137,7 +149,7 @@ public final class PatternSet {
   private List<Integer> matchFallback(String text) {
     List<Integer> result = new ArrayList<>();
     for (int i = 0; i < size; i++) {
-      Pattern p = Pattern.compile(patterns.get(i));
+      Pattern p = fallbackPatterns.get(i);
       Matcher m = p.matcher(text);
       boolean matched =
           switch (anchor) {
@@ -200,45 +212,7 @@ public final class PatternSet {
      * @throws IllegalStateException if no patterns have been added or if already compiled
      */
     public PatternSet compile() {
-      if (compiled) {
-        throw new IllegalStateException("compile() has already been called");
-      }
-      if (patterns.isEmpty()) {
-        throw new IllegalStateException("No patterns have been added");
-      }
-      compiled = true;
-
-      int parseFlags = SET_PARSE_FLAGS;
-      int size = patterns.size();
-
-      // Build tagged regexps: each pattern is concatenated with a HAVE_MATCH marker.
-      List<Regexp> tagged = new ArrayList<>(size);
-      for (int i = 0; i < size; i++) {
-        Regexp re = Parser.parse(patterns.get(i), parseFlags);
-        Regexp haveMatch = Regexp.haveMatch(i, parseFlags);
-        tagged.add(Regexp.concat(List.of(re, haveMatch), parseFlags));
-      }
-
-      // Combine all tagged patterns into a single alternation.
-      Regexp combined;
-      if (size == 1) {
-        combined = tagged.getFirst();
-      } else {
-        combined = Regexp.alternate(tagged, parseFlags);
-      }
-
-      // Compile the combined regexp.
-      Prog prog = Compiler.compile(combined);
-
-      // Adjust anchoring based on the requested anchor mode.
-      if (anchor == Anchor.ANCHOR_START || anchor == Anchor.ANCHOR_BOTH) {
-        prog.setAnchorStart(true);
-      }
-      if (anchor == Anchor.ANCHOR_BOTH) {
-        prog.setAnchorEnd(true);
-      }
-
-      return new PatternSet(anchor, prog, size, List.copyOf(patterns), DEFAULT_MAX_DFA_STATES);
+      return compile(DEFAULT_MAX_DFA_STATES);
     }
 
     /**
@@ -260,8 +234,11 @@ public final class PatternSet {
       int size = patterns.size();
 
       List<Regexp> tagged = new ArrayList<>(size);
+      List<Pattern> fallbackPatterns = new ArrayList<>(size);
       for (int i = 0; i < size; i++) {
-        Regexp re = Parser.parse(patterns.get(i), parseFlags);
+        String pattern = patterns.get(i);
+        Regexp re = Parser.parse(pattern, parseFlags);
+        fallbackPatterns.add(Pattern.compile(pattern));
         Regexp haveMatch = Regexp.haveMatch(i, parseFlags);
         tagged.add(Regexp.concat(List.of(re, haveMatch), parseFlags));
       }
@@ -282,7 +259,8 @@ public final class PatternSet {
         prog.setAnchorEnd(true);
       }
 
-      return new PatternSet(anchor, prog, size, List.copyOf(patterns), maxDfaStates);
+      return new PatternSet(
+          anchor, prog, size, List.copyOf(patterns), List.copyOf(fallbackPatterns), maxDfaStates);
     }
   }
 }

@@ -414,11 +414,10 @@ final class Parser {
       return false;
     }
 
-    // \X: Extended grapheme cluster (simplified).
-    // Equivalent to (?:\r\n|\P{M}\p{M}*|<any>), which handles base+combining-marks.
+    // \X: Extended grapheme cluster.
     if (pos + 1 < pattern.length() && pattern.charAt(pos + 1) == 'X') {
       pos += 2; // '\\', 'X'
-      pushRegexp(buildGraphemeClusterRegexp());
+      pushRegexp(Regexp.graphemeCluster(flags));
       return false;
     }
 
@@ -634,6 +633,7 @@ final class Parser {
           case WORD_BOUNDARY -> Regexp.wordBoundary(flags);
           case NO_WORD_BOUNDARY -> Regexp.noWordBoundary(flags);
           case GRAPHEME_CLUSTER_BOUNDARY -> Regexp.graphemeClusterBoundary(flags);
+          case GRAPHEME_CLUSTER -> Regexp.graphemeCluster(flags);
           default -> Regexp.emptyMatch(flags);
         };
     pushRegexp(re);
@@ -4676,7 +4676,7 @@ final class Parser {
     return Regexp.charClass(ccb.build(), flags & ~ParseFlags.FOLD_CASE);
   }
 
-  // ---- \R and \X expansion helpers ----
+  // ---- \R expansion helper ----
 
   /**
    * Builds a Regexp equivalent to {@code (?:\r\n|[\n\x0B\f\r\x{85}\x{2028}\x{2029}])}, which
@@ -4699,182 +4699,5 @@ final class Parser {
     Regexp singleLinebreak = Regexp.charClass(ccb.build(), flags);
 
     return Regexp.alternate(List.of(crLf, singleLinebreak), flags);
-  }
-
-  /** Builds a regular approximation of JDK {@code \X} extended grapheme cluster matching. */
-  private Regexp buildGraphemeClusterRegexp() {
-    // Alternative 1: \r\n (CRLF as a single unit)
-    Regexp crLf = Regexp.literalString(new int[] {'\r', '\n'}, flags);
-
-    Regexp extend = buildGraphemeExtendClass(true);
-    Regexp extendStar = Regexp.star(extend, flags);
-    Regexp connectorExtends = Regexp.star(extend, flags | ParseFlags.NON_GREEDY);
-
-    // Extended pictographic sequences joined by ZWJ, e.g. emoji presentation chains.
-    Regexp pictographic =
-        charClassFromTable(UnicodeProperties.lookupBinaryProperty("Extended_Pictographic"));
-    Regexp pictographicWithExtends = Regexp.concat(List.of(pictographic, connectorExtends), flags);
-    Regexp zwjPictographicSegment =
-        Regexp.concat(
-            List.of(Regexp.literal(0x200D, flags), pictographic, connectorExtends), flags);
-    Regexp zwjSequence =
-        Regexp.concat(
-            List.of(pictographicWithExtends, Regexp.plus(zwjPictographicSegment, flags)), flags);
-
-    // Regional indicators pair into flag clusters.
-    Regexp regionalIndicator = charClassFromRange(0x1F1E6, 0x1F1FF);
-    Regexp regionalIndicatorPair =
-        Regexp.concat(List.of(regionalIndicator, regionalIndicator, extendStar), flags);
-    Regexp regionalIndicatorWithExtends =
-        Regexp.concat(List.of(regionalIndicator, extendStar), flags);
-
-    Regexp hangulCluster = Regexp.concat(List.of(buildHangulGraphemeCluster(), extendStar), flags);
-
-    // \P{M} plus grapheme-extending code points keeps the historical base+mark behavior and
-    // covers emoji modifier sequences such as thumbs-up plus skin tone.
-    CharClassBuilder nonMarkCcb = new CharClassBuilder();
-    addTable(nonMarkCcb, UnicodeTables.UNICODE_GROUPS.get("M"));
-    nonMarkCcb.negate(); // \P{M}
-    removeGraphemeControlCodePoints(nonMarkCcb);
-    nonMarkCcb.removeRange(0xD800, 0xDFFF);
-    nonMarkCcb.removeRange(0x1F1E6, 0x1F1FF);
-    Regexp nonMark = Regexp.charClass(nonMarkCcb.build(), flags);
-
-    Regexp lowSurrogate = charClassFromRange(0xDC00, 0xDFFF);
-    Regexp baseWithExtends = Regexp.concat(List.of(nonMark, extendStar), flags);
-    Regexp leadingExtends = Regexp.plus(extend, flags);
-    Regexp prependCluster =
-        Regexp.concat(
-            List.of(
-                Regexp.plus(buildGraphemePrependClass(), flags),
-                Regexp.alternate(
-                    List.of(
-                        regionalIndicatorPair,
-                        regionalIndicatorWithExtends,
-                        hangulCluster,
-                        baseWithExtends,
-                        leadingExtends),
-                    flags)),
-            flags);
-
-    // Alternative 3: any single character (fallback for standalone combining marks, controls, etc.)
-    // Use ANY_CHAR with DOT_NL to match all characters including newlines.
-    Regexp anyOne = Regexp.anyChar(flags | ParseFlags.DOT_NL);
-
-    Regexp clusterBody =
-        Regexp.alternate(
-            List.of(
-                crLf,
-                zwjSequence,
-                regionalIndicatorPair,
-                regionalIndicatorWithExtends,
-                hangulCluster,
-                prependCluster,
-                lowSurrogate,
-                baseWithExtends,
-                leadingExtends,
-                anyOne),
-            flags);
-    return Regexp.concat(
-        List.of(
-            clusterBody,
-            Regexp.graphemeClusterBoundary(flags | ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY)),
-        flags);
-  }
-
-  private Regexp buildGraphemeExtendClass(boolean includeZwj) {
-    CharClassBuilder ccb = new CharClassBuilder();
-    addTable(ccb, UnicodeTables.UNICODE_GROUPS.get("M"));
-    addTable(ccb, UnicodeProperties.lookupBinaryProperty("Emoji_Modifier"));
-    if (includeZwj) {
-      ccb.addRune(0x200D);
-    }
-    return Regexp.charClass(ccb.build(), flags);
-  }
-
-  private static void removeGraphemeControlCodePoints(CharClassBuilder ccb) {
-    ccb.removeRange(0x0000, 0x001F);
-    ccb.removeRange(0x007F, 0x009F);
-    ccb.removeRange(0x2028, 0x2029);
-  }
-
-  private Regexp buildGraphemePrependClass() {
-    CharClassBuilder ccb = new CharClassBuilder();
-    ccb.addRange(0x0600, 0x0605);
-    ccb.addRune(0x06DD);
-    ccb.addRune(0x070F);
-    ccb.addRange(0x0890, 0x0891);
-    ccb.addRune(0x08E2);
-    ccb.addRune(0x110BD);
-    ccb.addRune(0x110CD);
-    return Regexp.charClass(ccb.build(), flags);
-  }
-
-  private Regexp buildHangulGraphemeCluster() {
-    Regexp l = buildHangulLClass();
-    Regexp v = charClassFromRanges(new int[][] {{0x1160, 0x11A7}, {0xD7B0, 0xD7C6}});
-    Regexp t = charClassFromRanges(new int[][] {{0x11A8, 0x11FF}, {0xD7CB, 0xD7FB}});
-    Regexp lv = buildHangulSyllableClass(true);
-    Regexp lvt = buildHangulSyllableClass(false);
-    Regexp tStar = Regexp.star(t, flags);
-
-    Regexp lTail =
-        Regexp.alternate(
-            List.of(
-                Regexp.concat(List.of(Regexp.plus(v, flags), tStar), flags),
-                Regexp.concat(List.of(lv, Regexp.star(v, flags), tStar), flags),
-                Regexp.concat(List.of(lvt, tStar), flags)),
-            flags);
-    Regexp lSequence =
-        Regexp.concat(List.of(Regexp.plus(l, flags), Regexp.quest(lTail, flags)), flags);
-    Regexp lvOrVSequence =
-        Regexp.concat(
-            List.of(Regexp.alternate(List.of(lv, v), flags), Regexp.star(v, flags), tStar), flags);
-    Regexp lvtOrTSequence =
-        Regexp.concat(List.of(Regexp.alternate(List.of(lvt, t), flags), tStar), flags);
-    return Regexp.alternate(List.of(lSequence, lvOrVSequence, lvtOrTSequence), flags);
-  }
-
-  private Regexp buildHangulLClass() {
-    return charClassFromRanges(new int[][] {{0x1100, 0x115F}, {0xA960, 0xA97C}});
-  }
-
-  private Regexp buildHangulSyllableClass(boolean lv) {
-    CharClassBuilder ccb = new CharClassBuilder();
-    for (int cp = 0xAC00; cp <= 0xD7A3; cp += 28) {
-      if (lv) {
-        ccb.addRune(cp);
-      } else {
-        int hi = Math.min(cp + 27, 0xD7A3);
-        if (cp + 1 <= hi) {
-          ccb.addRange(cp + 1, hi);
-        }
-      }
-    }
-    return Regexp.charClass(ccb.build(), flags);
-  }
-
-  private Regexp charClassFromRange(int lo, int hi) {
-    CharClassBuilder ccb = new CharClassBuilder();
-    ccb.addRange(lo, hi);
-    return Regexp.charClass(ccb.build(), flags);
-  }
-
-  private Regexp charClassFromRanges(int[][] ranges) {
-    CharClassBuilder ccb = new CharClassBuilder();
-    addTable(ccb, ranges);
-    return Regexp.charClass(ccb.build(), flags);
-  }
-
-  private Regexp charClassFromTable(int[][] table) {
-    CharClassBuilder ccb = new CharClassBuilder();
-    addTable(ccb, table);
-    return Regexp.charClass(ccb.build(), flags);
-  }
-
-  private void addTable(CharClassBuilder ccb, int[][] table) {
-    for (int[] row : table) {
-      ccb.addRange(row[0], row[1]);
-    }
   }
 }

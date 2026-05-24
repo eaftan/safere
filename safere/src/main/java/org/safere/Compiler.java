@@ -839,6 +839,15 @@ final class Compiler extends Walker<Compiler.Frag> {
     return new Frag(id, PatchList.mk(id << 1), false);
   }
 
+  private Frag graphemeCluster() {
+    int id = allocInst();
+    if (id < 0) {
+      return Frag.NO_MATCH;
+    }
+    prog.mutableInst(id).initGraphemeCluster(0);
+    return new Frag(id, PatchList.mk(id << 1), false);
+  }
+
   private Frag nop() {
     int id = allocInst();
     if (id < 0) {
@@ -1029,6 +1038,8 @@ final class Compiler extends Walker<Compiler.Frag> {
 
       case ANY_CHAR -> anyCodePoint();
 
+      case GRAPHEME_CLUSTER -> graphemeCluster();
+
       case CHAR_CLASS -> compileCharClass(re);
 
       case CAPTURE -> {
@@ -1066,12 +1077,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         yield emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
       }
 
-      case GRAPHEME_CLUSTER_BOUNDARY -> {
-        if ((re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) != 0) {
-          yield emptyWidth(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY);
-        }
-        yield emptyWidth(EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
-      }
+      case GRAPHEME_CLUSTER_BOUNDARY -> emptyWidth(EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
 
       default -> {
         failed = true;

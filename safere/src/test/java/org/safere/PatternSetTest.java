@@ -9,10 +9,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.regex.PatternSyntaxException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -157,6 +161,59 @@ class PatternSetTest {
           "PatternSet regional-indicator boundary miss",
           length -> assertThat(set.match("\uD83C\uDDE6".repeat(length))).isEmpty());
     }
+
+    @Test
+    void graphemeClusterPatternMatches() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      b.add("\\X");
+      b.add("z");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("a")).containsExactly(0);
+      assertThat(set.match("e\u0301")).containsExactly(0);
+      assertThat(set.match("z")).containsExactly(0, 1);
+    }
+
+    @Test
+    void graphemeFallbackDoesNotRecompileMembersPerMatch() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
+      List<String> patterns = new ArrayList<>();
+      patterns.add("\\X");
+      b.add(patterns.getFirst());
+      for (int i = 0; i < 64; i++) {
+        String pattern = "literal" + i;
+        patterns.add(pattern);
+        b.add(pattern);
+      }
+      PatternSet set = b.compile();
+      AllocationTracker allocationTracker = allocationTracker();
+      long threadId = Thread.currentThread().threadId();
+
+      set.match("a");
+      compileAndMatchEachPattern(patterns, "a");
+      long compileEachTimeAllocated =
+          allocatedFor(
+              allocationTracker,
+              threadId,
+              () -> {
+                for (int i = 0; i < 50; i++) {
+                  compileAndMatchEachPattern(patterns, "a");
+                }
+              });
+      long cachedSetAllocated =
+          allocatedFor(
+              allocationTracker,
+              threadId,
+              () -> {
+                for (int i = 0; i < 50; i++) {
+                  assertThat(set.match("a")).containsExactly(0);
+                }
+              });
+
+      assertThat(cachedSetAllocated)
+          .as("grapheme PatternSet fallback should reuse compile-time member patterns")
+          .isLessThan(compileEachTimeAllocated / 2);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -222,6 +279,18 @@ class PatternSetTest {
       assertThat(set.match("abc")).containsExactly(0, 1, 2);
       assertThat(set.match("xyz")).containsExactly(1, 2);
       assertThat(set.match("abcd")).containsExactly(1);
+    }
+
+    @Test
+    void graphemeClusterPatternMatchesWholeText() {
+      PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.ANCHOR_BOTH);
+      b.add("\\X");
+      b.add("\\X+");
+      PatternSet set = b.compile();
+
+      assertThat(set.match("a")).containsExactly(0, 1);
+      assertThat(set.match("e\u0301")).containsExactly(0, 1);
+      assertThat(set.match("ab")).containsExactly(1);
     }
   }
 
@@ -552,9 +621,9 @@ class PatternSetTest {
   }
 
   private static void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
-    task.accept(100);
-    long smallerNanos = bestRuntimeNanos(() -> task.accept(1_000));
-    long largerNanos = bestRuntimeNanos(() -> task.accept(4_000));
+    task.accept(1_000);
+    long smallerNanos = bestRuntimeNanos(() -> task.accept(5_000));
+    long largerNanos = bestRuntimeNanos(() -> task.accept(20_000));
 
     assertThat(largerNanos)
         .as(
@@ -579,5 +648,55 @@ class PatternSetTest {
           task.run();
           return System.nanoTime() - start;
         });
+  }
+
+  private static long allocatedFor(
+      AllocationTracker allocationTracker, long threadId, Runnable task) {
+    long before = allocationTracker.allocatedBytes(threadId);
+    task.run();
+    return allocationTracker.allocatedBytes(threadId) - before;
+  }
+
+  private static void compileAndMatchEachPattern(List<String> patterns, String text) {
+    for (String pattern : patterns) {
+      Pattern.compile(pattern).matcher(text).find();
+    }
+  }
+
+  private static AllocationTracker allocationTracker() {
+    try {
+      Class<?> managementFactoryClass = Class.forName("java.lang.management.ManagementFactory");
+      Object threadBean = managementFactoryClass.getMethod("getThreadMXBean").invoke(null);
+      Class<?> allocationBeanClass = Class.forName("com.sun.management.ThreadMXBean");
+      Assumptions.assumeTrue(allocationBeanClass.isInstance(threadBean));
+
+      Method supportedMethod = allocationBeanClass.getMethod("isThreadAllocatedMemorySupported");
+      Method enabledMethod = allocationBeanClass.getMethod("isThreadAllocatedMemoryEnabled");
+      Method setEnabledMethod =
+          allocationBeanClass.getMethod("setThreadAllocatedMemoryEnabled", boolean.class);
+      Method allocatedBytesMethod =
+          allocationBeanClass.getMethod("getThreadAllocatedBytes", long.class);
+
+      Assumptions.assumeTrue((Boolean) supportedMethod.invoke(threadBean));
+      if (!(Boolean) enabledMethod.invoke(threadBean)) {
+        setEnabledMethod.invoke(threadBean, true);
+      }
+      return new AllocationTracker(threadBean, allocatedBytesMethod);
+    } catch (ReflectiveOperationException e) {
+      Assumptions.abort("thread allocation tracking is unavailable: " + e);
+      throw new AssertionError("unreachable");
+    }
+  }
+
+  private record AllocationTracker(Object threadBean, Method allocatedBytesMethod) {
+    long allocatedBytes(long threadId) {
+      try {
+        return (Long) allocatedBytesMethod.invoke(threadBean, threadId);
+      } catch (IllegalAccessException e) {
+        throw new AssertionError(e);
+      } catch (InvocationTargetException e) {
+        throw new AssertionError(e.getCause());
+      }
+    }
   }
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Divergence Result Review"
+  short_description: "Classify SafeRE/JDK divergence sweep results"
+  default_prompt: "Use $divergence-result-review to analyze SafeRE/JDK divergence sweep outputs, bucket related failures, classify each bucket against the JDK specification and SafeRE compatibility policy, and assess whether it can be supported within the linear-time guarantee."

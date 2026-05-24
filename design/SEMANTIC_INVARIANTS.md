@@ -314,7 +314,8 @@ Scope: #225, #226, and related public API lifecycle behavior.
 
 This design should model `Matcher` as an explicit state machine.  It should
 define state transitions for `find`, `matches`, `lookingAt`, `reset`, `region`,
-`usePattern`, replacement operations, and `results`, then map each transition to JDK-compatible behavior.
+`usePattern`, replacement operations, and `results`, then map each transition
+to JDK-compatible behavior.
 
 ### Parser Dialect Compatibility Design
 
@@ -336,6 +337,21 @@ This design should define when generated crosscheck tests are expected to run,
 when `@DisabledForCrosscheck` is legitimate, how skip counts and test counts are
 validated, and how linear-time or scaling regressions are tested without
 ordinary correctness tests becoming timing-sensitive.
+
+### Grapheme And Region Matching Design
+
+Focused design: [GRAPHEME_REGION_MATCHING.md](GRAPHEME_REGION_MATCHING.md).
+
+Scope: grapheme matching, grapheme boundaries, matcher regions, transparent
+bounds, and observed JDK compatibility behavior that risks non-linear
+patchwork.
+
+This design should define `\X` and `\b{g}` around UTF-16 public coordinates,
+region-local consumption, and pure boundary predicates.  It should remove
+verifier matcher retries and other post-hoc compatibility repairs from the
+grapheme path.  It should also define when SafeRE intentionally diverges from
+unspecified observed JDK edge cases instead of copying behavior that cannot be
+represented as bounded engine work.
 
 ## Design Goals
 

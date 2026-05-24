@@ -15,8 +15,7 @@ class InstOpTest {
 
   @Test
   void allOpsAreDefined() {
-    // 8 opcodes as defined in RE2's prog.h
-    assertThat(InstOp.values().length).isEqualTo(10);
+    assertThat(InstOp.values().length).isEqualTo(11);
   }
 
   @Test
@@ -29,5 +28,8 @@ class InstOpTest {
     assertThat(InstOp.MATCH.ordinal()).isEqualTo(5);
     assertThat(InstOp.NOP.ordinal()).isEqualTo(6);
     assertThat(InstOp.FAIL.ordinal()).isEqualTo(7);
+    assertThat(InstOp.CHAR_CLASS.ordinal()).isEqualTo(8);
+    assertThat(InstOp.GRAPHEME_CLUSTER.ordinal()).isEqualTo(9);
+    assertThat(InstOp.PROGRESS_CHECK.ordinal()).isEqualTo(10);
   }
 }
