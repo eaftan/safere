@@ -438,7 +438,14 @@ public final class Matcher implements MatchResult {
     if (remainingLen >= literal.length()) {
       return false;
     }
-    return text.regionMatches(parentPattern.prefixFoldCase(), offset, literal, 0, remainingLen);
+    return literalRegionMatches(literal, offset, remainingLen);
+  }
+
+  private boolean literalRegionMatches(String literal, int offset, int length) {
+    if (parentPattern.prefixFoldCase()) {
+      return regionMatchesAsciiIgnoreCase(text, offset, literal, 0, length);
+    }
+    return text.regionMatches(false, offset, literal, 0, length);
   }
 
   private static boolean charClassContains(int[] ranges, long b0, long b1, int cp) {
@@ -681,8 +688,7 @@ public final class Matcher implements MatchResult {
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
-            text.length() == literal.length()
-                && text.regionMatches(true, 0, literal, 0, literal.length());
+            text.length() == literal.length() && literalRegionMatches(literal, 0, literal.length());
       } else {
         matched = text.equals(literal);
       }
@@ -823,8 +829,7 @@ public final class Matcher implements MatchResult {
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
-            text.length() >= literal.length()
-                && text.regionMatches(true, 0, literal, 0, literal.length());
+            text.length() >= literal.length() && literalRegionMatches(literal, 0, literal.length());
       } else {
         matched = text.startsWith(literal);
       }
@@ -1248,8 +1253,7 @@ public final class Matcher implements MatchResult {
         } else {
           int remainingLen = text.length() - searchFrom;
           if (remainingLen < prefix.length()
-              && text.regionMatches(
-                  parentPattern.prefixFoldCase(), searchFrom, prefix, 0, remainingLen)) {}
+              && literalRegionMatches(prefix, searchFrom, remainingLen)) {}
         }
         return applyEngineResult(new NoMatchResult());
       }
@@ -1622,16 +1626,33 @@ public final class Matcher implements MatchResult {
     return ('A' <= ch && ch <= 'Z') ? ch + ('a' - 'A') : ch;
   }
 
-  /** Case-insensitive indexOf using Unicode case folding. */
+  /** ASCII case-insensitive indexOf for Java's default CASE_INSENSITIVE semantics. */
   private static int indexOfIgnoreCase(String text, String prefix, int fromIndex) {
     int prefixLen = prefix.length();
     int limit = text.length() - prefixLen;
     for (int i = fromIndex; i <= limit; i++) {
-      if (text.regionMatches(true, i, prefix, 0, prefixLen)) {
+      if (regionMatchesAsciiIgnoreCase(text, i, prefix, 0, prefixLen)) {
         return i;
       }
     }
     return -1;
+  }
+
+  private static boolean regionMatchesAsciiIgnoreCase(
+      String text, int textOffset, String prefix, int prefixOffset, int length) {
+    if (textOffset < 0
+        || prefixOffset < 0
+        || length < 0
+        || textOffset + length > text.length()
+        || prefixOffset + length > prefix.length()) {
+      return false;
+    }
+    for (int i = 0; i < length; i++) {
+      if (asciiLower(text.charAt(textOffset + i)) != asciiLower(prefix.charAt(prefixOffset + i))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

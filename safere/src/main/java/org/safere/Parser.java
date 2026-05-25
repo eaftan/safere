@@ -521,16 +521,8 @@ final class Parser {
 
   private void pushLiteral(int r) {
     // Do case folding if needed.
-    if ((flags & ParseFlags.FOLD_CASE) != 0) {
-      if ((flags & ParseFlags.UNICODE_CASE) == 0) {
-        if (('A' <= r && r <= 'Z') || ('a' <= r && r <= 'z')) {
-          CharClassBuilder ccb = new CharClassBuilder();
-          UnicodeCaseFolding.addAsciiFoldedRange(ccb, r, r);
-          pushRegexp(finishCharClassBuilder(ccb));
-          return;
-        }
-      } else if (UnicodeCaseFolding.hasUnicodeCaseVariant(r)
-          || UnicodeCaseFolding.cycleFoldRune(r) != r) {
+    if ((flags & ParseFlags.FOLD_CASE) != 0 && (flags & ParseFlags.UNICODE_CASE) != 0) {
+      if (UnicodeCaseFolding.hasUnicodeCaseVariant(r) || UnicodeCaseFolding.cycleFoldRune(r) != r) {
         CharClassBuilder ccb = new CharClassBuilder();
         UnicodeCaseFolding.addUnicodeFoldedRange(ccb, r, r);
         Regexp re = finishCharClassBuilder(ccb);

@@ -944,9 +944,33 @@ final class Compiler extends Walker<Compiler.Frag> {
     return true;
   }
 
-  private Frag literal(int rune, boolean foldCase) {
+  private Frag literal(int rune, int flags) {
+    boolean foldCase = (flags & ParseFlags.FOLD_CASE) != 0;
+    if (foldCase && (flags & ParseFlags.UNICODE_CASE) == 0) {
+      if (isAsciiLetter(rune)) {
+        // Parser keeps these as folded literals so literal/prefix accelerators can see them.
+        // Lower to an explicit ASCII class here to avoid Unicode simple-fold matching.
+        return asciiFoldedLiteral(rune);
+      }
+      foldCase = false;
+    }
     // In our code-point model, a literal is just a single CHAR_RANGE.
     return charRange(rune, rune, foldCase);
+  }
+
+  private Frag asciiFoldedLiteral(int rune) {
+    int lower = UnicodeCaseFolding.asciiFoldRune(rune);
+    int upper = lower - ('a' - 'A');
+    int id = allocInst();
+    if (id < 0) {
+      return Frag.NO_MATCH;
+    }
+    prog.mutableInst(id).initCharClass(0, new int[] {upper, upper, lower, lower});
+    return new Frag(id, PatchList.mk(id << 1), false);
+  }
+
+  private static boolean isAsciiLetter(int rune) {
+    return ('A' <= rune && rune <= 'Z') || ('a' <= rune && rune <= 'z');
   }
 
   /** Compiles an "any code point" fragment. */
@@ -1023,15 +1047,15 @@ final class Compiler extends Walker<Compiler.Frag> {
 
       case QUEST -> quest(childArgs.get(0), re.nonGreedy());
 
-      case LITERAL -> literal(re.rune, re.foldCase());
+      case LITERAL -> literal(re.rune, re.flags);
 
       case LITERAL_STRING -> {
         if (re.runes == null || re.runes.length == 0) {
           yield nop();
         }
-        Frag f = literal(re.runes[0], re.foldCase());
+        Frag f = literal(re.runes[0], re.flags);
         for (int i = 1; i < re.runes.length; i++) {
-          f = cat(f, literal(re.runes[i], re.foldCase()));
+          f = cat(f, literal(re.runes[i], re.flags));
         }
         yield f;
       }
