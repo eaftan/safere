@@ -191,28 +191,9 @@ class PatternTest {
     }
 
     @Test
-    void inlineCaseInsensitiveAsciiLiteralKeepsLiteralFastPathMetadata() {
-      Pattern p = Pattern.compile("(?i)needle");
-
-      assertThat(p.literalMatch()).isEqualTo("needle");
-      assertThat(p.prefix()).isEqualTo("needle");
-      assertThat(p.prefixFoldCase()).isTrue();
-    }
-
-    @Test
-    void inlineCaseInsensitiveAsciiPrefixKeepsPrefixAccelerationMetadata() {
-      Pattern p = Pattern.compile("(?i)needle\\d+");
-
-      assertThat(p.literalMatch()).isNull();
-      assertThat(p.prefix()).isEqualTo("needle");
-      assertThat(p.prefixFoldCase()).isTrue();
-    }
-
-    @Test
     void asciiCaseInsensitiveLiteralFastPathDoesNotUseUnicodeCaseFolding() {
       Pattern p = Pattern.compile("(?i)i");
 
-      assertThat(p.literalMatch()).isEqualTo("i");
       assertThat(p.matcher("I").matches()).isTrue();
       assertThat(p.matcher("\u0130").matches()).isFalse();
       assertThat(p.matcher("\u0131").matches()).isFalse();
@@ -223,7 +204,6 @@ class PatternTest {
       Pattern p = Pattern.compile("(?i)i.");
       Matcher m = p.matcher("\u0130xix");
 
-      assertThat(p.prefix()).isEqualTo("i");
       assertThat(m.find()).isTrue();
       assertThat(m.start()).isEqualTo(2);
       assertThat(m.group()).isEqualTo("ix");

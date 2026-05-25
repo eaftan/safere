@@ -199,6 +199,8 @@ class UnicodeCaseTest {
     "\\x{69}, \u0130, true",
     "\\x{69}, \u0131, true"
   })
+  @DisabledForCrosscheck(
+      "SafeRE intentionally follows Unicode case closure when observed JDK range behavior diverges")
   void unicodeCaseInsensitiveRangesUseUnicodeCasedClosure(
       String regex, String input, boolean expected) {
     int flags = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;

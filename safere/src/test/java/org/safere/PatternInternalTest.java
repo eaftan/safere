@@ -55,6 +55,33 @@ class PatternInternalTest {
   }
 
   @Test
+  void caseInsensitiveAsciiLiteralPreservesLiteralAccelerators() {
+    Pattern p = Pattern.compile("(?i)needle");
+
+    assertThat(p.literalMatch()).isEqualTo("needle");
+    assertThat(p.prefix()).isEqualTo("needle");
+    assertThat(p.prefixFoldCase()).isTrue();
+  }
+
+  @Test
+  void caseInsensitiveAsciiPrefixPreservesPrefixAccelerator() {
+    Pattern p = Pattern.compile("(?i)needle\\d+");
+
+    assertThat(p.literalMatch()).isNull();
+    assertThat(p.prefix()).isEqualTo("needle");
+    assertThat(p.prefixFoldCase()).isTrue();
+  }
+
+  @Test
+  void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
+    Pattern p = Pattern.compile("(?i)i");
+
+    assertThat(p.literalMatch()).isEqualTo("i");
+    assertThat(p.prefix()).isEqualTo("i");
+    assertThat(p.prefixFoldCase()).isTrue();
+  }
+
+  @Test
   void dotStarAroundWhitespaceRecordsRequiredWhitespaceClass() {
     Pattern p = Pattern.compile(".*\\s+.*");
 
