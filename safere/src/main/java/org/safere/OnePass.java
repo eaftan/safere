@@ -113,7 +113,7 @@ final class OnePass {
   private final boolean unixLines;
 
   /** Whether empty-width checks need the grapheme-cluster boundary flag. */
-  private final boolean hasGraphemeClusterBoundary;
+  private final boolean hasGraphemeSemantics;
 
   /**
    * Bitset indicating which states have match actions. Bit {@code s} is set if {@code
@@ -132,7 +132,7 @@ final class OnePass {
       boolean anchorEnd,
       boolean dollarAnchorEnd,
       boolean unixLines,
-      boolean hasGraphemeClusterBoundary) {
+      boolean hasGraphemeSemantics) {
     this.numClasses = numClasses;
     this.flatActions = flatActions;
     this.matchAction = matchAction;
@@ -141,7 +141,7 @@ final class OnePass {
     this.anchorEnd = anchorEnd;
     this.dollarAnchorEnd = dollarAnchorEnd;
     this.unixLines = unixLines;
-    this.hasGraphemeClusterBoundary = hasGraphemeClusterBoundary;
+    this.hasGraphemeSemantics = hasGraphemeSemantics;
 
     // Pre-compute match state bitset.
     long bits = 0;
@@ -342,7 +342,7 @@ final class OnePass {
         prog.anchorEnd(),
         prog.dollarAnchorEnd(),
         prog.unixLines(),
-        prog.hasGraphemeClusterBoundary());
+        prog.hasGraphemeSemantics());
   }
 
   private static boolean exceedsActionBudget(int maxStates, int numClasses) {
@@ -482,8 +482,8 @@ final class OnePass {
    * @return submatch positions relative to {@code text}, or null if no match
    */
   SearchResult search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
-    Nfa.GraphemeContext graphemeContext =
-        Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
+    GraphemeSupport.Context graphemeContext =
+        GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     return search(text, startPos, endPos, endMatch, nsubmatch, graphemeContext);
   }
 
@@ -493,7 +493,7 @@ final class OnePass {
       int endPos,
       boolean endMatch,
       int nsubmatch,
-      Nfa.GraphemeContext graphemeContext) {
+      GraphemeSupport.Context graphemeContext) {
     int ncap = 2 * Math.max(nsubmatch, 1);
     int[] cap = new int[ncap];
     Arrays.fill(cap, -1);
@@ -520,8 +520,7 @@ final class OnePass {
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0
             || (reqEmpty
-                    & ~Nfa.emptyFlags(
-                        text, pos, unixLines, hasGraphemeClusterBoundary, graphemeContext))
+                    & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeSemantics, graphemeContext))
                 == 0) {
           int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
           if (capMask != 0) {
@@ -566,7 +565,7 @@ final class OnePass {
         int reqEmpty = (int) (conditions & EMPTY_MASK);
         if (reqEmpty != 0) {
           int curEmpty =
-              Nfa.emptyFlags(text, pos, unixLines, hasGraphemeClusterBoundary, graphemeContext);
+              Nfa.emptyFlags(text, pos, unixLines, hasGraphemeSemantics, graphemeContext);
           if ((reqEmpty & ~curEmpty) != 0) {
             break;
           }
@@ -586,8 +585,7 @@ final class OnePass {
       int reqEmpty = (int) (matchAct & EMPTY_MASK);
       if (reqEmpty == 0
           || (reqEmpty
-                  & ~Nfa.emptyFlags(
-                      text, pos, unixLines, hasGraphemeClusterBoundary, graphemeContext))
+                  & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeSemantics, graphemeContext))
               == 0) {
         int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
         if (capMask != 0) {
@@ -630,8 +628,8 @@ final class OnePass {
   int[] searchUnanchored(String text, int startPos, int searchLimit, int nsubmatch) {
     int textLen = text.length();
     int limit = Math.min(searchLimit, textLen) + 1;
-    Nfa.GraphemeContext graphemeContext =
-        Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
+    GraphemeSupport.Context graphemeContext =
+        GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     for (int start = startPos; start < limit; start++) {
       SearchResult result = search(text, start, textLen, false, nsubmatch, graphemeContext);
       if (result.groups() != null) {

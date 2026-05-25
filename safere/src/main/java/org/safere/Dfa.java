@@ -131,7 +131,7 @@ final class Dfa {
 
   private final Prog prog;
   private final int maxStates;
-  private final boolean hasGraphemeClusterBoundary;
+  private final boolean hasGraphemeSemantics;
   private final int stateEmptyFlagsMask;
   private final int startCacheEmptyFlagsMask;
   private final int anchoredCacheBit;
@@ -189,7 +189,7 @@ final class Dfa {
   private static final int[] EMPTY_INSTS = new int[0];
 
   /** Per-search grapheme context. Set only while a search method is active. */
-  private Nfa.GraphemeContext graphemeContext;
+  private GraphemeSupport.Context graphemeContext;
 
   // ---------------------------------------------------------------------------
   // Construction
@@ -218,12 +218,12 @@ final class Dfa {
   Dfa(Prog prog, int maxStates, Setup setup) {
     this.prog = prog;
     this.maxStates = maxStates;
-    this.hasGraphemeClusterBoundary = prog.hasGraphemeClusterBoundary();
+    this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
     this.stateEmptyFlagsMask =
-        hasGraphemeClusterBoundary
+        hasGraphemeSemantics
             ? EmptyOp.ALL_FLAGS
             : EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-    this.startCacheEmptyFlagsMask = hasGraphemeClusterBoundary ? EmptyOp.ALL_FLAGS : 0x7F;
+    this.startCacheEmptyFlagsMask = hasGraphemeSemantics ? EmptyOp.ALL_FLAGS : 0x7F;
     this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
     this.anchoredCacheBit = reverseCacheBit << 1;
     this.startStateByContext = new State[anchoredCacheBit << 1];
@@ -520,7 +520,7 @@ final class Dfa {
       return deadState;
     }
     int emptyFlags =
-        Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeClusterBoundary, graphemeContext);
+        Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
@@ -584,7 +584,7 @@ final class Dfa {
    * always safe to cache because it always represents "at text end".
    */
   private int positionDependentThreshold(String text) {
-    if (hasGraphemeClusterBoundary) {
+    if (hasGraphemeSemantics) {
       return 0;
     }
     int len = text.length();
@@ -635,8 +635,7 @@ final class Dfa {
     if (cp < 0) {
       // Compute empty flags for end-of-text, but override word boundary using state context.
       int emptyFlags =
-          Nfa.emptyFlags(
-              text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary, graphemeContext);
+          Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
       // At end-of-text the "current" character is not a word char.
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
@@ -812,8 +811,7 @@ final class Dfa {
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
     int emptyFlags =
-        Nfa.emptyFlags(
-            text, nextPos, prog.unixLines(), hasGraphemeClusterBoundary, graphemeContext);
+        Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
     emptyFlags &=
         ~(EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY
@@ -952,7 +950,7 @@ final class Dfa {
    *     exceeded its state budget
    */
   SearchResult doSearch(String text, int startPos, boolean anchored, boolean longest) {
-    graphemeContext = Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
+    graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     int textLen = text.length();
     // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
     boolean needEndMatch = prog.anchorEnd();
@@ -1116,7 +1114,7 @@ final class Dfa {
    */
   SearchResult doSearchReverse(
       String text, int endPos, int startLimit, boolean anchored, boolean longest) {
-    graphemeContext = Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
+    graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     // The reversed program's "start of text" corresponds to endPos (the right edge of the match
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
     // endPos backward to startLimit, feeding characters in reverse order.
@@ -1258,7 +1256,7 @@ final class Dfa {
    * states reached along the way.
    */
   ManyMatchResult doSearchMany(String text, boolean anchored) {
-    graphemeContext = Nfa.GraphemeContext.create(text, hasGraphemeClusterBoundary);
+    graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();

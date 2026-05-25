@@ -256,7 +256,7 @@ final class BitState {
   private boolean longest;
   private boolean endMatch;
   private int ncap;
-  private Nfa.GraphemeContext graphemeContext;
+  private GraphemeSupport.Context graphemeContext;
 
   /**
    * Visited bitmap: bit {@code (instId * textSlots + pos)} tracks whether the given (instruction,
@@ -309,7 +309,7 @@ final class BitState {
     this.ncap = ncap;
     this.textSlots = textLen + 1;
     this.cycleAlts = prog.epsilonCycleAlts();
-    this.graphemeContext = Nfa.GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
+    this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
 
     int totalBits = prog.size() * textSlots;
     int visitedLen = (totalBits + 63) / 64;
@@ -469,7 +469,7 @@ final class BitState {
         case InstOp.OP_EMPTY_WIDTH -> {
           int curFlags =
               Nfa.emptyFlags(
-                  text, pos, prog.unixLines(), prog.hasGraphemeClusterBoundary(), graphemeContext);
+                  text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);
@@ -606,7 +606,7 @@ final class BitState {
     this.endMatch = endMatch || prog.anchorEnd();
     this.ncap = ncap;
     this.textSlots = textLen + 1;
-    this.graphemeContext = Nfa.GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
+    this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
     this.bestMatch = null;
     this.jobCount = 0;
     // Incrementally clear only dirtied bitmap words (much faster than full Arrays.fill).

@@ -161,7 +161,7 @@ public final class Matcher implements MatchResult {
   private Dfa cachedReverseDfa;
   private boolean reverseDfaLookedUp;
   private String graphemeContextText;
-  private Nfa.GraphemeContext graphemeContext;
+  private GraphemeSupport.Context graphemeContext;
 
   /**
    * Creates a new matcher that will match the given input against the given pattern.
@@ -714,7 +714,7 @@ public final class Matcher implements MatchResult {
     EnginePathOptions options = enginePathOptions();
     OnePass onePass = options.onePass() ? parentPattern.onePass() : null;
     if (onePass != null
-        && !prog.hasGraphemeClusterBoundary()
+        && !prog.hasGraphemeSemantics()
         && (!options.semanticGuards() || !parentPattern.hasNullableAlternation())
         && canUsePikeEquivalentCaptures(prog)) {
       OnePass.SearchResult result = onePass.search(text, true, prog.numCaptures());
@@ -842,7 +842,7 @@ public final class Matcher implements MatchResult {
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
     if (enginePathOptions().onePass()
         && parentPattern.canOnePassPrimary()
-        && !prog.hasGraphemeClusterBoundary()
+        && !prog.hasGraphemeSemantics()
         && canUsePikeEquivalentCaptures(prog)) {
       OnePass onePass = parentPattern.onePass();
       OnePass.SearchResult result = onePass.search(text, false, prog.numCaptures());
@@ -916,24 +916,24 @@ public final class Matcher implements MatchResult {
     return pos >= 2 && text.charAt(pos - 2) == '\r' && text.charAt(pos - 1) == '\n';
   }
 
-  private Nfa.GraphemeContext graphemeContext() {
+  private GraphemeSupport.Context graphemeContext() {
     if (graphemeContext == null || !Objects.equals(graphemeContextText, text)) {
       graphemeContextText = text;
       graphemeContext =
-          Nfa.GraphemeContext.create(text, parentPattern.prog().hasGraphemeClusterBoundary());
+          GraphemeSupport.Context.create(text, parentPattern.prog().hasGraphemeSemantics());
     }
     return graphemeContext;
   }
 
-  private Nfa.GraphemeContext graphemeContextFor(Prog prog) {
-    return prog.hasGraphemeClusterBoundary() ? graphemeContext() : null;
+  private GraphemeSupport.Context graphemeContextFor(Prog prog) {
+    return prog.hasGraphemeSemantics() ? graphemeContext() : null;
   }
 
   /**
    * Returns whether DFA paths implement every instruction and boundary predicate in {@code prog}.
    */
   private static boolean dfaSupportsProgram(Prog prog) {
-    return !prog.hasGraphemeClusterBoundary();
+    return !prog.hasGraphemeSemantics();
   }
 
   /**
@@ -1028,7 +1028,7 @@ public final class Matcher implements MatchResult {
   private boolean needsFullTextRegionContext(boolean regionActive, Prog prog) {
     return regionActive
         && (transparentBounds
-            || prog.hasGraphemeClusterBoundary()
+            || prog.hasGraphemeSemantics()
             || (!anchoringBounds && prog.anchorEnd()));
   }
 
@@ -1048,7 +1048,7 @@ public final class Matcher implements MatchResult {
     if (regionEnd == text.length()) {
       return true;
     }
-    if (prog.hasGraphemeClusterBoundary() && regionEndsInsideSurrogatePair()) {
+    if (prog.hasGraphemeSemantics() && regionEndsInsideSurrogatePair()) {
       return true;
     }
     if (!prog.dollarAnchorEnd()) {
@@ -1059,7 +1059,7 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean regionEndsInsideSurrogatePair() {
-    return parentPattern.prog().hasGraphemeClusterBoundary()
+    return parentPattern.prog().hasGraphemeSemantics()
         && regionEnd > 0
         && regionEnd < text.length()
         && Character.isHighSurrogate(text.charAt(regionEnd - 1))
@@ -1549,7 +1549,7 @@ public final class Matcher implements MatchResult {
     boolean lazyFallbackCaptures =
         !regionActive
             && !eagerFallbackCaptures
-            && !prog.hasGraphemeClusterBoundary()
+            && !prog.hasGraphemeSemantics()
             && options.lazyCaptureExtraction()
             && prog.numCaptures() <= MAX_LAZY_FALLBACK_SUBMATCHES;
     int nsubmatch = lazyFallbackCaptures ? 1 : prog.numCaptures();
@@ -1747,8 +1747,8 @@ public final class Matcher implements MatchResult {
     boolean canUseBitState =
         enginePathOptions().bitState()
             && !fullTextRegionContext
-            && !(prog.hasGraphemeClusterBoundary() && !anchored)
-            && !prog.hasGraphemeClusterBoundary()
+            && !(prog.hasGraphemeSemantics() && !anchored)
+            && !prog.hasGraphemeSemantics()
             && (!enginePathOptions().semanticGuards()
                 || !prog.requiresPikeNfaCaptureSemantics()
                 || nsubmatch <= 1);
@@ -1789,7 +1789,7 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
-    boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeClusterBoundary();
+    boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
     int boundaryRegionStart = fullTextRegionContext && !transparentBounds ? regionStart : 0;
     int boundaryEndPos = fullTextRegionContext && !transparentBounds ? endPos : text.length();
