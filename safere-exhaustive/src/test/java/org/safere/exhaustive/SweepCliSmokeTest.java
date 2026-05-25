@@ -60,6 +60,16 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void caseFoldingCharacterClassSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("case-folding");
+
+    CaseFoldingCharacterClassDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("case-folding-character-class-divergences.jsonl")))
+        .isTrue();
+  }
+
+  @Test
   void characterClassReplayUsesConfiguredThreads() throws Exception {
     Path replayFile = tempDir.resolve("character-replay.jsonl");
     Path outputDir = tempDir.resolve("character-replay");
@@ -106,6 +116,24 @@ class SweepCliSmokeTest {
     String output =
         captureOutput(
             () -> UnicodeCharacterClassDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("mode=replay", "checked=1", "generated=1", "threads=2");
+    assertThat(output).doesNotContain("threads=1");
+  }
+
+  @Test
+  void caseFoldingCharacterClassReplayUsesConfiguredThreads() throws Exception {
+    Path replayFile = tempDir.resolve("case-folding-replay.jsonl");
+    Path outputDir = tempDir.resolve("case-folding-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"patternLabel":"rangeLowerHJ","regex":"[h-j]","inputRepeat":1,"flagLabel":"unicodeCase","flags":66,"inputCodePoint":104}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> CaseFoldingCharacterClassDivergenceSweep.main(replayArgs(outputDir, replayFile)));
 
     assertThat(output).contains("mode=replay", "checked=1", "generated=1", "threads=2");
     assertThat(output).doesNotContain("threads=1");

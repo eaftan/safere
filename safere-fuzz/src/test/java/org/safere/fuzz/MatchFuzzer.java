@@ -7,11 +7,47 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
+import java.util.List;
 
 final class MatchFuzzer {
+  private static final int CI = org.safere.Pattern.CASE_INSENSITIVE;
+  private static final int CI_U =
+      org.safere.Pattern.CASE_INSENSITIVE | org.safere.Pattern.UNICODE_CASE;
+  private static final int CI_UCC =
+      org.safere.Pattern.CASE_INSENSITIVE | org.safere.Pattern.UNICODE_CHARACTER_CLASS;
+
+  private static final List<RegressionCase> CASE_FOLDING_REGRESSIONS =
+      List.of(
+          new RegressionCase("\\p{Lt}{4}", CI, List.of("abcd", "AAAA", "\u01C4".repeat(4))),
+          new RegressionCase("\\p{javaUpperCase}", CI, List.of("\u00AA", "\u02B0", "A", "a", "1")),
+          new RegressionCase("[h-j]+", CI_U, List.of("\u0130\u0131", "HIJ", "abc")),
+          new RegressionCase("[^h-j]", CI_U, List.of("\u0130", "\u0131", "x")),
+          new RegressionCase("[\\x{17F}]", CI_U, List.of("\u017F", "S", "s")),
+          new RegressionCase("[K]", CI, List.of("\u212A", "K", "k")),
+          new RegressionCase("\\p{L}", CI_U, List.of("\u0345", "\u0399", "A", "a")),
+          new RegressionCase("\\P{L}", CI_U, List.of("\u0345", "\u0399", "A", "a")),
+          new RegressionCase("[A-Z]", CI_U, List.of("\u017F", "K", "k")),
+          new RegressionCase("[K-K]", CI_U, List.of("K", "k")),
+          new RegressionCase("\\p{Lower}", CI_U, List.of("\u212A", "A", "a")),
+          new RegressionCase("\\p{Lower}", CI_UCC, List.of("\u0345", "\u212A", "A", "a")),
+          new RegressionCase("\\x{49}", CI_U, List.of("\u0130", "\u0131", "I", "i")),
+          new RegressionCase("\\x{69}", CI_U, List.of("\u0130", "\u0131", "I", "i")));
+
+  private static final List<RegressionCase> CASE_FOLDING_MODEL_REGRESSIONS =
+      List.of(
+          new RegressionCase("[A-Z]", CI_U, List.of("\u0130", "\u212A")),
+          new RegressionCase("[I-I]", CI_U, List.of("\u0130")),
+          new RegressionCase("[K-K]", CI_U, List.of("\u212A")));
 
   @FuzzTest(maxDuration = "30s")
   void match(FuzzedDataProvider data) {
+    for (RegressionCase regression : CASE_FOLDING_REGRESSIONS) {
+      FuzzSupport.assertFullMatchesJdk(regression.regex(), regression.flags(), regression.inputs());
+    }
+    for (RegressionCase regression : CASE_FOLDING_MODEL_REGRESSIONS) {
+      assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
+    }
+
     String regex;
     int flags;
     String input;
@@ -48,4 +84,22 @@ final class MatchFuzzer {
     }
     return pattern.toString();
   }
+
+  private static void assertFullMatchesSafeRe(String regex, int flags, List<String> inputs) {
+    org.safere.Pattern pattern = org.safere.Pattern.compile(regex, flags);
+    for (String input : inputs) {
+      if (!pattern.matcher(input).matches()) {
+        throw new AssertionError(
+            "SafeRE model regression"
+                + "\nRegex: "
+                + regex
+                + "\nFlags: "
+                + flags
+                + "\nInput: "
+                + input);
+      }
+    }
+  }
+
+  private record RegressionCase(String regex, int flags, List<String> inputs) {}
 }
