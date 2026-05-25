@@ -31,9 +31,6 @@ import java.util.Set;
  * </pre>
  */
 final class Nfa {
-  private static final int[][] EXTENDED_PICTOGRAPHIC =
-      UnicodeProperties.lookupBinaryProperty("Extended_Pictographic");
-
   /** Anchor mode for matching. */
   enum Anchor {
     /** Match anywhere in the text. */
@@ -57,13 +54,6 @@ final class Nfa {
   @SuppressWarnings("ArrayRecordComponent")
   private record NfaThread(int id, int[] capture, boolean consumedInput, int graphemeStart) {}
 
-  private static final int VISIT_KEY_VARIANT_BITS = 5;
-  private static final int GRAPHEME_LOW_SURROGATE_PAIR_VISIBLE = 1;
-  private static final int GRAPHEME_EXTENDED_PICTOGRAPHIC_VISIBLE = 1 << 1;
-  private static final int GRAPHEME_REGIONAL_INDICATOR_ODD = 1 << 2;
-  private static final int GRAPHEME_INDIC_CONJUNCT_LINKER_VISIBLE = 1 << 3;
-  private static final int GRAPHEME_INDIC_CONJUNCT_SEQUENCE_VISIBLE = 1 << 4;
-
   private static final class QueueState {
     final List<NfaThread> threads = new ArrayList<>();
     final Set<Long> visited = new HashSet<>();
@@ -81,186 +71,6 @@ final class Nfa {
   @SuppressWarnings("ArrayRecordComponent")
   record SearchResult(int[] groups) {}
 
-  /**
-   * Per-input grapheme segmentation context.
-   *
-   * <p>UAX #29 boundary checks are finite-state, but some rules need state from earlier code
-   * points. Keep that state here so engines can answer boundary questions in O(1) while scanning.
-   */
-  static final class GraphemeContext {
-    private static final GraphemeContext EMPTY = new GraphemeContext(null);
-
-    private final String text;
-    private int[] regionalIndicatorStartsBefore;
-    private int[] regionalIndicatorRunStartBefore;
-    private int[] extendedPictographicStartBefore;
-    private int[] extendedPictographicPrependBefore;
-    private int[] indicConjunctSequenceStartBefore;
-    private int[] indicConjunctLinkerStartBefore;
-
-    private GraphemeContext(String text) {
-      this.text = text;
-    }
-
-    static GraphemeContext create(String text, boolean includeGraphemeClusterBoundary) {
-      if (!includeGraphemeClusterBoundary) {
-        return EMPTY;
-      }
-      return new GraphemeContext(text);
-    }
-
-    boolean hasEvenRegionalIndicatorsBefore(int pos, int regionStart) {
-      if (text == null) {
-        return true;
-      }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
-        return true;
-      }
-      ensureRegionalIndicatorRunData();
-      int runStart = regionalIndicatorRunStartBefore[pos];
-      int countStart = Math.max(start, runStart);
-      int regionalIndicatorsBefore =
-          regionalIndicatorStartsBefore[pos] - regionalIndicatorStartsBefore[countStart];
-      return (regionalIndicatorsBefore & 1) == 0;
-    }
-
-    boolean hasExtendedPictographicBefore(int pos, int regionStart) {
-      if (text == null) {
-        return false;
-      }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
-        return false;
-      }
-      ensureExtendedPictographicData();
-      int pictographicStart = extendedPictographicStartBefore[pos];
-      if (pictographicStart < start) {
-        return false;
-      }
-      int prependStart = extendedPictographicPrependBefore[pos];
-      return prependStart < start;
-    }
-
-    boolean hasIndicConjunctLinkerBefore(int pos, int regionStart) {
-      if (text == null) {
-        return false;
-      }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
-        return false;
-      }
-      ensureIndicConjunctData();
-      return indicConjunctLinkerStartBefore[pos] >= start;
-    }
-
-    boolean hasIndicConjunctSequenceBefore(int pos, int regionStart) {
-      if (text == null) {
-        return false;
-      }
-      int start = Math.max(0, Math.min(regionStart, text.length()));
-      if (pos <= start || pos > text.length()) {
-        return false;
-      }
-      ensureIndicConjunctData();
-      return indicConjunctSequenceStartBefore[pos] >= start;
-    }
-
-    private void ensureRegionalIndicatorRunData() {
-      if (regionalIndicatorStartsBefore != null) {
-        return;
-      }
-      regionalIndicatorStartsBefore = new int[text.length() + 1];
-      regionalIndicatorRunStartBefore = new int[text.length() + 1];
-      int runStart = 0;
-      int runLength = 0;
-      int pos = 0;
-      while (pos < text.length()) {
-        int cp = text.codePointAt(pos);
-        int next = pos + Character.charCount(cp);
-        if (isRegionalIndicator(cp)) {
-          if (runLength == 0) {
-            runStart = pos;
-          }
-          runLength++;
-          for (int i = pos + 1; i <= next; i++) {
-            regionalIndicatorStartsBefore[i] = runLength;
-            regionalIndicatorRunStartBefore[i] = runStart;
-          }
-        } else {
-          runLength = 0;
-        }
-        pos = next;
-      }
-    }
-
-    private void ensureIndicConjunctData() {
-      if (indicConjunctLinkerStartBefore != null) {
-        return;
-      }
-      indicConjunctSequenceStartBefore = new int[text.length() + 1];
-      indicConjunctLinkerStartBefore = new int[text.length() + 1];
-      Arrays.fill(indicConjunctSequenceStartBefore, -1);
-      Arrays.fill(indicConjunctLinkerStartBefore, -1);
-
-      int sequenceStart = -1;
-      boolean linkerSeen = false;
-      int pos = 0;
-      while (pos < text.length()) {
-        int cp = text.codePointAt(pos);
-        int next = pos + Character.charCount(cp);
-        if (isIndicConjunctConsonant(cp)) {
-          sequenceStart = pos;
-          linkerSeen = false;
-        } else if (isIndicConjunctLinker(cp)) {
-          if (sequenceStart >= 0) {
-            linkerSeen = true;
-          }
-        } else if (!isIndicConjunctExtend(cp)) {
-          sequenceStart = -1;
-          linkerSeen = false;
-        }
-        int activeSequenceStart = sequenceStart;
-        int linkerStart = linkerSeen ? sequenceStart : -1;
-        for (int i = pos + 1; i <= next; i++) {
-          indicConjunctSequenceStartBefore[i] = activeSequenceStart;
-          indicConjunctLinkerStartBefore[i] = linkerStart;
-        }
-        pos = next;
-      }
-    }
-
-    private void ensureExtendedPictographicData() {
-      if (extendedPictographicStartBefore != null) {
-        return;
-      }
-      extendedPictographicStartBefore = new int[text.length() + 1];
-      extendedPictographicPrependBefore = new int[text.length() + 1];
-      Arrays.fill(extendedPictographicStartBefore, -1);
-      Arrays.fill(extendedPictographicPrependBefore, -1);
-
-      int visiblePictographicStart = -1;
-      int visiblePrependStart = -1;
-      int pos = 0;
-      while (pos < text.length()) {
-        int cp = text.codePointAt(pos);
-        int next = pos + Character.charCount(cp);
-        if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
-          visiblePictographicStart = pos;
-          visiblePrependStart = immediatePrependStartBefore(text, pos);
-        } else if (!isGraphemeExtend(cp)) {
-          visiblePictographicStart = -1;
-          visiblePrependStart = -1;
-        }
-        for (int i = pos + 1; i <= next; i++) {
-          extendedPictographicStartBefore[i] = visiblePictographicStart;
-          extendedPictographicPrependBefore[i] = visiblePrependStart;
-        }
-        pos = next;
-      }
-    }
-  }
-
   private final Prog prog;
   private final int ncapture;
 
@@ -269,41 +79,18 @@ final class Nfa {
 
   private final boolean longest;
   private final boolean endmatch;
-  private final int endPos;
-  private final int anchorEndPos;
-  private final int graphemeConsumeEndPos;
-  private final int consumeRegionStart;
-  private final int boundaryRegionStart;
-  private final int boundaryEndPos;
-  private final GraphemeContext graphemeContext;
+  private final EngineContext context;
 
   private boolean matched;
   private int[] bestMatch;
 
-  private Nfa(
-      Prog prog,
-      GraphemeContext graphemeContext,
-      int ncapture,
-      boolean longest,
-      boolean endmatch,
-      int endPos,
-      int anchorEndPos,
-      int graphemeConsumeEndPos,
-      int consumeRegionStart,
-      int boundaryRegionStart,
-      int boundaryEndPos) {
+  private Nfa(Prog prog, EngineContext context, int ncapture, boolean longest, boolean endmatch) {
     this.prog = prog;
     this.ncapture = ncapture;
     this.threadArraySize = ncapture + prog.numLoopRegs();
     this.longest = longest;
     this.endmatch = endmatch;
-    this.endPos = endPos;
-    this.anchorEndPos = anchorEndPos;
-    this.graphemeConsumeEndPos = graphemeConsumeEndPos;
-    this.consumeRegionStart = consumeRegionStart;
-    this.boundaryRegionStart = boundaryRegionStart;
-    this.boundaryEndPos = boundaryEndPos;
-    this.graphemeContext = graphemeContext;
+    this.context = context;
     this.bestMatch = new int[ncapture];
     Arrays.fill(bestMatch, -1);
   }
@@ -403,7 +190,7 @@ final class Nfa {
       Anchor anchor,
       MatchKind kind,
       int nsubmatch,
-      GraphemeContext graphemeContext) {
+      GraphemeSupport.Context graphemeContext) {
     return search(
         prog,
         text,
@@ -433,7 +220,7 @@ final class Nfa {
       Anchor anchor,
       MatchKind kind,
       int nsubmatch,
-      GraphemeContext graphemeContext) {
+      GraphemeSupport.Context graphemeContext) {
     return search(
         prog,
         text,
@@ -465,7 +252,7 @@ final class Nfa {
       Anchor anchor,
       MatchKind kind,
       int nsubmatch,
-      GraphemeContext graphemeContext) {
+      GraphemeSupport.Context graphemeContext) {
     if (prog.start() == 0) {
       return new SearchResult(null);
     }
@@ -485,27 +272,24 @@ final class Nfa {
     // We always need at least capture[0..1] to track the match boundaries.
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
-    GraphemeContext context =
-        graphemeContext != null
-            ? graphemeContext
-            : GraphemeContext.create(text, prog.hasGraphemeClusterBoundary());
-    Nfa nfa =
-        new Nfa(
+    EngineContext context =
+        EngineContext.create(
             prog,
-            context,
-            ncapture,
-            longestMode,
-            endmatch,
+            text,
+            startPos,
+            searchLimit,
             endPos,
-            anchorEndPos,
             graphemeConsumeEndPos,
             consumeRegionStart,
             boundaryRegionStart,
-            boundaryEndPos);
-    if (prog.hasGraphemeClusterBoundary()) {
-      nfa.doSearchEveryCharPosition(text, startPos, searchLimit, anchored);
+            boundaryEndPos,
+            anchorEndPos,
+            graphemeContext);
+    Nfa nfa = new Nfa(prog, context, ncapture, longestMode, endmatch);
+    if (prog.hasGraphemeSemantics()) {
+      nfa.doSearchEveryCharPosition(anchored);
     } else {
-      nfa.doSearch(text, startPos, searchLimit, anchored);
+      nfa.doSearch(anchored);
     }
 
     if (!nfa.matched) {
@@ -529,13 +313,13 @@ final class Nfa {
    * one past the end), stepping the NFA. At each position, starts a new thread if appropriate, then
    * advances all existing threads by one character.
    *
-   * @param text the full input text
-   * @param startPos the char index at which to begin searching
-   * @param searchLimit upper bound on positions where new threads are started; active threads may
-   *     still advance beyond this position
-   * @param anchored whether to anchor the search at {@code startPos}
+   * @param anchored whether to anchor the search at the context start
    */
-  private void doSearch(String text, int startPos, int searchLimit, boolean anchored) {
+  private void doSearch(boolean anchored) {
+    String text = context.text();
+    int startPos = context.searchStart();
+    int searchLimit = context.searchLimit();
+    int endPos = context.endPos();
     QueueState runq = new QueueState();
     QueueState nextq = new QueueState();
 
@@ -600,13 +384,15 @@ final class Nfa {
    * search contract for grapheme constructs without changing the code-point stepping used by
    * ordinary SafeRE programs.
    */
-  private void doSearchEveryCharPosition(
-      String text, int startPos, int searchLimit, boolean anchored) {
+  private void doSearchEveryCharPosition(boolean anchored) {
+    String text = context.text();
+    int startPos = context.searchStart();
+    int searchLimit = context.searchLimit();
     int start = Math.max(0, startPos);
     QueueState runq = new QueueState();
     Map<Integer, QueueState> delayed = new HashMap<>();
 
-    int engineEndPos = Math.max(endPos, graphemeConsumeEndPos);
+    int engineEndPos = context.engineEndPos();
     for (int pos = start; pos < engineEndPos + 2; pos++) {
       mergeDelayedQueue(delayed, pos, runq);
       if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
@@ -640,7 +426,7 @@ final class Nfa {
   }
 
   private QueueState delayedQueueAt(Map<Integer, QueueState> delayed, int pos) {
-    int engineEndPos = Math.max(endPos, graphemeConsumeEndPos);
+    int engineEndPos = context.engineEndPos();
     if (pos < 0 || pos > engineEndPos + 1) {
       return null;
     }
@@ -648,122 +434,31 @@ final class Nfa {
   }
 
   private long visitKey(Inst ip, int id, String text, int pos, int graphemeStart) {
-    long instructionKey = ((long) id) << VISIT_KEY_VARIANT_BITS;
+    long instructionKey = ((long) id) << GraphemeSupport.visitKeyVariantBits();
     if (ip.op != InstOp.GRAPHEME_CLUSTER) {
       return instructionKey;
     }
-    return instructionKey | graphemeVisitVariant(text, pos, graphemeStart);
-  }
-
-  private int graphemeVisitVariant(String text, int pos, int graphemeStart) {
-    int start = Math.max(consumeRegionStart, graphemeStart);
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
-      return 0;
-    }
-
-    int variant = 0;
-    char ch = text.charAt(pos);
-    if (Character.isLowSurrogate(ch)
-        && hasHighSurrogateBeforeLowSurrogateInRegion(text, pos, start)) {
-      variant |= GRAPHEME_LOW_SURROGATE_PAIR_VISIBLE;
-    }
-    if (graphemeContext.hasExtendedPictographicBefore(pos, start)) {
-      variant |= GRAPHEME_EXTENDED_PICTOGRAPHIC_VISIBLE;
-    }
-    int cp = graphemeCodePointAt(text, pos);
-    int scalarEnd = nextRegionLocalScalarEnd(text, pos, graphemeConsumeEndPos);
-    int nextCp = graphemeCodePointAt(text, scalarEnd);
-    // Candidate starts inside a pending Indic conjunct sequence are not equivalent to starts
-    // before that sequence; future linker+consonant boundaries can diverge.
-    if (graphemeContext.hasIndicConjunctSequenceBefore(pos, start)) {
-      variant |= GRAPHEME_INDIC_CONJUNCT_SEQUENCE_VISIBLE;
-    }
-    if ((isIndicConjunctConsonant(cp) && graphemeContext.hasIndicConjunctLinkerBefore(pos, start))
-        || (isIndicConjunctConsonant(nextCp)
-            && graphemeContext.hasIndicConjunctLinkerBefore(scalarEnd, start))) {
-      variant |= GRAPHEME_INDIC_CONJUNCT_LINKER_VISIBLE;
-    }
-    if (isRegionalIndicator(cp)) {
-      if (!graphemeContext.hasEvenRegionalIndicatorsBefore(scalarEnd, start)) {
-        variant |= GRAPHEME_REGIONAL_INDICATOR_ODD;
-      }
-    }
-    return variant;
+    return instructionKey
+        | GraphemeSupport.visitVariant(
+            text,
+            pos,
+            graphemeStart,
+            context.consumeRegionStart(),
+            context.graphemeConsumeEndPos(),
+            context.graphemeContext());
   }
 
   private int inputCodePointAt(String text, int pos) {
-    if (pos < 0 || pos >= endPos || pos >= text.length()) {
-      return -1;
-    }
-    if (!prog.hasGraphemeClusterBoundary()) {
-      return text.codePointAt(pos);
-    }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < endPos
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      // The scalar is only partially inside the region, so ordinary atoms cannot consume it.
-      return -1;
-    }
-    return ch;
+    return GraphemeSupport.inputCodePointAt(
+        text, pos, context.endPos(), prog.hasGraphemeSemantics());
   }
 
   private int inputNextPos(String text, int pos) {
-    if (pos < 0 || pos >= endPos || pos >= text.length()) {
-      return endPos + 1;
-    }
-    if (!prog.hasGraphemeClusterBoundary()) {
-      return pos + Character.charCount(text.codePointAt(pos));
-    }
-    int cp = inputCodePointAt(text, pos);
-    if (cp < 0) {
-      return endPos + 1;
-    }
-    if (Character.isSupplementaryCodePoint(cp)) {
-      return pos + 2;
-    }
-    return pos + 1;
-  }
-
-  private int graphemeCodePointAt(String text, int pos) {
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
-      return -1;
-    }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < graphemeConsumeEndPos
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    return ch;
+    return GraphemeSupport.inputNextPos(text, pos, context.endPos(), prog.hasGraphemeSemantics());
   }
 
   private int graphemeNextPos(String text, int pos) {
-    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
-      return graphemeConsumeEndPos + 1;
-    }
-    return nextRegionLocalScalarEnd(text, pos, graphemeConsumeEndPos);
-  }
-
-  private static int nextRegionLocalScalarEnd(String text, int pos, int endPos) {
-    if (pos < 0 || pos >= endPos || pos >= text.length()) {
-      return endPos + 1;
-    }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < endPos
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return pos + 2;
-    }
-    return pos + 1;
+    return GraphemeSupport.graphemeNextPos(text, pos, context.graphemeConsumeEndPos());
   }
 
   /**
@@ -882,22 +577,18 @@ final class Nfa {
         }
 
         case EMPTY_WIDTH -> {
-          int effectiveBoundaryEndPos =
-              consumedInput && graphemeConsumeEndPos > boundaryEndPos
-                  ? graphemeConsumeEndPos
-                  : boundaryEndPos;
           int flags =
               emptyFlags(
                   text,
                   pos,
                   prog.unixLines(),
-                  prog.hasGraphemeClusterBoundary(),
-                  graphemeContext,
+                  prog.hasGraphemeSemantics(),
+                  context.graphemeContext(),
                   t0[0],
-                  boundaryRegionStart,
+                  context.boundaryRegionStart(),
                   consumedInput,
-                  anchorEndPos,
-                  effectiveBoundaryEndPos);
+                  context.anchorEndPos(),
+                  context.effectiveBoundaryEndPos(consumedInput));
           if ((ip.arg & ~flags) == 0) {
             stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
@@ -1007,14 +698,17 @@ final class Nfa {
         }
 
         case GRAPHEME_CLUSTER -> {
-          if (matchPos < endPos) {
+          if (matchPos < context.endPos()) {
             int graphemeStart =
-                Math.max(consumeRegionStart, t.graphemeStart() >= 0 ? t.graphemeStart() : matchPos);
+                Math.max(
+                    context.consumeRegionStart(),
+                    t.graphemeStart() >= 0 ? t.graphemeStart() : matchPos);
             int scalarEnd = graphemeNextPos(text, matchPos);
             QueueState destination = delayedQueueAt(delayed, scalarEnd);
             if (destination != null) {
-              if (scalarEnd == graphemeConsumeEndPos
-                  || isGraphemeClusterBoundary(text, scalarEnd, graphemeStart, graphemeContext)) {
+              if (scalarEnd == context.graphemeConsumeEndPos()
+                  || GraphemeSupport.isGraphemeClusterBoundary(
+                      text, scalarEnd, graphemeStart, context.graphemeContext())) {
                 addToThreadq(
                     destination.threads,
                     destination.visited,
@@ -1142,16 +836,16 @@ final class Nfa {
   }
 
   private boolean matchesEndPosition(String text, int matchPos) {
-    if (matchPos == anchorEndPos) {
+    if (matchPos == context.anchorEndPos()) {
       return true;
     }
-    if (matchPos == graphemeConsumeEndPos
-        && graphemeConsumeEndPos != endPos
-        && anchorEndPos == endPos) {
+    if (matchPos == context.graphemeConsumeEndPos()
+        && context.graphemeConsumeEndPos() != context.endPos()
+        && context.anchorEndPos() == context.endPos()) {
       return true;
     }
     return prog.dollarAnchorEnd()
-        && isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), anchorEndPos);
+        && isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), context.anchorEndPos());
   }
 
   // ---------------------------------------------------------------------------
@@ -1221,7 +915,14 @@ final class Nfa {
   static int emptyFlags(
       String text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
     return emptyFlags(
-        text, pos, unixLines, includeGraphemeClusterBoundary, (GraphemeContext) null, -1, 0, false);
+        text,
+        pos,
+        unixLines,
+        includeGraphemeClusterBoundary,
+        (GraphemeSupport.Context) null,
+        -1,
+        0,
+        false);
   }
 
   static int emptyFlags(
@@ -1229,7 +930,7 @@ final class Nfa {
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
-      GraphemeContext graphemeContext) {
+      GraphemeSupport.Context graphemeContext) {
     return emptyFlags(
         text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, -1, 0, false);
   }
@@ -1245,7 +946,7 @@ final class Nfa {
         pos,
         unixLines,
         includeGraphemeClusterBoundary,
-        (GraphemeContext) null,
+        (GraphemeSupport.Context) null,
         matchStart,
         0,
         false);
@@ -1267,7 +968,7 @@ final class Nfa {
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
-      GraphemeContext graphemeContext,
+      GraphemeSupport.Context graphemeContext,
       int matchStart,
       int regionStart,
       boolean consumedInput) {
@@ -1289,7 +990,7 @@ final class Nfa {
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
-      GraphemeContext graphemeContext,
+      GraphemeSupport.Context graphemeContext,
       int matchStart,
       int regionStart,
       boolean consumedInput,
@@ -1376,73 +1077,12 @@ final class Nfa {
     }
 
     if (includeGraphemeClusterBoundary) {
-      if (isGraphemeBoundaryContextEdge(pos, regionStart, boundaryEndPos)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (isRegionStartSplitSurrogateBoundary(text, pos, regionStart)
-          || isRegionEndSplitSurrogateBoundary(text, pos, boundaryEndPos)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (isAfterRegionStartSplitLowSurrogateBoundary(text, pos, regionStart)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!suppressesConsumedSplitLowSurrogateExplicitBoundary(
-            text, pos, boundaryEndPos, consumedInput)) {
-          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-        }
-      } else if (consumedInput
-          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart, graphemeContext)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart, graphemeContext)) {
-          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-        }
-      } else if (isGraphemeClusterBoundary(text, pos, regionStart, graphemeContext)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!isAfterPairedExtendedPictographicZwj(text, pos, regionStart, graphemeContext)
-            || !isStandaloneZwjBeforePictographicBoundary(
-                text, pos, regionStart, graphemeContext)) {
-          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-        }
-      } else if (isLowHighSurrogateBoundary(text, pos)
-          && matchStart > 0
-          && pos > matchStart
-          && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (startsAtLowSurrogate(text, matchStart)
-          && !hasHighSurrogateBeforeLowSurrogateInRegion(text, matchStart, regionStart)
-          && pos == matchStart + 1) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!hasGraphemeExtendAt(text, pos)
-            && !suppressesRegionStartSplitExplicitBoundary(
-                text, regionStart, matchStart, consumedInput)) {
-          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-        }
-      } else if (startsAtStandaloneZwj(text, matchStart, regionStart)
-          && pos == matchStart + 1
-          && !hasGraphemeExtendAt(text, pos)) {
-        flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-        if (!consumedInput
-            && !suppressesRegionStartSplitExplicitBoundary(
-                text, regionStart, matchStart, consumedInput)) {
-          flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-        }
-      } else if (!consumedInput
-          && (isLowSurrogateBeforeZwjBoundary(text, pos, matchStart, regionStart)
-              || isStandaloneZwjAfterLowSurrogateBoundary(text, pos, matchStart, regionStart))
-          && !isAfterRegionStartSplitLowSurrogate(text, pos, regionStart)
-          && !hasGraphemeExtendAt(text, pos)) {
-        flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (!consumedInput
-          && isStandaloneZwjBeforePictographicBoundary(text, pos, regionStart, graphemeContext)) {
-        flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      } else if (isExplicitGraphemeClusterBoundary(text, pos, matchStart, regionStart)) {
-        flags |= EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
-      }
+      flags |=
+          GraphemeSupport.boundaryFlags(
+              text, pos, graphemeContext, matchStart, regionStart, consumedInput, boundaryEndPos);
     }
 
     return flags;
-  }
-
-  private static boolean isGraphemeBoundaryContextEdge(
-      int pos, int boundaryStart, int boundaryEnd) {
-    return pos == boundaryStart || pos == boundaryEnd;
   }
 
   /**
@@ -1450,372 +1090,25 @@ final class Nfa {
    * of JDK {@code \X}.
    */
   static boolean isGraphemeClusterBoundary(String text, int pos) {
-    return isGraphemeClusterBoundary(text, pos, 0, GraphemeContext.create(text, true));
-  }
-
-  static boolean isGraphemeClusterBoundary(String text, int pos, GraphemeContext graphemeContext) {
-    return isGraphemeClusterBoundary(text, pos, 0, graphemeContext);
+    return GraphemeSupport.isGraphemeClusterBoundary(text, pos);
   }
 
   static boolean isGraphemeClusterBoundary(
-      String text, int pos, int regionStart, GraphemeContext graphemeContext) {
-    if (pos < 0 || pos > text.length()) {
-      return false;
-    }
-    if (pos == 0 || pos == text.length()) {
-      return true;
-    }
-    char prevChar = text.charAt(pos - 1);
-    char nextChar = text.charAt(pos);
-    if (Character.isHighSurrogate(prevChar) && Character.isLowSurrogate(nextChar)) {
-      return false;
-    }
-    if (prevChar == '\r' && nextChar == '\n') {
-      return false;
-    }
-    if (isGraphemeControl(prevChar) || isGraphemeControl(nextChar)) {
-      return true;
-    }
-    if (Character.isHighSurrogate(prevChar) && !Character.isLowSurrogate(nextChar)) {
-      return true;
-    }
-    if (Character.isLowSurrogate(prevChar)
-        && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
-      return true;
-    }
-    int prev = text.codePointBefore(pos);
-    int next = text.codePointAt(pos);
-    if (isGraphemePrepend(prev) && isUnpairedSurrogateAt(text, pos)) {
-      return true;
-    }
-    if (isGraphemeExtend(next) || isGraphemePrepend(prev)) {
-      return false;
-    }
-    if (isHangulGraphemeContinuation(prev, next)) {
-      return false;
-    }
-    GraphemeContext context =
-        graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
-    if (isIndicConjunctConsonant(next) && context.hasIndicConjunctLinkerBefore(pos, regionStart)) {
-      return false;
-    }
-    if (prev == 0x200D
-        && containsCodePoint(EXTENDED_PICTOGRAPHIC, next)
-        && context.hasExtendedPictographicBefore(pos - 1, regionStart)) {
-      return false;
-    }
-    if (isRegionalIndicator(prev) && isRegionalIndicator(next)) {
-      return context.hasEvenRegionalIndicatorsBefore(pos, regionStart);
-    }
-    return true;
+      String text, int pos, GraphemeSupport.Context graphemeContext) {
+    return GraphemeSupport.isGraphemeClusterBoundary(text, pos, graphemeContext);
   }
 
-  private static boolean isExplicitGraphemeClusterBoundary(
-      String text, int pos, int matchStart, int regionStart) {
-    if (matchStart <= 0 || pos <= matchStart || pos <= 1 || pos >= text.length()) {
-      return false;
-    }
-    char prevChar = text.charAt(pos - 1);
-    char nextChar = text.charAt(pos);
-    if (Character.isLowSurrogate(prevChar) && Character.isHighSurrogate(nextChar)) {
-      return !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart);
-    }
-    if (prevChar == '\r' && nextChar == '\n') {
-      return true;
-    }
-    if (isGraphemeExtend(nextChar)
-        && Character.isLowSurrogate(prevChar)
-        && hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart)) {
-      return false;
-    }
-    int prev = text.codePointBefore(pos);
-    int next = text.codePointAt(pos);
-    return isGraphemeExtend(next) || isGraphemePrepend(prev);
-  }
-
-  private static boolean isLowHighSurrogateBoundary(String text, int pos) {
-    return pos > 0
-        && pos < text.length()
-        && Character.isLowSurrogate(text.charAt(pos - 1))
-        && Character.isHighSurrogate(text.charAt(pos));
-  }
-
-  private static boolean isRegionStartSplitSurrogateBoundary(
-      String text, int pos, int regionStart) {
-    return pos == regionStart
-        && regionStart > 0
-        && regionStart < text.length()
-        && Character.isHighSurrogate(text.charAt(regionStart - 1))
-        && Character.isLowSurrogate(text.charAt(regionStart));
-  }
-
-  private static boolean isAfterRegionStartSplitLowSurrogateBoundary(
-      String text, int pos, int regionStart) {
-    return pos == regionStart + 1
-        && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
-  }
-
-  private static boolean isRegionEndSplitSurrogateBoundary(String text, int pos, int regionEnd) {
-    return pos == regionEnd
-        && regionEnd > 0
-        && regionEnd < text.length()
-        && Character.isHighSurrogate(text.charAt(regionEnd - 1))
-        && Character.isLowSurrogate(text.charAt(regionEnd));
-  }
-
-  private static boolean suppressesConsumedSplitLowSurrogateExplicitBoundary(
-      String text, int pos, int boundaryEndPos, boolean consumedInput) {
-    if (!consumedInput || pos >= boundaryEndPos) {
-      return false;
-    }
-    if (hasGraphemeExtendAt(text, pos)) {
-      return true;
-    }
-    return isRegionalIndicator(regionLocalCodePointAt(text, pos, boundaryEndPos));
-  }
-
-  private static int regionLocalCodePointAt(String text, int pos, int endPos) {
-    if (pos < 0 || pos >= endPos || pos >= text.length()) {
-      return -1;
-    }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < endPos
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    return ch;
-  }
-
-  private static boolean isLowSurrogateBeforeZwjBoundary(
-      String text, int pos, int matchStart, int regionStart) {
-    return pos == matchStart
-        && pos > 0
-        && pos < text.length()
-        && Character.isLowSurrogate(text.charAt(pos - 1))
-        && text.charAt(pos) == 0x200D
-        && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 1, regionStart);
-  }
-
-  private static boolean suppressesRegionStartSplitExplicitBoundary(
-      String text, int regionStart, int matchStart, boolean consumedInput) {
-    return consumedInput
-        && matchStart == regionStart + 1
-        && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
-  }
-
-  private static boolean isStandaloneZwjAfterLowSurrogateBoundary(
-      String text, int pos, int matchStart, int regionStart) {
-    return pos == matchStart
-        && pos > 1
-        && pos < text.length()
-        && text.charAt(pos - 1) == 0x200D
-        && Character.isLowSurrogate(text.charAt(pos - 2))
-        && !hasHighSurrogateBeforeLowSurrogateInRegion(text, pos - 2, regionStart);
-  }
-
-  private static boolean isStandaloneZwjBeforePictographicBoundary(
-      String text, int pos, int regionStart, GraphemeContext graphemeContext) {
-    GraphemeContext context =
-        graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
-    return pos > 0
-        && pos < text.length()
-        && text.charAt(pos - 1) == 0x200D
-        && containsCodePoint(EXTENDED_PICTOGRAPHIC, text.codePointAt(pos))
-        && !isAfterRegionStartSplitLowSurrogate(text, pos - 1, regionStart)
-        && !context.hasExtendedPictographicBefore(pos - 1, regionStart);
-  }
-
-  private static boolean isAfterPairedExtendedPictographicZwj(
-      String text, int pos, int regionStart, GraphemeContext graphemeContext) {
-    GraphemeContext context =
-        graphemeContext != null ? graphemeContext : GraphemeContext.create(text, true);
-    int lowSurrogatePos = pos - 2;
-    if (regionStart <= lowSurrogatePos && regionStart > 0) {
-      return false;
-    }
-    return pos > 2
-        && text.charAt(pos - 1) == 0x200D
-        && Character.isLowSurrogate(text.charAt(lowSurrogatePos))
-        && Character.isHighSurrogate(text.charAt(pos - 3))
-        && context.hasExtendedPictographicBefore(pos - 1, regionStart);
-  }
-
-  private static boolean isAfterRegionStartSplitLowSurrogate(
-      String text, int pos, int regionStart) {
-    return pos == regionStart + 1
-        && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
-  }
-
-  private static int immediatePrependStartBefore(String text, int pos) {
-    if (pos <= 0) {
-      return -1;
-    }
-    int previous = text.codePointBefore(pos);
-    if (!isGraphemePrepend(previous)) {
-      return -1;
-    }
-    return pos - Character.charCount(previous);
-  }
-
-  private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(
-      String text, int lowSurrogatePos, int regionStart) {
-    return lowSurrogatePos > regionStart
-        && lowSurrogatePos > 0
-        && Character.isHighSurrogate(text.charAt(lowSurrogatePos - 1));
-  }
-
-  private static boolean startsAtLowSurrogate(String text, int matchStart) {
-    return matchStart >= 0
-        && matchStart < text.length()
-        && Character.isLowSurrogate(text.charAt(matchStart));
-  }
-
-  private static boolean startsAtStandaloneZwj(String text, int matchStart, int regionStart) {
-    return matchStart >= 0
-        && matchStart < text.length()
-        && text.charAt(matchStart) == 0x200D
-        && (matchStart == 0
-            || matchStart <= regionStart
-            || !Character.isLowSurrogate(text.charAt(matchStart - 1))
-            || !hasHighSurrogateBeforeLowSurrogateInRegion(text, matchStart - 1, regionStart));
-  }
-
-  private static boolean isGraphemeExtend(int c) {
-    return isCombiningMark(c) || isEmojiModifier(c) || c == 0x200D;
-  }
-
-  private static boolean isUnpairedSurrogateAt(String text, int pos) {
-    char c = text.charAt(pos);
-    if (Character.isLowSurrogate(c)) {
-      return true;
-    }
-    return Character.isHighSurrogate(c)
-        && (pos + 1 >= text.length() || !Character.isLowSurrogate(text.charAt(pos + 1)));
+  static boolean isGraphemeClusterBoundary(
+      String text, int pos, int regionStart, GraphemeSupport.Context graphemeContext) {
+    return GraphemeSupport.isGraphemeClusterBoundary(text, pos, regionStart, graphemeContext);
   }
 
   static boolean hasGraphemeExtendAt(String text, int pos) {
-    return pos >= 0 && pos < text.length() && isGraphemeExtend(text.codePointAt(pos));
+    return GraphemeSupport.hasGraphemeExtendAt(text, pos);
   }
 
   static boolean isExtendedPictographicAt(String text, int pos) {
-    return pos >= 0
-        && pos < text.length()
-        && containsCodePoint(EXTENDED_PICTOGRAPHIC, text.codePointAt(pos));
-  }
-
-  private static boolean isGraphemeControl(int c) {
-    int type = Character.getType(c);
-    return type == Character.CONTROL
-        || type == Character.LINE_SEPARATOR
-        || type == Character.PARAGRAPH_SEPARATOR;
-  }
-
-  private static boolean isCombiningMark(int c) {
-    int type = Character.getType(c);
-    return type == Character.NON_SPACING_MARK
-        || type == Character.ENCLOSING_MARK
-        || type == Character.COMBINING_SPACING_MARK;
-  }
-
-  private static boolean isEmojiModifier(int c) {
-    return 0x1F3FB <= c && c <= 0x1F3FF;
-  }
-
-  private static boolean isGraphemePrepend(int c) {
-    return (0x0600 <= c && c <= 0x0605)
-        || c == 0x06DD
-        || c == 0x070F
-        || (0x0890 <= c && c <= 0x0891)
-        || c == 0x08E2
-        || c == 0x110BD
-        || c == 0x110CD;
-  }
-
-  private static boolean isHangulGraphemeContinuation(int prev, int next) {
-    return (isHangulL(prev)
-            && (isHangulL(next) || isHangulV(next) || isHangulLv(next) || isHangulLvt(next)))
-        || ((isHangulV(prev) || isHangulLv(prev)) && (isHangulV(next) || isHangulT(next)))
-        || ((isHangulT(prev) || isHangulLvt(prev)) && isHangulT(next));
-  }
-
-  private static boolean isHangulL(int c) {
-    return (0x1100 <= c && c <= 0x115F) || (0xA960 <= c && c <= 0xA97C);
-  }
-
-  private static boolean isHangulV(int c) {
-    return (0x1160 <= c && c <= 0x11A7) || (0xD7B0 <= c && c <= 0xD7C6);
-  }
-
-  private static boolean isHangulT(int c) {
-    return (0x11A8 <= c && c <= 0x11FF) || (0xD7CB <= c && c <= 0xD7FB);
-  }
-
-  private static boolean isHangulLv(int c) {
-    return 0xAC00 <= c && c <= 0xD7A3 && (c - 0xAC00) % 28 == 0;
-  }
-
-  private static boolean isHangulLvt(int c) {
-    return 0xAC00 <= c && c <= 0xD7A3 && (c - 0xAC00) % 28 != 0;
-  }
-
-  private static boolean isRegionalIndicator(int c) {
-    return 0x1F1E6 <= c && c <= 0x1F1FF;
-  }
-
-  private static boolean isIndicConjunctConsonant(int c) {
-    return (0x0915 <= c && c <= 0x0939)
-        || (0x0958 <= c && c <= 0x095F)
-        || (0x0978 <= c && c <= 0x097F)
-        || (0x0995 <= c && c <= 0x09A8)
-        || (0x09AA <= c && c <= 0x09B0)
-        || c == 0x09B2
-        || (0x09B6 <= c && c <= 0x09B9)
-        || (0x09DC <= c && c <= 0x09DD)
-        || c == 0x09DF
-        || (0x09F0 <= c && c <= 0x09F1)
-        || (0x0A95 <= c && c <= 0x0AA8)
-        || (0x0AAA <= c && c <= 0x0AB0)
-        || (0x0AB2 <= c && c <= 0x0AB3)
-        || (0x0AB5 <= c && c <= 0x0AB9)
-        || c == 0x0AF9
-        || (0x0B15 <= c && c <= 0x0B28)
-        || (0x0B2A <= c && c <= 0x0B30)
-        || (0x0B32 <= c && c <= 0x0B33)
-        || (0x0B35 <= c && c <= 0x0B39)
-        || (0x0B5C <= c && c <= 0x0B5D)
-        || c == 0x0B5F
-        || c == 0x0B71
-        || (0x0C15 <= c && c <= 0x0C28)
-        || (0x0C2A <= c && c <= 0x0C39)
-        || (0x0C58 <= c && c <= 0x0C5A)
-        || (0x0D15 <= c && c <= 0x0D3A);
-  }
-
-  private static boolean isIndicConjunctLinker(int c) {
-    return c == 0x094D || c == 0x09CD || c == 0x0ACD || c == 0x0B4D || c == 0x0C4D || c == 0x0D4D;
-  }
-
-  private static boolean isIndicConjunctExtend(int c) {
-    return isGraphemeExtend(c) || (0xE0020 <= c && c <= 0xE007F);
-  }
-
-  private static boolean containsCodePoint(int[][] ranges, int c) {
-    int lo = 0;
-    int hi = ranges.length - 1;
-    while (lo <= hi) {
-      int mid = (lo + hi) >>> 1;
-      int[] range = ranges[mid];
-      if (c < range[0]) {
-        hi = mid - 1;
-      } else if (c > range[1]) {
-        lo = mid + 1;
-      } else {
-        return true;
-      }
-    }
-    return false;
+    return GraphemeSupport.isExtendedPictographicAt(text, pos);
   }
 
   /** Returns true if the code point is a word character ({@code [A-Za-z0-9_]}). */

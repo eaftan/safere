@@ -39,7 +39,7 @@ final class Prog {
   private boolean unixLines;
   private int numLoopRegs;
   private boolean requiresPikeNfaCaptureSemantics;
-  private boolean hasGraphemeClusterBoundary;
+  private boolean hasGraphemeSemantics;
   private boolean hasGraphemeClusterInstruction;
 
   /** Creates an empty program. */
@@ -82,7 +82,7 @@ final class Prog {
    */
   public void freeze() {
     instArray = instructions.toArray(new Inst[0]);
-    hasGraphemeClusterBoundary = computeHasGraphemeClusterBoundary();
+    hasGraphemeSemantics = computeHasGraphemeSemantics();
     hasGraphemeClusterInstruction = computeHasGraphemeClusterInstruction();
   }
 
@@ -217,8 +217,8 @@ final class Prog {
   }
 
   /** Returns true if this program contains grapheme-sensitive matching. */
-  boolean hasGraphemeClusterBoundary() {
-    return hasGraphemeClusterBoundary;
+  boolean hasGraphemeSemantics() {
+    return hasGraphemeSemantics;
   }
 
   /** Returns true if this program contains a consuming {@code \X} instruction. */
@@ -226,7 +226,7 @@ final class Prog {
     return hasGraphemeClusterInstruction;
   }
 
-  private boolean computeHasGraphemeClusterBoundary() {
+  private boolean computeHasGraphemeSemantics() {
     int n = instArray.length;
     for (int i = 0; i < n; i++) {
       Inst ip = instArray[i];
