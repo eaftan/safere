@@ -1325,23 +1325,20 @@ class ParserTest {
 
     @Test
     void caseInsensitive_inline() {
-      Regexp re = parse("(?i)a");
-      assertThat(re.foldCase()).isTrue();
+      assertThat(fullMatch("(?i)a", "A", PERL)).isTrue();
+      assertThat(fullMatch("(?i)a", "b", PERL)).isFalse();
     }
 
     @Test
     void caseInsensitive_scoped() {
-      Regexp re = parse("(?i:abc)");
-      assertThat(re.op).isEqualTo(RegexpOp.NON_CAPTURE);
-      assertThat(re.sub().foldCase()).isTrue();
+      assertThat(fullMatch("(?i:abc)", "ABC", PERL)).isTrue();
+      assertThat(fullMatch("(?i:abc)", "ABD", PERL)).isFalse();
     }
 
     @Test
     void caseInsensitive_turnedOff() {
-      Regexp re = parse("(?i)a(?-i)b");
-      assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-      assertThat(re.subs.get(0).foldCase()).isTrue();
-      assertThat(re.subs.get(1).foldCase()).isFalse();
+      assertThat(fullMatch("(?i)a(?-i)b", "Ab", PERL)).isTrue();
+      assertThat(fullMatch("(?i)a(?-i)b", "AB", PERL)).isFalse();
     }
 
     @Test
@@ -1373,9 +1370,8 @@ class ParserTest {
 
     @Test
     void combinedFlags() {
-      Regexp re = parse("(?is)a.b");
-      assertThat(re.op).isEqualTo(RegexpOp.CONCAT);
-      assertThat(re.subs.get(0).foldCase()).isTrue();
+      assertThat(fullMatch("(?is)a.b", "A\nb", PERL)).isTrue();
+      assertThat(fullMatch("(?is)a.b", "a\nc", PERL)).isFalse();
     }
 
     @Test
