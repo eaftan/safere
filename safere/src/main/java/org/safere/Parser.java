@@ -9,7 +9,6 @@ package org.safere;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -113,31 +112,6 @@ final class Parser {
       }
       int totalCost = multiplySaturated(multiplier, subCost, limit);
       return new RepeatCount(totalCost, re.op == RegexpOp.REPEAT || subHasRepeat);
-    }
-  }
-
-  private enum GroupCaseFoldPolicy {
-    NONE,
-    ASCII_POSIX,
-    UNICODE_CASED_LETTER_CATEGORY,
-    JAVA_CASED_PROPERTY
-  }
-
-  private static final class CharacterGroup {
-    private final int[][] table;
-    private final GroupCaseFoldPolicy caseFoldPolicy;
-
-    CharacterGroup(int[][] table, GroupCaseFoldPolicy caseFoldPolicy) {
-      this.table = table;
-      this.caseFoldPolicy = caseFoldPolicy;
-    }
-
-    int[][] table() {
-      return table;
-    }
-
-    GroupCaseFoldPolicy caseFoldPolicy() {
-      return caseFoldPolicy;
     }
   }
 
@@ -551,13 +525,14 @@ final class Parser {
       if ((flags & ParseFlags.UNICODE_CASE) == 0) {
         if (('A' <= r && r <= 'Z') || ('a' <= r && r <= 'z')) {
           CharClassBuilder ccb = new CharClassBuilder();
-          addAsciiFoldedRange(ccb, r, r);
+          UnicodeCaseFolding.addAsciiFoldedRange(ccb, r, r);
           pushRegexp(finishCharClassBuilder(ccb));
           return;
         }
-      } else if (hasUnicodeCaseVariant(r) || cycleFoldRune(r) != r) {
+      } else if (UnicodeCaseFolding.hasUnicodeCaseVariant(r)
+          || UnicodeCaseFolding.cycleFoldRune(r) != r) {
         CharClassBuilder ccb = new CharClassBuilder();
-        addUnicodeFoldedRange(ccb, r, r);
+        UnicodeCaseFolding.addUnicodeFoldedRange(ccb, r, r);
         Regexp re = finishCharClassBuilder(ccb);
         pushRegexp(re);
         return;
@@ -574,7 +549,7 @@ final class Parser {
     int literalFlags = flags;
     if ((flags & ParseFlags.FOLD_CASE) != 0
         && (flags & ParseFlags.UNICODE_CASE) == 0
-        && asciiFoldRune(r) == r
+        && UnicodeCaseFolding.asciiFoldRune(r) == r
         && !('a' <= r && r <= 'z')) {
       literalFlags &= ~ParseFlags.FOLD_CASE;
     }
@@ -4115,26 +4090,19 @@ final class Parser {
     }
 
     pos += 2; // '\\', letter
-    // Use Unicode-aware tables when UNICODE_CHAR_CLASS is active.
-    int[][] table = lookupPerlGroup(posName, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
-    if (table == null) {
+    CharClassExpander.Group group =
+        CharClassExpander.lookupPerlGroup(posName, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
+    if (group == null) {
       return null;
     }
-    CharacterGroup group = new CharacterGroup(table, GroupCaseFoldPolicy.NONE);
 
     CharClassBuilder ccb = new CharClassBuilder();
     if (negate) {
-      addGroupNegated(ccb, group);
+      CharClassExpander.addNegatedGroup(ccb, group, flags);
     } else {
-      addGroupPositive(ccb, group);
+      CharClassExpander.addPositiveGroup(ccb, group, flags);
     }
     return ccb;
-  }
-
-  private static int[][] lookupPerlGroup(String name, boolean unicodeCharacterClass) {
-    return unicodeCharacterClass
-        ? UnicodeTables.unicodePerlGroups().get(name)
-        : UnicodeTables.PERL_GROUPS.get(name);
   }
 
   // ---- Unicode group parsing (\p{...}, \P{...}) ----
@@ -4175,450 +4143,23 @@ final class Parser {
       pos = end + 1; // skip '}'
     }
 
-    CharacterGroup group = lookupUnicodeGroup(name, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
+    CharClassExpander.Group group =
+        CharClassExpander.lookupUnicodeGroup(name, (flags & ParseFlags.UNICODE_CHAR_CLASS) != 0);
     if (group == null) {
       throw new PatternSyntaxException("invalid Unicode group: " + name, pattern, seqStart);
     }
 
     if (sign > 0) {
-      addGroupPositive(ccb, group);
+      CharClassExpander.addPositiveGroup(ccb, group, flags);
     } else {
-      addGroupNegated(ccb, group);
+      CharClassExpander.addNegatedGroup(ccb, group, flags);
     }
     return PARSE_OK;
   }
 
-  private static CharacterGroup lookupUnicodeGroup(String name, boolean unicodeCharacterClass) {
-    int[][] table = JavaCharacterClasses.lookup(name);
-    if (table != null) {
-      return new CharacterGroup(table, javaClassCaseFoldPolicy(name));
-    }
-    table =
-        unicodeCharacterClass
-            ? UnicodeTables.unicodePosixPropertyGroups().get(name)
-            : UnicodeTables.POSIX_PROPERTY_GROUPS.get(name);
-    if (table != null) {
-      return new CharacterGroup(table, posixPropertyCaseFoldPolicy(name, unicodeCharacterClass));
-    }
-
-    // Keyword forms: script=, sc=, block=, blk=, general_category=, gc=.
-    int eq = name.indexOf('=');
-    if (eq >= 0) {
-      String key = name.substring(0, eq);
-      String value = name.substring(eq + 1);
-      return lookupKeywordProperty(key, value);
-    }
-
-    // "Is" prefix: try script/category (case-insensitive), then binary property.
-    // The prefix is case-sensitive ("Is" only, not "is" or "IS").
-    if (name.startsWith("Is") && name.length() > 2) {
-      String stripped = name.substring(2);
-      table = UnicodeProperties.lookupScriptOrCategory(stripped);
-      if (table != null) {
-        return new CharacterGroup(table, scriptOrCategoryCaseFoldPolicy(stripped));
-      }
-      table = UnicodeProperties.lookupBinaryProperty(stripped);
-      if (table != null) {
-        return new CharacterGroup(table, binaryPropertyCaseFoldPolicy(stripped));
-      }
-      return null;
-    }
-
-    // "In" prefix: Unicode block lookup.
-    if (name.startsWith("In") && name.length() > 2) {
-      table = UnicodeProperties.lookupBlock(name.substring(2));
-      return table == null ? null : new CharacterGroup(table, GroupCaseFoldPolicy.NONE);
-    }
-
-    // Bare Unicode properties are valid only for general categories such as "L" or "Lu".
-    // JDK Pattern requires scripts to use Is/script=/sc= and blocks to use In/block=/blk=.
-    table = UnicodeProperties.lookupCategory(name);
-    return table == null ? null : new CharacterGroup(table, categoryCaseFoldPolicy(name));
-  }
-
-  private static CharacterGroup lookupKeywordProperty(String key, String value) {
-    // Keywords are case-insensitive per JDK behavior; remove underscores/hyphens/spaces.
-    String normalizedKey =
-        key.toUpperCase(java.util.Locale.ROOT).replace("_", "").replace("-", "").replace(" ", "");
-    return switch (normalizedKey) {
-      case "SCRIPT", "SC" -> {
-        int[][] table = UnicodeProperties.lookupScript(value);
-        yield table == null ? null : new CharacterGroup(table, GroupCaseFoldPolicy.NONE);
-      }
-      case "BLOCK", "BLK" -> {
-        int[][] table = UnicodeProperties.lookupBlock(value);
-        yield table == null ? null : new CharacterGroup(table, GroupCaseFoldPolicy.NONE);
-      }
-      case "GENERALCATEGORY", "GC" -> {
-        int[][] table = UnicodeProperties.lookupCategory(value);
-        yield table == null ? null : new CharacterGroup(table, categoryCaseFoldPolicy(value));
-      }
-      default -> null;
-    };
-  }
-
-  private static GroupCaseFoldPolicy posixPropertyCaseFoldPolicy(
-      String name, boolean unicodeCharacterClass) {
-    if (unicodeCharacterClass) {
-      return switch (name) {
-        case "Lower", "Upper" -> GroupCaseFoldPolicy.JAVA_CASED_PROPERTY;
-        default -> GroupCaseFoldPolicy.NONE;
-      };
-    }
-    return GroupCaseFoldPolicy.ASCII_POSIX;
-  }
-
-  private static GroupCaseFoldPolicy javaClassCaseFoldPolicy(String name) {
-    return switch (name) {
-      case "javaUpperCase", "javaLowerCase", "javaTitleCase" ->
-          GroupCaseFoldPolicy.JAVA_CASED_PROPERTY;
-      default -> GroupCaseFoldPolicy.NONE;
-    };
-  }
-
-  private static GroupCaseFoldPolicy scriptOrCategoryCaseFoldPolicy(String name) {
-    return isCasedLetterCategoryName(name)
-        ? GroupCaseFoldPolicy.UNICODE_CASED_LETTER_CATEGORY
-        : GroupCaseFoldPolicy.NONE;
-  }
-
-  private static GroupCaseFoldPolicy categoryCaseFoldPolicy(String name) {
-    return switch (name) {
-      case "Lu", "Ll", "Lt" -> GroupCaseFoldPolicy.UNICODE_CASED_LETTER_CATEGORY;
-      default -> GroupCaseFoldPolicy.NONE;
-    };
-  }
-
-  private static GroupCaseFoldPolicy binaryPropertyCaseFoldPolicy(String name) {
-    String normalized = normalizePropertyName(name);
-    return switch (normalized) {
-      case "UPPERCASE", "LOWERCASE", "TITLECASE" -> GroupCaseFoldPolicy.JAVA_CASED_PROPERTY;
-      default -> GroupCaseFoldPolicy.NONE;
-    };
-  }
-
-  private static boolean isCasedLetterCategoryName(String name) {
-    return switch (normalizePropertyName(name)) {
-      case "LU", "LL", "LT" -> true;
-      default -> false;
-    };
-  }
-
-  private static String normalizePropertyName(String name) {
-    return name.toUpperCase(java.util.Locale.ROOT)
-        .replace("_", "")
-        .replace("-", "")
-        .replace(" ", "");
-  }
-
-  // ---- Group add helpers ----
-
-  private void addGroupPositive(CharClassBuilder ccb, CharacterGroup group) {
-    if ((flags & ParseFlags.FOLD_CASE) == 0) {
-      addPropertyTableWithoutCaseFolding(ccb, group.table());
-      return;
-    }
-    switch (group.caseFoldPolicy()) {
-      case ASCII_POSIX -> addAsciiFoldedPropertyTable(ccb, group.table());
-      case UNICODE_CASED_LETTER_CATEGORY -> addCasedLetterCategoryClosure(ccb);
-      case JAVA_CASED_PROPERTY -> ccb.addTable(JavaCasedPropertyClosureHolder.TABLE);
-      case NONE -> addPropertyTableWithoutCaseFolding(ccb, group.table());
-    }
-  }
-
-  private void addPropertyTableWithoutCaseFolding(CharClassBuilder ccb, int[][] table) {
-    int noFoldFlags = flags & ~ParseFlags.FOLD_CASE;
-    if ((noFoldFlags & ParseFlags.CLASS_NL) != 0 && (noFoldFlags & ParseFlags.NEVER_NL) == 0) {
-      ccb.addTable(table);
-      return;
-    }
-    for (int[] row : table) {
-      addRangeFlags(ccb, row[0], row[1], noFoldFlags);
-    }
-  }
-
-  private void addAsciiFoldedPropertyTable(CharClassBuilder ccb, int[][] table) {
-    int asciiFoldFlags = flags & ~ParseFlags.UNICODE_CASE;
-    for (int[] row : table) {
-      addRangeFlags(ccb, row[0], row[1], asciiFoldFlags);
-    }
-  }
-
-  private static void addCasedLetterCategoryClosure(CharClassBuilder ccb) {
-    ccb.addTable(UnicodeTables.UNICODE_GROUPS.get("Lu"));
-    ccb.addTable(UnicodeTables.UNICODE_GROUPS.get("Ll"));
-    ccb.addTable(UnicodeTables.UNICODE_GROUPS.get("Lt"));
-  }
-
-  private static final class JavaCasedPropertyClosureHolder {
-    static final int[][] TABLE = buildTable();
-
-    private static int[][] buildTable() {
-      CharClassBuilder ccb = new CharClassBuilder();
-      for (int cp = 0; cp <= Utils.MAX_RUNE; cp++) {
-        if (Character.isUpperCase(cp) || Character.isLowerCase(cp) || Character.isTitleCase(cp)) {
-          ccb.addRune(cp);
-        }
-      }
-      CharClass cc = ccb.build();
-      int[][] table = new int[cc.numRanges()][2];
-      for (int i = 0; i < cc.numRanges(); i++) {
-        table[i][0] = cc.lo(i);
-        table[i][1] = cc.hi(i);
-      }
-      return table;
-    }
-  }
-
-  private void addGroupNegated(CharClassBuilder ccb, CharacterGroup group) {
-    if ((flags & ParseFlags.FOLD_CASE) != 0) {
-      // Build the positive set with folding, then negate, then merge.
-      CharClassBuilder ccb1 = new CharClassBuilder();
-      addGroupPositive(ccb1, group);
-      boolean cutnl = (flags & ParseFlags.CLASS_NL) == 0 || (flags & ParseFlags.NEVER_NL) != 0;
-      if (cutnl) {
-        ccb1.addRune('\n');
-      }
-      ccb1.negate();
-      ccb.addCharClass(ccb1);
-      return;
-    }
-    int next = 0;
-    for (int[] row : group.table()) {
-      if (next < row[0]) {
-        addRangeFlags(ccb, next, row[0] - 1, flags);
-      }
-      next = row[1] + 1;
-    }
-    if (next <= Utils.MAX_RUNE) {
-      addRangeFlags(ccb, next, Utils.MAX_RUNE, flags);
-    }
-  }
-
   /** Add a range to the character class, but exclude newline if asked. Also handle case folding. */
-  private void addRangeFlags(CharClassBuilder ccb, int lo, int hi, int parseFlags) {
-    // Take out \n if the flags say so.
-    boolean cutnl =
-        (parseFlags & ParseFlags.CLASS_NL) == 0 || (parseFlags & ParseFlags.NEVER_NL) != 0;
-    if (cutnl && lo <= '\n' && '\n' <= hi) {
-      if (lo < '\n') {
-        addRangeFlags(ccb, lo, '\n' - 1, parseFlags);
-      }
-      if (hi > '\n') {
-        addRangeFlags(ccb, '\n' + 1, hi, parseFlags);
-      }
-      return;
-    }
-
-    // If folding case, add fold-equivalent characters too.
-    if ((parseFlags & ParseFlags.FOLD_CASE) != 0) {
-      if ((parseFlags & ParseFlags.UNICODE_CASE) == 0) {
-        addAsciiFoldedRange(ccb, lo, hi);
-        return;
-      }
-      addUnicodeFoldedRange(ccb, lo, hi);
-    } else {
-      ccb.addRange(lo, hi);
-    }
-  }
-
-  // ---- Case folding ----
-
-  private static int asciiFoldRune(int r) {
-    if ('A' <= r && r <= 'Z') {
-      return r + ('a' - 'A');
-    }
-    if ('a' <= r && r <= 'z') {
-      return r;
-    }
-    return r;
-  }
-
-  private static void addAsciiFoldedRange(CharClassBuilder ccb, int lo, int hi) {
-    ccb.addRange(lo, hi);
-    int upperLo = Math.max(lo, 'A');
-    int upperHi = Math.min(hi, 'Z');
-    if (upperLo <= upperHi) {
-      ccb.addRange(upperLo + ('a' - 'A'), upperHi + ('a' - 'A'));
-    }
-    int lowerLo = Math.max(lo, 'a');
-    int lowerHi = Math.min(hi, 'z');
-    if (lowerLo <= lowerHi) {
-      ccb.addRange(lowerLo - ('a' - 'A'), lowerHi - ('a' - 'A'));
-    }
-  }
-
-  /**
-   * Look up the case fold entry containing r. Returns the index into CASE_FOLD, or -1 if none
-   * contains r. If r is between entries, returns the index of the next entry after r.
-   */
-  private static final int CASE_FOLD_NOT_FOUND = Integer.MIN_VALUE;
-
-  private static int lookupCaseFold(int r) {
-    int[][] cf = UnicodeTables.CASE_FOLD;
-    int lo = 0;
-    int hi = cf.length - 1;
-    while (lo <= hi) {
-      int mid = (lo + hi) >>> 1;
-      if (cf[mid][0] <= r && r <= cf[mid][1]) {
-        return mid;
-      }
-      if (r < cf[mid][0]) {
-        hi = mid - 1;
-      } else {
-        lo = mid + 1;
-      }
-    }
-    // r is not in any entry. lo points at the first entry after r.
-    if (lo < cf.length) {
-      return -(lo + 1); // negative to indicate "not found, but next is at lo"
-    }
-    return CASE_FOLD_NOT_FOUND;
-  }
-
-  /** Returns the result of applying the fold to rune r given the fold entry at index idx. */
-  private static int applyFold(int[] entry, int r) {
-    int delta = entry[2];
-    if (delta == UnicodeTables.EVEN_ODD_SKIP) {
-      if ((r - entry[0]) % 2 != 0) return r;
-      // fall through to EVEN_ODD
-      delta = UnicodeTables.EVEN_ODD;
-    }
-    if (delta == UnicodeTables.ODD_EVEN_SKIP) {
-      if ((r - entry[0]) % 2 != 0) return r;
-      // fall through to ODD_EVEN
-      delta = UnicodeTables.ODD_EVEN;
-    }
-    if (delta == UnicodeTables.EVEN_ODD) {
-      return (r % 2 == 0) ? r + 1 : r - 1;
-    }
-    if (delta == UnicodeTables.ODD_EVEN) {
-      return (r % 2 == 1) ? r + 1 : r - 1;
-    }
-    return r + delta;
-  }
-
-  /** Returns the next rune in r's folding cycle. */
-  static int cycleFoldRune(int r) {
-    int[][] cf = UnicodeTables.CASE_FOLD;
-    int idx = lookupCaseFold(r);
-    if (idx < 0) {
-      return r; // no fold for this rune
-    }
-    return applyFold(cf[idx], r);
-  }
-
-  private static void addUnicodeFoldedRange(CharClassBuilder ccb, int lo, int hi) {
-    ccb.addRange(lo, hi);
-    UnicodeCaseClosureIndex.addSourcesForTargetsInRange(ccb, lo, hi);
-  }
-
-  private static boolean hasUnicodeCaseVariant(int cp) {
-    return Character.toUpperCase(cp) != cp
-        || Character.toLowerCase(cp) != cp
-        || Character.toTitleCase(cp) != cp
-        || Character.toLowerCase(Character.toUpperCase(cp)) != cp
-        || Character.toUpperCase(Character.toLowerCase(cp)) != cp;
-  }
-
-  private static final class UnicodeCaseClosureIndex {
-    static final long[] TARGET_TO_SOURCE = buildTargetToSourcePairs();
-
-    private static void addSourcesForTargetsInRange(CharClassBuilder ccb, int lo, int hi) {
-      int index = lowerBoundTarget(lo);
-      while (index < TARGET_TO_SOURCE.length) {
-        long pair = TARGET_TO_SOURCE[index];
-        int target = target(pair);
-        if (target > hi) {
-          return;
-        }
-        ccb.addRune(source(pair));
-        index++;
-      }
-    }
-
-    private static int lowerBoundTarget(int target) {
-      long key = pack(target, 0);
-      int lo = 0;
-      int hi = TARGET_TO_SOURCE.length;
-      while (lo < hi) {
-        int mid = (lo + hi) >>> 1;
-        if (TARGET_TO_SOURCE[mid] < key) {
-          lo = mid + 1;
-        } else {
-          hi = mid;
-        }
-      }
-      return lo;
-    }
-
-    private static long[] buildTargetToSourcePairs() {
-      LongArrayBuilder pairs = new LongArrayBuilder();
-      for (int source = 0; source <= Utils.MAX_RUNE; source++) {
-        addPair(pairs, source, Character.toUpperCase(source));
-        addPair(pairs, source, Character.toLowerCase(source));
-        addPair(pairs, source, Character.toTitleCase(source));
-        addPair(pairs, source, Character.toLowerCase(Character.toUpperCase(source)));
-        addPair(pairs, source, Character.toUpperCase(Character.toLowerCase(source)));
-
-        int folded = cycleFoldRune(source);
-        while (folded != source) {
-          addPair(pairs, source, folded);
-          folded = cycleFoldRune(folded);
-        }
-      }
-
-      long[] sorted = pairs.toArray();
-      Arrays.sort(sorted);
-      return deduplicate(sorted);
-    }
-
-    private static void addPair(LongArrayBuilder pairs, int source, int target) {
-      if (source != target) {
-        pairs.add(pack(target, source));
-      }
-    }
-
-    private static long[] deduplicate(long[] sorted) {
-      if (sorted.length == 0) {
-        return sorted;
-      }
-      int size = 1;
-      for (int i = 1; i < sorted.length; i++) {
-        if (sorted[i] != sorted[size - 1]) {
-          sorted[size++] = sorted[i];
-        }
-      }
-      return Arrays.copyOf(sorted, size);
-    }
-
-    private static long pack(int target, int source) {
-      return ((long) target << Integer.SIZE) | Integer.toUnsignedLong(source);
-    }
-
-    private static int target(long pair) {
-      return (int) (pair >>> Integer.SIZE);
-    }
-
-    private static int source(long pair) {
-      return (int) pair;
-    }
-  }
-
-  private static final class LongArrayBuilder {
-    private long[] values = new long[4096];
-    private int size;
-
-    void add(long value) {
-      if (size == values.length) {
-        values = Arrays.copyOf(values, values.length * 2);
-      }
-      values[size++] = value;
-    }
-
-    long[] toArray() {
-      return Arrays.copyOf(values, size);
-    }
+  private static void addRangeFlags(CharClassBuilder ccb, int lo, int hi, int parseFlags) {
+    CharClassExpander.addRange(ccb, lo, hi, parseFlags);
   }
 
   // ---- Perl flags parsing ----
