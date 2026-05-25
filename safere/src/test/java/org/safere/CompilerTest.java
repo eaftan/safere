@@ -27,6 +27,12 @@ class CompilerTest {
     return Compiler.compile(re);
   }
 
+  private static boolean fullMatch(Prog prog, String text) {
+    Nfa.SearchResult result =
+        Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
+    return result.groups() != null;
+  }
+
   // ---------------------------------------------------------------------------
   // Literals
   // ---------------------------------------------------------------------------
@@ -349,15 +355,8 @@ class CompilerTest {
       Prog prog = compile("(?i)abc");
       assertThat(prog).isNotNull();
       assertHasInstOp(prog, InstOp.CHAR_RANGE);
-      boolean hasFoldCase = false;
-      for (int i = 0; i < prog.size(); i++) {
-        Inst inst = prog.inst(i);
-        if (inst.op == InstOp.CHAR_RANGE && inst.foldCase) {
-          hasFoldCase = true;
-          break;
-        }
-      }
-      assertThat(hasFoldCase).isTrue();
+      assertThat(fullMatch(prog, "ABC")).isTrue();
+      assertThat(fullMatch(prog, "ABD")).isFalse();
     }
 
     @Test

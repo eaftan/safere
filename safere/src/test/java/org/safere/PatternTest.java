@@ -191,6 +191,25 @@ class PatternTest {
     }
 
     @Test
+    void asciiCaseInsensitiveLiteralFastPathDoesNotUseUnicodeCaseFolding() {
+      Pattern p = Pattern.compile("(?i)i");
+
+      assertThat(p.matcher("I").matches()).isTrue();
+      assertThat(p.matcher("\u0130").matches()).isFalse();
+      assertThat(p.matcher("\u0131").matches()).isFalse();
+    }
+
+    @Test
+    void asciiCaseInsensitivePrefixAccelerationSkipsUnicodeCaseVariants() {
+      Pattern p = Pattern.compile("(?i)i.");
+      Matcher m = p.matcher("\u0130xix");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+      assertThat(m.group()).isEqualTo("ix");
+    }
+
+    @Test
     void dotall() {
       Pattern p = Pattern.compile("a.b", Pattern.DOTALL);
       assertThat(p.flags()).isEqualTo(Pattern.DOTALL);

@@ -176,3 +176,32 @@ compile acceptance and full-match membership between SafeRE and
 Use this sweep before review when changing control-escape parsing behavior. The
 full matrix is bounded and has roughly 36 million generated cases. Range bounds
 and replay files use the same conventions as the character-class sweep.
+
+## Case-Folding Character-Class Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh CaseFoldingCharacterClassDivergenceSweep \
+  --output-dir=target/exhaustive-reports/case-folding-character-class-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh CaseFoldingCharacterClassDivergenceSweep --range=:100000 \
+  --output-dir=target/exhaustive-reports/case-folding-character-class-sweep-smoke
+```
+
+The case-folding character-class sweep compares SafeRE with `java.util.regex`
+for case-insensitive membership across every Unicode code point. It focuses on
+explicit cased literals, singleton classes, high-risk ASCII ranges such as
+`[h-j]`, Unicode general categories such as `\p{Lu}`, `\p{Ll}`, and `\p{Lt}`,
+their common spelling variants, negated category/range forms, and a quantified
+titlecase-category case. Flag axes include `CASE_INSENSITIVE`,
+`CASE_INSENSITIVE | UNICODE_CASE`, and
+`CASE_INSENSITIVE | UNICODE_CHARACTER_CLASS`.
+
+Use this sweep before review when changing case-folding, Unicode category, or
+character-class expansion behavior. Range bounds and replay files use the same
+conventions as the other exhaustive sweeps.
