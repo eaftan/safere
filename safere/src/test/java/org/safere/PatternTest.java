@@ -1006,13 +1006,11 @@ class PatternTest {
       assertThatThrownBy(() -> Pattern.compile("\\08")).isInstanceOf(PatternSyntaxException.class);
     }
 
-    @Test
-    @DisplayName("octal escapes above 0377 do not become Unicode code points")
-    void largeOctalEscapesDoNotBecomeUnicodeCodePoints() {
-      assertThat(Pattern.compile("\\400").matcher("\u0100").matches()).isFalse();
-      assertThat(Pattern.compile("\\777").matcher("\u01ff").matches()).isFalse();
-      assertThat(Pattern.compile("\\400").matcher(" 0").matches()).isFalse();
-      assertThat(Pattern.compile("\\777").matcher("?7").matches()).isFalse();
+    @ParameterizedTest
+    @ValueSource(strings = {"\\400", "\\777", "\\2222*", "3*\\2222*"})
+    @DisplayName("non-zero numeric escapes are rejected as backreferences")
+    void nonZeroNumericEscapesRejectedAsBackreferences(String regex) {
+      assertThatThrownBy(() -> Pattern.compile(regex)).isInstanceOf(PatternSyntaxException.class);
     }
   }
 

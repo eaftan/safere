@@ -1231,10 +1231,9 @@ class ParserTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\\1", "\\9", "\\12", "\\123"})
-    void numericBackreferenceWithoutGroupNeverMatches(String pattern) {
-      Regexp re = parse(pattern);
-      assertThat(re.op).isEqualTo(RegexpOp.NO_MATCH);
+    @ValueSource(strings = {"\\1", "\\9", "\\12", "\\123", "\\1*", "\\12*", "\\2222*", "3*\\2222*"})
+    void numericBackreferenceWithoutGroupRejected(String pattern) {
+      assertThatThrownBy(() -> parse(pattern)).isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest

@@ -452,32 +452,9 @@ final class Parser {
     }
 
     // Regular escape
-    if (maybePushNumericBackreferenceEscape()) {
-      return false;
-    }
     int r = parseEscape();
     pushLiteral(r);
     return false;
-  }
-
-  private boolean maybePushNumericBackreferenceEscape() {
-    if (pos + 1 >= pattern.length() || pattern.charAt(pos) != '\\') {
-      return false;
-    }
-    char firstDigit = pattern.charAt(pos + 1);
-    if (firstDigit < '1' || firstDigit > '9') {
-      return false;
-    }
-    if (firstDigit - '0' <= ncap) {
-      throw new PatternSyntaxException("backreferences are not supported", pattern, pos);
-    }
-
-    pos += 2;
-    while (pos < pattern.length() && pattern.charAt(pos) >= '0' && pattern.charAt(pos) <= '9') {
-      pos++;
-    }
-    pushRegexp(Regexp.noMatch(flags));
-    return true;
   }
 
   // ---- Stack operations ----

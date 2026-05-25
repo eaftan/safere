@@ -670,14 +670,28 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\\400", "\\777", "\\123"})
-    @DisplayName("unresolved non-zero numeric escapes never match")
-    void unresolvedNonZeroNumericEscapesNeverMatch(String regex) {
-      assertMatchesSame(regex, "\u0100");
-      assertMatchesSame(regex, "\u01ff");
-      assertMatchesSame(regex, "S");
-      assertMatchesSame(regex, " 0");
-      assertMatchesSame(regex, "?7");
+    @ValueSource(
+        strings = {
+          "\\1",
+          "\\9",
+          "\\12",
+          "\\123",
+          "\\400",
+          "\\777",
+          "\\1*",
+          "\\12*",
+          "\\123*",
+          "\\2222*",
+          "3*\\2222*"
+        })
+    @DisplayName("non-zero numeric escapes are unsupported backreference syntax")
+    void nonZeroNumericEscapesAreUnsupportedBackreferenceSyntax(String regex) {
+      assertThatNoException()
+          .as("JDK should accept numeric back reference syntax: %s", regex)
+          .isThrownBy(() -> java.util.regex.Pattern.compile(regex));
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject numeric back reference syntax: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
@@ -707,12 +721,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new EscapeMembershipCase("\\0100", inputs)),
           Arguments.of(new EscapeMembershipCase("\\0377", inputs)),
           Arguments.of(new EscapeMembershipCase("\\0400", inputs)),
-          Arguments.of(new EscapeMembershipCase("\\1", inputs)),
-          Arguments.of(new EscapeMembershipCase("\\9", inputs)),
-          Arguments.of(new EscapeMembershipCase("\\12", inputs)),
-          Arguments.of(new EscapeMembershipCase("\\123", inputs)),
-          Arguments.of(new EscapeMembershipCase("\\400", inputs)),
-          Arguments.of(new EscapeMembershipCase("\\777", inputs)),
           Arguments.of(new EscapeMembershipCase("[\\00]", inputs)),
           Arguments.of(new EscapeMembershipCase("[\\000]", inputs)),
           Arguments.of(new EscapeMembershipCase("[\\01]", inputs)),
@@ -2380,13 +2388,15 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"\\1", "\\9", "\\12"})
-    @DisplayName("unresolved numeric back reference forms never match")
-    void unresolvedNumericBackReferenceFormsNeverMatch(String regex) {
-      assertMatchesSame(regex, "");
-      assertMatchesSame(regex, "1");
-      assertMatchesSame(regex, "9");
-      assertMatchesSame(regex, "S");
+    @ValueSource(strings = {"\\1", "\\9", "\\12", "\\12*", "\\2222*", "3*\\2222*"})
+    @DisplayName("numeric back reference syntax without groups is rejected")
+    void numericBackReferenceSyntaxWithoutGroupsRejected(String regex) {
+      assertThatNoException()
+          .as("JDK should accept unresolved numeric back reference syntax: %s", regex)
+          .isThrownBy(() -> java.util.regex.Pattern.compile(regex));
+      assertThatThrownBy(() -> Pattern.compile(regex))
+          .as("SafeRE should reject unresolved numeric back reference syntax: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class);
     }
 
     @ParameterizedTest
