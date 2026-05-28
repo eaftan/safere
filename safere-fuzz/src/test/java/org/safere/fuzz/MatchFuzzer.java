@@ -47,6 +47,7 @@ final class MatchFuzzer {
     for (RegressionCase regression : CASE_FOLDING_MODEL_REGRESSIONS) {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
+    assertUnicodeBoundaryStartCacheMatchesJdk();
 
     String regex;
     int flags;
@@ -83,6 +84,21 @@ final class MatchFuzzer {
       pattern.appendCodePoint(0x1000 + i * 2);
     }
     return pattern.toString();
+  }
+
+  private static void assertUnicodeBoundaryStartCacheMatchesJdk() {
+    String regex = "\\b.";
+    int flags = org.safere.Pattern.UNICODE_CHARACTER_CLASS;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, flags);
+    if (pattern == null) {
+      return;
+    }
+
+    String boundary = "!\u00E9" + "x".repeat(300);
+    String nonBoundary = "!!" + "x".repeat(300);
+    FuzzSupport.MatcherPair matcher = pattern.matcher(boundary);
+    matcher.region(1, boundary.length()).lookingAt();
+    matcher.reset(nonBoundary).region(1, nonBoundary.length()).lookingAt();
   }
 
   private static void assertFullMatchesSafeRe(String regex, int flags, List<String> inputs) {
