@@ -180,8 +180,8 @@ final class Dfa {
    * Cache of DFA start states indexed by position context. The start state depends on four factors:
    * whether the search is anchored, whether it's a reverse context, the empty-width flags at the
    * position, and whether the previous character was a word character. This gives at most 2 × 2 ×
-   * 1024 × 2 × 2 combinations. Caching avoids the expensive {@link #expand} call and its {@code
-   * Arrays.copyOf} allocation on every DFA search.
+   * masked-empty-flag-count × 2 × 2 combinations. Caching avoids the expensive {@link #expand} call
+   * and its {@code Arrays.copyOf} allocation on every DFA search.
    */
   private final State[] startStateByContext;
 
@@ -223,7 +223,11 @@ final class Dfa {
         hasGraphemeSemantics
             ? EmptyOp.ALL_FLAGS
             : EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
-    this.startCacheEmptyFlagsMask = hasGraphemeSemantics ? EmptyOp.ALL_FLAGS : 0x7F;
+    this.startCacheEmptyFlagsMask =
+        hasGraphemeSemantics
+            ? EmptyOp.ALL_FLAGS
+            : EmptyOp.ALL_FLAGS
+                & ~(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
     this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
     this.anchoredCacheBit = reverseCacheBit << 1;
     this.startStateByContext = new State[anchoredCacheBit << 1];

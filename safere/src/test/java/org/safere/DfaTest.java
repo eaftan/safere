@@ -271,6 +271,20 @@ class DfaTest {
       assertThat(r.matched()).isTrue();
       assertThat(r.pos()).isEqualTo(7);
     }
+
+    @Test
+    void unicodeWordBoundaryStartStateCacheDistinguishesNextCharacterContext() {
+      Regexp re = Parser.parse("\\b.", FLAGS | ParseFlags.UNICODE_CHAR_CLASS);
+      Prog prog = Compiler.compile(re);
+      Dfa dfa = new Dfa(prog, 10_000, Dfa.buildSetup(prog));
+
+      Dfa.SearchResult boundary = dfa.doSearch("!\u00E9", 1, true, false);
+      Dfa.SearchResult nonBoundary = dfa.doSearch("!!", 1, true, false);
+
+      assertThat(boundary.matched()).isTrue();
+      assertThat(boundary.pos()).isEqualTo(2);
+      assertThat(nonBoundary.matched()).isFalse();
+    }
   }
 
   @Nested
