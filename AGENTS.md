@@ -245,6 +245,14 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   behavior appears to require that shape, stop and treat it as a compatibility
   boundary: either find an engine-native linear formulation, or document an
   intentional divergence under the linear-time guarantee.
+- **`hitEnd()` / `requireEnd()` compatibility**: SafeRE does not try to exactly
+  match JDK output for `Matcher.hitEnd()` or `Matcher.requireEnd()`. These APIs
+  are rarely used, and exact JDK parity is nontrivial because SafeRE's
+  linear-time engines explore matches differently from the JDK backtracking
+  engine. This intentional limitation is documented in the Javadoc for those
+  methods. Exhaustive sweeps and crosschecks should not report JDK divergences
+  solely for `hitEnd()` or `requireEnd()` results unless the task is explicitly
+  about those APIs.
 - **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
   quantifiers. These features violate linear-time guarantees and must be
   rejected at parse time with a clear error.

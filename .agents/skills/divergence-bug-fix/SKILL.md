@@ -1,6 +1,6 @@
 ---
 name: divergence-bug-fix
-description: "Fix or classify SafeRE bugs where SafeRE behavior diverges from java.util.regex using the project bug-fixing discipline: JDK 26 Pattern/Matcher Javadoc assessment, test-driven diagnosis for behavior changes, principled class-level fixes instead of point patches, invariant-based verification, and regression/fuzz coverage where applicable. Use when a SafeRE bug involves any difference from the JDK in regex syntax parsing, parse-time acceptance or rejection, matching results, capture semantics, quantified captures, group boundaries, find() sequences, regions/bounds, hitEnd()/requireEnd(), matcher state transitions, replacement behavior, or crashes/errors from Parser, Pattern.compile, Pattern, or Matcher."
+description: "Fix or classify SafeRE bugs where SafeRE behavior diverges from java.util.regex using the project bug-fixing discipline: JDK 26 Pattern/Matcher Javadoc assessment, test-driven diagnosis for behavior changes, principled class-level fixes instead of point patches, invariant-based verification, and regression/fuzz coverage where applicable. Use when a SafeRE bug involves any difference from the JDK in regex syntax parsing, parse-time acceptance or rejection, matching results, capture semantics, quantified captures, group boundaries, find() sequences, regions/bounds, matcher state transitions, replacement behavior, or crashes/errors from Parser, Pattern.compile, Pattern, or Matcher. Do not treat hitEnd()/requireEnd() parity differences as bugs unless the user explicitly asks to work on those APIs."
 ---
 
 # SafeRE Divergence Bug Fix
@@ -18,6 +18,13 @@ compatibility policy:
 4. If the JDK's behavior does not match the specification, stop and explain the contradiction to
    the user. If the user confirms proceeding, note the divergence as intentional and match the JDK
    specification, subject to the linear-time guarantee.
+
+Project compatibility exception: SafeRE intentionally does not try to exactly match JDK output for
+`Matcher.hitEnd()` or `Matcher.requireEnd()`. The public Javadoc for those methods documents this
+best-effort behavior: the APIs are rarely used, and exact JDK parity is nontrivial because SafeRE's
+linear-time engines explore matches differently from the JDK backtracking engine. Do not classify a
+case as a bug, update exhaustive sweeps, or add crosscheck failures solely for `hitEnd()` or
+`requireEnd()` differences unless the user explicitly asks to work on those APIs.
 
 When a SafeRE behavior change is needed, the fix must be test-driven, include regression coverage,
 address the semantic class of the bug rather than the single reproducer, preserve SafeRE's
@@ -62,7 +69,7 @@ add or preserve tests, docs, or fuzz coverage when useful.
    - Cover representative variants for the bug class: accepted/rejected forms, inside and outside
      character classes, flags, nesting, separators, Unicode/code point boundaries, capture groups,
      nullable/quantified captures, repeated `find()` sequences, regions/bounds, replacement
-     templates, end-state flags, and JDK compatibility behavior when applicable.
+     templates, and JDK compatibility behavior when applicable.
    - Name tests for behavior, not issue numbers. Keep issue IDs only in comments or display-name
      suffixes if useful.
    - Encode the compatibility decision in the tests: intentional SafeRE divergence for linear-time
@@ -113,7 +120,7 @@ add or preserve tests, docs, or fuzz coverage when useful.
      `safere-fuzz/src/test/java/org/safere/fuzz/ParserStackSafetyFuzzer.java`
    - Captures, quantified captures, group boundaries:
      `safere-fuzz/src/test/java/org/safere/fuzz/MatchFuzzer.java` or a focused capture fuzzer.
-   - Stateful matcher APIs, repeated `find()`, regions/bounds, `hitEnd()`/`requireEnd()`:
+   - Stateful matcher APIs, repeated `find()`, and regions/bounds:
      `safere-fuzz/src/test/java/org/safere/fuzz/FindSequenceFuzzer.java` or
      `safere-fuzz/src/test/java/org/safere/fuzz/RegionBoundsFuzzer.java`.
    - Replacement templates and replacement state:

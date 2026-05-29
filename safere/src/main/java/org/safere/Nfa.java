@@ -7,11 +7,13 @@ package org.safere;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Pike VM NFA execution engine. Simulates all possible NFA threads in lockstep, tracking submatch
@@ -31,6 +33,9 @@ import java.util.Set;
  * </pre>
  */
 final class Nfa {
+  private static final Map<String, boolean[]> DEFAULT_WORD_BOUNDARY_BASE_BEFORE_CACHE =
+      Collections.synchronizedMap(new WeakHashMap<>());
+
   /** Anchor mode for matching. */
   enum Anchor {
     /** Match anywhere in the text. */
@@ -1058,9 +1063,13 @@ final class Nfa {
       }
     }
 
+    if (pos == regionStart || pos == boundaryEndPos) {
+      flags |= EmptyOp.REGION_BOUNDARY;
+    }
+
     // \b and \B
-    boolean prevWord = pos > regionStart && isWordChar(text.codePointBefore(pos));
-    boolean nextWord = pos < boundaryEndPos && isWordChar(text.codePointAt(pos));
+    boolean prevWord = pos > regionStart && isDefaultWordBoundaryBefore(text, pos);
+    boolean nextWord = pos < boundaryEndPos && isDefaultWordBoundaryAt(text, pos);
     if (prevWord != nextWord) {
       flags |= EmptyOp.WORD_BOUNDARY;
     } else {
@@ -1114,6 +1123,83 @@ final class Nfa {
   /** Returns true if the code point is a word character ({@code [A-Za-z0-9_]}). */
   static boolean isWordChar(int c) {
     return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || ('0' <= c && c <= '9') || c == '_';
+  }
+
+  static boolean isDefaultWordBoundaryBefore(String text, int pos) {
+    if (pos <= 0) {
+      return false;
+    }
+    int cp = text.codePointBefore(pos);
+    if (!isCombiningMark(cp)) {
+      return isWordChar(cp);
+    }
+    return hasDefaultWordBoundaryBaseBefore(text, pos);
+  }
+
+  static boolean isDefaultWordBoundaryAt(String text, int pos) {
+    if (pos >= text.length()) {
+      return false;
+    }
+    int cp = text.codePointAt(pos);
+    if (!isCombiningMark(cp)) {
+      return isWordChar(cp);
+    }
+    return hasDefaultWordBoundaryBaseBefore(text, pos);
+  }
+
+  static boolean isDefaultWordBoundaryChar(int cp, boolean previousAsciiAlnum) {
+    return isCombiningMark(cp) ? previousAsciiAlnum : isWordChar(cp);
+  }
+
+  static boolean carriesDefaultWordBoundaryBase(int cp, boolean previousAsciiAlnum) {
+    return isAsciiAlnum(cp) || (isCombiningMark(cp) && previousAsciiAlnum);
+  }
+
+  static boolean hasDefaultWordBoundaryBaseBefore(String text, int pos) {
+    if (pos <= 0) {
+      return false;
+    }
+    if (pos > text.length()) {
+      pos = text.length();
+    }
+    return defaultWordBoundaryBaseBefore(text)[pos];
+  }
+
+  static boolean hasDefaultWordBoundaryBaseAt(String text, int pos) {
+    if (pos >= text.length()) {
+      return false;
+    }
+    int cp = text.codePointAt(pos);
+    return isAsciiAlnum(cp) || (isCombiningMark(cp) && hasDefaultWordBoundaryBaseBefore(text, pos));
+  }
+
+  private static boolean[] defaultWordBoundaryBaseBefore(String text) {
+    boolean[] cached = DEFAULT_WORD_BOUNDARY_BASE_BEFORE_CACHE.get(text);
+    if (cached != null) {
+      return cached;
+    }
+    boolean[] baseBefore = new boolean[text.length() + 1];
+    boolean carriedBase = false;
+    for (int pos = 0; pos < text.length(); ) {
+      int cp = text.codePointAt(pos);
+      int next = pos + Character.charCount(cp);
+      carriedBase = carriesDefaultWordBoundaryBase(cp, carriedBase);
+      baseBefore[next] = carriedBase;
+      pos = next;
+    }
+    DEFAULT_WORD_BOUNDARY_BASE_BEFORE_CACHE.put(text, baseBefore);
+    return baseBefore;
+  }
+
+  private static boolean isAsciiAlnum(int c) {
+    return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || ('0' <= c && c <= '9');
+  }
+
+  private static boolean isCombiningMark(int c) {
+    int type = Character.getType(c);
+    return type == Character.NON_SPACING_MARK
+        || type == Character.COMBINING_SPACING_MARK
+        || type == Character.ENCLOSING_MARK;
   }
 
   /** Returns true if the code point is a Unicode word character (matching {@code \w} under UCC). */

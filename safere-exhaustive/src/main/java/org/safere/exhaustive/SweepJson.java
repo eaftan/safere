@@ -92,7 +92,7 @@ final class SweepJson {
     return value.getAsInt();
   }
 
-  private static JsonObject parseObjectOrNull(String line) {
+  static JsonObject parseObjectOrNull(String line) {
     JsonElement element;
     try {
       element = JsonParser.parseString(line);

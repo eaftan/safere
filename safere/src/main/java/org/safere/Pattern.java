@@ -108,6 +108,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
   private final transient boolean startsWithGraphemeClusterBoundary;
+  private final transient boolean startsWithRepeatedGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
@@ -221,6 +222,7 @@ public final class Pattern implements Serializable {
       boolean hasBoundedRepeat,
       boolean hasAnchorInQuant,
       boolean startsWithGraphemeClusterBoundary,
+      boolean startsWithRepeatedGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
       StartAcceleration startAcceleration,
@@ -250,6 +252,7 @@ public final class Pattern implements Serializable {
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
+    this.startsWithRepeatedGraphemeClusterBoundary = startsWithRepeatedGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
@@ -322,6 +325,7 @@ public final class Pattern implements Serializable {
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
+    boolean startsWithRepeatedGcb = startsWithRepeatedGraphemeClusterBoundary(re);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
@@ -348,6 +352,7 @@ public final class Pattern implements Serializable {
         hasBounded,
         hasAnchorQuant,
         startsWithGcb,
+        startsWithRepeatedGcb,
         hasInternalGcb,
         ccPrefixAscii,
         startAcceleration,
@@ -977,6 +982,10 @@ public final class Pattern implements Serializable {
     return startsWithGraphemeClusterBoundary;
   }
 
+  boolean startsWithRepeatedGraphemeClusterBoundary() {
+    return startsWithRepeatedGraphemeClusterBoundary;
+  }
+
   boolean hasInternalGraphemeClusterBoundary() {
     return hasInternalGraphemeClusterBoundary;
   }
@@ -1202,7 +1211,8 @@ public final class Pattern implements Serializable {
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY ->
+            GRAPHEME_CLUSTER_BOUNDARY,
+            REGION_BOUNDARY ->
             true;
         case STAR, QUEST -> true;
         case REPEAT -> re.min == 0 || (!childArgs.isEmpty() && childArgs.getFirst());
@@ -1254,8 +1264,295 @@ public final class Pattern implements Serializable {
   }
 
   private static boolean startsWithGraphemeClusterBoundary(Regexp re) {
-    Regexp first = firstMeaningfulNode(re);
-    return first != null && first.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY;
+    return new LeadingGraphemeBoundaryWalker()
+        .walk(re, LeadingGraphemeBoundaryContext.noMatch())
+        .startsWithExplicitBoundary();
+  }
+
+  private static boolean startsWithRepeatedGraphemeClusterBoundary(Regexp re) {
+    Deque<RepeatedGraphemeBoundaryFrame> stack = new ArrayDeque<>();
+    stack.push(new RepeatedGraphemeBoundaryFrame(re));
+    boolean childResult = false;
+    while (!stack.isEmpty()) {
+      RepeatedGraphemeBoundaryFrame frame = stack.peek();
+      if (frame.state == 0) {
+        Regexp node = unwrapBoundaryWrapper(frame.re);
+        frame.re = node;
+        if (node == null) {
+          childResult = false;
+          stack.pop();
+          continue;
+        }
+        switch (node.op) {
+          case CONCAT -> {
+            frame.state = 1;
+            frame.nextSub = 0;
+            frame.sawExplicitBoundary = false;
+          }
+          case ALTERNATE -> {
+            frame.state = 3;
+            frame.nextSub = 0;
+          }
+          case REPEAT -> {
+            childResult =
+                node.min >= 2
+                    && !hasAlternation(node.sub())
+                    && startsWithGraphemeClusterBoundary(node.sub());
+            stack.pop();
+          }
+          default -> {
+            childResult = false;
+            stack.pop();
+          }
+        }
+        continue;
+      }
+      if (frame.state == 1) {
+        boolean pushedChild = false;
+        while (frame.nextSub < frame.re.subs.size()) {
+          Regexp child = unwrapBoundaryWrapper(frame.re.subs.get(frame.nextSub++));
+          if (isIgnorableLeadingZeroWidthBeforeGraphemeBoundary(child)) {
+            continue;
+          }
+          frame.pendingChild = child;
+          frame.state = 2;
+          stack.push(new RepeatedGraphemeBoundaryFrame(child));
+          pushedChild = true;
+          break;
+        }
+        if (!pushedChild) {
+          childResult = false;
+          stack.pop();
+        }
+        continue;
+      }
+      if (frame.state == 2) {
+        if (childResult) {
+          stack.pop();
+          continue;
+        }
+        if (startsWithGraphemeClusterBoundary(frame.pendingChild)) {
+          if (frame.sawExplicitBoundary) {
+            childResult = true;
+            stack.pop();
+            continue;
+          }
+          frame.sawExplicitBoundary = true;
+          frame.state = 1;
+          continue;
+        }
+        childResult = false;
+        stack.pop();
+        continue;
+      }
+      if (frame.state == 3) {
+        if (frame.nextSub == frame.re.subs.size()) {
+          childResult = false;
+          stack.pop();
+          continue;
+        }
+        frame.state = 4;
+        stack.push(new RepeatedGraphemeBoundaryFrame(frame.re.subs.get(frame.nextSub++)));
+        continue;
+      }
+      if (childResult) {
+        stack.pop();
+      } else {
+        frame.state = 3;
+      }
+    }
+    return childResult;
+  }
+
+  private static final class RepeatedGraphemeBoundaryFrame {
+    private Regexp re;
+    private int state;
+    private int nextSub;
+    private boolean sawExplicitBoundary;
+    private Regexp pendingChild;
+
+    private RepeatedGraphemeBoundaryFrame(Regexp re) {
+      this.re = re;
+    }
+  }
+
+  private static boolean isIgnorableLeadingZeroWidthBeforeGraphemeBoundary(Regexp re) {
+    return switch (re.op) {
+      case EMPTY_MATCH,
+          BEGIN_LINE,
+          BEGIN_TEXT,
+          END_LINE,
+          END_TEXT,
+          WORD_BOUNDARY,
+          NO_WORD_BOUNDARY,
+          REGION_BOUNDARY,
+          HAVE_MATCH ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static Regexp unwrapBoundaryWrapper(Regexp re) {
+    Regexp node = re;
+    while (node != null
+        && (node.op == RegexpOp.NON_CAPTURE || node.op == RegexpOp.CAPTURE)
+        && node.nsub() == 1) {
+      node = node.sub();
+    }
+    return node;
+  }
+
+  private record LeadingGraphemeBoundaryContext(
+      boolean canMatchEmpty,
+      boolean canConsume,
+      boolean startsWithExplicitBoundary,
+      boolean canMatchUnconditionalEmpty,
+      boolean canMatchNonGraphemeEmpty) {
+    static LeadingGraphemeBoundaryContext noMatch() {
+      return new LeadingGraphemeBoundaryContext(false, false, false, false, false);
+    }
+
+    static LeadingGraphemeBoundaryContext empty() {
+      return new LeadingGraphemeBoundaryContext(true, false, false, false, false);
+    }
+
+    static LeadingGraphemeBoundaryContext nonGraphemeEmpty() {
+      return new LeadingGraphemeBoundaryContext(true, false, false, false, true);
+    }
+
+    static LeadingGraphemeBoundaryContext unconditionalEmpty() {
+      return new LeadingGraphemeBoundaryContext(true, false, false, true, true);
+    }
+
+    static LeadingGraphemeBoundaryContext consuming() {
+      return new LeadingGraphemeBoundaryContext(false, true, false, false, false);
+    }
+
+    static LeadingGraphemeBoundaryContext explicitBoundary() {
+      return new LeadingGraphemeBoundaryContext(true, false, true, false, false);
+    }
+  }
+
+  private static final class LeadingGraphemeBoundaryWalker
+      extends Walker<LeadingGraphemeBoundaryContext> {
+
+    @Override
+    protected LeadingGraphemeBoundaryContext shortVisit(
+        Regexp re, LeadingGraphemeBoundaryContext parentArg) {
+      return LeadingGraphemeBoundaryContext.noMatch();
+    }
+
+    @Override
+    protected LeadingGraphemeBoundaryContext copy(LeadingGraphemeBoundaryContext arg) {
+      return arg;
+    }
+
+    @Override
+    protected LeadingGraphemeBoundaryContext postVisit(
+        Regexp re,
+        LeadingGraphemeBoundaryContext parentArg,
+        LeadingGraphemeBoundaryContext preArg,
+        List<LeadingGraphemeBoundaryContext> childArgs) {
+      return switch (re.op) {
+        case NO_MATCH -> LeadingGraphemeBoundaryContext.noMatch();
+        case EMPTY_MATCH -> LeadingGraphemeBoundaryContext.unconditionalEmpty();
+        case BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            END_TEXT,
+            WORD_BOUNDARY,
+            REGION_BOUNDARY,
+            HAVE_MATCH ->
+            LeadingGraphemeBoundaryContext.empty();
+        case NO_WORD_BOUNDARY -> LeadingGraphemeBoundaryContext.nonGraphemeEmpty();
+        case LITERAL, LITERAL_STRING, ANY_CHAR, ANY_BYTE, CHAR_CLASS, GRAPHEME_CLUSTER ->
+            LeadingGraphemeBoundaryContext.consuming();
+        case GRAPHEME_CLUSTER_BOUNDARY ->
+            (re.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) == 0
+                ? LeadingGraphemeBoundaryContext.explicitBoundary()
+                : LeadingGraphemeBoundaryContext.empty();
+        case CONCAT -> concatLeadingBoundaryContext(childArgs);
+        case ALTERNATE -> alternateLeadingBoundaryContext(childArgs);
+        case STAR, QUEST -> optionalLeadingBoundaryContext(childArgs);
+        case PLUS, NON_CAPTURE, CAPTURE -> childLeadingBoundaryContext(childArgs);
+        case REPEAT -> repeatLeadingBoundaryContext(re, childArgs);
+      };
+    }
+
+    private static LeadingGraphemeBoundaryContext concatLeadingBoundaryContext(
+        List<LeadingGraphemeBoundaryContext> childArgs) {
+      boolean canMatchEmpty = true;
+      boolean canConsume = false;
+      boolean startsWithExplicitBoundary = false;
+      boolean canMatchUnconditionalEmpty = true;
+      boolean canMatchNonGraphemeEmpty = false;
+      boolean hasConsumingPrefix = false;
+      for (LeadingGraphemeBoundaryContext child : childArgs) {
+        canMatchEmpty &= child.canMatchEmpty();
+        canMatchUnconditionalEmpty &= child.canMatchUnconditionalEmpty();
+        canMatchNonGraphemeEmpty |= !hasConsumingPrefix && child.canMatchNonGraphemeEmpty();
+        if (!hasConsumingPrefix && child.startsWithExplicitBoundary()) {
+          startsWithExplicitBoundary = true;
+        }
+        hasConsumingPrefix |= child.canConsume();
+        canConsume |= child.canConsume();
+      }
+      return new LeadingGraphemeBoundaryContext(
+          canMatchEmpty,
+          canConsume,
+          startsWithExplicitBoundary,
+          canMatchUnconditionalEmpty,
+          canMatchNonGraphemeEmpty);
+    }
+
+    private static LeadingGraphemeBoundaryContext alternateLeadingBoundaryContext(
+        List<LeadingGraphemeBoundaryContext> childArgs) {
+      boolean canMatchEmpty = childArgs.isEmpty();
+      boolean canConsume = false;
+      boolean startsWithExplicitBoundary = false;
+      boolean canMatchUnconditionalEmpty = childArgs.isEmpty();
+      boolean canMatchNonGraphemeEmpty = childArgs.isEmpty();
+      for (LeadingGraphemeBoundaryContext child : childArgs) {
+        canMatchEmpty |= child.canMatchEmpty();
+        canConsume |= child.canConsume();
+        startsWithExplicitBoundary |= child.startsWithExplicitBoundary();
+        canMatchUnconditionalEmpty |= child.canMatchUnconditionalEmpty();
+        canMatchNonGraphemeEmpty |= child.canMatchNonGraphemeEmpty();
+      }
+      return new LeadingGraphemeBoundaryContext(
+          canMatchEmpty,
+          canConsume,
+          startsWithExplicitBoundary,
+          canMatchUnconditionalEmpty,
+          canMatchNonGraphemeEmpty);
+    }
+
+    private static LeadingGraphemeBoundaryContext optionalLeadingBoundaryContext(
+        List<LeadingGraphemeBoundaryContext> childArgs) {
+      LeadingGraphemeBoundaryContext child = childLeadingBoundaryContext(childArgs);
+      return new LeadingGraphemeBoundaryContext(true, child.canConsume(), false, true, true);
+    }
+
+    private static LeadingGraphemeBoundaryContext repeatLeadingBoundaryContext(
+        Regexp re, List<LeadingGraphemeBoundaryContext> childArgs) {
+      LeadingGraphemeBoundaryContext child = childLeadingBoundaryContext(childArgs);
+      boolean canMatchEmpty = re.min == 0 || child.canMatchEmpty();
+      boolean canConsume = re.max != 0 && child.canConsume();
+      boolean startsWithExplicitBoundary = re.min > 0 && child.startsWithExplicitBoundary();
+      boolean canMatchUnconditionalEmpty = re.min == 0 || child.canMatchUnconditionalEmpty();
+      boolean canMatchNonGraphemeEmpty = re.min == 0 || child.canMatchNonGraphemeEmpty();
+      return new LeadingGraphemeBoundaryContext(
+          canMatchEmpty,
+          canConsume,
+          startsWithExplicitBoundary,
+          canMatchUnconditionalEmpty,
+          canMatchNonGraphemeEmpty);
+    }
+
+    private static LeadingGraphemeBoundaryContext childLeadingBoundaryContext(
+        List<LeadingGraphemeBoundaryContext> childArgs) {
+      return childArgs.isEmpty() ? LeadingGraphemeBoundaryContext.noMatch() : childArgs.getFirst();
+    }
   }
 
   private static boolean hasInternalExplicitGraphemeBoundary(Regexp re) {
@@ -1314,6 +1611,7 @@ public final class Pattern implements Serializable {
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,
+            REGION_BOUNDARY,
             HAVE_MATCH ->
             GraphemeBoundaryContext.empty();
         case LITERAL, LITERAL_STRING, ANY_CHAR, ANY_BYTE, CHAR_CLASS, GRAPHEME_CLUSTER ->

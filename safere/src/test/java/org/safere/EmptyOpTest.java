@@ -26,6 +26,7 @@ class EmptyOpTest {
     assertThat(EmptyOp.UNICODE_NON_WORD_BOUNDARY).isEqualTo(256);
     assertThat(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY).isEqualTo(512);
     assertThat(EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY).isEqualTo(1024);
+    assertThat(EmptyOp.REGION_BOUNDARY).isEqualTo(2048);
   }
 
   @Test
@@ -41,9 +42,10 @@ class EmptyOpTest {
             | EmptyOp.UNICODE_WORD_BOUNDARY
             | EmptyOp.UNICODE_NON_WORD_BOUNDARY
             | EmptyOp.GRAPHEME_CLUSTER_BOUNDARY
-            | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+            | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY
+            | EmptyOp.REGION_BOUNDARY;
     assertThat(EmptyOp.ALL_FLAGS).isEqualTo(combined);
-    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(2047);
+    assertThat(EmptyOp.ALL_FLAGS).isEqualTo(4095);
   }
 
   @Test
@@ -60,7 +62,8 @@ class EmptyOpTest {
       EmptyOp.UNICODE_WORD_BOUNDARY,
       EmptyOp.UNICODE_NON_WORD_BOUNDARY,
       EmptyOp.GRAPHEME_CLUSTER_BOUNDARY,
-      EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY
+      EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY,
+      EmptyOp.REGION_BOUNDARY
     };
     for (int i = 0; i < flags.length; i++) {
       for (int j = i + 1; j < flags.length; j++) {

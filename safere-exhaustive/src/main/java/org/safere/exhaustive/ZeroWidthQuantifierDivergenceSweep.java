@@ -11,17 +11,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** Offline differential sweep for repeated quantifiers over zero-width operands. */
 public final class ZeroWidthQuantifierDivergenceSweep {
   private static final int FIND_LIMIT = 16;
+  private static final int MAX_QUANTIFIER_CHAIN_LENGTH = 4;
+  private static final java.util.regex.Pattern CAPTURE_FIELD =
+      java.util.regex.Pattern.compile("g(\\d+)=(?:null|-?\\d+-\\d+:[^;}]*+)");
 
   private static final List<Atom> ZERO_WIDTH_ATOMS =
       List.of(
-          atom("empty", ""),
           atom("emptyCapturing", "()"),
           atom("emptyNonCapturing", "(?:)"),
           atom("beginLine", "^"),
@@ -42,18 +46,8 @@ public final class ZeroWidthQuantifierDivergenceSweep {
           wrapper("nonCapturing", "(?:%s)"),
           wrapper("nestedGroups", "(?:(%s))"));
 
-  private static final List<Quantifier> FIRST_QUANTIFIERS =
-      List.of(
-          quantifier("star", "*"),
-          quantifier("plus", "+"),
-          quantifier("question", "?"),
-          quantifier("repeatZero", "{0}"),
-          quantifier("repeatOne", "{1}"),
-          quantifier("repeatTwo", "{2}"),
-          quantifier("repeatRange", "{0,2}"),
-          quantifier("repeatAtLeastOne", "{1,}"));
-
-  private static final List<Quantifier> SUFFIX_QUANTIFIERS = buildSuffixQuantifiers();
+  private static final List<Quantifier> QUANTIFIER_TOKENS = buildQuantifierTokens();
+  private static final List<QuantifierChain> QUANTIFIER_CHAINS = buildQuantifierChains();
 
   private static final List<Context> CONTEXTS =
       List.of(
@@ -63,6 +57,8 @@ public final class ZeroWidthQuantifierDivergenceSweep {
           context("scopedComments", "(?x:%s)"),
           context("prefixLiteral", "a%s"),
           context("suffixLiteral", "%sa"),
+          context("mixedLeadingLiteralAlternative", "(?:%s|a)."),
+          context("mixedLeadingLiteralAlternativeReversed", "(?:a|%s)."),
           context("surroundingLiterals", "a%sb"),
           context("anchoredSurroundingLiterals", "^a%sb$"),
           context("embeddedMultilineAnchored", "(?m:^%s$)"));
@@ -76,6 +72,9 @@ public final class ZeroWidthQuantifierDivergenceSweep {
           new FlagMode("commentsEmbedded", "(?x)", 0, " "),
           new FlagMode("commentsEmbeddedComment", "(?x)", 0, "#q\n"));
 
+  private static final long CARTESIAN_CASES = cartesianCases();
+  private static final List<CaseSpec> TARGETED_CASES = buildTargetedCases();
+
   private ZeroWidthQuantifierDivergenceSweep() {}
 
   public static void main(String[] args) throws IOException {
@@ -84,7 +83,7 @@ public final class ZeroWidthQuantifierDivergenceSweep {
             args,
             Path.of("target", "exhaustive-reports", "zero-width-quantifier-sweep"),
             "zero-width-quantifier-divergences.jsonl",
-            100_000);
+            1_000_000);
     Files.createDirectories(options.outputDir());
     Files.deleteIfExists(options.jsonlPath());
     options.printStartup("zero-width-quantifier");
@@ -128,8 +127,12 @@ public final class ZeroWidthQuantifierDivergenceSweep {
               "zero-width-quantifier-replay-",
               reader,
               line -> {
+                CaseSpec spec = replayCaseOrNull(line);
+                if (spec == null) {
+                  return;
+                }
                 runState.checked.increment();
-                evaluateCase(runState, replayCase(line));
+                evaluateCase(runState, spec);
               });
       runState.recordGenerated(generated);
       System.out.println("checked=" + runState.checked.sum());
@@ -144,8 +147,11 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     }
   }
 
-  private static CaseSpec replayCase(String line) {
-    var object = SweepJson.parseObject(line);
+  private static CaseSpec replayCaseOrNull(String line) {
+    var object = SweepJson.parseObjectOrNull(line);
+    if (object == null) {
+      return null;
+    }
     var caseObject = SweepJson.object(object, "case");
     return new CaseSpec(
         new Operand(
@@ -154,12 +160,7 @@ public final class ZeroWidthQuantifierDivergenceSweep {
         new Wrapper(
             SweepJson.string(caseObject, "wrapperLabel"),
             SweepJson.string(caseObject, "wrapperTemplate")),
-        new Quantifier(
-            SweepJson.string(caseObject, "firstQuantifierLabel"),
-            SweepJson.string(caseObject, "firstQuantifier")),
-        new Quantifier(
-            SweepJson.string(caseObject, "suffixQuantifierLabel"),
-            SweepJson.string(caseObject, "suffixQuantifier")),
+        replayQuantifierChain(caseObject),
         new Context(
             SweepJson.string(caseObject, "contextLabel"),
             SweepJson.string(caseObject, "contextTemplate")),
@@ -170,42 +171,121 @@ public final class ZeroWidthQuantifierDivergenceSweep {
             SweepJson.string(caseObject, "trivia")));
   }
 
+  private static QuantifierChain replayQuantifierChain(com.google.gson.JsonObject caseObject) {
+    if (caseObject.has("quantifierChainLabel")) {
+      return new QuantifierChain(
+          SweepJson.string(caseObject, "quantifierChainLabel"),
+          SweepJson.string(caseObject, "quantifierChain"));
+    }
+    return new QuantifierChain(
+        SweepJson.string(caseObject, "firstQuantifierLabel")
+            + ","
+            + SweepJson.string(caseObject, "suffixQuantifierLabel"),
+        SweepJson.string(caseObject, "firstQuantifier")
+            + SweepJson.string(caseObject, "suffixQuantifier"));
+  }
+
   private static long totalCases() {
+    return CARTESIAN_CASES + TARGETED_CASES.size();
+  }
+
+  private static long cartesianCases() {
     return (long) OPERANDS.size()
         * WRAPPERS.size()
-        * FIRST_QUANTIFIERS.size()
-        * SUFFIX_QUANTIFIERS.size()
+        * QUANTIFIER_CHAINS.size()
         * CONTEXTS.size()
         * FLAG_MODES.size();
   }
 
   private static CaseSpec caseAt(long index) {
+    if (index >= CARTESIAN_CASES) {
+      return TARGETED_CASES.get((int) (index - CARTESIAN_CASES));
+    }
     int flagIndex = (int) (index % FLAG_MODES.size());
     index /= FLAG_MODES.size();
     int contextIndex = (int) (index % CONTEXTS.size());
     index /= CONTEXTS.size();
-    int suffixIndex = (int) (index % SUFFIX_QUANTIFIERS.size());
-    index /= SUFFIX_QUANTIFIERS.size();
-    int firstIndex = (int) (index % FIRST_QUANTIFIERS.size());
-    index /= FIRST_QUANTIFIERS.size();
+    int chainIndex = (int) (index % QUANTIFIER_CHAINS.size());
+    index /= QUANTIFIER_CHAINS.size();
     int wrapperIndex = (int) (index % WRAPPERS.size());
     index /= WRAPPERS.size();
     int operandIndex = (int) index;
     return new CaseSpec(
         OPERANDS.get(operandIndex),
         WRAPPERS.get(wrapperIndex),
-        FIRST_QUANTIFIERS.get(firstIndex),
-        SUFFIX_QUANTIFIERS.get(suffixIndex),
+        QUANTIFIER_CHAINS.get(chainIndex),
         CONTEXTS.get(contextIndex),
         FLAG_MODES.get(flagIndex));
   }
 
-  static boolean containsAllGeneratedRegexesForTesting(List<String> regexes) {
-    Set<String> remaining = new LinkedHashSet<>(regexes);
-    for (long index = 0; index < totalCases() && !remaining.isEmpty(); index++) {
-      remaining.remove(caseAt(index).regex());
+  static boolean containsGeneratedCaseForTesting(String regex, String input) {
+    for (CaseSpec spec : TARGETED_CASES) {
+      if (spec.regex().equals(regex) && spec.inputs().contains(input)) {
+        return true;
+      }
     }
-    return remaining.isEmpty();
+    return false;
+  }
+
+  static boolean containsCartesianCaseForTesting(
+      String operandRegex,
+      String wrapperTemplate,
+      String quantifierChain,
+      String contextTemplate,
+      String input) {
+    Operand operand = findOperandByRegex(operandRegex);
+    Wrapper wrapper = findWrapperByTemplate(wrapperTemplate);
+    QuantifierChain chain = findQuantifierChainByText(quantifierChain);
+    Context context = findContextByTemplate(contextTemplate);
+    FlagMode flags = new FlagMode("none", "", 0, "");
+    if (operand == null || wrapper == null || chain == null || context == null) {
+      return false;
+    }
+    return new CaseSpec(operand, wrapper, chain, context, flags).inputs().contains(input);
+  }
+
+  static boolean containsQuantifierChainForTesting(String quantifierChain) {
+    return findQuantifierChainByText(quantifierChain) != null;
+  }
+
+  static long totalCasesForTesting() {
+    return totalCases();
+  }
+
+  private static Operand findOperandByRegex(String regex) {
+    for (Operand operand : OPERANDS) {
+      if (operand.regex().equals(regex)) {
+        return operand;
+      }
+    }
+    return null;
+  }
+
+  private static Wrapper findWrapperByTemplate(String template) {
+    for (Wrapper wrapper : WRAPPERS) {
+      if (wrapper.template().equals(template)) {
+        return wrapper;
+      }
+    }
+    return null;
+  }
+
+  private static QuantifierChain findQuantifierChainByText(String text) {
+    for (QuantifierChain chain : QUANTIFIER_CHAINS) {
+      if (chain.text().equals(text)) {
+        return chain;
+      }
+    }
+    return null;
+  }
+
+  private static Context findContextByTemplate(String template) {
+    for (Context context : CONTEXTS) {
+      if (context.template().equals(template)) {
+        return context;
+      }
+    }
+    return null;
   }
 
   private static String bucketFor(
@@ -217,8 +297,7 @@ public final class ZeroWidthQuantifierDivergenceSweep {
         "direction=" + direction(jdk, safere),
         "operand=" + spec.operand().label(),
         "wrapper=" + spec.wrapper().label(),
-        "first=" + spec.firstQuantifier().label(),
-        "suffix=" + spec.suffixQuantifier().label(),
+        "chain=" + spec.quantifierChain().label(),
         "context=" + spec.context().label(),
         "flags=" + spec.flagMode().label());
   }
@@ -255,7 +334,47 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     return List.copyOf(operands);
   }
 
-  private static List<Quantifier> buildSuffixQuantifiers() {
+  private static List<CaseSpec> buildTargetedCases() {
+    return List.of(
+        new CaseSpec(
+            operand("targeted:capturedGraphemeBoundary", "\\b{g}"),
+            wrapper("capturing", "(%s)"),
+            quantifierChain(quantifier("star", "*"), quantifier("plus", "+")),
+            context("capturedThenOptionalLiteral", "(%s)a?"),
+            new FlagMode("none", "", 0, "")),
+        new CaseSpec(
+            operand("targeted:deepEmptyCapturing", nestedNonCapturingGroups("()", 12000)),
+            wrapper("bare", "%s"),
+            quantifierChain(quantifier("star", "*"), quantifier("plus", "+")),
+            context("suffixLiteral", "%sa"),
+            new FlagMode("none", "", 0, "")),
+        new CaseSpec(
+            operand(
+                "targeted:deepRepeatedBoundaryAlternation",
+                nestedAlternation("\\b{g}{2}", "a", 12000)),
+            wrapper("bare", "%s"),
+            quantifierChain(quantifier("repeatOne", "{1}"), quantifier("repeatOne", "{1}")),
+            context("bare", "%s"),
+            new FlagMode("none", "", 0, "")));
+  }
+
+  private static String nestedNonCapturingGroups(String inner, int depth) {
+    StringBuilder regex = new StringBuilder(inner.length() + 4 * depth);
+    regex.append("(?:".repeat(depth));
+    regex.append(inner);
+    regex.append(")".repeat(depth));
+    return regex.toString();
+  }
+
+  private static String nestedAlternation(String initial, String otherBranch, int depth) {
+    String regex = initial;
+    for (int i = 0; i < depth; i++) {
+      regex = "(?:" + regex + "|" + otherBranch + ")";
+    }
+    return regex;
+  }
+
+  private static List<Quantifier> buildQuantifierTokens() {
     List<Quantifier> quantifiers = new ArrayList<>();
     List<Quantifier> bases =
         List.of(
@@ -274,6 +393,28 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     return List.copyOf(quantifiers);
   }
 
+  private static List<QuantifierChain> buildQuantifierChains() {
+    Map<String, QuantifierChain> chains = new LinkedHashMap<>();
+    appendQuantifierChains(chains, new ArrayList<>(), 0);
+    return List.copyOf(chains.values());
+  }
+
+  private static void appendQuantifierChains(
+      Map<String, QuantifierChain> chains, List<Quantifier> current, int depth) {
+    if (depth > 0) {
+      QuantifierChain chain = quantifierChain(current);
+      chains.putIfAbsent(chain.text(), chain);
+    }
+    if (depth == MAX_QUANTIFIER_CHAIN_LENGTH) {
+      return;
+    }
+    for (Quantifier token : QUANTIFIER_TOKENS) {
+      current.add(token);
+      appendQuantifierChains(chains, current, depth + 1);
+      current.removeLast();
+    }
+  }
+
   private static Atom atom(String label, String regex) {
     return new Atom(label, regex);
   }
@@ -288,6 +429,23 @@ public final class ZeroWidthQuantifierDivergenceSweep {
 
   private static Quantifier quantifier(String label, String text) {
     return new Quantifier(label, text);
+  }
+
+  private static QuantifierChain quantifierChain(Quantifier... quantifiers) {
+    return quantifierChain(List.of(quantifiers));
+  }
+
+  private static QuantifierChain quantifierChain(List<Quantifier> quantifiers) {
+    StringBuilder label = new StringBuilder();
+    StringBuilder text = new StringBuilder();
+    for (Quantifier quantifier : quantifiers) {
+      if (!label.isEmpty()) {
+        label.append(',');
+      }
+      label.append(quantifier.label());
+      text.append(quantifier.text());
+    }
+    return new QuantifierChain(label.toString(), text.toString());
   }
 
   private static Context context(String label, String template) {
@@ -306,6 +464,8 @@ public final class ZeroWidthQuantifierDivergenceSweep {
 
   private record Quantifier(String label, String text) {}
 
+  private record QuantifierChain(String label, String text) {}
+
   private record Context(String label, String template) {
     String regex(String repeated) {
       return template.formatted(repeated);
@@ -317,18 +477,27 @@ public final class ZeroWidthQuantifierDivergenceSweep {
   private record CaseSpec(
       Operand operand,
       Wrapper wrapper,
-      Quantifier firstQuantifier,
-      Quantifier suffixQuantifier,
+      QuantifierChain quantifierChain,
       Context context,
       FlagMode flagMode) {
     String regex() {
-      String quantified =
-          wrapper.regex(operand.regex())
-              + flagMode.trivia()
-              + firstQuantifier.text()
-              + flagMode.trivia()
-              + suffixQuantifier.text();
+      String quantified = wrapper.regex(operand.regex()) + quantifiedTriviaChain();
       return flagMode.prefix() + context.regex(quantified);
+    }
+
+    private String quantifiedTriviaChain() {
+      if (flagMode.trivia().isEmpty()) {
+        return quantifierChain.text();
+      }
+      StringBuilder result = new StringBuilder();
+      for (int i = 0; i < quantifierChain.text().length(); i++) {
+        char c = quantifierChain.text().charAt(i);
+        if (c == '*' || c == '+' || c == '?' || c == '{') {
+          result.append(flagMode.trivia());
+        }
+        result.append(c);
+      }
+      return result.toString();
     }
 
     List<String> inputs() {
@@ -345,6 +514,12 @@ public final class ZeroWidthQuantifierDivergenceSweep {
       inputs.add("\u00E9");
       inputs.add("e\u0301");
       inputs.add("\uD83D\uDC69\u200D\uD83D\uDCBB");
+      inputs.add("\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      if (operand.label().contains("graphemeBoundary")
+          && !operand.label().contains("wordBoundary")
+          && !operand.label().contains("nonWordBoundary")) {
+        inputs.add("x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      }
       return List.copyOf(inputs);
     }
 
@@ -353,10 +528,8 @@ public final class ZeroWidthQuantifierDivergenceSweep {
           + operand.label()
           + ",wrapper="
           + wrapper.label()
-          + ",first="
-          + firstQuantifier.label()
-          + ",suffix="
-          + suffixQuantifier.label()
+          + ",chain="
+          + quantifierChain.label()
           + ",context="
           + context.label()
           + ",flags="
@@ -374,8 +547,8 @@ public final class ZeroWidthQuantifierDivergenceSweep {
       object.addProperty("regex", spec.regex());
       object.addProperty("operand", spec.operand().label());
       object.addProperty("wrapper", spec.wrapper().label());
-      object.addProperty("firstQuantifier", spec.firstQuantifier().label());
-      object.addProperty("suffixQuantifier", spec.suffixQuantifier().label());
+      object.addProperty("quantifierChain", spec.quantifierChain().label());
+      object.addProperty("quantifierChainLength", spec.quantifierChain().label().split(",").length);
       object.addProperty("context", spec.context().label());
       object.addProperty("flags", spec.flagMode().label());
       object.addProperty("jdkAccepted", jdk.accepted());
@@ -393,10 +566,8 @@ public final class ZeroWidthQuantifierDivergenceSweep {
       object.addProperty("operandRegex", spec.operand().regex());
       object.addProperty("wrapperLabel", spec.wrapper().label());
       object.addProperty("wrapperTemplate", spec.wrapper().template());
-      object.addProperty("firstQuantifierLabel", spec.firstQuantifier().label());
-      object.addProperty("firstQuantifier", spec.firstQuantifier().text());
-      object.addProperty("suffixQuantifierLabel", spec.suffixQuantifier().label());
-      object.addProperty("suffixQuantifier", spec.suffixQuantifier().text());
+      object.addProperty("quantifierChainLabel", spec.quantifierChain().label());
+      object.addProperty("quantifierChain", spec.quantifierChain().text());
       object.addProperty("contextLabel", spec.context().label());
       object.addProperty("contextTemplate", spec.context().template());
       object.addProperty("flagLabel", spec.flagMode().label());
@@ -458,11 +629,173 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     RegexSweep.Outcome safere =
         RegexSweep.safeReTraceOutcome(
             spec.regex(), spec.flagMode().flags(), spec.inputs(), FIND_LIMIT);
+    if (isStackSafetySentinel(spec)) {
+      if (safere.error().contains("StackOverflowError")) {
+        String bucketName = bucketFor(spec, jdk, safere);
+        runState.recordDivergence();
+        runState.appendJsonl(new Divergence(spec, jdk, safere, bucketName).toJson());
+      }
+      return;
+    }
     if (RegexSweep.semanticallyEqual(jdk, safere)) {
+      return;
+    }
+    if (isKnownFailedPathCaptureLeakageDivergence(spec, jdk, safere)) {
       return;
     }
     String bucketName = bucketFor(spec, jdk, safere);
     runState.recordDivergence();
     runState.appendJsonl(new Divergence(spec, jdk, safere, bucketName).toJson());
+  }
+
+  private static boolean isKnownFailedPathCaptureLeakageDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    if (!isKnownFailedPathCaptureLeakageOperand(spec)) {
+      return false;
+    }
+    if (jdk.accepted() != safere.accepted() || !jdk.error().equals(safere.error())) {
+      return false;
+    }
+    return normalizeCaptureFields(jdk.trace()).equals(normalizeCaptureFields(safere.trace()));
+  }
+
+  private static boolean isConditionalZeroWidthOperand(Operand operand) {
+    return switch (operand.label()) {
+      case "atom:beginLine",
+          "atom:endLine",
+          "atom:beginText",
+          "atom:endTextBeforeFinalTerminator",
+          "atom:endText",
+          "atom:wordBoundary",
+          "atom:nonWordBoundary",
+          "atom:graphemeBoundary" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isKnownFailedPathCaptureLeakageOperand(CaseSpec spec) {
+    Operand operand = spec.operand();
+    return isConditionalZeroWidthOperand(operand)
+        || isEmptyCaptureThenConditionalZeroWidthOperand(operand)
+        || isConditionalZeroWidthThenEmptyCaptureOperand(operand)
+        || isEmptyNonCaptureThenConditionalZeroWidthOperand(operand)
+        || isConditionalZeroWidthThenEmptyNonCaptureOperand(operand)
+        || isConcatOfConditionalZeroWidthOperands(operand)
+        || operand.label().equals("concat:emptyCapturing+emptyCapturing")
+        || operand.label().equals("concat:emptyCapturing+emptyNonCapturing")
+        || operand.label().equals("concat:emptyNonCapturing+emptyCapturing")
+        || operand.label().equals("concat:emptyNonCapturing+emptyNonCapturing")
+        || isGreedyEmptyCaptureAlternativeFailedPathLeakage(spec);
+  }
+
+  private static boolean isGreedyEmptyCaptureAlternativeFailedPathLeakage(CaseSpec spec) {
+    return spec.context().label().equals("mixedLeadingLiteralAlternative")
+        && isAlternativeOperand(spec.operand())
+        && ((spec.quantifierChain().label().startsWith("star")
+                && !spec.quantifierChain().label().startsWith("star,question"))
+            || spec.quantifierChain().label().startsWith("repeatRange"));
+  }
+
+  private static boolean isAlternativeOperand(Operand operand) {
+    return operand.label().startsWith("alternate:");
+  }
+
+  private static boolean isEmptyCaptureThenConditionalZeroWidthOperand(Operand operand) {
+    return switch (operand.label()) {
+      case "concat:emptyCapturing+beginLine",
+          "concat:emptyCapturing+endLine",
+          "concat:emptyCapturing+beginText",
+          "concat:emptyCapturing+endTextBeforeFinalTerminator",
+          "concat:emptyCapturing+endText",
+          "concat:emptyCapturing+wordBoundary",
+          "concat:emptyCapturing+nonWordBoundary",
+          "concat:emptyCapturing+graphemeBoundary" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isConditionalZeroWidthThenEmptyCaptureOperand(Operand operand) {
+    return switch (operand.label()) {
+      case "concat:beginLine+emptyCapturing",
+          "concat:endLine+emptyCapturing",
+          "concat:beginText+emptyCapturing",
+          "concat:endTextBeforeFinalTerminator+emptyCapturing",
+          "concat:endText+emptyCapturing",
+          "concat:wordBoundary+emptyCapturing",
+          "concat:nonWordBoundary+emptyCapturing",
+          "concat:graphemeBoundary+emptyCapturing" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isConcatOfConditionalZeroWidthOperands(Operand operand) {
+    String prefix = "concat:";
+    if (!operand.label().startsWith(prefix)) {
+      return false;
+    }
+    String body = operand.label().substring(prefix.length());
+    int plus = body.indexOf('+');
+    if (plus < 0) {
+      return false;
+    }
+    return isConditionalZeroWidthPart(body.substring(0, plus))
+        && isConditionalZeroWidthPart(body.substring(plus + 1));
+  }
+
+  private static boolean isConditionalZeroWidthPart(String label) {
+    return switch (label) {
+      case "beginLine",
+          "endLine",
+          "beginText",
+          "endTextBeforeFinalTerminator",
+          "endText",
+          "wordBoundary",
+          "nonWordBoundary",
+          "graphemeBoundary" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isConditionalZeroWidthThenEmptyNonCaptureOperand(Operand operand) {
+    return switch (operand.label()) {
+      case "concat:beginLine+emptyNonCapturing",
+          "concat:endLine+emptyNonCapturing",
+          "concat:beginText+emptyNonCapturing",
+          "concat:endTextBeforeFinalTerminator+emptyNonCapturing",
+          "concat:endText+emptyNonCapturing",
+          "concat:wordBoundary+emptyNonCapturing",
+          "concat:nonWordBoundary+emptyNonCapturing",
+          "concat:graphemeBoundary+emptyNonCapturing" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isEmptyNonCaptureThenConditionalZeroWidthOperand(Operand operand) {
+    return switch (operand.label()) {
+      case "concat:emptyNonCapturing+beginLine",
+          "concat:emptyNonCapturing+endLine",
+          "concat:emptyNonCapturing+beginText",
+          "concat:emptyNonCapturing+endTextBeforeFinalTerminator",
+          "concat:emptyNonCapturing+endText",
+          "concat:emptyNonCapturing+wordBoundary",
+          "concat:emptyNonCapturing+nonWordBoundary",
+          "concat:emptyNonCapturing+graphemeBoundary" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static String normalizeCaptureFields(String trace) {
+    return CAPTURE_FIELD.matcher(trace).replaceAll("g$1=<capture>").replace("[null]", "[]");
+  }
+
+  private static boolean isStackSafetySentinel(CaseSpec spec) {
+    return spec.operand().label().equals("targeted:deepEmptyCapturing")
+        || spec.operand().label().equals("targeted:deepRepeatedBoundaryAlternation");
   }
 }

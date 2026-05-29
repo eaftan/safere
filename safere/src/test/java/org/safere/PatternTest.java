@@ -96,6 +96,19 @@ class PatternTest {
 
       assertThatCode(() -> Pattern.compile(regex.toString())).doesNotThrowAnyException();
     }
+
+    @Test
+    @DisabledForCrosscheck("JDK stack overflows on this SafeRE stack-safety stress case")
+    void deeplyNestedRepeatedBoundaryAlternationMetadataRemainsStackSafe() {
+      int depth = 20_000;
+      String regex = "\\b{g}{2}";
+      for (int i = 0; i < depth; i++) {
+        regex = "(?:" + regex + "|a)";
+      }
+      String nestedRegex = regex;
+
+      assertThatCode(() -> Pattern.compile(nestedRegex)).doesNotThrowAnyException();
+    }
   }
 
   @Nested

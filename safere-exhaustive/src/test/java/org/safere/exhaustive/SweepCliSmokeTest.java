@@ -80,19 +80,107 @@ class SweepCliSmokeTest {
 
   @Test
   void zeroWidthQuantifierSweepIncludesRepeatedQuantifierRegressions() {
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("*+")).isTrue();
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("?+")).isTrue();
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("{2}+"))
+        .isTrue();
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("*??"))
+        .isTrue();
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("*{1}+"))
+        .isTrue();
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("*{0}+"))
+        .isTrue();
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("{0,2}++"))
+        .isTrue();
     assertThat(
-            ZeroWidthQuantifierDivergenceSweep.containsAllGeneratedRegexesForTesting(
-                java.util.List.of(
-                    "^*+",
-                    "^?+",
-                    "^{2}+",
-                    "$*+",
-                    "()*+",
-                    "(?:^|$)*+",
-                    "(?x)^ * +",
-                    "^*??",
-                    "^*{1}+",
-                    "\\b{g}{0,2}++")))
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "()", "%s", "*{0}+", "%sa", "ba"))
+        .isTrue();
+  }
+
+  @Test
+  void zeroWidthQuantifierSweepIncludesMixedLeadingGraphemeBoundaryFindCases() {
+    String trailingZwjGrapheme = "\uD83D\uDC69\u200D\uD83D\uDCBBx";
+    String precededZwjGrapheme = "x\uD83D\uDC69\u200D\uD83D\uDCBBx";
+
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "\\b{g}", "%s", "{1}{1}", "(?:%s|a).", trailingZwjGrapheme))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "\\b{g}", "%s", "{1}{1}", "(?:a|%s).", trailingZwjGrapheme))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "\\b{g}", "%s", "++", "(?:%s|a).", precededZwjGrapheme))
+        .isTrue();
+  }
+
+  @Test
+  void regexSweepTraceIncludesCapturesForZeroWidthPossessiveStar() {
+    RegexSweep.Outcome outcome = RegexSweep.jdkTraceOutcome("()*+", 0, java.util.List.of(""), 1);
+
+    assertThat(outcome.accepted()).isTrue();
+    assertThat(outcome.trace()).contains(":matches=true@0-0{groups=1;g1=0-0:");
+  }
+
+  @Test
+  void zeroWidthQuantifierSweepIncludesPossessiveCaptureAlternationCases() {
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "()", "%s", "*+", "(?:%s|a).", "ab"))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "^", "(%s)", "*+", "%sa", "ba"))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsCartesianCaseForTesting(
+                "()", "%s", "{0}+", "%sa", "ba"))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.containsGeneratedCaseForTesting(
+                "((\\b{g})*+)a?", "a"))
+        .isTrue();
+
+    RegexSweep.Outcome outcome =
+        RegexSweep.jdkTraceOutcome("(?:()*+|a).", 0, java.util.List.of("ab"), 1);
+    RegexSweep.Outcome capturedAnchor =
+        RegexSweep.jdkTraceOutcome("(^)*+a", 0, java.util.List.of("ba"), 1);
+    RegexSweep.Outcome zeroCount =
+        RegexSweep.jdkTraceOutcome("(){0}+a", 0, java.util.List.of("ba"), 1);
+    RegexSweep.Outcome repeatedFindZeroLength =
+        RegexSweep.jdkTraceOutcome("((\\b{g})*+)a?", 0, java.util.List.of("a"), 2);
+
+    assertThat(outcome.accepted()).isTrue();
+    assertThat(outcome.trace()).contains("ab:matches=true@0-2{groups=1;g1=0-0:");
+    assertThat(capturedAnchor.accepted()).isTrue();
+    assertThat(capturedAnchor.trace()).contains("ba:find0=true@1-2{groups=1;g1=0-0:");
+    assertThat(zeroCount.accepted()).isTrue();
+    assertThat(zeroCount.trace()).contains("ba:find0=true@1-2{groups=1;g1=null}");
+    assertThat(repeatedFindZeroLength.accepted()).isTrue();
+    assertThat(repeatedFindZeroLength.trace())
+        .contains("a:find1=true@1-1{groups=2;g1=1-1:;g2=1-1:");
+  }
+
+  @Test
+  void zeroWidthQuantifierSweepIncludesDeepPossessiveCaptureStackSentinel() {
+    String regex = "(?:".repeat(12000) + "()" + ")".repeat(12000) + "*+a";
+
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsGeneratedCaseForTesting(regex, "ba"))
+        .isTrue();
+  }
+
+  @Test
+  void zeroWidthQuantifierSweepIncludesDeepRepeatedBoundaryMetadataStackSentinel() {
+    String regex = "\\b{g}{2}";
+    for (int i = 0; i < 12000; i++) {
+      regex = "(?:" + regex + "|a)";
+    }
+    regex = regex + "{1}{1}";
+
+    assertThat(ZeroWidthQuantifierDivergenceSweep.containsGeneratedCaseForTesting(regex, "a"))
         .isTrue();
   }
 

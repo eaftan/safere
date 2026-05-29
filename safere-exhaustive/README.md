@@ -223,16 +223,27 @@ For a smaller ad hoc local check, run a generated-case index range:
 ```
 
 The zero-width quantifier sweep compares SafeRE with `java.util.regex` for
-already-quantified zero-width operands followed by another quantifier suffix.
-It is exhaustive over the committed bounded grammar: 253 zero-width operands
-(single atoms plus all ordered two-atom concatenations and alternations), 4
-wrappers, 8 first quantifiers, 21 suffix quantifier spellings, 9 contexts, and 6
-flag/trivia modes, for 9,180,864 generated cases.
+zero-width operands followed by bounded quantifier chains.
+It is exhaustive over the committed bounded grammar: zero-width operands (single
+atoms plus ordered two-atom concatenations and alternations), wrappers, first
+quantifier-chain spellings, contexts, and flag/trivia modes. The chain grammar
+includes greedy, reluctant, possessive, and counted quantifier spellings up to
+the configured maximum chain length, then deduplicates identical concrete regex
+strings. It also includes targeted sentinel cases for stack-safety and capture
+semantics that are too deep or too specific for the Cartesian grammar.
 
-Each case compares compile acceptance plus `matches()`, `lookingAt()`, and a
-bounded `find()` trace over short inputs that exercise empty text, literals,
-line endings, word boundaries, and grapheme-boundary-sensitive strings. The
-JSONL bucket labels include operand, wrapper, first quantifier, suffix
-quantifier, context, and flag mode so repeated-quantifier parser neighborhoods
-are visible in reports. Range bounds and replay files use the same conventions
-as the other exhaustive sweeps.
+Each case compares compile acceptance plus public matcher behavior:
+`matches()`, `lookingAt()`, bounded repeated `find()`, capture group
+start/end/text, and replacement APIs for each group. It intentionally does not
+compare `hitEnd()` or `requireEnd()` because SafeRE documents those APIs as
+best-effort rather than exact JDK-compatible state. It also suppresses the
+known failed-path capture leakage divergence documented by issue #52: JDK can
+preserve a capture from a failed backtracking path, while SafeRE intentionally
+does not preserve captures across failed NFA start/path attempts. Inputs
+exercise empty text, literals, line endings, word boundaries, and
+grapheme-boundary-sensitive strings, including a ZWJ grapheme followed by a
+literal to exercise repeated `find()` after mixed leading alternatives. The
+JSONL bucket labels include operand, wrapper, quantifier chain, context, and
+flag mode so repeated-quantifier parser neighborhoods are visible in reports.
+Range bounds and replay files use the same conventions as the other exhaustive
+sweeps.

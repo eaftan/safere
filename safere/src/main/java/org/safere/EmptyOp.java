@@ -51,8 +51,11 @@ final class EmptyOp {
   /** Explicit {@code \b{g}} boundary, including JDK consumed-prefix compatibility. */
   public static final int EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY = 1 << 10;
 
+  /** Internal assertion for the start or end of the active matching region. */
+  public static final int REGION_BOUNDARY = 1 << 11;
+
   /** All flags combined. */
-  public static final int ALL_FLAGS = (1 << 11) - 1;
+  public static final int ALL_FLAGS = (1 << 12) - 1;
 
   private EmptyOp() {} // Non-instantiable.
 }

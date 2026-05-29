@@ -8,7 +8,9 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
@@ -394,6 +396,56 @@ class BoundaryMatcherTest {
     }
 
     @Test
+    @DisplayName("required repetitions of \\b{g} keep JDK repeated-find positions")
+    void repeatedBoundaryStartKeepsRepeatedFindPositions() {
+      assertFindSameAsJdk("\\b{g}++a", "aa");
+      assertFindSameAsJdk("(?:\\b{g})+a", "aa");
+      assertFindSameAsJdk("(?:(\\b{g}))++a", "aa");
+      assertFindSameAsJdk("()\\b{g}++a", "aa");
+      assertFindSameAsJdk("(()\\b{g}){1}+a", "aa");
+      assertFindSameAsJdk("\\b{g}*+a", "aa");
+      assertFindSameAsJdk("\\B\\b{g}*+a", "aa");
+      assertFindSameAsJdk("\\b{g}\\B*+a", "aa");
+      assertFindSameAsJdk("(?:^|\\b{g})++a", "aa");
+      assertFindSameAsJdk("(?:()|\\b{g})++a", "aa");
+      assertFindSameAsJdk("(?:\\b{g}|^){2}a", "ba");
+      assertFindSameAsJdk("(?:\\b{g}|^){2}?a", "ba");
+      assertFindSameAsJdk("(?:\\b{g}|^){2}+a", "ba");
+      assertFindSameAsJdk("(?:\\b{g}|^){2}{0}+a", "aa");
+      assertFindSameAsJdk("(?:\\b{g}|\\b){2}+a", "\na");
+      assertFindSameAsJdk("(?:\\b{g}|\\B)++a", "aa");
+      assertFindSameAsJdk("(?:\\b{g}|$){2}+", "a\n");
+      assertFindSameAsJdk("(?:()|\\b{g}){2}+a", "aa");
+      assertFindSameAsJdk("\\b{g}++", "ab");
+      assertFindSameAsJdk("\\b{g}*+", "ab");
+      assertFindSameAsJdk("\\b{g}{0}+", "ab");
+      assertFindSameAsJdk("\\b{g}{1}+", "ab");
+      assertFindSameAsJdk("\\b{g}{2}+", "ab");
+      assertFindSameAsJdk("(?:\\b{g}){2}", "ab");
+      assertFindSameAsJdk("a\\b{g}{2}+b", "ab");
+      assertTraceSameAsJdk("\\b{g}{2}", "xabz", 1, 3);
+    }
+
+    @Test
+    @DisplayName("mixed leading alternatives suppress only repeated grapheme-boundary starts")
+    void mixedLeadingAlternativesSuppressOnlyRepeatedGraphemeBoundaryStarts() {
+      assertFindSameAsJdk("(?:\\b{g}|a).", "ab");
+      assertFindSameAsJdk("(?:a|\\b{g}).", "axb");
+      assertFindSameAsJdk("(?:\\b{g}|a).", "xab");
+      assertFindSameAsJdk("(?:\\b{g}|a).", "a\u0301x");
+      assertFindSameAsJdk("(?:\\b{g}|a).", "\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:a|\\b{g}).", "a\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:\\b{g}|a).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:a|\\b{g}).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:\\b{g}++|a).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:a|\\b{g}++).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:\\b{g}{1}+|a).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:a|\\b{g}{1}+).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:\\b{g}\\b{g}*+|a).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+      assertFindSameAsJdk("(?:a|\\b{g}\\b{g}*+).", "x\uD83D\uDC69\u200D\uD83D\uDCBBx");
+    }
+
+    @Test
     @DisplayName("\\b{g} does not split CRLF")
     void doesNotSplitCrLf() {
       assertFindSameAsJdk("\\r\\b{g}\\n", "\r\n");
@@ -609,6 +661,25 @@ class BoundaryMatcherTest {
   @DisplayName("existing boundary matchers")
   class ExistingBoundaryMatchers {
 
+    private void assertFindSameAsJdk(String regex, String input) {
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(regex).matcher(input);
+      Matcher safeMatcher = Pattern.compile(regex).matcher(input);
+
+      List<int[]> jdkMatches = new ArrayList<>();
+      while (jdkMatcher.find()) {
+        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
+      }
+
+      List<int[]> safeMatches = new ArrayList<>();
+      while (safeMatcher.find()) {
+        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
+      }
+
+      assertThat(safeMatches)
+          .as("find() positions for /%s/ on %s", regex, input)
+          .containsExactly(jdkMatches.toArray(int[][]::new));
+    }
+
     @Test
     @DisplayName("\\A matches only at start of text")
     void beginText() {
@@ -640,6 +711,31 @@ class BoundaryMatcherTest {
       Pattern p = Pattern.compile("\\bcat\\b");
       assertThat(p.matcher("the cat sat").find()).isTrue();
       assertThat(p.matcher("concatenate").find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("\\b does not split an ASCII base from its combining mark")
+    void wordBoundaryDoesNotSplitAsciiBaseCombiningMark() {
+      assertFindSameAsJdk("\\b", "e\u0301");
+      assertFindSameAsJdk("\\B", "e\u0301");
+      assertFindSameAsJdk("\\b", "1\u0301");
+      assertFindSameAsJdk("\\b", "_\u0301");
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "SafeRE linear-time stress case; JDK timing is not the compatibility target")
+    @DisplayName("\\B stays linear across long combining-mark runs")
+    void nonWordBoundaryCombiningMarkRunStaysLinear() {
+      Pattern p = Pattern.compile(".(?:\\B.)*");
+      String text = "a" + "\u0301".repeat(150_000);
+
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(5),
+          () -> {
+            Matcher m = p.matcher(text);
+            assertThat(m.matches()).isTrue();
+          });
     }
 
     @Test
