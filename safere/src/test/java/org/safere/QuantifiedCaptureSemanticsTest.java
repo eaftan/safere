@@ -6,7 +6,6 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
@@ -71,135 +70,7 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(?:(a){0,2})*?)", "a"),
         Arguments.of("(?:(?:(a){0,2})*?)", "aa"),
         Arguments.of("(?:(?:(a){0,2})*?)", "ab"),
-        Arguments.of("(?:(?:(a){0,2})*?)", "aaa"),
-        Arguments.of("(()(?:))*?", ""),
-        Arguments.of("(?:(?:()))*?", ""),
-        Arguments.of("(()())*?", ""),
-        Arguments.of("((()(?:))*?{0})", ""),
-        Arguments.of("(?:(?:()|())*?|a).", "ab"),
-        Arguments.of("(?:a|(?:()|())*?{0}).", "\na"),
-        Arguments.of("(?:()|())*?{0}+a", "ba"),
-        Arguments.of("(?:()|())*?{0}{1}?a", "ba"),
-        Arguments.of("(?:()|())*{0}?a", "a"),
-        Arguments.of("(?:()|())*{0}+{0,2}?", ""));
-  }
-
-  private static Stream<Arguments> possessiveZeroWidthCaptureCases() {
-    return Stream.of(
-        Arguments.of("()*+", ""),
-        Arguments.of("()*+{0}+", "ba"),
-        Arguments.of("()*+{0}?{0}+", "ba"),
-        Arguments.of("(?x)a() * + {0} ?", "a"),
-        Arguments.of("()*?{0}+", "ba"),
-        Arguments.of("(?x)() * ? {0} +a", "a"),
-        Arguments.of("()*?{0}+a", "ba"),
-        Arguments.of("()*?{0}+{1}a", "ba"),
-        Arguments.of("(())*?a", "ba"),
-        Arguments.of("(?:(()))*?a", "ba"),
-        Arguments.of("((()))*?a", "ba"),
-        Arguments.of("(?:(())*|a).", "ab"),
-        Arguments.of("(?:(())*?|a).", "ab"),
-        Arguments.of("(?:(()){0,2}|a).", "ab"),
-        Arguments.of("(?:(()){0,1}|a).", "ab"),
-        Arguments.of("(()){0,2}?a", "ba"),
-        Arguments.of("(()){0,1}?a", "ba"),
-        Arguments.of("()+?{0}+a", "ba"),
-        Arguments.of("()+?{0}{0}+a", "ba"),
-        Arguments.of("()?{0}a", "ba"),
-        Arguments.of("()??{0}a", "ba"),
-        Arguments.of("(){1}?{0}+a", "ba"),
-        Arguments.of("(){0,2}?{0}+a", "ba"),
-        Arguments.of("()*+a", "a"),
-        Arguments.of("(?:()*+|a).", "ab"),
-        Arguments.of("(?:()*+|a).", "aa"),
-        Arguments.of("(?:()*+{0}+|a).", "ab"),
-        Arguments.of("(?:()+?{0}+|a).", "ab"),
-        Arguments.of("(?:(){1}?{0}+|a).", "ab"),
-        Arguments.of("(^)*+a", "ba"),
-        Arguments.of("(\\A)*+a", "ba"),
-        Arguments.of("(\\b)*+a", "ba"),
-        Arguments.of("(){0}+a", "ba"),
-        Arguments.of("(){0}+a", "\na"),
-        Arguments.of("()*{0}+a", "ba"),
-        Arguments.of("(?:()*{0}+|a).", "ab"),
-        Arguments.of("(?:a|()*{0}+).", "ba"),
-        Arguments.of("()*{0}+{1}a", "ba"),
-        Arguments.of("(?:(^)++|a).", "ab"),
-        Arguments.of("(?:(^)++{0}|a).", "ab"),
-        Arguments.of("(?:(^)++{1}|a).", "ab"),
-        Arguments.of("(?:($)++|a).", "ab"),
-        Arguments.of("(?:($)++{0}|a).", "ab"),
-        Arguments.of("(?:($)++{1}|a).", "ab"),
-        Arguments.of("(\\b{g})*+", "👩‍💻"),
-        Arguments.of("((\\b{g})*+)", "👩‍💻"),
-        Arguments.of("()++", ""),
-        Arguments.of("()?+", ""),
-        Arguments.of("(){0,2}+", ""));
-  }
-
-  private static Stream<Arguments> rejectedZeroWidthQuantifierChains() {
-    return Stream.of(
-        Arguments.of("()*{0}?+"),
-        Arguments.of("()*{0}??"),
-        Arguments.of("()*+{0}?+"),
-        Arguments.of("()*+{0}??"),
-        Arguments.of("()*?{0}++"),
-        Arguments.of("(?x)() * ? {0} + +"),
-        Arguments.of("()+?{0}++"));
-  }
-
-  private static Stream<Arguments> repeatedZeroWidthQuantifierCaptureCases() {
-    return Stream.of(
-        Arguments.of("()*?", ""),
-        Arguments.of("()*?a", "a"),
-        Arguments.of("(){0,1}", ""),
-        Arguments.of("(){0,1}?", ""),
-        Arguments.of("(){0,2}", ""),
-        Arguments.of("(){0,2}?", ""),
-        Arguments.of("(){0,}", ""),
-        Arguments.of("(){0,2}?a", "a"),
-        Arguments.of("(){0,2}{0,2}?", ""),
-        Arguments.of("()*{0}", ""),
-        Arguments.of("()*{1}", ""),
-        Arguments.of("()*?{0}", ""),
-        Arguments.of("()*?{1}", ""),
-        Arguments.of("()*+{0}", ""),
-        Arguments.of("()*+{0}?", ""),
-        Arguments.of("()+?{0}", ""),
-        Arguments.of("()+?{0}{0}+", ""),
-        Arguments.of("()?{0}", ""),
-        Arguments.of("()??{0}", ""),
-        Arguments.of("(){1}?{0}", ""),
-        Arguments.of("(){1,2}{0}", ""),
-        Arguments.of("(){0,2}?{0}", ""),
-        Arguments.of("(){0,2}{0}", ""),
-        Arguments.of("(){0,2}{1}", ""),
-        Arguments.of("(){0,2}{2}", ""),
-        Arguments.of("(){0,2}{0}a", "a"),
-        Arguments.of("(()){0,2}{0}", ""),
-        Arguments.of("(()){0,2}{0}a", "a"),
-        Arguments.of("a(()){0,2}{0}b", "ab"),
-        Arguments.of("((?:()|()))*", ""),
-        Arguments.of("a((?:()|()))*b", "ab"),
-        Arguments.of("((?:()|()))*{0}a", "a"),
-        Arguments.of("(((?:()|()))*{0})", ""),
-        Arguments.of("(()){0,2}{0}+", ""),
-        Arguments.of("(()){0,2}{0}{1}", ""),
-        Arguments.of("(?:(()){0,2}{0}|a).", "a"),
-        Arguments.of("(?:(?:()){0,2}{0}|a).", "a"),
-        Arguments.of("(^)*{0}", "a"),
-        Arguments.of("a(^)*{0}", "a"),
-        Arguments.of("(^)*{0}a", "aa"),
-        Arguments.of("a(^)*{0}b", "ab"),
-        Arguments.of("(^)*{0}+", "a"),
-        Arguments.of("(^)*{0}+{1}", "a"),
-        Arguments.of("(?:(^)*{0}+|a).", "ab"),
-        Arguments.of("(^){0,2}", "a"),
-        Arguments.of("a(^){0,2}", "a"),
-        Arguments.of("(^){0,2}a", "aa"),
-        Arguments.of("a(^){0,2}b", "ab"),
-        Arguments.of("(?:(^){0,2}|a).", "ab"),
-        Arguments.of("((){0,2}{0})", ""));
+        Arguments.of("(?:(?:(a){0,2})*?)", "aaa"));
   }
 
   private static Stream<Arguments> generatedQuantifiedCaptureCases() {
@@ -279,31 +150,6 @@ class QuantifiedCaptureSemanticsTest {
     assertReplacementTraceMatchesJdk(testCase);
   }
 
-  @ParameterizedTest(name = "[{index}] /{0}/ on \"{1}\"")
-  @MethodSource("possessiveZeroWidthCaptureCases")
-  @DisplayName("possessive repeated zero-width captures match java.util.regex")
-  void possessiveZeroWidthCapturesMatchJdk(String regex, String input) {
-    GeneratedCase testCase = new GeneratedCase("possessive zero-width capture", regex, input, null);
-    assertOperationTraceMatchesJdk(testCase);
-    assertReplacementTraceMatchesJdk(testCase);
-  }
-
-  @ParameterizedTest(name = "[{index}] /{0}/")
-  @MethodSource("rejectedZeroWidthQuantifierChains")
-  @DisplayName("zero-width quantifier chains reject the same dangling suffixes as java.util.regex")
-  void zeroWidthQuantifierChainsRejectLikeJdk(String regex) {
-    assertThatCode(() -> java.util.regex.Pattern.compile(regex)).isInstanceOf(Exception.class);
-    assertThatCode(() -> Pattern.compile(regex)).isInstanceOf(Exception.class);
-  }
-
-  @ParameterizedTest(name = "[{index}] /{0}/ on \"{1}\"")
-  @MethodSource("repeatedZeroWidthQuantifierCaptureCases")
-  @DisplayName("counted repeated zero-width captures match java.util.regex")
-  void repeatedZeroWidthQuantifierCapturesMatchJdk(String regex, String input) {
-    assertOperationTraceMatchesJdk(
-        new GeneratedCase("counted repeated zero-width capture", regex, input, null));
-  }
-
   @ParameterizedTest(name = "[{index}] replacement APIs for /{0}/ on \"{1}\"")
   @MethodSource("quantifiedCaptureCases")
   @DisplayName("replacement APIs consume quantified captures like java.util.regex")
@@ -347,8 +193,12 @@ class QuantifiedCaptureSemanticsTest {
   @MethodSource("lazyNullableGroupZeroCases")
   @DisplayName("capture-retention lowering preserves lazy nullable group zero")
   void captureRetentionLoweringPreservesLazyNullableGroupZero(String regex, String input) {
-    assertOperationTraceMatchesJdk(
-        new GeneratedCase("lazy nullable group zero", regex, input, null));
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher safere = Pattern.compile(regex).matcher(input);
+
+    boolean jdkMatched = jdk.find();
+    assertThat(safere.find()).isEqualTo(jdkMatched);
+    assertGroupsMatch(regex, input, jdkMatched, jdk, safere);
   }
 
   @ParameterizedTest(name = "[{index}] #52 divergence for /{0}/ on \"{1}\"")

@@ -210,9 +210,6 @@ final class Parser {
     String lastunary = null;
     boolean lastTokenNonRepeatable = false;
     boolean lastTokenWasEmptyQuotedLiteral = false;
-    boolean lastUnaryWasIgnoredZeroWidthRepeatCount = false;
-    boolean lastUnaryRejectsSimpleSuffix = false;
-    boolean lastUnaryWasCountedRepeat = false;
     while (pos < pattern.length()) {
       // In comments mode, skip whitespace and #-comments before each token.
       if ((flags & ParseFlags.COMMENTS) != 0) {
@@ -223,9 +220,6 @@ final class Parser {
       }
       String isunary = null;
       boolean isNonRepeatable = false;
-      boolean unaryIsIgnoredZeroWidthRepeatCount = false;
-      boolean unaryRejectsSimpleSuffix = false;
-      boolean unaryIsCountedRepeat = false;
       int c = pattern.codePointAt(pos);
       switch (c) {
         case '(' -> {
@@ -268,19 +262,15 @@ final class Parser {
           pushRegexp(re);
         }
         case '*', '+', '?' -> {
-          if (lastTokenNonRepeatable || lastUnaryRejectsSimpleSuffix) {
+          if (lastTokenNonRepeatable) {
             throw new PatternSyntaxException(
                 "missing argument to repetition operator", pattern, pos);
           }
           RegexpOp op = c == '*' ? RegexpOp.STAR : c == '+' ? RegexpOp.PLUS : RegexpOp.QUEST;
           int opStart = pos;
           pos++; // the operator
-          boolean repeatedAfterUnary = lastunary != null;
           boolean nongreedy = false;
           if ((flags & ParseFlags.PERL_X) != 0) {
-            if ((flags & ParseFlags.COMMENTS) != 0) {
-              skipCommentsAndWhitespace();
-            }
             if (pos < pattern.length() && pattern.charAt(pos) == '?') {
               nongreedy = true;
               pos++; // '?'
@@ -289,24 +279,14 @@ final class Parser {
               isunary = lastunary;
               break;
             }
-            if (lastunary != null
-                && !canRepeatAfterUnary(op, nongreedy, lastUnaryWasCountedRepeat)) {
+            if (lastunary != null && !canRepeatAfterUnary(op)) {
               throw new PatternSyntaxException(
                   "invalid nested repetition operator", pattern, opStart);
             }
           }
           String opstr = pattern.substring(opStart, pos);
-          if (repeatedAfterUnary) {
-            if (!lastUnaryWasIgnoredZeroWidthRepeatCount) {
-              applyZeroWidthRepeatSuffix(op, lastUnaryWasCountedRepeat);
-            }
-          } else {
-            pushRepeatOp(op, opstr, nongreedy);
-          }
+          pushRepeatOp(op, opstr, nongreedy);
           isunary = opstr;
-          isNonRepeatable = repeatedAfterUnary && !isQuantifiedZeroWidth(stacktop.re);
-          unaryRejectsSimpleSuffix =
-              repeatedAfterUnary && lastUnaryWasCountedRepeat && op == RegexpOp.PLUS;
         }
         case '{' -> {
           int opStart = pos;
@@ -318,9 +298,6 @@ final class Parser {
           int hi = lohi[1];
           boolean nongreedy = false;
           if ((flags & ParseFlags.PERL_X) != 0) {
-            if ((flags & ParseFlags.COMMENTS) != 0) {
-              skipCommentsAndWhitespace();
-            }
             if (pos < pattern.length() && pattern.charAt(pos) == '?') {
               nongreedy = true;
               pos++; // '?'
@@ -334,15 +311,7 @@ final class Parser {
           }
           if (lastunary != null) {
             validateRepeatCount(lo, hi, opstr);
-            unaryIsIgnoredZeroWidthRepeatCount =
-                !applyZeroWidthCountedRepeatSuffix(lo, hi, nongreedy);
-            unaryIsCountedRepeat = true;
             isunary = opstr;
-            isNonRepeatable = false;
-            if (nongreedy) {
-              unaryIsIgnoredZeroWidthRepeatCount = false;
-              unaryRejectsSimpleSuffix = true;
-            }
             break;
           }
           pushRepetition(lo, hi, opstr, nongreedy);
@@ -366,9 +335,6 @@ final class Parser {
       lastunary = isunary;
       lastTokenNonRepeatable = isNonRepeatable;
       lastTokenWasEmptyQuotedLiteral = false;
-      lastUnaryWasIgnoredZeroWidthRepeatCount = unaryIsIgnoredZeroWidthRepeatCount;
-      lastUnaryRejectsSimpleSuffix = unaryRejectsSimpleSuffix;
-      lastUnaryWasCountedRepeat = unaryIsCountedRepeat;
     }
     return doFinish();
   }
@@ -388,7 +354,7 @@ final class Parser {
           && pattern.charAt(pos + 4) == '}') {
         pos += 5; // '\\', 'b', '{', 'g', '}'
         pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
-        return false;
+        return true;
       }
       pushWordBoundary(pattern.charAt(pos + 1) == 'b');
       pos += 2; // '\\', 'b' or 'B'
@@ -666,89 +632,12 @@ final class Parser {
     stacktop.re = re;
   }
 
-  private boolean canRepeatAfterUnary(RegexpOp op, boolean nongreedy, boolean afterCountedRepeat) {
-    if (nongreedy || (op != RegexpOp.PLUS && op != RegexpOp.QUEST)) {
-      return false;
-    }
-    if (op == RegexpOp.PLUS
-        && !afterCountedRepeat
+  private boolean canRepeatAfterUnary(RegexpOp op) {
+    return op == RegexpOp.PLUS
         && stacktop != null
-        && (stacktop.re.flags & ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT) != 0) {
-      return false;
-    }
-    return stacktop != null
-        && (!stacktop.re.nonGreedy() || (afterCountedRepeat && op == RegexpOp.PLUS))
+        && stacktop.re.op == RegexpOp.PLUS
+        && !stacktop.re.nonGreedy()
         && isQuantifiedZeroWidth(stacktop.re);
-  }
-
-  private void applyZeroWidthRepeatSuffix(RegexpOp op, boolean afterCountedRepeat) {
-    if (op == RegexpOp.PLUS) {
-      if (afterCountedRepeat
-          && (stacktop.re.flags & ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT) == 0) {
-        return;
-      }
-      if (stacktop.re.op == RegexpOp.STAR) {
-        stacktop.re =
-            Regexp.quest(
-                stacktop.re.subs.getFirst(), possessiveZeroWidthRepeatFlags(stacktop.re.flags));
-        return;
-      }
-      if (stacktop.re.op == RegexpOp.PLUS || stacktop.re.op == RegexpOp.QUEST) {
-        stacktop.re =
-            Regexp.rawQuantifier(
-                stacktop.re.op,
-                stacktop.re.subs.getFirst(),
-                possessiveZeroWidthRepeatFlags(stacktop.re.flags));
-        return;
-      }
-      if (stacktop.re.op == RegexpOp.REPEAT) {
-        stacktop.re =
-            Regexp.repeat(
-                stacktop.re.subs.getFirst(),
-                possessiveZeroWidthRepeatFlags(stacktop.re.flags),
-                stacktop.re.min,
-                stacktop.re.max);
-      }
-      return;
-    }
-
-    int fl = stacktop.re.flags ^ ParseFlags.NON_GREEDY;
-    Regexp sub = stacktop.re.subs.getFirst();
-    stacktop.re =
-        switch (stacktop.re.op) {
-          case STAR -> Regexp.star(sub, fl);
-          case PLUS -> Regexp.plus(sub, fl);
-          case QUEST -> Regexp.quest(sub, fl);
-          case REPEAT -> Regexp.repeat(sub, fl, stacktop.re.min, stacktop.re.max);
-          default -> throw new IllegalStateException("unexpected repeated op: " + stacktop.re.op);
-        };
-  }
-
-  private boolean applyZeroWidthCountedRepeatSuffix(int min, int max, boolean nongreedy) {
-    if (!isQuantifiedZeroWidth(stacktop.re)) {
-      return false;
-    }
-
-    if ((stacktop.re.flags & ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT) != 0) {
-      return true;
-    }
-    if (stacktop.re.op == RegexpOp.PLUS
-        || (stacktop.re.op == RegexpOp.QUEST && !stacktop.re.nonGreedy())
-        || (stacktop.re.op == RegexpOp.REPEAT && stacktop.re.min >= 1)) {
-      return true;
-    }
-
-    int fl = flags | ParseFlags.SUPPRESS_ZERO_WIDTH_REPEAT_CAPTURES;
-    if (nongreedy) {
-      fl ^= ParseFlags.NON_GREEDY;
-    }
-    stacktop.re = Regexp.repeat(stacktop.re, fl, min, max);
-    return true;
-  }
-
-  private static int possessiveZeroWidthRepeatFlags(int repeatFlags) {
-    return (repeatFlags | ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT)
-        & ~ParseFlags.SUPPRESS_ZERO_WIDTH_REPEAT_CAPTURES;
   }
 
   private boolean isQuantifiedZeroWidth(Regexp re) {
@@ -797,9 +686,6 @@ final class Parser {
     }
 
     Regexp sub = stacktop.re;
-    if (min == 0 && max != 1 && isZeroWidth(sub)) {
-      fl |= ParseFlags.SUPPRESS_ZERO_WIDTH_REPEAT_CAPTURES;
-    }
     Regexp re = Regexp.repeat(sub, fl, min, max);
     stacktop.re = re;
 

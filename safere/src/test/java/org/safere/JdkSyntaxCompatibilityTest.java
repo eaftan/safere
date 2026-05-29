@@ -2290,51 +2290,6 @@ class JdkSyntaxCompatibilityTest {
           .isInstanceOf(PatternSyntaxException.class);
     }
 
-    @ParameterizedTest(name = "/{0}/ on \"{1}\"")
-    @MethodSource("repeatedQuantifiersOverZeroWidthOperands")
-    @DisplayName("repeated quantifiers over zero-width operands match like JDK")
-    void repeatedQuantifiersOverZeroWidthOperandsMatchLikeJdk(String regex, String input) {
-      assertMatchesSame(regex, input);
-    }
-
-    static Stream<Arguments> repeatedQuantifiersOverZeroWidthOperands() {
-      return Stream.of(
-          Arguments.of("^*+", ""),
-          Arguments.of("^?+", "a"),
-          Arguments.of("^{2}+", "a"),
-          Arguments.of("$*+", "a"),
-          Arguments.of("()*+", ""),
-          Arguments.of("()?+", "a"),
-          Arguments.of("(?:)*{1}+", ""),
-          Arguments.of("\\A{2}{1}", "a"),
-          Arguments.of("\\b{g}{0,2}+", "e\u0301"),
-          Arguments.of("(?:^|$)*+", "a"));
-    }
-
-    @ParameterizedTest(name = "/{0}/ flags={1} on \"{2}\"")
-    @MethodSource("commentsModeRepeatedQuantifiersOverZeroWidthOperands")
-    @DisplayName("comments-mode repeated quantifiers over zero-width operands match like JDK")
-    void commentsModeRepeatedQuantifiersOverZeroWidthOperandsMatchLikeJdk(
-        String regex, int flags, String input) {
-      assertMatchesSameWithFlags(regex, flags, input);
-    }
-
-    static Stream<Arguments> commentsModeRepeatedQuantifiersOverZeroWidthOperands() {
-      return Stream.of(
-          Arguments.of("^ * +", java.util.regex.Pattern.COMMENTS, ""),
-          Arguments.of("() * +", java.util.regex.Pattern.COMMENTS, ""),
-          Arguments.of("() ? +", java.util.regex.Pattern.COMMENTS, "a"),
-          Arguments.of("(?x)^ * +", 0, "a"),
-          Arguments.of("(?x)\\b{g} {0,2} +", 0, "e\u0301"));
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"()**", "()?*", "()+*", "()++?", "()+++", "()??+", "(){0}*"})
-    @DisplayName("zero-width repeated quantifier forms rejected by JDK are rejected")
-    void zeroWidthRepeatedQuantifierFormsRejectedByJdkAreRejected(String regex) {
-      assertRejectedByJdkAndSafeRe(regex);
-    }
-
     // -- Nested repetitions --
 
     @Test

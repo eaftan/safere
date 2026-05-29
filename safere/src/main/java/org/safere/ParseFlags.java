@@ -104,19 +104,8 @@ final class ParseFlags {
   /** Use Unicode-aware case folding when {@link #FOLD_CASE} is active. */
   public static final int UNICODE_CASE = 1 << 17;
 
-  /**
-   * Internal flag: marks the synthetic grapheme boundary that terminates a {@code \X} expansion.
-   */
-  public static final int SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY = 1 << 18;
-
-  /** Internal flag: marks a repeated zero-width quantifier followed by a possessive {@code +}. */
-  public static final int POSSESSIVE_ZERO_WIDTH_REPEAT = 1 << 19;
-
-  /** Internal flag: suppresses captures inside an outer repeat of a zero-width quantifier. */
-  public static final int SUPPRESS_ZERO_WIDTH_REPEAT_CAPTURES = 1 << 20;
-
   /** Mask of all valid parse flags. */
-  public static final int ALL_FLAGS = (1 << 21) - 1;
+  public static final int ALL_FLAGS = (1 << 18) - 1;
 
   private ParseFlags() {} // Non-instantiable.
 }

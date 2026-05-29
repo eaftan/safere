@@ -9,7 +9,6 @@ package org.safere;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Deque;
 import java.util.List;
 
@@ -281,88 +280,12 @@ final class Compiler extends Walker<Compiler.Frag> {
         return null;
       }
       return switch (re.op) {
-        case ALTERNATE -> lowerZeroWidthCaptureAlternative(re, childArgs);
-        case STAR, PLUS, QUEST, REPEAT -> lowerQuantifier(re, childArgs.get(0));
+        case STAR, PLUS, REPEAT -> lowerQuantifier(re, childArgs.get(0));
         default -> copyWithChildren(re, childArgs);
       };
     }
 
-    private Regexp lowerZeroWidthCaptureAlternative(Regexp re, List<Regexp> childArgs) {
-      for (int i = 0; i < childArgs.size() - 1; i++) {
-        Regexp sourceBranch = re.subs.get(i);
-        Regexp retryLeakProbe = alternativeRetryLeakCaptureProbe(sourceBranch);
-        boolean directLeak =
-            retryLeakProbe == null && canLeakAlternativeZeroWidthCaptures(sourceBranch);
-        boolean retryLeak = retryLeakProbe != null;
-        if (!directLeak && !retryLeak) {
-          continue;
-        }
-
-        List<Regexp> fallback = new ArrayList<>(childArgs.size() - i);
-        fallback.add(Regexp.emptyMatch(re.flags));
-        fallback.addAll(childArgs.subList(i + 1, childArgs.size()));
-        Regexp fallbackAlternative = Regexp.alternate(fallback, re.flags);
-        Regexp laterAlternative =
-            Regexp.alternate(new ArrayList<>(childArgs.subList(i + 1, childArgs.size())), re.flags);
-        Regexp leaked =
-            directLeak
-                ? alternativeLeak(
-                    alternativeLeakCaptureProbe(sourceBranch), fallbackAlternative, re.flags)
-                : alternativeLeak(retryLeakProbe, fallbackAlternative, re.flags);
-        Regexp replacement =
-            directLeak
-                ? Regexp.alternate(List.of(leaked, laterAlternative), re.flags)
-                : Regexp.alternate(List.of(childArgs.get(i), leaked), re.flags);
-
-        if (i == 0) {
-          return replacement;
-        }
-        List<Regexp> lowered = new ArrayList<>(i + 1);
-        lowered.addAll(childArgs.subList(0, i));
-        lowered.add(replacement);
-        return Regexp.alternate(lowered, re.flags);
-      }
-      return copyWithChildren(re, childArgs);
-    }
-
-    private static Regexp alternativeLeak(Regexp probe, Regexp fallback, int flags) {
-      return Regexp.concat(List.of(probe, fallback), flags);
-    }
-
     private Regexp lowerQuantifier(Regexp re, Regexp sub) {
-      if (re.op == RegexpOp.QUEST
-          && !re.nonGreedy()
-          && hasSuppressedCaptureWithPositiveChild(sub)
-          && canMatchUnconditionalEmpty(sub)) {
-        return sub;
-      }
-      if (re.nonGreedy() && canRepeatZeroTimes(re) && isPureEmpty(sub)) {
-        if (hasSuppressedCaptureWithPositiveChild(sub) && canMatchUnconditionalEmpty(sub)) {
-          return sub;
-        }
-        Regexp retained = suppressedZeroWidthRepeatCaptureProbe(re, sub);
-        if (retained != null) {
-          return retained;
-        }
-        return Regexp.emptyMatch(re.flags);
-      }
-      if ((re.flags & ParseFlags.SUPPRESS_ZERO_WIDTH_REPEAT_CAPTURES) != 0) {
-        if (hasSuppressedCaptureWithPositiveChild(sub)) {
-          return sub;
-        }
-        Regexp retained = suppressedZeroWidthRepeatCaptureProbe(re, sub);
-        if (retained != null) {
-          return retained;
-        }
-        Regexp suppressed = suppressPositiveCaptures(sub);
-        return switch (re.op) {
-          case STAR -> Regexp.rawQuantifier(RegexpOp.STAR, suppressed, re.flags);
-          case PLUS -> Regexp.rawQuantifier(RegexpOp.PLUS, suppressed, re.flags);
-          case QUEST -> Regexp.rawQuantifier(RegexpOp.QUEST, suppressed, re.flags);
-          case REPEAT -> Regexp.repeat(suppressed, re.flags, re.min, re.max);
-          default -> copyWithChildren(re, List.of(suppressed));
-        };
-      }
       if (!needsCaptureRetentionLowering(re, sub)) {
         return copyWithChildren(re, List.of(sub));
       }
@@ -388,51 +311,6 @@ final class Compiler extends Walker<Compiler.Frag> {
         return Regexp.alternate(List.of(Regexp.emptyMatch(re.flags), retained, original), re.flags);
       }
       return Regexp.alternate(List.of(retained, original), re.flags);
-    }
-
-    private static boolean hasSuppressedCaptureWithPositiveChild(Regexp re) {
-      Deque<Regexp> stack = new ArrayDeque<>();
-      stack.push(re);
-      while (!stack.isEmpty()) {
-        Regexp node = stack.pop();
-        if (node.op == RegexpOp.CAPTURE && node.cap <= 0 && hasCapture(node.sub())) {
-          return true;
-        }
-        if (node.subs != null) {
-          for (Regexp sub : node.subs) {
-            stack.push(sub);
-          }
-        }
-      }
-      return false;
-    }
-
-    private static Regexp suppressedZeroWidthRepeatCaptureProbe(Regexp re, Regexp sub) {
-      if (!hasCapture(sub)) {
-        return null;
-      }
-      Regexp node = sub;
-      while (isQuantifier(node) && isQuantifier(node.sub())) {
-        node = node.sub();
-      }
-      if (!isQuantifier(node)) {
-        if (re.op == RegexpOp.REPEAT && re.max == 0) {
-          return null;
-        }
-        if (!canMatchUnconditionalEmpty(sub)) {
-          return null;
-        }
-        return re.nonGreedy() ? null : markSuppressedCaptureProbe(sub);
-      }
-      if (node.nonGreedy()) {
-        return null;
-      }
-      if (!canMatchUnconditionalEmpty(node.sub())) {
-        return null;
-      }
-      Regexp probeSource = node.sub();
-      Regexp lowered = lowerCaptureRetention(probeSource);
-      return markSuppressedCaptureProbe(lowered != null ? lowered : probeSource);
     }
 
     private static Regexp lowerCountedRepeat(
@@ -517,129 +395,6 @@ final class Compiler extends Walker<Compiler.Frag> {
     return re.op == RegexpOp.STAR || (re.op == RegexpOp.REPEAT && re.min == 0);
   }
 
-  private static boolean canLeakAlternativeZeroWidthCaptures(Regexp re) {
-    if (re.op != RegexpOp.STAR
-        && re.op != RegexpOp.PLUS
-        && re.op != RegexpOp.QUEST
-        && re.op != RegexpOp.REPEAT) {
-      return false;
-    }
-    if (!hasCapture(re.sub())) {
-      return false;
-    }
-    if (canLeakPossessiveZeroWidthCaptures(re)) {
-      return true;
-    }
-    return canLeakRepeatZeroWidthCaptures(re);
-  }
-
-  private static Regexp alternativeLeakCaptureProbe(Regexp re) {
-    if (canLeakPossessiveZeroWidthCaptures(re)) {
-      return re;
-    }
-    Regexp loweredSub = lowerCaptureRetention(re.sub());
-    return markSuppressedCaptureProbe(loweredSub != null ? loweredSub : re.sub());
-  }
-
-  private static Regexp markSuppressedCaptureProbe(Regexp re) {
-    if (re.op == RegexpOp.CAPTURE && re.cap > 0 && !hasAlternation(re.sub())) {
-      return Regexp.capture(re.sub(), re.flags, -1, null);
-    }
-    return Regexp.capture(re, re.flags, -1, null);
-  }
-
-  private static boolean canLeakPossessiveZeroWidthCaptures(Regexp re) {
-    if ((re.flags & ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT) == 0) {
-      return false;
-    }
-    return switch (re.op) {
-      case STAR, QUEST -> true;
-      case PLUS -> Pattern.canMatchEmpty(re.sub());
-      case REPEAT -> re.min == 0 || Pattern.canMatchEmpty(re.sub());
-      default -> false;
-    };
-  }
-
-  private static boolean canLeakRepeatZeroWidthCaptures(Regexp re) {
-    return switch (re.op) {
-      case STAR -> !re.nonGreedy() && canMatchUnconditionalEmpty(re.sub());
-      case REPEAT ->
-          re.min == 0
-              && (re.max == -1 || re.max > 1)
-              && !re.nonGreedy()
-              && canMatchUnconditionalEmpty(re.sub());
-      default -> false;
-    };
-  }
-
-  private static Regexp alternativeRetryLeakCaptureProbe(Regexp re) {
-    Regexp node = re;
-    boolean peeledQuantifier = false;
-    while (isQuantifier(node) && isQuantifier(node.sub())) {
-      node = node.sub();
-      peeledQuantifier = true;
-    }
-    if (!peeledQuantifier
-        && !node.nonGreedy()
-        && node.op != RegexpOp.PLUS
-        && !(node.op == RegexpOp.REPEAT && (node.min >= 1 || node.max == -1 || node.max > 1))) {
-      return null;
-    }
-    if (node.op != RegexpOp.STAR && node.op != RegexpOp.PLUS && node.op != RegexpOp.REPEAT) {
-      return null;
-    }
-    if (!hasCapture(node.sub())
-        || !canMatchUnconditionalEmpty(node.sub())
-        || hasAlternation(node.sub())) {
-      return null;
-    }
-    boolean canRetry =
-        switch (node.op) {
-          case STAR, PLUS -> true;
-          case REPEAT -> node.max != 0 && (node.min >= 1 || node.max == -1 || node.max > 1);
-          default -> false;
-        };
-    if (!canRetry || (node.flags & ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT) != 0) {
-      return null;
-    }
-    Regexp loweredSub = lowerCaptureRetention(node.sub());
-    return markSuppressedCaptureProbe(loweredSub != null ? loweredSub : node.sub());
-  }
-
-  private static boolean isQuantifier(Regexp re) {
-    return re.op == RegexpOp.STAR
-        || re.op == RegexpOp.PLUS
-        || re.op == RegexpOp.QUEST
-        || re.op == RegexpOp.REPEAT;
-  }
-
-  private static boolean canMatchUnconditionalEmpty(Regexp re) {
-    return switch (re.op) {
-      case EMPTY_MATCH -> true;
-      case CAPTURE, NON_CAPTURE -> canMatchUnconditionalEmpty(re.sub());
-      case CONCAT -> {
-        for (Regexp sub : re.subs) {
-          if (!canMatchUnconditionalEmpty(sub)) {
-            yield false;
-          }
-        }
-        yield true;
-      }
-      case ALTERNATE -> {
-        for (Regexp sub : re.subs) {
-          if (canMatchUnconditionalEmpty(sub)) {
-            yield true;
-          }
-        }
-        yield re.subs.isEmpty();
-      }
-      case STAR, QUEST -> true;
-      case PLUS -> canMatchUnconditionalEmpty(re.sub());
-      case REPEAT -> re.min == 0 || canMatchUnconditionalEmpty(re.sub());
-      default -> false;
-    };
-  }
-
   private static Regexp repeatAny(Regexp re, int flags) {
     return Regexp.rawQuantifier(RegexpOp.STAR, re, flags);
   }
@@ -658,17 +413,6 @@ final class Compiler extends Walker<Compiler.Frag> {
     SuppressGroupsWalker walker = new SuppressGroupsWalker(groups);
     Regexp suppressed = walker.walk(re, null);
     return walker.stoppedEarly() ? null : suppressed;
-  }
-
-  private static Regexp suppressPositiveCaptures(Regexp re) {
-    int ncap = maxCapture(re) + 1;
-    if (ncap <= 1) {
-      return re;
-    }
-    boolean[] groups = new boolean[ncap];
-    Arrays.fill(groups, true);
-    groups[0] = false;
-    return suppressGroups(re, groups);
   }
 
   private static final class SuppressGroupsWalker extends Walker<Regexp> {
@@ -1167,10 +911,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   }
 
   private static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
-    return re.op == RegexpOp.CAPTURE
-        && re.cap > 0
-        && isPureEmpty(re.sub())
-        && !hasAlternation(re.sub());
+    return re.op == RegexpOp.CAPTURE && re.cap > 0 && isPureEmpty(re.sub());
   }
 
   private static boolean isPureEmpty(Regexp re) {
@@ -1186,22 +927,13 @@ final class Compiler extends Walker<Compiler.Frag> {
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY,
-            REGION_BOUNDARY -> {}
+            GRAPHEME_CLUSTER_BOUNDARY -> {}
         case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
         case CONCAT -> {
           if (node.subs != null) {
             for (Regexp sub : node.subs) {
               stack.push(sub);
             }
-          }
-        }
-        case ALTERNATE -> {
-          if (node.subs == null || node.subs.isEmpty()) {
-            return false;
-          }
-          for (Regexp sub : node.subs) {
-            stack.push(sub);
           }
         }
         default -> {
@@ -1370,8 +1102,6 @@ final class Compiler extends Walker<Compiler.Frag> {
       }
 
       case GRAPHEME_CLUSTER_BOUNDARY -> emptyWidth(EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
-
-      case REGION_BOUNDARY -> emptyWidth(EmptyOp.REGION_BOUNDARY);
 
       default -> {
         failed = true;

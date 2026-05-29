@@ -238,11 +238,6 @@ final class Regexp {
     return new Regexp(RegexpOp.GRAPHEME_CLUSTER, flags);
   }
 
-  /** Creates an internal active-region boundary assertion node. */
-  static Regexp regionBoundary(int flags) {
-    return new Regexp(RegexpOp.REGION_BOUNDARY, flags);
-  }
-
   /** Creates a BEGIN_TEXT node. */
   public static Regexp beginText(int flags) {
     return new Regexp(RegexpOp.BEGIN_TEXT, flags);
@@ -477,7 +472,6 @@ final class Regexp {
         case NO_WORD_BOUNDARY -> sb.append("\\B");
         case GRAPHEME_CLUSTER_BOUNDARY -> sb.append("\\b{g}");
         case GRAPHEME_CLUSTER -> sb.append("\\X");
-        case REGION_BOUNDARY -> sb.append("(?region-boundary)");
         case CHAR_CLASS -> appendCharClass(sb, re.charClass);
         case NON_CAPTURE -> sb.append(')');
         case CAPTURE -> sb.append(')');

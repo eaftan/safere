@@ -142,7 +142,6 @@ final class Simplifier {
       case WORD_BOUNDARY:
       case NO_WORD_BOUNDARY:
       case GRAPHEME_CLUSTER_BOUNDARY:
-      case REGION_BOUNDARY:
       case BEGIN_TEXT:
         return true;
 
@@ -566,7 +565,6 @@ final class Simplifier {
         || re.op == RegexpOp.WORD_BOUNDARY
         || re.op == RegexpOp.NO_WORD_BOUNDARY
         || re.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY
-        || re.op == RegexpOp.REGION_BOUNDARY
         || re.op == RegexpOp.BEGIN_TEXT
         || re.op == RegexpOp.END_TEXT;
   }
@@ -584,10 +582,9 @@ final class Simplifier {
             END_TEXT,
             WORD_BOUNDARY,
             NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY,
-            REGION_BOUNDARY -> {}
+            GRAPHEME_CLUSTER_BOUNDARY -> {}
         case NON_CAPTURE, CAPTURE -> stack.push(node.sub());
-        case CONCAT, ALTERNATE -> {
+        case CONCAT -> {
           for (Regexp sub : node.subs) {
             stack.push(sub);
           }
@@ -598,63 +595,6 @@ final class Simplifier {
       }
     }
     return true;
-  }
-
-  private static boolean canMatchUnconditionalEmpty(Regexp re) {
-    return new UnconditionalEmptyWalker().walk(re, false);
-  }
-
-  private static boolean hasAlternation(Regexp re) {
-    ArrayDeque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.ALTERNATE) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static final class UnconditionalEmptyWalker extends Walker<Boolean> {
-
-    @Override
-    protected Boolean shortVisit(Regexp re, Boolean parentArg) {
-      return false;
-    }
-
-    @Override
-    protected Boolean postVisit(
-        Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
-      return switch (re.op) {
-        case EMPTY_MATCH -> true;
-        case STAR, QUEST -> true;
-        case REPEAT -> re.min == 0 || (!childArgs.isEmpty() && childArgs.getFirst());
-        case PLUS, NON_CAPTURE, CAPTURE -> !childArgs.isEmpty() && childArgs.getFirst();
-        case CONCAT -> {
-          for (boolean childCanMatchUnconditionalEmpty : childArgs) {
-            if (!childCanMatchUnconditionalEmpty) {
-              yield false;
-            }
-          }
-          yield true;
-        }
-        case ALTERNATE -> {
-          for (boolean childCanMatchUnconditionalEmpty : childArgs) {
-            if (childCanMatchUnconditionalEmpty) {
-              yield true;
-            }
-          }
-          yield childArgs.isEmpty();
-        }
-        default -> false;
-      };
-    }
   }
 
   private static boolean hasCapture(Regexp re) {
@@ -694,7 +634,6 @@ final class Simplifier {
         case WORD_BOUNDARY:
         case NO_WORD_BOUNDARY:
         case GRAPHEME_CLUSTER_BOUNDARY:
-        case REGION_BOUNDARY:
         case END_TEXT:
         case ANY_CHAR:
         case ANY_BYTE:
@@ -769,14 +708,6 @@ final class Simplifier {
    * at 1.
    */
   private static Regexp simplifyRepeat(Regexp re, int min, int max, int flags) {
-    if (min >= 2
-        && isPureEmpty(re)
-        && hasExplicitGraphemeClusterBoundary(re)
-        && !canMatchUnconditionalEmpty(re)
-        && (!hasAlternation(re) || (flags & ParseFlags.POSSESSIVE_ZERO_WIDTH_REPEAT) != 0)) {
-      return Regexp.concat(List.of(re, repeatedPureEmptyFollower(re, flags)), flags);
-    }
-
     // Cap repetition of empty-width ops at 1.
     if (isEmptyOp(re)
         || ((re.op == RegexpOp.CONCAT || re.op == RegexpOp.ALTERNATE) && allEmptyOp(re))) {
@@ -840,51 +771,6 @@ final class Simplifier {
       return Regexp.noMatch(flags);
     }
     return nre;
-  }
-
-  private static boolean hasExplicitGraphemeClusterBoundary(Regexp re) {
-    ArrayDeque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.GRAPHEME_CLUSTER_BOUNDARY
-          && (node.flags & ParseFlags.SYNTHETIC_GRAPHEME_CLUSTER_BOUNDARY) == 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  private static Regexp repeatedPureEmptyFollower(Regexp re, int flags) {
-    Regexp unwrapped = unwrapTransparent(re);
-    if (unwrapped.op != RegexpOp.ALTERNATE) {
-      return Regexp.regionBoundary(flags);
-    }
-
-    List<Regexp> alternatives = new ArrayList<>();
-    alternatives.add(Regexp.regionBoundary(flags));
-    for (Regexp sub : unwrapped.subs) {
-      if (!hasExplicitGraphemeClusterBoundary(sub)) {
-        alternatives.add(sub);
-      }
-    }
-    if (alternatives.size() == 1) {
-      return alternatives.getFirst();
-    }
-    return Regexp.alternate(alternatives, flags);
-  }
-
-  private static Regexp unwrapTransparent(Regexp re) {
-    Regexp node = re;
-    while (node.op == RegexpOp.NON_CAPTURE || node.op == RegexpOp.CAPTURE) {
-      node = node.subs.getFirst();
-    }
-    return node;
   }
 
   /** Returns true if all children of re are empty-width ops. */

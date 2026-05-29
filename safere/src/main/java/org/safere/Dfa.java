@@ -43,17 +43,17 @@ final class Dfa {
   record ManyMatchResult(boolean matched, int[] matchIds) {}
 
   /** Flag bit: this state contains a MATCH instruction. */
-  private static final int FLAG_MATCH = 1 << 16;
+  private static final int FLAG_MATCH = 1 << 10;
 
   /** Flag bit: last consumed character was a word character (for {@code \b}/\B}). */
-  private static final int FLAG_LAST_WORD = 1 << 17;
+  private static final int FLAG_LAST_WORD = 1 << 11;
 
   /**
    * Flag bit: match was triggered by a word-boundary assertion BEFORE consuming the transition
    * character. The match position should be recorded at the current position, not after the
    * character.
    */
-  private static final int FLAG_MATCH_BEFORE = 1 << 18;
+  private static final int FLAG_MATCH_BEFORE = 1 << 12;
 
   /**
    * Flag bit: when {@link #FLAG_MATCH_BEFORE} is set, indicates that an after-consume match ALSO
@@ -61,18 +61,12 @@ final class Dfa {
    * before-consume match first (earlier position) and fall back to the after-consume match if the
    * before-consume match is rejected (e.g., by {@code needEndMatch} requiring end-of-text).
    */
-  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 19;
+  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 13;
 
   /**
    * Flag bit: last consumed character was a Unicode word character (for Unicode {@code \b}/\B}).
    */
-  private static final int FLAG_LAST_UNICODE_WORD = 1 << 20;
-
-  /**
-   * Flag bit: last default word-boundary base was an ASCII letter or digit. Combining marks inherit
-   * this for JDK-compatible default {@code \b} handling.
-   */
-  private static final int FLAG_LAST_ASCII_ALNUM = 1 << 21;
+  private static final int FLAG_LAST_UNICODE_WORD = 1 << 14;
 
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
@@ -230,7 +224,7 @@ final class Dfa {
             ? EmptyOp.ALL_FLAGS
             : EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
     this.startCacheEmptyFlagsMask = hasGraphemeSemantics ? EmptyOp.ALL_FLAGS : 0x7F;
-    this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 3;
+    this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
     this.anchoredCacheBit = reverseCacheBit << 1;
     this.startStateByContext = new State[anchoredCacheBit << 1];
     this.boundaries = setup.boundaries;
@@ -530,28 +524,24 @@ final class Dfa {
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
-    boolean lastAsciiAlnum;
     boolean lastUnicodeWord;
     if (reverseContext) {
-      lastWord = Nfa.isDefaultWordBoundaryAt(text, pos);
-      lastAsciiAlnum = Nfa.hasDefaultWordBoundaryBaseAt(text, pos);
+      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
       lastUnicodeWord = pos < text.length() && Nfa.isUnicodeWordChar(text.codePointAt(pos));
     } else {
-      lastWord = Nfa.isDefaultWordBoundaryBefore(text, pos);
-      lastAsciiAlnum = Nfa.hasDefaultWordBoundaryBaseBefore(text, pos);
+      lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
       lastUnicodeWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
     }
 
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
-    // emptyFlags, lastWord, lastUnicodeWord, lastAsciiAlnum), so positions with identical context
-    // share the same start state.
+    // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
+    // start state.
     int cacheKey =
         (anchored ? anchoredCacheBit : 0)
             | (reverseContext ? reverseCacheBit : 0)
-            | ((emptyFlags & startCacheEmptyFlagsMask) << 3)
-            | (lastWord ? 4 : 0)
-            | (lastUnicodeWord ? 2 : 0)
-            | (lastAsciiAlnum ? 1 : 0);
+            | ((emptyFlags & startCacheEmptyFlagsMask) << 2)
+            | (lastWord ? 2 : 0)
+            | (lastUnicodeWord ? 1 : 0);
     State cached = startStateByContext[cacheKey];
     if (cached != null) {
       return cached;
@@ -565,9 +555,6 @@ final class Dfa {
     }
     if (lastWord) {
       flags |= FLAG_LAST_WORD;
-    }
-    if (lastAsciiAlnum) {
-      flags |= FLAG_LAST_ASCII_ALNUM;
     }
     if (lastUnicodeWord) {
       flags |= FLAG_LAST_UNICODE_WORD;
@@ -701,8 +688,7 @@ final class Dfa {
     //
     // Both are re-expanded before consuming the character so that MATCH instructions
     // reached through these assertions are detected at the correct position.
-    boolean wasAsciiAlnum = (s.flags & FLAG_LAST_ASCII_ALNUM) != 0;
-    boolean isWord = Nfa.isDefaultWordBoundaryChar(cp, wasAsciiAlnum);
+    boolean isWord = Nfa.isWordChar(cp);
     boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
     int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
     boolean isUnicodeWord = Nfa.isUnicodeWordChar(cp);
@@ -814,9 +800,6 @@ final class Dfa {
             FLAG_MATCH
                 | FLAG_MATCH_BEFORE
                 | (isWord ? FLAG_LAST_WORD : 0)
-                | (Nfa.carriesDefaultWordBoundaryBase(cp, wasAsciiAlnum)
-                    ? FLAG_LAST_ASCII_ALNUM
-                    : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
       }
@@ -845,9 +828,6 @@ final class Dfa {
             FLAG_MATCH
                 | FLAG_MATCH_BEFORE
                 | (isWord ? FLAG_LAST_WORD : 0)
-                | (Nfa.carriesDefaultWordBoundaryBase(cp, wasAsciiAlnum)
-                    ? FLAG_LAST_ASCII_ALNUM
-                    : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
       }
@@ -873,9 +853,6 @@ final class Dfa {
     }
     if (isWord) {
       flags |= FLAG_LAST_WORD;
-    }
-    if (Nfa.carriesDefaultWordBoundaryBase(cp, wasAsciiAlnum)) {
-      flags |= FLAG_LAST_ASCII_ALNUM;
     }
     if (isUnicodeWord) {
       flags |= FLAG_LAST_UNICODE_WORD;
