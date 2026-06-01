@@ -708,6 +708,10 @@ final class Simplifier {
    * at 1.
    */
   private static Regexp simplifyRepeat(Regexp re, int min, int max, int flags) {
+    if (re.op == RegexpOp.CAPTURE && isPureEmpty(re)) {
+      return simplifyDirectPureEmptyCaptureRepeat(re, min, max, flags);
+    }
+
     // Cap repetition of empty-width ops at 1.
     if (isEmptyOp(re)
         || ((re.op == RegexpOp.CONCAT || re.op == RegexpOp.ALTERNATE) && allEmptyOp(re))) {
@@ -771,6 +775,28 @@ final class Simplifier {
       return Regexp.noMatch(flags);
     }
     return nre;
+  }
+
+  /**
+   * Lowers a counted repetition whose source operand is a directly captured pure-empty expression.
+   *
+   * <p>The JDK exposes the loop category through capture participation: {@code (){0,1}} behaves
+   * like {@code ()?}, {@code (){0,2}} behaves like {@code ()*}, and {@code (){1,2}} behaves like
+   * {@code ()+}. Preserve that distinction instead of expanding bounded repeats into nested
+   * optional copies.
+   */
+  private static Regexp simplifyDirectPureEmptyCaptureRepeat(
+      Regexp re, int min, int max, int flags) {
+    if (min == 0) {
+      if (max == 0) {
+        return Regexp.emptyMatch(flags);
+      }
+      return rawQuantifier(max == 1 ? RegexpOp.QUEST : RegexpOp.STAR, re, flags);
+    }
+    if (min == 1 && max == 1) {
+      return re;
+    }
+    return rawQuantifier(RegexpOp.PLUS, re, flags);
   }
 
   /** Returns true if all children of re are empty-width ops. */

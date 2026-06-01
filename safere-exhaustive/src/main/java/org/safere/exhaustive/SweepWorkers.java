@@ -85,7 +85,20 @@ final class SweepWorkers {
   }
 
   static long progressProbeInterval(long progressInterval, int threads) {
-    return Math.max(1, progressInterval / threads);
+    return Math.max(1, Math.min(10_000, progressInterval / threads));
+  }
+
+  static long firstOwnedCaseIndex(
+      long rangeStartInclusive, long rangeEndExclusive, int threads, int workerIndex) {
+    if (rangeStartInclusive >= rangeEndExclusive) {
+      return rangeEndExclusive;
+    }
+    long remainder = rangeStartInclusive % threads;
+    long delta = (workerIndex - remainder + threads) % threads;
+    if (delta >= rangeEndExclusive - rangeStartInclusive) {
+      return rangeEndExclusive;
+    }
+    return rangeStartInclusive + delta;
   }
 
   static long runStreamingLines(
@@ -188,12 +201,14 @@ final class SweepWorkers {
 
   static final class ProgressReporter {
     private final SweepRunState runState;
+    private final int workerIndex;
     private final long probeInterval;
     private long checkedByWorker;
     private long nextProbe;
 
-    ProgressReporter(SweepRunState runState) {
+    ProgressReporter(SweepRunState runState, int workerIndex) {
       this.runState = runState;
+      this.workerIndex = workerIndex;
       this.probeInterval =
           progressProbeInterval(runState.options.progressInterval(), runState.options.threads());
       this.nextProbe = probeInterval;
@@ -205,9 +220,11 @@ final class SweepWorkers {
     }
 
     void reportIfNeeded(long generated) {
+      runState.updateWorkerNextCaseIndex(workerIndex, generated);
       if (checkedByWorker < nextProbe) {
         return;
       }
+      runState.checkpointCompactLogsIfNeeded();
       runState.reportProgressIfNeeded(generated);
       while (nextProbe <= checkedByWorker) {
         nextProbe += probeInterval;

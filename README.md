@@ -164,7 +164,7 @@ compile time** with a clear error:
 
 - **Backreferences** (`\1`, `\2`, ...) — require exponential time
 - **Lookahead / Lookbehind** (`(?=...)`, `(?<=...)`, `(?!...)`, `(?<!...)`)
-- **Possessive quantifiers** (`*+`, `++`, `?+`)
+- **Possessive quantifiers over consuming operands** (`a*+`, `a++`, `a?+`)
 - **Atomic groups** (`(?>...)`)
 
 Additionally, the `CANON_EQ` flag is not supported.  This flag enables
@@ -185,19 +185,10 @@ they were primarily introduced for streaming-tokenizer use cases such as
 ## Semantic Compatibility with java.util.regex
 
 SafeRE aims to match `java.util.regex` behavior exactly, except where doing so
-would conflict with the linear-time guarantee or where JDK behavior is
-suspected to be a bug:
-
-1. **`Matcher.hitEnd()` and `Matcher.requireEnd()` are unsupported** — These
-   APIs report backtracking-engine end-state behavior rather than ordinary
-   regex match semantics.  Supporting them exactly would require preserving
-   JDK search-order details that SafeRE deliberately avoids in order to
-   guarantee linear-time matching.
-2. **Nested repetition with captures** — In patterns like `(a)*$`, JDK's
-   backtracking engine leaks captures from failed starting positions.  JDK is
-   itself internally inconsistent here (`(a)*$` vs `(?:(a))*$` give different
-   group 1 results).  SafeRE follows NFA-correct semantics.  See
-   [issue #52](https://github.com/eaftan/safere/issues/52) for details.
+would conflict with the linear-time guarantee or where observed JDK behavior
+appears to be an implementation detail rather than a stable regex rule. Known
+intentional differences are documented in
+[Intentional Divergences from java.util.regex](INTENTIONAL_DIVERGENCES.md).
 
 Both SafeRE and `java.util.regex` use **leftmost-first** alternation
 semantics (the first alternate that matches wins), which differs from POSIX
@@ -312,7 +303,8 @@ See [TESTING.md](TESTING.md) for the full testing workflow.
 1. **Backreferences** (`\1`, `\2`) — not supported; will throw
    `PatternSyntaxException` at compile time.
 2. **Lookahead / lookbehind** (`(?=...)`, `(?<=...)`) — not supported.
-3. **Possessive quantifiers** (`*+`, `++`) — not supported.
+3. **Possessive quantifiers over consuming operands** (`a*+`, `a++`) — not
+   supported.
 4. **`Matcher.hitEnd()` and `Matcher.requireEnd()`** are not available.
 5. **Named captures** support Java-compatible `(?<name>...)` syntax and
    Python-style `(?P<name>...)` syntax.

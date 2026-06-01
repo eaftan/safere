@@ -12,6 +12,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -81,6 +82,22 @@ class SweepRunStateTest {
 
     assertThat(output.toString(StandardCharsets.UTF_8))
         .contains("progress=100.0% elapsed=1m40s eta=0s total=10 checked=10 divergences=0");
+  }
+
+  @Test
+  void progressReporterCheckpointsLiveWorkerPosition() throws Exception {
+    SweepOptions options = options();
+    TestClock clock = new TestClock();
+
+    try (SweepRunState state = new SweepRunState(options, 10, clock::nanoTime)) {
+      state.enableCompactLogs("test", 10, List.of("UNKNOWN"), List.of(DivergenceStatus.UNKNOWN));
+      SweepWorkers.ProgressReporter reporter = new SweepWorkers.ProgressReporter(state, 0);
+      reporter.checked();
+      reporter.reportIfNeeded(7);
+      state.checkpointCompactLogs();
+    }
+
+    assertThat(Files.readString(tempDir.resolve("progress.json"))).contains("\"nextCaseIndex\":7");
   }
 
   private ByteArrayOutputStream progressOutputAfterCheckedCases(

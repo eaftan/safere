@@ -11,18 +11,29 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Offline differential sweep for repeated quantifiers over zero-width operands. */
 public final class ZeroWidthQuantifierDivergenceSweep {
   private static final int FIND_LIMIT = 16;
+  private static final int FIRST_UNKNOWN_LIMIT = 100;
+  private static final int ACTIONABLE_SAMPLE_LIMIT = 100;
   private static final int MAX_QUANTIFIER_CHAIN_LENGTH = 4;
+  private static final long DEFAULT_PROGRESS_INTERVAL = 10_000_000;
   private static final java.util.regex.Pattern CAPTURE_FIELD =
       java.util.regex.Pattern.compile("g(\\d+)=(?:null|-?\\d+-\\d+:[^;}]*+)");
+  private static final java.util.regex.Pattern FIND_TRACE_FIELD =
+      java.util.regex.Pattern.compile("(?:^|,)[^,:]*+:find\\d+=(?:true@\\d+-\\d+|false)");
+  private static final java.util.regex.Pattern NON_REPLACEMENT_TRACE_FIELD =
+      java.util.regex.Pattern.compile("(?:^|,)([^,:]*+:(?:matches|lookingAt|find\\d++))=([^,]*+)");
+  private static final java.util.regex.Pattern DECOMPOSED_E_ACUTE_TRACE_FIELD =
+      java.util.regex.Pattern.compile("(?:^|,)e\u0301:[^,]*");
 
   private static final List<Atom> ZERO_WIDTH_ATOMS =
       List.of(
@@ -78,52 +89,82 @@ public final class ZeroWidthQuantifierDivergenceSweep {
   private ZeroWidthQuantifierDivergenceSweep() {}
 
   public static void main(String[] args) throws IOException {
-    SweepOptions options =
-        SweepOptions.parse(
-            args,
-            Path.of("target", "exhaustive-reports", "zero-width-quantifier-sweep"),
-            "zero-width-quantifier-divergences.jsonl",
-            1_000_000);
-    Files.createDirectories(options.outputDir());
-    Files.deleteIfExists(options.jsonlPath());
-    options.printStartup("zero-width-quantifier");
+    ZeroWidthSweepOptions options = parseOptions(args);
+    Files.createDirectories(options.sweep().outputDir());
+    if (options.sweep().replayFile() != null) {
+      Files.deleteIfExists(options.sweep().jsonlPath());
+    }
+    options.printStartup();
 
-    if (options.replayFile() != null) {
+    if (options.sweep().replayFile() != null) {
       runReplay(options);
       return;
     }
 
-    SweepRunState state = runSweep(options);
+    ZeroWidthRunResult result = runSweep(options);
 
-    System.out.println("checked=" + state.checked.sum());
-    System.out.println("generated=" + state.generated);
+    System.out.println("checked=" + result.checked());
+    System.out.println("generated=" + result.generated());
     System.out.println("totalCases=" + totalCases());
-    System.out.println("divergences=" + state.divergences.sum());
-    System.out.println("threads=" + options.threads());
-    System.out.println("jsonl=" + options.jsonlPath());
+    System.out.println("divergences=" + result.divergences());
+    System.out.println("actionableDivergences=" + result.summary().actionableCount());
+    System.out.println("unknownDivergences=" + result.summary().count(DivergenceClass.UNKNOWN));
+    System.out.println("threads=" + options.sweep().threads());
   }
 
-  private static SweepRunState runSweep(SweepOptions options) throws IOException {
-    try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
+  private static ZeroWidthSweepOptions parseOptions(String[] args) {
+    SweepOptions sweepOptions =
+        SweepOptions.parse(
+            args,
+            Path.of("target", "exhaustive-reports", "zero-width-quantifier-sweep"),
+            "zero-width-quantifier-divergences.jsonl",
+            DEFAULT_PROGRESS_INTERVAL);
+    return new ZeroWidthSweepOptions(sweepOptions);
+  }
+
+  private static ZeroWidthRunResult runSweep(ZeroWidthSweepOptions options) throws IOException {
+    SweepOptions sweepOptions = options.sweep();
+    long selectedCaseCount = sweepOptions.totalChecks(totalCases());
+    List<ClassifiedDivergenceSummary<DivergenceClass>> workerSummaries = new ArrayList<>();
+    for (int i = 0; i < sweepOptions.threads(); i++) {
+      workerSummaries.add(null);
+    }
+    try (SweepRunState runState = new SweepRunState(sweepOptions, selectedCaseCount)) {
+      runState.enableCompactLogs(
+          "zero-width-quantifier",
+          totalCases(),
+          divergenceClassificationNames(),
+          divergenceClassificationStatuses());
       SweepWorkers.run(
-          options.threads(),
+          sweepOptions.threads(),
           "zero-width-quantifier-sweep-",
           workerIndex -> {
-            SweepState worker = new SweepState(runState, workerIndex);
+            ClassifiedDivergenceSummary<DivergenceClass> workerSummary =
+                newZeroWidthDivergenceSummary();
+            SweepState worker = new SweepState(runState, workerSummary, workerIndex);
             worker.run();
             worker.finish();
+            workerSummaries.set(workerIndex, workerSummary);
           });
-      return runState;
+      ClassifiedDivergenceSummary<DivergenceClass> summary = newZeroWidthDivergenceSummary();
+      for (ClassifiedDivergenceSummary<DivergenceClass> workerSummary : workerSummaries) {
+        summary.merge(workerSummary);
+      }
+      return new ZeroWidthRunResult(
+          runState.checked.sum(), runState.generated, runState.divergences.sum(), summary);
     }
   }
 
-  private static void runReplay(SweepOptions options) throws IOException {
+  private static void runReplay(ZeroWidthSweepOptions options) throws IOException {
+    SweepOptions sweepOptions = options.sweep();
+    ClassifiedDivergenceSummary<DivergenceClass> summary = newZeroWidthDivergenceSummary();
+    AtomicLong replayCaseIndex = new AtomicLong();
     try (BufferedReader reader =
-            Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8);
-        SweepRunState runState = new SweepRunState(options, 0)) {
+            Files.newBufferedReader(sweepOptions.replayFile(), StandardCharsets.UTF_8);
+        SweepRunState runState = new SweepRunState(sweepOptions, 0)) {
       long generated =
           SweepWorkers.runStreamingLines(
-              options.threads(),
+              sweepOptions.threads(),
               "zero-width-quantifier-replay-",
               reader,
               line -> {
@@ -132,17 +173,25 @@ public final class ZeroWidthQuantifierDivergenceSweep {
                   return;
                 }
                 runState.checked.increment();
-                evaluateCase(runState, spec);
+                evaluateCase(runState, summary, spec, replayCaseIndex.getAndIncrement(), -1);
               });
       runState.recordGenerated(generated);
+      summary.writeReports(sweepOptions.outputDir());
       System.out.println("checked=" + runState.checked.sum());
       System.out.println("generated=" + runState.generated);
       System.out.println("divergences=" + runState.divergences.sum());
-      System.out.println("threads=" + options.threads());
-      System.out.println("jsonl=" + options.jsonlPath());
-      if (runState.divergences.sum() > 0) {
+      System.out.println("actionableDivergences=" + summary.actionableCount());
+      System.out.println("unknownDivergences=" + summary.count(DivergenceClass.UNKNOWN));
+      System.out.println("threads=" + sweepOptions.threads());
+      System.out.println("jsonl=" + sweepOptions.jsonlPath());
+      long unknownCount = summary.count(DivergenceClass.UNKNOWN);
+      if (summary.actionableCount() > 0 || unknownCount > 0) {
         throw new IllegalStateException(
-            "replay found " + runState.divergences.sum() + " behavioral divergences");
+            "replay found "
+                + summary.actionableCount()
+                + " actionable and "
+                + unknownCount
+                + " unknown behavioral divergences");
       }
     }
   }
@@ -185,7 +234,7 @@ public final class ZeroWidthQuantifierDivergenceSweep {
             + SweepJson.string(caseObject, "suffixQuantifier"));
   }
 
-  private static long totalCases() {
+  static long totalCases() {
     return CARTESIAN_CASES + TARGETED_CASES.size();
   }
 
@@ -250,6 +299,15 @@ public final class ZeroWidthQuantifierDivergenceSweep {
 
   static long totalCasesForTesting() {
     return totalCases();
+  }
+
+  static String compactReplayJson(long caseIndex, String classification) {
+    CaseSpec spec = caseAt(caseIndex);
+    var object = SweepJson.object();
+    object.addProperty("caseIndex", caseIndex);
+    object.addProperty("classification", classification);
+    object.add("case", Divergence.caseJson(spec));
+    return SweepJson.toJson(object);
   }
 
   private static Operand findOperandByRegex(String regex) {
@@ -474,6 +532,103 @@ public final class ZeroWidthQuantifierDivergenceSweep {
 
   private record FlagMode(String label, String prefix, int flags, String trivia) {}
 
+  private record ZeroWidthRunResult(
+      long checked,
+      long generated,
+      long divergences,
+      ClassifiedDivergenceSummary<DivergenceClass> summary) {}
+
+  private record ZeroWidthSweepOptions(SweepOptions sweep) {
+    void printStartup() {
+      sweep.printStartup("zero-width-quantifier");
+    }
+  }
+
+  private static ClassifiedDivergenceSummary<DivergenceClass> newZeroWidthDivergenceSummary() {
+    return new ClassifiedDivergenceSummary<>(
+        DivergenceClass.class,
+        DivergenceClass.UNKNOWN,
+        "zero-width-quantifier",
+        FIRST_UNKNOWN_LIMIT,
+        ACTIONABLE_SAMPLE_LIMIT);
+  }
+
+  static List<String> divergenceClassificationNames() {
+    return Arrays.stream(DivergenceClass.values()).map(Enum::name).toList();
+  }
+
+  static List<DivergenceStatus> divergenceClassificationStatuses() {
+    return Arrays.stream(DivergenceClass.values()).map(DivergenceClass::status).toList();
+  }
+
+  private enum DivergenceClass implements DivergenceClassification {
+    STACK_OVERFLOW(
+        DivergenceStatus.EXPECTED_ZERO,
+        "Generated stack-safety sentinel cases must not throw StackOverflowError in SafeRE."),
+    RELUCTANT_QUANTIFIER_MODIFIER(
+        DivergenceStatus.EXPECTED_ZERO,
+        "JDK reluctant quantifier modifiers over zero-width operands are part of the supported"
+            + " linear-time syntax."),
+    COMMENTS_MODE_GRAPHEME_QUANTIFIER_TRIVIA(
+        DivergenceStatus.EXPECTED_ZERO,
+        "Comments-mode trivia around zero-width grapheme quantifiers must not make a valid JDK"
+            + " quantifier look argument-less."),
+    INVALID_QUANTIFIER_CHAIN_ACCEPTED(
+        DivergenceStatus.EXPECTED_ZERO,
+        "SafeRE must reject nested or dangling quantifier chains that java.util.regex rejects."),
+    ZERO_WIDTH_POSSESSIVE_QUANTIFIER_REJECTED(
+        DivergenceStatus.EXPECTED_ZERO,
+        "JDK-compatible possessive modifiers over zero-width operands are normalizable without"
+            + " introducing consuming possessive semantics."),
+    ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION(
+        DivergenceStatus.EXPECTED_ZERO,
+        "JDK-compatible possessive modifiers over zero-width operands must preserve captures from"
+            + " the observed zero-width iteration."),
+    POSSESSIVE_QUANTIFIER_UNSUPPORTED(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "SafeRE rejects possessive quantifiers over consuming operands to preserve the supported"
+            + " linear-time dialect."),
+    GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK repeated-find cursor behavior for alternatives involving a bare explicit"
+            + " \\b{g} is not part of SafeRE's compositional grapheme model."),
+    REPEATED_GRAPHEME_BOUNDARY_COMPOSITION(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces for repeated explicit \\b{g} skip or reject compositions that"
+            + " SafeRE's compositional grapheme model preserves."),
+    GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces for alternatives involving explicit \\b{g} expose grapheme"
+            + " segmentation details that conflict with SafeRE's documented grapheme model."),
+    ASCII_WORD_BOUNDARY_COMBINING_MARK(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "SafeRE follows the documented default ASCII word-character model for \\b and \\B"
+            + " without attaching combining marks to preceding base characters."),
+    FAILED_PATH_CAPTURE_LEAKAGE(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces can preserve captures from failed backtracking paths; SafeRE does"
+            + " not preserve captures across failed NFA start/path attempts."),
+    UNKNOWN(DivergenceStatus.UNKNOWN, "Unclassified SafeRE/JDK zero-width quantifier divergence.");
+
+    private final DivergenceStatus status;
+    private final String rationale;
+
+    DivergenceClass(DivergenceStatus status, String rationale) {
+      this.status = status;
+      this.rationale = rationale;
+    }
+
+    @Override
+    public DivergenceStatus status() {
+      return status;
+    }
+
+    @Override
+    public String rationale() {
+      return rationale;
+    }
+  }
+
   private record CaseSpec(
       Operand operand,
       Wrapper wrapper,
@@ -538,11 +693,19 @@ public final class ZeroWidthQuantifierDivergenceSweep {
   }
 
   private record Divergence(
-      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere, String bucket) {
+      long caseIndex,
+      CaseSpec spec,
+      RegexSweep.Outcome jdk,
+      RegexSweep.Outcome safere,
+      String bucket,
+      DivergenceClass classification) {
     String toJson() {
       var object = SweepJson.object();
+      object.addProperty("caseIndex", caseIndex);
       object.add("case", caseJson(spec));
       object.addProperty("bucket", bucket);
+      object.addProperty("classification", classification.name());
+      object.addProperty("classificationStatus", classification.status().name());
       object.addProperty("labels", spec.labels());
       object.addProperty("regex", spec.regex());
       object.addProperty("operand", spec.operand().label());
@@ -580,49 +743,65 @@ public final class ZeroWidthQuantifierDivergenceSweep {
 
   private static final class SweepState {
     final SweepRunState runState;
+    final ClassifiedDivergenceSummary<DivergenceClass> summary;
     final SweepOptions options;
     final SweepWorkers.ProgressReporter progressReporter;
     final int workerIndex;
     long generated;
 
-    SweepState(SweepRunState runState, int workerIndex) {
+    SweepState(
+        SweepRunState runState,
+        ClassifiedDivergenceSummary<DivergenceClass> summary,
+        int workerIndex) {
       this.runState = runState;
+      this.summary = summary;
       this.options = runState.options;
-      this.progressReporter = new SweepWorkers.ProgressReporter(runState);
+      this.progressReporter = new SweepWorkers.ProgressReporter(runState, workerIndex);
       this.workerIndex = workerIndex;
     }
 
     void run() {
       long end = Math.min(options.rangeEndExclusive(), totalCases());
+      generated = firstOwnedCaseIndex();
       while (generated < end) {
-        long caseIndex = generated++;
-        if (caseIndex < options.rangeStartInclusive()) {
-          reportProgressIfNeeded();
-          continue;
-        }
-        if (caseIndex % options.threads() != workerIndex) {
-          continue;
-        }
+        long caseIndex = generated;
+        generated += options.threads();
         progressReporter.checked();
-        evaluateCase(caseAt(caseIndex));
+        evaluateCase(caseIndex, caseAt(caseIndex));
       }
     }
 
-    void evaluateCase(CaseSpec spec) {
-      ZeroWidthQuantifierDivergenceSweep.evaluateCase(runState, spec);
+    private long firstOwnedCaseIndex() {
+      return SweepWorkers.firstOwnedCaseIndex(
+          options.rangeStartInclusive(), endExclusive(), options.threads(), workerIndex);
+    }
+
+    void evaluateCase(long caseIndex, CaseSpec spec) {
+      ZeroWidthQuantifierDivergenceSweep.evaluateCase(
+          runState, summary, spec, caseIndex, workerIndex);
       reportProgressIfNeeded();
     }
 
     void finish() {
-      runState.recordGenerated(generated);
+      runState.recordGenerated(Math.min(generated, endExclusive()));
+      runState.updateWorkerNextCaseIndex(workerIndex, Math.min(generated, endExclusive()));
     }
 
     void reportProgressIfNeeded() {
-      progressReporter.reportIfNeeded(generated);
+      progressReporter.reportIfNeeded(Math.min(generated, endExclusive()));
+    }
+
+    private long endExclusive() {
+      return Math.min(options.rangeEndExclusive(), totalCases());
     }
   }
 
-  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+  private static void evaluateCase(
+      SweepRunState runState,
+      ClassifiedDivergenceSummary<DivergenceClass> summary,
+      CaseSpec spec,
+      long caseIndex,
+      int workerIndex) {
     RegexSweep.Outcome jdk =
         RegexSweep.jdkTraceOutcome(
             spec.regex(), spec.flagMode().flags(), spec.inputs(), FIND_LIMIT);
@@ -632,31 +811,442 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     if (isStackSafetySentinel(spec)) {
       if (safere.error().contains("StackOverflowError")) {
         String bucketName = bucketFor(spec, jdk, safere);
-        runState.recordDivergence();
-        runState.appendJsonl(new Divergence(spec, jdk, safere, bucketName).toJson());
+        recordDivergence(
+            runState,
+            summary,
+            caseIndex,
+            spec,
+            jdk,
+            safere,
+            bucketName,
+            DivergenceClass.STACK_OVERFLOW,
+            workerIndex);
       }
       return;
     }
     if (RegexSweep.semanticallyEqual(jdk, safere)) {
       return;
     }
-    if (isKnownFailedPathCaptureLeakageDivergence(spec, jdk, safere)) {
+    String bucketName = bucketFor(spec, jdk, safere);
+    DivergenceClass classification = classifyDivergence(spec, jdk, safere);
+    recordDivergence(
+        runState, summary, caseIndex, spec, jdk, safere, bucketName, classification, workerIndex);
+  }
+
+  private static void recordDivergence(
+      SweepRunState runState,
+      ClassifiedDivergenceSummary<DivergenceClass> summary,
+      long caseIndex,
+      CaseSpec spec,
+      RegexSweep.Outcome jdk,
+      RegexSweep.Outcome safere,
+      String bucketName,
+      DivergenceClass classification,
+      int workerIndex) {
+    if (workerIndex >= 0) {
+      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      summary.record(classification, caseIndex, null);
       return;
     }
-    String bucketName = bucketFor(spec, jdk, safere);
+    Divergence divergence =
+        new Divergence(caseIndex, spec, jdk, safere, bucketName, classification);
     runState.recordDivergence();
-    runState.appendJsonl(new Divergence(spec, jdk, safere, bucketName).toJson());
+    String json = divergence.toJson();
+    summary.record(classification, caseIndex, json);
+    if (classification.actionable()) {
+      runState.appendJsonl(json);
+    }
+  }
+
+  private static DivergenceClass classifyDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    if (isReluctantQuantifierModifierDivergence(spec, jdk, safere)) {
+      return DivergenceClass.RELUCTANT_QUANTIFIER_MODIFIER;
+    }
+    if (isCommentsModeGraphemeQuantifierTriviaDivergence(spec, jdk, safere)) {
+      return DivergenceClass.COMMENTS_MODE_GRAPHEME_QUANTIFIER_TRIVIA;
+    }
+    if (isInvalidQuantifierChainAccepted(jdk, safere)) {
+      return DivergenceClass.INVALID_QUANTIFIER_CHAIN_ACCEPTED;
+    }
+    if (isZeroWidthPossessiveQuantifierRejected(spec, jdk, safere)) {
+      return DivergenceClass.ZERO_WIDTH_POSSESSIVE_QUANTIFIER_REJECTED;
+    }
+    if (isPossessiveQuantifierUnsupported(spec, jdk, safere)) {
+      return DivergenceClass.POSSESSIVE_QUANTIFIER_UNSUPPORTED;
+    }
+    if (isZeroWidthPossessiveCaptureRetentionDivergence(spec, jdk, safere)) {
+      return DivergenceClass.ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION;
+    }
+    if (isKnownGraphemeBoundaryAlternativeFindCursor(spec, jdk, safere)) {
+      return DivergenceClass.GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR;
+    }
+    if (isKnownRepeatedGraphemeBoundaryComposition(spec, jdk, safere)) {
+      return DivergenceClass.REPEATED_GRAPHEME_BOUNDARY_COMPOSITION;
+    }
+    if (isKnownGraphemeBoundaryAlternativeGraphemeModel(spec, jdk, safere)) {
+      return DivergenceClass.GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL;
+    }
+    if (isKnownAsciiWordBoundaryCombiningMarkDivergence(spec, jdk, safere)) {
+      return DivergenceClass.ASCII_WORD_BOUNDARY_COMBINING_MARK;
+    }
+    if (isKnownFailedPathCaptureLeakageDivergence(spec, jdk, safere)) {
+      return DivergenceClass.FAILED_PATH_CAPTURE_LEAKAGE;
+    }
+    return DivergenceClass.UNKNOWN;
+  }
+
+  private static boolean isZeroWidthPossessiveQuantifierRejected(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && !safere.accepted()
+        && containsPossessiveQuantifierModifier(spec.quantifierChain().text());
+  }
+
+  private static boolean isPossessiveQuantifierUnsupported(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && !safere.accepted()
+        && containsPossessiveQuantifierModifier(spec.quantifierChain().text());
+  }
+
+  private static boolean isZeroWidthPossessiveCaptureRetentionDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && safere.accepted()
+        && containsPossessiveQuantifierModifier(spec.quantifierChain().text())
+        && isZeroWidthPossessiveCaptureRetentionSpec(spec)
+        && isDirectZeroWidthPossessiveCaptureRetentionContext(spec.context())
+        && normalizeCaptureFields(jdk.trace()).equals(normalizeCaptureFields(safere.trace()));
+  }
+
+  private static boolean isZeroWidthPossessiveCaptureRetentionSpec(CaseSpec spec) {
+    if (isCapturedConditionalZeroWidthAssertion(spec)) {
+      return true;
+    }
+    return switch (spec.operand().label()) {
+      case "atom:emptyCapturing",
+          "atom:emptyNonCapturing",
+          "alternate:emptyCapturing|emptyCapturing",
+          "alternate:emptyCapturing|emptyNonCapturing",
+          "alternate:emptyNonCapturing|emptyCapturing",
+          "alternate:emptyNonCapturing|emptyNonCapturing" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isCapturedConditionalZeroWidthAssertion(CaseSpec spec) {
+    return (spec.wrapper().label().equals("capturing")
+            || spec.wrapper().label().equals("nestedGroups"))
+        && isConditionalZeroWidthOperand(spec.operand());
+  }
+
+  private static boolean isDirectZeroWidthPossessiveCaptureRetentionContext(Context context) {
+    return switch (context.label()) {
+      case "bare", "capturedWhole", "embeddedMultilineAnchored", "surroundingLiterals" -> true;
+      default -> false;
+    };
+  }
+
+  private static boolean containsPossessiveQuantifierModifier(String quantifierChain) {
+    for (int i = 1; i < quantifierChain.length(); i++) {
+      if (quantifierChain.charAt(i) == '+'
+          && isQuantifierModifierPrefix(quantifierChain.charAt(i - 1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isQuantifierModifierPrefix(char c) {
+    return c == '*' || c == '+' || c == '?' || c == '}';
+  }
+
+  private static boolean isReluctantQuantifierModifierDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && !safere.accepted()
+        && containsReluctantQuantifierModifier(spec.quantifierChain().text());
+  }
+
+  private static boolean containsReluctantQuantifierModifier(String quantifierChain) {
+    for (int i = 1; i < quantifierChain.length(); i++) {
+      if (quantifierChain.charAt(i) == '?'
+          && isQuantifierModifierPrefix(quantifierChain.charAt(i - 1))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isCommentsModeGraphemeQuantifierTriviaDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && !safere.accepted()
+        && spec.flagMode().label().contains("comments")
+        && spec.operand().label().contains("graphemeBoundary")
+        && safere.error().equals("missing argument to repetition operator");
+  }
+
+  private static boolean isInvalidQuantifierChainAccepted(
+      RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return !jdk.accepted()
+        && safere.accepted()
+        && (jdk.error().startsWith("Dangling meta character")
+            || jdk.error().equals("Illegal repetition"));
+  }
+
+  private static boolean isKnownGraphemeBoundaryAlternativeFindCursor(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && safere.accepted()
+        && spec.operand().label().equals("atom:graphemeBoundary")
+        && spec.wrapper().label().equals("bare")
+        && (spec.context().label().equals("mixedLeadingLiteralAlternative")
+            || spec.context().label().equals("mixedLeadingLiteralAlternativeReversed"))
+        && isFindOnlyTraceDifference(jdk.trace(), safere.trace());
+  }
+
+  static boolean isKnownGraphemeBoundaryAlternativeFindCursorForTesting(
+      String jdkTrace, String safereTrace) {
+    return isFindOnlyTraceDifference(jdkTrace, safereTrace);
+  }
+
+  private static boolean isKnownRepeatedGraphemeBoundaryComposition(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && safere.accepted()
+        && containsExplicitGraphemeBoundary(spec.operand())
+        && isRepeatedGraphemeBoundaryCompositionTraceDifference(jdk.trace(), safere.trace());
+  }
+
+  private static boolean isKnownGraphemeBoundaryAlternativeGraphemeModel(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && safere.accepted()
+        && containsExplicitGraphemeBoundary(spec.operand())
+        && isGraphemeSensitiveAlternativeTraceDifference(jdk.trace(), safere.trace());
+  }
+
+  private static boolean containsExplicitGraphemeBoundary(Operand operand) {
+    return operand.label().contains("graphemeBoundary");
+  }
+
+  static boolean isRepeatedGraphemeBoundaryCompositionTraceDifferenceForTesting(
+      String jdkTrace, String safereTrace) {
+    return isRepeatedGraphemeBoundaryCompositionTraceDifference(jdkTrace, safereTrace);
+  }
+
+  private static boolean isRepeatedGraphemeBoundaryCompositionTraceDifference(
+      String jdkTrace, String safereTrace) {
+    if (jdkTrace.equals(safereTrace)) {
+      return false;
+    }
+    return isRepeatedGraphemeBoundaryCompositionTraceDifference(
+        nonReplacementTraceFields(normalizeCaptureFields(removeDecomposedEAcuteFields(jdkTrace))),
+        nonReplacementTraceFields(
+            normalizeCaptureFields(removeDecomposedEAcuteFields(safereTrace))));
+  }
+
+  private static boolean isGraphemeSensitiveAlternativeTraceDifference(
+      String jdkTrace, String safereTrace) {
+    if (jdkTrace.equals(safereTrace)) {
+      return false;
+    }
+    Map<String, String> jdkOperations =
+        nonReplacementTraceFields(normalizeCaptureFields(removeDecomposedEAcuteFields(jdkTrace)));
+    Map<String, String> safeReOperations =
+        nonReplacementTraceFields(
+            normalizeCaptureFields(removeDecomposedEAcuteFields(safereTrace)));
+    Map<String, String> nonSensitiveJdkOperations = new LinkedHashMap<>();
+    Map<String, String> nonSensitiveSafeReOperations = new LinkedHashMap<>();
+    boolean sawSensitiveDifference = false;
+    for (Map.Entry<String, String> entry : jdkOperations.entrySet()) {
+      String safeReValue = safeReOperations.get(entry.getKey());
+      if (isGraphemeSensitiveTraceKey(entry.getKey())) {
+        if (!entry.getValue().equals(safeReValue)) {
+          sawSensitiveDifference = true;
+        }
+      } else {
+        nonSensitiveJdkOperations.put(entry.getKey(), entry.getValue());
+      }
+    }
+    for (Map.Entry<String, String> entry : safeReOperations.entrySet()) {
+      if (isGraphemeSensitiveTraceKey(entry.getKey())) {
+        if (!entry.getValue().equals(jdkOperations.get(entry.getKey()))) {
+          sawSensitiveDifference = true;
+        }
+      } else {
+        nonSensitiveSafeReOperations.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return sawSensitiveDifference
+        && (nonSensitiveJdkOperations.equals(nonSensitiveSafeReOperations)
+            || isRepeatedGraphemeBoundaryCompositionTraceDifference(
+                nonSensitiveJdkOperations, nonSensitiveSafeReOperations));
+  }
+
+  private static boolean isGraphemeSensitiveTraceKey(String key) {
+    int colon = key.lastIndexOf(':');
+    String input = colon >= 0 ? key.substring(0, colon) : key;
+    return input.contains("\\uD83D") || input.indexOf('\u200D') >= 0;
+  }
+
+  private static boolean isRepeatedGraphemeBoundaryCompositionTraceDifference(
+      Map<String, String> jdkOperations, Map<String, String> safeReOperations) {
+    boolean sawCompositionalExtra = false;
+    for (Map.Entry<String, String> entry : jdkOperations.entrySet()) {
+      if (isFindTraceKey(entry.getKey())) {
+        continue;
+      }
+      String safeReValue = safeReOperations.get(entry.getKey());
+      if (safeReValue == null) {
+        return false;
+      }
+      if (entry.getValue().startsWith("true@")) {
+        if (!entry.getValue().equals(safeReValue)) {
+          return false;
+        }
+      } else if (safeReValue.startsWith("true@")) {
+        sawCompositionalExtra = true;
+      } else if (!entry.getValue().equals(safeReValue)) {
+        return false;
+      }
+    }
+    Map<String, Set<String>> jdkFindSuccesses = findSuccessesByInput(jdkOperations);
+    Map<String, Set<String>> safeReFindSuccesses = findSuccessesByInput(safeReOperations);
+    for (Map.Entry<String, Set<String>> entry : jdkFindSuccesses.entrySet()) {
+      Set<String> safeReSuccesses = safeReFindSuccesses.get(entry.getKey());
+      if (safeReSuccesses == null || !safeReSuccesses.containsAll(entry.getValue())) {
+        return false;
+      }
+      if (safeReSuccesses.size() > entry.getValue().size()) {
+        sawCompositionalExtra = true;
+      }
+    }
+    for (Map.Entry<String, Set<String>> entry : safeReFindSuccesses.entrySet()) {
+      if (!jdkFindSuccesses.containsKey(entry.getKey()) && !entry.getValue().isEmpty()) {
+        sawCompositionalExtra = true;
+      }
+    }
+    for (Map.Entry<String, String> entry : safeReOperations.entrySet()) {
+      if (isFindTraceKey(entry.getKey())) {
+        continue;
+      }
+      if (!jdkOperations.containsKey(entry.getKey())) {
+        if (entry.getValue().startsWith("true@")) {
+          sawCompositionalExtra = true;
+        } else if (!entry.getKey().contains(":find")) {
+          return false;
+        }
+      }
+    }
+    return sawCompositionalExtra;
+  }
+
+  private static boolean isFindTraceKey(String key) {
+    int colon = key.lastIndexOf(':');
+    return colon >= 0 && key.startsWith("find", colon + 1);
+  }
+
+  private static Map<String, Set<String>> findSuccessesByInput(Map<String, String> fields) {
+    Map<String, Set<String>> successes = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : fields.entrySet()) {
+      if (!isFindTraceKey(entry.getKey()) || !entry.getValue().startsWith("true@")) {
+        continue;
+      }
+      int colon = entry.getKey().lastIndexOf(':');
+      successes
+          .computeIfAbsent(entry.getKey().substring(0, colon), ignored -> new LinkedHashSet<>())
+          .add(entry.getValue());
+    }
+    return successes;
+  }
+
+  private static Map<String, String> nonReplacementTraceFields(String trace) {
+    Map<String, String> fields = new LinkedHashMap<>();
+    java.util.regex.Matcher matcher = NON_REPLACEMENT_TRACE_FIELD.matcher(trace);
+    while (matcher.find()) {
+      fields.put(matcher.group(1), matcher.group(2));
+    }
+    return fields;
+  }
+
+  private static boolean isFindOnlyTraceDifference(String jdkTrace, String safereTrace) {
+    return !jdkTrace.equals(safereTrace)
+        && FIND_TRACE_FIELD
+            .matcher(jdkTrace)
+            .replaceAll("")
+            .equals(FIND_TRACE_FIELD.matcher(safereTrace).replaceAll(""));
+  }
+
+  private static boolean isKnownAsciiWordBoundaryCombiningMarkDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && safere.accepted()
+        && containsAsciiWordBoundary(spec.operand())
+        && (isDecomposedEAcuteOnlyTraceDifference(jdk.trace(), safere.trace())
+            || isDecomposedEAcuteOnlyTraceDifference(
+                normalizeCaptureFields(jdk.trace()), normalizeCaptureFields(safere.trace())));
+  }
+
+  private static boolean containsAsciiWordBoundary(Operand operand) {
+    return operand.label().contains("wordBoundary") || operand.label().contains("nonWordBoundary");
+  }
+
+  static boolean isDecomposedEAcuteOnlyTraceDifferenceForTesting(
+      String jdkTrace, String safereTrace) {
+    return isDecomposedEAcuteOnlyTraceDifference(jdkTrace, safereTrace);
+  }
+
+  private static boolean isDecomposedEAcuteOnlyTraceDifference(
+      String jdkTrace, String safereTrace) {
+    return !jdkTrace.equals(safereTrace)
+        && removeDecomposedEAcuteFields(jdkTrace).equals(removeDecomposedEAcuteFields(safereTrace));
+  }
+
+  private static String removeDecomposedEAcuteFields(String trace) {
+    return DECOMPOSED_E_ACUTE_TRACE_FIELD.matcher(trace).replaceAll("");
   }
 
   private static boolean isKnownFailedPathCaptureLeakageDivergence(
       CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
-    if (!isKnownFailedPathCaptureLeakageOperand(spec)) {
+    boolean knownShape =
+        isKnownFailedPathCaptureLeakageOperand(spec)
+            || isPossessiveZeroWidthFailedPathCaptureLeakage(spec);
+    if (!knownShape) {
       return false;
     }
     if (jdk.accepted() != safere.accepted() || !jdk.error().equals(safere.error())) {
       return false;
     }
-    return normalizeCaptureFields(jdk.trace()).equals(normalizeCaptureFields(safere.trace()));
+    if (!normalizeCaptureFields(jdk.trace()).equals(normalizeCaptureFields(safere.trace()))) {
+      return false;
+    }
+    return true;
+  }
+
+  private static boolean isPossessiveZeroWidthFailedPathCaptureLeakage(CaseSpec spec) {
+    return containsPossessiveQuantifierModifier(spec.quantifierChain().text())
+        && isFailedPathCaptureLeakageContext(spec.context())
+        && isEmptyCaptureLeakageShape(spec);
+  }
+
+  private static boolean isFailedPathCaptureLeakageContext(Context context) {
+    return switch (context.label()) {
+      case "mixedLeadingLiteralAlternative",
+          "mixedLeadingLiteralAlternativeReversed",
+          "suffixLiteral" ->
+          true;
+      default -> false;
+    };
+  }
+
+  private static boolean isEmptyCaptureLeakageShape(CaseSpec spec) {
+    return spec.wrapper().label().equals("capturing")
+        || spec.wrapper().label().equals("nestedGroups")
+        || spec.operand().label().contains("emptyCapturing");
   }
 
   private static boolean isConditionalZeroWidthOperand(Operand operand) {
@@ -686,7 +1276,42 @@ public final class ZeroWidthQuantifierDivergenceSweep {
         || operand.label().equals("concat:emptyCapturing+emptyNonCapturing")
         || operand.label().equals("concat:emptyNonCapturing+emptyCapturing")
         || operand.label().equals("concat:emptyNonCapturing+emptyNonCapturing")
+        || isAlternativeOfConditionalZeroWidthOperands(operand)
+        || isGraphemeBoundaryEmptyCaptureAlternative(operand)
+        || isWrappedEmptyCaptureFailedPathLeakage(spec)
+        || isWrappedEmptyNonCaptureFailedPathLeakage(spec)
+        || isEmptyCaptureAlternativeFailedPathLeakage(spec)
+        || isGreedyRepeatedEmptyCaptureAlternativeFailedPathLeakage(spec)
         || isGreedyEmptyCaptureAlternativeFailedPathLeakage(spec);
+  }
+
+  private static boolean isWrappedEmptyCaptureFailedPathLeakage(CaseSpec spec) {
+    return spec.operand().label().equals("atom:emptyCapturing")
+        && !spec.wrapper().label().equals("bare")
+        && (spec.context().label().equals("suffixLiteral")
+            || spec.context().label().equals("mixedLeadingLiteralAlternative")
+            || spec.context().label().equals("mixedLeadingLiteralAlternativeReversed"));
+  }
+
+  private static boolean isWrappedEmptyNonCaptureFailedPathLeakage(CaseSpec spec) {
+    return spec.operand().label().equals("atom:emptyNonCapturing")
+        && spec.wrapper().label().equals("nestedGroups")
+        && (spec.context().label().equals("suffixLiteral")
+            || spec.context().label().equals("mixedLeadingLiteralAlternative")
+            || spec.context().label().equals("mixedLeadingLiteralAlternativeReversed"));
+  }
+
+  private static boolean isEmptyCaptureAlternativeFailedPathLeakage(CaseSpec spec) {
+    return (spec.context().label().equals("mixedLeadingLiteralAlternative")
+            || spec.context().label().equals("mixedLeadingLiteralAlternativeReversed"))
+        && spec.operand().label().equals("atom:emptyCapturing");
+  }
+
+  private static boolean isGreedyRepeatedEmptyCaptureAlternativeFailedPathLeakage(CaseSpec spec) {
+    return spec.context().label().equals("mixedLeadingLiteralAlternative")
+        && spec.wrapper().label().equals("capturing")
+        && spec.operand().label().equals("atom:emptyCapturing")
+        && spec.quantifierChain().label().startsWith("star");
   }
 
   private static boolean isGreedyEmptyCaptureAlternativeFailedPathLeakage(CaseSpec spec) {
@@ -699,6 +1324,25 @@ public final class ZeroWidthQuantifierDivergenceSweep {
 
   private static boolean isAlternativeOperand(Operand operand) {
     return operand.label().startsWith("alternate:");
+  }
+
+  private static boolean isAlternativeOfConditionalZeroWidthOperands(Operand operand) {
+    String prefix = "alternate:";
+    if (!operand.label().startsWith(prefix)) {
+      return false;
+    }
+    String body = operand.label().substring(prefix.length());
+    int separator = body.indexOf('|');
+    if (separator < 0) {
+      return false;
+    }
+    return isConditionalZeroWidthPart(body.substring(0, separator))
+        && isConditionalZeroWidthPart(body.substring(separator + 1));
+  }
+
+  private static boolean isGraphemeBoundaryEmptyCaptureAlternative(Operand operand) {
+    return operand.label().equals("alternate:graphemeBoundary|emptyCapturing")
+        || operand.label().equals("alternate:emptyCapturing|graphemeBoundary");
   }
 
   private static boolean isEmptyCaptureThenConditionalZeroWidthOperand(Operand operand) {

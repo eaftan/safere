@@ -92,6 +92,14 @@ final class SweepJson {
     return value.getAsInt();
   }
 
+  static long longInteger(JsonObject object, String field) {
+    JsonElement value = object.get(field);
+    if (value == null || value.isJsonNull()) {
+      throw new IllegalArgumentException("missing JSON integer field: " + field);
+    }
+    return value.getAsLong();
+  }
+
   static JsonObject parseObjectOrNull(String line) {
     JsonElement element;
     try {

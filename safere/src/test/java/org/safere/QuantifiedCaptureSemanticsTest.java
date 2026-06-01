@@ -73,6 +73,34 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of("(?:(?:(a){0,2})*?)", "aaa"));
   }
 
+  private static Stream<Arguments> chainedZeroCountQuantifiedCaptureCases() {
+    return Stream.of(
+        Arguments.of(new GeneratedCase("bounded empty capture", "(){0,2}", "", null)),
+        Arguments.of(new GeneratedCase("outer zero repeat", "(){0,2}{0}", "", null)),
+        Arguments.of(new GeneratedCase("outer zero then one repeat", "(){0,2}{0}{1}", "", null)),
+        Arguments.of(
+            new GeneratedCase("nested optional zero repeat", "(){0,2}{1}?{0}?", "", null)));
+  }
+
+  private static Stream<Arguments> zeroWidthPossessiveCaptureCases() {
+    return Stream.of(
+        Arguments.of(new GeneratedCase("empty group star possessive", "((?:))*+", "", null)),
+        Arguments.of(new GeneratedCase("nested empty group star possessive", "(())*+", "", null)),
+        Arguments.of(new GeneratedCase("word boundary star possessive", "(\\b)*+", "a", null)),
+        Arguments.of(new GeneratedCase("non-word boundary star possessive", "(\\B)*+", "", null)),
+        Arguments.of(
+            new GeneratedCase("grapheme boundary star possessive", "(\\b{g})*+", "", null)),
+        Arguments.of(new GeneratedCase("begin anchor star possessive", "(^)*+", "a", null)),
+        Arguments.of(new GeneratedCase("end anchor star possessive", "($)*+", "a", null)),
+        Arguments.of(
+            new GeneratedCase("word boundary counted possessive", "(\\b){0,2}+", "a", null)),
+        Arguments.of(
+            new GeneratedCase("chained empty group possessive", "(())*+{0}+{1}?{2}?", "", null)),
+        Arguments.of(
+            new GeneratedCase(
+                "empty group possessive between literals", "a((?:))*+{2}?{0}{2}?b", "ab", null)));
+  }
+
   private static Stream<Arguments> generatedQuantifiedCaptureCases() {
     List<GeneratedCase> cases = new ArrayList<>();
     addGeneratedCases(cases, "simple repeated capture", "(a)", List.of("", "a", "aa", "aaa"));
@@ -201,6 +229,22 @@ class QuantifiedCaptureSemanticsTest {
     assertGroupsMatch(regex, input, jdkMatched, jdk, safere);
   }
 
+  @ParameterizedTest(name = "[{index}] {0}")
+  @MethodSource("chainedZeroCountQuantifiedCaptureCases")
+  @DisplayName("chained zero-count quantifiers preserve JDK-visible captures")
+  void chainedZeroCountQuantifiersPreserveJdkVisibleCaptures(GeneratedCase testCase) {
+    assertOperationTraceMatchesJdk(testCase);
+    assertReplacementTraceMatchesJdk(testCase);
+  }
+
+  @ParameterizedTest(name = "[{index}] {0}")
+  @MethodSource("zeroWidthPossessiveCaptureCases")
+  @DisplayName("possessive quantifiers over zero-width operands preserve captures")
+  void zeroWidthPossessiveQuantifiersPreserveCaptures(GeneratedCase testCase) {
+    assertOperationTraceMatchesJdk(testCase);
+    assertReplacementTraceMatchesJdk(testCase);
+  }
+
   @ParameterizedTest(name = "[{index}] #52 divergence for /{0}/ on \"{1}\"")
   @MethodSource("failedStartLeakageCases")
   @DisplayName("failed starting-position capture leakage remains an intentional divergence")
@@ -208,6 +252,28 @@ class QuantifiedCaptureSemanticsTest {
     Matcher safere = Pattern.compile(regex).matcher(input);
 
     assertThat(safere.find()).isTrue();
+    assertThat(safere.group(1)).isNull();
+    assertThat(safere.start(1)).isEqualTo(-1);
+    assertThat(safere.end(1)).isEqualTo(-1);
+  }
+
+  @Test
+  @DisplayName("failed alternative capture leakage remains an intentional divergence")
+  void failedAlternativeCaptureLeakageDoesNotMatchJdk() {
+    Matcher safere = Pattern.compile("(?:(?:())*{0}{1}?{1}|a).").matcher("ab");
+
+    assertThat(safere.matches()).isTrue();
+    assertThat(safere.group(1)).isNull();
+    assertThat(safere.start(1)).isEqualTo(-1);
+    assertThat(safere.end(1)).isEqualTo(-1);
+  }
+
+  @Test
+  @DisplayName("failed possessive zero-width alternative capture leakage remains intentional")
+  void failedPossessiveZeroWidthAlternativeCaptureLeakageDoesNotMatchJdk() {
+    Matcher safere = Pattern.compile("(?:((?:))*+{1}+{2}+{1}|a).").matcher("ab");
+
+    assertThat(safere.matches()).isTrue();
     assertThat(safere.group(1)).isNull();
     assertThat(safere.start(1)).isEqualTo(-1);
     assertThat(safere.end(1)).isEqualTo(-1);

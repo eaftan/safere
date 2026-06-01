@@ -25,7 +25,8 @@ class SweepCliSmokeTest {
 
     CharacterClassDivergenceSweep.main(args(outputDir));
 
-    assertThat(Files.exists(outputDir.resolve("character-class-divergences.jsonl"))).isTrue();
+    assertThat(Files.exists(outputDir.resolve("character-class-divergences.jsonl"))).isFalse();
+    assertCompactOutput(outputDir);
   }
 
   @Test
@@ -34,10 +35,11 @@ class SweepCliSmokeTest {
 
     GraphemeClusterDivergenceSweep.main(args(outputDir));
 
-    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-divergences.jsonl"))).isTrue();
-    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-class-counts.tsv"))).isTrue();
+    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-divergences.jsonl"))).isFalse();
+    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-class-counts.tsv"))).isFalse();
     assertThat(Files.exists(outputDir.resolve("grapheme-cluster-unknown-stratified.jsonl")))
-        .isTrue();
+        .isFalse();
+    assertCompactOutput(outputDir);
   }
 
   @Test
@@ -46,7 +48,8 @@ class SweepCliSmokeTest {
 
     ControlEscapeDivergenceSweep.main(args(outputDir));
 
-    assertThat(Files.exists(outputDir.resolve("control-escape-divergences.jsonl"))).isTrue();
+    assertThat(Files.exists(outputDir.resolve("control-escape-divergences.jsonl"))).isFalse();
+    assertCompactOutput(outputDir);
   }
 
   @Test
@@ -56,7 +59,8 @@ class SweepCliSmokeTest {
     UnicodeCharacterClassDivergenceSweep.main(args(outputDir));
 
     assertThat(Files.exists(outputDir.resolve("unicode-character-class-divergences.jsonl")))
-        .isTrue();
+        .isFalse();
+    assertCompactOutput(outputDir);
   }
 
   @Test
@@ -66,7 +70,8 @@ class SweepCliSmokeTest {
     CaseFoldingCharacterClassDivergenceSweep.main(args(outputDir));
 
     assertThat(Files.exists(outputDir.resolve("case-folding-character-class-divergences.jsonl")))
-        .isTrue();
+        .isFalse();
+    assertCompactOutput(outputDir);
   }
 
   @Test
@@ -75,7 +80,49 @@ class SweepCliSmokeTest {
 
     ZeroWidthQuantifierDivergenceSweep.main(args(outputDir));
 
-    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl"))).isTrue();
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-class-counts.tsv"))).isFalse();
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-unknown-stratified.jsonl")))
+        .isFalse();
+    assertCompactOutput(outputDir);
+  }
+
+  @Test
+  void zeroWidthQuantifierSweepHandlesEmptyHighStartRange() throws Exception {
+    Path outputDir = tempDir.resolve("zero-width-empty-high-start");
+
+    String output =
+        captureOutput(
+            () ->
+                ZeroWidthQuantifierDivergenceSweep.main(
+                    new String[] {
+                      "--range=" + Long.MAX_VALUE + ":", "--threads=2", "--output-dir=" + outputDir
+                    }));
+
+    assertThat(output).contains("checked=0");
+    assertCompactOutput(outputDir);
+  }
+
+  @Test
+  void graphemeClusterSweepClampsGeneratedProgressToSelectedRange() throws Exception {
+    Path outputDir = tempDir.resolve("grapheme-clamped-progress");
+
+    String output =
+        captureOutput(
+            () ->
+                GraphemeClusterDivergenceSweep.main(
+                    new String[] {"--range=:10", "--threads=3", "--output-dir=" + outputDir}));
+
+    assertThat(output).contains("generated=10");
+    assertThat(Files.readString(outputDir.resolve("progress.json")))
+        .doesNotContain("\"nextCaseIndex\":11", "\"nextCaseIndex\":12");
+  }
+
+  @Test
+  void characterClassCompactReplayJsonReconstructsIndexedCase() {
+    assertThat(CharacterClassDivergenceSweep.compactReplayJson(0, "UNKNOWN"))
+        .contains("\"caseIndex\":0", "\"classification\":\"UNKNOWN\"", "\"case\"");
   }
 
   @Test
@@ -290,6 +337,222 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void zeroWidthQuantifierReplayCountsKnownIntentionalCaptureLeakage() throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-known-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-known-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:emptyCapturing","operandRegex":"()","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"star","quantifierChain":"*","contextLabel":"mixedLeadingLiteralAlternative","contextTemplate":"(?:%s|a).","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        {"case":{"operandLabel":"atom:emptyCapturing","operandRegex":"()","wrapperLabel":"nonCapturing","wrapperTemplate":"(?:%s)","quantifierChainLabel":"star","quantifierChain":"*","contextLabel":"mixedLeadingLiteralAlternative","contextTemplate":"(?:%s|a).","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("actionableDivergences=0", "unknownDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("FAILED_PATH_CAPTURE_LEAKAGE\tKNOWN_INTENTIONAL\t2");
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayAcceptsPossessiveQuantifiersOverZeroWidthOperands()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-possessive-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-possessive-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:beginLine","operandRegex":"^","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"star,plus","quantifierChain":"*+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=0", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("ZERO_WIDTH_POSSESSIVE_QUANTIFIER_REJECTED\tEXPECTED_ZERO\t0");
+  }
+
+  @Test
+  void zeroWidthQuantifierRejectedPossessiveClassIsActionable() {
+    assertThat(ZeroWidthQuantifierDivergenceSweep.divergenceClassificationNames())
+        .contains("ZERO_WIDTH_POSSESSIVE_QUANTIFIER_REJECTED");
+    int index =
+        ZeroWidthQuantifierDivergenceSweep.divergenceClassificationNames()
+            .indexOf("ZERO_WIDTH_POSSESSIVE_QUANTIFIER_REJECTED");
+    assertThat(ZeroWidthQuantifierDivergenceSweep.divergenceClassificationStatuses().get(index))
+        .isEqualTo(DivergenceStatus.EXPECTED_ZERO);
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayClassifiesKnownGraphemeAlternativeCursorDivergence()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-grapheme-known-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-grapheme-known-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:graphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"mixedLeadingLiteralAlternativeReversed","contextTemplate":"(?:a|%s).","flagLabel":"commentsEmbeddedComment","flagPrefix":"(?x)","flags":0,"trivia":"#q\\n"}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR\tKNOWN_INTENTIONAL\t1");
+  }
+
+  @Test
+  void zeroWidthQuantifierGraphemeCursorClassifierRequiresFindOnlyTraceDifference() {
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep
+                .isKnownGraphemeBoundaryAlternativeFindCursorForTesting(
+                    "a:matches=true@0-1,a:find0=true@0-1,a:find1=false",
+                    "a:matches=true@0-1,a:find0=true@0-1,a:find1=true@1-2,a:find2=false"))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep
+                .isKnownGraphemeBoundaryAlternativeFindCursorForTesting(
+                    "a:matches=true@0-1,a:find0=true@0-1", "a:matches=false,a:find0=true@0-1"))
+        .isFalse();
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayClassifiesRepeatedGraphemeBoundaryCompositionDivergence()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-repeated-grapheme-known-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-repeated-grapheme-known-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:graphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"repeatTwo","quantifierChain":"{2}","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        {"case":{"operandLabel":"atom:graphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"repeatTwo","quantifierChain":"{2}","contextLabel":"anchoredSurroundingLiterals","contextTemplate":"^a%sb$","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        {"case":{"operandLabel":"atom:graphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"nonCapturing","wrapperTemplate":"(?:%s)","quantifierChainLabel":"repeatTwo","quantifierChain":"{2}","contextLabel":"mixedLeadingLiteralAlternative","contextTemplate":"(?:%s|a).","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=3", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("REPEATED_GRAPHEME_BOUNDARY_COMPOSITION\tKNOWN_INTENTIONAL\t3");
+  }
+
+  @Test
+  void zeroWidthQuantifierRepeatedGraphemeCompositionClassifierRequiresAdditiveSafeReTrace() {
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep
+                .isRepeatedGraphemeBoundaryCompositionTraceDifferenceForTesting(
+                    "ab:matches=false,ab:lookingAt=true@0-0,ab:find0=true@0-0,ab:find1=false",
+                    "ab:matches=true@0-2,ab:lookingAt=true@0-0,ab:find0=true@0-0,"
+                        + "ab:find1=true@1-1,ab:find2=false"))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep
+                .isRepeatedGraphemeBoundaryCompositionTraceDifferenceForTesting(
+                    "ab:matches=true@0-1,ab:find0=true@0-0",
+                    "ab:matches=true@0-2,ab:find0=true@0-0"))
+        .isFalse();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep
+                .isRepeatedGraphemeBoundaryCompositionTraceDifferenceForTesting(
+                    "ab:matches=false,ab:find0=false", "ab:matches=false,ab:find0=false"))
+        .isFalse();
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayClassifiesGraphemeAlternativeSegmentationDivergence()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-grapheme-alternative-segmentation.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-grapheme-alternative-segmentation");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:graphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"plus,repeatZero,question,repeatZero","quantifierChain":"+{0}?{0}","contextLabel":"mixedLeadingLiteralAlternative","contextTemplate":"(?:%s|a).","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL\tKNOWN_INTENTIONAL\t1");
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayClassifiesAsciiWordBoundaryCombiningMarkDivergence()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-word-boundary-known-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-word-boundary-known-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:wordBoundary","operandRegex":"\\\\b","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("ASCII_WORD_BOUNDARY_COMBINING_MARK\tKNOWN_INTENTIONAL\t1");
+  }
+
+  @Test
+  void zeroWidthQuantifierAsciiWordBoundaryClassifierRequiresCombiningMarkOnlyDifference() {
+    String common = ",a:matches=false,a:find0=false";
+
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.isDecomposedEAcuteOnlyTraceDifferenceForTesting(
+                "e\u0301:matches=false,e\u0301:find0=true@0-0" + common,
+                "e\u0301:matches=true@0-0,e\u0301:find0=true@1-1" + common))
+        .isTrue();
+    assertThat(
+            ZeroWidthQuantifierDivergenceSweep.isDecomposedEAcuteOnlyTraceDifferenceForTesting(
+                "e\u0301:matches=false,a:find0=false", "e\u0301:matches=true@0-0,a:find0=true@0-0"))
+        .isFalse();
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayFailsForUnknownDivergence() throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-unknown-replay.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-unknown-replay");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:syntheticBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"mixedLeadingLiteralAlternativeReversed","contextTemplate":"(?:a|%s).","flagLabel":"commentsEmbeddedComment","flagPrefix":"(?x)","flags":0,"trivia":"#q\\n"}}
+        """);
+
+    assertThat(
+            org.assertj.core.api.Assertions.catchThrowable(
+                () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile))))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("unknown behavioral divergences");
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("UNKNOWN\tUNKNOWN\t1");
+  }
+
+  @Test
   void graphemeClusterReplaySuppressesKnownIntentionalDivergences() throws Exception {
     Path replayFile = tempDir.resolve("grapheme-known-replay.jsonl");
     Path outputDir = tempDir.resolve("grapheme-known-replay");
@@ -305,7 +568,7 @@ class SweepCliSmokeTest {
         captureOutput(() -> GraphemeClusterDivergenceSweep.main(replayArgs(outputDir, replayFile)));
 
     assertThat(output).contains("divergences=3", "actionableDivergences=0", "unknownDivergences=0");
-    assertThat(Files.size(outputDir.resolve("grapheme-cluster-divergences.jsonl"))).isZero();
+    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-divergences.jsonl"))).isFalse();
     assertThat(Files.readString(outputDir.resolve("grapheme-cluster-class-counts.tsv")))
         .contains(
             "BOUNDARY_CLUSTER_BOUNDARY_COMPOSITION\tKNOWN_INTENTIONAL\t1",
@@ -313,7 +576,8 @@ class SweepCliSmokeTest {
   }
 
   @Test
-  void graphemeClusterReplaySamplesUnknownDivergencesWithoutRawOutput() throws Exception {
+  void graphemeClusterReplayReportsBoundedFirstUnknownDivergencesWithoutRawOutput()
+      throws Exception {
     Path replayFile = tempDir.resolve("grapheme-unknown-replay.jsonl");
     Path outputDir = tempDir.resolve("grapheme-unknown-replay");
     Files.writeString(
@@ -326,39 +590,40 @@ class SweepCliSmokeTest {
         captureOutput(() -> GraphemeClusterDivergenceSweep.main(replayArgs(outputDir, replayFile)));
 
     assertThat(output).contains("divergences=1", "actionableDivergences=0", "unknownDivergences=1");
-    assertThat(Files.size(outputDir.resolve("grapheme-cluster-divergences.jsonl"))).isZero();
+    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-divergences.jsonl"))).isFalse();
     assertThat(Files.readString(outputDir.resolve("grapheme-cluster-unknown-first.jsonl")))
         .contains("\"classification\":\"UNKNOWN\"");
-    assertThat(Files.readString(outputDir.resolve("grapheme-cluster-unknown-stratified.jsonl")))
-        .contains("\"classification\":\"UNKNOWN\"");
+    assertThat(Files.exists(outputDir.resolve("grapheme-cluster-unknown-stratified.jsonl")))
+        .isFalse();
   }
 
   @Test
-  void graphemeClusterReplayHonorsUnknownStratifiedSampleLimit() throws Exception {
-    Path replayFile = tempDir.resolve("grapheme-unknown-limit-replay.jsonl");
-    Path outputDir = tempDir.resolve("grapheme-unknown-limit-replay");
+  void graphemeClusterRejectsRetiredUnknownStratifiedSampleOption() throws Exception {
+    Path replayFile = tempDir.resolve("grapheme-retired-option-replay.jsonl");
+    Path outputDir = tempDir.resolve("grapheme-retired-option-replay");
     Files.writeString(
         replayFile,
         """
-        {"case":{"regexLabel":"unclassifiedGraphemeAlternative","regex":"b|\\\\b{g}\\\\X","inputLabel":"crlfTrace0","input":"\\r\\r\\n\\r","region":"wrapped","prefix":"#","suffix":"$","regionStart":1,"regionEnd":5,"bounds":"opaqueAnchoring","operation":"freshTrace"}}
-        {"case":{"regexLabel":"unclassifiedGraphemeAlternative","regex":"b|\\\\b{g}\\\\X","inputLabel":"crlfTrace1","input":"\\r\\r\\n\\r","region":"wrapped","prefix":"#","suffix":"$","regionStart":1,"regionEnd":5,"bounds":"opaqueAnchoring","operation":"freshTrace"}}
-        {"case":{"regexLabel":"unclassifiedGraphemeAlternative","regex":"b|\\\\b{g}\\\\X","inputLabel":"crlfTrace2","input":"\\r\\r\\n\\r","region":"wrapped","prefix":"#","suffix":"$","regionStart":1,"regionEnd":5,"bounds":"opaqueAnchoring","operation":"freshTrace"}}
+        {"case":{"regexLabel":"literal","regex":"a","inputLabel":"literal","input":"a","region":"full","prefix":"","suffix":"","regionStart":0,"regionEnd":1,"bounds":"opaqueAnchoring","operation":"freshTrace"}}
         """);
 
-    String output =
-        captureOutput(
-            () ->
-                GraphemeClusterDivergenceSweep.main(
-                    replayArgs(outputDir, replayFile, "--unknown-stratified-samples=2")));
-
-    assertThat(output)
-        .contains("unknownStratifiedSamples=2", "unknownDivergences=3", "actionableDivergences=0");
-    assertThat(Files.readAllLines(outputDir.resolve("grapheme-cluster-unknown-stratified.jsonl")))
-        .hasSize(2);
+    assertThat(
+            org.assertj.core.api.Assertions.catchThrowable(
+                () ->
+                    GraphemeClusterDivergenceSweep.main(
+                        replayArgs(outputDir, replayFile, "--unknown-stratified-samples=2"))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("unknown argument: --unknown-stratified-samples=2");
   }
 
   private static String[] args(Path outputDir) {
     return new String[] {"--range=:10", "--threads=1", "--output-dir=" + outputDir};
+  }
+
+  private static void assertCompactOutput(Path outputDir) {
+    assertThat(Files.exists(outputDir.resolve("run-manifest.json"))).isTrue();
+    assertThat(Files.exists(outputDir.resolve("progress.json"))).isTrue();
+    assertThat(Files.exists(outputDir.resolve("divergence-indices/worker-00.bin"))).isTrue();
   }
 
   private static String[] replayArgs(Path outputDir, Path replayFile) {
