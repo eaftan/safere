@@ -5,7 +5,11 @@
 
 package org.safere.exhaustive;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -212,7 +216,9 @@ public final class CharacterClassDivergenceSweep {
             "character-class-divergences.jsonl",
             1_000_000);
     Files.createDirectories(options.outputDir());
-    Files.deleteIfExists(options.jsonlPath());
+    if (options.replayFile() != null) {
+      Files.deleteIfExists(options.jsonlPath());
+    }
     options.printStartup("character-class");
 
     if (options.replayFile() != null) {
@@ -226,11 +232,12 @@ public final class CharacterClassDivergenceSweep {
     System.out.println("generated=" + state.generated);
     System.out.println("divergences=" + state.divergences.sum());
     System.out.println("threads=" + options.threads());
-    System.out.println("jsonl=" + options.jsonlPath());
   }
 
   private static SweepRunState runSweep(SweepOptions options) throws IOException {
     try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
+      runState.enableCompactLogs(
+          "character-class", totalCases(), List.of("UNKNOWN"), List.of(DivergenceStatus.UNKNOWN));
       SweepWorkers.run(
           options.threads(),
           "character-class-sweep-",
@@ -247,7 +254,7 @@ public final class CharacterClassDivergenceSweep {
     }
   }
 
-  private static long totalCases() {
+  static long totalCases() {
     return sum(
         separatedSingleAmpersandCases(),
         classicCases(),
@@ -267,7 +274,7 @@ public final class CharacterClassDivergenceSweep {
               reader,
               line -> {
                 runState.checked.increment();
-                evaluateCase(runState, replayCase(line));
+                evaluateCase(runState, replayCase(line), -1, -1);
               });
       runState.recordGenerated(generated);
       System.out.println("checked=" + runState.checked.sum());
@@ -872,13 +879,71 @@ public final class CharacterClassDivergenceSweep {
     final SweepOptions options;
     final SweepWorkers.ProgressReporter progressReporter;
     final int workerIndex;
+    final long targetCaseIndex;
+    final List<Long> targetCaseIndices;
+    final List<CaseSpec> locatedCases;
+    final BufferedWriter compactWriter;
+    final String compactClassification;
+    final DataInputStream compactIndices;
+    int targetPosition;
+    long nextCompactCaseIndex;
     long generated;
+    long currentCaseIndex;
 
     SweepState(SweepRunState runState, int workerIndex) {
       this.runState = runState;
       this.options = runState.options;
-      this.progressReporter = new SweepWorkers.ProgressReporter(runState);
+      this.progressReporter = new SweepWorkers.ProgressReporter(runState, workerIndex);
       this.workerIndex = workerIndex;
+      this.targetCaseIndex = -1;
+      this.targetCaseIndices = null;
+      this.locatedCases = null;
+      this.compactWriter = null;
+      this.compactClassification = null;
+      this.compactIndices = null;
+    }
+
+    SweepState(long targetCaseIndex) {
+      this.runState = null;
+      this.options = null;
+      this.progressReporter = null;
+      this.workerIndex = -1;
+      this.targetCaseIndex = targetCaseIndex;
+      this.targetCaseIndices = null;
+      this.locatedCases = null;
+      this.compactWriter = null;
+      this.compactClassification = null;
+      this.compactIndices = null;
+    }
+
+    SweepState(List<Long> targetCaseIndices) {
+      this.runState = null;
+      this.options = null;
+      this.progressReporter = null;
+      this.workerIndex = -1;
+      this.targetCaseIndex = -1;
+      this.targetCaseIndices = targetCaseIndices;
+      this.locatedCases = new ArrayList<>();
+      this.compactWriter = null;
+      this.compactClassification = null;
+      this.compactIndices = null;
+    }
+
+    SweepState(
+        BufferedWriter compactWriter,
+        String compactClassification,
+        DataInputStream compactIndices) {
+      this.runState = null;
+      this.options = null;
+      this.progressReporter = null;
+      this.workerIndex = -1;
+      this.targetCaseIndex = -1;
+      this.targetCaseIndices = null;
+      this.locatedCases = null;
+      this.compactWriter = compactWriter;
+      this.compactClassification = compactClassification;
+      this.compactIndices = compactIndices;
+      advanceCompactCaseIndex();
     }
 
     void check5(
@@ -972,10 +1037,23 @@ public final class CharacterClassDivergenceSweep {
     }
 
     boolean beginCase() {
+      if (compactIndices != null) {
+        currentCaseIndex = generated++;
+        return currentCaseIndex == nextCompactCaseIndex;
+      }
+      if (targetCaseIndices != null) {
+        currentCaseIndex = generated++;
+        return currentCaseIndex == targetCaseIndices.get(targetPosition);
+      }
+      if (targetCaseIndex >= 0) {
+        currentCaseIndex = generated++;
+        return currentCaseIndex == targetCaseIndex;
+      }
       if (generated >= options.rangeEndExclusive()) {
         return false;
       }
       long caseIndex = generated++;
+      currentCaseIndex = caseIndex;
       if (caseIndex < options.rangeStartInclusive()) {
         reportProgressIfNeeded();
         return false;
@@ -988,20 +1066,53 @@ public final class CharacterClassDivergenceSweep {
     }
 
     void evaluateCase(CaseSpec spec) {
-      CharacterClassDivergenceSweep.evaluateCase(runState, spec);
+      if (compactIndices != null) {
+        try {
+          compactWriter.write(compactReplayJson(currentCaseIndex, compactClassification, spec));
+          compactWriter.newLine();
+        } catch (IOException e) {
+          throw new CompactExpansionException(e);
+        }
+        advanceCompactCaseIndex();
+        return;
+      }
+      if (targetCaseIndices != null) {
+        locatedCases.add(spec);
+        targetPosition++;
+        if (targetPosition == targetCaseIndices.size()) {
+          throw new LocatedCasesComplete();
+        }
+        return;
+      }
+      if (targetCaseIndex >= 0) {
+        throw new LocatedCase(spec);
+      }
+      CharacterClassDivergenceSweep.evaluateCase(runState, spec, workerIndex, currentCaseIndex);
       reportProgressIfNeeded();
     }
 
     void finish() {
       runState.recordGenerated(generated);
+      runState.updateWorkerNextCaseIndex(workerIndex, generated);
     }
 
     void reportProgressIfNeeded() {
       progressReporter.reportIfNeeded(generated);
     }
+
+    private void advanceCompactCaseIndex() {
+      try {
+        nextCompactCaseIndex = compactIndices.readLong();
+      } catch (EOFException e) {
+        throw new LocatedCasesComplete();
+      } catch (IOException e) {
+        throw new CompactExpansionException(e);
+      }
+    }
   }
 
-  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+  private static void evaluateCase(
+      SweepRunState runState, CaseSpec spec, int workerIndex, long caseIndex) {
     String regex = spec.regex();
     Outcome jdk = jdkOutcome(regex);
     Outcome safere = safeReOutcome(regex);
@@ -1009,10 +1120,120 @@ public final class CharacterClassDivergenceSweep {
       return;
     }
     String bucketName = bucketFor(spec, jdk, safere);
+    if (workerIndex >= 0) {
+      runState.recordCompactDivergence(workerIndex, caseIndex, 0);
+      return;
+    }
     runState.recordDivergence();
     Divergence divergence =
         new Divergence(spec, regex, jdk, safere, bucketName, reduce(spec, jdk, safere));
     runState.appendJsonl(divergence.toJson());
+  }
+
+  static String compactReplayJson(long caseIndex, String classification) {
+    return compactReplayJson(caseIndex, classification, locateCase(caseIndex));
+  }
+
+  static void writeCompactReplayJson(
+      BufferedWriter writer, String classification, List<Long> caseIndices) throws IOException {
+    List<CaseSpec> cases = locateCases(caseIndices);
+    for (int i = 0; i < caseIndices.size(); i++) {
+      writer.write(compactReplayJson(caseIndices.get(i), classification, cases.get(i)));
+      writer.newLine();
+    }
+  }
+
+  static void writeAllCompactReplayJson(
+      BufferedWriter writer, String classification, Path indicesPath) throws IOException {
+    try (DataInputStream input =
+        new DataInputStream(new BufferedInputStream(Files.newInputStream(indicesPath)))) {
+      try {
+        SweepState state = new SweepState(writer, classification, input);
+        runSeparatedSingleAmpersandMatrix(state);
+        runClassicMatrix(state);
+        runChainedAmpersandMatrix(state);
+        runGrammarSequenceMatrix(state);
+        runRawAmpersandBeforeCloseMatrix(state);
+      } catch (LocatedCasesComplete complete) {
+        return;
+      } catch (CompactExpansionException e) {
+        throw e.ioException;
+      }
+    }
+    throw new IllegalStateException("failed to locate all character-class cases");
+  }
+
+  private static String compactReplayJson(long caseIndex, String classification, CaseSpec spec) {
+    var object = SweepJson.object();
+    object.addProperty("caseIndex", caseIndex);
+    object.addProperty("classification", classification);
+    object.add("case", Divergence.caseJson(spec));
+    return SweepJson.toJson(object);
+  }
+
+  private static List<CaseSpec> locateCases(List<Long> caseIndices) {
+    if (caseIndices.isEmpty()) {
+      return List.of();
+    }
+    long previous = -1;
+    for (long caseIndex : caseIndices) {
+      if (caseIndex <= previous || caseIndex >= totalCases()) {
+        throw new IllegalArgumentException("case indices must be sorted, unique, and in range");
+      }
+      previous = caseIndex;
+    }
+    SweepState state = new SweepState(caseIndices);
+    try {
+      runSeparatedSingleAmpersandMatrix(state);
+      runClassicMatrix(state);
+      runChainedAmpersandMatrix(state);
+      runGrammarSequenceMatrix(state);
+      runRawAmpersandBeforeCloseMatrix(state);
+    } catch (LocatedCasesComplete complete) {
+      return state.locatedCases;
+    }
+    throw new IllegalStateException("failed to locate character-class cases");
+  }
+
+  private static CaseSpec locateCase(long caseIndex) {
+    if (caseIndex < 0 || caseIndex >= totalCases()) {
+      throw new IllegalArgumentException("case index out of range: " + caseIndex);
+    }
+    SweepState state = new SweepState(caseIndex);
+    try {
+      runSeparatedSingleAmpersandMatrix(state);
+      runClassicMatrix(state);
+      runChainedAmpersandMatrix(state);
+      runGrammarSequenceMatrix(state);
+      runRawAmpersandBeforeCloseMatrix(state);
+    } catch (LocatedCase located) {
+      return located.spec;
+    }
+    throw new IllegalStateException("failed to locate character-class case: " + caseIndex);
+  }
+
+  private static final class LocatedCase extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    final transient CaseSpec spec;
+
+    LocatedCase(CaseSpec spec) {
+      this.spec = spec;
+    }
+  }
+
+  private static final class LocatedCasesComplete extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+  }
+
+  private static final class CompactExpansionException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    final transient IOException ioException;
+
+    CompactExpansionException(IOException ioException) {
+      this.ioException = ioException;
+    }
   }
 
   private static String reduce(CaseSpec spec, Outcome expectedJdk, Outcome expectedSafeRe) {

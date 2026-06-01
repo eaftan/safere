@@ -50,7 +50,9 @@ public final class UnicodeCharacterClassDivergenceSweep {
             "unicode-character-class-divergences.jsonl",
             1_000_000);
     Files.createDirectories(options.outputDir());
-    Files.deleteIfExists(options.jsonlPath());
+    if (options.replayFile() != null) {
+      Files.deleteIfExists(options.jsonlPath());
+    }
     options.printStartup("unicode-character-class");
 
     if (options.replayFile() != null) {
@@ -64,17 +66,21 @@ public final class UnicodeCharacterClassDivergenceSweep {
     System.out.println("generated=" + state.generated);
     System.out.println("divergences=" + state.divergences.sum());
     System.out.println("threads=" + options.threads());
-    System.out.println("jsonl=" + options.jsonlPath());
   }
 
   private static SweepRunState runSweep(SweepOptions options) throws IOException {
     try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
+      runState.enableCompactLogs(
+          "unicode-character-class",
+          totalCases(),
+          List.of("UNKNOWN"),
+          List.of(DivergenceStatus.UNKNOWN));
       SweepWorkers.run(
           options.threads(),
           "unicode-character-class-sweep-",
           workerIndex -> {
             SweepWorkers.ProgressReporter progressReporter =
-                new SweepWorkers.ProgressReporter(runState);
+                new SweepWorkers.ProgressReporter(runState, workerIndex);
             long generated = 0;
             long end = Math.min(options.rangeEndExclusive(), totalCases());
             for (long caseIndex = options.rangeStartInclusive(); caseIndex < end; caseIndex++) {
@@ -83,10 +89,11 @@ public final class UnicodeCharacterClassDivergenceSweep {
                 continue;
               }
               progressReporter.checked();
-              evaluateCase(runState, caseFromIndex(caseIndex));
+              evaluateCase(runState, caseFromIndex(caseIndex), workerIndex, caseIndex);
               progressReporter.reportIfNeeded(generated);
             }
             runState.recordGenerated(generated);
+            runState.updateWorkerNextCaseIndex(workerIndex, generated);
           });
       return runState;
     }
@@ -103,7 +110,7 @@ public final class UnicodeCharacterClassDivergenceSweep {
               reader,
               line -> {
                 runState.checked.increment();
-                evaluateCase(runState, replayCase(line));
+                evaluateCase(runState, replayCase(line), -1, -1);
               });
       runState.recordGenerated(generated);
       System.out.println("checked=" + runState.checked.sum());
@@ -126,8 +133,17 @@ public final class UnicodeCharacterClassDivergenceSweep {
         SweepJson.integer(caseObject, "codePoint"));
   }
 
-  private static long totalCases() {
+  static long totalCases() {
     return (long) CASES.size() * SCALAR_COUNT;
+  }
+
+  static String compactReplayJson(long caseIndex, String classification) {
+    CaseSpec spec = caseFromIndex(caseIndex);
+    var object = SweepJson.object();
+    object.addProperty("caseIndex", caseIndex);
+    object.addProperty("classification", classification);
+    object.add("case", Divergence.caseJson(spec));
+    return SweepJson.toJson(object);
   }
 
   private static CaseSpec caseFromIndex(long index) {
@@ -143,15 +159,20 @@ public final class UnicodeCharacterClassDivergenceSweep {
     return ordinal + (Character.MAX_SURROGATE - Character.MIN_SURROGATE + 1);
   }
 
-  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+  private static void evaluateCase(
+      SweepRunState runState, CaseSpec spec, int workerIndex, long caseIndex) {
     String input = new String(Character.toChars(spec.codePoint()));
     boolean jdk = spec.regexCase().jdkPattern().matcher(input).matches();
     boolean safere = spec.regexCase().safeRePattern().matcher(input).matches();
     if (jdk == safere) {
       return;
     }
-    runState.recordDivergence();
-    runState.appendJsonl(new Divergence(spec, jdk, safere).toJson());
+    if (workerIndex >= 0) {
+      runState.recordCompactDivergence(workerIndex, caseIndex, 0);
+    } else {
+      runState.recordDivergence();
+      runState.appendJsonl(new Divergence(spec, jdk, safere).toJson());
+    }
   }
 
   private static RegexCase regexCase(String label, String regex) {

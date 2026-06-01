@@ -37,7 +37,9 @@ record SweepOptions(
     System.out.println("progressInterval=" + progressInterval);
     System.out.println("threads=" + threads);
     System.out.println("replayFile=" + (replayFile == null ? "" : replayFile));
-    System.out.println("jsonl=" + jsonlPath());
+    if (replayFile != null) {
+      System.out.println("jsonl=" + jsonlPath());
+    }
   }
 
   static SweepOptions parse(

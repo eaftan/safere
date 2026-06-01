@@ -278,10 +278,12 @@ most one thread per NFA state at any position.
 ### Linear-Time Guarantee
 
 The core constraint: **no feature that requires backtracking**.
-Backreferences, lookahead, lookbehind, possessive quantifiers, and atomic
-groups are all rejected at parse time with a clear error message.  This
-is a deliberate trade-off — these features are useful but incompatible
-with worst-case linear time.
+Backreferences, lookahead, lookbehind, atomic groups, and possessive
+quantifiers over consuming operands are rejected at parse time with a clear
+error message.  This is a deliberate trade-off — these features are useful but
+incompatible with worst-case linear time. Possessive modifiers over statically
+zero-width operands are accepted because they can be normalized without adding
+consuming possessive semantics.
 
 SafeRE also does not support `Matcher.hitEnd()` or `Matcher.requireEnd()`.
 Those methods expose the JDK backtracking engine's end-state observations:
@@ -321,6 +323,15 @@ transition cache key.  SafeRE solves this with three mechanisms:
 
 This allows the DFA to handle `\b`/`\B` natively without falling back
 to NFA.
+
+Without `UNICODE_CHARACTER_CLASS`, SafeRE applies the documented ASCII
+word-character model to `\b` and `\B`. For example, in `e\u0301`, the combining
+acute accent is not a word character: SafeRE reports `\b` at UTF-16 positions
+0 and 1 and `\B` at position 2. OpenJDK 25 instead attaches a non-spacing mark
+to a preceding base character for word-boundary checks, reporting `\b` at
+positions 0 and 2 and `\B` at position 1. That additional rule is not part of
+the documented default ASCII `\w` model, so SafeRE intentionally follows the
+specification rather than this observed JDK implementation detail.
 
 ### OnePass Action Encoding
 

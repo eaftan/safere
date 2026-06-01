@@ -105,4 +105,16 @@ class SweepWorkersTest {
     assertThat(SweepWorkers.progressProbeInterval(1_000, 4)).isEqualTo(250);
     assertThat(SweepWorkers.progressProbeInterval(10, 16)).isEqualTo(1);
   }
+
+  @Test
+  void firstOwnedCaseIndexDoesNotOverflowEmptyHighStartRange() {
+    assertThat(SweepWorkers.firstOwnedCaseIndex(Long.MAX_VALUE, 10, 2, 0)).isEqualTo(10);
+    assertThat(SweepWorkers.firstOwnedCaseIndex(Long.MAX_VALUE, 10, 2, 1)).isEqualTo(10);
+  }
+
+  @Test
+  void firstOwnedCaseIndexReturnsEndWhenWorkerHasNoSelectedCase() {
+    assertThat(SweepWorkers.firstOwnedCaseIndex(0, 1, 2, 0)).isZero();
+    assertThat(SweepWorkers.firstOwnedCaseIndex(0, 1, 2, 1)).isEqualTo(1);
+  }
 }

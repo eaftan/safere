@@ -81,7 +81,9 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
             "case-folding-character-class-divergences.jsonl",
             1_000_000);
     Files.createDirectories(options.outputDir());
-    Files.deleteIfExists(options.jsonlPath());
+    if (options.replayFile() != null) {
+      Files.deleteIfExists(options.jsonlPath());
+    }
     options.printStartup("case-folding-character-class");
 
     if (options.replayFile() != null) {
@@ -96,11 +98,15 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
     System.out.println("totalCases=" + totalCases());
     System.out.println("divergences=" + state.divergences.sum());
     System.out.println("threads=" + options.threads());
-    System.out.println("jsonl=" + options.jsonlPath());
   }
 
   private static SweepRunState runSweep(SweepOptions options) throws IOException {
     try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
+      runState.enableCompactLogs(
+          "case-folding-character-class",
+          totalCases(),
+          List.of("UNKNOWN"),
+          List.of(DivergenceStatus.UNKNOWN));
       SweepWorkers.run(
           options.threads(),
           "case-folding-character-class-sweep-",
@@ -124,7 +130,7 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
               reader,
               line -> {
                 runState.checked.increment();
-                evaluateCase(runState, replayCase(line));
+                evaluateCase(runState, replayCase(line), -1, -1);
               });
       runState.recordGenerated(generated);
       System.out.println("checked=" + runState.checked.sum());
@@ -152,8 +158,17 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
         SweepJson.integer(caseObject, "inputCodePoint"));
   }
 
-  private static long totalCases() {
+  static long totalCases() {
     return (long) INPUT_COUNT * PATTERNS.size() * FLAG_MODES.size();
+  }
+
+  static String compactReplayJson(long caseIndex, String classification) {
+    CaseSpec spec = caseAt(caseIndex);
+    var object = SweepJson.object();
+    object.addProperty("caseIndex", caseIndex);
+    object.addProperty("classification", classification);
+    object.add("case", Divergence.caseJson(spec));
+    return SweepJson.toJson(object);
   }
 
   private static CaseSpec caseAt(long index) {
@@ -340,7 +355,7 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
     SweepState(SweepRunState runState, int workerIndex) {
       this.runState = runState;
       this.options = runState.options;
-      this.progressReporter = new SweepWorkers.ProgressReporter(runState);
+      this.progressReporter = new SweepWorkers.ProgressReporter(runState, workerIndex);
       this.workerIndex = workerIndex;
     }
 
@@ -356,17 +371,18 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
           continue;
         }
         progressReporter.checked();
-        evaluateCase(caseAt(caseIndex));
+        evaluateCase(caseIndex, caseAt(caseIndex));
       }
     }
 
-    void evaluateCase(CaseSpec spec) {
-      CaseFoldingCharacterClassDivergenceSweep.evaluateCase(runState, spec);
+    void evaluateCase(long caseIndex, CaseSpec spec) {
+      CaseFoldingCharacterClassDivergenceSweep.evaluateCase(runState, spec, workerIndex, caseIndex);
       reportProgressIfNeeded();
     }
 
     void finish() {
       runState.recordGenerated(generated);
+      runState.updateWorkerNextCaseIndex(workerIndex, generated);
     }
 
     void reportProgressIfNeeded() {
@@ -374,7 +390,8 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
     }
   }
 
-  private static void evaluateCase(SweepRunState runState, CaseSpec spec) {
+  private static void evaluateCase(
+      SweepRunState runState, CaseSpec spec, int workerIndex, long caseIndex) {
     String input = inputFor(spec);
     Outcome jdk = jdkOutcome(spec.pattern().regex(), spec.flagMode().flags(), input);
     Outcome safere = safeReOutcome(spec.pattern().regex(), spec.flagMode().flags(), input);
@@ -382,7 +399,11 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
       return;
     }
     String bucketName = bucketFor(spec, jdk, safere);
-    runState.recordDivergence();
-    runState.appendJsonl(new Divergence(spec, input, jdk, safere, bucketName).toJson());
+    if (workerIndex >= 0) {
+      runState.recordCompactDivergence(workerIndex, caseIndex, 0);
+    } else {
+      runState.recordDivergence();
+      runState.appendJsonl(new Divergence(spec, input, jdk, safere, bucketName).toJson());
+    }
   }
 }

@@ -10,9 +10,11 @@ import com.code_intelligence.jazzer.junit.FuzzTest;
 
 final class CaptureSemanticsFuzzer {
   private static final String[] ATOMS = {
+    "()",
     "(a)",
     "(a?)",
     "(a)?",
+    "(\\b)",
     "(a|aa)",
     "()|\\W+",
     "(a)|b",
@@ -27,7 +29,10 @@ final class CaptureSemanticsFuzzer {
     "(?<word>a|aa)"
   };
   private static final String[] QUANTIFIERS = {
-    "*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??", "{0,2}?", "{1,2}?"
+    "*", "+", "?", "{0,2}", "{1,2}", "*?", "+?", "??", "{0,2}?", "{1,2}?", "*+", "?+", "{0,2}+"
+  };
+  private static final String[] CHAINED_QUANTIFIERS = {
+    "{0}", "{1}", "{0,2}", "{1}?", "{0}?", "{0}+", "{1}+", "{0,2}+"
   };
   private static final String[] PREFIXES = {"", "x", "(?:x)?"};
   private static final String[] SUFFIXES = {"", "y", "c?"};
@@ -51,6 +56,9 @@ final class CaptureSemanticsFuzzer {
     String regex = "(?:" + atom + ")";
     if (!data.consumeBoolean()) {
       regex += pick(data, QUANTIFIERS);
+    }
+    if (data.consumeBoolean()) {
+      regex += pick(data, CHAINED_QUANTIFIERS);
     }
     if (data.consumeBoolean()) {
       regex = "(?:" + regex + ")" + pick(data, QUANTIFIERS);

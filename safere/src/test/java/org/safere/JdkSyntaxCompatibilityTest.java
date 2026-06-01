@@ -2274,6 +2274,46 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesSame("a{2,4}?", "aaaaa");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"^*?", "$+?", "\\b??", "\\b{g}{1}?", "(){0,2}?"})
+    @DisplayName("reluctant quantifiers over zero-width operands")
+    void reluctantQuantifiersOverZeroWidthOperands(String regex) {
+      assertCompiles(regex);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"^ * ?", "\\b{g} # boundary\n * ?", "\\b{g} ? {0}"})
+    @DisplayName("comments-mode trivia before reluctant quantifier modifiers")
+    void commentsModeTriviaBeforeReluctantQuantifierModifiers(String regex) {
+      assertThatNoException()
+          .as("JDK should accept: %s", regex)
+          .isThrownBy(
+              () -> java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.COMMENTS));
+      assertThatNoException()
+          .as("SafeRE should accept: %s", regex)
+          .isThrownBy(() -> Pattern.compile(regex, Pattern.COMMENTS));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"^*+", "^?+", "^{2}+", "$*+", "()*+", "\\b++", "\\b{g}{1}+"})
+    @DisplayName("possessive quantifiers over zero-width operands")
+    void possessiveQuantifiersOverZeroWidthOperands(String regex) {
+      assertCompiles(regex);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"^ * +", "^ ? +", "^ {2} +", "$ * +", "() * +", "\\b + +"})
+    @DisplayName("comments-mode possessive quantifiers over zero-width operands")
+    void commentsModePossessiveQuantifiersOverZeroWidthOperands(String regex) {
+      assertThatNoException()
+          .as("JDK should accept: %s", regex)
+          .isThrownBy(
+              () -> java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.COMMENTS));
+      assertThatNoException()
+          .as("SafeRE should accept: %s", regex)
+          .isThrownBy(() -> Pattern.compile(regex, Pattern.COMMENTS));
+    }
+
     // -- Possessive (SafeRE should reject) --
 
     @ParameterizedTest
@@ -2288,6 +2328,66 @@ class JdkSyntaxCompatibilityTest {
       assertThatThrownBy(() -> Pattern.compile(regex))
           .as("SafeRE should reject possessive quantifier: %s", regex)
           .isInstanceOf(PatternSyntaxException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "a ? +",
+          "a * +",
+          "a + +",
+          "a {1} +",
+          "a + # modifier\n +",
+          "a {1} # modifier\n +",
+          "(?x)a + +"
+        })
+    @DisplayName("comments-mode trivia before possessive quantifier modifiers")
+    void commentsModeTriviaBeforePossessiveQuantifierModifiers(String regex) {
+      assertThatNoException()
+          .as("JDK should accept: %s", regex)
+          .isThrownBy(
+              () -> java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.COMMENTS));
+      assertThatThrownBy(() -> Pattern.compile(regex, Pattern.COMMENTS))
+          .as("SafeRE should reject possessive quantifier: %s", regex)
+          .isInstanceOf(PatternSyntaxException.class)
+          .hasMessageContaining("possessive quantifiers are not supported");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "()+++",
+          "^+{1}+++?",
+          "\\b++?{0,2}?",
+          "\\b{g}+++",
+          "()+{0}?+",
+          "()+{0}?+{1}",
+          "()+{1}{0}?+?",
+          "()+{2}{2}+?"
+        })
+    @DisplayName("dangling quantifier modifier chains rejected")
+    void danglingQuantifierModifierChainsRejected(String regex) {
+      assertRejectedByJdkAndSafeRe(regex);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = {
+          "a ? + +",
+          "a * + +",
+          "a + + +",
+          "a {1} + +",
+          "a + # modifier\n + +",
+          "a {1} # modifier\n + +",
+          "(?x)a + + +",
+          "() + {0} ? +",
+          "() + {0} ? + {1}",
+          "() + {1} {0} ? + ?",
+          "() + {2} {2} + ?"
+        })
+    @DisplayName("comments-mode trivia does not hide malformed quantifier modifier chains")
+    void commentsModeTriviaDoesNotHideMalformedQuantifierModifierChains(String regex) {
+      assertRejectedByJdkAndSafeRe(regex, Pattern.COMMENTS);
     }
 
     // -- Nested repetitions --
@@ -2330,10 +2430,17 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @Test
-    @DisplayName("quantified anchors separated by comments-mode whitespace")
-    void quantifiedAnchorsSeparatedByCommentsModeWhitespace() {
-      assertMatchesSameWithFlags("^+\n\n\n+^", java.util.regex.Pattern.COMMENTS, "");
-      assertMatchesSameWithFlags("^+\n\n\n+^", java.util.regex.Pattern.COMMENTS, "a");
+    @DisplayName("comments-mode whitespace preserves zero-width possessive anchor quantifiers")
+    void commentsModeWhitespacePreservesZeroWidthPossessiveAnchorQuantifiers() {
+      String regex = "^+\n\n\n+^";
+
+      assertThatNoException()
+          .as("JDK should accept possessive anchor quantifier: %s", regex)
+          .isThrownBy(
+              () -> java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.COMMENTS));
+      assertThatNoException()
+          .as("SafeRE should accept zero-width possessive anchor quantifier: %s", regex)
+          .isThrownBy(() -> Pattern.compile(regex, Pattern.COMMENTS));
     }
   }
 

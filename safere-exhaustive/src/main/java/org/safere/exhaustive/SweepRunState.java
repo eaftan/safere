@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
@@ -17,13 +18,17 @@ import java.util.function.LongSupplier;
 
 /** Shared state and reporting for exhaustive sweep runs. */
 final class SweepRunState implements AutoCloseable {
+  private static final long COMPACT_CHECKPOINT_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(30);
+
   final SweepOptions options;
   final long totalChecks;
   final LongAdder checked = new LongAdder();
   final LongAdder divergences = new LongAdder();
-  private final BufferedWriter jsonlWriter;
+  private BufferedWriter jsonlWriter;
   private final LongSupplier nanoTime;
   private final long startNanos;
+  private CompactDivergenceLogs compactLogs;
+  private long nextCompactCheckpointNanos;
   long generated;
   long nextCheckedProgressReport;
 
@@ -39,12 +44,7 @@ final class SweepRunState implements AutoCloseable {
     this.totalChecks = totalChecks;
     this.nanoTime = nanoTime;
     this.startNanos = nanoTime.getAsLong();
-    this.jsonlWriter =
-        Files.newBufferedWriter(
-            options.jsonlPath(),
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.APPEND);
+    this.nextCompactCheckpointNanos = startNanos + COMPACT_CHECKPOINT_INTERVAL_NANOS;
     this.nextCheckedProgressReport = options.progressInterval();
   }
 
@@ -75,6 +75,7 @@ final class SweepRunState implements AutoCloseable {
     while (nextCheckedProgressReport <= checkedCount) {
       nextCheckedProgressReport += options.progressInterval();
     }
+    checkpointCompactLogs();
   }
 
   private long estimatedRemainingNanos(long elapsedNanos, long checkedCount) {
@@ -103,8 +104,66 @@ final class SweepRunState implements AutoCloseable {
     divergences.increment();
   }
 
+  synchronized void enableCompactLogs(
+      String sweepName,
+      long totalCases,
+      List<String> classifications,
+      List<DivergenceStatus> classificationStatuses)
+      throws IOException {
+    if (compactLogs != null) {
+      throw new IllegalStateException("compact divergence logs already enabled");
+    }
+    compactLogs =
+        new CompactDivergenceLogs(
+            options.outputDir(),
+            sweepName,
+            options.rangeStartInclusive(),
+            Math.min(options.rangeEndExclusive(), totalCases),
+            totalCases,
+            options.threads(),
+            classifications,
+            classificationStatuses);
+  }
+
+  void recordCompactDivergence(int workerIndex, long caseIndex, int classificationId) {
+    recordDivergence();
+    CompactDivergenceLogs logs = compactLogs;
+    if (logs == null) {
+      throw new IllegalStateException("compact divergence logs are not enabled");
+    }
+    logs.record(workerIndex, caseIndex, classificationId);
+  }
+
+  void updateWorkerNextCaseIndex(int workerIndex, long nextCaseIndex) {
+    CompactDivergenceLogs logs = compactLogs;
+    if (logs != null) {
+      logs.updateWorkerNextCaseIndex(workerIndex, nextCaseIndex);
+    }
+  }
+
+  synchronized void checkpointCompactLogs() {
+    if (compactLogs != null) {
+      compactLogs.checkpoint(checked.sum());
+      nextCompactCheckpointNanos = nanoTime.getAsLong() + COMPACT_CHECKPOINT_INTERVAL_NANOS;
+    }
+  }
+
+  synchronized void checkpointCompactLogsIfNeeded() {
+    if (compactLogs != null && nanoTime.getAsLong() >= nextCompactCheckpointNanos) {
+      checkpointCompactLogs();
+    }
+  }
+
   synchronized void appendJsonl(String line) {
     try {
+      if (jsonlWriter == null) {
+        jsonlWriter =
+            Files.newBufferedWriter(
+                options.jsonlPath(),
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND);
+      }
       jsonlWriter.write(line);
       jsonlWriter.newLine();
     } catch (IOException e) {
@@ -114,6 +173,28 @@ final class SweepRunState implements AutoCloseable {
 
   @Override
   public synchronized void close() throws IOException {
-    jsonlWriter.close();
+    IOException failure = null;
+    checkpointCompactLogs();
+    if (compactLogs != null) {
+      try {
+        compactLogs.close();
+      } catch (IOException e) {
+        failure = e;
+      }
+    }
+    if (jsonlWriter != null) {
+      try {
+        jsonlWriter.close();
+      } catch (IOException e) {
+        if (failure == null) {
+          failure = e;
+        } else {
+          failure.addSuppressed(e);
+        }
+      }
+    }
+    if (failure != null) {
+      throw failure;
+    }
   }
 }

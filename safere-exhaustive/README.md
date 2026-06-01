@@ -5,6 +5,46 @@ These tools are not ordinary unit tests: they stream large bounded search spaces
 compare SafeRE with `java.util.regex`, and write machine-readable divergence
 reports so a failed or interrupted run still leaves useful repro data.
 
+## Compact Sweep Output
+
+Generated indexed sweeps write durable compact divergence logs under
+`--output-dir`. Each divergence is stored as a fixed 9-byte
+`(caseIndex, classificationId)` record in a per-worker file. This preserves
+every divergence without retaining replay JSON in memory or writing hundreds of
+gigabytes of expanded JSONL during a sweep.
+
+The compact output is checkpointed approximately every 30 seconds:
+
+- `run-manifest.json`: sweep identity, index range, thread count, compact-format
+  version, and classification name/status table.
+- `progress.json`: atomically replaced progress snapshot with exact counts,
+  per-classification counts, and the next case index and durable byte count for
+  each worker.
+- `divergence-indices/worker-NN.bin`: fixed-size compact divergence records.
+
+Use a new output directory for each generated sweep. A generated sweep refuses
+to overwrite an existing compact archive.
+
+Expand a completed or interrupted compact archive with the separate expander
+command:
+
+```bash
+./run-exhaustive-expander.sh \
+  --input-dir=target/exhaustive-reports/zero-width-quantifier-sweep-full
+```
+
+The default writes exact `expanded/class-counts.tsv`, expands every `UNKNOWN`
+and `EXPECTED_ZERO` divergence into replayable JSONL under `expanded/`, and
+writes up to 1000 sampled `KNOWN_INTENTIONAL` divergences per classification
+for audit. Known-intentional exact counts and compact indices remain available
+without producing large JSONL files.
+
+Use `--sample-limit=N` to write up to `N` deterministic samples per
+classification, including `KNOWN_INTENTIONAL`. Use `--sample-limit=all` to
+explicitly stream every recorded divergence in every classification into
+expanded JSONL. Sweep replay mode writes bounded diagnostic reports directly
+because its input is already explicit JSONL.
+
 ## Character Class Sweep
 
 Run through the dispatcher script so dependency classpaths are handled by Maven:
@@ -36,8 +76,7 @@ includes a targeted comments-mode matrix for raw ampersands immediately before a
 class close after range tails, where JDK syntax handling is especially sensitive
 to zero-width quoted literals and skipped trivia.
 
-The output JSONL path is printed at the end of each run. Generated reports should
-stay out of git.
+Generated reports should stay out of git.
 
 ## Unicode Character Class Sweep
 
@@ -108,38 +147,19 @@ operations.
 
 Use this sweep before review when changing grapheme-cluster parsing or boundary
 behavior. A run may report known intentional divergences, known actionable
-divergences, or newly discovered unknown divergences. Inspect the class-count
-summary first; it is the authoritative exact summary for a completed run.
-Known intentional divergences are summarized there, but are not written into
-the raw divergence JSONL.
+divergences, or newly discovered unknown divergences. Generated sweep mode
+stores all of them in the shared compact archive. Run the expander and inspect
+`expanded/class-counts.tsv` first.
 
 This differs from the character-class and control-escape sweeps because the
 grapheme sweep intentionally covers compatibility gray areas around regions,
 transparent bounds, repeated `find()`, `\X`, and explicit `\b{g}` composition.
 Some observed JDK traces are known implementation details rather than SafeRE
-compatibility targets, and those classes can occur in very large numbers. The
-grapheme report format therefore separates exact aggregate counts from bounded
-example files: exact counts remain cheap and complete, while unknown examples
-stay useful without scaling disk or heap usage with every observed divergence.
-
-The grapheme sweep writes these files under `--output-dir`:
-
-- `grapheme-cluster-class-counts.tsv`: exact count by divergence class,
-  classification status, and rationale. Use this first to decide whether the run
-  found anything actionable or unknown.
-- `grapheme-cluster-divergences.jsonl`: full raw JSONL for known actionable
-  divergence classes whose expected count is zero. An empty file means no
-  currently-known actionable grapheme divergences were emitted; it does not mean
-  there were no known intentional divergences.
-- `grapheme-cluster-actionable-examples.jsonl`: bounded representative examples
-  for known actionable divergence classes.
-- `grapheme-cluster-unknown-first.jsonl`: first bounded examples for unknown
-  divergence classes, useful for quick repros near the start of the generated
-  case space.
-- `grapheme-cluster-unknown-stratified.jsonl`: bounded stratified examples for
-  unknown divergence classes, spread across the generated case space so a run
-  with many unknown divergences does not only preserve examples from one early
-  region. Configure the limit with `--unknown-stratified-samples=N`.
+compatibility targets; see
+[Intentional Divergences from java.util.regex](../INTENTIONAL_DIVERGENCES.md).
+Those classes can occur in very large numbers. The shared compact archive keeps
+those exact results cheap and complete. The expander controls how many replayable
+JSONL examples are materialized later.
 
 The default grapheme sweep progress interval is 10 million checked cases. Use
 `--progress-interval=N` to override it for a particular run. Range bounds and
@@ -205,3 +225,48 @@ titlecase-category case. Flag axes include `CASE_INSENSITIVE`,
 Use this sweep before review when changing case-folding, Unicode category, or
 character-class expansion behavior. Range bounds and replay files use the same
 conventions as the other exhaustive sweeps.
+
+## Zero-Width Quantifier Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh ZeroWidthQuantifierDivergenceSweep \
+  --output-dir=target/exhaustive-reports/zero-width-quantifier-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh ZeroWidthQuantifierDivergenceSweep --range=:10000 \
+  --output-dir=target/exhaustive-reports/zero-width-quantifier-sweep-smoke
+```
+
+The zero-width quantifier sweep compares SafeRE with `java.util.regex` for
+zero-width operands followed by bounded quantifier chains.
+It is exhaustive over the committed bounded grammar: zero-width operands (single
+atoms plus ordered two-atom concatenations and alternations), wrappers, first
+quantifier-chain spellings, contexts, and flag/trivia modes. The chain grammar
+includes greedy, reluctant, possessive, and counted quantifier spellings up to
+the configured maximum chain length, then deduplicates identical concrete regex
+strings. It also includes targeted sentinel cases for stack-safety and capture
+semantics that are too deep or too specific for the Cartesian grammar.
+
+Each case compares compile acceptance plus public matcher behavior:
+`matches()`, `lookingAt()`, bounded repeated `find()`, capture group
+start/end/text, and replacement APIs for each group. It intentionally does not
+compare `hitEnd()` or `requireEnd()` because SafeRE documents those APIs as
+best-effort rather than exact JDK-compatible state. It classifies known
+intentional divergences according to
+[Intentional Divergences from java.util.regex](../INTENTIONAL_DIVERGENCES.md).
+Inputs exercise empty text, literals, line endings, word boundaries, and
+grapheme-boundary-sensitive strings, including a ZWJ grapheme followed by a
+literal to exercise repeated `find()` after mixed leading alternatives. The
+JSONL bucket labels include operand, wrapper, quantifier chain, context, and
+flag mode so repeated-quantifier parser neighborhoods are visible in reports.
+Range bounds and replay files use the same conventions as the other exhaustive
+sweeps.
+
+Generated sweep mode writes the shared compact archive described above. Use the
+expander to materialize exact counts and bounded or complete replayable JSONL
+after the sweep.

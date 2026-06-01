@@ -186,6 +186,12 @@ final class Parser {
     }
   }
 
+  private void skipQuantifierModifierTrivia() {
+    if ((flags & ParseFlags.COMMENTS) != 0) {
+      skipCommentsAndWhitespace();
+    }
+  }
+
   private boolean isCommentTerminator(int c) {
     if (c == '\0' || c == '\n') {
       return true;
@@ -208,6 +214,7 @@ final class Parser {
     }
 
     String lastunary = null;
+    boolean lastUnaryWasBareGreedyPlus = false;
     boolean lastTokenNonRepeatable = false;
     boolean lastTokenWasEmptyQuotedLiteral = false;
     while (pos < pattern.length()) {
@@ -219,6 +226,7 @@ final class Parser {
         }
       }
       String isunary = null;
+      boolean isBareGreedyPlusUnary = false;
       boolean isNonRepeatable = false;
       int c = pattern.codePointAt(pos);
       switch (c) {
@@ -270,23 +278,39 @@ final class Parser {
           int opStart = pos;
           pos++; // the operator
           boolean nongreedy = false;
+          boolean possessive = false;
           if ((flags & ParseFlags.PERL_X) != 0) {
-            if (pos < pattern.length() && pattern.charAt(pos) == '?') {
+            skipQuantifierModifierTrivia();
+            if (pos < pattern.length() && pattern.charAt(pos) == '+') {
+              if (!canIgnorePossessiveModifierOnZeroWidthOperand()) {
+                throw new PatternSyntaxException(
+                    "possessive quantifiers are not supported", pattern, opStart);
+              }
+              possessive = true;
+              pos++; // '+'
+            }
+            if (!possessive && pos < pattern.length() && pattern.charAt(pos) == '?') {
               nongreedy = true;
               pos++; // '?'
             }
             if (lastunary != null && lastTokenWasEmptyQuotedLiteral && c != '*') {
               isunary = lastunary;
+              isBareGreedyPlusUnary = lastUnaryWasBareGreedyPlus;
               break;
             }
-            if (lastunary != null && !canRepeatAfterUnary(op)) {
+            if (lastunary != null && !canRepeatAfterUnary(op, lastUnaryWasBareGreedyPlus)) {
               throw new PatternSyntaxException(
                   "invalid nested repetition operator", pattern, opStart);
             }
           }
           String opstr = pattern.substring(opStart, pos);
-          pushRepeatOp(op, opstr, nongreedy);
+          if (possessive && op == RegexpOp.STAR && canObservePossessiveZeroWidthIteration()) {
+            pushPossessiveZeroWidthRepeatOp(op);
+          } else {
+            pushRepeatOp(op, opstr, nongreedy);
+          }
           isunary = opstr;
+          isBareGreedyPlusUnary = op == RegexpOp.PLUS && !nongreedy && !possessive;
         }
         case '{' -> {
           int opStart = pos;
@@ -297,8 +321,18 @@ final class Parser {
           int lo = lohi[0];
           int hi = lohi[1];
           boolean nongreedy = false;
+          boolean possessive = false;
           if ((flags & ParseFlags.PERL_X) != 0) {
-            if (pos < pattern.length() && pattern.charAt(pos) == '?') {
+            skipQuantifierModifierTrivia();
+            if (pos < pattern.length() && pattern.charAt(pos) == '+') {
+              if (!canIgnorePossessiveModifierOnZeroWidthOperand()) {
+                throw new PatternSyntaxException(
+                    "possessive quantifiers are not supported", pattern, opStart);
+              }
+              possessive = true;
+              pos++; // '+'
+            }
+            if (!possessive && pos < pattern.length() && pattern.charAt(pos) == '?') {
               nongreedy = true;
               pos++; // '?'
             }
@@ -314,13 +348,18 @@ final class Parser {
             isunary = opstr;
             break;
           }
-          pushRepetition(lo, hi, opstr, nongreedy);
+          if (possessive && lo == 0 && hi != 0 && canObservePossessiveZeroWidthIteration()) {
+            pushPossessiveZeroWidthRepeatRange(hi);
+          } else {
+            pushRepetition(lo, hi, opstr, nongreedy);
+          }
           isunary = opstr;
         }
         case '\\' -> {
           if (parseBackslash()) {
             if (stacktop == null || isMarker(stacktop) || lastTokenNonRepeatable) {
               lastunary = null;
+              lastUnaryWasBareGreedyPlus = false;
               lastTokenNonRepeatable = true;
             }
             lastTokenWasEmptyQuotedLiteral = true;
@@ -333,6 +372,7 @@ final class Parser {
         }
       }
       lastunary = isunary;
+      lastUnaryWasBareGreedyPlus = isBareGreedyPlusUnary;
       lastTokenNonRepeatable = isNonRepeatable;
       lastTokenWasEmptyQuotedLiteral = false;
     }
@@ -354,7 +394,7 @@ final class Parser {
           && pattern.charAt(pos + 4) == '}') {
         pos += 5; // '\\', 'b', '{', 'g', '}'
         pushSimpleOp(RegexpOp.GRAPHEME_CLUSTER_BOUNDARY);
-        return true;
+        return false;
       }
       pushWordBoundary(pattern.charAt(pos + 1) == 'b');
       pos += 2; // '\\', 'b' or 'B'
@@ -632,12 +672,59 @@ final class Parser {
     stacktop.re = re;
   }
 
-  private boolean canRepeatAfterUnary(RegexpOp op) {
-    return op == RegexpOp.PLUS
+  private void pushPossessiveZeroWidthRepeatOp(RegexpOp op) {
+    switch (op) {
+      case STAR -> {
+        Regexp sub = stacktop.re;
+        stacktop.re = Regexp.rawQuantifier(RegexpOp.QUEST, Regexp.plus(sub, flags), flags);
+      }
+      case PLUS -> pushRepeatOp(RegexpOp.PLUS, "+", false);
+      case QUEST -> {
+        // Best-effort zero-width possessive normalization: prefer the one-iteration capture path.
+      }
+      default -> throw new IllegalStateException("unexpected repeat op: " + op);
+    }
+  }
+
+  private void pushPossessiveZeroWidthRepeatRange(int max) {
+    Regexp sub = stacktop.re;
+    Regexp positiveRepeat = max == 1 ? sub : Regexp.repeat(sub, flags, 1, max);
+    stacktop.re = Regexp.rawQuantifier(RegexpOp.QUEST, positiveRepeat, flags);
+  }
+
+  private boolean canRepeatAfterUnary(RegexpOp op, boolean lastUnaryWasBareGreedyPlus) {
+    return lastUnaryWasBareGreedyPlus
+        && op == RegexpOp.PLUS
         && stacktop != null
         && stacktop.re.op == RegexpOp.PLUS
         && !stacktop.re.nonGreedy()
         && isQuantifiedZeroWidth(stacktop.re);
+  }
+
+  private boolean canIgnorePossessiveModifierOnZeroWidthOperand() {
+    return stacktop != null && !isMarker(stacktop) && isZeroWidth(stacktop.re);
+  }
+
+  private boolean canObservePossessiveZeroWidthIteration() {
+    return stacktop != null
+        && !isMarker(stacktop)
+        && hasCapture(stacktop.re)
+        && isZeroWidth(stacktop.re);
+  }
+
+  private boolean hasCapture(Regexp re) {
+    ArrayDeque<Regexp> pending = new ArrayDeque<>();
+    pending.add(re);
+    while (!pending.isEmpty()) {
+      Regexp current = pending.removeLast();
+      if (current.op == RegexpOp.CAPTURE && current.cap > 0) {
+        return true;
+      }
+      if (current.subs != null) {
+        pending.addAll(current.subs);
+      }
+    }
+    return false;
   }
 
   private boolean isQuantifiedZeroWidth(Regexp re) {

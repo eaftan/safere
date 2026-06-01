@@ -6,29 +6,24 @@
 package org.safere.exhaustive;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.EnumMap;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.PatternSyntaxException;
 
 /** Offline differential sweep for {@code \X} and {@code \b{g}} grapheme-cluster bugs. */
 public final class GraphemeClusterDivergenceSweep {
   private static final int FIND_LIMIT = 32;
   private static final int FIRST_UNKNOWN_LIMIT = 100;
-  private static final int UNKNOWN_STRATIFIED_SAMPLE_LIMIT = 100_000;
   private static final int ACTIONABLE_SAMPLE_LIMIT = 100;
   private static final long DEFAULT_PROGRESS_INTERVAL = 10_000_000;
   private static final ConcurrentMap<String, java.util.regex.Pattern> JDK_PATTERN_CACHE =
@@ -256,7 +251,9 @@ public final class GraphemeClusterDivergenceSweep {
   public static void main(String[] args) throws IOException {
     GraphemeSweepOptions options = parseOptions(args);
     Files.createDirectories(options.sweep().outputDir());
-    Files.deleteIfExists(options.sweep().jsonlPath());
+    if (options.sweep().replayFile() != null) {
+      Files.deleteIfExists(options.sweep().jsonlPath());
+    }
     options.printStartup();
 
     if (options.sweep().replayFile() != null) {
@@ -266,7 +263,6 @@ public final class GraphemeClusterDivergenceSweep {
 
     GraphemeRunResult result = runSweep(options);
 
-    result.summary().writeReports(options.sweep().outputDir());
     System.out.println("checked=" + result.checked());
     System.out.println("generated=" + result.generated());
     System.out.println("totalCases=" + totalCases());
@@ -276,55 +272,44 @@ public final class GraphemeClusterDivergenceSweep {
     System.out.println("actionableDivergences=" + result.summary().actionableCount());
     System.out.println("unknownDivergences=" + result.summary().count(DivergenceClass.UNKNOWN));
     System.out.println("threads=" + options.sweep().threads());
-    System.out.println("jsonl=" + options.sweep().jsonlPath());
   }
 
   private static GraphemeSweepOptions parseOptions(String[] args) {
-    List<String> sweepArgs = new ArrayList<>();
-    int unknownStratifiedSamples = UNKNOWN_STRATIFIED_SAMPLE_LIMIT;
-    for (String arg : args) {
-      if (arg.startsWith("--unknown-stratified-samples=")) {
-        unknownStratifiedSamples =
-            Integer.parseInt(arg.substring("--unknown-stratified-samples=".length()));
-      } else {
-        sweepArgs.add(arg);
-      }
-    }
-    if (unknownStratifiedSamples < 0) {
-      throw new IllegalArgumentException("--unknown-stratified-samples must be non-negative");
-    }
     SweepOptions sweepOptions =
         SweepOptions.parse(
-            sweepArgs.toArray(String[]::new),
+            args,
             Path.of("target", "exhaustive-reports", "grapheme-cluster-sweep"),
             "grapheme-cluster-divergences.jsonl",
             DEFAULT_PROGRESS_INTERVAL);
-    return new GraphemeSweepOptions(sweepOptions, unknownStratifiedSamples);
+    return new GraphemeSweepOptions(sweepOptions);
   }
 
   private static GraphemeRunResult runSweep(GraphemeSweepOptions options) throws IOException {
     SweepOptions sweepOptions = options.sweep();
     long selectedCaseCount = sweepOptions.totalChecks(totalCases());
-    StratifiedUnknownSampler unknownSampler =
-        new StratifiedUnknownSampler(
-            sweepOptions.rangeStartInclusive(),
-            selectedCaseCount,
-            options.unknownStratifiedSamples());
-    GraphemeDivergenceSummary[] workerSummaries =
-        new GraphemeDivergenceSummary[sweepOptions.threads()];
+    List<ClassifiedDivergenceSummary<DivergenceClass>> workerSummaries = new ArrayList<>();
+    for (int i = 0; i < sweepOptions.threads(); i++) {
+      workerSummaries.add(null);
+    }
     try (SweepRunState runState = new SweepRunState(sweepOptions, selectedCaseCount)) {
+      runState.enableCompactLogs(
+          "grapheme-cluster",
+          totalCases(),
+          divergenceClassificationNames(),
+          divergenceClassificationStatuses());
       SweepWorkers.run(
           sweepOptions.threads(),
           "grapheme-cluster-sweep-",
           workerIndex -> {
-            GraphemeDivergenceSummary workerSummary = new GraphemeDivergenceSummary(unknownSampler);
+            ClassifiedDivergenceSummary<DivergenceClass> workerSummary =
+                newGraphemeDivergenceSummary();
             SweepState worker = new SweepState(runState, workerSummary, workerIndex);
             worker.run();
             worker.finish();
-            workerSummaries[workerIndex] = workerSummary;
+            workerSummaries.set(workerIndex, workerSummary);
           });
-      GraphemeDivergenceSummary summary = new GraphemeDivergenceSummary(unknownSampler);
-      for (GraphemeDivergenceSummary workerSummary : workerSummaries) {
+      ClassifiedDivergenceSummary<DivergenceClass> summary = newGraphemeDivergenceSummary();
+      for (ClassifiedDivergenceSummary<DivergenceClass> workerSummary : workerSummaries) {
         summary.merge(workerSummary);
       }
       return new GraphemeRunResult(
@@ -334,10 +319,7 @@ public final class GraphemeClusterDivergenceSweep {
 
   private static void runReplay(GraphemeSweepOptions options) throws IOException {
     SweepOptions sweepOptions = options.sweep();
-    StratifiedUnknownSampler unknownSampler =
-        new StratifiedUnknownSampler(
-            0, Math.max(1, options.unknownStratifiedSamples()), options.unknownStratifiedSamples());
-    GraphemeDivergenceSummary summary = new GraphemeDivergenceSummary(unknownSampler);
+    ClassifiedDivergenceSummary<DivergenceClass> summary = newGraphemeDivergenceSummary();
     AtomicLong replayCaseIndex = new AtomicLong();
     try (BufferedReader reader =
             Files.newBufferedReader(sweepOptions.replayFile(), StandardCharsets.UTF_8);
@@ -350,7 +332,7 @@ public final class GraphemeClusterDivergenceSweep {
               line -> {
                 runState.checked.increment();
                 evaluateCase(
-                    runState, summary, replayCase(line), replayCaseIndex.getAndIncrement());
+                    runState, summary, replayCase(line), replayCaseIndex.getAndIncrement(), -1);
               });
       runState.recordGenerated(generated);
       summary.writeReports(sweepOptions.outputDir());
@@ -368,8 +350,17 @@ public final class GraphemeClusterDivergenceSweep {
     }
   }
 
-  private static long totalCases() {
+  static long totalCases() {
     return cartesianCases() + TARGETED_REGION_CASES.size();
+  }
+
+  static String compactReplayJson(long caseIndex, String classification) {
+    CaseSpec spec = caseAt(caseIndex);
+    var object = SweepJson.object();
+    object.addProperty("caseIndex", caseIndex);
+    object.addProperty("classification", classification);
+    object.add("case", Divergence.caseJson(spec));
+    return SweepJson.toJson(object);
   }
 
   private static CaseSpec caseAt(long index) {
@@ -1134,22 +1125,35 @@ public final class GraphemeClusterDivergenceSweep {
   private record Outcome(boolean accepted, String trace, String error) {}
 
   private record GraphemeRunResult(
-      long checked, long generated, long divergences, GraphemeDivergenceSummary summary) {}
+      long checked,
+      long generated,
+      long divergences,
+      ClassifiedDivergenceSummary<DivergenceClass> summary) {}
 
-  private record GraphemeSweepOptions(SweepOptions sweep, int unknownStratifiedSamples) {
+  private record GraphemeSweepOptions(SweepOptions sweep) {
     void printStartup() {
       sweep.printStartup("grapheme-cluster");
-      System.out.println("unknownStratifiedSamples=" + unknownStratifiedSamples);
     }
   }
 
-  private enum DivergenceStatus {
-    KNOWN_INTENTIONAL,
-    EXPECTED_ZERO,
-    UNKNOWN
+  private static ClassifiedDivergenceSummary<DivergenceClass> newGraphemeDivergenceSummary() {
+    return new ClassifiedDivergenceSummary<>(
+        DivergenceClass.class,
+        DivergenceClass.UNKNOWN,
+        "grapheme-cluster",
+        FIRST_UNKNOWN_LIMIT,
+        ACTIONABLE_SAMPLE_LIMIT);
   }
 
-  private enum DivergenceClass {
+  static List<String> divergenceClassificationNames() {
+    return Arrays.stream(DivergenceClass.values()).map(Enum::name).toList();
+  }
+
+  static List<DivergenceStatus> divergenceClassificationStatuses() {
+    return Arrays.stream(DivergenceClass.values()).map(DivergenceClass::status).toList();
+  }
+
+  private enum DivergenceClass implements DivergenceClassification {
     BOUNDARY_CLUSTER_BOUNDARY_COMPOSITION(
         DivergenceStatus.KNOWN_INTENTIONAL,
         "SafeRE composes explicit \\b{g}, primitive \\X, and trailing \\b{g};"
@@ -1188,8 +1192,14 @@ public final class GraphemeClusterDivergenceSweep {
       this.rationale = rationale;
     }
 
-    boolean actionable() {
-      return status == DivergenceStatus.EXPECTED_ZERO;
+    @Override
+    public DivergenceStatus status() {
+      return status;
+    }
+
+    @Override
+    public String rationale() {
+      return rationale;
     }
   }
 
@@ -1206,7 +1216,7 @@ public final class GraphemeClusterDivergenceSweep {
       object.add("case", caseJson(spec));
       object.addProperty("bucket", bucket);
       object.addProperty("classification", classification.name());
-      object.addProperty("classificationStatus", classification.status.name());
+      object.addProperty("classificationStatus", classification.status().name());
       object.addProperty("labels", spec.labels());
       object.addProperty("regex", spec.regex());
       object.addProperty("input", spec.input());
@@ -1242,210 +1252,22 @@ public final class GraphemeClusterDivergenceSweep {
     }
   }
 
-  private static final class GraphemeDivergenceSummary {
-    private final EnumMap<DivergenceClass, LongAdder> counts = new EnumMap<>(DivergenceClass.class);
-    private final List<DivergenceExample> firstUnknownExamples = new ArrayList<>();
-    private final List<DivergenceExample> actionableExamples = new ArrayList<>();
-    private final StratifiedUnknownSampler unknownSampler;
-
-    GraphemeDivergenceSummary(StratifiedUnknownSampler unknownSampler) {
-      this.unknownSampler = unknownSampler;
-      for (DivergenceClass divergenceClass : DivergenceClass.values()) {
-        counts.put(divergenceClass, new LongAdder());
-      }
-    }
-
-    void record(Divergence divergence, long caseIndex) {
-      DivergenceClass divergenceClass = divergence.classification();
-      counts.get(divergenceClass).increment();
-      if (divergenceClass == DivergenceClass.UNKNOWN) {
-        recordUnknown(divergence, caseIndex);
-      } else if (divergenceClass.actionable()) {
-        recordActionable(divergence, caseIndex);
-      }
-    }
-
-    void merge(GraphemeDivergenceSummary other) {
-      if (other == null) {
-        return;
-      }
-      for (DivergenceClass divergenceClass : DivergenceClass.values()) {
-        counts.get(divergenceClass).add(other.count(divergenceClass));
-      }
-      firstUnknownExamples.addAll(other.firstUnknownExamples);
-      firstUnknownExamples.sort(Comparator.comparingLong(DivergenceExample::caseIndex));
-      truncate(firstUnknownExamples, FIRST_UNKNOWN_LIMIT);
-
-      actionableExamples.addAll(other.actionableExamples);
-      actionableExamples.sort(Comparator.comparingLong(DivergenceExample::caseIndex));
-      truncate(actionableExamples, ACTIONABLE_SAMPLE_LIMIT);
-    }
-
-    long count(DivergenceClass divergenceClass) {
-      return counts.get(divergenceClass).sum();
-    }
-
-    long actionableCount() {
-      long total = 0;
-      for (DivergenceClass divergenceClass : DivergenceClass.values()) {
-        if (divergenceClass.actionable()) {
-          total += count(divergenceClass);
-        }
-      }
-      return total;
-    }
-
-    void writeReports(Path outputDir) throws IOException {
-      writeClassCounts(outputDir.resolve("grapheme-cluster-class-counts.tsv"));
-      writeExamples(
-          outputDir.resolve("grapheme-cluster-unknown-first.jsonl"), firstUnknownExamples);
-      writeStratifiedSamples(outputDir.resolve("grapheme-cluster-unknown-stratified.jsonl"));
-      writeExamples(
-          outputDir.resolve("grapheme-cluster-actionable-examples.jsonl"), actionableExamples);
-    }
-
-    private void recordUnknown(Divergence divergence, long caseIndex) {
-      recordExample(
-          firstUnknownExamples, new DivergenceExample(caseIndex, divergence), FIRST_UNKNOWN_LIMIT);
-      unknownSampler.record(divergence, caseIndex);
-    }
-
-    private void recordActionable(Divergence divergence, long caseIndex) {
-      recordExample(
-          actionableExamples,
-          new DivergenceExample(caseIndex, divergence),
-          ACTIONABLE_SAMPLE_LIMIT);
-    }
-
-    private static void recordExample(
-        List<DivergenceExample> examples, DivergenceExample example, int limit) {
-      synchronized (examples) {
-        if (examples.size() < limit) {
-          examples.add(example);
-        }
-      }
-    }
-
-    private void writeClassCounts(Path path) throws IOException {
-      try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-        writer.write("class\tstatus\tcount\trationale");
-        writer.newLine();
-        for (DivergenceClass divergenceClass : DivergenceClass.values()) {
-          writer.write(divergenceClass.name());
-          writer.write('\t');
-          writer.write(divergenceClass.status.name());
-          writer.write('\t');
-          writer.write(Long.toString(count(divergenceClass)));
-          writer.write('\t');
-          writer.write(divergenceClass.rationale);
-          writer.newLine();
-        }
-      }
-    }
-
-    private static void writeExamples(Path path, List<DivergenceExample> examples)
-        throws IOException {
-      try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-        for (DivergenceExample example : examples) {
-          writer.write(example.divergence().toJson());
-          writer.newLine();
-        }
-      }
-    }
-
-    private void writeStratifiedSamples(Path path) throws IOException {
-      unknownSampler.write(path);
-    }
-
-    private static void truncate(List<?> list, int limit) {
-      while (list.size() > limit) {
-        list.remove(list.size() - 1);
-      }
-    }
-  }
-
-  private record DivergenceExample(long caseIndex, Divergence divergence) {}
-
-  private static final class StratifiedUnknownSampler {
-    private final AtomicReferenceArray<StratifiedSampleEntry> samples;
-    private final long rangeStartInclusive;
-    private final long selectedCaseCount;
-
-    StratifiedUnknownSampler(
-        long rangeStartInclusive, long selectedCaseCount, int unknownStratifiedSampleLimit) {
-      this.rangeStartInclusive = rangeStartInclusive;
-      this.selectedCaseCount = selectedCaseCount;
-      int sampleSlots = (int) Math.min(unknownStratifiedSampleLimit, selectedCaseCount);
-      this.samples = new AtomicReferenceArray<>(sampleSlots);
-    }
-
-    void record(Divergence divergence, long caseIndex) {
-      int slot = stratifiedSlot(caseIndex);
-      if (slot < 0) {
-        return;
-      }
-      long distance = stratifiedDistance(slot, caseIndex);
-      while (true) {
-        StratifiedSampleEntry current = samples.get(slot);
-        if (current != null
-            && (current.distance() < distance
-                || (current.distance() == distance && current.caseIndex() <= caseIndex))) {
-          return;
-        }
-        StratifiedSampleEntry candidate =
-            new StratifiedSampleEntry(caseIndex, distance, divergence.toJson());
-        if (samples.compareAndSet(slot, current, candidate)) {
-          return;
-        }
-      }
-    }
-
-    private int stratifiedSlot(long caseIndex) {
-      if (samples.length() == 0
-          || caseIndex < rangeStartInclusive
-          || caseIndex - rangeStartInclusive >= selectedCaseCount) {
-        return -1;
-      }
-      long relative = caseIndex - rangeStartInclusive;
-      long slot = relative * samples.length() / selectedCaseCount;
-      return (int) Math.min(slot, samples.length() - 1L);
-    }
-
-    private long stratifiedDistance(int slot, long caseIndex) {
-      long slotStart = rangeStartInclusive + (long) slot * selectedCaseCount / samples.length();
-      long slotEnd = rangeStartInclusive + (long) (slot + 1) * selectedCaseCount / samples.length();
-      long midpoint = slotStart + (slotEnd - slotStart) / 2;
-      return Math.abs(caseIndex - midpoint);
-    }
-
-    void write(Path path) throws IOException {
-      try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-        for (int slot = 0; slot < samples.length(); slot++) {
-          StratifiedSampleEntry sample = samples.get(slot);
-          if (sample != null) {
-            writer.write(sample.json());
-            writer.newLine();
-          }
-        }
-      }
-    }
-  }
-
-  private record StratifiedSampleEntry(long caseIndex, long distance, String json) {}
-
   private static final class SweepState {
     final SweepRunState runState;
-    final GraphemeDivergenceSummary summary;
+    final ClassifiedDivergenceSummary<DivergenceClass> summary;
     final SweepOptions options;
     final SweepWorkers.ProgressReporter progressReporter;
     final int workerIndex;
     long generated;
 
-    SweepState(SweepRunState runState, GraphemeDivergenceSummary summary, int workerIndex) {
+    SweepState(
+        SweepRunState runState,
+        ClassifiedDivergenceSummary<DivergenceClass> summary,
+        int workerIndex) {
       this.runState = runState;
       this.summary = summary;
       this.options = runState.options;
-      this.progressReporter = new SweepWorkers.ProgressReporter(runState);
+      this.progressReporter = new SweepWorkers.ProgressReporter(runState, workerIndex);
       this.workerIndex = workerIndex;
     }
 
@@ -1461,28 +1283,35 @@ public final class GraphemeClusterDivergenceSweep {
     }
 
     private long firstOwnedCaseIndex() {
-      long start = options.rangeStartInclusive();
-      long remainder = start % options.threads();
-      long delta = (workerIndex - remainder + options.threads()) % options.threads();
-      return start + delta;
+      return SweepWorkers.firstOwnedCaseIndex(
+          options.rangeStartInclusive(), endExclusive(), options.threads(), workerIndex);
     }
 
     void evaluateCase(long caseIndex, CaseSpec spec) {
-      GraphemeClusterDivergenceSweep.evaluateCase(runState, summary, spec, caseIndex);
+      GraphemeClusterDivergenceSweep.evaluateCase(runState, summary, spec, caseIndex, workerIndex);
       reportProgressIfNeeded();
     }
 
     void finish() {
-      runState.recordGenerated(generated);
+      runState.recordGenerated(Math.min(generated, endExclusive()));
+      runState.updateWorkerNextCaseIndex(workerIndex, Math.min(generated, endExclusive()));
     }
 
     void reportProgressIfNeeded() {
-      progressReporter.reportIfNeeded(generated);
+      progressReporter.reportIfNeeded(Math.min(generated, endExclusive()));
+    }
+
+    private long endExclusive() {
+      return Math.min(options.rangeEndExclusive(), totalCases());
     }
   }
 
   private static void evaluateCase(
-      SweepRunState runState, GraphemeDivergenceSummary summary, CaseSpec spec, long caseIndex) {
+      SweepRunState runState,
+      ClassifiedDivergenceSummary<DivergenceClass> summary,
+      CaseSpec spec,
+      long caseIndex,
+      int workerIndex) {
     Outcome jdk = jdkOutcome(spec);
     Outcome safere = safeReOutcome(spec);
     if (semanticallyEqual(jdk, safere)) {
@@ -1492,10 +1321,16 @@ public final class GraphemeClusterDivergenceSweep {
     DivergenceClass classification = classifyDivergence(spec, jdk, safere);
     Divergence divergence =
         new Divergence(caseIndex, spec, jdk, safere, bucketName, classification);
+    if (workerIndex >= 0) {
+      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      summary.record(classification, caseIndex, null);
+      return;
+    }
     runState.recordDivergence();
-    summary.record(divergence, caseIndex);
+    String json = divergence.toJson();
+    summary.record(classification, caseIndex, json);
     if (classification.actionable()) {
-      runState.appendJsonl(divergence.toJson());
+      runState.appendJsonl(json);
     }
   }
 }

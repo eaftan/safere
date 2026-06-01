@@ -665,5 +665,25 @@ class BoundaryMatcherTest {
       assertThat(p.matcher("word").find()).isTrue();
       assertThat(p.matcher("word ").find()).isTrue();
     }
+
+    @Test
+    @DisabledForCrosscheck(
+        "SafeRE follows the documented ASCII word model instead of the JDK combining-mark detail")
+    @DisplayName("\\b and \\B treat combining marks as non-word characters by default")
+    void asciiWordBoundariesDoNotAttachCombiningMarksToBaseCharacters() {
+      String decomposedEAcute = "e\u0301";
+
+      assertThat(findStarts("\\b", decomposedEAcute)).containsExactly(0, 1);
+      assertThat(findStarts("\\B", decomposedEAcute)).containsExactly(2);
+    }
+
+    private static List<Integer> findStarts(String regex, String input) {
+      Matcher matcher = Pattern.compile(regex).matcher(input);
+      List<Integer> starts = new ArrayList<>();
+      while (matcher.find()) {
+        starts.add(matcher.start());
+      }
+      return starts;
+    }
   }
 }

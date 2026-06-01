@@ -408,6 +408,13 @@ cleanly.  Repeated `find()` resumes at the previous non-empty match end, and
 the next candidate is evaluated by the same region-local grapheme predicates as
 any other candidate.
 
+Explicit `\b{g}` also remains compositional when repeated directly.  If the
+predicate is true at a position, repeating that zero-width predicate remains
+true at the same position.  SafeRE therefore accepts compositions such as
+`\b{g}{2}` and `a\b{g}{2}b` wherever the single boundary predicate is true,
+even when observed JDK traces skip the intermediate candidate or reject the
+consuming composition.
+
 ## Migration Plan
 
 ### Phase 1: Freeze Patchwork

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -19,6 +20,26 @@ import org.junit.jupiter.params.provider.MethodSource;
 @DisabledForCrosscheck(
     "SafeRE's documented grapheme-region model intentionally diverges from selected JDK traces")
 class GraphemeRegionModelTest {
+
+  @Test
+  @DisplayName("repeated explicit grapheme boundaries preserve every compositional find candidate")
+  void repeatedExplicitGraphemeBoundariesPreserveEveryCompositionalFindCandidate() {
+    assertThat(findTrace(Pattern.compile("\\b{g}{2}").matcher("ab")))
+        .containsExactly("0-0;g0=", "1-1;g0=", "2-2;g0=");
+  }
+
+  @Test
+  @DisplayName("repeated explicit grapheme boundaries compose inside consuming concatenations")
+  void repeatedExplicitGraphemeBoundariesComposeInsideConsumingConcatenations() {
+    assertThat(Pattern.compile("a\\b{g}{2}b").matcher("ab").matches()).isTrue();
+  }
+
+  @Test
+  @DisplayName("repeated explicit grapheme boundaries preserve alternative continuation candidates")
+  void repeatedExplicitGraphemeBoundariesPreserveAlternativeContinuationCandidates() {
+    assertThat(findTrace(Pattern.compile("(?:\\b{g}{2}|a).").matcher("ab")))
+        .containsExactly("0-1;g0=U+0061", "1-2;g0=U+0062");
+  }
 
   @ParameterizedTest(name = "[{index}] {0}")
   @MethodSource("regionLocalCases")

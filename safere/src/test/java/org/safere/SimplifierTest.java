@@ -147,7 +147,7 @@ class SimplifierTest {
         Arguments.of("(){0}", ""),
         Arguments.of("(){1}", "()"),
         Arguments.of("(){1,}", "()+"),
-        Arguments.of("(){0,2}", "(?:()()?)?"),
+        Arguments.of("(){0,2}", "()*"),
 
         // Empty-width ops: repetition count capped at 1
         Arguments.of("(?:^){0,}", "^*"),
