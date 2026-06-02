@@ -561,6 +561,19 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     return Arrays.stream(DivergenceClass.values()).map(DivergenceClass::status).toList();
   }
 
+  static Map<String, DivergenceStatus> divergenceClassificationStatusMap() {
+    Map<String, DivergenceStatus> statuses = new LinkedHashMap<>();
+    for (DivergenceClass classification : DivergenceClass.values()) {
+      statuses.put(classification.name(), classification.status());
+    }
+    return statuses;
+  }
+
+  static String auditClassificationName(long caseIndex) {
+    DivergenceClass classification = auditClassification(caseAt(caseIndex));
+    return classification == null ? null : classification.name();
+  }
+
   private enum DivergenceClass implements DivergenceClassification {
     STACK_OVERFLOW(
         DivergenceStatus.EXPECTED_ZERO,
@@ -600,6 +613,10 @@ public final class ZeroWidthQuantifierDivergenceSweep {
         DivergenceStatus.KNOWN_INTENTIONAL,
         "Observed JDK traces for alternatives involving explicit \\b{g} expose grapheme"
             + " segmentation details that conflict with SafeRE's documented grapheme model."),
+    GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK capture traces for explicit \\b{g} expose grapheme segmentation details"
+            + " that conflict with SafeRE's documented grapheme model."),
     ASCII_WORD_BOUNDARY_COMBINING_MARK(
         DivergenceStatus.KNOWN_INTENTIONAL,
         "SafeRE follows the documented default ASCII word-character model for \\b and \\B"
@@ -808,29 +825,37 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     RegexSweep.Outcome safere =
         RegexSweep.safeReTraceOutcome(
             spec.regex(), spec.flagMode().flags(), spec.inputs(), FIND_LIMIT);
-    if (isStackSafetySentinel(spec)) {
-      if (safere.error().contains("StackOverflowError")) {
-        String bucketName = bucketFor(spec, jdk, safere);
-        recordDivergence(
-            runState,
-            summary,
-            caseIndex,
-            spec,
-            jdk,
-            safere,
-            bucketName,
-            DivergenceClass.STACK_OVERFLOW,
-            workerIndex);
-      }
-      return;
-    }
-    if (RegexSweep.semanticallyEqual(jdk, safere)) {
+    DivergenceClass classification = classifyEvaluatedDivergence(spec, jdk, safere);
+    if (classification == null) {
       return;
     }
     String bucketName = bucketFor(spec, jdk, safere);
-    DivergenceClass classification = classifyDivergence(spec, jdk, safere);
     recordDivergence(
         runState, summary, caseIndex, spec, jdk, safere, bucketName, classification, workerIndex);
+  }
+
+  private static DivergenceClass auditClassification(CaseSpec spec) {
+    RegexSweep.Outcome jdk =
+        RegexSweep.jdkTraceOutcome(
+            spec.regex(), spec.flagMode().flags(), spec.inputs(), FIND_LIMIT);
+    RegexSweep.Outcome safere =
+        RegexSweep.safeReTraceOutcome(
+            spec.regex(), spec.flagMode().flags(), spec.inputs(), FIND_LIMIT);
+    return classifyEvaluatedDivergence(spec, jdk, safere);
+  }
+
+  private static DivergenceClass classifyEvaluatedDivergence(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    if (isStackSafetySentinel(spec)) {
+      if (safere.error().contains("StackOverflowError")) {
+        return DivergenceClass.STACK_OVERFLOW;
+      }
+      return null;
+    }
+    if (RegexSweep.semanticallyEqual(jdk, safere)) {
+      return null;
+    }
+    return classifyDivergence(spec, jdk, safere);
   }
 
   private static void recordDivergence(
@@ -875,9 +900,6 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     if (isPossessiveQuantifierUnsupported(spec, jdk, safere)) {
       return DivergenceClass.POSSESSIVE_QUANTIFIER_UNSUPPORTED;
     }
-    if (isZeroWidthPossessiveCaptureRetentionDivergence(spec, jdk, safere)) {
-      return DivergenceClass.ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION;
-    }
     if (isKnownGraphemeBoundaryAlternativeFindCursor(spec, jdk, safere)) {
       return DivergenceClass.GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR;
     }
@@ -887,8 +909,14 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     if (isKnownGraphemeBoundaryAlternativeGraphemeModel(spec, jdk, safere)) {
       return DivergenceClass.GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL;
     }
+    if (isKnownGraphemeBoundaryCaptureGraphemeModel(spec, jdk, safere)) {
+      return DivergenceClass.GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL;
+    }
     if (isKnownAsciiWordBoundaryCombiningMarkDivergence(spec, jdk, safere)) {
       return DivergenceClass.ASCII_WORD_BOUNDARY_COMBINING_MARK;
+    }
+    if (isZeroWidthPossessiveCaptureRetentionDivergence(spec, jdk, safere)) {
+      return DivergenceClass.ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION;
     }
     if (isKnownFailedPathCaptureLeakageDivergence(spec, jdk, safere)) {
       return DivergenceClass.FAILED_PATH_CAPTURE_LEAKAGE;
@@ -1029,8 +1057,26 @@ public final class ZeroWidthQuantifierDivergenceSweep {
         && isGraphemeSensitiveAlternativeTraceDifference(jdk.trace(), safere.trace());
   }
 
+  private static boolean isKnownGraphemeBoundaryCaptureGraphemeModel(
+      CaseSpec spec, RegexSweep.Outcome jdk, RegexSweep.Outcome safere) {
+    return jdk.accepted()
+        && safere.accepted()
+        && containsExplicitGraphemeBoundary(spec.operand())
+        && hasGraphemeSensitiveTrace(jdk.trace(), safere.trace())
+        && normalizeCaptureFields(jdk.trace()).equals(normalizeCaptureFields(safere.trace()));
+  }
+
   private static boolean containsExplicitGraphemeBoundary(Operand operand) {
-    return operand.label().contains("graphemeBoundary");
+    return operand.label().contains("graphemeBoundary")
+        || operand.regex().contains("\\b{g}")
+        || operand.regex().contains("\\\\b{g}");
+  }
+
+  private static boolean hasGraphemeSensitiveTrace(String jdkTrace, String safereTrace) {
+    return jdkTrace.contains("\\uD83D")
+        || safereTrace.contains("\\uD83D")
+        || jdkTrace.indexOf('\u200D') >= 0
+        || safereTrace.indexOf('\u200D') >= 0;
   }
 
   static boolean isRepeatedGraphemeBoundaryCompositionTraceDifferenceForTesting(

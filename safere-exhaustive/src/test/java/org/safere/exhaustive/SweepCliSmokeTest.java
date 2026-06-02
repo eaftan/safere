@@ -519,6 +519,52 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void zeroWidthQuantifierReplayClassifiesCapturedPossessiveAsciiBoundaryAsKnownIntentional()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-captured-word-boundary-possessive.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-captured-word-boundary-possessive");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:wordBoundary","operandRegex":"\\\\b","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"star,plus","quantifierChain":"*+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("ASCII_WORD_BOUNDARY_COMBINING_MARK\tKNOWN_INTENTIONAL\t1")
+        .contains("ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION\tEXPECTED_ZERO\t0");
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayClassifiesTargetedCapturedPossessiveGraphemeBoundaryAsKnown()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-targeted-grapheme-possessive.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-targeted-grapheme-possessive");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"targeted:capturedGraphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"star,plus","quantifierChain":"*+","contextLabel":"capturedThenOptionalLiteral","contextTemplate":"(%s)a?","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL\tKNOWN_INTENTIONAL\t1")
+        .contains("UNKNOWN\tUNKNOWN\t0");
+  }
+
+  @Test
   void zeroWidthQuantifierAsciiWordBoundaryClassifierRequiresCombiningMarkOnlyDifference() {
     String common = ",a:matches=false,a:find0=false";
 
@@ -540,7 +586,7 @@ class SweepCliSmokeTest {
     Files.writeString(
         replayFile,
         """
-        {"case":{"operandLabel":"atom:syntheticBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"mixedLeadingLiteralAlternativeReversed","contextTemplate":"(?:a|%s).","flagLabel":"commentsEmbeddedComment","flagPrefix":"(?x)","flags":0,"trivia":"#q\\n"}}
+        {"case":{"operandLabel":"atom:syntheticBoundary","operandRegex":"\\\\b","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
         """);
 
     assertThat(

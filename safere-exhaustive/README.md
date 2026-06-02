@@ -45,6 +45,61 @@ explicitly stream every recorded divergence in every classification into
 expanded JSONL. Sweep replay mode writes bounded diagnostic reports directly
 because its input is already explicit JSONL.
 
+## Compact Known-Divergence Audit
+
+Use compact audit after changing parser behavior, matcher behavior, or sweep
+classifiers, and when reviewing whether a known-intentional bucket is hiding
+bugs. It currently supports zero-width quantifier archives. It samples every
+`KNOWN_INTENTIONAL` class in an existing compact archive, replays those case
+indices through the current sweep classifier, and writes a transition table from
+archived classification to current classification:
+
+```bash
+./run-exhaustive-audit.sh \
+  --input-dir=target/exhaustive-reports/zero-width-quantifier-sweep-full
+```
+
+By default the audit samples 1000 records from each known-intentional class and
+writes reports under `audit/` inside the archive:
+
+- `source-counts.tsv`: exact archived counts and sampled counts per source
+  classification.
+- `transition-counts.tsv`: sampled
+  `sourceClass -> replayClass` counts, including `NO_DIVERGENCE` for cases that
+  no longer diverge under the current code.
+
+Use `--sample-limit=N` for a larger audit sample, and `--output-dir=...` to keep
+multiple audit runs. Suspicious transitions are source known-intentional classes
+that replay as `UNKNOWN` or as an `EXPECTED_ZERO` class. A transition to
+`NO_DIVERGENCE` usually means the old bucket contained cases fixed by newer
+code. A transition to another `KNOWN_INTENTIONAL` class usually means the old
+classifier was broader than the current one; review the target class to confirm
+the remaining mismatch shape is still intentional.
+
+The audit is intentionally classification-focused. It does not replace expanding
+or replaying specific JSONL examples when a suspicious transition needs a small
+human-readable reproducer.
+
+## Full Sweep Review Procedure
+
+Use this workflow when running a full exhaustive sweep for review:
+
+1. Run the full sweep with a fresh `--output-dir`.
+2. Run the expander on that compact archive.
+3. Inspect `progress.json` and `expanded/class-counts.tsv`.
+4. Fix any nonzero `EXPECTED_ZERO` classes. These are known bug classes that
+   should disappear in a clean run.
+5. Review and classify any `UNKNOWN` examples. Fix real bugs, or add a narrow
+   classifier and documentation when the divergence is intentional.
+6. Review representative `KNOWN_INTENTIONAL` samples from the expanded output.
+   Confirm that the actual trace mismatch matches the documented reason for
+   that class; do not assume the stored classification is correct.
+7. Replay only the affected expanded JSONL files after fixes or classifier
+   changes. Avoid rerunning the full sweep until targeted replay shows the
+   actionable and unknown classes are clean.
+8. Optionally run compact audit mode against older archives to compare archived
+   known-intentional buckets with the current classifier.
+
 ## Character Class Sweep
 
 Run through the dispatcher script so dependency classpaths are handled by Maven:

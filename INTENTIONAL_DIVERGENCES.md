@@ -158,6 +158,7 @@ Sweep names:
 - `BOUNDARY_CLUSTER_ALTERNATIVE_FIND_CURSOR`
 - `GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR`
 - `GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL`
+- `GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL`
 
 Issue reference: #451.
 
@@ -174,6 +175,12 @@ correct because the documented `find()` cursor rule is position-based, and
 ordinary zero-width constructs remain observable under the same pattern shape.
 The JDK trace looks like a special interaction between its grapheme
 implementation and repeated-find state, not a general regex rule.
+
+The same underlying model difference can be visible through captures around a
+zero-width `\b{g}` assertion. SafeRE keeps captures consistent with its
+grapheme-boundary predicate; observed JDK traces can expose captures from
+positions that SafeRE does not treat as grapheme boundaries, such as positions
+inside a full surrogate-pair grapheme view.
 
 ## Region-Local Grapheme Continuation Clusters
 
@@ -228,5 +235,6 @@ applied normally.
 | `BOUNDARY_CLUSTER_ALTERNATIVE_FIND_CURSOR` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
 | `GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
 | `GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
+| `GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
 | `REGION_LOCAL_CONTINUATION_CLUSTER` | Intentional | Region-Local Grapheme Continuation Clusters |
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
