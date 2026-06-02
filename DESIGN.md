@@ -19,6 +19,34 @@ Pattern string ──► Parse ──► Simplify ──► Compile ──► Ex
                    (AST)    (simpler)    (bytecode)  (match)
 ```
 
+## Unicode Version Policy
+
+SafeRE separates regex Unicode data from JDK-specific `java*` character
+properties.
+
+SafeRE-owned Unicode regex data is versioned with SafeRE, not with the JDK
+that happens to run the library. This includes general categories
+(`\p{L}`, `\p{Lu}`, `\p{Nd}`), scripts, blocks, binary Unicode properties,
+Unicode case-folding support for `CASE_INSENSITIVE | UNICODE_CASE`, and
+grapheme-related data. These tables are generated from a maintainer-selected
+JDK's `Character` implementation and checked into the repository. For the
+initial generated-table workflow, the maintainer JDK is OpenJDK 26.0.1.
+
+This makes behavior reproducible for a given SafeRE release. SafeRE may
+therefore be ahead of or behind the runtime JDK's Unicode version. Differences
+that are explained solely by this Unicode-version skew are intentional
+compatibility differences from `java.util.regex`, not matching-engine bugs.
+
+JDK-defined `java*` properties remain tied to the runtime JDK. Patterns such as
+`\p{javaLowerCase}`, `\p{javaUpperCase}`, `\p{javaWhitespace}`, and
+`\p{javaMirrored}` are specified by the JDK in terms of `Character` methods, so
+SafeRE evaluates them against the running JVM's `Character` implementation.
+
+The generator lives in `tools/unicode/`. Unicode-version upgrades are
+intentional maintenance changes: run the generator with the selected JDK,
+review and commit the generated output, update the recorded Unicode version,
+and run focused Unicode compatibility tests.
+
 ### 1. Parse (`Parser`)
 
 A stack-based operator-precedence parser (ported from RE2's `parse.cc`)

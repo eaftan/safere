@@ -183,6 +183,31 @@ mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
 mvn test -pl safere-fuzz
 ```
 
+## Unicode Compile Benchmarks
+
+The Unicode table-generation work uses three benchmark shapes:
+
+```bash
+# Warm repeated compile throughput.
+./run-java-benchmarks.sh UnicodeCompileBenchmark
+
+# Fresh-fork first compile. This preserves lazy Unicode table initialization
+# costs that ordinary JMH warmup would hide.
+./run-java-benchmarks.sh --first-compile UnicodeFirstCompileBenchmark
+
+# Plain JVM cold-start harness for short-lived CLI-style workloads.
+mvn install -DskipTests -q
+java -cp safere-benchmarks/target/benchmarks.jar \
+  org.safere.benchmark.UnicodeColdStartMain \
+  safere '\p{L}+' 0
+```
+
+Use `UnicodeCompileBenchmark` to check steady-state per-compile work after
+tables are already initialized. Use `UnicodeFirstCompileBenchmark` and
+`UnicodeColdStartMain` to measure the first-use cost seen by short-lived
+processes. Do not mix these results with publication-quality steady-state
+benchmark tables unless they are clearly labeled as cold-start measurements.
+
 Coverage reports are generated at
 `safere/target/site/jacoco/index.html`.  Note that JaCoCo is disabled
 by default; the `-Pcoverage` profile is required to enable it.
