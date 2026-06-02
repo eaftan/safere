@@ -16,10 +16,10 @@ import java.util.function.IntPredicate;
  * Unicode character data tables for the SafeRE regular expression library.
  *
  * <p>This class contains Perl character classes, POSIX character classes, case folding data, and
- * provides access to Unicode script and category groups. Category and script tables are generated
- * at runtime from the JDK's {@link Character} implementation (see {@link UnicodeGroups}), so they
- * always match the JVM's Unicode version. Case folding data and ASCII Perl/POSIX classes are static
- * tables ported from RE2's {@code unicode_casefold.cc} and {@code perl_groups.cc}.
+ * provides access to Unicode script and category groups. Category, script, block, and binary
+ * property tables are generated from a maintainer-selected JDK and checked into the repository.
+ * Case folding data and ASCII Perl/POSIX classes are static tables ported from RE2's {@code
+ * unicode_casefold.cc} and {@code perl_groups.cc}.
  *
  * <p>Each character class is represented as an {@code int[][]} where each element is a {@code {lo,
  * hi}} pair representing an inclusive range of Unicode code points.
@@ -187,13 +187,11 @@ final class UnicodeTables {
 
   // CASE_FOLD and TO_LOWER are static tables updated to Unicode 17.0 (CaseFolding.txt).
   //
-  // Unlike UNICODE_GROUPS (which are generated at runtime from JDK APIs), these tables are safe
-  // to keep ahead of the running JDK's Unicode version. If a fold entry references a code point
-  // that the JDK doesn't yet recognize, the fold arithmetic still works (it's just integer
-  // addition), but the code point will be classified as UNASSIGNED and will never appear as a
-  // matched letter, so the entry is harmless dead code. Unicode's stability policy guarantees
-  // that once a code point is assigned, its identity never changes, so a newer table can never
-  // produce *wrong* results on an older JDK — only unused entries.
+  // Like generated Unicode property tables, these tables are safe to keep ahead of the running
+  // JDK's Unicode version. If a fold entry references a code point that the JDK doesn't yet
+  // recognize, the fold arithmetic still works (it's just integer addition), but the code point
+  // will be classified as UNASSIGNED by runtime JDK-specific java* properties. Unicode's stability
+  // policy guarantees that once a code point is assigned, its identity never changes.
   //
   // A canary test (UnicodeJdkConsistencyTest.caseFoldCoversAllJdkPairs) detects when a newer
   // JDK adds case pairs that are not yet in this table.
@@ -803,8 +801,8 @@ final class UnicodeTables {
     };
   }
 
-  // Unicode script and category groups — generated at runtime from the JDK's Character
-  // implementation. See UnicodeGroups for details.
+  // Unicode script and category groups generated from the maintainer JDK. See UnicodeGroups for
+  // details.
 
   public static final Map<String, int[][]> UNICODE_GROUPS = UnicodeGroups.groups();
 

@@ -15,10 +15,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Canary tests that verify SafeRE's Unicode tables are consistent with the running JDK's {@link
- * Character} implementation and {@code java.util.regex}. These tests are designed to fail when the
- * JDK upgrades its Unicode version and SafeRE's static tables (case folding, White_Space) need
- * updating.
+ * Canary tests for SafeRE Unicode tables and the running JDK's {@link Character} implementation.
+ * SafeRE-owned Unicode property tables are allowed to be ahead of the runtime JDK, but the runtime
+ * JDK's known category/script names should still be present. The case-fold and White_Space checks
+ * detect table drift that may need an intentional Unicode data update.
  *
  * <p>See <a href="https://github.com/eaftan/safere/issues/107">#107</a>.
  */
@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 @DisabledForCrosscheck("Unicode table canary uses package-private SafeRE internals")
 class UnicodeJdkConsistencyTest {
 
-  // --- Category and script consistency (runtime-generated, should always match) ---
+  // --- Runtime JDK category and script coverage ---
 
   @Test
   @DisplayName("Every JDK general category is present in UNICODE_GROUPS")
@@ -60,7 +60,7 @@ class UnicodeJdkConsistencyTest {
       if (script == Character.UnicodeScript.UNKNOWN) {
         continue;
       }
-      // The runtime generator should have added this script.
+      // The generated tables should include every script known to the runtime JDK.
       String name = script.name();
       boolean found =
           groups.entrySet().stream()

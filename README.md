@@ -195,6 +195,20 @@ semantics (the first alternate that matches wins), which differs from POSIX
 leftmost-longest.  This means SafeRE is a drop-in replacement for
 `java.util.regex` for alternation behavior.
 
+### Unicode Version
+
+SafeRE supports Unicode 17.0 for Unicode regex properties such as `\p{L}`,
+`\p{IsHan}`, `\p{script=Latin}`, `\p{block=BasicLatin}`, and Unicode-aware
+predefined classes under `UNICODE_CHARACTER_CLASS`. This Unicode data is
+versioned with SafeRE and is independent of the JDK used to run the library, so
+the same SafeRE release has stable Unicode property behavior across supported
+JDKs.
+
+The `java*` property family, such as `\p{javaLowerCase}` and
+`\p{javaJavaIdentifierStart}`, continues to follow the running JDK's
+`java.lang.Character` predicates because those properties are explicitly
+defined by Java in terms of the runtime `Character` implementation.
+
 ## Flags
 
 SafeRE supports the same flag constants as `java.util.regex.Pattern`:

@@ -8,6 +8,7 @@
 #   ./run-java-benchmarks.sh RegexBenchmark         # publication-quality (default)
 #   ./run-java-benchmarks.sh --quick RegexBenchmark  # fast dev iteration
 #   ./run-java-benchmarks.sh --smoke RegexBenchmark  # CI smoke test (minimal)
+#   ./run-java-benchmarks.sh --first-compile UnicodeFirstCompileBenchmark
 #   ./run-java-benchmarks.sh                         # run all benchmarks
 #
 # The script builds a shaded (fat) JAR containing all dependencies and runs
@@ -27,6 +28,9 @@
 #   --smoke:             CI smoke test — 0 forks, 1 warmup × 1s,
 #                        1 measurement × 1s. Just verifies benchmarks compile
 #                        and run without errors.
+#   --first-compile:     Fresh-fork first-compile signal — 10 forks, no warmup,
+#                        1 single-shot measurement. Use for cold Unicode table
+#                        initialization and short-lived CLI analysis.
 #
 # Pathological benchmarks (PathologicalBenchmark, PathologicalComparisonBenchmark)
 # always run with -f 0 (no forking) because the JDK engine can hang on large
@@ -47,6 +51,7 @@ DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.CrosscheckOverheadBenchm
 PUBLISH_OPTS="-f 3 -wi 3 -w 5 -i 5 -r 5"
 QUICK_OPTS="-f 1 -wi 3 -w 1 -i 5 -r 1"
 SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
+FIRST_COMPILE_OPTS="-f 10 -wi 0 -i 1 -r 1 -bm ss"
 
 # Pathological benchmarks must run without forking (JDK can hang).
 PATHOLOGICAL_PUBLISH_OPTS="-f 0 -wi 3 -w 5 -i 5 -r 5"
@@ -61,9 +66,16 @@ if [ "${1:-}" = "--quick" ]; then
 elif [ "${1:-}" = "--smoke" ]; then
   MODE="smoke"
   shift
+elif [ "${1:-}" = "--first-compile" ]; then
+  MODE="first-compile"
+  shift
 fi
 
-if [ "$MODE" = "smoke" ]; then
+if [ "$MODE" = "first-compile" ]; then
+  JMH_OPTS="$FIRST_COMPILE_OPTS"
+  PATHOLOGICAL_JMH_OPTS="$FIRST_COMPILE_OPTS"
+  echo "=== First-compile mode (cold Unicode/CLI signal) ==="
+elif [ "$MODE" = "smoke" ]; then
   JMH_OPTS="$SMOKE_OPTS"
   PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_SMOKE_OPTS"
   echo "=== Smoke-test mode (CI only) ==="

@@ -13,6 +13,12 @@ import org.junit.jupiter.api.Test;
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class UnicodeTablesTest {
 
+  @Test
+  void generatedTables_haveExpectedMetadata() {
+    assertThat(UnicodeGeneratedTables.GENERATOR_JAVA_VERSION).contains("26.0.1");
+    assertThat(UnicodeGeneratedTables.UNICODE_VERSION).isEqualTo("17.0");
+  }
+
   // --- Perl groups ---
 
   @Test
