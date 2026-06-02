@@ -5,7 +5,6 @@
 
 package org.safere.tools.unicode;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -27,9 +26,8 @@ public final class UnicodeTableGenerator {
       "safere/src/main/java/org/safere/UnicodeGeneratedTables.java";
 
   private static final String[] CATEGORY_ABBREVS = {
-    "Cn", "Lu", "Ll", "Lt", "Lm", "Lo", "Mn", "Me", "Mc", "Nd", "Nl", "No", "Zs", "Zl",
-    "Zp", "Cc", "Cf", null, "Co", "Cs", "Pd", "Ps", "Pe", "Pc", "Po", "Sm", "Sc", "Sk",
-    "So", "Pi", "Pf"
+    "Cn", "Lu", "Ll", "Lt", "Lm", "Lo", "Mn", "Me", "Mc", "Nd", "Nl", "No", "Zs", "Zl", "Zp", "Cc",
+    "Cf", null, "Co", "Cs", "Pd", "Ps", "Pe", "Pc", "Po", "Sm", "Sc", "Sk", "So", "Pi", "Pf"
   };
 
   private static final int[][] MAJOR_CATEGORY_TYPES = {
@@ -49,8 +47,7 @@ public final class UnicodeTableGenerator {
   public static void main(String[] args) throws IOException {
     Path output = args.length >= 1 ? Path.of(args[0]) : Path.of(DEFAULT_OUTPUT);
     if (args.length > 1) {
-      throw new IllegalArgumentException(
-          "Usage: UnicodeTableGenerator [output-file]");
+      throw new IllegalArgumentException("Usage: UnicodeTableGenerator [output-file]");
     }
 
     GeneratedTables tables = buildTables();
@@ -164,9 +161,9 @@ public final class UnicodeTableGenerator {
     return tables;
   }
 
-  private static void writeJava(
-      PrintWriter out, GeneratedTables tables) {
-    String header = """
+  private static void writeJava(PrintWriter out, GeneratedTables tables) {
+    String header =
+        """
         // This file is part of a Java port of RE2 (https://github.com/google/re2).
         // Original RE2 code is Copyright (c) 2009 The RE2 Authors.
         // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
@@ -181,7 +178,8 @@ public final class UnicodeTableGenerator {
         /** Checked-in Unicode tables generated from a maintainer-selected JDK. */
         final class UnicodeGeneratedTables {
           static final String GENERATOR_JAVA_VERSION = "%s";
-        """.formatted(javaVersion());
+        """
+            .formatted(javaVersion());
     out.println(header);
     out.println();
 
@@ -190,7 +188,8 @@ public final class UnicodeTableGenerator {
     writeInlineMap(out, "BLOCKS", tables.blocks(), "block");
     writeInlineMap(out, "BINARY_PROPERTIES", tables.binaryProperties(), "property");
 
-    String middle = """
+    String middle =
+        """
           private UnicodeGeneratedTables() {}
 
           static Map<String, int[][]> unicodeGroups() {
@@ -213,15 +212,17 @@ public final class UnicodeTableGenerator {
   private static void writeInlineMap(
       PrintWriter out, String name, Map<String, int[][]> tables, String prefix) {
     // Include explicit type arguments to ofEntries to avoid JDK-8221301
-    out.println("  static final Map<String, int[][]> " + name + " = Map.<String, int[][]>ofEntries(");
+    out.println(
+        "  static final Map<String, int[][]> " + name + " = Map.<String, int[][]>ofEntries(");
     int count = 0;
     for (Map.Entry<String, int[][]> entry : tables.entrySet()) {
       String key = entry.getKey();
       String entryStr;
       if (prefix.equals("block")) {
         int[][] ranges = entry.getValue();
-        entryStr = "    Map.entry(\"%s\", new int[][] {{0x%x, 0x%x}})".formatted(
-            key, ranges[0][0], ranges[0][1]);
+        entryStr =
+            "    Map.entry(\"%s\", new int[][] {{0x%x, 0x%x}})"
+                .formatted(key, ranges[0][0], ranges[0][1]);
       } else {
         entryStr = "    Map.entry(\"%s\", %s_%s())".formatted(key, prefix, safeIdentifier(key));
       }
@@ -271,8 +272,7 @@ public final class UnicodeTableGenerator {
     for (int type : types) {
       Collections.addAll(ranges, allTables[type]);
     }
-    ranges.sort(
-        (a, b) -> a[0] != b[0] ? Integer.compare(a[0], b[0]) : Integer.compare(a[1], b[1]));
+    ranges.sort((a, b) -> a[0] != b[0] ? Integer.compare(a[0], b[0]) : Integer.compare(a[1], b[1]));
     RangeBuilder builder = new RangeBuilder();
     for (int[] range : ranges) {
       builder.addRange(range[0], range[1]);

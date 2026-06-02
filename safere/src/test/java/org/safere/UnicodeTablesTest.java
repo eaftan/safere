@@ -7,7 +7,6 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link UnicodeTables}. */
