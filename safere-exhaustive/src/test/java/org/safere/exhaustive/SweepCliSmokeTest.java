@@ -189,6 +189,14 @@ class SweepCliSmokeTest {
             RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
                 "\\B", java.util.regex.Pattern.UNICODE_CHARACTER_CLASS, "a\uD83D\uDE00", 1, 2))
         .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B|y", 0, "x\uD83D\uDE00y", 1, 4))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B|a", 0, "x\uD83D\uDE00y", 1, 4))
+        .isTrue();
   }
 
   @Test

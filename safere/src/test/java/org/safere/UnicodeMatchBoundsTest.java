@@ -199,7 +199,34 @@ class UnicodeMatchBoundsTest {
             1,
             4,
             true,
-            false));
+            false),
+        new RegionCase(
+            "non-word-boundary-consuming-alternative-remains-leftmost-inside-supplementary-scalar",
+            "\\B|y",
+            0,
+            "x\ud83d\ude00y",
+            0,
+            4,
+            false,
+            true),
+        new RegionCase(
+            "non-word-boundary-consuming-alternative-finds-utf16-offset-before-later-miss",
+            "\\B|a",
+            0,
+            "x\ud83d\ude00y",
+            0,
+            4,
+            false,
+            true),
+        new RegionCase(
+            "consuming-alternative-before-non-word-boundary-still-finds-leftmost-boundary",
+            "y|\\B",
+            0,
+            "x\ud83d\ude00y",
+            0,
+            4,
+            false,
+            true));
   }
 
   @ParameterizedTest

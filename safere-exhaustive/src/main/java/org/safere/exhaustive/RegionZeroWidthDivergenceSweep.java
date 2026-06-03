@@ -38,6 +38,14 @@ public final class RegionZeroWidthDivergenceSweep {
           regex("nonWordBoundary", "\\B"),
           regex("endOrWordBoundary", "$|\\b"),
           regex("wordBoundaryOrEnd", "\\b|$"),
+          regex("nonWordBoundaryOrAsciiA", "\\B|a"),
+          regex("nonWordBoundaryOrAsciiY", "\\B|y"),
+          regex("asciiAOrNonWordBoundary", "a|\\B"),
+          regex("asciiYOrNonWordBoundary", "y|\\B"),
+          regex("wordBoundaryOrAsciiA", "\\b|a"),
+          regex("wordBoundaryOrAsciiY", "\\b|y"),
+          regex("asciiAOrWordBoundary", "a|\\b"),
+          regex("asciiYOrWordBoundary", "y|\\b"),
           regex("nullableLiteralStar", "a*"),
           regex("nullableLiteralQuestion", "a?"),
           regex("capturedEmpty", "()"),
@@ -272,7 +280,19 @@ public final class RegionZeroWidthDivergenceSweep {
             || "markOnlyAfterBase".equals(spec.textRegion().label()))
         && spec.boundsMode().transparentBounds()
         && switch (spec.regexCase().label()) {
-          case "wordBoundary", "nonWordBoundary", "endOrWordBoundary", "wordBoundaryOrEnd" -> true;
+          case "wordBoundary",
+              "nonWordBoundary",
+              "endOrWordBoundary",
+              "wordBoundaryOrEnd",
+              "nonWordBoundaryOrAsciiA",
+              "nonWordBoundaryOrAsciiY",
+              "asciiAOrNonWordBoundary",
+              "asciiYOrNonWordBoundary",
+              "wordBoundaryOrAsciiA",
+              "wordBoundaryOrAsciiY",
+              "asciiAOrWordBoundary",
+              "asciiYOrWordBoundary" ->
+              true;
           default -> false;
         };
   }

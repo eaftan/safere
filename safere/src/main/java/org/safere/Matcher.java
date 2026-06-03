@@ -938,7 +938,7 @@ public final class Matcher implements MatchResult {
    * Returns whether DFA paths implement every instruction and boundary predicate in {@code prog}.
    */
   private static boolean dfaSupportsProgram(Prog prog) {
-    return !prog.hasGraphemeSemantics();
+    return !prog.hasGraphemeSemantics() && !prog.hasWordBoundary();
   }
 
   /**
@@ -1241,7 +1241,7 @@ public final class Matcher implements MatchResult {
     // that prefix first appears instead of searching from the current position.
     int effectiveStart = searchFrom;
     String prefix = parentPattern.prefix();
-    if (options.startAcceleration() && prefix != null) {
+    if (options.startAcceleration() && !prog.hasWordBoundary() && prefix != null) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
@@ -1264,7 +1264,7 @@ public final class Matcher implements MatchResult {
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
     boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (options.startAcceleration() && ccPrefixAscii != null) {
+    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
       int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         if (!prog.anchorStart()) {
@@ -1277,7 +1277,7 @@ public final class Matcher implements MatchResult {
     }
 
     Pattern.StartAcceleration startAcceleration = parentPattern.startAcceleration();
-    if (options.startAcceleration() && startAcceleration != null) {
+    if (options.startAcceleration() && !prog.hasWordBoundary() && startAcceleration != null) {
       int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
       if (idx < 0) {
         if (!prog.anchorStart()) {
@@ -1397,6 +1397,7 @@ public final class Matcher implements MatchResult {
         !regionActive
             && !parentPattern.dfaStartReliable()
             && options.startAcceleration()
+            && !prog.hasWordBoundary()
             && (prefix != null || ccPrefixAscii != null)
             && text.length() <= DIRECT_FALLBACK_TEXT_LIMIT
             && BitState.maxTextSize(prog) >= text.length();
@@ -1770,6 +1771,7 @@ public final class Matcher implements MatchResult {
             && !fullTextRegionContext
             && !(prog.hasGraphemeSemantics() && !anchored)
             && !prog.hasGraphemeSemantics()
+            && !prog.hasWordBoundary()
             && (!enginePathOptions().semanticGuards()
                 || !prog.requiresPikeNfaCaptureSemantics()
                 || nsubmatch <= 1);
