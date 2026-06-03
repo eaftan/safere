@@ -226,6 +226,24 @@ class UnicodeMatchBoundsTest {
             0,
             4,
             false,
+            true),
+        new RegionCase(
+            "non-word-boundary-dot-does-not-consume-past-split-surrogate-region-end",
+            "\\B.",
+            Pattern.DOTALL,
+            "\ud83d\ude00",
+            0,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "non-word-boundary-any-class-does-not-consume-past-split-surrogate-region-end",
+            "\\B[\\s\\S]",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            true,
             true));
   }
 

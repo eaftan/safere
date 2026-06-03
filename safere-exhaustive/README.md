@@ -206,9 +206,10 @@ region-boundary Unicode decoding. This sweep is the companion to the region
 scalar sweep: scalar coverage verifies what can be consumed at a region
 boundary, while zero-width coverage verifies which candidate boundary positions
 remain observable when no scalar can be consumed. The sweep classifies
-`ASCII_WORD_BOUNDARY_COMBINING_MARK` and `OPAQUE_REGION_CRLF_PAIR_CONTEXT` as
-known intentional implementation-detail divergences; other generated
-divergences are reported as `UNKNOWN`.
+`ASCII_WORD_BOUNDARY_COMBINING_MARK`, `OPAQUE_REGION_CRLF_PAIR_CONTEXT`, and
+`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` as known intentional
+implementation-detail divergences; other generated divergences are reported as
+`UNKNOWN`.
 
 ## Grapheme Cluster Sweep
 

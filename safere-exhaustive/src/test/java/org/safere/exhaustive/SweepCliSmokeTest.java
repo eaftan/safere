@@ -197,6 +197,14 @@ class SweepCliSmokeTest {
             RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
                 "\\B|a", 0, "x\uD83D\uDE00y", 1, 4))
         .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B.", java.util.regex.Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B[\\s\\S]", 0, "\uD83D\uDE00", 0, 1))
+        .isTrue();
   }
 
   @Test

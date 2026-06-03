@@ -227,6 +227,7 @@ applied normally.
 Sweep names:
 
 - `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION`
+- `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION`
 
 When a matcher region ends immediately after the high surrogate of a valid
 surrogate pair, SafeRE treats ordinary scalar-consuming atoms compositionally:
@@ -239,6 +240,14 @@ scalar atoms reject the split high surrogate, while greedy quantified wrappers
 can still consume it as a one-code-unit match. SafeRE keeps the compositional
 model because it is a coherent scalar-consumption rule and avoids quantifier-
 specific special cases that expose java.util.regex implementation mechanics.
+
+The zero-width region sweep also reports
+`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` for a narrower JDK
+implementation detail: under transparent bounds at a split surrogate boundary,
+observed JDK behavior can allow `.` after `\B` while rejecting an equivalent
+explicit any-character class such as `[\s\S]`. SafeRE keeps explicit any
+classes compositional with ordinary scalar-consuming atoms rather than making
+their region behavior depend on this spelling distinction.
 
 ## Opaque Region CRLF Pair Context
 
@@ -274,4 +283,5 @@ pre-region text when opaque bounds are active.
 | `REGION_LOCAL_CONTINUATION_CLUSTER` | Intentional | Region-Local Grapheme Continuation Clusters |
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
 | `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
+| `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
 | `OPAQUE_REGION_CRLF_PAIR_CONTEXT` | Intentional | Opaque Region CRLF Pair Context |

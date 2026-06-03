@@ -21,6 +21,7 @@ public final class RegionZeroWidthDivergenceSweep {
       List.of(
           DivergenceClass.ASCII_WORD_BOUNDARY_COMBINING_MARK,
           DivergenceClass.OPAQUE_REGION_CRLF_PAIR_CONTEXT,
+          DivergenceClass.BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION,
           DivergenceClass.UNKNOWN);
 
   private static final List<RegexCase> REGEXES =
@@ -46,6 +47,14 @@ public final class RegionZeroWidthDivergenceSweep {
           regex("wordBoundaryOrAsciiY", "\\b|y"),
           regex("asciiAOrWordBoundary", "a|\\b"),
           regex("asciiYOrWordBoundary", "y|\\b"),
+          regex("nonWordBoundaryThenDot", "\\B."),
+          regex("wordBoundaryThenDot", "\\b."),
+          regex("nonWordBoundaryThenAnyClass", "\\B[\\s\\S]"),
+          regex("wordBoundaryThenAnyClass", "\\b[\\s\\S]"),
+          regex("nonWordBoundaryDotOrAsciiY", "\\B.|y"),
+          regex("asciiYOrNonWordBoundaryDot", "y|\\B."),
+          regex("nonWordBoundaryAnyClassOrAsciiY", "\\B[\\s\\S]|y"),
+          regex("asciiYOrNonWordBoundaryAnyClass", "y|\\B[\\s\\S]"),
           regex("nullableLiteralStar", "a*"),
           regex("nullableLiteralQuestion", "a?"),
           regex("capturedEmpty", "()"),
@@ -272,6 +281,9 @@ public final class RegionZeroWidthDivergenceSweep {
     if (isOpaqueRegionCrlfPairContextDivergence(spec)) {
       return DivergenceClass.OPAQUE_REGION_CRLF_PAIR_CONTEXT;
     }
+    if (isBoundaryAnyClassSplitSurrogateScalarCompositionDivergence(spec)) {
+      return DivergenceClass.BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION;
+    }
     return DivergenceClass.UNKNOWN;
   }
 
@@ -291,7 +303,15 @@ public final class RegionZeroWidthDivergenceSweep {
               "wordBoundaryOrAsciiA",
               "wordBoundaryOrAsciiY",
               "asciiAOrWordBoundary",
-              "asciiYOrWordBoundary" ->
+              "asciiYOrWordBoundary",
+              "nonWordBoundaryThenDot",
+              "wordBoundaryThenDot",
+              "nonWordBoundaryThenAnyClass",
+              "wordBoundaryThenAnyClass",
+              "nonWordBoundaryDotOrAsciiY",
+              "asciiYOrNonWordBoundaryDot",
+              "nonWordBoundaryAnyClassOrAsciiY",
+              "asciiYOrNonWordBoundaryAnyClass" ->
               true;
           default -> false;
         };
@@ -303,6 +323,19 @@ public final class RegionZeroWidthDivergenceSweep {
         && spec.boundsMode().anchoringBounds()
         && switch (spec.regexCase().label()) {
           case "endAnchor", "finalEnd", "anchoredEmpty", "endOrWordBoundary", "wordBoundaryOrEnd" ->
+              true;
+          default -> false;
+        };
+  }
+
+  private static boolean isBoundaryAnyClassSplitSurrogateScalarCompositionDivergence(
+      CaseSpec spec) {
+    return "splitHighThroughAscii".equals(spec.textRegion().label())
+        && spec.boundsMode().transparentBounds()
+        && switch (spec.regexCase().label()) {
+          case "nonWordBoundaryThenAnyClass",
+              "nonWordBoundaryAnyClassOrAsciiY",
+              "asciiYOrNonWordBoundaryAnyClass" ->
               true;
           default -> false;
         };
@@ -626,6 +659,11 @@ public final class RegionZeroWidthDivergenceSweep {
         "Observed JDK traces expose a hidden pre-region CR when matching $ and \\Z against an"
             + " opaque region containing only the LF half of CRLF. SafeRE keeps opaque region"
             + " end-anchor context region-local."),
+    BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces distinguish . from [\\s\\S] after \\B at a transparent split-surrogate"
+            + " boundary. SafeRE keeps [\\s\\S] compositional with ordinary scalar-consuming"
+            + " atoms."),
     UNKNOWN(DivergenceStatus.UNKNOWN, "Unclassified SafeRE/JDK region zero-width divergence.");
 
     private final DivergenceStatus status;

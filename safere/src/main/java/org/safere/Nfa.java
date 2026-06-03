@@ -459,12 +459,18 @@ final class Nfa {
   }
 
   private int inputCodePointAt(String text, int pos) {
-    return GraphemeSupport.inputCodePointAt(
-        text, pos, context.endPos(), prog.hasGraphemeSemantics());
+    if (prog.hasGraphemeSemantics()) {
+      return GraphemeSupport.inputCodePointAt(text, pos, context.endPos(), true);
+    }
+    return codePointAtConsumeBoundary(text, pos);
   }
 
   private int inputNextPos(String text, int pos) {
-    return GraphemeSupport.inputNextPos(text, pos, context.endPos(), prog.hasGraphemeSemantics());
+    if (prog.hasGraphemeSemantics()) {
+      return GraphemeSupport.inputNextPos(text, pos, context.endPos(), true);
+    }
+    int cp = codePointAtConsumeBoundary(text, pos);
+    return cp >= 0 ? pos + Character.charCount(cp) : nextBoundaryPosition(pos, context.endPos());
   }
 
   private int graphemeNextPos(String text, int pos) {
