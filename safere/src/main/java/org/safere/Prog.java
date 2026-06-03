@@ -216,6 +216,35 @@ final class Prog {
     return false;
   }
 
+  boolean hasConsumingInstruction() {
+    if (start == 0) {
+      return false;
+    }
+    boolean[] visited = new boolean[size()];
+    ArrayDeque<Integer> stack = new ArrayDeque<>();
+    stack.push(start);
+    while (!stack.isEmpty()) {
+      int id = stack.pop();
+      if (id <= 0 || id >= size() || visited[id]) {
+        continue;
+      }
+      visited[id] = true;
+      Inst ip = inst(id);
+      if (ip.op == InstOp.CHAR_RANGE
+          || ip.op == InstOp.CHAR_CLASS
+          || ip.op == InstOp.GRAPHEME_CLUSTER) {
+        return true;
+      }
+      if (ip.out > 0) {
+        stack.push(ip.out);
+      }
+      if ((ip.op == InstOp.ALT || ip.op == InstOp.ALT_MATCH) && ip.out1 > 0) {
+        stack.push(ip.out1);
+      }
+    }
+    return false;
+  }
+
   /** Returns true if this program contains grapheme-sensitive matching. */
   boolean hasGraphemeSemantics() {
     return hasGraphemeSemantics;

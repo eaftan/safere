@@ -154,6 +154,62 @@ The Unicode character-class sweep compares SafeRE with `java.util.regex` under
 `\w` intersection over every Unicode scalar value. Use it before review when
 changing Unicode predefined or POSIX class tables.
 
+## Region Scalar Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh RegionScalarDivergenceSweep \
+  --output-dir=target/exhaustive-reports/region-scalar-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh RegionScalarDivergenceSweep --range=:1000000 \
+  --output-dir=target/exhaustive-reports/region-scalar-sweep-smoke
+```
+
+The region scalar sweep compares SafeRE with `java.util.regex` for ordinary
+scalar-consuming atoms under matcher regions and bounds. It deliberately crosses
+plain dot, predefined classes, POSIX classes, Java character classes, Unicode
+category classes including `Cs`, negated classes, captures, anchors,
+quantifiers, alternations, flags, transparent bounds, anchoring bounds, and
+regions that start, end, or become empty inside surrogate pairs.
+
+Use this sweep before review when changing region handling, Unicode decoding,
+single-character fast paths, DFA/NFA scalar consumption, predefined character
+classes, or matcher bounds behavior. The sweep classifies
+`QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` as a known intentional
+implementation-detail divergence; other generated divergences are reported as
+`UNKNOWN` until they are fixed or deliberately classified elsewhere.
+
+## Region Zero-Width Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh RegionZeroWidthDivergenceSweep \
+  --output-dir=target/exhaustive-reports/region-zero-width-sweep-full
+```
+
+The region zero-width sweep compares SafeRE with `java.util.regex` for pure
+zero-width and nullable patterns under matcher regions and bounds. It covers
+empty patterns, `^`, `$`, `\A`, `\Z`, `\z`, `\b`, `\B`, small alternatives,
+nullable literals, captures, flags, repeated `find()`, transparent bounds,
+anchoring bounds, line terminator regions, combining-mark regions, and regions
+that start, end, or become empty inside surrogate pairs.
+
+Use this sweep before review when changing search cursor advancement,
+empty-width assertions, repeated `find()` state, matcher region handling, or
+region-boundary Unicode decoding. This sweep is the companion to the region
+scalar sweep: scalar coverage verifies what can be consumed at a region
+boundary, while zero-width coverage verifies which candidate boundary positions
+remain observable when no scalar can be consumed. The sweep classifies
+`ASCII_WORD_BOUNDARY_COMBINING_MARK` and `OPAQUE_REGION_CRLF_PAIR_CONTEXT` as
+known intentional implementation-detail divergences; other generated
+divergences are reported as `UNKNOWN`.
+
 ## Grapheme Cluster Sweep
 
 Run through the dispatcher script:

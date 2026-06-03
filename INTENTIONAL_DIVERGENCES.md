@@ -222,6 +222,41 @@ is correct because transparent bounds should make the surrounding context
 visible, and once that context is visible the Unicode grapheme rules should be
 applied normally.
 
+## Quantified Scalar Atoms at Split Surrogate Region Ends
+
+Sweep names:
+
+- `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION`
+
+When a matcher region ends immediately after the high surrogate of a valid
+surrogate pair, SafeRE treats ordinary scalar-consuming atoms compositionally:
+if the unquantified atom cannot consume a Unicode scalar at that boundary, then
+greedy quantified forms such as `.*`, `.+`, `[\\s\\S]*`, and `[\\s\\S]+` do not
+consume that split high surrogate either.
+
+Observed JDK behavior is non-compositional for this edge. Selected unquantified
+scalar atoms reject the split high surrogate, while greedy quantified wrappers
+can still consume it as a one-code-unit match. SafeRE keeps the compositional
+model because it is a coherent scalar-consumption rule and avoids quantifier-
+specific special cases that expose java.util.regex implementation mechanics.
+
+## Opaque Region CRLF Pair Context
+
+Sweep names:
+
+- `OPAQUE_REGION_CRLF_PAIR_CONTEXT`
+
+With opaque matcher bounds, SafeRE treats end-anchor context as region-local.
+For example, a region over only the LF half of `"\r\n"` is treated as containing
+a standalone visible LF for `$` and `\Z` purposes; the hidden CR before the
+region is not consulted.
+
+Observed JDK behavior exposes the hidden pre-region CR for selected `$`, `\Z`,
+and anchored-empty traces, treating the visible LF as the second half of an
+atomic CRLF line terminator even though opaque bounds hide that CR. SafeRE keeps
+the opaque-region model because boundary constructs should not depend on
+pre-region text when opaque bounds are active.
+
 ## Sweep Classification Map
 
 | Sweep class | Status | Documentation section |
@@ -238,3 +273,5 @@ applied normally.
 | `GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
 | `REGION_LOCAL_CONTINUATION_CLUSTER` | Intentional | Region-Local Grapheme Continuation Clusters |
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
+| `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
+| `OPAQUE_REGION_CRLF_PAIR_CONTEXT` | Intentional | Opaque Region CRLF Pair Context |

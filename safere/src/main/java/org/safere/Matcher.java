@@ -1032,9 +1032,10 @@ public final class Matcher implements MatchResult {
 
   private boolean needsFullTextRegionContext(boolean regionActive, Prog prog) {
     return regionActive
-        && (transparentBounds
-            || prog.hasGraphemeSemantics()
-            || (!anchoringBounds && prog.anchorEnd()));
+        && (!anchoringBounds
+            || transparentBounds
+            || regionEndsInsideSurrogatePair()
+            || prog.hasGraphemeSemantics());
   }
 
   /**
@@ -1064,8 +1065,7 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean regionEndsInsideSurrogatePair() {
-    return parentPattern.prog().hasGraphemeSemantics()
-        && regionEnd > 0
+    return regionEnd > 0
         && regionEnd < text.length()
         && Character.isHighSurrogate(text.charAt(regionEnd - 1))
         && Character.isLowSurrogate(text.charAt(regionEnd));
@@ -1816,6 +1816,8 @@ public final class Matcher implements MatchResult {
     int boundaryEndPos = fullTextRegionContext && !transparentBounds ? endPos : text.length();
     int anchorEndPos =
         fullTextRegionContext && !anchoringBounds && prog.anchorEnd() ? text.length() : endPos;
+    int emptyAnchorStartPos = fullTextRegionContext && anchoringBounds ? regionStart : 0;
+    int emptyAnchorEndPos = fullTextRegionContext && !anchoringBounds ? text.length() : endPos;
     Nfa.SearchResult nfaResult =
         Nfa.search(
             prog,
@@ -1828,6 +1830,8 @@ public final class Matcher implements MatchResult {
             boundaryRegionStart,
             boundaryEndPos,
             anchorEndPos,
+            emptyAnchorStartPos,
+            emptyAnchorEndPos,
             nfaAnchor,
             nfaKind,
             nsubmatch,

@@ -16,6 +16,8 @@ record EngineContext(
     int boundaryRegionStart,
     int boundaryEndPos,
     int anchorEndPos,
+    int emptyAnchorStartPos,
+    int emptyAnchorEndPos,
     GraphemeSupport.Context graphemeContext) {
 
   EngineContext {
@@ -38,6 +40,8 @@ record EngineContext(
       int boundaryRegionStart,
       int boundaryEndPos,
       int anchorEndPos,
+      int emptyAnchorStartPos,
+      int emptyAnchorEndPos,
       GraphemeSupport.Context graphemeContext) {
     GraphemeSupport.Context context =
         graphemeContext != null
@@ -53,6 +57,8 @@ record EngineContext(
         boundaryRegionStart,
         boundaryEndPos,
         anchorEndPos,
+        emptyAnchorStartPos,
+        emptyAnchorEndPos,
         context);
   }
 

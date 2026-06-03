@@ -64,6 +64,26 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void regionScalarSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("region-scalar");
+
+    RegionScalarDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("region-scalar-divergences.jsonl"))).isFalse();
+    assertCompactOutput(outputDir);
+  }
+
+  @Test
+  void regionZeroWidthSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("region-zero-width");
+
+    RegionZeroWidthDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("region-zero-width-divergences.jsonl"))).isFalse();
+    assertCompactOutput(outputDir);
+  }
+
+  @Test
   void caseFoldingCharacterClassSweepRunsTinyRange() throws Exception {
     Path outputDir = tempDir.resolve("case-folding");
 
@@ -123,6 +143,64 @@ class SweepCliSmokeTest {
   void characterClassCompactReplayJsonReconstructsIndexedCase() {
     assertThat(CharacterClassDivergenceSweep.compactReplayJson(0, "UNKNOWN"))
         .contains("\"caseIndex\":0", "\"classification\":\"UNKNOWN\"", "\"case\"");
+  }
+
+  @Test
+  void regionScalarCompactReplayJsonReconstructsIndexedCase() {
+    assertThat(RegionScalarDivergenceSweep.compactReplayJson(0, "UNKNOWN"))
+        .contains("\"caseIndex\":0", "\"classification\":\"UNKNOWN\"", "\"case\"");
+  }
+
+  @Test
+  void regionScalarSweepClassifiesQuantifiedSplitSurrogateCompositionAsIntentional() {
+    assertThat(
+            RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
+                ".", "%s+", java.util.regex.Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isEqualTo("QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION");
+    assertThat(
+            RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
+                "[\\s\\S]", "%s*", 0, "a\uD83D\uDE00", 1, 2))
+        .isEqualTo("QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION");
+  }
+
+  @Test
+  void regionScalarSweepIncludesSplitSurrogateOrdinaryAtomCases() {
+    assertThat(
+            RegionScalarDivergenceSweep.containsGeneratedCaseForTesting(
+                ".", "%s", java.util.regex.Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+    assertThat(
+            RegionScalarDivergenceSweep.containsGeneratedCaseForTesting(
+                "[^a]", "(%s)", 0, "a\uD83D\uDE00", 1, 2))
+        .isTrue();
+    assertThat(
+            RegionScalarDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\P{Cs}", "^%s$", 0, "\uD801\uDC00", 0, 1))
+        .isTrue();
+  }
+
+  @Test
+  void regionZeroWidthSweepIncludesSplitSurrogateEndAnchorCase() {
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "$", 0, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B", java.util.regex.Pattern.UNICODE_CHARACTER_CLASS, "a\uD83D\uDE00", 1, 2))
+        .isTrue();
+  }
+
+  @Test
+  void regionZeroWidthSweepClassifiesKnownIntentionalDivergences() {
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "\\b", 0, "a\u0301", 0, 1, true, true))
+        .isEqualTo("ASCII_WORD_BOUNDARY_COMBINING_MARK");
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "$", 0, "\r\n", 1, 2, false, true))
+        .isEqualTo("OPAQUE_REGION_CRLF_PAIR_CONTEXT");
   }
 
   @Test
