@@ -684,17 +684,8 @@ final class Simplifier {
     return Regexp.rawQuantifier(op, sub, flags);
   }
 
-  /** Returns true if the character class matches every valid Unicode code point. */
+  /** Returns true if the character class matches every Java string code point. */
   private static boolean isFull(CharClass cc) {
-    // A "full" class covers [0, 0xD7FF] and [0xE000, 0x10FFFF] (skipping surrogates).
-    if (cc.numRanges() == 2
-        && cc.lo(0) == 0
-        && cc.hi(0) == Utils.MIN_SURROGATE - 1
-        && cc.lo(1) == Utils.MAX_SURROGATE + 1
-        && cc.hi(1) == Utils.MAX_RUNE) {
-      return true;
-    }
-    // Or possibly one range [0, 0x10FFFF] if surrogates are included.
     if (cc.numRanges() == 1 && cc.lo(0) == 0 && cc.hi(0) == Utils.MAX_RUNE) {
       return true;
     }

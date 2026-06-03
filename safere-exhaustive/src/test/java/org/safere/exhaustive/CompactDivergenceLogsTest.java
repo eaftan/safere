@@ -279,4 +279,32 @@ class CompactDivergenceLogsTest {
 
     assertThat(Files.readAllLines(tempDir.resolve("expanded/known-sample.jsonl"))).hasSize(1);
   }
+
+  @Test
+  void auditSamplesKnownIntentionalBucketsAndReportsCurrentClassification() throws Exception {
+    int sourceClass =
+        ZeroWidthQuantifierDivergenceSweep.divergenceClassificationNames()
+            .indexOf("POSSESSIVE_QUANTIFIER_UNSUPPORTED");
+    try (CompactDivergenceLogs logs =
+        new CompactDivergenceLogs(
+            tempDir,
+            "zero-width-quantifier",
+            0,
+            100,
+            ZeroWidthQuantifierDivergenceSweep.totalCasesForTesting(),
+            1,
+            ZeroWidthQuantifierDivergenceSweep.divergenceClassificationNames(),
+            ZeroWidthQuantifierDivergenceSweep.divergenceClassificationStatuses())) {
+      logs.record(0, 0, sourceClass);
+    }
+
+    CompactDivergenceAudit.main(new String[] {"--input-dir=" + tempDir});
+
+    assertThat(Files.readString(tempDir.resolve("audit/source-counts.tsv")))
+        .contains("POSSESSIVE_QUANTIFIER_UNSUPPORTED\t1\t1");
+    assertThat(Files.readString(tempDir.resolve("audit/transition-counts.tsv")))
+        .contains(
+            "POSSESSIVE_QUANTIFIER_UNSUPPORTED\tKNOWN_INTENTIONAL\tNO_DIVERGENCE\t"
+                + "NO_DIVERGENCE\t1");
+  }
 }

@@ -64,6 +64,26 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void regionScalarSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("region-scalar");
+
+    RegionScalarDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("region-scalar-divergences.jsonl"))).isFalse();
+    assertCompactOutput(outputDir);
+  }
+
+  @Test
+  void regionZeroWidthSweepRunsTinyRange() throws Exception {
+    Path outputDir = tempDir.resolve("region-zero-width");
+
+    RegionZeroWidthDivergenceSweep.main(args(outputDir));
+
+    assertThat(Files.exists(outputDir.resolve("region-zero-width-divergences.jsonl"))).isFalse();
+    assertCompactOutput(outputDir);
+  }
+
+  @Test
   void caseFoldingCharacterClassSweepRunsTinyRange() throws Exception {
     Path outputDir = tempDir.resolve("case-folding");
 
@@ -123,6 +143,88 @@ class SweepCliSmokeTest {
   void characterClassCompactReplayJsonReconstructsIndexedCase() {
     assertThat(CharacterClassDivergenceSweep.compactReplayJson(0, "UNKNOWN"))
         .contains("\"caseIndex\":0", "\"classification\":\"UNKNOWN\"", "\"case\"");
+  }
+
+  @Test
+  void regionScalarCompactReplayJsonReconstructsIndexedCase() {
+    assertThat(RegionScalarDivergenceSweep.compactReplayJson(0, "UNKNOWN"))
+        .contains("\"caseIndex\":0", "\"classification\":\"UNKNOWN\"", "\"case\"");
+  }
+
+  @Test
+  void regionScalarSweepClassifiesQuantifiedSplitSurrogateCompositionAsIntentional() {
+    assertThat(
+            RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
+                ".", "%s+", java.util.regex.Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isEqualTo("QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION");
+    assertThat(
+            RegionScalarDivergenceSweep.classifyDivergenceShapeForTesting(
+                "[\\s\\S]", "%s*", 0, "a\uD83D\uDE00", 1, 2))
+        .isEqualTo("QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION");
+  }
+
+  @Test
+  void regionScalarSweepIncludesSplitSurrogateOrdinaryAtomCases() {
+    assertThat(
+            RegionScalarDivergenceSweep.containsGeneratedCaseForTesting(
+                ".", "%s", java.util.regex.Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+    assertThat(
+            RegionScalarDivergenceSweep.containsGeneratedCaseForTesting(
+                "[^a]", "(%s)", 0, "a\uD83D\uDE00", 1, 2))
+        .isTrue();
+    assertThat(
+            RegionScalarDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\P{Cs}", "^%s$", 0, "\uD801\uDC00", 0, 1))
+        .isTrue();
+  }
+
+  @Test
+  void regionZeroWidthSweepIncludesSplitSurrogateEndAnchorCase() {
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "$", 0, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B", java.util.regex.Pattern.UNICODE_CHARACTER_CLASS, "a\uD83D\uDE00", 1, 2))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B|y", 0, "x\uD83D\uDE00y", 1, 4))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B|a", 0, "x\uD83D\uDE00y", 1, 4))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B.", java.util.regex.Pattern.DOTALL, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+    assertThat(
+            RegionZeroWidthDivergenceSweep.containsGeneratedCaseForTesting(
+                "\\B[\\s\\S]", 0, "\uD83D\uDE00", 0, 1))
+        .isTrue();
+  }
+
+  @Test
+  void regionZeroWidthSweepClassifiesKnownIntentionalDivergences() {
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "\\b", 0, "a\u0301", 0, 1, true, true))
+        .isEqualTo("ASCII_WORD_BOUNDARY_COMBINING_MARK");
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "$", 0, "\r\n", 1, 2, false, true))
+        .isEqualTo("OPAQUE_REGION_CRLF_PAIR_CONTEXT");
+  }
+
+  @Test
+  void regionZeroWidthSweepTreatsAcceptanceMismatchAsDivergence() {
+    assertThat(RegionZeroWidthDivergenceSweep.semanticallyEqualForTesting(false, "", true, "trace"))
+        .isFalse();
+    assertThat(RegionZeroWidthDivergenceSweep.semanticallyEqualForTesting(true, "trace", false, ""))
+        .isFalse();
   }
 
   @Test
@@ -519,6 +621,52 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void zeroWidthQuantifierReplayClassifiesCapturedPossessiveAsciiBoundaryAsKnownIntentional()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-captured-word-boundary-possessive.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-captured-word-boundary-possessive");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"atom:wordBoundary","operandRegex":"\\\\b","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"star,plus","quantifierChain":"*+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("ASCII_WORD_BOUNDARY_COMBINING_MARK\tKNOWN_INTENTIONAL\t1")
+        .contains("ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION\tEXPECTED_ZERO\t0");
+  }
+
+  @Test
+  void zeroWidthQuantifierReplayClassifiesTargetedCapturedPossessiveGraphemeBoundaryAsKnown()
+      throws Exception {
+    Path replayFile = tempDir.resolve("zero-width-targeted-grapheme-possessive.jsonl");
+    Path outputDir = tempDir.resolve("zero-width-targeted-grapheme-possessive");
+    Files.writeString(
+        replayFile,
+        """
+        {"case":{"operandLabel":"targeted:capturedGraphemeBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"star,plus","quantifierChain":"*+","contextLabel":"capturedThenOptionalLiteral","contextTemplate":"(%s)a?","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
+        """);
+
+    String output =
+        captureOutput(
+            () -> ZeroWidthQuantifierDivergenceSweep.main(replayArgs(outputDir, replayFile)));
+
+    assertThat(output).contains("divergences=1", "actionableDivergences=0");
+    assertThat(Files.exists(outputDir.resolve("zero-width-quantifier-divergences.jsonl")))
+        .isFalse();
+    assertThat(Files.readString(outputDir.resolve("zero-width-quantifier-class-counts.tsv")))
+        .contains("GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL\tKNOWN_INTENTIONAL\t1")
+        .contains("UNKNOWN\tUNKNOWN\t0");
+  }
+
+  @Test
   void zeroWidthQuantifierAsciiWordBoundaryClassifierRequiresCombiningMarkOnlyDifference() {
     String common = ",a:matches=false,a:find0=false";
 
@@ -540,7 +688,7 @@ class SweepCliSmokeTest {
     Files.writeString(
         replayFile,
         """
-        {"case":{"operandLabel":"atom:syntheticBoundary","operandRegex":"\\\\b{g}","wrapperLabel":"capturing","wrapperTemplate":"(%s)","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"mixedLeadingLiteralAlternativeReversed","contextTemplate":"(?:a|%s).","flagLabel":"commentsEmbeddedComment","flagPrefix":"(?x)","flags":0,"trivia":"#q\\n"}}
+        {"case":{"operandLabel":"atom:syntheticBoundary","operandRegex":"\\\\b","wrapperLabel":"bare","wrapperTemplate":"%s","quantifierChainLabel":"plus","quantifierChain":"+","contextLabel":"bare","contextTemplate":"%s","flagLabel":"none","flagPrefix":"","flags":0,"trivia":""}}
         """);
 
     assertThat(

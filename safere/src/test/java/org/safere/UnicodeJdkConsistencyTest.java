@@ -37,7 +37,7 @@ class UnicodeJdkConsistencyTest {
       "Mn", "Me", "Mc", // Mark
       "Nd", "Nl", "No", // Number
       "Zs", "Zl", "Zp", // Separator
-      "Cc", "Cf", "Co", "Cs", // Other (no Cn per RE2 convention)
+      "Cc", "Cf", "Cn", "Co", "Cs", // Other
       "Pd", "Ps", "Pe", "Pc", "Po", "Pi", "Pf", // Punctuation
       "Sm", "Sc", "Sk", "So", // Symbol
     };

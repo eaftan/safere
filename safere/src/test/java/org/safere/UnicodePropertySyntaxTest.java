@@ -833,6 +833,15 @@ class UnicodePropertySyntaxTest {
     }
 
     @Test
+    @DisplayName("\\p{Cn} and \\P{Cn} match java.util.regex")
+    void unassignedCategoryMatchesJdk() {
+      assertMatchesJdk("\\p{Cn}", "a");
+      assertMatchesJdk("\\P{Cn}", "a");
+      assertMatchesJdk("\\p{Cn}", "\uE000");
+      assertMatchesJdk("\\P{Cn}", "\uE000");
+    }
+
+    @Test
     @DisplayName("\\p{javaLowerCase} still works")
     void javaCharacterClass() {
       assertThat(find("\\p{javaLowerCase}", "a")).isTrue();

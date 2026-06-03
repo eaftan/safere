@@ -202,6 +202,8 @@ final class Nfa {
         regionStart,
         endPos,
         endPos,
+        0,
+        endPos,
         anchor,
         kind,
         nsubmatch,
@@ -232,6 +234,8 @@ final class Nfa {
         boundaryRegionStart,
         boundaryEndPos,
         endPos,
+        0,
+        endPos,
         anchor,
         kind,
         nsubmatch,
@@ -249,6 +253,8 @@ final class Nfa {
       int boundaryRegionStart,
       int boundaryEndPos,
       int anchorEndPos,
+      int emptyAnchorStartPos,
+      int emptyAnchorEndPos,
       Anchor anchor,
       MatchKind kind,
       int nsubmatch,
@@ -284,9 +290,13 @@ final class Nfa {
             boundaryRegionStart,
             boundaryEndPos,
             anchorEndPos,
+            emptyAnchorStartPos,
+            emptyAnchorEndPos,
             graphemeContext);
     Nfa nfa = new Nfa(prog, context, ncapture, longestMode, endmatch);
     if (prog.hasGraphemeSemantics()) {
+      nfa.doSearchEveryCharPosition(anchored);
+    } else if (prog.hasWordBoundary()) {
       nfa.doSearchEveryCharPosition(anchored);
     } else {
       nfa.doSearch(anchored);
@@ -325,8 +335,8 @@ final class Nfa {
 
     int pos = startPos;
     while (true) {
-      int cp = (pos < endPos) ? text.codePointAt(pos) : -1;
-      int nextPos = (pos < endPos) ? pos + Character.charCount(cp) : endPos + 1;
+      int cp = codePointAtConsumeBoundary(text, pos);
+      int nextPos = cp >= 0 ? pos + Character.charCount(cp) : nextBoundaryPosition(pos, endPos);
 
       // Start a new thread if there have not been any matches
       // (no point starting new threads to the right of an existing match).
@@ -449,16 +459,34 @@ final class Nfa {
   }
 
   private int inputCodePointAt(String text, int pos) {
-    return GraphemeSupport.inputCodePointAt(
-        text, pos, context.endPos(), prog.hasGraphemeSemantics());
+    if (prog.hasGraphemeSemantics()) {
+      return GraphemeSupport.inputCodePointAt(text, pos, context.endPos(), true);
+    }
+    return codePointAtConsumeBoundary(text, pos);
   }
 
   private int inputNextPos(String text, int pos) {
-    return GraphemeSupport.inputNextPos(text, pos, context.endPos(), prog.hasGraphemeSemantics());
+    if (prog.hasGraphemeSemantics()) {
+      return GraphemeSupport.inputNextPos(text, pos, context.endPos(), true);
+    }
+    int cp = codePointAtConsumeBoundary(text, pos);
+    return cp >= 0 ? pos + Character.charCount(cp) : nextBoundaryPosition(pos, context.endPos());
   }
 
   private int graphemeNextPos(String text, int pos) {
     return GraphemeSupport.graphemeNextPos(text, pos, context.graphemeConsumeEndPos());
+  }
+
+  private int codePointAtConsumeBoundary(String text, int pos) {
+    if (pos < 0 || pos >= context.engineEndPos()) {
+      return -1;
+    }
+    int cp = text.codePointAt(pos);
+    return pos + Character.charCount(cp) <= context.engineEndPos() ? cp : -1;
+  }
+
+  private static int nextBoundaryPosition(int pos, int endPos) {
+    return pos < endPos ? endPos : endPos + 1;
   }
 
   /**
@@ -587,7 +615,8 @@ final class Nfa {
                   t0[0],
                   context.boundaryRegionStart(),
                   consumedInput,
-                  context.anchorEndPos(),
+                  context.emptyAnchorStartPos(),
+                  context.emptyAnchorEndPos(),
                   context.effectiveBoundaryEndPos(consumedInput));
           if ((ip.arg & ~flags) == 0) {
             stack.add(new int[] {ip.out, -1});
@@ -981,6 +1010,7 @@ final class Nfa {
         matchStart,
         regionStart,
         consumedInput,
+        0,
         text.length(),
         text.length());
   }
@@ -994,6 +1024,7 @@ final class Nfa {
       int matchStart,
       int regionStart,
       boolean consumedInput,
+      int anchorStartPos,
       int anchorEndPos,
       int boundaryEndPos) {
     int flags = 0;
@@ -1005,9 +1036,9 @@ final class Nfa {
     // For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
     // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty
     // string has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
-    if (pos == 0) {
+    if (pos == anchorStartPos) {
       flags |= EmptyOp.BEGIN_TEXT;
-      if (!text.isEmpty()) {
+      if (!text.isEmpty() && pos != anchorEndPos) {
         flags |= EmptyOp.BEGIN_LINE;
       }
     } else if (pos < text.length()) {

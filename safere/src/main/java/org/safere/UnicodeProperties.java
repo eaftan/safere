@@ -128,6 +128,7 @@ final class UnicodeProperties {
           "Zl",
           "Zp",
           "Cc",
+          "Cn",
           "Cf",
           "Co",
           "Cs",

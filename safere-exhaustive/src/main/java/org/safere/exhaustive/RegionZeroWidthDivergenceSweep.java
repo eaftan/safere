@@ -1,0 +1,685 @@
+// This file is part of a Java port of RE2 (https://github.com/google/re2).
+// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
+// Licensed under the BSD 3-Clause License (see LICENSE file).
+
+package org.safere.exhaustive;
+
+import com.google.gson.JsonObject;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.PatternSyntaxException;
+
+/** Offline differential sweep for zero-width and nullable patterns under matcher regions. */
+public final class RegionZeroWidthDivergenceSweep {
+  private static final int FIND_LIMIT = 8;
+  private static final List<DivergenceClass> DIVERGENCE_CLASSES =
+      List.of(
+          DivergenceClass.ASCII_WORD_BOUNDARY_COMBINING_MARK,
+          DivergenceClass.OPAQUE_REGION_CRLF_PAIR_CONTEXT,
+          DivergenceClass.BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION,
+          DivergenceClass.UNKNOWN);
+
+  private static final List<RegexCase> REGEXES =
+      List.of(
+          regex("empty", ""),
+          regex("emptyAlternative", "|a"),
+          regex("literalAlternativeEmpty", "a|"),
+          regex("startAnchor", "^"),
+          regex("endAnchor", "$"),
+          regex("anchoredEmpty", "^$"),
+          regex("beginText", "\\A"),
+          regex("absoluteEnd", "\\z"),
+          regex("finalEnd", "\\Z"),
+          regex("wordBoundary", "\\b"),
+          regex("nonWordBoundary", "\\B"),
+          regex("endOrWordBoundary", "$|\\b"),
+          regex("wordBoundaryOrEnd", "\\b|$"),
+          regex("nonWordBoundaryOrAsciiA", "\\B|a"),
+          regex("nonWordBoundaryOrAsciiY", "\\B|y"),
+          regex("asciiAOrNonWordBoundary", "a|\\B"),
+          regex("asciiYOrNonWordBoundary", "y|\\B"),
+          regex("wordBoundaryOrAsciiA", "\\b|a"),
+          regex("wordBoundaryOrAsciiY", "\\b|y"),
+          regex("asciiAOrWordBoundary", "a|\\b"),
+          regex("asciiYOrWordBoundary", "y|\\b"),
+          regex("nonWordBoundaryThenDot", "\\B."),
+          regex("wordBoundaryThenDot", "\\b."),
+          regex("nonWordBoundaryThenAnyClass", "\\B[\\s\\S]"),
+          regex("wordBoundaryThenAnyClass", "\\b[\\s\\S]"),
+          regex("nonWordBoundaryDotOrAsciiY", "\\B.|y"),
+          regex("asciiYOrNonWordBoundaryDot", "y|\\B."),
+          regex("nonWordBoundaryAnyClassOrAsciiY", "\\B[\\s\\S]|y"),
+          regex("asciiYOrNonWordBoundaryAnyClass", "y|\\B[\\s\\S]"),
+          regex("nullableLiteralStar", "a*"),
+          regex("nullableLiteralQuestion", "a?"),
+          regex("capturedEmpty", "()"),
+          regex("capturedNullableLiteral", "(a*)"));
+
+  private static final List<FlagMode> FLAG_MODES =
+      List.of(
+          flags("none", 0),
+          flags("multiline", java.util.regex.Pattern.MULTILINE),
+          flags("unixLines", java.util.regex.Pattern.UNIX_LINES),
+          flags("dotall", java.util.regex.Pattern.DOTALL),
+          flags("unicodeCharacterClass", java.util.regex.Pattern.UNICODE_CHARACTER_CLASS),
+          flags(
+              "unicodeCharacterClassMultiline",
+              java.util.regex.Pattern.UNICODE_CHARACTER_CLASS | java.util.regex.Pattern.MULTILINE));
+
+  private static final List<BoundsMode> BOUNDS_MODES =
+      List.of(
+          bounds("opaqueAnchoring", false, true),
+          bounds("opaqueNonAnchoring", false, false),
+          bounds("transparentAnchoring", true, true),
+          bounds("transparentNonAnchoring", true, false));
+
+  private static final List<TextRegion> TEXT_REGIONS = buildTextRegions();
+
+  private RegionZeroWidthDivergenceSweep() {}
+
+  public static void main(String[] args) throws IOException {
+    SweepOptions options =
+        SweepOptions.parse(
+            args,
+            Path.of("target", "exhaustive-reports", "region-zero-width-sweep"),
+            "region-zero-width-divergences.jsonl",
+            1_000_000);
+    Files.createDirectories(options.outputDir());
+    if (options.replayFile() != null) {
+      Files.deleteIfExists(options.jsonlPath());
+    }
+    options.printStartup("region-zero-width");
+
+    if (options.replayFile() != null) {
+      runReplay(options);
+      return;
+    }
+
+    SweepRunState state = runSweep(options);
+    System.out.println("checked=" + state.checked.sum());
+    System.out.println("generated=" + state.generated);
+    System.out.println("totalCases=" + totalCases());
+    System.out.println("divergences=" + state.divergences.sum());
+    System.out.println("threads=" + options.threads());
+  }
+
+  static long totalCases() {
+    return (long) REGEXES.size() * FLAG_MODES.size() * TEXT_REGIONS.size() * BOUNDS_MODES.size();
+  }
+
+  static String compactReplayJson(long caseIndex, String classification) {
+    return compactReplayJson(caseIndex, classification, caseFromIndex(caseIndex));
+  }
+
+  static boolean containsGeneratedCaseForTesting(
+      String regex, int flags, String text, int start, int end) {
+    return generatedCaseForTesting(regex, flags, text, start, end) != null;
+  }
+
+  static String classifyDivergenceShapeForTesting(
+      String regex, int flags, String text, int start, int end) {
+    CaseSpec spec = generatedCaseForTesting(regex, flags, text, start, end);
+    if (spec == null) {
+      throw new IllegalArgumentException("case is not generated by the region zero-width sweep");
+    }
+    return classifyDivergence(spec).name();
+  }
+
+  static String classifyDivergenceShapeForTesting(
+      String regex,
+      int flags,
+      String text,
+      int start,
+      int end,
+      boolean transparentBounds,
+      boolean anchoringBounds) {
+    CaseSpec spec =
+        generatedCaseForTesting(regex, flags, text, start, end, transparentBounds, anchoringBounds);
+    if (spec == null) {
+      throw new IllegalArgumentException("case is not generated by the region zero-width sweep");
+    }
+    return classifyDivergence(spec).name();
+  }
+
+  static boolean semanticallyEqualForTesting(
+      boolean leftAccepted, String leftTrace, boolean rightAccepted, String rightTrace) {
+    return semanticallyEqual(
+        new Outcome(leftAccepted, leftTrace, ""), new Outcome(rightAccepted, rightTrace, ""));
+  }
+
+  private static CaseSpec generatedCaseForTesting(
+      String regex, int flags, String text, int start, int end) {
+    return generatedCaseForTesting(
+        regex,
+        flags,
+        text,
+        start,
+        end,
+        BOUNDS_MODES.getFirst().transparentBounds(),
+        BOUNDS_MODES.getFirst().anchoringBounds());
+  }
+
+  private static CaseSpec generatedCaseForTesting(
+      String regex,
+      int flags,
+      String text,
+      int start,
+      int end,
+      boolean transparentBounds,
+      boolean anchoringBounds) {
+    for (RegexCase regexCase : REGEXES) {
+      if (!regexCase.regex().equals(regex)) {
+        continue;
+      }
+      for (FlagMode flagMode : FLAG_MODES) {
+        if (flagMode.flags() != flags) {
+          continue;
+        }
+        for (TextRegion textRegion : TEXT_REGIONS) {
+          if (textRegion.text().equals(text)
+              && textRegion.start() == start
+              && textRegion.end() == end) {
+            for (BoundsMode boundsMode : BOUNDS_MODES) {
+              if (boundsMode.transparentBounds() == transparentBounds
+                  && boundsMode.anchoringBounds() == anchoringBounds) {
+                return new CaseSpec(regexCase, flagMode, textRegion, boundsMode);
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private static SweepRunState runSweep(SweepOptions options) throws IOException {
+    try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
+      runState.enableCompactLogs(
+          "region-zero-width",
+          totalCases(),
+          DIVERGENCE_CLASSES.stream().map(DivergenceClass::name).toList(),
+          DIVERGENCE_CLASSES.stream().map(DivergenceClass::status).toList());
+      SweepWorkers.run(
+          options.threads(),
+          "region-zero-width-sweep-",
+          workerIndex -> {
+            SweepWorkers.ProgressReporter progressReporter =
+                new SweepWorkers.ProgressReporter(runState, workerIndex);
+            long generated = 0;
+            long end = Math.min(options.rangeEndExclusive(), totalCases());
+            for (long caseIndex = options.rangeStartInclusive(); caseIndex < end; caseIndex++) {
+              generated = caseIndex + 1;
+              if (caseIndex % options.threads() != workerIndex) {
+                continue;
+              }
+              progressReporter.checked();
+              evaluateCase(runState, caseFromIndex(caseIndex), workerIndex, caseIndex);
+              progressReporter.reportIfNeeded(generated);
+            }
+            runState.recordGenerated(generated);
+            runState.updateWorkerNextCaseIndex(workerIndex, generated);
+          });
+      return runState;
+    }
+  }
+
+  private static void runReplay(SweepOptions options) throws IOException {
+    try (BufferedReader reader =
+            Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8);
+        SweepRunState runState = new SweepRunState(options, 0)) {
+      long generated =
+          SweepWorkers.runStreamingLines(
+              options.threads(),
+              "region-zero-width-replay-",
+              reader,
+              line -> {
+                runState.checked.increment();
+                evaluateCase(runState, replayCase(line), -1, -1);
+              });
+      runState.recordGenerated(generated);
+      System.out.println("checked=" + runState.checked.sum());
+      System.out.println("generated=" + runState.generated);
+      System.out.println("totalCases=" + totalCases());
+      System.out.println("divergences=" + runState.divergences.sum());
+      System.out.println("threads=" + options.threads());
+      System.out.println("jsonl=" + options.jsonlPath());
+      if (runState.divergences.sum() > 0) {
+        throw new IllegalStateException(
+            "replay found " + runState.divergences.sum() + " behavioral divergences");
+      }
+    }
+  }
+
+  private static void evaluateCase(
+      SweepRunState runState, CaseSpec spec, int workerIndex, long caseIndex) {
+    Outcome jdk = jdkOutcome(spec);
+    Outcome safere = safeReOutcome(spec);
+    if (semanticallyEqual(jdk, safere)) {
+      return;
+    }
+    DivergenceClass classification = classifyDivergence(spec);
+    if (workerIndex >= 0) {
+      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      return;
+    }
+    if (classification.status() == DivergenceStatus.KNOWN_INTENTIONAL) {
+      return;
+    }
+    runState.recordDivergence();
+    runState.appendJsonl(new Divergence(spec, jdk, safere, classification).toJson());
+  }
+
+  private static DivergenceClass classifyDivergence(CaseSpec spec) {
+    if (isKnownAsciiWordBoundaryCombiningMarkDivergence(spec)) {
+      return DivergenceClass.ASCII_WORD_BOUNDARY_COMBINING_MARK;
+    }
+    if (isOpaqueRegionCrlfPairContextDivergence(spec)) {
+      return DivergenceClass.OPAQUE_REGION_CRLF_PAIR_CONTEXT;
+    }
+    if (isBoundaryAnyClassSplitSurrogateScalarCompositionDivergence(spec)) {
+      return DivergenceClass.BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION;
+    }
+    return DivergenceClass.UNKNOWN;
+  }
+
+  private static boolean isKnownAsciiWordBoundaryCombiningMarkDivergence(CaseSpec spec) {
+    return ("baseBeforeMark".equals(spec.textRegion().label())
+            || "markOnlyAfterBase".equals(spec.textRegion().label()))
+        && spec.boundsMode().transparentBounds()
+        && switch (spec.regexCase().label()) {
+          case "wordBoundary",
+              "nonWordBoundary",
+              "endOrWordBoundary",
+              "wordBoundaryOrEnd",
+              "nonWordBoundaryOrAsciiA",
+              "nonWordBoundaryOrAsciiY",
+              "asciiAOrNonWordBoundary",
+              "asciiYOrNonWordBoundary",
+              "wordBoundaryOrAsciiA",
+              "wordBoundaryOrAsciiY",
+              "asciiAOrWordBoundary",
+              "asciiYOrWordBoundary",
+              "nonWordBoundaryThenDot",
+              "wordBoundaryThenDot",
+              "nonWordBoundaryThenAnyClass",
+              "wordBoundaryThenAnyClass",
+              "nonWordBoundaryDotOrAsciiY",
+              "asciiYOrNonWordBoundaryDot",
+              "nonWordBoundaryAnyClassOrAsciiY",
+              "asciiYOrNonWordBoundaryAnyClass" ->
+              true;
+          default -> false;
+        };
+  }
+
+  private static boolean isOpaqueRegionCrlfPairContextDivergence(CaseSpec spec) {
+    return "finalCrLfLfOnly".equals(spec.textRegion().label())
+        && !spec.boundsMode().transparentBounds()
+        && spec.boundsMode().anchoringBounds()
+        && switch (spec.regexCase().label()) {
+          case "endAnchor", "finalEnd", "anchoredEmpty", "endOrWordBoundary", "wordBoundaryOrEnd" ->
+              true;
+          default -> false;
+        };
+  }
+
+  private static boolean isBoundaryAnyClassSplitSurrogateScalarCompositionDivergence(
+      CaseSpec spec) {
+    return "splitHighThroughAscii".equals(spec.textRegion().label())
+        && spec.boundsMode().transparentBounds()
+        && switch (spec.regexCase().label()) {
+          case "nonWordBoundaryThenAnyClass",
+              "nonWordBoundaryAnyClassOrAsciiY",
+              "asciiYOrNonWordBoundaryAnyClass" ->
+              true;
+          default -> false;
+        };
+  }
+
+  private static Outcome jdkOutcome(CaseSpec spec) {
+    try {
+      java.util.regex.Pattern pattern =
+          java.util.regex.Pattern.compile(spec.regexCase().regex(), spec.flagMode().flags());
+      return new Outcome(true, operationTrace(pattern, spec), "");
+    } catch (PatternSyntaxException e) {
+      return new Outcome(false, "", e.getDescription());
+    } catch (RuntimeException e) {
+      return new Outcome(false, "", e.getClass().getSimpleName() + ": " + e.getMessage());
+    }
+  }
+
+  private static Outcome safeReOutcome(CaseSpec spec) {
+    try {
+      org.safere.Pattern pattern =
+          org.safere.Pattern.compile(spec.regexCase().regex(), spec.flagMode().flags());
+      return new Outcome(true, operationTrace(pattern, spec), "");
+    } catch (PatternSyntaxException e) {
+      return new Outcome(false, "", e.getDescription());
+    } catch (RuntimeException e) {
+      return new Outcome(false, "", e.getClass().getSimpleName() + ": " + e.getMessage());
+    }
+  }
+
+  private static String operationTrace(java.util.regex.Pattern pattern, CaseSpec spec) {
+    StringBuilder result = new StringBuilder();
+    String text = spec.textRegion().text();
+    int start = spec.textRegion().start();
+    int end = spec.textRegion().end();
+    java.util.regex.Matcher matcher = configure(pattern.matcher(text).region(start, end), spec);
+    appendTrace(result, "matches", matcher.matches(), matcher);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
+    appendTrace(result, "lookingAt", matcher.lookingAt(), matcher);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
+    appendFindTrace(result, "find", matcher);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
+    appendFindTrace(result, "resetFind", matcher);
+    return result.toString();
+  }
+
+  private static String operationTrace(org.safere.Pattern pattern, CaseSpec spec) {
+    StringBuilder result = new StringBuilder();
+    String text = spec.textRegion().text();
+    int start = spec.textRegion().start();
+    int end = spec.textRegion().end();
+    org.safere.Matcher matcher = configure(pattern.matcher(text).region(start, end), spec);
+    appendTrace(result, "matches", matcher.matches(), matcher);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
+    appendTrace(result, "lookingAt", matcher.lookingAt(), matcher);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
+    appendFindTrace(result, "find", matcher);
+    matcher = configure(matcher.reset(text).region(start, end), spec);
+    appendFindTrace(result, "resetFind", matcher);
+    return result.toString();
+  }
+
+  private static java.util.regex.Matcher configure(java.util.regex.Matcher matcher, CaseSpec spec) {
+    return matcher
+        .useTransparentBounds(spec.boundsMode().transparentBounds())
+        .useAnchoringBounds(spec.boundsMode().anchoringBounds());
+  }
+
+  private static org.safere.Matcher configure(org.safere.Matcher matcher, CaseSpec spec) {
+    return matcher
+        .useTransparentBounds(spec.boundsMode().transparentBounds())
+        .useAnchoringBounds(spec.boundsMode().anchoringBounds());
+  }
+
+  private static void appendFindTrace(
+      StringBuilder result, String operation, java.util.regex.Matcher matcher) {
+    for (int i = 0; i < FIND_LIMIT; i++) {
+      boolean matched = matcher.find();
+      appendTrace(result, operation + i, matched, matcher);
+      if (!matched) {
+        return;
+      }
+    }
+  }
+
+  private static void appendFindTrace(
+      StringBuilder result, String operation, org.safere.Matcher matcher) {
+    for (int i = 0; i < FIND_LIMIT; i++) {
+      boolean matched = matcher.find();
+      appendTrace(result, operation + i, matched, matcher);
+      if (!matched) {
+        return;
+      }
+    }
+  }
+
+  private static void appendTrace(
+      StringBuilder result, String operation, boolean matched, java.util.regex.Matcher matcher) {
+    appendSeparator(result);
+    result.append(operation).append('=').append(matched);
+    if (matched) {
+      result.append('@').append(matcher.start()).append('-').append(matcher.end());
+      appendGroups(result, matcher.groupCount(), matcher::start, matcher::end);
+    }
+  }
+
+  private static void appendTrace(
+      StringBuilder result, String operation, boolean matched, org.safere.Matcher matcher) {
+    appendSeparator(result);
+    result.append(operation).append('=').append(matched);
+    if (matched) {
+      result.append('@').append(matcher.start()).append('-').append(matcher.end());
+      appendGroups(result, matcher.groupCount(), matcher::start, matcher::end);
+    }
+  }
+
+  private static void appendGroups(
+      StringBuilder result, int groupCount, GroupInt groupStart, GroupInt groupEnd) {
+    if (groupCount == 0) {
+      return;
+    }
+    result.append('[');
+    for (int group = 1; group <= groupCount; group++) {
+      if (group > 1) {
+        result.append(';');
+      }
+      int start = groupStart.get(group);
+      int end = groupEnd.get(group);
+      result.append(group).append('=');
+      if (start < 0) {
+        result.append("-");
+      } else {
+        result.append(start).append('-').append(end);
+      }
+    }
+    result.append(']');
+  }
+
+  private static boolean semanticallyEqual(Outcome left, Outcome right) {
+    if (left.accepted() != right.accepted()) {
+      return false;
+    }
+    return !left.accepted() || left.trace().equals(right.trace());
+  }
+
+  private static CaseSpec caseFromIndex(long index) {
+    int boundsIndex = (int) (index % BOUNDS_MODES.size());
+    index /= BOUNDS_MODES.size();
+    int textRegionIndex = (int) (index % TEXT_REGIONS.size());
+    index /= TEXT_REGIONS.size();
+    int flagIndex = (int) (index % FLAG_MODES.size());
+    index /= FLAG_MODES.size();
+    int regexIndex = (int) index;
+    return new CaseSpec(
+        REGEXES.get(regexIndex),
+        FLAG_MODES.get(flagIndex),
+        TEXT_REGIONS.get(textRegionIndex),
+        BOUNDS_MODES.get(boundsIndex));
+  }
+
+  private static CaseSpec replayCase(String line) {
+    JsonObject object = SweepJson.parseObject(line);
+    JsonObject caseObject = SweepJson.object(object, "case");
+    return new CaseSpec(
+        regex(SweepJson.string(caseObject, "regexLabel"), SweepJson.string(caseObject, "regex")),
+        flags(SweepJson.string(caseObject, "flagLabel"), SweepJson.integer(caseObject, "flags")),
+        new TextRegion(
+            SweepJson.string(caseObject, "regionLabel"),
+            SweepJson.string(caseObject, "text"),
+            SweepJson.integer(caseObject, "regionStart"),
+            SweepJson.integer(caseObject, "regionEnd")),
+        bounds(
+            SweepJson.string(caseObject, "boundsLabel"),
+            SweepJson.bool(caseObject, "transparentBounds"),
+            SweepJson.bool(caseObject, "anchoringBounds")));
+  }
+
+  private static String compactReplayJson(long caseIndex, String classification, CaseSpec spec) {
+    JsonObject object = SweepJson.object();
+    object.addProperty("caseIndex", caseIndex);
+    object.addProperty("classification", classification);
+    object.add("case", Divergence.caseJson(spec));
+    return SweepJson.toJson(object);
+  }
+
+  private static List<TextRegion> buildTextRegions() {
+    return List.of(
+        region("empty", "", 0, 0),
+        region("asciiA", "a", 0, 1),
+        region("asciiB", "b", 0, 1),
+        region("digit", "5", 0, 1),
+        region("space", " ", 0, 1),
+        region("newline", "\n", 0, 1),
+        region("carriageReturn", "\r", 0, 1),
+        region("finalCrLfSplitCrOnly", "\r\n", 0, 1),
+        region("finalCrLfLfOnly", "\r\n", 1, 2),
+        region("combiningMark", "\u0301", 0, 1),
+        region("baseBeforeMark", "a\u0301", 0, 1),
+        region("markOnlyAfterBase", "a\u0301", 1, 2),
+        region("loneHighSurrogate", "\uD83D", 0, 1),
+        region("loneLowSurrogate", "\uDE00", 0, 1),
+        region("emojiFull", "\uD83D\uDE00", 0, 2),
+        region("emojiHighOnly", "\uD83D\uDE00", 0, 1),
+        region("emojiLowOnly", "\uD83D\uDE00", 1, 2),
+        region("emojiEmptyInside", "\uD83D\uDE00", 1, 1),
+        region("emojiPrefixedHighOnly", "a\uD83D\uDE00", 1, 2),
+        region("emojiPrefixedLowOnly", "a\uD83D\uDE00", 2, 3),
+        region("emojiPrefixedEndsAfterHigh", "a\uD83D\uDE00", 0, 2),
+        region("emojiSuffixedHighOnly", "\uD83D\uDE00a", 0, 1),
+        region("emojiSuffixedLowOnly", "\uD83D\uDE00a", 1, 2),
+        region("emojiSuffixedFull", "\uD83D\uDE00a", 0, 2),
+        region("twoEmojiFirstHighOnly", "\uD83D\uDE00\uD83D\uDE00", 0, 1),
+        region("twoEmojiMiddleLowHigh", "\uD83D\uDE00\uD83D\uDE00", 1, 3),
+        region("twoEmojiSecondHighOnly", "\uD83D\uDE00\uD83D\uDE00", 2, 3),
+        region("splitBeforeCombining", "\uD83D\uDE00\u0301", 0, 1),
+        region("lowBeforeCombining", "\uD83D\uDE00\u0301", 1, 3),
+        region("splitBeforeModifier", "\uD83D\uDC4D\uD83C\uDFFD", 0, 1),
+        region("lowBeforeModifier", "\uD83D\uDC4D\uD83C\uDFFD", 1, 3),
+        region("asciiThenSplitThenAscii", "x\uD83D\uDE00y", 1, 2),
+        region("asciiThenLowThenAscii", "x\uD83D\uDE00y", 2, 3),
+        region("asciiThroughSplitHigh", "x\uD83D\uDE00y", 0, 2),
+        region("splitHighThroughAscii", "x\uD83D\uDE00y", 1, 4),
+        region("emptyBeforeHigh", "x\uD83D\uDE00y", 1, 1),
+        region("emptyInsidePair", "x\uD83D\uDE00y", 2, 2),
+        region("emptyAfterLow", "x\uD83D\uDE00y", 3, 3));
+  }
+
+  private static RegexCase regex(String label, String regex) {
+    return new RegexCase(label, regex);
+  }
+
+  private static FlagMode flags(String label, int flags) {
+    return new FlagMode(label, flags);
+  }
+
+  private static BoundsMode bounds(
+      String label, boolean transparentBounds, boolean anchoringBounds) {
+    return new BoundsMode(label, transparentBounds, anchoringBounds);
+  }
+
+  private static TextRegion region(String label, String text, int start, int end) {
+    return new TextRegion(label, text, start, end);
+  }
+
+  private static void appendSeparator(StringBuilder result) {
+    if (result.length() > 0) {
+      result.append(',');
+    }
+  }
+
+  private record RegexCase(String label, String regex) {}
+
+  private record FlagMode(String label, int flags) {}
+
+  private record BoundsMode(String label, boolean transparentBounds, boolean anchoringBounds) {}
+
+  private record TextRegion(String label, String text, int start, int end) {}
+
+  private record CaseSpec(
+      RegexCase regexCase, FlagMode flagMode, TextRegion textRegion, BoundsMode boundsMode) {}
+
+  private record Outcome(boolean accepted, String trace, String error) {}
+
+  private record Divergence(
+      CaseSpec spec, Outcome jdk, Outcome safere, DivergenceClass classification) {
+    String toJson() {
+      JsonObject object = SweepJson.object();
+      object.add("case", caseJson(spec));
+      object.addProperty("bucket", bucket());
+      object.addProperty("classification", classification.name());
+      object.addProperty("classificationStatus", classification.status().name());
+      object.addProperty("regex", spec.regexCase().regex());
+      object.addProperty("text", spec.textRegion().text());
+      object.addProperty("regionStart", spec.textRegion().start());
+      object.addProperty("regionEnd", spec.textRegion().end());
+      object.addProperty("jdkAccepted", jdk.accepted());
+      object.addProperty("safeReAccepted", safere.accepted());
+      object.addProperty("jdkTrace", jdk.trace());
+      object.addProperty("safeReTrace", safere.trace());
+      object.addProperty("jdkError", jdk.error());
+      object.addProperty("safeReError", safere.error());
+      return SweepJson.toJson(object);
+    }
+
+    private String bucket() {
+      return "regex="
+          + spec.regexCase().label()
+          + ";region="
+          + spec.textRegion().label()
+          + ";bounds="
+          + spec.boundsMode().label();
+    }
+
+    private static JsonObject caseJson(CaseSpec spec) {
+      JsonObject object = SweepJson.object();
+      object.addProperty("regexLabel", spec.regexCase().label());
+      object.addProperty("regex", spec.regexCase().regex());
+      object.addProperty("flagLabel", spec.flagMode().label());
+      object.addProperty("flags", spec.flagMode().flags());
+      object.addProperty("regionLabel", spec.textRegion().label());
+      object.addProperty("text", spec.textRegion().text());
+      object.addProperty("regionStart", spec.textRegion().start());
+      object.addProperty("regionEnd", spec.textRegion().end());
+      object.addProperty("boundsLabel", spec.boundsMode().label());
+      object.addProperty("transparentBounds", spec.boundsMode().transparentBounds());
+      object.addProperty("anchoringBounds", spec.boundsMode().anchoringBounds());
+      return object;
+    }
+  }
+
+  private interface GroupInt {
+    int get(int group);
+  }
+
+  private enum DivergenceClass {
+    ASCII_WORD_BOUNDARY_COMBINING_MARK(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "SafeRE follows the documented default ASCII word-character model for \\b and \\B"
+            + " without attaching combining marks to preceding base characters."),
+    OPAQUE_REGION_CRLF_PAIR_CONTEXT(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces expose a hidden pre-region CR when matching $ and \\Z against an"
+            + " opaque region containing only the LF half of CRLF. SafeRE keeps opaque region"
+            + " end-anchor context region-local."),
+    BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces distinguish . from [\\s\\S] after \\B at a transparent split-surrogate"
+            + " boundary. SafeRE keeps [\\s\\S] compositional with ordinary scalar-consuming"
+            + " atoms."),
+    UNKNOWN(DivergenceStatus.UNKNOWN, "Unclassified SafeRE/JDK region zero-width divergence.");
+
+    private final DivergenceStatus status;
+    private final String rationale;
+
+    DivergenceClass(DivergenceStatus status, String rationale) {
+      this.status = status;
+      this.rationale = rationale;
+    }
+
+    DivergenceStatus status() {
+      return status;
+    }
+
+    String rationale() {
+      return rationale;
+    }
+  }
+}

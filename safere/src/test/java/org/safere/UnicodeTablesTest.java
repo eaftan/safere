@@ -7,6 +7,7 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link UnicodeTables}. */
@@ -16,6 +17,42 @@ class UnicodeTablesTest {
   @Test
   void generatedTables_haveExpectedMetadata() {
     assertThat(UnicodeGeneratedTables.GENERATOR_JAVA_VERSION).isNotBlank();
+  }
+
+  @Test
+  void generatedCategories_includeUnassignedCategory() {
+    assertThat(UnicodeGeneratedTables.CATEGORIES).containsKey("Cn");
+    assertThat(UnicodeTables.UNICODE_GROUPS).containsKey("Cn");
+  }
+
+  @Test
+  void generatedOtherCategoryIncludesUnassignedCategory() {
+    int[][] cn = UnicodeGeneratedTables.CATEGORIES.get("Cn");
+    int[][] c = UnicodeGeneratedTables.CATEGORIES.get("C");
+
+    assertThat(cn).isNotNull();
+    assertThat(c).isNotNull();
+    for (int[] range : cn) {
+      assertThat(rangeContainedIn(c, range))
+          .as("Cn range U+%04X..U+%04X should be included in C", range[0], range[1])
+          .isTrue();
+    }
+  }
+
+  @Test
+  void generatedUnassignedCategoryDoesNotOverlapAssignedLeafCategories() {
+    int[][] cn = UnicodeGeneratedTables.CATEGORIES.get("Cn");
+
+    assertThat(cn).isNotNull();
+    for (Map.Entry<String, int[][]> entry : UnicodeGeneratedTables.CATEGORIES.entrySet()) {
+      String name = entry.getKey();
+      if (name.length() != 2 || "Cn".equals(name)) {
+        continue;
+      }
+      assertThat(overlaps(cn, entry.getValue()))
+          .as("Cn should not overlap generated category %s", name)
+          .isFalse();
+    }
   }
 
   // --- Perl groups ---
@@ -294,6 +331,32 @@ class UnicodeTablesTest {
   private static boolean containsCodePoint(int[][] ranges, int cp) {
     for (int[] range : ranges) {
       if (cp >= range[0] && cp <= range[1]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean rangeContainedIn(int[][] ranges, int[] target) {
+    for (int[] range : ranges) {
+      if (target[0] >= range[0] && target[1] <= range[1]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean overlaps(int[][] left, int[][] right) {
+    int i = 0;
+    int j = 0;
+    while (i < left.length && j < right.length) {
+      int[] a = left[i];
+      int[] b = right[j];
+      if (a[1] < b[0]) {
+        i++;
+      } else if (b[1] < a[0]) {
+        j++;
+      } else {
         return true;
       }
     }

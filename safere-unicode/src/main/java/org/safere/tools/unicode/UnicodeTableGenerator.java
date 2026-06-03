@@ -37,7 +37,7 @@ public final class UnicodeTableGenerator {
     {20, 21, 22, 23, 24, 29, 30},
     {25, 26, 27, 28},
     {12, 13, 14},
-    {15, 16, 18, 19},
+    {0, 15, 16, 18, 19},
   };
 
   private static final String[] MAJOR_CATEGORY_NAMES = {"L", "M", "N", "P", "S", "Z", "C"};
@@ -61,7 +61,7 @@ public final class UnicodeTableGenerator {
   private static GeneratedTables buildTables() {
     int[][][] categoryTables = buildCategoryTables();
     Map<String, int[][]> categories = new LinkedHashMap<>();
-    for (int i = 1; i < CATEGORY_ABBREVS.length; i++) {
+    for (int i = 0; i < CATEGORY_ABBREVS.length; i++) {
       if (CATEGORY_ABBREVS[i] != null && categoryTables[i].length > 0) {
         categories.put(CATEGORY_ABBREVS[i], categoryTables[i]);
       }

@@ -22,6 +22,21 @@ class UnicodeMatchBoundsTest {
     }
   }
 
+  record RegionCase(
+      String label,
+      String regex,
+      int flags,
+      String input,
+      int regionStart,
+      int regionEnd,
+      boolean transparentBounds,
+      boolean anchoringBounds) {
+    @Override
+    public String toString() {
+      return label;
+    }
+  }
+
   record Outcome(boolean matched, int start, int end) {}
 
   static Stream<Case> dotAndAnchorBoundsMatchJdk() {
@@ -37,6 +52,199 @@ class UnicodeMatchBoundsTest {
         new Case("dot-unpaired-high-surrogate", ".", Pattern.DOTALL, "\ud83d"),
         new Case("dot-unpaired-low-surrogate", ".", Pattern.DOTALL, "\ude00"),
         new Case("dot-valid-surrogate-pair", ".", Pattern.DOTALL, "\ud83d\ude00"));
+  }
+
+  static Stream<RegionCase> scalarRegionBoundsMatchJdk() {
+    return Stream.of(
+        new RegionCase(
+            "dot-region-ends-after-high-surrogate",
+            ".",
+            Pattern.DOTALL,
+            "\ud83d\ude00",
+            0,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "negated-class-region-ends-after-high-surrogate",
+            "[^a]",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "any-class-region-ends-after-high-surrogate",
+            "[\\s\\S]",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            true,
+            true),
+        new RegionCase(
+            "non-digit-region-ends-after-high-surrogate",
+            "\\D",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            false,
+            false),
+        new RegionCase(
+            "surrogate-category-region-starts-at-low-surrogate",
+            "\\p{Cs}",
+            0,
+            "\ud83d\ude00",
+            1,
+            2,
+            false,
+            true),
+        new RegionCase(
+            "surrogate-category-complement-on-lone-surrogate",
+            "\\P{Cs}",
+            0,
+            "\ud83d",
+            0,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "find-does-not-continue-at-high-surrogate-after-low-surrogate",
+            ".",
+            Pattern.DOTALL,
+            "\ud83d\udc4d\ud83c\udffd",
+            1,
+            3,
+            false,
+            true),
+        new RegionCase(
+            "end-anchor-finds-region-end-after-split-high-surrogate",
+            "$",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "end-anchor-finds-transparent-region-end-after-split-high-surrogate",
+            "$",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            true,
+            true),
+        new RegionCase(
+            "start-anchor-does-not-see-region-start-without-anchoring-bounds",
+            "^a",
+            0,
+            "ba",
+            1,
+            2,
+            false,
+            false),
+        new RegionCase(
+            "end-anchor-does-not-see-region-end-without-anchoring-bounds",
+            "a$",
+            0,
+            "ab",
+            0,
+            1,
+            false,
+            false),
+        new RegionCase(
+            "anchored-single-letter-does-not-match-region-without-anchoring-bounds",
+            "^a$",
+            Pattern.MULTILINE,
+            "a\u0301",
+            0,
+            1,
+            true,
+            false),
+        new RegionCase(
+            "multiline-start-anchor-does-not-match-empty-region-inside-surrogate-pair",
+            "^",
+            Pattern.MULTILINE,
+            "\ud83d\ude00",
+            1,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "multiline-anchored-empty-does-not-match-empty-region-inside-surrogate-pair",
+            "^$",
+            Pattern.MULTILINE,
+            "x\ud83d\ude00y",
+            2,
+            2,
+            true,
+            true),
+        new RegionCase(
+            "non-word-boundary-finds-utf16-offset-inside-supplementary-scalar",
+            "\\B",
+            0,
+            "x\ud83d\ude00y",
+            1,
+            4,
+            true,
+            true),
+        new RegionCase(
+            "non-word-boundary-alternative-remains-leftmost-inside-supplementary-scalar",
+            "\\B|$",
+            0,
+            "x\ud83d\ude00y",
+            1,
+            4,
+            true,
+            false),
+        new RegionCase(
+            "non-word-boundary-consuming-alternative-remains-leftmost-inside-supplementary-scalar",
+            "\\B|y",
+            0,
+            "x\ud83d\ude00y",
+            0,
+            4,
+            false,
+            true),
+        new RegionCase(
+            "non-word-boundary-consuming-alternative-finds-utf16-offset-before-later-miss",
+            "\\B|a",
+            0,
+            "x\ud83d\ude00y",
+            0,
+            4,
+            false,
+            true),
+        new RegionCase(
+            "consuming-alternative-before-non-word-boundary-still-finds-leftmost-boundary",
+            "y|\\B",
+            0,
+            "x\ud83d\ude00y",
+            0,
+            4,
+            false,
+            true),
+        new RegionCase(
+            "non-word-boundary-dot-does-not-consume-past-split-surrogate-region-end",
+            "\\B.",
+            Pattern.DOTALL,
+            "\ud83d\ude00",
+            0,
+            1,
+            false,
+            true),
+        new RegionCase(
+            "non-word-boundary-any-class-does-not-consume-past-split-surrogate-region-end",
+            "\\B[\\s\\S]",
+            0,
+            "\ud83d\ude00",
+            0,
+            1,
+            true,
+            true));
   }
 
   @ParameterizedTest
@@ -55,6 +263,84 @@ class UnicodeMatchBoundsTest {
     assertThat(matchesOutcome(safePattern.matcher(c.input())))
         .as("%s matches", c.label())
         .isEqualTo(matchesOutcome(jdkPattern.matcher(c.input())));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  @DisplayName("scalar region bounds match java.util.regex")
+  void scalarRegionBoundsMatchJdk(RegionCase c) {
+    Pattern safePattern = Pattern.compile(c.regex(), c.flags());
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(c.regex(), c.flags());
+
+    assertThat(trace(safePattern.matcher(c.input()), c))
+        .as("%s trace", c.label())
+        .isEqualTo(trace(jdkPattern.matcher(c.input()), c));
+  }
+
+  private static String trace(Matcher matcher, RegionCase c) {
+    matcher
+        .region(c.regionStart(), c.regionEnd())
+        .useTransparentBounds(c.transparentBounds())
+        .useAnchoringBounds(c.anchoringBounds());
+    StringBuilder trace = new StringBuilder();
+    appendOutcome(trace, "matches", matchesOutcome(matcher));
+    matcher
+        .reset(c.input())
+        .region(c.regionStart(), c.regionEnd())
+        .useTransparentBounds(c.transparentBounds())
+        .useAnchoringBounds(c.anchoringBounds());
+    appendOutcome(trace, "lookingAt", lookingAtOutcome(matcher));
+    matcher
+        .reset(c.input())
+        .region(c.regionStart(), c.regionEnd())
+        .useTransparentBounds(c.transparentBounds())
+        .useAnchoringBounds(c.anchoringBounds());
+    for (int i = 0; i < 4; i++) {
+      Outcome outcome = findOutcome(matcher);
+      appendOutcome(trace, "find" + i, outcome);
+      if (!outcome.matched()) {
+        break;
+      }
+    }
+    return trace.toString();
+  }
+
+  private static String trace(java.util.regex.Matcher matcher, RegionCase c) {
+    matcher
+        .region(c.regionStart(), c.regionEnd())
+        .useTransparentBounds(c.transparentBounds())
+        .useAnchoringBounds(c.anchoringBounds());
+    StringBuilder trace = new StringBuilder();
+    appendOutcome(trace, "matches", matchesOutcome(matcher));
+    matcher
+        .reset(c.input())
+        .region(c.regionStart(), c.regionEnd())
+        .useTransparentBounds(c.transparentBounds())
+        .useAnchoringBounds(c.anchoringBounds());
+    appendOutcome(trace, "lookingAt", lookingAtOutcome(matcher));
+    matcher
+        .reset(c.input())
+        .region(c.regionStart(), c.regionEnd())
+        .useTransparentBounds(c.transparentBounds())
+        .useAnchoringBounds(c.anchoringBounds());
+    for (int i = 0; i < 4; i++) {
+      Outcome outcome = findOutcome(matcher);
+      appendOutcome(trace, "find" + i, outcome);
+      if (!outcome.matched()) {
+        break;
+      }
+    }
+    return trace.toString();
+  }
+
+  private static void appendOutcome(StringBuilder trace, String operation, Outcome outcome) {
+    if (!trace.isEmpty()) {
+      trace.append(',');
+    }
+    trace.append(operation).append('=').append(outcome.matched());
+    if (outcome.matched()) {
+      trace.append('@').append(outcome.start()).append('-').append(outcome.end());
+    }
   }
 
   private static Outcome findOutcome(Matcher matcher) {

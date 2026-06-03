@@ -223,6 +223,14 @@ public final class CompactDivergenceExpander {
           sweepDefinition(
               UnicodeCharacterClassDivergenceSweep.totalCases(),
               UnicodeCharacterClassDivergenceSweep::compactReplayJson);
+      case "region-scalar" ->
+          sweepDefinition(
+              RegionScalarDivergenceSweep.totalCases(),
+              RegionScalarDivergenceSweep::compactReplayJson);
+      case "region-zero-width" ->
+          sweepDefinition(
+              RegionZeroWidthDivergenceSweep.totalCases(),
+              RegionZeroWidthDivergenceSweep::compactReplayJson);
       case "case-folding-character-class" ->
           sweepDefinition(
               CaseFoldingCharacterClassDivergenceSweep.totalCases(),

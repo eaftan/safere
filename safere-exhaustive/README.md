@@ -45,6 +45,61 @@ explicitly stream every recorded divergence in every classification into
 expanded JSONL. Sweep replay mode writes bounded diagnostic reports directly
 because its input is already explicit JSONL.
 
+## Compact Known-Divergence Audit
+
+Use compact audit after changing parser behavior, matcher behavior, or sweep
+classifiers, and when reviewing whether a known-intentional bucket is hiding
+bugs. It currently supports zero-width quantifier archives. It samples every
+`KNOWN_INTENTIONAL` class in an existing compact archive, replays those case
+indices through the current sweep classifier, and writes a transition table from
+archived classification to current classification:
+
+```bash
+./run-exhaustive-audit.sh \
+  --input-dir=target/exhaustive-reports/zero-width-quantifier-sweep-full
+```
+
+By default the audit samples 1000 records from each known-intentional class and
+writes reports under `audit/` inside the archive:
+
+- `source-counts.tsv`: exact archived counts and sampled counts per source
+  classification.
+- `transition-counts.tsv`: sampled
+  `sourceClass -> replayClass` counts, including `NO_DIVERGENCE` for cases that
+  no longer diverge under the current code.
+
+Use `--sample-limit=N` for a larger audit sample, and `--output-dir=...` to keep
+multiple audit runs. Suspicious transitions are source known-intentional classes
+that replay as `UNKNOWN` or as an `EXPECTED_ZERO` class. A transition to
+`NO_DIVERGENCE` usually means the old bucket contained cases fixed by newer
+code. A transition to another `KNOWN_INTENTIONAL` class usually means the old
+classifier was broader than the current one; review the target class to confirm
+the remaining mismatch shape is still intentional.
+
+The audit is intentionally classification-focused. It does not replace expanding
+or replaying specific JSONL examples when a suspicious transition needs a small
+human-readable reproducer.
+
+## Full Sweep Review Procedure
+
+Use this workflow when running a full exhaustive sweep for review:
+
+1. Run the full sweep with a fresh `--output-dir`.
+2. Run the expander on that compact archive.
+3. Inspect `progress.json` and `expanded/class-counts.tsv`.
+4. Fix any nonzero `EXPECTED_ZERO` classes. These are known bug classes that
+   should disappear in a clean run.
+5. Review and classify any `UNKNOWN` examples. Fix real bugs, or add a narrow
+   classifier and documentation when the divergence is intentional.
+6. Review representative `KNOWN_INTENTIONAL` samples from the expanded output.
+   Confirm that the actual trace mismatch matches the documented reason for
+   that class; do not assume the stored classification is correct.
+7. Replay only the affected expanded JSONL files after fixes or classifier
+   changes. Avoid rerunning the full sweep until targeted replay shows the
+   actionable and unknown classes are clean.
+8. Optionally run compact audit mode against older archives to compare archived
+   known-intentional buckets with the current classifier.
+
 ## Character Class Sweep
 
 Run through the dispatcher script so dependency classpaths are handled by Maven:
@@ -98,6 +153,63 @@ The Unicode character-class sweep compares SafeRE with `java.util.regex` under
 `UNICODE_CHARACTER_CLASS` for predefined classes, POSIX classes, and a bracketed
 `\w` intersection over every Unicode scalar value. Use it before review when
 changing Unicode predefined or POSIX class tables.
+
+## Region Scalar Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh RegionScalarDivergenceSweep \
+  --output-dir=target/exhaustive-reports/region-scalar-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh RegionScalarDivergenceSweep --range=:1000000 \
+  --output-dir=target/exhaustive-reports/region-scalar-sweep-smoke
+```
+
+The region scalar sweep compares SafeRE with `java.util.regex` for ordinary
+scalar-consuming atoms under matcher regions and bounds. It deliberately crosses
+plain dot, predefined classes, POSIX classes, Java character classes, Unicode
+category classes including `Cs`, negated classes, captures, anchors,
+quantifiers, alternations, flags, transparent bounds, anchoring bounds, and
+regions that start, end, or become empty inside surrogate pairs.
+
+Use this sweep before review when changing region handling, Unicode decoding,
+single-character fast paths, DFA/NFA scalar consumption, predefined character
+classes, or matcher bounds behavior. The sweep classifies
+`QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` as a known intentional
+implementation-detail divergence; other generated divergences are reported as
+`UNKNOWN` until they are fixed or deliberately classified elsewhere.
+
+## Region Zero-Width Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh RegionZeroWidthDivergenceSweep \
+  --output-dir=target/exhaustive-reports/region-zero-width-sweep-full
+```
+
+The region zero-width sweep compares SafeRE with `java.util.regex` for pure
+zero-width and nullable patterns under matcher regions and bounds. It covers
+empty patterns, `^`, `$`, `\A`, `\Z`, `\z`, `\b`, `\B`, small alternatives,
+nullable literals, captures, flags, repeated `find()`, transparent bounds,
+anchoring bounds, line terminator regions, combining-mark regions, and regions
+that start, end, or become empty inside surrogate pairs.
+
+Use this sweep before review when changing search cursor advancement,
+empty-width assertions, repeated `find()` state, matcher region handling, or
+region-boundary Unicode decoding. This sweep is the companion to the region
+scalar sweep: scalar coverage verifies what can be consumed at a region
+boundary, while zero-width coverage verifies which candidate boundary positions
+remain observable when no scalar can be consumed. The sweep classifies
+`ASCII_WORD_BOUNDARY_COMBINING_MARK`, `OPAQUE_REGION_CRLF_PAIR_CONTEXT`, and
+`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` as known intentional
+implementation-detail divergences; other generated divergences are reported as
+`UNKNOWN`.
 
 ## Grapheme Cluster Sweep
 
