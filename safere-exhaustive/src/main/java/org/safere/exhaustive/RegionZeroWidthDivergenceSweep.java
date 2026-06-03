@@ -129,6 +129,12 @@ public final class RegionZeroWidthDivergenceSweep {
     return classifyDivergence(spec).name();
   }
 
+  static boolean semanticallyEqualForTesting(
+      boolean leftAccepted, String leftTrace, boolean rightAccepted, String rightTrace) {
+    return semanticallyEqual(
+        new Outcome(leftAccepted, leftTrace, ""), new Outcome(rightAccepted, rightTrace, ""));
+  }
+
   private static CaseSpec generatedCaseForTesting(
       String regex, int flags, String text, int start, int end) {
     return generatedCaseForTesting(
@@ -415,6 +421,9 @@ public final class RegionZeroWidthDivergenceSweep {
   }
 
   private static boolean semanticallyEqual(Outcome left, Outcome right) {
+    if (left.accepted() != right.accepted()) {
+      return false;
+    }
     return !left.accepted() || left.trace().equals(right.trace());
   }
 

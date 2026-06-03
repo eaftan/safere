@@ -204,6 +204,14 @@ class SweepCliSmokeTest {
   }
 
   @Test
+  void regionZeroWidthSweepTreatsAcceptanceMismatchAsDivergence() {
+    assertThat(RegionZeroWidthDivergenceSweep.semanticallyEqualForTesting(false, "", true, "trace"))
+        .isFalse();
+    assertThat(RegionZeroWidthDivergenceSweep.semanticallyEqualForTesting(true, "trace", false, ""))
+        .isFalse();
+  }
+
+  @Test
   void zeroWidthQuantifierSweepIncludesRepeatedQuantifierRegressions() {
     assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("*+")).isTrue();
     assertThat(ZeroWidthQuantifierDivergenceSweep.containsQuantifierChainForTesting("?+")).isTrue();
