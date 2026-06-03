@@ -143,49 +143,9 @@ final class UnicodeProperties {
           "Sc",
           "Sk",
           "So" ->
-          lookupGeneratedOrSyntheticCategory(name);
+          UnicodeGeneratedTables.CATEGORIES.get(name);
       default -> null;
     };
-  }
-
-  private static int[][] lookupGeneratedOrSyntheticCategory(String name) {
-    int[][] table = UnicodeGeneratedTables.CATEGORIES.get(name);
-    if (table != null) {
-      return table;
-    }
-    if ("Cn".equals(name)) {
-      return UnassignedCategoryHolder.TABLE;
-    }
-    return null;
-  }
-
-  private static final class UnassignedCategoryHolder {
-    static final int[][] TABLE = buildTable();
-
-    private static int[][] buildTable() {
-      CharClassBuilder ccb = new CharClassBuilder();
-      int lo = -1;
-      for (int cp = 0; cp <= Utils.MAX_RUNE; cp++) {
-        if (Character.getType(cp) == Character.UNASSIGNED) {
-          if (lo < 0) {
-            lo = cp;
-          }
-        } else if (lo >= 0) {
-          ccb.addRange(lo, cp - 1);
-          lo = -1;
-        }
-      }
-      if (lo >= 0) {
-        ccb.addRange(lo, Utils.MAX_RUNE);
-      }
-      CharClass cc = ccb.build();
-      int[][] table = new int[cc.numRanges()][2];
-      for (int i = 0; i < cc.numRanges(); i++) {
-        table[i][0] = cc.lo(i);
-        table[i][1] = cc.hi(i);
-      }
-      return table;
-    }
   }
 
   /**
