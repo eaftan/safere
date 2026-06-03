@@ -216,6 +216,26 @@ final class Prog {
     return false;
   }
 
+  boolean hasTextAnchor() {
+    if (anchorStart || anchorEnd) {
+      return true;
+    }
+    int mask =
+        EmptyOp.BEGIN_LINE
+            | EmptyOp.END_LINE
+            | EmptyOp.BEGIN_TEXT
+            | EmptyOp.END_TEXT
+            | EmptyOp.DOLLAR_END;
+    int n = size();
+    for (int i = 0; i < n; i++) {
+      Inst ip = inst(i);
+      if (ip.op == InstOp.EMPTY_WIDTH && (ip.arg & mask) != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   boolean hasConsumingInstruction() {
     if (start == 0) {
       return false;

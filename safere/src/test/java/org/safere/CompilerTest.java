@@ -293,6 +293,23 @@ class CompilerTest {
     }
 
     @Test
+    void anchorFreeProgramsDoNotRequireTextAnchorContext() {
+      assertThat(compile("abc").hasTextAnchor()).isFalse();
+      assertThat(compile("[a-z]+").hasTextAnchor()).isFalse();
+      assertThat(compile("\\ba\\b").hasTextAnchor()).isFalse();
+    }
+
+    @Test
+    void textAnchorProgramsRequireTextAnchorContext() {
+      assertThat(compile("^abc").hasTextAnchor()).isTrue();
+      assertThat(compile("abc$").hasTextAnchor()).isTrue();
+      assertThat(compile("\\Aabc").hasTextAnchor()).isTrue();
+      assertThat(compile("abc\\z").hasTextAnchor()).isTrue();
+      assertThat(compile("^abc", DEFAULT_FLAGS & ~ParseFlags.ONE_LINE).hasTextAnchor()).isTrue();
+      assertThat(compile("abc$", DEFAULT_FLAGS & ~ParseFlags.ONE_LINE).hasTextAnchor()).isTrue();
+    }
+
+    @Test
     void anchoredStartPattern() {
       Prog prog = compile("\\Aabc");
       assertThat(prog).isNotNull();

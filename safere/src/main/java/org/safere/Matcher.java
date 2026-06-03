@@ -1032,7 +1032,7 @@ public final class Matcher implements MatchResult {
 
   private boolean needsFullTextRegionContext(boolean regionActive, Prog prog) {
     return regionActive
-        && (!anchoringBounds
+        && ((!anchoringBounds && prog.hasTextAnchor())
             || transparentBounds
             || regionEndsInsideSurrogatePair()
             || prog.hasGraphemeSemantics());
