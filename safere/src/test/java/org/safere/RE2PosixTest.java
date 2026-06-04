@@ -43,9 +43,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 @DisplayName("RE2 POSIX Tests (from basic.dat, nullsubexpr.dat, repetition.dat)")
 class RE2PosixTest {
 
-  /** A single POSIX test case. */
-  @SuppressWarnings(
-      "ArrayRecordComponent") // Simple package-private test case helper holds 2D arrays
+  // Simple package-private test case helper holds 2D arrays
+  @SuppressWarnings("ArrayRecordComponent")
   record PosixTestCase(
       String file,
       int lineNum,

@@ -31,8 +31,8 @@ class RE2FindTest {
    * array of (start, end) UTF-8 byte-offset pairs for group 0, group 1, etc. A value of -1 means
    * the group did not participate.
    */
-  @SuppressWarnings(
-      "ArrayRecordComponent") // Simple package-private test case helper holds 2D arrays
+  // Simple package-private test case helper holds 2D arrays
+  @SuppressWarnings("ArrayRecordComponent")
   record FindTestCase(String pattern, String text, int[][] matches) {
     @Override
     public String toString() {
