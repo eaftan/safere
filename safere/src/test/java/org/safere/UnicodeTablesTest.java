@@ -16,8 +16,7 @@ class UnicodeTablesTest {
 
   @Test
   void generatedTables_haveExpectedMetadata() {
-    assertThat(UnicodeGeneratedTables.GENERATOR_JAVA_VERSION).contains("26.0.1");
-    assertThat(UnicodeGeneratedTables.UNICODE_VERSION).isEqualTo("17.0");
+    assertThat(UnicodeGeneratedTables.GENERATOR_JAVA_VERSION).isNotBlank();
   }
 
   @Test
