@@ -195,7 +195,7 @@ class GraphemeJdkImplementationDetailTest {
     assertTraceSameAsJdk("\\X{2}", regionStartsInsidePair, 1, 4);
   }
 
-  private void assertTraceSameAsJdk(String regex, String input, int start, int end) {
+  private static void assertTraceSameAsJdk(String regex, String input, int start, int end) {
     java.util.regex.Matcher jdkMatcher =
         java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
     Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -217,7 +217,8 @@ class GraphemeJdkImplementationDetailTest {
         .containsExactly(findBounds(jdkMatcher).toArray(int[][]::new));
   }
 
-  private void assertTransparentTraceSameAsJdk(String regex, String input, int start, int end) {
+  private static void assertTransparentTraceSameAsJdk(
+      String regex, String input, int start, int end) {
     java.util.regex.Matcher jdkMatcher =
         java.util.regex.Pattern.compile(regex)
             .matcher(input)
@@ -243,7 +244,8 @@ class GraphemeJdkImplementationDetailTest {
         .containsExactly(findBounds(jdkMatcher).toArray(int[][]::new));
   }
 
-  private void assertCapturedFindTraceSameAsJdk(String regex, String input, int start, int end) {
+  private static void assertCapturedFindTraceSameAsJdk(
+      String regex, String input, int start, int end) {
     java.util.regex.Matcher jdkMatcher =
         java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
     Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -253,7 +255,7 @@ class GraphemeJdkImplementationDetailTest {
         .containsExactlyElementsOf(capturedFindTrace(jdkMatcher));
   }
 
-  private void assertTransparentCapturedFindTraceSameAsJdk(
+  private static void assertTransparentCapturedFindTraceSameAsJdk(
       String regex, String input, int start, int end) {
     java.util.regex.Matcher jdkMatcher =
         java.util.regex.Pattern.compile(regex)
@@ -270,7 +272,7 @@ class GraphemeJdkImplementationDetailTest {
         .containsExactlyElementsOf(capturedFindTrace(jdkMatcher));
   }
 
-  private List<int[]> findBounds(java.util.regex.Matcher matcher) {
+  private static List<int[]> findBounds(java.util.regex.Matcher matcher) {
     List<int[]> matches = new ArrayList<>();
     while (matcher.find()) {
       matches.add(new int[] {matcher.start(), matcher.end()});
@@ -278,7 +280,7 @@ class GraphemeJdkImplementationDetailTest {
     return matches;
   }
 
-  private List<int[]> findBounds(Matcher matcher) {
+  private static List<int[]> findBounds(Matcher matcher) {
     List<int[]> matches = new ArrayList<>();
     while (matcher.find()) {
       matches.add(new int[] {matcher.start(), matcher.end()});
@@ -286,7 +288,7 @@ class GraphemeJdkImplementationDetailTest {
     return matches;
   }
 
-  private List<String> capturedFindTrace(java.util.regex.Matcher matcher) {
+  private static List<String> capturedFindTrace(java.util.regex.Matcher matcher) {
     List<String> trace = new ArrayList<>();
     while (matcher.find()) {
       trace.add(capturedMatchTrace(matcher));
@@ -294,7 +296,7 @@ class GraphemeJdkImplementationDetailTest {
     return trace;
   }
 
-  private List<String> capturedFindTrace(Matcher matcher) {
+  private static List<String> capturedFindTrace(Matcher matcher) {
     List<String> trace = new ArrayList<>();
     while (matcher.find()) {
       trace.add(capturedMatchTrace(matcher));
@@ -302,7 +304,7 @@ class GraphemeJdkImplementationDetailTest {
     return trace;
   }
 
-  private String capturedMatchTrace(java.util.regex.Matcher matcher) {
+  private static String capturedMatchTrace(java.util.regex.Matcher matcher) {
     StringBuilder builder = new StringBuilder();
     builder.append(matcher.start()).append('-').append(matcher.end()).append(':');
     builder.append(matcher.group());
@@ -312,7 +314,7 @@ class GraphemeJdkImplementationDetailTest {
     return builder.toString();
   }
 
-  private String capturedMatchTrace(Matcher matcher) {
+  private static String capturedMatchTrace(Matcher matcher) {
     StringBuilder builder = new StringBuilder();
     builder.append(matcher.start()).append('-').append(matcher.end()).append(':');
     builder.append(matcher.group());

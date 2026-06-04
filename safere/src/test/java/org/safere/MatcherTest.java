@@ -561,10 +561,12 @@ class MatcherTest {
     void findStartAccelerationForLineStartWhitespace() {
       assertAllFindsMatchJdk(
           "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
-          "java.lang.IllegalStateException: failed\n"
-              + "\tat org.example.api.Handler.handle(Handler.java:87)\n"
-              + "Caused by: java.io.IOException: timeout\r\n"
-              + "\tat org.example.net.Client.read(Client.java:203)");
+          """
+          java.lang.IllegalStateException: failed
+          \tat org.example.api.Handler.handle(Handler.java:87)
+          Caused by: java.io.IOException: timeout\r
+          \tat org.example.net.Client.read(Client.java:203)\
+          """);
     }
 
     @Test
@@ -593,11 +595,11 @@ class MatcherTest {
       assertFirstFindMatchesJdk(regex, input);
     }
 
-    private void assertAllFindsMatchJdk(String regex, String input) {
+    private static void assertAllFindsMatchJdk(String regex, String input) {
       assertAllFindsMatchJdk(regex, 0, input);
     }
 
-    private void assertAllFindsMatchJdk(String regex, int flags, String input) {
+    private static void assertAllFindsMatchJdk(String regex, int flags, String input) {
       Matcher m = Pattern.compile(regex, flags).matcher(input);
       java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex, flags).matcher(input);
 
@@ -631,9 +633,11 @@ class MatcherTest {
     @DisplayName("find() fallback paths match JDK for unreliable DFA-start patterns")
     void findFallbackMatchesJdkForUnreliableDfaStartPatterns(String regex) {
       String text =
-          "java.lang.IllegalStateException: failed\n"
-              + "\tat org.example.Main.main(Main.java:25)\n"
-              + "xxabcde yy aaa failed bcX";
+          """
+          java.lang.IllegalStateException: failed
+          \tat org.example.Main.main(Main.java:25)
+          xxabcde yy aaa failed bcX\
+          """;
       Matcher m = Pattern.compile(regex).matcher(text);
       java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(text);
 
@@ -1484,6 +1488,7 @@ class MatcherTest {
 
   @Nested
   @DisplayName("StringBuffer append methods")
+  @SuppressWarnings("JdkObsolete") // Testing legacy StringBuffer API compatibility
   class StringBufferAppendTests {
 
     @Test
@@ -1907,7 +1912,7 @@ class MatcherTest {
   class ReverseFirstDfaTests {
 
     /** Helper to create a string of repeated characters. */
-    private String repeat(char ch, int count) {
+    private static String repeat(char ch, int count) {
       return String.valueOf(ch).repeat(count);
     }
 
@@ -2439,24 +2444,6 @@ class MatcherTest {
     return Pattern.compile(
         ".*SELECT.*FROM.*(.*INFORMATION_SCHEMA.*){5,}.*",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-  }
-
-  private static String scimFilterPattern() {
-    return "\\A"
-        + "([Uu][Rr][Nn]:[Ii][Ee][Tt][Ff]:[Pp][Aa][Rr][Aa][Mm][Ss]:"
-        + "[Ss][Cc][Ii][Mm]:[Ss][Cc][Hh][Ee][Mm][Aa][Ss]:[Cc][Oo][Rr][Ee]:"
-        + "2\\.0:[Uu][Ss][Ee][Rr]:)?"
-        + "[Ii][Dd] [Ee][Qq] "
-        + "(?:\"(?:(?:[^\"\\\\]|(\\\\)+\")*){3,500}\"|null)"
-        + "\\z";
-  }
-
-  private static String scimFilterInput(int valueLength) {
-    return "id eq \"" + "a".repeat(valueLength) + "\"";
-  }
-
-  private static String nestedCapturingGroups(int depth) {
-    return "(".repeat(depth) + "a" + ")".repeat(depth);
   }
 
   private static void assertNoPerformanceCliff(String api, IntConsumer scenario) {

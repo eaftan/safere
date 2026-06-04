@@ -263,12 +263,12 @@ final class BitState {
    * position) pair has been explored. Sized for the full text so the instance can be reused across
    * searches with different start/end bounds.
    */
-  private long[] visited;
+  private final long[] visited;
 
   private int textSlots;
 
   /** Tracks which words in the visited bitmap were dirtied, for incremental clearing. */
-  private int[] dirtyWords;
+  private final int[] dirtyWords;
 
   private int dirtyCount;
 
@@ -276,10 +276,10 @@ final class BitState {
   private final boolean[] cycleAlts;
 
   /** Current capture registers. */
-  private int[] cap;
+  private final int[] cap;
 
   /** Current loop progress-check registers. */
-  private int[] loopRegs;
+  private final int[] loopRegs;
 
   /** Best match found so far. */
   private int[] bestMatch;

@@ -10,6 +10,7 @@ package org.safere;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * A compiled regular expression program, consisting of an array of {@link Inst} instructions. This
@@ -292,7 +293,8 @@ final class Prog {
         sb.append(' ');
       }
       sb.append(
-          String.format("%d. %s\n", i, instArray != null ? instArray[i] : instructions.get(i)));
+          String.format(
+              Locale.ROOT, "%d. %s\n", i, instArray != null ? instArray[i] : instructions.get(i)));
     }
     return sb.toString();
   }
@@ -300,8 +302,12 @@ final class Prog {
   @Override
   public String toString() {
     return String.format(
+        Locale.ROOT,
         "Prog{size=%d, start=%d, startUnanchored=%d, captures=%d}",
-        size(), start, startUnanchored, numCaptures);
+        size(),
+        start,
+        startUnanchored,
+        numCaptures);
   }
 
   // ---------------------------------------------------------------------------
@@ -408,7 +414,7 @@ final class Prog {
     }
   }
 
-  private void addEpsilonSuccessor(
+  private static void addEpsilonSuccessor(
       int id, boolean[] reachable, boolean[] visited, ArrayDeque<Integer> stack) {
     if (id > 0 && id < reachable.length && reachable[id] && !visited[id]) {
       visited[id] = true;
@@ -416,7 +422,7 @@ final class Prog {
     }
   }
 
-  private void addSuccessor(int id, boolean[] reachable, ArrayDeque<Integer> stack) {
+  private static void addSuccessor(int id, boolean[] reachable, ArrayDeque<Integer> stack) {
     if (id > 0 && id < reachable.length && !reachable[id]) {
       reachable[id] = true;
       stack.push(id);

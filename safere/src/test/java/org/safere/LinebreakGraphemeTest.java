@@ -765,26 +765,7 @@ class LinebreakGraphemeTest {
       assertThat(clusters).containsExactly("H", "e\u0301", "l", "l", "o");
     }
 
-    private void assertFindBoundsSameAsJdk(String regex, String input) {
-      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(regex).matcher(input);
-      Matcher safeMatcher = Pattern.compile(regex).matcher(input);
-
-      List<int[]> jdkMatches = new ArrayList<>();
-      while (jdkMatcher.find()) {
-        jdkMatches.add(new int[] {jdkMatcher.start(), jdkMatcher.end()});
-      }
-
-      List<int[]> safeMatches = new ArrayList<>();
-      while (safeMatcher.find()) {
-        safeMatches.add(new int[] {safeMatcher.start(), safeMatcher.end()});
-      }
-
-      assertThat(safeMatches)
-          .as("find() positions for /%s/ on %s", regex, input)
-          .containsExactly(jdkMatches.toArray(int[][]::new));
-    }
-
-    private void assertFirstFindBounds(String regex, String input, int start, int end) {
+    private static void assertFirstFindBounds(String regex, String input, int start, int end) {
       Matcher matcher = Pattern.compile(regex).matcher(input);
       assertThat(matcher.find()).as("first find() for /%s/ on %s", regex, input).isTrue();
       assertThat(matcher.start())
@@ -794,7 +775,7 @@ class LinebreakGraphemeTest {
       assertThat(matcher.find()).as("second find() for /%s/ on %s", regex, input).isFalse();
     }
 
-    private void assertFindGroupsSameAsJdk(String regex, String input, int start, int end) {
+    private static void assertFindGroupsSameAsJdk(String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -808,28 +789,7 @@ class LinebreakGraphemeTest {
       }
     }
 
-    private void assertTransparentFindGroupsSameAsJdk(
-        String regex, String input, int start, int end) {
-      java.util.regex.Matcher jdkMatcher =
-          java.util.regex.Pattern.compile(regex)
-              .matcher(input)
-              .region(start, end)
-              .useTransparentBounds(true);
-      Matcher safeMatcher =
-          Pattern.compile(regex).matcher(input).region(start, end).useTransparentBounds(true);
-
-      assertThat(safeMatcher.find()).as("SafeRE find() should match").isEqualTo(jdkMatcher.find());
-      assertThat(safeMatcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
-      for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
-        assertThat(safeMatcher.group(group))
-            .as(
-                "group %s for transparent /%s/ on %s region [%s,%s]",
-                group, regex, input, start, end)
-            .isEqualTo(jdkMatcher.group(group));
-      }
-    }
-
-    private void assertTraceSameAsJdk(String regex, String input, int start, int end) {
+    private static void assertTraceSameAsJdk(String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -861,7 +821,7 @@ class LinebreakGraphemeTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
-    private void assertSafeReFindBounds(
+    private static void assertSafeReFindBounds(
         String regex, String input, int start, int end, List<String> expected) {
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
       List<String> safeMatches = new ArrayList<>();
@@ -873,7 +833,8 @@ class LinebreakGraphemeTest {
           .containsExactlyElementsOf(expected);
     }
 
-    private void assertTransparentTraceSameAsJdk(String regex, String input, int start, int end) {
+    private static void assertTransparentTraceSameAsJdk(
+        String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex)
               .matcher(input)
@@ -911,21 +872,21 @@ class LinebreakGraphemeTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
-    private long allocatedForImmediateTwoClusterFind(
+    private static long allocatedForImmediateTwoClusterFind(
         AllocationTracker allocationTracker, long threadId, Pattern pattern, String text) {
       long before = allocationTracker.allocatedBytes(threadId);
       assertImmediateTwoClusterMatch(pattern, text);
       return allocationTracker.allocatedBytes(threadId) - before;
     }
 
-    private void assertImmediateTwoClusterMatch(Pattern pattern, String text) {
+    private static void assertImmediateTwoClusterMatch(Pattern pattern, String text) {
       Matcher matcher = pattern.matcher(text);
       assertThat(matcher.find()).isTrue();
       assertThat(matcher.start()).isZero();
       assertThat(matcher.end()).isEqualTo(2);
     }
 
-    private void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
+    private static void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
       task.accept(1_000);
       long smallerNanos = bestRuntimeNanos(() -> task.accept(5_000));
       long largerNanos = bestRuntimeNanos(() -> task.accept(20_000));
@@ -937,7 +898,7 @@ class LinebreakGraphemeTest {
           .isLessThan(smallerNanos * 10);
     }
 
-    private long bestRuntimeNanos(Runnable task) {
+    private static long bestRuntimeNanos(Runnable task) {
       long best = Long.MAX_VALUE;
       for (int i = 0; i < 3; i++) {
         best = Math.min(best, runtimeNanos(task));
@@ -945,7 +906,7 @@ class LinebreakGraphemeTest {
       return best;
     }
 
-    private long runtimeNanos(Runnable task) {
+    private static long runtimeNanos(Runnable task) {
       return assertTimeoutPreemptively(
           PERFORMANCE_SCENARIO_TIMEOUT,
           () -> {
@@ -955,7 +916,7 @@ class LinebreakGraphemeTest {
           });
     }
 
-    private AllocationTracker allocationTracker() {
+    private static AllocationTracker allocationTracker() {
       try {
         Class<?> managementFactoryClass = Class.forName("java.lang.management.ManagementFactory");
         Object threadBean = managementFactoryClass.getMethod("getThreadMXBean").invoke(null);

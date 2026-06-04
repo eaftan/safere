@@ -32,11 +32,6 @@ class UnicodePropertySyntaxTest {
     return Pattern.compile(regex).matcher(input).find();
   }
 
-  /** Returns true if the regex matches the entire input. */
-  private static boolean matches(String regex, String input) {
-    return Pattern.compile(regex).matcher(input).matches();
-  }
-
   /** Cross-validates against JDK: asserts SafeRE and JDK agree on find(). */
   private static void assertMatchesJdk(String regex, String input) {
     boolean safere = find(regex, input);

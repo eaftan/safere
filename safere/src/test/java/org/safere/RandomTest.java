@@ -35,19 +35,19 @@ class RandomTest {
   /** Small egrep-style patterns with literal alphabet. */
   @Test
   void smallEgrepLiterals() {
-    randomTest(5, 5, new String[] {"a", "b", "c", "."}, EGREP_OPS, 15, "abc");
+    randomTest(5, new String[] {"a", "b", "c", "."}, EGREP_OPS, 15, "abc");
   }
 
   /** Bigger egrep-style patterns. */
   @Test
   void bigEgrepLiterals() {
-    randomTest(8, 8, new String[] {"a", "b", "c", "."}, EGREP_OPS, 15, "abc");
+    randomTest(8, new String[] {"a", "b", "c", "."}, EGREP_OPS, 15, "abc");
   }
 
   /** Patterns with capturing groups. */
   @Test
   void smallEgrepCaptures() {
-    randomTest(5, 5, new String[] {"a", "(b)", "."}, EGREP_OPS, 15, "abc");
+    randomTest(5, new String[] {"a", "(b)", "."}, EGREP_OPS, 15, "abc");
   }
 
   /** Complex patterns with character classes, anchors, and quantifiers. */
@@ -60,7 +60,7 @@ class RandomTest {
       "%s%s", "%s|%s", "%s*", "%s*?", "%s+", "%s+?", "%s?", "%s??", "%s{0}", "%s{0,}", "%s{1}",
       "%s{1,}", "%s{0,1}", "%s{0,2}", "%s{1,2}", "%s{2}", "%s{2,}", "%s{3,4}"
     };
-    randomTest(8, 8, atoms, ops, 20, "abc123\t\n");
+    randomTest(8, atoms, ops, 20, "abc123\t\n");
   }
 
   // -----------------------------------------------------------------------
@@ -75,8 +75,8 @@ class RandomTest {
   // Core test logic
   // -----------------------------------------------------------------------
 
-  private void randomTest(
-      int maxAtoms, int maxOps, String[] atoms, String[] ops, int maxStrLen, String strAlphabet) {
+  private static void randomTest(
+      int maxOps, String[] atoms, String[] ops, int maxStrLen, String strAlphabet) {
     Random regexpRng = new Random(REGEXP_SEED);
     Random stringRng = new Random(STRING_SEED);
 
@@ -98,7 +98,7 @@ class RandomTest {
     List<String> failures = new ArrayList<>();
 
     for (int i = 0; i < REGEXP_COUNT; i++) {
-      String pattern = generateRandomRegexp(regexpRng, atoms, ops, maxAtoms, maxOps);
+      String pattern = generateRandomRegexp(regexpRng, atoms, ops, maxOps);
 
       // Try to compile with both engines.
       Pattern saferePattern;
@@ -193,8 +193,7 @@ class RandomTest {
   // Random regexp generation
   // -----------------------------------------------------------------------
 
-  private static String generateRandomRegexp(
-      Random rng, String[] atoms, String[] ops, int maxAtoms, int maxOps) {
+  private static String generateRandomRegexp(Random rng, String[] atoms, String[] ops, int maxOps) {
     int numOps = rng.nextInt(maxOps) + 1;
     // Start with a random atom.
     String expr = atoms[rng.nextInt(atoms.length)];

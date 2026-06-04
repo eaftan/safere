@@ -9,6 +9,7 @@ package org.safere;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * A node in the regular expression abstract syntax tree (AST). Each node has a {@link RegexpOp}
@@ -375,7 +376,6 @@ final class Regexp {
               }
               yield PREC_ATOM;
             }
-            default -> PREC_ATOM;
           };
       return nprec;
     }
@@ -476,7 +476,6 @@ final class Regexp {
         case NON_CAPTURE -> sb.append(')');
         case CAPTURE -> sb.append(')');
         case HAVE_MATCH -> sb.append("(?HaveMatch:").append(re.matchId).append(')');
-        default -> sb.append("[").append(re.op).append("]");
       }
 
       // If the parent is an alternation, append | separator.
@@ -563,9 +562,9 @@ final class Regexp {
       default -> {}
     }
     if (r < 0x100) {
-      sb.append(String.format("\\x%02x", r));
+      sb.append(String.format(Locale.ROOT, "\\x%02x", r));
     } else {
-      sb.append(String.format("\\x{%x}", r));
+      sb.append(String.format(Locale.ROOT, "\\x{%x}", r));
     }
   }
 }

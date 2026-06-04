@@ -5,6 +5,8 @@
 
 package org.safere;
 
+import java.util.Locale;
+
 /**
  * A single instruction in a compiled regular expression program. Each instruction has an {@link
  * InstOp opcode} and opcode-specific data.
@@ -307,29 +309,33 @@ final class Inst {
   @Override
   public String toString() {
     return switch (op) {
-      case ALT -> String.format("alt -> %d | %d", out, out1);
-      case ALT_MATCH -> String.format("altmatch -> %d | %d", out, out1);
+      case ALT -> String.format(Locale.ROOT, "alt -> %d | %d", out, out1);
+      case ALT_MATCH -> String.format(Locale.ROOT, "altmatch -> %d | %d", out, out1);
       case CHAR_RANGE ->
-          String.format("char [0x%X-0x%X]%s -> %d", lo, hi, foldCase ? "/i" : "", out);
-      case CAPTURE -> String.format("capture %d -> %d", arg, out);
-      case EMPTY_WIDTH -> String.format("empty 0x%X -> %d", arg, out);
-      case MATCH -> String.format("match %d", arg);
-      case NOP -> String.format("nop -> %d", out);
+          String.format(Locale.ROOT, "char [0x%X-0x%X]%s -> %d", lo, hi, foldCase ? "/i" : "", out);
+      case CAPTURE -> String.format(Locale.ROOT, "capture %d -> %d", arg, out);
+      case EMPTY_WIDTH -> String.format(Locale.ROOT, "empty 0x%X -> %d", arg, out);
+      case MATCH -> String.format(Locale.ROOT, "match %d", arg);
+      case NOP -> String.format(Locale.ROOT, "nop -> %d", out);
       case FAIL -> "fail";
-      case GRAPHEME_CLUSTER -> String.format("grapheme_cluster -> %d", out);
+      case GRAPHEME_CLUSTER -> String.format(Locale.ROOT, "grapheme_cluster -> %d", out);
       case PROGRESS_CHECK ->
           String.format(
+              Locale.ROOT,
               "progress_check reg=%d body=%d exit=%d %s",
-              arg, out, out1, foldCase ? "non-greedy" : "greedy");
+              arg,
+              out,
+              out1,
+              foldCase ? "non-greedy" : "greedy");
       case CHAR_CLASS -> {
         StringBuilder sb = new StringBuilder("charclass [");
         for (int i = 0; i < ranges.length; i += 2) {
           if (i > 0) {
             sb.append(',');
           }
-          sb.append(String.format("0x%X-0x%X", ranges[i], ranges[i + 1]));
+          sb.append(String.format(Locale.ROOT, "0x%X-0x%X", ranges[i], ranges[i + 1]));
         }
-        sb.append(String.format("] -> %d", out));
+        sb.append(String.format(Locale.ROOT, "] -> %d", out));
         yield sb.toString();
       }
     };

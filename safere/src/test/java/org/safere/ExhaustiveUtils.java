@@ -7,10 +7,11 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.fail;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
-import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.PatternSyntaxException;
@@ -353,7 +354,7 @@ final class ExhaustiveUtils {
 
   /** Evaluate postfix sequence into a regexp string and emit it (plus anchored variants). */
   private static void runPostfix(List<String> post, String wrapper, Consumer<String> handler) {
-    Stack<String> regexps = new Stack<>();
+    Deque<String> regexps = new ArrayDeque<>();
     for (String cmd : post) {
       int nargs = countArgs(cmd);
       if (nargs == 0) {

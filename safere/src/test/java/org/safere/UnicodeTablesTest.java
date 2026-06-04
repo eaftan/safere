@@ -46,7 +46,7 @@ class UnicodeTablesTest {
     assertThat(cn).isNotNull();
     for (Map.Entry<String, int[][]> entry : UnicodeGeneratedTables.CATEGORIES.entrySet()) {
       String name = entry.getKey();
-      if (name.length() != 2 || "Cn".equals(name)) {
+      if (name.length() != 2 || name.equals("Cn")) {
         continue;
       }
       assertThat(overlaps(cn, entry.getValue()))

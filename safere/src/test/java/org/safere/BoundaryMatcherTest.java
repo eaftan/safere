@@ -197,7 +197,7 @@ class BoundaryMatcherTest {
   @DisplayName("\\b{g} (grapheme cluster boundary)")
   class GraphemeClusterBoundary {
 
-    private void assertFindSameAsJdk(String regex, String input) {
+    private static void assertFindSameAsJdk(String regex, String input) {
       java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile(regex).matcher(input);
       Matcher safeMatcher = Pattern.compile(regex).matcher(input);
 
@@ -216,7 +216,7 @@ class BoundaryMatcherTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
-    private void assertTraceSameAsJdk(String regex, String input, int start, int end) {
+    private static void assertTraceSameAsJdk(String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -255,7 +255,7 @@ class BoundaryMatcherTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
-    private void assertSafeReFindBounds(
+    private static void assertSafeReFindBounds(
         String regex, String input, int start, int end, List<String> expected) {
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
       List<String> safeMatches = new ArrayList<>();
@@ -267,7 +267,8 @@ class BoundaryMatcherTest {
           .containsExactlyElementsOf(expected);
     }
 
-    private void assertTransparentTraceSameAsJdk(String regex, String input, int start, int end) {
+    private static void assertTransparentTraceSameAsJdk(
+        String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex)
               .matcher(input)
@@ -314,7 +315,8 @@ class BoundaryMatcherTest {
           .containsExactly(jdkMatches.toArray(int[][]::new));
     }
 
-    private void assertCapturedFindTraceSameAsJdk(String regex, String input, int start, int end) {
+    private static void assertCapturedFindTraceSameAsJdk(
+        String regex, String input, int start, int end) {
       java.util.regex.Matcher jdkMatcher =
           java.util.regex.Pattern.compile(regex).matcher(input).region(start, end);
       Matcher safeMatcher = Pattern.compile(regex).matcher(input).region(start, end);
@@ -327,7 +329,7 @@ class BoundaryMatcherTest {
           .containsExactlyElementsOf(jdkMatches);
     }
 
-    private List<String> capturedFindTrace(java.util.regex.Matcher matcher) {
+    private static List<String> capturedFindTrace(java.util.regex.Matcher matcher) {
       List<String> trace = new ArrayList<>();
       while (matcher.find()) {
         trace.add(capturedMatchTrace(matcher));
@@ -335,7 +337,7 @@ class BoundaryMatcherTest {
       return trace;
     }
 
-    private List<String> capturedFindTrace(Matcher matcher) {
+    private static List<String> capturedFindTrace(Matcher matcher) {
       List<String> trace = new ArrayList<>();
       while (matcher.find()) {
         trace.add(capturedMatchTrace(matcher));
@@ -343,7 +345,7 @@ class BoundaryMatcherTest {
       return trace;
     }
 
-    private String capturedMatchTrace(java.util.regex.Matcher matcher) {
+    private static String capturedMatchTrace(java.util.regex.Matcher matcher) {
       StringBuilder builder = new StringBuilder();
       builder.append(matcher.start()).append('-').append(matcher.end()).append(':');
       builder.append(matcher.group());
@@ -353,7 +355,7 @@ class BoundaryMatcherTest {
       return builder.toString();
     }
 
-    private String capturedMatchTrace(Matcher matcher) {
+    private static String capturedMatchTrace(Matcher matcher) {
       StringBuilder builder = new StringBuilder();
       builder.append(matcher.start()).append('-').append(matcher.end()).append(':');
       builder.append(matcher.group());

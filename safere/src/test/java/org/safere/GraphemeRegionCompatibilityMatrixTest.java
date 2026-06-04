@@ -320,7 +320,7 @@ class GraphemeRegionCompatibilityMatrixTest {
             "long end-anchored base-plus-mark input uses grapheme engine semantics",
             "Long inputs exercise optimized engine selection while preserving grapheme-aware end"
                 + " anchors.",
-            ("a\u0301").repeat(1000) + "z",
+            "a\u0301".repeat(1000) + "z",
             0,
             2001,
             false,

@@ -82,7 +82,7 @@ final class Nfa {
   private final EngineContext context;
 
   private boolean matched;
-  private int[] bestMatch;
+  private final int[] bestMatch;
 
   private Nfa(Prog prog, EngineContext context, int ncapture, boolean longest, boolean endmatch) {
     this.prog = prog;
@@ -425,7 +425,7 @@ final class Nfa {
     }
   }
 
-  private void mergeDelayedQueue(
+  private static void mergeDelayedQueue(
       Map<Integer, QueueState> delayed, int pos, QueueState destination) {
     QueueState source = delayed.remove(pos);
     if (source == null) {
@@ -671,8 +671,6 @@ final class Nfa {
             // until a later CAPTURE or PROGRESS_CHECK transition clones them.
             q.add(
                 new NfaThread(id, t0, consumedInput, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1));
-
-        default -> {}
       }
     }
   }

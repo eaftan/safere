@@ -380,7 +380,7 @@ class CrossEngineTest {
   // Comparison helpers
   // ---------------------------------------------------------------------------
 
-  private void compareMatches(
+  private static void compareMatches(
       Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     boolean safeReResult = safeRePattern.matcher(tc.input()).matches();
     boolean jdkResult = jdkPattern.matcher(tc.input()).matches();
@@ -395,7 +395,7 @@ class CrossEngineTest {
     // For SAFERE_REJECTS, we just verify SafeRE didn't crash (it already ran).
   }
 
-  private void compareFind(
+  private static void compareFind(
       Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     List<MatchResult> safeReMatches = collectFinds(safeRePattern.matcher(tc.input()));
     List<MatchResult> jdkMatches = collectFindsJdk(jdkPattern.matcher(tc.input()));
@@ -432,7 +432,7 @@ class CrossEngineTest {
     }
   }
 
-  private void compareReplaceAll(
+  private static void compareReplaceAll(
       Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     String replacement = "X";
     String safeReResult = safeRePattern.matcher(tc.input()).replaceAll(replacement);
@@ -445,7 +445,7 @@ class CrossEngineTest {
     }
   }
 
-  private void compareSplit(
+  private static void compareSplit(
       Pattern safeRePattern, java.util.regex.Pattern jdkPattern, TestCase tc, boolean expectEqual) {
     String[] safeReParts = safeRePattern.split(tc.input());
     String[] jdkParts = jdkPattern.split(tc.input());
@@ -462,7 +462,7 @@ class CrossEngineTest {
   // ---------------------------------------------------------------------------
 
   /** Collects all {@code find()} results from a SafeRE {@link Matcher}. */
-  private List<MatchResult> collectFinds(Matcher matcher) {
+  private static List<MatchResult> collectFinds(Matcher matcher) {
     List<MatchResult> results = new ArrayList<>();
     while (matcher.find()) {
       int gc = matcher.groupCount();
@@ -476,7 +476,7 @@ class CrossEngineTest {
   }
 
   /** Collects all {@code find()} results from a JDK {@link java.util.regex.Matcher}. */
-  private List<MatchResult> collectFindsJdk(java.util.regex.Matcher matcher) {
+  private static List<MatchResult> collectFindsJdk(java.util.regex.Matcher matcher) {
     List<MatchResult> results = new ArrayList<>();
     while (matcher.find()) {
       int gc = matcher.groupCount();

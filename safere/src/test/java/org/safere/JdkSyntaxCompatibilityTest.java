@@ -2836,6 +2836,8 @@ class JdkSyntaxCompatibilityTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("lineTerminators")
     @DisplayName("dot does not match line terminator")
+    @SuppressWarnings(
+        "BareDotMetacharacter") // Specifically testing behavior of bare dot metacharacter
     void dotDoesNotMatch(String desc, String terminator) {
       // dot should NOT match line terminators (without DOTALL)
       java.util.regex.Matcher jdkM = java.util.regex.Pattern.compile(".").matcher(terminator);

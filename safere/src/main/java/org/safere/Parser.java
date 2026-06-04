@@ -499,15 +499,15 @@ final class Parser {
 
   // ---- Stack operations ----
 
-  private boolean isMarker(StackEntry e) {
+  private static boolean isMarker(StackEntry e) {
     return e != null && e.re != null && e.re.matchId < 0 && e.re.op == RegexpOp.NO_MATCH;
   }
 
-  private boolean isLeftParen(StackEntry e) {
+  private static boolean isLeftParen(StackEntry e) {
     return isMarker(e) && e.re.matchId == LEFT_PAREN;
   }
 
-  private boolean isVerticalBar(StackEntry e) {
+  private static boolean isVerticalBar(StackEntry e) {
     return isMarker(e) && e.re.matchId == VERTICAL_BAR;
   }
 
@@ -712,7 +712,7 @@ final class Parser {
         && isZeroWidth(stacktop.re);
   }
 
-  private boolean hasCapture(Regexp re) {
+  private static boolean hasCapture(Regexp re) {
     ArrayDeque<Regexp> pending = new ArrayDeque<>();
     pending.add(re);
     while (!pending.isEmpty()) {
@@ -727,14 +727,14 @@ final class Parser {
     return false;
   }
 
-  private boolean isQuantifiedZeroWidth(Regexp re) {
+  private static boolean isQuantifiedZeroWidth(Regexp re) {
     return switch (re.op) {
       case STAR, PLUS, QUEST, REPEAT -> isZeroWidth(re.subs.getFirst());
       default -> false;
     };
   }
 
-  private boolean isZeroWidth(Regexp re) {
+  private static boolean isZeroWidth(Regexp re) {
     ArrayDeque<Regexp> pending = new ArrayDeque<>();
     pending.add(re);
     while (!pending.isEmpty()) {
@@ -992,7 +992,7 @@ final class Parser {
 
   // ---- Literal string coalescing ----
 
-  private List<Regexp> coalesceLiteralStrings(List<Regexp> subs) {
+  private static List<Regexp> coalesceLiteralStrings(List<Regexp> subs) {
     List<Regexp> coalesced = new ArrayList<>(subs.size());
     int literalStart = -1;
     int literalLength = 0;
@@ -1018,7 +1018,7 @@ final class Parser {
     return coalesced;
   }
 
-  private void flushLiteralString(
+  private static void flushLiteralString(
       List<Regexp> source,
       List<Regexp> target,
       int start,
@@ -1047,15 +1047,15 @@ final class Parser {
     target.add(Regexp.literalString(runes, literalFlags));
   }
 
-  private boolean isLiteralStringPart(Regexp re) {
+  private static boolean isLiteralStringPart(Regexp re) {
     return re.op == RegexpOp.LITERAL || re.op == RegexpOp.LITERAL_STRING;
   }
 
-  private boolean literalFold(int flags) {
+  private static boolean literalFold(int flags) {
     return (flags & ParseFlags.FOLD_CASE) != 0;
   }
 
-  private int literalLength(Regexp re) {
+  private static int literalLength(Regexp re) {
     return re.op == RegexpOp.LITERAL ? 1 : re.runes.length;
   }
 
@@ -1719,7 +1719,7 @@ final class Parser {
     return index;
   }
 
-  private NormalizedClassPattern finishNormalizedClassPattern(
+  private static NormalizedClassPattern finishNormalizedClassPattern(
       StringBuilder normalized, List<Integer> originalIndexes, int originalEnd, boolean changed) {
     if (!changed) {
       return null;
@@ -1894,7 +1894,7 @@ final class Parser {
     }
   }
 
-  private CharClassBuilder snapshotPendingExpression(ClassExpressionFrame frame) {
+  private static CharClassBuilder snapshotPendingExpression(ClassExpressionFrame frame) {
     if (frame.accumulatedClass == null && !frame.hasPendingScalarItems) {
       return null;
     }
@@ -1930,7 +1930,7 @@ final class Parser {
     pos++;
   }
 
-  private void finishRawAmpersandSeparatorBeforeClassClose(ClassExpressionFrame frame) {
+  private static void finishRawAmpersandSeparatorBeforeClassClose(ClassExpressionFrame frame) {
     frame.accumulatedClass = new CharClassBuilder().addCharClass(frame.rawAmpersandLeftExpression);
     frame.currentIntersectionOperand = frame.accumulatedClass;
     frame.currentIntersectionOperandRole = ClassAtomRole.ORDINARY_SCALAR;
@@ -1994,7 +1994,7 @@ final class Parser {
         && pattern.charAt(tail.pos()) == ']';
   }
 
-  private CharClassBuilder nestedRightBeforeTrailingAmpersandExpression(
+  private static CharClassBuilder nestedRightBeforeTrailingAmpersandExpression(
       ClassExpressionFrame frame,
       boolean rawAmpersandRangeTail,
       boolean preserveDeferredOrdinaryScalars) {
@@ -2171,7 +2171,7 @@ final class Parser {
     return hasRangeTail;
   }
 
-  private void finishNestedRightAsCurrentOperand(
+  private static void finishNestedRightAsCurrentOperand(
       ClassExpressionFrame frame, CharClassBuilder expression) {
     frame.accumulatedClass = expression;
     frame.currentIntersectionOperand = expression;
@@ -2191,7 +2191,7 @@ final class Parser {
     frame.intersectionRightOnlyNestedClasses = false;
   }
 
-  private void finishNestedRightAsEmptyUntilClassTerminator(ClassExpressionFrame frame) {
+  private static void finishNestedRightAsEmptyUntilClassTerminator(ClassExpressionFrame frame) {
     frame.accumulatedClass = new CharClassBuilder();
     frame.currentIntersectionOperand = frame.accumulatedClass;
     frame.currentIntersectionOperandRole = ClassAtomRole.INTERSECTION_OPERAND;
@@ -2426,7 +2426,8 @@ final class Parser {
     frame.intersectionRightOnlyNestedClasses = false;
   }
 
-  private void finishRawAmpersandSeparatorAsEmptyUntilClassTerminator(ClassExpressionFrame frame) {
+  private static void finishRawAmpersandSeparatorAsEmptyUntilClassTerminator(
+      ClassExpressionFrame frame) {
     frame.accumulatedClass = new CharClassBuilder();
     frame.currentIntersectionOperand = frame.accumulatedClass;
     frame.currentIntersectionOperandRole = ClassAtomRole.RAW_AMPERSAND_SEPARATOR;
@@ -2780,7 +2781,7 @@ final class Parser {
     frame.rawAmpersandLeftExpression = null;
   }
 
-  private CharClassBuilder emptyCompletedIntersectionBeforeCommentsClose(
+  private static CharClassBuilder emptyCompletedIntersectionBeforeCommentsClose(
       ClassExpressionFrame frame) {
     if (frame.accumulatedClass == null || frame.currentIntersectionOperand == null) {
       return null;
@@ -2790,7 +2791,7 @@ final class Parser {
     return completed.isEmpty() ? completed : null;
   }
 
-  private void finishOddAmpersandRunAsCurrentUntilClassTerminator(
+  private static void finishOddAmpersandRunAsCurrentUntilClassTerminator(
       ClassExpressionFrame frame, CharClassBuilder expression) {
     frame.accumulatedClass = expression;
     frame.currentIntersectionOperand = expression;
@@ -2812,13 +2813,13 @@ final class Parser {
     frame.ignoreUntilClassTerminator = true;
   }
 
-  private void finishOddAmpersandRunAsEmptyUntilClassTerminator(ClassExpressionFrame frame) {
+  private static void finishOddAmpersandRunAsEmptyUntilClassTerminator(ClassExpressionFrame frame) {
     finishOddAmpersandRunAsCurrentUntilClassTerminator(frame, new CharClassBuilder());
     frame.suppressNegation = true;
     frame.propagateSuppressNegation = true;
   }
 
-  private void startIntersectionRightAfterNormalizedOddRun(
+  private static void startIntersectionRightAfterNormalizedOddRun(
       ClassExpressionFrame frame, CharClassBuilder expression, NormalizedAmpersandRun run) {
     frame.accumulatedClass = expression;
     frame.currentIntersectionOperand = expression;
@@ -3223,7 +3224,7 @@ final class Parser {
     return snapshot;
   }
 
-  private boolean accumulatedClassAlreadyContainsLiteralAmpersand(
+  private static boolean accumulatedClassAlreadyContainsLiteralAmpersand(
       ClassExpressionFrame frame, CharClassBuilder expression) {
     return frame.accumulatedClass != null
         && frame.accumulatedClass.contains('&')
@@ -3483,7 +3484,7 @@ final class Parser {
     }
   }
 
-  private void foldRawAmpersandSeparatorBeforeNestedClass(
+  private static void foldRawAmpersandSeparatorBeforeNestedClass(
       ClassExpressionFrame frame, CharClassBuilder completed) {
     CharClassBuilder expression = new CharClassBuilder();
     if (frame.rawAmpersandSeparatorRepeated) {
@@ -3587,7 +3588,7 @@ final class Parser {
     throw new PatternSyntaxException("missing closing ]", pattern, pos);
   }
 
-  private CharClassBuilder unionClass(CharClassBuilder left, CharClassBuilder right) {
+  private static CharClassBuilder unionClass(CharClassBuilder left, CharClassBuilder right) {
     if (left == null) {
       return new CharClassBuilder().addCharClass(right);
     }

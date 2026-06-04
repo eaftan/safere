@@ -253,51 +253,6 @@ class RE2ExhaustiveTest {
   }
 
   /**
-   * Check submatch group positions against expected UTF-8 byte-offset pairs.
-   *
-   * <p>Compares each group's start/end against the expected values after converting from UTF-8 byte
-   * offsets to Java char offsets.
-   */
-  private static void checkGroups(
-      Matcher m,
-      int[][] expected,
-      String text,
-      String pattern,
-      String method,
-      List<String> failures) {
-    int numGroups = Math.min(expected.length, m.groupCount() + 1);
-    for (int g = 0; g < numGroups; g++) {
-      int expectStart;
-      int expectEnd;
-      if (expected[g][0] == -1 && expected[g][1] == -1) {
-        expectStart = -1;
-        expectEnd = -1;
-      } else {
-        expectStart = utf8ByteToCharOffset(text, expected[g][0]);
-        expectEnd = utf8ByteToCharOffset(text, expected[g][1]);
-      }
-
-      int actualStart = m.start(g);
-      int actualEnd = m.end(g);
-
-      if (actualStart != expectStart || actualEnd != expectEnd) {
-        failures.add(
-            String.format(
-                "%s() group %d pat=\"%s\" text=\"%s\": got [%d,%d), want [%d,%d)",
-                method,
-                g,
-                escape(pattern),
-                escape(text),
-                actualStart,
-                actualEnd,
-                expectStart,
-                expectEnd));
-        break; // one failure per test case is enough
-      }
-    }
-  }
-
-  /**
    * Check submatch groups, falling back to JDK cross-validation when RE2 expected values disagree
    * with SafeRE. If JDK agrees with SafeRE's group positions, the mismatch is a known RE2
    * behavioral difference (not a bug).

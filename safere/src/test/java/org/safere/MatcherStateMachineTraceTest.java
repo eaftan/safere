@@ -193,6 +193,7 @@ class MatcherStateMachineTraceTest {
     return events;
   }
 
+  @SuppressWarnings("UnusedMethod")
   private interface TraceSubject {
     boolean matches();
 
@@ -242,7 +243,7 @@ class MatcherStateMachineTraceTest {
   }
 
   private static final class SafeReSubject implements TraceSubject {
-    private Matcher matcher;
+    private final Matcher matcher;
 
     SafeReSubject(Matcher matcher) {
       this.matcher = matcher;
@@ -379,7 +380,7 @@ class MatcherStateMachineTraceTest {
   }
 
   private static final class JdkSubject implements TraceSubject {
-    private java.util.regex.Matcher matcher;
+    private final java.util.regex.Matcher matcher;
 
     JdkSubject(java.util.regex.Matcher matcher) {
       this.matcher = matcher;
@@ -562,6 +563,7 @@ class MatcherStateMachineTraceTest {
       return value("end(" + group + ")", subject -> subject.end(group));
     }
 
+    @SuppressWarnings("UnusedMethod")
     static Step reset() {
       return effect("reset", TraceSubject::reset);
     }

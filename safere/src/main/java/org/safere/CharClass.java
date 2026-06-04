@@ -7,6 +7,8 @@
 
 package org.safere;
 
+import java.util.Locale;
+
 /**
  * An immutable character class, represented as a sorted, non-overlapping list of Unicode code point
  * ranges. Each range is an inclusive {@code [lo, hi]} pair.
@@ -100,9 +102,9 @@ final class CharClass {
       int lo = lo(i);
       int hi = hi(i);
       if (lo == hi) {
-        sb.append(String.format("0x%X", lo));
+        sb.append(String.format(Locale.ROOT, "0x%X", lo));
       } else {
-        sb.append(String.format("0x%X-0x%X", lo, hi));
+        sb.append(String.format(Locale.ROOT, "0x%X-0x%X", lo, hi));
       }
     }
     sb.append(']');

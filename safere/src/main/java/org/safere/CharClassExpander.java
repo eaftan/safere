@@ -125,7 +125,7 @@ final class CharClassExpander {
   static void addRange(CharClassBuilder ccb, int lo, int hi, int parseFlags) {
     boolean cutnl =
         (parseFlags & ParseFlags.CLASS_NL) == 0 || (parseFlags & ParseFlags.NEVER_NL) != 0;
-    if (cutnl && lo <= '\n' && '\n' <= hi) {
+    if (cutnl && lo <= '\n' && hi >= '\n') {
       if (lo < '\n') {
         addRange(ccb, lo, '\n' - 1, parseFlags);
       }

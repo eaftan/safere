@@ -19,11 +19,13 @@ class RegexpOpTest {
   }
 
   @Test
+  @SuppressWarnings("EnumOrdinal") // Testing precise enum definition layout / ordering
   void firstOpIsNoMatch() {
     assertThat(RegexpOp.values()[0]).isEqualTo(RegexpOp.NO_MATCH);
   }
 
   @Test
+  @SuppressWarnings("EnumOrdinal") // Testing precise enum definition layout / ordering
   void lastOpIsHaveMatch() {
     assertThat(RegexpOp.values()[RegexpOp.values().length - 1]).isEqualTo(RegexpOp.HAVE_MATCH);
   }

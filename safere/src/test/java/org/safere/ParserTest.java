@@ -25,6 +25,8 @@ class ParserTest {
   /** Perl-compatible flags, used as the default for most tests. */
   private static final int PERL = ParseFlags.LIKE_PERL;
 
+  // Used as a sink to prevent JVM dead-code elimination in microbenchmarks.
+  @SuppressWarnings("unused")
   private static Regexp parseTimingSink;
 
   /**

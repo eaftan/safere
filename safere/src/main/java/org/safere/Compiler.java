@@ -285,7 +285,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       };
     }
 
-    private Regexp lowerQuantifier(Regexp re, Regexp sub) {
+    private static Regexp lowerQuantifier(Regexp re, Regexp sub) {
       if (!needsCaptureRetentionLowering(re, sub)) {
         return copyWithChildren(re, List.of(sub));
       }

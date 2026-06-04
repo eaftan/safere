@@ -44,6 +44,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 class RE2PosixTest {
 
   /** A single POSIX test case. */
+  @SuppressWarnings(
+      "ArrayRecordComponent") // Simple package-private test case helper holds 2D arrays
   record PosixTestCase(
       String file,
       int lineNum,
@@ -312,7 +314,7 @@ class RE2PosixTest {
     return false;
   }
 
-  private void runTest(PosixTestCase tc) {
+  private static void runTest(PosixTestCase tc) {
     int flags = 0;
     if (tc.caseInsensitive()) {
       flags |= Pattern.CASE_INSENSITIVE;

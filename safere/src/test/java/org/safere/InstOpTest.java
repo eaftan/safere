@@ -19,6 +19,7 @@ class InstOpTest {
   }
 
   @Test
+  @SuppressWarnings("EnumOrdinal") // Testing precise enum definition layout / ordering
   void orderMatchesRe2() {
     assertThat(InstOp.ALT.ordinal()).isEqualTo(0);
     assertThat(InstOp.ALT_MATCH.ordinal()).isEqualTo(1);

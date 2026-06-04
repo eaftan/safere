@@ -64,7 +64,7 @@
             <!-- Continue compilation past type-checking errors so Error Prone can analyze
                  code that has downstream errors in later phases. -->
             <arg>--should-stop=ifError=FLOW</arg>
-            <arg>-Xplugin:ErrorProne</arg>
+            <arg>-Xplugin:ErrorProne -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF</arg>
           </compilerArgs>
           <annotationProcessorPaths>
             <path>
@@ -84,13 +84,14 @@
             <configuration>
               <compilerArgs>
                 <arg>-Xlint</arg>
+                <arg>-Werror</arg>
                 <!-- Error Prone runs as a javac plugin. -XDcompilePolicy=simple tells javac to
                      compile all files in a single batch (required by Error Prone). -->
                 <arg>-XDcompilePolicy=simple</arg>
                 <!-- Continue compilation past type-checking errors so Error Prone can analyze
                      code that has downstream errors in later phases. -->
                 <arg>--should-stop=ifError=FLOW</arg>
-                <arg>-Xplugin:ErrorProne</arg>
+                <arg>-Xplugin:ErrorProne -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF</arg>
               </compilerArgs>
               <annotationProcessorPaths>
                 <path>
