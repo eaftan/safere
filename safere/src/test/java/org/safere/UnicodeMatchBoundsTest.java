@@ -288,6 +288,7 @@ class UnicodeMatchBoundsTest {
 
   @ParameterizedTest
   @MethodSource
+  @DisabledForCrosscheck("SafeRE intentionally prevents matching bounds inside surrogate pairs")
   @DisplayName("scalar region bounds intentionally diverge from java.util.regex")
   void scalarRegionBoundsIntentionallyDivergeFromJdk(DivergentRegionCase dc) {
     Pattern safePattern = Pattern.compile(dc.c.regex(), dc.c.flags());
