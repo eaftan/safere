@@ -938,7 +938,7 @@ public final class Matcher implements MatchResult {
    * Returns whether DFA paths implement every instruction and boundary predicate in {@code prog}.
    */
   private static boolean dfaSupportsProgram(Prog prog) {
-    return !prog.hasGraphemeSemantics() && !prog.hasWordBoundary();
+    return !prog.hasGraphemeSemantics();
   }
 
   /**

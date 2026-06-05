@@ -296,8 +296,6 @@ final class Nfa {
     Nfa nfa = new Nfa(prog, context, ncapture, longestMode, endmatch);
     if (prog.hasGraphemeSemantics()) {
       nfa.doSearchEveryCharPosition(anchored);
-    } else if (prog.hasWordBoundary()) {
-      nfa.doSearchEveryCharPosition(anchored);
     } else {
       nfa.doSearch(anchored);
     }

@@ -183,51 +183,6 @@ class UnicodeMatchBoundsTest {
             true,
             true),
         new RegionCase(
-            "non-word-boundary-finds-utf16-offset-inside-supplementary-scalar",
-            "\\B",
-            0,
-            "x\ud83d\ude00y",
-            1,
-            4,
-            true,
-            true),
-        new RegionCase(
-            "non-word-boundary-alternative-remains-leftmost-inside-supplementary-scalar",
-            "\\B|$",
-            0,
-            "x\ud83d\ude00y",
-            1,
-            4,
-            true,
-            false),
-        new RegionCase(
-            "non-word-boundary-consuming-alternative-remains-leftmost-inside-supplementary-scalar",
-            "\\B|y",
-            0,
-            "x\ud83d\ude00y",
-            0,
-            4,
-            false,
-            true),
-        new RegionCase(
-            "non-word-boundary-consuming-alternative-finds-utf16-offset-before-later-miss",
-            "\\B|a",
-            0,
-            "x\ud83d\ude00y",
-            0,
-            4,
-            false,
-            true),
-        new RegionCase(
-            "consuming-alternative-before-non-word-boundary-still-finds-leftmost-boundary",
-            "y|\\B",
-            0,
-            "x\ud83d\ude00y",
-            0,
-            4,
-            false,
-            true),
-        new RegionCase(
             "non-word-boundary-dot-does-not-consume-past-split-surrogate-region-end",
             "\\B.",
             Pattern.DOTALL,
@@ -263,6 +218,82 @@ class UnicodeMatchBoundsTest {
     assertThat(matchesOutcome(safePattern.matcher(c.input())))
         .as("%s matches", c.label())
         .isEqualTo(matchesOutcome(jdkPattern.matcher(c.input())));
+  }
+
+  record DivergentRegionCase(RegionCase c, String expectedSafeTrace) {
+    @Override
+    public String toString() {
+      return c.label();
+    }
+  }
+
+  static Stream<DivergentRegionCase> scalarRegionBoundsIntentionallyDivergeFromJdk() {
+    return Stream.of(
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-word-boundary-finds-utf16-offset-inside-supplementary-scalar",
+                "\\B",
+                0,
+                "x\ud83d\ude00y",
+                1,
+                4,
+                true,
+                true),
+            "matches=false,lookingAt=false,find0=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-word-boundary-alternative-remains-leftmost-inside-supplementary-scalar",
+                "\\B|$",
+                0,
+                "x\ud83d\ude00y",
+                1,
+                4,
+                true,
+                false),
+            "matches=false,lookingAt=false,find0=true@4-4,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-word-boundary-consuming-alternative-remains-leftmost-inside-supplementary-scalar",
+                "\\B|y",
+                0,
+                "x\ud83d\ude00y",
+                0,
+                4,
+                false,
+                true),
+            "matches=false,lookingAt=false,find0=true@3-4,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-word-boundary-consuming-alternative-finds-utf16-offset-before-later-miss",
+                "\\B|a",
+                0,
+                "x\ud83d\ude00y",
+                0,
+                4,
+                false,
+                true),
+            "matches=false,lookingAt=false,find0=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "consuming-alternative-before-non-word-boundary-still-finds-leftmost-boundary",
+                "y|\\B",
+                0,
+                "x\ud83d\ude00y",
+                0,
+                4,
+                false,
+                true),
+            "matches=false,lookingAt=false,find0=true@3-4,find1=false"));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  @DisplayName("scalar region bounds intentionally diverge from java.util.regex")
+  void scalarRegionBoundsIntentionallyDivergeFromJdk(DivergentRegionCase dc) {
+    Pattern safePattern = Pattern.compile(dc.c.regex(), dc.c.flags());
+    assertThat(trace(safePattern.matcher(dc.c.input()), dc.c))
+        .as("%s trace", dc.c.label())
+        .isEqualTo(dc.expectedSafeTrace);
   }
 
   @ParameterizedTest
