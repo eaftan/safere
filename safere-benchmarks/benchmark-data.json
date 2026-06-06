@@ -118,6 +118,14 @@
     }
   },
 
+  "scrubber": {
+    "repeatCount": 500,
+    "linePattern": "[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?",
+    "blockPattern": "\\bSCRUB:begin_strip\\b(?s:.*?)\\bSCRUB:end_strip\\b",
+    "baseWithoutDirectives": "public class Foo {\n  // Some comment\n  public void bar() {\n    System.out.println(\"Hello, world!\");\n  }\n}\n",
+    "baseWithDirectives": "public class Foo {\n  // SCRUB:strip_line\n  public void bar() {\n    // SCRUB:begin_strip\n    System.out.println(\"Secret code\");\n    // SCRUB:end_strip\n  }\n}\n"
+  },
+
   "application": [
     {
       "name": "uuidValidation",
