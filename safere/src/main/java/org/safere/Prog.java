@@ -9,6 +9,8 @@ package org.safere;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -21,7 +23,8 @@ import java.util.Locale;
  */
 final class Prog {
 
-  private final List<Inst> instructions = new ArrayList<>();
+  final List<Inst> instructions = new ArrayList<>();
+  private boolean didFlatten;
   private Inst[] instArray;
   private int start;
   private int startUnanchored;
@@ -46,6 +49,26 @@ final class Prog {
   /** Creates an empty program. */
   public Prog() {}
 
+  /** Creates a copy of another program. */
+  public Prog(Prog other) {
+    for (Inst inst : other.instructions) {
+      this.instructions.add(new Inst(inst));
+    }
+    this.didFlatten = other.didFlatten;
+    this.start = other.start;
+    this.startUnanchored = other.startUnanchored;
+    this.numCaptures = other.numCaptures;
+    this.anchorStart = other.anchorStart;
+    this.anchorEnd = other.anchorEnd;
+    this.dollarAnchorEnd = other.dollarAnchorEnd;
+    this.reversed = other.reversed;
+    this.unixLines = other.unixLines;
+    this.numLoopRegs = other.numLoopRegs;
+    this.requiresPikeNfaCaptureSemantics = other.requiresPikeNfaCaptureSemantics;
+    this.hasGraphemeSemantics = other.hasGraphemeSemantics;
+    this.hasGraphemeClusterInstruction = other.hasGraphemeClusterInstruction;
+  }
+
   /** Returns the instruction at the given index. Must be called after {@link #freeze()}. */
   public Inst inst(int index) {
     return instArray[index];
@@ -62,6 +85,11 @@ final class Prog {
   /** Returns the total number of instructions. */
   public int size() {
     return instArray != null ? instArray.length : instructions.size();
+  }
+
+  /** Returns true if the program has been flattened. */
+  public boolean didFlatten() {
+    return didFlatten;
   }
 
   /**
@@ -426,6 +454,297 @@ final class Prog {
     if (id > 0 && id < reachable.length && !reachable[id]) {
       reachable[id] = true;
       stack.push(id);
+    }
+  }
+
+  public void flatten() {
+    if (didFlatten) {
+      return;
+    }
+
+    int ninst = instructions.size();
+    int[] rootmap = new int[ninst];
+    Arrays.fill(rootmap, -1);
+    List<Integer> roots = new ArrayList<>();
+
+    List<List<Integer>> predecessors = new ArrayList<>(ninst);
+    for (int i = 0; i < ninst; i++) {
+      predecessors.add(new ArrayList<>());
+    }
+
+    boolean[] reachable = new boolean[ninst];
+    List<Integer> reachableList = new ArrayList<>();
+    List<Integer> stack = new ArrayList<>();
+
+    // Pass 1: Mark successor roots and predecessors.
+    markSuccessors(rootmap, roots, predecessors, reachable, reachableList, stack);
+
+    // Pass 2: Mark dominator roots by working backwards.
+    List<Integer> sortedRoots = new ArrayList<>(roots);
+    Collections.sort(sortedRoots);
+    for (int i = sortedRoots.size() - 1; i >= 0; i--) {
+      int root = sortedRoots.get(i);
+      markDominator(root, rootmap, roots, predecessors, reachable, reachableList, stack);
+    }
+
+    // Pass 3: Emit lists. Remap outs to root-ids.
+    int[] flatmap = new int[roots.size()];
+    List<Inst> flat = new ArrayList<>(ninst);
+
+    for (int r = 0; r < roots.size(); r++) {
+      int root = roots.get(r);
+      flatmap[r] = flat.size();
+      emitList(root, rootmap, flat, reachable, stack);
+      flat.get(flat.size() - 1).last = true;
+    }
+
+    // Pass 4: Remap outs from root-ids to flat-ids.
+    for (Inst inst : flat) {
+      if (inst.op == InstOp.ALT_MATCH) {
+        // AltMatch's outs are already flat offsets (flat.len() and flat.len() + 1)
+      } else if (inst.op == InstOp.PROGRESS_CHECK) {
+        inst.out = flatmap[inst.out];
+        inst.out1 = flatmap[inst.out1];
+      } else {
+        inst.out = flatmap[inst.out];
+      }
+    }
+
+    // Remap startUnanchored and start.
+    if (startUnanchored == 0) {
+      // do nothing
+    } else if (startUnanchored == start) {
+      startUnanchored = flatmap[1];
+      start = flatmap[1];
+    } else {
+      startUnanchored = flatmap[1];
+      start = flatmap[2];
+    }
+    instructions.clear();
+    instructions.addAll(flat);
+    didFlatten = true;
+  }
+
+  private void markSuccessors(
+      int[] rootmap,
+      List<Integer> roots,
+      List<List<Integer>> predecessors,
+      boolean[] reachable,
+      List<Integer> reachableList,
+      List<Integer> stack) {
+
+    // Mark the kInstFail instruction.
+    rootmap[0] = roots.size();
+    roots.add(0);
+
+    // Mark the startUnanchored and start instructions.
+    if (rootmap[startUnanchored] == -1) {
+      rootmap[startUnanchored] = roots.size();
+      roots.add(startUnanchored);
+    }
+    if (rootmap[start] == -1) {
+      rootmap[start] = roots.size();
+      roots.add(start);
+    }
+
+    Arrays.fill(reachable, false);
+    reachableList.clear();
+    stack.clear();
+    stack.add(startUnanchored);
+
+    int nextId = -1;
+    while (!stack.isEmpty() || nextId != -1) {
+      int id = nextId;
+      if (id == -1) {
+        // Index-based remove
+        id = stack.remove(stack.size() - 1);
+      } else {
+        nextId = -1;
+      }
+
+      if (reachable[id]) {
+        continue;
+      }
+      reachable[id] = true;
+      reachableList.add(id);
+
+      Inst inst = instructions.get(id);
+      switch (inst.op) {
+        case ALT, ALT_MATCH -> {
+          int out = inst.out;
+          int out1 = inst.out1;
+          for (int o : new int[] {out, out1}) {
+            predecessors.get(o).add(id);
+          }
+          stack.add(out1);
+          nextId = out;
+        }
+        case CHAR_RANGE, CHAR_CLASS, CAPTURE, EMPTY_WIDTH, GRAPHEME_CLUSTER -> {
+          int out = inst.out;
+          if (rootmap[out] == -1) {
+            rootmap[out] = roots.size();
+            roots.add(out);
+          }
+          nextId = out;
+        }
+        case PROGRESS_CHECK -> {
+          int out = inst.out;
+          int out1 = inst.out1;
+          if (rootmap[out] == -1) {
+            rootmap[out] = roots.size();
+            roots.add(out);
+          }
+          if (rootmap[out1] == -1) {
+            rootmap[out1] = roots.size();
+            roots.add(out1);
+          }
+          stack.add(out1);
+          nextId = out;
+        }
+        case NOP -> {
+          nextId = inst.out;
+        }
+        case MATCH, FAIL -> {
+          // terminates
+        }
+      }
+    }
+  }
+
+  private void markDominator(
+      int root,
+      int[] rootmap,
+      List<Integer> roots,
+      List<List<Integer>> predecessors,
+      boolean[] reachable,
+      List<Integer> reachableList,
+      List<Integer> stack) {
+
+    Arrays.fill(reachable, false);
+    reachableList.clear();
+    stack.clear();
+    stack.add(root);
+
+    int nextId = -1;
+    while (!stack.isEmpty() || nextId != -1) {
+      int id = nextId;
+      if (id == -1) {
+        // Index-based remove
+        id = stack.remove(stack.size() - 1);
+      } else {
+        nextId = -1;
+      }
+
+      if (reachable[id]) {
+        continue;
+      }
+      reachable[id] = true;
+      reachableList.add(id);
+
+      if (id != root && rootmap[id] != -1) {
+        continue;
+      }
+
+      Inst inst = instructions.get(id);
+      switch (inst.op) {
+        case ALT, ALT_MATCH -> {
+          stack.add(inst.out1);
+          nextId = inst.out;
+        }
+        case NOP -> {
+          nextId = inst.out;
+        }
+        case CHAR_RANGE,
+            CHAR_CLASS,
+            CAPTURE,
+            EMPTY_WIDTH,
+            GRAPHEME_CLUSTER,
+            PROGRESS_CHECK,
+            MATCH,
+            FAIL -> {
+          // Leaf/non-epsilon
+        }
+      }
+    }
+
+    for (int i : reachableList) {
+      List<Integer> preds = predecessors.get(i);
+      for (int pred : preds) {
+        if (!reachable[pred]) {
+          if (rootmap[i] == -1) {
+            rootmap[i] = roots.size();
+            roots.add(i);
+          }
+        }
+      }
+    }
+  }
+
+  private void emitList(
+      int root, int[] rootmap, List<Inst> flat, boolean[] reachable, List<Integer> stack) {
+
+    Arrays.fill(reachable, false);
+    stack.clear();
+    stack.add(root);
+
+    int nextId = -1;
+    while (!stack.isEmpty() || nextId != -1) {
+      int id = nextId;
+      if (id == -1) {
+        // Index-based remove
+        id = stack.remove(stack.size() - 1);
+      } else {
+        nextId = -1;
+      }
+
+      if (reachable[id]) {
+        continue;
+      }
+      reachable[id] = true;
+
+      if (id != root && rootmap[id] != -1) {
+        Inst nop = new Inst();
+        nop.initNop(rootmap[id]);
+        flat.add(nop);
+        continue;
+      }
+
+      Inst inst = instructions.get(id);
+      switch (inst.op) {
+        case ALT -> {
+          stack.add(inst.out1);
+          nextId = inst.out;
+        }
+        case ALT_MATCH -> {
+          Inst flatAltMatch = new Inst();
+          flatAltMatch.op = InstOp.ALT_MATCH;
+          flatAltMatch.opCode = InstOp.OP_ALT_MATCH;
+          flatAltMatch.out = flat.size();
+          flatAltMatch.out1 = flat.size() + 1;
+          flat.add(flatAltMatch);
+
+          stack.add(inst.out1);
+          nextId = inst.out;
+        }
+        case NOP -> {
+          nextId = inst.out;
+        }
+        case PROGRESS_CHECK -> {
+          Inst newInst = new Inst(inst);
+          newInst.out = rootmap[inst.out];
+          newInst.out1 = rootmap[inst.out1];
+          flat.add(newInst);
+        }
+        case CAPTURE, EMPTY_WIDTH, CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER -> {
+          Inst newInst = new Inst(inst);
+          newInst.out = rootmap[inst.out];
+          flat.add(newInst);
+        }
+        case MATCH, FAIL -> {
+          Inst newInst = new Inst(inst);
+          flat.add(newInst);
+        }
+      }
     }
   }
 }

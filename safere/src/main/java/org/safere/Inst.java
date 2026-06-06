@@ -73,6 +73,9 @@ final class Inst {
    */
   public boolean foldCase;
 
+  /** Whether this is the last instruction in a flattened list. */
+  public boolean last;
+
   /**
    * Flat array of [lo0, hi0, lo1, hi1, ...] range pairs for {@link InstOp#CHAR_CLASS}. Each pair
    * defines an inclusive Unicode code point range.
@@ -95,6 +98,22 @@ final class Inst {
   public Inst() {
     this.op = InstOp.FAIL;
     this.opCode = InstOp.OP_FAIL;
+  }
+
+  /** Creates a copy of another instruction. */
+  public Inst(Inst other) {
+    this.op = other.op;
+    this.opCode = other.opCode;
+    this.out = other.out;
+    this.out1 = other.out1;
+    this.arg = other.arg;
+    this.lo = other.lo;
+    this.hi = other.hi;
+    this.foldCase = other.foldCase;
+    this.last = other.last;
+    this.ranges = other.ranges;
+    this.bitmap0 = other.bitmap0;
+    this.bitmap1 = other.bitmap1;
   }
 
   /** Initializes as an ALT instruction branching to {@code out} or {@code out1}. */

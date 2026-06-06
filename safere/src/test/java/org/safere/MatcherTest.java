@@ -674,6 +674,23 @@ class MatcherTest {
 
       assertThat(m.find()).isEqualTo(jdk.find());
     }
+
+    @Test
+    @DisplayName("find() respects non-word boundaries inside repetitions")
+    void findNonWordBoundaryInsideRepetitions() {
+      Pattern p = Pattern.compile("(?:(?:(?:\\B)\\w)*)");
+      Matcher m = p.matcher("aba");
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(3);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.find()).isFalse();
+    }
   }
 
   @Nested

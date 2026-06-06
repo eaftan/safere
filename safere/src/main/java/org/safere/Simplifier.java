@@ -83,7 +83,7 @@ final class Simplifier {
     }
 
     // Recursively compare children using an explicit stack.
-    java.util.ArrayDeque<Regexp> stk = new java.util.ArrayDeque<>();
+    ArrayDeque<Regexp> stk = new ArrayDeque<>();
     for (; ; ) {
       switch (a.op) {
         case ALTERNATE:

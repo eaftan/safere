@@ -6,6 +6,7 @@
 package org.safere;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -131,6 +132,7 @@ final class Dfa {
 
   private final Prog prog;
   private final int maxStates;
+  private final boolean longest;
   private final boolean hasGraphemeSemantics;
   private final int stateEmptyFlagsMask;
   private final int startCacheEmptyFlagsMask;
@@ -215,9 +217,10 @@ final class Dfa {
     return new Setup(boundaries, numClasses, asciiClassMap);
   }
 
-  Dfa(Prog prog, int maxStates, Setup setup) {
+  Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
     this.prog = prog;
     this.maxStates = maxStates;
+    this.longest = longest;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
@@ -384,10 +387,12 @@ final class Dfa {
     int stackTop = 0;
     int frontierSize = 0;
 
-    // Push seeds onto stack.
-    for (int i = 0; i < seedCount; i++) {
+    // Push seeds onto stack in reverse priority order.
+    for (int i = seedCount - 1; i >= 0; i--) {
       stack[stackTop++] = seeds[i];
     }
+
+    boolean flat = prog.didFlatten();
 
     while (stackTop > 0) {
       int id = stack[--stackTop];
@@ -397,32 +402,78 @@ final class Dfa {
       visitedGen[id] = gen;
 
       Inst ip = prog.inst(id);
-      switch (ip.opCode) {
-        case InstOp.OP_FAIL -> {}
-        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
-          stack[stackTop++] = ip.out;
-          stack[stackTop++] = ip.out1;
+
+      if (flat) {
+        // Flat program list iteration
+        if (!ip.last) {
+          stack[stackTop++] = id + 1;
         }
-        case InstOp.OP_NOP -> stack[stackTop++] = ip.out;
-        case InstOp.OP_CAPTURE -> stack[stackTop++] = ip.out;
-        case InstOp.OP_PROGRESS_CHECK -> {
-          stack[stackTop++] = ip.out;
-          stack[stackTop++] = ip.out1;
-        }
-        case InstOp.OP_EMPTY_WIDTH -> {
-          if ((ip.arg & ~emptyFlags) == 0) {
-            stack[stackTop++] = ip.out;
-          } else {
-            frontier[frontierSize++] = id;
+
+        switch (ip.opCode) {
+          case InstOp.OP_FAIL -> {}
+          case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+            // AltMatch and ALT only transition to id + 1 (already pushed above)
           }
-        }
-        case InstOp.OP_CHAR_RANGE, InstOp.OP_CHAR_CLASS, InstOp.OP_MATCH ->
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_PROGRESS_CHECK -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_EMPTY_WIDTH -> {
+            if ((ip.arg & ~emptyFlags) == 0) {
+              stack[stackTop++] = ip.out;
+            } else {
+              frontier[frontierSize++] = id;
+            }
+          }
+          case InstOp.OP_CHAR_RANGE, InstOp.OP_CHAR_CLASS -> frontier[frontierSize++] = id;
+          case InstOp.OP_MATCH -> {
             frontier[frontierSize++] = id;
-        default -> {}
+            if (!longest && !prog.anchorEnd()) {
+              stackTop = 0;
+            }
+          }
+          default -> {}
+        }
+      } else {
+        // Standard unflattened program traversal
+        switch (ip.opCode) {
+          case InstOp.OP_FAIL -> {}
+          case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_PROGRESS_CHECK -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_EMPTY_WIDTH -> {
+            if ((ip.arg & ~emptyFlags) == 0) {
+              stack[stackTop++] = ip.out;
+            } else {
+              frontier[frontierSize++] = id;
+            }
+          }
+          case InstOp.OP_CHAR_RANGE, InstOp.OP_CHAR_CLASS -> frontier[frontierSize++] = id;
+          case InstOp.OP_MATCH -> {
+            frontier[frontierSize++] = id;
+            if (!longest && !prog.anchorEnd()) {
+              stackTop = 0;
+            }
+          }
+          default -> {}
+        }
       }
     }
 
-    sortSmall(frontier, frontierSize);
+    if (longest) {
+      sortSmall(frontier, frontierSize);
+    }
     return Arrays.copyOf(frontier, frontierSize);
   }
 
@@ -451,6 +502,57 @@ final class Dfa {
       }
     }
     return false;
+  }
+
+  /** Returns a new array with all MATCH instructions removed from the input array. */
+  private int[] stripMatch(int[] insts) {
+    int count = 0;
+    for (int id : insts) {
+      if (prog.inst(id).opCode != InstOp.OP_MATCH) {
+        count++;
+      }
+    }
+    if (count == insts.length) {
+      return insts;
+    }
+    int[] result = new int[count];
+    int idx = 0;
+    for (int id : insts) {
+      if (prog.inst(id).opCode != InstOp.OP_MATCH) {
+        result[idx++] = id;
+      }
+    }
+    return result;
+  }
+
+  /** Performs a stable deduplication of the input array, preserving insertion order. */
+  private int[] stableDedup(int[] insts, int count) {
+    int uniqueCount = 0;
+    int gen = ++expandGeneration;
+    int[] visitedGen = expandVisitedGen;
+    for (int i = 0; i < count; i++) {
+      int id = insts[i];
+      if (visitedGen[id] != gen) {
+        visitedGen[id] = gen;
+        uniqueCount++;
+      }
+    }
+    if (uniqueCount == count) {
+      int[] result = new int[count];
+      System.arraycopy(insts, 0, result, 0, count);
+      return result;
+    }
+    int[] result = new int[uniqueCount];
+    gen = ++expandGeneration;
+    int idx = 0;
+    for (int i = 0; i < count; i++) {
+      int id = insts[i];
+      if (visitedGen[id] != gen) {
+        visitedGen[id] = gen;
+        result[idx++] = id;
+      }
+    }
+    return result;
   }
 
   /** Collects all match IDs (MATCH instruction arg values) from a DFA state's NFA instructions. */
@@ -512,6 +614,33 @@ final class Dfa {
     return startState(text, pos, anchored, false);
   }
 
+  private int emptyFlags(String text, int pos) {
+    int flags = Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
+    if (prog.reversed()) {
+      int rev =
+          flags
+              & ~(EmptyOp.BEGIN_TEXT
+                  | EmptyOp.END_TEXT
+                  | EmptyOp.DOLLAR_END
+                  | EmptyOp.BEGIN_LINE
+                  | EmptyOp.END_LINE);
+      if ((flags & EmptyOp.BEGIN_TEXT) != 0) {
+        rev |= EmptyOp.END_TEXT;
+      }
+      if ((flags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) {
+        rev |= EmptyOp.BEGIN_TEXT;
+      }
+      if ((flags & EmptyOp.BEGIN_LINE) != 0) {
+        rev |= EmptyOp.END_LINE;
+      }
+      if ((flags & EmptyOp.END_LINE) != 0) {
+        rev |= EmptyOp.BEGIN_LINE;
+      }
+      flags = rev;
+    }
+    return flags;
+  }
+
   /**
    * Computes the start state with an explicit "last word" override for reverse searches.
    *
@@ -523,8 +652,7 @@ final class Dfa {
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags =
-        Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
+    int emptyFlags = emptyFlags(text, pos);
 
     // Determine word-character context for \b/\B support.
     boolean lastWord;
@@ -638,8 +766,7 @@ final class Dfa {
     // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
       // Compute empty flags for end-of-text, but override word boundary using state context.
-      int emptyFlags =
-          Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
+      int emptyFlags = emptyFlags(text, nextPos);
       // At end-of-text the "current" character is not a word char.
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
@@ -672,12 +799,13 @@ final class Dfa {
       }
       int flags = emptyFlags & stateEmptyFlagsMask;
       if (hasMatch(nextInsts)) {
-        flags |= FLAG_MATCH;
+        flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
       }
       // End-of-text is not a word char, so FLAG_LAST_WORD is not set.
       return getOrCreate(nextInsts, flags);
     }
 
+    int pos = cp >= 0 ? nextPos - Character.charCount(cp) : text.length();
     // Step 1: Re-evaluate unsatisfied EMPTY_WIDTH instructions that are now satisfiable.
     // Two kinds of assertions fire BEFORE consuming cp and depend on context that can't
     // be predicted when the state was built:
@@ -713,85 +841,81 @@ final class Dfa {
       }
     }
 
-    // Collect successors of unsatisfied EMPTY_WIDTH instructions whose deferred flags
-    // are now satisfiable and that have no other unsatisfied flags.
-    int reExpandCount = 0;
-    int deferredMask =
-        EmptyOp.WORD_BOUNDARY
-            | EmptyOp.NON_WORD_BOUNDARY
-            | EmptyOp.UNICODE_WORD_BOUNDARY
-            | EmptyOp.UNICODE_NON_WORD_BOUNDARY
-            | EmptyOp.END_LINE;
-    for (int id : s.insts) {
-      Inst ip = prog.inst(id);
-      if (ip.opCode == InstOp.OP_EMPTY_WIDTH) {
-        int wordFlags = ip.arg & (EmptyOp.WORD_BOUNDARY | EmptyOp.NON_WORD_BOUNDARY);
-        int unicodeWordFlags =
-            ip.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY);
-        int endLineFlag = ip.arg & EmptyOp.END_LINE;
-        int otherFlags = ip.arg & ~deferredMask;
-
-        // The instruction must have at least one deferred flag, no non-deferred flags,
-        // and all deferred flags must be currently satisfiable.
-        boolean hasDeferred = (wordFlags | unicodeWordFlags | endLineFlag) != 0;
-        boolean wordOk = wordFlags == 0 || (wordFlags & ~wordBeforeFlags) == 0;
-        boolean unicodeWordOk =
-            unicodeWordFlags == 0 || (unicodeWordFlags & ~unicodeWordBeforeFlags) == 0;
-        boolean lineOk = endLineFlag == 0 || endLineHere;
-        if (otherFlags == 0 && hasDeferred && wordOk && unicodeWordOk && lineOk) {
-          computeBuf[reExpandCount++] = ip.out;
-        }
-      }
+    int reExpandEmptyFlags =
+        (s.flags & stateEmptyFlagsMask) | wordBeforeFlags | unicodeWordBeforeFlags;
+    if (endLineHere) {
+      reExpandEmptyFlags |= EmptyOp.END_LINE;
     }
+    int[] instsWithoutMatch = stripMatch(s.insts);
 
-    // If deferred assertions fired, expand their successors to get additional
-    // CHAR_RANGE and MATCH instructions that are now reachable.
-    int[] expandedInsts = s.insts;
+    // Collect expanded instructions and detect deferred matches in priority order.
+    int[] tempExpanded = new int[prog.instructions.size()];
+    int tempCount = 0;
     boolean hasMatchFromDeferred = false;
+    boolean deferredMatchIsPrimary = false;
     int[] deferredMatchIds = null;
-    if (reExpandCount > 0) {
-      // Include the computed deferred flags so that chained assertions of the same
-      // kind (e.g., \b\b or $$) can fire during expansion. Without this, the first
-      // \b fires but expand() wouldn't satisfy the second \b because WORD_BOUNDARY
-      // was stripped from the state's cached emptyFlags.
-      int reExpandEmptyFlags =
-          (s.flags & stateEmptyFlagsMask) | wordBeforeFlags | unicodeWordBeforeFlags;
-      if (endLineHere) {
-        reExpandEmptyFlags |= EmptyOp.END_LINE;
-      }
-      int[] newInsts = expand(computeBuf, reExpandCount, reExpandEmptyFlags);
+    boolean isMatchValid = false;
 
-      // Check if the re-expansion revealed any MATCH instructions. Collect their IDs
-      // for PatternSet multi-match before merging with the original state.
-      int matchCount = 0;
-      int[] matchIds = null;
-      for (int id : newInsts) {
-        Inst ip = prog.inst(id);
-        if (ip.opCode == InstOp.OP_MATCH) {
+    for (int id : instsWithoutMatch) {
+      Inst ip = prog.inst(id);
+      if (ip.opCode == InstOp.OP_EMPTY_WIDTH && (ip.arg & ~reExpandEmptyFlags) == 0) {
+        int[] expanded = expand(new int[] {ip.out}, 1, reExpandEmptyFlags);
+        if (hasMatch(expanded)) {
           hasMatchFromDeferred = true;
-          if (matchIds == null) {
-            matchIds = new int[newInsts.length];
+          deferredMatchIds = collectMatchIds(expanded);
+          deferredMatchIsPrimary = isMatchPrimary(expanded);
+          // Add non-MATCH instructions from this expansion.
+          for (int x : expanded) {
+            if (prog.inst(x).opCode != InstOp.OP_MATCH) {
+              tempExpanded[tempCount++] = x;
+            }
           }
-          matchIds[matchCount++] = ip.arg;
+          // Check if this match is valid.
+          if (!prog.anchorEnd()) {
+            isMatchValid = true;
+          } else {
+            int textLen = text.length();
+            int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineTermStart(text) : textLen;
+            if (pos == textLen || (trailingTermStart < textLen && pos == trailingTermStart)) {
+              isMatchValid = true;
+            }
+          }
+          if (isMatchValid) {
+            break; // Prune all lower-priority branches!
+          }
+        } else {
+          for (int x : expanded) {
+            tempExpanded[tempCount++] = x;
+          }
         }
+      } else {
+        tempExpanded[tempCount++] = id;
       }
-      if (matchCount > 0) {
-        deferredMatchIds = Arrays.copyOf(matchIds, matchCount);
-      }
-
-      // Merge with existing instructions.
-      expandedInsts = mergeInsts(s.insts, newInsts);
     }
+    int[] expandedInsts = stableDedup(tempExpanded, tempCount);
 
     // Step 2: Process CHAR_RANGE/CHAR_CLASS transitions against cp.
     int successorCount = 0;
+    boolean hasUnanchoredLoopTransition = false;
+    int unanchoredStart = prog.anchorStart() ? 0 : prog.startUnanchored();
     for (int id : expandedInsts) {
       Inst ip = prog.inst(id);
       if (ip.opCode == InstOp.OP_CHAR_RANGE && ip.matchesChar(cp)) {
-        computeBuf[successorCount++] = ip.out;
+        if (unanchoredStart != 0 && ip.out == unanchoredStart) {
+          hasUnanchoredLoopTransition = true;
+        } else {
+          computeBuf[successorCount++] = ip.out;
+        }
       } else if (ip.opCode == InstOp.OP_CHAR_CLASS && ip.matchesCharClass(cp)) {
-        computeBuf[successorCount++] = ip.out;
+        if (unanchoredStart != 0 && ip.out == unanchoredStart) {
+          hasUnanchoredLoopTransition = true;
+        } else {
+          computeBuf[successorCount++] = ip.out;
+        }
       }
+    }
+    if (hasUnanchoredLoopTransition && !isMatchValid) {
+      computeBuf[successorCount++] = unanchoredStart;
     }
 
     if (successorCount == 0) {
@@ -814,8 +938,7 @@ final class Dfa {
     // word boundary (depends on the next character) and END_LINE (depends on what's at
     // nextPos, not deterministic for cache). Unsatisfied EMPTY_WIDTH instructions will
     // remain in the frontier for re-evaluation when the next character arrives.
-    int emptyFlags =
-        Nfa.emptyFlags(text, nextPos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
+    int emptyFlags = emptyFlags(text, nextPos);
     emptyFlags &=
         ~(EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY
@@ -841,16 +964,18 @@ final class Dfa {
     int flags = emptyFlags & stateEmptyFlagsMask;
     if (hasMatchFromDeferred) {
       // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
-      // character and reached a MATCH instruction. This match is at position `pos` (before
-      // the character), which is earlier than any match at `nextPos` (after consuming).
-      // FLAG_MATCH_BEFORE ensures doSearch records the match end at `pos`, preserving
-      // leftmost-first semantics.
-      flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
-      if (hasMatch(nextInsts)) {
-        // Character transitions also reach MATCH (match at nextPos). Record this so doSearch
-        // can fall back to the after-consume match when the before-consume match is rejected
-        // (e.g., patterns ending with $ require the match to end at text length).
-        flags |= FLAG_MATCH_AFTER_DEFERRED;
+      // character and reached a MATCH instruction.
+      if (deferredMatchIsPrimary) {
+        flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
+        if (hasMatch(nextInsts)) {
+          flags |= FLAG_MATCH_AFTER_DEFERRED;
+        }
+      } else {
+        if (hasMatch(nextInsts)) {
+          flags |= FLAG_MATCH;
+        } else {
+          flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
+        }
       }
     } else if (hasMatch(nextInsts)) {
       flags |= FLAG_MATCH;
@@ -862,31 +987,6 @@ final class Dfa {
       flags |= FLAG_LAST_UNICODE_WORD;
     }
     return getOrCreate(nextInsts, flags, deferredMatchIds);
-  }
-
-  /** Merges two sorted instruction arrays into a sorted, deduplicated array. */
-  private static int[] mergeInsts(int[] a, int[] b) {
-    int[] merged = new int[a.length + b.length];
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    while (i < a.length && j < b.length) {
-      if (a[i] < b[j]) {
-        merged[k++] = a[i++];
-      } else if (a[i] > b[j]) {
-        merged[k++] = b[j++];
-      } else {
-        merged[k++] = a[i++];
-        j++;
-      }
-    }
-    while (i < a.length) {
-      merged[k++] = a[i++];
-    }
-    while (j < b.length) {
-      merged[k++] = b[j++];
-    }
-    return Arrays.copyOf(merged, k);
   }
 
   // ---------------------------------------------------------------------------
@@ -926,7 +1026,7 @@ final class Dfa {
    */
   static SearchResult search(
       Prog prog, String text, int startPos, boolean anchored, boolean longest, int maxStates) {
-    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog));
+    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), longest);
     return dfa.doSearch(text, startPos, anchored, longest);
   }
 
@@ -985,7 +1085,7 @@ final class Dfa {
           || (trailingTermStart < textLen && trailingTermStart == startPos)) {
         matched = true;
         matchEnd = startPos;
-        if (!longest && (!needEndMatch || startPos == textLen)) {
+        if (!longest && isHighestPriorityMatch(s) && (!needEndMatch || startPos == textLen)) {
           return new SearchResult(true, startPos);
         }
       }
@@ -1046,6 +1146,7 @@ final class Dfa {
           s.next[cls] = ns;
         }
       }
+
       s = ns;
 
       if (s == deadState) {
@@ -1063,7 +1164,7 @@ final class Dfa {
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
-            if (!longest && (!needEndMatch || endPos == textLen)) {
+            if (!longest && isHighestPriorityMatch(s) && (!needEndMatch || endPos == textLen)) {
               return new SearchResult(true, matchEnd);
             }
           }
@@ -1078,7 +1179,7 @@ final class Dfa {
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
-            if (!longest && (!needEndMatch || endPos == textLen)) {
+            if (!longest && isHighestPriorityMatch(s) && (!needEndMatch || endPos == textLen)) {
               return new SearchResult(true, matchEnd);
             }
           }
@@ -1157,7 +1258,7 @@ final class Dfa {
       int cp;
       int prevPos;
       int cls;
-      if (pos > startLimit) {
+      if (pos > 0) {
         // Read the code point just before pos (scanning backward).
         char ch = text.charAt(pos - 1);
         if (ch < 128) {
@@ -1209,13 +1310,15 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        // For reverse search, FLAG_MATCH_BEFORE means the match happened at pos, not prevPos.
-        int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.max(prevPos, startLimit);
-        if (!needEndMatch || startPos == startLimit) {
-          matched = true;
-          matchStart = startPos;
-          if (!longest && !needEndMatch) {
-            return new SearchResult(true, matchStart);
+        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
+        if (matchValid) {
+          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
+          if (!needEndMatch || startPos == startLimit) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
           }
         }
       }
@@ -1225,7 +1328,6 @@ final class Dfa {
       }
       pos = prevPos;
     }
-
     return new SearchResult(matched, matchStart);
   }
 
@@ -1251,7 +1353,7 @@ final class Dfa {
 
   /** Multi-match search with explicit state budget. */
   static ManyMatchResult searchMany(Prog prog, String text, boolean anchored, int maxStates) {
-    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog));
+    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), true);
     return dfa.doSearchMany(text, anchored);
   }
 
@@ -1275,7 +1377,7 @@ final class Dfa {
     }
 
     // Use a bitset to track which match IDs have been seen.
-    java.util.BitSet seen = new java.util.BitSet();
+    BitSet seen = new BitSet();
 
     // Check if start state is already a match.
     if (s.isMatch()) {
@@ -1369,6 +1471,34 @@ final class Dfa {
     boolean matched = !seen.isEmpty();
     int[] matchIds = seen.stream().toArray();
     return new ManyMatchResult(matched, matchIds);
+  }
+
+  private boolean isMatchPrimary(int[] expanded) {
+    int firstMatch = -1;
+    int firstActive = -1;
+    for (int i = 0; i < expanded.length; i++) {
+      int op = prog.inst(expanded[i]).opCode;
+      if (op == InstOp.OP_MATCH) {
+        if (firstMatch == -1) {
+          firstMatch = i;
+        }
+      } else if (op == InstOp.OP_CHAR_RANGE || op == InstOp.OP_CHAR_CLASS) {
+        if (firstActive == -1) {
+          firstActive = i;
+        }
+      }
+    }
+    if (firstMatch == -1) {
+      return false;
+    }
+    if (firstActive == -1) {
+      return true;
+    }
+    return firstMatch < firstActive;
+  }
+
+  private boolean isHighestPriorityMatch(State s) {
+    return s.insts.length > 0 && prog.inst(s.insts[0]).opCode == InstOp.OP_MATCH;
   }
 
   private Dfa() {

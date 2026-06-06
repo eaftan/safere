@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Package-private inventory of public {@link Matcher} lifecycle transitions.
@@ -230,9 +231,7 @@ final class MatcherTransitionInventory {
 
   private static final Map<Signature, Transition> BY_SIGNATURE =
       TRANSITIONS.stream()
-          .collect(
-              java.util.stream.Collectors.toUnmodifiableMap(
-                  Transition::signature, transition -> transition));
+          .collect(Collectors.toUnmodifiableMap(Transition::signature, transition -> transition));
 
   private MatcherTransitionInventory() {}
 

@@ -105,10 +105,10 @@ class EnginePathEquivalenceTest {
                 .bitState(false)
                 .build());
 
-    assertThat(canonical.dfaStartReliable()).isFalse();
+    assertThat(canonical.dfaStartReliable()).isTrue();
     assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded DFA sandwich should expose why start reliability is guarded")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
+        .as("unguarded DFA sandwich matches the canonical trace with priority pruning")
+        .isEqualTo(findTrace(canonical.matcher(input)));
   }
 
   @Test

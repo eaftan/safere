@@ -8,6 +8,7 @@
 package org.safere;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntPredicate;
@@ -912,7 +913,7 @@ final class UnicodeTables {
       idx += t.length;
     }
     // Sort by lo, then by hi.
-    java.util.Arrays.sort(all, (a, b) -> a[0] != b[0] ? a[0] - b[0] : a[1] - b[1]);
+    Arrays.sort(all, (a, b) -> a[0] != b[0] ? a[0] - b[0] : a[1] - b[1]);
     // Merge overlapping/adjacent ranges.
     int[][] merged = new int[total][];
     int count = 0;
@@ -924,6 +925,6 @@ final class UnicodeTables {
         merged[count++] = new int[] {range[0], range[1]};
       }
     }
-    return java.util.Arrays.copyOf(merged, count);
+    return Arrays.copyOf(merged, count);
   }
 }

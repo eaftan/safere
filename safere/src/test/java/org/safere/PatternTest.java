@@ -585,6 +585,17 @@ class PatternTest {
     }
 
     @Test
+    void replaceAllLazyQuantifier() {
+      Pattern p = Pattern.compile("a+?");
+      Matcher m = p.matcher("aaa");
+      while (m.find()) {
+        System.err.printf("Found match at [%d, %d)\n", m.start(), m.end());
+      }
+      String res = p.matcher("aaa").replaceAll("X");
+      assertThat(res).isEqualTo("XXX");
+    }
+
+    @Test
     void splitAndRejoin() {
       Pattern p = Pattern.compile("-");
       String[] parts = p.split("2025-03-17");

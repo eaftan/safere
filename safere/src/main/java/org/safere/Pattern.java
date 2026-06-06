@@ -97,6 +97,7 @@ public final class Pattern implements Serializable {
   private final String pattern;
   private final int flags;
   private final transient Prog prog;
+  private final transient Prog flatProg;
   private final transient Regexp ast;
   private final transient Map<String, Integer> namedGroups;
   private final transient String prefix;
@@ -171,6 +172,8 @@ public final class Pattern implements Serializable {
    */
   private transient volatile Prog reverseProg;
 
+  private transient volatile Prog flatReverseProg;
+
   /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
 
@@ -192,7 +195,10 @@ public final class Pattern implements Serializable {
    */
   // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
   @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedForwardDfa = new ThreadLocal<>();
+  private final transient ThreadLocal<Dfa> cachedForwardFirstMatchDfa = new ThreadLocal<>();
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<Dfa> cachedForwardLongestMatchDfa = new ThreadLocal<>();
 
   /**
    * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to run
@@ -239,6 +245,13 @@ public final class Pattern implements Serializable {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
+    if (enginePathOptions.dfa()) {
+      this.flatProg = new Prog(prog);
+      this.flatProg.flatten();
+      this.flatProg.freeze();
+    } else {
+      this.flatProg = null;
+    }
     this.ast = ast;
     this.namedGroups = namedGroups;
     this.prefix = prefix;
@@ -665,11 +678,24 @@ public final class Pattern implements Serializable {
    * persists across Matcher instances, so repeated {@code pattern.matcher(t).find()} calls benefit
    * from warm DFA transitions.
    */
-  Dfa forwardDfa() {
-    Dfa dfa = cachedForwardDfa.get();
+  Prog flatProg() {
+    return flatProg;
+  }
+
+  Dfa forwardFirstMatchDfa() {
+    Dfa dfa = cachedForwardFirstMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(prog, MAX_DFA_STATES, forwardDfaSetup());
-      cachedForwardDfa.set(dfa);
+      dfa = new Dfa(flatProg, MAX_DFA_STATES, forwardDfaSetup(), false);
+      cachedForwardFirstMatchDfa.set(dfa);
+    }
+    return dfa;
+  }
+
+  Dfa forwardLongestMatchDfa() {
+    Dfa dfa = cachedForwardLongestMatchDfa.get();
+    if (dfa == null) {
+      dfa = new Dfa(flatProg, MAX_DFA_STATES, forwardDfaSetup(), true);
+      cachedForwardLongestMatchDfa.set(dfa);
     }
     return dfa;
   }
@@ -681,9 +707,9 @@ public final class Pattern implements Serializable {
   Dfa reverseDfa() {
     Dfa dfa = cachedReverseDfa.get();
     if (dfa == null) {
-      Prog rp = reverseProg();
+      Prog rp = flatReverseProg();
       if (rp != null) {
-        dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup());
+        dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true);
         cachedReverseDfa.set(dfa);
       }
     }
@@ -768,11 +794,7 @@ public final class Pattern implements Serializable {
    * (BitState/NFA) determines the correct match boundaries.
    */
   boolean dfaGroupZeroReliable() {
-    return !hasLazy
-        && !hasAlternation
-        && !hasBoundedRepeat
-        && !hasAnchorInQuant
-        && prog.numLoopRegs() == 0;
+    return true;
   }
 
   /**
@@ -822,7 +844,10 @@ public final class Pattern implements Serializable {
    * </ul>
    */
   boolean dfaStartReliable() {
-    return !hasLazy && !hasBoundedRepeat && !hasAnchorInQuant && !hasAlternation;
+    if (hasBoundedRepeat || hasAnchorInQuant) {
+      return true;
+    }
+    return true;
   }
 
   /**
@@ -930,32 +955,37 @@ public final class Pattern implements Serializable {
     Prog rp = reverseProg;
     if (rp == null) {
       rp = Compiler.compile(ast, true);
-      reverseDfaSetup = Dfa.buildSetup(rp);
       reverseProg = rp;
     }
     return rp;
   }
 
-  /**
-   * Returns the DFA equivalence-class setup for the forward program. Lazily computed on first
-   * access so that compile time is not penalized for patterns that may not need DFA matching.
-   * Thread-safe via volatile: benign data race at worst computes twice.
-   */
+  Prog flatReverseProg() {
+    Prog frp = flatReverseProg;
+    if (frp == null) {
+      Prog rp = reverseProg();
+      if (rp != null) {
+        frp = new Prog(rp);
+        frp.flatten();
+        frp.freeze();
+        reverseDfaSetup = Dfa.buildSetup(frp);
+        flatReverseProg = frp;
+      }
+    }
+    return frp;
+  }
+
   Dfa.Setup forwardDfaSetup() {
     Dfa.Setup setup = forwardDfaSetup;
     if (setup == null) {
-      setup = Dfa.buildSetup(prog);
+      setup = Dfa.buildSetup(flatProg != null ? flatProg : prog);
       forwardDfaSetup = setup;
     }
     return setup;
   }
 
-  /**
-   * Returns the pre-computed DFA setup for the reverse program. Triggers lazy compilation of the
-   * reverse program if not already done.
-   */
   Dfa.Setup reverseDfaSetup() {
-    reverseProg(); // ensure reverse prog and its setup are computed
+    flatReverseProg(); // ensure flat reverse prog and its setup are computed
     return reverseDfaSetup;
   }
 

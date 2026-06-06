@@ -276,7 +276,7 @@ class DfaTest {
     void unicodeWordBoundaryStartStateCacheDistinguishesNextCharacterContext() {
       Regexp re = Parser.parse("\\b.", FLAGS | ParseFlags.UNICODE_CHAR_CLASS);
       Prog prog = Compiler.compile(re);
-      Dfa dfa = new Dfa(prog, 10_000, Dfa.buildSetup(prog));
+      Dfa dfa = new Dfa(prog, 10_000, Dfa.buildSetup(prog), false);
 
       Dfa.SearchResult boundary = dfa.doSearch("!\u00E9", 1, true, false);
       Dfa.SearchResult nonBoundary = dfa.doSearch("!!", 1, true, false);
