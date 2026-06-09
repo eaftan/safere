@@ -1080,12 +1080,10 @@ final class Dfa {
     int matchEnd = -1;
     // Check if start state is already a match (e.g., empty pattern or .*? prefix).
     if (s.isMatch()) {
-      if (!needEndMatch
-          || textLen == startPos
-          || (trailingTermStart < textLen && trailingTermStart == startPos)) {
+      if (isRequiredEndMatch(startPos, needEndMatch, textLen, trailingTermStart)) {
         matched = true;
         matchEnd = startPos;
-        if (!longest && isHighestPriorityMatch(s) && (!needEndMatch || startPos == textLen)) {
+        if (!longest && canStopAtFirstMatch(s, text, startPos, needEndMatch)) {
           return new SearchResult(true, startPos);
         }
       }
@@ -1159,12 +1157,10 @@ final class Dfa {
         // first (it's at an earlier position, preserving leftmost-first semantics).
         if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
           int endPos = pos;
-          if (!needEndMatch
-              || endPos == textLen
-              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
-            if (!longest && isHighestPriorityMatch(s) && (!needEndMatch || endPos == textLen)) {
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
               return new SearchResult(true, matchEnd);
             }
           }
@@ -1174,12 +1170,10 @@ final class Dfa {
         // exists (FLAG_MATCH_AFTER_DEFERRED).
         if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
           int endPos = Math.min(nextPos, textLen);
-          if (!needEndMatch
-              || endPos == textLen
-              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
-            if (!longest && isHighestPriorityMatch(s) && (!needEndMatch || endPos == textLen)) {
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
               return new SearchResult(true, matchEnd);
             }
           }
@@ -1497,8 +1491,55 @@ final class Dfa {
     return firstMatch < firstActive;
   }
 
+  private boolean canStopAtFirstMatch(State s, String text, int pos, boolean needEndMatch) {
+    if (!needEndMatch) {
+      return isHighestPriorityMatch(s);
+    }
+    int cp = codePointAt(text, pos);
+    for (int id : s.insts) {
+      Inst inst = prog.inst(id);
+      switch (inst.opCode) {
+        case InstOp.OP_MATCH -> {
+          return true;
+        }
+        case InstOp.OP_CHAR_RANGE -> {
+          if (cp >= 0 && inst.matchesChar(cp)) {
+            return false;
+          }
+        }
+        case InstOp.OP_CHAR_CLASS -> {
+          if (cp >= 0 && inst.matchesCharClass(cp)) {
+            return false;
+          }
+        }
+        default -> {}
+      }
+    }
+    return false;
+  }
+
   private boolean isHighestPriorityMatch(State s) {
     return s.insts.length > 0 && prog.inst(s.insts[0]).opCode == InstOp.OP_MATCH;
+  }
+
+  private static int codePointAt(String text, int pos) {
+    if (pos >= text.length()) {
+      return -1;
+    }
+    char ch = text.charAt(pos);
+    if (Character.isHighSurrogate(ch)
+        && pos + 1 < text.length()
+        && Character.isLowSurrogate(text.charAt(pos + 1))) {
+      return Character.toCodePoint(ch, text.charAt(pos + 1));
+    }
+    return ch;
+  }
+
+  private static boolean isRequiredEndMatch(
+      int pos, boolean needEndMatch, int textLen, int trailingTermStart) {
+    return !needEndMatch
+        || pos == textLen
+        || (trailingTermStart < textLen && pos == trailingTermStart);
   }
 
   private Dfa() {

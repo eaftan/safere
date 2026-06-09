@@ -48,6 +48,7 @@ final class MatchFuzzer {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
     assertUnicodeBoundaryStartCacheMatchesJdk();
+    assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
 
     String regex;
     int flags;
@@ -99,6 +100,20 @@ final class MatchFuzzer {
     FuzzSupport.MatcherPair matcher = pattern.matcher(boundary);
     matcher.region(1, boundary.length()).lookingAt();
     matcher.reset(nonBoundary).region(1, nonBoundary.length()).lookingAt();
+  }
+
+  private static void assertTrailingLineTerminatorEndAnchorFindsMatchJdk() {
+    List<String> regexes = List.of("^(?:\\n|\\n*)$", "^(?:a?|\\n)$", "(?:(?:(?:a?)|\\n))$");
+    List<String> inputs = List.of("\n", "\n\n", "a\n", "aa\n", "\u2028\u2028");
+    for (String regex : regexes) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (pattern == null) {
+        continue;
+      }
+      for (String input : inputs) {
+        pattern.matcher(input).find();
+      }
+    }
   }
 
   private static void assertFullMatchesSafeRe(String regex, int flags, List<String> inputs) {

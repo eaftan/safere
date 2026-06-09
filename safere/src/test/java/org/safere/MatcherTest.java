@@ -2432,6 +2432,14 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(1);
       assertThat(m.end()).isEqualTo(2);
     }
+
+    @Test
+    @DisplayName("$ before trailing newline stops first-match DFA search")
+    void dollarBeforeTrailingNewlineStopsFirstMatchDfaSearch() {
+      assertFirstFindMatchesJdk("^(?:\\n|\\n*)$", "\n\n");
+      assertFirstFindMatchesJdk("^(?:\\R|\\R*)$", "\r\n\r\n");
+      assertFirstFindMatchesJdk("^(?:\\u2028|\\u2028*)$", "\u2028\u2028");
+    }
   }
 
   @Test
