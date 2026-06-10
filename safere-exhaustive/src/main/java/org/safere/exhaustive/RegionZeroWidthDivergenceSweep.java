@@ -22,6 +22,7 @@ public final class RegionZeroWidthDivergenceSweep {
           DivergenceClass.ASCII_WORD_BOUNDARY_COMBINING_MARK,
           DivergenceClass.OPAQUE_REGION_CRLF_PAIR_CONTEXT,
           DivergenceClass.BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION,
+          DivergenceClass.NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION,
           DivergenceClass.UNKNOWN);
 
   private static final List<RegexCase> REGEXES =
@@ -284,6 +285,9 @@ public final class RegionZeroWidthDivergenceSweep {
     if (isBoundaryAnyClassSplitSurrogateScalarCompositionDivergence(spec)) {
       return DivergenceClass.BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION;
     }
+    if (isNonWordBoundarySplitSurrogateInteriorPositionDivergence(spec)) {
+      return DivergenceClass.NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION;
+    }
     return DivergenceClass.UNKNOWN;
   }
 
@@ -336,6 +340,23 @@ public final class RegionZeroWidthDivergenceSweep {
           case "nonWordBoundaryThenAnyClass",
               "nonWordBoundaryAnyClassOrAsciiY",
               "asciiYOrNonWordBoundaryAnyClass" ->
+              true;
+          default -> false;
+        };
+  }
+
+  private static boolean isNonWordBoundarySplitSurrogateInteriorPositionDivergence(CaseSpec spec) {
+    return "splitHighThroughAscii".equals(spec.textRegion().label())
+        && spec.boundsMode().transparentBounds()
+        && switch (spec.regexCase().label()) {
+          case "nonWordBoundary",
+              "nonWordBoundaryOrAsciiA",
+              "nonWordBoundaryOrAsciiY",
+              "asciiAOrNonWordBoundary",
+              "asciiYOrNonWordBoundary",
+              "nonWordBoundaryThenDot",
+              "nonWordBoundaryDotOrAsciiY",
+              "asciiYOrNonWordBoundaryDot" ->
               true;
           default -> false;
         };
@@ -664,6 +685,11 @@ public final class RegionZeroWidthDivergenceSweep {
         "Observed JDK traces distinguish . from [\\s\\S] after \\B at a transparent split-surrogate"
             + " boundary. SafeRE keeps [\\s\\S] compositional with ordinary scalar-consuming"
             + " atoms."),
+    NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION(
+        DivergenceStatus.KNOWN_INTENTIONAL,
+        "Observed JDK traces expose a \\B match at the interior UTF-16 position of a"
+            + " transparent split surrogate pair. SafeRE keeps word-boundary matching"
+            + " compositional with its scalar boundary model."),
     UNKNOWN(DivergenceStatus.UNKNOWN, "Unclassified SafeRE/JDK region zero-width divergence.");
 
     private final DivergenceStatus status;

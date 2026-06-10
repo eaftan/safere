@@ -217,6 +217,14 @@ class SweepCliSmokeTest {
             RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
                 "$", 0, "\r\n", 1, 2, false, true))
         .isEqualTo("OPAQUE_REGION_CRLF_PAIR_CONTEXT");
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "\\B", 0, "x\uD83D\uDE00y", 1, 4, true, true))
+        .isEqualTo("NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION");
+    assertThat(
+            RegionZeroWidthDivergenceSweep.classifyDivergenceShapeForTesting(
+                "y|\\B.", java.util.regex.Pattern.DOTALL, "x\uD83D\uDE00y", 1, 4, true, false))
+        .isEqualTo("NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION");
   }
 
   @Test
