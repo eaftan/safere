@@ -211,6 +211,39 @@ remain observable when no scalar can be consumed. The sweep classifies
 implementation-detail divergences; other generated divergences are reported as
 `UNKNOWN`.
 
+## DFA Sandwich Leftmost-Start Sweep
+
+Run through the dispatcher script:
+
+```bash
+./run-exhaustive-sweep.sh DfaSandwichLeftmostStartDivergenceSweep \
+  --output-dir=target/exhaustive-reports/dfa-sandwich-leftmost-start-sweep-full
+```
+
+For a smaller ad hoc local check, run a generated-case index range:
+
+```bash
+./run-exhaustive-sweep.sh DfaSandwichLeftmostStartDivergenceSweep --range=:1000 \
+  --output-dir=target/exhaustive-reports/dfa-sandwich-leftmost-start-sweep-smoke
+```
+
+The DFA sandwich leftmost-start sweep compares SafeRE with `java.util.regex`
+for unanchored patterns whose forward DFA earliest end and reverse DFA start
+can disagree with JDK leftmost-first `find()` semantics. It crosses leading
+empty and boundary prefixes, consuming repeated middles, required consuming
+suffixes, alternation contexts, flags, and overlapping inputs. Each generated
+case compares compile acceptance plus public matcher traces for `matches()`,
+`lookingAt()`, repeated `find()`, captures, and replacement APIs when captures
+exist.
+
+Use this sweep before review when changing DFA sandwich routing, reverse-DFA
+start authority, prefix/start acceleration, leftmost-start reliability guards,
+or BitState/NFA fallback decisions. The sweep treats all divergences as
+actionable or unknown because the generated patterns are ordinary supported
+syntax. Generated sweep mode writes the shared compact archive described above;
+use the expander to materialize exact counts and replayable JSONL after the
+sweep.
+
 ## Grapheme Cluster Sweep
 
 Run through the dispatcher script:

@@ -231,6 +231,10 @@ public final class CompactDivergenceExpander {
           sweepDefinition(
               RegionZeroWidthDivergenceSweep.totalCases(),
               RegionZeroWidthDivergenceSweep::compactReplayJson);
+      case "dfa-sandwich-leftmost-start" ->
+          sweepDefinition(
+              DfaSandwichLeftmostStartDivergenceSweep.totalCases(),
+              DfaSandwichLeftmostStartDivergenceSweep::compactReplayJson);
       case "case-folding-character-class" ->
           sweepDefinition(
               CaseFoldingCharacterClassDivergenceSweep.totalCases(),

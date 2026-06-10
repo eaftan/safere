@@ -49,6 +49,9 @@ final class MatchFuzzer {
     }
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
+    assertZeroWidthAlternationFindsLeftmostStartJdk();
+    assertZeroWidthPossessiveCaptureRetentionJdk();
+    assertDfaSandwichLeftmostStartCasesMatchJdk();
 
     String regex;
     int flags;
@@ -112,6 +115,38 @@ final class MatchFuzzer {
       }
       for (String input : inputs) {
         pattern.matcher(input).find();
+      }
+    }
+  }
+
+  private static void assertZeroWidthAlternationFindsLeftmostStartJdk() {
+    List<String> regexes =
+        List.of("(?:\\B{1}|a).", "(?:a|\\B?).", "(?:a|(\\B)?).", "(?:(?:)\\B|a).");
+    for (String regex : regexes) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (pattern != null) {
+        pattern.matcher("ab").find();
+      }
+    }
+  }
+
+  private static void assertZeroWidthPossessiveCaptureRetentionJdk() {
+    FuzzSupport.CompiledPattern pattern =
+        FuzzSupport.compileCompatibleOrSkip("(?m:^(\\B)*+$)", org.safere.Pattern.MULTILINE);
+    if (pattern == null) {
+      return;
+    }
+    pattern.matcher("\n").find();
+    pattern.matcher("\na").find();
+  }
+
+  private static void assertDfaSandwichLeftmostStartCasesMatchJdk() {
+    List<String> regexes =
+        List.of("\\B([^a])*[^a][^a]", "\\B(?:[^a])*[^a][^a]", "\\B[^a]*[^a][^a]", "\\B(?:b|bb)*bb");
+    for (String regex : regexes) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (pattern != null) {
+        pattern.matcher("bbbb").find();
       }
     }
   }

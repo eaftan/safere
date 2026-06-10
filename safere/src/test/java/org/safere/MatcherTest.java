@@ -676,6 +676,31 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() preserves leftmost start for zero-width alternation branches")
+    void findPreservesLeftmostStartForZeroWidthAlternationBranches() {
+      assertFirstFindMatchesJdk("(?:\\B{1}|a).", "ab");
+      assertFirstFindMatchesJdk("(?:a|\\B?).", "ab");
+      assertFirstFindMatchesJdk("(?:a|(\\B)?).", "ab");
+      assertFirstFindMatchesJdk("(?:(?:)\\B|a).", "ab");
+    }
+
+    @Test
+    @DisplayName("find() preserves leftmost start before repeated consuming tails")
+    void findPreservesLeftmostStartBeforeRepeatedConsumingTails() {
+      assertFirstFindMatchesJdk("\\B([^a])*[^a][^a]", "bbbb");
+      assertFirstFindMatchesJdk("\\B(?:[^a])*[^a][^a]", "bbbb");
+      assertFirstFindMatchesJdk("\\B[^a]*[^a][^a]", "bbbb");
+      assertFirstFindMatchesJdk("\\B(?:b|bb)*bb", "bbbb");
+    }
+
+    @Test
+    @DisplayName("find() keeps searching after a failed boundary-prefixed literal candidate")
+    void findKeepsSearchingAfterFailedBoundaryPrefixedLiteralCandidate() {
+      assertFirstFindMatchesJdk("\\bfoo", "_foo foo");
+      assertFirstFindMatchesJdk("\\Bfoo", " foo afoo");
+    }
+
+    @Test
     @DisplayName("find() respects non-word boundaries inside repetitions")
     void findNonWordBoundaryInsideRepetitions() {
       Pattern p = Pattern.compile("(?:(?:(?:\\B)\\w)*)");

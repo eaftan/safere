@@ -73,6 +73,32 @@ class PatternInternalTest {
   }
 
   @Test
+  void leadingWordBoundaryPreservesLiteralPrefixAccelerator() {
+    Pattern p = Pattern.compile("\\bSCRUB:begin_strip\\b(?s:.*?)\\bSCRUB:end_strip\\b");
+
+    assertThat(p.literalMatch()).isNull();
+    assertThat(p.prefix()).isEqualTo("SCRUB:begin_strip");
+  }
+
+  @Test
+  void leadingTextAnchorsDoNotExposeMovableLiteralPrefixAccelerator() {
+    assertThat(Pattern.compile("^SCRUB").prefix()).isNull();
+    assertThat(Pattern.compile("\\ASCRUB").prefix()).isNull();
+  }
+
+  @Test
+  void leadingZeroWidthAssertionMakesDfaStartUnreliable() {
+    assertThat(Pattern.compile("\\B([^a])*[^a][^a]").dfaStartReliable()).isFalse();
+    assertThat(Pattern.compile("(?:)\\B[^a]*[^a][^a]").dfaStartReliable()).isFalse();
+  }
+
+  @Test
+  void nullableConsumingPrefixBeforeBoundaryCanKeepDfaStartReliable() {
+    assertThat(Pattern.compile("[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?").dfaStartReliable())
+        .isTrue();
+  }
+
+  @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
 

@@ -108,6 +108,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasNullableAlternation;
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
+  private final transient boolean startsWithZeroWidthAssertion;
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
@@ -226,6 +227,7 @@ public final class Pattern implements Serializable {
       boolean hasNullableAlternation,
       boolean hasBoundedRepeat,
       boolean hasAnchorInQuant,
+      boolean startsWithZeroWidthAssertion,
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
@@ -262,6 +264,7 @@ public final class Pattern implements Serializable {
     this.hasNullableAlternation = hasNullableAlternation;
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
+    this.startsWithZeroWidthAssertion = startsWithZeroWidthAssertion;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
@@ -334,6 +337,7 @@ public final class Pattern implements Serializable {
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
+    boolean startsWithZeroWidth = startsWithZeroWidthAssertion(metadataAst);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
@@ -360,6 +364,7 @@ public final class Pattern implements Serializable {
         hasNullableAlt,
         hasBounded,
         hasAnchorQuant,
+        startsWithZeroWidth,
         startsWithGcb,
         hasInternalGcb,
         ccPrefixAscii,
@@ -844,10 +849,11 @@ public final class Pattern implements Serializable {
    * </ul>
    */
   boolean dfaStartReliable() {
-    if (hasBoundedRepeat || hasAnchorInQuant) {
-      return true;
-    }
-    return true;
+    return !hasLazy
+        && !hasBoundedRepeat
+        && !hasAnchorInQuant
+        && !hasAlternation
+        && !startsWithZeroWidthAssertion;
   }
 
   /**
@@ -1206,6 +1212,38 @@ public final class Pattern implements Serializable {
     return false;
   }
 
+  private static boolean startsWithZeroWidthAssertion(Regexp re) {
+    Regexp node = unwrapCaptures(re);
+    if (node == null) {
+      return false;
+    }
+    if (node.op == RegexpOp.CONCAT) {
+      for (Regexp child : node.subs) {
+        Regexp candidate = unwrapCaptures(child);
+        if (candidate == null || candidate.op == RegexpOp.EMPTY_MATCH) {
+          continue;
+        }
+        return isZeroWidthAssertion(candidate);
+      }
+      return false;
+    }
+    return isZeroWidthAssertion(node);
+  }
+
+  private static boolean isZeroWidthAssertion(Regexp re) {
+    return switch (re.op) {
+      case BEGIN_LINE,
+          END_LINE,
+          BEGIN_TEXT,
+          END_TEXT,
+          WORD_BOUNDARY,
+          NO_WORD_BOUNDARY,
+          GRAPHEME_CLUSTER_BOUNDARY ->
+          true;
+      default -> false;
+    };
+  }
+
   /**
    * Returns {@code true} if the given regexp can match the empty string. Used to detect nullable
    * alternation branches where OnePass's longest-match semantics may differ from first-match.
@@ -1549,20 +1587,7 @@ public final class Pattern implements Serializable {
    * String#indexOf} before running the full engine.
    */
   private static PrefixResult extractPrefix(Regexp re) {
-    Regexp node = re;
-
-    // See through leading captures and concat wrappers.
-    while (node != null) {
-      if (node.op == RegexpOp.CAPTURE) {
-        node = node.sub();
-        continue;
-      }
-      if (node.op == RegexpOp.CONCAT && node.nsub() > 0) {
-        node = node.subs.getFirst();
-        continue;
-      }
-      break;
-    }
+    Regexp node = firstPrefixCandidate(re);
     if (node == null) {
       return new PrefixResult(null, false);
     }
@@ -1586,6 +1611,31 @@ public final class Pattern implements Serializable {
 
     String prefix = foldCase ? sb.toString().toLowerCase(Locale.ROOT) : sb.toString();
     return new PrefixResult(prefix, foldCase);
+  }
+
+  private static Regexp firstPrefixCandidate(Regexp re) {
+    Regexp node = unwrapCaptures(re);
+    if (node == null) {
+      return null;
+    }
+    if (node.op == RegexpOp.CONCAT) {
+      for (Regexp child : node.subs) {
+        Regexp candidate = unwrapCaptures(child);
+        if (candidate == null || isLeadingZeroWidth(candidate)) {
+          continue;
+        }
+        return candidate;
+      }
+      return null;
+    }
+    return isLeadingZeroWidth(node) ? null : node;
+  }
+
+  private static boolean isLeadingZeroWidth(Regexp re) {
+    return switch (re.op) {
+      case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY -> true;
+      default -> false;
+    };
   }
 
   /**
@@ -1853,7 +1903,7 @@ public final class Pattern implements Serializable {
 
   private static Regexp unwrapCaptures(Regexp re) {
     Regexp node = re;
-    while (node != null && node.op == RegexpOp.CAPTURE) {
+    while (node != null && (node.op == RegexpOp.CAPTURE || node.op == RegexpOp.NON_CAPTURE)) {
       node = node.sub();
     }
     return node;

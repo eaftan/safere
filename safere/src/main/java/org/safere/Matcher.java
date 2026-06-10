@@ -1270,8 +1270,9 @@ public final class Matcher implements MatchResult {
     // Prefix acceleration: if the pattern starts with a literal prefix, skip ahead to where
     // that prefix first appears instead of searching from the current position.
     int effectiveStart = searchFrom;
+    boolean literalPrefixCandidateStart = false;
     String prefix = parentPattern.prefix();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && prefix != null) {
+    if (options.startAcceleration() && prefix != null) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
@@ -1288,6 +1289,7 @@ public final class Matcher implements MatchResult {
         return applyEngineResult(new NoMatchResult());
       }
       effectiveStart = idx;
+      literalPrefixCandidateStart = true;
     }
 
     // Character-class prefix acceleration: when the pattern starts with a character class (and
@@ -1461,29 +1463,41 @@ public final class Matcher implements MatchResult {
     // Skip the reverse DFA phase when the pattern is anchored at the start — the match start is
     // already known to be effectiveStart, so the reverse scan is unnecessary.
     //
-    // Skip entirely when the DFA's match start is unreliable (patterns with lazy quantifiers,
-    // anchors inside quantifiers, or alternation). Lazy quantifiers can make a non-leftmost match
+    // When the DFA's match start is unreliable (patterns with lazy quantifiers, bounded repeats,
+    // anchors inside quantifiers, or alternation), the reverse DFA result is only authoritative if
+    // it proves the match starts at effectiveStart. Lazy quantifiers can make a non-leftmost match
     // end earlier, causing the DFA to find the wrong start. Alternation can have the same effect:
     // when alternatives match at different start positions with different endpoints, the forward
     // DFA's earliest-end result may come from a non-leftmost match, and the reverse DFA from that
-    // endpoint cannot find the leftmost start. In those cases, fall through to the BitState/NFA
-    // fallback which correctly handles all semantics.
+    // wrong endpoint cannot find the leftmost start. In those cases, fall through to the
+    // BitState/NFA fallback which correctly handles all semantics.
     //
-    // For patterns where the DFA start IS reliable but the end may be wrong (bounded repeats),
-    // the sandwich still narrows the range — capturesResolved is set to false so
-    // resolveCaptures() corrects the end position using the submatch engine.
+    // When the accepted start is authoritative, the sandwich still treats group(0) as deferred for
+    // programs whose end may be wrong; resolveCaptures() corrects the end position using the
+    // submatch engine.
     // Skip when a region is active — deferred capture resolution runs on the full text but the
     // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
-    if (options.dfa()
-        && !regionActive
-        && fwdResult != null
-        && fwdResult.pos() > effectiveStart
-        && (!options.semanticGuards() || parentPattern.dfaStartReliable())) {
+    if (options.dfa() && !regionActive && fwdResult != null && fwdResult.pos() > effectiveStart) {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
         // Anchored: match start is effectiveStart. Run forward DFA (anchored, first-match) to find
         // actual end, then defer inner captures until requested.
+        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+        if (fwdFirst != null && fwdFirst.matched()) {
+          int matchEnd = fwdFirst.pos();
+          return applyEngineResult(
+              new DeferredMatchResult(
+                  effectiveStart,
+                  matchEnd,
+                  prog.numCaptures(),
+                  !options.semanticGuards() || parentPattern.dfaGroupZeroReliable(),
+                  false));
+        }
+      } else if (literalPrefixCandidateStart) {
+        // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
+        // by zero-width assertions. Verify that candidate directly; if it fails, the exact fallback
+        // below can still search for later prefix occurrences.
         Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
@@ -1798,6 +1812,32 @@ public final class Matcher implements MatchResult {
       boolean longest,
       boolean endMatch,
       int nsubmatch) {
+    return searchWithBitStateOrNfa(
+        prog,
+        text,
+        startPos,
+        searchLimit,
+        endPos,
+        graphemeConsumeEndPos,
+        anchored,
+        longest,
+        endMatch,
+        nsubmatch,
+        false);
+  }
+
+  private int[] searchWithBitStateOrNfa(
+      Prog prog,
+      String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch,
+      boolean preserveOuterEmptyContext) {
     // Try BitState if the full text is small enough for the visited bitmap. BitState is an
     // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
     // Pike NFA below.
@@ -1850,12 +1890,20 @@ public final class Matcher implements MatchResult {
     }
     boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
-    int boundaryRegionStart = fullTextRegionContext && !transparentBounds ? regionStart : 0;
-    int boundaryEndPos = fullTextRegionContext && !transparentBounds ? endPos : text.length();
+    // Deferred capture replay bounds consumption to group(0), but empty-width assertions still
+    // need the matcher region context that produced the match.
+    boolean useOuterEmptyContext = fullTextRegionContext || preserveOuterEmptyContext;
+    int emptyContextEnd = preserveOuterEmptyContext ? regionEnd : endPos;
+    int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? regionStart : 0;
+    int boundaryEndPos =
+        useOuterEmptyContext && !transparentBounds ? emptyContextEnd : text.length();
     int anchorEndPos =
-        fullTextRegionContext && !anchoringBounds && prog.anchorEnd() ? text.length() : endPos;
-    int emptyAnchorStartPos = fullTextRegionContext && anchoringBounds ? regionStart : 0;
-    int emptyAnchorEndPos = fullTextRegionContext && !anchoringBounds ? text.length() : endPos;
+        useOuterEmptyContext && !anchoringBounds && prog.anchorEnd()
+            ? text.length()
+            : emptyContextEnd;
+    int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? regionStart : 0;
+    int emptyAnchorEndPos =
+        useOuterEmptyContext && !anchoringBounds ? text.length() : emptyContextEnd;
     Nfa.SearchResult nfaResult =
         Nfa.search(
             prog,
@@ -2488,10 +2536,12 @@ public final class Matcher implements MatchResult {
               deferredMatchStart,
               deferredMatchEnd,
               deferredMatchEnd,
+              deferredMatchEnd,
               true,
               false,
               deferredEndMatch,
-              prog.numCaptures());
+              prog.numCaptures(),
+              true);
     }
     if (result != null) {
       groups = result;

@@ -89,6 +89,15 @@ class QuantifiedCaptureSemanticsTest {
         Arguments.of(new GeneratedCase("word boundary star possessive", "(\\b)*+", "a", null)),
         Arguments.of(new GeneratedCase("non-word boundary star possessive", "(\\B)*+", "", null)),
         Arguments.of(
+            new GeneratedCase(
+                "multiline non-word boundary star possessive", "(?m:^(\\B)*+$)", "\n", null)),
+        Arguments.of(
+            new GeneratedCase(
+                "multiline non-word boundary star possessive before text",
+                "(?m:^(\\B)*+$)",
+                "\na",
+                null)),
+        Arguments.of(
             new GeneratedCase("grapheme boundary star possessive", "(\\b{g})*+", "", null)),
         Arguments.of(new GeneratedCase("begin anchor star possessive", "(^)*+", "a", null)),
         Arguments.of(new GeneratedCase("end anchor star possessive", "($)*+", "a", null)),
