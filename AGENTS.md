@@ -63,6 +63,8 @@ Follow the [Google Java Style Guide](https://google.github.io/styleguide/javagui
 - Use `@Override` on all overriding methods
 - Write Javadoc for all public and protected members
 - Use `{@code ...}` in Javadoc for code fragments
+- Prefer `Objects.requireNonNull` over explicit comparisons to `null` for
+  validating required arguments and state, when appropriate.
 - Fields: `camelCase`; constants: `UPPER_SNAKE_CASE`; classes: `PascalCase`
 
 ## Project Structure
