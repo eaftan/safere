@@ -5,6 +5,8 @@
 
 package org.safere;
 
+import static java.util.Objects.requireNonNull;
+
 /** Immutable execution bounds shared by regex engines. */
 record EngineContext(
     String text,
@@ -21,12 +23,8 @@ record EngineContext(
     GraphemeSupport.Context graphemeContext) {
 
   EngineContext {
-    if (text == null) {
-      throw new NullPointerException("text");
-    }
-    if (graphemeContext == null) {
-      throw new NullPointerException("graphemeContext");
-    }
+    requireNonNull(text, "text");
+    requireNonNull(graphemeContext, "graphemeContext");
   }
 
   static EngineContext create(

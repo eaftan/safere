@@ -5,6 +5,8 @@
 
 package org.safere;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -2145,9 +2147,7 @@ public final class Matcher implements MatchResult {
    * @throws NullPointerException if the replacer function is null
    */
   public String replaceFirst(Function<MatchResult, String> replacer) {
-    if (replacer == null) {
-      throw new NullPointerException("replacer");
-    }
+    requireNonNull(replacer, "replacer");
     reset();
     StringBuilder sb = new StringBuilder();
     if (find()) {
@@ -2196,9 +2196,7 @@ public final class Matcher implements MatchResult {
    * @throws NullPointerException if the replacer function is null
    */
   public String replaceAll(Function<MatchResult, String> replacer) {
-    if (replacer == null) {
-      throw new NullPointerException("replacer");
-    }
+    requireNonNull(replacer, "replacer");
     reset();
     StringBuilder sb = new StringBuilder();
     while (find()) {
