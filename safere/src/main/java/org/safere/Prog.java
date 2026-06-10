@@ -556,8 +556,7 @@ final class Prog {
     while (!stack.isEmpty() || nextId != -1) {
       int id = nextId;
       if (id == -1) {
-        // Index-based remove
-        id = stack.remove(stack.size() - 1);
+        id = stack.removeLast();
       } else {
         nextId = -1;
       }
@@ -629,8 +628,7 @@ final class Prog {
     while (!stack.isEmpty() || nextId != -1) {
       int id = nextId;
       if (id == -1) {
-        // Index-based remove
-        id = stack.remove(stack.size() - 1);
+        id = stack.removeLast();
       } else {
         nextId = -1;
       }
@@ -691,8 +689,7 @@ final class Prog {
     while (!stack.isEmpty() || nextId != -1) {
       int id = nextId;
       if (id == -1) {
-        // Index-based remove
-        id = stack.remove(stack.size() - 1);
+        id = stack.removeLast();
       } else {
         nextId = -1;
       }

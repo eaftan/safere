@@ -1815,56 +1815,54 @@ public final class Pattern implements Serializable {
     if (node == null) {
       return false;
     }
-    switch (node.op) {
+    return switch (node.op) {
       case CONCAT -> {
         if (node.subs == null || node.subs.isEmpty()) {
-          return false;
+          yield false;
         }
         for (Regexp sub : node.subs) {
           if (!appendAsciiCaseInsensitiveLiteral(sub, sb)) {
-            return false;
+            yield false;
           }
         }
-        return true;
+        yield true;
       }
       case LITERAL -> {
         int cp = node.rune;
         if (cp < 0 || cp >= 128 || !isAsciiLiteralKeywordChar(cp)) {
-          return false;
+          yield false;
         }
         if ((node.flags & ParseFlags.FOLD_CASE) == 0) {
-          return false;
+          yield false;
         }
         sb.append((char) asciiLower(cp));
-        return true;
+        yield true;
       }
       case LITERAL_STRING -> {
         if (node.runes == null || node.runes.length == 0) {
-          return false;
+          yield false;
         }
         if ((node.flags & ParseFlags.FOLD_CASE) == 0) {
-          return false;
+          yield false;
         }
         for (int cp : node.runes) {
           if (cp < 0 || cp >= 128 || !isAsciiLiteralKeywordChar(cp)) {
-            return false;
+            yield false;
           }
           sb.append((char) asciiLower(cp));
         }
-        return true;
+        yield true;
       }
       case CHAR_CLASS -> {
         int cp = asciiFoldedLiteralChar(node.charClass);
         if (cp < 0) {
-          return false;
+          yield false;
         }
         sb.append((char) cp);
-        return true;
+        yield true;
       }
-      default -> {
-        return false;
-      }
-    }
+      default -> false;
+    };
   }
 
   private static boolean isAsciiLiteralKeywordChar(int cp) {

@@ -54,7 +54,7 @@
     <jazzer.version>0.30.0</jazzer.version>
     <gson.version>2.11.0</gson.version>
     <jmh.version>1.37</jmh.version>
-    <error-prone.version>2.48.0</error-prone.version>
+    <error-prone.version>2.50.0</error-prone.version>
     <google-java-format.version>1.35.0</google-java-format.version>
     <spotless.version>2.44.4</spotless.version>
   </properties>
