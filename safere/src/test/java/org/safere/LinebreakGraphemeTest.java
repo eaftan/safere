@@ -14,7 +14,7 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.IntConsumer;
+import java.util.function.Consumer;
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
@@ -541,13 +541,15 @@ class LinebreakGraphemeTest {
 
       assertFourXInputStaysNearLinear(
           "repeated find() over grapheme clusters",
-          length -> {
-            Matcher matcher = pattern.matcher("a".repeat(length));
+          "a".repeat(20_000),
+          "a".repeat(80_000),
+          text -> {
+            Matcher matcher = pattern.matcher(text);
             int count = 0;
             while (matcher.find()) {
               count++;
             }
-            assertThat(count).isEqualTo(length);
+            assertThat(count).isEqualTo(text.length());
           });
     }
 
@@ -559,7 +561,9 @@ class LinebreakGraphemeTest {
 
       assertFourXInputStaysNearLinear(
           "low-surrogate search-position miss",
-          length -> assertThat(pattern.matcher("\uDC00".repeat(length)).find()).isFalse());
+          "\uDC00".repeat(20_000),
+          "\uDC00".repeat(80_000),
+          text -> assertThat(pattern.matcher(text).find()).isFalse());
     }
 
     @Test
@@ -570,7 +574,9 @@ class LinebreakGraphemeTest {
 
       assertFourXInputStaysNearLinear(
           "regional-indicator boundary miss",
-          length -> assertThat(pattern.matcher("\uD83C\uDDE6".repeat(length)).find()).isFalse());
+          "\uD83C\uDDE6".repeat(20_000),
+          "\uD83C\uDDE6".repeat(80_000),
+          text -> assertThat(pattern.matcher(text).find()).isFalse());
     }
 
     @Test
@@ -581,10 +587,14 @@ class LinebreakGraphemeTest {
 
       assertFourXInputStaysNearLinear(
           "failed unanchored \\X suffix miss",
-          length -> assertThat(pattern.matcher("a" + "\u0301".repeat(length)).find()).isFalse());
+          "a" + "\u0301".repeat(20_000),
+          "a" + "\u0301".repeat(80_000),
+          text -> assertThat(pattern.matcher(text).find()).isFalse());
       assertFourXInputStaysNearLinear(
           "failed unanchored regional-indicator \\X suffix miss",
-          length -> assertThat(pattern.matcher("\uD83C\uDDE6".repeat(length)).find()).isFalse());
+          "\uD83C\uDDE6".repeat(20_000),
+          "\uD83C\uDDE6".repeat(80_000),
+          text -> assertThat(pattern.matcher(text).find()).isFalse());
     }
 
     @Test
@@ -886,10 +896,12 @@ class LinebreakGraphemeTest {
       assertThat(matcher.end()).isEqualTo(2);
     }
 
-    private static void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
-      task.accept(1_000);
-      long smallerNanos = bestRuntimeNanos(() -> task.accept(5_000));
-      long largerNanos = bestRuntimeNanos(() -> task.accept(20_000));
+    private static void assertFourXInputStaysNearLinear(
+        String scenario, String smallerInput, String largerInput, Consumer<String> task) {
+      task.accept(smallerInput);
+      task.accept(largerInput);
+      long smallerNanos = bestRuntimeNanos(() -> task.accept(smallerInput));
+      long largerNanos = bestRuntimeNanos(() -> task.accept(largerInput));
 
       assertThat(largerNanos)
           .as(
