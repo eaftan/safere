@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.regex.MatchResult;
 import org.junit.jupiter.api.DisplayName;
@@ -175,8 +176,10 @@ class MatcherTest {
 
       assertNoPerformanceCliff(
           "matches()+group(1)",
-          length -> {
-            Matcher m = p.matcher("a".repeat(length * 20));
+          "a".repeat(100),
+          "a".repeat(5_000),
+          input -> {
+            Matcher m = p.matcher(input);
             assertThat(m.matches()).isTrue();
             assertThat(m.group(1)).isEqualTo("a");
             assertThat(m.group(2)).isEqualTo("a");
@@ -2506,6 +2509,29 @@ class MatcherTest {
                 + "positive input; near=%d ns, larger=%d ns",
             api, nearMinimumNanos, largerPositiveNanos)
         .isLessThan(largerPositiveNanos * 50);
+  }
+
+  private static void assertNoPerformanceCliff(
+      String api, String nearMinimumInput, String largerPositiveInput, Consumer<String> scenario) {
+    scenario.accept(nearMinimumInput);
+    scenario.accept(largerPositiveInput);
+    long largerPositiveNanos = bestRuntimeNanos(() -> scenario.accept(largerPositiveInput));
+    long nearMinimumNanos = bestRuntimeNanos(() -> scenario.accept(nearMinimumInput));
+
+    assertThat(nearMinimumNanos)
+        .as(
+            "%s near-minimum input should not be dramatically slower than a larger "
+                + "positive input; near=%d ns, larger=%d ns",
+            api, nearMinimumNanos, largerPositiveNanos)
+        .isLessThan(largerPositiveNanos * 50);
+  }
+
+  private static long bestRuntimeNanos(Runnable task) {
+    long best = Long.MAX_VALUE;
+    for (int i = 0; i < 3; i++) {
+      best = Math.min(best, runtimeNanos(task));
+    }
+    return best;
   }
 
   private static long runtimeNanos(Runnable task) {
