@@ -2129,10 +2129,11 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     reset();
-    StringBuilder sb = new StringBuilder();
-    if (find()) {
-      appendReplacement(sb, replacement);
+    if (!find()) {
+      return text;
     }
+    StringBuilder sb = new StringBuilder();
+    appendReplacement(sb, replacement);
     appendTail(sb);
     return sb.toString();
   }
@@ -2149,13 +2150,14 @@ public final class Matcher implements MatchResult {
   public String replaceFirst(Function<MatchResult, String> replacer) {
     requireNonNull(replacer, "replacer");
     reset();
-    StringBuilder sb = new StringBuilder();
-    if (find()) {
-      int expectedModCount = modCount;
-      String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
-      checkConcurrentModification(expectedModCount);
-      appendReplacement(sb, replacement);
+    if (!find()) {
+      return text;
     }
+    StringBuilder sb = new StringBuilder();
+    int expectedModCount = modCount;
+    String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
+    checkConcurrentModification(expectedModCount);
+    appendReplacement(sb, replacement);
     appendTail(sb);
     return sb.toString();
   }
@@ -2168,20 +2170,22 @@ public final class Matcher implements MatchResult {
    * @return the string with all matches replaced
    */
   public String replaceAll(String replacement) {
+    reset();
+    if (!find()) {
+      return text;
+    }
     // Pre-compile the replacement template once, avoiding per-match parseInt/substring overhead.
     ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
-
-    reset();
     StringBuilder sb = new StringBuilder();
     boolean needsCaptures = templateNeedsCaptures(template);
-    while (find()) {
+    do {
       if (needsCaptures || !groupZeroResolved) {
         resolveCaptures();
       }
       sb.append(text, appendPos, groups[0]);
       applyReplacementTemplate(sb, template);
       appendPos = groups[1];
-    }
+    } while (find());
     appendTail(sb);
     return sb.toString();
   }
@@ -2198,13 +2202,16 @@ public final class Matcher implements MatchResult {
   public String replaceAll(Function<MatchResult, String> replacer) {
     requireNonNull(replacer, "replacer");
     reset();
+    if (!find()) {
+      return text;
+    }
     StringBuilder sb = new StringBuilder();
-    while (find()) {
+    do {
       int expectedModCount = modCount;
       String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
       checkConcurrentModification(expectedModCount);
       appendReplacement(sb, replacement);
-    }
+    } while (find());
     appendTail(sb);
     return sb.toString();
   }
