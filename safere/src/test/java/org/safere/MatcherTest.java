@@ -1149,6 +1149,14 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("numeric replacement reference with invalid digit does not throw if no match")
+    void numericReplacementReferenceInvalidFirstDigitDoesNotThrowIfNoMatch() {
+      Pattern p = Pattern.compile("\\d+");
+
+      assertThat(p.matcher("foobar").replaceAll("$99")).isEqualTo("foobar");
+    }
+
+    @Test
     @DisplayName("replaceAll() with named backreference")
     void replaceAllWithNamedBackref() {
       Pattern p = Pattern.compile("(?<word>\\w+)");
