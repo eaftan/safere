@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Fix Loop"
+  short_description: "Iterate Codex review findings safely"
+  default_prompt: "Use $review-fix-loop to run Codex review against main, including committed and local changes, and fix P2+ findings until clean."

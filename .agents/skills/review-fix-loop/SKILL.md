@@ -1,6 +1,6 @@
 ---
 name: review-fix-loop
-description: Run Codex's noninteractive code review on a Git working tree, fix review findings at or above a requested priority such as P2, run local verification, and repeat until no in-scope findings remain. Use when the user asks to run /review, codex exec review, or a review/fix loop over uncommitted changes, branch changes, or a specific commit.
+description: Run Codex's noninteractive code review on a Git working tree, fix review findings at or above a requested priority such as P2, run local verification, and repeat until no in-scope findings remain. Use when the user asks to run /review, codex exec review, or a review/fix loop over branch changes against main, uncommitted changes, or a specific commit.
 ---
 
 # Review Fix Loop
@@ -12,7 +12,11 @@ Use this workflow to run the Codex reviewer from the CLI, address only the reque
 ## Workflow
 
 1. Confirm the review scope and threshold from the user's request.
-   - Default scope: uncommitted changes.
+   - Default scope: everything currently on this branch/worktree compared
+     against `main`, including committed branch changes plus staged, unstaged,
+     and untracked work when the reviewer supports that branch-diff scope.
+   - Use uncommitted-only scope only when the user explicitly asks to review
+     uncommitted changes.
    - Default threshold: P2 or higher when the user says "priority >= P2" or similar.
    - Treat P0, P1, and P2 as in scope for a P2 threshold.
    - Leave P3, nits, style-only suggestions, and optional improvements alone unless the user asks for them.
@@ -32,7 +36,15 @@ Use this workflow to run the Codex reviewer from the CLI, address only the reque
      running session, wait in longer intervals rather than polling or tailing
      logs frequently; inspect the JSONL log only when the run appears stuck or
      has exceeded the expected window.
-   - For uncommitted changes, use:
+   - For the default branch/worktree review against `main`, use:
+
+```bash
+tmpdir="$(mktemp -d)"
+codex exec review --base main --json --output-last-message "$tmpdir/review.md" --ephemeral > "$tmpdir/review.jsonl"
+sed -n '1,240p' "$tmpdir/review.md"
+```
+
+   - For an explicitly requested uncommitted-only review, use:
 
 ```bash
 tmpdir="$(mktemp -d)"
@@ -40,7 +52,7 @@ codex exec review --uncommitted --json --output-last-message "$tmpdir/review.md"
 sed -n '1,240p' "$tmpdir/review.md"
 ```
 
-   - For branch review, add `--base <branch>` instead of `--uncommitted` when the user asks for a base branch review.
+   - For branch review against a different base, replace `main` with the requested base branch.
    - For commit review, use `--commit <sha>` when the user asks for a specific commit.
    - Prefer `codex exec review` over `codex review` when you need `--json` or `--output-last-message`.
 
