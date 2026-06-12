@@ -12,6 +12,9 @@ import java.util.Objects;
  *
  * <p>This API is intended for tests and verification tooling. The JSON schema is versioned, but
  * this class is not part of SafeRE's regex-matching API.
+ *
+ * <p>In bytecode fixture results, each group record includes {@code matched}. Nonparticipating
+ * captures are exported with {@code matched: false} and Java/SafeRE {@code -1} start/end offsets.
  */
 public final class SafeReDiagnostics {
 
@@ -34,6 +37,7 @@ public final class SafeReDiagnostics {
   }
 
   private static final String SCHEMA = "safere-bytecode-v1";
+  private static final Nfa.MatchKind BYTECODE_MATCH_KIND = Nfa.MatchKind.FIRST_MATCH;
 
   /**
    * Exports one verifier fixture JSONL record using SafeRE's NFA-facing compiled program.
@@ -82,13 +86,29 @@ public final class SafeReDiagnostics {
     json.append(',');
     appendProducer(json);
     json.append(',');
-    appendCase(json, caseId, regex, flags, input, mode, engine);
+    appendCase(json, caseId, regex, flags, input, mode, engine, BYTECODE_MATCH_KIND);
     json.append(',');
-    appendResult(json, prog, input);
+    appendResult(json, prog, input, BYTECODE_MATCH_KIND);
     json.append(',');
     appendProgram(json, prog);
     json.append('}');
     return json.toString();
+  }
+
+  /**
+   * Compiles a pattern and exports one verifier fixture JSONL record using SafeRE's NFA engine
+   * result metadata.
+   *
+   * @param caseId stable fixture case identifier
+   * @param regex source regular expression to compile and record in the fixture
+   * @param flags source flags value to compile and record in the fixture
+   * @param input input text to record and match
+   * @param mode match mode for result metadata; currently only {@link BytecodeMatchMode#ANCHORED}
+   * @return one complete JSON object followed by no trailing newline
+   */
+  public static String bytecodeCaseToJsonLine(
+      String caseId, String regex, int flags, String input, BytecodeMatchMode mode) {
+    return bytecodeCaseToJsonLine(caseId, regex, flags, input, mode, Pattern.compile(regex, flags));
   }
 
   /**
@@ -126,7 +146,8 @@ public final class SafeReDiagnostics {
       int flags,
       String input,
       BytecodeMatchMode mode,
-      BytecodeResultEngine engine) {
+      BytecodeResultEngine engine,
+      Nfa.MatchKind matchKind) {
     json.append("\"case\":{");
     appendStringField(json, "id", caseId);
     json.append(',');
@@ -141,6 +162,8 @@ public final class SafeReDiagnostics {
     appendStringField(json, "mode", mode.jsonName);
     json.append(',');
     appendStringField(json, "engine", engine.name());
+    json.append(',');
+    appendStringField(json, "matchKind", matchKind.name());
     json.append('}');
   }
 
@@ -170,7 +193,8 @@ public final class SafeReDiagnostics {
     return true;
   }
 
-  private static void appendResult(StringBuilder json, Prog prog, String input) {
+  private static void appendResult(
+      StringBuilder json, Prog prog, String input, Nfa.MatchKind matchKind) {
     Nfa.SearchResult searchResult =
         Nfa.search(
             prog,
@@ -180,7 +204,7 @@ public final class SafeReDiagnostics {
             input.length(),
             0,
             Nfa.Anchor.ANCHORED,
-            Nfa.MatchKind.FIRST_MATCH,
+            matchKind,
             prog.numCaptures(),
             null);
     int[] groups = searchResult.groups();
@@ -195,6 +219,8 @@ public final class SafeReDiagnostics {
         }
         json.append('{');
         appendNumberField(json, "group", group);
+        json.append(',');
+        appendBooleanField(json, "matched", groups[2 * group] >= 0);
         json.append(',');
         appendNumberField(json, "start", groups[2 * group]);
         json.append(',');

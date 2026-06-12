@@ -26,6 +26,7 @@ class SafeReDiagnosticsTest {
 
     assertThat(json).contains("\"schema\":\"safere-bytecode-v1\"");
     assertThat(json).contains("\"producer\":{\"name\":\"safere\"}");
+    assertThat(json).contains("\"matchKind\":\"FIRST_MATCH\"");
     assertThat(json).contains("\"shape\":\"nfa-prog\"");
     assertThat(json).contains("\"didFlatten\":false");
     assertThat(json).contains("\"op\":\"CHAR_RANGE\"");
@@ -49,8 +50,23 @@ class SafeReDiagnosticsTest {
     assertThat(json).contains("\"matched\":true");
     assertThat(json).contains("\"numCaptures\":2");
     assertThat(json).contains("\"numCaptureSlots\":4");
-    assertThat(json).contains("{\"group\":0,\"start\":0,\"end\":1}");
-    assertThat(json).contains("{\"group\":1,\"start\":0,\"end\":1}");
+    assertThat(json).contains("{\"group\":0,\"matched\":true,\"start\":0,\"end\":1}");
+    assertThat(json).contains("{\"group\":1,\"matched\":true,\"start\":0,\"end\":1}");
+  }
+
+  @Test
+  void exportsNonparticipatingCapturesWithExplicitMatchedFlagAndMinusOneOffsets() {
+    String json =
+        SafeReDiagnostics.bytecodeCaseToJsonLine(
+            "optional-capture",
+            "(a)?",
+            0,
+            "",
+            SafeReDiagnostics.BytecodeMatchMode.ANCHORED,
+            Pattern.compile("(a)?"));
+
+    assertThat(json).contains("{\"group\":0,\"matched\":true,\"start\":0,\"end\":0}");
+    assertThat(json).contains("{\"group\":1,\"matched\":false,\"start\":-1,\"end\":-1}");
   }
 
   @Test
@@ -66,6 +82,17 @@ class SafeReDiagnosticsTest {
 
     assertThat(json).contains("\"matched\":false");
     assertThat(json).contains("\"groups\":[]");
+  }
+
+  @Test
+  void compilesPatternInConvenienceOverload() {
+    String json =
+        SafeReDiagnostics.bytecodeCaseToJsonLine(
+            "compiled", "a", 0, "a", SafeReDiagnostics.BytecodeMatchMode.ANCHORED);
+
+    assertThat(json).contains("\"pattern\":\"a\"");
+    assertThat(json).contains("\"matched\":true");
+    assertThat(json).contains("\"op\":\"CHAR_RANGE\"");
   }
 
   @Test
