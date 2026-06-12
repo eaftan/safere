@@ -92,6 +92,12 @@
       "replacement": "bb",
       "op": "replaceFirst"
     },
+    "literalReplaceFirstNoMatch": {
+      "pattern": "authorization=",
+      "text": "INFO service=checkout method=GET path=/api/orders/123 status=200 latency_ms=17 trace_id=8f14e45fceea167a user=anonymous region=us-east-1 cache=hit; INFO service=checkout method=POST path=/api/orders status=201 latency_ms=42 trace_id=c9f0f895fb98ab91 user=anonymous region=us-east-1 cache=miss; INFO service=inventory method=GET path=/api/items/sku-481516 status=200 latency_ms=11 trace_id=45c48cce2e2d7fbdea1afc51c7c6ad26 user=anonymous region=us-west-2 cache=hit; INFO service=payments method=GET path=/api/charges/ch_123 status=404 latency_ms=23 trace_id=d3d9446802a44259755d38e6d163e820 user=anonymous region=us-east-2 cache=miss; INFO service=shipping method=PATCH path=/api/shipments/shp_987 status=202 latency_ms=36 trace_id=6512bd43d9caa6e02c990b0a82652dca user=anonymous region=us-west-1 cache=hit",
+      "replacement": "authorization=REDACTED",
+      "op": "replaceFirst"
+    },
     "literalReplaceAll": {
       "pattern": "b",
       "text": "ababababab",

@@ -30,8 +30,14 @@ public class ReplaceBenchmark {
   private java.util.regex.Pattern jdkLiteral;
   private com.google.re2j.Pattern re2jLiteral;
   private org.safere.re2ffm.RE2FfmPattern re2ffmLiteral;
+  private org.safere.Pattern safeLiteralNoMatch;
+  private java.util.regex.Pattern jdkLiteralNoMatch;
+  private com.google.re2j.Pattern re2jLiteralNoMatch;
+  private org.safere.re2ffm.RE2FfmPattern re2ffmLiteralNoMatch;
   private String literalReplaceFirstText;
   private String literalReplaceFirstReplacement;
+  private String literalReplaceFirstNoMatchText;
+  private String literalReplaceFirstNoMatchReplacement;
   private String literalReplaceAllText;
   private String literalReplaceAllReplacement;
 
@@ -67,6 +73,12 @@ public class ReplaceBenchmark {
     literalReplaceFirstText = data.getString("replace.literalReplaceFirst.text");
     literalReplaceFirstReplacement = data.getString("replace.literalReplaceFirst.replacement");
 
+    String literalReplaceFirstNoMatchPattern =
+        data.getString("replace.literalReplaceFirstNoMatch.pattern");
+    literalReplaceFirstNoMatchText = data.getString("replace.literalReplaceFirstNoMatch.text");
+    literalReplaceFirstNoMatchReplacement =
+        data.getString("replace.literalReplaceFirstNoMatch.replacement");
+
     String literalReplaceAllPattern = data.getString("replace.literalReplaceAll.pattern");
     literalReplaceAllText = data.getString("replace.literalReplaceAll.text");
     literalReplaceAllReplacement = data.getString("replace.literalReplaceAll.replacement");
@@ -75,6 +87,12 @@ public class ReplaceBenchmark {
     jdkLiteral = java.util.regex.Pattern.compile(literalReplaceFirstPattern);
     re2jLiteral = com.google.re2j.Pattern.compile(literalReplaceFirstPattern);
     re2ffmLiteral = org.safere.re2ffm.RE2FfmPattern.compile(literalReplaceFirstPattern);
+
+    safeLiteralNoMatch = org.safere.Pattern.compile(literalReplaceFirstNoMatchPattern);
+    jdkLiteralNoMatch = java.util.regex.Pattern.compile(literalReplaceFirstNoMatchPattern);
+    re2jLiteralNoMatch = com.google.re2j.Pattern.compile(literalReplaceFirstNoMatchPattern);
+    re2ffmLiteralNoMatch =
+        org.safere.re2ffm.RE2FfmPattern.compile(literalReplaceFirstNoMatchPattern);
 
     String pigPattern = data.getString("replace.pigLatinReplaceAll.pattern");
     pigLatinText = data.getString("replace.pigLatinReplaceAll.text");
@@ -130,6 +148,36 @@ public class ReplaceBenchmark {
     return re2ffmLiteral
         .matcher(literalReplaceFirstText)
         .replaceFirst(literalReplaceFirstReplacement);
+  }
+
+  // ===== Literal replaceFirst with no match =====
+
+  @Benchmark
+  public String literalReplaceFirstNoMatch_safere() {
+    return safeLiteralNoMatch
+        .matcher(literalReplaceFirstNoMatchText)
+        .replaceFirst(literalReplaceFirstNoMatchReplacement);
+  }
+
+  @Benchmark
+  public String literalReplaceFirstNoMatch_jdk() {
+    return jdkLiteralNoMatch
+        .matcher(literalReplaceFirstNoMatchText)
+        .replaceFirst(literalReplaceFirstNoMatchReplacement);
+  }
+
+  @Benchmark
+  public String literalReplaceFirstNoMatch_re2j() {
+    return re2jLiteralNoMatch
+        .matcher(literalReplaceFirstNoMatchText)
+        .replaceFirst(literalReplaceFirstNoMatchReplacement);
+  }
+
+  @Benchmark
+  public String literalReplaceFirstNoMatch_re2ffm() {
+    return re2ffmLiteralNoMatch
+        .matcher(literalReplaceFirstNoMatchText)
+        .replaceFirst(literalReplaceFirstNoMatchReplacement);
   }
 
   // ===== Simple literal replaceAll =====
