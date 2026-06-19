@@ -959,13 +959,7 @@ final class Nfa {
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext) {
     return emptyFlags(
-        text,
-        pos,
-        unixLines,
-        includeGraphemeClusterBoundary,
-        graphemeContext,
-        true,
-        true);
+        text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, true, true);
   }
 
   static int emptyFlags(
@@ -1136,8 +1130,10 @@ final class Nfa {
       }
 
       // Unicode \b and \B
-      boolean prevUnicodeWord = prevCp >= 0 && (prevCp < 128 ? prevWord : isUnicodeWordChar(prevCp));
-      boolean nextUnicodeWord = nextCp >= 0 && (nextCp < 128 ? nextWord : isUnicodeWordChar(nextCp));
+      boolean prevUnicodeWord =
+          prevCp >= 0 && (prevCp < 128 ? prevWord : isUnicodeWordChar(prevCp));
+      boolean nextUnicodeWord =
+          nextCp >= 0 && (nextCp < 128 ? nextWord : isUnicodeWordChar(nextCp));
       if (prevUnicodeWord != nextUnicodeWord) {
         flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
       } else {
