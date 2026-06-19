@@ -178,6 +178,33 @@ std::string make_prose(int size, const std::string& unit) {
   return text;
 }
 
+std::string repeat_to_size(const std::string& unit, int size) {
+  std::string text;
+  text.reserve(size + unit.size());
+  while (static_cast<int>(text.size()) < size) {
+    text += unit;
+  }
+  text.resize(size);
+  return text;
+}
+
+std::string surround_to_size(const std::string& prefix,
+                             const std::string& unit,
+                             const std::string& suffix,
+                             int size) {
+  int body_size = size - static_cast<int>(prefix.size() + suffix.size());
+  if (body_size < 0) body_size = 0;
+  return prefix + repeat_to_size(unit, body_size) + suffix;
+}
+
+std::string suffix_match_to_size(const std::string& prefix_unit,
+                                 const std::string& match,
+                                 int size) {
+  int prefix_size = size - static_cast<int>(match.size());
+  if (prefix_size < 0) prefix_size = 0;
+  return repeat_to_size(prefix_unit, prefix_size) + match;
+}
+
 // Encode a Unicode code point as UTF-8 and append to the string.
 void append_utf8(std::string& s, int cp) {
   if (cp < 0x80) {
@@ -515,6 +542,121 @@ void run_search_scaling_benchmarks(const json& data,
   }
 }
 
+void run_issue481_scaling_benchmarks(const json& data,
+                                     const std::vector<std::string>& filters) {
+  const auto& sec = data["issue481Scaling"];
+  std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
+
+  RE2 split_w(sec["splitW"]["pattern"].get<std::string>());
+  RE2 block(sec["block"]["pattern"].get<std::string>());
+  RE2 tag(sec["tag"]["pattern"].get<std::string>());
+  RE2 scheme(sec["scheme"]["pattern"].get<std::string>());
+
+  auto split_length_sum = [](const std::string& text, RE2& re) {
+    int sum = 0;
+    int count = 0;
+    int start = 0;
+    int last = 0;
+    std::vector<re2::StringPiece> matches(1);
+    while (start <= static_cast<int>(text.size()) &&
+           re.Match(text, start, text.size(), RE2::UNANCHORED,
+                    matches.data(), matches.size())) {
+      int match_start = matches[0].data() - text.data();
+      int match_end = match_start + matches[0].size();
+      ++count;
+      sum += match_start - last;
+      last = match_end;
+      start = matches[0].empty() ? match_end + 1 : match_end;
+    }
+    if (last == 0) {
+      return static_cast<int>(text.size()) + 1;
+    }
+    int trailing_length = text.size() - last;
+    if (trailing_length > 0) {
+      ++count;
+      sum += trailing_length;
+    }
+    return sum + count;
+  };
+
+  auto find = [](const std::string& text, RE2& re) {
+    return RE2::PartialMatch(text, re);
+  };
+
+  auto scheme_extract = [](const std::string& text, RE2& re) {
+    int sum = 0;
+    int start = 0;
+    std::vector<re2::StringPiece> matches(3);
+    while (start <= static_cast<int>(text.size()) &&
+           re.Match(text, start, text.size(), RE2::UNANCHORED,
+                    matches.data(), matches.size())) {
+      sum += matches[1].size();
+      sum += matches[2].size();
+      int end = matches[0].data() - text.data() + matches[0].size();
+      start = matches[0].empty() ? end + 1 : end;
+    }
+    return sum;
+  };
+
+  for (int size : sizes) {
+    std::string split_text =
+        repeat_to_size(sec["splitW"]["unit"].get<std::string>(), size);
+    std::string block_text =
+        surround_to_size(sec["block"]["prefix"].get<std::string>(),
+                         sec["block"]["unit"].get<std::string>(),
+                         sec["block"]["suffix"].get<std::string>(), size);
+    std::string block_negative_text =
+        surround_to_size(sec["block"]["prefix"].get<std::string>(),
+                         sec["block"]["unit"].get<std::string>(),
+                         sec["block"]["negativeSuffix"].get<std::string>(),
+                         size);
+    std::string tag_text =
+        suffix_match_to_size(sec["tag"]["prefixUnit"].get<std::string>(),
+                             sec["tag"]["match"].get<std::string>(), size);
+    std::string tag_negative_text =
+        suffix_match_to_size(sec["tag"]["prefixUnit"].get<std::string>(),
+                             sec["tag"]["negativeMatch"].get<std::string>(),
+                             size);
+    std::string scheme_text =
+        suffix_match_to_size(sec["scheme"]["prefixUnit"].get<std::string>(),
+                             sec["scheme"]["match"].get<std::string>(), size);
+    std::string scheme_negative_text =
+        suffix_match_to_size(sec["scheme"]["prefixUnit"].get<std::string>(),
+                             sec["scheme"]["negativeMatch"].get<std::string>(),
+                             size);
+
+    std::string suffix = "." + std::to_string(size);
+    auto run = [&](const std::string& name, const std::function<void()>& fn) {
+      std::string full_name = name + suffix;
+      if (matches_filter(full_name, filters)) {
+        print_json(measure(full_name, fn, 2, 2.0, 10, 2.0, "us/op", 1000.0));
+      }
+    };
+
+    run("Issue481ScalingBenchmark.splitWords", [&]() {
+      do_not_optimize(split_length_sum(split_text, split_w));
+    });
+    run("Issue481ScalingBenchmark.blockFind", [&]() {
+      do_not_optimize(find(block_text, block));
+    });
+    run("Issue481ScalingBenchmark.blockFindNegative", [&]() {
+      do_not_optimize(find(block_negative_text, block));
+    });
+    run("Issue481ScalingBenchmark.tagFind", [&]() {
+      do_not_optimize(find(tag_text, tag));
+    });
+    run("Issue481ScalingBenchmark.tagFindNegative", [&]() {
+      do_not_optimize(find(tag_negative_text, tag));
+    });
+    run("Issue481ScalingBenchmark.schemeExtract", [&]() {
+      do_not_optimize(scheme_extract(scheme_text, scheme));
+    });
+    run("Issue481ScalingBenchmark.schemeFindNegative", [&]() {
+      do_not_optimize(find(scheme_negative_text, scheme));
+    });
+  }
+}
+
 void run_capture_scaling_benchmarks(const json& data,
                                     const std::vector<std::string>& filters) {
   const auto& sec = data["captureScaling"];
@@ -788,6 +930,7 @@ int main(int argc, char* argv[]) {
   run_application_benchmarks(data, filters);
   run_compile_benchmarks(data, filters);
   run_search_scaling_benchmarks(data, filters);
+  run_issue481_scaling_benchmarks(data, filters);
   run_capture_scaling_benchmarks(data, filters);
   run_http_benchmarks(data, filters);
   run_replace_benchmarks(data, filters);
