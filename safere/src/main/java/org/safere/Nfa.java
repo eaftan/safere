@@ -615,7 +615,9 @@ final class Nfa {
                   consumedInput,
                   context.emptyAnchorStartPos(),
                   context.emptyAnchorEndPos(),
-                  context.effectiveBoundaryEndPos(consumedInput));
+                  context.effectiveBoundaryEndPos(consumedInput),
+                  prog.hasWordBoundary(),
+                  prog.hasTextAnchor());
           if ((ip.arg & ~flags) == 0) {
             stack.add(new int[] {ip.out, -1});
             captureStack.add(null);
@@ -957,7 +959,37 @@ final class Nfa {
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext) {
     return emptyFlags(
-        text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, -1, 0, false);
+        text,
+        pos,
+        unixLines,
+        includeGraphemeClusterBoundary,
+        graphemeContext,
+        true,
+        true);
+  }
+
+  static int emptyFlags(
+      String text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      GraphemeSupport.Context graphemeContext,
+      boolean hasWordBoundary,
+      boolean hasTextAnchor) {
+    return emptyFlags(
+        text,
+        pos,
+        unixLines,
+        includeGraphemeClusterBoundary,
+        graphemeContext,
+        -1,
+        0,
+        false,
+        0,
+        text.length(),
+        text.length(),
+        hasWordBoundary,
+        hasTextAnchor);
   }
 
   static int emptyFlags(
@@ -1008,10 +1040,12 @@ final class Nfa {
         consumedInput,
         0,
         text.length(),
-        text.length());
+        text.length(),
+        true,
+        true);
   }
 
-  private static int emptyFlags(
+  static int emptyFlags(
       String text,
       int pos,
       boolean unixLines,
@@ -1022,7 +1056,9 @@ final class Nfa {
       boolean consumedInput,
       int anchorStartPos,
       int anchorEndPos,
-      int boundaryEndPos) {
+      int boundaryEndPos,
+      boolean hasWordBoundary,
+      boolean hasTextAnchor) {
     int flags = 0;
 
     // ^ and \A
@@ -1032,75 +1068,81 @@ final class Nfa {
     // For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
     // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty
     // string has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
-    if (pos == anchorStartPos) {
-      flags |= EmptyOp.BEGIN_TEXT;
-      if (!text.isEmpty() && pos != anchorEndPos) {
-        flags |= EmptyOp.BEGIN_LINE;
-      }
-    } else if (pos < text.length()) {
-      char prev = text.charAt(pos - 1);
-      if (unixLines) {
-        if (prev == '\n') {
+    if (hasTextAnchor) {
+      if (pos == anchorStartPos) {
+        flags |= EmptyOp.BEGIN_TEXT;
+        if (!text.isEmpty() && pos != anchorEndPos) {
           flags |= EmptyOp.BEGIN_LINE;
         }
-      } else {
-        // After \n: always a new line (whether standalone or part of \r\n).
-        // After \r: new line only if NOT followed by \n (standalone \r).
-        // After \u0085, \u2028, \u2029: always a new line.
-        if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
-          flags |= EmptyOp.BEGIN_LINE;
-        } else if (prev == '\r' && text.charAt(pos) != '\n') {
-          flags |= EmptyOp.BEGIN_LINE;
-        }
-      }
-    }
-
-    // $ and \z
-    // END_LINE is set before any line terminator and at end of text (used by MULTILINE $).
-    // END_TEXT is set only at end of text (used by \z).
-    // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
-    // text (used by $ without MULTILINE — JDK's default $ behavior).
-    if (pos == anchorEndPos) {
-      flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
-    } else if (pos < text.length()) {
-      char ch = text.charAt(pos);
-      if (unixLines) {
-        if (ch == '\n') {
-          flags |= EmptyOp.END_LINE;
-          if (pos + 1 == anchorEndPos) {
-            flags |= EmptyOp.DOLLAR_END;
+      } else if (pos < text.length()) {
+        char prev = text.charAt(pos - 1);
+        if (unixLines) {
+          if (prev == '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
+          }
+        } else {
+          // After \n: always a new line (whether standalone or part of \r\n).
+          // After \r: new line only if NOT followed by \n (standalone \r).
+          // After \u0085, \u2028, \u2029: always a new line.
+          if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
+            flags |= EmptyOp.BEGIN_LINE;
+          } else if (prev == '\r' && text.charAt(pos) != '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
           }
         }
-      } else if (isLineTerminator(ch)) {
-        // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
-        // line terminator. END_LINE fires before the \r (the start of the pair), not between
-        // \r and \n.
-        boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
-        if (!isAtomicLF) {
-          flags |= EmptyOp.END_LINE;
-          if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
-            flags |= EmptyOp.DOLLAR_END;
+      }
+
+      // $ and \z
+      // END_LINE is set before any line terminator and at end of text (used by MULTILINE $).
+      // END_TEXT is set only at end of text (used by \z).
+      // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
+      // text (used by $ without MULTILINE — JDK's default $ behavior).
+      if (pos == anchorEndPos) {
+        flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
+      } else if (pos < text.length()) {
+        char ch = text.charAt(pos);
+        if (unixLines) {
+          if (ch == '\n') {
+            flags |= EmptyOp.END_LINE;
+            if (pos + 1 == anchorEndPos) {
+              flags |= EmptyOp.DOLLAR_END;
+            }
+          }
+        } else if (isLineTerminator(ch)) {
+          // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
+          // line terminator. END_LINE fires before the \r (the start of the pair), not between
+          // \r and \n.
+          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
+          if (!isAtomicLF) {
+            flags |= EmptyOp.END_LINE;
+            if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
+              flags |= EmptyOp.DOLLAR_END;
+            }
           }
         }
       }
     }
 
     // \b and \B
-    boolean prevWord = pos > regionStart && isWordChar(text.codePointBefore(pos));
-    boolean nextWord = pos < boundaryEndPos && isWordChar(text.codePointAt(pos));
-    if (prevWord != nextWord) {
-      flags |= EmptyOp.WORD_BOUNDARY;
-    } else {
-      flags |= EmptyOp.NON_WORD_BOUNDARY;
-    }
+    if (hasWordBoundary) {
+      int prevCp = pos > regionStart ? text.codePointBefore(pos) : -1;
+      boolean prevWord = prevCp >= 0 && isWordChar(prevCp);
+      int nextCp = pos < boundaryEndPos ? text.codePointAt(pos) : -1;
+      boolean nextWord = nextCp >= 0 && isWordChar(nextCp);
+      if (prevWord != nextWord) {
+        flags |= EmptyOp.WORD_BOUNDARY;
+      } else {
+        flags |= EmptyOp.NON_WORD_BOUNDARY;
+      }
 
-    // Unicode \b and \B
-    boolean prevUnicodeWord = pos > regionStart && isUnicodeWordChar(text.codePointBefore(pos));
-    boolean nextUnicodeWord = pos < boundaryEndPos && isUnicodeWordChar(text.codePointAt(pos));
-    if (prevUnicodeWord != nextUnicodeWord) {
-      flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
-    } else {
-      flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      // Unicode \b and \B
+      boolean prevUnicodeWord = prevCp >= 0 && (prevCp < 128 ? prevWord : isUnicodeWordChar(prevCp));
+      boolean nextUnicodeWord = nextCp >= 0 && (nextCp < 128 ? nextWord : isUnicodeWordChar(nextCp));
+      if (prevUnicodeWord != nextUnicodeWord) {
+        flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
+      } else {
+        flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      }
     }
 
     if (includeGraphemeClusterBoundary) {
