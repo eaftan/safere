@@ -393,11 +393,22 @@ root:
 ./collect-benchmark-results.sh
 ```
 
+The default collection is Java-only: SafeRE, `java.util.regex`, RE2/J, and
+RE2-FFM. These are the normal engineering comparisons because they run in the
+same JVM environment.
+
 Use the longer Java mode when confirming close, surprising, or especially
 important comparisons:
 
 ```bash
 ./collect-benchmark-results.sh --long
+```
+
+Use the cross-language mode only when you need broader ecosystem context from
+C++ RE2 and Go `regexp`:
+
+```bash
+./collect-benchmark-results.sh --cross-language
 ```
 
 To verify the collection pipeline without doing a full run:
@@ -406,9 +417,8 @@ To verify the collection pipeline without doing a full run:
 ./collect-benchmark-results.sh --smoke
 ```
 
-The script runs the Java, C++ RE2, and Go benchmark batches sequentially,
-captures raw output, extracts native JSON-lines results, and generates merged
-markdown tables.
+The script runs benchmark batches sequentially, captures raw output, and
+generates markdown tables.
 
 By default, results are written to a timestamped directory under
 `benchmark-results/`, and `benchmark-results/latest` is updated to point to
@@ -425,11 +435,16 @@ The important files in that directory are:
 
 ```text
 jmh-output.txt
-cpp-results.jsonl
-go-results.jsonl
 merged-tables.md
 java-memory.txt
 java-pattern-memory.txt
+```
+
+Cross-language runs also include:
+
+```text
+cpp-results.jsonl
+go-results.jsonl
 ```
 
 ### Targeted Benchmark Runs
@@ -477,19 +492,28 @@ cross-language comparison. Prerequisites: CMake ≥ 3.14 + C++17 compiler
 
 ### Comparing Results Manually
 
-A comparison script merges JMH, C++, and Go results into side-by-side markdown:
+A comparison script turns JMH output into side-by-side markdown:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
-  --jmh jmh-output.txt --json cpp-results.jsonl go-results.jsonl
+  --jmh jmh-output.txt
 ```
 
-To verify that all harnesses emitted the application benchmark names defined in
-`benchmark-data.json`, add:
+Add C++ and Go JSON-lines files when comparing cross-language results:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
-  --jmh jmh-output.txt --json cpp-results.jsonl go-results.jsonl \
+  --jmh jmh-output.txt \
+  --json cpp-results.jsonl go-results.jsonl \
+  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go
+```
+
+To verify that emitted application benchmark names match `benchmark-data.json`,
+add:
+
+```bash
+python3 safere-benchmarks/scripts/compare-benchmarks.py \
+  --jmh jmh-output.txt \
   --benchmark-data safere-benchmarks/benchmark-data.json \
   --check-application-names
 ```

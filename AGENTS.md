@@ -325,9 +325,13 @@ per invocation and collect results incrementally:
 - **Pathological benchmarks always use `-f 0`.** The script handles this
   automatically — PathologicalBenchmark and PathologicalComparisonBenchmark
   run without forking because the JDK engine can hang on large inputs.
-- **NEVER run benchmarks in parallel.** All benchmark runs (Java, C++, Go)
-  must run sequentially, one at a time. Parallel runs compete for CPU,
-  cache, and memory bandwidth, producing inaccurate results.
+- **Default benchmark collection is Java-only.** `./collect-benchmark-results.sh`
+  collects SafeRE, JDK, RE2/J, and RE2-FFM results by default. Use
+  `./collect-benchmark-results.sh --cross-language` only when broader C++ RE2
+  and Go `regexp` context is explicitly needed.
+- **NEVER run benchmarks in parallel.** All benchmark runs must run
+  sequentially, one at a time. Parallel runs compete for CPU, cache, and memory
+  bandwidth, producing inaccurate results.
 - **Do not commit optimizations that do not improve benchmark results.**
   Every optimization must be validated with before/after benchmarks.
 - **All harnesses share `benchmark-data.json`.** This ensures identical
