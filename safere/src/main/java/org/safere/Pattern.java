@@ -1653,11 +1653,19 @@ public final class Pattern implements Serializable {
    * @return a {@code boolean[128]} ASCII bitmap, or {@code null} if no suitable prefix exists
    */
   private static boolean[] extractCharClassPrefixAscii(Regexp re) {
+    boolean[] bitmap = new boolean[128];
+    if (populateCharClassPrefixAscii(re, bitmap)) {
+      return bitmap;
+    }
+    return null;
+  }
+
+  private static boolean populateCharClassPrefixAscii(Regexp re, boolean[] bitmap) {
     Regexp node = re;
 
     // See through leading captures and concat wrappers.
     while (node != null) {
-      if (node.op == RegexpOp.CAPTURE) {
+      if (node.op == RegexpOp.CAPTURE || node.op == RegexpOp.NON_CAPTURE) {
         node = node.sub();
         continue;
       }
@@ -1668,37 +1676,84 @@ public final class Pattern implements Serializable {
       break;
     }
     if (node == null) {
-      return null;
+      return false;
     }
 
     // See through required quantifiers (PLUS, REPEAT with min >= 1).
     if (node.op == RegexpOp.PLUS || (node.op == RegexpOp.REPEAT && node.min >= 1)) {
-      node = node.sub();
+      return populateCharClassPrefixAscii(node.sub(), bitmap);
     }
 
-    if (node.op != RegexpOp.CHAR_CLASS || node.charClass == null) {
-      return null;
-    }
-
-    CharClass cc = node.charClass;
-    if (cc.isEmpty()) {
-      return null;
-    }
-
-    // Only accelerate ASCII-only character classes.
-    for (int i = 0; i < cc.numRanges(); i++) {
-      if (cc.hi(i) >= 128) {
-        return null;
+    return switch (node.op) {
+      case LITERAL -> {
+        int r = node.rune;
+        if (r >= 128) {
+          yield false;
+        }
+        bitmap[r] = true;
+        if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
+          if (r >= 'a' && r <= 'z') {
+            bitmap[r - 32] = true;
+          } else if (r >= 'A' && r <= 'Z') {
+            bitmap[r + 32] = true;
+          }
+        }
+        yield true;
       }
-    }
-
-    boolean[] bitmap = new boolean[128];
-    for (int i = 0; i < cc.numRanges(); i++) {
-      for (int cp = cc.lo(i); cp <= cc.hi(i); cp++) {
-        bitmap[cp] = true;
+      case LITERAL_STRING -> {
+        if (node.runes == null || node.runes.length == 0) {
+          yield false;
+        }
+        int r = node.runes[0];
+        if (r >= 128) {
+          yield false;
+        }
+        bitmap[r] = true;
+        if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
+          if (r >= 'a' && r <= 'z') {
+            bitmap[r - 32] = true;
+          } else if (r >= 'A' && r <= 'Z') {
+            bitmap[r + 32] = true;
+          }
+        }
+        yield true;
       }
-    }
-    return bitmap;
+      case CHAR_CLASS -> {
+        CharClass cc = node.charClass;
+        if (cc == null || cc.isEmpty()) {
+          yield false;
+        }
+        for (int i = 0; i < cc.numRanges(); i++) {
+          if (cc.hi(i) >= 128) {
+            yield false;
+          }
+        }
+        for (int i = 0; i < cc.numRanges(); i++) {
+          for (int cp = cc.lo(i); cp <= cc.hi(i); cp++) {
+            bitmap[cp] = true;
+          }
+        }
+        yield true;
+      }
+      case ALTERNATE -> {
+        if (node.nsub() == 0) {
+          yield false;
+        }
+        for (Regexp sub : node.subs) {
+          boolean[] subBitmap = new boolean[128];
+          if (!populateCharClassPrefixAscii(sub, subBitmap)) {
+            yield false;
+          }
+          for (int i = 0; i < 128; i++) {
+            if (subBitmap[i]) {
+              bitmap[i] = true;
+            }
+          }
+        }
+        yield true;
+      }
+      default -> false;
+    };
   }
 
   private static StartAcceleration extractStartAcceleration(Regexp re) {

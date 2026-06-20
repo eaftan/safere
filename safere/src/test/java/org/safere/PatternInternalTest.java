@@ -87,6 +87,31 @@ class PatternInternalTest {
   }
 
   @Test
+  void alternatePrefixAcceleration() {
+    Pattern p = Pattern.compile("(?:cat|dog|bird)s?");
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['c']).isTrue();
+    assertThat(prefix['d']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['a']).isFalse();
+  }
+
+  @Test
+  void alternatePrefixCaseInsensitiveAcceleration() {
+    Pattern p = Pattern.compile("(?i)(?:cat|dog|bird)s?");
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['c']).isTrue();
+    assertThat(prefix['C']).isTrue();
+    assertThat(prefix['d']).isTrue();
+    assertThat(prefix['D']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['B']).isTrue();
+    assertThat(prefix['a']).isFalse();
+  }
+
+  @Test
   void leadingZeroWidthAssertionMakesDfaStartUnreliable() {
     assertThat(Pattern.compile("\\B([^a])*[^a][^a]").dfaStartReliable()).isFalse();
     assertThat(Pattern.compile("(?:)\\B[^a]*[^a][^a]").dfaStartReliable()).isFalse();
