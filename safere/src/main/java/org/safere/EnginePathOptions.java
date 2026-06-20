@@ -14,7 +14,7 @@ import java.util.Map;
  * <p>Production code uses {@link #allEnabled()}. Tests in this package can compile a pattern with
  * selected shortcuts disabled to compare observable API traces against the default engine cascade.
  */
-record EnginePathOptions(
+public record EnginePathOptions(
     boolean literalFastPaths,
     boolean charClassMatchFastPaths,
     boolean charClassReplacementFastPath,
@@ -30,11 +30,11 @@ record EnginePathOptions(
   private static final EnginePathOptions ALL_ENABLED = builder().build();
   private static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
 
-  static EnginePathOptions allEnabled() {
+  public static EnginePathOptions allEnabled() {
     return ALL_ENABLED;
   }
 
-  static Builder builder() {
+  public static Builder builder() {
     return new Builder();
   }
 
@@ -65,7 +65,9 @@ record EnginePathOptions(
     boolean enabled(EnginePathOptions options);
   }
 
-  static final class Builder {
+  public static final class Builder {
+    public Builder() {}
+
     private boolean literalFastPaths = true;
     private boolean charClassMatchFastPaths = true;
     private boolean charClassReplacementFastPath = true;
@@ -78,62 +80,62 @@ record EnginePathOptions(
     private boolean lazyCaptureExtraction = true;
     private boolean semanticGuards = true;
 
-    Builder literalFastPaths(boolean enabled) {
+    public Builder literalFastPaths(boolean enabled) {
       literalFastPaths = enabled;
       return this;
     }
 
-    Builder charClassMatchFastPaths(boolean enabled) {
+    public Builder charClassMatchFastPaths(boolean enabled) {
       charClassMatchFastPaths = enabled;
       return this;
     }
 
-    Builder charClassReplacementFastPath(boolean enabled) {
+    public Builder charClassReplacementFastPath(boolean enabled) {
       charClassReplacementFastPath = enabled;
       return this;
     }
 
-    Builder keywordAlternationFastPath(boolean enabled) {
+    public Builder keywordAlternationFastPath(boolean enabled) {
       keywordAlternationFastPath = enabled;
       return this;
     }
 
-    Builder startAcceleration(boolean enabled) {
+    public Builder startAcceleration(boolean enabled) {
       startAcceleration = enabled;
       return this;
     }
 
-    Builder onePass(boolean enabled) {
+    public Builder onePass(boolean enabled) {
       onePass = enabled;
       return this;
     }
 
-    Builder dfa(boolean enabled) {
+    public Builder dfa(boolean enabled) {
       dfa = enabled;
       return this;
     }
 
-    Builder reverseDfa(boolean enabled) {
+    public Builder reverseDfa(boolean enabled) {
       reverseDfa = enabled;
       return this;
     }
 
-    Builder bitState(boolean enabled) {
+    public Builder bitState(boolean enabled) {
       bitState = enabled;
       return this;
     }
 
-    Builder lazyCaptureExtraction(boolean enabled) {
+    public Builder lazyCaptureExtraction(boolean enabled) {
       lazyCaptureExtraction = enabled;
       return this;
     }
 
-    Builder semanticGuards(boolean enabled) {
+    public Builder semanticGuards(boolean enabled) {
       semanticGuards = enabled;
       return this;
     }
 
-    EnginePathOptions build() {
+    public EnginePathOptions build() {
       return new EnginePathOptions(
           literalFastPaths,
           charClassMatchFastPaths,

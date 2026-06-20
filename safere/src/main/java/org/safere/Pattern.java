@@ -309,7 +309,7 @@ public final class Pattern implements Serializable {
     return compile(regex, flags, EnginePathOptions.allEnabled());
   }
 
-  static Pattern compile(String regex, int flags, EnginePathOptions enginePathOptions) {
+  public static Pattern compile(String regex, int flags, EnginePathOptions enginePathOptions) {
     validateFlags(flags);
     Objects.requireNonNull(enginePathOptions, "enginePathOptions");
     int effectiveFlags = effectiveFlags(flags);
