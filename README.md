@@ -383,7 +383,7 @@ Application workloads live in `safere-benchmarks/benchmark-data.json`, where
 each case defines its operation semantics and expected result for the Java,
 C++, and Go harnesses.
 
-### Publication-Quality Benchmark Collection
+### Benchmark Collection
 
 To collect a full set of benchmark data for updating
 [BENCHMARKS.md](BENCHMARKS.md), run the collection script from the repository
@@ -391,6 +391,13 @@ root:
 
 ```bash
 ./collect-benchmark-results.sh
+```
+
+Use the longer Java mode when confirming close, surprising, or especially
+important comparisons:
+
+```bash
+./collect-benchmark-results.sh --long
 ```
 
 To verify the collection pipeline without doing a full run:
@@ -430,20 +437,18 @@ java-pattern-memory.txt
 Always use the wrapper scripts — they run `mvn install` first to ensure
 the benchmark module picks up the latest SafeRE code. These are useful for
 development iteration or focused investigation; use
-`./collect-benchmark-results.sh` for full publication-quality collection.
+`./collect-benchmark-results.sh` for a full collection.
 
 ```bash
 # Java benchmarks (throughput)
 ./run-java-benchmarks.sh                        # standard benchmarks
 ./run-java-benchmarks.sh RegexBenchmark         # specific class
 ./run-java-benchmarks.sh ApplicationBenchmark   # application workloads
+./run-java-benchmarks.sh --long RegexBenchmark  # longer confirmation run
 
 # Java memory profiling (allocation rates via JMH GC profiler)
 ./run-java-memory-benchmarks.sh                 # all benchmarks
 ./run-java-memory-benchmarks.sh RegexBenchmark  # specific class
-
-# Fast development iteration only — NOT for BENCHMARKS.md
-./run-java-benchmarks.sh --quick RegexBenchmark
 ```
 
 `CrosscheckOverheadBenchmark` is excluded from the no-argument Java benchmark
@@ -451,7 +456,7 @@ run. It measures overhead in the `safere-crosscheck` facade and should be run
 explicitly only when optimizing crosscheck:
 
 ```bash
-./run-java-benchmarks.sh --quick CrosscheckOverheadBenchmark
+./run-java-benchmarks.sh CrosscheckOverheadBenchmark
 ```
 
 ### C++ RE2 and Go Benchmarks

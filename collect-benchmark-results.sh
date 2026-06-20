@@ -2,10 +2,11 @@
 # Copyright (c) 2026 Eddie Aftandilian. Licensed under the MIT License.
 # See LICENSE file in the project root for details.
 #
-# Collect publication-quality benchmark outputs for updating BENCHMARKS.md.
+# Collect benchmark outputs for updating BENCHMARKS.md.
 #
 # Usage:
 #   ./collect-benchmark-results.sh
+#   ./collect-benchmark-results.sh --long
 #   ./collect-benchmark-results.sh --smoke
 #   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 #
@@ -18,24 +19,30 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEFAULT_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 OUTPUT_DIR="$SCRIPT_DIR/benchmark-results/$DEFAULT_RUN_ID"
-MODE="publish"
+MODE="standard"
 
 usage() {
   cat <<EOF
 Usage:
   ./collect-benchmark-results.sh
+  ./collect-benchmark-results.sh --long
   ./collect-benchmark-results.sh --smoke
   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 
-Collects publication-quality benchmark outputs for updating BENCHMARKS.md.
+Collects benchmark outputs for updating BENCHMARKS.md.
 
 Options:
+  --long        Use the longer Java confirmation mode.
   --smoke       Run one small benchmark through the collection pipeline.
 EOF
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --long)
+      MODE="long"
+      shift
+      ;;
     --smoke)
       MODE="smoke"
       shift
@@ -96,6 +103,11 @@ cd "$SCRIPT_DIR"
 log "Writing benchmark outputs to $OUTPUT_DIR"
 log "Mode: $MODE"
 
+JAVA_MODE_ARGS=()
+if [ "$MODE" = "long" ]; then
+  JAVA_MODE_ARGS=(--long)
+fi
+
 if [ "$MODE" = "smoke" ]; then
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
     ./run-java-benchmarks.sh --smoke RegexBenchmark.literalMatch
@@ -108,19 +120,19 @@ if [ "$MODE" = "smoke" ]; then
     ./run-java-memory-benchmarks.sh --smoke RegexBenchmark.literalMatch
 else
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh RegexBenchmark ApplicationBenchmark CompileBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" RegexBenchmark ApplicationBenchmark CompileBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
-    ./run-java-benchmarks.sh SearchScalingBenchmark Issue481ScalingBenchmark CaptureScalingBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" SearchScalingBenchmark Issue481ScalingBenchmark CaptureScalingBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
-    ./run-java-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" HttpBenchmark ReplaceBenchmark FanoutBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
-    ./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" PathologicalBenchmark PathologicalComparisonBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-05-patternset.txt" \
-    ./run-java-benchmarks.sh PatternSetBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" PatternSetBenchmark
 
   log "Combining Java JMH output"
   cat \

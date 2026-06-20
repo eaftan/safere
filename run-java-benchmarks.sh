@@ -5,8 +5,8 @@
 # Run SafeRE JMH benchmarks.
 #
 # Usage:
-#   ./run-java-benchmarks.sh RegexBenchmark         # publication-quality (default)
-#   ./run-java-benchmarks.sh --quick RegexBenchmark  # fast dev iteration
+#   ./run-java-benchmarks.sh RegexBenchmark         # standard benchmark run
+#   ./run-java-benchmarks.sh --long RegexBenchmark  # longer confirmation run
 #   ./run-java-benchmarks.sh --smoke RegexBenchmark  # CI smoke test (minimal)
 #   ./run-java-benchmarks.sh --first-compile UnicodeFirstCompileBenchmark
 #   ./run-java-benchmarks.sh                         # run all benchmarks
@@ -21,10 +21,12 @@
 # between annotation values and command-line overrides.
 #
 # Modes:
-#   Default (no flags):  Publication-quality — 3 forks, 3 warmup × 5s,
-#                        5 measurement × 5s. Use for BENCHMARKS.md.
-#   --quick:             Dev iteration — 1 fork, 3 warmup × 1s,
-#                        5 measurement × 1s. NOT for BENCHMARKS.md.
+#   Default (no flags):  Standard — 2 forks, 2 warmup × 500ms,
+#                        5 measurement × 500ms. Use for routine benchmark
+#                        evidence and BENCHMARKS.md updates.
+#   --long:              Longer confirmation run — 2 forks, 3 warmup × 1s,
+#                        5 measurement × 1s. Use for close, surprising, or
+#                        especially important comparisons.
 #   --smoke:             CI smoke test — 0 forks, 1 warmup × 1s,
 #                        1 measurement × 1s. Just verifies benchmarks compile
 #                        and run without errors.
@@ -46,22 +48,35 @@ BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.CrosscheckOverheadBenchmark\\.).*$"
 
-# Publication-quality settings: 3 forks × (3 warmup × 5s + 5 measurement × 5s).
-# 15 samples per method — sufficient for meaningful confidence intervals.
-PUBLISH_OPTS="-f 3 -wi 3 -w 5 -i 5 -r 5"
-QUICK_OPTS="-f 1 -wi 3 -w 1 -i 5 -r 1"
+# Empirically selected Java benchmark settings. See
+# safere-benchmarks/CONFIGURATION_EVALUATION.md.
+STANDARD_OPTS="-f 2 -wi 2 -w 500ms -i 5 -r 500ms"
+LONG_OPTS="-f 2 -wi 3 -w 1 -i 5 -r 1"
 SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 FIRST_COMPILE_OPTS="-f 10 -wi 0 -i 1 -r 1 -bm ss"
 
 # Pathological benchmarks must run without forking (JDK can hang).
-PATHOLOGICAL_PUBLISH_OPTS="-f 0 -wi 3 -w 5 -i 5 -r 5"
-PATHOLOGICAL_QUICK_OPTS="-f 0 -wi 3 -w 1 -i 5 -r 1"
+PATHOLOGICAL_STANDARD_OPTS="-f 0 -wi 2 -w 500ms -i 5 -r 500ms"
+PATHOLOGICAL_LONG_OPTS="-f 0 -wi 3 -w 1 -i 5 -r 1"
 PATHOLOGICAL_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
+usage() {
+  cat <<EOF
+Usage:
+  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [BenchmarkClass ...]
+
+Modes:
+  default          Standard benchmark run.
+  --long           Longer confirmation run for close or important comparisons.
+  --smoke          Minimal compile-and-run smoke test.
+  --first-compile  Fresh-fork single-shot cold compile signal.
+EOF
+}
+
 # Parse mode flag.
-MODE="publish"
-if [ "${1:-}" = "--quick" ]; then
-  MODE="quick"
+MODE="standard"
+if [ "${1:-}" = "--long" ]; then
+  MODE="long"
   shift
 elif [ "${1:-}" = "--smoke" ]; then
   MODE="smoke"
@@ -69,6 +84,13 @@ elif [ "${1:-}" = "--smoke" ]; then
 elif [ "${1:-}" = "--first-compile" ]; then
   MODE="first-compile"
   shift
+elif [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  usage
+  exit 0
+elif [[ "${1:-}" == --* ]]; then
+  echo "ERROR: unknown mode: $1" >&2
+  usage >&2
+  exit 2
 fi
 
 if [ "$MODE" = "first-compile" ]; then
@@ -79,14 +101,14 @@ elif [ "$MODE" = "smoke" ]; then
   JMH_OPTS="$SMOKE_OPTS"
   PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_SMOKE_OPTS"
   echo "=== Smoke-test mode (CI only) ==="
-elif [ "$MODE" = "quick" ]; then
-  JMH_OPTS="$QUICK_OPTS"
-  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_QUICK_OPTS"
-  echo "=== Quick mode (NOT for BENCHMARKS.md) ==="
+elif [ "$MODE" = "long" ]; then
+  JMH_OPTS="$LONG_OPTS"
+  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_LONG_OPTS"
+  echo "=== Long mode (confirmation run) ==="
 else
-  JMH_OPTS="$PUBLISH_OPTS"
-  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_PUBLISH_OPTS"
-  echo "=== Publication mode (for BENCHMARKS.md) ==="
+  JMH_OPTS="$STANDARD_OPTS"
+  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_STANDARD_OPTS"
+  echo "=== Standard mode ==="
 fi
 
 # JVM args for FFM native access and native library path.

@@ -30,8 +30,11 @@ the same algorithmic ballpark as other RE2-family engines, not to declare a
 winner across language boundaries. Within the Java ecosystem, the SafeRE vs JDK
 vs RE2/J vs RE2-FFM comparison is apples-to-apples.
 
-For instructions on collecting publication-quality benchmark data, see
+For instructions on collecting benchmark data, see
 [Benchmarks](README.md#benchmarks) in the README.
+
+For the empirical evaluation of Java benchmark configuration tradeoffs, see
+[Java Benchmark Configuration Evaluation](safere-benchmarks/CONFIGURATION_EVALUATION.md).
 
 ## Methodology
 
