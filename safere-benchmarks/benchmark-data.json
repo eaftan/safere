@@ -56,6 +56,33 @@
     "proseUnit": "The morning sun was shining brightly casting long shadows across the rolling hills Birds were singing their melodious songs while children were playing in the sprawling gardens A gentle breeze was blowing through the swaying trees carrying the scent of blooming flowers People were walking along the winding paths enjoying the refreshing air and the stunning views "
   },
 
+  "issue481Scaling": {
+    "textSizes": [128, 1024, 10240, 102400, 1048576],
+    "splitW": {
+      "pattern": "\\W+",
+      "unit": "This is a generic sentence containing words that will be used to test splitting routines. "
+    },
+    "block": {
+      "pattern": "(?s)<block>.*?</block>",
+      "prefix": "This is a <block>",
+      "unit": "content bytes here... blah blah blah ",
+      "suffix": "</block> transcript.",
+      "negativeSuffix": " transcript without a closing block tag."
+    },
+    "tag": {
+      "pattern": "<<tag.*?>>",
+      "prefixUnit": "plain text before the tagged value ",
+      "match": "Hello <<tag type=\"typeA\" value=\"valA\">>!",
+      "negativeMatch": "Hello <<notag type=\"typeA\" value=\"valA\">>!"
+    },
+    "scheme": {
+      "pattern": "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)",
+      "prefixUnit": "ordinary prose without a custom scheme link ",
+      "match": "Check [this link](customScheme://<id_1>) or [another](customScheme://id_2).",
+      "negativeMatch": "Check [this link](https://example.test/id_1) or [another](otherScheme://id_2)."
+    }
+  },
+
   "captureScaling": {
     "capture0": {
       "pattern": "[0-9]+-[0-9]+-[0-9]+",

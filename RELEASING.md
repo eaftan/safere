@@ -15,31 +15,35 @@ The following GitHub secrets must be configured in the repository:
 
 ## Release Process
 
-### 1. Update the version
+### 1. Prepare `main`
 
-Remove the `-SNAPSHOT` suffix from the version in all POM files:
+Start from a clean, up-to-date `main` branch. The committed POM versions should
+remain development versions, such as `X.Y.Z-SNAPSHOT`; the release workflow sets
+the exact release version from the tag.
 
 ```bash
-mvn versions:set -DnewVersion=X.Y.Z -DgenerateBackupPoms=false
+git switch main
+git pull --ff-only
 ```
 
-### 2. Commit the version change
+Update release-facing documentation if needed, such as the version shown in the
+README installation snippets.
+
+### 2. Run local verification
 
 ```bash
-git add -A
-git commit -m "Release vX.Y.Z"
+mvn -pl safere verify --batch-mode --no-transfer-progress
 ```
 
 ### 3. Tag the release
 
 ```bash
-git tag vX.Y.Z
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
 ```
 
-### 4. Push the commit and tag
+### 4. Push the tag
 
 ```bash
-git push origin main
 git push origin vX.Y.Z
 ```
 
@@ -47,9 +51,9 @@ Pushing the tag triggers the
 [release workflow](.github/workflows/release.yml), which:
 
 1. Sets the POM version from the tag
-2. Builds and runs all tests
-3. Signs all artifacts with GPG
-4. Publishes to Maven Central via the Central Portal
+2. Builds and verifies the `safere` module with `mvn -pl safere verify`
+3. Signs the `safere` release artifacts with GPG
+4. Publishes `org.safere:safere` to Maven Central via the Central Portal
 
 ### 5. Verify the release
 
@@ -60,12 +64,16 @@ Pushing the tag triggers the
 
 ### 6. Bump to next SNAPSHOT
 
+After a successful release, bump `main` to the next development version:
+
 ```bash
-mvn versions:set -DnewVersion=X.Y+1.0-SNAPSHOT -DgenerateBackupPoms=false
+mvn versions:set -DnewVersion=NEXT-SNAPSHOT -DgenerateBackupPoms=false
 git add -A
-git commit -m "Bump version to X.Y+1.0-SNAPSHOT"
+git commit -m "Bump version to NEXT-SNAPSHOT"
 git push origin main
 ```
+
+For example, after releasing `v0.3.0`, bump to `0.4.0-SNAPSHOT`.
 
 ## Troubleshooting
 

@@ -223,6 +223,31 @@ func makeProse(size int, unit string) string {
 	return b.String()
 }
 
+func repeatToSize(unit string, size int) string {
+	var b strings.Builder
+	b.Grow(size + len(unit))
+	for b.Len() < size {
+		b.WriteString(unit)
+	}
+	return b.String()[:size]
+}
+
+func surroundToSize(prefix string, unit string, suffix string, size int) string {
+	bodySize := size - len(prefix) - len(suffix)
+	if bodySize < 0 {
+		bodySize = 0
+	}
+	return prefix + repeatToSize(unit, bodySize) + suffix
+}
+
+func suffixMatchToSize(prefixUnit string, match string, size int) string {
+	prefixSize := size - len(match)
+	if prefixSize < 0 {
+		prefixSize = 0
+	}
+	return repeatToSize(prefixUnit, prefixSize) + match
+}
+
 func appendUTF8(b *strings.Builder, cp int) {
 	var buf [4]byte
 	n := utf8.EncodeRune(buf[:], rune(cp))
@@ -489,6 +514,95 @@ func runSearchScalingBenchmarks(data map[string]any, filters []string) {
 		})
 		run("SearchScalingBenchmark.findIngScaled", func() {
 			sink = findIng.FindAllString(proseText, -1)
+		})
+	}
+}
+
+func runIssue481ScalingBenchmarks(data map[string]any, filters []string) {
+	sec := data["issue481Scaling"].(map[string]any)
+
+	sizes := getIntSlice(sec, "textSizes")
+	splitW := regexp.MustCompile(getString(sec, "splitW.pattern"))
+	block := regexp.MustCompile(getString(sec, "block.pattern"))
+	tag := regexp.MustCompile(getString(sec, "tag.pattern"))
+	scheme := regexp.MustCompile(getString(sec, "scheme.pattern"))
+
+	splitLengthSum := func(parts []string) int {
+		for len(parts) > 0 && parts[len(parts)-1] == "" {
+			parts = parts[:len(parts)-1]
+		}
+		sum := len(parts)
+		for _, part := range parts {
+			sum += len(part)
+		}
+		return sum
+	}
+	schemeExtract := func(text string, re *regexp.Regexp) int {
+		sum := 0
+		for _, match := range re.FindAllStringSubmatchIndex(text, -1) {
+			sum += match[3] - match[2]
+			sum += match[5] - match[4]
+		}
+		return sum
+	}
+
+	for _, size := range sizes {
+		splitText := repeatToSize(getString(sec, "splitW.unit"), size)
+		blockText := surroundToSize(
+			getString(sec, "block.prefix"),
+			getString(sec, "block.unit"),
+			getString(sec, "block.suffix"),
+			size)
+		blockNegativeText := surroundToSize(
+			getString(sec, "block.prefix"),
+			getString(sec, "block.unit"),
+			getString(sec, "block.negativeSuffix"),
+			size)
+		tagText := suffixMatchToSize(
+			getString(sec, "tag.prefixUnit"),
+			getString(sec, "tag.match"),
+			size)
+		tagNegativeText := suffixMatchToSize(
+			getString(sec, "tag.prefixUnit"),
+			getString(sec, "tag.negativeMatch"),
+			size)
+		schemeText := suffixMatchToSize(
+			getString(sec, "scheme.prefixUnit"),
+			getString(sec, "scheme.match"),
+			size)
+		schemeNegativeText := suffixMatchToSize(
+			getString(sec, "scheme.prefixUnit"),
+			getString(sec, "scheme.negativeMatch"),
+			size)
+
+		suffix := fmt.Sprintf(".%d", size)
+		run := func(name string, fn func()) {
+			fullName := name + suffix
+			if matchesFilter(fullName, filters) {
+				printJSON(measureUs(fullName, fn))
+			}
+		}
+
+		run("Issue481ScalingBenchmark.splitWords", func() {
+			sink = splitLengthSum(splitW.Split(splitText, -1))
+		})
+		run("Issue481ScalingBenchmark.blockFind", func() {
+			sink = block.MatchString(blockText)
+		})
+		run("Issue481ScalingBenchmark.blockFindNegative", func() {
+			sink = block.MatchString(blockNegativeText)
+		})
+		run("Issue481ScalingBenchmark.tagFind", func() {
+			sink = tag.MatchString(tagText)
+		})
+		run("Issue481ScalingBenchmark.tagFindNegative", func() {
+			sink = tag.MatchString(tagNegativeText)
+		})
+		run("Issue481ScalingBenchmark.schemeExtract", func() {
+			sink = schemeExtract(schemeText, scheme)
+		})
+		run("Issue481ScalingBenchmark.schemeFindNegative", func() {
+			sink = scheme.MatchString(schemeNegativeText)
 		})
 	}
 }
@@ -767,6 +881,7 @@ func main() {
 	runApplicationBenchmarks(data, filters)
 	runCompileBenchmarks(data, filters)
 	runSearchScalingBenchmarks(data, filters)
+	runIssue481ScalingBenchmarks(data, filters)
 	runCaptureScalingBenchmarks(data, filters)
 	runHTTPBenchmarks(data, filters)
 	runReplaceBenchmarks(data, filters)

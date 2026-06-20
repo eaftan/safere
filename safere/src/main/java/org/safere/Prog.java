@@ -45,6 +45,8 @@ final class Prog {
   private boolean requiresPikeNfaCaptureSemantics;
   private boolean hasGraphemeSemantics;
   private boolean hasGraphemeClusterInstruction;
+  private boolean hasWordBoundary;
+  private boolean hasTextAnchor;
 
   /** Creates an empty program. */
   public Prog() {}
@@ -67,6 +69,8 @@ final class Prog {
     this.requiresPikeNfaCaptureSemantics = other.requiresPikeNfaCaptureSemantics;
     this.hasGraphemeSemantics = other.hasGraphemeSemantics;
     this.hasGraphemeClusterInstruction = other.hasGraphemeClusterInstruction;
+    this.hasWordBoundary = other.hasWordBoundary;
+    this.hasTextAnchor = other.hasTextAnchor;
   }
 
   /** Returns the instruction at the given index. Must be called after {@link #freeze()}. */
@@ -113,6 +117,8 @@ final class Prog {
     instArray = instructions.toArray(new Inst[0]);
     hasGraphemeSemantics = computeHasGraphemeSemantics();
     hasGraphemeClusterInstruction = computeHasGraphemeClusterInstruction();
+    hasWordBoundary = computeHasWordBoundary();
+    hasTextAnchor = computeHasTextAnchor();
   }
 
   /** Returns the start instruction index for anchored matching. */
@@ -230,6 +236,14 @@ final class Prog {
    * known.
    */
   public boolean hasWordBoundary() {
+    return hasWordBoundary;
+  }
+
+  boolean hasTextAnchor() {
+    return hasTextAnchor;
+  }
+
+  private boolean computeHasWordBoundary() {
     int mask =
         EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY
@@ -245,7 +259,7 @@ final class Prog {
     return false;
   }
 
-  boolean hasTextAnchor() {
+  private boolean computeHasTextAnchor() {
     if (anchorStart || anchorEnd) {
       return true;
     }
