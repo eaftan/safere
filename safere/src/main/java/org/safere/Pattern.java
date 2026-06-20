@@ -105,6 +105,7 @@ public final class Pattern implements Serializable {
   private final transient String literalMatch;
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
+  private final transient boolean hasUnsafeAlternation;
   private final transient boolean hasNullableAlternation;
   private final transient boolean hasBoundedRepeat;
   private final transient boolean hasAnchorInQuant;
@@ -224,6 +225,7 @@ public final class Pattern implements Serializable {
       String literalMatch,
       boolean hasLazy,
       boolean hasAlternation,
+      boolean hasUnsafeAlternation,
       boolean hasNullableAlternation,
       boolean hasBoundedRepeat,
       boolean hasAnchorInQuant,
@@ -261,6 +263,7 @@ public final class Pattern implements Serializable {
     this.literalMatch = literalMatch;
     this.hasLazy = hasLazy;
     this.hasAlternation = hasAlternation;
+    this.hasUnsafeAlternation = hasUnsafeAlternation;
     this.hasNullableAlternation = hasNullableAlternation;
     this.hasBoundedRepeat = hasBoundedRepeat;
     this.hasAnchorInQuant = hasAnchorInQuant;
@@ -334,6 +337,7 @@ public final class Pattern implements Serializable {
     String literalMatch = extractLiteralMatch(metadataAst);
     boolean hasLazy = hasLazyQuantifiers(re);
     boolean hasAlt = hasAlternation(re);
+    boolean hasUnsafeAlt = hasUnsafeAlternation(re);
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean hasBounded = hasBoundedRepeat(re);
     boolean hasAnchorQuant = hasAnchorInQuantifier(re);
@@ -361,6 +365,7 @@ public final class Pattern implements Serializable {
         literalMatch,
         hasLazy,
         hasAlt,
+        hasUnsafeAlt,
         hasNullableAlt,
         hasBounded,
         hasAnchorQuant,
@@ -852,7 +857,7 @@ public final class Pattern implements Serializable {
     return !hasLazy
         && !hasBoundedRepeat
         && !hasAnchorInQuant
-        && !hasAlternation
+        && !hasUnsafeAlternation
         && !startsWithZeroWidthAssertion;
   }
 
@@ -1769,6 +1774,7 @@ public final class Pattern implements Serializable {
       keywords[i] = keyword;
       firstAscii[keyword.charAt(0)] = true;
     }
+
     boolean unicodeWordBoundary = (before.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
     return new KeywordAlternation(keywords, firstAscii, captureGroup, unicodeWordBoundary);
   }
@@ -1952,6 +1958,178 @@ public final class Pattern implements Serializable {
       return bitmap;
     }
     return null;
+  }
+
+  /**
+   * Traverses the AST to check if the regular expression contains any "unsafe" alternations. An
+   * alternation is unsafe if it can produce different match outcomes (e.g., leftmost-longest vs.
+   * leftmost-first) depending on which execution path or engine is chosen.
+   */
+  private static boolean hasUnsafeAlternation(Regexp re) {
+    return hasUnsafeAlternation(re, null);
+  }
+
+  /**
+   * Traverses the AST to detect unsafe alternations, tracking lookahead context when navigating
+   * concatenation nodes to resolve boundary overlaps.
+   */
+  private static boolean hasUnsafeAlternation(Regexp re, Regexp lookahead) {
+    if (re == null) {
+      return false;
+    }
+    Regexp node = unwrapCaptures(re);
+    if (node == null) {
+      return false;
+    }
+    if (node.op == RegexpOp.ALTERNATE) {
+      return !isSafeAlternation(node, lookahead);
+    }
+    if (node.op == RegexpOp.CONCAT && node.subs != null) {
+      for (int i = 0; i < node.subs.size(); i++) {
+        Regexp child = node.subs.get(i);
+        Regexp nextLookahead = null;
+        if (i + 1 < node.subs.size()) {
+          nextLookahead = node.subs.get(i + 1);
+        } else {
+          nextLookahead = lookahead;
+        }
+        if (hasUnsafeAlternation(child, nextLookahead)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (node.subs != null) {
+      for (Regexp sub : node.subs) {
+        if (hasUnsafeAlternation(sub, null)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Evaluates if a given ALTERNATE node is structurally safe to run on pure DFA paths. An
+   * alternation is safe if: 1. All sub-branches are unconditionally disjoint (e.g., `[a-z]|[0-9]`).
+   * 2. Or, it fits the pattern `(^|B)C` where B is a single character match and C (the lookahead)
+   * is disjoint from B (e.g., `(^|[^<])(<contextual)`).
+   */
+  private static boolean isSafeAlternation(Regexp alt, Regexp lookahead) {
+    if (alt.subs == null || alt.subs.isEmpty()) {
+      return true;
+    }
+    boolean disjoint = true;
+    for (int i = 0; i < alt.subs.size(); i++) {
+      for (int j = i + 1; j < alt.subs.size(); j++) {
+        if (!areDisjoint(alt.subs.get(i), alt.subs.get(j))) {
+          disjoint = false;
+          break;
+        }
+      }
+      if (!disjoint) {
+        break;
+      }
+    }
+    if (disjoint) {
+      return true;
+    }
+    if (alt.subs.size() == 2 && lookahead != null) {
+      Regexp sub0 = unwrapCaptures(alt.subs.get(0));
+      Regexp sub1 = unwrapCaptures(alt.subs.get(1));
+      Regexp boundaryNode = null;
+      Regexp consumingNode = null;
+      if (isLineBoundary(sub0) && isConsumingExactlyOneChar(sub1)) {
+        boundaryNode = sub0;
+        consumingNode = sub1;
+      } else if (isLineBoundary(sub1) && isConsumingExactlyOneChar(sub0)) {
+        boundaryNode = sub1;
+        consumingNode = sub0;
+      }
+      if (boundaryNode != null) {
+        if (areDisjoint(consumingNode, lookahead)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Determines if two AST nodes have disjoint starting character sets. Leverages precomputed ASCII
+   * bitmaps and character-class range membership checks.
+   */
+  private static boolean areDisjoint(Regexp a, Regexp b) {
+    Regexp nodeA = unwrapCaptures(a);
+    Regexp nodeB = unwrapCaptures(b);
+    if (nodeA == null || nodeB == null) {
+      return false;
+    }
+    boolean[] bitmapA = requiredFirstAscii(nodeA);
+    boolean[] bitmapB = requiredFirstAscii(nodeB);
+    if (bitmapA != null && bitmapB != null) {
+      return areDisjointBitmaps(bitmapA, bitmapB);
+    }
+    if (nodeA.op == RegexpOp.CHAR_CLASS && nodeA.charClass != null) {
+      Integer firstB = getSingleFirstRune(nodeB);
+      if (firstB != null) {
+        return !nodeA.charClass.contains(firstB);
+      }
+    }
+    if (nodeB.op == RegexpOp.CHAR_CLASS && nodeB.charClass != null) {
+      Integer firstA = getSingleFirstRune(nodeA);
+      if (firstA != null) {
+        return !nodeB.charClass.contains(firstA);
+      }
+    }
+    return false;
+  }
+
+  private static boolean areDisjointBitmaps(boolean[] a, boolean[] b) {
+    for (int i = 0; i < 128; i++) {
+      if (a[i] && b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Retrieves the first character (rune) of a node if it is a literal and case folding is disabled.
+   * Returns null if case folding is active or if the node is not a simple literal.
+   */
+  private static Integer getSingleFirstRune(Regexp re) {
+    Regexp node = firstMeaningfulNode(re);
+    if (node == null) {
+      return null;
+    }
+    if (node.op == RegexpOp.LITERAL) {
+      if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
+        return null;
+      }
+      return node.rune;
+    }
+    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
+      if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
+        return null;
+      }
+      return node.runes[0];
+    }
+    return null;
+  }
+
+  private static boolean isLineBoundary(Regexp re) {
+    if (re == null) {
+      return false;
+    }
+    return re.op == RegexpOp.BEGIN_LINE || re.op == RegexpOp.BEGIN_TEXT;
+  }
+
+  private static boolean isConsumingExactlyOneChar(Regexp re) {
+    if (re == null) {
+      return false;
+    }
+    return re.op == RegexpOp.CHAR_CLASS || re.op == RegexpOp.LITERAL || re.op == RegexpOp.ANY_CHAR;
   }
 
   /** Holds precomputed data for the character-class-match fast path. */
