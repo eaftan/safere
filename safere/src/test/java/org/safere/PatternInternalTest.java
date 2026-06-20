@@ -9,6 +9,8 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -136,5 +138,52 @@ class PatternInternalTest {
   })
   void numGroups(String pattern, int expected) {
     assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
+  }
+
+  @Nested
+  @DisplayName("safe alternation compiler optimizations")
+  class SafeAlternationTests {
+
+    @Test
+    @DisplayName("disjoint character classes are safe unconditionally")
+    void disjointCharacterClassesSafe() {
+      Pattern p = Pattern.compile("[a-z]|[0-9]");
+      assertThat(p.dfaStartReliable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("overlapping character classes are unsafe")
+    void overlappingCharacterClassesUnsafe() {
+      Pattern p = Pattern.compile("[a-z]|[d-g]");
+      assertThat(p.dfaStartReliable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("line boundary with disjoint literal lookahead is safe")
+    void lineBoundaryWithDisjointLiteralLookaheadSafe() {
+      Pattern p = Pattern.compile("(^|[^<])(<!contextual)");
+      assertThat(p.dfaStartReliable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("line boundary with overlapping literal lookahead is unsafe")
+    void lineBoundaryWithOverlappingLiteralLookaheadUnsafe() {
+      Pattern p = Pattern.compile("(^|[<])(<contextual)");
+      assertThat(p.dfaStartReliable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("disjoint literal alternatives are safe unconditionally")
+    void disjointLiteralAlternativesSafe() {
+      Pattern p = Pattern.compile("abc|def");
+      assertThat(p.dfaStartReliable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("overlapping literal alternatives are unsafe")
+    void overlappingLiteralAlternativesUnsafe() {
+      Pattern p = Pattern.compile("abc|asd");
+      assertThat(p.dfaStartReliable()).isFalse();
+    }
   }
 }
