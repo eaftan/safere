@@ -333,6 +333,10 @@ public final class Matcher implements MatchResult {
     return enginePathOptions().semanticGuards();
   }
 
+  private boolean longestMatch() {
+    return parentPattern.enginePathOptions().longestMatch();
+  }
+
   private boolean canUsePikeEquivalentCaptures(Prog prog) {
     return !semanticGuardsEnabled() || !requiresPikeNfaCaptureSemantics(prog);
   }
@@ -777,7 +781,15 @@ public final class Matcher implements MatchResult {
     // Slow path: try BitState (faster than NFA for small texts), then NFA.
     int[] result =
         searchWithBitStateOrNfa(
-            prog, text, 0, text.length(), text.length(), true, false, true, prog.numCaptures());
+            prog,
+            text,
+            0,
+            text.length(),
+            text.length(),
+            true,
+            longestMatch(),
+            true,
+            prog.numCaptures());
     // matches() requires the entire text to be consumed. With dollarAnchorEnd, the BitState
     // may accept a match ending before a trailing \n. In that case, fall back to the NFA
     // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
@@ -904,7 +916,7 @@ public final class Matcher implements MatchResult {
                 text.length(),
                 text.length(),
                 true,
-                false,
+                longestMatch(),
                 false,
                 prog.numCaptures())));
   }
@@ -1132,7 +1144,7 @@ public final class Matcher implements MatchResult {
                 regionEnd,
                 graphemeConsumeEndPos,
                 true,
-                false,
+                longestMatch(),
                 true,
                 prog.numCaptures())));
   }
@@ -1153,7 +1165,7 @@ public final class Matcher implements MatchResult {
                 regionEnd,
                 graphemeConsumeEndPos,
                 true,
-                false,
+                longestMatch(),
                 false,
                 prog.numCaptures())));
   }
@@ -1179,7 +1191,7 @@ public final class Matcher implements MatchResult {
             regionEnd,
             graphemeConsumeEndPos,
             false,
-            false,
+            longestMatch(),
             false,
             prog.numCaptures());
     return applyEngineResult(new FullMatchResult(result));
@@ -1485,7 +1497,8 @@ public final class Matcher implements MatchResult {
       if (prog.anchorStart()) {
         // Anchored: match start is effectiveStart. Run forward DFA (anchored, first-match) to find
         // actual end, then defer inner captures until requested.
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+        boolean longest = longestMatch();
+        Dfa.SearchResult fwdFirst = dfa(longest).doSearch(text, effectiveStart, true, longest);
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
@@ -1500,7 +1513,8 @@ public final class Matcher implements MatchResult {
         // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
         // by zero-width assertions. Verify that candidate directly; if it fails, the exact fallback
         // below can still search for later prefix occurrences.
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+        boolean longest = longestMatch();
+        Dfa.SearchResult fwdFirst = dfa(longest).doSearch(text, effectiveStart, true, longest);
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
@@ -1577,7 +1591,8 @@ public final class Matcher implements MatchResult {
 
             // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
             if (matchStart >= 0) {
-              Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+              boolean longest = longestMatch();
+              Dfa.SearchResult fwdFirst = dfa(longest).doSearch(text, matchStart, true, longest);
               if (fwdFirst != null && fwdFirst.matched()) {
                 int matchEnd = fwdFirst.pos();
                 // Step 4: Store group(0) boundaries, defer inner captures until requested.
@@ -1586,7 +1601,9 @@ public final class Matcher implements MatchResult {
                         matchStart,
                         matchEnd,
                         prog.numCaptures(),
-                        !options.semanticGuards() || parentPattern.dfaGroupZeroReliable(),
+                        !options.semanticGuards()
+                            || longest
+                            || parentPattern.dfaGroupZeroReliable(),
                         false));
               }
             }
@@ -1618,7 +1635,7 @@ public final class Matcher implements MatchResult {
             text.length(),
             text.length(),
             false,
-            false,
+            longestMatch(),
             false,
             nsubmatch);
     if (result == null) {
@@ -2543,7 +2560,7 @@ public final class Matcher implements MatchResult {
               deferredMatchEnd,
               deferredMatchEnd,
               true,
-              false,
+              longestMatch(),
               deferredEndMatch,
               prog.numCaptures(),
               true);

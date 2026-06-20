@@ -344,7 +344,8 @@ public final class Pattern implements Serializable {
     boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
     StartAcceleration startAcceleration =
         (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(metadataAst) : null;
-    KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
+    KeywordAlternation keywordAlternation =
+        extractKeywordAlternation(metadataAst, flags, enginePathOptions);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
@@ -1725,7 +1726,8 @@ public final class Pattern implements Serializable {
     return null;
   }
 
-  private static KeywordAlternation extractKeywordAlternation(Regexp re, int patternFlags) {
+  private static KeywordAlternation extractKeywordAlternation(
+      Regexp re, int patternFlags, EnginePathOptions options) {
     if ((patternFlags & UNICODE_CASE) != 0) {
       return null;
     }
@@ -1768,6 +1770,9 @@ public final class Pattern implements Serializable {
       }
       keywords[i] = keyword;
       firstAscii[keyword.charAt(0)] = true;
+    }
+    if (options.longestMatch()) {
+      Arrays.sort(keywords, (a, b) -> Integer.compare(b.length(), a.length()));
     }
     boolean unicodeWordBoundary = (before.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
     return new KeywordAlternation(keywords, firstAscii, captureGroup, unicodeWordBoundary);

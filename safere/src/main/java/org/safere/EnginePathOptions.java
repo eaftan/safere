@@ -25,7 +25,8 @@ record EnginePathOptions(
     boolean reverseDfa,
     boolean bitState,
     boolean lazyCaptureExtraction,
-    boolean semanticGuards) {
+    boolean semanticGuards,
+    boolean longestMatch) {
 
   private static final EnginePathOptions ALL_ENABLED = builder().build();
   private static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
@@ -66,6 +67,7 @@ record EnginePathOptions(
   }
 
   static final class Builder {
+
     private boolean literalFastPaths = true;
     private boolean charClassMatchFastPaths = true;
     private boolean charClassReplacementFastPath = true;
@@ -77,6 +79,7 @@ record EnginePathOptions(
     private boolean bitState = true;
     private boolean lazyCaptureExtraction = true;
     private boolean semanticGuards = true;
+    private boolean longestMatch = false;
 
     Builder literalFastPaths(boolean enabled) {
       literalFastPaths = enabled;
@@ -133,6 +136,11 @@ record EnginePathOptions(
       return this;
     }
 
+    Builder longestMatch(boolean enabled) {
+      longestMatch = enabled;
+      return this;
+    }
+
     EnginePathOptions build() {
       return new EnginePathOptions(
           literalFastPaths,
@@ -145,7 +153,8 @@ record EnginePathOptions(
           reverseDfa,
           bitState,
           lazyCaptureExtraction,
-          semanticGuards);
+          semanticGuards,
+          longestMatch);
     }
   }
 }

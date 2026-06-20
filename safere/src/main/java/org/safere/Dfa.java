@@ -880,7 +880,7 @@ final class Dfa {
               isMatchValid = true;
             }
           }
-          if (isMatchValid) {
+          if (isMatchValid && !longest) {
             break; // Prune all lower-priority branches!
           }
         } else {
