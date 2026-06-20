@@ -380,6 +380,23 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("find() required-class precheck starts at current search position")
+    void findRequiredClassPrecheckStartsAtCurrentSearchPosition() {
+      Matcher m = Pattern.compile("\\b{g}z").matcher("z\uD83C\uDDE6\uD83C\uDDE6");
+
+      assertThat(m.find(1)).isFalse();
+    }
+
+    @Test
+    @DisplayName("find() required-literal precheck respects case-insensitive flags")
+    void findRequiredLiteralPrecheckRespectsCaseInsensitiveFlags() {
+      Matcher m = Pattern.compile("(?i:abc)def").matcher("ABCdef");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("ABCdef");
+    }
+
+    @Test
     @DisplayName("find(int) starts search from given position")
     void findWithStart() {
       Pattern p = Pattern.compile("\\d+");
