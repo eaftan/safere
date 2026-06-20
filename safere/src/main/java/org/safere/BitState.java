@@ -267,8 +267,6 @@ final class BitState {
 
   private int textSlots;
 
-
-
   /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
   private final boolean[] cycleAlts;
 
