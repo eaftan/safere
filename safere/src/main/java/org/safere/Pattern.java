@@ -1987,12 +1987,7 @@ public final class Pattern implements Serializable {
     if (node.op == RegexpOp.CONCAT && node.subs != null) {
       for (int i = 0; i < node.subs.size(); i++) {
         Regexp child = node.subs.get(i);
-        Regexp nextLookahead = null;
-        if (i + 1 < node.subs.size()) {
-          nextLookahead = node.subs.get(i + 1);
-        } else {
-          nextLookahead = lookahead;
-        }
+        Regexp nextLookahead = (i + 1 < node.subs.size()) ? node.subs.get(i + 1) : lookahead;
         if (hasUnsafeAlternation(child, nextLookahead)) {
           return true;
         }
