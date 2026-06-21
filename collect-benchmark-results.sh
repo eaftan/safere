@@ -2,40 +2,56 @@
 # Copyright (c) 2026 Eddie Aftandilian. Licensed under the MIT License.
 # See LICENSE file in the project root for details.
 #
-# Collect publication-quality benchmark outputs for updating BENCHMARKS.md.
+# Collect benchmark outputs for updating BENCHMARKS.md.
 #
 # Usage:
 #   ./collect-benchmark-results.sh
+#   ./collect-benchmark-results.sh --long
+#   ./collect-benchmark-results.sh --cross-language
 #   ./collect-benchmark-results.sh --smoke
 #   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 #
 # The script intentionally does not run the test suite. It runs benchmark
-# batches sequentially, captures raw output, extracts native JSONL results, and
-# generates merged markdown tables.
+# batches sequentially, captures raw output, and generates markdown tables.
+# By default it collects Java/JMH results only. Use --cross-language to also
+# collect C++ RE2 and Go regexp results.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEFAULT_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 OUTPUT_DIR="$SCRIPT_DIR/benchmark-results/$DEFAULT_RUN_ID"
-MODE="publish"
+MODE="standard"
+CROSS_LANGUAGE=false
 
 usage() {
   cat <<EOF
 Usage:
   ./collect-benchmark-results.sh
+  ./collect-benchmark-results.sh --long
+  ./collect-benchmark-results.sh --cross-language
   ./collect-benchmark-results.sh --smoke
   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 
-Collects publication-quality benchmark outputs for updating BENCHMARKS.md.
+Collects benchmark outputs for updating BENCHMARKS.md.
 
 Options:
-  --smoke       Run one small benchmark through the collection pipeline.
+  --long            Use the longer Java confirmation mode.
+  --cross-language  Also run C++ RE2 and Go regexp benchmark harnesses.
+  --smoke           Run one small benchmark through the collection pipeline.
 EOF
 }
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --long)
+      MODE="long"
+      shift
+      ;;
+    --cross-language)
+      CROSS_LANGUAGE=true
+      shift
+      ;;
     --smoke)
       MODE="smoke"
       shift
@@ -95,6 +111,12 @@ cd "$SCRIPT_DIR"
 
 log "Writing benchmark outputs to $OUTPUT_DIR"
 log "Mode: $MODE"
+log "Cross-language: $CROSS_LANGUAGE"
+
+JAVA_MODE_ARGS=()
+if [ "$MODE" = "long" ]; then
+  JAVA_MODE_ARGS=(--long)
+fi
 
 if [ "$MODE" = "smoke" ]; then
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
@@ -108,19 +130,19 @@ if [ "$MODE" = "smoke" ]; then
     ./run-java-memory-benchmarks.sh --smoke RegexBenchmark.literalMatch
 else
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh RegexBenchmark ApplicationBenchmark CompileBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" RegexBenchmark ApplicationBenchmark CompileBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
-    ./run-java-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" SearchScalingBenchmark Issue481ScalingBenchmark CaptureScalingBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
-    ./run-java-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" HttpBenchmark ReplaceBenchmark FanoutBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
-    ./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" PathologicalBenchmark PathologicalComparisonBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-05-patternset.txt" \
-    ./run-java-benchmarks.sh PatternSetBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" PatternSetBenchmark
 
   log "Combining Java JMH output"
   cat \
@@ -140,34 +162,42 @@ run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" \
   java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
     org.safere.benchmark.MemoryBenchmark
 
-if [ "$MODE" = "smoke" ]; then
-  run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-    ./run-cpp-benchmarks.sh RegexBenchmark.literalMatch
-else
-  run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-    ./run-cpp-benchmarks.sh Regex Application Compile SearchScaling CaptureScaling Http Replace Fanout Pathological
-fi
-
-log "Extracting C++ JSONL"
-extract_jsonl "$OUTPUT_DIR/cpp-raw.txt" "$OUTPUT_DIR/cpp-results.jsonl"
-
-if [ "$MODE" = "smoke" ]; then
-  run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-    ./run-go-benchmarks.sh RegexBenchmark.literalMatch
-else
-  run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-    ./run-go-benchmarks.sh Regex Application Compile SearchScaling CaptureScaling Http Replace Fanout Pathological
-fi
-
-log "Extracting Go JSONL"
-extract_jsonl "$OUTPUT_DIR/go-raw.txt" "$OUTPUT_DIR/go-results.jsonl"
-
-log "Generating merged markdown tables"
+COMPARE_ENGINES="safere,jdk,re2j,re2_ffm"
 COMPARE_ARGS=(
   --jmh "$OUTPUT_DIR/jmh-output.txt"
-  --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl"
-  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go
 )
+
+if [ "$CROSS_LANGUAGE" = true ]; then
+  if [ "$MODE" = "smoke" ]; then
+    run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
+      ./run-cpp-benchmarks.sh RegexBenchmark.literalMatch
+  else
+    run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
+      ./run-cpp-benchmarks.sh Regex Application Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
+  fi
+
+  log "Extracting C++ JSONL"
+  extract_jsonl "$OUTPUT_DIR/cpp-raw.txt" "$OUTPUT_DIR/cpp-results.jsonl"
+
+  if [ "$MODE" = "smoke" ]; then
+    run_and_capture "$OUTPUT_DIR/go-raw.txt" \
+      ./run-go-benchmarks.sh RegexBenchmark.literalMatch
+  else
+    run_and_capture "$OUTPUT_DIR/go-raw.txt" \
+      ./run-go-benchmarks.sh Regex Application Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
+  fi
+
+  log "Extracting Go JSONL"
+  extract_jsonl "$OUTPUT_DIR/go-raw.txt" "$OUTPUT_DIR/go-results.jsonl"
+
+  COMPARE_ARGS+=(
+    --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl"
+  )
+  COMPARE_ENGINES="safere,jdk,re2j,re2_ffm,re2_cpp,go"
+fi
+
+log "Generating markdown tables"
+COMPARE_ARGS+=(--engines "$COMPARE_ENGINES")
 if [ "$MODE" != "smoke" ]; then
   COMPARE_ARGS+=(
     --benchmark-data safere-benchmarks/benchmark-data.json
@@ -200,9 +230,14 @@ Point the agent at:
 
 Key files:
   jmh-output.txt
-  cpp-results.jsonl
-  go-results.jsonl
   merged-tables.md
   java-memory.txt
   java-pattern-memory.txt
 EOF
+
+if [ "$CROSS_LANGUAGE" = true ]; then
+  cat <<EOF
+  cpp-results.jsonl
+  go-results.jsonl
+EOF
+fi

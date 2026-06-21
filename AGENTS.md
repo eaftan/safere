@@ -179,8 +179,9 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   keywords may only close the issue after merge as a commit reference.
 - For performance optimization PRs, include before/after benchmark results in
   the PR description and state the measured improvement or regression for the
-  specific change. If using quick benchmarks, clearly label them as quick
-  development signal rather than publication-quality results.
+  specific change. Use the standard Java benchmark configuration by default;
+  use `--long` when confirming close, surprising, or especially important
+  comparisons.
 - Do not push directly to `main`. Always create a branch and open a PR.
 ## GitHub Issues
 
@@ -288,11 +289,11 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 — all statistical rigor settings are controlled by the script.
 
 ```bash
-# BENCHMARKS.md updates — publication-quality (default, no flags needed)
+# BENCHMARKS.md updates and routine benchmark evidence
 ./run-java-benchmarks.sh RegexBenchmark
 
-# Quick development iteration ONLY — fast but NOT for BENCHMARKS.md
-./run-java-benchmarks.sh --quick RegexBenchmark
+# Longer confirmation run for close, surprising, or important comparisons
+./run-java-benchmarks.sh --long RegexBenchmark
 ```
 
 **Run benchmarks in batches, not all at once.** Run 2–3 benchmark classes
@@ -314,18 +315,23 @@ per invocation and collect results incrementally:
 
 ### Key Rules
 
-- **The default run is always publication-quality.** Running the script
-  without `--quick` produces 3 forks, 3 warmup × 5s, 5 measurement × 5s.
-  No environment variables or extra flags needed.
-- **Use `--quick` for development iteration only.** Quick mode uses 1 fork,
-  3 warmup × 1s, 5 measurement × 1s. Never use `--quick` results in
-  BENCHMARKS.md.
+- **The default run is the standard Java benchmark configuration.** Running the
+  script without mode flags uses 2 forks, 2 warmup × 500ms, and 5 measurement
+  × 500ms. This empirically selected configuration is the default for routine
+  benchmark evidence and BENCHMARKS.md updates.
+- **Use `--long` for confirmation.** Long mode uses 2 forks, 3 warmup × 1s,
+  and 5 measurement × 1s. Use it for close, surprising, or especially important
+  comparisons where the extra runtime is justified.
 - **Pathological benchmarks always use `-f 0`.** The script handles this
   automatically — PathologicalBenchmark and PathologicalComparisonBenchmark
   run without forking because the JDK engine can hang on large inputs.
-- **NEVER run benchmarks in parallel.** All benchmark runs (Java, C++, Go)
-  must run sequentially, one at a time. Parallel runs compete for CPU,
-  cache, and memory bandwidth, producing inaccurate results.
+- **Default benchmark collection is Java-only.** `./collect-benchmark-results.sh`
+  collects SafeRE, JDK, RE2/J, and RE2-FFM results by default. Use
+  `./collect-benchmark-results.sh --cross-language` only when broader C++ RE2
+  and Go `regexp` context is explicitly needed.
+- **NEVER run benchmarks in parallel.** All benchmark runs must run
+  sequentially, one at a time. Parallel runs compete for CPU, cache, and memory
+  bandwidth, producing inaccurate results.
 - **Do not commit optimizations that do not improve benchmark results.**
   Every optimization must be validated with before/after benchmarks.
 - **All harnesses share `benchmark-data.json`.** This ensures identical

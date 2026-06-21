@@ -140,6 +140,13 @@ class PatternInternalTest {
   }
 
   @Test
+  void boundaryPrefixedLiteralRecordsRequiredClass() {
+    Pattern p = Pattern.compile("\\b{g}z");
+
+    assertThat(p.requiredMatchClassRanges()).isNotNull();
+  }
+
+  @Test
   void pureNullablePatternsDoNotRecordRequiredCharacterClasses() {
     Pattern p = Pattern.compile(".*");
 

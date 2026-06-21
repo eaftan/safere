@@ -30,20 +30,20 @@ SafeRE is available on [Maven Central](https://central.sonatype.com/artifact/org
 <dependency>
   <groupId>org.safere</groupId>
   <artifactId>safere</artifactId>
-  <version>0.1.0</version>
+  <version>0.8.0</version>
 </dependency>
 ```
 
 **Gradle (Kotlin DSL):**
 
 ```kotlin
-implementation("org.safere:safere:0.1.0")
+implementation("org.safere:safere:0.8.0")
 ```
 
 **Gradle (Groovy DSL):**
 
 ```groovy
-implementation 'org.safere:safere:0.1.0'
+implementation 'org.safere:safere:0.8.0'
 ```
 
 ## Quick Start
@@ -383,7 +383,7 @@ Application workloads live in `safere-benchmarks/benchmark-data.json`, where
 each case defines its operation semantics and expected result for the Java,
 C++, and Go harnesses.
 
-### Publication-Quality Benchmark Collection
+### Benchmark Collection
 
 To collect a full set of benchmark data for updating
 [BENCHMARKS.md](BENCHMARKS.md), run the collection script from the repository
@@ -393,15 +393,32 @@ root:
 ./collect-benchmark-results.sh
 ```
 
+The default collection is Java-only: SafeRE, `java.util.regex`, RE2/J, and
+RE2-FFM. These are the normal engineering comparisons because they run in the
+same JVM environment.
+
+Use the longer Java mode when confirming close, surprising, or especially
+important comparisons:
+
+```bash
+./collect-benchmark-results.sh --long
+```
+
+Use the cross-language mode only when you need broader ecosystem context from
+C++ RE2 and Go `regexp`:
+
+```bash
+./collect-benchmark-results.sh --cross-language
+```
+
 To verify the collection pipeline without doing a full run:
 
 ```bash
 ./collect-benchmark-results.sh --smoke
 ```
 
-The script runs the Java, C++ RE2, and Go benchmark batches sequentially,
-captures raw output, extracts native JSON-lines results, and generates merged
-markdown tables.
+The script runs benchmark batches sequentially, captures raw output, and
+generates markdown tables.
 
 By default, results are written to a timestamped directory under
 `benchmark-results/`, and `benchmark-results/latest` is updated to point to
@@ -418,11 +435,16 @@ The important files in that directory are:
 
 ```text
 jmh-output.txt
-cpp-results.jsonl
-go-results.jsonl
 merged-tables.md
 java-memory.txt
 java-pattern-memory.txt
+```
+
+Cross-language runs also include:
+
+```text
+cpp-results.jsonl
+go-results.jsonl
 ```
 
 ### Targeted Benchmark Runs
@@ -430,20 +452,18 @@ java-pattern-memory.txt
 Always use the wrapper scripts — they run `mvn install` first to ensure
 the benchmark module picks up the latest SafeRE code. These are useful for
 development iteration or focused investigation; use
-`./collect-benchmark-results.sh` for full publication-quality collection.
+`./collect-benchmark-results.sh` for a full collection.
 
 ```bash
 # Java benchmarks (throughput)
 ./run-java-benchmarks.sh                        # standard benchmarks
 ./run-java-benchmarks.sh RegexBenchmark         # specific class
 ./run-java-benchmarks.sh ApplicationBenchmark   # application workloads
+./run-java-benchmarks.sh --long RegexBenchmark  # longer confirmation run
 
 # Java memory profiling (allocation rates via JMH GC profiler)
 ./run-java-memory-benchmarks.sh                 # all benchmarks
 ./run-java-memory-benchmarks.sh RegexBenchmark  # specific class
-
-# Fast development iteration only — NOT for BENCHMARKS.md
-./run-java-benchmarks.sh --quick RegexBenchmark
 ```
 
 `CrosscheckOverheadBenchmark` is excluded from the no-argument Java benchmark
@@ -451,7 +471,7 @@ run. It measures overhead in the `safere-crosscheck` facade and should be run
 explicitly only when optimizing crosscheck:
 
 ```bash
-./run-java-benchmarks.sh --quick CrosscheckOverheadBenchmark
+./run-java-benchmarks.sh CrosscheckOverheadBenchmark
 ```
 
 ### C++ RE2 and Go Benchmarks
@@ -472,19 +492,28 @@ cross-language comparison. Prerequisites: CMake ≥ 3.14 + C++17 compiler
 
 ### Comparing Results Manually
 
-A comparison script merges JMH, C++, and Go results into side-by-side markdown:
+A comparison script turns JMH output into side-by-side markdown:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
-  --jmh jmh-output.txt --json cpp-results.jsonl go-results.jsonl
+  --jmh jmh-output.txt
 ```
 
-To verify that all harnesses emitted the application benchmark names defined in
-`benchmark-data.json`, add:
+Add C++ and Go JSON-lines files when comparing cross-language results:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
-  --jmh jmh-output.txt --json cpp-results.jsonl go-results.jsonl \
+  --jmh jmh-output.txt \
+  --json cpp-results.jsonl go-results.jsonl \
+  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go
+```
+
+To verify that emitted application benchmark names match `benchmark-data.json`,
+add:
+
+```bash
+python3 safere-benchmarks/scripts/compare-benchmarks.py \
+  --jmh jmh-output.txt \
   --benchmark-data safere-benchmarks/benchmark-data.json \
   --check-application-names
 ```
