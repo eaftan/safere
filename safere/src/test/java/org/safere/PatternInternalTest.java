@@ -112,6 +112,28 @@ class PatternInternalTest {
   }
 
   @Test
+  void deeplyNestedRequiredQuantifierPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedRequiredPlusPattern(1_000, "[ab]"));
+
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['a']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['c']).isFalse();
+  }
+
+  @Test
+  void deeplyNestedAlternationPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedAlternationPattern(1_000));
+
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['a']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['c']).isFalse();
+  }
+
+  @Test
   void leadingZeroWidthAssertionMakesDfaStartUnreliable() {
     assertThat(Pattern.compile("\\B([^a])*[^a][^a]").dfaStartReliable()).isFalse();
     assertThat(Pattern.compile("(?:)\\B[^a]*[^a][^a]").dfaStartReliable()).isFalse();
@@ -168,5 +190,29 @@ class PatternInternalTest {
   })
   void numGroups(String pattern, int expected) {
     assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
+  }
+
+  private static String nestedRequiredPlusPattern(int depth, String atom) {
+    StringBuilder regex = new StringBuilder(depth * 5 + atom.length());
+    for (int i = 0; i < depth; i++) {
+      regex.append("(?:");
+    }
+    regex.append(atom);
+    for (int i = 0; i < depth; i++) {
+      regex.append(")+");
+    }
+    return regex.toString();
+  }
+
+  private static String nestedAlternationPattern(int depth) {
+    StringBuilder regex = new StringBuilder(depth * 5 + 1);
+    for (int i = 0; i < depth; i++) {
+      regex.append("(?:");
+    }
+    regex.append('a');
+    for (int i = 0; i < depth; i++) {
+      regex.append("|b)");
+    }
+    return regex.toString();
   }
 }
