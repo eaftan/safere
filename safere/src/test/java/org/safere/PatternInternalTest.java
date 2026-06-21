@@ -89,6 +89,53 @@ class PatternInternalTest {
   }
 
   @Test
+  void alternatePrefixAcceleration() {
+    Pattern p = Pattern.compile("(?:cat|dog|bird)s?");
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['c']).isTrue();
+    assertThat(prefix['d']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['a']).isFalse();
+  }
+
+  @Test
+  void alternatePrefixCaseInsensitiveAcceleration() {
+    Pattern p = Pattern.compile("(?i)(?:cat|dog|bird)s?");
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['c']).isTrue();
+    assertThat(prefix['C']).isTrue();
+    assertThat(prefix['d']).isTrue();
+    assertThat(prefix['D']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['B']).isTrue();
+    assertThat(prefix['a']).isFalse();
+  }
+
+  @Test
+  void deeplyNestedRequiredQuantifierPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedRequiredPlusPattern(1_000, "[ab]"));
+
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['a']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['c']).isFalse();
+  }
+
+  @Test
+  void deeplyNestedAlternationPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedAlternationPattern(1_000));
+
+    boolean[] prefix = p.charClassPrefixAscii();
+    assertThat(prefix).isNotNull();
+    assertThat(prefix['a']).isTrue();
+    assertThat(prefix['b']).isTrue();
+    assertThat(prefix['c']).isFalse();
+  }
+
+  @Test
   void leadingZeroWidthAssertionMakesDfaStartUnreliable() {
     assertThat(Pattern.compile("\\B([^a])*[^a][^a]").dfaStartReliable()).isFalse();
     assertThat(Pattern.compile("(?:)\\B[^a]*[^a][^a]").dfaStartReliable()).isFalse();
@@ -112,6 +159,13 @@ class PatternInternalTest {
   @Test
   void dotStarAroundWhitespaceRecordsRequiredWhitespaceClass() {
     Pattern p = Pattern.compile(".*\\s+.*");
+
+    assertThat(p.requiredMatchClassRanges()).isNotNull();
+  }
+
+  @Test
+  void boundaryPrefixedLiteralRecordsRequiredClass() {
+    Pattern p = Pattern.compile("\\b{g}z");
 
     assertThat(p.requiredMatchClassRanges()).isNotNull();
   }
@@ -185,5 +239,29 @@ class PatternInternalTest {
       Pattern p = Pattern.compile("abc|asd");
       assertThat(p.dfaStartReliable()).isFalse();
     }
+  }
+
+  private static String nestedRequiredPlusPattern(int depth, String atom) {
+    StringBuilder regex = new StringBuilder(depth * 5 + atom.length());
+    for (int i = 0; i < depth; i++) {
+      regex.append("(?:");
+    }
+    regex.append(atom);
+    for (int i = 0; i < depth; i++) {
+      regex.append(")+");
+    }
+    return regex.toString();
+  }
+
+  private static String nestedAlternationPattern(int depth) {
+    StringBuilder regex = new StringBuilder(depth * 5 + 1);
+    for (int i = 0; i < depth; i++) {
+      regex.append("(?:");
+    }
+    regex.append('a');
+    for (int i = 0; i < depth; i++) {
+      regex.append("|b)");
+    }
+    return regex.toString();
   }
 }

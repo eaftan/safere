@@ -10,6 +10,8 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.ref.Cleaner;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A compiled regular expression backed by C++ RE2 via the FFM API. This is a benchmark-oriented
@@ -85,6 +87,54 @@ public final class RE2FfmPattern {
    */
   public RE2FfmMatcher matcher(String input) {
     return new RE2FfmMatcher(this, input);
+  }
+
+  /**
+   * Splits the given input around matches of this pattern. Trailing empty strings are discarded.
+   *
+   * @param input the character sequence to be split
+   * @return the array of strings computed by splitting the input around matches of this pattern
+   */
+  public String[] split(CharSequence input) {
+    return split(input, 0);
+  }
+
+  /**
+   * Splits the given input around matches of this pattern.
+   *
+   * @param input the character sequence to be split
+   * @param limit the result threshold
+   * @return the array of strings computed by splitting the input around matches of this pattern
+   */
+  public String[] split(CharSequence input, int limit) {
+    String text = input.toString();
+    RE2FfmMatcher matcher = matcher(text);
+    List<String> parts = new ArrayList<>();
+    int last = 0;
+
+    while (matcher.find()) {
+      if (limit > 0 && parts.size() >= limit - 1) {
+        break;
+      }
+      if (last == 0 && matcher.start() == 0 && matcher.end() == 0) {
+        continue;
+      }
+      parts.add(text.substring(last, matcher.start()));
+      last = matcher.end();
+    }
+    if (last == 0) {
+      return new String[] {text};
+    }
+
+    parts.add(text.substring(last));
+    if (limit == 0) {
+      int end = parts.size();
+      while (end > 0 && parts.get(end - 1).isEmpty()) {
+        end--;
+      }
+      parts = parts.subList(0, end);
+    }
+    return parts.toArray(new String[0]);
   }
 
   /** Returns the pattern string. */
