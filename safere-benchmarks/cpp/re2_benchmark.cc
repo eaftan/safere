@@ -246,6 +246,7 @@ void run_regex_benchmarks(const json& data,
   RE2 hello(sec["literalMatch"]["pattern"].get<std::string>());
   RE2 alpha(sec["charClassMatch"]["pattern"].get<std::string>());
   RE2 alt(sec["alternationFind"]["pattern"].get<std::string>());
+  RE2 word_boundary_alt(sec["wordBoundaryAlternationFind"]["pattern"].get<std::string>());
   RE2 date(sec["captureGroups"]["pattern"].get<std::string>());
   RE2 find_ing(sec["findInText"]["pattern"].get<std::string>());
   RE2 email(sec["emailFind"]["pattern"].get<std::string>());
@@ -253,6 +254,13 @@ void run_regex_benchmarks(const json& data,
   std::string hello_text = sec["literalMatch"]["text"];
   std::string alpha_text = sec["charClassMatch"]["text"];
   std::string alt_text = sec["alternationFind"]["text"];
+  std::string word_boundary_alt_unit = sec["wordBoundaryAlternationFind"]["textUnit"];
+  int word_boundary_alt_repeat = sec["wordBoundaryAlternationFind"]["repeatCount"];
+  std::string word_boundary_alt_text;
+  word_boundary_alt_text.reserve(word_boundary_alt_unit.size() * word_boundary_alt_repeat);
+  for (int i = 0; i < word_boundary_alt_repeat; ++i) {
+    word_boundary_alt_text += word_boundary_alt_unit;
+  }
   std::string date_text = sec["captureGroups"]["text"];
   std::string prose = sec["findInText"]["text"];
   std::string email_text = sec["emailFind"]["text"];
@@ -275,6 +283,13 @@ void run_regex_benchmarks(const json& data,
     int count = 0;
     std::string match;
     while (RE2::FindAndConsume(&input, alt, &match)) { ++count; }
+    do_not_optimize(count);
+  });
+  run("RegexBenchmark.wordBoundaryAlternationFind", [&]() {
+    re2::StringPiece input(word_boundary_alt_text);
+    int count = 0;
+    std::string match;
+    while (RE2::FindAndConsume(&input, word_boundary_alt, &match)) { ++count; }
     do_not_optimize(count);
   });
   run("RegexBenchmark.captureGroups", [&]() {

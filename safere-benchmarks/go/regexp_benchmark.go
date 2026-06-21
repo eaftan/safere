@@ -274,6 +274,7 @@ func runRegexBenchmarks(data map[string]any, filters []string) {
 	hello := regexp.MustCompile(getString(sec, "literalMatch.pattern"))
 	alpha := regexp.MustCompile(getString(sec, "charClassMatch.pattern"))
 	alt := regexp.MustCompile(getString(sec, "alternationFind.pattern"))
+	wordBoundaryAlt := regexp.MustCompile(getString(sec, "wordBoundaryAlternationFind.pattern"))
 	date := regexp.MustCompile(getString(sec, "captureGroups.pattern"))
 	findIng := regexp.MustCompile(getString(sec, "findInText.pattern"))
 	email := regexp.MustCompile(getString(sec, "emailFind.pattern"))
@@ -281,6 +282,9 @@ func runRegexBenchmarks(data map[string]any, filters []string) {
 	helloText := getString(sec, "literalMatch.text")
 	alphaText := getString(sec, "charClassMatch.text")
 	altText := getString(sec, "alternationFind.text")
+	wordBoundaryAltText := strings.Repeat(
+		getString(sec, "wordBoundaryAlternationFind.textUnit"),
+		getInt(sec, "wordBoundaryAlternationFind.repeatCount"))
 	dateText := getString(sec, "captureGroups.text")
 	prose := getString(sec, "findInText.text")
 	emailText := getString(sec, "emailFind.text")
@@ -299,6 +303,9 @@ func runRegexBenchmarks(data map[string]any, filters []string) {
 	})
 	run("RegexBenchmark.alternationFind", func() {
 		sink = alt.FindAllString(altText, -1)
+	})
+	run("RegexBenchmark.wordBoundaryAlternationFind", func() {
+		sink = wordBoundaryAlt.FindAllString(wordBoundaryAltText, -1)
 	})
 	run("RegexBenchmark.captureGroups", func() {
 		sink = date.FindStringSubmatch(dateText)
