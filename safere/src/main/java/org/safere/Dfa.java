@@ -615,7 +615,15 @@ final class Dfa {
   }
 
   private int emptyFlags(String text, int pos) {
-    int flags = Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
+    int flags =
+        Nfa.emptyFlags(
+            text,
+            pos,
+            prog.unixLines(),
+            hasGraphemeSemantics,
+            graphemeContext,
+            prog.hasWordBoundary(),
+            prog.hasTextAnchor());
     if (prog.reversed()) {
       int rev =
           flags
@@ -655,14 +663,22 @@ final class Dfa {
     int emptyFlags = emptyFlags(text, pos);
 
     // Determine word-character context for \b/\B support.
-    boolean lastWord;
-    boolean lastUnicodeWord;
-    if (reverseContext) {
-      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
-      lastUnicodeWord = pos < text.length() && Nfa.isUnicodeWordChar(text.codePointAt(pos));
-    } else {
-      lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
-      lastUnicodeWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
+    boolean lastWord = false;
+    boolean lastUnicodeWord = false;
+    if (prog.hasWordBoundary()) {
+      if (reverseContext) {
+        if (pos < text.length()) {
+          int cp = text.codePointAt(pos);
+          lastWord = Nfa.isWordChar(cp);
+          lastUnicodeWord = cp < 128 ? lastWord : Nfa.isUnicodeWordChar(cp);
+        }
+      } else {
+        if (pos > 0) {
+          int cp = text.codePointBefore(pos);
+          lastWord = Nfa.isWordChar(cp);
+          lastUnicodeWord = cp < 128 ? lastWord : Nfa.isUnicodeWordChar(cp);
+        }
+      }
     }
 
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
@@ -737,7 +753,7 @@ final class Dfa {
    * text.length()} if no trailing line terminator exists. This is the earliest position where
    * non-multiline {@code $} can match before a trailing line terminator.
    */
-  private int trailingLineTermStart(String text) {
+  private int trailingLineStart(String text) {
     int len = text.length();
     if (len == 0) {
       return len;
@@ -820,15 +836,21 @@ final class Dfa {
     //
     // Both are re-expanded before consuming the character so that MATCH instructions
     // reached through these assertions are detected at the correct position.
-    boolean isWord = Nfa.isWordChar(cp);
-    boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
-    int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
-    boolean isUnicodeWord = Nfa.isUnicodeWordChar(cp);
-    boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
-    int unicodeWordBeforeFlags =
-        (isUnicodeWord != wasUnicodeWord)
-            ? EmptyOp.UNICODE_WORD_BOUNDARY
-            : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    boolean isWord = false;
+    boolean isUnicodeWord = false;
+    int wordBeforeFlags = 0;
+    int unicodeWordBeforeFlags = 0;
+    if (prog.hasWordBoundary()) {
+      isWord = Nfa.isWordChar(cp);
+      boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+      wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
+      isUnicodeWord = cp < 128 ? isWord : Nfa.isUnicodeWordChar(cp);
+      boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
+      unicodeWordBeforeFlags =
+          (isUnicodeWord != wasUnicodeWord)
+              ? EmptyOp.UNICODE_WORD_BOUNDARY
+              : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    }
     boolean endLineHere;
     if (prog.unixLines()) {
       endLineHere = (cp == '\n');
@@ -875,7 +897,7 @@ final class Dfa {
             isMatchValid = true;
           } else {
             int textLen = text.length();
-            int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineTermStart(text) : textLen;
+            int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineStart(text) : textLen;
             if (pos == textLen || (trailingTermStart < textLen && pos == trailingTermStart)) {
               isMatchValid = true;
             }
@@ -1061,7 +1083,7 @@ final class Dfa {
     boolean dollarEnd = prog.dollarAnchorEnd();
     // $ allows matching before a trailing line terminator at end of text (JDK default $ behavior).
     // Compute the start position of the trailing line terminator for dollarAnchorEnd matching.
-    int trailingTermStart = dollarEnd ? trailingLineTermStart(text) : textLen;
+    int trailingTermStart = dollarEnd ? trailingLineStart(text) : textLen;
 
     // Position-dependent flag threshold: emptyFlags at positions >= this threshold contain
     // text-length-dependent flags (END_TEXT at textLen, DOLLAR_END near the end when text ends
@@ -1360,7 +1382,7 @@ final class Dfa {
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();
-    int trailingTermStart = dollarEnd ? trailingLineTermStart(text) : textLen;
+    int trailingTermStart = dollarEnd ? trailingLineStart(text) : textLen;
 
     // Position-dependent threshold: same invariant as doSearch.
     int posDepThreshold = positionDependentThreshold(text);

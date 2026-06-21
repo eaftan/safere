@@ -188,5 +188,5 @@ benchmark run because it is a diagnostic benchmark for optimizing
 Run it explicitly when working on crosscheck performance:
 
 ```bash
-./run-java-benchmarks.sh --quick CrosscheckOverheadBenchmark
+./run-java-benchmarks.sh CrosscheckOverheadBenchmark
 ```

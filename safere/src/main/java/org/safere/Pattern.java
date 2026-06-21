@@ -2100,6 +2100,12 @@ public final class Pattern implements Serializable {
     if (node.op == RegexpOp.NON_CAPTURE) {
       node = node.sub();
     }
+    if (node.op == RegexpOp.LITERAL) {
+      return literalCharClass(node.rune, node.flags);
+    }
+    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
+      return literalCharClass(node.runes[0], node.flags);
+    }
     if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null) {
       return node.charClass.isEmpty() ? null : node.charClass;
     }
@@ -2110,6 +2116,18 @@ public final class Pattern implements Serializable {
       return node.sub().charClass;
     }
     return null;
+  }
+
+  private static CharClass literalCharClass(int cp, int flags) {
+    CharClassBuilder ccb = new CharClassBuilder();
+    if ((flags & ParseFlags.FOLD_CASE) == 0) {
+      ccb.addRange(cp, cp);
+    } else if ((flags & ParseFlags.UNICODE_CASE) == 0) {
+      UnicodeCaseFolding.addAsciiFoldedRange(ccb, cp, cp);
+    } else {
+      UnicodeCaseFolding.addUnicodeFoldedRange(ccb, cp, cp);
+    }
+    return ccb.build();
   }
 
   private static CharClassScanInfo buildCharClassScanInfo(CharClass cc) {
