@@ -900,8 +900,8 @@ class LinebreakGraphemeTest {
         String scenario, String smallerInput, String largerInput, Consumer<String> task) {
       task.accept(smallerInput);
       task.accept(largerInput);
-      long smallerNanos = bestRuntimeNanos(() -> task.accept(smallerInput));
-      long largerNanos = bestRuntimeNanos(() -> task.accept(largerInput));
+      long smallerNanos = medianRuntimeNanos(() -> task.accept(smallerInput));
+      long largerNanos = medianRuntimeNanos(() -> task.accept(largerInput));
 
       assertThat(largerNanos)
           .as(
@@ -910,12 +910,13 @@ class LinebreakGraphemeTest {
           .isLessThan(smallerNanos * 10);
     }
 
-    private static long bestRuntimeNanos(Runnable task) {
-      long best = Long.MAX_VALUE;
-      for (int i = 0; i < 3; i++) {
-        best = Math.min(best, runtimeNanos(task));
+    private static long medianRuntimeNanos(Runnable task) {
+      long[] samples = new long[5];
+      for (int i = 0; i < samples.length; i++) {
+        samples[i] = runtimeNanos(task);
       }
-      return best;
+      java.util.Arrays.sort(samples);
+      return samples[samples.length / 2];
     }
 
     private static long runtimeNanos(Runnable task) {
