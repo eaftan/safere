@@ -253,9 +253,13 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   rejected at parse time with a clear error.
 - **Unicode**: Operate on Unicode code points (not UTF-16 code units). Use
   `Character.codePointAt()` and related methods.
-- **Stack safety**: Use iterative tree walkers (Walker pattern from RE2), not
-  recursion, for Regexp tree traversal. Deeply nested regexes must not cause
-  `StackOverflowError`.
+- **Stack safety**: Avoid recursion in SafeRE implementation code. Regex AST
+  walks, program graph walks, parser logic, compiler logic, matcher execution,
+  Unicode/class processing, and public API paths must use explicit
+  stacks/worklists or existing iterative Walker helpers. Deeply nested regexes
+  and large inputs must not be able to cause `StackOverflowError`. Recursion is
+  acceptable only for test helpers or implementation details with a clearly
+  static, small bound.
 - **No `\C`**: RE2's "match any byte" is not applicable to Java strings.
 - **No `@SuppressWarnings`**: Do not add `@SuppressWarnings` annotations
   without explicit approval from the project owner. Fix the underlying
