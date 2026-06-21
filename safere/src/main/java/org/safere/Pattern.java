@@ -2008,43 +2008,38 @@ public final class Pattern implements Serializable {
    * leftmost-first) depending on which execution path or engine is chosen.
    */
   private static boolean hasUnsafeAlternation(Regexp re) {
-    return hasUnsafeAlternation(re, null);
-  }
-
-  /**
-   * Traverses the AST to detect unsafe alternations, tracking lookahead context when navigating
-   * concatenation nodes to resolve boundary overlaps.
-   */
-  private static boolean hasUnsafeAlternation(Regexp re, Regexp lookahead) {
-    if (re == null) {
-      return false;
-    }
-    Regexp node = unwrapCaptures(re);
-    if (node == null) {
-      return false;
-    }
-    if (node.op == RegexpOp.ALTERNATE) {
-      return !isSafeAlternation(node, lookahead);
-    }
-    if (node.op == RegexpOp.CONCAT && node.subs != null) {
-      for (int i = 0; i < node.subs.size(); i++) {
-        Regexp child = node.subs.get(i);
-        Regexp nextLookahead = (i + 1 < node.subs.size()) ? node.subs.get(i + 1) : lookahead;
-        if (hasUnsafeAlternation(child, nextLookahead)) {
+    Deque<AlternationFrame> stack = new ArrayDeque<>();
+    stack.push(new AlternationFrame(re, null));
+    while (!stack.isEmpty()) {
+      AlternationFrame frame = stack.pop();
+      Regexp node = unwrapCaptures(frame.node);
+      if (node == null) {
+        continue;
+      }
+      if (node.op == RegexpOp.ALTERNATE) {
+        if (!isSafeAlternation(node, frame.lookahead)) {
           return true;
         }
       }
-      return false;
-    }
-    if (node.subs != null) {
-      for (Regexp sub : node.subs) {
-        if (hasUnsafeAlternation(sub, null)) {
-          return true;
+      if (node.subs == null) {
+        continue;
+      }
+      if (node.op == RegexpOp.CONCAT) {
+        for (int i = node.subs.size() - 1; i >= 0; i--) {
+          Regexp nextLookahead =
+              (i + 1 < node.subs.size()) ? node.subs.get(i + 1) : frame.lookahead;
+          stack.push(new AlternationFrame(node.subs.get(i), nextLookahead));
+        }
+      } else {
+        for (int i = node.subs.size() - 1; i >= 0; i--) {
+          stack.push(new AlternationFrame(node.subs.get(i), null));
         }
       }
     }
     return false;
   }
+
+  private record AlternationFrame(Regexp node, Regexp lookahead) {}
 
   /**
    * Evaluates if a given ALTERNATE node is structurally safe to run on pure DFA paths. An

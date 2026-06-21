@@ -9,6 +9,7 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -238,6 +239,53 @@ class PatternInternalTest {
     void overlappingLiteralAlternativesUnsafe() {
       Pattern p = Pattern.compile("abc|asd");
       assertThat(p.dfaStartReliable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("safe outer alternation still scans unsafe nested alternation")
+    void safeOuterAlternationStillScansUnsafeNestedAlternation() {
+      Pattern p = Pattern.compile("(?:a(?:b|bc)|z)");
+      assertThat(p.dfaStartReliable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("deeply nested quantified alternation remains stack-safe during compile")
+    void deeplyNestedQuantifiedAlternationCompileIsStackSafe() throws InterruptedException {
+      int depth = 1_000;
+      String regex = nestedQuantifiedAlternation(depth);
+      Pattern.compile("a|aa");
+      AtomicReference<Pattern> compiled = new AtomicReference<>();
+      AtomicReference<Throwable> thrown = new AtomicReference<>();
+      Thread compiler =
+          new Thread(
+              null,
+              () -> {
+                try {
+                  compiled.set(Pattern.compile(regex));
+                } catch (Throwable t) {
+                  thrown.set(t);
+                }
+              },
+              "pattern-compile-stack-safety",
+              512 * 1024);
+
+      compiler.start();
+      compiler.join();
+
+      assertThat(thrown).hasValue(null);
+      assertThat(compiled.get().dfaStartReliable()).isFalse();
+    }
+
+    private static String nestedQuantifiedAlternation(int depth) {
+      StringBuilder regex = new StringBuilder(depth * 5 + 4);
+      for (int i = 0; i < depth; i++) {
+        regex.append("(?:");
+      }
+      regex.append("a|aa");
+      for (int i = 0; i < depth; i++) {
+        regex.append(")+");
+      }
+      return regex.toString();
     }
   }
 
