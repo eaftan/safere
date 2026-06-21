@@ -240,12 +240,11 @@ final class Dfa {
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
 
-    // Contiguous flat transition table allocation (sized for maxStates + 1 to account for
-    // deadState)
-    this.transitionTable = new int[(maxStates + 1) * numClasses];
-    this.statesTable = new State[maxStates + 1];
-    this.stateFlags = new int[maxStates + 1];
-    this.stateOffsets = new int[maxStates + 1];
+    int initialStateCapacity = Math.min(maxStates + 1, 16);
+    this.transitionTable = new int[initialStateCapacity * numClasses];
+    this.statesTable = new State[initialStateCapacity];
+    this.stateFlags = new int[initialStateCapacity];
+    this.stateOffsets = new int[initialStateCapacity];
 
     // Initialize deadState at ID 0
     this.deadState.id = 0;
@@ -254,18 +253,16 @@ final class Dfa {
     this.stateOffsets[0] = 0;
     this.nextStateId = 1;
 
-    // Initialize deadState transitions to transition to itself (ID 0)
     for (int c = 0; c < numClasses; c++) {
       transitionTable[c] = 0;
     }
-    // Initialize the rest of the transitions to -1 (uncomputed)
     Arrays.fill(transitionTable, numClasses, transitionTable.length, -1);
   }
 
-  private final int[] transitionTable;
-  private final State[] statesTable;
-  private final int[] stateFlags;
-  private final int[] stateOffsets;
+  private int[] transitionTable;
+  private State[] statesTable;
+  private int[] stateFlags;
+  private int[] stateOffsets;
   private int nextStateId;
 
   /**
@@ -624,12 +621,30 @@ final class Dfa {
       return null;
     }
     s = new State(insts, flags, wordBoundaryMatchIds);
+    ensureStateCapacity(nextStateId + 1);
     s.id = nextStateId++;
     statesTable[s.id] = s;
     stateFlags[s.id] = flags;
     stateOffsets[s.id] = s.id * numClasses;
+    Arrays.fill(transitionTable, stateOffsets[s.id], stateOffsets[s.id] + numClasses, -1);
     cache.put(key, s);
     return s;
+  }
+
+  private void ensureStateCapacity(int minCapacity) {
+    if (minCapacity <= statesTable.length) {
+      return;
+    }
+    int newCapacity = statesTable.length;
+    do {
+      newCapacity = Math.min(maxStates + 1, newCapacity * 2);
+    } while (newCapacity < minCapacity);
+    statesTable = Arrays.copyOf(statesTable, newCapacity);
+    stateFlags = Arrays.copyOf(stateFlags, newCapacity);
+    stateOffsets = Arrays.copyOf(stateOffsets, newCapacity);
+    int oldTransitionLength = transitionTable.length;
+    transitionTable = Arrays.copyOf(transitionTable, newCapacity * numClasses);
+    Arrays.fill(transitionTable, oldTransitionLength, transitionTable.length, -1);
   }
 
   /**
@@ -644,7 +659,15 @@ final class Dfa {
   }
 
   private int emptyFlags(String text, int pos) {
-    int flags = Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
+    int flags =
+        Nfa.emptyFlags(
+            text,
+            pos,
+            prog.unixLines(),
+            hasGraphemeSemantics,
+            graphemeContext,
+            prog.hasWordBoundary(),
+            prog.hasTextAnchor());
     if (prog.reversed()) {
       int rev =
           flags
@@ -684,14 +707,20 @@ final class Dfa {
     int emptyFlags = emptyFlags(text, pos);
 
     // Determine word-character context for \b/\B support.
-    boolean lastWord;
-    boolean lastUnicodeWord;
-    if (reverseContext) {
-      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
-      lastUnicodeWord = pos < text.length() && Nfa.isUnicodeWordChar(text.codePointAt(pos));
-    } else {
-      lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
-      lastUnicodeWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
+    boolean lastWord = false;
+    boolean lastUnicodeWord = false;
+    if (prog.hasWordBoundary()) {
+      if (reverseContext) {
+        if (pos < text.length()) {
+          int cp = text.codePointAt(pos);
+          lastWord = Nfa.isWordChar(cp);
+          lastUnicodeWord = cp < 128 ? lastWord : Nfa.isUnicodeWordChar(cp);
+        }
+      } else if (pos > 0) {
+        int cp = text.codePointBefore(pos);
+        lastWord = Nfa.isWordChar(cp);
+        lastUnicodeWord = cp < 128 ? lastWord : Nfa.isUnicodeWordChar(cp);
+      }
     }
 
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
@@ -849,15 +878,21 @@ final class Dfa {
     //
     // Both are re-expanded before consuming the character so that MATCH instructions
     // reached through these assertions are detected at the correct position.
-    boolean isWord = Nfa.isWordChar(cp);
-    boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
-    int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
-    boolean isUnicodeWord = Nfa.isUnicodeWordChar(cp);
-    boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
-    int unicodeWordBeforeFlags =
-        (isUnicodeWord != wasUnicodeWord)
-            ? EmptyOp.UNICODE_WORD_BOUNDARY
-            : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    boolean isWord = false;
+    boolean isUnicodeWord = false;
+    int wordBeforeFlags = 0;
+    int unicodeWordBeforeFlags = 0;
+    if (prog.hasWordBoundary()) {
+      isWord = Nfa.isWordChar(cp);
+      boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+      wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
+      isUnicodeWord = cp < 128 ? isWord : Nfa.isUnicodeWordChar(cp);
+      boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
+      unicodeWordBeforeFlags =
+          (isUnicodeWord != wasUnicodeWord)
+              ? EmptyOp.UNICODE_WORD_BOUNDARY
+              : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+    }
     boolean endLineHere;
     if (prog.unixLines()) {
       endLineHere = (cp == '\n');
