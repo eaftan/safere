@@ -90,18 +90,16 @@ final class Dfa {
      */
     final int[] wordBoundaryMatchIds;
 
-    /** Transitions indexed by equivalence class; null entry = not yet computed. */
-    final State[] next;
+    int id = -1; // Added: unique index in Dfa states array
 
-    State(int[] insts, int flags, int numClasses) {
-      this(insts, flags, null, numClasses);
+    State(int[] insts, int flags) {
+      this(insts, flags, null);
     }
 
-    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
+    State(int[] insts, int flags, int[] wordBoundaryMatchIds) {
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
-      this.next = new State[numClasses];
     }
 
     boolean isMatch() {
@@ -156,7 +154,7 @@ final class Dfa {
   private final Map<StateKey, State> cache = new HashMap<>();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
-  private final State deadState = new State(new int[0], 0, 0);
+  private final State deadState = new State(new int[0], 0);
 
   /** Pre-allocated visited generation array for {@link #expand}, reused across calls. */
   private final int[] expandVisitedGen;
@@ -241,7 +239,34 @@ final class Dfa {
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
+
+    // Contiguous flat transition table allocation (sized for maxStates + 1 to account for
+    // deadState)
+    this.transitionTable = new int[(maxStates + 1) * numClasses];
+    this.statesTable = new State[maxStates + 1];
+    this.stateFlags = new int[maxStates + 1];
+    this.stateOffsets = new int[maxStates + 1];
+
+    // Initialize deadState at ID 0
+    this.deadState.id = 0;
+    this.statesTable[0] = deadState;
+    this.stateFlags[0] = deadState.flags;
+    this.stateOffsets[0] = 0;
+    this.nextStateId = 1;
+
+    // Initialize deadState transitions to transition to itself (ID 0)
+    for (int c = 0; c < numClasses; c++) {
+      transitionTable[c] = 0;
+    }
+    // Initialize the rest of the transitions to -1 (uncomputed)
+    Arrays.fill(transitionTable, numClasses, transitionTable.length, -1);
   }
+
+  private final int[] transitionTable;
+  private final State[] statesTable;
+  private final int[] stateFlags;
+  private final int[] stateOffsets;
+  private int nextStateId;
 
   /**
    * Collects all code point range boundaries from the program's CHAR_RANGE instructions. The
@@ -598,7 +623,11 @@ final class Dfa {
     if (cache.size() >= maxStates) {
       return null;
     }
-    s = new State(insts, flags, wordBoundaryMatchIds, numClasses);
+    s = new State(insts, flags, wordBoundaryMatchIds);
+    s.id = nextStateId++;
+    statesTable[s.id] = s;
+    stateFlags[s.id] = flags;
+    stateOffsets[s.id] = s.id * numClasses;
     cache.put(key, s);
     return s;
   }
@@ -615,15 +644,7 @@ final class Dfa {
   }
 
   private int emptyFlags(String text, int pos) {
-    int flags =
-        Nfa.emptyFlags(
-            text,
-            pos,
-            prog.unixLines(),
-            hasGraphemeSemantics,
-            graphemeContext,
-            prog.hasWordBoundary(),
-            prog.hasTextAnchor());
+    int flags = Nfa.emptyFlags(text, pos, prog.unixLines(), hasGraphemeSemantics, graphemeContext);
     if (prog.reversed()) {
       int rev =
           flags
@@ -663,22 +684,14 @@ final class Dfa {
     int emptyFlags = emptyFlags(text, pos);
 
     // Determine word-character context for \b/\B support.
-    boolean lastWord = false;
-    boolean lastUnicodeWord = false;
-    if (prog.hasWordBoundary()) {
-      if (reverseContext) {
-        if (pos < text.length()) {
-          int cp = text.codePointAt(pos);
-          lastWord = Nfa.isWordChar(cp);
-          lastUnicodeWord = cp < 128 ? lastWord : Nfa.isUnicodeWordChar(cp);
-        }
-      } else {
-        if (pos > 0) {
-          int cp = text.codePointBefore(pos);
-          lastWord = Nfa.isWordChar(cp);
-          lastUnicodeWord = cp < 128 ? lastWord : Nfa.isUnicodeWordChar(cp);
-        }
-      }
+    boolean lastWord;
+    boolean lastUnicodeWord;
+    if (reverseContext) {
+      lastWord = pos < text.length() && Nfa.isWordChar(text.codePointAt(pos));
+      lastUnicodeWord = pos < text.length() && Nfa.isUnicodeWordChar(text.codePointAt(pos));
+    } else {
+      lastWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
+      lastUnicodeWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
     }
 
     // Check the start state cache. The start state depends only on (anchored, reverseContext,
@@ -753,7 +766,7 @@ final class Dfa {
    * text.length()} if no trailing line terminator exists. This is the earliest position where
    * non-multiline {@code $} can match before a trailing line terminator.
    */
-  private int trailingLineStart(String text) {
+  private int trailingLineTermStart(String text) {
     int len = text.length();
     if (len == 0) {
       return len;
@@ -836,21 +849,15 @@ final class Dfa {
     //
     // Both are re-expanded before consuming the character so that MATCH instructions
     // reached through these assertions are detected at the correct position.
-    boolean isWord = false;
-    boolean isUnicodeWord = false;
-    int wordBeforeFlags = 0;
-    int unicodeWordBeforeFlags = 0;
-    if (prog.hasWordBoundary()) {
-      isWord = Nfa.isWordChar(cp);
-      boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
-      wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
-      isUnicodeWord = cp < 128 ? isWord : Nfa.isUnicodeWordChar(cp);
-      boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
-      unicodeWordBeforeFlags =
-          (isUnicodeWord != wasUnicodeWord)
-              ? EmptyOp.UNICODE_WORD_BOUNDARY
-              : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
-    }
+    boolean isWord = Nfa.isWordChar(cp);
+    boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+    int wordBeforeFlags = (isWord != wasWord) ? EmptyOp.WORD_BOUNDARY : EmptyOp.NON_WORD_BOUNDARY;
+    boolean isUnicodeWord = Nfa.isUnicodeWordChar(cp);
+    boolean wasUnicodeWord = (s.flags & FLAG_LAST_UNICODE_WORD) != 0;
+    int unicodeWordBeforeFlags =
+        (isUnicodeWord != wasUnicodeWord)
+            ? EmptyOp.UNICODE_WORD_BOUNDARY
+            : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     boolean endLineHere;
     if (prog.unixLines()) {
       endLineHere = (cp == '\n');
@@ -897,12 +904,12 @@ final class Dfa {
             isMatchValid = true;
           } else {
             int textLen = text.length();
-            int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineStart(text) : textLen;
+            int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineTermStart(text) : textLen;
             if (pos == textLen || (trailingTermStart < textLen && pos == trailingTermStart)) {
               isMatchValid = true;
             }
           }
-          if (isMatchValid) {
+          if (isMatchValid && !longest) {
             break; // Prune all lower-priority branches!
           }
         } else {
@@ -1083,7 +1090,7 @@ final class Dfa {
     boolean dollarEnd = prog.dollarAnchorEnd();
     // $ allows matching before a trailing line terminator at end of text (JDK default $ behavior).
     // Compute the start position of the trailing line terminator for dollarAnchorEnd matching.
-    int trailingTermStart = dollarEnd ? trailingLineStart(text) : textLen;
+    int trailingTermStart = dollarEnd ? trailingLineTermStart(text) : textLen;
 
     // Position-dependent flag threshold: emptyFlags at positions >= this threshold contain
     // text-length-dependent flags (END_TEXT at textLen, DOLLAR_END near the end when text ends
@@ -1115,8 +1122,9 @@ final class Dfa {
       return new SearchResult(matched, matchEnd);
     }
 
+    int stateId = s.id;
     int pos = startPos;
-    while (pos <= textLen) {
+    while (true) {
       int cp;
       int nextPos;
       int cls;
@@ -1150,39 +1158,46 @@ final class Dfa {
       // cached transitions are position-independent. The end-of-text sentinel (cp < 0)
       // is always safe to cache because it always means "at text end".
       int effectiveNextPos = Math.min(nextPos, textLen);
-      State ns;
+      int nextId;
       if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
-        ns = computeNext(s, cp, text, effectiveNextPos);
+        State curState = statesTable[stateId];
+        State ns = computeNext(curState, cp, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
         }
+        nextId = ns.id;
       } else {
-        ns = s.next[cls];
-        if (ns == null) {
-          ns = computeNext(s, cp, text, effectiveNextPos);
+        int idx = stateOffsets[stateId] + cls;
+        nextId = transitionTable[idx];
+        if (nextId == -1) {
+          State curState = statesTable[stateId];
+          State ns = computeNext(curState, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next[cls] = ns;
+          nextId = ns.id;
+          transitionTable[idx] = nextId;
         }
       }
 
-      s = ns;
+      stateId = nextId;
 
-      if (s == deadState) {
+      if (stateId == 0) {
         break;
       }
 
-      if (s.isMatch()) {
+      int flags = stateFlags[stateId];
+      if ((flags & FLAG_MATCH) != 0) {
+        State matchState = statesTable[stateId];
         // FLAG_MATCH_BEFORE indicates a deferred assertion (\b, multiline $) fired before
         // consuming the current character and reached MATCH. Try the before-consume position
         // first (it's at an earlier position, preserving leftmost-first semantics).
-        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+        if ((flags & FLAG_MATCH_BEFORE) != 0) {
           int endPos = pos;
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
-            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+            if (!longest && canStopAtFirstMatch(matchState, text, endPos, needEndMatch)) {
               return new SearchResult(true, matchEnd);
             }
           }
@@ -1190,12 +1205,12 @@ final class Dfa {
         // Try the after-consume position: either no before-consume match exists, or it was
         // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
         // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+        if ((flags & FLAG_MATCH_BEFORE) == 0 || (flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
           int endPos = Math.min(nextPos, textLen);
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
             matchEnd = endPos;
-            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+            if (!longest && canStopAtFirstMatch(matchState, text, endPos, needEndMatch)) {
               return new SearchResult(true, matchEnd);
             }
           }
@@ -1269,8 +1284,9 @@ final class Dfa {
       return new SearchResult(matched, matchStart);
     }
 
+    int stateId = s.id;
     int pos = endPos;
-    while (pos >= startLimit) {
+    while (true) {
       int cp;
       int prevPos;
       int cls;
@@ -1303,32 +1319,38 @@ final class Dfa {
 
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
-      State ns;
+      int nextId;
       if (cp >= 0 && effectivePrevPos >= posDepThreshold) {
-        ns = computeNext(s, cp, text, effectivePrevPos);
+        State curState = statesTable[stateId];
+        State ns = computeNext(curState, cp, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
         }
+        nextId = ns.id;
       } else {
-        ns = s.next[cls];
-        if (ns == null) {
-          ns = computeNext(s, cp, text, effectivePrevPos);
+        int idx = stateOffsets[stateId] + cls;
+        nextId = transitionTable[idx];
+        if (nextId == -1) {
+          State curState = statesTable[stateId];
+          State ns = computeNext(curState, cp, text, effectivePrevPos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next[cls] = ns;
+          nextId = ns.id;
+          transitionTable[idx] = nextId;
         }
       }
-      s = ns;
+      stateId = nextId;
 
-      if (s == deadState) {
+      if (stateId == 0) {
         break;
       }
 
-      if (s.isMatch()) {
-        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
+      int flags = stateFlags[stateId];
+      if ((flags & FLAG_MATCH) != 0) {
+        boolean matchValid = (flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
         if (matchValid) {
-          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
+          int startPos = (flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
           if (!needEndMatch || startPos == startLimit) {
             matched = true;
             matchStart = startPos;
@@ -1382,7 +1404,7 @@ final class Dfa {
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();
-    int trailingTermStart = dollarEnd ? trailingLineStart(text) : textLen;
+    int trailingTermStart = dollarEnd ? trailingLineTermStart(text) : textLen;
 
     // Position-dependent threshold: same invariant as doSearch.
     int posDepThreshold = positionDependentThreshold(text);
@@ -1407,8 +1429,9 @@ final class Dfa {
     }
 
     if (s != deadState) {
+      int stateId = s.id;
       int pos = 0;
-      while (pos <= textLen) {
+      while (true) {
         int cp;
         int nextPos;
         int cls;
@@ -1437,40 +1460,47 @@ final class Dfa {
 
         // Bypass cache for position-dependent transitions (same invariant as doSearch).
         int effectiveNextPos = Math.min(nextPos, textLen);
-        State ns;
+        int nextId;
         if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
-          ns = computeNext(s, cp, text, effectiveNextPos);
+          State curState = statesTable[stateId];
+          State ns = computeNext(curState, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
           }
+          nextId = ns.id;
         } else {
-          ns = s.next[cls];
-          if (ns == null) {
-            ns = computeNext(s, cp, text, effectiveNextPos);
+          int idx = stateOffsets[stateId] + cls;
+          nextId = transitionTable[idx];
+          if (nextId == -1) {
+            State curState = statesTable[stateId];
+            State ns = computeNext(curState, cp, text, effectiveNextPos);
             if (ns == null) {
               return null; // budget exceeded
             }
-            s.next[cls] = ns;
+            nextId = ns.id;
+            transitionTable[idx] = nextId;
           }
         }
-        s = ns;
+        stateId = nextId;
 
-        if (s == deadState) {
+        if (stateId == 0) {
           break;
         }
 
-        if (s.isMatch()) {
-          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.min(nextPos, textLen);
+        int flags = stateFlags[stateId];
+        if ((flags & FLAG_MATCH) != 0) {
+          State matchState = statesTable[stateId];
+          int endPos = (flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.min(nextPos, textLen);
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             // Collect match IDs from the state's instructions.
-            for (int id : collectMatchIds(s.insts)) {
+            for (int id : collectMatchIds(matchState.insts)) {
               seen.set(id);
             }
             // Also collect match IDs from word-boundary expansion (if any).
-            if (s.wordBoundaryMatchIds != null) {
-              for (int id : s.wordBoundaryMatchIds) {
+            if (matchState.wordBoundaryMatchIds != null) {
+              for (int id : matchState.wordBoundaryMatchIds) {
                 seen.set(id);
               }
             }
