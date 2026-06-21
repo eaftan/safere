@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -314,6 +315,48 @@ class NfaTest {
       assertThat(m[5]).isEqualTo(1); // group 2 end
       assertThat(m[6]).isEqualTo(1); // group 3 start
       assertThat(m[7]).isEqualTo(2); // group 3 end
+    }
+
+    @Test
+    @DisplayName("deeply nested captures remain stack-safe in Pike NFA epsilon traversal")
+    void deeplyNestedCapturesRemainStackSafeInPikeNfa() {
+      int depth = 30000;
+      String pattern = "(".repeat(depth) + "a" + ")".repeat(depth);
+
+      assertTimeoutPreemptively(
+          Duration.ofSeconds(10),
+          () ->
+              runOnSmallStack(
+                  () -> {
+                    int[] m = anchoredSearch(pattern, "a");
+                    assertThat(m).isNotNull();
+                    assertThat(m[0]).isEqualTo(0);
+                    assertThat(m[1]).isEqualTo(1);
+                    assertThat(m[2]).isEqualTo(0);
+                    assertThat(m[3]).isEqualTo(1);
+                  }));
+    }
+  }
+
+  private static void runOnSmallStack(Runnable task) throws InterruptedException {
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    Thread thread =
+        new Thread(
+            null,
+            () -> {
+              try {
+                task.run();
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            },
+            "nfa-stack-safety-test",
+            256 * 1024);
+    thread.start();
+    thread.join();
+    Throwable thrown = failure.get();
+    if (thrown != null) {
+      throw new AssertionError(thrown);
     }
   }
 

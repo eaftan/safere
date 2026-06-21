@@ -89,6 +89,75 @@ final class Nfa {
     }
   }
 
+  private static final class AddToThreadqStack {
+    private int[] ids = new int[32];
+    private boolean[] consumedInputs = new boolean[32];
+    private int[] restoreIndexes = filledArray(32, -1);
+    private int[] restoreValues = new int[32];
+    private int size;
+
+    int id;
+    boolean consumedInput;
+    int restoreIndex;
+    int restoreValue;
+
+    void clear() {
+      size = 0;
+    }
+
+    boolean isEmpty() {
+      return size == 0;
+    }
+
+    void pushInstruction(int id, boolean consumedInput) {
+      ensureCapacity(size + 1);
+      ids[size] = id;
+      consumedInputs[size] = consumedInput;
+      restoreIndexes[size] = -1;
+      restoreValues[size] = -1;
+      size++;
+    }
+
+    void pushRestore(int restoreIndex, int restoreValue) {
+      ensureCapacity(size + 1);
+      ids[size] = 0;
+      consumedInputs[size] = false;
+      restoreIndexes[size] = restoreIndex;
+      restoreValues[size] = restoreValue;
+      size++;
+    }
+
+    void pop() {
+      size--;
+      id = ids[size];
+      consumedInput = consumedInputs[size];
+      restoreIndex = restoreIndexes[size];
+      restoreValue = restoreValues[size];
+    }
+
+    private void ensureCapacity(int minCapacity) {
+      if (minCapacity <= ids.length) {
+        return;
+      }
+      int newCapacity = ids.length * 2;
+      while (newCapacity < minCapacity) {
+        newCapacity *= 2;
+      }
+      ids = Arrays.copyOf(ids, newCapacity);
+      consumedInputs = Arrays.copyOf(consumedInputs, newCapacity);
+      int oldLength = restoreIndexes.length;
+      restoreIndexes = Arrays.copyOf(restoreIndexes, newCapacity);
+      Arrays.fill(restoreIndexes, oldLength, restoreIndexes.length, -1);
+      restoreValues = Arrays.copyOf(restoreValues, newCapacity);
+    }
+
+    private static int[] filledArray(int length, int value) {
+      int[] result = new int[length];
+      Arrays.fill(result, value);
+      return result;
+    }
+  }
+
   @SuppressWarnings("ArrayRecordComponent")
   record SearchResult(int[] groups) {}
 
@@ -104,6 +173,7 @@ final class Nfa {
 
   private boolean matched;
   private final int[] bestMatch;
+  private final AddToThreadqStack addToThreadqStack = new AddToThreadqStack();
 
   // NfaThread pool
   private NfaThread[] threadPool = new NfaThread[16];
@@ -661,113 +731,119 @@ final class Nfa {
    */
   private void addToThreadq(
       QueueState q, int id, String text, int pos, int[] t0, boolean consumedInput) {
-    if (id == 0) {
-      return;
-    }
+    AddToThreadqStack stack = addToThreadqStack;
+    stack.clear();
+    stack.pushInstruction(id, consumedInput);
 
-    Inst ip = prog.inst(id);
-    // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
-    // via registers. Within one addToThreadq call, it is visited at most twice (once
-    // to save the position, once to detect zero-width and redirect to exit).
-    //
-    // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
-    // same alternation or capture instruction at the same input position with different capture
-    // registers. The later zero-width iteration is JDK-visible and must not be discarded.
-    if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
-      if (q.hasGraphemeSemantics) {
-        long visitKey = visitKey(ip, id, text, pos, pos);
-        if (!q.visitedGrapheme.add(visitKey)) {
-          return;
-        }
-      } else {
-        if (q.visitedInst[id]) {
-          return;
-        }
-        q.visitedInst[id] = true;
+    while (!stack.isEmpty()) {
+      stack.pop();
+      if (stack.restoreIndex >= 0) {
+        t0[stack.restoreIndex] = stack.restoreValue;
+        continue;
       }
-    }
-
-    switch (ip.op) {
-      case FAIL -> {}
-
-      case ALT -> {
-        addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-        addToThreadq(q, ip.out1, text, pos, t0, consumedInput);
+      if (stack.id == 0) {
+        continue;
       }
 
-      case ALT_MATCH -> {
-        q.threads[q.size++] = allocThread(id, t0, -1);
-        addToThreadq(q, ip.out1, text, pos, t0, consumedInput);
-        addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-      }
-
-      case NOP -> {
-        addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-      }
-
-      case CAPTURE -> {
-        if (ip.arg < ncapture) {
-          // Backtracking optimization: instead of cloning the capture array on every transition,
-          // we temporarily mutate the array and restore its previous value when returning from
-          // recursion.
-          int opos = t0[ip.arg];
-          t0[ip.arg] = pos;
-          addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-          t0[ip.arg] = opos;
-        } else {
-          addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-        }
-      }
-
-      case EMPTY_WIDTH -> {
-        int flags =
-            emptyFlags(
-                text,
-                pos,
-                prog.unixLines(),
-                prog.hasGraphemeSemantics(),
-                context.graphemeContext(),
-                t0[0],
-                context.boundaryRegionStart(),
-                consumedInput,
-                context.emptyAnchorStartPos(),
-                context.emptyAnchorEndPos(),
-                context.effectiveBoundaryEndPos(consumedInput),
-                prog.hasWordBoundary(),
-                prog.hasTextAnchor());
-        if ((ip.arg & ~flags) == 0) {
-          addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-        }
-      }
-
-      case PROGRESS_CHECK -> {
-        int reg = ip.arg;
-        int regIdx = ncapture + reg;
-        int saved = t0[regIdx];
-        if (saved == -1) {
-          t0[regIdx] = pos;
-          addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-          t0[regIdx] = -1;
-        } else if (saved == pos) {
-          addToThreadq(q, ip.out1, text, pos, t0, consumedInput);
-        } else {
-          t0[regIdx] = pos;
-          boolean nonGreedy = ip.foldCase;
-          if (nonGreedy) {
-            // Non-greedy: prefer exit (run ip.out1 first)
-            addToThreadq(q, ip.out1, text, pos, t0, consumedInput);
-            addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-          } else {
-            // Greedy: prefer body (run ip.out first)
-            addToThreadq(q, ip.out, text, pos, t0, consumedInput);
-            addToThreadq(q, ip.out1, text, pos, t0, consumedInput);
+      int instructionId = stack.id;
+      boolean frameConsumedInput = stack.consumedInput;
+      Inst ip = prog.inst(instructionId);
+      // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
+      // via registers. Within one addToThreadq call, it is visited at most twice (once
+      // to save the position, once to detect zero-width and redirect to exit).
+      //
+      // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
+      // same alternation or capture instruction at the same input position with different capture
+      // registers. The later zero-width iteration is JDK-visible and must not be discarded.
+      if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
+        if (q.hasGraphemeSemantics) {
+          long visitKey = visitKey(ip, instructionId, text, pos, pos);
+          if (!q.visitedGrapheme.add(visitKey)) {
+            continue;
           }
-          t0[regIdx] = saved;
+        } else {
+          if (q.visitedInst[instructionId]) {
+            continue;
+          }
+          q.visitedInst[instructionId] = true;
         }
       }
 
-      case CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER, MATCH -> {
-        q.threads[q.size++] = allocThread(id, t0, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1);
+      switch (ip.op) {
+        case FAIL -> {}
+
+        case ALT -> {
+          stack.pushInstruction(ip.out1, frameConsumedInput);
+          stack.pushInstruction(ip.out, frameConsumedInput);
+        }
+
+        case ALT_MATCH -> {
+          q.threads[q.size++] = allocThread(instructionId, t0, -1);
+          stack.pushInstruction(ip.out, frameConsumedInput);
+          stack.pushInstruction(ip.out1, frameConsumedInput);
+        }
+
+        case NOP -> stack.pushInstruction(ip.out, frameConsumedInput);
+
+        case CAPTURE -> {
+          if (ip.arg < ncapture) {
+            int opos = t0[ip.arg];
+            t0[ip.arg] = pos;
+            stack.pushRestore(ip.arg, opos);
+            stack.pushInstruction(ip.out, frameConsumedInput);
+          } else {
+            stack.pushInstruction(ip.out, frameConsumedInput);
+          }
+        }
+
+        case EMPTY_WIDTH -> {
+          int flags =
+              emptyFlags(
+                  text,
+                  pos,
+                  prog.unixLines(),
+                  prog.hasGraphemeSemantics(),
+                  context.graphemeContext(),
+                  t0[0],
+                  context.boundaryRegionStart(),
+                  frameConsumedInput,
+                  context.emptyAnchorStartPos(),
+                  context.emptyAnchorEndPos(),
+                  context.effectiveBoundaryEndPos(frameConsumedInput),
+                  prog.hasWordBoundary(),
+                  prog.hasTextAnchor());
+          if ((ip.arg & ~flags) == 0) {
+            stack.pushInstruction(ip.out, frameConsumedInput);
+          }
+        }
+
+        case PROGRESS_CHECK -> {
+          int reg = ip.arg;
+          int regIdx = ncapture + reg;
+          int saved = t0[regIdx];
+          if (saved == -1) {
+            t0[regIdx] = pos;
+            stack.pushRestore(regIdx, -1);
+            stack.pushInstruction(ip.out, frameConsumedInput);
+          } else if (saved == pos) {
+            stack.pushInstruction(ip.out1, frameConsumedInput);
+          } else {
+            t0[regIdx] = pos;
+            stack.pushRestore(regIdx, saved);
+            if (ip.foldCase) {
+              stack.pushInstruction(ip.out, frameConsumedInput);
+              stack.pushInstruction(ip.out1, frameConsumedInput);
+            } else {
+              stack.pushInstruction(ip.out1, frameConsumedInput);
+              stack.pushInstruction(ip.out, frameConsumedInput);
+            }
+          }
+        }
+
+        case CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER, MATCH -> {
+          q.threads[q.size++] =
+              allocThread(instructionId, t0, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1);
+        }
       }
     }
   }
