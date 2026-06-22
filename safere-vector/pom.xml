@@ -32,7 +32,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <release>26</release>
+          <release>${java.specification.version}</release>
           <compilerArgs>
             <arg>-Xlint</arg>
             <arg>--enable-preview</arg>
