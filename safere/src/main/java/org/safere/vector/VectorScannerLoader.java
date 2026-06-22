@@ -5,9 +5,7 @@
 
 package org.safere.vector;
 
-/**
- * Loads the vector scanner implementation via reflection if available on the classpath.
- */
+/** Loads the vector scanner implementation via reflection if available on the classpath. */
 public final class VectorScannerLoader {
   private static final VectorScannerBridge INSTANCE = loadInstance();
 
@@ -27,9 +25,7 @@ public final class VectorScannerLoader {
 
   private VectorScannerLoader() {}
 
-  /**
-   * Returns the vector scanner instance, or {@code null} if not supported at runtime.
-   */
+  /** Returns the vector scanner instance, or {@code null} if not supported at runtime. */
   public static VectorScannerBridge getInstance() {
     return INSTANCE;
   }

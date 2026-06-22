@@ -14,9 +14,7 @@ import jdk.incubator.vector.ShortVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
-/**
- * Implementation of VectorScannerBridge using the Java Vector API.
- */
+/** Implementation of VectorScannerBridge using the Java Vector API. */
 public final class VectorScannerImpl implements VectorScannerBridge {
   private static final VectorSpecies<Short> SHORT_SPECIES = ShortVector.SPECIES_PREFERRED;
   private static final VectorSpecies<Byte> BYTE_SPECIES = ByteVector.SPECIES_PREFERRED;
@@ -28,7 +26,8 @@ public final class VectorScannerImpl implements VectorScannerBridge {
     VarHandle valHandle = null;
     VarHandle codHandle = null;
     try {
-      MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(String.class, MethodHandles.lookup());
+      MethodHandles.Lookup lookup =
+          MethodHandles.privateLookupIn(String.class, MethodHandles.lookup());
       valHandle = lookup.findVarHandle(String.class, "value", byte[].class);
       codHandle = lookup.findVarHandle(String.class, "coder", byte.class);
     } catch (Throwable t) {
@@ -50,7 +49,9 @@ public final class VectorScannerImpl implements VectorScannerBridge {
     int i = fromIndex;
     for (; i < limit; i += SHORT_SPECIES.length()) {
       long byteOffset = (long) i * 2;
-      ShortVector v = ShortVector.fromMemorySegment(SHORT_SPECIES, segment, byteOffset, ByteOrder.nativeOrder());
+      ShortVector v =
+          ShortVector.fromMemorySegment(
+              SHORT_SPECIES, segment, byteOffset, ByteOrder.nativeOrder());
       VectorMask<Short> mask = v.eq(targetShort);
       if (mask.anyTrue()) {
         return i + mask.firstTrue();
@@ -90,7 +91,8 @@ public final class VectorScannerImpl implements VectorScannerBridge {
 
       int i = fromIndex;
       for (; i < limit; i += BYTE_SPECIES.length()) {
-        ByteVector v = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, (long) i, ByteOrder.nativeOrder());
+        ByteVector v =
+            ByteVector.fromMemorySegment(BYTE_SPECIES, segment, (long) i, ByteOrder.nativeOrder());
         VectorMask<Byte> mask = v.eq(targetByte);
         if (mask.anyTrue()) {
           return i + mask.firstTrue();
@@ -110,7 +112,9 @@ public final class VectorScannerImpl implements VectorScannerBridge {
       int i = fromIndex;
       for (; i < limit; i += SHORT_SPECIES.length()) {
         long byteOffset = (long) i * 2;
-        ShortVector v = ShortVector.fromMemorySegment(SHORT_SPECIES, segment, byteOffset, ByteOrder.nativeOrder());
+        ShortVector v =
+            ShortVector.fromMemorySegment(
+                SHORT_SPECIES, segment, byteOffset, ByteOrder.nativeOrder());
         VectorMask<Short> mask = v.eq(targetShort);
         if (mask.anyTrue()) {
           return i + mask.firstTrue();

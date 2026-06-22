@@ -67,8 +67,7 @@ public final class Matcher implements MatchResult {
       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch)
       implements EngineResult {}
 
-  private static final VectorScannerBridge VECTOR_SCANNER =
-      VectorScannerLoader.getInstance();
+  private static final VectorScannerBridge VECTOR_SCANNER = VectorScannerLoader.getInstance();
 
   private enum ResultStatus {
     RESET_NO_ATTEMPT,
@@ -1251,7 +1250,9 @@ public final class Matcher implements MatchResult {
     }
 
     String requiredLiteral = parentPattern.requiredLiteral();
-    if (requiredLiteral != null && !regionActive && (parentPattern.flags() & Pattern.CASE_INSENSITIVE) == 0) {
+    if (requiredLiteral != null
+        && !regionActive
+        && (parentPattern.flags() & Pattern.CASE_INSENSITIVE) == 0) {
       if (text.indexOf(requiredLiteral, searchFrom) < 0) {
         return applyEngineResult(new NoMatchResult());
       }

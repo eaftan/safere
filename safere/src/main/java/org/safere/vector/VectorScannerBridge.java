@@ -5,20 +5,18 @@
 
 package org.safere.vector;
 
-/**
- * Interface for vector scanning implementations.
- */
+/** Interface for vector scanning implementations. */
 public interface VectorScannerBridge {
   /**
-   * Scans the array for the target character between fromIndex and toIndex.
-   * Returns the index of the first occurrence, or -1 if not found.
+   * Scans the array for the target character between fromIndex and toIndex. Returns the index of
+   * the first occurrence, or -1 if not found.
    */
   int scan(char[] array, char target, int fromIndex, int toIndex);
 
   /**
-   * Scans the string directly using reflection-based backing array access if supported.
-   * Returns the index of the first occurrence, -1 if not found, or -2 if direct scanning
-   * is not supported or failed.
+   * Scans the string directly using reflection-based backing array access if supported. Returns the
+   * index of the first occurrence, -1 if not found, or -2 if direct scanning is not supported or
+   * failed.
    */
   int scanString(String text, char target, int fromIndex, int toIndex);
 }
