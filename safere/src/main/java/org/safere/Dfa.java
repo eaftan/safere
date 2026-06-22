@@ -198,7 +198,6 @@ final class Dfa {
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
 
-
   /** Sentinel dead state: no instructions, no transitions possible. */
   private final State deadState = new State(new int[0], 0);
 
