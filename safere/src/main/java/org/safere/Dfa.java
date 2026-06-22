@@ -90,22 +90,65 @@ final class Dfa {
      */
     final int[] wordBoundaryMatchIds;
 
-    /** Transitions indexed by equivalence class; null entry = not yet computed. */
-    final State[] next;
+    // Sparse transitions representation (for <= 8 transitions)
+    private int[] sparseClasses;
+    private State[] sparseStates;
+    private byte sparseCount;
 
-    State(int[] insts, int flags, int numClasses) {
-      this(insts, flags, null, numClasses);
+    // Inflated transitions representation (for > 8 transitions)
+    private State[] inflatedNext;
+
+    State(int[] insts, int flags) {
+      this(insts, flags, null);
     }
 
-    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
+    State(int[] insts, int flags, int[] wordBoundaryMatchIds) {
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
-      this.next = new State[numClasses];
     }
 
     boolean isMatch() {
       return (flags & FLAG_MATCH) != 0;
+    }
+
+    State getTransition(int cls) {
+      if (inflatedNext != null) {
+        return inflatedNext[cls];
+      }
+      for (int i = 0; i < sparseCount; i++) {
+        if (sparseClasses[i] == cls) {
+          return sparseStates[i];
+        }
+      }
+      return null;
+    }
+
+    void putTransition(int cls, State ns, int numClasses) {
+      if (inflatedNext != null) {
+        inflatedNext[cls] = ns;
+        return;
+      }
+      if (sparseCount < 8) {
+        if (sparseClasses == null) {
+          sparseClasses = new int[2];
+          sparseStates = new State[2];
+        } else if (sparseCount == sparseClasses.length) {
+          sparseClasses = Arrays.copyOf(sparseClasses, sparseCount * 2);
+          sparseStates = Arrays.copyOf(sparseStates, sparseCount * 2);
+        }
+        sparseClasses[sparseCount] = cls;
+        sparseStates[sparseCount] = ns;
+        sparseCount++;
+      } else {
+        inflatedNext = new State[numClasses];
+        for (int i = 0; i < sparseCount; i++) {
+          inflatedNext[sparseClasses[i]] = sparseStates[i];
+        }
+        inflatedNext[cls] = ns;
+        sparseClasses = null;
+        sparseStates = null;
+      }
     }
   }
 
@@ -155,8 +198,9 @@ final class Dfa {
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
 
+
   /** Sentinel dead state: no instructions, no transitions possible. */
-  private final State deadState = new State(new int[0], 0, 0);
+  private final State deadState = new State(new int[0], 0);
 
   /** Pre-allocated visited generation array for {@link #expand}, reused across calls. */
   private final int[] expandVisitedGen;
@@ -598,7 +642,7 @@ final class Dfa {
     if (cache.size() >= maxStates) {
       return null;
     }
-    s = new State(insts, flags, wordBoundaryMatchIds, numClasses);
+    s = new State(insts, flags, wordBoundaryMatchIds);
     cache.put(key, s);
     return s;
   }
@@ -1157,13 +1201,13 @@ final class Dfa {
           return null; // budget exceeded
         }
       } else {
-        ns = s.next[cls];
+        ns = s.getTransition(cls);
         if (ns == null) {
           ns = computeNext(s, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next[cls] = ns;
+          s.putTransition(cls, ns, numClasses);
         }
       }
 
@@ -1310,13 +1354,13 @@ final class Dfa {
           return null; // budget exceeded
         }
       } else {
-        ns = s.next[cls];
+        ns = s.getTransition(cls);
         if (ns == null) {
           ns = computeNext(s, cp, text, effectivePrevPos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          s.next[cls] = ns;
+          s.putTransition(cls, ns, numClasses);
         }
       }
       s = ns;
@@ -1444,13 +1488,13 @@ final class Dfa {
             return null; // budget exceeded
           }
         } else {
-          ns = s.next[cls];
+          ns = s.getTransition(cls);
           if (ns == null) {
             ns = computeNext(s, cp, text, effectiveNextPos);
             if (ns == null) {
               return null; // budget exceeded
             }
-            s.next[cls] = ns;
+            s.putTransition(cls, ns, numClasses);
           }
         }
         s = ns;
