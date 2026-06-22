@@ -158,7 +158,28 @@ public class RealWorldRegexBenchmark {
         "<container>\\n(\\s)*# (topic|tags)_identified:.*?\\n</container>",
         Operation.REPLACE_ALL_EMPTY,
         "<container>\n# topic_identified: sports\n</container>",
-        "<container>\n# topic: sports\n</container>");
+        "<container>\n# topic: sports\n</container>"),
+    /** URL detection with overlapping alternation prefixes (triggers DFA sandwich) */
+    OVERLAPPING_URL(
+        "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+        Operation.REPLACE_ALL_EMPTY,
+        "https://www.example.com/search?q=testing&hl=en",
+        "some-random-domain-name"),
+    /** Case-insensitive keyword matching (exercises compile-time case folding) */
+    CASE_INSENSITIVE_KEYWORD(
+        "(?i)keyword_to_find",
+        Operation.REPLACE_ALL_EMPTY,
+        "KEYWORD_TO_FIND",
+        "other_random_words"),
+    /**
+     * Pattern starting with a word boundary and having a suffix alternation (exercises
+     * leftmost-first reverse DFA correctness)
+     */
+    BOUNDED_NAME_MATCH(
+        "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)",
+        Operation.REPLACE_ALL_EMPTY,
+        "first name value",
+        "first name other_value");
 
     // The regular expression pattern string
     private final String patternStr;
