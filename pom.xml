@@ -39,6 +39,7 @@
   <modules>
     <module>safere-unicode</module>
     <module>safere</module>
+    <module>safere-vector</module>
     <module>safere-crosscheck</module>
     <module>safere-fuzz</module>
     <module>safere-exhaustive</module>
