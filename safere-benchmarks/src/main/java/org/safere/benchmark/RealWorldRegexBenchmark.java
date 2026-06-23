@@ -117,7 +117,8 @@ public class RealWorldRegexBenchmark {
     "overlappingUrl",
     "caseInsensitiveKeyword",
     "boundedNameMatch",
-    "templateTagMatch"
+    "templateTagMatch",
+    "sparseUrl"
   })
   public String patternName;
 
@@ -154,7 +155,11 @@ public class RealWorldRegexBenchmark {
     String template = match ? regexCase.match : regexCase.nonMatch;
     String alphabet = data.getString("realWorldRegex.safeDelimiterAlphabet");
     int seed = data.getInt("realWorldRegex.seed");
-    testInput = generateInput(template, inputSize, alphabet, seed);
+    if (patternName.equals("sparseUrl") && match) {
+      testInput = generateSparseInput(regexCase.match, regexCase.nonMatch, inputSize, seed);
+    } else {
+      testInput = generateInput(template, inputSize, alphabet, seed);
+    }
   }
 
   @TearDown
@@ -173,6 +178,29 @@ public class RealWorldRegexBenchmark {
       if (sb.length() < size) {
         sb.append(alphabet.charAt(Math.floorMod(delimiterIndex, alphabet.length())));
         delimiterIndex++;
+      }
+    }
+    return sb.substring(0, size);
+  }
+
+  private String generateSparseInput(String matchPart, String nonMatchPart, int size, int seed) {
+    StringBuilder sb = new StringBuilder(size);
+    int delimiterIndex = seed;
+    String alphabet = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ0123456789";
+    while (sb.length() < size) {
+      // Insert 20 non-matching segments
+      for (int i = 0; i < 20 && sb.length() < size; i++) {
+        sb.append(nonMatchPart);
+        if (sb.length() < size) {
+          sb.append(alphabet.charAt(Math.floorMod(delimiterIndex, alphabet.length())));
+          delimiterIndex++;
+        }
+      }
+      // Insert 1 matching segment with non-word boundaries (spaces)
+      if (sb.length() < size) {
+        sb.append(" ");
+        sb.append(matchPart);
+        sb.append(" ");
       }
     }
     return sb.substring(0, size);
