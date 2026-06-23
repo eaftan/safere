@@ -94,7 +94,6 @@ public final class Matcher implements MatchResult {
    */
   private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
 
-
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;

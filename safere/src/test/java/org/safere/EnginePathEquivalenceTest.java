@@ -89,8 +89,6 @@ class EnginePathEquivalenceTest {
         .isNotEqualTo(findTrace(canonical.matcher(input)));
   }
 
-
-
   @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {

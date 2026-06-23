@@ -809,8 +809,6 @@ public final class Pattern implements Serializable {
     return hasNullableAlternation;
   }
 
-
-
   /**
    * Returns the literal prefix for this pattern, or {@code null} if the pattern has no fixed
    * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.
@@ -1167,8 +1165,6 @@ public final class Pattern implements Serializable {
     return false;
   }
 
-
-
   /**
    * Returns {@code true} if the given regexp can match the empty string. Used to detect nullable
    * alternation branches where OnePass's longest-match semantics may differ from first-match.
@@ -1220,8 +1216,6 @@ public final class Pattern implements Serializable {
       };
     }
   }
-
-
 
   private static boolean startsWithGraphemeClusterBoundary(Regexp re) {
     Regexp first = firstMeaningfulNode(re);
@@ -1396,8 +1390,6 @@ public final class Pattern implements Serializable {
       return childArgs.isEmpty() ? GraphemeBoundaryContext.noMatch() : childArgs.getFirst();
     }
   }
-
-
 
   /** Result of prefix extraction: a literal string prefix and whether it is case-folded. */
   private record PrefixResult(String prefix, boolean foldCase) {}
@@ -1856,8 +1848,6 @@ public final class Pattern implements Serializable {
     }
     return null;
   }
-
-
 
   /** Holds precomputed data for the character-class-match fast path. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.

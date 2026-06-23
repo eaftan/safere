@@ -9,9 +9,6 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -136,7 +133,6 @@ class PatternInternalTest {
     assertThat(prefix['c']).isFalse();
   }
 
-
   @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
@@ -183,7 +179,6 @@ class PatternInternalTest {
   void numGroups(String pattern, int expected) {
     assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
   }
-
 
   private static String nestedRequiredPlusPattern(int depth, String atom) {
     StringBuilder regex = new StringBuilder(depth * 5 + atom.length());
