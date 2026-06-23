@@ -902,7 +902,7 @@ final class Dfa {
               isMatchValid = true;
             }
           }
-          if (isMatchValid) {
+          if (isMatchValid && !prog.reversed()) {
             break; // Prune all lower-priority branches!
           }
         } else {
