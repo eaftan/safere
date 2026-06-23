@@ -128,8 +128,9 @@ is_pathological() {
 normalize_benchmark_filter() {
   local bench="$1"
   local package_regex="org\\.safere\\.benchmark"
+  local regex='[][^$()|*+?\]'
 
-  if [[ "$bench" == org.safere.benchmark.* ]] || [[ "$bench" =~ [\^\$\[\]\(\)\|\*\+\?] ]]; then
+  if [[ "$bench" == org.safere.benchmark.* ]] || [[ "$bench" =~ $regex ]]; then
     printf '%s\n' "$bench"
   elif [[ "$bench" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
     printf '^%s\\.%s\\.\n' "$package_regex" "$bench"
