@@ -56,12 +56,28 @@ JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DI
 echo "=== Building safere + benchmark JAR ==="
 mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 
+normalize_benchmark_filter() {
+  local bench="$1"
+  local package_regex="org\\.safere\\.benchmark"
+
+  if [[ "$bench" == org.safere.benchmark.* ]] || [[ "$bench" =~ [\^\$\[\]\(\)\|\*\+\?] ]]; then
+    printf '%s\n' "$bench"
+  elif [[ "$bench" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    printf '^%s\\.%s\\.\n' "$package_regex" "$bench"
+  elif [[ "$bench" =~ ^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
+    printf '^%s\\.%s\\.%s($|_)\n' "$package_regex" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  else
+    printf '%s\n' "$bench"
+  fi
+}
+
 if [ $# -eq 0 ]; then
   echo "=== Running all benchmarks with GC profiling ==="
   java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS
 else
   for bench in "$@"; do
+    filter="$(normalize_benchmark_filter "$bench")"
     echo "=== Running $bench with GC profiling ==="
-    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS "$bench"
+    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS "$filter"
   done
 fi

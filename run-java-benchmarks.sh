@@ -125,14 +125,31 @@ is_pathological() {
   esac
 }
 
+normalize_benchmark_filter() {
+  local bench="$1"
+  local package_regex="org\\.safere\\.benchmark"
+
+  if [[ "$bench" == org.safere.benchmark.* ]] || [[ "$bench" =~ [\^\$\[\]\(\)\|\*\+\?] ]]; then
+    printf '%s\n' "$bench"
+  elif [[ "$bench" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    printf '^%s\\.%s\\.\n' "$package_regex" "$bench"
+  elif [[ "$bench" =~ ^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
+    printf '^%s\\.%s\\.%s($|_)\n' "$package_regex" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  else
+    printf '%s\n' "$bench"
+  fi
+}
+
 run_benchmark() {
   local bench="$1"
+  local filter
   local opts="$JMH_OPTS"
   if is_pathological "$bench"; then
     opts="$PATHOLOGICAL_JMH_OPTS"
   fi
+  filter="$(normalize_benchmark_filter "$bench")"
   echo "=== Running $bench ($opts) ==="
-  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $opts "$bench"
+  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $opts "$filter"
 }
 
 if [ $# -eq 0 ]; then
