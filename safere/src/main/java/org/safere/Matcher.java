@@ -61,8 +61,7 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private record DeferredMatchResult(
-      int start, int end, int ncap, boolean endMatch)
+  private record DeferredMatchResult(int start, int end, int ncap, boolean endMatch)
       implements EngineResult {}
 
   private enum ResultStatus {
@@ -183,7 +182,6 @@ public final class Matcher implements MatchResult {
     }
     return new String(chars);
   }
-
 
   private boolean applyEngineResult(EngineResult result) {
     switch (result) {
@@ -1383,11 +1381,7 @@ public final class Matcher implements MatchResult {
           if (fwdAnchored != null && fwdAnchored.matched()) {
             int matchEnd = fwdAnchored.pos();
             return applyEngineResult(
-                new DeferredMatchResult(
-                    matchStart,
-                    matchEnd,
-                    prog.numCaptures(),
-                    false));
+                new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), false));
           }
         }
         // DFA budget exceeded or forward DFA disagreed — fall through to normal path.
@@ -1444,11 +1438,7 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
-              new DeferredMatchResult(
-                  effectiveStart,
-                  matchEnd,
-                  prog.numCaptures(),
-                  false));
+              new DeferredMatchResult(effectiveStart, matchEnd, prog.numCaptures(), false));
         }
       } else if (literalPrefixCandidateStart) {
         // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
@@ -1458,11 +1448,7 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
-              new DeferredMatchResult(
-                  effectiveStart,
-                  matchEnd,
-                  prog.numCaptures(),
-                  false));
+              new DeferredMatchResult(effectiveStart, matchEnd, prog.numCaptures(), false));
         }
       } else {
         Dfa revDfa = reverseDfa();
@@ -1519,11 +1505,7 @@ public final class Matcher implements MatchResult {
                 int matchEnd = fwdFirst.pos();
                 // Step 4: Store group(0) boundaries, defer inner captures until requested.
                 return applyEngineResult(
-                    new DeferredMatchResult(
-                        matchStart,
-                        matchEnd,
-                        prog.numCaptures(),
-                        false));
+                    new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), false));
               }
             }
             // If anchored forward DFA fails, fall through to full search.
