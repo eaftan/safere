@@ -118,7 +118,8 @@ public class RealWorldRegexBenchmark {
     "caseInsensitiveKeyword",
     "boundedNameMatch",
     "templateTagMatch",
-    "sparseUrl"
+    "sparseUrl",
+    "unprefixedWordBoundary"
   })
   public String patternName;
 
@@ -157,6 +158,8 @@ public class RealWorldRegexBenchmark {
     int seed = data.getInt("realWorldRegex.seed");
     if (patternName.equals("sparseUrl") && match) {
       testInput = generateSparseInput(regexCase.match, regexCase.nonMatch, inputSize, seed);
+    } else if (patternName.equals("unprefixedWordBoundary") && match) {
+      testInput = "12345 " + generateInput(template, inputSize - 6, alphabet, seed);
     } else {
       testInput = generateInput(template, inputSize, alphabet, seed);
     }

@@ -286,6 +286,13 @@
         "op": "replaceAllEmpty",
         "match": "https://www.example.com/search?q=testing&hl=en",
         "nonMatch": "some-random-domain-name"
+      },
+      {
+        "name": "unprefixedWordBoundary",
+        "pattern": "\\b[a-zA-Z]{3,5}\\b",
+        "op": "find",
+        "match": "hello",
+        "nonMatch": "12345"
       }
     ]
   },
