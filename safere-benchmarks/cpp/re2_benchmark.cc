@@ -205,6 +205,26 @@ std::string suffix_match_to_size(const std::string& prefix_unit,
   return repeat_to_size(prefix_unit, prefix_size) + match;
 }
 
+std::string generated_real_world_input(const std::string& unit, int size,
+                                       const std::string& alphabet,
+                                       int seed) {
+  if (static_cast<int>(unit.size()) >= size) {
+    return unit.substr(0, size);
+  }
+  std::string text;
+  text.reserve(size + unit.size());
+  int delimiter_index = seed;
+  while (static_cast<int>(text.size()) < size) {
+    text += unit;
+    if (static_cast<int>(text.size()) < size) {
+      text += alphabet[delimiter_index % alphabet.size()];
+      ++delimiter_index;
+    }
+  }
+  text.resize(size);
+  return text;
+}
+
 // Encode a Unicode code point as UTF-8 and append to the string.
 void append_utf8(std::string& s, int cp) {
   if (cp < 0x80) {
@@ -465,6 +485,77 @@ void run_application_benchmarks(const json& data,
         do_not_optimize(run_int(app_case));
       }
     });
+  }
+}
+
+void run_real_world_regex_benchmarks(
+    const json& data, const std::vector<std::string>& filters) {
+  const auto& sec = data["realWorldRegex"];
+  std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
+  std::string alphabet = sec["safeDelimiterAlphabet"].get<std::string>();
+  int seed = sec["seed"].get<int>();
+
+  struct RealWorldCase {
+    std::string name;
+    std::string op;
+    std::string pattern;
+    std::string match;
+    std::string non_match;
+    RE2 re;
+
+    explicit RealWorldCase(const json& item)
+        : name(item.at("name").get<std::string>()),
+          op(item.at("op").get<std::string>()),
+          pattern(item.at("pattern").get<std::string>()),
+          match(item.at("match").get<std::string>()),
+          non_match(item.at("nonMatch").get<std::string>()),
+          re(pattern) {}
+  };
+
+  std::vector<std::unique_ptr<RealWorldCase>> cases;
+  for (const auto& item : sec["cases"]) {
+    cases.push_back(std::make_unique<RealWorldCase>(item));
+  }
+
+  for (const auto& case_ptr : cases) {
+    const RealWorldCase& c = *case_ptr;
+    if (!c.re.ok()) {
+      fprintf(stderr, "ERROR: invalid real-world regex pattern: %s\n",
+              c.name.c_str());
+      exit(1);
+    }
+    if (c.op != "find" && c.op != "replaceAllEmpty") {
+      fprintf(stderr, "ERROR: invalid real-world regex op: %s\n",
+              c.op.c_str());
+      exit(1);
+    }
+  }
+
+  for (const auto& case_ptr : cases) {
+    const RealWorldCase& c = *case_ptr;
+    for (bool match : {true, false}) {
+      const std::string& unit = match ? c.match : c.non_match;
+      std::string match_label = match ? "match" : "noMatch";
+      for (int size : sizes) {
+        std::string text = generated_real_world_input(unit, size, alphabet, seed);
+        std::string name = "RealWorldRegexBenchmark.runBenchmark." + c.name +
+                           "." + match_label + "." + std::to_string(size);
+        if (!matches_filter(name, filters)) {
+          continue;
+        }
+        if (c.op == "find") {
+          print_json(measure(name, [&]() {
+            do_not_optimize(RE2::PartialMatch(text, c.re));
+          }));
+        } else {
+          print_json(measure(name, [&]() {
+            std::string replaced = text;
+            RE2::GlobalReplace(&replaced, c.re, "");
+            do_not_optimize(replaced);
+          }));
+        }
+      }
+    }
   }
 }
 
@@ -928,6 +1019,7 @@ int main(int argc, char* argv[]) {
 
   run_regex_benchmarks(data, filters);
   run_application_benchmarks(data, filters);
+  run_real_world_regex_benchmarks(data, filters);
   run_compile_benchmarks(data, filters);
   run_search_scaling_benchmarks(data, filters);
   run_issue481_scaling_benchmarks(data, filters);

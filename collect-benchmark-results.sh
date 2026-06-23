@@ -130,7 +130,8 @@ if [ "$MODE" = "smoke" ]; then
     ./run-java-memory-benchmarks.sh --smoke RegexBenchmark.literalMatch
 else
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" RegexBenchmark ApplicationBenchmark CompileBenchmark
+    ./run-java-benchmarks.sh \
+      "${JAVA_MODE_ARGS[@]}" RegexBenchmark ApplicationBenchmark RealWorldRegexBenchmark CompileBenchmark
 
   run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
     ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" SearchScalingBenchmark Issue481ScalingBenchmark CaptureScalingBenchmark
@@ -173,7 +174,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
       ./run-cpp-benchmarks.sh RegexBenchmark.literalMatch
   else
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-      ./run-cpp-benchmarks.sh Regex Application Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
+      ./run-cpp-benchmarks.sh Regex Application RealWorldRegex Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
   fi
 
   log "Extracting C++ JSONL"
@@ -184,7 +185,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
       ./run-go-benchmarks.sh RegexBenchmark.literalMatch
   else
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-      ./run-go-benchmarks.sh Regex Application Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
+      ./run-go-benchmarks.sh Regex Application RealWorldRegex Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
   fi
 
   log "Extracting Go JSONL"
