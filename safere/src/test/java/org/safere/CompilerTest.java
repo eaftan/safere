@@ -7,6 +7,7 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,33 @@ class CompilerTest {
       assertThat(prog.size()).isGreaterThan(1);
       assertHasInstOp(prog, InstOp.CHAR_RANGE);
       assertHasInstOp(prog, InstOp.MATCH);
+    }
+
+    @Test
+    void compileSingleLiteralCaseInsensitiveAscii() {
+      // With UNICODE_CASE disabled, ASCII letters fold to a character class containing upper/lower.
+      Prog prog = compile("(?i)a", ParseFlags.PERL_X | ParseFlags.PERL_CLASSES);
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_CLASS);
+      assertHasCharClass(prog, new int[] {'A', 'A', 'a', 'a'});
+    }
+
+    @Test
+    void compileSingleLiteralCaseInsensitiveUnicode() {
+      // With UNICODE_CASE enabled, 'a' folds to 'a' and 'A'.
+      Prog prog = compile("(?iu)a");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_CLASS);
+      assertHasCharClass(prog, new int[] {'A', 'A', 'a', 'a'});
+    }
+
+    @Test
+    void compileKelvinSignCaseInsensitive() {
+      // Kelvin sign K (0x212A) case folds to 'K' (0x4B) and 'k' (0x6B).
+      Prog prog = compile("(?iu)\u212A");
+      assertThat(prog).isNotNull();
+      assertHasInstOp(prog, InstOp.CHAR_CLASS);
+      assertHasCharClass(prog, new int[] {'K', 'K', 'k', 'k', 0x212A, 0x212A});
     }
 
     @Test
@@ -462,6 +490,22 @@ class CompilerTest {
     assertThat(found)
         .withFailMessage(
             "Expected CHAR_RANGE [0x%X-0x%X] not found in prog:\n%s", lo, hi, prog.dump())
+        .isTrue();
+  }
+
+  private static void assertHasCharClass(Prog prog, int[] expectedRanges) {
+    boolean found = false;
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.op == InstOp.CHAR_CLASS && Arrays.equals(inst.ranges, expectedRanges)) {
+        found = true;
+        break;
+      }
+    }
+    assertThat(found)
+        .withFailMessage(
+            "Expected CHAR_CLASS with ranges %s not found in prog:\n%s",
+            Arrays.toString(expectedRanges), prog.dump())
         .isTrue();
   }
 }

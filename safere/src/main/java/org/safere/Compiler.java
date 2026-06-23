@@ -946,16 +946,58 @@ final class Compiler extends Walker<Compiler.Frag> {
 
   private Frag literal(int rune, int flags) {
     boolean foldCase = (flags & ParseFlags.FOLD_CASE) != 0;
-    if (foldCase && (flags & ParseFlags.UNICODE_CASE) == 0) {
-      if (isAsciiLetter(rune)) {
-        // Parser keeps these as folded literals so literal/prefix accelerators can see them.
-        // Lower to an explicit ASCII class here to avoid Unicode simple-fold matching.
-        return asciiFoldedLiteral(rune);
+    if (foldCase) {
+      if ((flags & ParseFlags.UNICODE_CASE) == 0) {
+        if (isAsciiLetter(rune)) {
+          // Parser keeps these as folded literals so literal/prefix accelerators can see them.
+          // Lower to an explicit ASCII class here to avoid Unicode simple-fold matching.
+          return asciiFoldedLiteral(rune);
+        }
+        foldCase = false;
+      } else {
+        // Expand Unicode case fold orbit at compile-time to avoid runtime simpleFold lookups.
+        return unicodeFoldedLiteral(rune);
       }
-      foldCase = false;
     }
     // In our code-point model, a literal is just a single CHAR_RANGE.
     return charRange(rune, rune, foldCase);
+  }
+
+  private Frag unicodeFoldedLiteral(int rune) {
+    List<Integer> orbit = new ArrayList<>();
+    orbit.add(rune);
+    int folded = Inst.simpleFold(rune);
+    while (folded != rune) {
+      orbit.add(folded);
+      folded = Inst.simpleFold(folded);
+    }
+    orbit.sort(null);
+
+    List<Integer> rangesList = new ArrayList<>();
+    int i = 0;
+    while (i < orbit.size()) {
+      int start = orbit.get(i);
+      int end = start;
+      while (i + 1 < orbit.size() && orbit.get(i + 1) == end + 1) {
+        end = orbit.get(i + 1);
+        i++;
+      }
+      rangesList.add(start);
+      rangesList.add(end);
+      i++;
+    }
+
+    int[] ranges = new int[rangesList.size()];
+    for (int j = 0; j < ranges.length; j++) {
+      ranges[j] = rangesList.get(j);
+    }
+
+    int id = allocInst();
+    if (id < 0) {
+      return Frag.NO_MATCH;
+    }
+    prog.mutableInst(id).initCharClass(0, ranges);
+    return new Frag(id, PatchList.mk(id << 1), false);
   }
 
   private Frag asciiFoldedLiteral(int rune) {
