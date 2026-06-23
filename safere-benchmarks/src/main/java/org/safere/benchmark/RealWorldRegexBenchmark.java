@@ -179,7 +179,15 @@ public class RealWorldRegexBenchmark {
         "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)",
         Operation.REPLACE_ALL_EMPTY,
         "first name value",
-        "first name other_value");
+        "first name other_value"),
+    /**
+     * Template tag matching with a trailing boundary (exercises BitState EmptyOp specialization)
+     */
+    TEMPLATE_TAG_MATCH(
+        "(?s)(<template\\s+name\\s*>.*?<\\s*/\\s*template[ \\t]*)([^>]|$)",
+        Operation.REPLACE_ALL_EMPTY,
+        "<template name>content to match</template>",
+        "plain text without template tag");
 
     // The regular expression pattern string
     private final String patternStr;
