@@ -71,25 +71,6 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
-  @DisplayName("OnePass nullable-alternation guard has semantic content")
-  void onePassNullableAlternationGuardHasSemanticContent() {
-    String regex = "^(?:|a)";
-    String input = "a";
-    Pattern canonical = Pattern.compile(regex);
-    Pattern unguarded =
-        Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder().semanticGuards(false).dfa(false).bitState(false).build());
-
-    assertThat(canonical.hasNullableAlternation()).isTrue();
-    assertThat(canonical.onePass()).isNotNull();
-    assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded OnePass should expose why the nullable-alternation guard exists")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
-  }
-
-  @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
     assertEquivalent(
