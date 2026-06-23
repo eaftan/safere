@@ -15,7 +15,7 @@ public final class VectorScannerLoader {
           Class.forName("org.safere.vector.VectorScannerImpl")
               .asSubclass(VectorScannerBridge.class);
       return implClass.getDeclaredConstructor().newInstance();
-    } catch (Throwable t) {
+    } catch (ReflectiveOperationException | LinkageError | ClassCastException e) {
       // Gracefully fall back to scalar matching (null) if:
       // - safere-vector jar is not on the classpath.
       // - JVM was run without --enable-preview or jdk.incubator.vector module.
