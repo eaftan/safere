@@ -128,6 +128,11 @@ public final class Matcher implements MatchResult {
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
 
+  /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
+  private Nfa cachedNfa;
+
+  private boolean nfaBorrowed;
+
   /**
    * Whether all capture groups have been resolved. When the DFA sandwich determines match
    * boundaries (group 0), inner captures (groups 1+) are deferred until explicitly requested. This
@@ -305,6 +310,10 @@ public final class Matcher implements MatchResult {
       bitStateBorrowed = false;
       cachedBitState = null;
     }
+    if (nfaBorrowed && cachedNfa != null) {
+      nfaBorrowed = false;
+      cachedNfa = null;
+    }
     bitStateResult = null;
     graphemeContextText = null;
     graphemeContext = null;
@@ -314,6 +323,8 @@ public final class Matcher implements MatchResult {
     bitStateBorrowed = false;
     cachedBitState = null;
     bitStateResult = null;
+    nfaBorrowed = false;
+    cachedNfa = null;
     graphemeContextText = null;
     graphemeContext = null;
   }
@@ -786,19 +797,18 @@ public final class Matcher implements MatchResult {
     // may accept a match ending before a trailing \n. In that case, fall back to the NFA
     // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
     if (result != null && result[1] != text.length()) {
-      Nfa.SearchResult nfaResult =
-          Nfa.search(
+      int[] nfaResult =
+          searchNfa(
               prog,
-              text,
               0,
               text.length(),
               text.length(),
               0,
+              prog.numCaptures(),
               Nfa.Anchor.ANCHORED,
               Nfa.MatchKind.FULL_MATCH,
-              prog.numCaptures(),
-              graphemeContextFor(prog));
-      result = nfaResult.groups();
+              false);
+      result = nfaResult;
     }
     return applyEngineResult(new FullMatchResult(result));
   }
@@ -1901,10 +1911,49 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
+    return searchNfa(
+        prog,
+        startPos,
+        searchLimit,
+        endPos,
+        graphemeConsumeEndPos,
+        nsubmatch,
+        nfaAnchor,
+        nfaKind,
+        preserveOuterEmptyContext);
+  }
+
+  private int[] searchNfa(
+      Prog prog,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      int nsubmatch,
+      Nfa.Anchor nfaAnchor,
+      Nfa.MatchKind nfaKind,
+      boolean preserveOuterEmptyContext) {
+    if (prog.start() == 0) {
+      return null;
+    }
+    boolean anchored = (nfaAnchor == Nfa.Anchor.ANCHORED) || prog.anchorStart();
+    boolean longestMode = (nfaKind != Nfa.MatchKind.FIRST_MATCH);
+    boolean endmatch = prog.anchorEnd();
+
+    if (nfaKind == Nfa.MatchKind.FULL_MATCH) {
+      anchored = true;
+      endmatch = true;
+      if (nsubmatch == 0) {
+        nsubmatch = 1;
+      }
+    }
+
+    // We always need at least capture[0..1] to track the match boundaries.
+    int ncapture = 2 * Math.max(nsubmatch, 1);
+
     boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
-    // Deferred capture replay bounds consumption to group(0), but empty-width assertions still
-    // need the matcher region context that produced the match.
+
     boolean useOuterEmptyContext = fullTextRegionContext || preserveOuterEmptyContext;
     int emptyContextEnd = preserveOuterEmptyContext ? regionEnd : endPos;
     int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? regionStart : 0;
@@ -1917,8 +1966,9 @@ public final class Matcher implements MatchResult {
     int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? regionStart : 0;
     int emptyAnchorEndPos =
         useOuterEmptyContext && !anchoringBounds ? text.length() : emptyContextEnd;
-    Nfa.SearchResult nfaResult =
-        Nfa.search(
+
+    EngineContext context =
+        EngineContext.create(
             prog,
             text,
             startPos,
@@ -1931,10 +1981,18 @@ public final class Matcher implements MatchResult {
             anchorEndPos,
             emptyAnchorStartPos,
             emptyAnchorEndPos,
-            nfaAnchor,
-            nfaKind,
-            nsubmatch,
             graphemeContextFor(prog));
+
+    if (cachedNfa == null && !nfaBorrowed) {
+      cachedNfa = parentPattern.borrowNfa();
+      nfaBorrowed = true;
+    }
+
+    Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
+    Nfa.SearchResult nfaResult = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos);
+    cachedNfa = nfa;
+    parentPattern.returnNfa(nfa);
+
     return nfaResult.groups();
   }
 
