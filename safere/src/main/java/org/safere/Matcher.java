@@ -431,10 +431,14 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean containsRequiredMatchClass(int[] ranges) {
+    return containsRequiredMatchClass(ranges, 0);
+  }
+
+  private boolean containsRequiredMatchClass(int[] ranges, int fromIndex) {
     long b0 = parentPattern.requiredMatchClassBitmap0();
     long b1 = parentPattern.requiredMatchClassBitmap1();
 
-    int i = 0;
+    int i = Math.max(0, fromIndex);
     int len = text.length();
     while (i < len) {
       int cp = text.codePointAt(i);
@@ -1237,6 +1241,13 @@ public final class Matcher implements MatchResult {
     // when a region is active). Return false immediately to avoid the DFA matching at every
     // position because the compiler strips the anchor into prog.anchorStart().
     if (prog.anchorStart() && searchFrom > 0) {
+      return applyEngineResult(new NoMatchResult());
+    }
+
+    int[] requiredRanges = parentPattern.requiredMatchClassRanges();
+    if (options.charClassMatchFastPaths()
+        && requiredRanges != null
+        && !containsRequiredMatchClass(requiredRanges, searchFrom)) {
       return applyEngineResult(new NoMatchResult());
     }
 

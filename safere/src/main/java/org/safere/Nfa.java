@@ -49,22 +49,112 @@ final class Nfa {
     FULL_MATCH
   }
 
-  /** A thread in the NFA: an instruction index paired with capture metadata. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
-  @SuppressWarnings("ArrayRecordComponent")
-  private record NfaThread(int id, int[] capture, boolean consumedInput, int graphemeStart) {}
+  private static final class NfaThread {
+    int id;
+    final int[] capture;
+    int graphemeStart;
+
+    NfaThread(int threadArraySize) {
+      this.capture = new int[threadArraySize];
+    }
+  }
 
   private static final class QueueState {
-    final List<NfaThread> threads = new ArrayList<>();
-    final Set<Long> visited = new HashSet<>();
+    final NfaThread[] threads;
+    int size = 0;
+
+    final boolean[] visitedInst;
+    final Set<Long> visitedGrapheme;
+    final boolean hasGraphemeSemantics;
+
+    QueueState(int progSize, boolean hasGraphemeSemantics) {
+      this.threads = new NfaThread[progSize + 1];
+      this.visitedInst = new boolean[progSize + 1];
+      this.visitedGrapheme = hasGraphemeSemantics ? new HashSet<>() : null;
+      this.hasGraphemeSemantics = hasGraphemeSemantics;
+    }
 
     boolean isEmpty() {
-      return threads.isEmpty();
+      return size == 0;
     }
 
     void clear() {
-      threads.clear();
-      visited.clear();
+      size = 0;
+      if (hasGraphemeSemantics) {
+        visitedGrapheme.clear();
+      } else {
+        Arrays.fill(visitedInst, false);
+      }
+    }
+  }
+
+  private static final class AddToThreadqStack {
+    private int[] ids = new int[32];
+    private boolean[] consumedInputs = new boolean[32];
+    private int[] restoreIndexes = filledArray(32, -1);
+    private int[] restoreValues = new int[32];
+    private int size;
+
+    int id;
+    boolean consumedInput;
+    int restoreIndex;
+    int restoreValue;
+
+    void clear() {
+      size = 0;
+    }
+
+    boolean isEmpty() {
+      return size == 0;
+    }
+
+    void pushInstruction(int id, boolean consumedInput) {
+      ensureCapacity(size + 1);
+      ids[size] = id;
+      consumedInputs[size] = consumedInput;
+      restoreIndexes[size] = -1;
+      restoreValues[size] = -1;
+      size++;
+    }
+
+    void pushRestore(int restoreIndex, int restoreValue) {
+      ensureCapacity(size + 1);
+      ids[size] = 0;
+      consumedInputs[size] = false;
+      restoreIndexes[size] = restoreIndex;
+      restoreValues[size] = restoreValue;
+      size++;
+    }
+
+    void pop() {
+      size--;
+      id = ids[size];
+      consumedInput = consumedInputs[size];
+      restoreIndex = restoreIndexes[size];
+      restoreValue = restoreValues[size];
+    }
+
+    private void ensureCapacity(int minCapacity) {
+      if (minCapacity <= ids.length) {
+        return;
+      }
+      int newCapacity = ids.length * 2;
+      while (newCapacity < minCapacity) {
+        newCapacity *= 2;
+      }
+      ids = Arrays.copyOf(ids, newCapacity);
+      consumedInputs = Arrays.copyOf(consumedInputs, newCapacity);
+      int oldLength = restoreIndexes.length;
+      restoreIndexes = Arrays.copyOf(restoreIndexes, newCapacity);
+      Arrays.fill(restoreIndexes, oldLength, restoreIndexes.length, -1);
+      restoreValues = Arrays.copyOf(restoreValues, newCapacity);
+    }
+
+    private static int[] filledArray(int length, int value) {
+      int[] result = new int[length];
+      Arrays.fill(result, value);
+      return result;
     }
   }
 
@@ -83,6 +173,61 @@ final class Nfa {
 
   private boolean matched;
   private final int[] bestMatch;
+  private final AddToThreadqStack addToThreadqStack = new AddToThreadqStack();
+
+  // NfaThread pool
+  private NfaThread[] threadPool = new NfaThread[16];
+  private int threadPoolSize = 0;
+
+  // QueueState pool
+  private final List<QueueState> queueStatePool = new ArrayList<>();
+
+  private NfaThread allocThread(int id, int[] captureSource, int graphemeStart) {
+    NfaThread t;
+    if (threadPoolSize > 0) {
+      threadPoolSize--;
+      t = threadPool[threadPoolSize];
+      threadPool[threadPoolSize] = null;
+    } else {
+      t = new NfaThread(threadArraySize);
+    }
+    t.id = id;
+    if (captureSource != null) {
+      System.arraycopy(captureSource, 0, t.capture, 0, threadArraySize);
+    } else {
+      Arrays.fill(t.capture, -1);
+    }
+    t.graphemeStart = graphemeStart;
+    return t;
+  }
+
+  private void freeThread(NfaThread t) {
+    if (threadPool.length <= threadPoolSize) {
+      threadPool = Arrays.copyOf(threadPool, threadPool.length * 2);
+    }
+    threadPool[threadPoolSize] = t;
+    threadPoolSize++;
+  }
+
+  private void freeQueue(QueueState q) {
+    for (int i = 0; i < q.size; i++) {
+      freeThread(q.threads[i]);
+      q.threads[i] = null;
+    }
+    q.clear();
+  }
+
+  private QueueState allocQueueState() {
+    if (!queueStatePool.isEmpty()) {
+      return queueStatePool.remove(queueStatePool.size() - 1);
+    }
+    return new QueueState(prog.size(), prog.hasGraphemeSemantics());
+  }
+
+  private void freeQueueState(QueueState q) {
+    freeQueue(q);
+    queueStatePool.add(q);
+  }
 
   private Nfa(Prog prog, EngineContext context, int ncapture, boolean longest, boolean endmatch) {
     this.prog = prog;
@@ -328,8 +473,10 @@ final class Nfa {
     int startPos = context.searchStart();
     int searchLimit = context.searchLimit();
     int endPos = context.endPos();
-    QueueState runq = new QueueState();
-    QueueState nextq = new QueueState();
+    QueueState runq = allocQueueState();
+    QueueState nextq = allocQueueState();
+
+    int[] initialCap = new int[threadArraySize];
 
     int pos = startPos;
     while (true) {
@@ -341,13 +488,12 @@ final class Nfa {
       // Also don't start threads past searchLimit — the DFA has already determined
       // there's no match starting beyond that position.
       if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
-        int[] cap = new int[threadArraySize];
-        Arrays.fill(cap, -1);
-        cap[0] = pos;
+        Arrays.fill(initialCap, -1);
+        initialCap[0] = pos;
         // Always use prog.start() (anchored start). Unanchored matching is achieved
         // by starting a new thread at each position. The startUnanchored() entry point
         // (which includes a .*? prefix) is only for the DFA engine.
-        addToThreadq(runq.threads, runq.visited, prog.start(), text, pos, cap, false);
+        addToThreadq(runq, prog.start(), text, pos, initialCap, false);
       }
 
       // If all threads have died, stop if anchored or we already have a match.
@@ -360,7 +506,7 @@ final class Nfa {
         if (pos >= endPos) {
           break;
         }
-        runq.clear();
+        freeQueue(runq);
         pos = nextPos;
         continue;
       }
@@ -370,7 +516,7 @@ final class Nfa {
       QueueState tmp = runq;
       runq = nextq;
       nextq = tmp;
-      nextq.clear();
+      freeQueue(nextq);
 
       if (done) {
         break;
@@ -382,6 +528,9 @@ final class Nfa {
 
       pos = nextPos;
     }
+
+    freeQueueState(runq);
+    freeQueueState(nextq);
   }
 
   /**
@@ -397,48 +546,131 @@ final class Nfa {
     int startPos = context.searchStart();
     int searchLimit = context.searchLimit();
     int start = Math.max(0, startPos);
-    QueueState runq = new QueueState();
-    Map<Integer, QueueState> delayed = new HashMap<>();
+    QueueState runq = allocQueueState();
+
+    QueueState[] delayedBuffer = null;
+    Map<Integer, QueueState> delayedGrapheme = null;
+    if (prog.hasGraphemeSemantics()) {
+      delayedGrapheme = new HashMap<>();
+    } else {
+      delayedBuffer = new QueueState[4];
+    }
+
+    int[] initialCap = new int[threadArraySize];
 
     int engineEndPos = context.engineEndPos();
     for (int pos = start; pos < engineEndPos + 2; pos++) {
-      mergeDelayedQueue(delayed, pos, runq);
+      if (prog.hasGraphemeSemantics()) {
+        mergeDelayedQueue(delayedGrapheme, pos, runq);
+      } else {
+        mergeDelayedQueue(delayedBuffer, pos, runq);
+      }
       if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
-        int[] cap = new int[threadArraySize];
-        Arrays.fill(cap, -1);
-        cap[0] = pos;
-        addToThreadq(runq.threads, runq.visited, prog.start(), text, pos, cap, false);
+        Arrays.fill(initialCap, -1);
+        initialCap[0] = pos;
+        addToThreadq(runq, prog.start(), text, pos, initialCap, false);
       }
 
       if (!runq.isEmpty()) {
         int cp = inputCodePointAt(text, pos);
         int nextPos = inputNextPos(text, pos);
-        step(runq, delayed, cp, text, pos, nextPos);
+        step(runq, delayedBuffer, delayedGrapheme, cp, text, pos, nextPos);
       } else {
-        runq.clear();
+        freeQueue(runq);
       }
-      if (matched && runq.isEmpty() && delayed.isEmpty()) {
+      if (matched
+          && runq.isEmpty()
+          && (prog.hasGraphemeSemantics()
+              ? delayedGrapheme.isEmpty()
+              : isDelayedBufferEmpty(delayedBuffer))) {
         break;
       }
     }
+
+    freeQueueState(runq);
+    if (prog.hasGraphemeSemantics()) {
+      for (QueueState q : delayedGrapheme.values()) {
+        freeQueueState(q);
+      }
+      delayedGrapheme.clear();
+    } else {
+      for (int i = 0; i < delayedBuffer.length; i++) {
+        if (delayedBuffer[i] != null) {
+          freeQueueState(delayedBuffer[i]);
+          delayedBuffer[i] = null;
+        }
+      }
+    }
   }
 
-  private static void mergeDelayedQueue(
-      Map<Integer, QueueState> delayed, int pos, QueueState destination) {
-    QueueState source = delayed.remove(pos);
+  private static boolean isDelayedBufferEmpty(QueueState[] delayedBuffer) {
+    for (QueueState q : delayedBuffer) {
+      if (q != null && !q.isEmpty()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private void mergeDelayedQueue(QueueState[] delayedBuffer, int pos, QueueState destination) {
+    int idx = pos % delayedBuffer.length;
+    QueueState source = delayedBuffer[idx];
     if (source == null) {
       return;
     }
-    destination.threads.addAll(source.threads);
-    destination.visited.addAll(source.visited);
+    mergeQueues(source, destination, pos);
+    delayedBuffer[idx] = null;
+    freeQueueState(source);
   }
 
-  private QueueState delayedQueueAt(Map<Integer, QueueState> delayed, int pos) {
+  private void mergeDelayedQueue(
+      Map<Integer, QueueState> delayedGrapheme, int pos, QueueState destination) {
+    QueueState source = delayedGrapheme.remove(pos);
+    if (source == null) {
+      return;
+    }
+    mergeQueues(source, destination, pos);
+    freeQueueState(source);
+  }
+
+  private void mergeQueues(QueueState source, QueueState destination, int pos) {
+    String text = context.text();
+    for (int i = 0; i < source.size; i++) {
+      NfaThread t = source.threads[i];
+      boolean visited;
+      if (destination.hasGraphemeSemantics) {
+        long key = visitKey(prog.inst(t.id), t.id, text, pos, t.graphemeStart);
+        visited = !destination.visitedGrapheme.add(key);
+      } else {
+        visited = destination.visitedInst[t.id];
+        destination.visitedInst[t.id] = true;
+      }
+      if (visited) {
+        freeThread(t);
+      } else {
+        destination.threads[destination.size++] = t;
+      }
+      source.threads[i] = null;
+    }
+    source.size = 0;
+  }
+
+  private QueueState delayedQueueAt(QueueState[] delayedBuffer, int pos) {
+    int idx = pos % delayedBuffer.length;
+    QueueState q = delayedBuffer[idx];
+    if (q == null) {
+      q = allocQueueState();
+      delayedBuffer[idx] = q;
+    }
+    return q;
+  }
+
+  private QueueState delayedQueueAt(Map<Integer, QueueState> delayedGrapheme, int pos) {
     int engineEndPos = context.engineEndPos();
     if (pos < 0 || pos > engineEndPos + 1) {
       return null;
     }
-    return delayed.computeIfAbsent(pos, unused -> new QueueState());
+    return delayedGrapheme.computeIfAbsent(pos, unused -> allocQueueState());
   }
 
   private long visitKey(Inst ip, int id, String text, int pos, int graphemeStart) {
@@ -491,56 +723,31 @@ final class Nfa {
    * Follows all empty transitions from {@code id0} and enqueues consuming/accepting instructions
    * (CHAR_RANGE and MATCH) into the thread queue.
    *
-   * <p>Uses an explicit stack. The visit set {@code visited} prevents re-processing of instructions
-   * already in the queue.
-   *
    * @param q the thread queue to add to
-   * @param visited set of instruction keys already visited/enqueued
-   * @param id0 starting instruction ID
+   * @param id starting instruction ID
    * @param text the input text
    * @param pos the current position in the text
    * @param t0 the current capture array (shared — will be cloned before mutation)
    */
   private void addToThreadq(
-      List<NfaThread> q,
-      Set<Long> visited,
-      int id0,
-      String text,
-      int pos,
-      int[] t0,
-      boolean consumedInput0) {
-    if (id0 == 0) {
-      return;
-    }
-
-    // Explicit stack. Each entry is (instId, captureArray).
-    // We push entries and process them LIFO. The capture array may be shared
-    // and is cloned when a CAPTURE instruction modifies it.
-    List<int[]> stack = new ArrayList<>();
-    stack.add(new int[] {id0, -1}); // -1 = use current t0
-
-    // Parallel list of capture arrays for stack entries that need a specific capture.
-    // Index corresponds to stack index. null means "use current t0".
-    List<int[]> captureStack = new ArrayList<>();
-    captureStack.add(null);
-    List<Boolean> consumedInputStack = new ArrayList<>();
-    consumedInputStack.add(consumedInput0);
+      QueueState q, int id, String text, int pos, int[] t0, boolean consumedInput) {
+    AddToThreadqStack stack = addToThreadqStack;
+    stack.clear();
+    stack.pushInstruction(id, consumedInput);
 
     while (!stack.isEmpty()) {
-      int last = stack.size() - 1;
-      int[] entry = stack.remove(last);
-      int[] entryCap = captureStack.remove(last);
-      boolean consumedInput = consumedInputStack.remove(last);
-
-      int id = entry[0];
-
-      if (entryCap != null) {
-        t0 = entryCap;
-      }
-
-      if (id == 0) {
+      stack.pop();
+      if (stack.restoreIndex >= 0) {
+        t0[stack.restoreIndex] = stack.restoreValue;
         continue;
       }
+      if (stack.id == 0) {
+        continue;
+      }
+
+      int instructionId = stack.id;
+      boolean frameConsumedInput = stack.consumedInput;
+      Inst ip = prog.inst(instructionId);
       // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
       // via registers. Within one addToThreadq call, it is visited at most twice (once
       // to save the position, once to detect zero-width and redirect to exit).
@@ -548,57 +755,44 @@ final class Nfa {
       // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
       // same alternation or capture instruction at the same input position with different capture
       // registers. The later zero-width iteration is JDK-visible and must not be discarded.
-      Inst ip = prog.inst(id);
       if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
-        long visitKey = visitKey(ip, id, text, pos, pos);
-        if (!visited.add(visitKey)) {
-          continue;
+        if (q.hasGraphemeSemantics) {
+          long visitKey = visitKey(ip, instructionId, text, pos, pos);
+          if (!q.visitedGrapheme.add(visitKey)) {
+            continue;
+          }
+        } else {
+          if (q.visitedInst[instructionId]) {
+            continue;
+          }
+          q.visitedInst[instructionId] = true;
         }
       }
+
       switch (ip.op) {
         case FAIL -> {}
 
         case ALT -> {
-          // Push out1 first (lower priority), then out (higher priority).
-          stack.add(new int[] {ip.out1, -1});
-          captureStack.add(t0);
-          consumedInputStack.add(consumedInput);
-          stack.add(new int[] {ip.out, -1});
-          captureStack.add(t0);
-          consumedInputStack.add(consumedInput);
+          stack.pushInstruction(ip.out1, frameConsumedInput);
+          stack.pushInstruction(ip.out, frameConsumedInput);
         }
 
         case ALT_MATCH -> {
-          // Enqueue this state and also explore the next alt branch.
-          q.add(new NfaThread(id, t0, consumedInput, -1));
-          // Explore the next instruction after this one (the other alt branch).
-          stack.add(new int[] {ip.out, -1});
-          captureStack.add(t0);
-          consumedInputStack.add(consumedInput);
-          stack.add(new int[] {ip.out1, -1});
-          captureStack.add(t0);
-          consumedInputStack.add(consumedInput);
+          q.threads[q.size++] = allocThread(instructionId, t0, -1);
+          stack.pushInstruction(ip.out, frameConsumedInput);
+          stack.pushInstruction(ip.out1, frameConsumedInput);
         }
 
-        case NOP -> {
-          stack.add(new int[] {ip.out, -1});
-          captureStack.add(null);
-          consumedInputStack.add(consumedInput);
-        }
+        case NOP -> stack.pushInstruction(ip.out, frameConsumedInput);
 
         case CAPTURE -> {
           if (ip.arg < ncapture) {
-            // Clone the capture and record the current position.
-            int[] newCap = t0.clone();
-            newCap[ip.arg] = pos;
-            stack.add(new int[] {ip.out, -1});
-            captureStack.add(newCap);
-            consumedInputStack.add(consumedInput);
+            int opos = t0[ip.arg];
+            t0[ip.arg] = pos;
+            stack.pushRestore(ip.arg, opos);
+            stack.pushInstruction(ip.out, frameConsumedInput);
           } else {
-            // Capture register not tracked; just follow the transition.
-            stack.add(new int[] {ip.out, -1});
-            captureStack.add(null);
-            consumedInputStack.add(consumedInput);
+            stack.pushInstruction(ip.out, frameConsumedInput);
           }
         }
 
@@ -612,14 +806,14 @@ final class Nfa {
                   context.graphemeContext(),
                   t0[0],
                   context.boundaryRegionStart(),
-                  consumedInput,
+                  frameConsumedInput,
                   context.emptyAnchorStartPos(),
                   context.emptyAnchorEndPos(),
-                  context.effectiveBoundaryEndPos(consumedInput));
+                  context.effectiveBoundaryEndPos(frameConsumedInput),
+                  prog.hasWordBoundary(),
+                  prog.hasTextAnchor());
           if ((ip.arg & ~flags) == 0) {
-            stack.add(new int[] {ip.out, -1});
-            captureStack.add(null);
-            consumedInputStack.add(consumedInput);
+            stack.pushInstruction(ip.out, frameConsumedInput);
           }
         }
 
@@ -628,47 +822,28 @@ final class Nfa {
           int regIdx = ncapture + reg;
           int saved = t0[regIdx];
           if (saved == -1) {
-            // First visit: must enter body at least once (plus semantics).
-            int[] newCap = t0.clone();
-            newCap[regIdx] = pos;
-            stack.add(new int[] {ip.out, -1});
-            captureStack.add(newCap);
-            consumedInputStack.add(consumedInput);
+            t0[regIdx] = pos;
+            stack.pushRestore(regIdx, -1);
+            stack.pushInstruction(ip.out, frameConsumedInput);
           } else if (saved == pos) {
-            // Zero-width body match: only exit.
-            stack.add(new int[] {ip.out1, -1});
-            captureStack.add(t0);
-            consumedInputStack.add(consumedInput);
+            stack.pushInstruction(ip.out1, frameConsumedInput);
           } else {
-            // Progress: push both paths like ALT, respecting greediness.
-            int[] newCap = t0.clone();
-            newCap[regIdx] = pos;
-            boolean nonGreedy = ip.foldCase;
-            if (nonGreedy) {
-              // Non-greedy: prefer exit (push body first = lower pri, exit second = higher pri).
-              stack.add(new int[] {ip.out, -1});
-              captureStack.add(newCap);
-              consumedInputStack.add(consumedInput);
-              stack.add(new int[] {ip.out1, -1});
-              captureStack.add(newCap);
-              consumedInputStack.add(consumedInput);
+            t0[regIdx] = pos;
+            stack.pushRestore(regIdx, saved);
+            if (ip.foldCase) {
+              stack.pushInstruction(ip.out, frameConsumedInput);
+              stack.pushInstruction(ip.out1, frameConsumedInput);
             } else {
-              // Greedy: prefer body (push exit first = lower pri, body second = higher pri).
-              stack.add(new int[] {ip.out1, -1});
-              captureStack.add(newCap);
-              consumedInputStack.add(consumedInput);
-              stack.add(new int[] {ip.out, -1});
-              captureStack.add(newCap);
-              consumedInputStack.add(consumedInput);
+              stack.pushInstruction(ip.out1, frameConsumedInput);
+              stack.pushInstruction(ip.out, frameConsumedInput);
             }
           }
         }
 
-        case CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER, MATCH ->
-            // These are "real" states. Capture arrays are immutable from this point
-            // until a later CAPTURE or PROGRESS_CHECK transition clones them.
-            q.add(
-                new NfaThread(id, t0, consumedInput, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1));
+        case CHAR_RANGE, CHAR_CLASS, GRAPHEME_CLUSTER, MATCH -> {
+          q.threads[q.size++] =
+              allocThread(instructionId, t0, ip.op == InstOp.GRAPHEME_CLUSTER ? pos : -1);
+        }
       }
     }
   }
@@ -682,15 +857,16 @@ final class Nfa {
    */
   private boolean step(
       QueueState rq,
-      Map<Integer, QueueState> delayed,
+      QueueState[] delayedBuffer,
+      Map<Integer, QueueState> delayedGrapheme,
       int cp,
       String text,
       int matchPos,
       int nextPos) {
-    for (int threadIndex = 0; threadIndex < rq.threads.size(); threadIndex++) {
-      NfaThread t = rq.threads.get(threadIndex);
-      int id = t.id();
-      int[] capture = t.capture();
+    for (int threadIndex = 0; threadIndex < rq.size; threadIndex++) {
+      NfaThread t = rq.threads[threadIndex];
+      int id = t.id;
+      int[] capture = t.capture;
 
       if (longest
           && matched
@@ -704,20 +880,24 @@ final class Nfa {
       switch (ip.op) {
         case CHAR_RANGE -> {
           if (cp >= 0 && ip.matchesChar(cp)) {
-            QueueState destination = delayedQueueAt(delayed, nextPos);
+            QueueState destination =
+                prog.hasGraphemeSemantics()
+                    ? delayedQueueAt(delayedGrapheme, nextPos)
+                    : delayedQueueAt(delayedBuffer, nextPos);
             if (destination != null) {
-              addToThreadq(
-                  destination.threads, destination.visited, ip.out, text, nextPos, capture, true);
+              addToThreadq(destination, ip.out, text, nextPos, capture, true);
             }
           }
         }
 
         case CHAR_CLASS -> {
           if (cp >= 0 && ip.matchesCharClass(cp)) {
-            QueueState destination = delayedQueueAt(delayed, nextPos);
+            QueueState destination =
+                prog.hasGraphemeSemantics()
+                    ? delayedQueueAt(delayedGrapheme, nextPos)
+                    : delayedQueueAt(delayedBuffer, nextPos);
             if (destination != null) {
-              addToThreadq(
-                  destination.threads, destination.visited, ip.out, text, nextPos, capture, true);
+              addToThreadq(destination, ip.out, text, nextPos, capture, true);
             }
           }
         }
@@ -727,24 +907,29 @@ final class Nfa {
             int graphemeStart =
                 Math.max(
                     context.consumeRegionStart(),
-                    t.graphemeStart() >= 0 ? t.graphemeStart() : matchPos);
+                    t.graphemeStart >= 0 ? t.graphemeStart : matchPos);
             int scalarEnd = graphemeNextPos(text, matchPos);
-            QueueState destination = delayedQueueAt(delayed, scalarEnd);
+            QueueState destination =
+                prog.hasGraphemeSemantics()
+                    ? delayedQueueAt(delayedGrapheme, scalarEnd)
+                    : delayedQueueAt(delayedBuffer, scalarEnd);
             if (destination != null) {
               if (scalarEnd == context.graphemeConsumeEndPos()
                   || GraphemeSupport.isGraphemeClusterBoundary(
                       text, scalarEnd, graphemeStart, context.graphemeContext())) {
-                addToThreadq(
-                    destination.threads,
-                    destination.visited,
-                    ip.out,
-                    text,
-                    scalarEnd,
-                    capture,
-                    true);
-              } else if (destination.visited.add(
-                  visitKey(ip, id, text, scalarEnd, graphemeStart))) {
-                destination.threads.add(new NfaThread(id, capture, true, graphemeStart));
+                addToThreadq(destination, ip.out, text, scalarEnd, capture, true);
+              } else {
+                boolean visited;
+                if (destination.hasGraphemeSemantics) {
+                  long key = visitKey(ip, id, text, scalarEnd, graphemeStart);
+                  visited = !destination.visitedGrapheme.add(key);
+                } else {
+                  visited = destination.visitedInst[id];
+                  destination.visitedInst[id] = true;
+                }
+                if (!visited) {
+                  destination.threads[destination.size++] = allocThread(id, capture, graphemeStart);
+                }
               }
             }
           }
@@ -769,7 +954,7 @@ final class Nfa {
               bestMatch[1] = matchPos;
               matched = true;
               // Clear remaining runq entries; they can only find worse matches.
-              rq.clear();
+              freeQueue(rq);
               return false;
             }
           }
@@ -786,7 +971,7 @@ final class Nfa {
         default -> {}
       }
     }
-    rq.clear();
+    freeQueue(rq);
     return false;
   }
 
@@ -794,10 +979,10 @@ final class Nfa {
       QueueState rq, QueueState nq, int cp, String text, int matchPos, int nextPos) {
     nq.clear();
 
-    for (int threadIndex = 0; threadIndex < rq.threads.size(); threadIndex++) {
-      NfaThread t = rq.threads.get(threadIndex);
-      int id = t.id();
-      int[] capture = t.capture();
+    for (int threadIndex = 0; threadIndex < rq.size; threadIndex++) {
+      NfaThread t = rq.threads[threadIndex];
+      int id = t.id;
+      int[] capture = t.capture;
 
       if (longest
           && matched
@@ -811,13 +996,13 @@ final class Nfa {
       switch (ip.op) {
         case CHAR_RANGE -> {
           if (cp >= 0 && ip.matchesChar(cp)) {
-            addToThreadq(nq.threads, nq.visited, ip.out, text, nextPos, capture, true);
+            addToThreadq(nq, ip.out, text, nextPos, capture, true);
           }
         }
 
         case CHAR_CLASS -> {
           if (cp >= 0 && ip.matchesCharClass(cp)) {
-            addToThreadq(nq.threads, nq.visited, ip.out, text, nextPos, capture, true);
+            addToThreadq(nq, ip.out, text, nextPos, capture, true);
           }
         }
 
@@ -839,7 +1024,7 @@ final class Nfa {
               System.arraycopy(capture, 0, bestMatch, 0, ncapture);
               bestMatch[1] = matchPos;
               matched = true;
-              rq.clear();
+              freeQueue(rq);
               return false;
             }
           }
@@ -856,7 +1041,7 @@ final class Nfa {
         default -> {}
       }
     }
-    rq.clear();
+    freeQueue(rq);
     return false;
   }
 
@@ -957,7 +1142,31 @@ final class Nfa {
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext) {
     return emptyFlags(
-        text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, -1, 0, false);
+        text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, true, true);
+  }
+
+  static int emptyFlags(
+      String text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      GraphemeSupport.Context graphemeContext,
+      boolean hasWordBoundary,
+      boolean hasTextAnchor) {
+    return emptyFlags(
+        text,
+        pos,
+        unixLines,
+        includeGraphemeClusterBoundary,
+        graphemeContext,
+        -1,
+        0,
+        false,
+        0,
+        text.length(),
+        text.length(),
+        hasWordBoundary,
+        hasTextAnchor);
   }
 
   static int emptyFlags(
@@ -1008,10 +1217,12 @@ final class Nfa {
         consumedInput,
         0,
         text.length(),
-        text.length());
+        text.length(),
+        true,
+        true);
   }
 
-  private static int emptyFlags(
+  static int emptyFlags(
       String text,
       int pos,
       boolean unixLines,
@@ -1022,7 +1233,9 @@ final class Nfa {
       boolean consumedInput,
       int anchorStartPos,
       int anchorEndPos,
-      int boundaryEndPos) {
+      int boundaryEndPos,
+      boolean hasWordBoundary,
+      boolean hasTextAnchor) {
     int flags = 0;
 
     // ^ and \A
@@ -1032,75 +1245,83 @@ final class Nfa {
     // For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
     // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty
     // string has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
-    if (pos == anchorStartPos) {
-      flags |= EmptyOp.BEGIN_TEXT;
-      if (!text.isEmpty() && pos != anchorEndPos) {
-        flags |= EmptyOp.BEGIN_LINE;
-      }
-    } else if (pos < text.length()) {
-      char prev = text.charAt(pos - 1);
-      if (unixLines) {
-        if (prev == '\n') {
+    if (hasTextAnchor) {
+      if (pos == anchorStartPos) {
+        flags |= EmptyOp.BEGIN_TEXT;
+        if (!text.isEmpty() && pos != anchorEndPos) {
           flags |= EmptyOp.BEGIN_LINE;
         }
-      } else {
-        // After \n: always a new line (whether standalone or part of \r\n).
-        // After \r: new line only if NOT followed by \n (standalone \r).
-        // After \u0085, \u2028, \u2029: always a new line.
-        if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
-          flags |= EmptyOp.BEGIN_LINE;
-        } else if (prev == '\r' && text.charAt(pos) != '\n') {
-          flags |= EmptyOp.BEGIN_LINE;
-        }
-      }
-    }
-
-    // $ and \z
-    // END_LINE is set before any line terminator and at end of text (used by MULTILINE $).
-    // END_TEXT is set only at end of text (used by \z).
-    // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
-    // text (used by $ without MULTILINE — JDK's default $ behavior).
-    if (pos == anchorEndPos) {
-      flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
-    } else if (pos < text.length()) {
-      char ch = text.charAt(pos);
-      if (unixLines) {
-        if (ch == '\n') {
-          flags |= EmptyOp.END_LINE;
-          if (pos + 1 == anchorEndPos) {
-            flags |= EmptyOp.DOLLAR_END;
+      } else if (pos < text.length()) {
+        char prev = text.charAt(pos - 1);
+        if (unixLines) {
+          if (prev == '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
+          }
+        } else {
+          // After \n: always a new line (whether standalone or part of \r\n).
+          // After \r: new line only if NOT followed by \n (standalone \r).
+          // After \u0085, \u2028, \u2029: always a new line.
+          if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
+            flags |= EmptyOp.BEGIN_LINE;
+          } else if (prev == '\r' && text.charAt(pos) != '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
           }
         }
-      } else if (isLineTerminator(ch)) {
-        // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
-        // line terminator. END_LINE fires before the \r (the start of the pair), not between
-        // \r and \n.
-        boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
-        if (!isAtomicLF) {
-          flags |= EmptyOp.END_LINE;
-          if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
-            flags |= EmptyOp.DOLLAR_END;
+      }
+
+      // $ and \z
+      // END_LINE is set before any line terminator and at end of text (used by MULTILINE $).
+      // END_TEXT is set only at end of text (used by \z).
+      // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
+      // text (used by $ without MULTILINE — JDK's default $ behavior).
+      if (pos == anchorEndPos) {
+        flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
+      } else if (pos < text.length()) {
+        char ch = text.charAt(pos);
+        if (unixLines) {
+          if (ch == '\n') {
+            flags |= EmptyOp.END_LINE;
+            if (pos + 1 == anchorEndPos) {
+              flags |= EmptyOp.DOLLAR_END;
+            }
+          }
+        } else if (isLineTerminator(ch)) {
+          // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
+          // line terminator. END_LINE fires before the \r (the start of the pair), not between
+          // \r and \n.
+          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
+          if (!isAtomicLF) {
+            flags |= EmptyOp.END_LINE;
+            if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
+              flags |= EmptyOp.DOLLAR_END;
+            }
           }
         }
       }
     }
 
     // \b and \B
-    boolean prevWord = pos > regionStart && isWordChar(text.codePointBefore(pos));
-    boolean nextWord = pos < boundaryEndPos && isWordChar(text.codePointAt(pos));
-    if (prevWord != nextWord) {
-      flags |= EmptyOp.WORD_BOUNDARY;
-    } else {
-      flags |= EmptyOp.NON_WORD_BOUNDARY;
-    }
+    if (hasWordBoundary) {
+      int prevCp = pos > regionStart ? text.codePointBefore(pos) : -1;
+      boolean prevWord = prevCp >= 0 && isWordChar(prevCp);
+      int nextCp = pos < boundaryEndPos ? text.codePointAt(pos) : -1;
+      boolean nextWord = nextCp >= 0 && isWordChar(nextCp);
+      if (prevWord != nextWord) {
+        flags |= EmptyOp.WORD_BOUNDARY;
+      } else {
+        flags |= EmptyOp.NON_WORD_BOUNDARY;
+      }
 
-    // Unicode \b and \B
-    boolean prevUnicodeWord = pos > regionStart && isUnicodeWordChar(text.codePointBefore(pos));
-    boolean nextUnicodeWord = pos < boundaryEndPos && isUnicodeWordChar(text.codePointAt(pos));
-    if (prevUnicodeWord != nextUnicodeWord) {
-      flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
-    } else {
-      flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      // Unicode \b and \B
+      boolean prevUnicodeWord =
+          prevCp >= 0 && (prevCp < 128 ? prevWord : isUnicodeWordChar(prevCp));
+      boolean nextUnicodeWord =
+          nextCp >= 0 && (nextCp < 128 ? nextWord : isUnicodeWordChar(nextCp));
+      if (prevUnicodeWord != nextUnicodeWord) {
+        flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
+      } else {
+        flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      }
     }
 
     if (includeGraphemeClusterBoundary) {

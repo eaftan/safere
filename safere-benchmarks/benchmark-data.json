@@ -56,6 +56,51 @@
     "proseUnit": "The morning sun was shining brightly casting long shadows across the rolling hills Birds were singing their melodious songs while children were playing in the sprawling gardens A gentle breeze was blowing through the swaying trees carrying the scent of blooming flowers People were walking along the winding paths enjoying the refreshing air and the stunning views "
   },
 
+  "issue481Scaling": {
+    "textSizes": [128, 1024, 10240, 102400, 1048576],
+    "splitW": {
+      "pattern": "\\W+",
+      "unit": "This is a generic sentence containing words that will be used to test splitting routines. "
+    },
+    "block": {
+      "pattern": "(?s)<block>.*?</block>",
+      "prefix": "This is a <block>",
+      "unit": "content bytes here... blah blah blah ",
+      "suffix": "</block> transcript.",
+      "negativeSuffix": " transcript without a closing block tag."
+    },
+    "tag": {
+      "pattern": "<<tag.*?>>",
+      "prefixUnit": "plain text before the tagged value ",
+      "match": "Hello <<tag type=\"typeA\" value=\"valA\">>!",
+      "negativeMatch": "Hello <<notag type=\"typeA\" value=\"valA\">>!"
+    },
+    "scheme": {
+      "pattern": "\\[(.*?)]\\(customScheme://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)",
+      "prefixUnit": "ordinary prose without a custom scheme link ",
+      "match": "Check [this link](customScheme://<id_1>) or [another](customScheme://id_2).",
+      "negativeMatch": "Check [this link](https://example.test/id_1) or [another](otherScheme://id_2)."
+    }
+  },
+
+  "issue488ReplaceAll": {
+    "textSizes": [1000, 10000, 100000],
+    "lazyAlt": {
+      "pattern": "(?i)(?s)\\s*\\n*(?:<block>|\\[block\\])\\s*\\n?renderElement\\(.*?\\)\\s*\\n?(?:</block>|\\[/block\\])",
+      "replacement": "",
+      "prefixUnit": "Some prefix text preceding the render block element. ",
+      "match": "\n<block>\nrenderElement(id=\"el-42\", width=100, height=200, label=\"hello world\")\n</block>\n",
+      "suffixUnit": "Some suffix text following the render block element. "
+    },
+    "altCapture": {
+      "pattern": "(^|[^#])(#!customTag)",
+      "replacement": "$1<tag type=\"custom\"",
+      "hitUnit": "This is some sample prose text that contains a tag marker #!customTag and more text here. ",
+      "missUnit": "This is some sample prose text that contains a tag marker #customTag and more text here. ",
+      "hitInterval": 5
+    }
+  },
+
   "captureScaling": {
     "capture0": {
       "pattern": "[0-9]+-[0-9]+-[0-9]+",

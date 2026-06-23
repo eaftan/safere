@@ -622,8 +622,8 @@ class PatternSetTest {
 
   private static void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
     task.accept(1_000);
-    long smallerNanos = bestRuntimeNanos(() -> task.accept(5_000));
-    long largerNanos = bestRuntimeNanos(() -> task.accept(20_000));
+    long smallerNanos = medianRuntimeNanos(() -> task.accept(5_000));
+    long largerNanos = medianRuntimeNanos(() -> task.accept(20_000));
 
     assertThat(largerNanos)
         .as(
@@ -632,12 +632,13 @@ class PatternSetTest {
         .isLessThan(smallerNanos * 10);
   }
 
-  private static long bestRuntimeNanos(Runnable task) {
-    long best = Long.MAX_VALUE;
-    for (int i = 0; i < 3; i++) {
-      best = Math.min(best, runtimeNanos(task));
+  private static long medianRuntimeNanos(Runnable task) {
+    long[] samples = new long[5];
+    for (int i = 0; i < samples.length; i++) {
+      samples[i] = runtimeNanos(task);
     }
-    return best;
+    java.util.Arrays.sort(samples);
+    return samples[samples.length / 2];
   }
 
   private static long runtimeNanos(Runnable task) {
