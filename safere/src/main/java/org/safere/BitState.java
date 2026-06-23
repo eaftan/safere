@@ -455,10 +455,7 @@ final class BitState {
         }
 
         case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags =
-              Nfa.emptyFlags(
-                  text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
-          if ((ip.arg & ~curFlags) == 0) {
+          if (matchEmptyWidth(ip.arg, pos)) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);
             }
@@ -604,5 +601,79 @@ final class BitState {
     if (loopRegs.length > 0) {
       Arrays.fill(loopRegs, -1);
     }
+  }
+
+  private boolean matchEmptyWidth(int op, int pos) {
+    return switch (op) {
+      case EmptyOp.WORD_BOUNDARY -> {
+        boolean prevWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
+        boolean nextWord = pos < textLen && Nfa.isWordChar(text.codePointAt(pos));
+        yield prevWord != nextWord;
+      }
+      case EmptyOp.NON_WORD_BOUNDARY -> {
+        boolean prevWord = pos > 0 && Nfa.isWordChar(text.codePointBefore(pos));
+        boolean nextWord = pos < textLen && Nfa.isWordChar(text.codePointAt(pos));
+        yield prevWord == nextWord;
+      }
+      case EmptyOp.BEGIN_TEXT -> pos == 0;
+      case EmptyOp.END_TEXT -> pos == textLen;
+      case EmptyOp.BEGIN_LINE -> {
+        if (pos >= textLen) {
+          yield false;
+        }
+        if (pos == 0) {
+          yield true;
+        }
+        char prev = text.charAt(pos - 1);
+        if (prog.unixLines()) {
+          yield prev == '\n';
+        }
+        yield switch (prev) {
+          case '\n', '\u0085', '\u2028', '\u2029' -> true;
+          case '\r' -> text.charAt(pos) != '\n';
+          default -> false;
+        };
+      }
+      case EmptyOp.END_LINE -> {
+        if (pos == textLen) {
+          yield true;
+        }
+        char ch = text.charAt(pos);
+        if (prog.unixLines()) {
+          yield ch == '\n';
+        }
+        yield switch (ch) {
+          case '\r', '\u0085', '\u2028', '\u2029' -> true;
+          case '\n' -> pos == 0 || text.charAt(pos - 1) != '\r';
+          default -> false;
+        };
+      }
+      case EmptyOp.DOLLAR_END -> {
+        if (pos == textLen) {
+          yield true;
+        }
+        if (prog.unixLines()) {
+          yield text.charAt(pos) == '\n' && pos + 1 == textLen;
+        }
+        yield Nfa.isAtTrailingLineTerminator(text, pos, prog.unixLines());
+      }
+      case EmptyOp.UNICODE_WORD_BOUNDARY -> {
+        boolean prevWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
+        boolean nextWord = pos < textLen && Nfa.isUnicodeWordChar(text.codePointAt(pos));
+        yield prevWord != nextWord;
+      }
+      case EmptyOp.UNICODE_NON_WORD_BOUNDARY -> {
+        boolean prevWord = pos > 0 && Nfa.isUnicodeWordChar(text.codePointBefore(pos));
+        boolean nextWord = pos < textLen && Nfa.isUnicodeWordChar(text.codePointAt(pos));
+        yield prevWord == nextWord;
+      }
+      default -> {
+        // Default fallback for compound or other boundaries (e.g. grapheme boundaries)
+        int curFlags =
+            Nfa.emptyFlags(
+                text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
+        yield (op & ~curFlags) == 0;
+      }
+    };
   }
 }

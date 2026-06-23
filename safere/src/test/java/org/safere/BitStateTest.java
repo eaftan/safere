@@ -383,4 +383,11 @@ class BitStateTest {
   void reusableResultBufferPreservesCaptureSemantics(ResultBufferCase tc) {
     assertReusableResultConsistent(tc);
   }
+
+  @Test
+  @DisplayName("BEGIN_LINE does not match at end of non-empty text")
+  void beginLineDoesNotMatchAtEndOfNonEmptyText() {
+    assertConsistentAnchored("(?m)^", "a\n", false, false);
+    assertConsistentUnanchored("(?m)^", "a\n");
+  }
 }
