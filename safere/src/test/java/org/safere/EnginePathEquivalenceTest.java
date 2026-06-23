@@ -89,27 +89,7 @@ class EnginePathEquivalenceTest {
         .isNotEqualTo(findTrace(canonical.matcher(input)));
   }
 
-  @Test
-  @DisplayName("DFA start-reliability guard has semantic content")
-  void dfaStartReliabilityGuardHasSemanticContent() {
-    String regex = "(?:\\B{1}|a).";
-    String input = "ab";
-    Pattern canonical = Pattern.compile(regex);
-    Pattern unguarded =
-        Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder()
-                .semanticGuards(false)
-                .onePass(false)
-                .bitState(false)
-                .build());
 
-    assertThat(canonical.dfaStartReliable()).isFalse();
-    assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded DFA sandwich should expose why the start-reliability guard exists")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
-  }
 
   @Test
   @DisplayName("literal fast paths match the canonical engine trace")

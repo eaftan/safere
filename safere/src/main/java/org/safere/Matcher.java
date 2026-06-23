@@ -94,13 +94,6 @@ public final class Matcher implements MatchResult {
    */
   private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
 
-  /**
-   * Maximum input length where skipping the forward DFA precheck can pay off for unreliable-start
-   * patterns. On short inputs, BitState's complete search is cheap enough that running the DFA
-   * first often duplicates work; on longer inputs, the DFA remains valuable as a fast no-match
-   * filter.
-   */
-  private static final int DIRECT_FALLBACK_TEXT_LIMIT = 512;
 
   private Pattern parentPattern;
   private CharSequence inputSequence;
@@ -1357,8 +1350,7 @@ public final class Matcher implements MatchResult {
         && !regionActive
         && prog.anchorEnd()
         && !prog.anchorStart()
-        && text.length() >= MIN_REVERSE_FIRST_LEN
-        && (!options.semanticGuards() || parentPattern.dfaStartReliable())) {
+        && text.length() >= MIN_REVERSE_FIRST_LEN) {
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {
         int textLen = text.length();
@@ -1438,22 +1430,10 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    boolean directFallback =
-        !regionActive
-            && !parentPattern.dfaStartReliable()
-            && options.startAcceleration()
-            && !prog.hasWordBoundary()
-            && (prefix != null || ccPrefixAscii != null)
-            && text.length() <= DIRECT_FALLBACK_TEXT_LIMIT
-            && BitState.maxTextSize(prog) >= text.length();
-
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
-    // For short unreliable-start patterns that fit BitState, skip this precheck: a successful
-    // precheck cannot produce reusable bounds and would fall through to the complete fallback
-    // search anyway.
     Dfa.SearchResult fwdResult;
-    if (!options.dfa() || directFallback || !dfaSupportsProgram(prog)) {
+    if (!options.dfa() || !dfaSupportsProgram(prog)) {
       fwdResult = null;
     } else {
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
@@ -1530,10 +1510,6 @@ public final class Matcher implements MatchResult {
               revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
           if (revResult != null && revResult.matched()) {
             int matchStart = revResult.pos();
-            boolean authoritativeStart =
-                !options.semanticGuards()
-                    || matchStart == effectiveStart
-                    || parentPattern.dfaStartReliable();
 
             // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
             // (it can't return early). But the correct leftmost match may end before the
@@ -1559,10 +1535,6 @@ public final class Matcher implements MatchResult {
                       && altRevResult.matched()
                       && altRevResult.pos() < matchStart) {
                     matchStart = altRevResult.pos();
-                    authoritativeStart =
-                        !options.semanticGuards()
-                            || matchStart == effectiveStart
-                            || parentPattern.dfaStartReliable();
                   }
                 }
                 // For \r\n, try position before \r.
@@ -1573,17 +1545,9 @@ public final class Matcher implements MatchResult {
                       && altRevResult2.matched()
                       && altRevResult2.pos() < matchStart) {
                     matchStart = altRevResult2.pos();
-                    authoritativeStart =
-                        !options.semanticGuards()
-                            || matchStart == effectiveStart
-                            || parentPattern.dfaStartReliable();
                   }
                 }
               }
-            }
-
-            if (!authoritativeStart) {
-              matchStart = -1;
             }
 
             // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.

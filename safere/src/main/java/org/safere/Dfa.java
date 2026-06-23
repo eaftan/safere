@@ -1326,10 +1326,18 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
-        if (matchValid) {
-          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
-          if (!needEndMatch || startPos == startLimit) {
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int startPos = prevPos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
             matched = true;
             matchStart = startPos;
             if (!longest && !needEndMatch) {
