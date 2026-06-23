@@ -1226,8 +1226,7 @@ public final class Matcher implements MatchResult {
     //
     // The text size threshold (4096) matches C++ RE2. For larger texts, the DFA is more efficient.
     if (options.onePass()
-        && prog.anchorStart()
-        && parentPattern.onePass() != null
+        && parentPattern.canOnePassFind()
         && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
       OnePass.SearchResult result =
           parentPattern
