@@ -46,7 +46,7 @@ mvn -pl safere test -q
 mvn install -DskipTests -q
 
 # Run benchmarks (see Benchmarking section below)
-./run-java-benchmarks.sh RegexBenchmark
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
 ```
 
 ## Code Style
@@ -294,26 +294,38 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 
 ```bash
 # BENCHMARKS.md updates and routine benchmark evidence
-./run-java-benchmarks.sh RegexBenchmark
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
 
 # Longer confirmation run for close, surprising, or important comparisons
-./run-java-benchmarks.sh --long RegexBenchmark
+./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
 ```
+
+Arguments after the mode flag are passed directly to JMH as benchmark regex
+filters.
 
 **Run benchmarks in batches, not all at once.** Run 2–3 benchmark classes
 per invocation and collect results incrementally:
 
 ```bash
-./run-java-benchmarks.sh RegexBenchmark CompileBenchmark
-./run-java-benchmarks.sh SearchScalingBenchmark CaptureScalingBenchmark
-./run-java-benchmarks.sh HttpBenchmark ReplaceBenchmark FanoutBenchmark
-./run-java-benchmarks.sh PathologicalBenchmark PathologicalComparisonBenchmark
+./run-java-benchmarks.sh \
+  '^org\.safere\.benchmark\.RegexBenchmark\.' \
+  '^org\.safere\.benchmark\.CompileBenchmark\.'
+./run-java-benchmarks.sh \
+  '^org\.safere\.benchmark\.SearchScalingBenchmark\.' \
+  '^org\.safere\.benchmark\.CaptureScalingBenchmark\.'
+./run-java-benchmarks.sh \
+  '^org\.safere\.benchmark\.HttpBenchmark\.' \
+  '^org\.safere\.benchmark\.ReplaceBenchmark\.' \
+  '^org\.safere\.benchmark\.FanoutBenchmark\.'
+./run-java-benchmarks.sh \
+  '^org\.safere\.benchmark\.PathologicalBenchmark\.' \
+  '^org\.safere\.benchmark\.PathologicalComparisonBenchmark\.'
 ```
 
 **Extract summary tables from JMH output** using grep:
 
 ```bash
-./run-java-benchmarks.sh RegexBenchmark 2>&1 \
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.' 2>&1 \
   | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
 ```
 
