@@ -387,4 +387,17 @@ class DfaTest {
       }
     }
   }
+
+  @Test
+  void reverseDfaPruningCorrectness() {
+    Pattern p = Pattern.compile("\\B([^a])*[^a][^a]");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    String text = "bbbb";
+    Dfa.SearchResult r = revDfa.doSearchReverse(text, 4, 0, true, true);
+    assertThat(r).isNotNull();
+    assertThat(r.matched()).isTrue();
+    assertThat(r.pos()).isEqualTo(1);
+  }
 }
