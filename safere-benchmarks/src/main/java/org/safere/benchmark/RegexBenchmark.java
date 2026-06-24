@@ -66,16 +66,6 @@ public class RegexBenchmark {
   private String altText;
 
   // ---------------------------------------------------------------------------
-  // Word-boundary alternation
-  // ---------------------------------------------------------------------------
-
-  private org.safere.Pattern safeWordBoundaryAlt;
-  private java.util.regex.Pattern jdkWordBoundaryAlt;
-  private com.google.re2j.Pattern re2jWordBoundaryAlt;
-  private org.safere.re2ffm.RE2FfmPattern re2ffmWordBoundaryAlt;
-  private String wordBoundaryAltText;
-
-  // ---------------------------------------------------------------------------
   // Capture groups
   // ---------------------------------------------------------------------------
 
@@ -132,16 +122,6 @@ public class RegexBenchmark {
     jdkAlt = java.util.regex.Pattern.compile(altPattern);
     re2jAlt = com.google.re2j.Pattern.compile(altPattern);
     re2ffmAlt = org.safere.re2ffm.RE2FfmPattern.compile(altPattern);
-
-    // Word-boundary alternation
-    String wordBoundaryAltPattern = data.getString("regex.wordBoundaryAlternationFind.pattern");
-    wordBoundaryAltText =
-        data.getString("regex.wordBoundaryAlternationFind.textUnit")
-            .repeat(data.getInt("regex.wordBoundaryAlternationFind.repeatCount"));
-    safeWordBoundaryAlt = org.safere.Pattern.compile(wordBoundaryAltPattern);
-    jdkWordBoundaryAlt = java.util.regex.Pattern.compile(wordBoundaryAltPattern);
-    re2jWordBoundaryAlt = com.google.re2j.Pattern.compile(wordBoundaryAltPattern);
-    re2ffmWordBoundaryAlt = org.safere.re2ffm.RE2FfmPattern.compile(wordBoundaryAltPattern);
 
     // Capture
     String datePattern = data.getString("regex.captureGroups.pattern");
@@ -247,48 +227,6 @@ public class RegexBenchmark {
   @Benchmark
   public int alternationFind_re2ffm() {
     org.safere.re2ffm.RE2FfmMatcher m = re2ffmAlt.matcher(altText);
-    int count = 0;
-    while (m.find()) {
-      count++;
-    }
-    return count;
-  }
-
-  // ===== Word-boundary alternation find =====
-
-  @Benchmark
-  public int wordBoundaryAlternationFind_safere() {
-    org.safere.Matcher m = safeWordBoundaryAlt.matcher(wordBoundaryAltText);
-    int count = 0;
-    while (m.find()) {
-      count++;
-    }
-    return count;
-  }
-
-  @Benchmark
-  public int wordBoundaryAlternationFind_jdk() {
-    java.util.regex.Matcher m = jdkWordBoundaryAlt.matcher(wordBoundaryAltText);
-    int count = 0;
-    while (m.find()) {
-      count++;
-    }
-    return count;
-  }
-
-  @Benchmark
-  public int wordBoundaryAlternationFind_re2j() {
-    com.google.re2j.Matcher m = re2jWordBoundaryAlt.matcher(wordBoundaryAltText);
-    int count = 0;
-    while (m.find()) {
-      count++;
-    }
-    return count;
-  }
-
-  @Benchmark
-  public int wordBoundaryAlternationFind_re2ffm() {
-    org.safere.re2ffm.RE2FfmMatcher m = re2ffmWordBoundaryAlt.matcher(wordBoundaryAltText);
     int count = 0;
     while (m.find()) {
       count++;
