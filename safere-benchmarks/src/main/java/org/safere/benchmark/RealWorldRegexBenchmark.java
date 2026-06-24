@@ -153,16 +153,10 @@ public class RealWorldRegexBenchmark {
                   "Unknown real-world regex benchmark op: " + regexCase.op);
         };
 
-    String template = match ? regexCase.match : regexCase.nonMatch;
+    RealWorldRegexCase.InputSpec inputSpec = match ? regexCase.matchInput : regexCase.nonMatchInput;
     String alphabet = data.getString("realWorldRegex.safeDelimiterAlphabet");
     int seed = data.getInt("realWorldRegex.seed");
-    if (patternName.equals("sparseUrl") && match) {
-      testInput = generateSparseInput(regexCase.match, regexCase.nonMatch, inputSize, seed);
-    } else if (patternName.equals("unprefixedWordBoundary") && match) {
-      testInput = "12345 " + generateInput(template, inputSize - 6, alphabet, seed);
-    } else {
-      testInput = generateInput(template, inputSize, alphabet, seed);
-    }
+    testInput = generateInput(regexCase, inputSpec, match, inputSize, alphabet, seed);
   }
 
   @TearDown
@@ -186,20 +180,57 @@ public class RealWorldRegexBenchmark {
     return sb.substring(0, size);
   }
 
-  private String generateSparseInput(String matchPart, String nonMatchPart, int size, int seed) {
+  private String generateInput(
+      RealWorldRegexCase regexCase,
+      RealWorldRegexCase.InputSpec inputSpec,
+      boolean match,
+      int size,
+      String alphabet,
+      int seed) {
+    String template = match ? regexCase.match : regexCase.nonMatch;
+    return switch (inputSpec.kind) {
+      case "repeat" -> generateInput(template, size, alphabet, seed);
+      case "prefixedRepeat" ->
+          generatePrefixedInput(inputSpec.prefix, template, size, alphabet, seed);
+      case "sparseMatch" ->
+          generateSparseInput(
+              regexCase.match,
+              regexCase.nonMatch,
+              size,
+              seed,
+              inputSpec.nonMatchRepeats,
+              inputSpec.delimiterAlphabet);
+      default ->
+          throw new IllegalArgumentException("Unknown real-world input kind: " + inputSpec.kind);
+    };
+  }
+
+  private String generatePrefixedInput(
+      String prefix, String template, int size, String alphabet, int seed) {
+    if (prefix.length() >= size) {
+      return prefix.substring(0, size);
+    }
+    return prefix + generateInput(template, size - prefix.length(), alphabet, seed);
+  }
+
+  private String generateSparseInput(
+      String matchPart,
+      String nonMatchPart,
+      int size,
+      int seed,
+      int nonMatchRepeats,
+      String delimiterAlphabet) {
     StringBuilder sb = new StringBuilder(size);
     int delimiterIndex = seed;
-    String alphabet = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ0123456789";
     while (sb.length() < size) {
-      // Insert 20 non-matching segments
-      for (int i = 0; i < 20 && sb.length() < size; i++) {
+      for (int i = 0; i < nonMatchRepeats && sb.length() < size; i++) {
         sb.append(nonMatchPart);
         if (sb.length() < size) {
-          sb.append(alphabet.charAt(Math.floorMod(delimiterIndex, alphabet.length())));
+          sb.append(
+              delimiterAlphabet.charAt(Math.floorMod(delimiterIndex, delimiterAlphabet.length())));
           delimiterIndex++;
         }
       }
-      // Insert 1 matching segment with non-word boundaries (spaces)
       if (sb.length() < size) {
         sb.append(" ");
         sb.append(matchPart);
