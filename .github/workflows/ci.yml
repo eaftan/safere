@@ -73,10 +73,10 @@ jobs:
           cache: maven
 
       - name: Smoke test Java benchmarks
-        run: ./run-java-benchmarks.sh --smoke RegexBenchmark
+        run: ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
 
       - name: Smoke test Java memory benchmarks (GC profiler)
-        run: ./run-java-memory-benchmarks.sh --smoke RegexBenchmark
+        run: ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
 
       - name: Smoke test Java memory benchmarks (pattern sizes)
         run: |

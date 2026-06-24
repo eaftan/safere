@@ -457,21 +457,24 @@ development iteration or focused investigation; use
 ```bash
 # Java benchmarks (throughput)
 ./run-java-benchmarks.sh                        # standard benchmarks
-./run-java-benchmarks.sh RegexBenchmark         # specific class
-./run-java-benchmarks.sh ApplicationBenchmark   # application workloads
-./run-java-benchmarks.sh --long RegexBenchmark  # longer confirmation run
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.ApplicationBenchmark\.'
+./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
 
 # Java memory profiling (allocation rates via JMH GC profiler)
 ./run-java-memory-benchmarks.sh                 # all benchmarks
-./run-java-memory-benchmarks.sh RegexBenchmark  # specific class
+./run-java-memory-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
 ```
+
+Arguments to the Java wrapper scripts are passed directly to JMH as benchmark
+regex filters.
 
 `CrosscheckOverheadBenchmark` is excluded from the no-argument Java benchmark
 run. It measures overhead in the `safere-crosscheck` facade and should be run
 explicitly only when optimizing crosscheck:
 
 ```bash
-./run-java-benchmarks.sh CrosscheckOverheadBenchmark
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrosscheckOverheadBenchmark\.'
 ```
 
 ### C++ RE2 and Go Benchmarks

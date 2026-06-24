@@ -5,9 +5,9 @@
 # Run SafeRE JMH benchmarks with GC profiling to measure allocation rates.
 #
 # Usage:
-#   ./run-java-memory-benchmarks.sh RegexBenchmark         # publication-quality (default)
-#   ./run-java-memory-benchmarks.sh --quick RegexBenchmark  # fast dev iteration
-#   ./run-java-memory-benchmarks.sh --smoke RegexBenchmark  # CI smoke test
+#   ./run-java-memory-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-memory-benchmarks.sh --quick '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
 #   ./run-java-memory-benchmarks.sh                         # run all benchmarks
 #
 # This runs the same benchmarks as run-java-benchmarks.sh but adds JMH's
@@ -16,6 +16,9 @@
 # and is not affected by other processes on the machine.
 #
 # See run-java-benchmarks.sh for details on modes and settings.
+#
+# Arguments after the mode flag are passed directly to JMH as benchmark regex
+# filters.
 
 set -euo pipefail
 
@@ -56,29 +59,12 @@ JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DI
 echo "=== Building safere + benchmark JAR ==="
 mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 
-normalize_benchmark_filter() {
-  local bench="$1"
-  local package_regex="org\\.safere\\.benchmark"
-  local regex='[][^$()|*+?\]'
-
-  if [[ "$bench" == org.safere.benchmark.* ]] || [[ "$bench" =~ $regex ]]; then
-    printf '%s\n' "$bench"
-  elif [[ "$bench" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-    printf '^%s\\.%s\\.\n' "$package_regex" "$bench"
-  elif [[ "$bench" =~ ^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
-    printf '^%s\\.%s\\.%s($|_)\n' "$package_regex" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
-  else
-    printf '%s\n' "$bench"
-  fi
-}
-
 if [ $# -eq 0 ]; then
   echo "=== Running all benchmarks with GC profiling ==="
   java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS
 else
   for bench in "$@"; do
-    filter="$(normalize_benchmark_filter "$bench")"
     echo "=== Running $bench with GC profiling ==="
-    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS "$filter"
+    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS "$bench"
   done
 fi
