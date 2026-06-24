@@ -183,6 +183,135 @@
     "baseWithDirectives": "public class Foo {\n  // SCRUB:strip_line\n  public void bar() {\n    // SCRUB:begin_strip\n    System.out.println(\"Secret code\");\n    // SCRUB:end_strip\n  }\n}\n"
   },
 
+  "realWorldRegex": {
+    "textSizes": [1000, 10000],
+    "safeDelimiterAlphabet": " ",
+    "seed": 42,
+    "cases": [
+      {
+        "name": "mapFieldPath",
+        "pattern": "([\\S]+)\\b\\[(.+)\\]",
+        "op": "find",
+        "match": "config.overrides[some_value]",
+        "nonMatch": "config.overrides"
+      },
+      {
+        "name": "markupImageLink",
+        "pattern": "<<!(image|media|link)(\\([^\\)]*\\))?/?>?>",
+        "op": "replaceAllEmpty",
+        "match": "<<!image(src=\"http://image.png\")>>",
+        "nonMatch": "<<!image"
+      },
+      {
+        "name": "versionList",
+        "pattern": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+        "op": "replaceAllEmpty",
+        "match": "[1.2.3, 4.5.6]",
+        "nonMatch": "[1.2.3,"
+      },
+      {
+        "name": "malformedEntity",
+        "pattern": "<[^>]*entity[^>]*>{1,2}",
+        "op": "replaceAllEmpty",
+        "match": "<entity id=\"123\">",
+        "nonMatch": "<ent id=\"123\">"
+      },
+      {
+        "name": "markupEntity",
+        "pattern": "<<!entity.*?>>",
+        "op": "find",
+        "match": "<<!entity(id=\"123\")>>",
+        "nonMatch": "<<entity(id=\"123\")"
+      },
+      {
+        "name": "customProtocolLink",
+        "pattern": "\\[(.*?)]\\(customProtocol://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)",
+        "op": "find",
+        "match": "[Click here](customProtocol://<doc_1>)",
+        "nonMatch": "[Click here](http://google.com)"
+      },
+      {
+        "name": "wildcardSearch",
+        "pattern": "(?is).*\\b(you|your)\\b.*",
+        "op": "find",
+        "match": "What can I do for you today?",
+        "nonMatch": "What is the capital of France?"
+      },
+      {
+        "name": "metadataBlock",
+        "pattern": "(?s)<meta_start>.*?<meta_end>",
+        "op": "replaceAllEmpty",
+        "match": "<meta_start>Thinking process: analyzing query...<meta_end>",
+        "nonMatch": "<meta_start>Thinking process: analyzing query..."
+      },
+      {
+        "name": "blockedTags1",
+        "pattern": "```code_block\\n(\\s)*# (topic|tags)_identified:.*?\\n```",
+        "op": "replaceAllEmpty",
+        "match": "```code_block\n# tags_identified: shopping\n```",
+        "nonMatch": "```code_block\n# tags: shopping\n```"
+      },
+      {
+        "name": "blockedTags2",
+        "pattern": "<container>\\n(\\s)*# (topic|tags)_identified:.*?\\n</container>",
+        "op": "replaceAllEmpty",
+        "match": "<container>\n# topic_identified: sports\n</container>",
+        "nonMatch": "<container>\n# topic: sports\n</container>"
+      },
+      {
+        "name": "overlappingUrl",
+        "pattern": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+        "op": "replaceAllEmpty",
+        "match": "https://www.example.com/search?q=testing&hl=en",
+        "nonMatch": "some-random-domain-name"
+      },
+      {
+        "name": "caseInsensitiveKeyword",
+        "pattern": "(?i)keyword_to_find",
+        "op": "replaceAllEmpty",
+        "match": "KEYWORD_TO_FIND",
+        "nonMatch": "other_random_words"
+      },
+      {
+        "name": "boundedNameMatch",
+        "pattern": "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)",
+        "op": "replaceAllEmpty",
+        "match": "first name value",
+        "nonMatch": "first name other_value"
+      },
+      {
+        "name": "templateTagMatch",
+        "pattern": "(?s)(<template\\s+name\\s*>.*?<\\s*/\\s*template[ \\t]*)([^>]|$)",
+        "op": "replaceAllEmpty",
+        "match": "<template name>content to match</template",
+        "nonMatch": "plain text without template tag"
+      },
+      {
+        "name": "sparseUrl",
+        "pattern": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+        "op": "replaceAllEmpty",
+        "match": "https://www.example.com/search?q=testing&hl=en",
+        "nonMatch": "some-random-domain-name",
+        "matchInput": {
+          "kind": "sparseMatch",
+          "nonMatchRepeats": 20,
+          "delimiterAlphabet": "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ0123456789"
+        }
+      },
+      {
+        "name": "unprefixedWordBoundary",
+        "pattern": "\\b[a-zA-Z]{3,5}\\b",
+        "op": "find",
+        "match": "hello",
+        "nonMatch": "12345",
+        "matchInput": {
+          "kind": "prefixedRepeat",
+          "prefix": "12345 "
+        }
+      }
+    ]
+  },
+
   "application": [
     {
       "name": "uuidValidation",

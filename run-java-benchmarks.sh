@@ -5,10 +5,11 @@
 # Run SafeRE JMH benchmarks.
 #
 # Usage:
-#   ./run-java-benchmarks.sh RegexBenchmark         # standard benchmark run
-#   ./run-java-benchmarks.sh --long RegexBenchmark  # longer confirmation run
-#   ./run-java-benchmarks.sh --smoke RegexBenchmark  # CI smoke test (minimal)
-#   ./run-java-benchmarks.sh --first-compile UnicodeFirstCompileBenchmark
+#   ./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-benchmarks.sh --first-compile \
+#     '^org\.safere\.benchmark\.UnicodeFirstCompileBenchmark\.'
 #   ./run-java-benchmarks.sh                         # run all benchmarks
 #
 # The script builds a shaded (fat) JAR containing all dependencies and runs
@@ -40,6 +41,9 @@
 #
 # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
 # explicitly when working on safere-crosscheck performance.
+#
+# Arguments after the mode flag are passed directly to JMH as benchmark regex
+# filters.
 
 set -euo pipefail
 
@@ -63,7 +67,7 @@ PATHOLOGICAL_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 usage() {
   cat <<EOF
 Usage:
-  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [BenchmarkClass ...]
+  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [JmhBenchmarkRegex ...]
 
 Modes:
   default          Standard benchmark run.

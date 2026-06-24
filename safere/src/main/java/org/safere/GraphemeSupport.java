@@ -114,6 +114,7 @@ final class GraphemeSupport {
       int runLength = 0;
       int pos = 0;
       while (pos < text.length()) {
+        WorkCounter.record();
         int cp = text.codePointAt(pos);
         int next = pos + Character.charCount(cp);
         if (isRegionalIndicator(cp)) {
@@ -145,6 +146,7 @@ final class GraphemeSupport {
       boolean linkerSeen = false;
       int pos = 0;
       while (pos < text.length()) {
+        WorkCounter.record();
         int cp = text.codePointAt(pos);
         int next = pos + Character.charCount(cp);
         if (isIndicConjunctConsonant(cp)) {
@@ -181,6 +183,7 @@ final class GraphemeSupport {
       int visiblePrependStart = -1;
       int pos = 0;
       while (pos < text.length()) {
+        WorkCounter.record();
         int cp = text.codePointAt(pos);
         int next = pos + Character.charCount(cp);
         if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
@@ -324,6 +327,7 @@ final class GraphemeSupport {
       int regionStart,
       boolean consumedInput,
       int boundaryEndPos) {
+    WorkCounter.record();
     int flags = 0;
     if (isGraphemeBoundaryContextEdge(pos, regionStart, boundaryEndPos)) {
       flags |= EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
@@ -396,6 +400,7 @@ final class GraphemeSupport {
 
   static boolean isGraphemeClusterBoundary(
       String text, int pos, int regionStart, Context graphemeContext) {
+    WorkCounter.record();
     if (pos < 0 || pos > text.length()) {
       return false;
     }
