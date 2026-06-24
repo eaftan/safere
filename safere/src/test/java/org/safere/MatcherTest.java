@@ -2525,8 +2525,8 @@ class MatcherTest {
   }
 
   private static void assertNoPerformanceCliff(String api, IntConsumer scenario) {
-    long largerPositiveNanos = runtimeNanos(() -> scenario.accept(16));
-    long nearMinimumNanos = runtimeNanos(() -> scenario.accept(5));
+    long largerPositiveNanos = medianRuntimeNanos(() -> scenario.accept(16));
+    long nearMinimumNanos = medianRuntimeNanos(() -> scenario.accept(5));
 
     assertThat(nearMinimumNanos)
         .as(
@@ -2540,8 +2540,8 @@ class MatcherTest {
       String api, String nearMinimumInput, String largerPositiveInput, Consumer<String> scenario) {
     scenario.accept(nearMinimumInput);
     scenario.accept(largerPositiveInput);
-    long largerPositiveNanos = bestRuntimeNanos(() -> scenario.accept(largerPositiveInput));
-    long nearMinimumNanos = bestRuntimeNanos(() -> scenario.accept(nearMinimumInput));
+    long largerPositiveNanos = medianRuntimeNanos(() -> scenario.accept(largerPositiveInput));
+    long nearMinimumNanos = medianRuntimeNanos(() -> scenario.accept(nearMinimumInput));
 
     assertThat(nearMinimumNanos)
         .as(
@@ -2551,12 +2551,13 @@ class MatcherTest {
         .isLessThan(largerPositiveNanos * 50);
   }
 
-  private static long bestRuntimeNanos(Runnable task) {
-    long best = Long.MAX_VALUE;
-    for (int i = 0; i < 3; i++) {
-      best = Math.min(best, runtimeNanos(task));
+  private static long medianRuntimeNanos(Runnable task) {
+    long[] samples = new long[5];
+    for (int i = 0; i < samples.length; i++) {
+      samples[i] = runtimeNanos(task);
     }
-    return best;
+    java.util.Arrays.sort(samples);
+    return samples[samples.length / 2];
   }
 
   private static long runtimeNanos(Runnable task) {

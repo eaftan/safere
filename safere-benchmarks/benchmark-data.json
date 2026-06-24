@@ -89,6 +89,24 @@
     }
   },
 
+  "issue488ReplaceAll": {
+    "textSizes": [1000, 10000, 100000],
+    "lazyAlt": {
+      "pattern": "(?i)(?s)\\s*\\n*(?:<block>|\\[block\\])\\s*\\n?renderElement\\(.*?\\)\\s*\\n?(?:</block>|\\[/block\\])",
+      "replacement": "",
+      "prefixUnit": "Some prefix text preceding the render block element. ",
+      "match": "\n<block>\nrenderElement(id=\"el-42\", width=100, height=200, label=\"hello world\")\n</block>\n",
+      "suffixUnit": "Some suffix text following the render block element. "
+    },
+    "altCapture": {
+      "pattern": "(^|[^#])(#!customTag)",
+      "replacement": "$1<tag type=\"custom\"",
+      "hitUnit": "This is some sample prose text that contains a tag marker #!customTag and more text here. ",
+      "missUnit": "This is some sample prose text that contains a tag marker #customTag and more text here. ",
+      "hitInterval": 5
+    }
+  },
+
   "captureScaling": {
     "capture0": {
       "pattern": "[0-9]+-[0-9]+-[0-9]+",

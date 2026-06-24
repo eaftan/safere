@@ -267,11 +267,6 @@ final class BitState {
 
   private int textSlots;
 
-  /** Tracks which words in the visited bitmap were dirtied, for incremental clearing. */
-  private final int[] dirtyWords;
-
-  private int dirtyCount;
-
   /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
   private final boolean[] cycleAlts;
 
@@ -314,8 +309,7 @@ final class BitState {
     int totalBits = prog.size() * textSlots;
     int visitedLen = (totalBits + 63) / 64;
     this.visited = new long[visitedLen];
-    this.dirtyWords = new int[Math.min(visitedLen, 4096)];
-    this.dirtyCount = 0;
+
     this.cap = new int[ncap];
     Arrays.fill(cap, -1);
     int nlr = prog.numLoopRegs();
@@ -367,13 +361,7 @@ final class BitState {
       return false; // already visited
     }
     visited[word] |= mask;
-    // Track dirty word for incremental clearing.
-    if (dirtyCount >= 0 && dirtyCount < dirtyWords.length) {
-      dirtyWords[dirtyCount++] = word;
-    } else if (dirtyCount >= 0) {
-      // Overflow — flag that we need a full clear by setting dirtyCount to -1.
-      dirtyCount = -1;
-    }
+
     return true;
   }
 
@@ -606,18 +594,9 @@ final class BitState {
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
     this.bestMatch = null;
     this.jobCount = 0;
-    // Incrementally clear only dirtied bitmap words (much faster than full Arrays.fill).
-    if (dirtyCount > 0) {
-      for (int i = 0; i < dirtyCount; i++) {
-        visited[dirtyWords[i]] = 0L;
-      }
-    } else if (dirtyCount == -1) {
-      // Overflow — must do a full clear.
-      int totalBits = prog.size() * textSlots;
-      int usedLen = (totalBits + 63) / 64;
-      Arrays.fill(visited, 0, usedLen, 0L);
-    }
-    dirtyCount = 0;
+    int totalBits = prog.size() * textSlots;
+    int usedLen = (totalBits + 63) / 64;
+    Arrays.fill(visited, 0, usedLen, 0L);
     Arrays.fill(cap, 0, ncap, -1);
     if (loopRegs.length > 0) {
       Arrays.fill(loopRegs, -1);

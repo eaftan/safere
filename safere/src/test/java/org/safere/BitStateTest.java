@@ -347,6 +347,9 @@ class BitStateTest {
     cases.add(new TestCase("[a-z]+@[a-z]+", "user@host"));
     cases.add(new TestCase("\\bfoo\\b", "foo bar"));
     cases.add(new TestCase("\\bfoo\\b", "foobar"));
+    cases.add(new TestCase("(\\bfoo\\b)", "foo bar"));
+    cases.add(new TestCase("(\\Bfoo\\B)", "afoob"));
+    cases.add(new TestCase("\\b(cat|dog|bird)\\b", "The quick brown cat and the lazy dog"));
     cases.add(new TestCase("(a(b)c)", "abc"));
     cases.add(new TestCase("x(y|z)w", "xyw"));
     cases.add(new TestCase("(.*)x", "abcx"));
@@ -382,5 +385,12 @@ class BitStateTest {
   @MethodSource("resultBufferCases")
   void reusableResultBufferPreservesCaptureSemantics(ResultBufferCase tc) {
     assertReusableResultConsistent(tc);
+  }
+
+  @Test
+  @DisplayName("BEGIN_LINE does not match at end of non-empty text")
+  void beginLineDoesNotMatchAtEndOfNonEmptyText() {
+    assertConsistentAnchored("(?m)^", "a\n", false, false);
+    assertConsistentUnanchored("(?m)^", "a\n");
   }
 }
