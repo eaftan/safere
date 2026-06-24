@@ -1870,7 +1870,6 @@ public final class Matcher implements MatchResult {
             && !fullTextRegionContext
             && !(prog.hasGraphemeSemantics() && !anchored)
             && !prog.hasGraphemeSemantics()
-            && !prog.hasWordBoundary()
             && (!enginePathOptions().semanticGuards()
                 || !prog.requiresPikeNfaCaptureSemantics()
                 || nsubmatch <= 1);
