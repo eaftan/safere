@@ -84,23 +84,28 @@ final class Dfa {
   private static final class State {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
+    final boolean isHighestPriorityMatch;
+    final State[] next;
 
     /**
      * Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable.
      */
     final int[] wordBoundaryMatchIds;
 
-    /** Transitions indexed by equivalence class; null entry = not yet computed. */
-    final State[] next;
-
-    State(int[] insts, int flags, int numClasses) {
-      this(insts, flags, null, numClasses);
+    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
+      this(insts, flags, wordBoundaryMatchIds, numClasses, false);
     }
 
-    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
+    State(
+        int[] insts,
+        int flags,
+        int[] wordBoundaryMatchIds,
+        int numClasses,
+        boolean isHighestPriorityMatch) {
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
+      this.isHighestPriorityMatch = isHighestPriorityMatch;
       this.next = new State[numClasses];
     }
 
@@ -156,7 +161,7 @@ final class Dfa {
   private final Map<StateKey, State> cache = new HashMap<>();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
-  private final State deadState = new State(new int[0], 0, 0);
+  private final State deadState;
 
   /** Pre-allocated visited generation array for {@link #expand}, reused across calls. */
   private final int[] expandVisitedGen;
@@ -241,6 +246,7 @@ final class Dfa {
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
+    this.deadState = new State(new int[0], 0, null, numClasses);
   }
 
   /**
@@ -598,7 +604,9 @@ final class Dfa {
     if (cache.size() >= maxStates) {
       return null;
     }
-    s = new State(insts, flags, wordBoundaryMatchIds, numClasses);
+    boolean isHighestPriorityMatch =
+        insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
+    s = new State(insts, flags, wordBoundaryMatchIds, numClasses, isHighestPriorityMatch);
     cache.put(key, s);
     return s;
   }
@@ -1116,6 +1124,82 @@ final class Dfa {
     }
 
     int pos = startPos;
+    // Fast path: loop through ASCII characters (characters < 128)
+    while (pos < textLen) {
+      int limit = Math.min(textLen, posDepThreshold - 1);
+      while (pos < limit) {
+        char ch = text.charAt(pos);
+        if (ch >= 128) {
+          break;
+        }
+        int cls = asciiClassMap[ch];
+        State ns = s.next[cls];
+        if (ns == null || ns == deadState) {
+          break;
+        }
+        if (ns.isMatch() && !longest && !needEndMatch && ns.isHighestPriorityMatch) {
+          int endPos = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+          return new SearchResult(true, endPos);
+        }
+        if (ns.isMatch() && !needEndMatch) {
+          matched = true;
+          matchEnd = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+        }
+        s = ns;
+        pos++;
+      }
+
+      if (pos >= textLen) {
+        break;
+      }
+      if (pos + 1 >= posDepThreshold) {
+        break; // fall back to general loop for position-dependent flags
+      }
+
+      char ch = text.charAt(pos);
+      if (ch >= 128) {
+        break; // fall back to general loop
+      }
+      int cls = asciiClassMap[ch];
+      State ns = s.next[cls];
+      if (ns == null) {
+        int effectiveNextPos = pos + 1;
+        ns = computeNext(s, ch, text, effectiveNextPos);
+        if (ns == null) {
+          return null; // budget exceeded
+        }
+        s.next[cls] = ns;
+      }
+      s = ns;
+      if (s == deadState) {
+        break;
+      }
+      if (s.isMatch()) {
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          int endPos = pos;
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+              return new SearchResult(true, matchEnd);
+            }
+          }
+        }
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int endPos = pos + 1;
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+              return new SearchResult(true, matchEnd);
+            }
+          }
+        }
+      }
+      pos++;
+    }
+
+    // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
       WorkCounter.record();
       int cp;
@@ -1271,6 +1355,86 @@ final class Dfa {
     }
 
     int pos = endPos;
+    // Fast path: scan backward through ASCII characters
+    while (pos > startLimit) {
+      if (pos <= posDepThreshold) {
+        int limit = startLimit;
+        while (pos > limit) {
+          char ch = text.charAt(pos - 1);
+          if (ch >= 128) {
+            break;
+          }
+          int cls = asciiClassMap[ch];
+          State ns = s.next[cls];
+          if (ns == null || ns == deadState) {
+            break;
+          }
+          if (ns.isMatch() && !longest && !needEndMatch) {
+            int startPos = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos - 1;
+            return new SearchResult(true, startPos);
+          }
+          if (ns.isMatch()) {
+            matched = true;
+            matchStart =
+                ((ns.flags & FLAG_MATCH_BEFORE) == 0 || (ns.flags & FLAG_MATCH_AFTER_DEFERRED) != 0)
+                    ? pos - 1
+                    : pos;
+          }
+          s = ns;
+          pos--;
+        }
+      }
+
+      if (pos <= startLimit) {
+        break;
+      }
+      if (pos - 1 >= posDepThreshold) {
+        break; // fall back to general loop for position-dependent context
+      }
+
+      char ch = text.charAt(pos - 1);
+      if (ch >= 128) {
+        break; // fall back
+      }
+      int cls = asciiClassMap[ch];
+      State ns = s.next[cls];
+      if (ns == null) {
+        int effectivePrevPos = pos - 1;
+        ns = computeNext(s, ch, text, effectivePrevPos);
+        if (ns == null) {
+          return null; // budget exceeded
+        }
+        s.next[cls] = ns;
+      }
+      s = ns;
+      if (s == deadState) {
+        break;
+      }
+      if (s.isMatch()) {
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int startPos = pos - 1;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        }
+      }
+      pos--;
+    }
+
+    // General reverse loop
     while (pos >= startLimit) {
       WorkCounter.record();
       int cp;
@@ -1328,10 +1492,18 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
-        if (matchValid) {
-          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
-          if (!needEndMatch || startPos == startLimit) {
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int startPos = prevPos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
             matched = true;
             matchStart = startPos;
             if (!longest && !needEndMatch) {
@@ -1410,6 +1582,49 @@ final class Dfa {
 
     if (s != deadState) {
       int pos = 0;
+      // Fast path: scan forward through ASCII characters
+      while (pos < textLen) {
+        if (pos + 1 >= posDepThreshold) {
+          break; // fall back to general loop for position-dependent context
+        }
+        char ch = text.charAt(pos);
+        if (ch >= 128) {
+          break; // fall back
+        }
+        int cls = asciiClassMap[ch];
+        State ns = s.next[cls];
+        if (ns == null) {
+          int effectiveNextPos = pos + 1;
+          ns = computeNext(s, ch, text, effectiveNextPos);
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
+        s = ns;
+        if (s == deadState) {
+          break;
+        }
+        if (s.isMatch()) {
+          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : pos + 1;
+          if (!needEndMatch
+              || endPos == textLen
+              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
+            // Collect match IDs from the state's instructions.
+            for (int id : collectMatchIds(s.insts)) {
+              seen.set(id);
+            }
+            if (s.wordBoundaryMatchIds != null) {
+              for (int id : s.wordBoundaryMatchIds) {
+                seen.set(id);
+              }
+            }
+          }
+        }
+        pos++;
+      }
+
+      // General loop
       while (pos <= textLen) {
         int cp;
         int nextPos;
@@ -1517,7 +1732,7 @@ final class Dfa {
 
   private boolean canStopAtFirstMatch(State s, String text, int pos, boolean needEndMatch) {
     if (!needEndMatch) {
-      return isHighestPriorityMatch(s);
+      return s.isHighestPriorityMatch;
     }
     int cp = codePointAt(text, pos);
     for (int id : s.insts) {
@@ -1540,10 +1755,6 @@ final class Dfa {
       }
     }
     return false;
-  }
-
-  private boolean isHighestPriorityMatch(State s) {
-    return s.insts.length > 0 && prog.inst(s.insts[0]).opCode == InstOp.OP_MATCH;
   }
 
   private static int codePointAt(String text, int pos) {
