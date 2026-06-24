@@ -189,11 +189,11 @@ The Unicode table-generation work uses three benchmark shapes:
 
 ```bash
 # Warm repeated compile throughput.
-./run-java-benchmarks.sh UnicodeCompileBenchmark
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.UnicodeCompileBenchmark\.'
 
 # Fresh-fork first compile. This preserves lazy Unicode table initialization
 # costs that ordinary JMH warmup would hide.
-./run-java-benchmarks.sh --first-compile UnicodeFirstCompileBenchmark
+./run-java-benchmarks.sh --first-compile '^org\.safere\.benchmark\.UnicodeFirstCompileBenchmark\.'
 
 # Plain JVM cold-start harness for short-lived CLI-style workloads.
 mvn install -DskipTests -q

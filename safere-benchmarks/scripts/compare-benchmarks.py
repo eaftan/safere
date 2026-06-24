@@ -32,6 +32,8 @@ JSON-lines format (one object per line):
 JMH text format (whitespace-separated):
   Benchmark                          Mode  Cnt   Score   Error  Units
   RegexBenchmark.literalMatch_jdk    avgt    5  23.456 ± 1.234  ns/op
+  Benchmark                          (engine)  (inputSize)  Mode  Cnt  Score  Error  Units
+  RealWorldRegexBenchmark.runBenchmark SafeRE  1000         avgt    5  23.456 ± 1.234 us/op
 """
 
 import argparse
@@ -58,6 +60,13 @@ _DEFAULT_ENGINE = "safere"
 _ENGINE_ALIASES = {
     "go_regexp": "go",
 }
+_JMH_ENGINE_PARAMS = {
+    "SafeRE": "safere",
+    "JDK": "jdk",
+    "RE2J": "re2j",
+    "RE2_FFM": "re2_ffm",
+}
+_JMH_MODES = {"avgt", "thrpt", "sample", "ss", "all"}
 
 
 def _engine_from_method(method):
@@ -94,11 +103,111 @@ _JMH_LINE_RE = re.compile(
 )
 
 
+def _parse_jmh_header(line):
+    parts = line.split()
+    if not parts or parts[0] != "Benchmark" or "Mode" not in parts:
+        return None
+    mode_index = parts.index("Mode")
+    return [part[1:-1] for part in parts[1:mode_index]
+            if part.startswith("(") and part.endswith(")")]
+
+
+def _parse_jmh_parameterized_line(line, param_names):
+    if not param_names:
+        return None
+    parts = line.split()
+    if not parts or parts[0] == "Benchmark":
+        return None
+    try:
+        mode_index = next(i for i, part in enumerate(parts[1:], 1) if part in _JMH_MODES)
+    except StopIteration:
+        return None
+    if mode_index != 1 + len(param_names):
+        return None
+
+    full_name = parts[0]
+    params = dict(zip(param_names, parts[1:mode_index]))
+    mode = parts[mode_index]
+    del mode
+
+    value_index = mode_index + 1
+    if value_index < len(parts) and parts[value_index].isdigit():
+        value_index += 1
+    if value_index >= len(parts):
+        return None
+    try:
+        score = float(parts[value_index])
+    except ValueError:
+        return None
+    value_index += 1
+
+    error = 0.0
+    if value_index < len(parts) and parts[value_index] == "±":
+        value_index += 1
+        if value_index >= len(parts):
+            return None
+        try:
+            error = float(parts[value_index])
+        except ValueError:
+            return None
+        value_index += 1
+
+    if value_index >= len(parts):
+        return None
+    unit = parts[value_index]
+
+    dot = full_name.rfind(".")
+    if dot == -1:
+        return None
+    class_name = full_name[: dot]
+    method = full_name[dot + 1 :]
+
+    engine, base_method = _engine_from_method(method)
+    if "engine" in params and params["engine"] != "N/A":
+        engine = _JMH_ENGINE_PARAMS.get(params["engine"], params["engine"].lower())
+
+    benchmark = _parameterized_benchmark_name(class_name, base_method, params, param_names)
+    return Result(engine=engine, benchmark=benchmark, score=score, error=error, unit=unit)
+
+
+def _parameterized_benchmark_name(class_name, method, params, param_names):
+    active_params = {
+        name: params[name] for name in param_names
+        if name != "engine" and params.get(name) != "N/A"
+    }
+    if (
+        class_name.endswith("RealWorldRegexBenchmark")
+        and method == "runBenchmark"
+        and active_params
+    ):
+        match_label = "match" if params.get("match") == "true" else "noMatch"
+        return (
+            f"{class_name}.{method}.{params['patternName']}."
+            f"{match_label}.{params['inputSize']}"
+        )
+
+    suffixes = [active_params[name] for name in param_names if name in active_params]
+    if suffixes:
+        return f"{class_name}.{method}." + ".".join(suffixes)
+    return f"{class_name}.{method}" if class_name else method
+
+
 def parse_jmh(path):
     """Parse a JMH text-output file and return a list of ``Result`` objects."""
     results = []
+    param_names = []
     with open(path) as fh:
         for line in fh:
+            parsed_header = _parse_jmh_header(line)
+            if parsed_header is not None:
+                param_names = parsed_header
+                continue
+
+            parameterized_result = _parse_jmh_parameterized_line(line, param_names)
+            if parameterized_result is not None:
+                results.append(parameterized_result)
+                continue
+
             m = _JMH_LINE_RE.match(line)
             if not m:
                 continue
