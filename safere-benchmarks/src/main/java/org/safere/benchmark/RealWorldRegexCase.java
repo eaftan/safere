@@ -15,14 +15,24 @@ final class RealWorldRegexCase {
   final String pattern;
   final String match;
   final String nonMatch;
+  final InputSpec matchInput;
+  final InputSpec nonMatchInput;
 
   private RealWorldRegexCase(
-      String name, String op, String pattern, String match, String nonMatch) {
+      String name,
+      String op,
+      String pattern,
+      String match,
+      String nonMatch,
+      InputSpec matchInput,
+      InputSpec nonMatchInput) {
     this.name = name;
     this.op = op;
     this.pattern = pattern;
     this.match = match;
     this.nonMatch = nonMatch;
+    this.matchInput = matchInput;
+    this.nonMatchInput = nonMatchInput;
   }
 
   static RealWorldRegexCase fromJson(JsonObject obj) {
@@ -34,7 +44,9 @@ final class RealWorldRegexCase {
     if (!"find".equals(op) && !"replaceAllEmpty".equals(op)) {
       throw new IllegalArgumentException("Unknown real-world regex benchmark op: " + op);
     }
-    return new RealWorldRegexCase(name, op, pattern, match, nonMatch);
+    InputSpec matchInput = InputSpec.fromJson(obj, "matchInput");
+    InputSpec nonMatchInput = InputSpec.fromJson(obj, "nonMatchInput");
+    return new RealWorldRegexCase(name, op, pattern, match, nonMatch, matchInput, nonMatchInput);
   }
 
   private static String requireString(JsonObject obj, String field) {
@@ -42,5 +54,50 @@ final class RealWorldRegexCase {
       throw new IllegalArgumentException("Real-world regex case requires " + field);
     }
     return obj.get(field).getAsString();
+  }
+
+  static final class InputSpec {
+
+    final String kind;
+    final String prefix;
+    final int nonMatchRepeats;
+    final String delimiterAlphabet;
+
+    private InputSpec(String kind, String prefix, int nonMatchRepeats, String delimiterAlphabet) {
+      this.kind = kind;
+      this.prefix = prefix;
+      this.nonMatchRepeats = nonMatchRepeats;
+      this.delimiterAlphabet = delimiterAlphabet;
+    }
+
+    static InputSpec repeat() {
+      return new InputSpec("repeat", "", 0, "");
+    }
+
+    static InputSpec fromJson(JsonObject obj, String field) {
+      if (!obj.has(field) || obj.get(field).isJsonNull()) {
+        return repeat();
+      }
+      JsonObject spec = obj.getAsJsonObject(field);
+      String kind = requireString(spec, "kind");
+      return switch (kind) {
+        case "repeat" -> repeat();
+        case "prefixedRepeat" -> new InputSpec(kind, requireString(spec, "prefix"), 0, "");
+        case "sparseMatch" ->
+            new InputSpec(
+                kind,
+                "",
+                requireInt(spec, "nonMatchRepeats"),
+                requireString(spec, "delimiterAlphabet"));
+        default -> throw new IllegalArgumentException("Unknown real-world input kind: " + kind);
+      };
+    }
+
+    private static int requireInt(JsonObject obj, String field) {
+      if (!obj.has(field) || obj.get(field).isJsonNull()) {
+        throw new IllegalArgumentException("Real-world regex input spec requires " + field);
+      }
+      return obj.get(field).getAsInt();
+    }
   }
 }

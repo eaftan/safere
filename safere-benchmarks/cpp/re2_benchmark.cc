@@ -225,6 +225,61 @@ std::string generated_real_world_input(const std::string& unit, int size,
   return text;
 }
 
+std::string generated_sparse_real_world_input(const std::string& match_unit,
+                                              const std::string& non_match_unit,
+                                              int size, int seed,
+                                              int non_match_repeats,
+                                              const std::string& alphabet) {
+  std::string text;
+  text.reserve(size + match_unit.size() + non_match_unit.size());
+  int delimiter_index = seed;
+  while (static_cast<int>(text.size()) < size) {
+    for (int i = 0; i < non_match_repeats &&
+                    static_cast<int>(text.size()) < size; ++i) {
+      text += non_match_unit;
+      if (static_cast<int>(text.size()) < size) {
+        text += alphabet[delimiter_index % alphabet.size()];
+        ++delimiter_index;
+      }
+    }
+    if (static_cast<int>(text.size()) < size) {
+      text += " ";
+      text += match_unit;
+      text += " ";
+    }
+  }
+  text.resize(size);
+  return text;
+}
+
+std::string generate_real_world_input(const json& input_spec,
+                                      const std::string& match_unit,
+                                      const std::string& non_match_unit,
+                                      bool match, int size,
+                                      const std::string& alphabet, int seed) {
+  std::string unit = match ? match_unit : non_match_unit;
+  std::string kind = input_spec.value("kind", "repeat");
+  if (kind == "repeat") {
+    return generated_real_world_input(unit, size, alphabet, seed);
+  }
+  if (kind == "prefixedRepeat") {
+    std::string prefix = input_spec.at("prefix").get<std::string>();
+    if (static_cast<int>(prefix.size()) >= size) {
+      return prefix.substr(0, size);
+    }
+    int body_size = size - static_cast<int>(prefix.size());
+    return prefix + generated_real_world_input(unit, body_size, alphabet, seed);
+  }
+  if (kind == "sparseMatch") {
+    return generated_sparse_real_world_input(
+        match_unit, non_match_unit, size, seed,
+        input_spec.at("nonMatchRepeats").get<int>(),
+        input_spec.at("delimiterAlphabet").get<std::string>());
+  }
+  fprintf(stderr, "ERROR: invalid real-world input kind: %s\n", kind.c_str());
+  exit(1);
+}
+
 // Encode a Unicode code point as UTF-8 and append to the string.
 void append_utf8(std::string& s, int cp) {
   if (cp < 0x80) {
@@ -501,6 +556,8 @@ void run_real_world_regex_benchmarks(
     std::string pattern;
     std::string match;
     std::string non_match;
+    json match_input;
+    json non_match_input;
     RE2 re;
 
     explicit RealWorldCase(const json& item)
@@ -509,6 +566,8 @@ void run_real_world_regex_benchmarks(
           pattern(item.at("pattern").get<std::string>()),
           match(item.at("match").get<std::string>()),
           non_match(item.at("nonMatch").get<std::string>()),
+          match_input(item.value("matchInput", json::object())),
+          non_match_input(item.value("nonMatchInput", json::object())),
           re(pattern) {}
   };
 
@@ -534,10 +593,11 @@ void run_real_world_regex_benchmarks(
   for (const auto& case_ptr : cases) {
     const RealWorldCase& c = *case_ptr;
     for (bool match : {true, false}) {
-      const std::string& unit = match ? c.match : c.non_match;
+      const json& input_spec = match ? c.match_input : c.non_match_input;
       std::string match_label = match ? "match" : "noMatch";
       for (int size : sizes) {
-        std::string text = generated_real_world_input(unit, size, alphabet, seed);
+        std::string text = generate_real_world_input(
+            input_spec, c.match, c.non_match, match, size, alphabet, seed);
         std::string name = "RealWorldRegexBenchmark.runBenchmark." + c.name +
                            "." + match_label + "." + std::to_string(size);
         if (!matches_filter(name, filters)) {
