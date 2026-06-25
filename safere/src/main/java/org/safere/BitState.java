@@ -289,9 +289,7 @@ final class BitState {
   private boolean budgetExceeded;
 
   /** Explicit job stack for backtracking. */
-  private int[] jobInstId;
-
-  private int[] jobPos;
+  private long[] jobStack;
   private int jobCount;
 
   private BitState(Prog prog, String text, int ncap, boolean longest, boolean endMatch) {
@@ -319,8 +317,7 @@ final class BitState {
     }
 
     int maxJobs = Math.min(totalBits, 4096);
-    this.jobInstId = new int[maxJobs];
-    this.jobPos = new int[maxJobs];
+    this.jobStack = new long[maxJobs];
     this.jobCount = 0;
     this.stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (textLen + 1));
     this.stepCount = 0;
@@ -365,16 +362,12 @@ final class BitState {
     return true;
   }
 
-  /** Pushes a job onto the stack, growing if needed. */
   private void push(int instId, int pos) {
-    if (jobCount >= jobInstId.length) {
-      int newLen = jobInstId.length * 2;
-      jobInstId = Arrays.copyOf(jobInstId, newLen);
-      jobPos = Arrays.copyOf(jobPos, newLen);
+    if (jobCount >= jobStack.length) {
+      int newLen = jobStack.length * 2;
+      jobStack = Arrays.copyOf(jobStack, newLen);
     }
-    jobInstId[jobCount] = instId;
-    jobPos[jobCount] = pos;
-    jobCount++;
+    jobStack[jobCount++] = ((long) pos << 32) | (instId & 0xFFFFFFFFL);
   }
 
   /**
@@ -406,8 +399,9 @@ final class BitState {
         return false;
       }
       jobCount--;
-      int id = jobInstId[jobCount];
-      int pos = jobPos[jobCount];
+      long job = jobStack[jobCount];
+      int id = (int) job;
+      int pos = (int) (job >>> 32);
 
       // Negative IDs are restore sentinels: cap or loopReg restore on backtrack.
       // Capture sentinels use -(reg+1) where reg < ncap.
@@ -580,7 +574,7 @@ final class BitState {
     int requiredVisitedLen = (totalBits + 63) / 64;
     return visited.length >= requiredVisitedLen
         && cap.length >= ncap
-        && jobInstId.length >= Math.min(totalBits, 4096);
+        && jobStack.length >= Math.min(totalBits, 4096);
   }
 
   /**
