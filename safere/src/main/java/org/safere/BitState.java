@@ -290,6 +290,7 @@ final class BitState {
 
   /** Explicit job stack for backtracking. */
   private long[] jobStack;
+
   private int jobCount;
 
   private BitState(Prog prog, String text, int ncap, boolean longest, boolean endMatch) {
