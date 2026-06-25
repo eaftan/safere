@@ -8,7 +8,7 @@ package org.safere;
 /** Package-private deterministic work accounting for performance regression tests. */
 final class WorkCounter {
   private static final ThreadLocal<Counter> COUNTER = new ThreadLocal<>();
-  private static int activeCounters;
+  static int activeCounters;
 
   private WorkCounter() {}
 

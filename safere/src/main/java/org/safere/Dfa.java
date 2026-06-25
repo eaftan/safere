@@ -1117,7 +1117,9 @@ final class Dfa {
 
     int pos = startPos;
     while (pos <= textLen) {
-      WorkCounter.record();
+      if (WorkCounter.activeCounters != 0) {
+        WorkCounter.record();
+      }
       int cp;
       int nextPos;
       int cls;
@@ -1272,7 +1274,9 @@ final class Dfa {
 
     int pos = endPos;
     while (pos >= startLimit) {
-      WorkCounter.record();
+      if (WorkCounter.activeCounters != 0) {
+        WorkCounter.record();
+      }
       int cp;
       int prevPos;
       int cls;
