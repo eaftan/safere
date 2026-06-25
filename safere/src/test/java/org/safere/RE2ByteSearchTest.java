@@ -237,7 +237,9 @@ class RE2ByteSearchTest {
     byte[] bytes = tc.text().getBytes(StandardCharsets.UTF_8);
     Matcher m = p.matcher(bytes);
     assertThat(m.matches())
-        .as("matches() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
+        .as(
+            "matches() for pattern \"%s\" on byte representation of \"%s\"",
+            tc.pattern(), tc.text())
         .isEqualTo(tc.expectFullMatch());
   }
 
@@ -264,13 +266,17 @@ class RE2ByteSearchTest {
     if (found && tc.expectedFindGroup() != null) {
       // Test string group access on byte matcher
       assertThat(m.group())
-          .as("find() group() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
+          .as(
+              "find() group() for pattern \"%s\" on byte representation of \"%s\"",
+              tc.pattern(), tc.text())
           .isEqualTo(tc.expectedFindGroup());
 
       // Test zero-copy byte group access on byte matcher
       byte[] expectedBytes = tc.expectedFindGroup().getBytes(StandardCharsets.UTF_8);
       assertThat(m.groupBytes())
-          .as("find() groupBytes() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
+          .as(
+              "find() groupBytes() for pattern \"%s\" on byte representation of \"%s\"",
+              tc.pattern(), tc.text())
           .isEqualTo(expectedBytes);
     }
   }
@@ -301,7 +307,9 @@ class RE2ByteSearchTest {
   @org.junit.jupiter.api.Test
   void testDollarNewlineDiscrepancy() {
     Pattern p = Pattern.compile("(?:(?:(?:$)\n))$");
-    byte[] bytes = "####################################################################################################################################################################################################################################################################bb\n".getBytes(StandardCharsets.UTF_8);
+    byte[] bytes =
+        "####################################################################################################################################################################################################################################################################bb\n"
+            .getBytes(StandardCharsets.UTF_8);
     Matcher m = p.matcher(bytes);
     assertThat(m.find()).isTrue();
     assertThat(m.start()).isEqualTo(262);
@@ -311,7 +319,8 @@ class RE2ByteSearchTest {
   @org.junit.jupiter.api.Test
   void testDollarNewlineDiscrepancyString() {
     Pattern p = Pattern.compile("(?:(?:(?:$)\n))$");
-    String text = "####################################################################################################################################################################################################################################################################bb\n";
+    String text =
+        "####################################################################################################################################################################################################################################################################bb\n";
     Matcher m = p.matcher(text);
     assertThat(m.find()).isTrue();
     assertThat(m.start()).isEqualTo(262);
@@ -324,5 +333,25 @@ class RE2ByteSearchTest {
     byte[] bytes = "a\r".getBytes(StandardCharsets.UTF_8);
     Matcher m = p.matcher(bytes);
     assertThat(m.find()).isFalse();
+  }
+
+  @org.junit.jupiter.api.Test
+  void testGraphemePatternByteMode() {
+    Pattern p = Pattern.compile("a\\X");
+    byte[] bytes = "ab".getBytes(StandardCharsets.UTF_8);
+    Matcher m = p.matcher(bytes);
+    var unused =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            UnsupportedOperationException.class, () -> m.find());
+  }
+
+  @org.junit.jupiter.api.Test
+  void testUnicodeWordBoundaryByteMode() {
+    Pattern p = Pattern.compile("\\ba", Pattern.UNICODE_CHARACTER_CLASS);
+    byte[] bytes = "ab".getBytes(StandardCharsets.UTF_8);
+    Matcher m = p.matcher(bytes);
+    var unused2 =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            UnsupportedOperationException.class, () -> m.find());
   }
 }

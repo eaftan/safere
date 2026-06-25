@@ -1456,7 +1456,8 @@ final class Nfa {
     return flags;
   }
 
-  static boolean isAtTrailingLineTerminator(byte[] text, int pos, boolean unixLines, int anchorEndPos) {
+  static boolean isAtTrailingLineTerminator(
+      byte[] text, int pos, boolean unixLines, int anchorEndPos) {
     if (pos >= text.length) {
       return false;
     }

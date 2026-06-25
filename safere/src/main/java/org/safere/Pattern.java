@@ -735,8 +735,11 @@ public final class Pattern implements Serializable {
 
   @SuppressWarnings("ThreadLocalUsage")
   private final transient ThreadLocal<ByteDfa> cachedByteForwardFirstMatchDfa = new ThreadLocal<>();
+
   @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<ByteDfa> cachedByteForwardLongestMatchDfa = new ThreadLocal<>();
+  private final transient ThreadLocal<ByteDfa> cachedByteForwardLongestMatchDfa =
+      new ThreadLocal<>();
+
   @SuppressWarnings("ThreadLocalUsage")
   private final transient ThreadLocal<ByteDfa> cachedByteReverseDfa = new ThreadLocal<>();
 
@@ -747,6 +750,10 @@ public final class Pattern implements Serializable {
         p = byteProg;
         if (p == null) {
           p = Utf8Compiler.compile(ast);
+          if (p == null) {
+            throw new UnsupportedOperationException(
+                "Pattern contains features not supported in byte mode");
+          }
           p.setUnixLines((flags & UNIX_LINES) != 0);
           byteProg = p;
         }
@@ -762,6 +769,10 @@ public final class Pattern implements Serializable {
         p = byteReverseProg;
         if (p == null) {
           p = Utf8Compiler.compile(ast, true);
+          if (p == null) {
+            throw new UnsupportedOperationException(
+                "Pattern contains features not supported in byte mode");
+          }
           p.setUnixLines((flags & UNIX_LINES) != 0);
           byteReverseProg = p;
         }
@@ -856,7 +867,6 @@ public final class Pattern implements Serializable {
   public Matcher matcher(byte[] input) {
     return new Matcher(this, input);
   }
-
 
   /**
    * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data

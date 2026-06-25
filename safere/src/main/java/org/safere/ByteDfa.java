@@ -14,7 +14,6 @@ import java.util.Map;
  * from the compiled UTF-8 NFA program.
  */
 final class ByteDfa {
-  static final java.util.List<String> debugLogs = new java.util.ArrayList<>();
 
   record SearchResult(boolean matched, int pos) {}
 

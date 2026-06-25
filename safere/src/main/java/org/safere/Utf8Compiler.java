@@ -656,13 +656,15 @@ final class Utf8Compiler extends Walker<Utf8Compiler.Frag> {
       }
       case WORD_BOUNDARY -> {
         if ((re.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0) {
-          yield emptyWidth(EmptyOp.UNICODE_WORD_BOUNDARY);
+          failed = true;
+          yield Frag.NO_MATCH;
         }
         yield emptyWidth(EmptyOp.WORD_BOUNDARY);
       }
       case NO_WORD_BOUNDARY -> {
         if ((re.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0) {
-          yield emptyWidth(EmptyOp.UNICODE_NON_WORD_BOUNDARY);
+          failed = true;
+          yield Frag.NO_MATCH;
         }
         yield emptyWidth(EmptyOp.NON_WORD_BOUNDARY);
       }
