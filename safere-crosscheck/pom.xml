@@ -138,6 +138,7 @@
                         <exclude name="SimplifierTest.java"/>
                         <exclude name="UnicodeJdkConsistencyTest.java"/>
                         <exclude name="UnicodeTablesTest.java"/>
+                        <exclude name="Utf8CompilerTest.java"/>
                         <exclude name="UtilsTest.java"/>
                         <exclude name="WalkerTest.java"/>
                       </fileset>
