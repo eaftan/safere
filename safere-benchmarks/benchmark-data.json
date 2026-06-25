@@ -305,7 +305,7 @@
       },
       {
         "name": "cjkSearch",
-        "pattern": "[\\u4e00-\\u9fa5]{3,}",
+        "pattern": "[一-龥]{3,}",
         "op": "find",
         "match": "这是一个中文测试句子",
         "nonMatch": "This is a sentence containing only English characters."
