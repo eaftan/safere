@@ -339,7 +339,8 @@ final class Dfa {
 
   /**
    * Builds a 65536-element lookup table mapping BMP code points (0–65535) to their equivalence
-   * class indices. This avoids binary search for the most common characters (including ASCII and CJK).
+   * class indices. This avoids binary search for the most common characters (including ASCII and
+   * CJK).
    */
   private static char[] buildBmpClassMap(int[] boundaries) {
     char[] bmpClassMap = new char[65536];
