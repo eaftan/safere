@@ -8,8 +8,8 @@ package org.safere;
 import java.util.Arrays;
 
 /**
- * NFA execution engine for raw byte matching on {@code byte[]}. Implements linear-time Thompson NFA
- * search.
+ * NFA execution engine for raw byte matching on {@code byte[]}.
+ * Implements linear-time Thompson NFA search.
  */
 final class ByteNfa {
 
@@ -149,6 +149,7 @@ final class ByteNfa {
       Nfa.MatchKind kind,
       int nsubmatch) {
 
+
     if (prog.start() == 0) {
       return new SearchResult(null);
     }
@@ -182,6 +183,7 @@ final class ByteNfa {
 
     ByteNfa nfa = new ByteNfa(prog, context, ncapture, longestMode, endmatch);
     nfa.doSearch(anchored);
+
 
     if (!nfa.matched) {
       return new SearchResult(null);
@@ -407,7 +409,7 @@ final class ByteNfa {
       return true;
     }
     return prog.dollarAnchorEnd()
-        && Nfa.isAtTrailingLineTerminator(text, matchPos, context.anchorEndPos());
+        && Nfa.isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), context.anchorEndPos());
   }
 
   private boolean stepCodePoint(

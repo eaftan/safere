@@ -1430,7 +1430,7 @@ final class Nfa {
             boolean isAtomicLF = (ch == '\n' && pos > 0 && (text[pos - 1] & 0xFF) == '\r');
             if (!isAtomicLF) {
               flags |= EmptyOp.END_LINE;
-              if (isAtTrailingLineTerminator(text, pos, anchorEndPos)) {
+              if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
                 flags |= EmptyOp.DOLLAR_END;
               }
             }
@@ -1456,11 +1456,14 @@ final class Nfa {
     return flags;
   }
 
-  static boolean isAtTrailingLineTerminator(byte[] text, int pos, int anchorEndPos) {
+  static boolean isAtTrailingLineTerminator(byte[] text, int pos, boolean unixLines, int anchorEndPos) {
     if (pos >= text.length) {
       return false;
     }
     int ch = text[pos] & 0xFF;
+    if (unixLines) {
+      return ch == '\n' && pos + 1 == anchorEndPos;
+    }
     if (ch == '\n') {
       return pos + 1 == anchorEndPos;
     }

@@ -237,9 +237,7 @@ class RE2ByteSearchTest {
     byte[] bytes = tc.text().getBytes(StandardCharsets.UTF_8);
     Matcher m = p.matcher(bytes);
     assertThat(m.matches())
-        .as(
-            "matches() for pattern \"%s\" on byte representation of \"%s\"",
-            tc.pattern(), tc.text())
+        .as("matches() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
         .isEqualTo(tc.expectFullMatch());
   }
 
@@ -266,18 +264,65 @@ class RE2ByteSearchTest {
     if (found && tc.expectedFindGroup() != null) {
       // Test string group access on byte matcher
       assertThat(m.group())
-          .as(
-              "find() group() for pattern \"%s\" on byte representation of \"%s\"",
-              tc.pattern(), tc.text())
+          .as("find() group() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
           .isEqualTo(tc.expectedFindGroup());
 
       // Test zero-copy byte group access on byte matcher
       byte[] expectedBytes = tc.expectedFindGroup().getBytes(StandardCharsets.UTF_8);
       assertThat(m.groupBytes())
-          .as(
-              "find() groupBytes() for pattern \"%s\" on byte representation of \"%s\"",
-              tc.pattern(), tc.text())
+          .as("find() groupBytes() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
           .isEqualTo(expectedBytes);
     }
+  }
+
+  @org.junit.jupiter.api.Test
+  void testWordBoundaryDiscrepancy() {
+    Pattern p = Pattern.compile("(?:(?:(?:\\b).)*)");
+    byte[] bytes = "aa ".getBytes(StandardCharsets.UTF_8);
+    Matcher m = p.matcher(bytes);
+    List<String> matches = new ArrayList<>();
+    while (m.find()) {
+      matches.add(String.format("[%d,%d)", m.start(), m.end()));
+    }
+    assertThat(matches).containsExactly("[0,1)", "[1,1)", "[2,3)", "[3,3)");
+  }
+
+  @org.junit.jupiter.api.Test
+  void testWordBoundaryDiscrepancyString() {
+    Pattern p = Pattern.compile("(?:(?:(?:\\b).)*)");
+    Matcher m = p.matcher("aa ");
+    List<String> matches = new ArrayList<>();
+    while (m.find()) {
+      matches.add(String.format("[%d,%d)", m.start(), m.end()));
+    }
+    assertThat(matches).containsExactly("[0,1)", "[1,1)", "[2,3)", "[3,3)");
+  }
+
+  @org.junit.jupiter.api.Test
+  void testDollarNewlineDiscrepancy() {
+    Pattern p = Pattern.compile("(?:(?:(?:$)\n))$");
+    byte[] bytes = "####################################################################################################################################################################################################################################################################bb\n".getBytes(StandardCharsets.UTF_8);
+    Matcher m = p.matcher(bytes);
+    assertThat(m.find()).isTrue();
+    assertThat(m.start()).isEqualTo(262);
+    assertThat(m.end()).isEqualTo(263);
+  }
+
+  @org.junit.jupiter.api.Test
+  void testDollarNewlineDiscrepancyString() {
+    Pattern p = Pattern.compile("(?:(?:(?:$)\n))$");
+    String text = "####################################################################################################################################################################################################################################################################bb\n";
+    Matcher m = p.matcher(text);
+    assertThat(m.find()).isTrue();
+    assertThat(m.start()).isEqualTo(262);
+    assertThat(m.end()).isEqualTo(263);
+  }
+
+  @org.junit.jupiter.api.Test
+  void testUnixLinesDollarTrailingCr() {
+    Pattern p = Pattern.compile("a$", Pattern.UNIX_LINES);
+    byte[] bytes = "a\r".getBytes(StandardCharsets.UTF_8);
+    Matcher m = p.matcher(bytes);
+    assertThat(m.find()).isFalse();
   }
 }
