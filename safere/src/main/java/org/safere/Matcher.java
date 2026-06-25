@@ -2760,6 +2760,34 @@ public final class Matcher implements MatchResult {
               revDfa.doSearchReverse(inputBytes, earlyEnd, searchFrom, true, true);
           if (revResult != null && revResult.matched()) {
             int matchStart = revResult.pos();
+            if (prog.dollarAnchorEnd() && earlyEnd == inputBytes.length) {
+              int len = inputBytes.length;
+              boolean ul = prog.unixLines();
+              if (len > 0
+                  && (ul
+                      ? (inputBytes[len - 1] & 0xFF) == '\n'
+                      : Nfa.isLineTerminator(inputBytes[len - 1] & 0xFF))) {
+                boolean isAtomicCrLf =
+                    !ul
+                        && len >= 2
+                        && (inputBytes[len - 2] & 0xFF) == '\r'
+                        && (inputBytes[len - 1] & 0xFF) == '\n';
+                if (!isAtomicCrLf) {
+                  ByteDfa.SearchResult altRev =
+                      revDfa.doSearchReverse(inputBytes, len - 1, searchFrom, true, true);
+                  if (altRev != null && altRev.matched() && altRev.pos() < matchStart) {
+                    matchStart = altRev.pos();
+                  }
+                }
+                if (isAtomicCrLf) {
+                  ByteDfa.SearchResult altRev2 =
+                      revDfa.doSearchReverse(inputBytes, len - 2, searchFrom, true, true);
+                  if (altRev2 != null && altRev2.matched() && altRev2.pos() < matchStart) {
+                    matchStart = altRev2.pos();
+                  }
+                }
+              }
+            }
             ByteDfa.SearchResult fwdFirst =
                 parentPattern
                     .byteForwardFirstMatchDfa()

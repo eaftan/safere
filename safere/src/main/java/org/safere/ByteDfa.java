@@ -309,20 +309,7 @@ final class ByteDfa {
 
   private State computeNext(State s, int b, byte[] text, int nextPos) {
     if (b < 0) {
-      int emptyFlags =
-          Nfa.emptyFlags(
-              text,
-              nextPos,
-              prog.unixLines(),
-              false,
-              0,
-              0,
-              false,
-              0,
-              text.length,
-              text.length,
-              prog.hasWordBoundary(),
-              prog.hasTextAnchor());
+      int emptyFlags = emptyFlags(text, nextPos);
       boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
       if (wasWord) {
         emptyFlags = (emptyFlags | EmptyOp.WORD_BOUNDARY) & ~EmptyOp.NON_WORD_BOUNDARY;
@@ -349,7 +336,7 @@ final class ByteDfa {
       }
       int flags = emptyFlags & stateEmptyFlagsMask;
       if (hasMatch(nextInsts)) {
-        flags |= FLAG_MATCH;
+        flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
       }
       return cachedState(nextInsts, flags);
     }
@@ -441,20 +428,7 @@ final class ByteDfa {
       return deadState;
     }
 
-    int emptyFlags =
-        Nfa.emptyFlags(
-            text,
-            nextPos,
-            prog.unixLines(),
-            false,
-            0,
-            0,
-            false,
-            0,
-            text.length,
-            text.length,
-            prog.hasWordBoundary(),
-            prog.hasTextAnchor());
+    int emptyFlags = emptyFlags(text, nextPos);
     emptyFlags &=
         ~(EmptyOp.WORD_BOUNDARY
             | EmptyOp.NON_WORD_BOUNDARY
@@ -569,43 +543,7 @@ final class ByteDfa {
     if (startInst == 0) {
       return deadState;
     }
-    int emptyFlags =
-        Nfa.emptyFlags(
-            text,
-            pos,
-            prog.unixLines(),
-            false,
-            0,
-            0,
-            false,
-            0,
-            text.length,
-            text.length,
-            prog.hasWordBoundary(),
-            prog.hasTextAnchor());
-
-    if (prog.reversed()) {
-      int rev =
-          emptyFlags
-              & ~(EmptyOp.BEGIN_TEXT
-                  | EmptyOp.END_TEXT
-                  | EmptyOp.DOLLAR_END
-                  | EmptyOp.BEGIN_LINE
-                  | EmptyOp.END_LINE);
-      if ((emptyFlags & EmptyOp.BEGIN_TEXT) != 0) {
-        rev |= EmptyOp.END_TEXT;
-      }
-      if ((emptyFlags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) {
-        rev |= EmptyOp.BEGIN_TEXT;
-      }
-      if ((emptyFlags & EmptyOp.BEGIN_LINE) != 0) {
-        rev |= EmptyOp.END_LINE;
-      }
-      if ((emptyFlags & EmptyOp.END_LINE) != 0) {
-        rev |= EmptyOp.BEGIN_LINE;
-      }
-      emptyFlags = rev;
-    }
+    int emptyFlags = emptyFlags(text, pos);
 
     boolean lastWord = false;
     if (prog.hasWordBoundary()) {
@@ -675,18 +613,29 @@ final class ByteDfa {
       return new SearchResult(matched, matchEnd);
     }
 
+    int posDepThreshold = positionDependentThreshold(text);
+
     int pos = startPos;
     while (pos < textLen) {
       int b = text[pos] & 0xFF;
       int cls = byteClassMap[b];
 
-      State ns = s.next[cls];
-      if (ns == null) {
-        ns = computeNext(s, b, text, pos + 1);
+      int effectiveNextPos = pos + 1;
+      State ns;
+      if (effectiveNextPos >= posDepThreshold) {
+        ns = computeNext(s, b, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next[cls] = ns;
+      } else {
+        ns = s.next[cls];
+        if (ns == null) {
+          ns = computeNext(s, b, text, effectiveNextPos);
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
       }
 
       s = ns;
@@ -770,19 +719,39 @@ final class ByteDfa {
       return new SearchResult(matched, matchStart);
     }
 
-    int pos = endPos;
-    while (pos > startLimit) {
-      int b = text[pos - 1] & 0xFF;
-      int cls = byteClassMap[b];
+    int posDepThreshold = positionDependentThreshold(text);
 
-      State ns = s.next[cls];
-      if (ns == null) {
-        int nextPos = pos - 1;
-        ns = computeNext(s, b, text, nextPos);
+    int pos = endPos;
+    while (pos >= startLimit) {
+      int b;
+      int prevPos;
+      int cls;
+      if (pos > 0) {
+        b = text[pos - 1] & 0xFF;
+        prevPos = pos - 1;
+        cls = byteClassMap[b];
+      } else {
+        b = -1;
+        prevPos = startLimit - 1;
+        cls = numClasses - 1;
+      }
+
+      int effectivePrevPos = Math.max(prevPos, startLimit);
+      State ns;
+      if (b >= 0 && effectivePrevPos >= posDepThreshold) {
+        ns = computeNext(s, b, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
         }
-        s.next[cls] = ns;
+      } else {
+        ns = s.next[cls];
+        if (ns == null) {
+          ns = computeNext(s, b, text, effectivePrevPos);
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
       }
 
       s = ns;
@@ -791,17 +760,31 @@ final class ByteDfa {
       }
 
       if (s.isMatch()) {
-        int nextPos = pos - 1;
-        if (isRequiredEndMatch(textLen - nextPos, needEndMatch, textLen, textLen)) {
-          matched = true;
-          matchStart = nextPos;
-          if (!longest) {
-            return new SearchResult(true, matchStart);
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int startPos = prevPos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
           }
         }
       }
 
-      pos--;
+      if (pos <= startLimit) {
+        break;
+      }
+      pos = prevPos;
     }
 
     return new SearchResult(matched, matchStart);
@@ -815,22 +798,22 @@ final class ByteDfa {
     return pos == textLen || pos == trailingTermStart;
   }
 
-  private static int trailingLineStart(byte[] text) {
+  private int positionDependentThreshold(byte[] text) {
     int len = text.length;
-    if (len == 0) {
-      return 0;
+    if (prog.unixLines()) {
+      return (len > 0 && text[len - 1] == '\n') ? len - 1 : len;
     }
-    int last = text[len - 1] & 0xFF;
-    if (last == '\n') {
-      if (len > 1 && (text[len - 2] & 0xFF) == '\r') {
-        return len - 2;
-      }
-      return len - 1;
+    if (len >= 2 && text[len - 2] == '\r' && text[len - 1] == '\n') {
+      return len - 2;
     }
-    if (last == '\r') {
+    if (len > 0 && Nfa.isLineTerminator(text[len - 1] & 0xFF)) {
       return len - 1;
     }
     return len;
+  }
+
+  private int trailingLineStart(byte[] text) {
+    return positionDependentThreshold(text);
   }
 
   private boolean isMatchPrimary(int[] expanded) {
@@ -877,5 +860,45 @@ final class ByteDfa {
       }
     }
     return false;
+  }
+
+  private int emptyFlags(byte[] text, int pos) {
+    int flags =
+        Nfa.emptyFlags(
+            text,
+            pos,
+            prog.unixLines(),
+            false,
+            0,
+            0,
+            false,
+            0,
+            text.length,
+            text.length,
+            prog.hasWordBoundary(),
+            prog.hasTextAnchor());
+    if (prog.reversed()) {
+      int rev =
+          flags
+              & ~(EmptyOp.BEGIN_TEXT
+                  | EmptyOp.END_TEXT
+                  | EmptyOp.DOLLAR_END
+                  | EmptyOp.BEGIN_LINE
+                  | EmptyOp.END_LINE);
+      if ((flags & EmptyOp.BEGIN_TEXT) != 0) {
+        rev |= EmptyOp.END_TEXT;
+      }
+      if ((flags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) {
+        rev |= EmptyOp.BEGIN_TEXT;
+      }
+      if ((flags & EmptyOp.BEGIN_LINE) != 0) {
+        rev |= EmptyOp.END_LINE;
+      }
+      if ((flags & EmptyOp.END_LINE) != 0) {
+        rev |= EmptyOp.BEGIN_LINE;
+      }
+      flags = rev;
+    }
+    return flags;
   }
 }

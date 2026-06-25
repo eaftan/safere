@@ -1358,7 +1358,7 @@ public final class Pattern implements Serializable {
         if (candidate == null || candidate.op == RegexpOp.EMPTY_MATCH) {
           continue;
         }
-        return isZeroWidthAssertion(candidate);
+        return startsWithZeroWidthAssertion(candidate);
       }
       return false;
     }

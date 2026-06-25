@@ -265,6 +265,10 @@ final class ByteNfa {
       if (!matched && pos <= searchLimit && (!anchored || pos == startPos)) {
         Arrays.fill(initialCap, -1);
         initialCap[0] = pos;
+        Arrays.fill(runq.visitedInst, false);
+        for (int i = 0; i < runq.size; i++) {
+          runq.visitedInst[runq.threads[i].id] = true;
+        }
         addToThreadq(runq, prog.start(), text, pos, initialCap, false);
       }
 
