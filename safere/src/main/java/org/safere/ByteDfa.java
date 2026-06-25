@@ -14,6 +14,7 @@ import java.util.Map;
  * from the compiled UTF-8 NFA program.
  */
 final class ByteDfa {
+  static final java.util.List<String> debugLogs = new java.util.ArrayList<>();
 
   record SearchResult(boolean matched, int pos) {}
 
@@ -28,11 +29,13 @@ final class ByteDfa {
     final int[] insts;
     final int flags;
     final State[] next;
+    final boolean isHighestPriorityMatch;
 
-    State(int[] insts, int flags, int numClasses) {
+    State(int[] insts, int flags, int numClasses, boolean isHighestPriorityMatch) {
       this.insts = insts;
       this.flags = flags;
       this.next = new State[numClasses];
+      this.isHighestPriorityMatch = isHighestPriorityMatch;
     }
 
     boolean isMatch() {
@@ -41,14 +44,18 @@ final class ByteDfa {
   }
 
   private final Prog prog;
-  private final int[] boundaries;
   private final int numClasses;
   private final int[] byteClassMap;
+  private final boolean longest;
 
   private final Map<StateKey, State> stateCache = new HashMap<>();
   private final State deadState;
-  private State startState;
-  private State startStateAnchored;
+  private final State[] startStateByContext;
+  private final int stateEmptyFlagsMask = EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+  private final int startCacheEmptyFlagsMask =
+      EmptyOp.ALL_FLAGS & ~EmptyOp.GRAPHEME_CLUSTER_BOUNDARY;
+  private final int reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
+  private final int anchoredCacheBit = reverseCacheBit << 1;
 
   private int stateCount;
   private final int maxStates;
@@ -60,11 +67,23 @@ final class ByteDfa {
   private final int[] computeBuf;
   private int expandGeneration;
 
-  private record StateKey(int[] insts, int flags) {
+  private static final class StateKey {
+    private final int[] insts;
+    private final int flags;
+
+    StateKey(int[] insts, int flags) {
+      this.insts = insts;
+      this.flags = flags;
+    }
+
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof StateKey other)) return false;
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StateKey other)) {
+        return false;
+      }
       return flags == other.flags && Arrays.equals(insts, other.insts);
     }
 
@@ -74,30 +93,39 @@ final class ByteDfa {
     }
   }
 
-  record Setup(int[] boundaries, int numClasses, int[] byteClassMap) {}
+  static final class Setup {
+    final int numClasses;
+    final int[] byteClassMap;
+
+    Setup(int numClasses, int[] byteClassMap) {
+      this.numClasses = numClasses;
+      this.byteClassMap = byteClassMap;
+    }
+  }
 
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
     int[] byteClassMap = buildByteClassMap(boundaries);
-    return new Setup(boundaries, numClasses, byteClassMap);
+    return new Setup(numClasses, byteClassMap);
   }
 
-  ByteDfa(Prog prog, Setup setup) {
-    this(prog, setup, DEFAULT_MAX_STATES);
+  ByteDfa(Prog prog, Setup setup, boolean longest) {
+    this(prog, setup, DEFAULT_MAX_STATES, longest);
   }
 
-  ByteDfa(Prog prog, Setup setup, int maxStates) {
+  ByteDfa(Prog prog, Setup setup, int maxStates, boolean longest) {
     this.prog = prog;
-    this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.byteClassMap = setup.byteClassMap;
     this.maxStates = maxStates;
+    this.longest = longest;
 
-    this.deadState = new State(new int[0], 0, numClasses);
+    this.deadState = new State(new int[0], 0, numClasses, false);
     this.stateCache.put(new StateKey(deadState.insts, deadState.flags), deadState);
     this.stateCount = 1;
 
+    this.startStateByContext = new State[anchoredCacheBit << 1];
     this.expandVisitedGen = new int[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
@@ -164,13 +192,6 @@ final class ByteDfa {
     return map;
   }
 
-  private int classOf(int b) {
-    if (b < 0) {
-      return numClasses - 1; // end of text
-    }
-    return byteClassMap[b];
-  }
-
   private State cachedState(int[] insts, int flags) {
     StateKey key = new StateKey(insts, flags);
     State s = stateCache.get(key);
@@ -180,7 +201,9 @@ final class ByteDfa {
     if (stateCount >= maxStates) {
       return null; // budget exceeded
     }
-    s = new State(insts, flags, numClasses);
+    boolean isHighestPriorityMatch =
+        insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
+    s = new State(insts, flags, numClasses, isHighestPriorityMatch);
     stateCache.put(key, s);
     stateCount++;
     return s;
@@ -194,65 +217,230 @@ final class ByteDfa {
     int stackTop = 0;
     int frontierSize = 0;
 
+    // Push seeds onto stack in reverse priority order.
     for (int i = seedCount - 1; i >= 0; i--) {
-      int id = seeds[i];
-      stack[stackTop++] = id;
-      visitedGen[id] = gen;
+      stack[stackTop++] = seeds[i];
     }
+
+    boolean flat = prog.didFlatten();
 
     while (stackTop > 0) {
       int id = stack[--stackTop];
-      Inst inst = prog.inst(id);
+      if (id == 0 || id >= prog.size() || visitedGen[id] == gen) {
+        continue;
+      }
+      visitedGen[id] = gen;
 
-      switch (inst.opCode) {
-        case InstOp.OP_ALT:
-          if (visitedGen[inst.out] != gen) {
-            stack[stackTop++] = inst.out;
-            visitedGen[inst.out] = gen;
+      Inst ip = prog.inst(id);
+
+      if (flat) {
+        // Flat program list iteration
+        if (!ip.last) {
+          stack[stackTop++] = id + 1;
+        }
+
+        switch (ip.opCode) {
+          case InstOp.OP_FAIL -> {}
+          case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+            // AltMatch and ALT only transition to id + 1 (already pushed above)
           }
-          if (visitedGen[inst.out1] != gen) {
-            stack[stackTop++] = inst.out1;
-            visitedGen[inst.out1] = gen;
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+            stack[stackTop++] = ip.out;
           }
-          break;
-        case InstOp.OP_NOP:
-          if (visitedGen[inst.out] != gen) {
-            stack[stackTop++] = inst.out;
-            visitedGen[inst.out] = gen;
+          case InstOp.OP_PROGRESS_CHECK -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
           }
-          break;
-        case InstOp.OP_CAPTURE:
-          if (visitedGen[inst.out] != gen) {
-            stack[stackTop++] = inst.out;
-            visitedGen[inst.out] = gen;
-          }
-          break;
-        case InstOp.OP_EMPTY_WIDTH:
-          if ((inst.arg & ~emptyFlags) == 0) {
-            if (visitedGen[inst.out] != gen) {
-              stack[stackTop++] = inst.out;
-              visitedGen[inst.out] = gen;
+          case InstOp.OP_EMPTY_WIDTH -> {
+            if ((ip.arg & ~emptyFlags) == 0) {
+              stack[stackTop++] = ip.out;
+            } else {
+              frontier[frontierSize++] = id;
             }
-          } else {
-            frontier[frontierSize++] = id;
           }
-          break;
-        case InstOp.OP_CHAR_RANGE:
-        case InstOp.OP_MATCH:
-          frontier[frontierSize++] = id;
-          break;
-        default:
-          break;
+          case InstOp.OP_CHAR_RANGE, InstOp.OP_CHAR_CLASS -> frontier[frontierSize++] = id;
+          case InstOp.OP_MATCH -> {
+            frontier[frontierSize++] = id;
+            if (!longest && !prog.anchorEnd()) {
+              stackTop = 0;
+            }
+          }
+          default -> {}
+        }
+      } else {
+        // Standard unflattened program traversal
+        switch (ip.opCode) {
+          case InstOp.OP_FAIL -> {}
+          case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_PROGRESS_CHECK -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
+          }
+          case InstOp.OP_EMPTY_WIDTH -> {
+            if ((ip.arg & ~emptyFlags) == 0) {
+              stack[stackTop++] = ip.out;
+            } else {
+              frontier[frontierSize++] = id;
+            }
+          }
+          case InstOp.OP_CHAR_RANGE, InstOp.OP_CHAR_CLASS -> frontier[frontierSize++] = id;
+          case InstOp.OP_MATCH -> {
+            frontier[frontierSize++] = id;
+            if (!longest && !prog.anchorEnd()) {
+              stackTop = 0;
+            }
+          }
+          default -> {}
+        }
       }
     }
 
-    int[] res = new int[frontierSize];
-    System.arraycopy(frontier, 0, res, 0, frontierSize);
-    Arrays.sort(res);
-    return res;
+    if (longest) {
+      Arrays.sort(frontier, 0, frontierSize);
+    }
+    return Arrays.copyOf(frontier, frontierSize);
   }
 
   private State computeNext(State s, int b, byte[] text, int nextPos) {
+    if (b < 0) {
+      int emptyFlags =
+          Nfa.emptyFlags(
+              text,
+              nextPos,
+              prog.unixLines(),
+              false,
+              0,
+              0,
+              false,
+              0,
+              text.length,
+              text.length,
+              prog.hasWordBoundary(),
+              prog.hasTextAnchor());
+      boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+      if (wasWord) {
+        emptyFlags = (emptyFlags | EmptyOp.WORD_BOUNDARY) & ~EmptyOp.NON_WORD_BOUNDARY;
+        emptyFlags =
+            (emptyFlags | EmptyOp.UNICODE_WORD_BOUNDARY) & ~EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      } else {
+        emptyFlags = (emptyFlags | EmptyOp.NON_WORD_BOUNDARY) & ~EmptyOp.WORD_BOUNDARY;
+        emptyFlags =
+            (emptyFlags | EmptyOp.UNICODE_NON_WORD_BOUNDARY) & ~EmptyOp.UNICODE_WORD_BOUNDARY;
+      }
+      int seedCount = 0;
+      for (int id : s.insts) {
+        Inst ip = prog.inst(id);
+        if (ip.opCode == InstOp.OP_EMPTY_WIDTH && (ip.arg & ~emptyFlags) == 0) {
+          computeBuf[seedCount++] = ip.out;
+        }
+      }
+      if (seedCount == 0) {
+        return deadState;
+      }
+      int[] nextInsts = expand(computeBuf, seedCount, emptyFlags);
+      if (nextInsts.length == 0) {
+        return deadState;
+      }
+      int flags = emptyFlags & stateEmptyFlagsMask;
+      if (hasMatch(nextInsts)) {
+        flags |= FLAG_MATCH;
+      }
+      return cachedState(nextInsts, flags);
+    }
+
+    boolean isWord = Nfa.isWordChar(b);
+    boolean wasWord = (s.flags & FLAG_LAST_WORD) != 0;
+    int wordBeforeFlags =
+        (isWord != wasWord)
+            ? (EmptyOp.WORD_BOUNDARY | EmptyOp.UNICODE_WORD_BOUNDARY)
+            : (EmptyOp.NON_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY);
+
+    boolean endLineHere = prog.unixLines() ? (b == '\n') : (b == '\n' || b == '\r');
+    if (endLineHere && b == '\n' && nextPos >= 2 && (text[nextPos - 2] & 0xFF) == '\r') {
+      endLineHere = false;
+    }
+
+    int reExpandEmptyFlags = (s.flags & stateEmptyFlagsMask) | wordBeforeFlags;
+    if (endLineHere) {
+      reExpandEmptyFlags |= EmptyOp.END_LINE;
+    }
+
+    int[] tempExpanded = new int[prog.size()];
+    int tempCount = 0;
+    boolean hasMatchFromDeferred = false;
+    boolean deferredMatchIsPrimary = false;
+    boolean isMatchValid = false;
+
+    int[] instsWithoutMatch = stripMatch(s.insts);
+
+    for (int id : instsWithoutMatch) {
+      Inst ip = prog.inst(id);
+      if (ip.opCode == InstOp.OP_EMPTY_WIDTH && (ip.arg & ~reExpandEmptyFlags) == 0) {
+        int[] expanded = expand(new int[] {ip.out}, 1, reExpandEmptyFlags);
+        if (hasMatch(expanded)) {
+          hasMatchFromDeferred = true;
+          deferredMatchIsPrimary = isMatchPrimary(expanded);
+          for (int x : expanded) {
+            if (prog.inst(x).opCode != InstOp.OP_MATCH) {
+              tempExpanded[tempCount++] = x;
+            }
+          }
+          if (!prog.anchorEnd()) {
+            isMatchValid = true;
+          } else {
+            int textLen = text.length;
+            int trailingTermStart = prog.dollarAnchorEnd() ? trailingLineStart(text) : textLen;
+            int pos = nextPos - 1;
+            if (pos == textLen || (trailingTermStart < textLen && pos == trailingTermStart)) {
+              isMatchValid = true;
+            }
+          }
+          if (isMatchValid && !prog.reversed()) {
+            break; // Prune all lower-priority branches!
+          }
+        } else {
+          for (int x : expanded) {
+            tempExpanded[tempCount++] = x;
+          }
+        }
+      } else {
+        tempExpanded[tempCount++] = id;
+      }
+    }
+
+    int[] expandedInsts = stableDedup(tempExpanded, tempCount);
+    int unanchoredStart = prog.anchorStart() ? 0 : prog.startUnanchored();
+
+    int successorCount = 0;
+    boolean hasUnanchoredLoopTransition = false;
+    for (int id : expandedInsts) {
+      Inst ip = prog.inst(id);
+      if (ip.opCode == InstOp.OP_CHAR_RANGE && ip.lo <= b && b <= ip.hi) {
+        if (unanchoredStart != 0 && ip.out == unanchoredStart) {
+          hasUnanchoredLoopTransition = true;
+        } else {
+          computeBuf[successorCount++] = ip.out;
+        }
+      }
+    }
+    if (hasUnanchoredLoopTransition && !isMatchValid) {
+      computeBuf[successorCount++] = unanchoredStart;
+    }
+
+    if (successorCount == 0) {
+      if (hasMatchFromDeferred) {
+        return cachedState(
+            new int[0], FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0));
+      }
+      return deadState;
+    }
+
     int emptyFlags =
         Nfa.emptyFlags(
             text,
@@ -267,43 +455,105 @@ final class ByteDfa {
             text.length,
             prog.hasWordBoundary(),
             prog.hasTextAnchor());
+    emptyFlags &=
+        ~(EmptyOp.WORD_BOUNDARY
+            | EmptyOp.NON_WORD_BOUNDARY
+            | EmptyOp.UNICODE_WORD_BOUNDARY
+            | EmptyOp.UNICODE_NON_WORD_BOUNDARY
+            | EmptyOp.END_LINE);
 
-    int frontierSize = 0;
-    int[] buf = computeBuf;
-
-    for (int id : s.insts) {
-      Inst inst = prog.inst(id);
-      if (inst.opCode == InstOp.OP_CHAR_RANGE) {
-        if (inst.lo <= b && b <= inst.hi) {
-          buf[frontierSize++] = inst.out;
-        }
+    int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
+    if (nextInsts.length == 0) {
+      if (hasMatchFromDeferred) {
+        return cachedState(
+            new int[0], FLAG_MATCH | FLAG_MATCH_BEFORE | (isWord ? FLAG_LAST_WORD : 0));
       }
-    }
-
-    if (frontierSize == 0) {
       return deadState;
     }
 
-    int[] frontier = expand(buf, frontierSize, emptyFlags);
-    int flags = 0;
-    for (int id : frontier) {
-      Inst inst = prog.inst(id);
-      if (inst.opCode == InstOp.OP_MATCH) {
-        flags |= FLAG_MATCH;
+    int flags = emptyFlags & stateEmptyFlagsMask;
+    if (hasMatchFromDeferred) {
+      if (deferredMatchIsPrimary) {
+        flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
+        if (hasMatch(nextInsts)) {
+          flags |= FLAG_MATCH_AFTER_DEFERRED;
+        }
+      } else {
+        if (hasMatch(nextInsts)) {
+          flags |= FLAG_MATCH;
+        } else {
+          flags |= FLAG_MATCH | FLAG_MATCH_BEFORE;
+        }
       }
+    } else if (hasMatch(nextInsts)) {
+      flags |= FLAG_MATCH;
     }
-
-    if ((b & 0xFF) == '\n' || b == '\r') {
-      // Just check ASCII word boundary
-    }
-    if (posIsWordChar(text, nextPos - 1)) {
+    if (isWord) {
       flags |= FLAG_LAST_WORD;
     }
 
-    return cachedState(frontier, flags);
+    return cachedState(nextInsts, flags);
   }
 
-  private boolean posIsWordChar(byte[] text, int pos) {
+  private int[] stripMatch(int[] insts) {
+    int count = 0;
+    for (int id : insts) {
+      if (prog.inst(id).opCode != InstOp.OP_MATCH) {
+        count++;
+      }
+    }
+    if (count == insts.length) {
+      return insts;
+    }
+    int[] result = new int[count];
+    int idx = 0;
+    for (int id : insts) {
+      if (prog.inst(id).opCode != InstOp.OP_MATCH) {
+        result[idx++] = id;
+      }
+    }
+    return result;
+  }
+
+  private int[] stableDedup(int[] insts, int count) {
+    int uniqueCount = 0;
+    int gen = ++expandGeneration;
+    int[] visitedGen = expandVisitedGen;
+    for (int i = 0; i < count; i++) {
+      int id = insts[i];
+      if (visitedGen[id] != gen) {
+        visitedGen[id] = gen;
+        uniqueCount++;
+      }
+    }
+    if (uniqueCount == count) {
+      int[] result = new int[count];
+      System.arraycopy(insts, 0, result, 0, count);
+      return result;
+    }
+    int[] result = new int[uniqueCount];
+    gen = ++expandGeneration;
+    int idx = 0;
+    for (int i = 0; i < count; i++) {
+      int id = insts[i];
+      if (visitedGen[id] != gen) {
+        visitedGen[id] = gen;
+        result[idx++] = id;
+      }
+    }
+    return result;
+  }
+
+  private boolean hasMatch(int[] insts) {
+    for (int inst : insts) {
+      if (prog.inst(inst).opCode == InstOp.OP_MATCH) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean posIsWordChar(byte[] text, int pos) {
     if (pos < 0 || pos >= text.length) {
       return false;
     }
@@ -311,16 +561,14 @@ final class ByteDfa {
   }
 
   private State startState(byte[] text, int pos, boolean anchored) {
-    if (anchored) {
-      if (startStateAnchored != null) {
-        return startStateAnchored;
-      }
-    } else {
-      if (startState != null) {
-        return startState;
-      }
-    }
+    return startState(text, pos, anchored, false);
+  }
 
+  private State startState(byte[] text, int pos, boolean anchored, boolean reverseContext) {
+    int startInst = anchored ? prog.start() : prog.startUnanchored();
+    if (startInst == 0) {
+      return deadState;
+    }
     int emptyFlags =
         Nfa.emptyFlags(
             text,
@@ -336,25 +584,66 @@ final class ByteDfa {
             prog.hasWordBoundary(),
             prog.hasTextAnchor());
 
-    int start = anchored ? prog.start() : prog.startUnanchored();
-    int[] frontier = expand(new int[] {start}, 1, emptyFlags);
-    int flags = 0;
-    for (int id : frontier) {
-      if (prog.inst(id).opCode == InstOp.OP_MATCH) {
-        flags |= FLAG_MATCH;
+    if (prog.reversed()) {
+      int rev =
+          emptyFlags
+              & ~(EmptyOp.BEGIN_TEXT
+                  | EmptyOp.END_TEXT
+                  | EmptyOp.DOLLAR_END
+                  | EmptyOp.BEGIN_LINE
+                  | EmptyOp.END_LINE);
+      if ((emptyFlags & EmptyOp.BEGIN_TEXT) != 0) {
+        rev |= EmptyOp.END_TEXT;
       }
-    }
-    if (posIsWordChar(text, pos - 1)) {
-      flags |= FLAG_LAST_WORD;
+      if ((emptyFlags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) {
+        rev |= EmptyOp.BEGIN_TEXT;
+      }
+      if ((emptyFlags & EmptyOp.BEGIN_LINE) != 0) {
+        rev |= EmptyOp.END_LINE;
+      }
+      if ((emptyFlags & EmptyOp.END_LINE) != 0) {
+        rev |= EmptyOp.BEGIN_LINE;
+      }
+      emptyFlags = rev;
     }
 
-    State s = cachedState(frontier, flags);
-    if (s != null) {
-      if (anchored) {
-        startStateAnchored = s;
+    boolean lastWord = false;
+    if (prog.hasWordBoundary()) {
+      if (reverseContext) {
+        if (posIsWordChar(text, pos)) {
+          lastWord = true;
+        }
       } else {
-        startState = s;
+        if (posIsWordChar(text, pos - 1)) {
+          lastWord = true;
+        }
       }
+    }
+
+    int cacheKey =
+        (anchored ? anchoredCacheBit : 0)
+            | (reverseContext ? reverseCacheBit : 0)
+            | ((emptyFlags & startCacheEmptyFlagsMask) << 2)
+            | (lastWord ? 2 : 0);
+
+    State cached = startStateByContext[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    int[] buf = computeBuf;
+    buf[0] = startInst;
+    int[] insts = expand(buf, 1, emptyFlags);
+    int flags = emptyFlags & stateEmptyFlagsMask;
+    if (hasMatch(insts)) {
+      flags |= FLAG_MATCH;
+    }
+    if (lastWord) {
+      flags |= FLAG_LAST_WORD;
+    }
+    State s = cachedState(insts, flags);
+    if (s != null) {
+      startStateByContext[cacheKey] = s;
     }
     return s;
   }
@@ -376,7 +665,7 @@ final class ByteDfa {
       if (isRequiredEndMatch(startPos, needEndMatch, textLen, trailingTermStart)) {
         matched = true;
         matchEnd = startPos;
-        if (!longest) {
+        if (!longest && canStopAtFirstMatch(s, text, startPos, needEndMatch)) {
           return new SearchResult(true, startPos);
         }
       }
@@ -387,23 +676,13 @@ final class ByteDfa {
     }
 
     int pos = startPos;
-    while (pos <= textLen) {
-      int b;
-      int nextPos;
-      int cls;
-      if (pos < textLen) {
-        b = text[pos] & 0xFF;
-        nextPos = pos + 1;
-        cls = byteClassMap[b];
-      } else {
-        b = -1;
-        nextPos = textLen + 1;
-        cls = numClasses - 1;
-      }
+    while (pos < textLen) {
+      int b = text[pos] & 0xFF;
+      int cls = byteClassMap[b];
 
       State ns = s.next[cls];
       if (ns == null) {
-        ns = computeNext(s, b, text, Math.min(nextPos, textLen));
+        ns = computeNext(s, b, text, pos + 1);
         if (ns == null) {
           return null; // budget exceeded
         }
@@ -412,24 +691,53 @@ final class ByteDfa {
 
       s = ns;
       if (s == deadState) {
-        break;
+        return new SearchResult(matched, matchEnd);
       }
 
       if (s.isMatch()) {
-        int endPos = Math.min(nextPos, textLen);
-        if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
-          matched = true;
-          matchEnd = endPos;
-          if (!longest) {
-            return new SearchResult(true, matchEnd);
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          int endPos = pos;
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+              return new SearchResult(true, matchEnd);
+            }
+          }
+        }
+        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+          int endPos = pos + 1;
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+              return new SearchResult(true, matchEnd);
+            }
           }
         }
       }
+      pos++;
+    }
 
-      if (pos >= textLen) {
-        break;
+    // EOF transition (b = -1)
+    if (pos == textLen) {
+      int cls = numClasses - 1;
+      State ns = s.next[cls];
+      if (ns == null) {
+        ns = computeNext(s, -1, text, textLen);
+        if (ns == null) {
+          return null;
+        }
+        s.next[cls] = ns;
       }
-      pos = nextPos;
+      s = ns;
+      if (s != deadState && s.isMatch()) {
+        int endPos = textLen;
+        if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+          matched = true;
+          matchEnd = endPos;
+        }
+      }
     }
 
     return new SearchResult(matched, matchEnd);
@@ -440,49 +748,7 @@ final class ByteDfa {
     int textLen = text.length;
     boolean needEndMatch = prog.anchorEnd();
 
-    int emptyFlags =
-        Nfa.emptyFlags(
-            text,
-            endPos,
-            prog.unixLines(),
-            false,
-            0,
-            0,
-            false,
-            0,
-            textLen,
-            textLen,
-            prog.hasWordBoundary(),
-            prog.hasTextAnchor());
-
-    if (prog.reversed()) {
-      int rev =
-          emptyFlags
-              & ~(EmptyOp.BEGIN_TEXT
-                  | EmptyOp.END_TEXT
-                  | EmptyOp.DOLLAR_END
-                  | EmptyOp.BEGIN_LINE
-                  | EmptyOp.END_LINE);
-      if ((emptyFlags & EmptyOp.BEGIN_TEXT) != 0) rev |= EmptyOp.END_TEXT;
-      if ((emptyFlags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) rev |= EmptyOp.BEGIN_TEXT;
-      if ((emptyFlags & EmptyOp.BEGIN_LINE) != 0) rev |= EmptyOp.END_LINE;
-      if ((emptyFlags & EmptyOp.END_LINE) != 0) rev |= EmptyOp.BEGIN_LINE;
-      emptyFlags = rev;
-    }
-
-    int start = anchored ? prog.start() : prog.startUnanchored();
-    int[] frontier = expand(new int[] {start}, 1, emptyFlags);
-    int flags = 0;
-    for (int id : frontier) {
-      if (prog.inst(id).opCode == InstOp.OP_MATCH) {
-        flags |= FLAG_MATCH;
-      }
-    }
-    if (posIsWordChar(text, endPos)) {
-      flags |= FLAG_LAST_WORD;
-    }
-
-    State s = cachedState(frontier, flags);
+    State s = startState(text, endPos, anchored, true);
     if (s == null) {
       return null;
     }
@@ -565,5 +831,51 @@ final class ByteDfa {
       return len - 1;
     }
     return len;
+  }
+
+  private boolean isMatchPrimary(int[] expanded) {
+    int firstMatch = -1;
+    int firstActive = -1;
+    for (int i = 0; i < expanded.length; i++) {
+      int op = prog.inst(expanded[i]).opCode;
+      if (op == InstOp.OP_MATCH) {
+        if (firstMatch == -1) {
+          firstMatch = i;
+        }
+      } else if (op == InstOp.OP_CHAR_RANGE || op == InstOp.OP_CHAR_CLASS) {
+        if (firstActive == -1) {
+          firstActive = i;
+        }
+      }
+    }
+    if (firstMatch == -1) {
+      return false;
+    }
+    if (firstActive == -1) {
+      return true;
+    }
+    return firstMatch < firstActive;
+  }
+
+  private boolean canStopAtFirstMatch(State s, byte[] text, int pos, boolean needEndMatch) {
+    if (!needEndMatch) {
+      return s.isHighestPriorityMatch;
+    }
+    int b = (pos >= text.length) ? -1 : (text[pos] & 0xFF);
+    for (int id : s.insts) {
+      Inst inst = prog.inst(id);
+      switch (inst.opCode) {
+        case InstOp.OP_MATCH -> {
+          return true;
+        }
+        case InstOp.OP_CHAR_RANGE -> {
+          if (b >= 0 && inst.lo <= b && b <= inst.hi) {
+            return false;
+          }
+        }
+        default -> {}
+      }
+    }
+    return false;
   }
 }

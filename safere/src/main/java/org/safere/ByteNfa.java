@@ -107,7 +107,17 @@ final class ByteNfa {
     }
   }
 
-  record SearchResult(int[] groups) {}
+  static final class SearchResult {
+    private final int[] groups;
+
+    SearchResult(int[] groups) {
+      this.groups = groups;
+    }
+
+    int[] groups() {
+      return groups;
+    }
+  }
 
   private final Prog prog;
   private final int ncapture;
@@ -138,6 +148,7 @@ final class ByteNfa {
       Nfa.Anchor anchor,
       Nfa.MatchKind kind,
       int nsubmatch) {
+
     if (prog.start() == 0) {
       return new SearchResult(null);
     }
@@ -387,6 +398,14 @@ final class ByteNfa {
     }
   }
 
+  private boolean matchesEndPosition(byte[] text, int matchPos) {
+    if (matchPos == context.anchorEndPos()) {
+      return true;
+    }
+    return prog.dollarAnchorEnd()
+        && Nfa.isAtTrailingLineTerminator(text, matchPos, context.anchorEndPos());
+  }
+
   private boolean stepCodePoint(
       QueueState rq, QueueState nq, int b, byte[] text, int matchPos, int nextPos) {
     nq.clear();
@@ -412,7 +431,7 @@ final class ByteNfa {
           }
         }
         case MATCH -> {
-          boolean skip = endmatch && (matchPos != context.endPos());
+          boolean skip = endmatch && !matchesEndPosition(text, matchPos);
           if (!skip) {
             if (longest) {
               if (!matched

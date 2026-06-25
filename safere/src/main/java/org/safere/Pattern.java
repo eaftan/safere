@@ -730,6 +730,8 @@ public final class Pattern implements Serializable {
   private transient volatile ByteDfa.Setup byteReverseDfaSetup;
   private transient volatile Prog byteProg;
   private transient volatile Prog byteReverseProg;
+  private transient volatile Prog flatByteProg;
+  private transient volatile Prog flatByteReverseProg;
 
   @SuppressWarnings("ThreadLocalUsage")
   private final transient ThreadLocal<ByteDfa> cachedByteForwardFirstMatchDfa = new ThreadLocal<>();
@@ -767,13 +769,43 @@ public final class Pattern implements Serializable {
     return p;
   }
 
+  Prog flatByteProg() {
+    Prog p = flatByteProg;
+    if (p == null) {
+      synchronized (this) {
+        p = flatByteProg;
+        if (p == null) {
+          flatByteProg = p = new Prog(byteProg());
+          p.flatten();
+          p.freeze();
+        }
+      }
+    }
+    return p;
+  }
+
+  Prog flatByteReverseProg() {
+    Prog p = flatByteReverseProg;
+    if (p == null) {
+      synchronized (this) {
+        p = flatByteReverseProg;
+        if (p == null) {
+          flatByteReverseProg = p = new Prog(byteReverseProg());
+          p.flatten();
+          p.freeze();
+        }
+      }
+    }
+    return p;
+  }
+
   ByteDfa.Setup byteForwardDfaSetup() {
     ByteDfa.Setup setup = byteForwardDfaSetup;
     if (setup == null) {
       synchronized (this) {
         setup = byteForwardDfaSetup;
         if (setup == null) {
-          byteForwardDfaSetup = setup = ByteDfa.buildSetup(byteProg());
+          byteForwardDfaSetup = setup = ByteDfa.buildSetup(flatByteProg());
         }
       }
     }
@@ -786,7 +818,7 @@ public final class Pattern implements Serializable {
       synchronized (this) {
         setup = byteReverseDfaSetup;
         if (setup == null) {
-          byteReverseDfaSetup = setup = ByteDfa.buildSetup(byteReverseProg());
+          byteReverseDfaSetup = setup = ByteDfa.buildSetup(flatByteReverseProg());
         }
       }
     }
@@ -796,7 +828,7 @@ public final class Pattern implements Serializable {
   ByteDfa byteForwardFirstMatchDfa() {
     ByteDfa d = cachedByteForwardFirstMatchDfa.get();
     if (d == null) {
-      d = new ByteDfa(byteProg(), byteForwardDfaSetup());
+      d = new ByteDfa(flatByteProg(), byteForwardDfaSetup(), false);
       cachedByteForwardFirstMatchDfa.set(d);
     }
     return d;
@@ -805,7 +837,7 @@ public final class Pattern implements Serializable {
   ByteDfa byteForwardLongestMatchDfa() {
     ByteDfa d = cachedByteForwardLongestMatchDfa.get();
     if (d == null) {
-      d = new ByteDfa(byteProg(), byteForwardDfaSetup());
+      d = new ByteDfa(flatByteProg(), byteForwardDfaSetup(), true);
       cachedByteForwardLongestMatchDfa.set(d);
     }
     return d;
@@ -814,7 +846,7 @@ public final class Pattern implements Serializable {
   ByteDfa byteReverseDfa() {
     ByteDfa d = cachedByteReverseDfa.get();
     if (d == null) {
-      d = new ByteDfa(byteReverseProg(), byteReverseDfaSetup());
+      d = new ByteDfa(flatByteReverseProg(), byteReverseDfaSetup(), true);
       cachedByteReverseDfa.set(d);
     }
     return d;

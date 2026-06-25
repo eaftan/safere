@@ -1580,10 +1580,7 @@ public final class Matcher implements MatchResult {
                       && altRevResult.matched()
                       && altRevResult.pos() < matchStart) {
                     matchStart = altRevResult.pos();
-                    authoritativeStart =
-                        !options.semanticGuards()
-                            || matchStart == effectiveStart
-                            || parentPattern.dfaStartReliable();
+                    authoritativeStart = true;
                   }
                 }
                 // For \r\n, try position before \r.
@@ -1594,10 +1591,7 @@ public final class Matcher implements MatchResult {
                       && altRevResult2.matched()
                       && altRevResult2.pos() < matchStart) {
                     matchStart = altRevResult2.pos();
-                    authoritativeStart =
-                        !options.semanticGuards()
-                            || matchStart == effectiveStart
-                            || parentPattern.dfaStartReliable();
+                    authoritativeStart = true;
                   }
                 }
               }
@@ -1614,12 +1608,7 @@ public final class Matcher implements MatchResult {
                 int matchEnd = fwdFirst.pos();
                 // Step 4: Store group(0) boundaries, defer inner captures until requested.
                 return applyEngineResult(
-                    new DeferredMatchResult(
-                        matchStart,
-                        matchEnd,
-                        prog.numCaptures(),
-                        !options.semanticGuards() || parentPattern.dfaGroupZeroReliable(),
-                        false));
+                    new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), true, false));
               }
             }
             // If anchored forward DFA fails, fall through to full search.
@@ -2552,6 +2541,10 @@ public final class Matcher implements MatchResult {
     if (capturesResolved) {
       return;
     }
+    if (isByteMode) {
+      resolveCapturesByteMode();
+      return;
+    }
     Prog prog = parentPattern.prog();
     // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
     // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
@@ -2589,6 +2582,37 @@ public final class Matcher implements MatchResult {
     }
     if (result != null) {
       groups = result;
+    }
+    capturesResolved = true;
+    groupZeroResolved = true;
+  }
+
+  private void resolveCapturesByteMode() {
+    Prog prog = parentPattern.byteProg();
+    int nsubmatch = prog.numCaptures();
+    ByteNfa.SearchResult nfaResult =
+        ByteNfa.search(
+            prog,
+            inputBytes,
+            deferredMatchStart,
+            deferredMatchEnd,
+            deferredMatchEnd,
+            0,
+            0,
+            inputBytes.length,
+            inputBytes.length,
+            0,
+            inputBytes.length,
+            Nfa.Anchor.ANCHORED,
+            Nfa.MatchKind.FIRST_MATCH,
+            nsubmatch);
+    if (nfaResult.groups() != null) {
+      groups = nfaResult.groups();
+    } else {
+      groups = new int[2 * nsubmatch];
+      Arrays.fill(groups, -1);
+      groups[0] = deferredMatchStart;
+      groups[1] = deferredMatchEnd;
     }
     capturesResolved = true;
     groupZeroResolved = true;
@@ -2707,13 +2731,56 @@ public final class Matcher implements MatchResult {
       return applyEngineResult(new NoMatchResult());
     }
 
-    ByteDfa.SearchResult fwdResult =
-        parentPattern.byteForwardFirstMatchDfa().doSearch(inputBytes, searchFrom, false, false);
-    if (fwdResult != null && !fwdResult.matched()) {
-      return applyEngineResult(new NoMatchResult());
+    // 1. Existence check via forward first-match DFA
+    boolean useDfa = enginePathOptions().dfa() && dfaSupportsProgram(prog);
+    ByteDfa.SearchResult fwdResult = null;
+    if (useDfa) {
+      fwdResult =
+          parentPattern.byteForwardFirstMatchDfa().doSearch(inputBytes, searchFrom, false, false);
+      if (fwdResult != null && !fwdResult.matched()) {
+        return applyEngineResult(new NoMatchResult());
+      }
     }
 
-    int nsubmatch = prog.numCaptures();
+    // Three-DFA sandwich for byte mode
+    if (useDfa && fwdResult != null && fwdResult.pos() > searchFrom) {
+      int earlyEnd = fwdResult.pos();
+      if (prog.anchorStart()) {
+        ByteDfa.SearchResult fwdFirst =
+            parentPattern.byteForwardFirstMatchDfa().doSearch(inputBytes, searchFrom, true, false);
+        if (fwdFirst != null && fwdFirst.matched()) {
+          int matchEnd = fwdFirst.pos();
+          return applyEngineResult(
+              new DeferredMatchResult(searchFrom, matchEnd, prog.numCaptures(), true, false));
+        }
+      } else {
+        ByteDfa revDfa = parentPattern.byteReverseDfa();
+        if (revDfa != null) {
+          ByteDfa.SearchResult revResult =
+              revDfa.doSearchReverse(inputBytes, earlyEnd, searchFrom, true, true);
+          if (revResult != null && revResult.matched()) {
+            int matchStart = revResult.pos();
+            ByteDfa.SearchResult fwdFirst =
+                parentPattern
+                    .byteForwardFirstMatchDfa()
+                    .doSearch(inputBytes, matchStart, true, false);
+            if (fwdFirst != null && fwdFirst.matched()) {
+              int matchEnd = fwdFirst.pos();
+              return applyEngineResult(
+                  new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), true, false));
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback: DFA failed or sandwich failed. Run ByteNfa with lazy capture extraction.
+    // If the pattern has more than 1 capture group, we only extract group 0 first, and defer
+    // the rest. If it only has group 0, we can extract it eagerly since there are no inner
+    // captures.
+    boolean lazyFallback = prog.numCaptures() > 1;
+    int nsubmatch = lazyFallback ? 1 : prog.numCaptures();
+
     ByteNfa.SearchResult nfaResult =
         ByteNfa.search(
             prog,
@@ -2735,6 +2802,11 @@ public final class Matcher implements MatchResult {
       return applyEngineResult(new NoMatchResult());
     }
 
+    if (lazyFallback) {
+      return applyEngineResult(
+          new DeferredMatchResult(
+              nfaResult.groups()[0], nfaResult.groups()[1], prog.numCaptures(), true, false));
+    }
     return applyEngineResult(new FullMatchResult(nfaResult.groups()));
   }
 

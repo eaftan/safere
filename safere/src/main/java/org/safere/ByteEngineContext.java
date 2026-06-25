@@ -8,20 +8,79 @@ package org.safere;
 import static java.util.Objects.requireNonNull;
 
 /** Immutable execution bounds shared by raw byte matching engines. */
-record ByteEngineContext(
-    byte[] text,
-    int searchStart,
-    int searchLimit,
-    int endPos,
-    int consumeRegionStart,
-    int boundaryRegionStart,
-    int boundaryEndPos,
-    int anchorEndPos,
-    int emptyAnchorStartPos,
-    int emptyAnchorEndPos) {
+final class ByteEngineContext {
+  private final byte[] text;
+  private final int searchStart;
+  private final int searchLimit;
+  private final int endPos;
+  private final int consumeRegionStart;
+  private final int boundaryRegionStart;
+  private final int boundaryEndPos;
+  private final int anchorEndPos;
+  private final int emptyAnchorStartPos;
+  private final int emptyAnchorEndPos;
 
-  ByteEngineContext {
-    requireNonNull(text, "text");
+  ByteEngineContext(
+      byte[] text,
+      int searchStart,
+      int searchLimit,
+      int endPos,
+      int consumeRegionStart,
+      int boundaryRegionStart,
+      int boundaryEndPos,
+      int anchorEndPos,
+      int emptyAnchorStartPos,
+      int emptyAnchorEndPos) {
+    this.text = requireNonNull(text, "text");
+    this.searchStart = searchStart;
+    this.searchLimit = searchLimit;
+    this.endPos = endPos;
+    this.consumeRegionStart = consumeRegionStart;
+    this.boundaryRegionStart = boundaryRegionStart;
+    this.boundaryEndPos = boundaryEndPos;
+    this.anchorEndPos = anchorEndPos;
+    this.emptyAnchorStartPos = emptyAnchorStartPos;
+    this.emptyAnchorEndPos = emptyAnchorEndPos;
+  }
+
+  byte[] text() {
+    return text;
+  }
+
+  int searchStart() {
+    return searchStart;
+  }
+
+  int searchLimit() {
+    return searchLimit;
+  }
+
+  int endPos() {
+    return endPos;
+  }
+
+  int consumeRegionStart() {
+    return consumeRegionStart;
+  }
+
+  int boundaryRegionStart() {
+    return boundaryRegionStart;
+  }
+
+  int boundaryEndPos() {
+    return boundaryEndPos;
+  }
+
+  int anchorEndPos() {
+    return anchorEndPos;
+  }
+
+  int emptyAnchorStartPos() {
+    return emptyAnchorStartPos;
+  }
+
+  int emptyAnchorEndPos() {
+    return emptyAnchorEndPos;
   }
 
   static ByteEngineContext create(

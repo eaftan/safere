@@ -7,7 +7,6 @@
 
 package org.safere;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
@@ -553,14 +552,19 @@ final class Utf8Compiler extends Walker<Utf8Compiler.Frag> {
     }
 
     // Generate byte range sequence concatenation.
-    byte[] ulo = new String(Character.toChars(lo)).getBytes(StandardCharsets.UTF_8);
-    byte[] uhi = new String(Character.toChars(hi)).getBytes(StandardCharsets.UTF_8);
+    byte[] ulo = getUtf8Bytes(lo);
+    byte[] uhi = getUtf8Bytes(hi);
 
     Frag path = byteRange(ulo[0] & 0xFF, uhi[0] & 0xFF, false);
     for (int i = 1; i < ulo.length; i++) {
       path = cat(path, byteRange(ulo[i] & 0xFF, uhi[i] & 0xFF, false));
     }
     return path;
+  }
+
+  private static byte[] getUtf8Bytes(int codePoint) {
+    return new String(Character.toChars(codePoint))
+        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
   }
 
   private static int maxRune(int bytes) {
