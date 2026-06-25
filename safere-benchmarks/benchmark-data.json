@@ -302,6 +302,20 @@
           "kind": "prefixedRepeat",
           "prefix": "12345 "
         }
+      },
+      {
+        "name": "cjkSearch",
+        "pattern": "[\\u4e00-\\u9fa5]{3,}",
+        "op": "find",
+        "match": "这是一个中文测试句子",
+        "nonMatch": "This is a sentence containing only English characters."
+      },
+      {
+        "name": "emojiSearch",
+        "pattern": "[😀-😇]",
+        "op": "find",
+        "match": "Today is a beautiful day 😇 with warm sunshine.",
+        "nonMatch": "Today is a beautiful day with warm sunshine."
       }
     ]
   },
