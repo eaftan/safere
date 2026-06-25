@@ -261,7 +261,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     return false;
   }
 
-  private static Regexp lowerCaptureRetention(Regexp re) {
+  static Regexp lowerCaptureRetention(Regexp re) {
     CaptureRetentionLoweringWalker walker = new CaptureRetentionLoweringWalker();
     Regexp lowered = walker.walk(re, null);
     return walker.stoppedEarly() ? null : lowered;
@@ -514,7 +514,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   // Anchor detection — approximate, like RE2's IsAnchorStart/IsAnchorEnd
   // ---------------------------------------------------------------------------
 
-  private static boolean isAnchorStart(Regexp re) {
+  static boolean isAnchorStart(Regexp re) {
     return isAnchorStartImpl(re, 0);
   }
 
@@ -530,7 +530,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     };
   }
 
-  private static Regexp stripAnchorStart(Regexp re) {
+  static Regexp stripAnchorStart(Regexp re) {
     return stripAnchorStartImpl(re, 0);
   }
 
@@ -565,7 +565,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     };
   }
 
-  private static boolean isAnchorEnd(Regexp re) {
+  static boolean isAnchorEnd(Regexp re) {
     return isAnchorEndImpl(re, 0);
   }
 
@@ -573,7 +573,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    * Returns true if the trailing end anchor is {@code $} (WAS_DOLLAR), meaning the match may end
    * before a trailing newline. Must only be called when {@link #isAnchorEnd} is true.
    */
-  private static boolean isDollarAnchorEnd(Regexp re) {
+  static boolean isDollarAnchorEnd(Regexp re) {
     return isDollarAnchorEndImpl(re, 0);
   }
 
@@ -601,7 +601,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     };
   }
 
-  private static Regexp stripAnchorEnd(Regexp re) {
+  static Regexp stripAnchorEnd(Regexp re) {
     return stripAnchorEndImpl(re, 0);
   }
 
@@ -910,7 +910,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     }
   }
 
-  private static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
+  static boolean isDirectRepeatedPureEmptyCapture(Regexp re) {
     return re.op == RegexpOp.CAPTURE && re.cap > 0 && isPureEmpty(re.sub());
   }
 

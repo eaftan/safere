@@ -726,6 +726,104 @@ public final class Pattern implements Serializable {
     return dfa;
   }
 
+  private transient volatile ByteDfa.Setup byteForwardDfaSetup;
+  private transient volatile ByteDfa.Setup byteReverseDfaSetup;
+  private transient volatile Prog byteProg;
+  private transient volatile Prog byteReverseProg;
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<ByteDfa> cachedByteForwardFirstMatchDfa = new ThreadLocal<>();
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<ByteDfa> cachedByteForwardLongestMatchDfa =
+      new ThreadLocal<>();
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<ByteDfa> cachedByteReverseDfa = new ThreadLocal<>();
+
+  Prog byteProg() {
+    Prog p = byteProg;
+    if (p == null) {
+      synchronized (this) {
+        p = byteProg;
+        if (p == null) {
+          byteProg = p = Utf8Compiler.compile(ast);
+        }
+      }
+    }
+    return p;
+  }
+
+  Prog byteReverseProg() {
+    Prog p = byteReverseProg;
+    if (p == null) {
+      synchronized (this) {
+        p = byteReverseProg;
+        if (p == null) {
+          byteReverseProg = p = Utf8Compiler.compile(ast, true);
+        }
+      }
+    }
+    return p;
+  }
+
+  ByteDfa.Setup byteForwardDfaSetup() {
+    ByteDfa.Setup setup = byteForwardDfaSetup;
+    if (setup == null) {
+      synchronized (this) {
+        setup = byteForwardDfaSetup;
+        if (setup == null) {
+          byteForwardDfaSetup = setup = ByteDfa.buildSetup(byteProg());
+        }
+      }
+    }
+    return setup;
+  }
+
+  ByteDfa.Setup byteReverseDfaSetup() {
+    ByteDfa.Setup setup = byteReverseDfaSetup;
+    if (setup == null) {
+      synchronized (this) {
+        setup = byteReverseDfaSetup;
+        if (setup == null) {
+          byteReverseDfaSetup = setup = ByteDfa.buildSetup(byteReverseProg());
+        }
+      }
+    }
+    return setup;
+  }
+
+  ByteDfa byteForwardFirstMatchDfa() {
+    ByteDfa d = cachedByteForwardFirstMatchDfa.get();
+    if (d == null) {
+      d = new ByteDfa(byteProg(), byteForwardDfaSetup());
+      cachedByteForwardFirstMatchDfa.set(d);
+    }
+    return d;
+  }
+
+  ByteDfa byteForwardLongestMatchDfa() {
+    ByteDfa d = cachedByteForwardLongestMatchDfa.get();
+    if (d == null) {
+      d = new ByteDfa(byteProg(), byteForwardDfaSetup());
+      cachedByteForwardLongestMatchDfa.set(d);
+    }
+    return d;
+  }
+
+  ByteDfa byteReverseDfa() {
+    ByteDfa d = cachedByteReverseDfa.get();
+    if (d == null) {
+      d = new ByteDfa(byteReverseProg(), byteReverseDfaSetup());
+      cachedByteReverseDfa.set(d);
+    }
+    return d;
+  }
+
+  public Matcher matcher(byte[] input) {
+    return new Matcher(this, input);
+  }
+
   /**
    * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data
    * race at worst computes twice, but the result is the same since all inputs are immutable.
