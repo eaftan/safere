@@ -20,6 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Tests for deterministic work accounting. */
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class WorkCounterTest {
   @Test
   @DisplayName("countForTesting throws when work counters are disabled")
