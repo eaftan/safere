@@ -67,7 +67,6 @@ public class RealWorldRegexBenchmark {
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
-
     JDK {
       @Override
       public RegexEngine compile(String patternStr) {
