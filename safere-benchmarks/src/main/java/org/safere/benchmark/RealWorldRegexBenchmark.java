@@ -67,6 +67,7 @@ public class RealWorldRegexBenchmark {
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
+
     JDK {
       @Override
       public RegexEngine compile(String patternStr) {
@@ -119,7 +120,9 @@ public class RealWorldRegexBenchmark {
     "boundedNameMatch",
     "templateTagMatch",
     "sparseUrl",
-    "unprefixedWordBoundary"
+    "unprefixedWordBoundary",
+    "fruitSearchQuery",
+    "fruitMarkupTag"
   })
   public String patternName;
 
@@ -148,6 +151,7 @@ public class RealWorldRegexBenchmark {
         switch (regexCase.op) {
           case "find" -> input -> regexEngine.finder().find(input);
           case "replaceAllEmpty" -> input -> regexEngine.replacer().replaceAll(input, "");
+          case "replaceAllGroup1" -> input -> regexEngine.replacer().replaceAll(input, "$1");
           default ->
               throw new IllegalArgumentException(
                   "Unknown real-world regex benchmark op: " + regexCase.op);
