@@ -474,6 +474,11 @@ final class Nfa {
       return new SearchResult(null);
     }
 
+    if (prog.hasGraphemeSemantics() && !(text instanceof StringInputScanner)) {
+      throw new UnsupportedOperationException(
+          "Grapheme boundaries are not supported on this input source");
+    }
+
     boolean anchored = (anchor == Anchor.ANCHORED) || prog.anchorStart();
     boolean longestMode = (kind != MatchKind.FIRST_MATCH);
     boolean endmatch = prog.anchorEnd();

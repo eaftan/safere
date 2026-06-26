@@ -350,8 +350,8 @@ class RE2ByteSearchTest {
     Pattern p = Pattern.compile("\\ba", Pattern.UNICODE_CHARACTER_CLASS);
     byte[] bytes = "ab".getBytes(StandardCharsets.UTF_8);
     Matcher m = p.matcher(bytes);
-    var unused2 =
-        org.junit.jupiter.api.Assertions.assertThrows(
-            UnsupportedOperationException.class, () -> m.find());
+    org.junit.jupiter.api.Assertions.assertTrue(m.find());
+    org.junit.jupiter.api.Assertions.assertEquals(0, m.start());
+    org.junit.jupiter.api.Assertions.assertEquals(1, m.end());
   }
 }
