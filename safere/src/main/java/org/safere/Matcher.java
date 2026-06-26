@@ -195,12 +195,6 @@ public final class Matcher implements MatchResult {
     this.regionEnd = input.length;
   }
 
-  private void checkByteModeSupport() {
-    if (isByteMode) {
-      parentPattern.byteProg();
-    }
-  }
-
   /**
    * Materializes a CharSequence into a String by reading through {@code charAt()}, so that custom
    * CharSequence implementations that don't override {@code toString()} work correctly.
@@ -692,7 +686,6 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if the entire input sequence matches this matcher's pattern
    */
   public boolean matches() {
-    checkByteModeSupport();
     modCount++;
     findExhaustedAfterTerminalEmptyMatch = false;
     searchFrom = regionStart;
@@ -845,7 +838,6 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a prefix of the input sequence matches this matcher's pattern
    */
   public boolean lookingAt() {
-    checkByteModeSupport();
     modCount++;
     findExhaustedAfterTerminalEmptyMatch = false;
     searchFrom = regionStart;
@@ -959,7 +951,6 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a subsequence of the input sequence matches this matcher's pattern
    */
   public boolean find() {
-    checkByteModeSupport();
     modCount++;
     if (findExhaustedAfterTerminalEmptyMatch) {
       applyEngineResult(new NoMatchResult());
@@ -1030,7 +1021,6 @@ public final class Matcher implements MatchResult {
    * @throws IndexOutOfBoundsException if start is negative or greater than the length of the input
    */
   public boolean find(int start) {
-    checkByteModeSupport();
     int len = getTextLength();
     if (start < 0 || start > len) {
       throw new IndexOutOfBoundsException("start=" + start + ", length=" + len);

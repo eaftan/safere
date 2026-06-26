@@ -33,15 +33,9 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int codePointAt(int pos, int[] nextPos) {
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      nextPos[0] = pos + 2;
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    nextPos[0] = pos + 1;
-    return ch;
+    int cp = text.codePointAt(pos);
+    nextPos[0] = pos + Character.charCount(cp);
+    return cp;
   }
 
   @Override
@@ -51,15 +45,9 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int codePointBefore(int pos, int[] prevPos) {
-    char ch = text.charAt(pos - 1);
-    if (Character.isLowSurrogate(ch)
-        && pos - 2 >= 0
-        && Character.isHighSurrogate(text.charAt(pos - 2))) {
-      prevPos[0] = pos - 2;
-      return Character.toCodePoint(text.charAt(pos - 2), ch);
-    }
-    prevPos[0] = pos - 1;
-    return ch;
+    int cp = text.codePointBefore(pos);
+    prevPos[0] = pos - Character.charCount(cp);
+    return cp;
   }
 
   @Override
