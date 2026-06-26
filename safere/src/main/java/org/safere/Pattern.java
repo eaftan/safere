@@ -726,6 +726,148 @@ public final class Pattern implements Serializable {
     return dfa;
   }
 
+  private transient volatile ByteDfa.Setup byteForwardDfaSetup;
+  private transient volatile ByteDfa.Setup byteReverseDfaSetup;
+  private transient volatile Prog byteProg;
+  private transient volatile Prog byteReverseProg;
+  private transient volatile Prog flatByteProg;
+  private transient volatile Prog flatByteReverseProg;
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<ByteDfa> cachedByteForwardFirstMatchDfa = new ThreadLocal<>();
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<ByteDfa> cachedByteForwardLongestMatchDfa =
+      new ThreadLocal<>();
+
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<ByteDfa> cachedByteReverseDfa = new ThreadLocal<>();
+
+  Prog byteProg() {
+    Prog p = byteProg;
+    if (p == null) {
+      synchronized (this) {
+        p = byteProg;
+        if (p == null) {
+          p = Utf8Compiler.compile(ast);
+          if (p == null) {
+            throw new UnsupportedOperationException(
+                "Pattern contains features not supported in byte mode");
+          }
+          p.setUnixLines((flags & UNIX_LINES) != 0);
+          byteProg = p;
+        }
+      }
+    }
+    return p;
+  }
+
+  Prog byteReverseProg() {
+    Prog p = byteReverseProg;
+    if (p == null) {
+      synchronized (this) {
+        p = byteReverseProg;
+        if (p == null) {
+          p = Utf8Compiler.compile(ast, true);
+          if (p == null) {
+            throw new UnsupportedOperationException(
+                "Pattern contains features not supported in byte mode");
+          }
+          p.setUnixLines((flags & UNIX_LINES) != 0);
+          byteReverseProg = p;
+        }
+      }
+    }
+    return p;
+  }
+
+  Prog flatByteProg() {
+    Prog p = flatByteProg;
+    if (p == null) {
+      synchronized (this) {
+        p = flatByteProg;
+        if (p == null) {
+          flatByteProg = p = new Prog(byteProg());
+          p.flatten();
+          p.freeze();
+        }
+      }
+    }
+    return p;
+  }
+
+  Prog flatByteReverseProg() {
+    Prog p = flatByteReverseProg;
+    if (p == null) {
+      synchronized (this) {
+        p = flatByteReverseProg;
+        if (p == null) {
+          flatByteReverseProg = p = new Prog(byteReverseProg());
+          p.flatten();
+          p.freeze();
+        }
+      }
+    }
+    return p;
+  }
+
+  ByteDfa.Setup byteForwardDfaSetup() {
+    ByteDfa.Setup setup = byteForwardDfaSetup;
+    if (setup == null) {
+      synchronized (this) {
+        setup = byteForwardDfaSetup;
+        if (setup == null) {
+          byteForwardDfaSetup = setup = ByteDfa.buildSetup(flatByteProg());
+        }
+      }
+    }
+    return setup;
+  }
+
+  ByteDfa.Setup byteReverseDfaSetup() {
+    ByteDfa.Setup setup = byteReverseDfaSetup;
+    if (setup == null) {
+      synchronized (this) {
+        setup = byteReverseDfaSetup;
+        if (setup == null) {
+          byteReverseDfaSetup = setup = ByteDfa.buildSetup(flatByteReverseProg());
+        }
+      }
+    }
+    return setup;
+  }
+
+  ByteDfa byteForwardFirstMatchDfa() {
+    ByteDfa d = cachedByteForwardFirstMatchDfa.get();
+    if (d == null) {
+      d = new ByteDfa(flatByteProg(), byteForwardDfaSetup(), false);
+      cachedByteForwardFirstMatchDfa.set(d);
+    }
+    return d;
+  }
+
+  ByteDfa byteForwardLongestMatchDfa() {
+    ByteDfa d = cachedByteForwardLongestMatchDfa.get();
+    if (d == null) {
+      d = new ByteDfa(flatByteProg(), byteForwardDfaSetup(), true);
+      cachedByteForwardLongestMatchDfa.set(d);
+    }
+    return d;
+  }
+
+  ByteDfa byteReverseDfa() {
+    ByteDfa d = cachedByteReverseDfa.get();
+    if (d == null) {
+      d = new ByteDfa(flatByteReverseProg(), byteReverseDfaSetup(), true);
+      cachedByteReverseDfa.set(d);
+    }
+    return d;
+  }
+
+  public Matcher matcher(byte[] input) {
+    return new Matcher(this, input);
+  }
+
   /**
    * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data
    * race at worst computes twice, but the result is the same since all inputs are immutable.
@@ -1228,7 +1370,7 @@ public final class Pattern implements Serializable {
         if (candidate == null || candidate.op == RegexpOp.EMPTY_MATCH) {
           continue;
         }
-        return isZeroWidthAssertion(candidate);
+        return startsWithZeroWidthAssertion(candidate);
       }
       return false;
     }

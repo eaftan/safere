@@ -1378,6 +1378,105 @@ final class Nfa {
         || c == 0x200D; // ZWJ
   }
 
+  static int emptyFlags(
+      byte[] text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      int matchStart,
+      int regionStart,
+      boolean consumedInput,
+      int anchorStartPos,
+      int anchorEndPos,
+      int boundaryEndPos,
+      boolean hasWordBoundary,
+      boolean hasTextAnchor) {
+    int flags = 0;
+
+    if (hasTextAnchor) {
+      if (pos == anchorStartPos) {
+        flags |= EmptyOp.BEGIN_TEXT;
+        if (text.length != 0 && pos != anchorEndPos) {
+          flags |= EmptyOp.BEGIN_LINE;
+        }
+      } else if (pos < text.length) {
+        int prev = text[pos - 1] & 0xFF;
+        if (unixLines) {
+          if (prev == '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
+          }
+        } else {
+          if (prev == '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
+          } else if (prev == '\r' && (text[pos] & 0xFF) != '\n') {
+            flags |= EmptyOp.BEGIN_LINE;
+          }
+        }
+      }
+
+      if (pos == anchorEndPos) {
+        flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
+      } else if (pos < text.length) {
+        int ch = text[pos] & 0xFF;
+        if (unixLines) {
+          if (ch == '\n') {
+            flags |= EmptyOp.END_LINE;
+            if (pos + 1 == anchorEndPos) {
+              flags |= EmptyOp.DOLLAR_END;
+            }
+          }
+        } else {
+          if (ch == '\n' || ch == '\r') {
+            boolean isAtomicLF = (ch == '\n' && pos > 0 && (text[pos - 1] & 0xFF) == '\r');
+            if (!isAtomicLF) {
+              flags |= EmptyOp.END_LINE;
+              if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
+                flags |= EmptyOp.DOLLAR_END;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (hasWordBoundary) {
+      int prevCp = pos > regionStart ? (text[pos - 1] & 0xFF) : -1;
+      boolean prevWord = prevCp >= 0 && isWordChar(prevCp);
+      int nextCp = pos < boundaryEndPos ? (text[pos] & 0xFF) : -1;
+      boolean nextWord = nextCp >= 0 && isWordChar(nextCp);
+      if (prevWord != nextWord) {
+        flags |= EmptyOp.WORD_BOUNDARY;
+        flags |= EmptyOp.UNICODE_WORD_BOUNDARY;
+      } else {
+        flags |= EmptyOp.NON_WORD_BOUNDARY;
+        flags |= EmptyOp.UNICODE_NON_WORD_BOUNDARY;
+      }
+    }
+
+    return flags;
+  }
+
+  static boolean isAtTrailingLineTerminator(
+      byte[] text, int pos, boolean unixLines, int anchorEndPos) {
+    if (pos >= text.length) {
+      return false;
+    }
+    int ch = text[pos] & 0xFF;
+    if (unixLines) {
+      return ch == '\n' && pos + 1 == anchorEndPos;
+    }
+    if (ch == '\n') {
+      return pos + 1 == anchorEndPos;
+    }
+    if (ch == '\r') {
+      if (pos + 1 == anchorEndPos) {
+        return true;
+      }
+      return pos + 2 == anchorEndPos && (text[pos + 1] & 0xFF) == '\n';
+    }
+    return false;
+  }
+
   private Nfa() {
     throw new AssertionError("non-instantiable");
   }
