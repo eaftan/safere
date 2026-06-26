@@ -773,7 +773,8 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if a full match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(prog)) {
+    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+
       Dfa.SearchResult dfaResult = dfa(true).doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         return applyEngineResult(new NoMatchResult());
@@ -900,7 +901,8 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(prog)) {
+    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+
       Dfa.SearchResult dfaResult = dfa(false).doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         return applyEngineResult(new NoMatchResult());
@@ -983,7 +985,7 @@ public final class Matcher implements MatchResult {
    * Returns whether DFA paths implement every instruction and boundary predicate in {@code prog}.
    */
   private static boolean dfaSupportsProgram(Prog prog) {
-    return !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
+    return prog != null && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
   /**
@@ -1368,7 +1370,7 @@ public final class Matcher implements MatchResult {
     // must fall through to the normal forward DFA path rather than returning false.
     if (options.dfa()
         && options.reverseDfa()
-        && dfaSupportsProgram(prog)
+        && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
         && !regionActive
         && prog.anchorEnd()
         && !prog.anchorStart()
@@ -1468,7 +1470,8 @@ public final class Matcher implements MatchResult {
     // precheck cannot produce reusable bounds and would fall through to the complete fallback
     // search anyway.
     Dfa.SearchResult fwdResult;
-    if (!options.dfa() || directFallback || !dfaSupportsProgram(prog)) {
+    if (!options.dfa() || directFallback || !dfaSupportsProgram(parentPattern.flatDfaProg())) {
+
       fwdResult = null;
     } else {
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);

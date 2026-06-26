@@ -35,6 +35,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   private final Prog prog;
   private boolean failed;
   private boolean reversed;
+
   private final int maxInst;
   private int nextLoopReg;
 
@@ -57,7 +58,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re) {
-    return compile(re, false, true);
+    return compile(re, false, true, false);
   }
 
   /**
@@ -68,15 +69,25 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re, boolean reversed) {
-    return compile(re, reversed, true);
+    return compile(re, reversed, true, false);
   }
 
-  private static Prog compile(Regexp re, boolean reversed, boolean includeCaptureDebugInfo) {
+  static Prog compileForDfa(Regexp re) {
+    return compile(re, false, true, true);
+  }
+
+  static Prog compileForDfa(Regexp re, boolean reversed) {
+    return compile(re, reversed, true, true);
+  }
+
+  private static Prog compile(
+      Regexp re, boolean reversed, boolean includeCaptureDebugInfo, boolean forDfa) {
     Compiler c = new Compiler();
     c.reversed = reversed;
     int numCaptures = maxCapture(re) + 1;
 
-    Regexp lowered = lowerCaptureRetention(re);
+    Regexp target = forDfa ? optimizeDfaAst(re) : re;
+    Regexp lowered = lowerCaptureRetention(target);
     if (lowered == null) {
       return null;
     }
@@ -261,7 +272,93 @@ final class Compiler extends Walker<Compiler.Frag> {
     return false;
   }
 
+  static Regexp optimizeDfaAst(Regexp re) {
+    DfaAstOptimizerWalker walker = new DfaAstOptimizerWalker();
+    Regexp optimized = walker.walk(re, null);
+    return walker.stoppedEarly() ? null : optimized;
+  }
+
+  private static final class DfaAstOptimizerWalker extends Walker<Regexp> {
+    @Override
+    protected Regexp shortVisit(Regexp re, Regexp parentArg) {
+      return null;
+    }
+
+    @Override
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+      if (childArgs.contains(null)) {
+        return null;
+      }
+      Regexp copy = copyWithChildren(re, childArgs);
+      if (copy.op == RegexpOp.STAR) {
+        Regexp body = copy.subs.get(0);
+        Regexp cleanBody = removeEmpty(body);
+        return Regexp.rawQuantifier(RegexpOp.STAR, cleanBody, copy.flags);
+      }
+      return copy;
+    }
+  }
+
+  private static Regexp removeEmpty(Regexp re) {
+    if (re == null) {
+      return null;
+    }
+    EmptyLoopStripperWalker walker = new EmptyLoopStripperWalker();
+    Regexp stripped = walker.walk(re, null);
+    return walker.stoppedEarly() ? null : stripped;
+  }
+
+  private static final class EmptyLoopStripperWalker extends Walker<Regexp> {
+    @Override
+    protected Regexp shortVisit(Regexp re, Regexp parentArg) {
+      return null;
+    }
+
+    @Override
+    protected Regexp postVisit(Regexp re, Regexp parentArg, Regexp preArg, List<Regexp> childArgs) {
+      if (childArgs.contains(null)) {
+        return null;
+      }
+      return switch (re.op) {
+        case CAPTURE, NON_CAPTURE -> copyWithChildren(re, childArgs);
+        case STAR -> {
+          if (!re.nonGreedy()) {
+            yield Regexp.rawQuantifier(RegexpOp.PLUS, childArgs.get(0), re.flags);
+          }
+          yield copyWithChildren(re, childArgs);
+        }
+        case QUEST -> {
+          if (!re.nonGreedy()) {
+            yield childArgs.get(0);
+          }
+          yield copyWithChildren(re, childArgs);
+        }
+        case REPEAT -> {
+          if (!re.nonGreedy() && re.min == 0) {
+            yield Regexp.repeat(childArgs.get(0), re.flags, 1, re.max);
+          }
+          yield copyWithChildren(re, childArgs);
+        }
+
+        case ALTERNATE -> {
+          List<Regexp> simplifiedSubs = new ArrayList<>();
+          for (Regexp child : childArgs) {
+            if (child.op != RegexpOp.NO_MATCH) {
+              simplifiedSubs.add(child);
+            }
+          }
+          if (simplifiedSubs.isEmpty()) {
+            yield Regexp.noMatch(re.flags);
+          }
+          yield Regexp.alternate(simplifiedSubs, re.flags);
+        }
+        default -> copyWithChildren(re, childArgs);
+      };
+    }
+  }
+
   private static Regexp lowerCaptureRetention(Regexp re) {
+
     CaptureRetentionLoweringWalker walker = new CaptureRetentionLoweringWalker();
     Regexp lowered = walker.walk(re, null);
     return walker.stoppedEarly() ? null : lowered;

@@ -98,7 +98,9 @@ public final class Pattern implements Serializable {
   private final int flags;
   private final transient Prog prog;
   private final transient Prog flatProg;
+  private final transient Prog flatDfaProg;
   private final transient Regexp ast;
+
   private final transient Map<String, Integer> namedGroups;
   private final transient String prefix;
   private final transient boolean prefixFoldCase;
@@ -175,6 +177,7 @@ public final class Pattern implements Serializable {
   private transient volatile Prog reverseProg;
 
   private transient volatile Prog flatReverseProg;
+  private transient volatile Prog flatReverseDfaProg;
 
   /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
@@ -253,9 +256,23 @@ public final class Pattern implements Serializable {
       this.flatProg = new Prog(prog);
       this.flatProg.flatten();
       this.flatProg.freeze();
+      if (prog.numLoopRegs() > 0) {
+        Prog dfaProg = Compiler.compileForDfa(ast);
+        if (dfaProg != null) {
+          this.flatDfaProg = new Prog(dfaProg);
+          this.flatDfaProg.flatten();
+          this.flatDfaProg.freeze();
+        } else {
+          this.flatDfaProg = this.flatProg;
+        }
+      } else {
+        this.flatDfaProg = this.flatProg;
+      }
     } else {
       this.flatProg = null;
+      this.flatDfaProg = null;
     }
+
     this.ast = ast;
     this.namedGroups = namedGroups;
     this.prefix = prefix;
@@ -692,10 +709,14 @@ public final class Pattern implements Serializable {
     return flatProg;
   }
 
+  Prog flatDfaProg() {
+    return flatDfaProg;
+  }
+
   Dfa forwardFirstMatchDfa() {
     Dfa dfa = cachedForwardFirstMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(flatProg, MAX_DFA_STATES, forwardDfaSetup(), false);
+      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), false);
       cachedForwardFirstMatchDfa.set(dfa);
     }
     return dfa;
@@ -704,7 +725,7 @@ public final class Pattern implements Serializable {
   Dfa forwardLongestMatchDfa() {
     Dfa dfa = cachedForwardLongestMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(flatProg, MAX_DFA_STATES, forwardDfaSetup(), true);
+      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), true);
       cachedForwardLongestMatchDfa.set(dfa);
     }
     return dfa;
@@ -717,7 +738,7 @@ public final class Pattern implements Serializable {
   Dfa reverseDfa() {
     Dfa dfa = cachedReverseDfa.get();
     if (dfa == null) {
-      Prog rp = flatReverseProg();
+      Prog rp = flatReverseDfaProg();
       if (rp != null) {
         dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true);
         cachedReverseDfa.set(dfa);
@@ -986,6 +1007,30 @@ public final class Pattern implements Serializable {
     return frp;
   }
 
+  Prog flatReverseDfaProg() {
+    Prog frp = flatReverseDfaProg;
+    if (frp == null) {
+      Prog rp = reverseProg();
+      if (rp != null) {
+        if (rp.numLoopRegs() > 0) {
+          Prog dfaRp = Compiler.compileForDfa(ast, true);
+          if (dfaRp != null) {
+            frp = new Prog(dfaRp);
+            frp.flatten();
+            frp.freeze();
+          } else {
+            frp = flatReverseProg();
+          }
+        } else {
+          frp = flatReverseProg();
+        }
+        reverseDfaSetup = Dfa.buildSetup(frp);
+        flatReverseDfaProg = frp;
+      }
+    }
+    return frp;
+  }
+
   Dfa.Setup forwardDfaSetup() {
     Dfa.Setup setup = forwardDfaSetup;
     if (setup == null) {
@@ -996,7 +1041,7 @@ public final class Pattern implements Serializable {
   }
 
   Dfa.Setup reverseDfaSetup() {
-    flatReverseProg(); // ensure flat reverse prog and its setup are computed
+    flatReverseDfaProg(); // ensure flat reverse dfa prog and its setup are computed
     return reverseDfaSetup;
   }
 
