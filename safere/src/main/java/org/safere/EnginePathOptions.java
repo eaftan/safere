@@ -24,6 +24,7 @@ record EnginePathOptions(
     boolean dfa,
     boolean reverseDfa,
     boolean bitState,
+    boolean bitStateRecursive,
     boolean lazyCaptureExtraction,
     boolean semanticGuards) {
 
@@ -57,6 +58,7 @@ record EnginePathOptions(
     accessors.put(EnginePath.DFA, EnginePathOptions::dfa);
     accessors.put(EnginePath.REVERSE_DFA, EnginePathOptions::reverseDfa);
     accessors.put(EnginePath.BIT_STATE, EnginePathOptions::bitState);
+    accessors.put(EnginePath.BIT_STATE_RECURSIVE, EnginePathOptions::bitStateRecursive);
     accessors.put(EnginePath.LAZY_CAPTURE_EXTRACTION, EnginePathOptions::lazyCaptureExtraction);
     return Map.copyOf(accessors);
   }
@@ -75,6 +77,7 @@ record EnginePathOptions(
     private boolean dfa = true;
     private boolean reverseDfa = true;
     private boolean bitState = true;
+    private boolean bitStateRecursive = true;
     private boolean lazyCaptureExtraction = true;
     private boolean semanticGuards = true;
 
@@ -123,6 +126,11 @@ record EnginePathOptions(
       return this;
     }
 
+    Builder bitStateRecursive(boolean enabled) {
+      bitStateRecursive = enabled;
+      return this;
+    }
+
     Builder lazyCaptureExtraction(boolean enabled) {
       lazyCaptureExtraction = enabled;
       return this;
@@ -144,6 +152,7 @@ record EnginePathOptions(
           dfa,
           reverseDfa,
           bitState,
+          bitStateRecursive,
           lazyCaptureExtraction,
           semanticGuards);
     }

@@ -84,6 +84,15 @@ record EnginePathContract(
                   ResultAuthority.SEARCH_CURSOR),
               EnumSet.of(SemanticGuard.BOUNDED_STATE, SemanticGuard.CAPTURE_EQUIVALENT)),
           new EnginePathContract(
+              EnginePath.BIT_STATE_RECURSIVE,
+              EnginePathRole.GUARDED_OPTIMIZATION,
+              EnumSet.of(
+                  ResultAuthority.NO_MATCH,
+                  ResultAuthority.GROUP_ZERO,
+                  ResultAuthority.CAPTURES,
+                  ResultAuthority.SEARCH_CURSOR),
+              EnumSet.of(SemanticGuard.BOUNDED_STATE, SemanticGuard.CAPTURE_EQUIVALENT)),
+          new EnginePathContract(
               EnginePath.LAZY_CAPTURE_EXTRACTION,
               EnginePathRole.PARTIAL_PRODUCER,
               EnumSet.of(ResultAuthority.GROUP_ZERO, ResultAuthority.DEFERRED_CAPTURES),

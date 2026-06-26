@@ -8,8 +8,11 @@ package org.safere;
 import java.util.Arrays;
 
 /**
- * Bit-state backtracking execution engine. Uses explicit stack-based backtracking with a visited
- * bitmap to guarantee O(|prog| &times; |text|) time complexity, preventing exponential blowup.
+ * Hybrid stack-and-recursion bit-state backtracking execution engine.
+ *
+ * <p>Runs the search recursively using the JVM thread call stack for maximum speed, but aborts and
+ * restarts the search iteration using a flat iterative solver if the recursion depth exceeds a
+ * safety limit, avoiding StackOverflowError.
  *
  * <p>The visited bitmap tracks which (instruction, position) pairs have been explored. If a pair
  * has already been visited, it is skipped — this ensures each pair is processed at most once.
@@ -23,6 +26,10 @@ import java.util.Arrays;
  *   <li>Submatch (capture group) information is needed.
  * </ul>
  *
+ * <p>Can hot-swap to a flat iterative matching loop if a spill occurs to prevent recursion/spill
+ * overhead on the remainder of the search, or can always run in iterative fallback mode if
+ * configured via {@link EnginePathOptions}.
+ *
  * <p>This is a port of RE2's {@code bitstate.cc}, adapted for Java's Unicode code point model.
  */
 final class BitState {
@@ -32,6 +39,9 @@ final class BitState {
 
   /** Maximum BitState jobs to run per instruction/position slot before falling back to NFA. */
   private static final int MAX_WORK_PER_SLOT = 8;
+
+  /** Maximum depth of recursive call stack before spilling and restarting iteratively. */
+  private static final int MAX_RECURSION_DEPTH = 512;
 
   /**
    * Returns the maximum text length (in chars) for which BitState can be used with the given
@@ -175,11 +185,12 @@ final class BitState {
 
     int ncap = 2 * Math.max(nsubmatch, 1);
     BitState bs;
+    EnginePathOptions options = EnginePathOptions.allEnabled();
     if (cached != null && cached.canReuse(prog, text, ncap)) {
       bs = cached;
-      bs.reset(text, textLen, ncap, longest, endMatch);
+      bs.reset(text, textLen, ncap, longest, endMatch, options);
     } else {
-      bs = new BitState(prog, text, ncap, longest, endMatch);
+      bs = new BitState(prog, text, ncap, longest, endMatch, options);
     }
 
     return bs.doSearch(startPos, searchLimit, anchored, resultBuffer);
@@ -196,53 +207,15 @@ final class BitState {
       int endPos,
       int ncap,
       boolean longest,
-      boolean endMatch) {
+      boolean endMatch,
+      EnginePathOptions options) {
     if (cached != null && cached.canReuse(prog, text, ncap)) {
-      cached.reset(text, endPos, ncap, longest, endMatch);
+      cached.reset(text, endPos, ncap, longest, endMatch, options);
       return cached;
     }
-    BitState bs = new BitState(prog, text, ncap, longest, endMatch);
+    BitState bs = new BitState(prog, text, ncap, longest, endMatch, options);
     bs.endPos = endPos;
     return bs;
-  }
-
-  /**
-   * Runs the bit-state search from the given start position.
-   *
-   * @param startPos the char index at which to begin searching
-   * @param searchLimit upper bound on start positions to try
-   * @param anchored if true, match must start at {@code startPos}
-   * @return submatch positions, or null if no match
-   */
-  int[] doSearch(int startPos, int searchLimit, boolean anchored) {
-    return doSearch(startPos, searchLimit, anchored, null);
-  }
-
-  /**
-   * Runs the bit-state search from the given start position, writing successful captures into
-   * {@code resultBuffer} when it is large enough.
-   */
-  int[] doSearch(int startPos, int searchLimit, boolean anchored, int[] resultBuffer) {
-    budgetExceeded = false;
-    stepCount = 0;
-    stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (endPos + 1));
-    bestMatch = null;
-    matchResult =
-        resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
-    int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
-    for (int searchStart = startPos; searchStart < limit; searchStart++) {
-      if (trySearch(prog.start(), searchStart)) {
-        return bestMatch;
-      }
-      if (budgetExceeded) {
-        return null;
-      }
-      if (searchStart < textLen) {
-        int cp = text.codePointAt(searchStart);
-        searchStart += Character.charCount(cp) - 1;
-      }
-    }
-    return null;
   }
 
   // -------------------------------------------------------------------------
@@ -257,6 +230,7 @@ final class BitState {
   private boolean endMatch;
   private int ncap;
   private GraphemeSupport.Context graphemeContext;
+  private EnginePathOptions options;
 
   /**
    * Visited bitmap: bit {@code (instId * textSlots + pos)} tracks whether the given (instruction,
@@ -282,19 +256,30 @@ final class BitState {
   /** Caller-owned or BitState-owned array that receives successful capture results. */
   private int[] matchResult;
 
+  /** True if a match was found in the current search. */
+  private boolean matched;
+
   /** Work-budget accounting for falling back when BitState backtracking is too expensive. */
   private long stepBudget;
 
   private long stepCount;
   private boolean budgetExceeded;
 
-  /** Explicit job stack for backtracking. */
-  private int[] jobInstId;
+  /** Explicit job stack for backtracking spilled jobs. Compacted to single long values. */
+  private long[] jobStack;
 
-  private int[] jobPos;
   private int jobCount;
 
-  private BitState(Prog prog, String text, int ncap, boolean longest, boolean endMatch) {
+  /** Spillage hot-swap control state. */
+  private boolean useIterativeFallback;
+
+  private BitState(
+      Prog prog,
+      String text,
+      int ncap,
+      boolean longest,
+      boolean endMatch,
+      EnginePathOptions options) {
     this.prog = prog;
     this.text = text;
     this.textLen = text.length();
@@ -305,6 +290,7 @@ final class BitState {
     this.textSlots = textLen + 1;
     this.cycleAlts = prog.epsilonCycleAlts();
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
+    this.options = options;
 
     int totalBits = prog.size() * textSlots;
     int visitedLen = (totalBits + 63) / 64;
@@ -318,251 +304,85 @@ final class BitState {
       Arrays.fill(loopRegs, -1);
     }
 
-    int maxJobs = Math.min(totalBits, 4096);
-    this.jobInstId = new int[maxJobs];
-    this.jobPos = new int[maxJobs];
+    this.jobStack = new long[64];
     this.jobCount = 0;
+
     this.stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (textLen + 1));
     this.stepCount = 0;
     this.budgetExceeded = false;
+    this.matched = false;
+    this.useIterativeFallback = false;
   }
 
-  /**
-   * Returns true if (instId, pos) should be explored; marks epsilon-cycle ALTs as visited.
-   *
-   * <p>Only ALT/ALT_MATCH instructions that participate in epsilon cycles use the visited bitmap.
-   * An epsilon cycle is a path from an ALT back to itself through only epsilon transitions (ALT,
-   * NOP, CAPTURE, EMPTY_WIDTH) — without any CHAR_RANGE to consume input. Only these can cause
-   * infinite loops.
-   *
-   * <p>Non-cycle ALTs can be safely revisited. This is critical for nested quantifiers where an
-   * inner repetition (e.g., {@code .+?}) and an outer repetition (e.g., {@code *}) share the same
-   * ALT entry instruction. If the visited bitmap blocked the shared ALT, the outer repetition could
-   * not re-enter its body, causing a premature match.
-   *
-   * <p>All other instruction types are always revisitable:
-   *
-   * <ul>
-   *   <li>MATCH — terminal, no outgoing edges
-   *   <li>FAIL — terminal, no outgoing edges
-   *   <li>CAPTURE, NOP, EMPTY_WIDTH — epsilon with a single outgoing edge, cannot form cycles alone
-   *   <li>CHAR_RANGE — consumes input (advances position), cannot form cycles
-   * </ul>
-   */
-  private boolean shouldVisit(int instId, int pos) {
-    if (!cycleAlts[instId]) {
-      return true; // non-cycle or non-ALT instruction: safe to revisit
-    }
-    // Cycle ALT: use visited bitmap to prevent infinite epsilon loops.
-    int bit = instId * textSlots + pos;
-    int word = bit / 64;
-    long mask = 1L << (bit % 64);
-    if ((visited[word] & mask) != 0) {
-      return false; // already visited
-    }
-    visited[word] |= mask;
-
-    return true;
-  }
-
-  /** Pushes a job onto the stack, growing if needed. */
-  private void push(int instId, int pos) {
-    if (jobCount >= jobInstId.length) {
-      int newLen = jobInstId.length * 2;
-      jobInstId = Arrays.copyOf(jobInstId, newLen);
-      jobPos = Arrays.copyOf(jobPos, newLen);
-    }
-    jobInstId[jobCount] = instId;
-    jobPos[jobCount] = pos;
-    jobCount++;
-  }
-
-  /**
-   * Attempts a search starting from the given instruction and position. Returns true if a match is
-   * found (stored in {@link #bestMatch}).
-   */
-  private boolean trySearch(int startInst, int startPos) {
-    boolean matched = false;
-
-    // Initialize captures and loop registers.
-    Arrays.fill(cap, -1);
-    if (ncap > 0) {
-      cap[0] = startPos;
-    }
-    if (loopRegs.length > 0) {
-      Arrays.fill(loopRegs, -1);
-    }
-
-    // Seed the search.
-    jobCount = 0;
-    if (shouldVisit(startInst, startPos)) {
-      push(startInst, startPos);
-    }
-
-    while (jobCount > 0) {
-      WorkCounter.record();
-      if (++stepCount > stepBudget) {
-        budgetExceeded = true;
-        return false;
+  /** Runs the search, coordinating the recursive solver and the iterative fallback engine. */
+  int[] doSearch(int startPos, int searchLimit, boolean anchored, int[] resultBuffer) {
+    budgetExceeded = false;
+    stepCount = 0;
+    stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (endPos + 1));
+    bestMatch = null;
+    matched = false;
+    matchResult =
+        resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
+    int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
+    for (int searchStart = startPos; searchStart < limit; searchStart++) {
+      Arrays.fill(cap, -1);
+      if (ncap > 0) {
+        cap[0] = searchStart;
       }
-      jobCount--;
-      int id = jobInstId[jobCount];
-      int pos = jobPos[jobCount];
+      if (loopRegs.length > 0) {
+        Arrays.fill(loopRegs, -1);
+      }
+      jobCount = 0;
+      useIterativeFallback = !options.bitStateRecursive();
 
-      // Negative IDs are restore sentinels: cap or loopReg restore on backtrack.
-      // Capture sentinels use -(reg+1) where reg < ncap.
-      // Loop-reg sentinels use -(ncap+reg+1) where reg is the loop register index.
-      if (id < 0) {
-        int idx = -id - 1;
-        if (idx < ncap) {
-          cap[idx] = pos;
-        } else {
-          loopRegs[idx - ncap] = pos;
+      if (!useIterativeFallback && shouldVisit(prog.start(), searchStart)) {
+        if (walkRecursive(prog.start(), searchStart, 0)) {
+          return bestMatch;
         }
-        continue;
       }
 
-      Inst ip = prog.inst(id);
-      switch (ip.opCode) {
-        case InstOp.OP_FAIL -> {}
+      if (useIterativeFallback) {
+        // Reset state for clean iterative rerun
+        int totalBits = prog.size() * textSlots;
+        int usedLen = (totalBits + 63) / 64;
+        Arrays.fill(visited, 0, usedLen, 0L);
+        Arrays.fill(cap, -1);
+        if (ncap > 0) {
+          cap[0] = searchStart;
+        }
+        if (loopRegs.length > 0) {
+          Arrays.fill(loopRegs, -1);
+        }
+        jobCount = 0;
+        matched = false;
+        bestMatch = null;
 
-        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
-          // Push second alternative first (it will be tried if first fails).
-          if (shouldVisit(ip.out1, pos)) {
-            push(ip.out1, pos);
+        if (shouldVisit(prog.start(), searchStart)) {
+          pushIterative(prog.start(), searchStart);
+          runIterativeLoop();
+          if (budgetExceeded) {
+            return null;
           }
-          // Then push first alternative (tried first due to stack LIFO).
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
+          if (matched && !longest) {
+            return bestMatch;
           }
         }
+      }
 
-        case InstOp.OP_NOP -> {
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
-          }
-        }
-
-        case InstOp.OP_CAPTURE -> {
-          int reg = ip.arg;
-          if (reg < ncap) {
-            // Push restore sentinel: if we backtrack past this, undo the capture.
-            push(-(reg + 1), cap[reg]);
-            cap[reg] = pos;
-          }
-          if (shouldVisit(ip.out, pos)) {
-            push(ip.out, pos);
-          }
-        }
-
-        case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags =
-              Nfa.emptyFlags(
-                  text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
-          if ((ip.arg & ~curFlags) == 0) {
-            if (shouldVisit(ip.out, pos)) {
-              push(ip.out, pos);
-            }
-          }
-        }
-
-        case InstOp.OP_PROGRESS_CHECK -> {
-          int reg = ip.arg;
-          int saved = loopRegs[reg];
-          if (saved == -1) {
-            // First visit: must enter body at least once (plus semantics).
-            push(-(ncap + reg + 1), saved);
-            loopRegs[reg] = pos;
-            if (shouldVisit(ip.out, pos)) {
-              push(ip.out, pos);
-            }
-          } else if (saved == pos) {
-            // Zero-width body match: only exit.
-            if (shouldVisit(ip.out1, pos)) {
-              push(ip.out1, pos);
-            }
-          } else {
-            // Progress: save and push both paths like ALT.
-            push(-(ncap + reg + 1), saved);
-            loopRegs[reg] = pos;
-            boolean nonGreedy = ip.foldCase;
-            if (nonGreedy) {
-              // Non-greedy: prefer exit. Push body first (lower pri), exit second (higher pri).
-              if (shouldVisit(ip.out, pos)) {
-                push(ip.out, pos);
-              }
-              if (shouldVisit(ip.out1, pos)) {
-                push(ip.out1, pos);
-              }
-            } else {
-              // Greedy: prefer body. Push exit first (lower pri), body second (higher pri).
-              if (shouldVisit(ip.out1, pos)) {
-                push(ip.out1, pos);
-              }
-              if (shouldVisit(ip.out, pos)) {
-                push(ip.out, pos);
-              }
-            }
-          }
-        }
-
-        case InstOp.OP_CHAR_RANGE -> {
-          if (pos < endPos) {
-            int cp = text.codePointAt(pos);
-            if (ip.matchesChar(cp)) {
-              int nextPos = pos + Character.charCount(cp);
-              if (shouldVisit(ip.out, nextPos)) {
-                push(ip.out, nextPos);
-              }
-            }
-          }
-        }
-
-        case InstOp.OP_CHAR_CLASS -> {
-          if (pos < endPos) {
-            int cp = text.codePointAt(pos);
-            if (ip.matchesCharClass(cp)) {
-              int nextPos = pos + Character.charCount(cp);
-              if (shouldVisit(ip.out, nextPos)) {
-                push(ip.out, nextPos);
-              }
-            }
-          }
-        }
-
-        case InstOp.OP_MATCH -> {
-          if (endMatch && pos != endPos) {
-            // $ (dollarAnchorEnd) allows ending before a trailing line terminator at the actual
-            // text end. Use text.length() (not endPos) because dollarAnchorEnd is a property of
-            // the text boundary, not the search range.
-            if (!prog.dollarAnchorEnd()
-                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
-              break; // must match at the end boundary
-            }
-          }
-          if (ncap > 1) {
-            cap[1] = pos; // match end
-          }
-
-          if (!matched || (longest && pos > bestMatch[1])) {
-            matched = true;
-            System.arraycopy(cap, 0, matchResult, 0, ncap);
-            bestMatch = matchResult;
-          }
-
-          if (!longest) {
-            return true; // first match is sufficient
-          }
-        }
-
-        default -> {}
+      if (budgetExceeded) {
+        return null;
+      }
+      if (matched) {
+        return bestMatch;
+      }
+      if (searchStart < textLen) {
+        int cp = text.codePointAt(searchStart);
+        searchStart += Character.charCount(cp) - 1;
       }
     }
-
-    return matched;
+    return null;
   }
 
-  /** Returns whether the previous search stopped because BitState exceeded its work budget. */
   boolean budgetExceeded() {
     return budgetExceeded;
   }
@@ -580,14 +400,20 @@ final class BitState {
     int requiredVisitedLen = (totalBits + 63) / 64;
     return visited.length >= requiredVisitedLen
         && cap.length >= ncap
-        && jobInstId.length >= Math.min(totalBits, 4096);
+        && jobStack.length >= Math.min(totalBits, 4096);
   }
 
   /**
    * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
    * reallocating. The caller must verify {@link #canReuse} first.
    */
-  private void reset(String text, int endPos, int ncap, boolean longest, boolean endMatch) {
+  private void reset(
+      String text,
+      int endPos,
+      int ncap,
+      boolean longest,
+      boolean endMatch,
+      EnginePathOptions options) {
     this.text = text;
     this.textLen = text.length();
     this.endPos = endPos;
@@ -596,14 +422,370 @@ final class BitState {
     this.ncap = ncap;
     this.textSlots = textLen + 1;
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
+    this.options = options;
     this.bestMatch = null;
+    this.matched = false;
     this.jobCount = 0;
+    this.useIterativeFallback = false;
     int totalBits = prog.size() * textSlots;
     int usedLen = (totalBits + 63) / 64;
     Arrays.fill(visited, 0, usedLen, 0L);
     Arrays.fill(cap, 0, ncap, -1);
     if (loopRegs.length > 0) {
       Arrays.fill(loopRegs, -1);
+    }
+  }
+
+  /** Returns true if (instId, pos) should be explored; marks epsilon-cycle ALTs as visited. */
+  private boolean shouldVisit(int instId, int pos) {
+    if (!cycleAlts[instId]) {
+      return true; // non-cycle or non-ALT instruction: safe to revisit
+    }
+    int bit = instId * textSlots + pos;
+    int word = bit / 64;
+    long mask = 1L << (bit % 64);
+    if ((visited[word] & mask) != 0) {
+      return false; // already visited
+    }
+    visited[word] |= mask;
+    return true;
+  }
+
+  /** Pushes a job onto the iterative backtracking stack (uses restore sentinels). */
+  private void pushIterative(int instId, int pos) {
+    if (jobCount >= jobStack.length) {
+      int newLen = jobStack.length * 2;
+      jobStack = Arrays.copyOf(jobStack, newLen);
+    }
+    jobStack[jobCount] = ((long) pos << 32) | (instId & 0xFFFFFFFFL);
+    jobCount++;
+  }
+
+  /** Runs search recursively on the JVM call stack for optimal latency. */
+  private boolean walkRecursive(int id, int pos, int depth) {
+    if (budgetExceeded || useIterativeFallback) {
+      return false;
+    }
+    if (++stepCount > stepBudget) {
+      budgetExceeded = true;
+      return false;
+    }
+    if (depth > MAX_RECURSION_DEPTH) {
+      useIterativeFallback = true;
+      return false;
+    }
+
+    Inst ip = prog.inst(id);
+    switch (ip.opCode) {
+      case InstOp.OP_FAIL -> {
+        return false;
+      }
+
+      case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+        boolean visitedOut1 = !shouldVisit(ip.out1, pos);
+        if (shouldVisit(ip.out, pos)) {
+          if (walkRecursive(ip.out, pos, depth + 1)) {
+            return true;
+          }
+        }
+        if (!visitedOut1) {
+          return walkRecursive(ip.out1, pos, depth + 1);
+        }
+        return false;
+      }
+
+      case InstOp.OP_NOP -> {
+        if (shouldVisit(ip.out, pos)) {
+          return walkRecursive(ip.out, pos, depth + 1);
+        }
+        return false;
+      }
+
+      case InstOp.OP_CAPTURE -> {
+        int reg = ip.arg;
+        int oldVal = -1;
+        if (reg < ncap) {
+          oldVal = cap[reg];
+          cap[reg] = pos;
+        }
+        if (shouldVisit(ip.out, pos)) {
+          if (walkRecursive(ip.out, pos, depth + 1)) {
+            return true;
+          }
+        }
+        if (reg < ncap && !useIterativeFallback) {
+          cap[reg] = oldVal; // restore capture register on backtrack
+        }
+        return false;
+      }
+
+      case InstOp.OP_EMPTY_WIDTH -> {
+        int curFlags =
+            Nfa.emptyFlags(
+                text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
+        if ((ip.arg & ~curFlags) == 0) {
+          if (shouldVisit(ip.out, pos)) {
+            return walkRecursive(ip.out, pos, depth + 1);
+          }
+        }
+        return false;
+      }
+
+      case InstOp.OP_PROGRESS_CHECK -> {
+        int reg = ip.arg;
+        int saved = loopRegs[reg];
+        if (saved == -1) {
+          // First visit: must enter body at least once.
+          loopRegs[reg] = pos;
+          if (shouldVisit(ip.out, pos)) {
+            if (walkRecursive(ip.out, pos, depth + 1)) {
+              return true;
+            }
+          }
+          if (!useIterativeFallback) {
+            loopRegs[reg] = -1;
+          }
+          return false;
+        } else if (saved == pos) {
+          // Zero-width body match: only exit.
+          if (shouldVisit(ip.out1, pos)) {
+            return walkRecursive(ip.out1, pos, depth + 1);
+          }
+          return false;
+        } else {
+          // Progress: save and push both paths like ALT.
+          loopRegs[reg] = pos;
+          boolean nonGreedy = ip.foldCase;
+          if (nonGreedy) {
+            // Non-greedy: prefer exit. Pre-mark body to prune duplicate paths.
+            boolean visitedOut = !shouldVisit(ip.out, pos);
+            if (shouldVisit(ip.out1, pos)) {
+              if (walkRecursive(ip.out1, pos, depth + 1)) {
+                return true;
+              }
+            }
+            if (!visitedOut && !useIterativeFallback) {
+              if (walkRecursive(ip.out, pos, depth + 1)) {
+                return true;
+              }
+            }
+          } else {
+            // Greedy: prefer body. Pre-mark exit to prune duplicate paths.
+            boolean visitedOut1 = !shouldVisit(ip.out1, pos);
+            if (shouldVisit(ip.out, pos)) {
+              if (walkRecursive(ip.out, pos, depth + 1)) {
+                return true;
+              }
+            }
+            if (!visitedOut1 && !useIterativeFallback) {
+              if (walkRecursive(ip.out1, pos, depth + 1)) {
+                return true;
+              }
+            }
+          }
+          if (!useIterativeFallback) {
+            loopRegs[reg] = saved;
+          }
+          return false;
+        }
+      }
+
+      case InstOp.OP_CHAR_RANGE -> {
+        if (pos < endPos) {
+          int cp = text.codePointAt(pos);
+          if (ip.matchesChar(cp)) {
+            int nextPos = pos + Character.charCount(cp);
+            if (shouldVisit(ip.out, nextPos)) {
+              return walkRecursive(ip.out, nextPos, depth + 1);
+            }
+          }
+        }
+        return false;
+      }
+
+      case InstOp.OP_CHAR_CLASS -> {
+        if (pos < endPos) {
+          int cp = text.codePointAt(pos);
+          if (ip.matchesCharClass(cp)) {
+            int nextPos = pos + Character.charCount(cp);
+            if (shouldVisit(ip.out, nextPos)) {
+              return walkRecursive(ip.out, nextPos, depth + 1);
+            }
+          }
+        }
+        return false;
+      }
+
+      case InstOp.OP_MATCH -> {
+        if (endMatch && pos != endPos) {
+          if (!prog.dollarAnchorEnd()
+              || !Nfa.isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
+            return false;
+          }
+        }
+        if (ncap > 1) {
+          cap[1] = pos;
+        }
+        if (!matched || (longest && pos > bestMatch[1])) {
+          matched = true;
+          System.arraycopy(cap, 0, matchResult, 0, ncap);
+          bestMatch = matchResult;
+        }
+        return !longest;
+      }
+
+      default -> {
+        return false;
+      }
+    }
+  }
+
+  /** Consumes jobStack iteratively to resolve remaining matching paths without recursion. */
+  private void runIterativeLoop() {
+    while (jobCount > 0) {
+      if (++stepCount > stepBudget) {
+        budgetExceeded = true;
+        return;
+      }
+      jobCount--;
+      long job = jobStack[jobCount];
+      int id = (int) job;
+      int pos = (int) (job >>> 32);
+
+      if (id < 0) {
+        int idx = -id - 1;
+        if (idx < ncap) {
+          cap[idx] = pos;
+        } else {
+          loopRegs[idx - ncap] = pos;
+        }
+        continue;
+      }
+
+      Inst ip = prog.inst(id);
+      switch (ip.opCode) {
+        case InstOp.OP_FAIL -> {}
+
+        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
+          if (shouldVisit(ip.out1, pos)) {
+            pushIterative(ip.out1, pos);
+          }
+          if (shouldVisit(ip.out, pos)) {
+            pushIterative(ip.out, pos);
+          }
+        }
+
+        case InstOp.OP_NOP -> {
+          if (shouldVisit(ip.out, pos)) {
+            pushIterative(ip.out, pos);
+          }
+        }
+
+        case InstOp.OP_CAPTURE -> {
+          int reg = ip.arg;
+          if (reg < ncap) {
+            pushIterative(-(reg + 1), cap[reg]);
+            cap[reg] = pos;
+          }
+          if (shouldVisit(ip.out, pos)) {
+            pushIterative(ip.out, pos);
+          }
+        }
+
+        case InstOp.OP_EMPTY_WIDTH -> {
+          int curFlags =
+              Nfa.emptyFlags(
+                  text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
+          if ((ip.arg & ~curFlags) == 0) {
+            if (shouldVisit(ip.out, pos)) {
+              pushIterative(ip.out, pos);
+            }
+          }
+        }
+
+        case InstOp.OP_PROGRESS_CHECK -> {
+          int reg = ip.arg;
+          int saved = loopRegs[reg];
+          if (saved == -1) {
+            pushIterative(-(ncap + reg + 1), saved);
+            loopRegs[reg] = pos;
+            if (shouldVisit(ip.out, pos)) {
+              pushIterative(ip.out, pos);
+            }
+          } else if (saved == pos) {
+            if (shouldVisit(ip.out1, pos)) {
+              pushIterative(ip.out1, pos);
+            }
+          } else {
+            pushIterative(-(ncap + reg + 1), saved);
+            loopRegs[reg] = pos;
+            boolean nonGreedy = ip.foldCase;
+            if (nonGreedy) {
+              if (shouldVisit(ip.out, pos)) {
+                pushIterative(ip.out, pos);
+              }
+              if (shouldVisit(ip.out1, pos)) {
+                pushIterative(ip.out1, pos);
+              }
+            } else {
+              if (shouldVisit(ip.out1, pos)) {
+                pushIterative(ip.out1, pos);
+              }
+              if (shouldVisit(ip.out, pos)) {
+                pushIterative(ip.out, pos);
+              }
+            }
+          }
+        }
+
+        case InstOp.OP_CHAR_RANGE -> {
+          if (pos < endPos) {
+            int cp = text.codePointAt(pos);
+            if (ip.matchesChar(cp)) {
+              int nextPos = pos + Character.charCount(cp);
+              if (shouldVisit(ip.out, nextPos)) {
+                pushIterative(ip.out, nextPos);
+              }
+            }
+          }
+        }
+
+        case InstOp.OP_CHAR_CLASS -> {
+          if (pos < endPos) {
+            int cp = text.codePointAt(pos);
+            if (ip.matchesCharClass(cp)) {
+              int nextPos = pos + Character.charCount(cp);
+              if (shouldVisit(ip.out, nextPos)) {
+                pushIterative(ip.out, nextPos);
+              }
+            }
+          }
+        }
+
+        case InstOp.OP_MATCH -> {
+          if (endMatch && pos != endPos) {
+            if (!prog.dollarAnchorEnd()
+                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
+              break;
+            }
+          }
+          if (ncap > 1) {
+            cap[1] = pos;
+          }
+
+          if (!matched || (longest && pos > bestMatch[1])) {
+            matched = true;
+            System.arraycopy(cap, 0, matchResult, 0, ncap);
+            bestMatch = matchResult;
+          }
+
+          if (!longest) {
+            return;
+          }
+        }
+
+        default -> {}
+      }
     }
   }
 }

@@ -1884,7 +1884,14 @@ public final class Matcher implements MatchResult {
       }
       BitState bs =
           BitState.getOrCreate(
-              cachedBitState, prog, text, endPos, ncap, longest, endMatchEffective);
+              cachedBitState,
+              prog,
+              text,
+              endPos,
+              ncap,
+              longest,
+              endMatchEffective,
+              enginePathOptions());
       if (bitStateResult == null || bitStateResult.length < ncap) {
         bitStateResult = new int[ncap];
       }

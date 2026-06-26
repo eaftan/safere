@@ -174,6 +174,15 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  @DisplayName("Iterative BitState fallback matches the canonical recursive BitState trace")
+  void iterativeBitStateFallbackMatchesCanonicalTrace() {
+    assertEquivalent(
+        "(a|aa)*b",
+        "aaaaab",
+        EnginePathOptions.builder().dfa(false).onePass(false).bitStateRecursive(false).build());
+  }
+
+  @Test
   @DisplayName("lazy capture extraction matches eager capture extraction")
   void lazyCaptureExtractionMatchesEagerCaptureExtraction() {
     assertEquivalent(
