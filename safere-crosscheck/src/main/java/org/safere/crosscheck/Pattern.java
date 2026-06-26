@@ -136,6 +136,11 @@ public final class Pattern implements Serializable {
     return new Matcher(this, input);
   }
 
+  /** Creates a crosscheck {@link Matcher} for the given byte array input. */
+  public Matcher matcher(byte[] input) {
+    return new Matcher(this, input);
+  }
+
   /** Returns the flags this pattern was compiled with. */
   public int flags() {
     return saferePattern.flags();

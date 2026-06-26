@@ -30,11 +30,26 @@ public final class Matcher implements MatchResult {
   private final org.safere.Matcher safereMatcher;
   private final java.util.regex.Matcher jdkMatcher;
   private final TraceRecorder trace = new TraceRecorder();
+  private final byte[] byteInput;
+  private final String stringInput;
+  private final int[] charToByte;
 
   Matcher(Pattern pattern, CharSequence input) {
     this.crosscheckPattern = pattern;
     this.safereMatcher = pattern.saferePattern().matcher(input);
     this.jdkMatcher = pattern.jdkPattern().matcher(input);
+    this.byteInput = null;
+    this.stringInput = input.toString();
+    this.charToByte = null;
+  }
+
+  Matcher(Pattern pattern, byte[] input) {
+    this.crosscheckPattern = pattern;
+    this.safereMatcher = pattern.saferePattern().matcher(input);
+    this.stringInput = new String(input, java.nio.charset.StandardCharsets.UTF_8);
+    this.jdkMatcher = pattern.jdkPattern().matcher(stringInput);
+    this.byteInput = input;
+    this.charToByte = stringInput.length() == byteInput.length ? null : computeCharToByteMap(stringInput);
   }
 
   // ---------------------------------------------------------------------------
@@ -118,11 +133,38 @@ public final class Matcher implements MatchResult {
     return sr;
   }
 
+  /** Returns the byte representation of the input subsequence matched by the previous match. */
+  public byte[] groupBytes() {
+    byte[] sr = safereMatcher.groupBytes();
+    String jrString = jdkMatcher.group();
+    byte[] jr = jrString == null ? null : jrString.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    checkEqualBytes("groupBytes", "", sr, jr);
+    return sr;
+  }
+
+  /** Returns the byte representation of the input subsequence captured by the given group. */
+  public byte[] groupBytes(int group) {
+    byte[] sr = safereMatcher.groupBytes(group);
+    String jrString = jdkMatcher.group(group);
+    byte[] jr = jrString == null ? null : jrString.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    checkEqualBytes("groupBytes", String.valueOf(group), sr, jr);
+    return sr;
+  }
+
+  /** Returns the byte representation of the input subsequence captured by the given named group. */
+  public byte[] groupBytes(String name) {
+    byte[] sr = safereMatcher.groupBytes(name);
+    String jrString = jdkMatcher.group(name);
+    byte[] jr = jrString == null ? null : jrString.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    checkEqualBytes("groupBytes", quote(name), sr, jr);
+    return sr;
+  }
+
   /** Returns the start index of the previous match (group 0). */
   @Override
   public int start() {
     int sr = safereMatcher.start();
-    int jr = jdkMatcher.start();
+    int jr = jdkIndexToByteIndex(jdkMatcher.start());
     checkEqual("start", "", sr, jr);
     return sr;
   }
@@ -131,7 +173,7 @@ public final class Matcher implements MatchResult {
   @Override
   public int start(int group) {
     int sr = safereMatcher.start(group);
-    int jr = jdkMatcher.start(group);
+    int jr = jdkIndexToByteIndex(jdkMatcher.start(group));
     checkEqual("start", String.valueOf(group), sr, jr);
     return sr;
   }
@@ -139,7 +181,7 @@ public final class Matcher implements MatchResult {
   /** Returns the start index of the given named group. */
   public int start(String name) {
     int sr = safereMatcher.start(name);
-    int jr = jdkMatcher.start(name);
+    int jr = jdkIndexToByteIndex(jdkMatcher.start(name));
     checkEqual("start", quote(name), sr, jr);
     return sr;
   }
@@ -148,7 +190,7 @@ public final class Matcher implements MatchResult {
   @Override
   public int end() {
     int sr = safereMatcher.end();
-    int jr = jdkMatcher.end();
+    int jr = jdkIndexToByteIndex(jdkMatcher.end());
     checkEqual("end", "", sr, jr);
     return sr;
   }
@@ -157,7 +199,7 @@ public final class Matcher implements MatchResult {
   @Override
   public int end(int group) {
     int sr = safereMatcher.end(group);
-    int jr = jdkMatcher.end(group);
+    int jr = jdkIndexToByteIndex(jdkMatcher.end(group));
     checkEqual("end", String.valueOf(group), sr, jr);
     return sr;
   }
@@ -165,7 +207,7 @@ public final class Matcher implements MatchResult {
   /** Returns the end index (exclusive) of the given named group. */
   public int end(String name) {
     int sr = safereMatcher.end(name);
-    int jr = jdkMatcher.end(name);
+    int jr = jdkIndexToByteIndex(jdkMatcher.end(name));
     checkEqual("end", quote(name), sr, jr);
     return sr;
   }
@@ -425,14 +467,14 @@ public final class Matcher implements MatchResult {
    */
   private void checkMatchState(String context) {
     int srStart = safereMatcher.start();
-    int jrStart = jdkMatcher.start();
+    int jrStart = jdkIndexToByteIndex(jdkMatcher.start());
     if (srStart != jrStart) {
       trace.recordDivergence(context + ".start", "", srStart, jrStart);
       throwDivergence(context + " → start()", "", srStart, jrStart);
     }
 
     int srEnd = safereMatcher.end();
-    int jrEnd = jdkMatcher.end();
+    int jrEnd = jdkIndexToByteIndex(jdkMatcher.end());
     if (srEnd != jrEnd) {
       trace.recordDivergence(context + ".end", "", srEnd, jrEnd);
       throwDivergence(context + " → end()", "", srEnd, jrEnd);
@@ -473,6 +515,16 @@ public final class Matcher implements MatchResult {
     trace.recordMatch(method, args, sr);
   }
 
+  private void checkEqualBytes(String method, String args, byte[] sr, byte[] jr) {
+    if (!java.util.Arrays.equals(sr, jr)) {
+      String srStr = java.util.Arrays.toString(sr);
+      String jrStr = java.util.Arrays.toString(jr);
+      trace.recordDivergence(method, args, srStr, jrStr);
+      throwDivergence(method, args, srStr, jrStr);
+    }
+    trace.recordMatch(method, args, java.util.Arrays.toString(sr));
+  }
+
   private void checkMatchResult(String context, MatchResult sr, MatchResult jr) {
     checkEqual(context + ".start", "", sr.start(), jr.start());
     checkEqual(context + ".end", "", sr.end(), jr.end());
@@ -497,6 +549,44 @@ public final class Matcher implements MatchResult {
   private void throwDivergence(String method, String args, Object sr, Object jr) {
     throw new CrosscheckException(
         method, args, Objects.toString(sr), Objects.toString(jr), trace.format());
+  }
+
+  private static int[] computeCharToByteMap(String str) {
+    int len = str.length();
+    int[] map = new int[len + 1];
+    map[0] = 0;
+    for (int i = 0; i < len; i++) {
+      char c = str.charAt(i);
+      int size;
+      if (c <= 0x7F) {
+        size = 1;
+      } else if (c <= 0x7FF) {
+        size = 2;
+      } else if (Character.isHighSurrogate(c)) {
+        if (i + 1 < len && Character.isLowSurrogate(str.charAt(i + 1))) {
+          map[i + 1] = map[i] + 3;
+          map[i + 2] = map[i] + 4;
+          i++;
+          continue;
+        } else {
+          size = 3;
+        }
+      } else {
+        size = 3;
+      }
+      map[i + 1] = map[i] + size;
+    }
+    return map;
+  }
+
+  private int jdkIndexToByteIndex(int charIndex) {
+    if (charToByte == null || charIndex < 0) {
+      return charIndex;
+    }
+    if (charIndex >= charToByte.length) {
+      return charToByte[charToByte.length - 1];
+    }
+    return charToByte[charIndex];
   }
 
   private static String quote(CharSequence s) {
