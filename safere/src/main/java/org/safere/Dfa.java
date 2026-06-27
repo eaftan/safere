@@ -146,10 +146,21 @@ final class Dfa {
   private final int numClasses;
 
   /**
-   * Fast BMP-to-class lookup table. For characters 0–65535, bmpClassMap[ch] gives the class
-   * directly.
+   * Fast code point to class index lookup table. For ASCII-only patterns, classMap is of size
+   * 128 (covering ASCII characters 0–127). For Unicode-enabled patterns, classMap is of size
+   * 65536 (covering BMP characters 0–65535).
    */
-  private final char[] bmpClassMap;
+  private final char[] classMap;
+
+  /**
+   * Default class for non-ASCII characters when the pattern is ASCII-only (equals boundaries.length - 2).
+   */
+  private final int defaultNonAsciiClass;
+
+  /**
+   * Fast path character limit to avoid matching surrogates inside the optimized lookup loops.
+   */
+  private final int fastPathLimit;
 
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
@@ -203,7 +214,7 @@ final class Dfa {
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  record Setup(int[] boundaries, int numClasses, char[] bmpClassMap) {}
+  record Setup(int[] boundaries, int numClasses, char[] classMap) {}
 
   /**
    * Builds a reusable {@link Setup} from a compiled program. The result is immutable and can be
@@ -212,8 +223,9 @@ final class Dfa {
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
-    char[] bmpClassMap = buildBmpClassMap(boundaries);
-    return new Setup(boundaries, numClasses, bmpClassMap);
+    boolean hasNonAsciiBoundaries = (boundaries.length > 2) && (boundaries[boundaries.length - 2] > 128);
+    char[] classMap = hasNonAsciiBoundaries ? buildBmpClassMap(boundaries) : buildAsciiClassMap(boundaries);
+    return new Setup(boundaries, numClasses, classMap);
   }
 
   Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
@@ -235,7 +247,9 @@ final class Dfa {
     this.startStateByContext = new State[anchoredCacheBit << 1];
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
-    this.bmpClassMap = setup.bmpClassMap;
+    this.classMap = setup.classMap;
+    this.defaultNonAsciiClass = boundaries.length - 2;
+    this.fastPathLimit = Math.min(classMap.length, 0xD800);
     this.expandVisitedGen = new int[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
@@ -359,13 +373,37 @@ final class Dfa {
     return bmpClassMap;
   }
 
+  /**
+   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence
+   * class indices. This avoids binary search for the most common characters.
+   */
+  private static char[] buildAsciiClassMap(int[] boundaries) {
+    char[] map = new char[128];
+    int classIdx = 0;
+    int boundariesLen = boundaries.length;
+    for (int ch = 0; ch < 128; ch++) {
+      while (classIdx < boundariesLen && ch > boundaries[classIdx]) {
+        classIdx++;
+      }
+      if (classIdx < boundariesLen && ch == boundaries[classIdx]) {
+        map[ch] = (char) classIdx;
+      } else {
+        map[ch] = (char) (classIdx - 1);
+      }
+    }
+    return map;
+  }
+
   /** Maps a code point (or -1 for end-of-text) to its equivalence class index. */
   private int classOf(int cp) {
     if (cp < 0) {
       return numClasses - 1;
     }
-    if (cp < 65536) {
-      return bmpClassMap[cp];
+    if (cp < classMap.length) {
+      return classMap[cp];
+    }
+    if (classMap.length == 128) {
+      return defaultNonAsciiClass;
     }
     int idx = Arrays.binarySearch(boundaries, cp);
     if (idx >= 0) {
@@ -1131,20 +1169,20 @@ final class Dfa {
       int cls;
       if (pos < textLen) {
         char ch = text.charAt(pos);
-        if (ch < 0xD800) { // ASCII & CJK fast-path
+        if (ch < fastPathLimit) {
           cp = ch;
           nextPos = pos + 1;
-          cls = bmpClassMap[ch];
+          cls = classMap[ch];
         } else if (Character.isHighSurrogate(ch)
             && pos + 1 < textLen
             && Character.isLowSurrogate(text.charAt(pos + 1))) {
           cp = Character.toCodePoint(ch, text.charAt(pos + 1));
           nextPos = pos + 2;
           cls = classOf(cp);
-        } else { // Lone surrogates and characters >= 0xE000
+        } else { // Lone surrogates and characters >= 65536 (or >= 128 for ASCII-only pattern)
           cp = ch;
           nextPos = pos + 1;
-          cls = bmpClassMap[ch];
+          cls = (classMap.length == 128) ? defaultNonAsciiClass : classMap[ch];
         }
       } else {
         cp = -1;
@@ -1286,10 +1324,10 @@ final class Dfa {
       if (pos > 0) {
         // Read the code point just before pos (scanning backward).
         char ch = text.charAt(pos - 1);
-        if (ch < 0xD800) { // ASCII & CJK fast-path
+        if (ch < fastPathLimit) {
           cp = ch;
           prevPos = pos - 1;
-          cls = bmpClassMap[ch];
+          cls = classMap[ch];
         } else if (Character.isLowSurrogate(ch)
             && pos - 2 >= startLimit
             && Character.isHighSurrogate(text.charAt(pos - 2))) {
@@ -1297,10 +1335,10 @@ final class Dfa {
           cp = Character.toCodePoint(text.charAt(pos - 2), ch);
           prevPos = pos - 2;
           cls = classOf(cp);
-        } else { // Lone surrogates and characters >= 0xE000
+        } else { // Lone surrogates and characters >= 65536 (or >= 128 for ASCII-only pattern)
           cp = ch;
           prevPos = pos - 1;
-          cls = bmpClassMap[ch];
+          cls = (classMap.length == 128) ? defaultNonAsciiClass : classMap[ch];
         }
       } else {
         // Reached the start limit — present end-of-text to the reversed DFA.
@@ -1422,20 +1460,20 @@ final class Dfa {
         int cls;
         if (pos < textLen) {
           char ch = text.charAt(pos);
-          if (ch < 0xD800) { // ASCII & CJK fast-path
+          if (ch < fastPathLimit) {
             cp = ch;
             nextPos = pos + 1;
-            cls = bmpClassMap[ch];
+            cls = classMap[ch];
           } else if (Character.isHighSurrogate(ch)
               && pos + 1 < textLen
               && Character.isLowSurrogate(text.charAt(pos + 1))) {
             cp = Character.toCodePoint(ch, text.charAt(pos + 1));
             nextPos = pos + 2;
             cls = classOf(cp);
-          } else { // Lone surrogates and characters >= 0xE000
+          } else { // Lone surrogates and characters >= 65536 (or >= 128 for ASCII-only pattern)
             cp = ch;
             nextPos = pos + 1;
-            cls = bmpClassMap[ch];
+            cls = (classMap.length == 128) ? defaultNonAsciiClass : classMap[ch];
           }
         } else {
           cp = -1;
