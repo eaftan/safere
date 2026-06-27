@@ -212,10 +212,13 @@ final class Dfa {
    * for the same program (e.g., across multiple {@link org.safere.Matcher} instances).
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
-  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
   record Setup(int[] boundaries, int numClasses, char[] classMap, int defaultNonAsciiClass) {
     Setup {
+      // Discard the boundaries array when it is not needed at runtime (i.e. when classMap size
+      // is less than 65536, meaning the pattern's max boundary is small and all out-of-cache
+      // characters map to the same default class). This allows the JVM to reclaim the boundaries
+      // array.
       if (classMap.length < 65536) {
         boundaries = null;
       }
