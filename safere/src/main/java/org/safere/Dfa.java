@@ -212,8 +212,15 @@ final class Dfa {
    * for the same program (e.g., across multiple {@link org.safere.Matcher} instances).
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
+  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  record Setup(int[] boundaries, int numClasses, char[] classMap) {}
+  record Setup(int[] boundaries, int numClasses, char[] classMap, int defaultNonAsciiClass) {
+    Setup {
+      if (classMap.length < 65536) {
+        boundaries = null;
+      }
+    }
+  }
 
   /**
    * Builds a reusable {@link Setup} from a compiled program. The result is immutable and can be
@@ -222,11 +229,11 @@ final class Dfa {
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
-    boolean hasNonAsciiBoundaries =
-        (boundaries.length > 2) && (boundaries[boundaries.length - 2] > 128);
-    char[] classMap =
-        hasNonAsciiBoundaries ? buildBmpClassMap(boundaries) : buildAsciiClassMap(boundaries);
-    return new Setup(boundaries, numClasses, classMap);
+    int maxBoundary = (boundaries.length > 2) ? boundaries[boundaries.length - 2] : 0;
+    int mapSize = Math.clamp(maxBoundary + 1, 128, 65536);
+    char[] classMap = buildClassMap(boundaries, mapSize);
+    int defaultNonAsciiClass = boundaries.length - 2;
+    return new Setup(boundaries, numClasses, classMap, defaultNonAsciiClass);
   }
 
   Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
@@ -249,7 +256,7 @@ final class Dfa {
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.classMap = setup.classMap;
-    this.defaultNonAsciiClass = boundaries.length - 2;
+    this.defaultNonAsciiClass = setup.defaultNonAsciiClass;
     this.fastPathLimit = Math.min(classMap.length, 0xD800);
     this.expandVisitedGen = new int[prog.size()];
     this.expandStack = new int[prog.size()];
@@ -353,36 +360,13 @@ final class Dfa {
   }
 
   /**
-   * Builds a 65536-element lookup table mapping BMP code points (0–65535) to their equivalence
-   * class indices. This avoids binary search for the most common characters (including ASCII and
-   * CJK).
+   * Builds a lookup table mapping code points in [0, size-1] to their equivalence class indices.
    */
-  private static char[] buildBmpClassMap(int[] boundaries) {
-    char[] bmpClassMap = new char[65536];
+  private static char[] buildClassMap(int[] boundaries, int size) {
+    char[] map = new char[size];
     int classIdx = 0;
     int boundariesLen = boundaries.length;
-    for (int ch = 0; ch < 65536; ch++) {
-      while (classIdx < boundariesLen && ch > boundaries[classIdx]) {
-        classIdx++;
-      }
-      if (classIdx < boundariesLen && ch == boundaries[classIdx]) {
-        bmpClassMap[ch] = (char) classIdx;
-      } else {
-        bmpClassMap[ch] = (char) (classIdx - 1);
-      }
-    }
-    return bmpClassMap;
-  }
-
-  /**
-   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence class
-   * indices. This avoids binary search for the most common characters.
-   */
-  private static char[] buildAsciiClassMap(int[] boundaries) {
-    char[] map = new char[128];
-    int classIdx = 0;
-    int boundariesLen = boundaries.length;
-    for (int ch = 0; ch < 128; ch++) {
+    for (int ch = 0; ch < size; ch++) {
       while (classIdx < boundariesLen && ch > boundaries[classIdx]) {
         classIdx++;
       }
@@ -403,8 +387,8 @@ final class Dfa {
     if (cp < classMap.length) {
       return classMap[cp];
     }
-    if (classMap.length == 128) {
-      return defaultNonAsciiClass;
+    if (classMap.length < 65536) {
+      return cp < 0x110000 ? defaultNonAsciiClass : defaultNonAsciiClass + 1;
     }
     int idx = Arrays.binarySearch(boundaries, cp);
     if (idx >= 0) {
@@ -1182,10 +1166,10 @@ final class Dfa {
           cp = Character.toCodePoint(ch, text.charAt(pos + 1));
           nextPos = pos + 2;
           cls = classOf(cp);
-        } else { // Lone surrogates and characters >= 65536 (or >= 128 for ASCII-only pattern)
+        } else { // Lone surrogates and characters >= 65536 (or >= classMap.length)
           cp = ch;
           nextPos = pos + 1;
-          cls = (classMap.length == 128) ? defaultNonAsciiClass : classMap[ch];
+          cls = (ch < classMap.length) ? classMap[ch] : defaultNonAsciiClass;
         }
       } else {
         cp = -1;
@@ -1340,10 +1324,10 @@ final class Dfa {
           cp = Character.toCodePoint(text.charAt(pos - 2), ch);
           prevPos = pos - 2;
           cls = classOf(cp);
-        } else { // Lone surrogates and characters >= 65536 (or >= 128 for ASCII-only pattern)
+        } else { // Lone surrogates and characters >= 65536 (or >= classMap.length)
           cp = ch;
           prevPos = pos - 1;
-          cls = (classMap.length == 128) ? defaultNonAsciiClass : classMap[ch];
+          cls = (ch < classMap.length) ? classMap[ch] : defaultNonAsciiClass;
         }
       } else {
         // Reached the start limit — present end-of-text to the reversed DFA.
@@ -1475,10 +1459,10 @@ final class Dfa {
             cp = Character.toCodePoint(ch, text.charAt(pos + 1));
             nextPos = pos + 2;
             cls = classOf(cp);
-          } else { // Lone surrogates and characters >= 65536 (or >= 128 for ASCII-only pattern)
+          } else { // Lone surrogates and characters >= 65536 (or >= classMap.length)
             cp = ch;
             nextPos = pos + 1;
-            cls = (classMap.length == 128) ? defaultNonAsciiClass : classMap[ch];
+            cls = (ch < classMap.length) ? classMap[ch] : defaultNonAsciiClass;
           }
         } else {
           cp = -1;
