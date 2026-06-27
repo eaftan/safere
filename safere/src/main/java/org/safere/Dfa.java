@@ -146,20 +146,19 @@ final class Dfa {
   private final int numClasses;
 
   /**
-   * Fast code point to class index lookup table. For ASCII-only patterns, classMap is of size
-   * 128 (covering ASCII characters 0–127). For Unicode-enabled patterns, classMap is of size
-   * 65536 (covering BMP characters 0–65535).
+   * Fast code point to class index lookup table. For ASCII-only patterns, classMap is of size 128
+   * (covering ASCII characters 0–127). For Unicode-enabled patterns, classMap is of size 65536
+   * (covering BMP characters 0–65535).
    */
   private final char[] classMap;
 
   /**
-   * Default class for non-ASCII characters when the pattern is ASCII-only (equals boundaries.length - 2).
+   * Default class for non-ASCII characters when the pattern is ASCII-only (equals boundaries.length
+   * - 2).
    */
   private final int defaultNonAsciiClass;
 
-  /**
-   * Fast path character limit to avoid matching surrogates inside the optimized lookup loops.
-   */
+  /** Fast path character limit to avoid matching surrogates inside the optimized lookup loops. */
   private final int fastPathLimit;
 
   /** State cache: maps instruction-set + flags to canonical State instance. */
@@ -223,8 +222,10 @@ final class Dfa {
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
-    boolean hasNonAsciiBoundaries = (boundaries.length > 2) && (boundaries[boundaries.length - 2] > 128);
-    char[] classMap = hasNonAsciiBoundaries ? buildBmpClassMap(boundaries) : buildAsciiClassMap(boundaries);
+    boolean hasNonAsciiBoundaries =
+        (boundaries.length > 2) && (boundaries[boundaries.length - 2] > 128);
+    char[] classMap =
+        hasNonAsciiBoundaries ? buildBmpClassMap(boundaries) : buildAsciiClassMap(boundaries);
     return new Setup(boundaries, numClasses, classMap);
   }
 
@@ -374,8 +375,8 @@ final class Dfa {
   }
 
   /**
-   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence
-   * class indices. This avoids binary search for the most common characters.
+   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence class
+   * indices. This avoids binary search for the most common characters.
    */
   private static char[] buildAsciiClassMap(int[] boundaries) {
     char[] map = new char[128];
