@@ -117,4 +117,18 @@ public final class BenchmarkData {
     }
     return Collections.unmodifiableMap(cases);
   }
+
+  /** Returns real-world regex benchmark cases in JSON order, keyed by case name. */
+  public Map<String, RealWorldRegexCase> getRealWorldRegexCases() {
+    JsonArray arr = root.getAsJsonObject("realWorldRegex").getAsJsonArray("cases");
+    Map<String, RealWorldRegexCase> cases = new LinkedHashMap<>();
+    for (JsonElement item : arr) {
+      RealWorldRegexCase regexCase = RealWorldRegexCase.fromJson(item.getAsJsonObject());
+      if (cases.put(regexCase.name, regexCase) != null) {
+        throw new IllegalArgumentException(
+            "Duplicate real-world regex benchmark case: " + regexCase.name);
+      }
+    }
+    return Collections.unmodifiableMap(cases);
+  }
 }

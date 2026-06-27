@@ -400,6 +400,9 @@ final class BitState {
     }
 
     while (jobCount > 0) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (++stepCount > stepBudget) {
         budgetExceeded = true;
         return false;

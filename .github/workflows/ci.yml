@@ -57,6 +57,39 @@ jobs:
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
+      - name: Run work-counter scaling tests
+        run: >
+          mvn clean test -pl safere
+          -Pwork-counters
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
+  fuzz-regression:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build SafeRE for fuzz tests
+        run: >
+          mvn -pl safere -am install
+          -DskipTests
+          --batch-mode --no-transfer-progress
+
+      - name: Run fuzz regression seeds
+        run: >
+          mvn -pl safere-fuzz test
+          --batch-mode --no-transfer-progress
+
   benchmark-smoke-test-java:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -73,10 +106,10 @@ jobs:
           cache: maven
 
       - name: Smoke test Java benchmarks
-        run: ./run-java-benchmarks.sh --smoke RegexBenchmark
+        run: ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
 
       - name: Smoke test Java memory benchmarks (GC profiler)
-        run: ./run-java-memory-benchmarks.sh --smoke RegexBenchmark
+        run: ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
 
       - name: Smoke test Java memory benchmarks (pattern sizes)
         run: |
