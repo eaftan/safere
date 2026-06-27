@@ -92,8 +92,8 @@ class EnginePathEquivalenceTest {
   @Test
   @DisplayName("DFA start-reliability guard has semantic content")
   void dfaStartReliabilityGuardHasSemanticContent() {
-    String regex = "(?:\\B{1}|a).";
-    String input = "ab";
+    String regex = "\\[.*?\\]\\((.*?)\\)|(\\b\\w+\\.md\\b)";
+    String input = "abc [def](xyz.md) ghi";
     Pattern canonical = Pattern.compile(regex);
     Pattern unguarded =
         Pattern.compile(
