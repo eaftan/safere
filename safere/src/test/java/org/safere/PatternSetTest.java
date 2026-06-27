@@ -17,6 +17,7 @@ import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link PatternSet}. */
@@ -148,6 +149,7 @@ class PatternSetTest {
     }
 
     @Test
+    @Tag("work-counter")
     void regionalIndicatorGraphemeBoundaryMissesStayNearLinear() {
       PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
       b.add("\\b{g}z");

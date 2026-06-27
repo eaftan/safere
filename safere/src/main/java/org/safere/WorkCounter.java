@@ -8,7 +8,6 @@ package org.safere;
 /** Package-private deterministic work accounting for performance regression tests. */
 final class WorkCounter {
   private static final ThreadLocal<Counter> COUNTER = new ThreadLocal<>();
-  private static int activeCounters;
 
   private WorkCounter() {}
 
@@ -17,9 +16,11 @@ final class WorkCounter {
   }
 
   static long countForTesting(Runnable task) {
+    if (!WorkCounterConfig.ENABLED) {
+      throw new IllegalStateException("WorkCounter is disabled; run tests with -Pwork-counters");
+    }
     Counter previous = COUNTER.get();
     Counter current = new Counter();
-    activeCounters++;
     COUNTER.set(current);
     try {
       task.run();
@@ -30,7 +31,6 @@ final class WorkCounter {
       } else {
         COUNTER.set(previous);
       }
-      activeCounters--;
     }
   }
 
@@ -39,9 +39,6 @@ final class WorkCounter {
   }
 
   static void record(long units) {
-    if (activeCounters == 0) {
-      return;
-    }
     Counter counter = COUNTER.get();
     if (counter != null) {
       counter.units += units;
