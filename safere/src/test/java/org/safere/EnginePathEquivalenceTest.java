@@ -89,27 +89,7 @@ class EnginePathEquivalenceTest {
         .isNotEqualTo(findTrace(canonical.matcher(input)));
   }
 
-  @Test
-  @DisplayName("DFA start-reliability guard has semantic content")
-  void dfaStartReliabilityGuardHasSemanticContent() {
-    String regex = "\\[.*?\\]\\((.*?)\\)|(\\b\\w+\\.md\\b)";
-    String input = "abc [def](xyz.md) ghi";
-    Pattern canonical = Pattern.compile(regex);
-    Pattern unguarded =
-        Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder()
-                .semanticGuards(false)
-                .onePass(false)
-                .bitState(false)
-                .build());
 
-    assertThat(canonical.dfaStartReliable()).isFalse();
-    assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded DFA sandwich should expose why the start-reliability guard exists")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
-  }
 
   @Test
   @DisplayName("literal fast paths match the canonical engine trace")
@@ -257,6 +237,52 @@ class EnginePathEquivalenceTest {
             .dfa(false)
             .reverseDfa(false)
             .bitState(false)
+            .build());
+  }
+
+  @Test
+  @DisplayName("priority inversion boundary patterns match across all engine paths")
+  void priorityInversionEquivalence() {
+    // 1. Alternation priority inversion
+    String regex1 = "(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')|(\\btype\\b)";
+    String input1 = "x = \"type\"";
+    // Assert DFA vs canonical (NFA)
+    assertEquivalent(
+        regex1,
+        input1,
+        EnginePathOptions.builder()
+            .semanticGuards(false) // Bypasses guards to force DFA execution!
+            .onePass(false)
+            .bitState(false)
+            .build());
+    // Assert BitState vs canonical (NFA)
+    assertEquivalent(
+        regex1,
+        input1,
+        EnginePathOptions.builder()
+            .dfa(false)
+            .onePass(false)
+            .build());
+
+    // 2. Lazy quantifier priority inversion
+    String regex2 = "\\[.*?\\]\\((.*?)\\)|(\\b\\w+\\.md\\b)";
+    String input2 = "abc [def](xyz.md) ghi";
+    // Assert DFA vs canonical (NFA)
+    assertEquivalent(
+        regex2,
+        input2,
+        EnginePathOptions.builder()
+            .semanticGuards(false)
+            .onePass(false)
+            .bitState(false)
+            .build());
+    // Assert BitState vs canonical (NFA)
+    assertEquivalent(
+        regex2,
+        input2,
+        EnginePathOptions.builder()
+            .dfa(false)
+            .onePass(false)
             .build());
   }
 

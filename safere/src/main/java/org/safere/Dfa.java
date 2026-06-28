@@ -1180,7 +1180,7 @@ final class Dfa {
         // FLAG_MATCH_BEFORE indicates a deferred assertion (\b, multiline $) fired before
         // consuming the current character and reached MATCH. Try the before-consume position
         // first (it's at an earlier position, preserving leftmost-first semantics).
-        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) {
           int endPos = pos;
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1193,7 +1193,7 @@ final class Dfa {
         // Try the after-consume position: either no before-consume match exists, or it was
         // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
         // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
           int endPos = Math.min(nextPos, textLen);
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1465,7 +1465,10 @@ final class Dfa {
         }
 
         if (s.isMatch()) {
-          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.min(nextPos, textLen);
+          int endPos =
+              ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+                  ? pos
+                  : Math.min(nextPos, textLen);
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
