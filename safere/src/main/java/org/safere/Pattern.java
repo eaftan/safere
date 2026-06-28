@@ -780,17 +780,9 @@ public final class Pattern implements Serializable {
    *       maximizes each iteration.
    * </ol>
    *
-   * <p>When this returns {@code false}, the DFA sandwich is skipped and the submatch engine
-   * (BitState/NFA) determines the correct match boundaries.
-   */
-  boolean dfaGroupZeroReliable() {
-    return true;
-  }
-
-  /**
-   * Returns {@code true} if the pattern contains alternation ({@code |}). Used by the Matcher to
-   * skip OnePass primary for find() — OnePass always uses longest-match semantics, which can pick
-   * the wrong alternative when a zero-width branch competes with a consuming branch.
+   * /** Returns {@code true} if the pattern contains alternation ({@code |}). Used by the Matcher
+   * to skip OnePass primary for find() — OnePass always uses longest-match semantics, which can
+   * pick the wrong alternative when a zero-width branch competes with a consuming branch.
    */
   boolean hasAlternation() {
     return hasAlternation;

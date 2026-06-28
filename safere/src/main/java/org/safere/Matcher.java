@@ -360,7 +360,9 @@ public final class Matcher implements MatchResult {
     // Scan every code point.
     int i = 0;
     while (i < len) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp = text.codePointAt(i);
       if (cp < 64) {
         if ((b0 & (1L << cp)) == 0) {
@@ -392,7 +394,9 @@ public final class Matcher implements MatchResult {
     int i = fromIndex;
     int len = text.length();
     while (i < len) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp = text.codePointAt(i);
       if (charClassContains(ranges, b0, b1, cp)) {
         return applyEngineResult(new FullMatchResult(new int[] {i, i + Character.charCount(cp)}));
@@ -413,7 +417,9 @@ public final class Matcher implements MatchResult {
     int i = Math.max(0, fromIndex);
     int len = text.length();
     while (i < len) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp = text.codePointAt(i);
       if (charClassContains(ranges, b0, b1, cp)) {
         return true;
@@ -1176,7 +1182,9 @@ public final class Matcher implements MatchResult {
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, literal, searchFrom);
       } else {
-        WorkCounter.record(Math.max(0, text.length() - searchFrom));
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(Math.max(0, text.length() - searchFrom));
+        }
         idx = text.indexOf(literal, searchFrom);
       }
       if (idx < 0) {
@@ -1249,7 +1257,9 @@ public final class Matcher implements MatchResult {
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
       } else {
-        WorkCounter.record(Math.max(0, text.length() - searchFrom));
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(Math.max(0, text.length() - searchFrom));
+        }
         idx = text.indexOf(prefix, searchFrom);
       }
       if (idx < 0) {
@@ -1557,7 +1567,9 @@ public final class Matcher implements MatchResult {
   private boolean findKeywordAlternation(
       Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
     for (int i = Math.max(0, startPos); i < text.length(); i++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       char ch = text.charAt(i);
       if (ch < 128
           && keywordAlternation.firstAscii[asciiLower(ch)]
@@ -1607,7 +1619,9 @@ public final class Matcher implements MatchResult {
     int prefixLen = prefix.length();
     int limit = text.length() - prefixLen;
     for (int i = fromIndex; i <= limit; i++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (regionMatchesAsciiIgnoreCase(text, i, prefix, 0, prefixLen)) {
         return i;
       }
@@ -1625,7 +1639,9 @@ public final class Matcher implements MatchResult {
       return false;
     }
     for (int i = 0; i < length; i++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (asciiLower(text.charAt(textOffset + i)) != asciiLower(prefix.charAt(prefixOffset + i))) {
         return false;
       }
@@ -1640,7 +1656,9 @@ public final class Matcher implements MatchResult {
    */
   private static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
     for (int i = fromIndex; i < text.length(); i++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       char ch = text.charAt(i);
       if (ch < 128 && asciiMap[ch]) {
         return i;
@@ -1653,7 +1671,9 @@ public final class Matcher implements MatchResult {
       String text, Pattern.StartAcceleration acceleration, int fromIndex, boolean unixLines) {
     int start = Math.max(0, fromIndex);
     for (int i = start; i < text.length(); i++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (matchesStartAcceleration(text, i, acceleration, unixLines)) {
         return i;
       }
