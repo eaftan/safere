@@ -1332,7 +1332,8 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        boolean useBefore = (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        boolean useBefore =
+            (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
         int startPos = useBefore ? pos : prevPos;
         if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
           matched = true;
