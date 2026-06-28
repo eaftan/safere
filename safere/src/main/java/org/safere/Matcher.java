@@ -1356,13 +1356,9 @@ public final class Matcher implements MatchResult {
 
     // Small-input BitState bypass check.
     boolean canUseBitState =
-        options.bitState()
-            && !fullTextRegionContext
-            && !prog.hasGraphemeSemantics();
+        options.bitState() && !fullTextRegionContext && !prog.hasGraphemeSemantics();
     boolean bypassDfa =
-        canUseBitState
-            && prog.numCaptures() > 1
-            && text.length() <= BitState.maxTextSize(prog);
+        canUseBitState && prog.numCaptures() > 1 && text.length() <= BitState.maxTextSize(prog);
 
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
     // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
