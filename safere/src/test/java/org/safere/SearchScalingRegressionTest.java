@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@DisabledForCrosscheck("WorkCounter is an internal SafeRE API")
 @Tag("work-counter")
 class SearchScalingRegressionTest {
 
@@ -17,15 +18,19 @@ class SearchScalingRegressionTest {
     String text10000 = "a".repeat(10000);
 
     // Measure work done using WorkCounter
-    long work2000 = WorkCounter.countForTesting(() -> {
-      boolean matched = pattern.matcher(text2000).find();
-      assertThat(matched).isFalse();
-    });
+    long work2000 =
+        WorkCounter.countForTesting(
+            () -> {
+              boolean matched = pattern.matcher(text2000).find();
+              assertThat(matched).isFalse();
+            });
 
-    long work10000 = WorkCounter.countForTesting(() -> {
-      boolean matched = pattern.matcher(text10000).find();
-      assertThat(matched).isFalse();
-    });
+    long work10000 =
+        WorkCounter.countForTesting(
+            () -> {
+              boolean matched = pattern.matcher(text10000).find();
+              assertThat(matched).isFalse();
+            });
 
     // If the containsRequiredMatchClass pre-filter loop runs, it would scan the entire string,
     // resulting in at least 2,000 and 10,000 operations respectively.
