@@ -1138,12 +1138,18 @@ final class Dfa {
           break;
         }
         if (ns.isMatch() && !longest && !needEndMatch && ns.isHighestPriorityMatch) {
-          int endPos = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+          int endPos =
+              ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+                  ? pos
+                  : pos + 1;
           return new SearchResult(true, endPos);
         }
         if (ns.isMatch() && !needEndMatch) {
           matched = true;
-          matchEnd = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+          matchEnd =
+              ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+                  ? pos
+                  : pos + 1;
         }
         s = ns;
         pos++;
@@ -1175,7 +1181,7 @@ final class Dfa {
         break;
       }
       if (s.isMatch()) {
-        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) {
           int endPos = pos;
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1606,7 +1612,10 @@ final class Dfa {
           break;
         }
         if (s.isMatch()) {
-          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : pos + 1;
+          int endPos =
+              ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+                  ? pos
+                  : pos + 1;
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
