@@ -2656,4 +2656,41 @@ class MatcherTest {
   private static void assertCompletesWithinPerformanceTimeout(Runnable task) {
     assertTimeoutPreemptively(PERFORMANCE_SCENARIO_TIMEOUT, task::run);
   }
+
+  @Nested
+  class SmallInputBitStateBypass {
+    @Test
+    void testBypassDfaForSmallInputWithCaptures() {
+      Pattern p = Pattern.compile("(\\w+)=(\\w+)");
+      Matcher m = p.matcher("foo=bar");
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isEqualTo("foo");
+      assertThat(m.group(2)).isEqualTo("bar");
+
+      assertThat(m.cachedForwardFirstMatchDfa).isNull();
+      assertThat(m.cachedForwardLongestMatchDfa).isNull();
+      assertThat(m.cachedReverseDfa).isNull();
+    }
+
+    @Test
+    void testNoBypassDfaForLargeInputWithCaptures() {
+      Pattern p = Pattern.compile("(\\w+)=(\\w+)");
+      String input = "x".repeat(30000) + " foo=bar";
+      Matcher m = p.matcher(input);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(1)).isEqualTo("foo");
+      assertThat(m.group(2)).isEqualTo("bar");
+
+      assertThat(m.cachedForwardFirstMatchDfa).isNotNull();
+    }
+
+    @Test
+    void testNoBypassDfaForSmallInputNoCaptures() {
+      Pattern p = Pattern.compile("\\w+=\\w+");
+      Matcher m = p.matcher("foo=bar");
+      assertThat(m.find()).isTrue();
+
+      assertThat(m.cachedForwardFirstMatchDfa).isNotNull();
+    }
+  }
 }

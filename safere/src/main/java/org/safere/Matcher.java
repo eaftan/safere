@@ -161,11 +161,11 @@ public final class Matcher implements MatchResult {
    * Cached DFA references to avoid repeated ThreadLocal lookups in find-all loops. Populated on
    * first use and reused for subsequent calls within this Matcher's lifetime.
    */
-  private Dfa cachedForwardFirstMatchDfa;
+  Dfa cachedForwardFirstMatchDfa;
 
-  private Dfa cachedForwardLongestMatchDfa;
+  Dfa cachedForwardLongestMatchDfa;
 
-  private Dfa cachedReverseDfa;
+  Dfa cachedReverseDfa;
   private boolean reverseDfaLookedUp;
   private String graphemeContextText;
   private GraphemeSupport.Context graphemeContext;
@@ -1354,6 +1354,16 @@ public final class Matcher implements MatchResult {
     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
 
+    // Small-input BitState bypass check.
+    boolean canUseBitState =
+        options.bitState()
+            && !fullTextRegionContext
+            && !prog.hasGraphemeSemantics();
+    boolean bypassDfa =
+        canUseBitState
+            && prog.numCaptures() > 1
+            && text.length() <= BitState.maxTextSize(prog);
+
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
     // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
     // If the reverse DFA determines no match is possible at the end, we skip the O(n) forward
@@ -1366,7 +1376,8 @@ public final class Matcher implements MatchResult {
     //
     // A null result from the reverse DFA means the DFA budget was exceeded — in that case we
     // must fall through to the normal forward DFA path rather than returning false.
-    if (options.dfa()
+    if (!bypassDfa
+        && options.dfa()
         && options.reverseDfa()
         && dfaSupportsProgram(prog)
         && !regionActive
@@ -1468,7 +1479,7 @@ public final class Matcher implements MatchResult {
     // precheck cannot produce reusable bounds and would fall through to the complete fallback
     // search anyway.
     Dfa.SearchResult fwdResult;
-    if (!options.dfa() || directFallback || !dfaSupportsProgram(prog)) {
+    if (bypassDfa || !options.dfa() || directFallback || !dfaSupportsProgram(prog)) {
       fwdResult = null;
     } else {
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
