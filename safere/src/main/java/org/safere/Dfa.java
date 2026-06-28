@@ -1332,23 +1332,13 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
-          int startPos = prevPos;
-          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
-            matched = true;
-            matchStart = startPos;
-            if (!longest && !needEndMatch) {
-              return new SearchResult(true, matchStart);
-            }
-          }
-        } else {
-          int startPos = pos;
-          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
-            matched = true;
-            matchStart = startPos;
-            if (!longest && !needEndMatch) {
-              return new SearchResult(true, matchStart);
-            }
+        boolean useBefore = (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        int startPos = useBefore ? pos : prevPos;
+        if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+          matched = true;
+          matchStart = startPos;
+          if (!longest && !needEndMatch) {
+            return new SearchResult(true, matchStart);
           }
         }
       }
