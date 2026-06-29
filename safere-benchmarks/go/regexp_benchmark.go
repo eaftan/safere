@@ -315,11 +315,24 @@ func generateRealWorldInput(
 		return generatedSparseRealWorldInput(
 			matchUnit, nonMatchUnit, size, seed, getInt(inputSpec, "nonMatchRepeats"),
 			getString(inputSpec, "delimiterAlphabet"))
+	case "surroundWithSpaces":
+		body := getString(inputSpec, "body")
+		return generateSurroundWithSpacesInput(body, size)
 	default:
 		fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex input kind: %s\n", kind)
 		os.Exit(1)
 	}
 	panic("unreachable")
+}
+
+func generateSurroundWithSpacesInput(body string, size int) string {
+	if len(body) >= size {
+		return body[:size]
+	}
+	totalPadding := size - len(body)
+	leadingPadding := totalPadding / 2
+	trailingPadding := totalPadding - leadingPadding
+	return strings.Repeat(" ", leadingPadding) + body + strings.Repeat(" ", trailingPadding)
 }
 
 func appendUTF8(b *strings.Builder, cp int) {

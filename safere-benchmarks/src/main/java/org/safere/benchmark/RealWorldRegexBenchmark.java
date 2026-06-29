@@ -203,9 +203,20 @@ public class RealWorldRegexBenchmark {
               seed,
               inputSpec.nonMatchRepeats,
               inputSpec.delimiterAlphabet);
+      case "surroundWithSpaces" -> generateSurroundWithSpacesInput(inputSpec.body, size);
       default ->
           throw new IllegalArgumentException("Unknown real-world input kind: " + inputSpec.kind);
     };
+  }
+
+  private String generateSurroundWithSpacesInput(String body, int size) {
+    if (body.length() >= size) {
+      return body.substring(0, size);
+    }
+    int totalPadding = size - body.length();
+    int leadingPadding = totalPadding / 2;
+    int trailingPadding = totalPadding - leadingPadding;
+    return " ".repeat(leadingPadding) + body + " ".repeat(trailingPadding);
   }
 
   private String generatePrefixedInput(

@@ -323,10 +323,12 @@
         "match": "  <Banana>  ",
         "nonMatch": "  <Orange>  ",
         "matchInput": {
-          "kind": "repeat"
+          "kind": "surroundWithSpaces",
+          "body": "<Banana>"
         },
         "nonMatchInput": {
-          "kind": "repeat"
+          "kind": "surroundWithSpaces",
+          "body": "<Orange>"
         }
       }
     ]
