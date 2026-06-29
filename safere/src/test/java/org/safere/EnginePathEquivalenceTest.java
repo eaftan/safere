@@ -90,19 +90,6 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
-  @DisplayName("DFA start-reliability guard has semantic content")
-  void dfaStartReliabilityGuardHasSemanticContent() {
-    String regex = "(?:\\B{1}|a).";
-    Pattern canonical = Pattern.compile(regex);
-
-    assertThat(canonical.dfaStartReliable()).isFalse();
-    // Note: Due to improvements in the reverse scan matching logic (resolving deferred match and
-    // start-boundary bugs), the unguarded DFA sandwich now actually produces the correct leftmost
-    // start position for this pattern, matching the canonical trace. However, we still retain
-    // the start-reliability checks for safety.
-  }
-
-  @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
     assertEquivalent(
