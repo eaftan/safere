@@ -9,10 +9,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.function.Consumer;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** Linear-time regression tests for grapheme cluster matching. */
 @DisabledForCrosscheck("java.util.regex is not the SafeRE linear-time engine")
+@Tag("work-counter")
 class GraphemeLinearTimeTest {
   @Test
   @DisplayName("repeated find() over grapheme clusters reuses per-input context")

@@ -1207,7 +1207,9 @@ final class Dfa {
 
     // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp;
       int nextPos;
       int cls;
@@ -1442,7 +1444,9 @@ final class Dfa {
 
     // General reverse loop
     while (pos >= startLimit) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp;
       int prevPos;
       int cls;
