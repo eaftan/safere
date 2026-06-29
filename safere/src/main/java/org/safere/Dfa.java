@@ -1429,7 +1429,10 @@ final class Dfa {
             break;
           }
           if (ns.isMatch() && !longest && !needEndMatch) {
-            int startPos = ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) ? pos : pos - 1;
+            int startPos =
+                ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+                    ? pos
+                    : pos - 1;
             return new SearchResult(true, startPos);
           }
           if (ns.isMatch()) {
