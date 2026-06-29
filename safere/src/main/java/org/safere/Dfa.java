@@ -115,9 +115,26 @@ final class Dfa {
   }
 
   /** Cache key for state deduplication. */
-  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
-  @SuppressWarnings("ArrayRecordComponent")
-  private record StateKey(int[] insts, int flags) {
+  private static final class StateKey {
+    private int[] insts;
+    private int flags;
+
+    StateKey() {}
+
+    StateKey(int[] insts, int flags) {
+      this.insts = insts;
+      this.flags = flags;
+    }
+
+    void reset(int[] insts, int flags) {
+      this.insts = insts;
+      this.flags = flags;
+    }
+
+    StateKey copy() {
+      return new StateKey(insts, flags);
+    }
+
     @Override
     public int hashCode() {
       return Arrays.hashCode(insts) * 31 + flags;
@@ -159,6 +176,9 @@ final class Dfa {
 
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
+
+  /** Pre-allocated mutable key to perform allocation-free cache lookups. */
+  private final StateKey lookupKey = new StateKey();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
   private final State deadState;
@@ -596,8 +616,8 @@ final class Dfa {
     if (insts.length == 0 && (flags & FLAG_MATCH) == 0) {
       return deadState;
     }
-    StateKey key = new StateKey(insts, flags);
-    State s = cache.get(key);
+    lookupKey.reset(insts, flags);
+    State s = cache.get(lookupKey);
     if (s != null) {
       return s;
     }
@@ -607,7 +627,7 @@ final class Dfa {
     boolean isHighestPriorityMatch =
         insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
     s = new State(insts, flags, wordBoundaryMatchIds, numClasses, isHighestPriorityMatch);
-    cache.put(key, s);
+    cache.put(lookupKey.copy(), s);
     return s;
   }
 
