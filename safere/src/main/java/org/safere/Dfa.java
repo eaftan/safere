@@ -909,6 +909,9 @@ final class Dfa {
           // Add non-MATCH instructions from this expansion.
           for (int x : expanded) {
             if (prog.inst(x).opCode != InstOp.OP_MATCH) {
+              if (tempCount == tempExpanded.length) {
+                tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+              }
               tempExpanded[tempCount++] = x;
             }
           }
@@ -927,10 +930,16 @@ final class Dfa {
           }
         } else {
           for (int x : expanded) {
+            if (tempCount == tempExpanded.length) {
+              tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+            }
             tempExpanded[tempCount++] = x;
           }
         }
       } else {
+        if (tempCount == tempExpanded.length) {
+          tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+        }
         tempExpanded[tempCount++] = id;
       }
     }
