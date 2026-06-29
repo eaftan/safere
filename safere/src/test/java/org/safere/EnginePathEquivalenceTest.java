@@ -89,8 +89,6 @@ class EnginePathEquivalenceTest {
         .isNotEqualTo(findTrace(canonical.matcher(input)));
   }
 
-
-
   @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
@@ -256,13 +254,7 @@ class EnginePathEquivalenceTest {
             .bitState(false)
             .build());
     // Assert BitState vs canonical (NFA)
-    assertEquivalent(
-        regex1,
-        input1,
-        EnginePathOptions.builder()
-            .dfa(false)
-            .onePass(false)
-            .build());
+    assertEquivalent(regex1, input1, EnginePathOptions.builder().dfa(false).onePass(false).build());
 
     // 2. Lazy quantifier priority inversion
     String regex2 = "\\[.*?\\]\\((.*?)\\)|(\\b\\w+\\.md\\b)";
@@ -271,19 +263,9 @@ class EnginePathEquivalenceTest {
     assertEquivalent(
         regex2,
         input2,
-        EnginePathOptions.builder()
-            .semanticGuards(false)
-            .onePass(false)
-            .bitState(false)
-            .build());
+        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
-    assertEquivalent(
-        regex2,
-        input2,
-        EnginePathOptions.builder()
-            .dfa(false)
-            .onePass(false)
-            .build());
+    assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
   }
 
   private static MatchTrace operationTrace(Matcher matcher, Operation operation) {
