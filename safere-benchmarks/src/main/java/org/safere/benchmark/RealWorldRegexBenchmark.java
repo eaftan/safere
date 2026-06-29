@@ -119,7 +119,9 @@ public class RealWorldRegexBenchmark {
     "boundedNameMatch",
     "templateTagMatch",
     "sparseUrl",
-    "unprefixedWordBoundary"
+    "unprefixedWordBoundary",
+    "cjkSearch",
+    "emojiSearch"
   })
   public String patternName;
 
