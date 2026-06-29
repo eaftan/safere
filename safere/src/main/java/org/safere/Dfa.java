@@ -84,23 +84,28 @@ final class Dfa {
   private static final class State {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
+    final boolean isHighestPriorityMatch;
+    final State[] next;
 
     /**
      * Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable.
      */
     final int[] wordBoundaryMatchIds;
 
-    /** Transitions indexed by equivalence class; null entry = not yet computed. */
-    final State[] next;
-
-    State(int[] insts, int flags, int numClasses) {
-      this(insts, flags, null, numClasses);
+    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
+      this(insts, flags, wordBoundaryMatchIds, numClasses, false);
     }
 
-    State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
+    State(
+        int[] insts,
+        int flags,
+        int[] wordBoundaryMatchIds,
+        int numClasses,
+        boolean isHighestPriorityMatch) {
       this.insts = insts;
       this.flags = flags;
       this.wordBoundaryMatchIds = wordBoundaryMatchIds;
+      this.isHighestPriorityMatch = isHighestPriorityMatch;
       this.next = new State[numClasses];
     }
 
@@ -163,20 +168,16 @@ final class Dfa {
   private final int numClasses;
 
   /**
-   * Fast code point to class index lookup table. For ASCII-only patterns, classMap is of size 128
-   * (covering ASCII characters 0–127). For Unicode-enabled patterns, classMap is of size 65536
-   * (covering BMP characters 0–65535).
+   * Fast ASCII-to-class lookup table. For code points 0–127, {@code asciiClassMap[cp]} gives the
+   * equivalence class index directly, avoiding binary search.
    */
-  private final char[] classMap;
+  private final int[] asciiClassMap;
 
   /**
-   * Default class for non-ASCII characters when the pattern is ASCII-only (equals boundaries.length
-   * - 2).
+   * Fast BMP-to-class lookup table. For characters 0–65535, bmpClassMap[ch] gives the class
+   * directly. Allocated lazily only if pattern contains non-ASCII transitions.
    */
-  private final int defaultNonAsciiClass;
-
-  /** Fast path character limit to avoid matching surrogates inside the optimized lookup loops. */
-  private final int fastPathLimit;
+  private final char[] bmpClassMap;
 
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
@@ -185,7 +186,7 @@ final class Dfa {
   private final StateKey lookupKey = new StateKey();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
-  private final State deadState = new State(new int[0], 0, 0);
+  private final State deadState;
 
   /** Pre-allocated visited generation array for {@link #expand}, reused across calls. */
   private final int[] expandVisitedGen;
@@ -233,17 +234,7 @@ final class Dfa {
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  record Setup(int[] boundaries, int numClasses, char[] classMap, int defaultNonAsciiClass) {
-    Setup {
-      // Discard the boundaries array when it is not needed at runtime (i.e. when classMap size
-      // is less than 65536, meaning the pattern's max boundary is small and all out-of-cache
-      // characters map to the same default class). This allows the JVM to reclaim the boundaries
-      // array.
-      if (classMap.length < 65536) {
-        boundaries = null;
-      }
-    }
-  }
+  record Setup(int[] boundaries, int numClasses, int[] asciiClassMap, char[] bmpClassMap) {}
 
   /**
    * Builds a reusable {@link Setup} from a compiled program. The result is immutable and can be
@@ -252,11 +243,11 @@ final class Dfa {
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
-    int maxBoundary = (boundaries.length > 2) ? boundaries[boundaries.length - 2] : 0;
-    int mapSize = Math.clamp(maxBoundary + 1, 128, 65536);
-    char[] classMap = buildClassMap(boundaries, mapSize);
-    int defaultNonAsciiClass = boundaries.length - 2;
-    return new Setup(boundaries, numClasses, classMap, defaultNonAsciiClass);
+    int[] asciiClassMap = buildAsciiClassMap(boundaries);
+    boolean hasNonAsciiTransitions =
+        boundaries.length > 0 && boundaries[boundaries.length - 1] >= 128;
+    char[] bmpClassMap = hasNonAsciiTransitions ? buildBmpClassMap(boundaries) : null;
+    return new Setup(boundaries, numClasses, asciiClassMap, bmpClassMap);
   }
 
   Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
@@ -278,13 +269,13 @@ final class Dfa {
     this.startStateByContext = new State[anchoredCacheBit << 1];
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
-    this.classMap = setup.classMap;
-    this.defaultNonAsciiClass = setup.defaultNonAsciiClass;
-    this.fastPathLimit = Math.min(classMap.length, 0xD800);
+    this.asciiClassMap = setup.asciiClassMap;
+    this.bmpClassMap = setup.bmpClassMap;
     this.expandVisitedGen = new int[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
+    this.deadState = new State(new int[0], 0, null, numClasses);
   }
 
   /**
@@ -383,23 +374,38 @@ final class Dfa {
   }
 
   /**
-   * Builds a lookup table mapping code points in [0, size-1] to their equivalence class indices.
+   * Builds a 128-element lookup table mapping ASCII code points (0–127) to their equivalence class
+   * indices. This avoids binary search for the most common characters.
    */
-  private static char[] buildClassMap(int[] boundaries, int size) {
-    char[] map = new char[size];
+  private static int[] buildAsciiClassMap(int[] boundaries) {
+    int[] map = new int[128];
+    for (int cp = 0; cp < 128; cp++) {
+      int idx = Arrays.binarySearch(boundaries, cp);
+      map[cp] = (idx >= 0) ? idx : (-idx - 1) - 1;
+    }
+    return map;
+  }
+
+  /**
+   * Builds a 65536-element lookup table mapping BMP code points (0–65535) to their equivalence
+   * class indices. This avoids binary search for the most common characters (including ASCII and
+   * CJK).
+   */
+  private static char[] buildBmpClassMap(int[] boundaries) {
+    char[] bmpClassMap = new char[65536];
     int classIdx = 0;
     int boundariesLen = boundaries.length;
-    for (int ch = 0; ch < size; ch++) {
+    for (int ch = 0; ch < 65536; ch++) {
       while (classIdx < boundariesLen && ch > boundaries[classIdx]) {
         classIdx++;
       }
       if (classIdx < boundariesLen && ch == boundaries[classIdx]) {
-        map[ch] = (char) classIdx;
+        bmpClassMap[ch] = (char) classIdx;
       } else {
-        map[ch] = (char) (classIdx - 1);
+        bmpClassMap[ch] = (char) (classIdx - 1);
       }
     }
-    return map;
+    return bmpClassMap;
   }
 
   /** Maps a code point (or -1 for end-of-text) to its equivalence class index. */
@@ -407,11 +413,11 @@ final class Dfa {
     if (cp < 0) {
       return numClasses - 1;
     }
-    if (cp < classMap.length) {
-      return classMap[cp];
+    if (cp < 128) {
+      return asciiClassMap[cp];
     }
-    if (classMap.length < 65536) {
-      return cp < 0x110000 ? defaultNonAsciiClass : defaultNonAsciiClass + 1;
+    if (cp < 65536 && bmpClassMap != null) {
+      return bmpClassMap[cp];
     }
     int idx = Arrays.binarySearch(boundaries, cp);
     if (idx >= 0) {
@@ -652,7 +658,9 @@ final class Dfa {
     if (cache.size() >= maxStates) {
       return null;
     }
-    s = new State(insts, flags, wordBoundaryMatchIds, numClasses);
+    boolean isHighestPriorityMatch =
+        insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
+    s = new State(insts, flags, wordBoundaryMatchIds, numClasses, isHighestPriorityMatch);
     cache.put(lookupKey.copy(), s);
     return s;
   }
@@ -1170,6 +1178,82 @@ final class Dfa {
     }
 
     int pos = startPos;
+    // Fast path: loop through ASCII characters (characters < 128)
+    while (pos < textLen) {
+      int limit = Math.min(textLen, posDepThreshold - 1);
+      while (pos < limit) {
+        char ch = text.charAt(pos);
+        if (ch >= 128) {
+          break;
+        }
+        int cls = asciiClassMap[ch];
+        State ns = s.next[cls];
+        if (ns == null || ns == deadState) {
+          break;
+        }
+        if (ns.isMatch() && !longest && !needEndMatch && ns.isHighestPriorityMatch) {
+          int endPos = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+          return new SearchResult(true, endPos);
+        }
+        if (ns.isMatch() && !needEndMatch) {
+          matched = true;
+          matchEnd = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+        }
+        s = ns;
+        pos++;
+      }
+
+      if (pos >= textLen) {
+        break;
+      }
+      if (pos + 1 >= posDepThreshold) {
+        break; // fall back to general loop for position-dependent flags
+      }
+
+      char ch = text.charAt(pos);
+      if (ch >= 128) {
+        break; // fall back to general loop
+      }
+      int cls = asciiClassMap[ch];
+      State ns = s.next[cls];
+      if (ns == null) {
+        int effectiveNextPos = pos + 1;
+        ns = computeNext(s, ch, text, effectiveNextPos);
+        if (ns == null) {
+          return null; // budget exceeded
+        }
+        s.next[cls] = ns;
+      }
+      s = ns;
+      if (s == deadState) {
+        break;
+      }
+      if (s.isMatch()) {
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          int endPos = pos;
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+              return new SearchResult(true, matchEnd);
+            }
+          }
+        }
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
+          int endPos = pos + 1;
+          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+            matched = true;
+            matchEnd = endPos;
+            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+              return new SearchResult(true, matchEnd);
+            }
+          }
+        }
+      }
+      pos++;
+    }
+
+    // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
@@ -1179,20 +1263,24 @@ final class Dfa {
       int cls;
       if (pos < textLen) {
         char ch = text.charAt(pos);
-        if (ch < fastPathLimit) {
+        if (ch < 128) {
           cp = ch;
           nextPos = pos + 1;
-          cls = classMap[ch];
+          cls = asciiClassMap[ch];
+        } else if (ch < 0xD800 && bmpClassMap != null) {
+          cp = ch;
+          nextPos = pos + 1;
+          cls = bmpClassMap[ch];
         } else if (Character.isHighSurrogate(ch)
             && pos + 1 < textLen
             && Character.isLowSurrogate(text.charAt(pos + 1))) {
           cp = Character.toCodePoint(ch, text.charAt(pos + 1));
           nextPos = pos + 2;
           cls = classOf(cp);
-        } else { // Lone surrogates and characters >= 65536 (or >= classMap.length)
+        } else { // Lone surrogates and characters >= 0xE000
           cp = ch;
           nextPos = pos + 1;
-          cls = (ch < classMap.length) ? classMap[ch] : defaultNonAsciiClass;
+          cls = classOf(cp);
         }
       } else {
         cp = -1;
@@ -1246,7 +1334,7 @@ final class Dfa {
         // Try the after-consume position: either no before-consume match exists, or it was
         // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
         // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
           int endPos = Math.min(nextPos, textLen);
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1326,6 +1414,86 @@ final class Dfa {
     }
 
     int pos = endPos;
+    // Fast path: scan backward through ASCII characters
+    while (pos > startLimit) {
+      if (pos <= posDepThreshold) {
+        int limit = startLimit;
+        while (pos > limit) {
+          char ch = text.charAt(pos - 1);
+          if (ch >= 128) {
+            break;
+          }
+          int cls = asciiClassMap[ch];
+          State ns = s.next[cls];
+          if (ns == null || ns == deadState) {
+            break;
+          }
+          if (ns.isMatch() && !longest && !needEndMatch) {
+            int startPos = ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) ? pos : pos - 1;
+            return new SearchResult(true, startPos);
+          }
+          if (ns.isMatch()) {
+            matched = true;
+            matchStart =
+                ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE)
+                    ? pos - 1
+                    : pos;
+          }
+          s = ns;
+          pos--;
+        }
+      }
+
+      if (pos <= startLimit) {
+        break;
+      }
+      if (pos - 1 >= posDepThreshold) {
+        break; // fall back to general loop for position-dependent context
+      }
+
+      char ch = text.charAt(pos - 1);
+      if (ch >= 128) {
+        break; // fall back
+      }
+      int cls = asciiClassMap[ch];
+      State ns = s.next[cls];
+      if (ns == null) {
+        int effectivePrevPos = pos - 1;
+        ns = computeNext(s, ch, text, effectivePrevPos);
+        if (ns == null) {
+          return null; // budget exceeded
+        }
+        s.next[cls] = ns;
+      }
+      s = ns;
+      if (s == deadState) {
+        break;
+      }
+      if (s.isMatch()) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
+          int startPos = pos - 1;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        }
+      }
+      pos--;
+    }
+
+    // General reverse loop
     while (pos >= startLimit) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
@@ -1336,10 +1504,14 @@ final class Dfa {
       if (pos > 0) {
         // Read the code point just before pos (scanning backward).
         char ch = text.charAt(pos - 1);
-        if (ch < fastPathLimit) {
+        if (ch < 128) {
           cp = ch;
           prevPos = pos - 1;
-          cls = classMap[ch];
+          cls = asciiClassMap[ch];
+        } else if (ch < 0xD800 && bmpClassMap != null) {
+          cp = ch;
+          prevPos = pos - 1;
+          cls = bmpClassMap[ch];
         } else if (Character.isLowSurrogate(ch)
             && pos - 2 >= startLimit
             && Character.isHighSurrogate(text.charAt(pos - 2))) {
@@ -1347,10 +1519,10 @@ final class Dfa {
           cp = Character.toCodePoint(text.charAt(pos - 2), ch);
           prevPos = pos - 2;
           cls = classOf(cp);
-        } else { // Lone surrogates and characters >= 65536 (or >= classMap.length)
+        } else { // Lone surrogates and characters >= 0xE000
           cp = ch;
           prevPos = pos - 1;
-          cls = (ch < classMap.length) ? classMap[ch] : defaultNonAsciiClass;
+          cls = classOf(cp);
         }
       } else {
         // Reached the start limit — present end-of-text to the reversed DFA.
@@ -1384,10 +1556,18 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
-        if (matchValid) {
-          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
-          if (!needEndMatch || startPos == startLimit) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
+          int startPos = prevPos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
             matched = true;
             matchStart = startPos;
             if (!longest && !needEndMatch) {
@@ -1466,26 +1646,73 @@ final class Dfa {
 
     if (s != deadState) {
       int pos = 0;
+      // Fast path: scan forward through ASCII characters
+      while (pos < textLen) {
+        if (pos + 1 >= posDepThreshold) {
+          break; // fall back to general loop for position-dependent context
+        }
+        char ch = text.charAt(pos);
+        if (ch >= 128) {
+          break; // fall back
+        }
+        int cls = asciiClassMap[ch];
+        State ns = s.next[cls];
+        if (ns == null) {
+          int effectiveNextPos = pos + 1;
+          ns = computeNext(s, ch, text, effectiveNextPos);
+          if (ns == null) {
+            return null; // budget exceeded
+          }
+          s.next[cls] = ns;
+        }
+        s = ns;
+        if (s == deadState) {
+          break;
+        }
+        if (s.isMatch()) {
+          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : pos + 1;
+          if (!needEndMatch
+              || endPos == textLen
+              || (trailingTermStart < textLen && endPos == trailingTermStart)) {
+            // Collect match IDs from the state's instructions.
+            for (int id : collectMatchIds(s.insts)) {
+              seen.set(id);
+            }
+            if (s.wordBoundaryMatchIds != null) {
+              for (int id : s.wordBoundaryMatchIds) {
+                seen.set(id);
+              }
+            }
+          }
+        }
+        pos++;
+      }
+
+      // General loop
       while (pos <= textLen) {
         int cp;
         int nextPos;
         int cls;
         if (pos < textLen) {
           char ch = text.charAt(pos);
-          if (ch < fastPathLimit) {
+          if (ch < 128) {
             cp = ch;
             nextPos = pos + 1;
-            cls = classMap[ch];
+            cls = asciiClassMap[ch];
+          } else if (ch < 0xD800 && bmpClassMap != null) {
+            cp = ch;
+            nextPos = pos + 1;
+            cls = bmpClassMap[ch];
           } else if (Character.isHighSurrogate(ch)
               && pos + 1 < textLen
               && Character.isLowSurrogate(text.charAt(pos + 1))) {
             cp = Character.toCodePoint(ch, text.charAt(pos + 1));
             nextPos = pos + 2;
             cls = classOf(cp);
-          } else { // Lone surrogates and characters >= 65536 (or >= classMap.length)
+          } else { // Lone surrogates and characters >= 0xE000
             cp = ch;
             nextPos = pos + 1;
-            cls = (ch < classMap.length) ? classMap[ch] : defaultNonAsciiClass;
+            cls = classOf(cp);
           }
         } else {
           cp = -1;
@@ -1573,7 +1800,7 @@ final class Dfa {
 
   private boolean canStopAtFirstMatch(State s, String text, int pos, boolean needEndMatch) {
     if (!needEndMatch) {
-      return isHighestPriorityMatch(s);
+      return s.isHighestPriorityMatch;
     }
     int cp = codePointAt(text, pos);
     for (int id : s.insts) {
@@ -1596,10 +1823,6 @@ final class Dfa {
       }
     }
     return false;
-  }
-
-  private boolean isHighestPriorityMatch(State s) {
-    return s.insts.length > 0 && prog.inst(s.insts[0]).opCode == InstOp.OP_MATCH;
   }
 
   private static int codePointAt(String text, int pos) {
