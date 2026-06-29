@@ -13,6 +13,7 @@ import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
+import java.util.Locale;
 
 /**
  * Low-level FFM bindings to the re2_shim native library. Each static method corresponds to a C
@@ -35,7 +36,9 @@ final class Re2Shim {
     String libPath = System.getProperty("re2shim.library.path");
     SymbolLookup lookup;
     if (libPath != null) {
-      lookup = SymbolLookup.libraryLookup(Path.of(libPath, "libre2_shim.so"), Arena.global());
+      String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+      String libName = osName.contains("mac") ? "libre2_shim.dylib" : "libre2_shim.so";
+      lookup = SymbolLookup.libraryLookup(Path.of(libPath, libName), Arena.global());
     } else {
       // Fall back to system library path
       System.loadLibrary("re2_shim");
