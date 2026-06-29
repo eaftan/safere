@@ -95,6 +95,16 @@ public class RegexBenchmark {
   private org.safere.re2ffm.RE2FfmPattern re2ffmEmail;
   private String emailText;
 
+  // ---------------------------------------------------------------------------
+  // Lazy wildcard find
+  // ---------------------------------------------------------------------------
+
+  private org.safere.Pattern safeLazyWildcard;
+  private java.util.regex.Pattern jdkLazyWildcard;
+  private com.google.re2j.Pattern re2jLazyWildcard;
+  private org.safere.re2ffm.RE2FfmPattern re2ffmLazyWildcard;
+  private String lazyWildcardText;
+
   @Setup
   public void setup() {
     BenchmarkData data = BenchmarkData.get();
@@ -146,6 +156,14 @@ public class RegexBenchmark {
     jdkEmail = java.util.regex.Pattern.compile(emailPattern);
     re2jEmail = com.google.re2j.Pattern.compile(emailPattern);
     re2ffmEmail = org.safere.re2ffm.RE2FfmPattern.compile(emailPattern);
+
+    // Lazy wildcard
+    String lazyWildcardPattern = data.getString("regex.lazyWildcardFind.pattern");
+    lazyWildcardText = data.getString("regex.lazyWildcardFind.text");
+    safeLazyWildcard = org.safere.Pattern.compile(lazyWildcardPattern);
+    jdkLazyWildcard = java.util.regex.Pattern.compile(lazyWildcardPattern);
+    re2jLazyWildcard = com.google.re2j.Pattern.compile(lazyWildcardPattern);
+    re2ffmLazyWildcard = org.safere.re2ffm.RE2FfmPattern.compile(lazyWildcardPattern);
   }
 
   // ===== Literal match =====
@@ -326,5 +344,27 @@ public class RegexBenchmark {
   @Benchmark
   public boolean emailFind_re2ffm() {
     return re2ffmEmail.matcher(emailText).find();
+  }
+
+  // ===== Lazy wildcard find =====
+
+  @Benchmark
+  public boolean lazyWildcardFind_safere() {
+    return safeLazyWildcard.matcher(lazyWildcardText).find();
+  }
+
+  @Benchmark
+  public boolean lazyWildcardFind_jdk() {
+    return jdkLazyWildcard.matcher(lazyWildcardText).find();
+  }
+
+  @Benchmark
+  public boolean lazyWildcardFind_re2j() {
+    return re2jLazyWildcard.matcher(lazyWildcardText).find();
+  }
+
+  @Benchmark
+  public boolean lazyWildcardFind_re2ffm() {
+    return re2ffmLazyWildcard.matcher(lazyWildcardText).find();
   }
 }

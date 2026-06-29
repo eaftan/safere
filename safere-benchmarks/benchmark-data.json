@@ -30,6 +30,11 @@
       "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}",
       "text": "contact user.name+tag@example.co.uk for info",
       "op": "find"
+    },
+    "lazyWildcardFind": {
+      "pattern": "(?s)<markerA>.*?<markerB>",
+      "text": "<markerA>Lorem ipsum dolor sit amet, consectetur adipiscing elit.<markerB>",
+      "op": "find"
     }
   },
 
