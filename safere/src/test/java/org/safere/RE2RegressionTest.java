@@ -426,7 +426,10 @@ class RE2RegressionTest {
     @DisplayName("b/529118477: ArrayIndexOutOfBoundsException in DFA computeNext")
     void bug529118477DfaArrayIndexOutOfBounds() {
       String regex = "(\u0000A\u0000||(?Um)$|\uFFFF){741}^NA^ .?K";
-      String input = "\rA\u0000|(?Um)~\rA\u0000|(?Um)+?\u0002u\u0225C\uFFFF\uFFFF\uFFFF\uF007\u0183\u011A\u00A3###j";
+      String input =
+          "\r"
+              + "A\u0000|(?Um)~\r"
+              + "A\u0000|(?Um)+?\u0002u\u0225C\uFFFF\uFFFF\uFFFF\uF007\u0183\u011A\u00A3###j";
       Pattern pattern = Pattern.compile(regex);
       Matcher matcher = pattern.matcher(input);
       while (matcher.find()) {
