@@ -47,6 +47,17 @@ final class GraphemeSupport {
       return new Context(text);
     }
 
+    static Context create(InputScanner text, boolean includeGraphemeClusterBoundary) {
+      if (!includeGraphemeClusterBoundary) {
+        return EMPTY;
+      }
+      if (text instanceof StringInputScanner stringInputScanner) {
+        return new Context(stringInputScanner.text());
+      }
+      throw new UnsupportedOperationException(
+          "Grapheme boundaries are not supported on this input source");
+    }
+
     boolean hasEvenRegionalIndicatorsBefore(int pos, int regionStart) {
       if (text == null) {
         return true;
@@ -323,6 +334,27 @@ final class GraphemeSupport {
       return pos + 2;
     }
     return pos + 1;
+  }
+
+  static int boundaryFlags(
+      InputScanner text,
+      int pos,
+      Context graphemeContext,
+      int matchStart,
+      int regionStart,
+      boolean consumedInput,
+      int boundaryEndPos) {
+    if (text instanceof Utf8InputScanner) {
+      throw new UnsupportedOperationException("Grapheme boundary check not supported on bytes");
+    }
+    return boundaryFlags(
+        ((StringInputScanner) text).text(),
+        pos,
+        graphemeContext,
+        matchStart,
+        regionStart,
+        consumedInput,
+        boundaryEndPos);
   }
 
   static int boundaryFlags(

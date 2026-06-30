@@ -160,6 +160,30 @@ final class BitState {
       boolean endMatch,
       int nsubmatch,
       int[] resultBuffer) {
+    return search(
+        cached,
+        prog,
+        new StringInputScanner(text),
+        startPos,
+        searchLimit,
+        anchored,
+        longest,
+        endMatch,
+        nsubmatch,
+        resultBuffer);
+  }
+
+  static int[] search(
+      BitState cached,
+      Prog prog,
+      InputScanner text,
+      int startPos,
+      int searchLimit,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch,
+      int[] resultBuffer) {
     int textLen = text.length();
     int maxLen = maxTextSize(prog);
     if (maxLen < 0 || textLen > maxLen) {
@@ -192,7 +216,7 @@ final class BitState {
   static BitState getOrCreate(
       BitState cached,
       Prog prog,
-      String text,
+      InputScanner text,
       int endPos,
       int ncap,
       boolean longest,
@@ -229,6 +253,7 @@ final class BitState {
     bestMatch = null;
     matchResult =
         resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
+    int[] nextPosHolder = new int[1];
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
@@ -238,8 +263,8 @@ final class BitState {
         return null;
       }
       if (searchStart < textLen) {
-        int cp = text.codePointAt(searchStart);
-        searchStart += Character.charCount(cp) - 1;
+        text.codePointAt(searchStart, nextPosHolder);
+        searchStart = nextPosHolder[0] - 1;
       }
     }
     return null;
@@ -250,7 +275,7 @@ final class BitState {
   // -------------------------------------------------------------------------
 
   private final Prog prog;
-  private String text;
+  private InputScanner text;
   private int textLen;
   private int endPos;
   private boolean longest;
@@ -294,7 +319,7 @@ final class BitState {
   private int[] jobPos;
   private int jobCount;
 
-  private BitState(Prog prog, String text, int ncap, boolean longest, boolean endMatch) {
+  private BitState(Prog prog, InputScanner text, int ncap, boolean longest, boolean endMatch) {
     this.prog = prog;
     this.text = text;
     this.textLen = text.length();
@@ -383,6 +408,7 @@ final class BitState {
    */
   private boolean trySearch(int startInst, int startPos) {
     boolean matched = false;
+    int[] nextPosHolder = new int[1];
 
     // Initialize captures and loop registers.
     Arrays.fill(cap, -1);
@@ -510,9 +536,9 @@ final class BitState {
 
         case InstOp.OP_CHAR_RANGE -> {
           if (pos < endPos) {
-            int cp = text.codePointAt(pos);
+            int cp = text.codePointAt(pos, nextPosHolder);
             if (ip.matchesChar(cp)) {
-              int nextPos = pos + Character.charCount(cp);
+              int nextPos = nextPosHolder[0];
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }
@@ -522,9 +548,9 @@ final class BitState {
 
         case InstOp.OP_CHAR_CLASS -> {
           if (pos < endPos) {
-            int cp = text.codePointAt(pos);
+            int cp = text.codePointAt(pos, nextPosHolder);
             if (ip.matchesCharClass(cp)) {
-              int nextPos = pos + Character.charCount(cp);
+              int nextPos = nextPosHolder[0];
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }
@@ -573,7 +599,7 @@ final class BitState {
    * Returns whether this BitState can be reused for the given parameters. Reuse is possible when
    * the program is the same and the pre-allocated arrays are large enough for the full text.
    */
-  boolean canReuse(Prog prog, String text, int ncap) {
+  boolean canReuse(Prog prog, InputScanner text, int ncap) {
     if (this.prog != prog) {
       return false;
     }
@@ -589,7 +615,7 @@ final class BitState {
    * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
    * reallocating. The caller must verify {@link #canReuse} first.
    */
-  private void reset(String text, int endPos, int ncap, boolean longest, boolean endMatch) {
+  private void reset(InputScanner text, int endPos, int ncap, boolean longest, boolean endMatch) {
     this.text = text;
     this.textLen = text.length();
     this.endPos = endPos;

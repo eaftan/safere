@@ -462,33 +462,29 @@ final class OnePass {
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
   SearchResult search(String text, boolean endMatch, int nsubmatch) {
+    return search(new StringInputScanner(text), 0, text.length(), endMatch, nsubmatch);
+  }
+
+  SearchResult search(InputScanner text, boolean endMatch, int nsubmatch) {
     return search(text, 0, text.length(), endMatch, nsubmatch);
   }
 
-  /**
-   * Searches for an anchored match in the text starting from {@code startPos}, scanning up to
-   * {@code endPos}. This is equivalent to running OnePass on {@code text.substring(startPos,
-   * endPos)} but avoids the substring allocation. Positions in the returned array are relative to
-   * the original {@code text}.
-   *
-   * <p>Empty-width assertions ({@code \b}, {@code ^}, {@code $}) are evaluated against the full
-   * text, preserving correct boundary semantics even when searching a sub-range.
-   *
-   * @param text the full input text
-   * @param startPos position in {@code text} at which to anchor the match
-   * @param endPos upper scan bound (exclusive); the match cannot consume characters beyond this
-   * @param endMatch if true, the match must extend to exactly {@code endPos}
-   * @param nsubmatch number of submatch groups to track (including group 0)
-   * @return submatch positions relative to {@code text}, or null if no match
-   */
   SearchResult search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+    GraphemeSupport.Context graphemeContext =
+        GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    return search(
+        new StringInputScanner(text), startPos, endPos, endMatch, nsubmatch, graphemeContext);
+  }
+
+  SearchResult search(
+      InputScanner text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     return search(text, startPos, endPos, endMatch, nsubmatch, graphemeContext);
   }
 
   private SearchResult search(
-      String text,
+      InputScanner text,
       int startPos,
       int endPos,
       boolean endMatch,
@@ -500,8 +496,9 @@ final class OnePass {
     cap[0] = startPos;
 
     int state = 0;
-    boolean matched = false;
     int[] bestCap = new int[ncap];
+    int[] nextPosHolder = new int[1];
+    boolean matched = false;
 
     int nc = numClasses;
     long[] fa = flatActions;
@@ -537,18 +534,14 @@ final class OnePass {
       // Read next character — ASCII fast path avoids codePointAt/charCount overhead.
       int nextPos;
       int cls;
-      char ch = text.charAt(pos);
-      if (ch < 128) {
+      int c = text.charOrByteAt(pos);
+      if (c < 128) {
         nextPos = pos + 1;
-        cls = ascMap[ch];
-      } else if (Character.isHighSurrogate(ch)
-          && pos + 1 < endPos
-          && Character.isLowSurrogate(text.charAt(pos + 1))) {
-        nextPos = pos + 2;
-        cls = classOf(Character.toCodePoint(ch, text.charAt(pos + 1)));
+        cls = ascMap[c];
       } else {
-        nextPos = pos + 1;
-        cls = classOf(ch);
+        int cp = text.codePointAt(pos, nextPosHolder);
+        nextPos = nextPosHolder[0];
+        cls = classOf(cp);
       }
 
       // Equivalence classes and state indices are always valid for a well-formed OnePass
@@ -626,10 +619,15 @@ final class OnePass {
    * @return submatch positions relative to {@code text}, or null if no match
    */
   int[] searchUnanchored(String text, int startPos, int searchLimit, int nsubmatch) {
+    return searchUnanchored(new StringInputScanner(text), startPos, searchLimit, nsubmatch);
+  }
+
+  int[] searchUnanchored(InputScanner text, int startPos, int searchLimit, int nsubmatch) {
     int textLen = text.length();
     int limit = Math.min(searchLimit, textLen) + 1;
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    int[] nextPosHolder = new int[1];
     for (int start = startPos; start < limit; start++) {
       SearchResult result = search(text, start, textLen, false, nsubmatch, graphemeContext);
       if (result.groups() != null) {
@@ -637,10 +635,8 @@ final class OnePass {
       }
       // Advance to next code point boundary.
       if (start < textLen) {
-        int cp = text.codePointAt(start);
-        if (Character.charCount(cp) > 1) {
-          start++; // skip low surrogate; loop increment handles the rest
-        }
+        text.codePointAt(start, nextPosHolder);
+        start = nextPosHolder[0] - 1;
       }
     }
     return null;

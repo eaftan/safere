@@ -726,6 +726,10 @@ public final class Pattern implements Serializable {
     return dfa;
   }
 
+  public Matcher matcher(byte[] input) {
+    return new Matcher(this, input);
+  }
+
   /**
    * Returns the lazily computed OnePass analysis results. Thread-safe via volatile: benign data
    * race at worst computes twice, but the result is the same since all inputs are immutable.
@@ -1219,7 +1223,7 @@ public final class Pattern implements Serializable {
         if (candidate == null || candidate.op == RegexpOp.EMPTY_MATCH) {
           continue;
         }
-        return isZeroWidthAssertion(candidate);
+        return startsWithZeroWidthAssertion(candidate);
       }
       return false;
     }

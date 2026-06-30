@@ -630,11 +630,11 @@ final class Dfa {
    * prefix loop that the compiler generates. This keeps all start positions alive within the DFA
    * state without needing to restart at each position (unlike the NFA).
    */
-  private State startState(String text, int pos, boolean anchored) {
+  private State startState(InputScanner text, int pos, boolean anchored) {
     return startState(text, pos, anchored, false);
   }
 
-  private int emptyFlags(String text, int pos) {
+  private int emptyFlags(InputScanner text, int pos) {
     int flags =
         Nfa.emptyFlags(
             text,
@@ -675,7 +675,7 @@ final class Dfa {
    * @param reverseContext if true, FLAG_LAST_WORD is set based on the character AT pos (the char to
    *     the right of where a reverse scan begins), rather than the character BEFORE pos
    */
-  private State startState(String text, int pos, boolean anchored, boolean reverseContext) {
+  private State startState(InputScanner text, int pos, boolean anchored, boolean reverseContext) {
     int startInst = anchored ? prog.start() : prog.startUnanchored();
     if (startInst == 0) {
       return deadState;
@@ -751,43 +751,30 @@ final class Dfa {
    * transitions (near end-of-text) bypass the cache. The end-of-text sentinel ({@code cp < 0}) is
    * always safe to cache because it always represents "at text end".
    */
-  private int positionDependentThreshold(String text) {
+  private int positionDependentThreshold(InputScanner text) {
     if (hasGraphemeSemantics) {
       return 0;
     }
-    int len = text.length();
-    if (prog.unixLines()) {
-      return (len > 0 && text.charAt(len - 1) == '\n') ? len - 1 : len;
+    if (!prog.hasTextAnchor() && !prog.dollarAnchorEnd()) {
+      return Integer.MAX_VALUE;
     }
-    if (len >= 2 && text.charAt(len - 2) == '\r' && text.charAt(len - 1) == '\n') {
-      return len - 2;
+    int threshold = Integer.MAX_VALUE;
+    if (prog.hasTextAnchor()) {
+      threshold = 1;
     }
-    if (len > 0 && Nfa.isLineTerminator(text.charAt(len - 1))) {
-      return len - 1;
+    if (prog.dollarAnchorEnd()) {
+      threshold = Math.min(threshold, trailingLineStart(text));
     }
-    return len;
+    return threshold;
   }
 
-  /**
-   * Returns the start position of the trailing line terminator at the end of text, or {@code
-   * text.length()} if no trailing line terminator exists. This is the earliest position where
-   * non-multiline {@code $} can match before a trailing line terminator.
-   */
-  private int trailingLineStart(String text) {
+  private int trailingLineStart(InputScanner text) {
     int len = text.length();
     if (len == 0) {
       return len;
     }
-    if (prog.unixLines()) {
-      return (text.charAt(len - 1) == '\n') ? len - 1 : len;
-    }
-    if (len >= 2 && text.charAt(len - 2) == '\r' && text.charAt(len - 1) == '\n') {
-      return len - 2;
-    }
-    if (Nfa.isLineTerminator(text.charAt(len - 1))) {
-      return len - 1;
-    }
-    return len;
+    int trailing = text.trailingLineTerminatorStart(prog.unixLines(), len);
+    return trailing >= 0 ? trailing : len;
   }
 
   /**
@@ -797,7 +784,7 @@ final class Dfa {
    * Collects the successor instructions, expands them through empty transitions, and returns the
    * resulting state.
    */
-  private State computeNext(State s, int cp, String text, int nextPos) {
+  private State computeNext(State s, int cp, InputScanner text, int nextPos) {
     // At end of text, re-expand the current instruction set with end-of-text empty flags.
     // This allows empty-width assertions like $ and \b to fire.
     if (cp < 0) {
@@ -878,7 +865,7 @@ final class Dfa {
       endLineHere = Nfa.isLineTerminator(cp);
       // Don't fire END_LINE at the \n of an atomic \r\n pair. END_LINE fires before the \r
       // (the start of the pair), not between \r and \n.
-      if (endLineHere && cp == '\n' && nextPos >= 2 && text.charAt(nextPos - 2) == '\r') {
+      if (endLineHere && cp == '\n' && nextPos >= 2 && text.charOrByteAt(nextPos - 2) == '\r') {
         endLineHere = false;
       }
     }
@@ -1055,13 +1042,13 @@ final class Dfa {
    *     back to NFA)
    */
   static SearchResult search(Prog prog, String text, boolean anchored, boolean longest) {
-    return search(prog, text, 0, anchored, longest, DEFAULT_MAX_STATES);
+    return search(prog, new StringInputScanner(text), 0, anchored, longest, DEFAULT_MAX_STATES);
   }
 
   /** Search with explicit state budget, starting from position 0. */
   static SearchResult search(
       Prog prog, String text, boolean anchored, boolean longest, int maxStates) {
-    return search(prog, text, 0, anchored, longest, maxStates);
+    return search(prog, new StringInputScanner(text), 0, anchored, longest, maxStates);
   }
 
   /**
@@ -1077,6 +1064,25 @@ final class Dfa {
    */
   static SearchResult search(
       Prog prog, String text, int startPos, boolean anchored, boolean longest, int maxStates) {
+    return search(prog, new StringInputScanner(text), startPos, anchored, longest, maxStates);
+  }
+
+  static SearchResult search(Prog prog, InputScanner text, boolean anchored, boolean longest) {
+    return search(prog, text, 0, anchored, longest, DEFAULT_MAX_STATES);
+  }
+
+  static SearchResult search(
+      Prog prog, InputScanner text, boolean anchored, boolean longest, int maxStates) {
+    return search(prog, text, 0, anchored, longest, maxStates);
+  }
+
+  static SearchResult search(
+      Prog prog,
+      InputScanner text,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      int maxStates) {
     Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), longest);
     return dfa.doSearch(text, startPos, anchored, longest);
   }
@@ -1087,6 +1093,14 @@ final class Dfa {
    * @see #doSearch(String, int, boolean, boolean)
    */
   SearchResult doSearch(String text, boolean anchored, boolean longest) {
+    return doSearch(new StringInputScanner(text), 0, anchored, longest);
+  }
+
+  SearchResult doSearch(String text, int startPos, boolean anchored, boolean longest) {
+    return doSearch(new StringInputScanner(text), startPos, anchored, longest);
+  }
+
+  SearchResult doSearch(InputScanner text, boolean anchored, boolean longest) {
     return doSearch(text, 0, anchored, longest);
   }
 
@@ -1104,7 +1118,7 @@ final class Dfa {
    * @return search result with positions relative to {@code text}, or {@code null} if the DFA
    *     exceeded its state budget
    */
-  SearchResult doSearch(String text, int startPos, boolean anchored, boolean longest) {
+  SearchResult doSearch(InputScanner text, int startPos, boolean anchored, boolean longest) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     int textLen = text.length();
     // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
@@ -1144,6 +1158,7 @@ final class Dfa {
       return new SearchResult(matched, matchEnd);
     }
 
+    int[] nextPosHolder = new int[1];
     int pos = startPos;
     while (pos <= textLen) {
       if (WorkCounterConfig.ENABLED) {
@@ -1153,21 +1168,15 @@ final class Dfa {
       int nextPos;
       int cls;
       if (pos < textLen) {
-        char ch = text.charAt(pos);
+        int ch = text.charOrByteAt(pos);
         if (ch < 128) {
           // ASCII fast path: no surrogate handling, use pre-computed class map.
           cp = ch;
           nextPos = pos + 1;
           cls = asciiClassMap[ch];
-        } else if (Character.isHighSurrogate(ch)
-            && pos + 1 < textLen
-            && Character.isLowSurrogate(text.charAt(pos + 1))) {
-          cp = Character.toCodePoint(ch, text.charAt(pos + 1));
-          nextPos = pos + 2;
-          cls = classOf(cp);
         } else {
-          cp = ch;
-          nextPos = pos + 1;
+          cp = text.codePointAt(pos, nextPosHolder);
+          nextPos = nextPosHolder[0];
           cls = classOf(cp);
         }
       } else {
@@ -1267,6 +1276,11 @@ final class Dfa {
    */
   SearchResult doSearchReverse(
       String text, int endPos, int startLimit, boolean anchored, boolean longest) {
+    return doSearchReverse(new StringInputScanner(text), endPos, startLimit, anchored, longest);
+  }
+
+  SearchResult doSearchReverse(
+      InputScanner text, int endPos, int startLimit, boolean anchored, boolean longest) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     // The reversed program's "start of text" corresponds to endPos (the right edge of the match
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
@@ -1301,6 +1315,7 @@ final class Dfa {
       return new SearchResult(matched, matchStart);
     }
 
+    int[] prevPosHolder = new int[1];
     int pos = endPos;
     while (pos >= startLimit) {
       if (WorkCounterConfig.ENABLED) {
@@ -1311,22 +1326,15 @@ final class Dfa {
       int cls;
       if (pos > 0) {
         // Read the code point just before pos (scanning backward).
-        char ch = text.charAt(pos - 1);
+        int ch = text.charOrByteAt(pos - 1);
         if (ch < 128) {
           // ASCII fast path.
           cp = ch;
           prevPos = pos - 1;
           cls = asciiClassMap[ch];
-        } else if (Character.isLowSurrogate(ch)
-            && pos - 2 >= startLimit
-            && Character.isHighSurrogate(text.charAt(pos - 2))) {
-          // Surrogate pair: the low surrogate is at pos-1, high at pos-2.
-          cp = Character.toCodePoint(text.charAt(pos - 2), ch);
-          prevPos = pos - 2;
-          cls = classOf(cp);
         } else {
-          cp = ch;
-          prevPos = pos - 1;
+          cp = text.codePointBefore(pos, prevPosHolder);
+          prevPos = prevPosHolder[0];
           cls = classOf(cp);
         }
       } else {
@@ -1424,6 +1432,10 @@ final class Dfa {
    * states reached along the way.
    */
   ManyMatchResult doSearchMany(String text, boolean anchored) {
+    return doSearchMany(new StringInputScanner(text), anchored);
+  }
+
+  ManyMatchResult doSearchMany(InputScanner text, boolean anchored) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
@@ -1452,6 +1464,7 @@ final class Dfa {
       }
     }
 
+    int[] nextPosHolder = new int[1];
     if (s != deadState) {
       int pos = 0;
       while (pos <= textLen) {
@@ -1459,20 +1472,14 @@ final class Dfa {
         int nextPos;
         int cls;
         if (pos < textLen) {
-          char ch = text.charAt(pos);
-          if (ch < 128) {
-            cp = ch;
+          int c = text.charOrByteAt(pos);
+          if (c < 128) {
+            cp = c;
             nextPos = pos + 1;
-            cls = asciiClassMap[ch];
-          } else if (Character.isHighSurrogate(ch)
-              && pos + 1 < textLen
-              && Character.isLowSurrogate(text.charAt(pos + 1))) {
-            cp = Character.toCodePoint(ch, text.charAt(pos + 1));
-            nextPos = pos + 2;
-            cls = classOf(cp);
+            cls = asciiClassMap[c];
           } else {
-            cp = ch;
-            nextPos = pos + 1;
+            cp = text.codePointAt(pos, nextPosHolder);
+            nextPos = nextPosHolder[0];
             cls = classOf(cp);
           }
         } else {
@@ -1562,7 +1569,7 @@ final class Dfa {
     return firstMatch < firstActive;
   }
 
-  private boolean canStopAtFirstMatch(State s, String text, int pos, boolean needEndMatch) {
+  private boolean canStopAtFirstMatch(State s, InputScanner text, int pos, boolean needEndMatch) {
     if (!needEndMatch) {
       return isHighestPriorityMatch(s);
     }
@@ -1593,17 +1600,11 @@ final class Dfa {
     return s.insts.length > 0 && prog.inst(s.insts[0]).opCode == InstOp.OP_MATCH;
   }
 
-  private static int codePointAt(String text, int pos) {
+  private static int codePointAt(InputScanner text, int pos) {
     if (pos >= text.length()) {
       return -1;
     }
-    char ch = text.charAt(pos);
-    if (Character.isHighSurrogate(ch)
-        && pos + 1 < text.length()
-        && Character.isLowSurrogate(text.charAt(pos + 1))) {
-      return Character.toCodePoint(ch, text.charAt(pos + 1));
-    }
-    return ch;
+    return text.codePointAt(pos);
   }
 
   private static boolean isRequiredEndMatch(

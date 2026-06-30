@@ -9,7 +9,7 @@ import static java.util.Objects.requireNonNull;
 
 /** Immutable execution bounds shared by regex engines. */
 record EngineContext(
-    String text,
+    InputScanner text,
     int searchStart,
     int searchLimit,
     int endPos,
@@ -29,7 +29,7 @@ record EngineContext(
 
   static EngineContext create(
       Prog prog,
-      String text,
+      InputScanner text,
       int searchStart,
       int searchLimit,
       int endPos,
