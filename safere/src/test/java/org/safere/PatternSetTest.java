@@ -7,11 +7,9 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -19,13 +17,12 @@ import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link PatternSet}. */
 @DisabledForCrosscheck("PatternSet is a SafeRE-only API with no java.util.regex equivalent")
 class PatternSetTest {
-  private static final Duration PERFORMANCE_SCENARIO_TIMEOUT = Duration.ofSeconds(30);
-
   // ---------------------------------------------------------------------------
   // Builder
   // ---------------------------------------------------------------------------
@@ -152,6 +149,7 @@ class PatternSetTest {
     }
 
     @Test
+    @Tag("work-counter")
     void regionalIndicatorGraphemeBoundaryMissesStayNearLinear() {
       PatternSet.Builder b = new PatternSet.Builder(PatternSet.Anchor.UNANCHORED);
       b.add("\\b{g}z");
@@ -622,33 +620,15 @@ class PatternSetTest {
 
   private static void assertFourXInputStaysNearLinear(String scenario, IntConsumer task) {
     task.accept(1_000);
-    long smallerNanos = medianRuntimeNanos(() -> task.accept(5_000));
-    long largerNanos = medianRuntimeNanos(() -> task.accept(20_000));
+    long smallerWork = WorkCounter.countForTesting(() -> task.accept(5_000));
+    long largerWork = WorkCounter.countForTesting(() -> task.accept(20_000));
 
-    assertThat(largerNanos)
+    assertThat(smallerWork).as("%s: smaller input should use matcher work", scenario).isPositive();
+    assertThat(largerWork)
         .as(
-            "%s: 4x input should stay near-linear, smaller=%dns larger=%dns",
-            scenario, smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 10);
-  }
-
-  private static long medianRuntimeNanos(Runnable task) {
-    long[] samples = new long[5];
-    for (int i = 0; i < samples.length; i++) {
-      samples[i] = runtimeNanos(task);
-    }
-    java.util.Arrays.sort(samples);
-    return samples[samples.length / 2];
-  }
-
-  private static long runtimeNanos(Runnable task) {
-    return assertTimeoutPreemptively(
-        PERFORMANCE_SCENARIO_TIMEOUT,
-        () -> {
-          long start = System.nanoTime();
-          task.run();
-          return System.nanoTime() - start;
-        });
+            "%s: 4x input should stay near-linear, smallerWork=%d largerWork=%d",
+            scenario, smallerWork, largerWork)
+        .isLessThan(smallerWork * 5);
   }
 
   private static long allocatedFor(

@@ -248,6 +248,93 @@ func suffixMatchToSize(prefixUnit string, match string, size int) string {
 	return repeatToSize(prefixUnit, prefixSize) + match
 }
 
+func generatedRealWorldInput(unit string, size int, alphabet string, seed int) string {
+	if len(unit) >= size {
+		return unit[:size]
+	}
+	var b strings.Builder
+	b.Grow(size + len(unit))
+	delimiterIndex := seed
+	for b.Len() < size {
+		b.WriteString(unit)
+		if b.Len() < size {
+			b.WriteByte(alphabet[delimiterIndex%len(alphabet)])
+			delimiterIndex++
+		}
+	}
+	return b.String()[:size]
+}
+
+func generatedSparseRealWorldInput(
+	matchUnit string, nonMatchUnit string, size int, seed int, nonMatchRepeats int,
+	alphabet string,
+) string {
+	var b strings.Builder
+	b.Grow(size + len(matchUnit) + len(nonMatchUnit))
+	delimiterIndex := seed
+	for b.Len() < size {
+		for i := 0; i < nonMatchRepeats && b.Len() < size; i++ {
+			b.WriteString(nonMatchUnit)
+			if b.Len() < size {
+				b.WriteByte(alphabet[delimiterIndex%len(alphabet)])
+				delimiterIndex++
+			}
+		}
+		if b.Len() < size {
+			b.WriteByte(' ')
+			b.WriteString(matchUnit)
+			b.WriteByte(' ')
+		}
+	}
+	return b.String()[:size]
+}
+
+func generateRealWorldInput(
+	inputSpec map[string]any, matchUnit string, nonMatchUnit string, match bool, size int,
+	alphabet string, seed int,
+) string {
+	unit := nonMatchUnit
+	if match {
+		unit = matchUnit
+	}
+	kind := "repeat"
+	if rawKind, ok := inputSpec["kind"]; ok {
+		kind = rawKind.(string)
+	}
+	switch kind {
+	case "repeat":
+		return generatedRealWorldInput(unit, size, alphabet, seed)
+	case "prefixedRepeat":
+		prefix := getString(inputSpec, "prefix")
+		if len(prefix) >= size {
+			return prefix[:size]
+		}
+		bodySize := size - len(prefix)
+		return prefix + generatedRealWorldInput(unit, bodySize, alphabet, seed)
+	case "sparseMatch":
+		return generatedSparseRealWorldInput(
+			matchUnit, nonMatchUnit, size, seed, getInt(inputSpec, "nonMatchRepeats"),
+			getString(inputSpec, "delimiterAlphabet"))
+	case "surroundWithSpaces":
+		body := getString(inputSpec, "body")
+		return generateSurroundWithSpacesInput(body, size)
+	default:
+		fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex input kind: %s\n", kind)
+		os.Exit(1)
+	}
+	panic("unreachable")
+}
+
+func generateSurroundWithSpacesInput(body string, size int) string {
+	if len(body) >= size {
+		return body[:size]
+	}
+	totalPadding := size - len(body)
+	leadingPadding := totalPadding / 2
+	trailingPadding := totalPadding - leadingPadding
+	return strings.Repeat(" ", leadingPadding) + body + strings.Repeat(" ", trailingPadding)
+}
+
 func appendUTF8(b *strings.Builder, cp int) {
 	var buf [4]byte
 	n := utf8.EncodeRune(buf[:], rune(cp))
@@ -445,6 +532,97 @@ func runApplicationBenchmarks(data map[string]any, filters []string) {
 				sink = runInt(c)
 			}
 		})
+	}
+}
+
+func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
+	sec, ok := data["realWorldRegex"].(map[string]any)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "ERROR: realWorldRegex benchmark data must be an object")
+		os.Exit(1)
+	}
+	sizes := getIntSlice(sec, "textSizes")
+	alphabet := getString(sec, "safeDelimiterAlphabet")
+	seed := getInt(sec, "seed")
+
+	type realWorldCase struct {
+		name          string
+		op            string
+		pattern       string
+		match         string
+		nonMatch      string
+		matchInput    map[string]any
+		nonMatchInput map[string]any
+		re            *regexp.Regexp
+	}
+
+	rawCases, ok := sec["cases"].([]any)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "ERROR: realWorldRegex cases must be a list")
+		os.Exit(1)
+	}
+	cases := make([]realWorldCase, 0, len(rawCases))
+	for _, raw := range rawCases {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			fmt.Fprintln(os.Stderr, "ERROR: invalid realWorldRegex benchmark case")
+			os.Exit(1)
+		}
+		op := getString(item, "op")
+		if op != "find" && op != "replaceAllEmpty" && op != "replaceAllGroup1" {
+			fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex op: %s\n", op)
+			os.Exit(1)
+		}
+		pattern := getString(item, "pattern")
+		matchInput, _ := item["matchInput"].(map[string]any)
+		nonMatchInput, _ := item["nonMatchInput"].(map[string]any)
+		cases = append(cases, realWorldCase{
+			name:          getString(item, "name"),
+			op:            op,
+			pattern:       pattern,
+			match:         getString(item, "match"),
+			nonMatch:      getString(item, "nonMatch"),
+			matchInput:    matchInput,
+			nonMatchInput: nonMatchInput,
+			re:            regexp.MustCompile(pattern),
+		})
+	}
+
+	for _, c := range cases {
+		c := c
+		for _, match := range []bool{true, false} {
+			matchLabel := "noMatch"
+			if match {
+				matchLabel = "match"
+			}
+			for _, size := range sizes {
+				inputSpec := c.nonMatchInput
+				if match {
+					inputSpec = c.matchInput
+				}
+				text := generateRealWorldInput(
+					inputSpec, c.match, c.nonMatch, match, size, alphabet, seed)
+				name := fmt.Sprintf(
+					"RealWorldRegexBenchmark.runBenchmark.%s.%s.%d",
+					c.name, matchLabel, size)
+				if !matchesFilter(name, filters) {
+					continue
+				}
+				if c.op == "find" {
+					printJSON(measureNs(name, func() {
+						sink = c.re.FindStringIndex(text) != nil
+					}))
+				} else if c.op == "replaceAllEmpty" {
+					printJSON(measureNs(name, func() {
+						sink = c.re.ReplaceAllString(text, "")
+					}))
+				} else if c.op == "replaceAllGroup1" {
+					printJSON(measureNs(name, func() {
+						sink = c.re.ReplaceAllString(text, "$1")
+					}))
+				}
+			}
+		}
 	}
 }
 
@@ -879,6 +1057,7 @@ func main() {
 
 	runRegexBenchmarks(data, filters)
 	runApplicationBenchmarks(data, filters)
+	runRealWorldRegexBenchmarks(data, filters)
 	runCompileBenchmarks(data, filters)
 	runSearchScalingBenchmarks(data, filters)
 	runIssue481ScalingBenchmarks(data, filters)

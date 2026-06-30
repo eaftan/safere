@@ -120,6 +120,7 @@
                         <exclude name="DfaTest.java"/>
                         <exclude name="EmptyOpTest.java"/>
                         <exclude name="EnginePathEquivalenceTest.java"/>
+                        <exclude name="GraphemeLinearTimeTest.java"/>
                         <exclude name="InstOpTest.java"/>
                         <exclude name="InstTest.java"/>
                         <exclude name="MatcherDeferredCaptureStateTest.java"/>
@@ -139,6 +140,7 @@
                         <exclude name="UnicodeTablesTest.java"/>
                         <exclude name="UtilsTest.java"/>
                         <exclude name="WalkerTest.java"/>
+                        <exclude name="WorkCounterTest.java"/>
                       </fileset>
                       <filterchain>
                         <replaceregex

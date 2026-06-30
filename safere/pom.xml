@@ -19,6 +19,9 @@
 
   <properties>
     <test.parallelism>16</test.parallelism>
+    <workCounter.enabled>false</workCounter.enabled>
+    <test.groups></test.groups>
+    <test.excludedGroups>work-counter</test.excludedGroups>
   </properties>
 
   <dependencyManagement>
@@ -49,6 +52,58 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>generate-work-counter-config</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.build.directory}/generated-sources/work-counter/org/safere"/>
+                <echo file="${project.build.directory}/generated-sources/work-counter/org/safere/WorkCounterConfig.java"><![CDATA[// This file is part of a Java port of RE2 (https://github.com/google/re2).
+// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
+// Licensed under the BSD 3-Clause License (see LICENSE file).
+
+package org.safere;
+
+/** Generated compile-time flag for deterministic test work accounting. */
+final class WorkCounterConfig {
+  static final boolean ENABLED = ${workCounter.enabled};
+
+  private WorkCounterConfig() {}
+}
+]]></echo>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>add-work-counter-config-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/work-counter</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -109,6 +164,8 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
         <configuration>
+          <groups>${test.groups}</groups>
+          <excludedGroups>${test.excludedGroups}</excludedGroups>
           <properties>
             <configurationParameters>
               junit.jupiter.execution.parallel.enabled = true
@@ -187,6 +244,14 @@
   </build>
 
   <profiles>
+    <profile>
+      <id>work-counters</id>
+      <properties>
+        <workCounter.enabled>true</workCounter.enabled>
+        <test.groups>work-counter</test.groups>
+        <test.excludedGroups></test.excludedGroups>
+      </properties>
+    </profile>
     <profile>
       <id>coverage</id>
       <build>

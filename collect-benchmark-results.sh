@@ -120,29 +120,45 @@ fi
 
 if [ "$MODE" = "smoke" ]; then
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh --smoke RegexBenchmark.literalMatch
+    ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.literalMatch_'
 
   log "Combining Java JMH output"
   cp "$OUTPUT_DIR/java-01-core.txt" "$OUTPUT_DIR/jmh-output.txt"
 
   clean_benchmark_module
   run_and_capture "$OUTPUT_DIR/java-memory.txt" \
-    ./run-java-memory-benchmarks.sh --smoke RegexBenchmark.literalMatch
+    ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.literalMatch_'
 else
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" RegexBenchmark ApplicationBenchmark CompileBenchmark
+    ./run-java-benchmarks.sh \
+      "${JAVA_MODE_ARGS[@]}" \
+      '^org\.safere\.benchmark\.RegexBenchmark\.' \
+      '^org\.safere\.benchmark\.ApplicationBenchmark\.' \
+      '^org\.safere\.benchmark\.RealWorldRegexBenchmark\.' \
+      '^org\.safere\.benchmark\.CompileBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
-    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" SearchScalingBenchmark Issue481ScalingBenchmark CaptureScalingBenchmark
+    ./run-java-benchmarks.sh \
+      "${JAVA_MODE_ARGS[@]}" \
+      '^org\.safere\.benchmark\.SearchScalingBenchmark\.' \
+      '^org\.safere\.benchmark\.Issue481ScalingBenchmark\.' \
+      '^org\.safere\.benchmark\.CaptureScalingBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
-    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" HttpBenchmark ReplaceBenchmark FanoutBenchmark
+    ./run-java-benchmarks.sh \
+      "${JAVA_MODE_ARGS[@]}" \
+      '^org\.safere\.benchmark\.HttpBenchmark\.' \
+      '^org\.safere\.benchmark\.ReplaceBenchmark\.' \
+      '^org\.safere\.benchmark\.FanoutBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
-    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" PathologicalBenchmark PathologicalComparisonBenchmark
+    ./run-java-benchmarks.sh \
+      "${JAVA_MODE_ARGS[@]}" \
+      '^org\.safere\.benchmark\.PathologicalBenchmark\.' \
+      '^org\.safere\.benchmark\.PathologicalComparisonBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-05-patternset.txt" \
-    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" PatternSetBenchmark
+    ./run-java-benchmarks.sh "${JAVA_MODE_ARGS[@]}" '^org\.safere\.benchmark\.PatternSetBenchmark\.'
 
   log "Combining Java JMH output"
   cat \
@@ -155,7 +171,10 @@ else
 
   clean_benchmark_module
   run_and_capture "$OUTPUT_DIR/java-memory.txt" \
-    ./run-java-memory-benchmarks.sh RegexBenchmark SearchScalingBenchmark MemoryScalingBenchmark
+    ./run-java-memory-benchmarks.sh \
+      '^org\.safere\.benchmark\.RegexBenchmark\.' \
+      '^org\.safere\.benchmark\.SearchScalingBenchmark\.' \
+      '^org\.safere\.benchmark\.MemoryScalingBenchmark\.'
 fi
 
 run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" \
@@ -173,7 +192,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
       ./run-cpp-benchmarks.sh RegexBenchmark.literalMatch
   else
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-      ./run-cpp-benchmarks.sh Regex Application Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
+      ./run-cpp-benchmarks.sh Regex Application RealWorldRegex Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
   fi
 
   log "Extracting C++ JSONL"
@@ -184,7 +203,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
       ./run-go-benchmarks.sh RegexBenchmark.literalMatch
   else
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-      ./run-go-benchmarks.sh Regex Application Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
+      ./run-go-benchmarks.sh Regex Application RealWorldRegex Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
   fi
 
   log "Extracting Go JSONL"

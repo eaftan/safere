@@ -111,7 +111,6 @@ class MatcherDeferredCaptureStateTest {
   private static void assertDeferredCaptureStateClear(Matcher matcher)
       throws ReflectiveOperationException {
     assertThat(booleanField(matcher, "capturesResolved")).isTrue();
-    assertThat(booleanField(matcher, "groupZeroResolved")).isTrue();
     assertThat(intField(matcher, "deferredMatchStart")).isZero();
     assertThat(intField(matcher, "deferredMatchEnd")).isZero();
     assertThat(booleanField(matcher, "deferredEndMatch")).isFalse();

@@ -813,17 +813,9 @@ public final class Pattern implements Serializable {
    *       maximizes each iteration.
    * </ol>
    *
-   * <p>When this returns {@code false}, the DFA sandwich is skipped and the submatch engine
-   * (BitState/NFA) determines the correct match boundaries.
-   */
-  boolean dfaGroupZeroReliable() {
-    return true;
-  }
-
-  /**
-   * Returns {@code true} if the pattern contains alternation ({@code |}). Used by the Matcher to
-   * skip OnePass primary for find() — OnePass always uses longest-match semantics, which can pick
-   * the wrong alternative when a zero-width branch competes with a consuming branch.
+   * /** Returns {@code true} if the pattern contains alternation ({@code |}). Used by the Matcher
+   * to skip OnePass primary for find() — OnePass always uses longest-match semantics, which can
+   * pick the wrong alternative when a zero-width branch competes with a consuming branch.
    */
   boolean hasAlternation() {
     return hasAlternation;
@@ -844,10 +836,9 @@ public final class Pattern implements Serializable {
 
   /**
    * Returns {@code true} when the DFA sandwich correctly identifies the leftmost match
-   * <em>start</em> position, even if the match end may be wrong. This is a weaker guarantee than
-   * {@link #dfaGroupZeroReliable()}: the sandwich can narrow the search range for the submatch
-   * engine, but captures must still be resolved (with {@code endMatch=false}) to determine the
-   * correct match end.
+   * <em>start</em> position, even if the match end may be wrong. The sandwich can narrow the search
+   * range for the submatch engine, but captures must still be resolved (with {@code
+   * endMatch=false}) to determine the correct match end.
    *
    * <p>The DFA start is reliable when the leftmost-starting match is the only match ending at the
    * forward DFA's earliest end. This fails for:

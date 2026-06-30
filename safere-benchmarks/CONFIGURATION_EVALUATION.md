@@ -180,8 +180,8 @@ important enough to justify roughly doubling the runtime:
 The benchmark runner exposes these as:
 
 ```bash
-./run-java-benchmarks.sh RegexBenchmark
-./run-java-benchmarks.sh --long RegexBenchmark
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
 ```
 
 ## Reproducing

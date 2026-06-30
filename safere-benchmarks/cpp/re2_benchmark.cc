@@ -205,6 +205,94 @@ std::string suffix_match_to_size(const std::string& prefix_unit,
   return repeat_to_size(prefix_unit, prefix_size) + match;
 }
 
+std::string generated_real_world_input(const std::string& unit, int size,
+                                       const std::string& alphabet,
+                                       int seed) {
+  if (static_cast<int>(unit.size()) >= size) {
+    return unit.substr(0, size);
+  }
+  std::string text;
+  text.reserve(size + unit.size());
+  int delimiter_index = seed;
+  while (static_cast<int>(text.size()) < size) {
+    text += unit;
+    if (static_cast<int>(text.size()) < size) {
+      text += alphabet[delimiter_index % alphabet.size()];
+      ++delimiter_index;
+    }
+  }
+  text.resize(size);
+  return text;
+}
+
+std::string generated_sparse_real_world_input(const std::string& match_unit,
+                                              const std::string& non_match_unit,
+                                              int size, int seed,
+                                              int non_match_repeats,
+                                              const std::string& alphabet) {
+  std::string text;
+  text.reserve(size + match_unit.size() + non_match_unit.size());
+  int delimiter_index = seed;
+  while (static_cast<int>(text.size()) < size) {
+    for (int i = 0; i < non_match_repeats &&
+                    static_cast<int>(text.size()) < size; ++i) {
+      text += non_match_unit;
+      if (static_cast<int>(text.size()) < size) {
+        text += alphabet[delimiter_index % alphabet.size()];
+        ++delimiter_index;
+      }
+    }
+    if (static_cast<int>(text.size()) < size) {
+      text += " ";
+      text += match_unit;
+      text += " ";
+    }
+  }
+  text.resize(size);
+  return text;
+}
+std::string generate_surround_with_spaces_input(const std::string& body, int size) {
+  if (static_cast<int>(body.size()) >= size) {
+    return body.substr(0, size);
+  }
+  int total_padding = size - static_cast<int>(body.size());
+  int leading_padding = total_padding / 2;
+  int trailing_padding = total_padding - leading_padding;
+  return std::string(leading_padding, ' ') + body + std::string(trailing_padding, ' ');
+}
+
+std::string generate_real_world_input(const json& input_spec,
+                                      const std::string& match_unit,
+                                      const std::string& non_match_unit,
+                                      bool match, int size,
+                                      const std::string& alphabet, int seed) {
+  std::string unit = match ? match_unit : non_match_unit;
+  std::string kind = input_spec.value("kind", "repeat");
+  if (kind == "repeat") {
+    return generated_real_world_input(unit, size, alphabet, seed);
+  }
+  if (kind == "prefixedRepeat") {
+    std::string prefix = input_spec.at("prefix").get<std::string>();
+    if (static_cast<int>(prefix.size()) >= size) {
+      return prefix.substr(0, size);
+    }
+    int body_size = size - static_cast<int>(prefix.size());
+    return prefix + generated_real_world_input(unit, body_size, alphabet, seed);
+  }
+  if (kind == "sparseMatch") {
+    return generated_sparse_real_world_input(
+        match_unit, non_match_unit, size, seed,
+        input_spec.at("nonMatchRepeats").get<int>(),
+        input_spec.at("delimiterAlphabet").get<std::string>());
+  }
+  if (kind == "surroundWithSpaces") {
+    std::string body = input_spec.at("body").get<std::string>();
+    return generate_surround_with_spaces_input(body, size);
+  }
+  fprintf(stderr, "ERROR: invalid real-world input kind: %s\n", kind.c_str());
+  exit(1);
+}
+
 // Encode a Unicode code point as UTF-8 and append to the string.
 void append_utf8(std::string& s, int cp) {
   if (cp < 0x80) {
@@ -465,6 +553,88 @@ void run_application_benchmarks(const json& data,
         do_not_optimize(run_int(app_case));
       }
     });
+  }
+}
+
+void run_real_world_regex_benchmarks(
+    const json& data, const std::vector<std::string>& filters) {
+  const auto& sec = data["realWorldRegex"];
+  std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
+  std::string alphabet = sec["safeDelimiterAlphabet"].get<std::string>();
+  int seed = sec["seed"].get<int>();
+
+  struct RealWorldCase {
+    std::string name;
+    std::string op;
+    std::string pattern;
+    std::string match;
+    std::string non_match;
+    json match_input;
+    json non_match_input;
+    RE2 re;
+
+    explicit RealWorldCase(const json& item)
+        : name(item.at("name").get<std::string>()),
+          op(item.at("op").get<std::string>()),
+          pattern(item.at("pattern").get<std::string>()),
+          match(item.at("match").get<std::string>()),
+          non_match(item.at("nonMatch").get<std::string>()),
+          match_input(item.value("matchInput", json::object())),
+          non_match_input(item.value("nonMatchInput", json::object())),
+          re(pattern) {}
+  };
+
+  std::vector<std::unique_ptr<RealWorldCase>> cases;
+  for (const auto& item : sec["cases"]) {
+    cases.push_back(std::make_unique<RealWorldCase>(item));
+  }
+
+  for (const auto& case_ptr : cases) {
+    const RealWorldCase& c = *case_ptr;
+    if (!c.re.ok()) {
+      fprintf(stderr, "ERROR: invalid real-world regex pattern: %s\n",
+              c.name.c_str());
+      exit(1);
+    }
+    if (c.op != "find" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1") {
+      fprintf(stderr, "ERROR: invalid real-world regex op: %s\n",
+              c.op.c_str());
+      exit(1);
+    }
+  }
+
+  for (const auto& case_ptr : cases) {
+    const RealWorldCase& c = *case_ptr;
+    for (bool match : {true, false}) {
+      const json& input_spec = match ? c.match_input : c.non_match_input;
+      std::string match_label = match ? "match" : "noMatch";
+      for (int size : sizes) {
+        std::string text = generate_real_world_input(
+            input_spec, c.match, c.non_match, match, size, alphabet, seed);
+        std::string name = "RealWorldRegexBenchmark.runBenchmark." + c.name +
+                           "." + match_label + "." + std::to_string(size);
+        if (!matches_filter(name, filters)) {
+          continue;
+        }
+        if (c.op == "find") {
+          print_json(measure(name, [&]() {
+            do_not_optimize(RE2::PartialMatch(text, c.re));
+          }));
+        } else if (c.op == "replaceAllEmpty") {
+          print_json(measure(name, [&]() {
+            std::string replaced = text;
+            RE2::GlobalReplace(&replaced, c.re, "");
+            do_not_optimize(replaced);
+          }));
+        } else if (c.op == "replaceAllGroup1") {
+          print_json(measure(name, [&]() {
+            std::string replaced = text;
+            RE2::GlobalReplace(&replaced, c.re, "\\1");
+            do_not_optimize(replaced);
+          }));
+        }
+      }
+    }
   }
 }
 
@@ -928,6 +1098,7 @@ int main(int argc, char* argv[]) {
 
   run_regex_benchmarks(data, filters);
   run_application_benchmarks(data, filters);
+  run_real_world_regex_benchmarks(data, filters);
   run_compile_benchmarks(data, filters);
   run_search_scaling_benchmarks(data, filters);
   run_issue481_scaling_benchmarks(data, filters);
