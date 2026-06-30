@@ -736,6 +736,31 @@ class MatcherTest {
       assertThat(m.end()).isEqualTo(3);
       assertThat(m.find()).isFalse();
     }
+
+    @Test
+    @DisplayName(
+        "find() preserves leftmost start for overlapping alternation branches (b/528687345)")
+    void testAlternationPriorityInversion() {
+      String regex = "(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')|(\\btype\\b)";
+      String input = "x = \"type\"";
+      Matcher m = Pattern.compile(regex).matcher(input);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("\"type\"");
+      assertThat(m.group(1)).isNull();
+    }
+
+    @Test
+    @DisplayName("find() preserves leftmost start for overlapping lazy quantifiers (b/528722782)")
+    void testLazyQuantifierPriorityInversion() {
+      String regex = "\\[.*?\\]\\((.*?)\\)|(\\b\\w+\\.md\\b)";
+      String input = "abc [def](xyz.md) ghi";
+      Matcher m = Pattern.compile(regex).matcher(input);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("[def](xyz.md)");
+      assertThat(m.group(1)).isEqualTo("xyz.md");
+    }
   }
 
   @Nested

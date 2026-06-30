@@ -421,6 +421,27 @@ class RE2RegressionTest {
       Matcher m = p.matcher("llx-3;llx4");
       assertThat(m.find()).isTrue();
     }
+
+    @Test
+    @DisplayName("b/529118477: ArrayIndexOutOfBoundsException in DFA computeNext")
+    void bug529118477DfaArrayIndexOutOfBounds() {
+      String regex = "(\u0000A\u0000||(?Um)$|\uFFFF){741}^NA^ .?K";
+      String input =
+          "\r"
+              + "A\u0000|(?Um)~\r"
+              + "A\u0000|(?Um)+?\u0002u\u0225C\uFFFF\uFFFF\uFFFF\uF007\u0183\u011A\u00A3###j";
+      Pattern pattern = Pattern.compile(regex);
+      Matcher matcher = pattern.matcher(input);
+      while (matcher.find()) {
+        var unused = matcher.group();
+        for (int i = 0; i <= matcher.groupCount(); i++) {
+          matcher.start(i);
+          matcher.end(i);
+        }
+      }
+      matcher.matches();
+      pattern.split(input);
+    }
   }
 
   // ---------------------------------------------------------------------------

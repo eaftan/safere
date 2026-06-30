@@ -400,4 +400,36 @@ class DfaTest {
     assertThat(r.matched()).isTrue();
     assertThat(r.pos()).isEqualTo(1);
   }
+
+  @Test
+  void reverseDfaDeferredMatchCorrectness() {
+    Pattern p = Pattern.compile("\\ba|a");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    String text = "a";
+    Dfa.SearchResult r = revDfa.doSearchReverse(text, 1, 0, true, true);
+    assertThat(r).isNotNull();
+    assertThat(r.matched()).isTrue();
+    assertThat(r.pos()).isEqualTo(0);
+
+    String text2 = "aa";
+    Dfa.SearchResult r2 = revDfa.doSearchReverse(text2, 2, 1, true, true);
+    assertThat(r2).isNotNull();
+    assertThat(r2.matched()).isTrue();
+    assertThat(r2.pos()).isEqualTo(1);
+  }
+
+  @Test
+  void reverseDfaMixedDeferredAndConsumingMatchPreservesDeferredStart() {
+    Pattern p = Pattern.compile("(?:(?:\\ba?)|\\B|[^a])a?");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    Dfa.SearchResult r = revDfa.doSearchReverse("ba", 2, 1, true, true);
+
+    assertThat(r).isNotNull();
+    assertThat(r.matched()).isTrue();
+    assertThat(r.pos()).isEqualTo(1);
+  }
 }
