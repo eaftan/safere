@@ -419,4 +419,17 @@ class DfaTest {
     assertThat(r2.matched()).isTrue();
     assertThat(r2.pos()).isEqualTo(1);
   }
+
+  @Test
+  void reverseDfaMixedDeferredAndConsumingMatchPreservesDeferredStart() {
+    Pattern p = Pattern.compile("(?:(?:\\ba?)|\\B|[^a])a?");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    Dfa.SearchResult r = revDfa.doSearchReverse("ba", 2, 1, true, true);
+
+    assertThat(r).isNotNull();
+    assertThat(r.matched()).isTrue();
+    assertThat(r.pos()).isEqualTo(1);
+  }
 }

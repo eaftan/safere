@@ -268,6 +268,17 @@ class EnginePathEquivalenceTest {
     assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
   }
 
+  @Test
+  @DisplayName("reverse DFA preserves deferred starts at consuming boundaries")
+  void reverseDfaPreservesDeferredStartsAtConsumingBoundaries() {
+    String regex = "(?:(?:\\ba?)|\\B|[^a])a?";
+    String input = "ba";
+    EnginePathOptions forcedDfa =
+        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build();
+
+    assertEquivalent(regex, input, forcedDfa);
+  }
+
   private static MatchTrace operationTrace(Matcher matcher, Operation operation) {
     boolean matched =
         switch (operation) {
