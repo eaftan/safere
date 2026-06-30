@@ -1200,13 +1200,15 @@ final class Dfa {
         if (ns == null || ns == deadState) {
           break;
         }
-        if (ns.isMatch() && !longest && !needEndMatch && ns.isHighestPriorityMatch) {
-          int endPos = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
-          return new SearchResult(true, endPos);
-        }
         if (ns.isMatch() && !needEndMatch) {
+          boolean useBefore =
+              (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+          int endPos = useBefore ? pos : pos + 1;
+          if (!longest && ns.isHighestPriorityMatch) {
+            return new SearchResult(true, endPos);
+          }
           matched = true;
-          matchEnd = ((ns.flags & FLAG_MATCH_BEFORE) != 0) ? pos : pos + 1;
+          matchEnd = endPos;
         }
         s = ns;
         pos++;
@@ -1263,6 +1265,7 @@ final class Dfa {
       if (pos < textLen) {
         char ch = text.charAt(pos);
         if (ch < 128) {
+          // ASCII fast path: no surrogate handling, use pre-computed class map.
           cp = ch;
           nextPos = pos + 1;
           cls = asciiClassMap[ch];
@@ -1494,6 +1497,7 @@ final class Dfa {
         // Read the code point just before pos (scanning backward).
         char ch = text.charAt(pos - 1);
         if (ch < 128) {
+          // ASCII fast path.
           cp = ch;
           prevPos = pos - 1;
           cls = asciiClassMap[ch];
