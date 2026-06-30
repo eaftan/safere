@@ -909,6 +909,9 @@ final class Dfa {
           // Add non-MATCH instructions from this expansion.
           for (int x : expanded) {
             if (prog.inst(x).opCode != InstOp.OP_MATCH) {
+              if (tempCount == tempExpanded.length) {
+                tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+              }
               tempExpanded[tempCount++] = x;
             }
           }
@@ -927,10 +930,16 @@ final class Dfa {
           }
         } else {
           for (int x : expanded) {
+            if (tempCount == tempExpanded.length) {
+              tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+            }
             tempExpanded[tempCount++] = x;
           }
         }
       } else {
+        if (tempCount == tempExpanded.length) {
+          tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+        }
         tempExpanded[tempCount++] = id;
       }
     }
@@ -1352,20 +1361,23 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
-          int startPos = prevPos;
-          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
+            boolean alreadyMatched = matched;
             matched = true;
-            matchStart = startPos;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
             if (!longest && !needEndMatch) {
               return new SearchResult(true, matchStart);
             }
           }
-        } else {
-          int startPos = pos;
-          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+        }
+        boolean hasOnlyBeforeMatch =
+            (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        if (!hasOnlyBeforeMatch) {
+          if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
+            boolean alreadyMatched = matched;
             matched = true;
-            matchStart = startPos;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
             if (!longest && !needEndMatch) {
               return new SearchResult(true, matchStart);
             }

@@ -302,6 +302,34 @@
           "kind": "prefixedRepeat",
           "prefix": "12345 "
         }
+      },
+      {
+        "name": "fruitSearchQuery",
+        "pattern": "(?is).*\\b(apples?.*for banana|cherry.*dates?|elderberry lists?|fig lists?|grape lists?)\\b.*",
+        "op": "replaceAllGroup1",
+        "match": "Here are the apples to show for banana in this session.",
+        "nonMatch": "Orange lemon melon peach pear plum.",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "fruitMarkupTag",
+        "pattern": "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$",
+        "op": "replaceAllGroup1",
+        "match": "  <Banana>  ",
+        "nonMatch": "  <Orange>  ",
+        "matchInput": {
+          "kind": "surroundWithSpaces",
+          "body": "<Banana>"
+        },
+        "nonMatchInput": {
+          "kind": "surroundWithSpaces",
+          "body": "<Orange>"
+        }
       }
     ]
   },
