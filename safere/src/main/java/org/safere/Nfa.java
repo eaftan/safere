@@ -632,7 +632,9 @@ final class Nfa {
 
     int engineEndPos = context.engineEndPos();
     for (int pos = start; pos < engineEndPos + 2; pos++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (prog.hasGraphemeSemantics()) {
         mergeDelayedQueue(delayedGrapheme, pos, runq);
       } else {
@@ -947,7 +949,9 @@ final class Nfa {
       int matchPos,
       int nextPos) {
     for (int threadIndex = 0; threadIndex < rq.size; threadIndex++) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       NfaThread t = rq.threads[threadIndex];
       int id = t.id;
       int[] capture = t.capture;

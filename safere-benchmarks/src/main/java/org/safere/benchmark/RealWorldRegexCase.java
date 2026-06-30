@@ -41,7 +41,7 @@ final class RealWorldRegexCase {
     String pattern = requireString(obj, "pattern");
     String match = requireString(obj, "match");
     String nonMatch = requireString(obj, "nonMatch");
-    if (!"find".equals(op) && !"replaceAllEmpty".equals(op)) {
+    if (!"find".equals(op) && !"replaceAllEmpty".equals(op) && !"replaceAllGroup1".equals(op)) {
       throw new IllegalArgumentException("Unknown real-world regex benchmark op: " + op);
     }
     InputSpec matchInput = InputSpec.fromJson(obj, "matchInput");
@@ -60,18 +60,21 @@ final class RealWorldRegexCase {
 
     final String kind;
     final String prefix;
+    final String body;
     final int nonMatchRepeats;
     final String delimiterAlphabet;
 
-    private InputSpec(String kind, String prefix, int nonMatchRepeats, String delimiterAlphabet) {
+    private InputSpec(
+        String kind, String prefix, String body, int nonMatchRepeats, String delimiterAlphabet) {
       this.kind = kind;
       this.prefix = prefix;
+      this.body = body;
       this.nonMatchRepeats = nonMatchRepeats;
       this.delimiterAlphabet = delimiterAlphabet;
     }
 
     static InputSpec repeat() {
-      return new InputSpec("repeat", "", 0, "");
+      return new InputSpec("repeat", "", "", 0, "");
     }
 
     static InputSpec fromJson(JsonObject obj, String field) {
@@ -82,13 +85,15 @@ final class RealWorldRegexCase {
       String kind = requireString(spec, "kind");
       return switch (kind) {
         case "repeat" -> repeat();
-        case "prefixedRepeat" -> new InputSpec(kind, requireString(spec, "prefix"), 0, "");
+        case "prefixedRepeat" -> new InputSpec(kind, requireString(spec, "prefix"), "", 0, "");
         case "sparseMatch" ->
             new InputSpec(
                 kind,
                 "",
+                "",
                 requireInt(spec, "nonMatchRepeats"),
                 requireString(spec, "delimiterAlphabet"));
+        case "surroundWithSpaces" -> new InputSpec(kind, "", requireString(spec, "body"), 0, "");
         default -> throw new IllegalArgumentException("Unknown real-world input kind: " + kind);
       };
     }

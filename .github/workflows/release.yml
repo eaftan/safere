@@ -33,6 +33,13 @@ jobs:
       - name: Build and test
         run: mvn -pl safere verify -Dtest.parallelism=4 --batch-mode --no-transfer-progress
 
+      - name: Run work-counter scaling tests
+        run: >
+          mvn clean test -pl safere
+          -Pwork-counters
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
       - name: Publish to Maven Central
         run: mvn -pl safere deploy -Prelease -DskipTests --batch-mode --no-transfer-progress
         env:

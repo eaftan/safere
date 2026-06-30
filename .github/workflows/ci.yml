@@ -57,6 +57,13 @@ jobs:
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
+      - name: Run work-counter scaling tests
+        run: >
+          mvn clean test -pl safere
+          -Pwork-counters
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
   fuzz-regression:
     needs: changes
     if: needs.changes.outputs.code == 'true'

@@ -110,9 +110,26 @@ final class Dfa {
   }
 
   /** Cache key for state deduplication. */
-  // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
-  @SuppressWarnings("ArrayRecordComponent")
-  private record StateKey(int[] insts, int flags) {
+  private static final class StateKey {
+    private int[] insts;
+    private int flags;
+
+    StateKey() {}
+
+    StateKey(int[] insts, int flags) {
+      this.insts = insts;
+      this.flags = flags;
+    }
+
+    void reset(int[] insts, int flags) {
+      this.insts = insts;
+      this.flags = flags;
+    }
+
+    StateKey copy() {
+      return new StateKey(insts, flags);
+    }
+
     @Override
     public int hashCode() {
       return Arrays.hashCode(insts) * 31 + flags;
@@ -154,6 +171,9 @@ final class Dfa {
 
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
+
+  /** Pre-allocated mutable key to perform allocation-free cache lookups. */
+  private final StateKey lookupKey = new StateKey();
 
   /** Sentinel dead state: no instructions, no transitions possible. */
   private final State deadState = new State(new int[0], 0, 0);
@@ -590,8 +610,8 @@ final class Dfa {
     if (insts.length == 0 && (flags & FLAG_MATCH) == 0) {
       return deadState;
     }
-    StateKey key = new StateKey(insts, flags);
-    State s = cache.get(key);
+    lookupKey.reset(insts, flags);
+    State s = cache.get(lookupKey);
     if (s != null) {
       return s;
     }
@@ -599,7 +619,7 @@ final class Dfa {
       return null;
     }
     s = new State(insts, flags, wordBoundaryMatchIds, numClasses);
-    cache.put(key, s);
+    cache.put(lookupKey.copy(), s);
     return s;
   }
 
@@ -876,6 +896,9 @@ final class Dfa {
           // Add non-MATCH instructions from this expansion.
           for (int x : expanded) {
             if (prog.inst(x).opCode != InstOp.OP_MATCH) {
+              if (tempCount == tempExpanded.length) {
+                tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+              }
               tempExpanded[tempCount++] = x;
             }
           }
@@ -894,10 +917,16 @@ final class Dfa {
           }
         } else {
           for (int x : expanded) {
+            if (tempCount == tempExpanded.length) {
+              tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+            }
             tempExpanded[tempCount++] = x;
           }
         }
       } else {
+        if (tempCount == tempExpanded.length) {
+          tempExpanded = Arrays.copyOf(tempExpanded, tempExpanded.length * 2);
+        }
         tempExpanded[tempCount++] = id;
       }
     }
@@ -1132,7 +1161,9 @@ final class Dfa {
     int[] nextPosHolder = new int[1];
     int pos = startPos;
     while (pos <= textLen) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp;
       int nextPos;
       int cls;
@@ -1187,7 +1218,7 @@ final class Dfa {
         // FLAG_MATCH_BEFORE indicates a deferred assertion (\b, multiline $) fired before
         // consuming the current character and reached MATCH. Try the before-consume position
         // first (it's at an earlier position, preserving leftmost-first semantics).
-        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE) {
           int endPos = pos;
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1200,7 +1231,7 @@ final class Dfa {
         // Try the after-consume position: either no before-consume match exists, or it was
         // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
         // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
           int endPos = Math.min(nextPos, textLen);
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1287,7 +1318,9 @@ final class Dfa {
     int[] prevPosHolder = new int[1];
     int pos = endPos;
     while (pos >= startLimit) {
-      WorkCounter.record();
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       int cp;
       int prevPos;
       int cls;
@@ -1336,12 +1369,23 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
-        if (matchValid) {
-          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
-          if (!needEndMatch || startPos == startLimit) {
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
+            boolean alreadyMatched = matched;
             matched = true;
-            matchStart = startPos;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        }
+        boolean hasOnlyBeforeMatch =
+            (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        if (!hasOnlyBeforeMatch) {
+          if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
+            boolean alreadyMatched = matched;
+            matched = true;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
             if (!longest && !needEndMatch) {
               return new SearchResult(true, matchStart);
             }
@@ -1469,7 +1513,10 @@ final class Dfa {
         }
 
         if (s.isMatch()) {
-          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : Math.min(nextPos, textLen);
+          int endPos =
+              ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+                  ? pos
+                  : Math.min(nextPos, textLen);
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
