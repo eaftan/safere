@@ -85,12 +85,14 @@ final class Dfa {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
     final boolean isHighestPriorityMatch;
-    final State[] next;
 
     /**
      * Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable.
      */
     final int[] wordBoundaryMatchIds;
+
+    /** Transitions indexed by equivalence class; null entry = not yet computed. */
+    final State[] next;
 
     State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
       this(insts, flags, wordBoundaryMatchIds, numClasses, false);
