@@ -142,11 +142,18 @@ final class MatchFuzzer {
 
   private static void assertDfaSandwichLeftmostStartCasesMatchJdk() {
     List<String> regexes =
-        List.of("\\B([^a])*[^a][^a]", "\\B(?:[^a])*[^a][^a]", "\\B[^a]*[^a][^a]", "\\B(?:b|bb)*bb");
+        List.of(
+            "\\B([^a])*[^a][^a]",
+            "\\B(?:[^a])*[^a][^a]",
+            "\\B[^a]*[^a][^a]",
+            "\\B(?:b|bb)*bb",
+            "(?:(?:\\ba?)|\\B|[^a])a?",
+            "(?:(?:\\ba?)|\\B|b)a?");
     for (String regex : regexes) {
       FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
       if (pattern != null) {
         pattern.matcher("bbbb").find();
+        pattern.matcher("ba").find();
       }
     }
   }
