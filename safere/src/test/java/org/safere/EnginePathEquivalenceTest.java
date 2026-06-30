@@ -230,7 +230,6 @@ class EnginePathEquivalenceTest {
         regex1,
         input1,
         EnginePathOptions.builder()
-            .semanticGuards(false) // Bypasses guards to force DFA execution!
             .onePass(false)
             .bitState(false)
             .build());
@@ -244,7 +243,7 @@ class EnginePathEquivalenceTest {
     assertEquivalent(
         regex2,
         input2,
-        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build());
+        EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
   }
@@ -255,7 +254,7 @@ class EnginePathEquivalenceTest {
     String regex = "(?:(?:\\ba?)|\\B|[^a])a?";
     String input = "ba";
     EnginePathOptions forcedDfa =
-        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build();
+        EnginePathOptions.builder().onePass(false).bitState(false).build();
 
     assertEquivalent(regex, input, forcedDfa);
   }
