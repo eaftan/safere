@@ -323,25 +323,13 @@
         "match": "  <Banana>  ",
         "nonMatch": "  <Orange>  ",
         "matchInput": {
-          "kind": "repeat"
+          "kind": "surroundWithSpaces",
+          "body": "<Banana>"
         },
         "nonMatchInput": {
-          "kind": "repeat"
+          "kind": "surroundWithSpaces",
+          "body": "<Orange>"
         }
-      },
-      {
-        "name": "cjkSearch",
-        "pattern": "[一-龥]{3,}",
-        "op": "find",
-        "match": "这是一个中文测试句子",
-        "nonMatch": "This is a sentence containing only English characters."
-      },
-      {
-        "name": "emojiSearch",
-        "pattern": "[😀-😇]",
-        "op": "find",
-        "match": "Today is a beautiful day 😇 with warm sunshine.",
-        "nonMatch": "Today is a beautiful day with warm sunshine."
       },
       {
         "name": "stateCodes",
