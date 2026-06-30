@@ -260,6 +260,19 @@ class EnginePathEquivalenceTest {
             .build());
   }
 
+  @Test
+  @DisplayName("nested nullable loops are compiled for DFA and match correctly")
+  void nestedNullableLoopsDfaEquivalence() {
+    EnginePathOptions forcedDfa =
+        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build();
+
+    // Case A: Alternation matching bug from dfa_nullable_loop_analysis.md
+    assertEquivalent("(?:a?\\b?)*X|(?:a?b)*c", "bc", forcedDfa);
+
+    // Case B: Greedy optional-matching bug from dfa_nullable_loop_analysis.md
+    assertEquivalent("(?:a?\\b?)*X", "aaX", forcedDfa);
+  }
+
   private static MatchTrace operationTrace(Matcher matcher, Operation operation) {
     boolean matched =
         switch (operation) {
