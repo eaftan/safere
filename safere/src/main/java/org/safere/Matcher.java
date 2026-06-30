@@ -1225,8 +1225,16 @@ public final class Matcher implements MatchResult {
     }
 
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
+    boolean hasAcceleratedSearchPath =
+        (parentPattern.prefix() != null)
+            || (options.reverseDfa()
+                && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
+                && prog.anchorEnd()
+                && !prog.anchorStart()
+                && text.length() >= MIN_REVERSE_FIRST_LEN);
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
+        && !hasAcceleratedSearchPath
         && !containsRequiredMatchClass(requiredRanges, searchFrom)) {
       return applyEngineResult(new NoMatchResult());
     }
