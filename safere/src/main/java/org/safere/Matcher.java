@@ -1337,11 +1337,15 @@ public final class Matcher implements MatchResult {
         Dfa.SearchResult revResult =
             revDfa.doSearchReverse(text, textLen, effectiveStart, true, true);
         int matchStart;
+        boolean matchStartAmbiguous;
         if (revResult == null) {
           budgetExceeded = true;
           matchStart = -1;
+          matchStartAmbiguous = false;
         } else {
-          matchStart = revResult.matched() ? revResult.pos() : -1;
+          matchStart =
+              revResult.matched() && revResult.pos() >= effectiveStart ? revResult.pos() : -1;
+          matchStartAmbiguous = matchStart >= 0 && revResult.ambiguous();
         }
 
         // For $ (dollarAnchorEnd), also try before trailing line terminator. The $ anchor
@@ -1366,8 +1370,11 @@ public final class Matcher implements MatchResult {
                   revDfa.doSearchReverse(text, textLen - 1, effectiveStart, true, true);
               if (altRev == null) {
                 budgetExceeded = true;
-              } else if (altRev.matched() && (matchStart < 0 || altRev.pos() < matchStart)) {
+              } else if (altRev.matched()
+                  && altRev.pos() >= effectiveStart
+                  && (matchStart < 0 || altRev.pos() < matchStart)) {
                 matchStart = altRev.pos();
+                matchStartAmbiguous = altRev.ambiguous();
               }
             }
             // For \r\n, try position before \r.
@@ -1376,8 +1383,11 @@ public final class Matcher implements MatchResult {
                   revDfa.doSearchReverse(text, textLen - 2, effectiveStart, true, true);
               if (altRev2 == null) {
                 budgetExceeded = true;
-              } else if (altRev2.matched() && (matchStart < 0 || altRev2.pos() < matchStart)) {
+              } else if (altRev2.matched()
+                  && altRev2.pos() >= effectiveStart
+                  && (matchStart < 0 || altRev2.pos() < matchStart)) {
                 matchStart = altRev2.pos();
+                matchStartAmbiguous = altRev2.ambiguous();
               }
             }
           }
@@ -1388,14 +1398,21 @@ public final class Matcher implements MatchResult {
             // No match possible at end of text — fail immediately without forward scan.
             return applyEngineResult(new NoMatchResult());
           }
-
-          // Reverse DFA found a match start. Run forward DFA from there (anchored, longest)
-          // to find the actual match end.
-          Dfa.SearchResult fwdAnchored = dfa(true).doSearch(text, matchStart, true, true);
-          if (fwdAnchored != null && fwdAnchored.matched()) {
-            int matchEnd = fwdAnchored.pos();
-            return applyEngineResult(
-                new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), false));
+          if (matchStartAmbiguous) {
+            // The reverse DFA can prove that a suffix match exists, but not which accepted
+            // candidate supplies the leftmost start. Fall through to the normal engine path.
+          } else {
+            // Reverse DFA found a match start. It proposes the left edge only; resolve the public
+            // group(0) end with the exact engine anchored at that start so lazy alternatives and
+            // dollar-before-terminator semantics remain leftmost-first.
+            int[] exact =
+                searchWithBitStateOrNfa(
+                    prog, text, matchStart, matchStart, textLen, true, false, false, 1);
+            if (exact != null) {
+              int matchEnd = exact[1];
+              return applyEngineResult(
+                  new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), false));
+            }
           }
         }
         // DFA budget exceeded or forward DFA disagreed — fall through to normal path.
@@ -1472,6 +1489,7 @@ public final class Matcher implements MatchResult {
               revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
           if (revResult != null && revResult.matched()) {
             int matchStart = revResult.pos();
+            boolean reliableStart = !revResult.ambiguous();
 
             // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
             // (it can't return early). But the correct leftmost match may end before the
@@ -1497,6 +1515,7 @@ public final class Matcher implements MatchResult {
                       && altRevResult.matched()
                       && altRevResult.pos() < matchStart) {
                     matchStart = altRevResult.pos();
+                    reliableStart = !altRevResult.ambiguous();
                   }
                 }
                 // For \r\n, try position before \r.
@@ -1507,9 +1526,14 @@ public final class Matcher implements MatchResult {
                       && altRevResult2.matched()
                       && altRevResult2.pos() < matchStart) {
                     matchStart = altRevResult2.pos();
+                    reliableStart = !altRevResult2.ambiguous();
                   }
                 }
               }
+            }
+
+            if (!reliableStart) {
+              matchStart = -1;
             }
 
             // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
