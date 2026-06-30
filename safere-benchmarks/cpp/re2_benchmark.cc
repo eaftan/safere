@@ -251,6 +251,15 @@ std::string generated_sparse_real_world_input(const std::string& match_unit,
   text.resize(size);
   return text;
 }
+std::string generate_surround_with_spaces_input(const std::string& body, int size) {
+  if (static_cast<int>(body.size()) >= size) {
+    return body.substr(0, size);
+  }
+  int total_padding = size - static_cast<int>(body.size());
+  int leading_padding = total_padding / 2;
+  int trailing_padding = total_padding - leading_padding;
+  return std::string(leading_padding, ' ') + body + std::string(trailing_padding, ' ');
+}
 
 std::string generate_real_world_input(const json& input_spec,
                                       const std::string& match_unit,
@@ -275,6 +284,10 @@ std::string generate_real_world_input(const json& input_spec,
         match_unit, non_match_unit, size, seed,
         input_spec.at("nonMatchRepeats").get<int>(),
         input_spec.at("delimiterAlphabet").get<std::string>());
+  }
+  if (kind == "surroundWithSpaces") {
+    std::string body = input_spec.at("body").get<std::string>();
+    return generate_surround_with_spaces_input(body, size);
   }
   fprintf(stderr, "ERROR: invalid real-world input kind: %s\n", kind.c_str());
   exit(1);
@@ -583,7 +596,7 @@ void run_real_world_regex_benchmarks(
               c.name.c_str());
       exit(1);
     }
-    if (c.op != "find" && c.op != "replaceAllEmpty") {
+    if (c.op != "find" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1") {
       fprintf(stderr, "ERROR: invalid real-world regex op: %s\n",
               c.op.c_str());
       exit(1);
@@ -607,10 +620,16 @@ void run_real_world_regex_benchmarks(
           print_json(measure(name, [&]() {
             do_not_optimize(RE2::PartialMatch(text, c.re));
           }));
-        } else {
+        } else if (c.op == "replaceAllEmpty") {
           print_json(measure(name, [&]() {
             std::string replaced = text;
             RE2::GlobalReplace(&replaced, c.re, "");
+            do_not_optimize(replaced);
+          }));
+        } else if (c.op == "replaceAllGroup1") {
+          print_json(measure(name, [&]() {
+            std::string replaced = text;
+            RE2::GlobalReplace(&replaced, c.re, "\\1");
             do_not_optimize(replaced);
           }));
         }

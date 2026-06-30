@@ -315,11 +315,24 @@ func generateRealWorldInput(
 		return generatedSparseRealWorldInput(
 			matchUnit, nonMatchUnit, size, seed, getInt(inputSpec, "nonMatchRepeats"),
 			getString(inputSpec, "delimiterAlphabet"))
+	case "surroundWithSpaces":
+		body := getString(inputSpec, "body")
+		return generateSurroundWithSpacesInput(body, size)
 	default:
 		fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex input kind: %s\n", kind)
 		os.Exit(1)
 	}
 	panic("unreachable")
+}
+
+func generateSurroundWithSpacesInput(body string, size int) string {
+	if len(body) >= size {
+		return body[:size]
+	}
+	totalPadding := size - len(body)
+	leadingPadding := totalPadding / 2
+	trailingPadding := totalPadding - leadingPadding
+	return strings.Repeat(" ", leadingPadding) + body + strings.Repeat(" ", trailingPadding)
 }
 
 func appendUTF8(b *strings.Builder, cp int) {
@@ -556,7 +569,7 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		op := getString(item, "op")
-		if op != "find" && op != "replaceAllEmpty" {
+		if op != "find" && op != "replaceAllEmpty" && op != "replaceAllGroup1" {
 			fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex op: %s\n", op)
 			os.Exit(1)
 		}
@@ -599,9 +612,13 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 					printJSON(measureNs(name, func() {
 						sink = c.re.FindStringIndex(text) != nil
 					}))
-				} else {
+				} else if c.op == "replaceAllEmpty" {
 					printJSON(measureNs(name, func() {
 						sink = c.re.ReplaceAllString(text, "")
+					}))
+				} else if c.op == "replaceAllGroup1" {
+					printJSON(measureNs(name, func() {
+						sink = c.re.ReplaceAllString(text, "$1")
 					}))
 				}
 			}

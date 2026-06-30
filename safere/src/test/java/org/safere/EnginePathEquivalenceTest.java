@@ -238,6 +238,47 @@ class EnginePathEquivalenceTest {
             .build());
   }
 
+  @Test
+  @DisplayName("priority inversion boundary patterns match across all engine paths")
+  void priorityInversionEquivalence() {
+    // 1. Alternation priority inversion
+    String regex1 = "(?:\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*')|(\\btype\\b)";
+    String input1 = "x = \"type\"";
+    // Assert DFA vs canonical (NFA)
+    assertEquivalent(
+        regex1,
+        input1,
+        EnginePathOptions.builder()
+            .semanticGuards(false) // Bypasses guards to force DFA execution!
+            .onePass(false)
+            .bitState(false)
+            .build());
+    // Assert BitState vs canonical (NFA)
+    assertEquivalent(regex1, input1, EnginePathOptions.builder().dfa(false).onePass(false).build());
+
+    // 2. Lazy quantifier priority inversion
+    String regex2 = "\\[.*?\\]\\((.*?)\\)|(\\b\\w+\\.md\\b)";
+    String input2 = "abc [def](xyz.md) ghi";
+    // Assert DFA vs canonical (NFA)
+    assertEquivalent(
+        regex2,
+        input2,
+        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build());
+    // Assert BitState vs canonical (NFA)
+    assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
+  }
+
+  @Test
+  @DisplayName("reverse DFA preserves deferred starts at consuming boundaries")
+  void reverseDfaPreservesDeferredStartsAtConsumingBoundaries() {
+    String regex = "(?:(?:\\ba?)|\\B|[^a])a?";
+    String input = "ba";
+    EnginePathOptions forcedDfa =
+        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build();
+
+    assertEquivalent(regex, input, forcedDfa);
+  }
+
   private static MatchTrace operationTrace(Matcher matcher, Operation operation) {
     boolean matched =
         switch (operation) {
