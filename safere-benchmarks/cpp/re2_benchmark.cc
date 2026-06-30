@@ -245,6 +245,7 @@ std::string generated_sparse_real_world_input(const std::string& match_unit,
     if (static_cast<int>(text.size()) < size) {
       text += " ";
       text += match_unit;
+      text += " ";
     }
   }
   text.resize(size);
