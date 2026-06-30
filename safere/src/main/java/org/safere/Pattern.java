@@ -107,11 +107,7 @@ public final class Pattern implements Serializable {
   private final transient String literalMatch;
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
-  private final transient boolean hasUnsafeAlternation;
   private final transient boolean hasNullableAlternation;
-  private final transient boolean hasBoundedRepeat;
-  private final transient boolean hasAnchorInQuant;
-  private final transient boolean startsWithZeroWidthAssertion;
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
@@ -228,11 +224,7 @@ public final class Pattern implements Serializable {
       String literalMatch,
       boolean hasLazy,
       boolean hasAlternation,
-      boolean hasUnsafeAlternation,
       boolean hasNullableAlternation,
-      boolean hasBoundedRepeat,
-      boolean hasAnchorInQuant,
-      boolean startsWithZeroWidthAssertion,
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
@@ -280,11 +272,7 @@ public final class Pattern implements Serializable {
     this.literalMatch = literalMatch;
     this.hasLazy = hasLazy;
     this.hasAlternation = hasAlternation;
-    this.hasUnsafeAlternation = hasUnsafeAlternation;
     this.hasNullableAlternation = hasNullableAlternation;
-    this.hasBoundedRepeat = hasBoundedRepeat;
-    this.hasAnchorInQuant = hasAnchorInQuant;
-    this.startsWithZeroWidthAssertion = startsWithZeroWidthAssertion;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
@@ -354,11 +342,7 @@ public final class Pattern implements Serializable {
     String literalMatch = extractLiteralMatch(metadataAst);
     boolean hasLazy = hasLazyQuantifiers(re);
     boolean hasAlt = hasAlternation(re);
-    boolean hasUnsafeAlt = hasUnsafeAlternation(re);
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
-    boolean hasBounded = hasBoundedRepeat(re);
-    boolean hasAnchorQuant = hasAnchorInQuantifier(re);
-    boolean startsWithZeroWidth = startsWithZeroWidthAssertion(metadataAst);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
@@ -382,11 +366,7 @@ public final class Pattern implements Serializable {
         literalMatch,
         hasLazy,
         hasAlt,
-        hasUnsafeAlt,
         hasNullableAlt,
-        hasBounded,
-        hasAnchorQuant,
-        startsWithZeroWidth,
         startsWithGcb,
         hasInternalGcb,
         ccPrefixAscii,
@@ -851,38 +831,6 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} when the DFA sandwich correctly identifies the leftmost match
-   * <em>start</em> position, even if the match end may be wrong. This is a weaker guarantee than
-   * {@link #dfaGroupZeroReliable()}: the sandwich can narrow the search range for the submatch
-   * engine, but captures must still be resolved (with {@code endMatch=false}) to determine the
-   * correct match end.
-   *
-   * <p>The DFA start is reliable when the leftmost-starting match is the only match ending at the
-   * forward DFA's earliest end. This fails for:
-   *
-   * <ul>
-   *   <li>Lazy quantifiers: {@code .+?X} starting at position 0 may end later than a fixed match
-   *       starting at position 1.
-   *   <li>Bounded repetitions: an optional bounded prefix like {@code (?:a{1,3})?a{3}} can match
-   *       the same text with multiple starts ending at the same position, and the reverse DFA may
-   *       return the later start.
-   *   <li>Anchors inside quantifiers: the reverse DFA mishandles position-dependent assertions.
-   *   <li>Alternation: when alternatives can match at different start positions with different
-   *       endpoints, the forward DFA's earliest-end result may come from a non-leftmost match. For
-   *       example, {@code (bcd|abcde)} on text containing "abcde" — the forward DFA returns the end
-   *       of the "bcd" match (which ends earlier) instead of the "abcde" match (which starts
-   *       earlier). The reverse DFA from that wrong endpoint cannot find the leftmost start.
-   * </ul>
-   */
-  boolean dfaStartReliable() {
-    return !hasLazy
-        && !hasBoundedRepeat
-        && !hasAnchorInQuant
-        && !hasUnsafeAlternation
-        && !startsWithZeroWidthAssertion;
-  }
-
-  /**
    * Returns the literal prefix for this pattern, or {@code null} if the pattern has no fixed
    * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.
    */
@@ -1262,38 +1210,6 @@ public final class Pattern implements Serializable {
     return false;
   }
 
-  private static boolean startsWithZeroWidthAssertion(Regexp re) {
-    Regexp node = unwrapCaptures(re);
-    if (node == null) {
-      return false;
-    }
-    if (node.op == RegexpOp.CONCAT) {
-      for (Regexp child : node.subs) {
-        Regexp candidate = unwrapCaptures(child);
-        if (candidate == null || candidate.op == RegexpOp.EMPTY_MATCH) {
-          continue;
-        }
-        return isZeroWidthAssertion(candidate);
-      }
-      return false;
-    }
-    return isZeroWidthAssertion(node);
-  }
-
-  private static boolean isZeroWidthAssertion(Regexp re) {
-    return switch (re.op) {
-      case BEGIN_LINE,
-          END_LINE,
-          BEGIN_TEXT,
-          END_TEXT,
-          WORD_BOUNDARY,
-          NO_WORD_BOUNDARY,
-          GRAPHEME_CLUSTER_BOUNDARY ->
-          true;
-      default -> false;
-    };
-  }
-
   /**
    * Returns {@code true} if the given regexp can match the empty string. Used to detect nullable
    * alternation branches where OnePass's longest-match semantics may differ from first-match.
@@ -1344,31 +1260,6 @@ public final class Pattern implements Serializable {
         default -> false;
       };
     }
-  }
-
-  /**
-   * Returns {@code true} if the AST contains a bounded repetition ({@code a{3,4}}, {@code a?}).
-   * Bounded repetitions have min &lt; max with a finite max, creating ambiguity: greedy matching
-   * maximizes each iteration while the DFA maximizes the overall match. For example, {@code
-   * (?:a{3,4})+} on "aaaaaa": greedy gives 4 (one iteration), DFA gives 6 (two iterations of 3).
-   */
-  private static boolean hasBoundedRepeat(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if ((node.op == RegexpOp.REPEAT || node.op == RegexpOp.QUEST)
-          && node.min < node.max
-          && node.max > 0) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
   }
 
   private static boolean startsWithGraphemeClusterBoundary(Regexp re) {
@@ -1543,50 +1434,6 @@ public final class Pattern implements Serializable {
         List<GraphemeBoundaryContext> childArgs) {
       return childArgs.isEmpty() ? GraphemeBoundaryContext.noMatch() : childArgs.getFirst();
     }
-  }
-
-  /**
-   * Returns {@code true} if the AST contains an anchor ({@code ^}, {@code $}, {@code \A}, {@code
-   * \z}, {@code \b}, {@code \B}) inside a quantifier ({@code *}, {@code +}, {@code ?}, {@code
-   * {n,m}}). The DFA sandwich's reverse pass cannot correctly handle anchors inside repeats — the
-   * reverse program translates {@code ^} into an end-of-text assertion that may match at a
-   * different position than the forward program's start-of-text assertion.
-   */
-  private static boolean hasAnchorInQuantifier(Regexp re) {
-    record Entry(Regexp node, boolean insideQuant) {}
-    // Walk the AST, tracking whether we're inside a quantifier.
-    Deque<Entry> stack = new ArrayDeque<>();
-    stack.push(new Entry(re, false));
-    while (!stack.isEmpty()) {
-      Entry entry = stack.pop();
-      Regexp node = entry.node();
-      boolean insideQuant = entry.insideQuant();
-      if (insideQuant) {
-        switch (node.op) {
-          case BEGIN_LINE,
-              END_LINE,
-              BEGIN_TEXT,
-              END_TEXT,
-              WORD_BOUNDARY,
-              NO_WORD_BOUNDARY,
-              GRAPHEME_CLUSTER_BOUNDARY -> {
-            return true;
-          }
-          default -> {}
-        }
-      }
-      boolean childInsideQuant = insideQuant;
-      switch (node.op) {
-        case STAR, PLUS, QUEST, REPEAT -> childInsideQuant = true;
-        default -> {}
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(new Entry(sub, childInsideQuant));
-        }
-      }
-    }
-    return false;
   }
 
   /** Result of prefix extraction: a literal string prefix and whether it is case-folded. */
@@ -2045,168 +1892,6 @@ public final class Pattern implements Serializable {
       return bitmap;
     }
     return null;
-  }
-
-  /**
-   * Traverses the AST to check if the regular expression contains any "unsafe" alternations. An
-   * alternation is unsafe if it can produce different match outcomes (e.g., leftmost-longest vs.
-   * leftmost-first) depending on which execution path or engine is chosen.
-   */
-  private static boolean hasUnsafeAlternation(Regexp re) {
-    Deque<AlternationFrame> stack = new ArrayDeque<>();
-    stack.push(new AlternationFrame(re, null));
-    while (!stack.isEmpty()) {
-      AlternationFrame frame = stack.pop();
-      Regexp node = unwrapCaptures(frame.node);
-      if (node == null) {
-        continue;
-      }
-      if (node.op == RegexpOp.ALTERNATE) {
-        if (!isSafeAlternation(node, frame.lookahead)) {
-          return true;
-        }
-      }
-      if (node.subs == null) {
-        continue;
-      }
-      if (node.op == RegexpOp.CONCAT) {
-        for (int i = node.subs.size() - 1; i >= 0; i--) {
-          Regexp nextLookahead =
-              (i + 1 < node.subs.size()) ? node.subs.get(i + 1) : frame.lookahead;
-          stack.push(new AlternationFrame(node.subs.get(i), nextLookahead));
-        }
-      } else {
-        for (int i = node.subs.size() - 1; i >= 0; i--) {
-          stack.push(new AlternationFrame(node.subs.get(i), null));
-        }
-      }
-    }
-    return false;
-  }
-
-  private record AlternationFrame(Regexp node, Regexp lookahead) {}
-
-  /**
-   * Evaluates if a given ALTERNATE node is structurally safe to run on pure DFA paths. An
-   * alternation is safe if: 1. All sub-branches are unconditionally disjoint (e.g., `[a-z]|[0-9]`).
-   * 2. Or, it fits the pattern `(^|B)C` where B is a single character match and C (the lookahead)
-   * is disjoint from B (e.g., `(^|[^<])(<contextual)`).
-   */
-  private static boolean isSafeAlternation(Regexp alt, Regexp lookahead) {
-    if (alt.subs == null || alt.subs.isEmpty()) {
-      return true;
-    }
-    boolean disjoint = true;
-    for (int i = 0; i < alt.subs.size(); i++) {
-      for (int j = i + 1; j < alt.subs.size(); j++) {
-        if (!areDisjoint(alt.subs.get(i), alt.subs.get(j))) {
-          disjoint = false;
-          break;
-        }
-      }
-      if (!disjoint) {
-        break;
-      }
-    }
-    if (disjoint) {
-      return true;
-    }
-    if (alt.subs.size() == 2 && lookahead != null) {
-      Regexp sub0 = unwrapCaptures(alt.subs.get(0));
-      Regexp sub1 = unwrapCaptures(alt.subs.get(1));
-      Regexp boundaryNode = null;
-      Regexp consumingNode = null;
-      if (isLineBoundary(sub0) && isConsumingExactlyOneChar(sub1)) {
-        boundaryNode = sub0;
-        consumingNode = sub1;
-      } else if (isLineBoundary(sub1) && isConsumingExactlyOneChar(sub0)) {
-        boundaryNode = sub1;
-        consumingNode = sub0;
-      }
-      if (boundaryNode != null) {
-        if (areDisjoint(consumingNode, lookahead)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Determines if two AST nodes have disjoint starting character sets. Leverages precomputed ASCII
-   * bitmaps and character-class range membership checks.
-   */
-  private static boolean areDisjoint(Regexp a, Regexp b) {
-    Regexp nodeA = unwrapCaptures(a);
-    Regexp nodeB = unwrapCaptures(b);
-    if (nodeA == null || nodeB == null) {
-      return false;
-    }
-    boolean[] bitmapA = requiredFirstAscii(nodeA);
-    boolean[] bitmapB = requiredFirstAscii(nodeB);
-    if (bitmapA != null && bitmapB != null) {
-      return areDisjointBitmaps(bitmapA, bitmapB);
-    }
-    if (nodeA.op == RegexpOp.CHAR_CLASS && nodeA.charClass != null) {
-      Integer firstB = getSingleFirstRune(nodeB);
-      if (firstB != null) {
-        return !nodeA.charClass.contains(firstB);
-      }
-    }
-    if (nodeB.op == RegexpOp.CHAR_CLASS && nodeB.charClass != null) {
-      Integer firstA = getSingleFirstRune(nodeA);
-      if (firstA != null) {
-        return !nodeB.charClass.contains(firstA);
-      }
-    }
-    return false;
-  }
-
-  private static boolean areDisjointBitmaps(boolean[] a, boolean[] b) {
-    for (int i = 0; i < 128; i++) {
-      if (a[i] && b[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Retrieves the first character (rune) of a node if it is a literal and case folding is disabled.
-   * Returns null if case folding is active or if the node is not a simple literal.
-   */
-  private static Integer getSingleFirstRune(Regexp re) {
-    Regexp node = firstMeaningfulNode(re);
-    if (node == null) {
-      return null;
-    }
-    if (node.op == RegexpOp.LITERAL) {
-      if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
-        return null;
-      }
-      return node.rune;
-    }
-    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
-      if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
-        return null;
-      }
-      return node.runes[0];
-    }
-    return null;
-  }
-
-  private static boolean isLineBoundary(Regexp re) {
-    if (re == null) {
-      return false;
-    }
-    return re.op == RegexpOp.BEGIN_LINE || re.op == RegexpOp.BEGIN_TEXT;
-  }
-
-  private static boolean isConsumingExactlyOneChar(Regexp re) {
-    if (re == null) {
-      return false;
-    }
-    return re.op == RegexpOp.CHAR_CLASS || re.op == RegexpOp.LITERAL || re.op == RegexpOp.ANY_CHAR;
   }
 
   /** Holds precomputed data for the character-class-match fast path. */

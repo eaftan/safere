@@ -9,9 +9,6 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -137,18 +134,6 @@ class PatternInternalTest {
   }
 
   @Test
-  void leadingZeroWidthAssertionMakesDfaStartUnreliable() {
-    assertThat(Pattern.compile("\\B([^a])*[^a][^a]").dfaStartReliable()).isFalse();
-    assertThat(Pattern.compile("(?:)\\B[^a]*[^a][^a]").dfaStartReliable()).isFalse();
-  }
-
-  @Test
-  void nullableConsumingPrefixBeforeBoundaryCanKeepDfaStartReliable() {
-    assertThat(Pattern.compile("[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?").dfaStartReliable())
-        .isTrue();
-  }
-
-  @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
 
@@ -193,100 +178,6 @@ class PatternInternalTest {
   })
   void numGroups(String pattern, int expected) {
     assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
-  }
-
-  @Nested
-  @DisplayName("safe alternation compiler optimizations")
-  class SafeAlternationTests {
-
-    @Test
-    @DisplayName("disjoint character classes are safe unconditionally")
-    void disjointCharacterClassesSafe() {
-      Pattern p = Pattern.compile("[a-z]|[0-9]");
-      assertThat(p.dfaStartReliable()).isTrue();
-    }
-
-    @Test
-    @DisplayName("overlapping character classes are unsafe")
-    void overlappingCharacterClassesUnsafe() {
-      Pattern p = Pattern.compile("[a-z]|[d-g]");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("line boundary with disjoint literal lookahead is safe")
-    void lineBoundaryWithDisjointLiteralLookaheadSafe() {
-      Pattern p = Pattern.compile("(^|[^<])(<!contextual)");
-      assertThat(p.dfaStartReliable()).isTrue();
-    }
-
-    @Test
-    @DisplayName("line boundary with overlapping literal lookahead is unsafe")
-    void lineBoundaryWithOverlappingLiteralLookaheadUnsafe() {
-      Pattern p = Pattern.compile("(^|[<])(<contextual)");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("disjoint literal alternatives are safe unconditionally")
-    void disjointLiteralAlternativesSafe() {
-      Pattern p = Pattern.compile("abc|def");
-      assertThat(p.dfaStartReliable()).isTrue();
-    }
-
-    @Test
-    @DisplayName("overlapping literal alternatives are unsafe")
-    void overlappingLiteralAlternativesUnsafe() {
-      Pattern p = Pattern.compile("abc|asd");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("safe outer alternation still scans unsafe nested alternation")
-    void safeOuterAlternationStillScansUnsafeNestedAlternation() {
-      Pattern p = Pattern.compile("(?:a(?:b|bc)|z)");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("deeply nested quantified alternation remains stack-safe during compile")
-    void deeplyNestedQuantifiedAlternationCompileIsStackSafe() throws InterruptedException {
-      int depth = 1_000;
-      String regex = nestedQuantifiedAlternation(depth);
-      Pattern.compile("a|aa");
-      AtomicReference<Pattern> compiled = new AtomicReference<>();
-      AtomicReference<Throwable> thrown = new AtomicReference<>();
-      Thread compiler =
-          new Thread(
-              null,
-              () -> {
-                try {
-                  compiled.set(Pattern.compile(regex));
-                } catch (Throwable t) {
-                  thrown.set(t);
-                }
-              },
-              "pattern-compile-stack-safety",
-              512 * 1024);
-
-      compiler.start();
-      compiler.join();
-
-      assertThat(thrown).hasValue(null);
-      assertThat(compiled.get().dfaStartReliable()).isFalse();
-    }
-
-    private static String nestedQuantifiedAlternation(int depth) {
-      StringBuilder regex = new StringBuilder(depth * 5 + 4);
-      for (int i = 0; i < depth; i++) {
-        regex.append("(?:");
-      }
-      regex.append("a|aa");
-      for (int i = 0; i < depth; i++) {
-        regex.append(")+");
-      }
-      return regex.toString();
-    }
   }
 
   private static String nestedRequiredPlusPattern(int depth, String atom) {

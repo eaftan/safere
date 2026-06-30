@@ -1193,7 +1193,7 @@ final class Dfa {
         // Try the after-consume position: either no before-consume match exists, or it was
         // rejected (e.g., needEndMatch but pos != textLen) and an after-consume match also
         // exists (FLAG_MATCH_AFTER_DEFERRED).
-        if ((s.flags & FLAG_MATCH_BEFORE) == 0 || (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
           int endPos = Math.min(nextPos, textLen);
           if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
             matched = true;
@@ -1332,10 +1332,18 @@ final class Dfa {
       }
 
       if (s.isMatch()) {
-        boolean matchValid = (s.flags & FLAG_MATCH_BEFORE) != 0 || prevPos >= startLimit;
-        if (matchValid) {
-          int startPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : prevPos;
-          if (!needEndMatch || startPos == startLimit) {
+        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
+          int startPos = prevPos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+            matched = true;
+            matchStart = startPos;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart);
+            }
+          }
+        } else {
+          int startPos = pos;
+          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
             matched = true;
             matchStart = startPos;
             if (!longest && !needEndMatch) {

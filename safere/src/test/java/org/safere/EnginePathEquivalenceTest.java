@@ -71,47 +71,6 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
-  @DisplayName("OnePass nullable-alternation guard has semantic content")
-  void onePassNullableAlternationGuardHasSemanticContent() {
-    String regex = "^(?:|a)";
-    String input = "a";
-    Pattern canonical = Pattern.compile(regex);
-    Pattern unguarded =
-        Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder().semanticGuards(false).dfa(false).bitState(false).build());
-
-    assertThat(canonical.hasNullableAlternation()).isTrue();
-    assertThat(canonical.onePass()).isNotNull();
-    assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded OnePass should expose why the nullable-alternation guard exists")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
-  }
-
-  @Test
-  @DisplayName("DFA start-reliability guard has semantic content")
-  void dfaStartReliabilityGuardHasSemanticContent() {
-    String regex = "(?:\\B{1}|a).";
-    String input = "ab";
-    Pattern canonical = Pattern.compile(regex);
-    Pattern unguarded =
-        Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder()
-                .semanticGuards(false)
-                .onePass(false)
-                .bitState(false)
-                .build());
-
-    assertThat(canonical.dfaStartReliable()).isFalse();
-    assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded DFA sandwich should expose why the start-reliability guard exists")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
-  }
-
-  @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
     assertEquivalent(
@@ -264,7 +223,7 @@ class EnginePathEquivalenceTest {
   @DisplayName("nested nullable loops are compiled for DFA and match correctly")
   void nestedNullableLoopsDfaEquivalence() {
     EnginePathOptions forcedDfa =
-        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build();
+        EnginePathOptions.builder().onePass(false).bitState(false).build();
 
     // Case A: Alternation matching bug from dfa_nullable_loop_analysis.md
     assertEquivalent("(?:a?\\b?)*X|(?:a?b)*c", "bc", forcedDfa);
