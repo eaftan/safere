@@ -70,6 +70,47 @@ class EnginePathEquivalenceTest {
     }
   }
 
+  @Test
+  @DisplayName("DFA sandwich reports ambiguous reverse starts")
+  void dfaSandwichReportsAmbiguousReverseStarts() {
+    String regex = "(?:\\B{1}|a).";
+    String input = "ab";
+    Pattern canonical = Pattern.compile(regex);
+    Pattern unguarded =
+        Pattern.compile(
+            regex, 0, EnginePathOptions.builder().onePass(false).bitState(false).build());
+
+    assertThat(findTrace(unguarded.matcher(input)))
+        .as("DFA sandwich should not publish ambiguous reverse-DFA starts")
+        .isEqualTo(findTrace(canonical.matcher(input)));
+  }
+
+  @Test
+  @DisplayName("unguarded DFA paths preserve repeated $ find trace")
+  void unguardedDfaPathsPreserveRepeatedDollarFindTrace() {
+    assertUnguardedDfaFindEquivalent("$", "x".repeat(2000) + "a\n");
+    assertUnguardedDfaFindEquivalent("$", "x".repeat(2000) + "a\r\n");
+    assertUnguardedDfaFindEquivalent("$", "x".repeat(2000) + "a\u2028");
+  }
+
+  @Test
+  @DisplayName("unguarded DFA paths fall back for ambiguous reverse starts")
+  void unguardedDfaPathsFallBackForAmbiguousReverseStarts() {
+    assertUnguardedDfaFindEquivalent("(?:\\B{1}|a).a?", "ab".repeat(600) + "c");
+    assertUnguardedDfaFindEquivalent("(?:\\B{1}|a).a?$", "x".repeat(1100) + "ab");
+  }
+
+  @Test
+  @DisplayName("unguarded DFA paths preserve end-anchored trailing terminator trace")
+  void unguardedDfaPathsPreserveEndAnchoredTrailingTerminatorTrace() {
+    assertUnguardedDfaFindEquivalent("(?:a+?|(?:[^x])*)$", "x".repeat(1100) + "a\n");
+  }
+
+  @Test
+  @DisplayName("unguarded DFA paths preserve boundary candidate priority")
+  void unguardedDfaPathsPreserveBoundaryCandidatePriority() {
+    assertUnguardedDfaFindEquivalent("(?:a{2,}|(?:.|\\B){1,2}){1,2}", "baax");
+  }
 
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
@@ -168,6 +209,34 @@ class EnginePathEquivalenceTest {
         .isEqualTo(appendReplacementTrace(forcedPattern.matcher(input)));
   }
 
+  private static void assertUnguardedDfaFindEquivalent(String regex, String input) {
+    Pattern canonical = Pattern.compile(regex);
+    Pattern unguarded =
+        Pattern.compile(
+            regex, 0, EnginePathOptions.builder().onePass(false).bitState(false).build());
+
+    assertFindPrefixEquivalent(
+        unguarded.matcher(input), canonical.matcher(input), input.length() + 2, regex, input);
+  }
+
+  private static void assertFindPrefixEquivalent(
+      Matcher actual, Matcher expected, int maxSteps, String regex, String input) {
+    for (int step = 0; step < maxSteps; step++) {
+      boolean actualFound = actual.find();
+      boolean expectedFound = expected.find();
+      assertThat(actualFound)
+          .as("find step %s found state for /%s/ on %s", step, regex, input)
+          .isEqualTo(expectedFound);
+      if (!expectedFound) {
+        return;
+      }
+      assertThat(snapshot(actual, true))
+          .as("find step %s trace for /%s/ on %s", step, regex, input)
+          .isEqualTo(snapshot(expected, true));
+    }
+    throw new AssertionError("find trace exceeded " + maxSteps + " steps for /" + regex + "/");
+  }
+
   @Test
   @DisplayName("region traces are engine-path equivalent")
   void regionTracesAreEnginePathEquivalent() {
@@ -240,12 +309,7 @@ class EnginePathEquivalenceTest {
     String input1 = "x = \"type\"";
     // Assert DFA vs canonical (NFA)
     assertEquivalent(
-        regex1,
-        input1,
-        EnginePathOptions.builder()
-            .onePass(false)
-            .bitState(false)
-            .build());
+        regex1, input1, EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex1, input1, EnginePathOptions.builder().dfa(false).onePass(false).build());
 
@@ -254,9 +318,7 @@ class EnginePathEquivalenceTest {
     String input2 = "abc [def](xyz.md) ghi";
     // Assert DFA vs canonical (NFA)
     assertEquivalent(
-        regex2,
-        input2,
-        EnginePathOptions.builder().onePass(false).bitState(false).build());
+        regex2, input2, EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
   }
