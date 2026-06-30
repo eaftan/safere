@@ -1626,10 +1626,9 @@ final class Dfa {
           break;
         }
         if (s.isMatch()) {
-          int endPos =
-              ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
-                  ? pos
-                  : pos + 1;
+          boolean useBefore =
+              (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+          int endPos = useBefore ? pos : pos + 1;
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
