@@ -678,6 +678,31 @@ class MatcherTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"\n", "\r\n", "\u2028"})
+    @DisplayName("find() after $ before a trailing terminator advances to text end")
+    void findAfterDollarBeforeTrailingTerminatorAdvancesToTextEnd(String terminator) {
+      assertAllFindsMatchJdk("$", "x".repeat(2000) + "a" + terminator);
+    }
+
+    @Test
+    @DisplayName("find() falls back when reverse DFA start is ambiguous")
+    void findFallsBackWhenReverseDfaStartIsAmbiguous() {
+      assertAllFindsMatchJdk("(?:\\B{1}|a).a?", "ab".repeat(600) + "c");
+    }
+
+    @Test
+    @DisplayName("find() does not overconsume before trailing terminator for end anchor")
+    void findDoesNotOverconsumeBeforeTrailingTerminatorForEndAnchor() {
+      assertAllFindsMatchJdk("(?:a+?|(?:[^x])*)$", "x".repeat(1100) + "a\n");
+    }
+
+    @Test
+    @DisplayName("find() preserves boundary candidate priority in reverse DFA fallback")
+    void findPreservesBoundaryCandidatePriorityInReverseDfaFallback() {
+      assertAllFindsMatchJdk("(?:a{2,}|(?:.|\\B){1,2}){1,2}", "baax");
+    }
+
+    @ParameterizedTest
     @ValueSource(
         strings = {
           "(bcd|abcde)",
