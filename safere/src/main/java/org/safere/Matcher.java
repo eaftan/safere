@@ -127,6 +127,7 @@ public final class Matcher implements MatchResult {
    * existence or read group 0.
    */
   private boolean capturesResolved = true;
+
   private boolean groupZeroResolved = true;
 
   /** Stashed match boundaries for deferred capture resolution. */
@@ -1412,7 +1413,12 @@ public final class Matcher implements MatchResult {
           if (fwdAnchored != null && fwdAnchored.matched()) {
             int matchEnd = fwdAnchored.pos();
             return applyEngineResult(
-                new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), parentPattern.dfaGroupZeroReliable(), false));
+                new DeferredMatchResult(
+                    matchStart,
+                    matchEnd,
+                    prog.numCaptures(),
+                    parentPattern.dfaGroupZeroReliable(),
+                    false));
           }
         }
         // DFA budget exceeded or forward DFA disagreed — fall through to normal path.
@@ -1459,7 +1465,11 @@ public final class Matcher implements MatchResult {
     // submatch engine.
     // Skip when a region is active — deferred capture resolution runs on the full text but the
     // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
-    if (options.dfa() && !regionActive && parentPattern.dfaGroupZeroReliable() && fwdResult != null && fwdResult.pos() > effectiveStart) {
+    if (options.dfa()
+        && !regionActive
+        && parentPattern.dfaGroupZeroReliable()
+        && fwdResult != null
+        && fwdResult.pos() > effectiveStart) {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
@@ -1469,7 +1479,12 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
-              new DeferredMatchResult(effectiveStart, matchEnd, prog.numCaptures(), parentPattern.dfaGroupZeroReliable(), false));
+              new DeferredMatchResult(
+                  effectiveStart,
+                  matchEnd,
+                  prog.numCaptures(),
+                  parentPattern.dfaGroupZeroReliable(),
+                  false));
         }
       } else if (literalPrefixCandidateStart) {
         // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
@@ -1479,7 +1494,12 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
-              new DeferredMatchResult(effectiveStart, matchEnd, prog.numCaptures(), parentPattern.dfaGroupZeroReliable(), false));
+              new DeferredMatchResult(
+                  effectiveStart,
+                  matchEnd,
+                  prog.numCaptures(),
+                  parentPattern.dfaGroupZeroReliable(),
+                  false));
         }
       } else {
         Dfa revDfa = reverseDfa();
@@ -1536,7 +1556,12 @@ public final class Matcher implements MatchResult {
                 int matchEnd = fwdFirst.pos();
                 // Step 4: Store group(0) boundaries, defer inner captures until requested.
                 return applyEngineResult(
-                    new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), parentPattern.dfaGroupZeroReliable(), false));
+                    new DeferredMatchResult(
+                        matchStart,
+                        matchEnd,
+                        prog.numCaptures(),
+                        parentPattern.dfaGroupZeroReliable(),
+                        false));
               }
             }
             // If anchored forward DFA fails, fall through to full search.
