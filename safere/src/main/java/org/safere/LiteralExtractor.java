@@ -63,6 +63,29 @@ final class LiteralExtractor {
       return new Result(list, caseFoldOut[0], true);
     }
 
+    // Check if the root is a concatenation starting with an alternation
+    if (re.op == RegexpOp.CONCAT && re.subs != null && !re.subs.isEmpty()) {
+      Regexp first = re.subs.get(0);
+      while (first.op == RegexpOp.CAPTURE || first.op == RegexpOp.NON_CAPTURE) {
+        first = first.sub();
+      }
+      if (first.op == RegexpOp.ALTERNATE) {
+        List<String> list = new ArrayList<>();
+        for (Regexp sub : first.subs) {
+          String s = tryExtractPrefix(sub, caseFold, caseFoldOut);
+          if (s != null && s.length() >= 2) {
+            list.add(s);
+          } else {
+            list = null;
+            break;
+          }
+        }
+        if (list != null) {
+          return new Result(list, caseFoldOut[0], true);
+        }
+      }
+    }
+
     // Try to extract a single literal prefix
     String s = tryExtractPrefix(re, caseFold, caseFoldOut);
     if (s != null && s.length() >= 2) {

@@ -149,23 +149,39 @@ public final class AhoCorasickSearcher {
   public int findNext(CharSequence text, int start) {
     int state = 0;
     int len = text.length();
-    for (int i = start; i < len; i++) {
-      char c = text.charAt(i);
-      if (caseInsensitive) {
-        c = Character.toLowerCase(c);
-      }
+    // Split the search loop based on case-insensitivity to avoid evaluating the conditional on
+    // every character iteration. This eliminates branching in the inner matching loops.
+    if (caseInsensitive) {
+      for (int i = start; i < len; i++) {
+        char c = Character.toLowerCase(text.charAt(i));
+        int next = nextState(state, c);
+        while (next == -1 && state != 0) {
+          state = failureLinks[state];
+          next = nextState(state, c);
+        }
+        state = (next != -1) ? next : 0;
 
-      int next = nextState(state, c);
-      while (next == -1 && state != 0) {
-        state = failureLinks[state];
-        next = nextState(state, c);
+        if (matchIndices[state] != -1) {
+          int patternIdx = matchIndices[state];
+          int patternLen = patternLengths[patternIdx];
+          return i - patternLen + 1; // Start index of the match
+        }
       }
-      state = (next != -1) ? next : 0;
+    } else {
+      for (int i = start; i < len; i++) {
+        char c = text.charAt(i);
+        int next = nextState(state, c);
+        while (next == -1 && state != 0) {
+          state = failureLinks[state];
+          next = nextState(state, c);
+        }
+        state = (next != -1) ? next : 0;
 
-      if (matchIndices[state] != -1) {
-        int patternIdx = matchIndices[state];
-        int patternLen = patternLengths[patternIdx];
-        return i - patternLen + 1; // Start index of the match
+        if (matchIndices[state] != -1) {
+          int patternIdx = matchIndices[state];
+          int patternLen = patternLengths[patternIdx];
+          return i - patternLen + 1; // Start index of the match
+        }
       }
     }
     return -1;

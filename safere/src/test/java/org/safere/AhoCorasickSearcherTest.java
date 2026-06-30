@@ -43,6 +43,16 @@ class AhoCorasickSearcherTest {
   }
 
   @Test
+  void testLiteralExtractor_leadingAlternationInsideConcat() {
+    Regexp re = Parser.parse("(?:abc|def)\\d+", ParseFlags.LIKE_PERL);
+    LiteralExtractor.Result result = LiteralExtractor.extract(re);
+    assertThat(result).isNotNull();
+    assertThat(result.literals).containsExactly("abc", "def");
+    assertThat(result.isCaseInsensitive).isFalse();
+    assertThat(result.isPureLiteralAlternation).isTrue();
+  }
+
+  @Test
   void testLiteralExtractor_caseInsensitiveAlternation() {
     Regexp re = Parser.parse("(?:AL|AK|AZ)", ParseFlags.LIKE_PERL | ParseFlags.FOLD_CASE);
     LiteralExtractor.Result result = LiteralExtractor.extract(re);
