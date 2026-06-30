@@ -19,12 +19,23 @@ final class FindSequenceFuzzer {
     pattern.matcher("Foo '{0}' Bar: {0}").find();
   }
 
+  @Test
+  void dfaBoundSemanticsRegressions() {
+    assertFindSequence("$", "x".repeat(512) + "a\n");
+    assertFindSequence("$", "x".repeat(512) + "a\r\n");
+    assertFindSequence("$", "x".repeat(512) + "a\u2028");
+    assertFindSequence("(?:\\B{1}|a).a?", "ab".repeat(300) + "c");
+    assertFindSequence("(?:\\B{1}|a).a?$", "x".repeat(512) + "ab");
+    assertFindSequence("(?:a+?|(?:[^x])*)$", "x".repeat(512) + "a\n");
+    assertFindSequence("(?:a{2,}|(?:.|\\B){1,2}){1,2}", "baax");
+  }
+
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
     String regex;
     int flags;
     String input;
-    switch (data.consumeInt(0, 2)) {
+    switch (data.consumeInt(0, 6)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -40,6 +51,33 @@ final class FindSequenceFuzzer {
         regex = data.consumeString(256);
         flags = FuzzSupport.consumeFlags(data);
         input = data.consumeString(2048);
+      }
+      case 3 -> {
+        regex = "$";
+        flags = 0;
+        String terminator =
+            switch (data.consumeInt(0, 2)) {
+              case 0 -> "\n";
+              case 1 -> "\r\n";
+              case 2 -> "\u2028";
+              default -> throw new AssertionError();
+            };
+        input = data.consumeString(64) + "a" + terminator;
+      }
+      case 4 -> {
+        regex = "(?:\\B{1}|a).a?";
+        flags = 0;
+        input = "ab".repeat(data.consumeInt(0, 700)) + data.consumeString(2);
+      }
+      case 5 -> {
+        regex = "(?:a+?|(?:[^x])*)$";
+        flags = 0;
+        input = "x".repeat(data.consumeInt(0, 700)) + data.consumeString(4);
+      }
+      case 6 -> {
+        regex = "(?:a{2,}|(?:.|\\B){1,2}){1,2}";
+        flags = 0;
+        input = data.consumeBoolean() ? "baax" : data.consumeString(16);
       }
       default -> throw new AssertionError();
     }
@@ -100,5 +138,17 @@ final class FindSequenceFuzzer {
 
   private static String nestedCapturingGroups(int depth) {
     return "(".repeat(depth) + "a" + ")".repeat(depth);
+  }
+
+  private static void assertFindSequence(String regex, String input) {
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
+    pattern.matcher(input).find();
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+    int maxFinds = Math.min(input.length() + 2, 128);
+    for (int i = 0; i < maxFinds; i++) {
+      if (!matcher.find()) {
+        return;
+      }
+    }
   }
 }
