@@ -114,6 +114,8 @@ public final class Pattern implements Serializable {
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
   private final transient EnginePathOptions enginePathOptions;
+  private final transient AhoCorasickSearcher prefilterSearcher;
+  private final transient boolean isPureLiteralAlternation;
 
   /**
    * Precomputed character class data for the "repeated character class" fast path in {@code
@@ -243,7 +245,9 @@ public final class Pattern implements Serializable {
       int[] requiredMatchClassRanges,
       long requiredMatchClassBitmap0,
       long requiredMatchClassBitmap1,
-      EnginePathOptions enginePathOptions) {
+      EnginePathOptions enginePathOptions,
+      AhoCorasickSearcher prefilterSearcher,
+      boolean isPureLiteralAlternation) {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -292,6 +296,8 @@ public final class Pattern implements Serializable {
     this.requiredMatchClassRanges = requiredMatchClassRanges;
     this.requiredMatchClassBitmap0 = requiredMatchClassBitmap0;
     this.requiredMatchClassBitmap1 = requiredMatchClassBitmap1;
+    this.prefilterSearcher = prefilterSearcher;
+    this.isPureLiteralAlternation = isPureLiteralAlternation;
 
     // Eagerly compute analysis and setup to avoid latency spikes on first use.
     onePassAnalysis();
@@ -364,6 +370,16 @@ public final class Pattern implements Serializable {
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
     CharClassScanInfo requiredMatchClass = extractRequiredMatchClass(metadataAst);
+
+    LiteralExtractor.Result prefilterResult = LiteralExtractor.extract(re);
+    AhoCorasickSearcher prefilterSearcher = null;
+    boolean isPureLiteralAlternation = false;
+    if (prefilterResult != null) {
+      prefilterSearcher =
+          new AhoCorasickSearcher(prefilterResult.literals, prefilterResult.isCaseInsensitive);
+      isPureLiteralAlternation = prefilterResult.isPureLiteralAlternation;
+    }
+
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(
         regex,
@@ -392,7 +408,9 @@ public final class Pattern implements Serializable {
         requiredMatchClass != null ? requiredMatchClass.ranges : null,
         requiredMatchClass != null ? requiredMatchClass.bitmap0 : 0,
         requiredMatchClass != null ? requiredMatchClass.bitmap1 : 0,
-        enginePathOptions);
+        enginePathOptions,
+        prefilterSearcher,
+        isPureLiteralAlternation);
   }
 
   /**
@@ -862,6 +880,14 @@ public final class Pattern implements Serializable {
   /** Returns whether the prefix should be matched case-insensitively. */
   boolean prefixFoldCase() {
     return prefixFoldCase;
+  }
+
+  AhoCorasickSearcher prefilterSearcher() {
+    return prefilterSearcher;
+  }
+
+  boolean isPureLiteralAlternation() {
+    return isPureLiteralAlternation;
   }
 
   /**
