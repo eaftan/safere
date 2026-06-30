@@ -1238,24 +1238,14 @@ final class Dfa {
         break;
       }
       if (s.isMatch()) {
-        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
-          int endPos = pos;
-          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
-            matched = true;
-            matchEnd = endPos;
-            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
-              return new SearchResult(true, matchEnd);
-            }
-          }
-        }
-        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
-          int endPos = pos + 1;
-          if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
-            matched = true;
-            matchEnd = endPos;
-            if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
-              return new SearchResult(true, matchEnd);
-            }
+        boolean useBefore =
+            (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        int endPos = useBefore ? pos : pos + 1;
+        if (isRequiredEndMatch(endPos, needEndMatch, textLen, trailingTermStart)) {
+          matched = true;
+          matchEnd = endPos;
+          if (!longest && canStopAtFirstMatch(s, text, endPos, needEndMatch)) {
+            return new SearchResult(true, matchEnd);
           }
         }
       }
@@ -1437,19 +1427,15 @@ final class Dfa {
           if (ns == null || ns == deadState) {
             break;
           }
-          if (ns.isMatch() && !longest && !needEndMatch) {
-            int startPos =
-                ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
-                    ? pos
-                    : pos - 1;
-            return new SearchResult(true, startPos);
-          }
           if (ns.isMatch()) {
+            boolean useBefore =
+                (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+            int startPos = useBefore ? pos : pos - 1;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, startPos);
+            }
             matched = true;
-            matchStart =
-                ((ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE)
-                    ? pos - 1
-                    : pos;
+            matchStart = startPos;
           }
           s = ns;
           pos--;
@@ -1482,23 +1468,14 @@ final class Dfa {
         break;
       }
       if (s.isMatch()) {
-        if ((s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) != FLAG_MATCH_BEFORE) {
-          int startPos = pos - 1;
-          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
-            matched = true;
-            matchStart = startPos;
-            if (!longest && !needEndMatch) {
-              return new SearchResult(true, matchStart);
-            }
-          }
-        } else {
-          int startPos = pos;
-          if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
-            matched = true;
-            matchStart = startPos;
-            if (!longest && !needEndMatch) {
-              return new SearchResult(true, matchStart);
-            }
+        boolean useBefore =
+            (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+        int startPos = useBefore ? pos : pos - 1;
+        if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
+          matched = true;
+          matchStart = startPos;
+          if (!longest && !needEndMatch) {
+            return new SearchResult(true, matchStart);
           }
         }
       }
@@ -1685,7 +1662,9 @@ final class Dfa {
           break;
         }
         if (s.isMatch()) {
-          int endPos = (s.flags & FLAG_MATCH_BEFORE) != 0 ? pos : pos + 1;
+          boolean useBefore =
+              (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+          int endPos = useBefore ? pos : pos + 1;
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
