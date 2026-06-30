@@ -70,7 +70,6 @@ class EnginePathEquivalenceTest {
     }
   }
 
-
   @Test
   @DisplayName("DFA sandwich reports ambiguous reverse starts")
   void dfaSandwichReportsAmbiguousReverseStarts() {
@@ -79,12 +78,7 @@ class EnginePathEquivalenceTest {
     Pattern canonical = Pattern.compile(regex);
     Pattern unguarded =
         Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder()
-                .onePass(false)
-                .bitState(false)
-                .build());
+            regex, 0, EnginePathOptions.builder().onePass(false).bitState(false).build());
 
     assertThat(findTrace(unguarded.matcher(input)))
         .as("DFA sandwich should not publish ambiguous reverse-DFA starts")
@@ -117,6 +111,7 @@ class EnginePathEquivalenceTest {
   void unguardedDfaPathsPreserveBoundaryCandidatePriority() {
     assertUnguardedDfaFindEquivalent("(?:a{2,}|(?:.|\\B){1,2}){1,2}", "baax");
   }
+
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
     assertEquivalent(
@@ -301,12 +296,7 @@ class EnginePathEquivalenceTest {
     String input1 = "x = \"type\"";
     // Assert DFA vs canonical (NFA)
     assertEquivalent(
-        regex1,
-        input1,
-        EnginePathOptions.builder()
-            .onePass(false)
-            .bitState(false)
-            .build());
+        regex1, input1, EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex1, input1, EnginePathOptions.builder().dfa(false).onePass(false).build());
 
@@ -315,9 +305,7 @@ class EnginePathEquivalenceTest {
     String input2 = "abc [def](xyz.md) ghi";
     // Assert DFA vs canonical (NFA)
     assertEquivalent(
-        regex2,
-        input2,
-        EnginePathOptions.builder().onePass(false).bitState(false).build());
+        regex2, input2, EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
   }
