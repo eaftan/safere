@@ -61,7 +61,8 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  private record DeferredMatchResult(int start, int end, int ncap, boolean endMatch)
+  private record DeferredMatchResult(
+      int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch)
       implements EngineResult {}
 
   private enum ResultStatus {
@@ -126,6 +127,8 @@ public final class Matcher implements MatchResult {
    * existence or read group 0.
    */
   private boolean capturesResolved = true;
+
+  private boolean groupZeroResolved = true;
 
   /** Stashed match boundaries for deferred capture resolution. */
   private int deferredMatchStart;
@@ -223,6 +226,7 @@ public final class Matcher implements MatchResult {
     deferredMatchEnd = deferred.end();
     deferredEndMatch = deferred.endMatch();
     capturesResolved = deferred.ncap() <= 1;
+    groupZeroResolved = deferred.groupZeroResolved();
     hasMatch = true;
     resultStatus = ResultStatus.MATCHED;
   }
@@ -237,6 +241,7 @@ public final class Matcher implements MatchResult {
 
   private void clearDeferredCaptureState() {
     capturesResolved = true;
+    groupZeroResolved = true;
     deferredMatchStart = 0;
     deferredMatchEnd = 0;
     deferredEndMatch = false;
@@ -741,7 +746,8 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if a full match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(prog)) {
+    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+
       Dfa.SearchResult dfaResult = dfa(true).doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         return applyEngineResult(new NoMatchResult());
@@ -751,7 +757,7 @@ public final class Matcher implements MatchResult {
       }
       if (dfaResult != null && prog.numLoopRegs() == 0) {
         return applyEngineResult(
-            new DeferredMatchResult(0, text.length(), prog.numCaptures(), true));
+            new DeferredMatchResult(0, text.length(), prog.numCaptures(), true, true));
       }
     }
 
@@ -866,7 +872,8 @@ public final class Matcher implements MatchResult {
     }
 
     // Medium path: use DFA to check if an anchored match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(prog)) {
+    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+
       Dfa.SearchResult dfaResult = dfa(false).doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         return applyEngineResult(new NoMatchResult());
@@ -907,6 +914,9 @@ public final class Matcher implements MatchResult {
       // Only resolve deferred captures before advancing when group 0 itself is not authoritative.
       // If group 0 is already exact, find-all loops that never read inner captures should not pay
       // the capture-extraction cost for the previous match.
+      if (!groupZeroResolved) {
+        resolveCaptures();
+      }
       searchFrom = groups[1];
       if (groups[0] == groups[1]) { // empty match
         if (searchFrom >= regionEnd) {
@@ -946,7 +956,7 @@ public final class Matcher implements MatchResult {
    * Returns whether DFA paths implement every instruction and boundary predicate in {@code prog}.
    */
   private static boolean dfaSupportsProgram(Prog prog) {
-    return !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
+    return prog != null && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
   /**
@@ -1216,8 +1226,16 @@ public final class Matcher implements MatchResult {
     }
 
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
+    boolean hasAcceleratedSearchPath =
+        (parentPattern.prefix() != null)
+            || (options.reverseDfa()
+                && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
+                && prog.anchorEnd()
+                && !prog.anchorStart()
+                && text.length() >= MIN_REVERSE_FIRST_LEN);
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
+        && !hasAcceleratedSearchPath
         && !containsRequiredMatchClass(requiredRanges, searchFrom)) {
       return applyEngineResult(new NoMatchResult());
     }
@@ -1323,7 +1341,7 @@ public final class Matcher implements MatchResult {
     // must fall through to the normal forward DFA path rather than returning false.
     if (options.dfa()
         && options.reverseDfa()
-        && dfaSupportsProgram(prog)
+        && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
         && !regionActive
         && prog.anchorEnd()
         && !prog.anchorStart()
@@ -1411,7 +1429,7 @@ public final class Matcher implements MatchResult {
             if (exact != null) {
               int matchEnd = exact[1];
               return applyEngineResult(
-                  new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), false));
+                  new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), true, false));
             }
           }
         }
@@ -1422,7 +1440,7 @@ public final class Matcher implements MatchResult {
     // Fast path: use cached DFA to check if a match exists in the remaining text.
     // Use longest=false for a quick existence check — this returns the earliest match end.
     Dfa.SearchResult fwdResult;
-    if (!options.dfa() || !dfaSupportsProgram(prog)) {
+    if (!options.dfa() || !dfaSupportsProgram(parentPattern.flatDfaProg())) {
       fwdResult = null;
     } else {
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
@@ -1459,7 +1477,11 @@ public final class Matcher implements MatchResult {
     // submatch engine.
     // Skip when a region is active — deferred capture resolution runs on the full text but the
     // DFA ran on the region substring, causing empty-width assertion mismatches at boundaries.
-    if (options.dfa() && !regionActive && fwdResult != null && fwdResult.pos() > effectiveStart) {
+    if (options.dfa()
+        && !regionActive
+        && parentPattern.dfaGroupZeroReliable()
+        && fwdResult != null
+        && fwdResult.pos() > effectiveStart) {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
@@ -1469,7 +1491,12 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
-              new DeferredMatchResult(effectiveStart, matchEnd, prog.numCaptures(), false));
+              new DeferredMatchResult(
+                  effectiveStart,
+                  matchEnd,
+                  prog.numCaptures(),
+                  parentPattern.dfaGroupZeroReliable(),
+                  false));
         }
       } else if (literalPrefixCandidateStart) {
         // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
@@ -1479,7 +1506,12 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           int matchEnd = fwdFirst.pos();
           return applyEngineResult(
-              new DeferredMatchResult(effectiveStart, matchEnd, prog.numCaptures(), false));
+              new DeferredMatchResult(
+                  effectiveStart,
+                  matchEnd,
+                  prog.numCaptures(),
+                  parentPattern.dfaGroupZeroReliable(),
+                  false));
         }
       } else {
         Dfa revDfa = reverseDfa();
@@ -1543,7 +1575,12 @@ public final class Matcher implements MatchResult {
                 int matchEnd = fwdFirst.pos();
                 // Step 4: Store group(0) boundaries, defer inner captures until requested.
                 return applyEngineResult(
-                    new DeferredMatchResult(matchStart, matchEnd, prog.numCaptures(), false));
+                    new DeferredMatchResult(
+                        matchStart,
+                        matchEnd,
+                        prog.numCaptures(),
+                        parentPattern.dfaGroupZeroReliable(),
+                        false));
               }
             }
             // If anchored forward DFA fails, fall through to full search.
@@ -1584,7 +1621,7 @@ public final class Matcher implements MatchResult {
       return applyEngineResult(new FullMatchResult(result));
     } else {
       return applyEngineResult(
-          new DeferredMatchResult(result[0], result[1], prog.numCaptures(), false));
+          new DeferredMatchResult(result[0], result[1], prog.numCaptures(), true, false));
     }
   }
 
@@ -1986,8 +2023,10 @@ public final class Matcher implements MatchResult {
   public int start(int group) {
     checkMatch();
     checkGroup(group);
-    if (group != 0) {
-      eagerFallbackCaptures = true;
+    if (group != 0 || !groupZeroResolved) {
+      if (group != 0) {
+        eagerFallbackCaptures = true;
+      }
       resolveCaptures();
     }
     return groups[2 * group];
@@ -2019,8 +2058,10 @@ public final class Matcher implements MatchResult {
   public int end(int group) {
     checkMatch();
     checkGroup(group);
-    if (group != 0) {
-      eagerFallbackCaptures = true;
+    if (group != 0 || !groupZeroResolved) {
+      if (group != 0) {
+        eagerFallbackCaptures = true;
+      }
       resolveCaptures();
     }
     return groups[2 * group + 1];
@@ -2142,7 +2183,7 @@ public final class Matcher implements MatchResult {
     StringBuilder sb = new StringBuilder();
     boolean needsCaptures = templateNeedsCaptures(template);
     do {
-      if (needsCaptures) {
+      if (needsCaptures || !groupZeroResolved) {
         resolveCaptures();
       }
       sb.append(text, appendPos, groups[0]);
@@ -2377,6 +2418,9 @@ public final class Matcher implements MatchResult {
     }
     modCount++;
     if (hasMatch && groups != null) {
+      if (!groupZeroResolved) {
+        resolveCaptures();
+      }
       searchFrom = groups[1];
       if (groups[0] == groups[1] && searchFrom < regionEnd) {
         searchFrom++;
@@ -2511,6 +2555,7 @@ public final class Matcher implements MatchResult {
       groups = result;
     }
     capturesResolved = true;
+    groupZeroResolved = true;
   }
 
   private void checkMatch() {

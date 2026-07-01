@@ -290,6 +290,19 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  @DisplayName("nested nullable loops are compiled for DFA and match correctly")
+  void nestedNullableLoopsDfaEquivalence() {
+    EnginePathOptions forcedDfa =
+        EnginePathOptions.builder().onePass(false).bitState(false).build();
+
+    // Case A: Alternation matching bug from dfa_nullable_loop_analysis.md
+    assertEquivalent("(?:a?\\b?)*X|(?:a?b)*c", "bc", forcedDfa);
+
+    // Case B: Greedy optional-matching bug from dfa_nullable_loop_analysis.md
+    assertEquivalent("(?:a?\\b?)*X", "aaX", forcedDfa);
+  }
+
+  @Test
   @DisplayName("priority inversion boundary patterns match across all engine paths")
   void priorityInversionEquivalence() {
     // 1. Alternation priority inversion
