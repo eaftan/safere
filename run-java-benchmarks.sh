@@ -70,46 +70,62 @@ PATHOLOGICAL_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 usage() {
   cat <<EOF
 Usage:
-  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [JmhBenchmarkRegex ...] [-- JmhArg ...]
+  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [--fastbuild] [JmhBenchmarkRegex ...] [-- JmhArg ...]
 
 Modes:
   default          Standard benchmark run.
   --long           Longer confirmation run for close or important comparisons.
   --smoke          Minimal compile-and-run smoke test.
   --first-compile  Fresh-fork single-shot cold compile signal.
+
+Options:
+  --fastbuild      Skip FFM native C++ builds and target only benchmark modules (saves ~1 minute).
 EOF
 }
 
-# Parse mode flag.
+# Parse options and arguments.
 MODE="standard"
-if [ "${1:-}" = "--long" ]; then
-  MODE="long"
-  shift
-elif [ "${1:-}" = "--smoke" ]; then
-  MODE="smoke"
-  shift
-elif [ "${1:-}" = "--first-compile" ]; then
-  MODE="first-compile"
-  shift
-elif [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-  usage
-  exit 0
-elif [[ "${1:-}" == --* && "${1:-}" != "--" ]]; then
-  echo "ERROR: unknown mode: $1" >&2
-  usage >&2
-  exit 2
-fi
-
+FASTBUILD=false
 BENCHMARKS=()
 JMH_EXTRA_ARGS=()
-while [ $# -gt 0 ]; do
-  if [ "$1" = "--" ]; then
-    shift
-    JMH_EXTRA_ARGS=("$@")
-    break
-  fi
-  BENCHMARKS+=("$1")
-  shift
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --long)
+      MODE="long"
+      shift
+      ;;
+    --smoke)
+      MODE="smoke"
+      shift
+      ;;
+    --first-compile)
+      MODE="first-compile"
+      shift
+      ;;
+    --fastbuild)
+      FASTBUILD=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      JMH_EXTRA_ARGS=("$@")
+      set --
+      ;;
+    --*)
+      echo "ERROR: unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      BENCHMARKS+=("$1")
+      shift
+      ;;
+  esac
 done
 
 if [ "$MODE" = "first-compile" ]; then
@@ -133,8 +149,22 @@ fi
 # JVM args for FFM native access and native library path.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR"
 
-echo "=== Building safere + benchmark JAR ==="
-mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
+if [ "$FASTBUILD" = true ]; then
+  echo "=== Fast Building safere-benchmarks only ==="
+  mvn install \
+    -pl safere-benchmarks -am \
+    -DskipTests \
+    -Dpmd.skip=true \
+    -Dcheckstyle.skip=true \
+    -Dspotless.check.skip=true \
+    -Dmaven.javadoc.skip=true \
+    -Dexec.skip=true \
+    -q \
+    -f "$SCRIPT_DIR/pom.xml"
+else
+  echo "=== Building safere + benchmark JAR ==="
+  mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
+fi
 
 # Returns true if the benchmark name matches a pathological benchmark.
 is_pathological() {
