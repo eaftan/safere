@@ -36,7 +36,11 @@ import java.util.TreeSet;
 final class Dfa {
 
   /** Result of a DFA search. */
-  record SearchResult(boolean matched, int pos) {}
+  record SearchResult(boolean matched, int pos, boolean ambiguous) {
+    SearchResult(boolean matched, int pos) {
+      this(matched, pos, false);
+    }
+  }
 
   /** Result of a multi-match DFA search. */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
@@ -85,12 +89,14 @@ final class Dfa {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
     final boolean isHighestPriorityMatch;
-    final State[] next;
 
     /**
      * Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable.
      */
     final int[] wordBoundaryMatchIds;
+
+    /** Transitions indexed by equivalence class; null entry = not yet computed. */
+    final State[] next;
 
     State(int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
       this(insts, flags, wordBoundaryMatchIds, numClasses, false);
@@ -1399,6 +1405,7 @@ final class Dfa {
 
     boolean matched = false;
     int matchStart = -1;
+    boolean ambiguous = false;
 
     // Check if start state is already a match (e.g., empty pattern).
     if (s.isMatch()) {
@@ -1554,8 +1561,9 @@ final class Dfa {
             boolean alreadyMatched = matched;
             matched = true;
             matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
+            ambiguous |= (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
             if (!longest && !needEndMatch) {
-              return new SearchResult(true, matchStart);
+              return new SearchResult(true, matchStart, ambiguous);
             }
           }
         }
@@ -1566,8 +1574,9 @@ final class Dfa {
             boolean alreadyMatched = matched;
             matched = true;
             matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
+            ambiguous |= (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
             if (!longest && !needEndMatch) {
-              return new SearchResult(true, matchStart);
+              return new SearchResult(true, matchStart, ambiguous);
             }
           }
         }
@@ -1578,7 +1587,7 @@ final class Dfa {
       }
       pos = prevPos;
     }
-    return new SearchResult(matched, matchStart);
+    return new SearchResult(matched, matchStart, ambiguous);
   }
 
   // ---------------------------------------------------------------------------

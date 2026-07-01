@@ -35,6 +35,8 @@ final class Compiler extends Walker<Compiler.Frag> {
   private final Prog prog;
   private boolean failed;
   private boolean reversed;
+  private boolean forDfa;
+
   private final int maxInst;
   private int nextLoopReg;
 
@@ -57,7 +59,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re) {
-    return compile(re, false, true);
+    return compile(re, false, true, false);
   }
 
   /**
@@ -68,12 +70,22 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re, boolean reversed) {
-    return compile(re, reversed, true);
+    return compile(re, reversed, true, false);
   }
 
-  private static Prog compile(Regexp re, boolean reversed, boolean includeCaptureDebugInfo) {
+  static Prog compileForDfa(Regexp re) {
+    return compile(re, false, true, true);
+  }
+
+  static Prog compileForDfa(Regexp re, boolean reversed) {
+    return compile(re, reversed, true, true);
+  }
+
+  private static Prog compile(
+      Regexp re, boolean reversed, boolean includeCaptureDebugInfo, boolean forDfa) {
     Compiler c = new Compiler();
     c.reversed = reversed;
+    c.forDfa = forDfa;
     int numCaptures = maxCapture(re) + 1;
 
     Regexp lowered = lowerCaptureRetention(re);
@@ -262,6 +274,7 @@ final class Compiler extends Walker<Compiler.Frag> {
   }
 
   private static Regexp lowerCaptureRetention(Regexp re) {
+
     CaptureRetentionLoweringWalker walker = new CaptureRetentionLoweringWalker();
     Regexp lowered = walker.walk(re, null);
     return walker.stoppedEarly() ? null : lowered;
@@ -760,7 +773,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     // Structure: pcId: PROGRESS_CHECK(body, exit) where body end loops back to pcId.
     // On progress, PROGRESS_CHECK acts like ALT(body, exit) with greediness preference.
     // On zero-width, PROGRESS_CHECK forces exit only (terminates the loop).
-    if (a.nullable) {
+    if (a.nullable && !forDfa) {
       int pcId = allocInst();
       if (pcId < 0) {
         return Frag.NO_MATCH;

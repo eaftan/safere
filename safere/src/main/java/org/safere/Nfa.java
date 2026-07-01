@@ -64,13 +64,14 @@ final class Nfa {
     final NfaThread[] threads;
     int size = 0;
 
-    final boolean[] visitedInst;
+    final int[] visitedInst;
+    int visitedGeneration = 1;
     final Set<Long> visitedGrapheme;
     final boolean hasGraphemeSemantics;
 
     QueueState(int progSize, boolean hasGraphemeSemantics) {
       this.threads = new NfaThread[progSize + 1];
-      this.visitedInst = new boolean[progSize + 1];
+      this.visitedInst = new int[progSize + 1];
       this.visitedGrapheme = hasGraphemeSemantics ? new HashSet<>() : null;
       this.hasGraphemeSemantics = hasGraphemeSemantics;
     }
@@ -84,7 +85,11 @@ final class Nfa {
       if (hasGraphemeSemantics) {
         visitedGrapheme.clear();
       } else {
-        Arrays.fill(visitedInst, false);
+        visitedGeneration++;
+        if (visitedGeneration == 0) {
+          Arrays.fill(visitedInst, 0);
+          visitedGeneration = 1;
+        }
       }
     }
   }
@@ -161,18 +166,18 @@ final class Nfa {
   @SuppressWarnings("ArrayRecordComponent")
   record SearchResult(int[] groups) {}
 
-  private final Prog prog;
-  private final int ncapture;
+  private Prog prog;
+  private int ncapture;
 
   /** Total thread array size: ncapture slots for captures + numLoopRegs for progress checks. */
-  private final int threadArraySize;
+  private int threadArraySize;
 
-  private final boolean longest;
-  private final boolean endmatch;
-  private final EngineContext context;
+  private boolean longest;
+  private boolean endmatch;
+  private EngineContext context;
 
   private boolean matched;
-  private final int[] bestMatch;
+  private int[] bestMatch;
   private final AddToThreadqStack addToThreadqStack = new AddToThreadqStack();
 
   // NfaThread pool
@@ -238,6 +243,71 @@ final class Nfa {
     this.context = context;
     this.bestMatch = new int[ncapture];
     Arrays.fill(bestMatch, -1);
+  }
+
+  static Nfa getOrCreate(
+      Nfa cached,
+      Prog prog,
+      EngineContext context,
+      int ncapture,
+      boolean longest,
+      boolean endmatch) {
+    if (cached != null && cached.canReuse(prog, ncapture)) {
+      cached.reset(prog, context, ncapture, longest, endmatch);
+      return cached;
+    }
+    return new Nfa(prog, context, ncapture, longest, endmatch);
+  }
+
+  private boolean canReuse(Prog prog, int ncapture) {
+    int requiredThreadArraySize = ncapture + prog.numLoopRegs();
+    return this.threadArraySize >= requiredThreadArraySize
+        && this.bestMatch.length >= ncapture
+        && this.prog.size() >= prog.size()
+        && this.prog.hasGraphemeSemantics() == prog.hasGraphemeSemantics();
+  }
+
+  private void reset(
+      Prog prog, EngineContext context, int ncapture, boolean longest, boolean endmatch) {
+    this.prog = prog;
+    this.ncapture = ncapture;
+    this.threadArraySize = ncapture + prog.numLoopRegs();
+    this.longest = longest;
+    this.endmatch = endmatch;
+    this.context = context;
+    this.matched = false;
+    if (this.bestMatch.length < ncapture) {
+      this.bestMatch = new int[ncapture];
+    }
+    Arrays.fill(this.bestMatch, 0, ncapture, -1);
+    this.addToThreadqStack.clear();
+  }
+
+  void releaseInputContext() {
+    context = null;
+  }
+
+  SearchResult runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos) {
+    if (prog.hasGraphemeSemantics()) {
+      doSearchEveryCharPosition(anchored);
+    } else {
+      doSearch(anchored);
+    }
+
+    if (!matched) {
+      return new SearchResult(null);
+    }
+    if (kind == MatchKind.FULL_MATCH && bestMatch[1] != endPos) {
+      return new SearchResult(null);
+    }
+
+    int[] result = new int[2 * nsubmatch];
+    int ncopy = Math.min(ncapture, result.length);
+    System.arraycopy(bestMatch, 0, result, 0, ncopy);
+    if (ncopy < result.length) {
+      Arrays.fill(result, ncopy, result.length, -1);
+    }
+    return new SearchResult(result);
   }
 
   /**
@@ -439,26 +509,7 @@ final class Nfa {
             emptyAnchorEndPos,
             graphemeContext);
     Nfa nfa = new Nfa(prog, context, ncapture, longestMode, endmatch);
-    if (prog.hasGraphemeSemantics()) {
-      nfa.doSearchEveryCharPosition(anchored);
-    } else {
-      nfa.doSearch(anchored);
-    }
-
-    if (!nfa.matched) {
-      return new SearchResult(null);
-    }
-    if (kind == MatchKind.FULL_MATCH && nfa.bestMatch[1] != endPos) {
-      return new SearchResult(null);
-    }
-
-    int[] result = new int[2 * nsubmatch];
-    System.arraycopy(nfa.bestMatch, 0, result, 0, Math.min(result.length, nfa.bestMatch.length));
-    // Fill any remaining slots with -1.
-    for (int i = nfa.bestMatch.length; i < result.length; i++) {
-      result[i] = -1;
-    }
-    return new SearchResult(result);
+    return nfa.runSearch(anchored, kind, nsubmatch, endPos);
   }
 
   /**
@@ -575,8 +626,9 @@ final class Nfa {
       }
 
       if (!runq.isEmpty()) {
-        int cp = inputCodePointAt(text, pos);
-        int nextPos = inputNextPos(text, pos);
+        long stepResult = inputStep(text, pos);
+        int cp = (int) (stepResult >>> 32);
+        int nextPos = (int) stepResult;
         step(runq, delayedBuffer, delayedGrapheme, cp, text, pos, nextPos);
       } else {
         freeQueue(runq);
@@ -645,8 +697,8 @@ final class Nfa {
         long key = visitKey(prog.inst(t.id), t.id, text, pos, t.graphemeStart);
         visited = !destination.visitedGrapheme.add(key);
       } else {
-        visited = destination.visitedInst[t.id];
-        destination.visitedInst[t.id] = true;
+        visited = destination.visitedInst[t.id] == destination.visitedGeneration;
+        destination.visitedInst[t.id] = destination.visitedGeneration;
       }
       if (visited) {
         freeThread(t);
@@ -691,19 +743,24 @@ final class Nfa {
             context.graphemeContext());
   }
 
-  private int inputCodePointAt(String text, int pos) {
+  private long inputStep(String text, int pos) {
     if (prog.hasGraphemeSemantics()) {
-      return GraphemeSupport.inputCodePointAt(text, pos, context.endPos(), true);
+      int cp = GraphemeSupport.inputCodePointAt(text, pos, context.endPos(), true);
+      int nextPos = GraphemeSupport.inputNextPos(text, pos, context.endPos(), true);
+      return ((long) cp << 32) | (nextPos & 0xFFFFFFFFL);
     }
-    return codePointAtConsumeBoundary(text, pos);
-  }
-
-  private int inputNextPos(String text, int pos) {
-    if (prog.hasGraphemeSemantics()) {
-      return GraphemeSupport.inputNextPos(text, pos, context.endPos(), true);
+    if (pos < 0 || pos >= context.engineEndPos()) {
+      int nextPos = nextBoundaryPosition(pos, context.endPos());
+      return (-1L << 32) | (nextPos & 0xFFFFFFFFL);
     }
-    int cp = codePointAtConsumeBoundary(text, pos);
-    return cp >= 0 ? pos + Character.charCount(cp) : nextBoundaryPosition(pos, context.endPos());
+    int cp = text.codePointAt(pos);
+    int width = Character.charCount(cp);
+    if (pos + width <= context.engineEndPos()) {
+      return ((long) cp << 32) | ((pos + width) & 0xFFFFFFFFL);
+    } else {
+      int nextPos = nextBoundaryPosition(pos, context.endPos());
+      return (-1L << 32) | (nextPos & 0xFFFFFFFFL);
+    }
   }
 
   private int graphemeNextPos(String text, int pos) {
@@ -738,6 +795,8 @@ final class Nfa {
     stack.clear();
     stack.pushInstruction(id, consumedInput);
 
+    int cachedFlags = -1;
+
     while (!stack.isEmpty()) {
       stack.pop();
       if (stack.restoreIndex >= 0) {
@@ -765,10 +824,10 @@ final class Nfa {
             continue;
           }
         } else {
-          if (q.visitedInst[instructionId]) {
+          if (q.visitedInst[instructionId] == q.visitedGeneration) {
             continue;
           }
-          q.visitedInst[instructionId] = true;
+          q.visitedInst[instructionId] = q.visitedGeneration;
         }
       }
 
@@ -800,22 +859,24 @@ final class Nfa {
         }
 
         case EMPTY_WIDTH -> {
-          int flags =
-              emptyFlags(
-                  text,
-                  pos,
-                  prog.unixLines(),
-                  prog.hasGraphemeSemantics(),
-                  context.graphemeContext(),
-                  t0[0],
-                  context.boundaryRegionStart(),
-                  frameConsumedInput,
-                  context.emptyAnchorStartPos(),
-                  context.emptyAnchorEndPos(),
-                  context.effectiveBoundaryEndPos(frameConsumedInput),
-                  prog.hasWordBoundary(),
-                  prog.hasTextAnchor());
-          if ((ip.arg & ~flags) == 0) {
+          if (cachedFlags == -1) {
+            cachedFlags =
+                emptyFlags(
+                    text,
+                    pos,
+                    prog.unixLines(),
+                    prog.hasGraphemeSemantics(),
+                    context.graphemeContext(),
+                    t0[0],
+                    context.boundaryRegionStart(),
+                    frameConsumedInput,
+                    context.emptyAnchorStartPos(),
+                    context.emptyAnchorEndPos(),
+                    context.effectiveBoundaryEndPos(frameConsumedInput),
+                    prog.hasWordBoundary(),
+                    prog.hasTextAnchor());
+          }
+          if ((ip.arg & ~cachedFlags) == 0) {
             stack.pushInstruction(ip.out, frameConsumedInput);
           }
         }
@@ -930,8 +991,8 @@ final class Nfa {
                   long key = visitKey(ip, id, text, scalarEnd, graphemeStart);
                   visited = !destination.visitedGrapheme.add(key);
                 } else {
-                  visited = destination.visitedInst[id];
-                  destination.visitedInst[id] = true;
+                  visited = destination.visitedInst[id] == destination.visitedGeneration;
+                  destination.visitedInst[id] = destination.visitedGeneration;
                 }
                 if (!visited) {
                   destination.threads[destination.size++] = allocThread(id, capture, graphemeStart);
