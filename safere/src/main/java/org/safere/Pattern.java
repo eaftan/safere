@@ -188,6 +188,9 @@ public final class Pattern implements Serializable {
   @SuppressWarnings("ThreadLocalUsage")
   private final transient ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
 
+  @SuppressWarnings("ThreadLocalUsage")
+  private final transient ThreadLocal<Nfa> cachedNfa = new ThreadLocal<>();
+
   /**
    * Thread-local cached forward DFA. Shared across all Matchers created from this Pattern within
    * the same thread, so the DFA state cache persists across the common {@code
@@ -675,6 +678,17 @@ public final class Pattern implements Serializable {
   /** Returns a BitState to the thread-local cache for reuse by future Matchers. */
   void returnBitState(BitState bs) {
     cachedBitState.set(bs);
+  }
+
+  Nfa borrowNfa() {
+    Nfa nfa = cachedNfa.get();
+    cachedNfa.set(null);
+    return nfa;
+  }
+
+  void returnNfa(Nfa nfa) {
+    nfa.releaseInputContext();
+    cachedNfa.set(nfa);
   }
 
   /** Maximum number of DFA states before the DFA bails out. */
