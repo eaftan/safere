@@ -296,7 +296,9 @@ public final class Pattern implements Serializable {
     // Eagerly compute analysis and setup to avoid latency spikes on first use.
     onePassAnalysis();
     forwardDfaSetup();
-    flatReverseDfaProg();
+    if (!prog.anchorStart()) {
+      flatReverseDfaProg();
+    }
   }
 
   /**
