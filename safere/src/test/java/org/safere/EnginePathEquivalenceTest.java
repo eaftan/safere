@@ -71,25 +71,6 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
-  @DisplayName("OnePass nullable-alternation guard has semantic content")
-  void onePassNullableAlternationGuardHasSemanticContent() {
-    String regex = "^(?:|a)";
-    String input = "a";
-    Pattern canonical = Pattern.compile(regex);
-    Pattern unguarded =
-        Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder().semanticGuards(false).dfa(false).bitState(false).build());
-
-    assertThat(canonical.hasNullableAlternation()).isTrue();
-    assertThat(canonical.onePass()).isNotNull();
-    assertThat(findTrace(unguarded.matcher(input)))
-        .as("unguarded OnePass should expose why the nullable-alternation guard exists")
-        .isNotEqualTo(findTrace(canonical.matcher(input)));
-  }
-
-  @Test
   @DisplayName("DFA sandwich reports ambiguous reverse starts")
   void dfaSandwichReportsAmbiguousReverseStarts() {
     String regex = "(?:\\B{1}|a).";
@@ -97,15 +78,8 @@ class EnginePathEquivalenceTest {
     Pattern canonical = Pattern.compile(regex);
     Pattern unguarded =
         Pattern.compile(
-            regex,
-            0,
-            EnginePathOptions.builder()
-                .semanticGuards(false)
-                .onePass(false)
-                .bitState(false)
-                .build());
+            regex, 0, EnginePathOptions.builder().onePass(false).bitState(false).build());
 
-    assertThat(canonical.dfaStartReliable()).isFalse();
     assertThat(findTrace(unguarded.matcher(input)))
         .as("DFA sandwich should not publish ambiguous reverse-DFA starts")
         .isEqualTo(findTrace(canonical.matcher(input)));
@@ -240,7 +214,7 @@ class EnginePathEquivalenceTest {
     Pattern canonical = Pattern.compile(regex);
     Pattern unguarded =
         Pattern.compile(
-            regex, 0, EnginePathOptions.builder().semanticGuards(false).onePass(false).build());
+            regex, 0, EnginePathOptions.builder().onePass(false).bitState(false).build());
 
     assertFindPrefixEquivalent(
         unguarded.matcher(input), canonical.matcher(input), input.length() + 2, regex, input);
@@ -323,13 +297,7 @@ class EnginePathEquivalenceTest {
     String input1 = "x = \"type\"";
     // Assert DFA vs canonical (NFA)
     assertEquivalent(
-        regex1,
-        input1,
-        EnginePathOptions.builder()
-            .semanticGuards(false) // Bypasses guards to force DFA execution!
-            .onePass(false)
-            .bitState(false)
-            .build());
+        regex1, input1, EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex1, input1, EnginePathOptions.builder().dfa(false).onePass(false).build());
 
@@ -338,9 +306,7 @@ class EnginePathEquivalenceTest {
     String input2 = "abc [def](xyz.md) ghi";
     // Assert DFA vs canonical (NFA)
     assertEquivalent(
-        regex2,
-        input2,
-        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build());
+        regex2, input2, EnginePathOptions.builder().onePass(false).bitState(false).build());
     // Assert BitState vs canonical (NFA)
     assertEquivalent(regex2, input2, EnginePathOptions.builder().dfa(false).onePass(false).build());
   }
@@ -351,7 +317,7 @@ class EnginePathEquivalenceTest {
     String regex = "(?:(?:\\ba?)|\\B|[^a])a?";
     String input = "ba";
     EnginePathOptions forcedDfa =
-        EnginePathOptions.builder().semanticGuards(false).onePass(false).bitState(false).build();
+        EnginePathOptions.builder().onePass(false).bitState(false).build();
 
     assertEquivalent(regex, input, forcedDfa);
   }
