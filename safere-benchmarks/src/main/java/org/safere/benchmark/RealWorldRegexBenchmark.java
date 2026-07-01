@@ -120,6 +120,8 @@ public class RealWorldRegexBenchmark {
     "templateTagMatch",
     "sparseUrl",
     "unprefixedWordBoundary",
+    "cjkSearch",
+    "emojiSearch",
     "fruitSearchQuery",
     "fruitMarkupTag"
   })
