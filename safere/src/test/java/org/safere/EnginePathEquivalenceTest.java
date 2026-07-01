@@ -112,6 +112,7 @@ class EnginePathEquivalenceTest {
     assertUnguardedDfaFindEquivalent("(?:a{2,}|(?:.|\\B){1,2}){1,2}", "baax");
   }
 
+  @Test
   @DisplayName("literal fast paths match the canonical engine trace")
   void literalFastPathsMatchCanonicalTrace() {
     assertEquivalent(
