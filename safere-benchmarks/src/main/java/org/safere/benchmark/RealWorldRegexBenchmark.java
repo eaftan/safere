@@ -121,7 +121,8 @@ public class RealWorldRegexBenchmark {
     "sparseUrl",
     "unprefixedWordBoundary",
     "fruitSearchQuery",
-    "fruitMarkupTag"
+    "fruitMarkupTag",
+    "layoutBlock"
   })
   public String patternName;
 

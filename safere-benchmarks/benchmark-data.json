@@ -330,6 +330,18 @@
           "kind": "surroundWithSpaces",
           "body": "<Orange>"
         }
+      },
+      {
+        "name": "layoutBlock",
+        "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
+        "op": "replaceAllEmpty",
+        "match": "<block>\n  # category_defined: alpha, beta\n  entry: apple\n  entry: banana\n</block>\n",
+        "nonMatch": "<block>\n  # comment but not defined tag\n  entry: orange\n</block>\n",
+        "matchInput": {
+          "kind": "sparseMatch",
+          "nonMatchRepeats": 5,
+          "delimiterAlphabet": " "
+        }
       }
     ]
   },
