@@ -21,6 +21,8 @@ import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.safere.vector.VectorScannerBridge;
+import org.safere.vector.VectorScannerLoader;
 
 /**
  * An engine that performs match operations on a {@linkplain CharSequence character sequence} by
@@ -64,6 +66,8 @@ public final class Matcher implements MatchResult {
   private record DeferredMatchResult(
       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch)
       implements EngineResult {}
+
+  private static final VectorScannerBridge VECTOR_SCANNER = VectorScannerLoader.getInstance();
 
   private enum ResultStatus {
     RESET_NO_ATTEMPT,
@@ -119,6 +123,7 @@ public final class Matcher implements MatchResult {
 
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
+  private char[] textChars;
 
   /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
   private Nfa cachedNfa;
@@ -276,6 +281,13 @@ public final class Matcher implements MatchResult {
     eagerFallbackCaptures = false;
   }
 
+  private char[] textChars() {
+    if (textChars == null && text != null) {
+      textChars = text.toCharArray();
+    }
+    return textChars;
+  }
+
   private void resetStateForRegion(int start, int end) {
     regionStart = start;
     regionEnd = end;
@@ -310,6 +322,7 @@ public final class Matcher implements MatchResult {
     cachedNfa = null;
     graphemeContextText = null;
     graphemeContext = null;
+    textChars = null;
   }
 
   private void preserveResultAcrossBoundsChange() {
@@ -1227,6 +1240,15 @@ public final class Matcher implements MatchResult {
       return findKeywordAlternation(keywordAlternation, searchFrom, prog.numCaptures());
     }
 
+    String requiredLiteral = parentPattern.requiredLiteral();
+    if (requiredLiteral != null
+        && !regionActive
+        && (parentPattern.flags() & Pattern.CASE_INSENSITIVE) == 0) {
+      if (text.indexOf(requiredLiteral, searchFrom) < 0) {
+        return applyEngineResult(new NoMatchResult());
+      }
+    }
+
     // Anchored start: if the pattern requires a match at the beginning of the text (e.g., ^
     // without MULTILINE, or \A), there can be no match starting after position 0 (or regionStart
     // when a region is active). Return false immediately to avoid the DFA matching at every
@@ -1308,7 +1330,7 @@ public final class Matcher implements MatchResult {
     // avoids running the full engine on text regions where no match can start.
     boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
     if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
-      int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
+      int idx = indexOfCharClass(ccPrefixAscii, searchFrom);
       if (idx < 0) {
         if (!prog.anchorStart()) {
         } else {
@@ -1725,7 +1747,39 @@ public final class Matcher implements MatchResult {
    * set in the ASCII bitmap. Returns the index, or {@code -1} if no matching character is found.
    * Non-ASCII characters are skipped (never match).
    */
-  private static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
+  private int indexOfCharClass(boolean[] asciiMap, int fromIndex) {
+    int activeChar = -1;
+    for (int i = 0; i < asciiMap.length; i++) {
+      if (asciiMap[i]) {
+        if (activeChar != -1) {
+          activeChar = -2;
+          break;
+        }
+        activeChar = i;
+      }
+    }
+    if (activeChar >= 0) {
+      if (VECTOR_SCANNER != null) {
+        int index = VECTOR_SCANNER.scanString(text, (char) activeChar, fromIndex, text.length());
+        if (index >= -1) {
+          return index;
+        }
+        char[] chars = textChars();
+        if (chars != null) {
+          return VECTOR_SCANNER.scan(chars, (char) activeChar, fromIndex, text.length());
+        }
+      }
+      char[] chars = textChars();
+      if (chars != null) {
+        for (int i = fromIndex; i < text.length(); i++) {
+          if (chars[i] == activeChar) {
+            return i;
+          }
+        }
+        return -1;
+      }
+    }
+
     for (int i = fromIndex; i < text.length(); i++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
