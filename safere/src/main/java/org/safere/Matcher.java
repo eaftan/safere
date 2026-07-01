@@ -2194,7 +2194,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     appendReplacement(sb, replacement);
     appendTail(sb);
     return sb.toString();
@@ -2215,7 +2215,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     int expectedModCount = modCount;
     String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
     checkConcurrentModification(expectedModCount);
@@ -2238,7 +2238,7 @@ public final class Matcher implements MatchResult {
     }
     // Pre-compile the replacement template once, avoiding per-match parseInt/substring overhead.
     ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     boolean needsCaptures = templateNeedsCaptures(template);
     do {
       if (needsCaptures || !groupZeroResolved) {
@@ -2267,7 +2267,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     do {
       int expectedModCount = modCount;
       String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));

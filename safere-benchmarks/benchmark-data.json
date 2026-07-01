@@ -330,6 +330,19 @@
           "kind": "surroundWithSpaces",
           "body": "<Orange>"
         }
+      },
+      {
+        "name": "charReplace",
+        "pattern": "a",
+        "op": "replaceAllLiteral",
+        "match": "a",
+        "nonMatch": "b",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
       }
     ]
   },
