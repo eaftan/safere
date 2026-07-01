@@ -121,11 +121,13 @@ public class RealWorldRegexBenchmark {
     "sparseUrl",
     "unprefixedWordBoundary",
     "fruitSearchQuery",
-    "fruitMarkupTag"
+    "fruitMarkupTag",
+    "layoutBlock",
+    "jsonBlock"
   })
   public String patternName;
 
-  @Param({"1000", "10000"})
+  @Param({"1000", "10000", "100000"})
   public int inputSize;
 
   @Param({"true", "false"})

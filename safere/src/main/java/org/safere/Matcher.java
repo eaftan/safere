@@ -1867,7 +1867,8 @@ public final class Matcher implements MatchResult {
             && !fullTextRegionContext
             && !(prog.hasGraphemeSemantics() && !anchored)
             && !prog.hasGraphemeSemantics();
-    if (canUseBitState && maxBitStateLen >= 0 && text.length() <= maxBitStateLen) {
+    int searchRange = endPos - startPos;
+    if (canUseBitState && maxBitStateLen >= 0 && searchRange <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
       int ncap = 2 * Math.max(nsubmatch, 1);
@@ -1878,7 +1879,7 @@ public final class Matcher implements MatchResult {
       }
       BitState bs =
           BitState.getOrCreate(
-              cachedBitState, prog, text, endPos, ncap, longest, endMatchEffective);
+              cachedBitState, prog, text, startPos, endPos, ncap, longest, endMatchEffective);
       if (bitStateResult == null || bitStateResult.length < ncap) {
         bitStateResult = new int[ncap];
       }
