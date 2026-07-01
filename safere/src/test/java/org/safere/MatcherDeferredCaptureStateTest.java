@@ -75,6 +75,23 @@ class MatcherDeferredCaptureStateTest {
   }
 
   @Test
+  @DisplayName("cached NFA does not retain input context")
+  void cachedNfaDoesNotRetainInputContext() throws ReflectiveOperationException {
+    Pattern pattern =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)",
+            0,
+            EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build());
+
+    assertThat(pattern.matcher("abc123").find()).isTrue();
+
+    ThreadLocal<?> cachedNfa = (ThreadLocal<?>) field(Pattern.class, "cachedNfa").get(pattern);
+    Object nfa = cachedNfa.get();
+    assertThat(nfa).isNotNull();
+    assertThat(field(Nfa.class, "context").get(nfa)).isNull();
+  }
+
+  @Test
   @DisplayName("anchoring bounds change resolves stale deferred captures before clearing markers")
   void anchoringBoundsChangeResolvesStaleDeferredCapturesBeforeClearingMarkers()
       throws ReflectiveOperationException {
@@ -126,7 +143,11 @@ class MatcherDeferredCaptureStateTest {
   }
 
   private static Field field(String name) throws ReflectiveOperationException {
-    Field field = Matcher.class.getDeclaredField(name);
+    return field(Matcher.class, name);
+  }
+
+  private static Field field(Class<?> type, String name) throws ReflectiveOperationException {
+    Field field = type.getDeclaredField(name);
     field.setAccessible(true);
     return field;
   }
