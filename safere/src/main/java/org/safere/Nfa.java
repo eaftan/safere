@@ -283,6 +283,10 @@ final class Nfa {
     this.addToThreadqStack.clear();
   }
 
+  void releaseInputContext() {
+    context = null;
+  }
+
   SearchResult runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos) {
     if (prog.hasGraphemeSemantics()) {
       doSearchEveryCharPosition(anchored);

@@ -690,6 +690,7 @@ public final class Pattern implements Serializable {
   }
 
   void returnNfa(Nfa nfa) {
+    nfa.releaseInputContext();
     cachedNfa.set(nfa);
   }
 
