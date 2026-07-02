@@ -2193,12 +2193,103 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     reset();
+    String result = replaceDfaOptimized(replacement, 1);
+    if (result != null) {
+      return result;
+    }
+
     if (!find()) {
       return text;
     }
     StringBuilder sb = new StringBuilder(text.length());
     appendReplacement(sb, replacement);
     appendTail(sb);
+    return sb.toString();
+  }
+
+  private String replaceDfaOptimized(String replacement, int limit) {
+    EnginePathOptions options = enginePathOptions();
+    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    if (!options.dfa() || !parentPattern.dfaGroupZeroReliable() || regionActive) {
+      return null;
+    }
+
+    ReplacementSegment[] template = null;
+    int textLen = text.length();
+    int pos = searchFrom;
+    int appendPos = searchFrom;
+    StringBuilder sb = null;
+
+    Dfa fwdDfa = dfa(false);
+    Dfa revDfa = reverseDfa();
+    if (fwdDfa == null || revDfa == null) {
+      return null;
+    }
+
+    String prefix = parentPattern.prefix();
+    boolean foldCase = parentPattern.prefixFoldCase();
+    boolean hasStartAcceleration = enginePathOptions().startAcceleration() && prefix != null;
+    int matchesFound = 0;
+
+    while (pos <= textLen && matchesFound < limit) {
+      if (parentPattern.prog().anchorStart() && pos > 0) {
+        break;
+      }
+      if (hasStartAcceleration && pos < textLen) {
+        int idx = foldCase ? indexOfIgnoreCase(text, prefix, pos) : text.indexOf(prefix, pos);
+        if (idx < 0) {
+          break;
+        }
+        pos = idx;
+      }
+
+      Dfa.SearchResult fwdResult = fwdDfa.doSearch(text, pos, false, false);
+      if (fwdResult == null || !fwdResult.matched()) {
+        break;
+      }
+
+      int earlyEnd = fwdResult.pos();
+      if (earlyEnd <= pos) {
+        return null; // Fallback for empty match
+      }
+
+      Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+      if (revResult == null || !revResult.matched()) {
+        return null;
+      }
+      int matchStart = revResult.pos();
+      Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+      if (fwdFirst == null || !fwdFirst.matched()) {
+        return null;
+      }
+      int matchEnd = fwdFirst.pos();
+
+      if (sb == null) {
+        template = compileReplacementTemplate(replacement, groupCount());
+        if (templateNeedsCaptures(template)) {
+          return null;
+        }
+        if (groups == null) {
+          groups = new int[2 * parentPattern.prog().numCaptures()];
+        }
+        sb = new StringBuilder(textLen);
+      }
+
+      pos = matchEnd;
+      groups[0] = matchStart;
+      groups[1] = matchEnd;
+      sb.append(text, appendPos, matchStart);
+      applyReplacementTemplate(sb, template);
+      appendPos = matchEnd;
+      matchesFound++;
+    }
+
+    if (sb == null) {
+      return text;
+    }
+
+    sb.append(text, appendPos, textLen);
+    resultStatus = (limit == 1) ? ResultStatus.MATCHED : ResultStatus.FAILED;
     return sb.toString();
   }
 
@@ -2235,6 +2326,11 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     reset();
+    String result = replaceDfaOptimized(replacement, Integer.MAX_VALUE);
+    if (result != null) {
+      return result;
+    }
+
     if (!find()) {
       return text;
     }
