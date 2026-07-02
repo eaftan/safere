@@ -49,6 +49,8 @@ public final class Matcher implements MatchResult {
 
   private record NoMatchResult() implements EngineResult {}
 
+  private static final NoMatchResult NO_MATCH = new NoMatchResult();
+
   private static final class FullMatchResult implements EngineResult {
     private final int[] groups;
 
@@ -370,7 +372,7 @@ public final class Matcher implements MatchResult {
       if (allowEmpty) {
         return applyEngineResult(new FullMatchResult(new int[] {0, 0}));
       }
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
 
     // Scan every code point.
@@ -382,15 +384,15 @@ public final class Matcher implements MatchResult {
       int cp = text.codePointAt(i);
       if (cp < 64) {
         if ((b0 & (1L << cp)) == 0) {
-          return applyEngineResult(new NoMatchResult());
+          return applyEngineResult(NO_MATCH);
         }
       } else if (cp < 128) {
         if ((b1 & (1L << (cp - 64))) == 0) {
-          return applyEngineResult(new NoMatchResult());
+          return applyEngineResult(NO_MATCH);
         }
       } else {
         if (!binarySearchRanges(ranges, cp)) {
-          return applyEngineResult(new NoMatchResult());
+          return applyEngineResult(NO_MATCH);
         }
       }
       i += Character.charCount(cp);
@@ -419,7 +421,7 @@ public final class Matcher implements MatchResult {
       }
       i += Character.charCount(cp);
     }
-    return applyEngineResult(new NoMatchResult());
+    return applyEngineResult(NO_MATCH);
   }
 
   private boolean containsRequiredMatchClass(int[] ranges) {
@@ -677,7 +679,7 @@ public final class Matcher implements MatchResult {
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return matchesTransparentRegion();
@@ -726,7 +728,7 @@ public final class Matcher implements MatchResult {
         applyEngineResult(new FullMatchResult(new int[] {0, text.length()}));
       } else {
         if (isPartialLiteralMatch(literal, 0)) {}
-        applyEngineResult(new NoMatchResult());
+        applyEngineResult(NO_MATCH);
       }
       return hasMatch;
     }
@@ -741,7 +743,7 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().charClassMatchFastPaths()
         && requiredRanges != null
         && !containsRequiredMatchClass(requiredRanges)) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
 
     Prog prog = parentPattern.prog();
@@ -761,10 +763,10 @@ public final class Matcher implements MatchResult {
 
       Dfa.SearchResult dfaResult = dfa(true).doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       if (dfaResult != null && dfaResult.pos() != text.length()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       if (dfaResult != null && prog.numLoopRegs() == 0) {
         return applyEngineResult(
@@ -816,7 +818,7 @@ public final class Matcher implements MatchResult {
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return lookingAtTransparentRegion();
@@ -865,7 +867,7 @@ public final class Matcher implements MatchResult {
         applyEngineResult(new FullMatchResult(new int[] {0, literal.length()}));
       } else {
         if (isPartialLiteralMatch(literal, 0)) {}
-        applyEngineResult(new NoMatchResult());
+        applyEngineResult(NO_MATCH);
       }
       return hasMatch;
     }
@@ -886,7 +888,7 @@ public final class Matcher implements MatchResult {
 
       Dfa.SearchResult dfaResult = dfa(false).doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
     }
 
@@ -917,7 +919,7 @@ public final class Matcher implements MatchResult {
   public boolean find() {
     modCount++;
     if (findExhaustedAfterTerminalEmptyMatch) {
-      applyEngineResult(new NoMatchResult());
+      applyEngineResult(NO_MATCH);
       return false;
     }
     if (hasMatch) {
@@ -930,7 +932,7 @@ public final class Matcher implements MatchResult {
       searchFrom = groups[1];
       if (groups[0] == groups[1]) { // empty match
         if (searchFrom >= regionEnd) {
-          applyEngineResult(new NoMatchResult());
+          applyEngineResult(NO_MATCH);
           findExhaustedAfterTerminalEmptyMatch = true;
           searchFrom = regionEnd + 1;
           return false;
@@ -1027,7 +1029,7 @@ public final class Matcher implements MatchResult {
 
     try {
       if (regionActive && !anchoringBounds && regionTextAnchorCannotMatch()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return doFindTransparentRegion();
@@ -1154,13 +1156,13 @@ public final class Matcher implements MatchResult {
 
   private boolean doFindTransparentRegion() {
     if (searchFrom > regionEnd) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
     capturesResolved = true;
     fullTextRegionContext = true;
     Prog prog = parentPattern.prog();
     if (prog.anchorStart() && searchFrom > regionStart) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
     int graphemeConsumeEndPos = graphemeConsumeEndPos(prog, regionEnd);
     int[] result =
@@ -1185,7 +1187,7 @@ public final class Matcher implements MatchResult {
    */
   private boolean doFindCore(boolean regionActive) {
     if (searchFrom > text.length()) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
 
     // Reset deferred-capture state; DFA sandwich path may set it to false.
@@ -1212,7 +1214,7 @@ public final class Matcher implements MatchResult {
         } else {
           if (isPartialLiteralMatch(literal, searchFrom)) {}
         }
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       return applyEngineResult(new FullMatchResult(new int[] {idx, idx + literal.length()}));
     }
@@ -1232,7 +1234,7 @@ public final class Matcher implements MatchResult {
     // when a region is active). Return false immediately to avoid the DFA matching at every
     // position because the compiler strips the anchor into prog.anchorStart().
     if (prog.anchorStart() && searchFrom > 0) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
 
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
@@ -1247,7 +1249,7 @@ public final class Matcher implements MatchResult {
         && requiredRanges != null
         && !hasAcceleratedSearchPath
         && !containsRequiredMatchClass(requiredRanges, searchFrom)) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
 
     // Anchored OnePass fast path: for anchored OnePass-eligible patterns on small text, use
@@ -1297,7 +1299,7 @@ public final class Matcher implements MatchResult {
           if (remainingLen < prefix.length()
               && literalRegionMatches(prefix, searchFrom, remainingLen)) {}
         }
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       effectiveStart = idx;
       literalPrefixCandidateStart = true;
@@ -1314,7 +1316,7 @@ public final class Matcher implements MatchResult {
         } else {
           if (searchFrom == text.length()) {}
         }
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       effectiveStart = idx;
     }
@@ -1327,7 +1329,7 @@ public final class Matcher implements MatchResult {
         } else {
           if (searchFrom == text.length()) {}
         }
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
       effectiveStart = idx;
     }
@@ -1424,7 +1426,7 @@ public final class Matcher implements MatchResult {
         if (!budgetExceeded) {
           if (matchStart < 0) {
             // No match possible at end of text — fail immediately without forward scan.
-            return applyEngineResult(new NoMatchResult());
+            return applyEngineResult(NO_MATCH);
           }
           if (matchStartAmbiguous) {
             // The reverse DFA can prove that a suffix match exists, but not which accepted
@@ -1455,7 +1457,7 @@ public final class Matcher implements MatchResult {
     } else {
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
-        return applyEngineResult(new NoMatchResult());
+        return applyEngineResult(NO_MATCH);
       }
     }
 
@@ -1627,7 +1629,7 @@ public final class Matcher implements MatchResult {
             false,
             nsubmatch);
     if (result == null) {
-      return applyEngineResult(new NoMatchResult());
+      return applyEngineResult(NO_MATCH);
     }
     if (!lazyFallbackCaptures || prog.numCaptures() <= 1) {
       return applyEngineResult(new FullMatchResult(result));
@@ -1668,7 +1670,7 @@ public final class Matcher implements MatchResult {
       int cp = text.codePointAt(i);
       i += Character.charCount(cp) - 1;
     }
-    return applyEngineResult(new NoMatchResult());
+    return applyEngineResult(NO_MATCH);
   }
 
   private boolean isWordBoundaryAt(int pos, boolean unicodeWordBoundary) {
