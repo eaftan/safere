@@ -9,7 +9,6 @@ package org.safere;
 
 import java.io.Serializable;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -585,7 +584,8 @@ public final class Pattern implements Serializable {
     if (matchesCount == 0) {
       return new String[] {text};
     }
-    int partsCount = (limit > 0) ? Math.min(2 * limit - 1, 2 * matchesCount + 1) : 2 * matchesCount + 1;
+    int partsCount =
+        (limit > 0) ? Math.min(2 * limit - 1, 2 * matchesCount + 1) : 2 * matchesCount + 1;
     String[] parts = new String[partsCount];
     int last = 0;
     int i = 0;

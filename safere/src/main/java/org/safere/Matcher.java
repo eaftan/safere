@@ -2859,9 +2859,10 @@ public final class Matcher implements MatchResult {
     // Literal fast path
     String literal = parentPattern.literalMatch();
     if (options.literalFastPaths() && literal != null && parentPattern.numGroups() == 0) {
-      int idx = parentPattern.prefixFoldCase()
-          ? indexOfIgnoreCase(text, literal, fromIndex)
-          : text.indexOf(literal, fromIndex);
+      int idx =
+          parentPattern.prefixFoldCase()
+              ? indexOfIgnoreCase(text, literal, fromIndex)
+              : text.indexOf(literal, fromIndex);
       if (idx < 0) {
         return -1L;
       }
@@ -2891,9 +2892,10 @@ public final class Matcher implements MatchResult {
     int effectiveStart = fromIndex;
     String prefix = parentPattern.prefix();
     if (options.startAcceleration() && prefix != null) {
-      int idx = parentPattern.prefixFoldCase()
-          ? indexOfIgnoreCase(text, prefix, fromIndex)
-          : text.indexOf(prefix, fromIndex);
+      int idx =
+          parentPattern.prefixFoldCase()
+              ? indexOfIgnoreCase(text, prefix, fromIndex)
+              : text.indexOf(prefix, fromIndex);
       if (idx < 0) {
         return -1L;
       }
