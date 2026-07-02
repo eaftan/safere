@@ -1508,22 +1508,24 @@ public final class Matcher implements MatchResult {
                   parentPattern.dfaGroupZeroReliable(),
                   false));
         }
-      } else if (literalPrefixCandidateStart) {
-        // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
-        // by zero-width assertions. Verify that candidate directly; if it fails, the exact fallback
-        // below can still search for later prefix occurrences.
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
-        if (fwdFirst != null && fwdFirst.matched()) {
-          int matchEnd = fwdFirst.pos();
-          return applyEngineResult(
-              new DeferredMatchResult(
-                  effectiveStart,
-                  matchEnd,
-                  prog.numCaptures(),
-                  parentPattern.dfaGroupZeroReliable(),
-                  false));
-        }
       } else {
+        if (literalPrefixCandidateStart) {
+          // A literal prefix occurrence is a candidate match start, even when the prefix is
+          // preceded by zero-width assertions. Verify that candidate directly; if it matches,
+          // return it. Otherwise, fall through to the reverse DFA search below to find the correct
+          // start.
+          Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+          if (fwdFirst != null && fwdFirst.matched()) {
+            int matchEnd = fwdFirst.pos();
+            return applyEngineResult(
+                new DeferredMatchResult(
+                    effectiveStart,
+                    matchEnd,
+                    prog.numCaptures(),
+                    parentPattern.dfaGroupZeroReliable(),
+                    false));
+          }
+        }
         Dfa revDfa = reverseDfa();
         if (revDfa != null) {
           // Step 2: Reverse DFA backward from earliest match end to find match start.

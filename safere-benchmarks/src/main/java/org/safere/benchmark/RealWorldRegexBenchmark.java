@@ -122,7 +122,8 @@ public class RealWorldRegexBenchmark {
     "unprefixedWordBoundary",
     "fruitSearchQuery",
     "fruitMarkupTag",
-    "charReplace"
+    "charReplace",
+    "layoutBlock"
   })
   public String patternName;
 
