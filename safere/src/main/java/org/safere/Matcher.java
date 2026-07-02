@@ -173,6 +173,7 @@ public final class Matcher implements MatchResult {
     this.inputSequence = input;
     this.text = charSequenceToString(input);
     this.regionEnd = text.length();
+    this.groups = new int[2 * pattern.prog().numCaptures()];
   }
 
   /**
@@ -207,7 +208,6 @@ public final class Matcher implements MatchResult {
   }
 
   private void applyFailedMatchResult() {
-    groups = null;
     hasMatch = false;
     resultStatus = ResultStatus.FAILED;
     clearDeferredCaptureState();
@@ -215,15 +215,16 @@ public final class Matcher implements MatchResult {
 
   private void applyFullMatchResult(int[] resultGroups) {
     findExhaustedAfterTerminalEmptyMatch = false;
-    groups = resultGroups;
     hasMatch = resultGroups != null;
+    if (hasMatch) {
+      System.arraycopy(resultGroups, 0, this.groups, 0, resultGroups.length);
+    }
     resultStatus = hasMatch ? ResultStatus.MATCHED : ResultStatus.FAILED;
     clearDeferredCaptureState();
   }
 
   private void applyDeferredMatchResult(DeferredMatchResult deferred) {
     findExhaustedAfterTerminalEmptyMatch = false;
-    groups = new int[2 * deferred.ncap()];
     Arrays.fill(groups, -1);
     groups[0] = deferred.start();
     groups[1] = deferred.end();
@@ -238,7 +239,6 @@ public final class Matcher implements MatchResult {
 
   private void clearCurrentResult() {
     findExhaustedAfterTerminalEmptyMatch = false;
-    groups = null;
     hasMatch = false;
     resultStatus = ResultStatus.RESET_NO_ATTEMPT;
     clearDeferredCaptureState();
@@ -690,7 +690,7 @@ public final class Matcher implements MatchResult {
     } finally {
       if (regionSubstituted) {
         text = savedText;
-        if (groups != null) {
+        if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
               groups[i] += regionStart;
@@ -829,7 +829,7 @@ public final class Matcher implements MatchResult {
     } finally {
       if (regionSubstituted) {
         text = savedText;
-        if (groups != null) {
+        if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
               groups[i] += regionStart;
@@ -1042,7 +1042,7 @@ public final class Matcher implements MatchResult {
       if (regionSubstituted) {
         text = savedText;
         searchFrom = savedSearchFrom;
-        if (groups != null) {
+        if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
               groups[i] += regionStart;
@@ -2449,7 +2449,7 @@ public final class Matcher implements MatchResult {
   @Override
   public String toString() {
     String lastMatch = "";
-    if (hasMatch && groups != null && groups[0] >= 0 && groups[1] >= groups[0]) {
+    if (hasMatch && groups[0] >= 0 && groups[1] >= groups[0]) {
       lastMatch = text.substring(groups[0], groups[1]);
     }
     return "org.safere.Matcher[pattern="
@@ -2477,7 +2477,7 @@ public final class Matcher implements MatchResult {
       throw new IllegalArgumentException("Pattern cannot be null");
     }
     modCount++;
-    if (hasMatch && groups != null) {
+    if (hasMatch) {
       if (!groupZeroResolved) {
         resolveCaptures();
       }
@@ -2487,6 +2487,7 @@ public final class Matcher implements MatchResult {
       }
     }
     this.parentPattern = newPattern;
+    this.groups = new int[2 * newPattern.prog().numCaptures()];
     invalidatePatternCaches();
     clearCurrentResult();
     eagerFallbackCaptures = false;
@@ -2553,7 +2554,7 @@ public final class Matcher implements MatchResult {
       resolveCaptures();
     }
     return new SnapshotMatchResult(
-        groups != null ? groups.clone() : null,
+        hasMatch ? groups.clone() : null,
         text,
         groupCount(),
         parentPattern.namedGroups(),
