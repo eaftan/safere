@@ -1724,7 +1724,8 @@ public final class Matcher implements MatchResult {
 
   /**
    * Scans {@code text} for the first character at or after {@code fromIndex} whose code point is
-   * contained in the character class. Returns the index, or {@code -1} if no matching character is found.
+   * contained in the character class. Returns the index, or {@code -1} if no matching character is
+   * found.
    */
   private static int indexOfCharClass(String text, Pattern.CharClassScanInfo cc, int fromIndex) {
     long b0 = cc.bitmap0;

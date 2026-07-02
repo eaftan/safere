@@ -356,7 +356,8 @@ public final class Pattern implements Serializable {
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
-    CharClassScanInfo charClassPrefix = (prefix == null) ? extractCharClassPrefix(metadataAst) : null;
+    CharClassScanInfo charClassPrefix =
+        (prefix == null) ? extractCharClassPrefix(metadataAst) : null;
     StartAcceleration startAcceleration =
         (prefix == null && charClassPrefix == null) ? extractStartAcceleration(metadataAst) : null;
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
@@ -865,9 +866,9 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns precomputed character-class prefix scan info, or {@code null} if
-   * the pattern has no character-class prefix. Used for prefix acceleration in {@link
-   * Matcher#doFind()} when no literal prefix exists.
+   * Returns precomputed character-class prefix scan info, or {@code null} if the pattern has no
+   * character-class prefix. Used for prefix acceleration in {@link Matcher#doFind()} when no
+   * literal prefix exists.
    */
   CharClassScanInfo charClassPrefix() {
     return charClassPrefix;
@@ -878,10 +879,7 @@ public final class Pattern implements Serializable {
       return false;
     }
     return Matcher.charClassContains(
-        charClassPrefix.ranges,
-        charClassPrefix.bitmap0,
-        charClassPrefix.bitmap1,
-        cp);
+        charClassPrefix.ranges, charClassPrefix.bitmap0, charClassPrefix.bitmap1, cp);
   }
 
   /** Returns conservative start-position acceleration data, or {@code null} if unavailable. */
