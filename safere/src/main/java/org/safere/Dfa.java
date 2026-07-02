@@ -1400,14 +1400,31 @@ final class Dfa {
             break;
           }
           if (ns.isMatch()) {
-            boolean useBefore =
-                (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
-            int startPos = useBefore ? pos : pos - 1;
-            if (!longest && !needEndMatch) {
-              return new SearchResult(true, startPos);
+            if ((ns.flags & FLAG_MATCH_BEFORE) != 0) {
+              if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
+                boolean alreadyMatched = matched;
+                matched = true;
+                matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
+                ambiguous |= (ns.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+                if (!longest && !needEndMatch) {
+                  return new SearchResult(true, matchStart, ambiguous);
+                }
+              }
             }
-            matched = true;
-            matchStart = startPos;
+            boolean hasOnlyBeforeMatch =
+                (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+            int prevPos = pos - 1;
+            if (!hasOnlyBeforeMatch) {
+              if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
+                boolean alreadyMatched = matched;
+                matched = true;
+                matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
+                ambiguous |= (ns.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+                if (!longest && !needEndMatch) {
+                  return new SearchResult(true, matchStart, ambiguous);
+                }
+              }
+            }
           }
           s = ns;
           pos--;
@@ -1440,14 +1457,29 @@ final class Dfa {
         break;
       }
       if (s.isMatch()) {
-        boolean useBefore =
+        if ((s.flags & FLAG_MATCH_BEFORE) != 0) {
+          if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
+            boolean alreadyMatched = matched;
+            matched = true;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
+            ambiguous |= (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart, ambiguous);
+            }
+          }
+        }
+        boolean hasOnlyBeforeMatch =
             (s.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
-        int startPos = useBefore ? pos : pos - 1;
-        if (startPos >= startLimit && (!needEndMatch || startPos == startLimit)) {
-          matched = true;
-          matchStart = startPos;
-          if (!longest && !needEndMatch) {
-            return new SearchResult(true, matchStart);
+        int prevPos = pos - 1;
+        if (!hasOnlyBeforeMatch) {
+          if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
+            boolean alreadyMatched = matched;
+            matched = true;
+            matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
+            ambiguous |= (s.flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+            if (!longest && !needEndMatch) {
+              return new SearchResult(true, matchStart, ambiguous);
+            }
           }
         }
       }
