@@ -2801,4 +2801,175 @@ public final class Matcher implements MatchResult {
       }
     }
   }
+
+  static final class SplitBuffer {
+    int[] array = new int[32];
+    int size = 0;
+
+    void add(int start, int end) {
+      if (size + 2 > array.length) {
+        int[] newArray = new int[array.length * 2];
+        System.arraycopy(array, 0, newArray, 0, size);
+        array = newArray;
+      }
+      array[size++] = start;
+      array[size++] = end;
+    }
+  }
+
+  int findSplitPositions(int limit, SplitBuffer buffer) {
+    int last = 0;
+    int searchFrom = 0;
+    int textLen = text.length();
+
+    while (searchFrom <= textLen) {
+      long packed = findNextMatchPacked(searchFrom);
+      if (packed == -1L) {
+        break;
+      }
+      int start = (int) (packed >>> 32);
+      int end = (int) packed;
+
+      if (limit > 0 && (buffer.size / 2) >= limit - 1) {
+        break;
+      }
+
+      if (last == 0 && start == 0 && end == 0) {
+        searchFrom = 1;
+        continue;
+      }
+
+      buffer.add(start, end);
+      last = end;
+      searchFrom = (start == end) ? end + 1 : end;
+    }
+    return buffer.size / 2;
+  }
+
+  private long findNextMatchPacked(int fromIndex) {
+    if (fromIndex > text.length()) {
+      return -1L;
+    }
+    Prog prog = parentPattern.prog();
+    if (prog.anchorStart() && fromIndex > 0) {
+      return -1L;
+    }
+    EnginePathOptions options = enginePathOptions();
+
+    // Literal fast path
+    String literal = parentPattern.literalMatch();
+    if (options.literalFastPaths() && literal != null && parentPattern.numGroups() == 0) {
+      int idx =
+          parentPattern.prefixFoldCase()
+              ? indexOfIgnoreCase(text, literal, fromIndex)
+              : text.indexOf(literal, fromIndex);
+      if (idx < 0) {
+        return -1L;
+      }
+      return ((long) idx << 32) | ((idx + literal.length()) & 0xFFFFFFFFL);
+    }
+
+    // Char class fast path
+    int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
+    if (options.charClassMatchFastPaths() && singleCharClassRanges != null) {
+      long b0 = parentPattern.singleCharClassBitmap0();
+      long b1 = parentPattern.singleCharClassBitmap1();
+      int i = fromIndex;
+      int len = text.length();
+      while (i < len) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        int cp = text.codePointAt(i);
+        if (charClassContains(singleCharClassRanges, b0, b1, cp)) {
+          return ((long) i << 32) | ((i + Character.charCount(cp)) & 0xFFFFFFFFL);
+        }
+        i += Character.charCount(cp);
+      }
+      return -1L;
+    }
+
+    int effectiveStart = fromIndex;
+    String prefix = parentPattern.prefix();
+    if (options.startAcceleration() && prefix != null) {
+      int idx =
+          parentPattern.prefixFoldCase()
+              ? indexOfIgnoreCase(text, prefix, fromIndex)
+              : text.indexOf(prefix, fromIndex);
+      if (idx < 0) {
+        return -1L;
+      }
+      effectiveStart = idx;
+    }
+
+    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
+    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
+      int idx = indexOfCharClass(text, ccPrefixAscii, fromIndex);
+      if (idx < 0) {
+        return -1L;
+      }
+      effectiveStart = idx;
+    }
+
+    Pattern.StartAcceleration startAcceleration = parentPattern.startAcceleration();
+    if (options.startAcceleration() && !prog.hasWordBoundary() && startAcceleration != null) {
+      int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
+      if (idx < 0) {
+        return -1L;
+      }
+      effectiveStart = idx;
+    }
+
+    Dfa.SearchResult fwdResult = null;
+    if (options.dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+      fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
+      if (fwdResult != null && !fwdResult.matched()) {
+        return -1L;
+      }
+    }
+
+    if (options.dfa()
+        && parentPattern.dfaGroupZeroReliable()
+        && fwdResult != null
+        && fwdResult.pos() > effectiveStart) {
+      int earlyEnd = fwdResult.pos();
+
+      if (prog.anchorStart()) {
+        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+        if (fwdFirst != null && fwdFirst.matched()) {
+          return ((long) effectiveStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
+        }
+      } else {
+        Dfa revDfa = reverseDfa();
+        if (revDfa != null) {
+          Dfa.SearchResult revResult =
+              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+          if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
+            int matchStart = revResult.pos();
+            Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+            if (fwdFirst != null && fwdFirst.matched()) {
+              return ((long) matchStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
+            }
+          }
+        }
+      }
+    }
+
+    int nsubmatch = 1;
+    int[] result =
+        searchWithBitStateOrNfa(
+            prog,
+            text,
+            effectiveStart,
+            text.length(),
+            text.length(),
+            false,
+            false,
+            false,
+            nsubmatch);
+    if (result == null) {
+      return -1L;
+    }
+    return ((long) result[0] << 32) | (result[1] & 0xFFFFFFFFL);
+  }
 }
