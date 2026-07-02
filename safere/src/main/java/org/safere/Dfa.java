@@ -182,6 +182,7 @@ final class Dfa {
 
   /** Cache for mapping code points >= 128 to their equivalence class. */
   private final int[] cacheCps = new int[256];
+
   private final char[] cacheClasses = new char[256];
 
   /** State cache: maps instruction-set + flags to canonical State instance. */
