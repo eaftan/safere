@@ -1443,6 +1443,11 @@ final class Nfa {
         || c == 0x200D; // ZWJ
   }
 
+  void clear() {
+    this.context = null;
+    Arrays.fill(this.bestMatch, -1);
+  }
+
   private Nfa() {
     throw new AssertionError("non-instantiable");
   }

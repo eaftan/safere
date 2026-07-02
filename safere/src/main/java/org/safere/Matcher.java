@@ -284,30 +284,51 @@ public final class Matcher implements MatchResult {
     clearCurrentResult();
   }
 
-  private void invalidatePatternCaches() {
-    cachedForwardFirstMatchDfa = null;
-    cachedForwardLongestMatchDfa = null;
-    cachedReverseDfa = null;
-    reverseDfaLookedUp = false;
+  private void releaseCaches() {
+    if (cachedForwardFirstMatchDfa != null) {
+      parentPattern.returnForwardFirstMatchDfa(cachedForwardFirstMatchDfa);
+      cachedForwardFirstMatchDfa = null;
+    }
+    if (cachedForwardLongestMatchDfa != null) {
+      parentPattern.returnForwardLongestMatchDfa(cachedForwardLongestMatchDfa);
+      cachedForwardLongestMatchDfa = null;
+    }
+    if (cachedReverseDfa != null) {
+      parentPattern.returnReverseDfa(cachedReverseDfa);
+      cachedReverseDfa = null;
+      reverseDfaLookedUp = false;
+    }
     if (bitStateBorrowed && cachedBitState != null) {
-      bitStateBorrowed = false;
+      parentPattern.returnBitState(cachedBitState);
       cachedBitState = null;
+      bitStateBorrowed = false;
     }
     if (nfaBorrowed && cachedNfa != null) {
-      nfaBorrowed = false;
+      parentPattern.returnNfa(cachedNfa);
       cachedNfa = null;
+      nfaBorrowed = false;
     }
+  }
+
+  private void invalidatePatternCaches() {
+    releaseCaches();
     bitStateResult = null;
     graphemeContextText = null;
     graphemeContext = null;
   }
 
   private void invalidateInputDependentCaches() {
-    bitStateBorrowed = false;
-    cachedBitState = null;
+    if (bitStateBorrowed && cachedBitState != null) {
+      parentPattern.returnBitState(cachedBitState);
+      cachedBitState = null;
+      bitStateBorrowed = false;
+    }
+    if (nfaBorrowed && cachedNfa != null) {
+      parentPattern.returnNfa(cachedNfa);
+      cachedNfa = null;
+      nfaBorrowed = false;
+    }
     bitStateResult = null;
-    nfaBorrowed = false;
-    cachedNfa = null;
     graphemeContextText = null;
     graphemeContext = null;
   }
@@ -323,29 +344,29 @@ public final class Matcher implements MatchResult {
     return parentPattern.enginePathOptions();
   }
 
-  /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
+  /** Returns the Pattern's cached forward DFA, caching it for reuse. */
   private Dfa dfa(boolean longest) {
     if (longest) {
       Dfa d = cachedForwardLongestMatchDfa;
       if (d == null) {
-        d = parentPattern.forwardLongestMatchDfa();
+        d = parentPattern.borrowForwardLongestMatchDfa();
         cachedForwardLongestMatchDfa = d;
       }
       return d;
     } else {
       Dfa d = cachedForwardFirstMatchDfa;
       if (d == null) {
-        d = parentPattern.forwardFirstMatchDfa();
+        d = parentPattern.borrowForwardFirstMatchDfa();
         cachedForwardFirstMatchDfa = d;
       }
       return d;
     }
   }
 
-  /** Returns the Pattern's thread-local cached reverse DFA (or null), caching it for reuse. */
+  /** Returns the Pattern's cached reverse DFA (or null), caching it for reuse. */
   private Dfa reverseDfa() {
     if (!reverseDfaLookedUp) {
-      cachedReverseDfa = parentPattern.reverseDfa();
+      cachedReverseDfa = parentPattern.borrowReverseDfa();
       reverseDfaLookedUp = true;
     }
     return cachedReverseDfa;
@@ -703,6 +724,7 @@ public final class Matcher implements MatchResult {
         }
       }
       fullTextRegionContext = false;
+      releaseCaches();
     }
   }
 
@@ -842,6 +864,7 @@ public final class Matcher implements MatchResult {
         }
       }
       fullTextRegionContext = false;
+      releaseCaches();
     }
   }
 
@@ -1055,6 +1078,7 @@ public final class Matcher implements MatchResult {
         }
       }
       fullTextRegionContext = false;
+      releaseCaches();
     }
   }
 
@@ -1886,8 +1910,6 @@ public final class Matcher implements MatchResult {
       }
       int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective, bitStateResult);
       cachedBitState = bs;
-      // Return to Pattern's cache for reuse by future Matchers.
-      parentPattern.returnBitState(bs);
       if (!bs.budgetExceeded()) {
         // BitState is a complete engine — if it searched and found no match, NFA won't either.
         if (result == null) {}
@@ -1986,7 +2008,6 @@ public final class Matcher implements MatchResult {
     Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
     Nfa.SearchResult nfaResult = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos);
     cachedNfa = nfa;
-    parentPattern.returnNfa(nfa);
 
     return nfaResult.groups();
   }
@@ -2486,6 +2507,7 @@ public final class Matcher implements MatchResult {
         searchFrom++;
       }
     }
+    releaseCaches();
     this.parentPattern = newPattern;
     invalidatePatternCaches();
     clearCurrentResult();
