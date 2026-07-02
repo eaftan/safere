@@ -355,6 +355,32 @@
           "nonMatchRepeats": 5,
           "delimiterAlphabet": " "
         }
+      },
+      {
+        "name": "cjkSearch",
+        "pattern": "[一-龥]{3,}",
+        "op": "find",
+        "match": "这是一个中文测试句子",
+        "nonMatch": "This is a sentence containing only English characters.",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "emojiSearch",
+        "pattern": "[😀-😇]",
+        "op": "find",
+        "match": "Today is a beautiful day 😇 with warm sunshine.",
+        "nonMatch": "Today is a beautiful day with warm sunshine.",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
       }
     ]
   },
