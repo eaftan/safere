@@ -332,6 +332,58 @@
         }
       },
       {
+        "name": "stateCodes",
+        "pattern": "^(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)$",
+        "op": "find",
+        "match": "CA",
+        "nonMatch": "XX",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "multiWordPrefixAlternation",
+        "pattern": "^(?:banana apple|orange grape|cherry|coconut melon|peach or apricot|plum|nectarine)\\b",
+        "op": "find",
+        "match": "banana apple juice",
+        "nonMatch": "strawberry juice",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "intlPhonePrefix",
+        "pattern": "(?:\\+375|\\+257|\\+236|\\+53|\\+243|\\+98|\\+964|\\+961|\\+218|\\+223|\\+505|\\+850|\\+252|\\+249|\\+963|\\+380|\\+7|\\+58|\\+967|\\+263|\\+95|\\+251|\\+211|\\+970|\\+20|\\+92|\\+966|\\+84)([0-9 ]{5,})",
+        "op": "find",
+        "match": "+375 17 200 0000",
+        "nonMatch": "+1 212 555 0199",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "emailDomain",
+        "pattern": "[A-Za-z0-9._%+-]+@gs\\.com",
+        "op": "find",
+        "match": "user@gs.com",
+        "nonMatch": "user@gmail.com",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
         "name": "charReplace",
         "pattern": "a",
         "op": "replaceAllLiteral",

@@ -112,6 +112,7 @@
                         <include name="ExhaustiveUtils.java"/>
                         <!-- Compile-time structural excludes. Each excluded test class is also
                              annotated with @DisabledForCrosscheck in the original source. -->
+                        <exclude name="AhoCorasickSearcherTest.java"/>
                         <exclude name="AnchorOptTest.java"/>
                         <exclude name="BitStateTest.java"/>
                         <exclude name="CharClassTest.java"/>

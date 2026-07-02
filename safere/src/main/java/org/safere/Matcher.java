@@ -1279,8 +1279,43 @@ public final class Matcher implements MatchResult {
     // that prefix first appears instead of searching from the current position.
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
+
+    boolean useReverseDfa =
+        options.dfa()
+            && options.reverseDfa()
+            && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
+            && !regionActive
+            && prog.anchorEnd()
+            && !prog.anchorStart()
+            && text.length() >= MIN_REVERSE_FIRST_LEN;
+
+    AhoCorasickSearcher acSearcher =
+        (prog.anchorStart() || useReverseDfa) ? null : parentPattern.prefilterSearcher();
+    if (acSearcher != null) {
+      int idx = acSearcher.findNext(text, searchFrom);
+      if (idx < 0) {
+        return applyEngineResult(new NoMatchResult());
+      }
+      if (parentPattern.isPureLiteralAlternation()) {
+        effectiveStart = idx;
+        literalPrefixCandidateStart = true;
+      }
+    }
+
+    String reqLiteral =
+        (prog.anchorStart() || useReverseDfa) ? null : parentPattern.requiredLiteral();
+    if (reqLiteral != null) {
+      int idx =
+          parentPattern.requiredLiteralFoldCase()
+              ? indexOfIgnoreCase(text, reqLiteral, searchFrom)
+              : text.indexOf(reqLiteral, searchFrom);
+      if (idx < 0) {
+        return applyEngineResult(new NoMatchResult());
+      }
+    }
+
     String prefix = parentPattern.prefix();
-    if (options.startAcceleration() && prefix != null) {
+    if (options.startAcceleration() && prefix != null && acSearcher == null) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
