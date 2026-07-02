@@ -1294,9 +1294,10 @@ public final class Matcher implements MatchResult {
 
     String reqLiteral = prog.anchorStart() ? null : parentPattern.requiredLiteral();
     if (reqLiteral != null) {
-      int idx = parentPattern.requiredLiteralFoldCase()
-          ? indexOfIgnoreCase(text, reqLiteral, searchFrom)
-          : text.indexOf(reqLiteral, searchFrom);
+      int idx =
+          parentPattern.requiredLiteralFoldCase()
+              ? indexOfIgnoreCase(text, reqLiteral, searchFrom)
+              : text.indexOf(reqLiteral, searchFrom);
       if (idx < 0) {
         return applyEngineResult(new NoMatchResult());
       }
