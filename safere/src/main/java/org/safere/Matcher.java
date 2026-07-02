@@ -1280,7 +1280,17 @@ public final class Matcher implements MatchResult {
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
 
-    AhoCorasickSearcher acSearcher = prog.anchorStart() ? null : parentPattern.prefilterSearcher();
+    boolean useReverseDfa =
+        options.dfa()
+            && options.reverseDfa()
+            && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
+            && !regionActive
+            && prog.anchorEnd()
+            && !prog.anchorStart()
+            && text.length() >= MIN_REVERSE_FIRST_LEN;
+
+    AhoCorasickSearcher acSearcher =
+        (prog.anchorStart() || useReverseDfa) ? null : parentPattern.prefilterSearcher();
     if (acSearcher != null) {
       int idx = acSearcher.findNext(text, searchFrom);
       if (idx < 0) {
@@ -1292,7 +1302,8 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    String reqLiteral = prog.anchorStart() ? null : parentPattern.requiredLiteral();
+    String reqLiteral =
+        (prog.anchorStart() || useReverseDfa) ? null : parentPattern.requiredLiteral();
     if (reqLiteral != null) {
       int idx =
           parentPattern.requiredLiteralFoldCase()
