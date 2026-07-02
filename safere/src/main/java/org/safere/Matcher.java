@@ -1280,7 +1280,7 @@ public final class Matcher implements MatchResult {
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
 
-    AhoCorasickSearcher acSearcher = parentPattern.prefilterSearcher();
+    AhoCorasickSearcher acSearcher = prog.anchorStart() ? null : parentPattern.prefilterSearcher();
     if (acSearcher != null) {
       int idx = acSearcher.findNext(text, searchFrom);
       if (idx < 0) {
@@ -1289,6 +1289,16 @@ public final class Matcher implements MatchResult {
       if (parentPattern.isPureLiteralAlternation()) {
         effectiveStart = idx;
         literalPrefixCandidateStart = true;
+      }
+    }
+
+    String reqLiteral = prog.anchorStart() ? null : parentPattern.requiredLiteral();
+    if (reqLiteral != null) {
+      int idx = parentPattern.requiredLiteralFoldCase()
+          ? indexOfIgnoreCase(text, reqLiteral, searchFrom)
+          : text.indexOf(reqLiteral, searchFrom);
+      if (idx < 0) {
+        return applyEngineResult(new NoMatchResult());
       }
     }
 
