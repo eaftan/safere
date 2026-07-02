@@ -2232,6 +2232,9 @@ public final class Matcher implements MatchResult {
     int matchesFound = 0;
 
     while (pos <= textLen && matchesFound < limit) {
+      if (parentPattern.prog().anchorStart() && pos > 0) {
+        break;
+      }
       if (hasStartAcceleration && pos < textLen) {
         int idx = foldCase ? indexOfIgnoreCase(text, prefix, pos) : text.indexOf(prefix, pos);
         if (idx < 0) {
