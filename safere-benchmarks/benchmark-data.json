@@ -332,6 +332,19 @@
         }
       },
       {
+        "name": "charReplace",
+        "pattern": "a",
+        "op": "replaceAllLiteral",
+        "match": "a",
+        "nonMatch": "b",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
         "name": "layoutBlock",
         "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
         "op": "replaceAllEmpty",

@@ -122,11 +122,12 @@ public class RealWorldRegexBenchmark {
     "unprefixedWordBoundary",
     "fruitSearchQuery",
     "fruitMarkupTag",
+    "charReplace",
     "layoutBlock"
   })
   public String patternName;
 
-  @Param({"1000", "10000"})
+  @Param({"1000", "10000", "100000"})
   public int inputSize;
 
   @Param({"true", "false"})
@@ -152,6 +153,7 @@ public class RealWorldRegexBenchmark {
           case "find" -> input -> regexEngine.finder().find(input);
           case "replaceAllEmpty" -> input -> regexEngine.replacer().replaceAll(input, "");
           case "replaceAllGroup1" -> input -> regexEngine.replacer().replaceAll(input, "$1");
+          case "replaceAllLiteral" -> input -> regexEngine.replacer().replaceAll(input, "xyz");
           default ->
               throw new IllegalArgumentException(
                   "Unknown real-world regex benchmark op: " + regexCase.op);
