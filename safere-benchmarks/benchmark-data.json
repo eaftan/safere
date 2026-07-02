@@ -358,7 +358,7 @@
       },
       {
         "name": "unicodeClassPrefix",
-        "pattern": "[\\u4E00-\\u9FFF]+abc",
+        "pattern": "[\\x{4E00}-\\x{9FFF}]+abc",
         "op": "find",
         "match": "你好abc",
         "nonMatch": "hello world",
