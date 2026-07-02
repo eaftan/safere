@@ -354,6 +354,7 @@
           "kind": "sparseMatch",
           "nonMatchRepeats": 5,
           "delimiterAlphabet": " "
+        }
       },
       {
         "name": "cjkSearch",
