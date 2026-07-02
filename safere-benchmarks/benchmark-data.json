@@ -355,6 +355,21 @@
           "nonMatchRepeats": 5,
           "delimiterAlphabet": " "
         }
+      },
+      {
+        "name": "unicodeClassPrefix",
+        "pattern": "[\\u4E00-\\u9FFF]+abc",
+        "op": "find",
+        "match": "你好abc",
+        "nonMatch": "hello world",
+        "matchInput": {
+          "kind": "sparseMatch",
+          "nonMatchRepeats": 50,
+          "delimiterAlphabet": " "
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
       }
     ]
   },
