@@ -110,7 +110,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasNullableAlternation;
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
-  private final transient boolean[] charClassPrefixAscii;
+  private final transient CharClassScanInfo charClassPrefix;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
   private final transient EnginePathOptions enginePathOptions;
@@ -230,7 +230,7 @@ public final class Pattern implements Serializable {
       boolean hasNullableAlternation,
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
-      boolean[] charClassPrefixAscii,
+      CharClassScanInfo charClassPrefix,
       StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
       int[] charClassMatchRanges,
@@ -278,7 +278,7 @@ public final class Pattern implements Serializable {
     this.hasNullableAlternation = hasNullableAlternation;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
-    this.charClassPrefixAscii = charClassPrefixAscii;
+    this.charClassPrefix = charClassPrefix;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
     this.enginePathOptions = enginePathOptions;
@@ -356,9 +356,10 @@ public final class Pattern implements Serializable {
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
-    boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
+    CharClassScanInfo charClassPrefix =
+        (prefix == null) ? extractCharClassPrefix(metadataAst) : null;
     StartAcceleration startAcceleration =
-        (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(metadataAst) : null;
+        (prefix == null && charClassPrefix == null) ? extractStartAcceleration(metadataAst) : null;
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
@@ -379,7 +380,7 @@ public final class Pattern implements Serializable {
         hasNullableAlt,
         startsWithGcb,
         hasInternalGcb,
-        ccPrefixAscii,
+        charClassPrefix,
         startAcceleration,
         keywordAlternation,
         ccMatch != null ? ccMatch.ranges : null,
@@ -865,12 +866,20 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns a {@code boolean[128]} ASCII bitmap of the character-class prefix, or {@code null} if
-   * the pattern has no character-class prefix. Used for prefix acceleration in {@link
-   * Matcher#doFind()} when no literal prefix exists.
+   * Returns precomputed character-class prefix scan info, or {@code null} if the pattern has no
+   * character-class prefix. Used for prefix acceleration in {@link Matcher#doFind()} when no
+   * literal prefix exists.
    */
-  boolean[] charClassPrefixAscii() {
-    return charClassPrefixAscii;
+  CharClassScanInfo charClassPrefix() {
+    return charClassPrefix;
+  }
+
+  boolean charClassPrefixContains(int cp) {
+    if (charClassPrefix == null) {
+      return false;
+    }
+    return Matcher.charClassContains(
+        charClassPrefix.ranges, charClassPrefix.bitmap0, charClassPrefix.bitmap1, cp);
   }
 
   /** Returns conservative start-position acceleration data, or {@code null} if unavailable. */
@@ -1570,8 +1579,8 @@ public final class Pattern implements Serializable {
    *
    * @return a {@code boolean[128]} ASCII bitmap, or {@code null} if no suitable prefix exists
    */
-  private static boolean[] extractCharClassPrefixAscii(Regexp re) {
-    boolean[] bitmap = new boolean[128];
+  private static CharClassScanInfo extractCharClassPrefix(Regexp re) {
+    CharClassBuilder builder = new CharClassBuilder();
     Deque<Regexp> work = new ArrayDeque<>();
     work.add(re);
 
@@ -1596,21 +1605,19 @@ public final class Pattern implements Serializable {
 
       switch (node.op) {
         case LITERAL -> {
-          if (!addLiteralPrefixAscii(node.rune, node.flags, bitmap)) {
-            return null;
-          }
+          builder.addCharClass(literalCharClass(node.rune, node.flags));
         }
         case LITERAL_STRING -> {
-          if (node.runes == null
-              || node.runes.length == 0
-              || !addLiteralPrefixAscii(node.runes[0], node.flags, bitmap)) {
+          if (node.runes == null || node.runes.length == 0) {
             return null;
           }
+          builder.addCharClass(literalCharClass(node.runes[0], node.flags));
         }
         case CHAR_CLASS -> {
-          if (!addCharClassPrefixAscii(node.charClass, bitmap)) {
+          if (node.charClass == null || node.charClass.isEmpty()) {
             return null;
           }
+          builder.addCharClass(node.charClass);
         }
         case ALTERNATE -> {
           if (node.nsub() == 0) {
@@ -1626,39 +1633,11 @@ public final class Pattern implements Serializable {
       }
     }
 
-    return bitmap;
-  }
-
-  private static boolean addLiteralPrefixAscii(int r, int flags, boolean[] bitmap) {
-    if (r >= 128) {
-      return false;
+    CharClass cc = builder.build();
+    if (cc.isEmpty()) {
+      return null;
     }
-    bitmap[r] = true;
-    if ((flags & ParseFlags.FOLD_CASE) != 0) {
-      if (r >= 'a' && r <= 'z') {
-        bitmap[r - 32] = true;
-      } else if (r >= 'A' && r <= 'Z') {
-        bitmap[r + 32] = true;
-      }
-    }
-    return true;
-  }
-
-  private static boolean addCharClassPrefixAscii(CharClass cc, boolean[] bitmap) {
-    if (cc == null || cc.isEmpty()) {
-      return false;
-    }
-    for (int i = 0; i < cc.numRanges(); i++) {
-      if (cc.hi(i) >= 128) {
-        return false;
-      }
-    }
-    for (int i = 0; i < cc.numRanges(); i++) {
-      for (int cp = cc.lo(i); cp <= cc.hi(i); cp++) {
-        bitmap[cp] = true;
-      }
-    }
-    return true;
+    return buildCharClassScanInfo(cc);
   }
 
   private static StartAcceleration extractStartAcceleration(Regexp re) {
@@ -1921,7 +1900,7 @@ public final class Pattern implements Serializable {
   private record CharClassMatchInfo(int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
 
   /** Holds precomputed data for scanning one character class. */
-  private static final class CharClassScanInfo {
+  static final class CharClassScanInfo {
     final int[] ranges;
     final long bitmap0;
     final long bitmap1;
