@@ -345,8 +345,8 @@
         }
       },
       {
-        "name": "greedyWildcard",
-        "pattern": "(.*)",
+        "name": "greedyOnePass",
+        "pattern": "^(.+)",
         "op": "find",
         "match": "abcdefghijklmnopqrstuvwxyz",
         "nonMatch": "",
