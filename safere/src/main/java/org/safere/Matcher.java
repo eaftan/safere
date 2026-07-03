@@ -969,6 +969,18 @@ public final class Matcher implements MatchResult {
     return prog != null && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
+  private boolean canUseForwardDfa() {
+    return enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg());
+  }
+
+  private boolean canUseReverseDfa() {
+    return enginePathOptions().dfa()
+        && enginePathOptions().reverseDfa()
+        && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
+        && !parentPattern.prog().anchorStart()
+        && reverseDfa() != null;
+  }
+
   /**
    * Resets this matcher and then attempts to find the next subsequence of the input that matches
    * the pattern, starting at the specified index.
@@ -1238,11 +1250,7 @@ public final class Matcher implements MatchResult {
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     boolean hasAcceleratedSearchPath =
         (parentPattern.prefix() != null)
-            || (options.reverseDfa()
-                && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
-                && prog.anchorEnd()
-                && !prog.anchorStart()
-                && text.length() >= MIN_REVERSE_FIRST_LEN);
+            || (canUseReverseDfa() && prog.anchorEnd() && text.length() >= MIN_REVERSE_FIRST_LEN);
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
         && !hasAcceleratedSearchPath
@@ -1349,12 +1357,9 @@ public final class Matcher implements MatchResult {
     //
     // A null result from the reverse DFA means the DFA budget was exceeded — in that case we
     // must fall through to the normal forward DFA path rather than returning false.
-    if (options.dfa()
-        && options.reverseDfa()
-        && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
+    if (canUseReverseDfa()
         && !regionActive
         && prog.anchorEnd()
-        && !prog.anchorStart()
         && text.length() >= MIN_REVERSE_FIRST_LEN) {
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {
@@ -1526,8 +1531,8 @@ public final class Matcher implements MatchResult {
                     false));
           }
         }
-        Dfa revDfa = reverseDfa();
-        if (revDfa != null) {
+        if (canUseReverseDfa()) {
+          Dfa revDfa = reverseDfa();
           // Step 2: Reverse DFA backward from earliest match end to find match start.
           Dfa.SearchResult revResult =
               revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
@@ -2921,7 +2926,7 @@ public final class Matcher implements MatchResult {
     }
 
     Dfa.SearchResult fwdResult = null;
-    if (options.dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+    if (canUseForwardDfa()) {
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
         return -1L;
@@ -2939,17 +2944,15 @@ public final class Matcher implements MatchResult {
         if (fwdFirst != null && fwdFirst.matched()) {
           return ((long) effectiveStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
         }
-      } else {
+      } else if (canUseReverseDfa()) {
         Dfa revDfa = reverseDfa();
-        if (revDfa != null) {
-          Dfa.SearchResult revResult =
-              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
-          if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
-            int matchStart = revResult.pos();
-            Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
-            if (fwdFirst != null && fwdFirst.matched()) {
-              return ((long) matchStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
-            }
+        Dfa.SearchResult revResult =
+            revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+        if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
+          int matchStart = revResult.pos();
+          Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+          if (fwdFirst != null && fwdFirst.matched()) {
+            return ((long) matchStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
           }
         }
       }
