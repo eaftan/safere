@@ -195,7 +195,7 @@ public final class SafeReDiagnostics {
 
   private static void appendResult(
       StringBuilder json, Prog prog, String input, Nfa.MatchKind matchKind) {
-    Nfa.SearchResult searchResult =
+    int[] groups =
         Nfa.search(
             prog,
             input,
@@ -207,7 +207,6 @@ public final class SafeReDiagnostics {
             matchKind,
             prog.numCaptures(),
             null);
-    int[] groups = searchResult.groups();
     json.append("\"result\":{");
     appendBooleanField(json, "matched", groups != null);
     json.append(',');

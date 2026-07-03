@@ -52,9 +52,9 @@ class ParserTest {
   private static boolean fullMatch(String pattern, String text, int flags) {
     Regexp re = Parser.parse(pattern, flags);
     Prog prog = Compiler.compile(re);
-    Nfa.SearchResult result =
+    int[] result =
         Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
-    return result.groups() != null;
+    return result != null;
   }
 
   private static long bestParseTimeNanos(String pattern) {
