@@ -66,8 +66,7 @@ class OnePassTest {
     }
     int[] opResult = op.search(text, endMatch, prog.numCaptures());
     Nfa.MatchKind kind = endMatch ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    int[] nfaResult =
-        Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
+    int[] nfaResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
 
     if (nfaResult == null) {
       assertThat(opResult)

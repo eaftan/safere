@@ -163,8 +163,6 @@ final class Nfa {
     }
   }
 
-
-
   private Prog prog;
   private int ncapture;
 
