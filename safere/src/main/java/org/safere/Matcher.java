@@ -2808,14 +2808,14 @@ public final class Matcher implements MatchResult {
   }
 
   static final class SplitBuffer {
+    /** Alternating (start, end) match positions. */
     int[] array = new int[32];
+
     int size = 0;
 
     void add(int start, int end) {
       if (size + 2 > array.length) {
-        int[] newArray = new int[array.length * 2];
-        System.arraycopy(array, 0, newArray, 0, size);
-        array = newArray;
+        array = Arrays.copyOf(array, array.length * 2);
       }
       array[size++] = start;
       array[size++] = end;
@@ -2832,8 +2832,8 @@ public final class Matcher implements MatchResult {
       if (packed == -1L) {
         break;
       }
-      int start = (int) (packed >>> 32);
-      int end = (int) packed;
+      int start = unpackStart(packed);
+      int end = unpackEnd(packed);
 
       if (limit > 0 && (buffer.size / 2) >= limit - 1) {
         break;
@@ -2871,7 +2871,7 @@ public final class Matcher implements MatchResult {
       if (idx < 0) {
         return -1L;
       }
-      return ((long) idx << 32) | ((idx + literal.length()) & 0xFFFFFFFFL);
+      return packPositions(idx, idx + literal.length());
     }
 
     // Char class fast path
@@ -2887,7 +2887,7 @@ public final class Matcher implements MatchResult {
         }
         int cp = text.codePointAt(i);
         if (charClassContains(singleCharClassRanges, b0, b1, cp)) {
-          return ((long) i << 32) | ((i + Character.charCount(cp)) & 0xFFFFFFFFL);
+          return packPositions(i, i + Character.charCount(cp));
         }
         i += Character.charCount(cp);
       }
@@ -2942,7 +2942,7 @@ public final class Matcher implements MatchResult {
       if (prog.anchorStart()) {
         Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
         if (fwdFirst != null && fwdFirst.matched()) {
-          return ((long) effectiveStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
+          return packPositions(effectiveStart, fwdFirst.pos());
         }
       } else if (canUseReverseDfa()) {
         Dfa revDfa = reverseDfa();
@@ -2952,7 +2952,7 @@ public final class Matcher implements MatchResult {
           int matchStart = revResult.pos();
           Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
           if (fwdFirst != null && fwdFirst.matched()) {
-            return ((long) matchStart << 32) | (fwdFirst.pos() & 0xFFFFFFFFL);
+            return packPositions(matchStart, fwdFirst.pos());
           }
         }
       }
@@ -2973,6 +2973,18 @@ public final class Matcher implements MatchResult {
     if (result == null) {
       return -1L;
     }
-    return ((long) result[0] << 32) | (result[1] & 0xFFFFFFFFL);
+    return packPositions(result[0], result[1]);
+  }
+
+  private static long packPositions(int start, int end) {
+    return ((long) start << 32) | (end & 0xFFFFFFFFL);
+  }
+
+  private static int unpackStart(long packed) {
+    return (int) (packed >>> 32);
+  }
+
+  private static int unpackEnd(long packed) {
+    return (int) packed;
   }
 }
