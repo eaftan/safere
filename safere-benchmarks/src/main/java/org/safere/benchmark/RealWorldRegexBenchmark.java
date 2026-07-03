@@ -30,6 +30,12 @@ public class RealWorldRegexBenchmark {
     boolean find(String input);
   }
 
+  /** Functional interface for regex matches operation. */
+  @FunctionalInterface
+  public interface RegexMatches {
+    boolean matches(String input);
+  }
+
   /** Functional interface for regex replace operation. */
   @FunctionalInterface
   public interface RegexReplaceAll {
@@ -37,7 +43,7 @@ public class RealWorldRegexBenchmark {
   }
 
   /** Container wrapping pattern instances and operations for a specific regex engine. */
-  public record RegexEngine(Object pattern, RegexFind finder, RegexReplaceAll replacer)
+  public record RegexEngine(Object pattern, RegexFind finder, RegexMatches matcher, RegexReplaceAll replacer)
       implements AutoCloseable {
 
     @Override
@@ -64,6 +70,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
@@ -74,6 +81,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
@@ -84,6 +92,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
@@ -94,6 +103,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     };
@@ -152,6 +162,7 @@ public class RealWorldRegexBenchmark {
     benchmarkOp =
         switch (regexCase.op) {
           case "find" -> input -> regexEngine.finder().find(input);
+          case "matches" -> input -> regexEngine.matcher().matches(input);
           case "replaceAllEmpty" -> input -> regexEngine.replacer().replaceAll(input, "");
           case "replaceAllGroup1" -> input -> regexEngine.replacer().replaceAll(input, "$1");
           case "replaceAllLiteral" -> input -> regexEngine.replacer().replaceAll(input, "xyz");

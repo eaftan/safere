@@ -569,7 +569,7 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		op := getString(item, "op")
-		if op != "find" && op != "replaceAllEmpty" && op != "replaceAllGroup1" && op != "replaceAllLiteral" {
+		if op != "find" && op != "matches" && op != "replaceAllEmpty" && op != "replaceAllGroup1" && op != "replaceAllLiteral" {
 			fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex op: %s\n", op)
 			os.Exit(1)
 		}
@@ -611,6 +611,10 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 				if c.op == "find" {
 					printJSON(measureNs(name, func() {
 						sink = c.re.FindStringIndex(text) != nil
+					}))
+				} else if c.op == "matches" {
+					printJSON(measureNs(name, func() {
+						sink = c.re.MatchString(text)
 					}))
 				} else if c.op == "replaceAllEmpty" {
 					printJSON(measureNs(name, func() {

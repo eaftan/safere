@@ -347,7 +347,7 @@
       {
         "name": "greedyOnePass",
         "pattern": "^(.+)",
-        "op": "find",
+        "op": "matches",
         "match": "abcdefghijklmnopqrstuvwxyz",
         "nonMatch": "",
         "matchInput": {
