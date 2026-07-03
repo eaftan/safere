@@ -1823,8 +1823,6 @@ public final class Matcher implements MatchResult {
         null);
   }
 
-
-
   @SuppressWarnings("ReferenceEquality")
   private int[] searchWithBitStateOrNfa(
       Prog prog,
@@ -1902,8 +1900,6 @@ public final class Matcher implements MatchResult {
         preserveOuterEmptyContext,
         reuseGroups);
   }
-
-
 
   private int[] searchNfa(
       Prog prog,
