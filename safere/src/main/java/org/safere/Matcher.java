@@ -1822,7 +1822,18 @@ public final class Matcher implements MatchResult {
       boolean endMatch,
       int nsubmatch) {
     return searchWithBitStateOrNfa(
-        prog, text, startPos, searchLimit, endPos, endPos, anchored, longest, endMatch, nsubmatch);
+        prog,
+        text,
+        startPos,
+        searchLimit,
+        endPos,
+        endPos,
+        anchored,
+        longest,
+        endMatch,
+        nsubmatch,
+        false,
+        null);
   }
 
   private int[] searchWithBitStateOrNfa(
@@ -1847,9 +1858,11 @@ public final class Matcher implements MatchResult {
         longest,
         endMatch,
         nsubmatch,
-        false);
+        false,
+        null);
   }
 
+  @SuppressWarnings("ReferenceEquality")
   private int[] searchWithBitStateOrNfa(
       Prog prog,
       String text,
@@ -1861,7 +1874,8 @@ public final class Matcher implements MatchResult {
       boolean longest,
       boolean endMatch,
       int nsubmatch,
-      boolean preserveOuterEmptyContext) {
+      boolean preserveOuterEmptyContext,
+      int[] reuseGroups) {
     // Try BitState if the full text is small enough for the visited bitmap. BitState is an
     // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
     // Pike NFA below.
@@ -1883,10 +1897,15 @@ public final class Matcher implements MatchResult {
       BitState bs =
           BitState.getOrCreate(
               cachedBitState, prog, text, endPos, ncap, longest, endMatchEffective);
-      if (bitStateResult == null || bitStateResult.length < ncap) {
-        bitStateResult = new int[ncap];
+      int[] destBuf =
+          reuseGroups != null && reuseGroups.length >= ncap ? reuseGroups : bitStateResult;
+      if (destBuf == null || destBuf.length < ncap) {
+        destBuf = new int[ncap];
       }
-      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective, bitStateResult);
+      if (destBuf != reuseGroups) {
+        bitStateResult = destBuf;
+      }
+      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
       cachedBitState = bs;
       // Return to Pattern's cache for reuse by future Matchers.
       parentPattern.returnBitState(bs);
@@ -1917,7 +1936,8 @@ public final class Matcher implements MatchResult {
         nsubmatch,
         nfaAnchor,
         nfaKind,
-        preserveOuterEmptyContext);
+        preserveOuterEmptyContext,
+        reuseGroups);
   }
 
   private int[] searchNfa(
@@ -1930,6 +1950,30 @@ public final class Matcher implements MatchResult {
       Nfa.Anchor nfaAnchor,
       Nfa.MatchKind nfaKind,
       boolean preserveOuterEmptyContext) {
+    return searchNfa(
+        prog,
+        startPos,
+        searchLimit,
+        endPos,
+        graphemeConsumeEndPos,
+        nsubmatch,
+        nfaAnchor,
+        nfaKind,
+        preserveOuterEmptyContext,
+        null);
+  }
+
+  private int[] searchNfa(
+      Prog prog,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      int nsubmatch,
+      Nfa.Anchor nfaAnchor,
+      Nfa.MatchKind nfaKind,
+      boolean preserveOuterEmptyContext,
+      int[] reuseGroups) {
     if (prog.start() == 0) {
       return null;
     }
@@ -1986,7 +2030,7 @@ public final class Matcher implements MatchResult {
     }
 
     Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
-    Nfa.SearchResult nfaResult = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos);
+    Nfa.SearchResult nfaResult = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
     cachedNfa = nfa;
     parentPattern.returnNfa(nfa);
 
@@ -2576,6 +2620,7 @@ public final class Matcher implements MatchResult {
    * (fo|foo)} matching "fo" rather than "foo"). For {@code matches()}, the deferred search must
    * still cover the whole input.
    */
+  @SuppressWarnings("ReferenceEquality")
   private void resolveCaptures() {
     if (capturesResolved) {
       return;
@@ -2597,7 +2642,7 @@ public final class Matcher implements MatchResult {
       result =
           parentPattern
               .onePass()
-              .search(text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures())
+              .search(text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups)
               .groups();
     } else {
       result =
@@ -2612,9 +2657,10 @@ public final class Matcher implements MatchResult {
               false,
               deferredEndMatch,
               prog.numCaptures(),
-              true);
+              true,
+              groups);
     }
-    if (result != null) {
+    if (result != null && result != groups) {
       groups = result;
     }
     capturesResolved = true;
