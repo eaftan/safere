@@ -179,6 +179,7 @@ public final class Matcher implements MatchResult {
     return false;
   }
 
+  @SuppressWarnings("ReferenceEquality")
   private boolean applyFullMatchResult(int[] resultGroups) {
     findExhaustedAfterTerminalEmptyMatch = false;
     hasMatch = resultGroups != null;
@@ -1822,31 +1823,7 @@ public final class Matcher implements MatchResult {
         null);
   }
 
-  private int[] searchWithBitStateOrNfa(
-      Prog prog,
-      String text,
-      int startPos,
-      int searchLimit,
-      int endPos,
-      int graphemeConsumeEndPos,
-      boolean anchored,
-      boolean longest,
-      boolean endMatch,
-      int nsubmatch) {
-    return searchWithBitStateOrNfa(
-        prog,
-        text,
-        startPos,
-        searchLimit,
-        endPos,
-        graphemeConsumeEndPos,
-        anchored,
-        longest,
-        endMatch,
-        nsubmatch,
-        false,
-        null);
-  }
+
 
   @SuppressWarnings("ReferenceEquality")
   private int[] searchWithBitStateOrNfa(
@@ -1926,28 +1903,7 @@ public final class Matcher implements MatchResult {
         reuseGroups);
   }
 
-  private int[] searchNfa(
-      Prog prog,
-      int startPos,
-      int searchLimit,
-      int endPos,
-      int graphemeConsumeEndPos,
-      int nsubmatch,
-      Nfa.Anchor nfaAnchor,
-      Nfa.MatchKind nfaKind,
-      boolean preserveOuterEmptyContext) {
-    return searchNfa(
-        prog,
-        startPos,
-        searchLimit,
-        endPos,
-        graphemeConsumeEndPos,
-        nsubmatch,
-        nfaAnchor,
-        nfaKind,
-        preserveOuterEmptyContext,
-        null);
-  }
+
 
   private int[] searchNfa(
       Prog prog,
