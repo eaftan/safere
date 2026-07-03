@@ -78,9 +78,10 @@ final class OnePass {
   }
 
   private static long encodeAction(int nextState, int capMask, int emptyFlags, boolean matchWins) {
-    long action = ((long) nextState << INDEX_SHIFT)
-        | (((long) capMask & CAP_REG_MASK) << CAP_SHIFT)
-        | (emptyFlags & EMPTY_MASK);
+    long action =
+        ((long) nextState << INDEX_SHIFT)
+            | (((long) capMask & CAP_REG_MASK) << CAP_SHIFT)
+            | (emptyFlags & EMPTY_MASK);
     if (matchWins) {
       action |= MATCH_WINS_MASK;
     }
@@ -290,7 +291,10 @@ final class OnePass {
                 worklist.add(ip.out);
               }
 
-              if (nextStates[cls] != -1 && (nextStates[cls] != nextState || capMasks[cls] != capMask || emptyFlagsList[cls] != emptyFlags)) {
+              if (nextStates[cls] != -1
+                  && (nextStates[cls] != nextState
+                      || capMasks[cls] != capMask
+                      || emptyFlagsList[cls] != emptyFlags)) {
                 // Two different transitions for the same equivalence class -> not one-pass.
                 return null;
               }
@@ -326,7 +330,10 @@ final class OnePass {
                   worklist.add(ip.out);
                 }
 
-                if (nextStates[cls] != -1 && (nextStates[cls] != nextState || capMasks[cls] != capMask || emptyFlagsList[cls] != emptyFlags)) {
+                if (nextStates[cls] != -1
+                    && (nextStates[cls] != nextState
+                        || capMasks[cls] != capMask
+                        || emptyFlagsList[cls] != emptyFlags)) {
                   return null;
                 }
                 nextStates[cls] = nextState;

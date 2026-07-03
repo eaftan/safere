@@ -43,7 +43,8 @@ public class RealWorldRegexBenchmark {
   }
 
   /** Container wrapping pattern instances and operations for a specific regex engine. */
-  public record RegexEngine(Object pattern, RegexFind finder, RegexMatches matcher, RegexReplaceAll replacer)
+  public record RegexEngine(
+      Object pattern, RegexFind finder, RegexMatches matcher, RegexReplaceAll replacer)
       implements AutoCloseable {
 
     @Override
