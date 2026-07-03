@@ -465,6 +465,10 @@ final class OnePass {
     return search(text, 0, text.length(), endMatch, nsubmatch);
   }
 
+  SearchResult search(String text, boolean endMatch, int nsubmatch, int[] reuseGroups) {
+    return search(text, 0, text.length(), endMatch, nsubmatch, reuseGroups);
+  }
+
   /**
    * Searches for an anchored match in the text starting from {@code startPos}, scanning up to
    * {@code endPos}. This is equivalent to running OnePass on {@code text.substring(startPos,
