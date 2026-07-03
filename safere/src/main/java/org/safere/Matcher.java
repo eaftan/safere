@@ -2690,6 +2690,7 @@ public final class Matcher implements MatchResult {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, groupCount());
           int groupIdx = groupRef.groupNum();
+          checkGroup(groupIdx);
           i = groupRef.end();
           int start = groups[2 * groupIdx];
           int end = groups[2 * groupIdx + 1];
