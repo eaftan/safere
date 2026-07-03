@@ -80,7 +80,7 @@ final class OnePass {
   private static long encodeAction(int nextState, int capMask, int emptyFlags, boolean matchWins) {
     long action =
         ((long) nextState << INDEX_SHIFT)
-            | (((long) capMask & CAP_REG_MASK) << CAP_SHIFT)
+            | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
             | (emptyFlags & EMPTY_MASK);
     if (matchWins) {
       action |= MATCH_WINS_MASK;
