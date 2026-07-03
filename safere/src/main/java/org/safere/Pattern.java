@@ -762,7 +762,7 @@ public final class Pattern implements Serializable {
       // with JDK's leftmost-first (biased) semantics for nullable alternations.
       boolean canPrimary =
           op != null
-              && op.search("", false, 0).groups() == null
+              && op.search("", false, 0) == null
               && !hasLazy
               && !hasNullableAlternation
               && !prog.hasGraphemeSemantics();

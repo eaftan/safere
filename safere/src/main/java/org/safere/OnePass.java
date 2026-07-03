@@ -449,9 +449,6 @@ final class OnePass {
   // Search
   // -------------------------------------------------------------------------
 
-  @SuppressWarnings("ArrayRecordComponent")
-  record SearchResult(int[] groups) {}
-
   /**
    * Searches for a match in the given text starting at position 0. Convenience overload that
    * delegates to {@link #search(String, int, int, boolean, int)}.
@@ -461,7 +458,7 @@ final class OnePass {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
-  SearchResult search(String text, boolean endMatch, int nsubmatch) {
+  int[] search(String text, boolean endMatch, int nsubmatch) {
     return search(text, 0, text.length(), endMatch, nsubmatch);
   }
 
@@ -481,13 +478,13 @@ final class OnePass {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions relative to {@code text}, or null if no match
    */
-  SearchResult search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+  int[] search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     return search(text, startPos, endPos, endMatch, nsubmatch, graphemeContext);
   }
 
-  private SearchResult search(
+  private int[] search(
       String text,
       int startPos,
       int endPos,
@@ -600,18 +597,18 @@ final class OnePass {
     }
 
     if (!matched) {
-      return new SearchResult(null);
+      return null;
     }
     if (endMatch && bestCap[1] != endPos) {
-      return new SearchResult(null);
+      return null;
     }
     if (anchorEnd && bestCap[1] != endPos) {
       // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
       if (!dollarAnchorEnd || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
-        return new SearchResult(null);
+        return null;
       }
     }
-    return new SearchResult(bestCap);
+    return bestCap;
   }
 
   /**
@@ -631,9 +628,9 @@ final class OnePass {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     for (int start = startPos; start < limit; start++) {
-      SearchResult result = search(text, start, textLen, false, nsubmatch, graphemeContext);
-      if (result.groups() != null) {
-        return result.groups();
+      int[] result = search(text, start, textLen, false, nsubmatch, graphemeContext);
+      if (result != null) {
+        return result;
       }
       // Advance to next code point boundary.
       if (start < textLen) {

@@ -44,7 +44,7 @@ class OnePassTest {
     Prog prog = Compiler.compile(re);
     OnePass op = OnePass.build(prog);
     assertThat(op).as("Pattern '%s' should be one-pass", pattern).isNotNull();
-    return op.search(text, false, prog.numCaptures()).groups();
+    return op.search(text, false, prog.numCaptures());
   }
 
   /** Helper: run one-pass search (anchored, endMatch=true, full match). */
@@ -53,7 +53,7 @@ class OnePassTest {
     Prog prog = Compiler.compile(re);
     OnePass op = OnePass.build(prog);
     assertThat(op).as("Pattern '%s' should be one-pass", pattern).isNotNull();
-    return op.search(text, true, prog.numCaptures()).groups();
+    return op.search(text, true, prog.numCaptures());
   }
 
   /** Asserts that OnePass and NFA agree on an anchored search. */
@@ -64,11 +64,10 @@ class OnePassTest {
     if (op == null) {
       return; // not one-pass; skip
     }
-    int[] opResult = op.search(text, endMatch, prog.numCaptures()).groups();
+    int[] opResult = op.search(text, endMatch, prog.numCaptures());
     Nfa.MatchKind kind = endMatch ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH;
-    Nfa.SearchResult nfaSearchResult =
+    int[] nfaResult =
         Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, prog.numCaptures());
-    int[] nfaResult = nfaSearchResult.groups();
 
     if (nfaResult == null) {
       assertThat(opResult)
