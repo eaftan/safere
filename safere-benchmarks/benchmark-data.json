@@ -345,6 +345,19 @@
         }
       },
       {
+        "name": "greedyWildcard",
+        "pattern": "(.*)",
+        "op": "find",
+        "match": "abcdefghijklmnopqrstuvwxyz",
+        "nonMatch": "",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
         "name": "layoutBlock",
         "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
         "op": "replaceAllEmpty",

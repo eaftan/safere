@@ -59,7 +59,7 @@ final class OnePass {
 
   private static final int EMPTY_BITS = 10;
   private static final int CAP_SHIFT = EMPTY_BITS;
-  private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS;
+  private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS + 1;
   private static final long EMPTY_MASK = (1L << EMPTY_BITS) - 1;
   private static final long CAP_REG_MASK = (1L << MAX_CAP_REGS) - 1;
   private static final long NO_ACTION = -1L;
@@ -69,12 +69,22 @@ final class OnePass {
    * {@code (action & CONDITION_MASK) == 0}, both the empty-flags check and the capture application
    * can be skipped entirely — a single branch instead of two.
    */
-  private static final long CONDITION_MASK = (1L << INDEX_SHIFT) - 1;
+  private static final long CONDITION_MASK = (1L << (CAP_SHIFT + MAX_CAP_REGS)) - 1;
+
+  private static final long MATCH_WINS_MASK = 1L << (CAP_SHIFT + MAX_CAP_REGS);
 
   private static long encodeAction(int nextState, int capMask, int emptyFlags) {
-    return ((long) nextState << INDEX_SHIFT)
-        | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
+    return encodeAction(nextState, capMask, emptyFlags, false);
+  }
+
+  private static long encodeAction(int nextState, int capMask, int emptyFlags, boolean matchWins) {
+    long action = ((long) nextState << INDEX_SHIFT)
+        | (((long) capMask & CAP_REG_MASK) << CAP_SHIFT)
         | (emptyFlags & EMPTY_MASK);
+    if (matchWins) {
+      action |= MATCH_WINS_MASK;
+    }
+    return action;
   }
 
   // -------------------------------------------------------------------------
@@ -212,6 +222,12 @@ final class OnePass {
       // stack entries: [instId, capMask, emptyFlags]
       stack.push(new int[] {instId, 0, 0});
 
+      int[] nextStates = new int[numClasses];
+      Arrays.fill(nextStates, -1);
+      int[] capMasks = new int[numClasses];
+      int[] emptyFlagsList = new int[numClasses];
+      boolean matched = false;
+
       while (!stack.isEmpty()) {
         int[] entry = stack.pop();
         int id = entry[0];
@@ -274,13 +290,13 @@ final class OnePass {
                 worklist.add(ip.out);
               }
 
-              long action = encodeAction(nextState, capMask, emptyFlags);
-              long existing = tables.action(stateIndex, cls);
-              if (existing != NO_ACTION && existing != action) {
+              if (nextStates[cls] != -1 && (nextStates[cls] != nextState || capMasks[cls] != capMask || emptyFlagsList[cls] != emptyFlags)) {
                 // Two different transitions for the same equivalence class -> not one-pass.
                 return null;
               }
-              tables.setAction(stateIndex, cls, action);
+              nextStates[cls] = nextState;
+              capMasks[cls] = capMask;
+              emptyFlagsList[cls] = emptyFlags;
             }
           }
           case CHAR_CLASS -> {
@@ -310,12 +326,12 @@ final class OnePass {
                   worklist.add(ip.out);
                 }
 
-                long action = encodeAction(nextState, capMask, emptyFlags);
-                long existing = tables.action(stateIndex, cls);
-                if (existing != NO_ACTION && existing != action) {
+                if (nextStates[cls] != -1 && (nextStates[cls] != nextState || capMasks[cls] != capMask || emptyFlagsList[cls] != emptyFlags)) {
                   return null;
                 }
-                tables.setAction(stateIndex, cls, action);
+                nextStates[cls] = nextState;
+                capMasks[cls] = capMask;
+                emptyFlagsList[cls] = emptyFlags;
               }
             }
           }
@@ -327,8 +343,20 @@ final class OnePass {
               return null;
             }
             tables.setMatchAction(stateIndex, action);
+            matched = true;
           }
           default -> {}
+        }
+      }
+
+      for (int cls = 0; cls < numClasses; cls++) {
+        if (nextStates[cls] != -1) {
+          long action = encodeAction(nextStates[cls], capMasks[cls], emptyFlagsList[cls], matched);
+          long existing = tables.action(stateIndex, cls);
+          if (existing != NO_ACTION && existing != action) {
+            return null;
+          }
+          tables.setAction(stateIndex, cls, action);
         }
       }
     }
@@ -515,7 +543,8 @@ final class OnePass {
     while (pos < endPos) {
       // Check match condition at current state BEFORE consuming next character.
       // The bitset test avoids the matchAction[] array load for non-match states.
-      if ((msb & (1L << state)) != 0) {
+      boolean shouldCopy = false;
+      if (!endMatch && !(anchorEnd && !dollarAnchorEnd) && (msb & (1L << state)) != 0) {
         long matchAct = ma[state];
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0
@@ -530,7 +559,7 @@ final class OnePass {
             cap[1] = pos;
           }
           matched = true;
-          System.arraycopy(cap, 0, bestCap, 0, ncap);
+          shouldCopy = true;
         }
       }
 
@@ -555,7 +584,26 @@ final class OnePass {
       // automaton, so no bounds check is needed on the flat actions array.
       long action = fa[state * nc + cls];
       if (action == NO_ACTION) {
+        if (shouldCopy) {
+          System.arraycopy(cap, 0, bestCap, 0, ncap);
+        }
         break;
+      }
+
+      if (shouldCopy) {
+        boolean skipCopy = false;
+        if ((action & MATCH_WINS_MASK) == 0) {
+          int nextState = (int) (action >>> INDEX_SHIFT);
+          if ((msb & (1L << nextState)) != 0) {
+            long nextMatchAct = ma[nextState];
+            if (nextMatchAct != NO_ACTION && (nextMatchAct & EMPTY_MASK) == 0) {
+              skipCopy = true;
+            }
+          }
+        }
+        if (!skipCopy) {
+          System.arraycopy(cap, 0, bestCap, 0, ncap);
+        }
       }
 
       // Combined condition check: bits below INDEX_SHIFT encode empty-width flags and capture
