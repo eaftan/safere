@@ -25,6 +25,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Pattern}. */
 class PatternTest {
+  @Test
+  void testOnePassEligibility() {
+    Pattern p1 = Pattern.compile(
+        "\\s*[\\[\\x{FF3B}]\\s*((?:[0-9]+\\.?){3,4}(?:\\s*[,\\x{3001}]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\x{FF3D}]");
+    assertThat(p1.onePass()).isNull();
+    assertThat(p1.canOnePassPrimary()).isFalse();
+
+    Pattern p2 = Pattern.compile("\\b[Ff]ormer [Cc][Ee][Oo] ([Aa]lice\\b|\\*\\*[Aa]lice\\*\\*)");
+    assertThat(p2.onePass()).isNotNull();
+    assertThat(p2.canOnePassPrimary()).isTrue();
+    assertThat(p2.canOnePassFind()).isFalse();
+    assertThat(p2.canOnePassSubmatch()).isTrue();
+  }
+
   private static final class LiteralCharSequence implements CharSequence {
     private final String value;
 
