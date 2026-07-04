@@ -75,8 +75,6 @@ final class Dfa {
    */
   private static final int FLAG_LAST_UNICODE_WORD = 1 << 14;
 
-  private static final int FLAG_HIGHEST_PRIORITY_MATCH = 1 << 15;
-
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
@@ -102,10 +100,6 @@ final class Dfa {
 
     /** Transitions indexed by equivalence class; null entry = not yet computed. */
     final State[] next;
-
-    State(int id, int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
-      this(id, insts, flags, wordBoundaryMatchIds, numClasses, false);
-    }
 
     State(
         int id,
@@ -236,10 +230,9 @@ final class Dfa {
   /** Per-search grapheme context. Set only while a search method is active. */
   private GraphemeSupport.Context graphemeContext;
 
-  private final List<State> statesList = new ArrayList<>();
   private int[] transitions;
-  private int[] stateFlags;
   private State[] offsetToState;
+  private int nextStateId;
 
   // ---------------------------------------------------------------------------
   // Construction
@@ -290,25 +283,14 @@ final class Dfa {
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
-    this.deadState = new State(0, new int[0], 0, null, numClasses);
-    this.statesList.add(deadState);
+    this.deadState = new State(0, EMPTY_INSTS, 0, null, numClasses, false);
+    this.nextStateId = 1;
     this.transitions = new int[1024];
-    this.stateFlags = new int[64];
     this.offsetToState = new State[1024];
     addStateToFlatArrays(deadState);
   }
 
   private void addStateToFlatArrays(State s) {
-    if (s.id >= stateFlags.length) {
-      int newLen = Math.max(stateFlags.length * 2, s.id + 1);
-      stateFlags = Arrays.copyOf(stateFlags, newLen);
-    }
-    int flags = s.flags;
-    if (s.isHighestPriorityMatch) {
-      flags |= FLAG_HIGHEST_PRIORITY_MATCH;
-    }
-    stateFlags[s.id] = flags;
-
     int minTransLen = (s.id + 1) * numClasses;
     if (minTransLen > transitions.length) {
       int newLen = Math.max(transitions.length * 2, minTransLen);
@@ -320,7 +302,8 @@ final class Dfa {
 
   private void setTransition(int fromId, int cls, int toId) {
     int fromBase = fromId * numClasses;
-    boolean isMatch = (stateFlags[toId] & FLAG_MATCH) != 0;
+    State toState = offsetToState[toId * numClasses];
+    boolean isMatch = toState.isMatch();
     int storedId = toId * numClasses;
     if (isMatch) {
       storedId = -storedId;
@@ -696,13 +679,12 @@ final class Dfa {
         insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
     s =
         new State(
-            statesList.size(),
+            nextStateId++,
             insts,
             flags,
             wordBoundaryMatchIds,
             numClasses,
             isHighestPriorityMatch);
-    statesList.add(s);
     addStateToFlatArrays(s);
     cache.put(lookupKey.copy(), s);
     return s;
@@ -1246,14 +1228,12 @@ final class Dfa {
         }
         if (nsId < 0) {
           nsId = -nsId;
-          int sequentialDestId = nsId / numClasses;
-          int nsFlags = stateFlags[sequentialDestId];
-          if ((nsFlags & FLAG_MATCH) != 0 && !needEndMatch) {
+          State ns = offsetToState[nsId];
+          if (ns.isMatch() && !needEndMatch) {
             boolean useBefore =
-                (nsFlags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+                (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
             int endPos = useBefore ? pos : pos + 1;
-            boolean nsHighestPriorityMatch = (nsFlags & FLAG_HIGHEST_PRIORITY_MATCH) != 0;
-            if (!longest && nsHighestPriorityMatch) {
+            if (!longest && ns.isHighestPriorityMatch) {
               return new SearchResult(true, endPos);
             }
             matched = true;
@@ -1481,29 +1461,28 @@ final class Dfa {
           }
           if (nsId < 0) {
             nsId = -nsId;
-            int sequentialDestId = nsId / numClasses;
-            int nsFlags = stateFlags[sequentialDestId];
-            if ((nsFlags & FLAG_MATCH) != 0) {
-              if ((nsFlags & FLAG_MATCH_BEFORE) != 0) {
+            State ns = offsetToState[nsId];
+            if (ns.isMatch()) {
+              int flags = ns.flags;
+              if ((flags & FLAG_MATCH_BEFORE) != 0) {
                 if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
                   boolean alreadyMatched = matched;
                   matched = true;
                   matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
-                  ambiguous |= (nsFlags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+                  ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
                   if (!longest && !needEndMatch) {
                     return new SearchResult(true, matchStart, ambiguous);
                   }
                 }
               }
               boolean hasOnlyBeforeMatch =
-                  (nsFlags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+                  (flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
               int prevPos = pos - 1;
               if (!hasOnlyBeforeMatch) {
                 if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
                   boolean alreadyMatched = matched;
                   matched = true;
                   matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
-                  ambiguous |= (nsFlags & FLAG_MATCH_AFTER_DEFERRED) != 0;
                   if (!longest && !needEndMatch) {
                     return new SearchResult(true, matchStart, ambiguous);
                   }
@@ -1752,19 +1731,19 @@ final class Dfa {
         if (nsId == 0) { // deadState
           break;
         }
-        int realNsId = nsId < 0 ? -nsId : nsId;
-        int sequentialDestId = realNsId / numClasses;
-        int nsFlags = stateFlags[sequentialDestId];
-        if ((nsFlags & FLAG_MATCH) != 0) {
+        int realNsId;
+        if (nsId < 0) {
+          realNsId = -nsId;
+          State ns = offsetToState[realNsId];
+          int flags = ns.flags;
           int endPos =
-              ((nsFlags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+              ((flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
                   ? pos
                   : pos + 1;
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             // Collect match IDs from the state's instructions.
-            State ns = statesList.get(sequentialDestId);
             for (int id : collectMatchIds(ns.insts)) {
               seen.set(id);
             }
@@ -1774,6 +1753,8 @@ final class Dfa {
               }
             }
           }
+        } else {
+          realNsId = nsId;
         }
         sId = realNsId;
         pos++;
