@@ -2285,7 +2285,8 @@ public final class Matcher implements MatchResult {
   private String charClassReplaceFastPath(String replacement, int limit) {
     if (!enginePathOptions().charClassReplacementFastPath()
         || parentPattern.charClassMatchRanges() == null
-        || parentPattern.charClassMatchAllowEmpty()) {
+        || parentPattern.charClassMatchAllowEmpty()
+        || parentPattern.hasLazyQuantifiers()) {
       return null;
     }
     ReplacementSegment[] template;
@@ -2352,24 +2353,18 @@ public final class Matcher implements MatchResult {
     }
 
     if (sb == null) {
+      applyFailedMatchResult();
       return text;
     }
 
+    this.appendPos = appendPos;
     sb.append(text, appendPos, textLen);
 
     if (limit == 1) {
-      if (groups == null) {
-        groups = new int[2 * parentPattern.prog().numCaptures()];
-      }
-      groups[0] = firstMatchStart;
-      groups[1] = firstMatchEnd;
-      deferredMatchStart = firstMatchStart;
-      deferredMatchEnd = firstMatchEnd;
-      capturesResolved = true;
-      groupZeroResolved = true;
-      resultStatus = ResultStatus.MATCHED;
+      applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
     } else {
-      resultStatus = ResultStatus.FAILED;
+      searchFrom = regionEnd;
+      applyFailedMatchResult();
     }
 
     return sb.toString();

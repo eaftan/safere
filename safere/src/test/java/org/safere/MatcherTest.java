@@ -1121,6 +1121,73 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceFirst() leaves find() positioned after the replaced match")
+    void replaceFirstLeavesFindPositionAfterReplacedMatch() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("123X456def");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("def");
+    }
+
+    @Test
+    @DisplayName("replaceAll() leaves find() exhausted after replacing matches")
+    void replaceAllLeavesFindExhaustedAfterReplacingMatches() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def");
+
+      assertThat(m.replaceAll("X")).isEqualTo("123X456X");
+
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("replaceFirst() leaves appendTail positioned after the replaced match")
+    void replaceFirstLeavesAppendTailPositionAfterReplacedMatch() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def");
+      StringBuilder sb = new StringBuilder();
+
+      assertThat(m.replaceFirst("X")).isEqualTo("123X456def");
+      m.appendTail(sb);
+
+      assertThat(sb).hasToString("456def");
+    }
+
+    @Test
+    @DisplayName("replaceAll() leaves appendTail positioned after the last replaced match")
+    void replaceAllLeavesAppendTailPositionAfterLastReplacedMatch() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def789");
+      StringBuilder sb = new StringBuilder();
+
+      assertThat(m.replaceAll("X")).isEqualTo("123X456X789");
+      m.appendTail(sb);
+
+      assertThat(sb).hasToString("789");
+    }
+
+    @Test
+    @DisplayName("replaceAll() preserves lazy character-class match boundaries")
+    void replaceAllPreservesLazyCharacterClassMatchBoundaries() {
+      Pattern p = Pattern.compile("[a-z]+?");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceAll("X")).isEqualTo("XXX");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() preserves lazy character-class match boundaries")
+    void replaceFirstPreservesLazyCharacterClassMatchBoundaries() {
+      Pattern p = Pattern.compile("[a-z]+?");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("Xbc");
+    }
+
+    @Test
     @DisplayName("replaceFirst() with no match returns original text")
     void replaceFirstNoMatch() {
       Pattern p = Pattern.compile("\\d+");
