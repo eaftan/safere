@@ -239,6 +239,7 @@ final class Dfa {
   private final List<State> statesList = new ArrayList<>();
   private int[] transitions;
   private int[] stateFlags;
+  private State[] offsetToState;
 
   // ---------------------------------------------------------------------------
   // Construction
@@ -293,6 +294,7 @@ final class Dfa {
     this.statesList.add(deadState);
     this.transitions = new int[1024];
     this.stateFlags = new int[64];
+    this.offsetToState = new State[1024];
     addStateToFlatArrays(deadState);
   }
 
@@ -311,7 +313,9 @@ final class Dfa {
     if (minTransLen > transitions.length) {
       int newLen = Math.max(transitions.length * 2, minTransLen);
       transitions = Arrays.copyOf(transitions, newLen);
+      offsetToState = Arrays.copyOf(offsetToState, newLen);
     }
+    offsetToState[s.id * numClasses] = s;
   }
 
   private void setTransition(int fromId, int cls, int toId) {
@@ -1259,7 +1263,7 @@ final class Dfa {
         sId = nsId;
         pos++;
       }
-      s = statesList.get(sId / numClasses);
+      s = offsetToState[sId];
 
       if (pos >= textLen) {
         break;
@@ -1510,7 +1514,7 @@ final class Dfa {
           sId = nsId;
           pos--;
         }
-        s = statesList.get(sId / numClasses);
+        s = offsetToState[sId];
       }
 
       if (pos <= startLimit) {
@@ -1736,7 +1740,7 @@ final class Dfa {
         int cls = asciiClassMap[ch];
         int nsId = transitions[sId + cls];
         if (nsId == 0) {
-          s = statesList.get(sId / numClasses);
+          s = offsetToState[sId];
           int effectiveNextPos = pos + 1;
           State ns = computeNext(s, ch, text, effectiveNextPos);
           if (ns == null) {
@@ -1774,7 +1778,7 @@ final class Dfa {
         sId = realNsId;
         pos++;
       }
-      s = statesList.get(sId / numClasses);
+      s = offsetToState[sId];
 
       // General loop
       while (pos <= textLen) {
