@@ -1113,6 +1113,17 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceFirst() retains capture group state of the matched occurrence")
+    void replaceFirstRetainsCaptureGroups() {
+      Pattern p = Pattern.compile("testingRecord\\[(.+?)\\]");
+      Matcher m = p.matcher("object.testingDetails.testingRecord[0].result");
+      if (m.find()) {
+        m.replaceFirst("testingRecord");
+        assertThat(m.group(1)).isEqualTo("0");
+      }
+    }
+
+    @Test
     @DisplayName("replaceAll() replaces all matches")
     void replaceAll() {
       Pattern p = Pattern.compile("\\d+");
@@ -1134,6 +1145,22 @@ class MatcherTest {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("abc");
       assertThat(m.replaceAll("X")).isEqualTo("abc");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() with start-anchored pattern replaces correct match")
+    void replaceFirstStartAnchored() {
+      Pattern p = Pattern.compile("^\\d+");
+      Matcher m = p.matcher("123abc456");
+      assertThat(m.replaceFirst("X")).isEqualTo("Xabc456");
+    }
+
+    @Test
+    @DisplayName("replaceAll() with start-anchored pattern replaces correct match")
+    void replaceAllStartAnchored() {
+      Pattern p = Pattern.compile("^\\d+");
+      Matcher m = p.matcher("123abc456");
+      assertThat(m.replaceAll("X")).isEqualTo("Xabc456");
     }
 
     @Test

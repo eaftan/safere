@@ -961,7 +961,8 @@ public final class Matcher implements MatchResult {
     return enginePathOptions().dfa()
         && enginePathOptions().reverseDfa()
         && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
-        && !parentPattern.prog().anchorStart();
+        && !parentPattern.prog().anchorStart()
+        && reverseDfa() != null;
   }
 
   /**
@@ -2186,13 +2187,151 @@ public final class Matcher implements MatchResult {
    * @return the string with the first match replaced
    */
   public String replaceFirst(String replacement) {
+    LazyTemplate template = new LazyTemplate(replacement, groupCount());
     reset();
+    String result = replaceDfaOptimized(template, 1);
+    if (result != null) {
+      return result;
+    }
+
     if (!find()) {
       return text;
     }
     StringBuilder sb = new StringBuilder(text.length());
     appendReplacement(sb, replacement);
     appendTail(sb);
+    return sb.toString();
+  }
+
+  private String replaceDfaOptimized(LazyTemplate template, int limit) {
+    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    if (!canUseForwardDfa() || !parentPattern.dfaGroupZeroReliable() || regionActive) {
+      return null;
+    }
+
+    ReplacementSegment[] compiledTemplate = null;
+    int textLen = text.length();
+    int pos = searchFrom;
+
+    Dfa fwdDfa = dfa(false);
+    if (fwdDfa == null) {
+      return null;
+    }
+
+    Dfa revDfa = null;
+    boolean isStartAnchored = parentPattern.prog().anchorStart();
+    if (!isStartAnchored) {
+      if (!canUseReverseDfa()) {
+        return null;
+      }
+      revDfa = reverseDfa();
+    }
+
+    String prefix = parentPattern.prefix();
+    boolean foldCase = parentPattern.prefixFoldCase();
+    boolean hasStartAcceleration = enginePathOptions().startAcceleration() && prefix != null;
+    int matchesFound = 0;
+    int[] matchOffsets = null;
+
+    while (pos <= textLen && matchesFound < limit) {
+      if (parentPattern.prog().anchorStart() && pos > 0) {
+        break;
+      }
+      if (hasStartAcceleration && pos < textLen) {
+        int idx = foldCase ? indexOfIgnoreCase(text, prefix, pos) : text.indexOf(prefix, pos);
+        if (idx < 0) {
+          break;
+        }
+        pos = idx;
+      }
+
+      Dfa.SearchResult fwdResult = fwdDfa.doSearch(text, pos, false, false);
+      if (fwdResult == null || !fwdResult.matched()) {
+        break;
+      }
+
+      int earlyEnd = fwdResult.pos();
+      if (earlyEnd <= pos) {
+        return null; // Fallback for empty match
+      }
+
+      int matchStart;
+      if (isStartAnchored) {
+        matchStart = pos;
+      } else {
+        Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+        if (revResult == null || !revResult.matched()) {
+          return null;
+        }
+        matchStart = revResult.pos();
+      }
+      Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+      if (fwdFirst == null || !fwdFirst.matched()) {
+        return null;
+      }
+      int matchEnd = fwdFirst.pos();
+
+      if (compiledTemplate == null) {
+        compiledTemplate = template.get();
+        if (templateNeedsCaptures(compiledTemplate)) {
+          return null;
+        }
+        matchOffsets = new int[16];
+      }
+
+      if (2 * matchesFound >= matchOffsets.length) {
+        matchOffsets = Arrays.copyOf(matchOffsets, matchOffsets.length * 2);
+      }
+
+      matchOffsets[2 * matchesFound] = matchStart;
+      matchOffsets[2 * matchesFound + 1] = matchEnd;
+
+      pos = matchEnd;
+      matchesFound++;
+    }
+
+    if (matchesFound == 0) {
+      return text;
+    }
+
+    if (groups == null) {
+      groups = new int[2 * parentPattern.prog().numCaptures()];
+    }
+    groups[0] = matchOffsets[0];
+    groups[1] = matchOffsets[1];
+
+    int totalMatchLength = 0;
+    for (int i = 0; i < matchesFound; i++) {
+      totalMatchLength += (matchOffsets[2 * i + 1] - matchOffsets[2 * i]);
+    }
+    int replacementLen = 0;
+    for (ReplacementSegment seg : compiledTemplate) {
+      if (seg instanceof ReplacementSegment.Literal literal) {
+        replacementLen += literal.text().length();
+      }
+    }
+    int finalCapacity = textLen - totalMatchLength + (matchesFound * replacementLen);
+
+    StringBuilder sb = new StringBuilder(finalCapacity);
+    int appendPos = searchFrom;
+    for (int i = 0; i < matchesFound; i++) {
+      int mStart = matchOffsets[2 * i];
+      int mEnd = matchOffsets[2 * i + 1];
+      groups[0] = mStart;
+      groups[1] = mEnd;
+      sb.append(text, appendPos, mStart);
+      applyReplacementTemplate(sb, compiledTemplate);
+      appendPos = mEnd;
+    }
+    sb.append(text, appendPos, textLen);
+
+    if (limit == 1) {
+      deferredMatchStart = groups[0];
+      deferredMatchEnd = groups[1];
+      capturesResolved = parentPattern.prog().numCaptures() <= 1;
+      groupZeroResolved = true;
+    }
+    resultStatus = (limit == 1) ? ResultStatus.MATCHED : ResultStatus.FAILED;
     return sb.toString();
   }
 
@@ -2228,20 +2367,24 @@ public final class Matcher implements MatchResult {
    * @return the string with all matches replaced
    */
   public String replaceAll(String replacement) {
+    LazyTemplate template = new LazyTemplate(replacement, groupCount());
     reset();
+    String result = replaceDfaOptimized(template, Integer.MAX_VALUE);
+    if (result != null) {
+      return result;
+    }
+
     if (!find()) {
       return text;
     }
-    // Pre-compile the replacement template once, avoiding per-match parseInt/substring overhead.
-    ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
     StringBuilder sb = new StringBuilder(text.length());
-    boolean needsCaptures = templateNeedsCaptures(template);
+    boolean needsCaptures = templateNeedsCaptures(template.get());
     do {
       if (needsCaptures || !groupZeroResolved) {
         resolveCaptures();
       }
       sb.append(text, appendPos, groups[0]);
-      applyReplacementTemplate(sb, template);
+      applyReplacementTemplate(sb, template.get());
       appendPos = groups[1];
     } while (find());
     appendTail(sb);
@@ -2796,6 +2939,24 @@ public final class Matcher implements MatchResult {
       if (!hasMatch) {
         throw new IllegalStateException("No match found");
       }
+    }
+  }
+
+  private static final class LazyTemplate {
+    private final String replacement;
+    private final int maxGroup;
+    private ReplacementSegment[] value;
+
+    LazyTemplate(String replacement, int maxGroup) {
+      this.replacement = replacement;
+      this.maxGroup = maxGroup;
+    }
+
+    ReplacementSegment[] get() {
+      if (value == null) {
+        value = compileReplacementTemplate(replacement, maxGroup);
+      }
+      return value;
     }
   }
 
