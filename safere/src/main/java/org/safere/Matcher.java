@@ -1490,18 +1490,14 @@ public final class Matcher implements MatchResult {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
-        // Anchored: match start is effectiveStart. Run forward DFA (anchored, first-match) to find
-        // actual end, then defer inner captures until requested.
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
-        if (fwdFirst != null && fwdFirst.matched()) {
-          int matchEnd = fwdFirst.pos();
-          return applyDeferredMatchResult(
-              effectiveStart,
-              matchEnd,
-              prog.numCaptures(),
-              parentPattern.dfaGroupZeroReliable(),
-              false);
-        }
+        // Anchored: match start is effectiveStart. Since it is start-anchored, the match end
+        // is guaranteed to be earlyEnd. Avoid redundant third DFA search.
+        return applyDeferredMatchResult(
+            effectiveStart,
+            earlyEnd,
+            prog.numCaptures(),
+            parentPattern.dfaGroupZeroReliable(),
+            false);
       } else {
         if (literalPrefixCandidateStart) {
           // A literal prefix occurrence is a candidate match start, even when the prefix is
@@ -2256,20 +2252,22 @@ public final class Matcher implements MatchResult {
       }
 
       int matchStart;
+      int matchEnd;
       if (isStartAnchored) {
         matchStart = pos;
+        matchEnd = earlyEnd;
       } else {
         Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
         if (revResult == null || !revResult.matched()) {
           return null;
         }
         matchStart = revResult.pos();
+        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+        if (fwdFirst == null || !fwdFirst.matched()) {
+          return null;
+        }
+        matchEnd = fwdFirst.pos();
       }
-      Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
-      if (fwdFirst == null || !fwdFirst.matched()) {
-        return null;
-      }
-      int matchEnd = fwdFirst.pos();
 
       if (compiledTemplate == null) {
         compiledTemplate = template.get();
