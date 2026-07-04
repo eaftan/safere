@@ -124,7 +124,9 @@ public class RealWorldRegexBenchmark {
     "fruitMarkupTag",
     "charReplace",
     "layoutBlock",
-    "unicodeClassPrefix"
+    "unicodeClassPrefix",
+    "cjkSearch",
+    "emojiSearch"
   })
   public String patternName;
 
