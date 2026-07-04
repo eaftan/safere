@@ -123,7 +123,10 @@ public class RealWorldRegexBenchmark {
     "fruitSearchQuery",
     "fruitMarkupTag",
     "charReplace",
-    "layoutBlock"
+    "layoutBlock",
+    "turnTitleWhitespaceCjk",
+    "cjkSearch",
+    "emojiSearch"
   })
   public String patternName;
 

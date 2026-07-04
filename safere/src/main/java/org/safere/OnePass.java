@@ -462,6 +462,10 @@ final class OnePass {
     return search(text, 0, text.length(), endMatch, nsubmatch);
   }
 
+  int[] search(String text, boolean endMatch, int nsubmatch, int[] reuseGroups) {
+    return search(text, 0, text.length(), endMatch, nsubmatch, reuseGroups);
+  }
+
   /**
    * Searches for an anchored match in the text starting from {@code startPos}, scanning up to
    * {@code endPos}. This is equivalent to running OnePass on {@code text.substring(startPos,
@@ -479,9 +483,14 @@ final class OnePass {
    * @return submatch positions relative to {@code text}, or null if no match
    */
   int[] search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+    return search(text, startPos, endPos, endMatch, nsubmatch, null);
+  }
+
+  int[] search(
+      String text, int startPos, int endPos, boolean endMatch, int nsubmatch, int[] reuseGroups) {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
-    return search(text, startPos, endPos, endMatch, nsubmatch, graphemeContext);
+    return search(text, startPos, endPos, endMatch, nsubmatch, reuseGroups, graphemeContext);
   }
 
   private int[] search(
@@ -490,6 +499,7 @@ final class OnePass {
       int endPos,
       boolean endMatch,
       int nsubmatch,
+      int[] reuseGroups,
       GraphemeSupport.Context graphemeContext) {
     int ncap = 2 * Math.max(nsubmatch, 1);
     int[] cap = new int[ncap];
@@ -498,7 +508,7 @@ final class OnePass {
 
     int state = 0;
     boolean matched = false;
-    int[] bestCap = new int[ncap];
+    int[] bestCap = reuseGroups != null && reuseGroups.length >= ncap ? reuseGroups : new int[ncap];
 
     int nc = numClasses;
     long[] fa = flatActions;
@@ -628,7 +638,7 @@ final class OnePass {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     for (int start = startPos; start < limit; start++) {
-      int[] result = search(text, start, textLen, false, nsubmatch, graphemeContext);
+      int[] result = search(text, start, textLen, false, nsubmatch, null, graphemeContext);
       if (result != null) {
         return result;
       }

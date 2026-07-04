@@ -285,6 +285,11 @@ final class Nfa {
   }
 
   int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos) {
+    return runSearch(anchored, kind, nsubmatch, endPos, null);
+  }
+
+  int[] runSearch(
+      boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
     if (prog.hasGraphemeSemantics()) {
       doSearchEveryCharPosition(anchored);
     } else {
@@ -298,7 +303,8 @@ final class Nfa {
       return null;
     }
 
-    int[] result = new int[2 * nsubmatch];
+    int nlen = 2 * nsubmatch;
+    int[] result = reuseGroups != null && reuseGroups.length >= nlen ? reuseGroups : new int[nlen];
     int ncopy = Math.min(ncapture, result.length);
     System.arraycopy(bestMatch, 0, result, 0, ncopy);
     if (ncopy < result.length) {
