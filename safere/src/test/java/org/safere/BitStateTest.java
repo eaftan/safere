@@ -312,6 +312,28 @@ class BitStateTest {
         assertThat(result[1]).isEqualTo(3);
       }
     }
+
+    @Test
+    void workBudgetDependsOnSearchedRangeNotAbsoluteOffset() {
+      Regexp re = Parser.parse("a+", FLAGS);
+      Prog prog = Compiler.compile(re);
+      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+      String suffix = "aaaa";
+      BitState nearStart =
+          BitState.getOrCreate(null, prog, suffix, 0, suffix.length(), ncap, false, false);
+      nearStart.doSearch(0, suffix.length(), true);
+
+      String prefix = "x".repeat(10_000);
+      String shiftedText = prefix + suffix;
+      int shiftedStart = prefix.length();
+      int shiftedEnd = shiftedText.length();
+      BitState shifted =
+          BitState.getOrCreate(
+              null, prog, shiftedText, shiftedStart, shiftedEnd, ncap, false, false);
+      shifted.doSearch(shiftedStart, shiftedEnd, true);
+
+      assertThat(shifted.stepBudgetForTesting()).isEqualTo(nearStart.stepBudgetForTesting());
+    }
   }
 
   // ---------------------------------------------------------------------------
