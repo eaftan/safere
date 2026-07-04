@@ -135,7 +135,10 @@ public class RealWorldRegexBenchmark {
     "fruitMarkupTag",
     "charReplace",
     "greedyOnePass",
-    "layoutBlock"
+    "layoutBlock",
+    "turnTitleWhitespaceCjk",
+    "cjkSearch",
+    "emojiSearch"
   })
   public String patternName;
 

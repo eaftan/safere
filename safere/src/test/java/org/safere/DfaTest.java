@@ -99,6 +99,34 @@ class DfaTest {
   @DisplayName("Character classes")
   class CharClasses {
     @Test
+    void nonAsciiClassCachePreservesLargeClassIds() {
+      int rangeCount = 32_769;
+      int firstCp = 0x10000;
+      int[] ranges = new int[rangeCount * 2];
+      for (int i = 0; i < rangeCount; i++) {
+        int cp = firstCp + i * 2;
+        ranges[i * 2] = cp;
+        ranges[i * 2 + 1] = cp;
+      }
+
+      Prog prog = new Prog();
+      prog.allocInst();
+      int charClass = prog.allocInst();
+      int match = prog.allocInst();
+      prog.mutableInst(charClass).initCharClass(match, ranges);
+      prog.mutableInst(match).initMatch(0);
+      prog.setStart(charClass);
+      prog.setStartUnanchored(charClass);
+      prog.freeze();
+
+      Dfa dfa = new Dfa(prog, 10_000, Dfa.buildSetup(prog), false);
+      String text = Character.toString(firstCp + (rangeCount - 1) * 2);
+
+      assertThat(dfa.doSearch(text, true, false).matched()).isTrue();
+      assertThat(dfa.doSearch(text, true, false).matched()).isTrue();
+    }
+
+    @Test
     void digitClass() {
       Dfa.SearchResult r = search("\\d+", "abc123def");
       assertThat(r.matched()).isTrue();
