@@ -288,8 +288,7 @@ final class Nfa {
     return runSearch(anchored, kind, nsubmatch, endPos, null);
   }
 
-  int[] runSearch(
-      boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
+  int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
     if (prog.hasGraphemeSemantics()) {
       doSearchEveryCharPosition(anchored);
     } else {

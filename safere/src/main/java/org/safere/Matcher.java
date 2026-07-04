@@ -2580,7 +2580,8 @@ public final class Matcher implements MatchResult {
       result =
           parentPattern
               .onePass()
-              .search(text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
+              .search(
+                  text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
     } else {
       result =
           searchWithBitStateOrNfa(
