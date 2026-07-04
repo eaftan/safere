@@ -2187,13 +2187,13 @@ public final class Matcher implements MatchResult {
    * @return the string with the first match replaced
    */
   public String replaceFirst(String replacement) {
+    reset();
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     String result = replaceOnePass(template, 1);
     if (result != null) {
       return result;
     }
 
-    reset();
     result = replaceDfaOptimized(template, 1);
     if (result != null) {
       return result;
@@ -2509,6 +2509,9 @@ public final class Matcher implements MatchResult {
       int matchEnd = matchOffsets[base + 1];
 
       System.arraycopy(matchOffsets, base, groups, 0, ncap);
+      capturesResolved = true;
+      groupZeroResolved = true;
+      resultStatus = ResultStatus.MATCHED;
 
       sb.append(text, appendPos, matchStart);
       applyReplacementTemplate(sb, compiledTemplate);
@@ -2542,13 +2545,13 @@ public final class Matcher implements MatchResult {
    * @return the string with all matches replaced
    */
   public String replaceAll(String replacement) {
+    reset();
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     String result = replaceOnePass(template, Integer.MAX_VALUE);
     if (result != null) {
       return result;
     }
 
-    reset();
     result = replaceDfaOptimized(template, Integer.MAX_VALUE);
     if (result != null) {
       return result;
