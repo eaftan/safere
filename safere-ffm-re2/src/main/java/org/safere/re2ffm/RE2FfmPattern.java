@@ -108,20 +108,52 @@ public final class RE2FfmPattern {
    */
   public String[] split(CharSequence input, int limit) {
     String text = input.toString();
+    byte[] inputUtf8 = text.getBytes(StandardCharsets.UTF_8);
+
     RE2FfmMatcher matcher = matcher(text);
+
+    // Start with a buffer for the expected matches (or a default of 128).
+    // The buffer size is doubled dynamically inside the loop if the text contains more matches.
+    int maxMatches = (limit > 0) ? limit : 128;
+    int numMatches;
+    int[] byteOffsets;
+
+    while (true) {
+      try (Arena arena = Arena.ofConfined()) {
+        MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
+        MemorySegment matchesSeg = arena.allocate(ValueLayout.JAVA_INT, 2L * maxMatches);
+
+        numMatches = Re2Shim.findAll(nativeHandle, textSeg, inputUtf8.length, matchesSeg, maxMatches);
+
+        if (numMatches < maxMatches || limit > 0) {
+          byteOffsets = new int[2 * numMatches];
+          MemorySegment.copy(matchesSeg, ValueLayout.JAVA_INT, 0, byteOffsets, 0, 2 * numMatches);
+          break;
+        }
+        maxMatches *= 2;
+      }
+    }
+
     List<String> parts = new ArrayList<>();
     int last = 0;
 
-    while (matcher.find()) {
+    for (int i = 0; i < numMatches; i++) {
       if (limit > 0 && parts.size() >= limit - 1) {
         break;
       }
-      if (last == 0 && matcher.start() == 0 && matcher.end() == 0) {
+      int startByte = byteOffsets[2 * i];
+      int endByte = byteOffsets[2 * i + 1];
+
+      int startChar = matcher.byteOffsetToCharOffset(startByte);
+      int endChar = matcher.byteOffsetToCharOffset(endByte);
+
+      if (last == 0 && startChar == 0 && endChar == 0) {
         continue;
       }
-      parts.add(text.substring(last, matcher.start()));
-      last = matcher.end();
+      parts.add(text.substring(last, startChar));
+      last = endChar;
     }
+
     if (last == 0) {
       return new String[] {text};
     }
