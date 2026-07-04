@@ -178,7 +178,7 @@
   },
 
   "realWorldRegex": {
-    "textSizes": [1000, 10000],
+    "textSizes": [1000, 10000, 100000],
     "safeDelimiterAlphabet": " ",
     "seed": 42,
     "cases": [
@@ -384,11 +384,41 @@
         }
       },
       {
+        "name": "jsonBlock",
+        "pattern": "(\\{[\\s\\S]*\\})",
+        "op": "replaceAllGroup1",
+        "match": "{\n  \"key1\": \"value1\",\n  \"key2\": \"value2\",\n  \"key3\": \"value3\"\n}",
+        "nonMatch": "some non-matching string containing no braces",
+        "matchInput": {
+          "kind": "scaledSurroundWithSpaces",
+          "bodyPrefix": "{ \"key\": \"value\", \"padding\": \"",
+          "bodyFill": "a",
+          "bodySuffix": "\" }",
+          "bodyScalePercent": 5
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
         "name": "charReplace",
         "pattern": "a",
         "op": "replaceAllLiteral",
         "match": "a",
         "nonMatch": "b",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "greedyOnePass",
+        "pattern": "^(.+)",
+        "op": "matches",
+        "match": "abcdefghijklmnopqrstuvwxyz",
+        "nonMatch": "\nabcdefghijklmnopqrstuvwxyz",
         "matchInput": {
           "kind": "repeat"
         },

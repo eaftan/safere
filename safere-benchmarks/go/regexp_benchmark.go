@@ -318,6 +318,13 @@ func generateRealWorldInput(
 	case "surroundWithSpaces":
 		body := getString(inputSpec, "body")
 		return generateSurroundWithSpacesInput(body, size)
+	case "scaledSurroundWithSpaces":
+		return generateScaledSurroundWithSpacesInput(
+			getString(inputSpec, "bodyPrefix"),
+			getString(inputSpec, "bodySuffix"),
+			getString(inputSpec, "bodyFill"),
+			getInt(inputSpec, "bodyScalePercent"),
+			size)
 	default:
 		fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex input kind: %s\n", kind)
 		os.Exit(1)
@@ -333,6 +340,29 @@ func generateSurroundWithSpacesInput(body string, size int) string {
 	leadingPadding := totalPadding / 2
 	trailingPadding := totalPadding - leadingPadding
 	return strings.Repeat(" ", leadingPadding) + body + strings.Repeat(" ", trailingPadding)
+}
+
+func generateScaledSurroundWithSpacesInput(
+	bodyPrefix string, bodySuffix string, bodyFill string, bodyScalePercent int, size int,
+) string {
+	if bodyFill == "" {
+		fmt.Fprintln(os.Stderr, "ERROR: scaledSurroundWithSpaces requires non-empty bodyFill")
+		os.Exit(1)
+	}
+	fixedBodyLength := len(bodyPrefix) + len(bodySuffix)
+	targetBodyLength := size * bodyScalePercent / 100
+	if targetBodyLength < fixedBodyLength {
+		targetBodyLength = fixedBodyLength
+	}
+	if targetBodyLength > size {
+		targetBodyLength = size
+	}
+	fillLength := targetBodyLength - fixedBodyLength
+	if fillLength < 0 {
+		fillLength = 0
+	}
+	body := bodyPrefix + repeatToSize(bodyFill, fillLength) + bodySuffix
+	return generateSurroundWithSpacesInput(body, size)
 }
 
 func appendUTF8(b *strings.Builder, cp int) {
@@ -554,6 +584,7 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 		matchInput    map[string]any
 		nonMatchInput map[string]any
 		re            *regexp.Regexp
+		fullRe        *regexp.Regexp
 	}
 
 	rawCases, ok := sec["cases"].([]any)
@@ -569,14 +600,14 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		op := getString(item, "op")
-		if op != "find" && op != "replaceAllEmpty" && op != "replaceAllGroup1" && op != "replaceAllLiteral" {
+		if op != "find" && op != "matches" && op != "replaceAllEmpty" && op != "replaceAllGroup1" && op != "replaceAllLiteral" {
 			fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex op: %s\n", op)
 			os.Exit(1)
 		}
 		pattern := getString(item, "pattern")
 		matchInput, _ := item["matchInput"].(map[string]any)
 		nonMatchInput, _ := item["nonMatchInput"].(map[string]any)
-		cases = append(cases, realWorldCase{
+		c := realWorldCase{
 			name:          getString(item, "name"),
 			op:            op,
 			pattern:       pattern,
@@ -585,7 +616,11 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			matchInput:    matchInput,
 			nonMatchInput: nonMatchInput,
 			re:            regexp.MustCompile(pattern),
-		})
+		}
+		if op == "matches" {
+			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+		}
+		cases = append(cases, c)
 	}
 
 	for _, c := range cases {
@@ -611,6 +646,10 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 				if c.op == "find" {
 					printJSON(measureNs(name, func() {
 						sink = c.re.FindStringIndex(text) != nil
+					}))
+				} else if c.op == "matches" {
+					printJSON(measureNs(name, func() {
+						sink = c.fullRe.MatchString(text)
 					}))
 				} else if c.op == "replaceAllEmpty" {
 					printJSON(measureNs(name, func() {

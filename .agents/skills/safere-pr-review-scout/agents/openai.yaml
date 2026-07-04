@@ -1,0 +1,4 @@
+interface:
+  display_name: "SafeRE PR Review Scout"
+  short_description: "Sweep PRs, fixes, and benchmarks"
+  default_prompt: "Use $safere-pr-review-scout to run one serialized SafeRE PR review sweep and write durable reports without pushing or commenting."
