@@ -261,6 +261,34 @@ std::string generate_surround_with_spaces_input(const std::string& body, int siz
   return std::string(leading_padding, ' ') + body + std::string(trailing_padding, ' ');
 }
 
+std::string repeat_to_length(const std::string& unit, int size) {
+  std::string text;
+  while (static_cast<int>(text.size()) < size) {
+    text += unit;
+  }
+  text.resize(size);
+  return text;
+}
+
+std::string generate_scaled_surround_with_spaces_input(
+    const std::string& body_prefix, const std::string& body_suffix,
+    const std::string& body_fill, int body_scale_percent, int size) {
+  if (body_fill.empty()) {
+    fprintf(stderr,
+            "ERROR: scaledSurroundWithSpaces requires non-empty bodyFill\n");
+    exit(1);
+  }
+  int fixed_body_length =
+      static_cast<int>(body_prefix.size() + body_suffix.size());
+  int target_body_length =
+      std::max(fixed_body_length, size * body_scale_percent / 100);
+  target_body_length = std::min(target_body_length, size);
+  int fill_length = std::max(0, target_body_length - fixed_body_length);
+  return generate_surround_with_spaces_input(
+      body_prefix + repeat_to_length(body_fill, fill_length) + body_suffix,
+      size);
+}
+
 std::string generate_real_world_input(const json& input_spec,
                                       const std::string& match_unit,
                                       const std::string& non_match_unit,
@@ -288,6 +316,13 @@ std::string generate_real_world_input(const json& input_spec,
   if (kind == "surroundWithSpaces") {
     std::string body = input_spec.at("body").get<std::string>();
     return generate_surround_with_spaces_input(body, size);
+  }
+  if (kind == "scaledSurroundWithSpaces") {
+    return generate_scaled_surround_with_spaces_input(
+        input_spec.at("bodyPrefix").get<std::string>(),
+        input_spec.at("bodySuffix").get<std::string>(),
+        input_spec.at("bodyFill").get<std::string>(),
+        input_spec.at("bodyScalePercent").get<int>(), size);
   }
   fprintf(stderr, "ERROR: invalid real-world input kind: %s\n", kind.c_str());
   exit(1);
@@ -596,7 +631,7 @@ void run_real_world_regex_benchmarks(
               c.name.c_str());
       exit(1);
     }
-    if (c.op != "find" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1" && c.op != "replaceAllLiteral") {
+    if (c.op != "find" && c.op != "matches" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1" && c.op != "replaceAllLiteral") {
       fprintf(stderr, "ERROR: invalid real-world regex op: %s\n",
               c.op.c_str());
       exit(1);
@@ -619,6 +654,10 @@ void run_real_world_regex_benchmarks(
         if (c.op == "find") {
           print_json(measure(name, [&]() {
             do_not_optimize(RE2::PartialMatch(text, c.re));
+          }));
+        } else if (c.op == "matches") {
+          print_json(measure(name, [&]() {
+            do_not_optimize(RE2::FullMatch(text, c.re));
           }));
         } else if (c.op == "replaceAllEmpty") {
           print_json(measure(name, [&]() {
