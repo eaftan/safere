@@ -596,7 +596,7 @@ void run_real_world_regex_benchmarks(
               c.name.c_str());
       exit(1);
     }
-    if (c.op != "find" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1") {
+    if (c.op != "find" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1" && c.op != "replaceAllLiteral") {
       fprintf(stderr, "ERROR: invalid real-world regex op: %s\n",
               c.op.c_str());
       exit(1);
@@ -630,6 +630,12 @@ void run_real_world_regex_benchmarks(
           print_json(measure(name, [&]() {
             std::string replaced = text;
             RE2::GlobalReplace(&replaced, c.re, "\\1");
+            do_not_optimize(replaced);
+          }));
+        } else if (c.op == "replaceAllLiteral") {
+          print_json(measure(name, [&]() {
+            std::string replaced = text;
+            RE2::GlobalReplace(&replaced, c.re, "xyz");
             do_not_optimize(replaced);
           }));
         }

@@ -224,7 +224,7 @@ final class BitState {
   int[] doSearch(int startPos, int searchLimit, boolean anchored, int[] resultBuffer) {
     budgetExceeded = false;
     stepCount = 0;
-    stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * (endPos + 1));
+    stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * textSlots);
     bestMatch = null;
     matchResult =
         resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
@@ -575,6 +575,11 @@ final class BitState {
   /** Returns whether the previous search stopped because BitState exceeded its work budget. */
   boolean budgetExceeded() {
     return budgetExceeded;
+  }
+
+  /** Returns the current work budget. Package-private for testing. */
+  long stepBudgetForTesting() {
+    return stepBudget;
   }
 
   /**

@@ -1508,22 +1508,24 @@ public final class Matcher implements MatchResult {
                   parentPattern.dfaGroupZeroReliable(),
                   false));
         }
-      } else if (literalPrefixCandidateStart) {
-        // A literal prefix occurrence is a candidate match start, even when the prefix is preceded
-        // by zero-width assertions. Verify that candidate directly; if it fails, the exact fallback
-        // below can still search for later prefix occurrences.
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
-        if (fwdFirst != null && fwdFirst.matched()) {
-          int matchEnd = fwdFirst.pos();
-          return applyEngineResult(
-              new DeferredMatchResult(
-                  effectiveStart,
-                  matchEnd,
-                  prog.numCaptures(),
-                  parentPattern.dfaGroupZeroReliable(),
-                  false));
-        }
       } else {
+        if (literalPrefixCandidateStart) {
+          // A literal prefix occurrence is a candidate match start, even when the prefix is
+          // preceded by zero-width assertions. Verify that candidate directly; if it matches,
+          // return it. Otherwise, fall through to the reverse DFA search below to find the correct
+          // start.
+          Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+          if (fwdFirst != null && fwdFirst.matched()) {
+            int matchEnd = fwdFirst.pos();
+            return applyEngineResult(
+                new DeferredMatchResult(
+                    effectiveStart,
+                    matchEnd,
+                    prog.numCaptures(),
+                    parentPattern.dfaGroupZeroReliable(),
+                    false));
+          }
+        }
         Dfa revDfa = reverseDfa();
         if (revDfa != null) {
           // Step 2: Reverse DFA backward from earliest match end to find match start.
@@ -2195,7 +2197,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     appendReplacement(sb, replacement);
     appendTail(sb);
     return sb.toString();
@@ -2216,7 +2218,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     int expectedModCount = modCount;
     String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
     checkConcurrentModification(expectedModCount);
@@ -2239,7 +2241,7 @@ public final class Matcher implements MatchResult {
     }
     // Pre-compile the replacement template once, avoiding per-match parseInt/substring overhead.
     ReplacementSegment[] template = compileReplacementTemplate(replacement, groupCount());
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     boolean needsCaptures = templateNeedsCaptures(template);
     do {
       if (needsCaptures || !groupZeroResolved) {
@@ -2268,7 +2270,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(text.length());
     do {
       int expectedModCount = modCount;
       String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));

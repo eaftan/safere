@@ -292,6 +292,13 @@ public final class Pattern implements Serializable {
     this.requiredMatchClassRanges = requiredMatchClassRanges;
     this.requiredMatchClassBitmap0 = requiredMatchClassBitmap0;
     this.requiredMatchClassBitmap1 = requiredMatchClassBitmap1;
+
+    // Eagerly compute analysis and setup to avoid latency spikes on first use.
+    onePassAnalysis();
+    forwardDfaSetup();
+    if (!prog.anchorStart()) {
+      flatReverseDfaProg();
+    }
   }
 
   /**

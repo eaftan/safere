@@ -41,7 +41,10 @@ final class RealWorldRegexCase {
     String pattern = requireString(obj, "pattern");
     String match = requireString(obj, "match");
     String nonMatch = requireString(obj, "nonMatch");
-    if (!"find".equals(op) && !"replaceAllEmpty".equals(op) && !"replaceAllGroup1".equals(op)) {
+    if (!"find".equals(op)
+        && !"replaceAllEmpty".equals(op)
+        && !"replaceAllGroup1".equals(op)
+        && !"replaceAllLiteral".equals(op)) {
       throw new IllegalArgumentException("Unknown real-world regex benchmark op: " + op);
     }
     InputSpec matchInput = InputSpec.fromJson(obj, "matchInput");
