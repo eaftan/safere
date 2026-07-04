@@ -2188,8 +2188,13 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
+    String result = replaceOnePass(template, 1);
+    if (result != null) {
+      return result;
+    }
+
     reset();
-    String result = replaceDfaOptimized(template, 1);
+    result = replaceDfaOptimized(template, 1);
     if (result != null) {
       return result;
     }
@@ -2359,6 +2364,176 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
+  private boolean canUseOnePassReplace(LazyTemplate template) {
+    return template.replacement.indexOf('$') >= 0
+        && regionStart == 0
+        && regionEnd == text.length()
+        && !parentPattern.prog().hasGraphemeSemantics()
+        && !parentPattern.hasNullableAlternation()
+        && parentPattern.canOnePassSubmatch()
+        && (parentPattern.prog().anchorStart()
+            || (parentPattern.prefix() != null && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT))
+        && templateNeedsCaptures(template.get());
+  }
+
+  // Helper for replaceAll using OnePass. Returns null if OnePass cannot be used.
+  private String replaceOnePass(LazyTemplate template, int limit) {
+    if (!canUseOnePassReplace(template)) {
+      return null;
+    }
+
+    ReplacementSegment[] compiledTemplate = template.get();
+
+    OnePass onePass = parentPattern.onePass();
+    int textLen = text.length();
+    int pos = 0;
+    int nsubmatch = parentPattern.prog().numCaptures();
+    int ncap = 2 * nsubmatch;
+
+    int[] matchOffsets = null;
+    int matchesFound = 0;
+
+    String prefix = parentPattern.prefix();
+    boolean anchorStart = parentPattern.prog().anchorStart();
+
+    while (pos <= textLen && matchesFound < limit) {
+      int matchStart = -1;
+      if (anchorStart) {
+        if (pos > 0) {
+          break;
+        }
+        OnePass.SearchResult result = onePass.search(text, pos, textLen, false, nsubmatch, groups);
+        if (result.groups() != null) {
+          matchStart = pos;
+        }
+      } else {
+        int idx = text.indexOf(prefix, pos);
+        if (idx < 0) {
+          break;
+        }
+        OnePass.SearchResult result = onePass.search(text, idx, textLen, false, nsubmatch, groups);
+        if (result.groups() != null) {
+          matchStart = idx;
+        } else {
+          pos = idx + 1;
+          continue;
+        }
+      }
+
+      if (matchStart < 0) {
+        break;
+      }
+
+      if (matchOffsets == null) {
+        matchOffsets = new int[16 * ncap];
+      } else if ((matchesFound + 1) * ncap > matchOffsets.length) {
+        matchOffsets = Arrays.copyOf(matchOffsets, matchOffsets.length * 2);
+      }
+
+      System.arraycopy(groups, 0, matchOffsets, matchesFound * ncap, ncap);
+      matchesFound++;
+
+      int nextPos = groups[1];
+      if (groups[0] == groups[1]) { // empty match
+        if (nextPos >= textLen) {
+          break;
+        }
+        nextPos++;
+      } else if (parentPattern.hasInternalGraphemeClusterBoundary()
+          && nextPos < textLen
+          && endedAfterCrLf(nextPos)) {
+        nextPos++;
+      }
+      pos = nextPos;
+
+      if (anchorStart) {
+        break;
+      }
+    }
+
+    if (matchesFound == 0) {
+      hasMatch = false;
+      capturesResolved = false;
+      groupZeroResolved = false;
+      searchFrom = 0;
+      return text;
+    }
+
+    // Calculate exact final capacity of the StringBuilder
+    int totalMatchLength = 0;
+    int totalReplacementLength = 0;
+    int literalReplacementLen = 0;
+    for (ReplacementSegment seg : compiledTemplate) {
+      if (seg instanceof ReplacementSegment.Literal literal) {
+        literalReplacementLen += literal.text().length();
+      }
+    }
+
+    for (int i = 0; i < matchesFound; i++) {
+      int base = i * ncap;
+      int matchStart = matchOffsets[base];
+      int matchEnd = matchOffsets[base + 1];
+      totalMatchLength += (matchEnd - matchStart);
+
+      totalReplacementLength += literalReplacementLen;
+      for (ReplacementSegment seg : compiledTemplate) {
+        if (seg instanceof ReplacementSegment.GroupRef groupRef) {
+          int g = groupRef.groupNum();
+          if (g >= 0 && g < nsubmatch) {
+            int gStart = matchOffsets[base + 2 * g];
+            int gEnd = matchOffsets[base + 2 * g + 1];
+            if (gStart >= 0 && gEnd >= 0) {
+              totalReplacementLength += (gEnd - gStart);
+            }
+          }
+        } else if (seg instanceof ReplacementSegment.NamedGroupRef namedRef) {
+          Integer g = parentPattern.namedGroups().get(namedRef.name());
+          if (g != null && g >= 0 && g < nsubmatch) {
+            int gStart = matchOffsets[base + 2 * g];
+            int gEnd = matchOffsets[base + 2 * g + 1];
+            if (gStart >= 0 && gEnd >= 0) {
+              totalReplacementLength += (gEnd - gStart);
+            }
+          }
+        }
+      }
+    }
+
+    int finalCapacity = textLen - totalMatchLength + totalReplacementLength;
+
+    StringBuilder sb = new StringBuilder(finalCapacity);
+    int appendPos = 0;
+    for (int i = 0; i < matchesFound; i++) {
+      int base = i * ncap;
+      int matchStart = matchOffsets[base];
+      int matchEnd = matchOffsets[base + 1];
+
+      System.arraycopy(matchOffsets, base, groups, 0, ncap);
+
+      sb.append(text, appendPos, matchStart);
+      applyReplacementTemplate(sb, compiledTemplate);
+      appendPos = matchEnd;
+    }
+    sb.append(text, appendPos, textLen);
+
+    if (limit == 1) {
+      deferredMatchStart = groups[0];
+      deferredMatchEnd = groups[1];
+      capturesResolved = parentPattern.prog().numCaptures() <= 1;
+      groupZeroResolved = true;
+      resultStatus = ResultStatus.MATCHED;
+      searchFrom = groups[1];
+    } else {
+      hasMatch = false;
+      capturesResolved = false;
+      groupZeroResolved = false;
+      searchFrom = textLen;
+      resultStatus = ResultStatus.FAILED;
+    }
+
+    return sb.toString();
+  }
+
   /**
    * Replaces every subsequence of the input that matches the pattern with the given replacement
    * string.
@@ -2368,8 +2543,13 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
+    String result = replaceOnePass(template, Integer.MAX_VALUE);
+    if (result != null) {
+      return result;
+    }
+
     reset();
-    String result = replaceDfaOptimized(template, Integer.MAX_VALUE);
+    result = replaceDfaOptimized(template, Integer.MAX_VALUE);
     if (result != null) {
       return result;
     }

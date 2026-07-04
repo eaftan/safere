@@ -1172,6 +1172,45 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceAll() using OnePass replace path")
+    void replaceAllOnePass() {
+      // 1. Simple OnePass pattern with backreference
+      Pattern p1 = Pattern.compile("(\\w+)-(\\d+)");
+      Matcher m1 = p1.matcher("apple-123 banana-456 cherry-789");
+      assertThat(m1.replaceAll("$2:$1")).isEqualTo("123:apple 456:banana 789:cherry");
+
+      // 2. Named group reference in OnePass
+      Pattern p2 = Pattern.compile("(?<word>\\w+)-(?<num>\\d+)");
+      Matcher m2 = p2.matcher("apple-123 banana-456");
+      assertThat(m2.replaceAll("${num}:${word}")).isEqualTo("123:apple 456:banana");
+
+      // 3. No match in OnePass path
+      Matcher m3 = p1.matcher("no matches here");
+      assertThat(m3.replaceAll("$2:$1")).isEqualTo("no matches here");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() using OnePass replace path")
+    void replaceFirstOnePass() {
+      Pattern p1 = Pattern.compile("(\\w+)-(\\d+)");
+      Matcher m1 = p1.matcher("apple-123 banana-456 cherry-789");
+      assertThat(m1.replaceFirst("$2:$1")).isEqualTo("123:apple banana-456 cherry-789");
+
+      // Verify that after replaceFirst(OnePass), the matcher state retains the first match
+      assertThat(m1.group(0)).isEqualTo("apple-123");
+      assertThat(m1.group(1)).isEqualTo("apple");
+      assertThat(m1.group(2)).isEqualTo("123");
+      assertThat(m1.start(1)).isEqualTo(0);
+      assertThat(m1.end(2)).isEqualTo(9);
+
+      // Named group in replaceFirst
+      Pattern p2 = Pattern.compile("(?<word>\\w+)-(?<num>\\d+)");
+      Matcher m2 = p2.matcher("apple-123 banana-456");
+      assertThat(m2.replaceFirst("${num}:${word}")).isEqualTo("123:apple banana-456");
+      assertThat(m2.group("word")).isEqualTo("apple");
+    }
+
+    @Test
     @DisplayName("replaceAll with group references preserves start-anchor find semantics")
     void replaceAllWithGroupReferencesPreservesStartAnchorFindSemantics() {
       String[][] cases = {
