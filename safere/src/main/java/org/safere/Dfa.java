@@ -1261,6 +1261,8 @@ final class Dfa {
           return null; // budget exceeded
         }
         addTransition(s, cls, ns);
+        transitions = this.transitions;
+        offsetToState = this.offsetToState;
       }
       s = ns;
       if (s == deadState) {
@@ -1333,6 +1335,8 @@ final class Dfa {
             return null; // budget exceeded
           }
           addTransition(s, cls, ns);
+          transitions = this.transitions;
+          offsetToState = this.offsetToState;
         }
       }
 
@@ -1515,6 +1519,8 @@ final class Dfa {
           return null; // budget exceeded
         }
         addTransition(s, cls, ns);
+        transitions = this.transitions;
+        offsetToState = this.offsetToState;
       }
       s = ns;
       if (s == deadState) {
@@ -1601,6 +1607,8 @@ final class Dfa {
             return null; // budget exceeded
           }
           addTransition(s, cls, ns);
+          transitions = this.transitions;
+          offsetToState = this.offsetToState;
         }
       }
       s = ns;
@@ -1728,6 +1736,8 @@ final class Dfa {
             return null; // budget exceeded
           }
           addTransition(s, cls, ns);
+          transitions = this.transitions;
+          offsetToState = this.offsetToState;
           nsId = transitions[sId + cls];
         }
         if (nsId == 0) { // deadState
@@ -1807,6 +1817,8 @@ final class Dfa {
               return null; // budget exceeded
             }
             addTransition(s, cls, ns);
+            transitions = this.transitions;
+            offsetToState = this.offsetToState;
           }
         }
         s = ns;
