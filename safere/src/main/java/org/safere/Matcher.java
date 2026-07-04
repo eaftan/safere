@@ -2177,13 +2177,9 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     reset();
-    if (enginePathOptions().charClassReplacementFastPath()
-        && parentPattern.charClassMatchRanges() != null
-        && !parentPattern.charClassMatchAllowEmpty()) {
-      String fastResult = charClassReplaceFastPath(replacement, 1);
-      if (fastResult != null) {
-        return fastResult;
-      }
+    String fastResult = charClassReplaceFastPath(replacement, 1);
+    if (fastResult != null) {
+      return fastResult;
     }
     if (!find()) {
       return text;
@@ -2227,13 +2223,9 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     reset();
-    if (enginePathOptions().charClassReplacementFastPath()
-        && parentPattern.charClassMatchRanges() != null
-        && !parentPattern.charClassMatchAllowEmpty()) {
-      String fastResult = charClassReplaceFastPath(replacement, Integer.MAX_VALUE);
-      if (fastResult != null) {
-        return fastResult;
-      }
+    String fastResult = charClassReplaceFastPath(replacement, Integer.MAX_VALUE);
+    if (fastResult != null) {
+      return fastResult;
     }
     if (!find()) {
       return text;
@@ -2281,6 +2273,11 @@ public final class Matcher implements MatchResult {
   }
 
   private String charClassReplaceFastPath(String replacement, int limit) {
+    if (!enginePathOptions().charClassReplacementFastPath()
+        || parentPattern.charClassMatchRanges() == null
+        || parentPattern.charClassMatchAllowEmpty()) {
+      return null;
+    }
     ReplacementSegment[] template;
     try {
       template = compileReplacementTemplate(replacement, 0);
