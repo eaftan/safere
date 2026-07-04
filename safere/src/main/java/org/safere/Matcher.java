@@ -961,8 +961,7 @@ public final class Matcher implements MatchResult {
     return enginePathOptions().dfa()
         && enginePathOptions().reverseDfa()
         && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
-        && !parentPattern.prog().anchorStart()
-        && reverseDfa() != null;
+        && !parentPattern.prog().anchorStart();
   }
 
   /**
@@ -1240,7 +1239,7 @@ public final class Matcher implements MatchResult {
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     boolean hasAcceleratedSearchPath =
         (parentPattern.prefix() != null)
-            || (canUseReverseDfa() && prog.anchorEnd() && text.length() >= MIN_REVERSE_FIRST_LEN);
+            || (prog.anchorEnd() && text.length() >= MIN_REVERSE_FIRST_LEN && canUseReverseDfa());
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
         && !hasAcceleratedSearchPath
@@ -1347,10 +1346,10 @@ public final class Matcher implements MatchResult {
     //
     // A null result from the reverse DFA means the DFA budget was exceeded — in that case we
     // must fall through to the normal forward DFA path rather than returning false.
-    if (canUseReverseDfa()
-        && !regionActive
+    if (!regionActive
         && prog.anchorEnd()
-        && text.length() >= MIN_REVERSE_FIRST_LEN) {
+        && text.length() >= MIN_REVERSE_FIRST_LEN
+        && canUseReverseDfa()) {
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {
         int textLen = text.length();
@@ -1521,75 +1520,80 @@ public final class Matcher implements MatchResult {
         }
         if (canUseReverseDfa()) {
           Dfa revDfa = reverseDfa();
-          // Step 2: Reverse DFA backward from earliest match end to find match start.
-          Dfa.SearchResult revResult =
-              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
-          if (revResult != null && revResult.matched()) {
-            int matchStart = revResult.pos();
-            boolean reliableStart = !revResult.ambiguous();
+          if (revDfa != null) {
+            // Step 2: Reverse DFA backward from earliest match end to find match start.
+            Dfa.SearchResult revResult =
+                revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+            if (revResult != null && revResult.matched()) {
+              int matchStart = revResult.pos();
+              boolean reliableStart = !revResult.ambiguous();
 
-            // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
-            // (it can't return early). But the correct leftmost match may end before the
-            // trailing line terminator. The reverse DFA from textLen only finds starts for
-            // matches ending AT textLen, potentially missing an earlier-starting match that
-            // ends before the trailing line terminator. Check all dollar positions.
-            if (prog.dollarAnchorEnd() && earlyEnd == text.length()) {
-              int len = text.length();
-              boolean ul = prog.unixLines();
-              // Try position before trailing line terminator.
-              if (len > 0
-                  && (ul
-                      ? text.charAt(len - 1) == '\n'
-                      : Nfa.isLineTerminator(text.charAt(len - 1)))) {
-                // For \r\n, the trailing terminator starts at len-2 (before \r), not
-                // len-1 (between \r and \n). Skip the earlyEnd-1 check for \r\n.
-                boolean isAtomicCrLf =
-                    !ul && len >= 2 && text.charAt(len - 2) == '\r' && text.charAt(len - 1) == '\n';
-                if (!isAtomicCrLf) {
-                  Dfa.SearchResult altRevResult =
-                      revDfa.doSearchReverse(text, earlyEnd - 1, effectiveStart, true, true);
-                  if (altRevResult != null
-                      && altRevResult.matched()
-                      && altRevResult.pos() < matchStart) {
-                    matchStart = altRevResult.pos();
-                    reliableStart = !altRevResult.ambiguous();
+              // For dollarAnchorEnd patterns, the forward DFA's earlyEnd is always textLen
+              // (it can't return early). But the correct leftmost match may end before the
+              // trailing line terminator. The reverse DFA from textLen only finds starts for
+              // matches ending AT textLen, potentially missing an earlier-starting match that
+              // ends before the trailing line terminator. Check all dollar positions.
+              if (prog.dollarAnchorEnd() && earlyEnd == text.length()) {
+                int len = text.length();
+                boolean ul = prog.unixLines();
+                // Try position before trailing line terminator.
+                if (len > 0
+                    && (ul
+                        ? text.charAt(len - 1) == '\n'
+                        : Nfa.isLineTerminator(text.charAt(len - 1)))) {
+                  // For \r\n, the trailing terminator starts at len-2 (before \r), not
+                  // len-1 (between \r and \n). Skip the earlyEnd-1 check for \r\n.
+                  boolean isAtomicCrLf =
+                      !ul
+                          && len >= 2
+                          && text.charAt(len - 2) == '\r'
+                          && text.charAt(len - 1) == '\n';
+                  if (!isAtomicCrLf) {
+                    Dfa.SearchResult altRevResult =
+                        revDfa.doSearchReverse(text, earlyEnd - 1, effectiveStart, true, true);
+                    if (altRevResult != null
+                        && altRevResult.matched()
+                        && altRevResult.pos() < matchStart) {
+                      matchStart = altRevResult.pos();
+                      reliableStart = !altRevResult.ambiguous();
+                    }
                   }
-                }
-                // For \r\n, try position before \r.
-                if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
-                  Dfa.SearchResult altRevResult2 =
-                      revDfa.doSearchReverse(text, earlyEnd - 2, effectiveStart, true, true);
-                  if (altRevResult2 != null
-                      && altRevResult2.matched()
-                      && altRevResult2.pos() < matchStart) {
-                    matchStart = altRevResult2.pos();
-                    reliableStart = !altRevResult2.ambiguous();
+                  // For \r\n, try position before \r.
+                  if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
+                    Dfa.SearchResult altRevResult2 =
+                        revDfa.doSearchReverse(text, earlyEnd - 2, effectiveStart, true, true);
+                    if (altRevResult2 != null
+                        && altRevResult2.matched()
+                        && altRevResult2.pos() < matchStart) {
+                      matchStart = altRevResult2.pos();
+                      reliableStart = !altRevResult2.ambiguous();
+                    }
                   }
                 }
               }
-            }
 
-            if (!reliableStart) {
-              matchStart = -1;
-            }
-
-            // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
-            if (matchStart >= 0) {
-              Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
-              if (fwdFirst != null && fwdFirst.matched()) {
-                int matchEnd = fwdFirst.pos();
-                // Step 4: Store group(0) boundaries, defer inner captures until requested.
-                return applyDeferredMatchResult(
-                    matchStart,
-                    matchEnd,
-                    prog.numCaptures(),
-                    parentPattern.dfaGroupZeroReliable(),
-                    false);
+              if (!reliableStart) {
+                matchStart = -1;
               }
+
+              // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
+              if (matchStart >= 0) {
+                Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+                if (fwdFirst != null && fwdFirst.matched()) {
+                  int matchEnd = fwdFirst.pos();
+                  // Step 4: Store group(0) boundaries, defer inner captures until requested.
+                  return applyDeferredMatchResult(
+                      matchStart,
+                      matchEnd,
+                      prog.numCaptures(),
+                      parentPattern.dfaGroupZeroReliable(),
+                      false);
+                }
+              }
+              // If anchored forward DFA fails, fall through to full search.
             }
-            // If anchored forward DFA fails, fall through to full search.
+            // If reverse DFA bails out, fall through to full search.
           }
-          // If reverse DFA bails out, fall through to full search.
         }
       }
     }
@@ -2833,7 +2837,15 @@ public final class Matcher implements MatchResult {
 
       buffer.add(start, end);
       last = end;
-      searchFrom = (start == end) ? end + 1 : end;
+      if (start == end) {
+        searchFrom = end + 1;
+      } else if (parentPattern.hasInternalGraphemeClusterBoundary()
+          && end < textLen
+          && endedAfterCrLf(end)) {
+        searchFrom = end + 1;
+      } else {
+        searchFrom = end;
+      }
     }
     return buffer.size / 2;
   }
@@ -2933,13 +2945,15 @@ public final class Matcher implements MatchResult {
         }
       } else if (canUseReverseDfa()) {
         Dfa revDfa = reverseDfa();
-        Dfa.SearchResult revResult =
-            revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
-        if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
-          int matchStart = revResult.pos();
-          Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
-          if (fwdFirst != null && fwdFirst.matched()) {
-            return packPositions(matchStart, fwdFirst.pos());
+        if (revDfa != null) {
+          Dfa.SearchResult revResult =
+              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+          if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
+            int matchStart = revResult.pos();
+            Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+            if (fwdFirst != null && fwdFirst.matched()) {
+              return packPositions(matchStart, fwdFirst.pos());
+            }
           }
         }
       }

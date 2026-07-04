@@ -584,8 +584,10 @@ public final class Pattern implements Serializable {
     if (matchesCount == 0) {
       return new String[] {text};
     }
-    int partsCount =
-        (limit > 0) ? Math.min(2 * limit - 1, 2 * matchesCount + 1) : 2 * matchesCount + 1;
+    int partsCount = 2 * matchesCount + 1;
+    if (limit > 0) {
+      partsCount = (int) Math.min(2L * limit - 1, partsCount);
+    }
     String[] parts = new String[partsCount];
     int last = 0;
     int i = 0;
