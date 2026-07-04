@@ -123,7 +123,8 @@ public final class RE2FfmPattern {
         MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
         MemorySegment matchesSeg = arena.allocate(ValueLayout.JAVA_INT, 2L * maxMatches);
 
-        numMatches = Re2Shim.findAll(nativeHandle, textSeg, inputUtf8.length, matchesSeg, maxMatches);
+        numMatches =
+            Re2Shim.findAll(nativeHandle, textSeg, inputUtf8.length, matchesSeg, maxMatches);
 
         if (numMatches < maxMatches || limit > 0) {
           byteOffsets = new int[2 * numMatches];
