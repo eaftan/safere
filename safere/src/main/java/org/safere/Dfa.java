@@ -1335,8 +1335,6 @@ final class Dfa {
             return null; // budget exceeded
           }
           addTransition(s, cls, ns);
-          transitions = this.transitions;
-          offsetToState = this.offsetToState;
         }
       }
 
@@ -1607,8 +1605,6 @@ final class Dfa {
             return null; // budget exceeded
           }
           addTransition(s, cls, ns);
-          transitions = this.transitions;
-          offsetToState = this.offsetToState;
         }
       }
       s = ns;
@@ -1817,8 +1813,6 @@ final class Dfa {
               return null; // budget exceeded
             }
             addTransition(s, cls, ns);
-            transitions = this.transitions;
-            offsetToState = this.offsetToState;
           }
         }
         s = ns;
