@@ -165,6 +165,10 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   exactly which verification has run and which verification has not run.
   Use `@DisabledForCrosscheck("reason")` on original SafeRE tests for cases
   that should be visible as disabled only in generated crosscheck coverage.
+- When creating PRs, use a normal descriptive title. Do not prefix titles with
+  `[codex]` unless explicitly requested.
+- Create ready-for-review PRs by default. Use draft PRs only when explicitly
+  requested or when the work is known to be incomplete.
 - **Update existing PRs — do not close and reopen.** Push commits (or
   force-push if rebasing) to the existing branch. Closing and reopening PRs
   loses review context and clutters the issue tracker.
