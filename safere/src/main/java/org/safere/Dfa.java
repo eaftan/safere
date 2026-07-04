@@ -1206,6 +1206,7 @@ final class Dfa {
 
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
+    int[] asciiClassMap = this.asciiClassMap;
     int pos = startPos;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
@@ -1440,6 +1441,7 @@ final class Dfa {
 
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
+    int[] asciiClassMap = this.asciiClassMap;
     int pos = endPos;
     // Fast path: scan backward through ASCII characters
     while (pos > startLimit) {
@@ -1704,6 +1706,7 @@ final class Dfa {
     if (s != deadState) {
       int[] transitions = this.transitions;
       State[] offsetToState = this.offsetToState;
+      int[] asciiClassMap = this.asciiClassMap;
       int pos = 0;
       // Fast path: scan forward through ASCII characters
       int sId = s.id * numClasses;
