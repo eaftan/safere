@@ -584,6 +584,7 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 		matchInput    map[string]any
 		nonMatchInput map[string]any
 		re            *regexp.Regexp
+		fullRe        *regexp.Regexp
 	}
 
 	rawCases, ok := sec["cases"].([]any)
@@ -599,14 +600,14 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		op := getString(item, "op")
-		if op != "find" && op != "replaceAllEmpty" && op != "replaceAllGroup1" && op != "replaceAllLiteral" {
+		if op != "find" && op != "matches" && op != "replaceAllEmpty" && op != "replaceAllGroup1" && op != "replaceAllLiteral" {
 			fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex op: %s\n", op)
 			os.Exit(1)
 		}
 		pattern := getString(item, "pattern")
 		matchInput, _ := item["matchInput"].(map[string]any)
 		nonMatchInput, _ := item["nonMatchInput"].(map[string]any)
-		cases = append(cases, realWorldCase{
+		c := realWorldCase{
 			name:          getString(item, "name"),
 			op:            op,
 			pattern:       pattern,
@@ -615,7 +616,11 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			matchInput:    matchInput,
 			nonMatchInput: nonMatchInput,
 			re:            regexp.MustCompile(pattern),
-		})
+		}
+		if op == "matches" {
+			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+		}
+		cases = append(cases, c)
 	}
 
 	for _, c := range cases {
@@ -641,6 +646,10 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 				if c.op == "find" {
 					printJSON(measureNs(name, func() {
 						sink = c.re.FindStringIndex(text) != nil
+					}))
+				} else if c.op == "matches" {
+					printJSON(measureNs(name, func() {
+						sink = c.fullRe.MatchString(text)
 					}))
 				} else if c.op == "replaceAllEmpty" {
 					printJSON(measureNs(name, func() {

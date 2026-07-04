@@ -42,6 +42,7 @@ final class RealWorldRegexCase {
     String match = requireString(obj, "match");
     String nonMatch = requireString(obj, "nonMatch");
     if (!"find".equals(op)
+        && !"matches".equals(op)
         && !"replaceAllEmpty".equals(op)
         && !"replaceAllGroup1".equals(op)
         && !"replaceAllLiteral".equals(op)) {

@@ -362,6 +362,19 @@
         }
       },
       {
+        "name": "greedyOnePass",
+        "pattern": "^(.+)",
+        "op": "matches",
+        "match": "abcdefghijklmnopqrstuvwxyz",
+        "nonMatch": "\nabcdefghijklmnopqrstuvwxyz",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
         "name": "layoutBlock",
         "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
         "op": "replaceAllEmpty",

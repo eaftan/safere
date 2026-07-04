@@ -631,7 +631,7 @@ void run_real_world_regex_benchmarks(
               c.name.c_str());
       exit(1);
     }
-    if (c.op != "find" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1" && c.op != "replaceAllLiteral") {
+    if (c.op != "find" && c.op != "matches" && c.op != "replaceAllEmpty" && c.op != "replaceAllGroup1" && c.op != "replaceAllLiteral") {
       fprintf(stderr, "ERROR: invalid real-world regex op: %s\n",
               c.op.c_str());
       exit(1);
@@ -654,6 +654,10 @@ void run_real_world_regex_benchmarks(
         if (c.op == "find") {
           print_json(measure(name, [&]() {
             do_not_optimize(RE2::PartialMatch(text, c.re));
+          }));
+        } else if (c.op == "matches") {
+          print_json(measure(name, [&]() {
+            do_not_optimize(RE2::FullMatch(text, c.re));
           }));
         } else if (c.op == "replaceAllEmpty") {
           print_json(measure(name, [&]() {
