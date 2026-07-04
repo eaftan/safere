@@ -5,11 +5,9 @@
 
 package org.safere;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.TreeSet;
@@ -679,12 +677,7 @@ final class Dfa {
         insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
     s =
         new State(
-            nextStateId++,
-            insts,
-            flags,
-            wordBoundaryMatchIds,
-            numClasses,
-            isHighestPriorityMatch);
+            nextStateId++, insts, flags, wordBoundaryMatchIds, numClasses, isHighestPriorityMatch);
     addStateToFlatArrays(s);
     cache.put(lookupKey.copy(), s);
     return s;
