@@ -134,6 +134,13 @@ class PatternInternalTest {
   }
 
   @Test
+  void deeplyNestedConcatPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedPrefixConcatPattern(1_000));
+
+    assertThat(p.prefix()).isEqualTo("foo");
+  }
+
+  @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
 
@@ -200,6 +207,18 @@ class PatternInternalTest {
     regex.append('a');
     for (int i = 0; i < depth; i++) {
       regex.append("|b)");
+    }
+    return regex.toString();
+  }
+
+  private static String nestedPrefixConcatPattern(int depth) {
+    StringBuilder regex = new StringBuilder(depth * 3 + 3);
+    for (int i = 0; i < depth; i++) {
+      regex.append('(');
+    }
+    regex.append("foo");
+    for (int i = 0; i < depth; i++) {
+      regex.append(")x");
     }
     return regex.toString();
   }
