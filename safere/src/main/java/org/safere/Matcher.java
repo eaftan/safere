@@ -2633,9 +2633,6 @@ public final class Matcher implements MatchResult {
       sb.append(replacement);
       return;
     }
-    if (!capturesResolved) {
-      resolveCaptures();
-    }
     int i = 0;
     while (i < replacement.length()) {
       char c = replacement.charAt(i);
@@ -2668,8 +2665,8 @@ public final class Matcher implements MatchResult {
             throw new IllegalArgumentException("No group with name <" + name + ">");
           }
           int g = idx;
-          int start = groups[2 * g];
-          int end = groups[2 * g + 1];
+          int start = start(g);
+          int end = end(g);
           if (start >= 0 && end >= 0) {
             sb.append(text, start, end);
           }
@@ -2677,10 +2674,9 @@ public final class Matcher implements MatchResult {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, groupCount());
           int groupIdx = groupRef.groupNum();
-          checkGroup(groupIdx);
           i = groupRef.end();
-          int start = groups[2 * groupIdx];
-          int end = groups[2 * groupIdx + 1];
+          int start = start(groupIdx);
+          int end = end(groupIdx);
           if (start >= 0 && end >= 0) {
             sb.append(text, start, end);
           }
