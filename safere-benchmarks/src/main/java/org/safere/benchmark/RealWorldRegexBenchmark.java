@@ -125,6 +125,7 @@ public class RealWorldRegexBenchmark {
     "charReplace",
     "layoutBlock",
     "unicodeClassPrefix",
+    "turnTitleWhitespaceCjk",
     "cjkSearch",
     "emojiSearch"
   })
