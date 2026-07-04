@@ -349,7 +349,7 @@
         "pattern": "^(.+)",
         "op": "matches",
         "match": "abcdefghijklmnopqrstuvwxyz",
-        "nonMatch": "",
+        "nonMatch": "\nabcdefghijklmnopqrstuvwxyz",
         "matchInput": {
           "kind": "repeat"
         },
