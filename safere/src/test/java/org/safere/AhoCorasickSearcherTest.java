@@ -108,8 +108,24 @@ class AhoCorasickSearcherTest {
   }
 
   @Test
+  void testAhoCorasickSearcher_returnsEarliestStartForOverlappingMatches() {
+    AhoCorasickSearcher searcher = new AhoCorasickSearcher(List.of("abcd", "bc"), false);
+    assertThat(searcher.findNext("abcdz", 0)).isEqualTo(0);
+  }
+
+  @Test
   void testAhoCorasickSearcher_unicodeMatch() {
     AhoCorasickSearcher searcher = new AhoCorasickSearcher(List.of("乳", "卵", "奶"), false);
     assertThat(searcher.findNext("这包含乳製品", 0)).isEqualTo(3);
+  }
+
+  @Test
+  void testAhoCorasickPrefilterPreservesLeftmostMatchStart() {
+    String input = "x".repeat(5000) + "abcdz ";
+    Matcher matcher = Pattern.compile("(?:abcd|bc)z\\b").matcher(input);
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(5000);
+    assertThat(matcher.end()).isEqualTo(5005);
   }
 }

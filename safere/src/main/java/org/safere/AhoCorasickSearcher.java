@@ -32,14 +32,19 @@ public final class AhoCorasickSearcher {
   private final int[] failureLinks;
   private final int[] matchIndices;
   private final int[] patternLengths;
+  private final int maxPatternLength;
   private final boolean caseInsensitive;
 
   public AhoCorasickSearcher(List<String> patterns, boolean caseInsensitive) {
     this.caseInsensitive = caseInsensitive;
     this.patternLengths = new int[patterns.size()];
+    int maxLen = 0;
     for (int i = 0; i < patterns.size(); i++) {
-      this.patternLengths[i] = patterns.get(i).length();
+      int length = patterns.get(i).length();
+      this.patternLengths[i] = length;
+      maxLen = Math.max(maxLen, length);
     }
+    this.maxPatternLength = maxLen;
 
     BuilderNode root = new BuilderNode();
 
@@ -143,12 +148,13 @@ public final class AhoCorasickSearcher {
   }
 
   /**
-   * Scans the text starting from the given offset, and returns the start index of the first matched
-   * literal pattern. Returns -1 if no matches are found.
+   * Scans the text starting from the given offset, and returns the earliest start index of any
+   * matched literal pattern. Returns -1 if no matches are found.
    */
   public int findNext(CharSequence text, int start) {
     int state = 0;
     int len = text.length();
+    int bestStart = -1;
     // Split the search loop based on case-insensitivity to avoid evaluating the conditional on
     // every character iteration. This eliminates branching in the inner matching loops.
     if (caseInsensitive) {
@@ -164,7 +170,13 @@ public final class AhoCorasickSearcher {
         if (matchIndices[state] != -1) {
           int patternIdx = matchIndices[state];
           int patternLen = patternLengths[patternIdx];
-          return i - patternLen + 1; // Start index of the match
+          int matchStart = i - patternLen + 1;
+          if (bestStart < 0 || matchStart < bestStart) {
+            bestStart = matchStart;
+          }
+        }
+        if (canReturnBestStart(bestStart, i)) {
+          return bestStart;
         }
       }
     } else {
@@ -180,10 +192,20 @@ public final class AhoCorasickSearcher {
         if (matchIndices[state] != -1) {
           int patternIdx = matchIndices[state];
           int patternLen = patternLengths[patternIdx];
-          return i - patternLen + 1; // Start index of the match
+          int matchStart = i - patternLen + 1;
+          if (bestStart < 0 || matchStart < bestStart) {
+            bestStart = matchStart;
+          }
+        }
+        if (canReturnBestStart(bestStart, i)) {
+          return bestStart;
         }
       }
     }
-    return -1;
+    return bestStart;
+  }
+
+  private boolean canReturnBestStart(int bestStart, int currentIndex) {
+    return bestStart >= 0 && currentIndex >= bestStart + maxPatternLength - 1;
   }
 }
