@@ -9,7 +9,6 @@ package org.safere;
 
 import java.io.Serializable;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
@@ -510,40 +509,34 @@ public final class Pattern implements Serializable {
   public String[] split(CharSequence input, int limit) {
     String text = charSequenceToString(input);
     Matcher m = matcher(text);
-    List<String> parts = new ArrayList<>();
-    int last = 0;
-
-    while (m.find()) {
-      if (limit > 0 && parts.size() >= limit - 1) {
-        break;
-      }
-      // JDK 8+: a zero-width match at the beginning of the input never produces
-      // a leading empty substring.
-      if (last == 0 && m.start() == 0 && m.end() == 0) {
-        continue;
-      }
-      parts.add(text.substring(last, m.start()));
-      last = m.end();
-    }
-    // If no match advanced the position, return the entire input as a single element.
-    // This matches JDK behavior: an input that was never actually split is returned as-is,
-    // bypassing trailing-empty-string removal.
-    if (last == 0) {
+    Matcher.SplitBuffer buffer = new Matcher.SplitBuffer();
+    int matchesCount = m.findSplitPositions(limit, buffer);
+    if (matchesCount == 0) {
       return new String[] {text};
     }
+    int partsCount = (limit > 0) ? Math.min(limit, matchesCount + 1) : matchesCount + 1;
+    String[] parts = new String[partsCount];
+    int last = 0;
+    int i = 0;
+    while (i < partsCount - 1) {
+      int start = buffer.array[2 * i];
+      int end = buffer.array[2 * i + 1];
+      parts[i] = text.substring(last, start);
+      last = end;
+      i++;
+    }
+    parts[i] = text.substring(last);
 
-    parts.add(text.substring(last));
-
-    // limit == 0: remove trailing empty strings.
     if (limit == 0) {
-      int end = parts.size();
-      while (end > 0 && parts.get(end - 1).isEmpty()) {
+      int end = partsCount;
+      while (end > 0 && parts[end - 1].isEmpty()) {
         end--;
       }
-      parts = parts.subList(0, end);
+      if (end < partsCount) {
+        parts = Arrays.copyOf(parts, end);
+      }
     }
-
-    return parts.toArray(new String[0]);
+    return parts;
   }
 
   /**
@@ -587,39 +580,39 @@ public final class Pattern implements Serializable {
   public String[] splitWithDelimiters(CharSequence input, int limit) {
     String text = charSequenceToString(input);
     Matcher m = matcher(text);
-    List<String> parts = new ArrayList<>();
-    int last = 0;
-
-    while (m.find()) {
-      if (limit > 0 && parts.size() >= 2 * limit - 2) {
-        break;
-      }
-      // JDK 8+: a zero-width match at the beginning of the input never produces
-      // a leading empty substring or empty delimiter.
-      if (last == 0 && m.start() == 0 && m.end() == 0) {
-        continue;
-      }
-      parts.add(text.substring(last, m.start()));
-      parts.add(text.substring(m.start(), m.end()));
-      last = m.end();
-    }
-    // If no match advanced the position, return the entire input as a single element.
-    if (last == 0) {
+    Matcher.SplitBuffer buffer = new Matcher.SplitBuffer();
+    int matchesCount = m.findSplitPositions(limit, buffer);
+    if (matchesCount == 0) {
       return new String[] {text};
     }
+    int partsCount = 2 * matchesCount + 1;
+    if (limit > 0) {
+      partsCount = (int) Math.min(2L * limit - 1, partsCount);
+    }
+    String[] parts = new String[partsCount];
+    int last = 0;
+    int i = 0;
+    int matchIdx = 0;
+    while (i < partsCount - 1) {
+      int start = buffer.array[2 * matchIdx];
+      int end = buffer.array[2 * matchIdx + 1];
+      parts[i++] = text.substring(last, start);
+      parts[i++] = text.substring(start, end);
+      last = end;
+      matchIdx++;
+    }
+    parts[i] = text.substring(last);
 
-    parts.add(text.substring(last));
-
-    // limit == 0: remove trailing empty strings.
     if (limit == 0) {
-      int end = parts.size();
-      while (end > 0 && parts.get(end - 1).isEmpty()) {
+      int end = partsCount;
+      while (end > 0 && parts[end - 1].isEmpty()) {
         end--;
       }
-      parts = parts.subList(0, end);
+      if (end < partsCount) {
+        parts = Arrays.copyOf(parts, end);
+      }
     }
-
-    return parts.toArray(new String[0]);
+    return parts;
   }
 
   /**
