@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Eddie Aftandilian. Licensed under the MIT License.
 // See LICENSE file in the project root for details.
 
-#include "third_party/java/safere/safere-ffm-re2/src/main/native/re2_shim.h"
+#include "re2_shim.h"
 #include <cstring>
 #include <string>
 #include <vector>
