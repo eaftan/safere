@@ -187,6 +187,11 @@ final class Dfa {
    */
   private final int[] asciiClassMap;
 
+  /** Cache for mapping code points >= 128 to their equivalence class. */
+  private final int[] cacheCps = new int[256];
+
+  private final int[] cacheClasses = new int[256];
+
   /** State cache: maps instruction-set + flags to canonical State instance. */
   private final Map<StateKey, State> cache = new HashMap<>();
 
@@ -279,6 +284,7 @@ final class Dfa {
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.asciiClassMap = setup.asciiClassMap;
+    Arrays.fill(this.cacheCps, -1);
     this.expandVisitedGen = new int[prog.size()];
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
@@ -433,11 +439,15 @@ final class Dfa {
     if (cp < 128) {
       return asciiClassMap[cp];
     }
-    int idx = Arrays.binarySearch(boundaries, cp);
-    if (idx >= 0) {
-      return idx;
+    int cacheIdx = cp & 255;
+    if (cacheCps[cacheIdx] == cp) {
+      return cacheClasses[cacheIdx];
     }
-    return (-idx - 1) - 1;
+    int idx = Arrays.binarySearch(boundaries, cp);
+    int cls = (idx >= 0) ? idx : (-idx - 1) - 1;
+    cacheCps[cacheIdx] = cp;
+    cacheClasses[cacheIdx] = cls;
+    return cls;
   }
 
   // ---------------------------------------------------------------------------
