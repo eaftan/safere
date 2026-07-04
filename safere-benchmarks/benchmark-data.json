@@ -338,7 +338,7 @@
         "match": "CA",
         "nonMatch": "XX",
         "matchInput": {
-          "kind": "repeat"
+          "kind": "exact"
         },
         "nonMatchInput": {
           "kind": "repeat"

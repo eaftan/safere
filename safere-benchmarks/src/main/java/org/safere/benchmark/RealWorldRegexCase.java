@@ -104,6 +104,7 @@ final class RealWorldRegexCase {
       JsonObject spec = obj.getAsJsonObject(field);
       String kind = requireString(spec, "kind");
       return switch (kind) {
+        case "exact" -> new InputSpec(kind, "", "", "", "", "", 0, 0, "");
         case "repeat" -> repeat();
         case "prefixedRepeat" ->
             new InputSpec(kind, requireString(spec, "prefix"), "", "", "", "", 0, 0, "");
