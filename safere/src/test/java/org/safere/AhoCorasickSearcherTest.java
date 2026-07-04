@@ -64,6 +64,15 @@ class AhoCorasickSearcherTest {
   }
 
   @Test
+  void testLiteralExtractor_respectsNonFoldableLiteralFlags() {
+    Regexp re = Parser.parse("(?i)İx", ParseFlags.LIKE_PERL);
+    LiteralExtractor.Result result = LiteralExtractor.extract(re);
+    assertThat(result).isNotNull();
+    assertThat(result.literals).containsExactly("İx");
+    assertThat(result.isCaseInsensitive).isTrue();
+  }
+
+  @Test
   void testLiteralExtractor_requiredSubstringInfix() {
     Regexp re = Parser.parse(".*careers/.*", ParseFlags.LIKE_PERL);
     LiteralExtractor.Result result = LiteralExtractor.extract(re);
@@ -127,5 +136,14 @@ class AhoCorasickSearcherTest {
     assertThat(matcher.find()).isTrue();
     assertThat(matcher.start()).isEqualTo(5000);
     assertThat(matcher.end()).isEqualTo(5005);
+  }
+
+  @Test
+  void testAhoCorasickPrefilterPreservesAsciiCaseInsensitiveNonFoldableLiteral() {
+    Matcher matcher = Pattern.compile("(?i)İx").matcher("İx");
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(2);
+    assertThat(Pattern.compile("(?i)İx").matcher("ix").find()).isFalse();
   }
 }

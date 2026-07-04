@@ -55,7 +55,7 @@ public final class AhoCorasickSearcher {
       for (int j = 0; j < pattern.length(); j++) {
         char c = pattern.charAt(j);
         if (caseInsensitive) {
-          c = Character.toLowerCase(c);
+          c = asciiLower(c);
         }
         curr = curr.children.computeIfAbsent(c, k -> new BuilderNode());
       }
@@ -159,7 +159,7 @@ public final class AhoCorasickSearcher {
     // every character iteration. This eliminates branching in the inner matching loops.
     if (caseInsensitive) {
       for (int i = start; i < len; i++) {
-        char c = Character.toLowerCase(text.charAt(i));
+        char c = asciiLower(text.charAt(i));
         int next = nextState(state, c);
         while (next == -1 && state != 0) {
           state = failureLinks[state];
@@ -207,5 +207,9 @@ public final class AhoCorasickSearcher {
 
   private boolean canReturnBestStart(int bestStart, int currentIndex) {
     return bestStart >= 0 && currentIndex >= bestStart + maxPatternLength - 1;
+  }
+
+  private static char asciiLower(char c) {
+    return ('A' <= c && c <= 'Z') ? (char) (c + ('a' - 'A')) : c;
   }
 }
