@@ -338,8 +338,11 @@
         "match": "{\n  \"key1\": \"value1\",\n  \"key2\": \"value2\",\n  \"key3\": \"value3\"\n}",
         "nonMatch": "some non-matching string containing no braces",
         "matchInput": {
-          "kind": "surroundWithSpaces",
-          "body": "{ \"key\": \"value\", \"padding\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\" }"
+          "kind": "scaledSurroundWithSpaces",
+          "bodyPrefix": "{ \"key\": \"value\", \"padding\": \"",
+          "bodyFill": "a",
+          "bodySuffix": "\" }",
+          "bodyScalePercent": 5
         },
         "nonMatchInput": {
           "kind": "repeat"

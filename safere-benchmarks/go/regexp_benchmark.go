@@ -318,6 +318,13 @@ func generateRealWorldInput(
 	case "surroundWithSpaces":
 		body := getString(inputSpec, "body")
 		return generateSurroundWithSpacesInput(body, size)
+	case "scaledSurroundWithSpaces":
+		return generateScaledSurroundWithSpacesInput(
+			getString(inputSpec, "bodyPrefix"),
+			getString(inputSpec, "bodySuffix"),
+			getString(inputSpec, "bodyFill"),
+			getInt(inputSpec, "bodyScalePercent"),
+			size)
 	default:
 		fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex input kind: %s\n", kind)
 		os.Exit(1)
@@ -333,6 +340,29 @@ func generateSurroundWithSpacesInput(body string, size int) string {
 	leadingPadding := totalPadding / 2
 	trailingPadding := totalPadding - leadingPadding
 	return strings.Repeat(" ", leadingPadding) + body + strings.Repeat(" ", trailingPadding)
+}
+
+func generateScaledSurroundWithSpacesInput(
+	bodyPrefix string, bodySuffix string, bodyFill string, bodyScalePercent int, size int,
+) string {
+	if bodyFill == "" {
+		fmt.Fprintln(os.Stderr, "ERROR: scaledSurroundWithSpaces requires non-empty bodyFill")
+		os.Exit(1)
+	}
+	fixedBodyLength := len(bodyPrefix) + len(bodySuffix)
+	targetBodyLength := size * bodyScalePercent / 100
+	if targetBodyLength < fixedBodyLength {
+		targetBodyLength = fixedBodyLength
+	}
+	if targetBodyLength > size {
+		targetBodyLength = size
+	}
+	fillLength := targetBodyLength - fixedBodyLength
+	if fillLength < 0 {
+		fillLength = 0
+	}
+	body := bodyPrefix + repeatToSize(bodyFill, fillLength) + bodySuffix
+	return generateSurroundWithSpacesInput(body, size)
 }
 
 func appendUTF8(b *strings.Builder, cp int) {

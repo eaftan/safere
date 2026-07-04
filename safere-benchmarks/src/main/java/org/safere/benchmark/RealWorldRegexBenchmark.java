@@ -210,9 +210,40 @@ public class RealWorldRegexBenchmark {
               inputSpec.nonMatchRepeats,
               inputSpec.delimiterAlphabet);
       case "surroundWithSpaces" -> generateSurroundWithSpacesInput(inputSpec.body, size);
+      case "scaledSurroundWithSpaces" ->
+          generateScaledSurroundWithSpacesInput(
+              inputSpec.bodyPrefix,
+              inputSpec.bodySuffix,
+              inputSpec.bodyFill,
+              inputSpec.bodyScalePercent,
+              size);
       default ->
           throw new IllegalArgumentException("Unknown real-world input kind: " + inputSpec.kind);
     };
+  }
+
+  private String generateScaledSurroundWithSpacesInput(
+      String bodyPrefix, String bodySuffix, String bodyFill, int bodyScalePercent, int size) {
+    if (bodyFill.isEmpty()) {
+      throw new IllegalArgumentException("scaledSurroundWithSpaces requires non-empty bodyFill");
+    }
+    int fixedBodyLength = bodyPrefix.length() + bodySuffix.length();
+    int targetBodyLength = Math.max(fixedBodyLength, size * bodyScalePercent / 100);
+    targetBodyLength = Math.min(targetBodyLength, size);
+    int fillLength = Math.max(0, targetBodyLength - fixedBodyLength);
+    String body = bodyPrefix + repeatToLength(bodyFill, fillLength) + bodySuffix;
+    return generateSurroundWithSpacesInput(body, size);
+  }
+
+  private String repeatToLength(String unit, int size) {
+    if (size == 0) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder(size);
+    while (sb.length() < size) {
+      sb.append(unit);
+    }
+    return sb.substring(0, size);
   }
 
   private String generateSurroundWithSpacesInput(String body, int size) {
