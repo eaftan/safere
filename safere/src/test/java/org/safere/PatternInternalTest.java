@@ -203,4 +203,17 @@ class PatternInternalTest {
     }
     return regex.toString();
   }
+
+  @Test
+  void prefixExtractionFromNestedCaptureInConcat() {
+    Pattern p1 = Pattern.compile("(foo bar)baz");
+    assertThat(p1.prefix()).isEqualTo("foo bar");
+
+    Pattern p2 = Pattern.compile("(<template name>.*)");
+    assertThat(p2.prefix()).isEqualTo("<template name>");
+
+    // reproducing the actual templateTagMatch pattern structure
+    Pattern p3 = Pattern.compile("(<template name>.*)([^>])");
+    assertThat(p3.prefix()).isEqualTo("<template name>");
+  }
 }

@@ -1538,11 +1538,10 @@ public final class Pattern implements Serializable {
     }
     if (node.op == RegexpOp.CONCAT) {
       for (Regexp child : node.subs) {
-        Regexp candidate = unwrapCaptures(child);
-        if (candidate == null || isLeadingZeroWidth(candidate)) {
-          continue;
+        Regexp candidate = firstPrefixCandidate(child);
+        if (candidate != null) {
+          return candidate;
         }
-        return candidate;
       }
       return null;
     }
