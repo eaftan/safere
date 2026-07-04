@@ -127,7 +127,10 @@ public class RealWorldRegexBenchmark {
     "stateCodes",
     "multiWordPrefixAlternation",
     "intlPhonePrefix",
-    "emailDomain"
+    "emailDomain",
+    "turnTitleWhitespaceCjk",
+    "cjkSearch",
+    "emojiSearch"
   })
   public String patternName;
 
