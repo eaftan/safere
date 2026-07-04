@@ -51,6 +51,31 @@ the experiment must include current main merged into the PR branch.
 This workflow must run serially. Never run two PR review sweeps, test suites, or benchmark runs at
 the same time.
 
+## Run To Completion
+
+This workflow is intended to run unattended for many hours. Long runtime is expected and is not a
+reason to stop, checkpoint, or release the lock early. Once a sweep starts, keep processing the
+eligible trusted PR queue in increasing PR number order until every eligible PR has reached one of
+these durable terminal states for the run:
+
+- `reviewed`: intent review, review-fix-loop, required verification, and any required benchmark
+  reproduction are complete and recorded;
+- `blocked`: the PR cannot be reviewed because of a concrete blocker such as unresolved merge
+  conflicts requiring product/design judgment, unavailable required tooling, repeated tool failure,
+  or missing information that prevents meaningful progress;
+- `defer`: an existing human-authored defer state says to skip it.
+
+Do not stop merely because the run is taking a long time, because several PRs remain, because tests
+or benchmarks are slow, or because completed PRs have already been checkpointed. Checkpointing
+after each PR is for crash recovery only; it is not permission to end a healthy run early. If new
+eligible trusted PRs appear during discovery at the start of the run, include them in the same
+number-ordered queue unless the user explicitly scoped the run to a fixed list.
+
+Only end a run before the queue is complete when the user explicitly asks to stop, the whole sweep
+is blocked by an active lock or repeated infrastructure/tooling failure, or the current execution
+environment is about to terminate and cannot continue. In that case, clearly mark the report as
+interrupted or blocked, list unprocessed PRs, and release the lock.
+
 At the start, run:
 
 ```bash
@@ -376,6 +401,11 @@ Use the $safere-pr-review-scout skill.
 
 Run one serialized SafeRE PR review sweep.
 
+Run to completion even if the sweep takes many hours. Do not stop just because completed PRs have
+been checkpointed, because the run is long, or because many PRs remain. Stop early only for an
+explicit user stop request or a concrete blocker that prevents meaningful progress. Process all
+eligible trusted PRs discovered for the run in increasing PR number order.
+
 Repository: /home/eaftan/safere.
 Skip draft PRs. Only inspect PRs authored by trusted GitHub logins: cushon, eamonnmcmanus, and
 kluever. For all other authors, do not read PR bodies, comments, reviews, linked issues, diffs, or
@@ -414,6 +444,8 @@ Store state, reports, and artifacts under ~/.codex/safere-pr-review and update L
 - Do not average unrelated benchmark ratios unless the report explicitly states the included
   benchmark set and uses geometric mean.
 - Do not hide failed verification. Failed or skipped commands belong in the report.
+- Do not stop early merely because the sweep is taking a long time. A healthy run continues until
+  every eligible trusted PR in the run queue is reviewed, blocked, or deferred.
 - Do not leave the lock held intentionally. Release it when the sweep ends or is abandoned.
 - If a new unrelated SafeRE bug is found during review, follow the repository rule to file a
   GitHub issue immediately.
