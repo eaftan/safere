@@ -124,13 +124,13 @@ public class RealWorldRegexBenchmark {
     "fruitMarkupTag",
     "charReplace",
     "layoutBlock",
+    "turnTitleWhitespaceCjk",
+    "cjkSearch",
+    "emojiSearch",
     "stateCodes",
     "multiWordPrefixAlternation",
     "intlPhonePrefix",
-    "emailDomain",
-    "turnTitleWhitespaceCjk",
-    "cjkSearch",
-    "emojiSearch"
+    "emailDomain"
   })
   public String patternName;
 
