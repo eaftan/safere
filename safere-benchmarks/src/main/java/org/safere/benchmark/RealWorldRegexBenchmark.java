@@ -124,6 +124,7 @@ public class RealWorldRegexBenchmark {
     "fruitMarkupTag",
     "charReplace",
     "layoutBlock",
+    "turnTitleWhitespaceCjk",
     "cjkSearch",
     "emojiSearch"
   })
