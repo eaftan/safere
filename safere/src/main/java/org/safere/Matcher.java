@@ -2914,9 +2914,9 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
-    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
-      int idx = indexOfCharClass(text, ccPrefixAscii, fromIndex);
+    Pattern.CharClassScanInfo charClassPrefix = parentPattern.charClassPrefix();
+    if (options.startAcceleration() && !prog.hasWordBoundary() && charClassPrefix != null) {
+      int idx = indexOfCharClass(text, charClassPrefix, fromIndex);
       if (idx < 0) {
         return -1L;
       }
