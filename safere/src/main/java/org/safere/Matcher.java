@@ -1284,7 +1284,7 @@ public final class Matcher implements MatchResult {
     if (acSearcher != null) {
       int idx = acSearcher.findNext(text, searchFrom);
       if (idx < 0) {
-        return applyEngineResult(new NoMatchResult());
+        return applyFailedMatchResult();
       }
       if (parentPattern.isPureLiteralAlternation()) {
         effectiveStart = idx;
@@ -1300,7 +1300,7 @@ public final class Matcher implements MatchResult {
               ? indexOfIgnoreCase(text, reqLiteral, searchFrom)
               : text.indexOf(reqLiteral, searchFrom);
       if (idx < 0) {
-        return applyEngineResult(new NoMatchResult());
+        return applyFailedMatchResult();
       }
     }
 
