@@ -50,6 +50,12 @@ bool re2_full_match(const re2_pattern_t* p, const char* text, int text_len);
 bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
               int startpos, int32_t* matches_out, int nmatches);
 
+// Finds all matches in the text. Writes start/end offsets sequentially into
+// matches_out (length = 2 * max_matches).
+// Returns the total number of matches found.
+int re2_find_all(const re2_pattern_t* p, const char* text, int text_len,
+                 int32_t* matches_out, int max_matches);
+
 // Replace all occurrences of the pattern in text with rewrite.
 // Writes the result into out_buf (up to out_cap bytes) and sets *out_len
 // to the actual result length. Returns the number of replacements made,
