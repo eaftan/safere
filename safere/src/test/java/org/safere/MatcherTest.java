@@ -1235,11 +1235,57 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceFirst() leaves matcher state at the replaced occurrence")
+    void replaceFirstLeavesMatcherAtReplacedOccurrence() {
+      Matcher m = Pattern.compile("a").matcher("aba");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("Xba");
+
+      assertThat(m.toMatchResult().start()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("replaceFirst() leaves append position after the replaced occurrence")
+    void replaceFirstLeavesAppendPositionAfterReplacedOccurrence() {
+      Matcher m = Pattern.compile("a").matcher("aba");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("Xba");
+      StringBuilder sb = new StringBuilder();
+      m.appendTail(sb);
+
+      assertThat(sb).hasToString("ba");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() preserves dollar-anchor match before trailing line terminator")
+    void replaceFirstPreservesDollarAnchorBeforeTrailingLineTerminator() {
+      Matcher m = Pattern.compile("([^a](\\s\\s)+)*$").matcher("a\n");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("aX\n");
+    }
+
+    @Test
     @DisplayName("replaceAll() with start-anchored pattern replaces correct match")
     void replaceAllStartAnchored() {
       Pattern p = Pattern.compile("^\\d+");
       Matcher m = p.matcher("123abc456");
       assertThat(m.replaceAll("X")).isEqualTo("Xabc456");
+    }
+
+    @Test
+    @DisplayName("replaceAll() leaves matcher exhausted after the final replacement")
+    void replaceAllLeavesMatcherExhaustedAfterFinalReplacement() {
+      Matcher m = Pattern.compile("a").matcher("aba");
+
+      assertThat(m.replaceAll("X")).isEqualTo("XbX");
+
+      StringBuilder sb = new StringBuilder();
+      m.appendTail(sb);
+      assertThat(sb).hasToString("");
+      assertThat(m.find()).isFalse();
+      assertThatThrownBy(() -> m.toMatchResult().start()).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
