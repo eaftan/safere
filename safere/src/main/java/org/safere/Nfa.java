@@ -163,9 +163,6 @@ final class Nfa {
     }
   }
 
-  @SuppressWarnings("ArrayRecordComponent")
-  record SearchResult(int[] groups) {}
-
   private Prog prog;
   private int ncapture;
 
@@ -287,12 +284,11 @@ final class Nfa {
     context = null;
   }
 
-  SearchResult runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos) {
+  int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos) {
     return runSearch(anchored, kind, nsubmatch, endPos, null);
   }
 
-  SearchResult runSearch(
-      boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
+  int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
     if (prog.hasGraphemeSemantics()) {
       doSearchEveryCharPosition(anchored);
     } else {
@@ -300,10 +296,10 @@ final class Nfa {
     }
 
     if (!matched) {
-      return new SearchResult(null);
+      return null;
     }
     if (kind == MatchKind.FULL_MATCH && bestMatch[1] != endPos) {
-      return new SearchResult(null);
+      return null;
     }
 
     int nlen = 2 * nsubmatch;
@@ -313,7 +309,7 @@ final class Nfa {
     if (ncopy < result.length) {
       Arrays.fill(result, ncopy, result.length, -1);
     }
-    return new SearchResult(result);
+    return result;
   }
 
   /**
@@ -328,7 +324,7 @@ final class Nfa {
    *     indices into the text. {@code result[2*i]} is the start of group i, {@code result[2*i+1]}
    *     is the end. -1 means the group did not participate.
    */
-  static SearchResult search(Prog prog, String text, Anchor anchor, MatchKind kind, int nsubmatch) {
+  static int[] search(Prog prog, String text, Anchor anchor, MatchKind kind, int nsubmatch) {
     return search(prog, text, 0, text.length(), text.length(), anchor, kind, nsubmatch);
   }
 
@@ -344,7 +340,7 @@ final class Nfa {
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
    *     indices into the full text.
    */
-  static SearchResult search(
+  static int[] search(
       Prog prog, String text, int startPos, Anchor anchor, MatchKind kind, int nsubmatch) {
     return search(prog, text, startPos, text.length(), text.length(), anchor, kind, nsubmatch);
   }
@@ -364,7 +360,7 @@ final class Nfa {
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match. Positions are char
    *     indices into the full text.
    */
-  static SearchResult search(
+  static int[] search(
       Prog prog,
       String text,
       int startPos,
@@ -375,7 +371,7 @@ final class Nfa {
     return search(prog, text, startPos, searchLimit, text.length(), anchor, kind, nsubmatch);
   }
 
-  static SearchResult search(
+  static int[] search(
       Prog prog,
       String text,
       int startPos,
@@ -387,7 +383,7 @@ final class Nfa {
     return search(prog, text, startPos, searchLimit, endPos, 0, anchor, kind, nsubmatch);
   }
 
-  static SearchResult search(
+  static int[] search(
       Prog prog,
       String text,
       int startPos,
@@ -401,7 +397,7 @@ final class Nfa {
         prog, text, startPos, searchLimit, endPos, regionStart, anchor, kind, nsubmatch, null);
   }
 
-  static SearchResult search(
+  static int[] search(
       Prog prog,
       String text,
       int startPos,
@@ -431,7 +427,7 @@ final class Nfa {
         graphemeContext);
   }
 
-  static SearchResult search(
+  static int[] search(
       Prog prog,
       String text,
       int startPos,
@@ -463,7 +459,7 @@ final class Nfa {
         graphemeContext);
   }
 
-  static SearchResult search(
+  static int[] search(
       Prog prog,
       String text,
       int startPos,
@@ -481,7 +477,7 @@ final class Nfa {
       int nsubmatch,
       GraphemeSupport.Context graphemeContext) {
     if (prog.start() == 0) {
-      return new SearchResult(null);
+      return null;
     }
 
     boolean anchored = (anchor == Anchor.ANCHORED) || prog.anchorStart();

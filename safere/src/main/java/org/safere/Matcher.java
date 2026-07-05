@@ -722,8 +722,8 @@ public final class Matcher implements MatchResult {
     if (onePass != null
         && !prog.hasGraphemeSemantics()
         && !parentPattern.hasNullableAlternation()) {
-      OnePass.SearchResult result = onePass.search(text, true, prog.numCaptures(), this.groups);
-      return applyFullMatchResult(result.groups());
+      int[] result = onePass.search(text, true, prog.numCaptures(), this.groups);
+      return applyFullMatchResult(result);
     }
 
     // Medium path: use DFA to check if a full match exists.
@@ -858,8 +858,8 @@ public final class Matcher implements MatchResult {
         && parentPattern.canOnePassPrimary()
         && !prog.hasGraphemeSemantics()) {
       OnePass onePass = parentPattern.onePass();
-      OnePass.SearchResult result = onePass.search(text, false, prog.numCaptures(), this.groups);
-      return applyFullMatchResult(result.groups());
+      int[] result = onePass.search(text, false, prog.numCaptures(), this.groups);
+      return applyFullMatchResult(result);
     }
 
     // Medium path: use DFA to check if an anchored match exists.
@@ -1265,11 +1265,11 @@ public final class Matcher implements MatchResult {
     if (options.onePass()
         && parentPattern.canOnePassFind()
         && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
-      OnePass.SearchResult result =
+      int[] result =
           parentPattern
               .onePass()
               .search(text, searchFrom, text.length(), false, prog.numCaptures(), this.groups);
-      return applyFullMatchResult(result.groups());
+      return applyFullMatchResult(result);
     }
 
     // Prefix acceleration: if the pattern starts with a literal prefix, skip ahead to where
@@ -1985,11 +1985,11 @@ public final class Matcher implements MatchResult {
     }
 
     Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
-    Nfa.SearchResult nfaResult = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
+    int[] result = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
     cachedNfa = nfa;
     parentPattern.returnNfa(nfa);
 
-    return nfaResult.groups();
+    return result;
   }
 
   // ---------------------------------------------------------------------------
@@ -2597,8 +2597,8 @@ public final class Matcher implements MatchResult {
       result =
           parentPattern
               .onePass()
-              .search(text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups)
-              .groups();
+              .search(
+                  text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
     } else {
       result =
           searchWithBitStateOrNfa(
