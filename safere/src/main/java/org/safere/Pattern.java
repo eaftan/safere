@@ -112,6 +112,7 @@ public final class Pattern implements Serializable {
   private final transient boolean[] charClassPrefixAscii;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
+  private final transient String requiredLiteral;
   private final transient EnginePathOptions enginePathOptions;
 
   /**
@@ -232,6 +233,7 @@ public final class Pattern implements Serializable {
       boolean[] charClassPrefixAscii,
       StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
+      String requiredLiteral,
       int[] charClassMatchRanges,
       long charClassMatchBitmap0,
       long charClassMatchBitmap1,
@@ -243,6 +245,7 @@ public final class Pattern implements Serializable {
       long requiredMatchClassBitmap0,
       long requiredMatchClassBitmap1,
       EnginePathOptions enginePathOptions) {
+    this.requiredLiteral = requiredLiteral;
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -363,6 +366,7 @@ public final class Pattern implements Serializable {
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
     CharClassScanInfo requiredMatchClass = extractRequiredMatchClass(metadataAst);
+    String requiredLiteral = extractRequiredLiteral(re);
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(
         regex,
@@ -381,6 +385,7 @@ public final class Pattern implements Serializable {
         ccPrefixAscii,
         startAcceleration,
         keywordAlternation,
+        requiredLiteral,
         ccMatch != null ? ccMatch.ranges : null,
         ccMatch != null ? ccMatch.bitmap0 : 0,
         ccMatch != null ? ccMatch.bitmap1 : 0,
@@ -883,6 +888,11 @@ public final class Pattern implements Serializable {
   /** Returns case-insensitive keyword-alternation fast-path data, or {@code null}. */
   KeywordAlternation keywordAlternation() {
     return keywordAlternation;
+  }
+
+  /** Returns a required literal substring that must be present in the text, or {@code null}. */
+  String requiredLiteral() {
+    return requiredLiteral;
   }
 
   /**
@@ -2057,6 +2067,69 @@ public final class Pattern implements Serializable {
       }
     }
     return null;
+  }
+
+  private static String extractRequiredLiteral(Regexp re) {
+    if (re == null) {
+      return null;
+    }
+    return switch (re.op) {
+      case LITERAL -> String.valueOf((char) re.rune);
+      case LITERAL_STRING -> {
+        if (re.runes != null) {
+          StringBuilder sb = new StringBuilder();
+          for (int r : re.runes) {
+            sb.appendCodePoint(r);
+          }
+          yield sb.toString();
+        }
+        yield null;
+      }
+      case CAPTURE -> extractRequiredLiteral(re.subs.get(0));
+      case CONCAT -> {
+        String longest = null;
+        for (Regexp child : re.subs) {
+          String req = extractRequiredLiteral(child);
+          if (req != null && (longest == null || req.length() > longest.length())) {
+            longest = req;
+          }
+        }
+        yield longest;
+      }
+      case ALTERNATE -> {
+        if (re.subs == null || re.subs.isEmpty()) {
+          yield null;
+        }
+        String first = extractRequiredLiteral(re.subs.get(0));
+        if (first == null || first.isEmpty()) {
+          yield null;
+        }
+        int commonPrefixLen = first.length();
+        for (int i = 1; i < re.subs.size(); i++) {
+          String other = extractRequiredLiteral(re.subs.get(i));
+          if (other == null) {
+            yield null;
+          }
+          int j = 0;
+          while (j < commonPrefixLen && j < other.length() && first.charAt(j) == other.charAt(j)) {
+            j++;
+          }
+          commonPrefixLen = j;
+          if (commonPrefixLen == 0) {
+            break;
+          }
+        }
+        yield commonPrefixLen > 0 ? first.substring(0, commonPrefixLen) : null;
+      }
+      case PLUS -> extractRequiredLiteral(re.subs.get(0));
+      case REPEAT -> {
+        if (re.min >= 1) {
+          yield extractRequiredLiteral(re.subs.get(0));
+        }
+        yield null;
+      }
+      default -> null;
+    };
   }
 
   private static CharClass requiredCharClass(Regexp re) {
