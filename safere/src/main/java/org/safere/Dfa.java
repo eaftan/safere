@@ -5,11 +5,9 @@
 
 package org.safere;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.TreeSet;
@@ -75,8 +73,6 @@ final class Dfa {
    */
   private static final int FLAG_LAST_UNICODE_WORD = 1 << 14;
 
-  private static final int FLAG_HIGHEST_PRIORITY_MATCH = 1 << 15;
-
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
@@ -102,10 +98,6 @@ final class Dfa {
 
     /** Transitions indexed by equivalence class; null entry = not yet computed. */
     final State[] next;
-
-    State(int id, int[] insts, int flags, int[] wordBoundaryMatchIds, int numClasses) {
-      this(id, insts, flags, wordBoundaryMatchIds, numClasses, false);
-    }
 
     State(
         int id,
@@ -236,9 +228,9 @@ final class Dfa {
   /** Per-search grapheme context. Set only while a search method is active. */
   private GraphemeSupport.Context graphemeContext;
 
-  private final List<State> statesList = new ArrayList<>();
   private int[] transitions;
-  private int[] stateFlags;
+  private State[] offsetToState;
+  private int nextStateId;
 
   // ---------------------------------------------------------------------------
   // Construction
@@ -289,33 +281,32 @@ final class Dfa {
     this.expandStack = new int[prog.size()];
     this.expandFrontier = new int[prog.size()];
     this.computeBuf = new int[prog.size()];
-    this.deadState = new State(0, new int[0], 0, null, numClasses);
-    this.statesList.add(deadState);
+    this.deadState = new State(0, EMPTY_INSTS, 0, null, numClasses, false);
+    this.nextStateId = 1;
     this.transitions = new int[1024];
-    this.stateFlags = new int[64];
+    this.offsetToState = new State[1024];
     addStateToFlatArrays(deadState);
   }
 
   private void addStateToFlatArrays(State s) {
-    if (s.id >= stateFlags.length) {
-      int newLen = Math.max(stateFlags.length * 2, s.id + 1);
-      stateFlags = Arrays.copyOf(stateFlags, newLen);
-    }
-    int flags = s.flags;
-    if (s.isHighestPriorityMatch) {
-      flags |= FLAG_HIGHEST_PRIORITY_MATCH;
-    }
-    stateFlags[s.id] = flags;
-
     int minTransLen = (s.id + 1) * numClasses;
     if (minTransLen > transitions.length) {
       int newLen = Math.max(transitions.length * 2, minTransLen);
       transitions = Arrays.copyOf(transitions, newLen);
+      offsetToState = Arrays.copyOf(offsetToState, newLen);
     }
+    offsetToState[s.id * numClasses] = s;
   }
 
   private void setTransition(int fromId, int cls, int toId) {
-    transitions[fromId * numClasses + cls] = toId;
+    int fromBase = fromId * numClasses;
+    State toState = offsetToState[toId * numClasses];
+    boolean isMatch = toState.isMatch();
+    int storedId = toId * numClasses;
+    if (isMatch) {
+      storedId = -storedId;
+    }
+    transitions[fromBase + cls] = storedId;
   }
 
   private void addTransition(State from, int cls, State to) {
@@ -686,13 +677,7 @@ final class Dfa {
         insts.length > 0 && prog.inst(insts[0]).opCode == InstOp.OP_MATCH;
     s =
         new State(
-            statesList.size(),
-            insts,
-            flags,
-            wordBoundaryMatchIds,
-            numClasses,
-            isHighestPriorityMatch);
-    statesList.add(s);
+            nextStateId++, insts, flags, wordBoundaryMatchIds, numClasses, isHighestPriorityMatch);
     addStateToFlatArrays(s);
     cache.put(lookupKey.copy(), s);
     return s;
@@ -1219,37 +1204,42 @@ final class Dfa {
       return new SearchResult(matched, matchEnd);
     }
 
+    int[] transitions = this.transitions;
+    State[] offsetToState = this.offsetToState;
+    int[] asciiClassMap = this.asciiClassMap;
     int pos = startPos;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
       int limit = Math.min(textLen, posDepThreshold - 1);
-      int sId = s.id;
+      int sId = s.id * numClasses;
       while (pos < limit) {
         char ch = text.charAt(pos);
         if (ch >= 128) {
           break;
         }
         int cls = asciiClassMap[ch];
-        int nsId = transitions[sId * numClasses + cls];
+        int nsId = transitions[sId + cls];
         if (nsId == 0) {
           break;
         }
-        int nsFlags = stateFlags[nsId];
-        if ((nsFlags & FLAG_MATCH) != 0 && !needEndMatch) {
-          boolean useBefore =
-              (nsFlags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
-          int endPos = useBefore ? pos : pos + 1;
-          boolean nsHighestPriorityMatch = (nsFlags & FLAG_HIGHEST_PRIORITY_MATCH) != 0;
-          if (!longest && nsHighestPriorityMatch) {
-            return new SearchResult(true, endPos);
+        if (nsId < 0) {
+          nsId = -nsId;
+          State ns = offsetToState[nsId];
+          if (ns.isMatch() && !needEndMatch) {
+            boolean useBefore =
+                (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+            int endPos = useBefore ? pos : pos + 1;
+            if (!longest && ns.isHighestPriorityMatch) {
+              return new SearchResult(true, endPos);
+            }
+            matched = true;
+            matchEnd = endPos;
           }
-          matched = true;
-          matchEnd = endPos;
         }
         sId = nsId;
         pos++;
       }
-      s = statesList.get(sId);
+      s = offsetToState[sId];
 
       if (pos >= textLen) {
         break;
@@ -1271,6 +1261,8 @@ final class Dfa {
           return null; // budget exceeded
         }
         addTransition(s, cls, ns);
+        transitions = this.transitions;
+        offsetToState = this.offsetToState;
       }
       s = ns;
       if (s == deadState) {
@@ -1449,46 +1441,53 @@ final class Dfa {
       return new SearchResult(matched, matchStart);
     }
 
+    int[] transitions = this.transitions;
+    State[] offsetToState = this.offsetToState;
+    int[] asciiClassMap = this.asciiClassMap;
     int pos = endPos;
     // Fast path: scan backward through ASCII characters
     while (pos > startLimit) {
       if (pos <= posDepThreshold) {
         int limit = startLimit;
-        int sId = s.id;
+        int sId = s.id * numClasses;
         while (pos > limit) {
           char ch = text.charAt(pos - 1);
           if (ch >= 128) {
             break;
           }
           int cls = asciiClassMap[ch];
-          int nsId = transitions[sId * numClasses + cls];
+          int nsId = transitions[sId + cls];
           if (nsId == 0) {
             break;
           }
-          int nsFlags = stateFlags[nsId];
-          if ((nsFlags & FLAG_MATCH) != 0) {
-            if ((nsFlags & FLAG_MATCH_BEFORE) != 0) {
-              if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
-                boolean alreadyMatched = matched;
-                matched = true;
-                matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
-                ambiguous |= (nsFlags & FLAG_MATCH_AFTER_DEFERRED) != 0;
-                if (!longest && !needEndMatch) {
-                  return new SearchResult(true, matchStart, ambiguous);
+          if (nsId < 0) {
+            nsId = -nsId;
+            State ns = offsetToState[nsId];
+            if (ns.isMatch()) {
+              int flags = ns.flags;
+              if ((flags & FLAG_MATCH_BEFORE) != 0) {
+                if (pos >= startLimit && (!needEndMatch || pos == startLimit)) {
+                  boolean alreadyMatched = matched;
+                  matched = true;
+                  matchStart = longest && alreadyMatched ? Math.min(matchStart, pos) : pos;
+                  ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+                  if (!longest && !needEndMatch) {
+                    return new SearchResult(true, matchStart, ambiguous);
+                  }
                 }
               }
-            }
-            boolean hasOnlyBeforeMatch =
-                (nsFlags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
-            int prevPos = pos - 1;
-            if (!hasOnlyBeforeMatch) {
-              if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
-                boolean alreadyMatched = matched;
-                matched = true;
-                matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
-                ambiguous |= (nsFlags & FLAG_MATCH_AFTER_DEFERRED) != 0;
-                if (!longest && !needEndMatch) {
-                  return new SearchResult(true, matchStart, ambiguous);
+              boolean hasOnlyBeforeMatch =
+                  (flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+              int prevPos = pos - 1;
+              if (!hasOnlyBeforeMatch) {
+                if (prevPos >= startLimit && (!needEndMatch || prevPos == startLimit)) {
+                  boolean alreadyMatched = matched;
+                  matched = true;
+                  matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
+                  ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
+                  if (!longest && !needEndMatch) {
+                    return new SearchResult(true, matchStart, ambiguous);
+                  }
                 }
               }
             }
@@ -1496,7 +1495,7 @@ final class Dfa {
           sId = nsId;
           pos--;
         }
-        s = statesList.get(sId);
+        s = offsetToState[sId];
       }
 
       if (pos <= startLimit) {
@@ -1519,6 +1518,8 @@ final class Dfa {
           return null; // budget exceeded
         }
         addTransition(s, cls, ns);
+        transitions = this.transitions;
+        offsetToState = this.offsetToState;
       }
       s = ns;
       if (s == deadState) {
@@ -1708,9 +1709,12 @@ final class Dfa {
     }
 
     if (s != deadState) {
+      int[] transitions = this.transitions;
+      State[] offsetToState = this.offsetToState;
+      int[] asciiClassMap = this.asciiClassMap;
       int pos = 0;
       // Fast path: scan forward through ASCII characters
-      int sId = s.id;
+      int sId = s.id * numClasses;
       while (pos < textLen) {
         if (pos + 1 >= posDepThreshold) {
           break; // fall back to general loop for position-dependent context
@@ -1720,31 +1724,35 @@ final class Dfa {
           break; // fall back
         }
         int cls = asciiClassMap[ch];
-        int nsId = transitions[sId * numClasses + cls];
+        int nsId = transitions[sId + cls];
         if (nsId == 0) {
-          s = statesList.get(sId);
+          s = offsetToState[sId];
           int effectiveNextPos = pos + 1;
           State ns = computeNext(s, ch, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
           }
           addTransition(s, cls, ns);
-          nsId = ns.id;
+          transitions = this.transitions;
+          offsetToState = this.offsetToState;
+          nsId = transitions[sId + cls];
         }
         if (nsId == 0) { // deadState
           break;
         }
-        int nsFlags = stateFlags[nsId];
-        if ((nsFlags & FLAG_MATCH) != 0) {
+        int realNsId;
+        if (nsId < 0) {
+          realNsId = -nsId;
+          State ns = offsetToState[realNsId];
+          int flags = ns.flags;
           int endPos =
-              ((nsFlags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
+              ((flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE)
                   ? pos
                   : pos + 1;
           if (!needEndMatch
               || endPos == textLen
               || (trailingTermStart < textLen && endPos == trailingTermStart)) {
             // Collect match IDs from the state's instructions.
-            State ns = statesList.get(nsId);
             for (int id : collectMatchIds(ns.insts)) {
               seen.set(id);
             }
@@ -1754,11 +1762,13 @@ final class Dfa {
               }
             }
           }
+        } else {
+          realNsId = nsId;
         }
-        sId = nsId;
+        sId = realNsId;
         pos++;
       }
-      s = statesList.get(sId);
+      s = offsetToState[sId];
 
       // General loop
       while (pos <= textLen) {
