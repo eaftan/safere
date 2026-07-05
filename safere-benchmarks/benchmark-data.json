@@ -424,6 +424,19 @@
         "nonMatchInput": {
           "kind": "repeat"
         }
+      },
+      {
+        "name": "onePassReplace",
+        "pattern": "http://[a-z]+/([a-z]+)",
+        "op": "replaceAllGroup1",
+        "match": "http://foo/bar",
+        "nonMatch": "hello world",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
       }
     ]
   },

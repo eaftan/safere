@@ -136,6 +136,7 @@ public class RealWorldRegexBenchmark {
     "jsonBlock",
     "charReplace",
     "greedyOnePass",
+    "onePassReplace",
     "layoutBlock",
     "turnTitleWhitespaceCjk",
     "cjkSearch",
