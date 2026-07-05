@@ -51,6 +51,31 @@ the experiment must include current main merged into the PR branch.
 This workflow must run serially. Never run two PR review sweeps, test suites, or benchmark runs at
 the same time.
 
+## Run To Completion
+
+This workflow is intended to run unattended for many hours. Long runtime is expected and is not a
+reason to stop, checkpoint, or release the lock early. Once a sweep starts, keep processing the
+eligible trusted PR queue in increasing PR number order until every eligible PR has reached one of
+these durable terminal states for the run:
+
+- `reviewed`: intent review, review-fix-loop, required verification, and any required benchmark
+  reproduction are complete and recorded;
+- `blocked`: the PR cannot be reviewed because of a concrete blocker such as unresolved merge
+  conflicts requiring product/design judgment, unavailable required tooling, repeated tool failure,
+  or missing information that prevents meaningful progress;
+- `defer`: an existing human-authored defer state says to skip it.
+
+Do not stop merely because the run is taking a long time, because several PRs remain, because tests
+or benchmarks are slow, or because completed PRs have already been checkpointed. Checkpointing
+after each PR is for crash recovery only; it is not permission to end a healthy run early. If new
+eligible trusted PRs appear during discovery at the start of the run, include them in the same
+number-ordered queue unless the user explicitly scoped the run to a fixed list.
+
+Only end a run before the queue is complete when the user explicitly asks to stop, the whole sweep
+is blocked by an active lock or repeated infrastructure/tooling failure, or the current execution
+environment is about to terminate and cannot continue. In that case, clearly mark the report as
+interrupted or blocked, list unprocessed PRs, and release the lock.
+
 At the start, run:
 
 ```bash
@@ -211,6 +236,21 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - Save raw benchmark output and extracted summary tables under the PR artifact directory.
    - Report ratios as experiment time divided by baseline time, where values below `1.0` mean the
      PR is faster.
+   - If reproduced results do not roughly match the PR's claimed performance outcome, diagnose the
+     mismatch before writing the final recommendation:
+     - First check whether `$review-fix-loop` made local correctness fixes that could plausibly
+       affect the benchmarked code path. If yes, run serial ablation benchmarks that isolate the
+       local fixes from the submitted PR: benchmark the post-merge/pre-fix marker, then each
+       relevant local fix commit or small group of related commits, using the same benchmark
+       command where possible. Save raw ablation logs and a short ablation summary under the PR
+       artifact directory. Do not run ablations in parallel.
+     - If correctness fixes do not explain the mismatch, write a concrete hypothesis for the
+       discrepancy. Consider current-main baseline drift, PR revision drift, benchmark workload or
+       data changes, stale PR description numbers, missing benchmark cases, command/JMH setting
+       differences, and ordinary measurement variance. State which explanation is best supported
+       by the evidence and which remains uncertain.
+     - Do not treat a benchmark mismatch as fully understood until the report says whether local
+       fixes likely affected the result and gives a hypothesis for any remaining discrepancy.
 
 8. Write a final PR assessment and recommendation.
    - Recommend `can merge` only when the PR description is a reasonable thing to do for SafeRE, the
@@ -311,6 +351,12 @@ Summary:
 - Reproduced: yes | partial | no | inconclusive
 - Notes: ...
 
+Mismatch diagnostics:
+- Correctness-fix ablation: not needed | run | blocked
+- Result: <whether local fixes explain the benchmark mismatch>
+- Hypothesis if not explained by fixes: <best-supported explanation or "unknown">
+- Ablation artifacts: <path or none>
+
 ### Assessment And Recommendation
 
 Recommendation: can merge | focus human review | blocked
@@ -376,6 +422,11 @@ Use the $safere-pr-review-scout skill.
 
 Run one serialized SafeRE PR review sweep.
 
+Run to completion even if the sweep takes many hours. Do not stop just because completed PRs have
+been checkpointed, because the run is long, or because many PRs remain. Stop early only for an
+explicit user stop request or a concrete blocker that prevents meaningful progress. Process all
+eligible trusted PRs discovered for the run in increasing PR number order.
+
 Repository: /home/eaftan/safere.
 Skip draft PRs. Only inspect PRs authored by trusted GitHub logins: cushon, eamonnmcmanus, and
 kluever. For all other authors, do not read PR bodies, comments, reviews, linked issues, diffs, or
@@ -398,7 +449,10 @@ changes.
 
 For optimization PRs, reproduce benchmark claims using current origin/main as baseline and the PR
 branch plus local review fixes as experiment. Use ./run-java-benchmarks.sh only. Never run tests or
-benchmarks concurrently.
+benchmarks concurrently. If benchmark results do not roughly reproduce the PR claim, check whether
+local correctness fixes caused the difference by running serial ablation benchmarks where
+applicable; if not, include a concrete hypothesis for the discrepancy such as baseline drift, PR
+revision drift, workload changes, stale PR numbers, command differences, or measurement variance.
 
 For each PR, include an Assessment And Recommendation section. Recommend `can merge` only when the
 PR intent is reasonable, implementation matches intent, no major correctness/design/linear-time
@@ -414,6 +468,8 @@ Store state, reports, and artifacts under ~/.codex/safere-pr-review and update L
 - Do not average unrelated benchmark ratios unless the report explicitly states the included
   benchmark set and uses geometric mean.
 - Do not hide failed verification. Failed or skipped commands belong in the report.
+- Do not stop early merely because the sweep is taking a long time. A healthy run continues until
+  every eligible trusted PR in the run queue is reviewed, blocked, or deferred.
 - Do not leave the lock held intentionally. Release it when the sweep ends or is abandoned.
 - If a new unrelated SafeRE bug is found during review, follow the repository rule to file a
   GitHub issue immediately.
