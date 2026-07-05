@@ -140,7 +140,8 @@ public class RealWorldRegexBenchmark {
     "unicodeClassPrefix",
     "turnTitleWhitespaceCjk",
     "cjkSearch",
-    "emojiSearch"
+    "emojiSearch",
+    "unicodeClassPrefixNfaFallback"
   })
   public String patternName;
 
