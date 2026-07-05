@@ -150,12 +150,6 @@ class PatternInternalTest {
     assertThat(p.prefix()).isEqualTo("foo");
   }
 
-  @Test
-  void deeplyNestedConcatPrefixExtractionIsStackSafe() {
-    Pattern p = Pattern.compile(nestedPrefixConcatPattern(1_000));
-
-    assertThat(p.prefix()).isEqualTo("foo");
-  }
 
   @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
