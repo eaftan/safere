@@ -2249,7 +2249,20 @@ public final class Matcher implements MatchResult {
     ReplacementSegment[] compiledTemplate = template.get();
 
     int textLen = text.length();
-    StringBuilder sb = new StringBuilder(textLen);
+    int replacementLen = 0;
+    for (ReplacementSegment seg : compiledTemplate) {
+      if (seg instanceof ReplacementSegment.Literal lit) {
+        replacementLen += lit.text().length();
+      }
+    }
+
+    int totalMatchLen = 0;
+    for (int i = 0; i < matchesFound; i++) {
+      totalMatchLen += (matchOffsets[2 * i + 1] - matchOffsets[2 * i]);
+    }
+    int finalLen = textLen - totalMatchLen + (matchesFound * replacementLen);
+
+    StringBuilder sb = new StringBuilder(finalLen);
     int builderAppendPos = searchFrom;
 
     for (int i = 0; i < matchesFound; i++) {
