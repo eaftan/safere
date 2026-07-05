@@ -2653,7 +2653,8 @@ public final class Matcher implements MatchResult {
       return null;
     }
     ReplacementSegment[] compiledTemplate = template.get();
-    if (compiledTemplate.length != 1 || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+    if (compiledTemplate.length != 1
+        || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
       return null;
     }
     String repText = literalSeg.text();
