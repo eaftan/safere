@@ -9,6 +9,7 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * A matcher for a {@link RE2FfmPattern} against an input string. This is a benchmark-oriented
@@ -24,8 +25,7 @@ public final class RE2FfmMatcher {
   private String inputString;
   private byte[] inputUtf8;
 
-  // Mapping from UTF-8 byte offset to Java char offset. Built lazily.
-  private int[] byteToCharMap;
+  private int[] charToByteMap;
 
   // Match state: byte offsets from RE2. Length = 2 * (numGroups + 1).
   // [start0, end0, start1, end1, ...]
@@ -49,7 +49,7 @@ public final class RE2FfmMatcher {
   public RE2FfmMatcher reset(String input) {
     this.inputString = input;
     this.inputUtf8 = input.getBytes(StandardCharsets.UTF_8);
-    this.byteToCharMap = null;
+    buildCharToByteMap(inputString, inputUtf8);
     this.matchByteOffsets = new int[2 * (pattern.numGroups() + 1)];
     this.matched = false;
     this.searchBytePos = 0;
@@ -334,52 +334,72 @@ public final class RE2FfmMatcher {
     }
   }
 
-  /** Lazily build the byte-to-char offset mapping. */
-  private int[] getByteToCharMap() {
-    if (byteToCharMap == null) {
-      // Build a mapping from byte offset -> char offset.
-      byteToCharMap = new int[inputUtf8.length + 1];
-      int charIdx = 0;
-      int byteIdx = 0;
-      while (byteIdx < inputUtf8.length) {
-        byteToCharMap[byteIdx] = charIdx;
-        // Determine UTF-8 byte length of this code point.
-        int b = inputUtf8[byteIdx] & 0xFF;
-        int seqLen;
-        if (b < 0x80) {
-          seqLen = 1;
-        } else if (b < 0xE0) {
-          seqLen = 2;
-        } else if (b < 0xF0) {
-          seqLen = 3;
-        } else {
-          seqLen = 4;
+  private void buildCharToByteMap(String s, byte[] bytes) {
+    if (bytes.length == s.length()) {
+      boolean ok = true;
+      for (int i = 0; i < bytes.length; i++) {
+        if (bytes[i] == '?' && s.charAt(i) != '?') {
+          ok = false;
+          break;
         }
-        // Fill intermediate byte offsets to point at the same char.
-        for (int j = 1; j < seqLen && byteIdx + j < inputUtf8.length; j++) {
-          byteToCharMap[byteIdx + j] = charIdx;
-        }
-        byteIdx += seqLen;
-        // Supplementary code points (4-byte UTF-8) use 2 chars in UTF-16.
-        charIdx += (seqLen == 4) ? 2 : 1;
       }
-      byteToCharMap[inputUtf8.length] = charIdx;
+      if (ok) {
+        charToByteMap = null;
+        return;
+      }
     }
-    return byteToCharMap;
+
+    charToByteMap = new int[s.length()];
+    for (int byteI = 0, charI = 0; byteI < bytes.length; ) {
+      byte b = bytes[byteI];
+      int len;
+      if (b >= 0) {
+        charToByteMap[charI++] = byteI;
+        len = 1;
+      } else {
+        len = Integer.numberOfLeadingZeros(~(b << 24));
+        if (charI < charToByteMap.length) {
+          charToByteMap[charI++] = byteI;
+        }
+        if (len == 4) {
+          if (charI < charToByteMap.length) {
+            charToByteMap[charI++] = byteI + 2;
+          }
+        }
+      }
+      byteI += len;
+    }
   }
 
-  private int byteOffsetToCharOffset(int byteOffset) {
-    return getByteToCharMap()[byteOffset];
+  int byteOffsetToCharOffset(int byteOffset) {
+    if (charToByteMap == null) {
+      return byteOffset;
+    }
+    if (byteOffset <= 0) {
+      return 0;
+    }
+    if (byteOffset >= inputUtf8.length) {
+      return inputString.length();
+    }
+
+    int i = Arrays.binarySearch(charToByteMap, byteOffset);
+    if (i < 0) {
+      i = -(i + 1); // insertion point (round up)
+    }
+    return i;
   }
 
   private int charOffsetToByteOffset(int charOffset) {
-    // Walk the byte-to-char map to find the byte offset.
-    int[] map = getByteToCharMap();
-    if (charOffset == 0) return 0;
-    for (int i = 0; i <= inputUtf8.length; i++) {
-      if (map[i] == charOffset) return i;
+    if (charToByteMap == null) {
+      return charOffset;
     }
-    return inputUtf8.length;
+    if (charOffset <= 0) {
+      return 0;
+    }
+    if (charOffset >= inputString.length()) {
+      return inputUtf8.length;
+    }
+    return charToByteMap[charOffset];
   }
 
   private void checkMatch() {

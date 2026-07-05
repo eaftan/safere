@@ -29,6 +29,7 @@ final class Re2Shim {
   private static final MethodHandle NUM_CAPTURING_GROUPS;
   private static final MethodHandle FULL_MATCH;
   private static final MethodHandle FIND;
+  private static final MethodHandle FIND_ALL;
   private static final MethodHandle REPLACE_ALL;
 
   static {
@@ -122,6 +123,19 @@ final class Re2Shim {
                 ValueLayout.ADDRESS,
                 ValueLayout.JAVA_INT,
                 ValueLayout.ADDRESS));
+
+    // int re2_find_all(const re2_pattern_t* p, const char* text, int text_len,
+    //                  int32_t* matches_out, int max_matches)
+    FIND_ALL =
+        linker.downcallHandle(
+            lookup.find("re2_find_all").orElseThrow(),
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT));
   }
 
   private Re2Shim() {}
@@ -192,6 +206,19 @@ final class Re2Shim {
       int nmatches) {
     try {
       return (boolean) FIND.invokeExact(handle, text, textLen, startpos, matchesOut, nmatches);
+    } catch (Throwable t) {
+      throw new AssertionError("FFM call failed", t);
+    }
+  }
+
+  static int findAll(
+      MemorySegment handle,
+      MemorySegment text,
+      int textLen,
+      MemorySegment matchesOut,
+      int maxMatches) {
+    try {
+      return (int) FIND_ALL.invokeExact(handle, text, textLen, matchesOut, maxMatches);
     } catch (Throwable t) {
       throw new AssertionError("FFM call failed", t);
     }
