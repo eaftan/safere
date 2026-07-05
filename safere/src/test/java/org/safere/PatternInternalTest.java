@@ -144,6 +144,13 @@ class PatternInternalTest {
   }
 
   @Test
+  void deeplyNestedConcatPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedPrefixConcatPattern(1_000));
+
+    assertThat(p.prefix()).isEqualTo("foo");
+  }
+
+  @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
 
@@ -212,5 +219,30 @@ class PatternInternalTest {
       regex.append("|b)");
     }
     return regex.toString();
+  }
+
+  private static String nestedPrefixConcatPattern(int depth) {
+    StringBuilder regex = new StringBuilder(depth * 3 + 3);
+    for (int i = 0; i < depth; i++) {
+      regex.append('(');
+    }
+    regex.append("foo");
+    for (int i = 0; i < depth; i++) {
+      regex.append(")x");
+    }
+    return regex.toString();
+  }
+
+  @Test
+  void prefixExtractionFromNestedCaptureInConcat() {
+    Pattern p1 = Pattern.compile("(foo bar)baz");
+    assertThat(p1.prefix()).isEqualTo("foo bar");
+
+    Pattern p2 = Pattern.compile("(<template name>.*)");
+    assertThat(p2.prefix()).isEqualTo("<template name>");
+
+    // reproducing the actual templateTagMatch pattern structure
+    Pattern p3 = Pattern.compile("(<template name>.*)([^>])");
+    assertThat(p3.prefix()).isEqualTo("<template name>");
   }
 }
