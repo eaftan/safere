@@ -236,6 +236,21 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - Save raw benchmark output and extracted summary tables under the PR artifact directory.
    - Report ratios as experiment time divided by baseline time, where values below `1.0` mean the
      PR is faster.
+   - If reproduced results do not roughly match the PR's claimed performance outcome, diagnose the
+     mismatch before writing the final recommendation:
+     - First check whether `$review-fix-loop` made local correctness fixes that could plausibly
+       affect the benchmarked code path. If yes, run serial ablation benchmarks that isolate the
+       local fixes from the submitted PR: benchmark the post-merge/pre-fix marker, then each
+       relevant local fix commit or small group of related commits, using the same benchmark
+       command where possible. Save raw ablation logs and a short ablation summary under the PR
+       artifact directory. Do not run ablations in parallel.
+     - If correctness fixes do not explain the mismatch, write a concrete hypothesis for the
+       discrepancy. Consider current-main baseline drift, PR revision drift, benchmark workload or
+       data changes, stale PR description numbers, missing benchmark cases, command/JMH setting
+       differences, and ordinary measurement variance. State which explanation is best supported
+       by the evidence and which remains uncertain.
+     - Do not treat a benchmark mismatch as fully understood until the report says whether local
+       fixes likely affected the result and gives a hypothesis for any remaining discrepancy.
 
 8. Write a final PR assessment and recommendation.
    - Recommend `can merge` only when the PR description is a reasonable thing to do for SafeRE, the
@@ -336,6 +351,12 @@ Summary:
 - Reproduced: yes | partial | no | inconclusive
 - Notes: ...
 
+Mismatch diagnostics:
+- Correctness-fix ablation: not needed | run | blocked
+- Result: <whether local fixes explain the benchmark mismatch>
+- Hypothesis if not explained by fixes: <best-supported explanation or "unknown">
+- Ablation artifacts: <path or none>
+
 ### Assessment And Recommendation
 
 Recommendation: can merge | focus human review | blocked
@@ -428,7 +449,10 @@ changes.
 
 For optimization PRs, reproduce benchmark claims using current origin/main as baseline and the PR
 branch plus local review fixes as experiment. Use ./run-java-benchmarks.sh only. Never run tests or
-benchmarks concurrently.
+benchmarks concurrently. If benchmark results do not roughly reproduce the PR claim, check whether
+local correctness fixes caused the difference by running serial ablation benchmarks where
+applicable; if not, include a concrete hypothesis for the discrepancy such as baseline drift, PR
+revision drift, workload changes, stale PR numbers, command differences, or measurement variance.
 
 For each PR, include an Assessment And Recommendation section. Recommend `can merge` only when the
 PR intent is reasonable, implementation matches intent, no major correctness/design/linear-time
