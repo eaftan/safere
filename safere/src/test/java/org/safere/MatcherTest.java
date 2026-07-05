@@ -1307,16 +1307,29 @@ class MatcherTest {
       Matcher matcher = Pattern.compile("(a)").matcher("bbb");
 
       assertThat(matcher.replaceAll("$")).isEqualTo("bbb");
+
+      Matcher charClassMatcher = Pattern.compile("[a]+").matcher("bbb");
+      assertThat(charClassMatcher.replaceAll("$")).isEqualTo("bbb");
     }
 
     @Test
-    @DisplayName("replace operations do not validate null replacements without a match")
-    void replaceOperationsSkipNullReplacementValidationWithoutMatch() {
+    @DisplayName("replace operations validate null replacements without a match")
+    void replaceOperationsValidateNullReplacementWithoutMatch() {
       Matcher allMatcher = Pattern.compile("(a)").matcher("bbb");
-      assertThat(allMatcher.replaceAll((String) null)).isEqualTo("bbb");
+      assertThatThrownBy(() -> allMatcher.replaceAll((String) null))
+          .isInstanceOf(NullPointerException.class);
 
       Matcher firstMatcher = Pattern.compile("(a)").matcher("bbb");
-      assertThat(firstMatcher.replaceFirst((String) null)).isEqualTo("bbb");
+      assertThatThrownBy(() -> firstMatcher.replaceFirst((String) null))
+          .isInstanceOf(NullPointerException.class);
+
+      Matcher charClassAllMatcher = Pattern.compile("[a]+").matcher("bbb");
+      assertThatThrownBy(() -> charClassAllMatcher.replaceAll((String) null))
+          .isInstanceOf(NullPointerException.class);
+
+      Matcher charClassFirstMatcher = Pattern.compile("[a]+").matcher("bbb");
+      assertThatThrownBy(() -> charClassFirstMatcher.replaceFirst((String) null))
+          .isInstanceOf(NullPointerException.class);
     }
 
     @Test

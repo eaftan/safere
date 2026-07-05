@@ -2188,6 +2188,7 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     reset();
+    Objects.requireNonNull(replacement, "replacement");
     String fastResult = charClassReplaceFastPath(replacement, 1);
     if (fastResult != null) {
       return fastResult;
@@ -2563,6 +2564,7 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     reset();
+    Objects.requireNonNull(replacement, "replacement");
     String fastResult = charClassReplaceFastPath(replacement, Integer.MAX_VALUE);
     if (fastResult != null) {
       return fastResult;
@@ -2629,16 +2631,7 @@ public final class Matcher implements MatchResult {
         || parentPattern.hasLazyQuantifiers()) {
       return null;
     }
-    ReplacementSegment[] template;
-    try {
-      template = compileReplacementTemplate(replacement, 0);
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
-    if (template.length != 1 || !(template[0] instanceof ReplacementSegment.Literal literalSeg)) {
-      return null;
-    }
-    String repText = literalSeg.text();
+    String repText = null;
 
     int textLen = text.length();
     int pos = searchFrom;
@@ -2681,6 +2674,20 @@ public final class Matcher implements MatchResult {
       if (matchesFound == 0) {
         firstMatchStart = matchStart;
         firstMatchEnd = matchEnd;
+      }
+
+      if (repText == null) {
+        ReplacementSegment[] template;
+        try {
+          template = compileReplacementTemplate(replacement, 0);
+        } catch (IllegalArgumentException e) {
+          return null;
+        }
+        if (template.length != 1
+            || !(template[0] instanceof ReplacementSegment.Literal literalSeg)) {
+          return null;
+        }
+        repText = literalSeg.text();
       }
 
       if (sb == null) {
