@@ -150,7 +150,6 @@ class PatternInternalTest {
     assertThat(p.prefix()).isEqualTo("foo");
   }
 
-
   @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
