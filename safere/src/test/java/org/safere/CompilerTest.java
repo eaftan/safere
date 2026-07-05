@@ -28,9 +28,9 @@ class CompilerTest {
   }
 
   private static boolean fullMatch(Prog prog, String text) {
-    Nfa.SearchResult result =
+    int[] result =
         Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FULL_MATCH, prog.numCaptures());
-    return result.groups() != null;
+    return result != null;
   }
 
   // ---------------------------------------------------------------------------

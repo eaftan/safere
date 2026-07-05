@@ -18,6 +18,21 @@ import org.junit.jupiter.params.provider.CsvSource;
 class PatternInternalTest {
 
   @Test
+  void testOnePassEligibility() {
+    Pattern p1 =
+        Pattern.compile(
+            "\\s*[\\[\\x{FF3B}]\\s*((?:[0-9]+\\.?){3,4}(?:\\s*[,\\x{3001}]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\x{FF3D}]");
+    assertThat(p1.onePass()).isNull();
+    assertThat(p1.canOnePassPrimary()).isFalse();
+
+    Pattern p2 = Pattern.compile("\\b[Ff]ormer [Cc][Ee][Oo] ([Aa]lice\\b|\\*\\*[Aa]lice\\*\\*)");
+    assertThat(p2.onePass()).isNotNull();
+    assertThat(p2.canOnePassPrimary()).isTrue();
+    assertThat(p2.canOnePassFind()).isFalse();
+    assertThat(p2.canOnePassSubmatch()).isTrue();
+  }
+
+  @Test
   void numGroupsCounting() {
     Pattern p = Pattern.compile("(a)(b)(c)");
     assertThat(p.numGroups()).isEqualTo(3);
@@ -134,6 +149,13 @@ class PatternInternalTest {
   }
 
   @Test
+  void deeplyNestedConcatPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedPrefixConcatPattern(1_000));
+
+    assertThat(p.prefix()).isEqualTo("foo");
+  }
+
+  @Test
   void caseInsensitiveAsciiLiteralUsesLiteralMatchMetadata() {
     Pattern p = Pattern.compile("(?i)i");
 
@@ -202,5 +224,30 @@ class PatternInternalTest {
       regex.append("|b)");
     }
     return regex.toString();
+  }
+
+  private static String nestedPrefixConcatPattern(int depth) {
+    StringBuilder regex = new StringBuilder(depth * 3 + 3);
+    for (int i = 0; i < depth; i++) {
+      regex.append('(');
+    }
+    regex.append("foo");
+    for (int i = 0; i < depth; i++) {
+      regex.append(")x");
+    }
+    return regex.toString();
+  }
+
+  @Test
+  void prefixExtractionFromNestedCaptureInConcat() {
+    Pattern p1 = Pattern.compile("(foo bar)baz");
+    assertThat(p1.prefix()).isEqualTo("foo bar");
+
+    Pattern p2 = Pattern.compile("(<template name>.*)");
+    assertThat(p2.prefix()).isEqualTo("<template name>");
+
+    // reproducing the actual templateTagMatch pattern structure
+    Pattern p3 = Pattern.compile("(<template name>.*)([^>])");
+    assertThat(p3.prefix()).isEqualTo("<template name>");
   }
 }

@@ -40,8 +40,7 @@ class BitStateTest {
         endMatch
             ? Nfa.MatchKind.FULL_MATCH
             : (longest ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
-    Nfa.SearchResult nfaSearchResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, nsubmatch);
-    int[] nfaResult = nfaSearchResult.groups();
+    int[] nfaResult = Nfa.search(prog, text, Nfa.Anchor.ANCHORED, kind, nsubmatch);
 
     assertCapturesEqual(pattern, text, bsResult, nfaResult);
   }
@@ -53,9 +52,8 @@ class BitStateTest {
     int nsubmatch = prog.numCaptures();
 
     int[] bsResult = BitState.search(prog, text, false, false, false, nsubmatch);
-    Nfa.SearchResult nfaSearchResult =
+    int[] nfaResult =
         Nfa.search(prog, text, Nfa.Anchor.UNANCHORED, Nfa.MatchKind.FIRST_MATCH, nsubmatch);
-    int[] nfaResult = nfaSearchResult.groups();
 
     assertCapturesEqual(pattern, text, bsResult, nfaResult);
   }
@@ -106,8 +104,7 @@ class BitStateTest {
         tc.endMatch()
             ? Nfa.MatchKind.FULL_MATCH
             : (tc.longest() ? Nfa.MatchKind.LONGEST_MATCH : Nfa.MatchKind.FIRST_MATCH);
-    Nfa.SearchResult nfaSearchResult = Nfa.search(prog, tc.input(), anchor, kind, nsubmatch);
-    int[] nfaResult = nfaSearchResult.groups();
+    int[] nfaResult = Nfa.search(prog, tc.input(), anchor, kind, nsubmatch);
 
     assertThat(bsResult)
         .as("BitState should return the reusable result buffer for %s", tc)

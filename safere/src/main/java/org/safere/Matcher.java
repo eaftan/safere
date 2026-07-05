@@ -722,8 +722,8 @@ public final class Matcher implements MatchResult {
     if (onePass != null
         && !prog.hasGraphemeSemantics()
         && !parentPattern.hasNullableAlternation()) {
-      OnePass.SearchResult result = onePass.search(text, true, prog.numCaptures(), this.groups);
-      return applyFullMatchResult(result.groups());
+      int[] result = onePass.search(text, true, prog.numCaptures(), this.groups);
+      return applyFullMatchResult(result);
     }
 
     // Medium path: use DFA to check if a full match exists.
@@ -858,8 +858,8 @@ public final class Matcher implements MatchResult {
         && parentPattern.canOnePassPrimary()
         && !prog.hasGraphemeSemantics()) {
       OnePass onePass = parentPattern.onePass();
-      OnePass.SearchResult result = onePass.search(text, false, prog.numCaptures(), this.groups);
-      return applyFullMatchResult(result.groups());
+      int[] result = onePass.search(text, false, prog.numCaptures(), this.groups);
+      return applyFullMatchResult(result);
     }
 
     // Medium path: use DFA to check if an anchored match exists.
@@ -1266,11 +1266,11 @@ public final class Matcher implements MatchResult {
     if (options.onePass()
         && parentPattern.canOnePassFind()
         && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
-      OnePass.SearchResult result =
+      int[] result =
           parentPattern
               .onePass()
               .search(text, searchFrom, text.length(), false, prog.numCaptures(), this.groups);
-      return applyFullMatchResult(result.groups());
+      return applyFullMatchResult(result);
     }
 
     // Prefix acceleration: if the pattern starts with a literal prefix, skip ahead to where
@@ -1979,11 +1979,11 @@ public final class Matcher implements MatchResult {
     }
 
     Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
-    Nfa.SearchResult nfaResult = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
+    int[] result = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
     cachedNfa = nfa;
     parentPattern.returnNfa(nfa);
 
-    return nfaResult.groups();
+    return result;
   }
 
   // ---------------------------------------------------------------------------
@@ -2188,6 +2188,11 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     reset();
+    String fastResult = charClassReplaceFastPath(replacement, 1);
+    if (fastResult != null) {
+      return fastResult;
+    }
+
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     String result = replaceOnePass(template, 1);
     if (result != null) {
@@ -2409,8 +2414,8 @@ public final class Matcher implements MatchResult {
         if (pos > 0) {
           break;
         }
-        OnePass.SearchResult result = onePass.search(text, pos, textLen, false, nsubmatch, groups);
-        if (result.groups() != null) {
+        int[] result = onePass.search(text, pos, textLen, false, nsubmatch, groups);
+        if (result != null) {
           matchStart = pos;
         }
       } else {
@@ -2418,8 +2423,8 @@ public final class Matcher implements MatchResult {
         if (idx < 0) {
           break;
         }
-        OnePass.SearchResult result = onePass.search(text, idx, textLen, false, nsubmatch, groups);
-        if (result.groups() != null) {
+        int[] result = onePass.search(text, idx, textLen, false, nsubmatch, groups);
+        if (result != null) {
           matchStart = idx;
         } else {
           pos = idx + 1;
@@ -2558,6 +2563,11 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     reset();
+    String fastResult = charClassReplaceFastPath(replacement, Integer.MAX_VALUE);
+    if (fastResult != null) {
+      return fastResult;
+    }
+
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     String result = replaceOnePass(template, Integer.MAX_VALUE);
     if (result != null) {
@@ -2609,6 +2619,94 @@ public final class Matcher implements MatchResult {
       appendReplacement(sb, replacement);
     } while (find());
     appendTail(sb);
+    return sb.toString();
+  }
+
+  private String charClassReplaceFastPath(String replacement, int limit) {
+    if (!enginePathOptions().charClassReplacementFastPath()
+        || parentPattern.charClassMatchRanges() == null
+        || parentPattern.charClassMatchAllowEmpty()
+        || parentPattern.hasLazyQuantifiers()) {
+      return null;
+    }
+    ReplacementSegment[] template;
+    try {
+      template = compileReplacementTemplate(replacement, 0);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+    if (template.length != 1 || !(template[0] instanceof ReplacementSegment.Literal literalSeg)) {
+      return null;
+    }
+    String repText = literalSeg.text();
+
+    int textLen = text.length();
+    int pos = searchFrom;
+    int appendPos = searchFrom;
+    int matchesFound = 0;
+    StringBuilder sb = null;
+
+    int[] ranges = parentPattern.charClassMatchRanges();
+    long b0 = parentPattern.charClassMatchBitmap0();
+    long b1 = parentPattern.charClassMatchBitmap1();
+
+    int firstMatchStart = -1;
+    int firstMatchEnd = -1;
+
+    while (pos < textLen && matchesFound < limit) {
+      int matchStart = -1;
+      while (pos < textLen) {
+        int cp = text.codePointAt(pos);
+        if (charClassContains(ranges, b0, b1, cp)) {
+          matchStart = pos;
+          break;
+        }
+        pos += Character.charCount(cp);
+      }
+
+      if (matchStart == -1) {
+        break;
+      }
+
+      pos += Character.charCount(text.codePointAt(pos));
+      while (pos < textLen) {
+        int cp = text.codePointAt(pos);
+        if (!charClassContains(ranges, b0, b1, cp)) {
+          break;
+        }
+        pos += Character.charCount(cp);
+      }
+      int matchEnd = pos;
+
+      if (matchesFound == 0) {
+        firstMatchStart = matchStart;
+        firstMatchEnd = matchEnd;
+      }
+
+      if (sb == null) {
+        sb = new StringBuilder(textLen);
+      }
+      sb.append(text, appendPos, matchStart);
+      sb.append(repText);
+      appendPos = matchEnd;
+      matchesFound++;
+    }
+
+    if (sb == null) {
+      applyFailedMatchResult();
+      return text;
+    }
+
+    this.appendPos = appendPos;
+    sb.append(text, appendPos, textLen);
+
+    if (limit == 1) {
+      applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
+    } else {
+      searchFrom = regionEnd;
+      applyFailedMatchResult();
+    }
+
     return sb.toString();
   }
 
@@ -2928,8 +3026,8 @@ public final class Matcher implements MatchResult {
       result =
           parentPattern
               .onePass()
-              .search(text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups)
-              .groups();
+              .search(
+                  text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
     } else {
       result =
           searchWithBitStateOrNfa(
@@ -2977,6 +3075,10 @@ public final class Matcher implements MatchResult {
    * $1}, {@code ${name}}, {@code \\} (literal backslash), and {@code \$} (literal dollar).
    */
   private void appendReplacementBody(StringBuilder sb, String replacement) {
+    if (isSimpleReplacement(replacement)) {
+      sb.append(replacement);
+      return;
+    }
     int i = 0;
     while (i < replacement.length()) {
       char c = replacement.charAt(i);
@@ -3004,18 +3106,25 @@ public final class Matcher implements MatchResult {
           }
           String name = replacement.substring(nameStart, i);
           i++; // skip '}'
-          String g = group(name);
-          if (g != null) {
-            sb.append(g);
+          Integer idx = parentPattern.namedGroups().get(name);
+          if (idx == null) {
+            throw new IllegalArgumentException("No group with name <" + name + ">");
+          }
+          int g = idx;
+          int start = start(g);
+          int end = end(g);
+          if (start >= 0 && end >= 0) {
+            sb.append(text, start, end);
           }
         } else if (Character.isDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, groupCount());
           int groupIdx = groupRef.groupNum();
           i = groupRef.end();
-          String g = group(groupIdx);
-          if (g != null) {
-            sb.append(g);
+          int start = start(groupIdx);
+          int end = end(groupIdx);
+          if (start >= 0 && end >= 0) {
+            sb.append(text, start, end);
           }
         } else {
           throw new IllegalArgumentException("Invalid group reference in replacement string");
