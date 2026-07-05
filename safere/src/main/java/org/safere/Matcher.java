@@ -2333,8 +2333,14 @@ public final class Matcher implements MatchResult {
     if (limit == 1) {
       deferredMatchStart = groups[0];
       deferredMatchEnd = groups[1];
+      hasMatch = true;
       capturesResolved = parentPattern.prog().numCaptures() <= 1;
       groupZeroResolved = true;
+    } else {
+      hasMatch = false;
+      capturesResolved = false;
+      groupZeroResolved = false;
+      searchFrom = textLen;
     }
     resultStatus = (limit == 1) ? ResultStatus.MATCHED : ResultStatus.FAILED;
     return sb.toString();
@@ -2365,15 +2371,15 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean canUseOnePassReplace(LazyTemplate template) {
-    return template.replacement.indexOf('$') >= 0
+    return template.replacement != null
+        && template.replacement.indexOf('$') >= 0
         && regionStart == 0
         && regionEnd == text.length()
         && !parentPattern.prog().hasGraphemeSemantics()
         && !parentPattern.hasNullableAlternation()
         && parentPattern.canOnePassSubmatch()
         && (parentPattern.prog().anchorStart()
-            || (parentPattern.prefix() != null && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT))
-        && templateNeedsCaptures(template.get());
+            || (parentPattern.prefix() != null && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT));
   }
 
   // Helper for replaceAll using OnePass. Returns null if OnePass cannot be used.
@@ -2382,7 +2388,7 @@ public final class Matcher implements MatchResult {
       return null;
     }
 
-    ReplacementSegment[] compiledTemplate = template.get();
+    ReplacementSegment[] compiledTemplate = null;
 
     OnePass onePass = parentPattern.onePass();
     int textLen = text.length();
@@ -2394,6 +2400,7 @@ public final class Matcher implements MatchResult {
     int matchesFound = 0;
 
     String prefix = parentPattern.prefix();
+    boolean foldCase = parentPattern.prefixFoldCase();
     boolean anchorStart = parentPattern.prog().anchorStart();
 
     while (pos <= textLen && matchesFound < limit) {
@@ -2407,7 +2414,7 @@ public final class Matcher implements MatchResult {
           matchStart = pos;
         }
       } else {
-        int idx = text.indexOf(prefix, pos);
+        int idx = foldCase ? indexOfIgnoreCase(text, prefix, pos) : text.indexOf(prefix, pos);
         if (idx < 0) {
           break;
         }
@@ -2425,6 +2432,10 @@ public final class Matcher implements MatchResult {
       }
 
       if (matchOffsets == null) {
+        compiledTemplate = template.get();
+        if (!templateNeedsCaptures(compiledTemplate)) {
+          return null;
+        }
         matchOffsets = new int[16 * ncap];
       } else if ((matchesFound + 1) * ncap > matchOffsets.length) {
         matchOffsets = Arrays.copyOf(matchOffsets, matchOffsets.length * 2);
@@ -2522,6 +2533,7 @@ public final class Matcher implements MatchResult {
     if (limit == 1) {
       deferredMatchStart = groups[0];
       deferredMatchEnd = groups[1];
+      hasMatch = true;
       capturesResolved = parentPattern.prog().numCaptures() <= 1;
       groupZeroResolved = true;
       resultStatus = ResultStatus.MATCHED;

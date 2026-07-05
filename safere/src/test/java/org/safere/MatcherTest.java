@@ -1132,6 +1132,18 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceAll() optimized paths leave matcher exhausted")
+    void replaceAllOptimizedPathsLeaveMatcherExhausted() {
+      Matcher dfaMatcher = Pattern.compile("a").matcher("aba");
+      assertThat(dfaMatcher.replaceAll("X")).isEqualTo("XbX");
+      assertThat(dfaMatcher.find()).isFalse();
+
+      Matcher onePassMatcher = Pattern.compile("(a)").matcher("aba");
+      assertThat(onePassMatcher.replaceAll("x$1")).isEqualTo("xabxa");
+      assertThat(onePassMatcher.find()).isFalse();
+    }
+
+    @Test
     @DisplayName("replaceFirst() with no match returns original text")
     void replaceFirstNoMatch() {
       Pattern p = Pattern.compile("\\d+");
@@ -1208,6 +1220,44 @@ class MatcherTest {
       Matcher m2 = p2.matcher("apple-123 banana-456");
       assertThat(m2.replaceFirst("${num}:${word}")).isEqualTo("123:apple banana-456");
       assertThat(m2.group("word")).isEqualTo("apple");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() optimized paths preserve match result state")
+    void replaceFirstOptimizedPathsPreserveMatchResultState() {
+      Matcher dfaMatcher = Pattern.compile("a").matcher("ba");
+      assertThat(dfaMatcher.replaceFirst("X")).isEqualTo("bX");
+      assertThat(dfaMatcher.toMatchResult().group()).isEqualTo("a");
+
+      Matcher onePassMatcher = Pattern.compile("(a)").matcher("ba");
+      assertThat(onePassMatcher.replaceFirst("x$1")).isEqualTo("bxa");
+      assertThat(onePassMatcher.toMatchResult().group()).isEqualTo("a");
+    }
+
+    @Test
+    @DisplayName("replaceAll() does not validate malformed replacements without a match")
+    void replaceAllSkipsMalformedReplacementValidationWithoutMatch() {
+      Matcher matcher = Pattern.compile("(a)").matcher("bbb");
+
+      assertThat(matcher.replaceAll("$")).isEqualTo("bbb");
+    }
+
+    @Test
+    @DisplayName("replace operations do not validate null replacements without a match")
+    void replaceOperationsSkipNullReplacementValidationWithoutMatch() {
+      Matcher allMatcher = Pattern.compile("(a)").matcher("bbb");
+      assertThat(allMatcher.replaceAll((String) null)).isEqualTo("bbb");
+
+      Matcher firstMatcher = Pattern.compile("(a)").matcher("bbb");
+      assertThat(firstMatcher.replaceFirst((String) null)).isEqualTo("bbb");
+    }
+
+    @Test
+    @DisplayName("replaceAll() OnePass path honors case-insensitive prefixes")
+    void replaceAllOnePassHonorsCaseInsensitivePrefixes() {
+      Matcher matcher = Pattern.compile("(a)", Pattern.CASE_INSENSITIVE).matcher("A");
+
+      assertThat(matcher.replaceAll("x$1")).isEqualTo("xA");
     }
 
     @Test
