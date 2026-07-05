@@ -402,6 +402,21 @@
         }
       },
       {
+        "name": "unicodeClassPrefixNfaFallback",
+        "pattern": "[\\x{4E00}-\\x{9FFF}]+\\Xabc",
+        "op": "find",
+        "match": "好abc",
+        "nonMatch": "a",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "sparseMatch",
+          "nonMatchRepeats": 49995,
+          "delimiterAlphabet": "a"
+        }
+      },
+      {
         "name": "turnTitleWhitespaceCjk",
         "pattern": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
         "op": "replaceAllEmpty",
