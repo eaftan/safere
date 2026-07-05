@@ -1484,6 +1484,7 @@ final class Dfa {
                   boolean alreadyMatched = matched;
                   matched = true;
                   matchStart = longest && alreadyMatched ? Math.min(matchStart, prevPos) : prevPos;
+                  ambiguous |= (flags & FLAG_MATCH_AFTER_DEFERRED) != 0;
                   if (!longest && !needEndMatch) {
                     return new SearchResult(true, matchStart, ambiguous);
                   }
