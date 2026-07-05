@@ -848,6 +848,11 @@ public final class Pattern implements Serializable {
     return hasNullableAlternation;
   }
 
+  /** Returns whether this pattern contains any lazy quantifiers. */
+  boolean hasLazyQuantifiers() {
+    return hasLazy;
+  }
+
   /**
    * Returns the literal prefix for this pattern, or {@code null} if the pattern has no fixed
    * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.

@@ -2187,6 +2187,10 @@ public final class Matcher implements MatchResult {
    */
   public String replaceFirst(String replacement) {
     reset();
+    String fastResult = charClassReplaceFastPath(replacement, 1);
+    if (fastResult != null) {
+      return fastResult;
+    }
     if (!find()) {
       return text;
     }
@@ -2229,6 +2233,10 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     reset();
+    String fastResult = charClassReplaceFastPath(replacement, Integer.MAX_VALUE);
+    if (fastResult != null) {
+      return fastResult;
+    }
     if (!find()) {
       return text;
     }
@@ -2271,6 +2279,94 @@ public final class Matcher implements MatchResult {
       appendReplacement(sb, replacement);
     } while (find());
     appendTail(sb);
+    return sb.toString();
+  }
+
+  private String charClassReplaceFastPath(String replacement, int limit) {
+    if (!enginePathOptions().charClassReplacementFastPath()
+        || parentPattern.charClassMatchRanges() == null
+        || parentPattern.charClassMatchAllowEmpty()
+        || parentPattern.hasLazyQuantifiers()) {
+      return null;
+    }
+    ReplacementSegment[] template;
+    try {
+      template = compileReplacementTemplate(replacement, 0);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+    if (template.length != 1 || !(template[0] instanceof ReplacementSegment.Literal literalSeg)) {
+      return null;
+    }
+    String repText = literalSeg.text();
+
+    int textLen = text.length();
+    int pos = searchFrom;
+    int appendPos = searchFrom;
+    int matchesFound = 0;
+    StringBuilder sb = null;
+
+    int[] ranges = parentPattern.charClassMatchRanges();
+    long b0 = parentPattern.charClassMatchBitmap0();
+    long b1 = parentPattern.charClassMatchBitmap1();
+
+    int firstMatchStart = -1;
+    int firstMatchEnd = -1;
+
+    while (pos < textLen && matchesFound < limit) {
+      int matchStart = -1;
+      while (pos < textLen) {
+        int cp = text.codePointAt(pos);
+        if (charClassContains(ranges, b0, b1, cp)) {
+          matchStart = pos;
+          break;
+        }
+        pos += Character.charCount(cp);
+      }
+
+      if (matchStart == -1) {
+        break;
+      }
+
+      pos += Character.charCount(text.codePointAt(pos));
+      while (pos < textLen) {
+        int cp = text.codePointAt(pos);
+        if (!charClassContains(ranges, b0, b1, cp)) {
+          break;
+        }
+        pos += Character.charCount(cp);
+      }
+      int matchEnd = pos;
+
+      if (matchesFound == 0) {
+        firstMatchStart = matchStart;
+        firstMatchEnd = matchEnd;
+      }
+
+      if (sb == null) {
+        sb = new StringBuilder(textLen);
+      }
+      sb.append(text, appendPos, matchStart);
+      sb.append(repText);
+      appendPos = matchEnd;
+      matchesFound++;
+    }
+
+    if (sb == null) {
+      applyFailedMatchResult();
+      return text;
+    }
+
+    this.appendPos = appendPos;
+    sb.append(text, appendPos, textLen);
+
+    if (limit == 1) {
+      applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
+    } else {
+      searchFrom = regionEnd;
+      applyFailedMatchResult();
+    }
+
     return sb.toString();
   }
 
