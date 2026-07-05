@@ -3268,6 +3268,7 @@ public final class Matcher implements MatchResult {
     private final String replacement;
     private final int maxGroup;
     private ReplacementSegment[] value;
+    private Boolean needsCaptures;
 
     LazyTemplate(String replacement, int maxGroup) {
       this.replacement = replacement;
@@ -3275,6 +3276,13 @@ public final class Matcher implements MatchResult {
     }
 
     boolean needsCaptures() {
+      if (needsCaptures == null) {
+        needsCaptures = computeNeedsCaptures();
+      }
+      return needsCaptures;
+    }
+
+    private boolean computeNeedsCaptures() {
       if (replacement == null) {
         return false;
       }
