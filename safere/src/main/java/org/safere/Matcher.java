@@ -2646,6 +2646,10 @@ public final class Matcher implements MatchResult {
    * $1}, {@code ${name}}, {@code \\} (literal backslash), and {@code \$} (literal dollar).
    */
   private void appendReplacementBody(StringBuilder sb, String replacement) {
+    if (isSimpleReplacement(replacement)) {
+      sb.append(replacement);
+      return;
+    }
     int i = 0;
     while (i < replacement.length()) {
       char c = replacement.charAt(i);
@@ -2673,18 +2677,25 @@ public final class Matcher implements MatchResult {
           }
           String name = replacement.substring(nameStart, i);
           i++; // skip '}'
-          String g = group(name);
-          if (g != null) {
-            sb.append(g);
+          Integer idx = parentPattern.namedGroups().get(name);
+          if (idx == null) {
+            throw new IllegalArgumentException("No group with name <" + name + ">");
+          }
+          int g = idx;
+          int start = start(g);
+          int end = end(g);
+          if (start >= 0 && end >= 0) {
+            sb.append(text, start, end);
           }
         } else if (Character.isDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, groupCount());
           int groupIdx = groupRef.groupNum();
           i = groupRef.end();
-          String g = group(groupIdx);
-          if (g != null) {
-            sb.append(g);
+          int start = start(groupIdx);
+          int end = end(groupIdx);
+          if (start >= 0 && end >= 0) {
+            sb.append(text, start, end);
           }
         } else {
           throw new IllegalArgumentException("Invalid group reference in replacement string");
