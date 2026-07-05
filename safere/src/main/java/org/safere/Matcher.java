@@ -2205,13 +2205,13 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
+  @SuppressWarnings("ReferenceEquality")
   private String replaceDfaOptimized(LazyTemplate template, int limit) {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     if (!canUseForwardDfa()
         || !parentPattern.dfaGroupZeroReliable()
         || parentPattern.prog().dollarAnchorEnd()
         || parentPattern.literalMatch() != null
-        || template.needsCaptures() // Route to fallback if it needs captures
         || regionActive) {
       return null;
     }
@@ -2248,6 +2248,18 @@ public final class Matcher implements MatchResult {
 
     ReplacementSegment[] compiledTemplate = template.get();
 
+    Prog prog = parentPattern.prog();
+    int numCaptures = prog.numCaptures();
+    if (groups == null || groups.length < 2 * numCaptures) {
+      groups = new int[2 * numCaptures];
+    }
+    boolean needsCaptures = template.needsCaptures();
+    boolean useOnePass =
+        needsCaptures
+            && enginePathOptions().onePass()
+            && parentPattern.canOnePassSubmatch()
+            && !parentPattern.hasNullableAlternation();
+
     int textLen = text.length();
     int replacementLen = 0;
     for (ReplacementSegment seg : compiledTemplate) {
@@ -2271,6 +2283,37 @@ public final class Matcher implements MatchResult {
 
       groups[0] = matchStart;
       groups[1] = matchEnd;
+      if (needsCaptures) {
+        Arrays.fill(groups, 2, groups.length, -1);
+        int[] resultGroups;
+        if (useOnePass) {
+          resultGroups =
+              parentPattern
+                  .onePass()
+                  .search(text, matchStart, matchEnd, false, numCaptures, groups);
+        } else {
+          resultGroups =
+              searchWithBitStateOrNfa(
+                  prog,
+                  text,
+                  matchStart,
+                  matchEnd,
+                  matchEnd,
+                  matchEnd,
+                  true,
+                  false,
+                  false,
+                  numCaptures,
+                  true,
+                  groups);
+        }
+        if (resultGroups != null && resultGroups != groups) {
+          System.arraycopy(resultGroups, 0, groups, 0, groups.length);
+        }
+        capturesResolved = true;
+        groupZeroResolved = true;
+      }
+
       sb.append(text, builderAppendPos, matchStart);
       applyReplacementTemplate(sb, compiledTemplate);
       builderAppendPos = matchEnd;
@@ -2279,10 +2322,6 @@ public final class Matcher implements MatchResult {
 
     int firstMatchStart = matchOffsets[0];
     int firstMatchEnd = matchOffsets[1];
-
-    if (groups == null) {
-      groups = new int[2 * parentPattern.prog().numCaptures()];
-    }
 
     if (limit == 1) {
       applyDeferredMatchResult(
