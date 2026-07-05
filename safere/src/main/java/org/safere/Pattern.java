@@ -754,7 +754,11 @@ public final class Pattern implements Serializable {
       // must be excluded because OnePass returns leftmost-longest semantics, which disagrees
       // with JDK's leftmost-first (biased) semantics for nullable alternations.
       boolean canPrimary =
-          op != null && op.search("", false, 0) == null && !hasLazy && !hasNullableAlternation;
+          op != null
+              && op.search("", false, 0) == null
+              && !hasLazy
+              && !hasNullableAlternation
+              && !prog.hasGraphemeSemantics();
       // canFind is canPrimary restricted to anchored patterns (legacy flag).
       boolean canFind = canPrimary && prog.anchorStart();
       // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)
@@ -842,6 +846,11 @@ public final class Pattern implements Serializable {
    */
   boolean hasNullableAlternation() {
     return hasNullableAlternation;
+  }
+
+  /** Returns whether this pattern contains any lazy quantifiers. */
+  boolean hasLazyQuantifiers() {
+    return hasLazy;
   }
 
   /**
@@ -1525,21 +1534,22 @@ public final class Pattern implements Serializable {
   }
 
   private static Regexp firstPrefixCandidate(Regexp re) {
-    Regexp node = unwrapCaptures(re);
-    if (node == null) {
-      return null;
-    }
-    if (node.op == RegexpOp.CONCAT) {
-      for (Regexp child : node.subs) {
-        Regexp candidate = unwrapCaptures(child);
-        if (candidate == null || isLeadingZeroWidth(candidate)) {
-          continue;
-        }
-        return candidate;
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(re);
+    while (!stack.isEmpty()) {
+      Regexp node = unwrapCaptures(stack.pop());
+      if (node == null || isLeadingZeroWidth(node)) {
+        continue;
       }
-      return null;
+      if (node.op == RegexpOp.CONCAT) {
+        for (int i = node.subs.size() - 1; i >= 0; i--) {
+          stack.push(node.subs.get(i));
+        }
+      } else {
+        return node;
+      }
     }
-    return isLeadingZeroWidth(node) ? null : node;
+    return null;
   }
 
   private static boolean isLeadingZeroWidth(Regexp re) {

@@ -492,4 +492,21 @@ class DfaTest {
     assertThat(first.ambiguous()).isTrue();
     assertThat(second.ambiguous()).isTrue();
   }
+
+  @Test
+  void reverseDfaAsciiFastPathPreservesAcceptedAfterMatchAmbiguity() {
+    Pattern p = Pattern.compile("^(?:\\B|a)b");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    Dfa.SearchResult first = revDfa.doSearchReverse("ab", 2, 0, true, true);
+    Dfa.SearchResult second = revDfa.doSearchReverse("ab", 2, 0, true, true);
+
+    assertThat(first).isNotNull();
+    assertThat(second).isNotNull();
+    assertThat(first.matched()).isTrue();
+    assertThat(second.matched()).isTrue();
+    assertThat(first.ambiguous()).isTrue();
+    assertThat(second.ambiguous()).isTrue();
+  }
 }

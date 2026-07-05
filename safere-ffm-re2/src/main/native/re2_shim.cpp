@@ -2,8 +2,6 @@
 // See LICENSE file in the project root for details.
 
 #include "re2_shim.h"
-
-#include <algorithm>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -91,6 +89,47 @@ bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
     }
   }
   return true;
+}
+
+int re2_find_all(const re2_pattern_t* p, const char* text, int text_len,
+                 int32_t* matches_out, int max_matches) {
+  if (!p || !p->re2->ok()) return 0;
+
+  absl::string_view input(text, text_len);
+  int count = 0;
+  int start_pos = 0;
+  absl::string_view match;
+
+  while (count < max_matches) {
+    if (!p->re2->Match(input, start_pos, text_len, RE2::UNANCHORED, &match,
+                       1)) {
+      break;
+    }
+    int32_t start = static_cast<int32_t>(match.data() - text);
+    int32_t end = static_cast<int32_t>(match.data() - text + match.size());
+    matches_out[2 * count] = start;
+    matches_out[2 * count + 1] = end;
+    count++;
+
+    if (start == end) {
+      if (start_pos >= text_len) {
+        break;
+      }
+      unsigned char c = static_cast<unsigned char>(text[start_pos]);
+      if (c < 0x80) {
+        start_pos += 1;
+      } else if (c < 0xE0) {
+        start_pos += 2;
+      } else if (c < 0xF0) {
+        start_pos += 3;
+      } else {
+        start_pos += 4;
+      }
+    } else {
+      start_pos = end;
+    }
+  }
+  return count;
 }
 
 int re2_replace_all(const re2_pattern_t* p,

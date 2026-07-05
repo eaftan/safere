@@ -267,4 +267,39 @@ public class ReplaceBenchmark {
   public String emptyReplaceAll_re2ffm() {
     return re2ffmEmpty.matcher(emptyText).replaceAll(emptyReplacement);
   }
+
+  // ===== Manual appendReplacement loop (for group reference performance) =====
+
+  @Benchmark
+  public String manualReplaceAll_safere() {
+    org.safere.Matcher m = safePigLatin.matcher(pigLatinText);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      m.appendReplacement(sb, pigLatinReplacement);
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  @Benchmark
+  public String manualReplaceAll_jdk() {
+    java.util.regex.Matcher m = jdkPigLatin.matcher(pigLatinText);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      m.appendReplacement(sb, pigLatinReplacement);
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  @Benchmark
+  public String manualReplaceAll_re2j() {
+    com.google.re2j.Matcher m = re2jPigLatin.matcher(pigLatinText);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      m.appendReplacement(sb, pigLatinReplacement);
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
 }
