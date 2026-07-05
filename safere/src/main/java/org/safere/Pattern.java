@@ -754,7 +754,11 @@ public final class Pattern implements Serializable {
       // must be excluded because OnePass returns leftmost-longest semantics, which disagrees
       // with JDK's leftmost-first (biased) semantics for nullable alternations.
       boolean canPrimary =
-          op != null && op.search("", false, 0) == null && !hasLazy && !hasNullableAlternation;
+          op != null
+              && op.search("", false, 0) == null
+              && !hasLazy
+              && !hasNullableAlternation
+              && !prog.hasGraphemeSemantics();
       // canFind is canPrimary restricted to anchored patterns (legacy flag).
       boolean canFind = canPrimary && prog.anchorStart();
       // OnePass can be used for the sandwich submatch extraction step (anchored, endMatch=true)

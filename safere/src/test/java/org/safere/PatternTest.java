@@ -25,6 +25,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Pattern}. */
 class PatternTest {
+
   private static final class LiteralCharSequence implements CharSequence {
     private final String value;
 
