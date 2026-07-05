@@ -2210,7 +2210,8 @@ public final class Matcher implements MatchResult {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     if (!canUseForwardDfa()
         || !parentPattern.dfaGroupZeroReliable()
-        || parentPattern.prog().dollarAnchorEnd()
+        // dollarAnchorEnd is safe if start-anchored because we skip the reverse DFA scan.
+        || (parentPattern.prog().dollarAnchorEnd() && !parentPattern.prog().anchorStart())
         || parentPattern.literalMatch() != null
         || regionActive) {
       return null;
