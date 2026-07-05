@@ -138,10 +138,10 @@ public class RealWorldRegexBenchmark {
     "greedyOnePass",
     "layoutBlock",
     "unicodeClassPrefix",
+    "unicodeClassPrefixNfaFallback",
     "turnTitleWhitespaceCjk",
     "cjkSearch",
-    "emojiSearch",
-    "unicodeClassPrefixNfaFallback"
+    "emojiSearch"
   })
   public String patternName;
 
