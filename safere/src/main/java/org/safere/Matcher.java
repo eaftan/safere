@@ -2316,6 +2316,7 @@ public final class Matcher implements MatchResult {
       }
 
       sb.append(text, builderAppendPos, matchStart);
+      this.resultStatus = ResultStatus.MATCHED;
       applyReplacementTemplate(sb, compiledTemplate);
       builderAppendPos = matchEnd;
     }
