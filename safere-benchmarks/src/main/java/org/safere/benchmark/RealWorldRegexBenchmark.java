@@ -137,6 +137,8 @@ public class RealWorldRegexBenchmark {
     "charReplace",
     "greedyOnePass",
     "layoutBlock",
+    "unicodeClassPrefix",
+    "unicodeClassPrefixNfaFallback",
     "turnTitleWhitespaceCjk",
     "cjkSearch",
     "emojiSearch"

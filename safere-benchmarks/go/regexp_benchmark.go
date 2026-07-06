@@ -461,6 +461,20 @@ func runApplicationBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		pattern := getString(item, "pattern")
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: skipping application benchmark %s: %v\n", getString(item, "name"), err)
+			continue
+		}
+		var fullRe *regexp.Regexp
+		if strings.HasPrefix(getString(item, "op"), "matches") {
+			var err error
+			fullRe, err = regexp.Compile("^(?:" + pattern + ")$")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: skipping application benchmark %s (full match compile): %v\n", getString(item, "name"), err)
+				continue
+			}
+		}
 		c := appCase{
 			name:        getString(item, "name"),
 			op:          getString(item, "op"),
@@ -470,10 +484,8 @@ func runApplicationBenchmarks(data map[string]any, filters []string) {
 			groups:      getIntSlice(item, "groups"),
 			replacement: convertReplacement(getString(item, "replacement")),
 			expected:    item["expected"],
-			re:          regexp.MustCompile(pattern),
-		}
-		if strings.HasPrefix(c.op, "matches") {
-			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+			re:          re,
+			fullRe:      fullRe,
 		}
 		cases = append(cases, c)
 	}
@@ -605,6 +617,20 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		pattern := getString(item, "pattern")
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: skipping realWorldRegex benchmark %s: %v\n", getString(item, "name"), err)
+			continue
+		}
+		var fullRe *regexp.Regexp
+		if op == "matches" {
+			var err error
+			fullRe, err = regexp.Compile("^(?:" + pattern + ")$")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: skipping realWorldRegex benchmark %s (full match compile): %v\n", getString(item, "name"), err)
+				continue
+			}
+		}
 		matchInput, _ := item["matchInput"].(map[string]any)
 		nonMatchInput, _ := item["nonMatchInput"].(map[string]any)
 		c := realWorldCase{
@@ -615,10 +641,8 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			nonMatch:      getString(item, "nonMatch"),
 			matchInput:    matchInput,
 			nonMatchInput: nonMatchInput,
-			re:            regexp.MustCompile(pattern),
-		}
-		if op == "matches" {
-			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+			re:            re,
+			fullRe:        fullRe,
 		}
 		cases = append(cases, c)
 	}
@@ -898,7 +922,11 @@ func runReplaceBenchmarks(data map[string]any, filters []string) {
 		// Convert Java-style $N backreferences to Go-style ${N}
 		goReplacement := convertReplacement(replacement)
 
-		re := regexp.MustCompile(pattern)
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: skipping replace benchmark %s: %v\n", key, err)
+			continue
+		}
 		benchName := "ReplaceBenchmark." + key
 
 		if !matchesFilter(benchName, filters) {
