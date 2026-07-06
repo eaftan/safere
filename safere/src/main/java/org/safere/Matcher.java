@@ -2233,22 +2233,14 @@ public final class Matcher implements MatchResult {
       return null;
     }
 
-    Dfa revDfa = null;
     boolean isStartAnchored = parentPattern.prog().anchorStart();
-    if (!isStartAnchored) {
-      if (!canUseReverseDfa()) {
-        return null;
-      }
-      revDfa = reverseDfa();
-    }
-
     String prefix = parentPattern.prefix();
     boolean foldCase = parentPattern.prefixFoldCase();
     boolean hasStartAcceleration = enginePathOptions().startAcceleration() && prefix != null;
 
     int matchesFound =
         findDfaMatches(
-            fwdDfa, revDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, limit);
+            fwdDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, limit);
 
     if (matchesFound < 0) {
       return null;
@@ -2350,7 +2342,6 @@ public final class Matcher implements MatchResult {
 
   private int findDfaMatches(
       Dfa fwdDfa,
-      Dfa revDfa,
       boolean isStartAnchored,
       String prefix,
       boolean foldCase,
@@ -2359,6 +2350,7 @@ public final class Matcher implements MatchResult {
     int textLen = text.length();
     int pos = searchFrom;
     int matchesFound = 0;
+    Dfa revDfa = null;
 
     if (matchOffsets == null) {
       matchOffsets = new int[16];
@@ -2397,6 +2389,12 @@ public final class Matcher implements MatchResult {
           matchStart = pos;
           matchEnd = fwdFirst.pos();
         } else {
+          if (revDfa == null) {
+            if (!canUseReverseDfa()) {
+              return -1;
+            }
+            revDfa = reverseDfa();
+          }
           Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
             return -1;
@@ -2409,6 +2407,12 @@ public final class Matcher implements MatchResult {
           matchEnd = fwdFirst2.pos();
         }
       } else {
+        if (revDfa == null) {
+          if (!canUseReverseDfa()) {
+            return -1;
+          }
+          revDfa = reverseDfa();
+        }
         Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
           return -1;
