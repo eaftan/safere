@@ -2394,7 +2394,7 @@ public final class Matcher implements MatchResult {
           matchEnd = fwdFirst.pos();
         } else {
           Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
-          if (revResult == null || !revResult.matched()) {
+          if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
             return -1;
           }
           matchStart = revResult.pos();
@@ -2406,7 +2406,7 @@ public final class Matcher implements MatchResult {
         }
       } else {
         Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
-        if (revResult == null || !revResult.matched()) {
+        if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
           return -1;
         }
         matchStart = revResult.pos();

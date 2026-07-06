@@ -1285,6 +1285,24 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceAll() with ambiguous reverse DFA match start handles correctness")
+    void replaceAllWithAmbiguousReverseDfaMatchStart() {
+      Pattern p = Pattern.compile("(b|ab)c");
+      Matcher m = p.matcher("abc");
+      assertThat(m.replaceAll("X")).isEqualTo("X");
+    }
+
+    @Test
+    @DisplayName("find() with alternation prefers leftmost match over earliest DFA end")
+    void testAlternationDfaSandwichCorrectness() {
+      Pattern p = Pattern.compile("b|a.c");
+      Matcher m = p.matcher("abc");
+      boolean found = m.find();
+      assertThat(found).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
+    }
+
+    @Test
     @DisplayName("replaceAll with group references preserves start-anchor find semantics")
     void replaceAllWithGroupReferencesPreservesStartAnchorFindSemantics() {
       String[][] cases = {
@@ -1509,6 +1527,40 @@ class MatcherTest {
       Matcher m = p.matcher("b");
       // $1 didn't participate (null), should be replaced with empty string
       assertThat(m.replaceFirst("[$1][$2]")).isEqualTo("[][b]");
+    }
+
+    @Test
+    @DisplayName("replaceAll() with dollar anchor and alternation matches JDK")
+    void testReplaceAllDollarAnchorAlternation() {
+      String regex = "(?:a+?|(?:[^x])*)$";
+      String input = "x".repeat(1100) + "a\n";
+      Pattern p = Pattern.compile(regex);
+      Matcher m = p.matcher(input);
+      String result = m.replaceAll("X");
+
+      java.util.regex.Pattern jdkP = java.util.regex.Pattern.compile(regex);
+      java.util.regex.Matcher jdkM = jdkP.matcher(input);
+      String jdkResult = jdkM.replaceAll("X");
+
+      assertThat(result).isEqualTo(jdkResult);
+    }
+
+    @Test
+    @DisplayName("find() with ambiguous reverse DFA start matches JDK")
+    void testFindAmbiguousReverseDfa() {
+      String regex = "(?:\\B|a).a?";
+      String input = "ab".repeat(600) + "c";
+      Pattern p = Pattern.compile(regex);
+      Matcher m = p.matcher(input);
+      java.util.regex.Pattern jdkP = java.util.regex.Pattern.compile(regex);
+      java.util.regex.Matcher jdkM = jdkP.matcher(input);
+
+      while (jdkM.find()) {
+        assertThat(m.find()).isTrue();
+        assertThat(m.start()).isEqualTo(jdkM.start());
+        assertThat(m.end()).isEqualTo(jdkM.end());
+      }
+      assertThat(m.find()).isFalse();
     }
   }
 
