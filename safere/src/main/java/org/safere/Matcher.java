@@ -2238,9 +2238,19 @@ public final class Matcher implements MatchResult {
     boolean foldCase = parentPattern.prefixFoldCase();
     boolean hasStartAcceleration = enginePathOptions().startAcceleration() && prefix != null;
 
+    int startPos = searchFrom;
+    if (hasStartAcceleration) {
+      int firstIdx =
+          foldCase ? indexOfIgnoreCase(text, prefix, searchFrom) : text.indexOf(prefix, searchFrom);
+      if (firstIdx < 0) {
+        return text;
+      }
+      startPos = firstIdx;
+    }
+
     int matchesFound =
         findDfaMatches(
-            fwdDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, limit);
+            fwdDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, startPos, limit);
 
     if (matchesFound < 0) {
       return null;
@@ -2346,9 +2356,10 @@ public final class Matcher implements MatchResult {
       String prefix,
       boolean foldCase,
       boolean hasStartAcceleration,
+      int startPos,
       int limit) {
     int textLen = text.length();
-    int pos = searchFrom;
+    int pos = startPos;
     int matchesFound = 0;
     Dfa revDfa = null;
 
