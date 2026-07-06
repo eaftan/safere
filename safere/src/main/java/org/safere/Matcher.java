@@ -434,7 +434,7 @@ public final class Matcher implements MatchResult {
     return text.regionMatches(false, offset, literal, 0, length);
   }
 
-  private static boolean charClassContains(int[] ranges, long b0, long b1, int cp) {
+  static boolean charClassContains(int[] ranges, long b0, long b1, int cp) {
     if (cp < 64) {
       return (b0 & (1L << cp)) != 0;
     }
@@ -1303,9 +1303,9 @@ public final class Matcher implements MatchResult {
     // Character-class prefix acceleration: when the pattern starts with a character class (and
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
-    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
-      int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
+    Pattern.CharClassScanInfo charClassPrefix = parentPattern.charClassPrefix();
+    if (options.startAcceleration() && !prog.hasWordBoundary() && charClassPrefix != null) {
+      int idx = indexOfCharClass(text, charClassPrefix, searchFrom);
       if (idx < 0) {
         if (!prog.anchorStart()) {
         } else {
@@ -1722,18 +1722,25 @@ public final class Matcher implements MatchResult {
 
   /**
    * Scans {@code text} for the first character at or after {@code fromIndex} whose code point is
-   * set in the ASCII bitmap. Returns the index, or {@code -1} if no matching character is found.
-   * Non-ASCII characters are skipped (never match).
+   * contained in the character class. Returns the index, or {@code -1} if no matching character is
+   * found.
    */
-  private static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
-    for (int i = fromIndex; i < text.length(); i++) {
+  private static int indexOfCharClass(String text, Pattern.CharClassScanInfo cc, int fromIndex) {
+    long b0 = cc.bitmap0;
+    long b1 = cc.bitmap1;
+    int[] ranges = cc.ranges;
+
+    int i = fromIndex;
+    int len = text.length();
+    while (i < len) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
-      char ch = text.charAt(i);
-      if (ch < 128 && asciiMap[ch]) {
+      int cp = text.codePointAt(i);
+      if (charClassContains(ranges, b0, b1, cp)) {
         return i;
       }
+      i += Character.charCount(cp);
     }
     return -1;
   }
@@ -3014,9 +3021,9 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
-    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
-      int idx = indexOfCharClass(text, ccPrefixAscii, fromIndex);
+    Pattern.CharClassScanInfo charClassPrefix = parentPattern.charClassPrefix();
+    if (options.startAcceleration() && !prog.hasWordBoundary() && charClassPrefix != null) {
+      int idx = indexOfCharClass(text, charClassPrefix, fromIndex);
       if (idx < 0) {
         return -1L;
       }

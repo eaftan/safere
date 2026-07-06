@@ -56,9 +56,8 @@ class PatternInternalTest {
   void transparentGroupsPreserveCharacterClassAccelerators() {
     Pattern p = Pattern.compile("(?:[A-Z]+)");
 
-    boolean[] prefix = p.charClassPrefixAscii();
-    assertThat(prefix).isNotNull();
-    assertThat(prefix['A']).isTrue();
+    assertThat(p.charClassPrefix()).isNotNull();
+    assertThat(p.charClassPrefixContains('A')).isTrue();
     assertThat(p.charClassMatchRanges()).isNotNull();
   }
 
@@ -104,48 +103,44 @@ class PatternInternalTest {
   @Test
   void alternatePrefixAcceleration() {
     Pattern p = Pattern.compile("(?:cat|dog|bird)s?");
-    boolean[] prefix = p.charClassPrefixAscii();
-    assertThat(prefix).isNotNull();
-    assertThat(prefix['c']).isTrue();
-    assertThat(prefix['d']).isTrue();
-    assertThat(prefix['b']).isTrue();
-    assertThat(prefix['a']).isFalse();
+    assertThat(p.charClassPrefix()).isNotNull();
+    assertThat(p.charClassPrefixContains('c')).isTrue();
+    assertThat(p.charClassPrefixContains('d')).isTrue();
+    assertThat(p.charClassPrefixContains('b')).isTrue();
+    assertThat(p.charClassPrefixContains('a')).isFalse();
   }
 
   @Test
   void alternatePrefixCaseInsensitiveAcceleration() {
     Pattern p = Pattern.compile("(?i)(?:cat|dog|bird)s?");
-    boolean[] prefix = p.charClassPrefixAscii();
-    assertThat(prefix).isNotNull();
-    assertThat(prefix['c']).isTrue();
-    assertThat(prefix['C']).isTrue();
-    assertThat(prefix['d']).isTrue();
-    assertThat(prefix['D']).isTrue();
-    assertThat(prefix['b']).isTrue();
-    assertThat(prefix['B']).isTrue();
-    assertThat(prefix['a']).isFalse();
+    assertThat(p.charClassPrefix()).isNotNull();
+    assertThat(p.charClassPrefixContains('c')).isTrue();
+    assertThat(p.charClassPrefixContains('C')).isTrue();
+    assertThat(p.charClassPrefixContains('d')).isTrue();
+    assertThat(p.charClassPrefixContains('D')).isTrue();
+    assertThat(p.charClassPrefixContains('b')).isTrue();
+    assertThat(p.charClassPrefixContains('B')).isTrue();
+    assertThat(p.charClassPrefixContains('a')).isFalse();
   }
 
   @Test
   void deeplyNestedRequiredQuantifierPrefixExtractionIsStackSafe() {
     Pattern p = Pattern.compile(nestedRequiredPlusPattern(1_000, "[ab]"));
 
-    boolean[] prefix = p.charClassPrefixAscii();
-    assertThat(prefix).isNotNull();
-    assertThat(prefix['a']).isTrue();
-    assertThat(prefix['b']).isTrue();
-    assertThat(prefix['c']).isFalse();
+    assertThat(p.charClassPrefix()).isNotNull();
+    assertThat(p.charClassPrefixContains('a')).isTrue();
+    assertThat(p.charClassPrefixContains('b')).isTrue();
+    assertThat(p.charClassPrefixContains('c')).isFalse();
   }
 
   @Test
   void deeplyNestedAlternationPrefixExtractionIsStackSafe() {
     Pattern p = Pattern.compile(nestedAlternationPattern(1_000));
 
-    boolean[] prefix = p.charClassPrefixAscii();
-    assertThat(prefix).isNotNull();
-    assertThat(prefix['a']).isTrue();
-    assertThat(prefix['b']).isTrue();
-    assertThat(prefix['c']).isFalse();
+    assertThat(p.charClassPrefix()).isNotNull();
+    assertThat(p.charClassPrefixContains('a')).isTrue();
+    assertThat(p.charClassPrefixContains('b')).isTrue();
+    assertThat(p.charClassPrefixContains('c')).isFalse();
   }
 
   @Test
