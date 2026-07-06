@@ -962,8 +962,7 @@ public final class Matcher implements MatchResult {
     return enginePathOptions().dfa()
         && enginePathOptions().reverseDfa()
         && dfaSupportsProgram(parentPattern.flatReverseDfaProg())
-        && !parentPattern.prog().anchorStart()
-        && reverseDfa() != null;
+        && !parentPattern.prog().anchorStart();
   }
 
   /**
@@ -2405,6 +2404,9 @@ public final class Matcher implements MatchResult {
               return -1;
             }
             revDfa = reverseDfa();
+            if (revDfa == null) {
+              return -1;
+            }
           }
           Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
@@ -2423,6 +2425,9 @@ public final class Matcher implements MatchResult {
             return -1;
           }
           revDfa = reverseDfa();
+          if (revDfa == null) {
+            return -1;
+          }
         }
         Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
