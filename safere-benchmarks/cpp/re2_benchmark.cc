@@ -608,12 +608,6 @@ void run_real_world_regex_benchmarks(
     json non_match_input;
     RE2 re;
 
-    static RE2::Options DefaultOptions() {
-      RE2::Options opts;
-      opts.set_log_errors(false);
-      return opts;
-    }
-
     explicit RealWorldCase(const json& item)
         : name(item.at("name").get<std::string>()),
           op(item.at("op").get<std::string>()),
@@ -622,18 +616,12 @@ void run_real_world_regex_benchmarks(
           non_match(item.at("nonMatch").get<std::string>()),
           match_input(item.value("matchInput", json::object())),
           non_match_input(item.value("nonMatchInput", json::object())),
-          re(pattern, DefaultOptions()) {}
+          re(pattern) {}
   };
 
   std::vector<std::unique_ptr<RealWorldCase>> cases;
   for (const auto& item : sec["cases"]) {
-    auto case_ptr = std::make_unique<RealWorldCase>(item);
-    if (!case_ptr->re.ok()) {
-      fprintf(stderr, "WARNING: skipping invalid RE2 real-world regex pattern: %s (%s)\n",
-              case_ptr->name.c_str(), case_ptr->re.error().c_str());
-      continue;
-    }
-    cases.push_back(std::move(case_ptr));
+    cases.push_back(std::make_unique<RealWorldCase>(item));
   }
 
   for (const auto& case_ptr : cases) {
