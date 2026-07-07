@@ -1266,6 +1266,8 @@ class MatcherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
     @DisplayName("replaceAll() with malformed replacement records first match before throwing")
     void replaceAllMalformedReplacementRecordsFirstMatch(String replacement) {
       Pattern p = Pattern.compile("a.");
@@ -1280,6 +1282,8 @@ class MatcherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
     @DisplayName("replaceFirst() with malformed replacement records first match before throwing")
     void replaceFirstMalformedReplacementRecordsFirstMatch(String replacement) {
       Pattern p = Pattern.compile("a.");
@@ -1294,6 +1298,8 @@ class MatcherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
     @DisplayName("replaceAll() char-class fast path records first match before throwing")
     void replaceAllCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
       Pattern p = Pattern.compile("\\d+");
@@ -1308,6 +1314,8 @@ class MatcherTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
     @DisplayName("replaceFirst() char-class fast path records first match before throwing")
     void replaceFirstCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
       Pattern p = Pattern.compile("\\d+");
