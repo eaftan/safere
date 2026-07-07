@@ -2216,7 +2216,6 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private String replaceDfaOptimized(LazyTemplate template, int limit) {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     if (!canUseForwardDfa()
@@ -2224,12 +2223,9 @@ public final class Matcher implements MatchResult {
         // dollarAnchorEnd is safe if start-anchored because we skip the reverse DFA scan.
         || (parentPattern.prog().dollarAnchorEnd() && !parentPattern.prog().anchorStart())
         || parentPattern.literalMatch() != null
+        || parentPattern.canMatchEmpty()
+        || parentPattern.hasNullableAlternation()
         || regionActive) {
-      return null;
-    }
-
-    Dfa fwdDfa = dfa(false);
-    if (fwdDfa == null) {
       return null;
     }
 
@@ -2237,7 +2233,6 @@ public final class Matcher implements MatchResult {
     String prefix = parentPattern.prefix();
     boolean foldCase = parentPattern.prefixFoldCase();
     boolean hasStartAcceleration = enginePathOptions().startAcceleration() && prefix != null;
-
     int startPos = searchFrom;
     if (hasStartAcceleration) {
       int firstIdx =
@@ -2248,32 +2243,31 @@ public final class Matcher implements MatchResult {
       startPos = firstIdx;
     }
 
-    int matchesFound =
-        findDfaMatches(
-            fwdDfa,
-            isStartAnchored,
-            prefix,
-            foldCase,
-            hasStartAcceleration,
-            startPos,
-            limit,
-            limit == 1);
-
-    if (matchesFound < 0) {
+    Dfa fwdDfa = dfa(false);
+    if (fwdDfa == null) {
       return null;
     }
 
-    if (matchesFound == 0) {
+    DfaMatchCursor cursor = new DfaMatchCursor(startPos);
+    int matchResult =
+        findNextDfaMatch(fwdDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, cursor);
+
+    if (matchResult < 0) {
+      return null;
+    }
+    if (matchResult == 0) {
       return text;
     }
-
-    ReplacementSegment[] compiledTemplate = template.get();
 
     Prog prog = parentPattern.prog();
     int numCaptures = prog.numCaptures();
     if (groups == null || groups.length < 2 * numCaptures) {
       groups = new int[2 * numCaptures];
     }
+    applyDeferredMatchResult(matchOffsets[0], matchOffsets[1], numCaptures, true, false);
+
+    ReplacementSegment[] compiledTemplate = template.get();
+
     boolean needsCaptures = template.needsCaptures();
     boolean useOnePass =
         needsCaptures
@@ -2282,40 +2276,16 @@ public final class Matcher implements MatchResult {
             && !parentPattern.hasNullableAlternation();
 
     int textLen = text.length();
-    int replacementLen = 0;
-    for (ReplacementSegment seg : compiledTemplate) {
-      if (seg instanceof ReplacementSegment.Literal lit) {
-        replacementLen += lit.text().length();
-      }
-    }
-
-    int finalLen = textLen + (matchesFound * replacementLen);
-
-    StringBuilder sb = new StringBuilder(finalLen);
+    StringBuilder sb = new StringBuilder(textLen);
     int builderAppendPos = searchFrom;
     int firstMatchStart = -1;
     int firstMatchEnd = -1;
+    int matchesFound = 0;
 
-    for (int i = 0; i < matchesFound; i++) {
-      if (limit != 1) {
-        int nextMatch =
-            findDfaMatches(
-                fwdDfa,
-                isStartAnchored,
-                prefix,
-                foldCase,
-                hasStartAcceleration,
-                builderAppendPos,
-                1,
-                true);
-        if (nextMatch != 1) {
-          return null;
-        }
-      }
-      int offsetIndex = limit == 1 ? 2 * i : 0;
-      int matchStart = matchOffsets[offsetIndex];
-      int matchEnd = matchOffsets[offsetIndex + 1];
-      if (i == 0) {
+    while (matchResult == 1 && matchesFound < limit) {
+      int matchStart = matchOffsets[0];
+      int matchEnd = matchOffsets[1];
+      if (matchesFound == 0) {
         firstMatchStart = matchStart;
         firstMatchEnd = matchEnd;
       }
@@ -2346,7 +2316,7 @@ public final class Matcher implements MatchResult {
                   true,
                   groups);
         }
-        if (resultGroups != null && resultGroups != groups) {
+        if (resultGroups != null) {
           System.arraycopy(resultGroups, 0, groups, 0, groups.length);
         }
         capturesResolved = true;
@@ -2357,6 +2327,17 @@ public final class Matcher implements MatchResult {
       this.resultStatus = ResultStatus.MATCHED;
       applyReplacementTemplate(sb, compiledTemplate);
       builderAppendPos = matchEnd;
+
+      cursor.pos = matchEnd;
+      matchesFound++;
+      if (matchesFound < limit) {
+        matchResult =
+            findNextDfaMatch(
+                fwdDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, cursor);
+        if (matchResult < 0) {
+          return null;
+        }
+      }
     }
     sb.append(text, builderAppendPos, textLen);
 
@@ -2372,25 +2353,21 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
-  private int findDfaMatches(
+  private int findNextDfaMatch(
       Dfa fwdDfa,
       boolean isStartAnchored,
       String prefix,
       boolean foldCase,
       boolean hasStartAcceleration,
-      int startPos,
-      int limit,
-      boolean storeOffsets) {
+      DfaMatchCursor cursor) {
     int textLen = text.length();
-    int pos = startPos;
-    int matchesFound = 0;
-    Dfa revDfa = null;
+    int pos = cursor.pos;
 
-    if (storeOffsets && matchOffsets == null) {
-      matchOffsets = new int[16];
+    if (matchOffsets == null) {
+      matchOffsets = new int[2];
     }
 
-    while (pos <= textLen && matchesFound < limit) {
+    while (pos <= textLen) {
       if (parentPattern.prog().anchorStart() && pos > 0) {
         break;
       }
@@ -2423,16 +2400,17 @@ public final class Matcher implements MatchResult {
           matchStart = pos;
           matchEnd = fwdFirst.pos();
         } else {
-          if (revDfa == null) {
+          if (cursor.revDfa == null) {
             if (!canUseReverseDfa()) {
               return -1;
             }
-            revDfa = reverseDfa();
-            if (revDfa == null) {
+            cursor.revDfa = reverseDfa();
+            if (cursor.revDfa == null) {
               return -1;
             }
           }
-          Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+          Dfa.SearchResult revResult =
+              cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
             return -1;
           }
@@ -2444,16 +2422,16 @@ public final class Matcher implements MatchResult {
           matchEnd = fwdFirst2.pos();
         }
       } else {
-        if (revDfa == null) {
+        if (cursor.revDfa == null) {
           if (!canUseReverseDfa()) {
             return -1;
           }
-          revDfa = reverseDfa();
-          if (revDfa == null) {
+          cursor.revDfa = reverseDfa();
+          if (cursor.revDfa == null) {
             return -1;
           }
         }
-        Dfa.SearchResult revResult = revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+        Dfa.SearchResult revResult = cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
           return -1;
         }
@@ -2465,18 +2443,11 @@ public final class Matcher implements MatchResult {
         matchEnd = fwdFirst.pos();
       }
 
-      if (storeOffsets) {
-        if (2 * matchesFound >= matchOffsets.length) {
-          matchOffsets = Arrays.copyOf(matchOffsets, matchOffsets.length * 2);
-        }
-        matchOffsets[2 * matchesFound] = matchStart;
-        matchOffsets[2 * matchesFound + 1] = matchEnd;
-      }
-
-      pos = matchEnd;
-      matchesFound++;
+      matchOffsets[0] = matchStart;
+      matchOffsets[1] = matchEnd;
+      return 1;
     }
-    return matchesFound;
+    return 0;
   }
 
   /**
@@ -2615,14 +2586,21 @@ public final class Matcher implements MatchResult {
       int matchEnd = pos;
 
       if (matchesFound == 0) {
-        ReplacementSegment[] compiledTemplate = template.get();
+        firstMatchStart = matchStart;
+        firstMatchEnd = matchEnd;
+        ReplacementSegment[] compiledTemplate;
+        try {
+          compiledTemplate = template.get();
+        } catch (IllegalArgumentException e) {
+          applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
+          throw e;
+        }
         if (compiledTemplate.length != 1
             || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
           return null;
         }
+        applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
         repText = literalSeg.text();
-        firstMatchStart = matchStart;
-        firstMatchEnd = matchEnd;
       }
 
       if (sb == null) {
@@ -3230,6 +3208,15 @@ public final class Matcher implements MatchResult {
         value = compileReplacementTemplate(replacement, maxGroup);
       }
       return value;
+    }
+  }
+
+  private static final class DfaMatchCursor {
+    private int pos;
+    private Dfa revDfa;
+
+    DfaMatchCursor(int pos) {
+      this.pos = pos;
     }
   }
 

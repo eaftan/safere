@@ -1198,6 +1198,36 @@ class MatcherTest {
       assertThat(m.replaceFirst("X")).isEqualTo("Xbc");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"a?", "a*", ".*", ".?"})
+    @DisplayName("replaceAll() with nullable pattern matches JDK replacement sequence")
+    void replaceAllNullablePatternMatchesJdkReplacementSequence(String regex) {
+      String input = "a";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("X"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("X"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a?", "a*", ".*", ".?"})
+    @DisplayName("replaceFirst() with nullable pattern matches JDK replacement sequence")
+    void replaceFirstNullablePatternMatchesJdkReplacementSequence(String regex) {
+      String input = "a";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceFirst("X"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("X"));
+    }
+
+    @Test
+    @DisplayName("replaceAll() with nullable alternation matches JDK replacement sequence")
+    void replaceAllNullableAlternationMatchesJdkReplacementSequence() {
+      String regex = "(?:\\B|a).a?";
+      String input = "bbaaa";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("X"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("X"));
+    }
+
     @Test
     @DisplayName("replaceFirst() with no match returns original text")
     void replaceFirstNoMatch() {
@@ -1232,6 +1262,62 @@ class MatcherTest {
       Matcher m = p.matcher("abc");
 
       assertThat(m.replaceFirst(replacement)).isEqualTo("abc");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceAll() with malformed replacement records first match before throwing")
+    void replaceAllMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("a.");
+      Matcher m = p.matcher("abc");
+
+      assertThatThrownBy(() -> m.replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+      assertThat(m.group()).isEqualTo("ab");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceFirst() with malformed replacement records first match before throwing")
+    void replaceFirstMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("a.");
+      Matcher m = p.matcher("abc");
+
+      assertThatThrownBy(() -> m.replaceFirst(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+      assertThat(m.group()).isEqualTo("ab");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceAll() char-class fast path records first match before throwing")
+    void replaceAllCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123 abc");
+
+      assertThatThrownBy(() -> m.replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.group()).isEqualTo("123");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceFirst() char-class fast path records first match before throwing")
+    void replaceFirstCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123 abc");
+
+      assertThatThrownBy(() -> m.replaceFirst(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.group()).isEqualTo("123");
     }
 
     @Test

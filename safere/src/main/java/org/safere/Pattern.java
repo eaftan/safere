@@ -107,6 +107,7 @@ public final class Pattern implements Serializable {
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
   private final transient boolean hasNullableAlternation;
+  private final transient boolean canMatchEmpty;
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient CharClassScanInfo charClassPrefix;
@@ -227,6 +228,7 @@ public final class Pattern implements Serializable {
       boolean hasLazy,
       boolean hasAlternation,
       boolean hasNullableAlternation,
+      boolean canMatchEmpty,
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       CharClassScanInfo charClassPrefix,
@@ -275,6 +277,7 @@ public final class Pattern implements Serializable {
     this.hasLazy = hasLazy;
     this.hasAlternation = hasAlternation;
     this.hasNullableAlternation = hasNullableAlternation;
+    this.canMatchEmpty = canMatchEmpty;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefix = charClassPrefix;
@@ -351,6 +354,7 @@ public final class Pattern implements Serializable {
     String literalMatch = extractLiteralMatch(metadataAst);
     boolean hasLazy = hasLazyQuantifiers(re);
     boolean hasAlt = hasAlternation(re);
+    boolean canMatchEmpty = canMatchEmpty(re);
     boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
@@ -377,6 +381,7 @@ public final class Pattern implements Serializable {
         hasLazy,
         hasAlt,
         hasNullableAlt,
+        canMatchEmpty,
         startsWithGcb,
         hasInternalGcb,
         charClassPrefix,
@@ -847,6 +852,11 @@ public final class Pattern implements Serializable {
    */
   boolean hasNullableAlternation() {
     return hasNullableAlternation;
+  }
+
+  /** Returns {@code true} if this pattern can match zero characters. */
+  boolean canMatchEmpty() {
+    return canMatchEmpty;
   }
 
   /** Returns whether this pattern contains any lazy quantifiers. */
