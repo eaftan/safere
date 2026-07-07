@@ -296,6 +296,9 @@ std::string generate_real_world_input(const json& input_spec,
                                       const std::string& alphabet, int seed) {
   std::string unit = match ? match_unit : non_match_unit;
   std::string kind = input_spec.value("kind", "repeat");
+  if (kind == "exact") {
+    return unit;
+  }
   if (kind == "repeat") {
     return generated_real_world_input(unit, size, alphabet, seed);
   }

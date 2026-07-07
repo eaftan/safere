@@ -302,6 +302,8 @@ func generateRealWorldInput(
 		kind = rawKind.(string)
 	}
 	switch kind {
+	case "exact":
+		return unit
 	case "repeat":
 		return generatedRealWorldInput(unit, size, alphabet, seed)
 	case "prefixedRepeat":

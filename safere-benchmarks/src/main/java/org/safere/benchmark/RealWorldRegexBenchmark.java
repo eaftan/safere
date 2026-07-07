@@ -139,7 +139,11 @@ public class RealWorldRegexBenchmark {
     "layoutBlock",
     "turnTitleWhitespaceCjk",
     "cjkSearch",
-    "emojiSearch"
+    "emojiSearch",
+    "stateCodes",
+    "multiWordPrefixAlternation",
+    "intlPhonePrefix",
+    "emailDomain"
   })
   public String patternName;
 
@@ -212,6 +216,7 @@ public class RealWorldRegexBenchmark {
       int seed) {
     String template = match ? regexCase.match : regexCase.nonMatch;
     return switch (inputSpec.kind) {
+      case "exact" -> template;
       case "repeat" -> generateInput(template, size, alphabet, seed);
       case "prefixedRepeat" ->
           generatePrefixedInput(inputSpec.prefix, template, size, alphabet, seed);
