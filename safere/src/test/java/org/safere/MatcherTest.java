@@ -1214,6 +1214,36 @@ class MatcherTest {
       assertThat(m.replaceAll("X")).isEqualTo("abc");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceAll() with no match does not validate malformed replacement")
+    void replaceAllNoMatchDoesNotValidateMalformedReplacement(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceAll(replacement)).isEqualTo("abc");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceFirst() with no match does not validate malformed replacement")
+    void replaceFirstNoMatchDoesNotValidateMalformedReplacement(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceFirst(replacement)).isEqualTo("abc");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() with no match rejects null replacement")
+    void replaceFirstNoMatchRejectsNullReplacement() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc");
+
+      assertThatThrownBy(() -> m.replaceFirst((String) null))
+          .isInstanceOf(NullPointerException.class);
+    }
+
     @Test
     @DisplayName("replaceFirst() with start-anchored pattern replaces correct match")
     void replaceFirstStartAnchored() {

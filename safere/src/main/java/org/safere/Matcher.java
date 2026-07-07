@@ -2194,6 +2194,7 @@ public final class Matcher implements MatchResult {
    * @return the string with the first match replaced
    */
   public String replaceFirst(String replacement) {
+    Objects.requireNonNull(replacement, "replacement");
     reset();
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     String fastResult = charClassReplaceFastPath(template, 1);
@@ -2249,7 +2250,14 @@ public final class Matcher implements MatchResult {
 
     int matchesFound =
         findDfaMatches(
-            fwdDfa, isStartAnchored, prefix, foldCase, hasStartAcceleration, startPos, limit);
+            fwdDfa,
+            isStartAnchored,
+            prefix,
+            foldCase,
+            hasStartAcceleration,
+            startPos,
+            limit,
+            limit == 1);
 
     if (matchesFound < 0) {
       return null;
@@ -2281,18 +2289,36 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    int totalMatchLen = 0;
-    for (int i = 0; i < matchesFound; i++) {
-      totalMatchLen += (matchOffsets[2 * i + 1] - matchOffsets[2 * i]);
-    }
-    int finalLen = textLen - totalMatchLen + (matchesFound * replacementLen);
+    int finalLen = textLen + (matchesFound * replacementLen);
 
     StringBuilder sb = new StringBuilder(finalLen);
     int builderAppendPos = searchFrom;
+    int firstMatchStart = -1;
+    int firstMatchEnd = -1;
 
     for (int i = 0; i < matchesFound; i++) {
-      int matchStart = matchOffsets[2 * i];
-      int matchEnd = matchOffsets[2 * i + 1];
+      if (limit != 1) {
+        int nextMatch =
+            findDfaMatches(
+                fwdDfa,
+                isStartAnchored,
+                prefix,
+                foldCase,
+                hasStartAcceleration,
+                builderAppendPos,
+                1,
+                true);
+        if (nextMatch != 1) {
+          return null;
+        }
+      }
+      int offsetIndex = limit == 1 ? 2 * i : 0;
+      int matchStart = matchOffsets[offsetIndex];
+      int matchEnd = matchOffsets[offsetIndex + 1];
+      if (i == 0) {
+        firstMatchStart = matchStart;
+        firstMatchEnd = matchEnd;
+      }
 
       groups[0] = matchStart;
       groups[1] = matchEnd;
@@ -2334,9 +2360,6 @@ public final class Matcher implements MatchResult {
     }
     sb.append(text, builderAppendPos, textLen);
 
-    int firstMatchStart = matchOffsets[0];
-    int firstMatchEnd = matchOffsets[1];
-
     if (limit == 1) {
       applyDeferredMatchResult(
           firstMatchStart, firstMatchEnd, parentPattern.prog().numCaptures(), true, false);
@@ -2356,13 +2379,14 @@ public final class Matcher implements MatchResult {
       boolean foldCase,
       boolean hasStartAcceleration,
       int startPos,
-      int limit) {
+      int limit,
+      boolean storeOffsets) {
     int textLen = text.length();
     int pos = startPos;
     int matchesFound = 0;
     Dfa revDfa = null;
 
-    if (matchOffsets == null) {
+    if (storeOffsets && matchOffsets == null) {
       matchOffsets = new int[16];
     }
 
@@ -2441,11 +2465,13 @@ public final class Matcher implements MatchResult {
         matchEnd = fwdFirst.pos();
       }
 
-      if (2 * matchesFound >= matchOffsets.length) {
-        matchOffsets = Arrays.copyOf(matchOffsets, matchOffsets.length * 2);
+      if (storeOffsets) {
+        if (2 * matchesFound >= matchOffsets.length) {
+          matchOffsets = Arrays.copyOf(matchOffsets, matchOffsets.length * 2);
+        }
+        matchOffsets[2 * matchesFound] = matchStart;
+        matchOffsets[2 * matchesFound + 1] = matchEnd;
       }
-      matchOffsets[2 * matchesFound] = matchStart;
-      matchOffsets[2 * matchesFound + 1] = matchEnd;
 
       pos = matchEnd;
       matchesFound++;
@@ -2548,12 +2574,7 @@ public final class Matcher implements MatchResult {
         || parentPattern.hasLazyQuantifiers()) {
       return null;
     }
-    ReplacementSegment[] compiledTemplate = template.get();
-    if (compiledTemplate.length != 1
-        || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
-      return null;
-    }
-    String repText = literalSeg.text();
+    String repText = null;
 
     int textLen = text.length();
     int pos = searchFrom;
@@ -2594,6 +2615,12 @@ public final class Matcher implements MatchResult {
       int matchEnd = pos;
 
       if (matchesFound == 0) {
+        ReplacementSegment[] compiledTemplate = template.get();
+        if (compiledTemplate.length != 1
+            || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+          return null;
+        }
+        repText = literalSeg.text();
         firstMatchStart = matchStart;
         firstMatchEnd = matchEnd;
       }
