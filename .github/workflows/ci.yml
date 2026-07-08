@@ -24,8 +24,9 @@ jobs:
           else
             FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
           fi
-          # Check if any non-doc files changed
-          CODE_FILES=$(echo "$FILES" | grep -vE '(\.md$|\.txt$|^LICENSE$)' | grep -v '^$' || true)
+          # Check if any project code files changed. Agent skills are repository
+          # automation assets and should not trigger the Java CI matrix.
+          CODE_FILES=$(echo "$FILES" | grep -vE '(\.md$|\.txt$|^LICENSE$|^\.agents/skills/)' | grep -v '^$' || true)
           if [ -n "$CODE_FILES" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
