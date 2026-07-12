@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
+@DisabledForCrosscheck("uses the package-private array adapter to verify borrowed storage")
 class Utf8InputTest {
   @Test
   void wholeArrayFactoriesExposeLogicalLength() {

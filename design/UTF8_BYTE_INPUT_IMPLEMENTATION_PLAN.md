@@ -530,6 +530,31 @@ decision and its tests before continuing.
 - Output allocation is explicit; no input-sized intermediate String exists.
 - The unused public replacement alternative is not shipped.
 
+### Completion record
+
+Completed locally with the dependency-free `Utf8Sink` shape selected in Stage
+1 and validated by Trino in Stage 4. SafeRE's existing replacement parser is
+the only dialect: it is compiled once per matcher/replacement operation, and
+literal fragments are encoded once and reused across repeated matches.
+Unmatched ranges and participating captures are dispatched directly from the
+original subject storage using relative byte bounds. Only the replacement
+template is decoded for syntax parsing; the subject is never decoded or copied.
+
+The completion matrix covers ASCII and multibyte literals, numbered and named
+groups, nonparticipating groups, escapes and malformed syntax, repeated and
+empty matches, source and replacement windows, sink failure and reentrancy,
+append-position state, array identity, and array/direct-buffer sink dispatch.
+The complete Trino regexp-function test class passes with the locally installed
+artifact, including ordinary and lambda replacement.
+
+Allocation profiling of the frozen literal, numbered, and named workloads
+shows matcher/engine state, capture-bound arrays, and one-time template
+compilation, with no subject-sized String or byte copy and no per-match literal
+encoding. The standard benchmark harness records approximately 327 ns/op for
+literal replacement, 768 ns/op for numbered groups, and 830 ns/op for named
+groups on this branch. Broader matcher-allocation work is intentionally left to
+the performance stage rather than being mixed into replacement finalization.
+
 ## Stage 7: Correctness, Fuzzing, And Linear-Time Completion
 
 ### Objective
@@ -723,7 +748,7 @@ problems early; they are not separate release events.
 - [x] Every reachable engine and accelerator is equivalent or safely guarded.
 - [ ] Trusted malformed input is bounded, monotonic, and safe.
 - [ ] Strict validation implements the documented RFC 3629 contract.
-- [ ] Replacement follows the single selected dialect and stays byte-native.
+- [x] Replacement follows the single selected dialect and stays byte-native.
 - [ ] Differential, state-machine, fuzz, scaling, and allocation coverage pass.
 - [ ] Early and final Trino dependency substitutions pass their recorded tests.
 - [ ] SafeRE and Trino benchmark gates pass with recorded revisions.

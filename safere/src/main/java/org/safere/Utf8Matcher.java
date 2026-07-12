@@ -25,7 +25,7 @@ public final class Utf8Matcher {
   private int appendPosition;
   private boolean replacementFailed;
   private Utf8Input cachedReplacement;
-  private Matcher.ReplacementSegment[] cachedTemplate;
+  private ReplacementSegment[] cachedTemplate;
   private int modCount;
   private boolean appending;
 
@@ -119,23 +119,20 @@ public final class Utf8Matcher {
     beginAppend();
     int expectedModCount = modCount;
     try {
-      Matcher.ReplacementSegment[] template = replacementTemplate(replacement);
-      validateNamedGroups(template);
+      ReplacementSegment[] template = replacementTemplate(replacement);
       int[] bounds = captureBounds();
       appendRange(sink, appendPosition, bounds[0], expectedModCount);
-      for (Matcher.ReplacementSegment segment : template) {
+      for (ReplacementSegment segment : template) {
         switch (segment) {
-          case Matcher.ReplacementSegment.Literal(var text) -> {
-            byte[] bytes = text.getBytes(UTF_8);
+          case ReplacementSegment.Literal literal -> {
+            byte[] bytes = literal.bytes();
             sink.append(bytes, 0, bytes.length);
             checkForConcurrentModification(expectedModCount);
           }
-          case Matcher.ReplacementSegment.GroupRef(var group) ->
+          case ReplacementSegment.GroupRef(var group) ->
               appendGroup(sink, bounds, group, expectedModCount);
-          case Matcher.ReplacementSegment.NamedGroupRef(var name) -> {
-            int group = pattern.namedGroups().get(name);
-            appendGroup(sink, bounds, group, expectedModCount);
-          }
+          case ReplacementSegment.NamedGroupRef(var group) ->
+              appendGroup(sink, bounds, group, expectedModCount);
         }
       }
       appendPosition = bounds[1];
@@ -189,16 +186,6 @@ public final class Utf8Matcher {
     return bounds;
   }
 
-  private void validateNamedGroups(Matcher.ReplacementSegment[] template) {
-    Map<String, Integer> namedGroups = pattern.namedGroups();
-    for (Matcher.ReplacementSegment segment : template) {
-      if (segment instanceof Matcher.ReplacementSegment.NamedGroupRef(var name)
-          && !namedGroups.containsKey(name)) {
-        throw new IllegalArgumentException("No group with name <" + name + ">");
-      }
-    }
-  }
-
   private void appendRange(Utf8Sink sink, int start, int end, int expectedModCount) {
     input.appendRange(sink, start, end);
     checkForConcurrentModification(expectedModCount);
@@ -217,12 +204,49 @@ public final class Utf8Matcher {
     }
   }
 
-  private Matcher.ReplacementSegment[] replacementTemplate(Utf8Input replacement) {
+  private ReplacementSegment[] replacementTemplate(Utf8Input replacement) {
     if (replacement != cachedReplacement) {
       String text = ((ArrayUtf8Input) replacement).decode();
-      cachedTemplate = Matcher.compileReplacementTemplate(text, groupCount());
+      Matcher.ReplacementSegment[] parsed = Matcher.compileReplacementTemplate(text, groupCount());
+      ReplacementSegment[] compiled = new ReplacementSegment[parsed.length];
+      Map<String, Integer> namedGroups = pattern.namedGroups();
+      for (int index = 0; index < parsed.length; index++) {
+        compiled[index] =
+            switch (parsed[index]) {
+              case Matcher.ReplacementSegment.Literal(var literal) ->
+                  new ReplacementSegment.Literal(literal.getBytes(UTF_8));
+              case Matcher.ReplacementSegment.GroupRef(var group) ->
+                  new ReplacementSegment.GroupRef(group);
+              case Matcher.ReplacementSegment.NamedGroupRef(var name) -> {
+                Integer group = namedGroups.get(name);
+                if (group == null) {
+                  throw new IllegalArgumentException("No group with name <" + name + ">");
+                }
+                yield new ReplacementSegment.NamedGroupRef(group);
+              }
+            };
+      }
+      cachedTemplate = compiled;
       cachedReplacement = replacement;
     }
     return cachedTemplate;
+  }
+
+  private sealed interface ReplacementSegment {
+    final class Literal implements ReplacementSegment {
+      private final byte[] bytes;
+
+      Literal(byte[] bytes) {
+        this.bytes = bytes;
+      }
+
+      byte[] bytes() {
+        return bytes;
+      }
+    }
+
+    record GroupRef(int group) implements ReplacementSegment {}
+
+    record NamedGroupRef(int group) implements ReplacementSegment {}
   }
 }
