@@ -67,6 +67,15 @@ if (m.find()) {
 SafeRE is a drop-in replacement for `java.util.regex.Pattern` and
 `java.util.regex.Matcher`. Just change your imports.
 
+## Diagnostics
+
+SafeRE can inspect a compiled pattern's static features and capabilities with
+`Pattern.analysis()`, and can report the strategies actually used by matching and replacement
+operations through a process-wide `SafeReMatchDiagnostics` listener.
+
+See [SafeRE Diagnostics](DIAGNOSTICS.md) for examples, event semantics, thread-safe aggregation,
+privacy guarantees, and performance guidance.
+
 ## Development
 
 SafeRE uses google-java-format through Spotless. To format Java sources, run:
