@@ -10,8 +10,8 @@ counts, which would become stale as the suite evolves.
 `DiagnosticsTest` covers:
 
 - static feature, capability, and limitation classification;
-- listener registration after compilation, replacement, reset, volatile cross-thread visibility,
-  and one listener snapshot per operation;
+- listener registration after compilation, replacement, reset, synchronized cross-thread
+  visibility, and one listener snapshot per operation;
 - opaque pattern identity and the absence of pattern/input text in events;
 - literal, character-class, keyword, OnePass, DFA, BitState, and NFA routing;
 - separate boundary and capture strategies, including deferred capture extraction;

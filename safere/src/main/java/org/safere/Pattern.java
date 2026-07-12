@@ -8,6 +8,10 @@
 package org.safere;
 
 import java.io.Serializable;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.MutableCallSite;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,7 +51,14 @@ public final class Pattern implements Serializable {
 
   private static final long serialVersionUID = 1L;
   private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
-  private static volatile SafeReMatchDiagnostics diagnostics = SafeReMatchDiagnostics.NONE;
+  private static final MethodType DIAGNOSTICS_TYPE =
+      MethodType.methodType(SafeReMatchDiagnostics.class);
+  private static final MutableCallSite DIAGNOSTICS_SITE = new MutableCallSite(DIAGNOSTICS_TYPE);
+  private static final MethodHandle DIAGNOSTICS_INVOKER = DIAGNOSTICS_SITE.dynamicInvoker();
+
+  static {
+    setDiagnosticsTarget(SafeReMatchDiagnostics.NONE);
+  }
 
   /**
    * Enables Unix lines mode. In this mode, only {@code '\n'} is recognized as a line terminator.
@@ -310,7 +321,7 @@ public final class Pattern implements Serializable {
       flatReverseDfaProg();
     }
 
-    SafeReMatchDiagnostics listener = diagnostics;
+    SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
       listener.onPatternCompiled(new PatternCompiledEvent(descriptor()));
     }
@@ -333,7 +344,8 @@ public final class Pattern implements Serializable {
    * @param listener the listener to install
    */
   public static void setDiagnostics(SafeReMatchDiagnostics listener) {
-    diagnostics = Objects.requireNonNull(listener, "listener");
+    setDiagnosticsTarget(Objects.requireNonNull(listener, "listener"));
+    MutableCallSite.syncAll(new MutableCallSite[] {DIAGNOSTICS_SITE});
   }
 
   /**
@@ -342,7 +354,15 @@ public final class Pattern implements Serializable {
    * @return the installed listener
    */
   public static SafeReMatchDiagnostics diagnostics() {
-    return diagnostics;
+    try {
+      return (SafeReMatchDiagnostics) DIAGNOSTICS_INVOKER.invokeExact();
+    } catch (Throwable impossible) {
+      throw new AssertionError(impossible);
+    }
+  }
+
+  private static void setDiagnosticsTarget(SafeReMatchDiagnostics listener) {
+    DIAGNOSTICS_SITE.setTarget(MethodHandles.constant(SafeReMatchDiagnostics.class, listener));
   }
 
   /**

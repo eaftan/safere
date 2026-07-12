@@ -419,7 +419,9 @@ does not need to change its normal return type. DFA and replacement paths need t
 
 ### Phase 4: Add runtime listener plumbing
 
-1. Store `SafeReMatchDiagnostics.NONE` in a `volatile` static field.
+1. Store the process-wide listener behind a synchronized mutable call site whose disabled target is
+   `SafeReMatchDiagnostics.NONE`. Listener replacement must be immediately visible across threads,
+   while the stable disabled target must remain optimizable by the JIT.
 2. Snapshot the listener once at the beginning of each public operation.
 3. Pass that snapshot through the operation; do not reread the global listener at every internal step.
 4. Allocate no event, `EnumSet`, varargs array, lambda, or carrier solely for diagnostics when the snapshot is `NONE`.
@@ -430,11 +432,11 @@ does not need to change its normal return type. DFA and replacement paths need t
 7. Do not perform additional matching, scanning, capture resolution, or eligibility analysis to fill
    diagnostic fields. Every field must come from state the operation already computed or from
    bounded bookkeeping in the enabled branch.
-8. Treat one volatile read and one bounded enabled check per top-level public operation as the
-   intended disabled-path overhead. The operation-context null check also prevents internal
-   replacement searches from rereading the global listener. If production-mode benchmarks show a
-   material regression for very cheap operations, revisit the global listener design before
-   merging.
+8. Treat one stable call-site lookup and one bounded enabled check per top-level public operation as
+   the intended disabled-path overhead. The operation-context null check also prevents internal
+   replacement searches from rereading the global listener. Production-mode benchmarking showed
+   that a volatile listener read materially regressed very cheap operations, so the implementation
+   uses the mutable-call-site design above.
 
 Listener exception policy should be explicit. My recommendation is to let listener exceptions
 propagate, matching ordinary synchronous callback behavior, but invoke the listener only after the
@@ -482,7 +484,7 @@ Tests should cover:
 
 - disabled diagnostics use `NONE` and allocate no public event objects;
 - listener registration, replacement, and reset;
-- visibility across threads through the volatile reference;
+- immediate listener visibility across threads after call-site synchronization;
 - one listener snapshot per operation;
 - exactly one event per public operation;
 - listener exception behavior;

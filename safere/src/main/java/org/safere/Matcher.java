@@ -755,6 +755,9 @@ public final class Matcher implements MatchResult {
    */
   public boolean matches() {
     DiagnosticOperation operation = beginDiagnostics(MatchOperation.MATCHES);
+    if (operation == null) {
+      return matchesImpl();
+    }
     try {
       boolean matched = matchesImpl();
       completeDiagnostics(operation, matched ? 1 : 0);
@@ -815,7 +818,10 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0) {
-      diagnosticBoundary(MatchStrategy.LITERAL);
+      DiagnosticOperation activeDiagnostics = diagnosticOperation;
+      if (activeDiagnostics != null) {
+        activeDiagnostics.accumulator().boundary(MatchStrategy.LITERAL);
+      }
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
@@ -856,9 +862,13 @@ public final class Matcher implements MatchResult {
     if (onePass != null
         && !prog.hasGraphemeSemantics()
         && !parentPattern.hasNullableAlternation()) {
-      diagnosticBoundary(MatchStrategy.ONE_PASS);
-      if (parentPattern.numGroups() > 0) {
-        diagnosticCapture(MatchStrategy.ONE_PASS);
+      DiagnosticOperation activeDiagnostics = diagnosticOperation;
+      if (activeDiagnostics != null) {
+        DiagnosticAccumulator accumulator = activeDiagnostics.accumulator();
+        accumulator.boundary(MatchStrategy.ONE_PASS);
+        if (parentPattern.numGroups() > 0) {
+          accumulator.capture(MatchStrategy.ONE_PASS);
+        }
       }
       int[] result = onePass.search(text, true, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
@@ -2799,6 +2809,9 @@ public final class Matcher implements MatchResult {
    */
   public String replaceAll(String replacement) {
     DiagnosticOperation operation = beginDiagnostics(MatchOperation.REPLACE_ALL);
+    if (operation == null) {
+      return replaceAllImpl(replacement);
+    }
     try {
       String result = replaceAllImpl(replacement);
       completeDiagnostics(operation, diagnosticMatchCount());
@@ -2895,7 +2908,12 @@ public final class Matcher implements MatchResult {
         || parentPattern.hasLazyQuantifiers()) {
       return null;
     }
-    diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.CANDIDATE_VERIFICATION);
+    DiagnosticOperation activeDiagnostics = diagnosticOperation;
+    DiagnosticAccumulator accumulator =
+        activeDiagnostics == null ? null : activeDiagnostics.accumulator();
+    if (accumulator != null) {
+      accumulator.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.CANDIDATE_VERIFICATION);
+    }
     String repText = null;
 
     int textLen = text.length();
@@ -2964,7 +2982,9 @@ public final class Matcher implements MatchResult {
     }
 
     if (sb == null) {
-      diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+      if (accumulator != null) {
+        accumulator.boundary(MatchStrategy.CHARACTER_CLASS);
+      }
       applyFailedMatchResult();
       return text;
     }
@@ -2979,9 +2999,8 @@ public final class Matcher implements MatchResult {
       applyFailedMatchResult();
     }
 
-    diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
-    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
+      accumulator.boundary(MatchStrategy.CHARACTER_CLASS);
       accumulator.matchCount(matchesFound);
     }
 
