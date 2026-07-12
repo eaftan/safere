@@ -458,6 +458,26 @@ and accelerator has identical UTF-8 semantics.
 - All work remains bounded or linear under existing engine policies.
 - String engine results and benchmark gates remain green.
 
+### Completion record
+
+Completed locally in the Stage 5 branch. Deterministic forced-path coverage now
+compares UTF-8 traces across OnePass, forward/reverse/anchored DFA, BitState,
+Pike NFA, and eager/deferred capture extraction. The same coverage exercises
+nonzero-offset input views, multibyte captures, empty-match scalar progress,
+malformed trusted input, line and word boundaries, and grapheme boundaries.
+
+String-only literal, character-class, keyword-alternation, and start
+accelerators remain explicitly guarded by the absence of a String view. Tests
+compare their enabled and disabled configurations on UTF-8 input to prove that
+the guarded path falls back to the canonical engines. No byte-specialized
+accelerator or ASCII loop was added, so profiling remains a prerequisite for
+any future specialization rather than a justification invented after it.
+
+The cache audit also found and fixed an input-retention risk in the reusable
+BitState cache: input scanners and grapheme context are now cleared before the
+state enters the Pattern-level cache. Reusing the same Pattern across distinct
+array windows is covered to detect cache-key or input-view contamination.
+
 ## Stage 6: Finalize And Optimize Byte-Native Replacement
 
 ### Objective
@@ -700,7 +720,7 @@ problems early; they are not separate release events.
 - [ ] The JDK-compatible `Matcher` has no hidden public byte mode.
 - [ ] Captures can be consumed without copying or decoding the source.
 - [ ] Capture-free search avoids matcher and capture allocation.
-- [ ] Every reachable engine and accelerator is equivalent or safely guarded.
+- [x] Every reachable engine and accelerator is equivalent or safely guarded.
 - [ ] Trusted malformed input is bounded, monotonic, and safe.
 - [ ] Strict validation implements the documented RFC 3629 contract.
 - [ ] Replacement follows the single selected dialect and stays byte-native.

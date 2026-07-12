@@ -712,6 +712,7 @@ public final class Pattern implements Serializable {
 
   /** Returns a BitState to the thread-local cache for reuse by future Matchers. */
   void returnBitState(BitState bs) {
+    bs.releaseInput();
     cachedBitState.set(bs);
   }
 

@@ -610,6 +610,12 @@ final class BitState {
         && jobInstId.length >= Math.min(totalBits, 4096);
   }
 
+  /** Clears input-dependent references before this object enters the Pattern-level reuse cache. */
+  void releaseInput() {
+    text = null;
+    graphemeContext = null;
+  }
+
   /**
    * Resets this BitState for a new search, clearing the visited bitmap and capture arrays without
    * reallocating. The caller must verify {@link #canReuse} first.
