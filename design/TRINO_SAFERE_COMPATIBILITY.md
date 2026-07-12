@@ -16,11 +16,13 @@ semantic compatibility from the direct-byte implementation.
 - SafeRE base: PR 530 head
   `055e31acf5653122a0ab98242cdd20e6b01778f2`; Stage 1–3 implementation
   `4b03d3d002ec82eb4b8d7f135368f37a40b5e902` on local branch
-  `issue-516-pr530`.
+  `issue-516-pr530`; Stage 4 validation artifact
+  `387a3a1d2afae33b666ef24cfd021f882aa024fb` on the same local branch.
 - Trino base: `8e023609041cd8e4999aea0ecceb1e81ed887ca1`;
   temporary feasibility adapter
   `e8c7bb1393f3cf39d391bf1665c8e5f20a4aa008` on local branch
-  `safere-utf8-feasibility`.
+  `safere-utf8-feasibility`; direct UTF-8 interface substitution
+  `129d91dbc8e0ca5c067c7321f39c1f99df2eecac` on the same local branch.
 - JDK: OpenJDK 25.0.2+10-69.
 - Maven: 3.9.14.
 - SafeRE artifact: `org.safere:safere:0.9.0-SNAPSHOT`, installed from the
@@ -50,8 +52,8 @@ replacement, and lambda replacement.
 
 The first run found the scalar-boundary difference `UTF8-001` below. The
 temporary adapter was then made boundary-aware and the complete class passed.
-The direct `Utf8Input` integration is intentionally a later checkpoint; this
-Stage 1 run used decoding by design.
+Stage 4 subsequently replaced that adapter with direct `Utf8Input` execution,
+as recorded below.
 
 The Stage 1–3 implementation was also verified locally with:
 
@@ -70,6 +72,54 @@ crosscheck runs included the existing RE2-derived exhaustive suites and the
 String/JDK differential matrices. The work-counter run covered valid and
 malformed forward/reverse UTF-8 progress. Long-running fuzzing was not launched;
 the deterministic `MatchFuzzer` regression mode passed.
+
+## Stage 4 Direct Trino Interface Validation
+
+The Stage 4 branch removes the decode-to-String matcher and uses the
+provisional API directly:
+
+- `Slice.byteArray()`, `byteArrayOffset()`, and `length()` construct a trusted
+  `Utf8Input` array window without copying;
+- `Pattern.find(Utf8Input)` implements capture-free `regexp_like`;
+- `Utf8Matcher` supplies relative byte bounds for extraction, extract-all,
+  split, position, count, and lambda replacement;
+- extracted groups are `Slice` views over the original backing array;
+- ordinary replacement adapts `DynamicSliceOutput` to `Utf8Sink`, transferring
+  unmatched and captured source ranges without decoding the subject; and
+- `trino-re2j` is absent from both `core/trino-main` and root dependency
+  management on the validation branch.
+
+The final Stage 4 source was verified locally with:
+
+```bash
+# SafeRE workspace
+mvn -pl safere install -DskipTests -q
+
+# Trino workspace
+./mvnw -pl core/trino-main -am install -DskipTests -q
+./mvnw -pl core/trino-main -Dtest=TestRe2jRegexpFunctions test -q
+```
+
+Both Trino commands passed. The test class covers the complete inherited regex
+function surface plus direct integration cases for nonzero-offset array-backed
+`Slice` values, multibyte numbered and named captures, zero-copy group views,
+supplementary-scalar empty-match progress, nonparticipating groups, and
+byte-native named/numbered replacement.
+
+No Stage 4 semantic difference, missing operation, or SafeRE bug was found.
+In particular, no Trino-specific override of the approved SafeRE semantic
+policy was proposed or implemented.
+
+Expected allocations remain: the small input view and stateful matcher,
+replacement output, replacement-template processing proportional to the
+replacement, and Trino's lambda argument block. Matching and group extraction
+allocate no input-sized decoded `String` or subject copy. Ordinary and lambda
+replacement allocate their required output but no input-sized intermediate
+`String`.
+
+The provisional `Utf8Input`, `Utf8Matcher`, bounds, and `Utf8Sink` shape can
+express every required Trino operation and is frozen for the engine-completion
+stages. No Stage 4 blocker remains.
 
 ## Approved Provisional Semantic Policy
 
