@@ -69,4 +69,14 @@ class Utf8InputTest {
 
     assertThat(input.scanner().bytes()).isSameAs(storage);
   }
+
+  @Test
+  void mutationIsAnExplicitBorrowedStoragePreconditionBoundary() {
+    byte[] storage = "a".getBytes(UTF_8);
+    Utf8Input input = Utf8Input.trusted(storage);
+
+    storage[0] = 'b';
+
+    assertThat(Pattern.compile("b").find(input)).isTrue();
+  }
 }

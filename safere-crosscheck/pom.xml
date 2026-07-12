@@ -138,6 +138,7 @@
                         <exclude name="SimplifierTest.java"/>
                         <exclude name="UnicodeJdkConsistencyTest.java"/>
                         <exclude name="UnicodeTablesTest.java"/>
+                        <exclude name="Utf8AllocationScalingTest.java"/>
                         <exclude name="Utf8EnginePathEquivalenceTest.java"/>
                         <exclude name="Utf8InputScannerTest.java"/>
                         <exclude name="Utf8InputTest.java"/>

@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.function.Consumer;
@@ -21,11 +22,34 @@ class Utf8LinearTimeTest {
     assertFourXInputStaysNearLinear(size -> scanBothDirections(malformedInput(size)));
   }
 
+  @Test
+  void matchingBehaviorsScaleLinearlyOverUtf8Input() {
+    assertLargeFourXInputStaysNearLinear(
+        size -> findAll("[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$", "a".repeat(size).getBytes(UTF_8)));
+    assertLargeFourXInputStaysNearLinear(size -> findAll("", "😀".repeat(size).getBytes(UTF_8)));
+    assertLargeFourXInputStaysNearLinear(
+        size -> findAll("([a-z]+)([0-9]+)", "a1".repeat(size).getBytes(UTF_8)));
+    assertLargeFourXInputStaysNearLinear(
+        size -> findAll("\\bword\\b", "word ".repeat(size).getBytes(UTF_8)));
+    assertLargeFourXInputStaysNearLinear(size -> findAll("\\X", "á".repeat(size).getBytes(UTF_8)));
+    assertLargeFourXInputStaysNearLinear(size -> findAll(".", malformedInput(size)));
+  }
+
   private static void assertFourXInputStaysNearLinear(Consumer<Integer> task) {
     task.accept(10_000);
     task.accept(40_000);
     long smallerWork = WorkCounter.countForTesting(() -> task.accept(10_000));
     long largerWork = WorkCounter.countForTesting(() -> task.accept(40_000));
+
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork).isLessThan(smallerWork * 5);
+  }
+
+  private static void assertLargeFourXInputStaysNearLinear(Consumer<Integer> task) {
+    task.accept(40_000);
+    task.accept(160_000);
+    long smallerWork = WorkCounter.countForTesting(() -> task.accept(40_000));
+    long largerWork = WorkCounter.countForTesting(() -> task.accept(160_000));
 
     assertThat(smallerWork).isPositive();
     assertThat(largerWork).isLessThan(smallerWork * 5);
@@ -43,6 +67,14 @@ class Utf8LinearTimeTest {
       position = InputScanner.position(scanner.decodeBackward(position));
     }
     assertThat(position).isZero();
+  }
+
+  private static void findAll(String regex, byte[] bytes) {
+    Utf8Matcher matcher = Pattern.compile(regex).matcher(Utf8Input.trusted(bytes));
+    while (matcher.find()) {
+      matcher.start();
+      matcher.end();
+    }
   }
 
   private static byte[] validInput(int scalars) {

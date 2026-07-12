@@ -596,6 +596,29 @@ substitute for deterministic regression coverage.
 - Scaling evidence supports the end-to-end linear-time guarantee.
 - No known SafeRE bug from external validation remains unfixed.
 
+### Completion record
+
+Completed locally with deterministic coverage at each layer. The public
+transition inventory covers every `Utf8Matcher` method; paired exhaustive tests
+compare valid UTF-8 with the String API; forced paths cover every reachable
+engine; and arbitrary-window fuzz regression exercises trusted and validated
+construction, boolean search, repeated find, captures, bounds, and termination.
+
+Strict validation is checked against the JDK reporting decoder across every
+two-byte combination and deterministic arbitrary longer windows, including the
+relative first-error offset. Scanner tests prove forward and reverse monotonic
+recovery, bounded windows, and scalar boundaries. The borrowed-storage mutation
+test makes the documented no-mutation precondition visible without promising
+concurrent mutation behavior.
+
+Work-counter scaling covers valid and malformed decoding, hard failure, empty
+matches, captures, word boundaries, graphemes, and malformed trusted matching.
+HotSpot allocation accounting compares inputs with an order-of-magnitude size
+difference and proves that capture-free boolean search and repeated `find` do
+not allocate input-sized decoded objects. The full SafeRE suite, UTF-8 fuzz
+regression, affected crosscheck suite, Javadoc, and formatting gates pass. No
+known SafeRE bug from the Trino validation remains open.
+
 ## Stage 8: Performance Completion
 
 ### Objective
@@ -746,10 +769,10 @@ problems early; they are not separate release events.
 - [ ] Captures can be consumed without copying or decoding the source.
 - [ ] Capture-free search avoids matcher and capture allocation.
 - [x] Every reachable engine and accelerator is equivalent or safely guarded.
-- [ ] Trusted malformed input is bounded, monotonic, and safe.
-- [ ] Strict validation implements the documented RFC 3629 contract.
+- [x] Trusted malformed input is bounded, monotonic, and safe.
+- [x] Strict validation implements the documented RFC 3629 contract.
 - [x] Replacement follows the single selected dialect and stays byte-native.
-- [ ] Differential, state-machine, fuzz, scaling, and allocation coverage pass.
+- [x] Differential, state-machine, fuzz, scaling, and allocation coverage pass.
 - [ ] Early and final Trino dependency substitutions pass their recorded tests.
 - [ ] SafeRE and Trino benchmark gates pass with recorded revisions.
 - [ ] Public API and Trino migration documentation are complete.

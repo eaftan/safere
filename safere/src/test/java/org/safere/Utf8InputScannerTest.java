@@ -10,7 +10,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("package-private UTF-8 scanner tests exercise SafeRE internals")
@@ -150,6 +156,50 @@ class Utf8InputScannerTest {
 
     for (int position = 0; position <= bytes.length; position++) {
       assertThat(scanner.isCodePointBoundary(position)).as("position %s", position).isTrue();
+    }
+  }
+
+  @Test
+  void strictValidationAgreesWithJdkDecoderAndReportsFirstErrorOffset() {
+    for (int value = 0; value <= 0xFFFF; value++) {
+      assertValidationAgreement(new byte[] {(byte) (value >>> 8), (byte) value}, 0, 2);
+    }
+
+    Random random = new Random(0x5AFE_516L);
+    for (int trial = 0; trial < 20_000; trial++) {
+      int length = random.nextInt(9);
+      byte[] logical = new byte[length];
+      random.nextBytes(logical);
+      byte[] window = new byte[length + 4];
+      Arrays.fill(window, (byte) 0x80);
+      System.arraycopy(logical, 0, window, 2, length);
+      assertValidationAgreement(window, 2, length);
+    }
+  }
+
+  private static void assertValidationAgreement(byte[] bytes, int offset, int length) {
+    int jdkError = firstJdkError(bytes, offset, length);
+    try {
+      Utf8InputScanner.validate(bytes, offset, length);
+      assertThat(jdkError).as("JDK error for %s", Arrays.toString(bytes)).isEqualTo(-1);
+    } catch (IllegalArgumentException e) {
+      assertThat(jdkError).as("JDK accepted %s", Arrays.toString(bytes)).isNotEqualTo(-1);
+      assertThat(e).hasMessageContaining("byte " + jdkError);
+    }
+  }
+
+  private static int firstJdkError(byte[] bytes, int offset, int length) {
+    ByteBuffer input = ByteBuffer.wrap(bytes, offset, length);
+    var decoder =
+        StandardCharsets.UTF_8
+            .newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT);
+    try {
+      decoder.decode(input);
+      return -1;
+    } catch (CharacterCodingException e) {
+      return input.position() - offset;
     }
   }
 
