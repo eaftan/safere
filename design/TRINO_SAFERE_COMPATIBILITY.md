@@ -71,14 +71,14 @@ String/JDK differential matrices. The work-counter run covered valid and
 malformed forward/reverse UTF-8 progress. Long-running fuzzing was not launched;
 the deterministic `MatchFuzzer` regression mode passed.
 
-## Provisional Experimental Policies
+## Approved Provisional Semantic Policy
 
-Whether a published Trino migration adopts SafeRE semantics or preserves a
-documented subset of RE2/J behavior remains a project-owner decision. For this
-local experiment, the implementation policy is intentionally SafeRE-first: it
-does not change SafeRE core semantics merely to emulate the fork. The passing
-suite shows that this policy is technically feasible; it does not close the
-broader product-scope question.
+The approved provisional policy is intentionally SafeRE-first: a Trino
+migration adopts SafeRE semantics rather than preserving RE2/J semantics by
+default. SafeRE core does not change merely to emulate the fork. A concrete
+Trino behavior may be considered separately only when it is a coherent SQL
+contract with a principled linear-time implementation, and it must be
+highlighted for owner review before implementation.
 
 | Policy area | Stage 1 decision |
 | --- | --- |
@@ -93,10 +93,8 @@ broader product-scope question.
 | Dot-star rewrite | Retain it only in the feasibility adapter. Whether to remove it is a performance question, not a compatibility requirement. |
 | Engine selection name | Open product/configuration question. Do not silently make a value named `RE2J` select SafeRE in a published Trino change. |
 
-The experimental recommendation is therefore policy 1 from the design:
-migrate to SafeRE semantics, with small adapter behavior only where Trino has a
-principled SQL/storage contract. Formal selection remains open for review. No
-observed fork behavior requires changing SafeRE core semantics.
+The selected policy is therefore policy 1 from the design: migrate to SafeRE
+semantics. No observed fork behavior requires changing SafeRE core semantics.
 
 ## Difference Inventory
 
@@ -113,7 +111,7 @@ rewrite, or exception message.
 
 | Question | Evidence and current disposition |
 | --- | --- |
-| Is compatibility with all Trino RE2/J semantics in scope? | Open owner decision. The experimental branch recommends SafeRE semantics because the complete current suite passes without fork emulation. Any request to preserve another behavior needs a concrete SQL contract and principled linear-time formulation. |
+| Is compatibility with all Trino RE2/J semantics in scope? | Resolved: no. SafeRE semantics are the approved provisional policy. Any proposed exception requires a concrete SQL contract, a principled linear-time formulation, and explicit owner review before implementation. |
 | Must all Trino RE2/J semantics be retained? | No. The suite supports migration to SafeRE semantics, and no principled requirement for blanket compatibility was found. Reopen only for a concrete SQL contract. |
 | Does Trino require RE2/J replacement parsing? | No observed requirement. The complete ordinary and lambda replacement tests passed with SafeRE's parser. Selected: SafeRE replacement semantics. |
 | Are malformed UTF-8 results stable SQL behavior? | No evidence. Selected: trusted recovery safety guarantees only; exact results remain unspecified. |
