@@ -71,6 +71,8 @@ class Utf8ReplacementTest {
                 matcher.appendReplacement(
                     (bytes, offset, length) -> matcher.find(), input("replacement")))
         .isInstanceOf(ConcurrentModificationException.class);
+    assertThat(matcher.start()).isZero();
+    assertThat(matcher.end()).isEqualTo(1);
   }
 
   @Test

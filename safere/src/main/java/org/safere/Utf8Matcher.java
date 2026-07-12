@@ -41,6 +41,9 @@ public final class Utf8Matcher {
    * @return whether a match was found
    */
   public boolean find() {
+    if (appending) {
+      throw new ConcurrentModificationException();
+    }
     modCount++;
     return delegate.find();
   }
