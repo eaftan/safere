@@ -454,6 +454,41 @@ public final class Pattern implements Serializable {
   }
 
   /**
+   * Creates a provisional matcher over UTF-8 input whose positions are relative byte offsets.
+   *
+   * @param input borrowed UTF-8 input retained for the lifetime of the matcher
+   * @return a new, non-thread-safe UTF-8 matcher
+   */
+  public Utf8Matcher matcher(Utf8Input input) {
+    return new Utf8Matcher(this, input);
+  }
+
+  /**
+   * Returns whether this pattern occurs in the supplied UTF-8 input.
+   *
+   * @param input borrowed UTF-8 input retained only for this call
+   * @return whether the pattern occurs
+   */
+  public boolean find(Utf8Input input) {
+    ArrayUtf8Input arrayInput = (ArrayUtf8Input) Objects.requireNonNull(input, "input");
+    Utf8InputScanner scanner = arrayInput.scanner();
+    int length = scanner.length();
+    return Nfa.search(
+                prog,
+                scanner,
+                0,
+                length,
+                length,
+                0,
+                Nfa.Anchor.UNANCHORED,
+                Nfa.MatchKind.FIRST_MATCH,
+                0,
+                null)
+            .groups()
+        != null;
+  }
+
+  /**
    * Returns the match flags specified when this pattern was compiled.
    *
    * @return the match flags
@@ -724,10 +759,6 @@ public final class Pattern implements Serializable {
       }
     }
     return dfa;
-  }
-
-  public Matcher matcher(byte[] input) {
-    return new Matcher(this, input);
   }
 
   /**

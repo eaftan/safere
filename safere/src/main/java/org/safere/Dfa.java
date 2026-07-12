@@ -865,7 +865,7 @@ final class Dfa {
       endLineHere = Nfa.isLineTerminator(cp);
       // Don't fire END_LINE at the \n of an atomic \r\n pair. END_LINE fires before the \r
       // (the start of the pair), not between \r and \n.
-      if (endLineHere && cp == '\n' && nextPos >= 2 && text.charOrByteAt(nextPos - 2) == '\r') {
+      if (endLineHere && cp == '\n' && nextPos >= 2 && text.asciiAt(nextPos - 2) == '\r') {
         endLineHere = false;
       }
     }
@@ -1158,7 +1158,6 @@ final class Dfa {
       return new SearchResult(matched, matchEnd);
     }
 
-    int[] nextPosHolder = new int[1];
     int pos = startPos;
     while (pos <= textLen) {
       if (WorkCounterConfig.ENABLED) {
@@ -1168,15 +1167,16 @@ final class Dfa {
       int nextPos;
       int cls;
       if (pos < textLen) {
-        int ch = text.charOrByteAt(pos);
-        if (ch < 128) {
+        int ch = text.asciiAt(pos);
+        if (ch >= 0) {
           // ASCII fast path: no surrogate handling, use pre-computed class map.
           cp = ch;
           nextPos = pos + 1;
           cls = asciiClassMap[ch];
         } else {
-          cp = text.codePointAt(pos, nextPosHolder);
-          nextPos = nextPosHolder[0];
+          long decoded = text.decodeForward(pos);
+          cp = InputScanner.codePoint(decoded);
+          nextPos = InputScanner.position(decoded);
           cls = classOf(cp);
         }
       } else {
@@ -1315,7 +1315,6 @@ final class Dfa {
       return new SearchResult(matched, matchStart);
     }
 
-    int[] prevPosHolder = new int[1];
     int pos = endPos;
     while (pos >= startLimit) {
       if (WorkCounterConfig.ENABLED) {
@@ -1326,15 +1325,16 @@ final class Dfa {
       int cls;
       if (pos > 0) {
         // Read the code point just before pos (scanning backward).
-        int ch = text.charOrByteAt(pos - 1);
-        if (ch < 128) {
+        int ch = text.asciiAt(pos - 1);
+        if (ch >= 0) {
           // ASCII fast path.
           cp = ch;
           prevPos = pos - 1;
           cls = asciiClassMap[ch];
         } else {
-          cp = text.codePointBefore(pos, prevPosHolder);
-          prevPos = prevPosHolder[0];
+          long decoded = text.decodeBackward(pos);
+          cp = InputScanner.codePoint(decoded);
+          prevPos = InputScanner.position(decoded);
           cls = classOf(cp);
         }
       } else {
@@ -1464,7 +1464,6 @@ final class Dfa {
       }
     }
 
-    int[] nextPosHolder = new int[1];
     if (s != deadState) {
       int pos = 0;
       while (pos <= textLen) {
@@ -1472,14 +1471,15 @@ final class Dfa {
         int nextPos;
         int cls;
         if (pos < textLen) {
-          int c = text.charOrByteAt(pos);
-          if (c < 128) {
+          int c = text.asciiAt(pos);
+          if (c >= 0) {
             cp = c;
             nextPos = pos + 1;
             cls = asciiClassMap[c];
           } else {
-            cp = text.codePointAt(pos, nextPosHolder);
-            nextPos = nextPosHolder[0];
+            long decoded = text.decodeForward(pos);
+            cp = InputScanner.codePoint(decoded);
+            nextPos = InputScanner.position(decoded);
             cls = classOf(cp);
           }
         } else {

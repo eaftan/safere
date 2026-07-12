@@ -253,7 +253,6 @@ final class BitState {
     bestMatch = null;
     matchResult =
         resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
-    int[] nextPosHolder = new int[1];
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
@@ -263,8 +262,7 @@ final class BitState {
         return null;
       }
       if (searchStart < textLen) {
-        text.codePointAt(searchStart, nextPosHolder);
-        searchStart = nextPosHolder[0] - 1;
+        searchStart = InputScanner.position(text.decodeForward(searchStart)) - 1;
       }
     }
     return null;
@@ -408,7 +406,6 @@ final class BitState {
    */
   private boolean trySearch(int startInst, int startPos) {
     boolean matched = false;
-    int[] nextPosHolder = new int[1];
 
     // Initialize captures and loop registers.
     Arrays.fill(cap, -1);
@@ -536,9 +533,10 @@ final class BitState {
 
         case InstOp.OP_CHAR_RANGE -> {
           if (pos < endPos) {
-            int cp = text.codePointAt(pos, nextPosHolder);
+            long decoded = text.decodeForward(pos);
+            int cp = InputScanner.codePoint(decoded);
             if (ip.matchesChar(cp)) {
-              int nextPos = nextPosHolder[0];
+              int nextPos = InputScanner.position(decoded);
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }
@@ -548,9 +546,10 @@ final class BitState {
 
         case InstOp.OP_CHAR_CLASS -> {
           if (pos < endPos) {
-            int cp = text.codePointAt(pos, nextPosHolder);
+            long decoded = text.decodeForward(pos);
+            int cp = InputScanner.codePoint(decoded);
             if (ip.matchesCharClass(cp)) {
-              int nextPos = nextPosHolder[0];
+              int nextPos = InputScanner.position(decoded);
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }

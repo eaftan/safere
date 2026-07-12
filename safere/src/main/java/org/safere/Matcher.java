@@ -102,8 +102,6 @@ public final class Matcher implements MatchResult {
   private static final int DIRECT_FALLBACK_TEXT_LIMIT = 512;
 
   private Pattern parentPattern;
-  private byte[] inputBytes;
-  private boolean isByteMode;
   private CharSequence inputSequence;
   private String text;
   private final InputScanner textScanner;
@@ -179,12 +177,10 @@ public final class Matcher implements MatchResult {
     this.regionEnd = text.length();
   }
 
-  Matcher(Pattern pattern, byte[] input) {
+  Matcher(Pattern pattern, Utf8InputScanner input) {
     this.parentPattern = pattern;
-    this.inputBytes = requireNonNull(input);
-    this.isByteMode = true;
-    this.textScanner = new Utf8InputScanner(input);
-    this.regionEnd = input.length;
+    this.textScanner = input;
+    this.regionEnd = input.length();
   }
 
   /**
@@ -533,7 +529,7 @@ public final class Matcher implements MatchResult {
    * references (numbered or named). Pre-parsing avoids per-match scanning, {@code parseInt}, and
    * {@code substring} allocation.
    */
-  private sealed interface ReplacementSegment {
+  sealed interface ReplacementSegment {
     /** A literal text segment to be appended verbatim. */
     record Literal(String text) implements ReplacementSegment {}
 
@@ -556,7 +552,7 @@ public final class Matcher implements MatchResult {
    * @return an array of segments representing the compiled template
    * @throws IllegalArgumentException if the replacement string is malformed
    */
-  private static ReplacementSegment[] compileReplacementTemplate(String replacement, int maxGroup) {
+  static ReplacementSegment[] compileReplacementTemplate(String replacement, int maxGroup) {
     // Fast path: no special characters → single literal segment.
     if (isSimpleReplacement(replacement)) {
       return new ReplacementSegment[] {new ReplacementSegment.Literal(replacement)};
@@ -698,7 +694,7 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return matchesTransparentRegion();
       }
-      if (regionActive && !isByteMode) {
+      if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
         regionSubstituted = true;
       }
@@ -731,7 +727,7 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0
-        && !isByteMode) {
+        && text != null) {
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
@@ -750,14 +746,14 @@ public final class Matcher implements MatchResult {
 
     // Character-class fast path: for patterns like [a-zA-Z]+, \d+, \w*, etc.
     int[] ccRanges = parentPattern.charClassMatchRanges();
-    if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null && !isByteMode) {
+    if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null && text != null) {
       return charClassMatchFastPath(ccRanges);
     }
 
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     if (enginePathOptions().charClassMatchFastPaths()
         && requiredRanges != null
-        && !isByteMode
+        && text != null
         && !containsRequiredMatchClass(requiredRanges)) {
       return applyEngineResult(new NoMatchResult());
     }
@@ -849,7 +845,7 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return lookingAtTransparentRegion();
       }
-      if (regionActive && !isByteMode) {
+      if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
         regionSubstituted = true;
       }
@@ -882,7 +878,7 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0
-        && !isByteMode) {
+        && text != null) {
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
@@ -962,7 +958,11 @@ public final class Matcher implements MatchResult {
           searchFrom = regionEnd + 1;
           return false;
         }
-        searchFrom++;
+        if (text == null) {
+          searchFrom = InputScanner.position(activeScanner().decodeForward(searchFrom));
+        } else {
+          searchFrom++;
+        }
       } else if (parentPattern.hasInternalGraphemeClusterBoundary()
           && searchFrom < regionEnd
           && endedAfterCrLf(searchFrom)) {
@@ -974,15 +974,16 @@ public final class Matcher implements MatchResult {
 
   private boolean endedAfterCrLf(int pos) {
     return pos >= 2
-        && activeScanner().charOrByteAt(pos - 2) == '\r'
-        && activeScanner().charOrByteAt(pos - 1) == '\n';
+        && activeScanner().asciiAt(pos - 2) == '\r'
+        && activeScanner().asciiAt(pos - 1) == '\n';
   }
 
   private GraphemeSupport.Context graphemeContext() {
     if (graphemeContext == null || !Objects.equals(graphemeContextText, text)) {
       graphemeContextText = text;
       graphemeContext =
-          GraphemeSupport.Context.create(text, parentPattern.prog().hasGraphemeSemantics());
+          GraphemeSupport.Context.create(
+              activeScanner(), parentPattern.prog().hasGraphemeSemantics());
     }
     return graphemeContext;
   }
@@ -992,7 +993,7 @@ public final class Matcher implements MatchResult {
   }
 
   private int getTextLength() {
-    return isByteMode ? inputBytes.length : text.length();
+    return activeScanner().length();
   }
 
   /**
@@ -1066,7 +1067,7 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return doFindTransparentRegion();
       }
-      if (regionActive && !isByteMode) {
+      if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
@@ -1130,16 +1131,14 @@ public final class Matcher implements MatchResult {
   private boolean regionEndsInsideSurrogatePair() {
     return regionEnd > 0
         && regionEnd < activeScanner().length()
-        && Character.isHighSurrogate((char) activeScanner().charOrByteAt(regionEnd - 1))
-        && Character.isLowSurrogate((char) activeScanner().charOrByteAt(regionEnd));
+        && !activeScanner().isCodePointBoundary(regionEnd);
   }
 
   private int graphemeConsumeEndPos(Prog prog, int endPos) {
     if (!prog.hasGraphemeClusterInstruction()
         || endPos <= 0
         || endPos >= activeScanner().length()
-        || !Character.isHighSurrogate((char) activeScanner().charOrByteAt(endPos - 1))
-        || !Character.isLowSurrogate((char) activeScanner().charOrByteAt(endPos))) {
+        || activeScanner().isCodePointBoundary(endPos)) {
       return endPos;
     }
     // \X may complete the scalar that starts inside the region; ordinary atoms and full-match
@@ -1236,7 +1235,7 @@ public final class Matcher implements MatchResult {
     if (options.literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0
-        && !isByteMode) {
+        && text != null) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, literal, searchFrom);
@@ -1257,7 +1256,7 @@ public final class Matcher implements MatchResult {
     }
 
     int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
-    if (options.charClassMatchFastPaths() && singleCharClassRanges != null && !isByteMode) {
+    if (options.charClassMatchFastPaths() && singleCharClassRanges != null && text != null) {
       return singleCharClassFindFastPath(singleCharClassRanges, searchFrom);
     }
 
@@ -1265,7 +1264,7 @@ public final class Matcher implements MatchResult {
     if (options.keywordAlternationFastPath()
         && !regionActive
         && keywordAlternation != null
-        && !isByteMode) {
+        && text != null) {
       return findKeywordAlternation(keywordAlternation, searchFrom, prog.numCaptures());
     }
 
@@ -1280,7 +1279,7 @@ public final class Matcher implements MatchResult {
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
-        && !isByteMode
+        && text != null
         && !containsRequiredMatchClass(requiredRanges, searchFrom)) {
       return applyEngineResult(new NoMatchResult());
     }
@@ -1319,7 +1318,7 @@ public final class Matcher implements MatchResult {
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
     String prefix = parentPattern.prefix();
-    if (options.startAcceleration() && prefix != null && !isByteMode) {
+    if (options.startAcceleration() && prefix != null && text != null) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
@@ -1349,7 +1348,7 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration()
         && !prog.hasWordBoundary()
         && ccPrefixAscii != null
-        && !isByteMode) {
+        && text != null) {
       int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         if (!prog.anchorStart()) {
@@ -1365,7 +1364,7 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration()
         && !prog.hasWordBoundary()
         && startAcceleration != null
-        && !isByteMode) {
+        && text != null) {
       int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
       if (idx < 0) {
         if (!prog.anchorStart()) {
@@ -1426,15 +1425,15 @@ public final class Matcher implements MatchResult {
           boolean ul = prog.unixLines();
           if (textLen > 0
               && (ul
-                  ? scanner.charOrByteAt(textLen - 1) == '\n'
-                  : Nfa.isLineTerminator(scanner.charOrByteAt(textLen - 1)))) {
+                  ? scanner.codePointBefore(textLen) == '\n'
+                  : Nfa.isLineTerminator(scanner.codePointBefore(textLen)))) {
             // For \r\n, the trailing terminator starts at textLen-2 (before \r), not
             // textLen-1 (between \r and \n). Skip the textLen-1 check for \r\n.
             boolean isAtomicCrLf =
                 !ul
                     && textLen >= 2
-                    && scanner.charOrByteAt(textLen - 2) == '\r'
-                    && scanner.charOrByteAt(textLen - 1) == '\n';
+                    && scanner.asciiAt(textLen - 2) == '\r'
+                    && scanner.asciiAt(textLen - 1) == '\n';
             if (!isAtomicCrLf) {
               Dfa.SearchResult altRev =
                   revDfa.doSearchReverse(scanner, textLen - 1, effectiveStart, true, true);
@@ -1573,15 +1572,15 @@ public final class Matcher implements MatchResult {
               // Try position before trailing line terminator.
               if (len > 0
                   && (ul
-                      ? scanner.charOrByteAt(len - 1) == '\n'
-                      : Nfa.isLineTerminator(scanner.charOrByteAt(len - 1)))) {
+                      ? scanner.codePointBefore(len) == '\n'
+                      : Nfa.isLineTerminator(scanner.codePointBefore(len)))) {
                 // For \r\n, the trailing terminator starts at len-2 (before \r), not
                 // len-1 (between \r and \n). Skip the earlyEnd-1 check for \r\n.
                 boolean isAtomicCrLf =
                     !ul
                         && len >= 2
-                        && scanner.charOrByteAt(len - 2) == '\r'
-                        && scanner.charOrByteAt(len - 1) == '\n';
+                        && scanner.asciiAt(len - 2) == '\r'
+                        && scanner.asciiAt(len - 1) == '\n';
                 if (!isAtomicCrLf) {
                   Dfa.SearchResult altRevResult =
                       revDfa.doSearchReverse(scanner, earlyEnd - 1, effectiveStart, true, true);
@@ -2014,9 +2013,6 @@ public final class Matcher implements MatchResult {
     int e = end(group);
     if (s == -1) {
       return null;
-    }
-    if (isByteMode) {
-      return new String(inputBytes, s, e - s, java.nio.charset.StandardCharsets.UTF_8);
     }
     return text.substring(s, e);
   }
@@ -2597,7 +2593,7 @@ public final class Matcher implements MatchResult {
   }
 
   private InputScanner activeScanner() {
-    if (isByteMode) {
+    if (text == null) {
       return textScanner;
     }
     return new StringInputScanner(text);
@@ -2675,31 +2671,6 @@ public final class Matcher implements MatchResult {
         i++;
       }
     }
-  }
-
-  public byte[] groupBytes() {
-    return groupBytes(0);
-  }
-
-  public byte[] groupBytes(int group) {
-    if (!isByteMode) {
-      throw new IllegalStateException("Matcher was not created with a byte[] input");
-    }
-    int s = start(group);
-    int e = end(group);
-    if (s == -1 || e == -1) {
-      return null;
-    }
-    return java.util.Arrays.copyOfRange(inputBytes, s, e);
-  }
-
-  public byte[] groupBytes(String name) {
-    Objects.requireNonNull(name, "Group name");
-    Integer idx = parentPattern.namedGroups().get(name);
-    if (idx == null) {
-      throw new IllegalArgumentException("No group with name <" + name + ">");
-    }
-    return groupBytes(idx);
   }
 
   /** A snapshot of a match result, independent of the matcher that created it. */

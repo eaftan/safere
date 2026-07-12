@@ -229,16 +229,16 @@ class RE2ByteSearchTest {
     }
     Pattern p;
     try {
-      p = Pattern.compile(tc.pattern());
+      p = Pattern.compile("\\A(?:" + tc.pattern() + ")\\z");
     } catch (PatternSyntaxException e) {
       return;
     }
 
     byte[] bytes = tc.text().getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
-    assertThat(m.matches())
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
+    assertThat(m.find())
         .as(
-            "matches() for pattern \"%s\" on byte representation of \"%s\"",
+            "full match for pattern \"%s\" on byte representation of \"%s\"",
             tc.pattern(), tc.text())
         .isEqualTo(tc.expectFullMatch());
   }
@@ -257,25 +257,18 @@ class RE2ByteSearchTest {
     }
 
     byte[] bytes = tc.text().getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
     boolean found = m.find();
     assertThat(found)
         .as("find() for pattern \"%s\" on byte representation of \"%s\"", tc.pattern(), tc.text())
         .isEqualTo(tc.expectFind());
 
     if (found && tc.expectedFindGroup() != null) {
-      // Test string group access on byte matcher
-      assertThat(m.group())
-          .as(
-              "find() group() for pattern \"%s\" on byte representation of \"%s\"",
-              tc.pattern(), tc.text())
-          .isEqualTo(tc.expectedFindGroup());
-
-      // Test zero-copy byte group access on byte matcher
+      // Test caller-owned zero-copy group slicing from byte bounds.
       byte[] expectedBytes = tc.expectedFindGroup().getBytes(StandardCharsets.UTF_8);
-      assertThat(m.groupBytes())
+      assertThat(java.util.Arrays.copyOfRange(bytes, m.start(), m.end()))
           .as(
-              "find() groupBytes() for pattern \"%s\" on byte representation of \"%s\"",
+              "find() bounds for pattern \"%s\" on byte representation of \"%s\"",
               tc.pattern(), tc.text())
           .isEqualTo(expectedBytes);
     }
@@ -285,7 +278,7 @@ class RE2ByteSearchTest {
   void testWordBoundaryDiscrepancy() {
     Pattern p = Pattern.compile("(?:(?:(?:\\b).)*)");
     byte[] bytes = "aa ".getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
     List<String> matches = new ArrayList<>();
     while (m.find()) {
       matches.add(String.format("[%d,%d)", m.start(), m.end()));
@@ -310,7 +303,7 @@ class RE2ByteSearchTest {
     byte[] bytes =
         "####################################################################################################################################################################################################################################################################bb\n"
             .getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
     assertThat(m.find()).isTrue();
     assertThat(m.start()).isEqualTo(262);
     assertThat(m.end()).isEqualTo(263);
@@ -331,7 +324,7 @@ class RE2ByteSearchTest {
   void testUnixLinesDollarTrailingCr() {
     Pattern p = Pattern.compile("a$", Pattern.UNIX_LINES);
     byte[] bytes = "a\r".getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
     assertThat(m.find()).isFalse();
   }
 
@@ -339,17 +332,17 @@ class RE2ByteSearchTest {
   void testGraphemePatternByteMode() {
     Pattern p = Pattern.compile("a\\X");
     byte[] bytes = "ab".getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
-    var unused =
-        org.junit.jupiter.api.Assertions.assertThrows(
-            UnsupportedOperationException.class, () -> m.find());
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
+    org.junit.jupiter.api.Assertions.assertTrue(m.find());
+    org.junit.jupiter.api.Assertions.assertEquals(0, m.start());
+    org.junit.jupiter.api.Assertions.assertEquals(2, m.end());
   }
 
   @org.junit.jupiter.api.Test
   void testUnicodeWordBoundaryByteMode() {
     Pattern p = Pattern.compile("\\ba", Pattern.UNICODE_CHARACTER_CLASS);
     byte[] bytes = "ab".getBytes(StandardCharsets.UTF_8);
-    Matcher m = p.matcher(bytes);
+    Utf8Matcher m = p.matcher(Utf8Input.validated(bytes));
     org.junit.jupiter.api.Assertions.assertTrue(m.find());
     org.junit.jupiter.api.Assertions.assertEquals(0, m.start());
     org.junit.jupiter.api.Assertions.assertEquals(1, m.end());

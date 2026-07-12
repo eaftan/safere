@@ -6,29 +6,32 @@
 package org.safere;
 
 interface InputScanner {
+  int END_OF_INPUT = -1;
+
   /** Returns the length of the input in index units (chars for String, bytes for byte[]). */
   int length();
 
-  /** Returns the character (or byte) value at the given index. */
-  int charOrByteAt(int pos);
+  /** Returns the ASCII value at {@code pos}, or {@code -1} if the unit is not ASCII. */
+  int asciiAt(int pos);
+
+  /** Decodes the scalar at {@code pos} and packs it with the following logical position. */
+  long decodeForward(int pos);
+
+  /** Decodes the scalar ending at {@code pos} and packs it with its starting logical position. */
+  long decodeBackward(int pos);
+
+  /** Returns whether {@code pos} is a code-point boundary in this representation. */
+  boolean isCodePointBoundary(int pos);
 
   /** Returns the code point starting at the given index. */
-  int codePointAt(int pos);
-
-  /**
-   * Returns the code point starting at the given index, and stores the index of the next code point
-   * in {@code nextPos[0]}.
-   */
-  int codePointAt(int pos, int[] nextPos);
+  default int codePointAt(int pos) {
+    return codePoint(decodeForward(pos));
+  }
 
   /** Returns the code point ending at the given index. */
-  int codePointBefore(int pos);
-
-  /**
-   * Returns the code point ending at the given index, and stores the starting index of that code
-   * point in {@code prevPos[0]}.
-   */
-  int codePointBefore(int pos, int[] prevPos);
+  default int codePointBefore(int pos) {
+    return codePoint(decodeBackward(pos));
+  }
 
   /** Finds the start of the trailing line terminator sequence. */
   int trailingLineTerminatorStart(boolean unixLines, int logicalEndPos);
@@ -37,4 +40,16 @@ interface InputScanner {
    * Computes the index threshold beyond which transitions contain position-dependent emptyFlags.
    */
   int positionDependentThreshold(boolean dollarAnchorEnd, boolean unixLines);
+
+  static long decoded(int codePoint, int position) {
+    return ((long) codePoint << 32) | (position & 0xFFFF_FFFFL);
+  }
+
+  static int codePoint(long decoded) {
+    return (int) (decoded >> 32);
+  }
+
+  static int position(long decoded) {
+    return (int) decoded;
+  }
 }

@@ -5,197 +5,212 @@
 
 package org.safere;
 
+import static java.util.Objects.requireNonNull;
+
 final class Utf8InputScanner implements InputScanner {
+  private static final int REPLACEMENT_CHARACTER = 0xFFFD;
+
   private final byte[] bytes;
+  private final int offset;
+  private final int length;
 
   Utf8InputScanner(byte[] bytes) {
-    this.bytes = bytes;
+    this(bytes, 0, bytes.length);
+  }
+
+  Utf8InputScanner(byte[] bytes, int offset, int length) {
+    this.bytes = requireNonNull(bytes, "bytes");
+    if (offset < 0 || length < 0 || offset > bytes.length - length) {
+      throw new IndexOutOfBoundsException(
+          "offset=" + offset + ", length=" + length + ", arrayLength=" + bytes.length);
+    }
+    this.offset = offset;
+    this.length = length;
+  }
+
+  static void validate(byte[] bytes, int offset, int length) {
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes, offset, length);
+    int position = 0;
+    while (position < length) {
+      long decoded = scanner.decodeForward(position);
+      int next = InputScanner.position(decoded);
+      if (InputScanner.codePoint(decoded) == REPLACEMENT_CHARACTER
+          && next == position + 1
+          && scanner.unsignedByteAt(position) >= 0x80) {
+        throw new IllegalArgumentException("Malformed UTF-8 at byte " + position);
+      }
+      position = next;
+    }
   }
 
   @Override
   public int length() {
-    return bytes.length;
+    return length;
   }
 
   @Override
-  public int charOrByteAt(int pos) {
-    return bytes[pos] & 0xFF;
+  public int asciiAt(int pos) {
+    int value = unsignedByteAt(pos);
+    return value < 0x80 ? value : -1;
   }
 
   @Override
-  public int codePointAt(int pos) {
-    int b1 = bytes[pos] & 0xFF;
-    if (b1 < 128) {
-      return b1;
+  public long decodeForward(int pos) {
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record();
     }
-    if ((b1 & 0xE0) == 0xC0) {
-      if (pos + 1 < bytes.length) {
-        int b2 = bytes[pos + 1] & 0xFF;
-        if ((b2 & 0xC0) == 0x80) {
-          return ((b1 & 0x1F) << 6) | (b2 & 0x3F);
-        }
-      }
-    } else if ((b1 & 0xF0) == 0xE0) {
-      if (pos + 2 < bytes.length) {
-        int b2 = bytes[pos + 1] & 0xFF;
-        int b3 = bytes[pos + 2] & 0xFF;
-        if ((b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80) {
-          return ((b1 & 0x0F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
-        }
-      }
-    } else if ((b1 & 0xF8) == 0xF0) {
-      if (pos + 3 < bytes.length) {
-        int b2 = bytes[pos + 1] & 0xFF;
-        int b3 = bytes[pos + 2] & 0xFF;
-        int b4 = bytes[pos + 3] & 0xFF;
-        if ((b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80 && (b4 & 0xC0) == 0x80) {
-          return ((b1 & 0x07) << 18) | ((b2 & 0x3F) << 12) | ((b3 & 0x3F) << 6) | (b4 & 0x3F);
-        }
-      }
+    if (pos >= length) {
+      return InputScanner.decoded(END_OF_INPUT, length);
     }
-    return 0xFFFD;
+    int b1 = unsignedByteAt(pos);
+    if (b1 < 0x80) {
+      return InputScanner.decoded(b1, pos + 1);
+    }
+    if (b1 >= 0xC2 && b1 <= 0xDF && continuation(pos + 1)) {
+      int codePoint = ((b1 & 0x1F) << 6) | (unsignedByteAt(pos + 1) & 0x3F);
+      return InputScanner.decoded(codePoint, pos + 2);
+    }
+    if (b1 >= 0xE0 && b1 <= 0xEF && validThreeByteSecond(b1, pos + 1) && continuation(pos + 2)) {
+      int codePoint =
+          ((b1 & 0x0F) << 12)
+              | ((unsignedByteAt(pos + 1) & 0x3F) << 6)
+              | (unsignedByteAt(pos + 2) & 0x3F);
+      return InputScanner.decoded(codePoint, pos + 3);
+    }
+    if (b1 >= 0xF0
+        && b1 <= 0xF4
+        && validFourByteSecond(b1, pos + 1)
+        && continuation(pos + 2)
+        && continuation(pos + 3)) {
+      int codePoint =
+          ((b1 & 0x07) << 18)
+              | ((unsignedByteAt(pos + 1) & 0x3F) << 12)
+              | ((unsignedByteAt(pos + 2) & 0x3F) << 6)
+              | (unsignedByteAt(pos + 3) & 0x3F);
+      return InputScanner.decoded(codePoint, pos + 4);
+    }
+    return InputScanner.decoded(REPLACEMENT_CHARACTER, pos + 1);
   }
 
   @Override
-  public int codePointAt(int pos, int[] nextPos) {
-    int b1 = bytes[pos] & 0xFF;
-    if (b1 < 128) {
-      nextPos[0] = pos + 1;
-      return b1;
+  public long decodeBackward(int pos) {
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record();
     }
-    if ((b1 & 0xE0) == 0xC0) {
-      if (pos + 1 < bytes.length) {
-        int b2 = bytes[pos + 1] & 0xFF;
-        if ((b2 & 0xC0) == 0x80) {
-          nextPos[0] = pos + 2;
-          return ((b1 & 0x1F) << 6) | (b2 & 0x3F);
-        }
-      }
-    } else if ((b1 & 0xF0) == 0xE0) {
-      if (pos + 2 < bytes.length) {
-        int b2 = bytes[pos + 1] & 0xFF;
-        int b3 = bytes[pos + 2] & 0xFF;
-        if ((b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80) {
-          nextPos[0] = pos + 3;
-          return ((b1 & 0x0F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
-        }
-      }
-    } else if ((b1 & 0xF8) == 0xF0) {
-      if (pos + 3 < bytes.length) {
-        int b2 = bytes[pos + 1] & 0xFF;
-        int b3 = bytes[pos + 2] & 0xFF;
-        int b4 = bytes[pos + 3] & 0xFF;
-        if ((b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80 && (b4 & 0xC0) == 0x80) {
-          nextPos[0] = pos + 4;
-          return ((b1 & 0x07) << 18) | ((b2 & 0x3F) << 12) | ((b3 & 0x3F) << 6) | (b4 & 0x3F);
-        }
-      }
-    }
-    nextPos[0] = pos + 1;
-    return 0xFFFD;
-  }
-
-  @Override
-  public int codePointBefore(int pos) {
     if (pos <= 0) {
-      return -1;
+      return InputScanner.decoded(END_OF_INPUT, 0);
     }
-    int b = bytes[pos - 1] & 0xFF;
-    if (b < 128) {
-      return b;
+    int last = unsignedByteAt(pos - 1);
+    if (last < 0x80) {
+      return InputScanner.decoded(last, pos - 1);
     }
-    int start = pos - 1;
-    while (start > 0 && (bytes[start] & 0xC0) == 0x80 && (pos - start) < 4) {
-      start--;
+    int earliest = Math.max(0, pos - 4);
+    for (int start = pos - 2; start >= earliest; start--) {
+      long decoded = decodeForward(start);
+      if (InputScanner.position(decoded) == pos) {
+        return InputScanner.decoded(InputScanner.codePoint(decoded), start);
+      }
     }
-    return codePointAt(start);
+    return InputScanner.decoded(REPLACEMENT_CHARACTER, pos - 1);
   }
 
   @Override
-  public int codePointBefore(int pos, int[] prevPos) {
-    if (pos <= 0) {
-      prevPos[0] = -1;
-      return -1;
+  public boolean isCodePointBoundary(int pos) {
+    if (pos < 0 || pos > length) {
+      return false;
     }
-    int b = bytes[pos - 1] & 0xFF;
-    if (b < 128) {
-      prevPos[0] = pos - 1;
-      return b;
+    if (pos == 0 || pos == length) {
+      return true;
     }
-    int start = pos - 1;
-    while (start > 0 && (bytes[start] & 0xC0) == 0x80 && (pos - start) < 4) {
-      start--;
-    }
-    int b1 = bytes[start] & 0xFF;
-    int len = pos - start;
-    if (len == 2 && (b1 & 0xE0) == 0xC0) {
-      int b2 = bytes[start + 1] & 0xFF;
-      if ((b2 & 0xC0) == 0x80) {
-        prevPos[0] = start;
-        return ((b1 & 0x1F) << 6) | (b2 & 0x3F);
-      }
-    } else if (len == 3 && (b1 & 0xF0) == 0xE0) {
-      int b2 = bytes[start + 1] & 0xFF;
-      int b3 = bytes[start + 2] & 0xFF;
-      if ((b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80) {
-        prevPos[0] = start;
-        return ((b1 & 0x0F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
-      }
-    } else if (len == 4 && (b1 & 0xF8) == 0xF0) {
-      int b2 = bytes[start + 1] & 0xFF;
-      int b3 = bytes[start + 2] & 0xFF;
-      int b4 = bytes[start + 3] & 0xFF;
-      if ((b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80 && (b4 & 0xC0) == 0x80) {
-        prevPos[0] = start;
-        return ((b1 & 0x07) << 18) | ((b2 & 0x3F) << 12) | ((b3 & 0x3F) << 6) | (b4 & 0x3F);
+    int earliest = Math.max(0, pos - 3);
+    for (int start = earliest; start < pos; start++) {
+      long decoded = decodeForward(start);
+      if (InputScanner.position(decoded) > pos) {
+        return false;
       }
     }
-    prevPos[0] = pos - 1;
-    return 0xFFFD;
+    return true;
   }
 
   @Override
   public int trailingLineTerminatorStart(boolean unixLines, int logicalEndPos) {
-    int len = logicalEndPos;
-    if (len <= 0 || len > bytes.length) {
+    if (logicalEndPos <= 0 || logicalEndPos > length) {
       return -1;
     }
-    int[] prev = new int[1];
-    int cp = codePointBefore(len, prev);
-    if (cp < 0) {
-      return -1;
-    }
+    long decoded = decodeBackward(logicalEndPos);
+    int codePoint = InputScanner.codePoint(decoded);
+    int previous = InputScanner.position(decoded);
     if (unixLines) {
-      return cp == '\n' ? prev[0] : -1;
+      return codePoint == '\n' ? previous : -1;
     }
-    if (cp == '\n') {
-      int prevPos = prev[0];
-      if (prevPos > 0) {
-        int[] prev2 = new int[1];
-        int cp2 = codePointBefore(prevPos, prev2);
-        if (cp2 == '\r') {
-          return prev2[0];
+    if (codePoint == '\n') {
+      if (previous > 0) {
+        long before = decodeBackward(previous);
+        if (InputScanner.codePoint(before) == '\r') {
+          return InputScanner.position(before);
         }
       }
-      return prev[0];
+      return previous;
     }
-    if (cp == '\r' || cp == '\u0085' || cp == '\u2028' || cp == '\u2029') {
-      return prev[0];
+    if (codePoint == '\r'
+        || codePoint == '\u0085'
+        || codePoint == '\u2028'
+        || codePoint == '\u2029') {
+      return previous;
     }
     return -1;
   }
 
   @Override
   public int positionDependentThreshold(boolean dollarAnchorEnd, boolean unixLines) {
-    int threshold = Integer.MAX_VALUE;
-    if (dollarAnchorEnd) {
-      int trailingTermStart = trailingLineTerminatorStart(unixLines, bytes.length);
-      if (trailingTermStart >= 0) {
-        threshold = trailingTermStart;
-      } else {
-        threshold = bytes.length;
-      }
+    if (!dollarAnchorEnd) {
+      return Integer.MAX_VALUE;
     }
-    return threshold;
+    int trailingTerminator = trailingLineTerminatorStart(unixLines, length);
+    return trailingTerminator >= 0 ? trailingTerminator : length;
+  }
+
+  byte[] bytes() {
+    return bytes;
+  }
+
+  int offset() {
+    return offset;
+  }
+
+  private int unsignedByteAt(int pos) {
+    return bytes[offset + pos] & 0xFF;
+  }
+
+  private boolean continuation(int pos) {
+    return pos < length && (unsignedByteAt(pos) & 0xC0) == 0x80;
+  }
+
+  private boolean validThreeByteSecond(int first, int secondPos) {
+    if (!continuation(secondPos)) {
+      return false;
+    }
+    int second = unsignedByteAt(secondPos);
+    if (first == 0xE0) {
+      return second >= 0xA0;
+    }
+    if (first == 0xED) {
+      return second <= 0x9F;
+    }
+    return true;
+  }
+
+  private boolean validFourByteSecond(int first, int secondPos) {
+    if (!continuation(secondPos)) {
+      return false;
+    }
+    int second = unsignedByteAt(secondPos);
+    if (first == 0xF0) {
+      return second >= 0x90;
+    }
+    if (first == 0xF4) {
+      return second <= 0x8F;
+    }
+    return true;
   }
 }

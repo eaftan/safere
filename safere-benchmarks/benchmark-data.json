@@ -33,6 +33,58 @@
     }
   },
 
+  "utf8Matching": {
+    "captureFreeFind": {
+      "asciiEarly": { "pattern": "ERROR", "text": "ERROR request completed" },
+      "asciiLate": { "pattern": "ERROR", "text": "request completed with ERROR" },
+      "asciiNoMatch": { "pattern": "ERROR", "text": "request completed normally" },
+      "multibyteEarly": { "pattern": "错误", "text": "错误：请求失败" },
+      "multibyteLate": { "pattern": "错误", "text": "请求处理结束：错误" },
+      "multibyteNoMatch": { "pattern": "错误", "text": "请求处理成功" }
+    },
+    "repeatedFind": {
+      "ascii": { "pattern": "[A-Za-z]+", "text": "one two three four five" },
+      "multibyte": { "pattern": "\\p{L}+", "text": "one café 東京 naïve" }
+    },
+    "captureBounds": {
+      "numbered": {
+        "pattern": "([A-Za-z]+)=([^&]+)",
+        "text": "user=service&token=abc123"
+      },
+      "named": {
+        "pattern": "(?<key>[A-Za-z]+)=(?<value>[^&]+)",
+        "text": "city=東京&name=Renée"
+      },
+      "nonparticipating": { "pattern": "(cat)|(dog)", "text": "dog" }
+    },
+    "emptyMatchIteration": { "pattern": "", "text": "a💰有" },
+    "replacement": {
+      "literal": { "pattern": "错误", "text": "错误 then 错误", "replacement": "OK" },
+      "numbered": {
+        "pattern": "([A-Za-z]+)=([^&]+)",
+        "text": "city=東京&name=Renée",
+        "replacement": "$1=[$2]"
+      },
+      "named": {
+        "pattern": "(?<key>[A-Za-z]+)=(?<value>[^&]+)",
+        "text": "city=東京&name=Renée",
+        "replacement": "${key}=[${value}]"
+      }
+    },
+    "window": {
+      "prefix": "sentinel-before-",
+      "text": "city=東京&name=Renée",
+      "suffix": "-sentinel-after",
+      "pattern": "東京"
+    },
+    "hardFailure": {
+      "pattern": "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$",
+      "unit": "ordinary ASCII text without the required suffix ",
+      "textSizes": [1024, 10240, 102400, 1048576]
+    },
+    "constructionModes": ["trusted", "validated"]
+  },
+
   "compile": {
     "simple": { "pattern": "hello" },
     "medium": { "pattern": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})" },

@@ -25,12 +25,14 @@ public class ByteMatchingBenchmark {
 
   private String emailText;
   private byte[] emailBytes;
+  private org.safere.Utf8Input emailInput;
 
   private org.safere.Pattern safeFindIng;
   private java.util.regex.Pattern jdkFindIng;
 
   private String proseText;
   private byte[] proseBytes;
+  private org.safere.Utf8Input proseInput;
 
   @Setup
   public void setup() {
@@ -40,6 +42,7 @@ public class ByteMatchingBenchmark {
     String emailPattern = data.getString("regex.emailFind.pattern");
     emailText = data.getString("regex.emailFind.text");
     emailBytes = emailText.getBytes(StandardCharsets.UTF_8);
+    emailInput = org.safere.Utf8Input.trusted(emailBytes);
     safeEmail = org.safere.Pattern.compile(emailPattern);
     jdkEmail = java.util.regex.Pattern.compile(emailPattern);
 
@@ -47,6 +50,7 @@ public class ByteMatchingBenchmark {
     String ingPattern = data.getString("regex.findInText.pattern");
     proseText = data.getString("regex.findInText.text");
     proseBytes = proseText.getBytes(StandardCharsets.UTF_8);
+    proseInput = org.safere.Utf8Input.trusted(proseBytes);
     safeFindIng = org.safere.Pattern.compile(ingPattern);
     jdkFindIng = java.util.regex.Pattern.compile(ingPattern);
   }
@@ -55,7 +59,7 @@ public class ByteMatchingBenchmark {
 
   @Benchmark
   public boolean emailFind_safere_bytes() {
-    return safeEmail.matcher(emailBytes).find();
+    return safeEmail.find(emailInput);
   }
 
   @Benchmark
@@ -78,7 +82,7 @@ public class ByteMatchingBenchmark {
 
   @Benchmark
   public int findInText_safere_bytes() {
-    org.safere.Matcher m = safeFindIng.matcher(proseBytes);
+    org.safere.Utf8Matcher m = safeFindIng.matcher(proseInput);
     int count = 0;
     while (m.find()) {
       count++;

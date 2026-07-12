@@ -22,32 +22,38 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
-  public int charOrByteAt(int pos) {
-    return text.charAt(pos);
+  public int asciiAt(int pos) {
+    char c = text.charAt(pos);
+    return c < 0x80 ? c : -1;
   }
 
   @Override
-  public int codePointAt(int pos) {
-    return text.codePointAt(pos);
+  public long decodeForward(int pos) {
+    if (pos >= text.length()) {
+      return InputScanner.decoded(END_OF_INPUT, text.length());
+    }
+    int codePoint = text.codePointAt(pos);
+    return InputScanner.decoded(codePoint, pos + Character.charCount(codePoint));
   }
 
   @Override
-  public int codePointAt(int pos, int[] nextPos) {
-    int cp = text.codePointAt(pos);
-    nextPos[0] = pos + Character.charCount(cp);
-    return cp;
+  public long decodeBackward(int pos) {
+    if (pos <= 0) {
+      return InputScanner.decoded(END_OF_INPUT, 0);
+    }
+    int codePoint = text.codePointBefore(pos);
+    return InputScanner.decoded(codePoint, pos - Character.charCount(codePoint));
   }
 
   @Override
-  public int codePointBefore(int pos) {
-    return text.codePointBefore(pos);
-  }
-
-  @Override
-  public int codePointBefore(int pos, int[] prevPos) {
-    int cp = text.codePointBefore(pos);
-    prevPos[0] = pos - Character.charCount(cp);
-    return cp;
+  public boolean isCodePointBoundary(int pos) {
+    if (pos < 0 || pos > text.length()) {
+      return false;
+    }
+    return pos == 0
+        || pos == text.length()
+        || !Character.isLowSurrogate(text.charAt(pos))
+        || !Character.isHighSurrogate(text.charAt(pos - 1));
   }
 
   @Override

@@ -49,6 +49,7 @@ final class MatchFuzzer {
     }
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
+    assertUnicodeLineStartAnchorsMatchJdk();
     assertZeroWidthAlternationFindsLeftmostStartJdk();
     assertZeroWidthPossessiveCaptureRetentionJdk();
     assertDfaSandwichLeftmostStartCasesMatchJdk();
@@ -115,6 +116,22 @@ final class MatchFuzzer {
       }
       for (String input : inputs) {
         pattern.matcher(input).find();
+      }
+    }
+  }
+
+  private static void assertUnicodeLineStartAnchorsMatchJdk() {
+    List<String> terminators = List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
+    List<String> regexes = List.of("(?m)^\\s+at\\s+(\\w+)$", "(?m).+^");
+    for (String regex : regexes) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (pattern == null) {
+        continue;
+      }
+      for (String terminator : terminators) {
+        FuzzSupport.MatcherPair matcher =
+            pattern.matcher("header" + terminator + "\tat alpha" + terminator + "\tat beta");
+        while (matcher.find()) {}
       }
     }
   }

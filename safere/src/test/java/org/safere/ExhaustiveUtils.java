@@ -153,12 +153,9 @@ final class ExhaustiveUtils {
     try {
       java.util.regex.Matcher jdkM = jdkPat.matcher(text);
       Matcher safereM = saferePat.matcher(text);
-      byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-      Matcher safereByteM = saferePat.matcher(bytes);
 
       boolean jdkMatches = jdkM.matches();
       boolean safereMatches = safereM.matches();
-      boolean safereByteMatches = safereByteM.matches();
 
       if (jdkMatches != safereMatches) {
         failures.add(
@@ -169,28 +166,14 @@ final class ExhaustiveUtils {
                 "matches",
                 String.valueOf(safereMatches),
                 String.valueOf(jdkMatches)));
-      } else if (jdkMatches != safereByteMatches) {
-        failures.add(
-            new TestResult(
-                regexp,
-                text,
-                flags,
-                "matches(bytes)",
-                String.valueOf(safereByteMatches),
-                String.valueOf(jdkMatches)));
       } else if (jdkMatches) {
         // Compare group positions (up to the shared group count)
         int sharedGroups = Math.min(jdkM.groupCount(), safereM.groupCount());
         String jdkGroups = extractGroups(jdkM, sharedGroups);
         String safereGroups = extractGroups(safereM, sharedGroups);
-        String safereByteGroups = extractGroupsForBytes(safereByteM, sharedGroups, text);
         if (!jdkGroups.equals(safereGroups)) {
           failures.add(
               new TestResult(regexp, text, flags, "matches/groups", safereGroups, jdkGroups));
-        } else if (!jdkGroups.equals(safereByteGroups)) {
-          failures.add(
-              new TestResult(
-                  regexp, text, flags, "matches/groups(bytes)", safereByteGroups, jdkGroups));
         }
       }
     } catch (Exception e) {
@@ -205,7 +188,7 @@ final class ExhaustiveUtils {
       java.util.regex.Matcher jdkM = jdkPat.matcher(text);
       Matcher safereM = saferePat.matcher(text);
       byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-      Matcher safereByteM = saferePat.matcher(bytes);
+      Utf8Matcher safereByteM = saferePat.matcher(Utf8Input.validated(bytes));
 
       boolean jdkFound = jdkM.find();
       boolean safereFound = safereM.find();
@@ -272,7 +255,7 @@ final class ExhaustiveUtils {
       java.util.regex.Matcher jdkM = jdkPat.matcher(text);
       Matcher safereM = saferePat.matcher(text);
       byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-      Matcher safereByteM = saferePat.matcher(bytes);
+      Utf8Matcher safereByteM = saferePat.matcher(Utf8Input.validated(bytes));
 
       List<String> jdkAll = new ArrayList<>();
       while (jdkM.find()) {
@@ -340,7 +323,7 @@ final class ExhaustiveUtils {
     return sb.toString();
   }
 
-  private static String extractGroupsForBytes(Matcher m, int maxGroups, String text) {
+  private static String extractGroupsForBytes(Utf8Matcher m, int maxGroups, String text) {
     int count = Math.min(m.groupCount(), maxGroups);
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i <= count; i++) {

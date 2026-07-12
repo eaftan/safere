@@ -31,6 +31,8 @@ import java.util.Set;
  * </pre>
  */
 final class Nfa {
+  private static final int[] NO_CAPTURES = {};
+
   /** Anchor mode for matching. */
   enum Anchor {
     /** Match anywhere in the text. */
@@ -474,11 +476,6 @@ final class Nfa {
       return new SearchResult(null);
     }
 
-    if (prog.hasGraphemeSemantics() && !(text instanceof StringInputScanner)) {
-      throw new UnsupportedOperationException(
-          "Grapheme boundaries are not supported on this input source");
-    }
-
     boolean anchored = (anchor == Anchor.ANCHORED) || prog.anchorStart();
     boolean longestMode = (kind != MatchKind.FIRST_MATCH);
     boolean endmatch = prog.anchorEnd();
@@ -523,6 +520,9 @@ final class Nfa {
       return new SearchResult(null);
     }
 
+    if (nsubmatch == 0) {
+      return new SearchResult(NO_CAPTURES);
+    }
     int[] result = new int[2 * nsubmatch];
     System.arraycopy(nfa.bestMatch, 0, result, 0, Math.min(result.length, nfa.bestMatch.length));
     // Fill any remaining slots with -1.
@@ -549,11 +549,11 @@ final class Nfa {
 
     int[] initialCap = new int[threadArraySize];
 
-    int[] nextPosHolder = new int[1];
     int pos = startPos;
     while (true) {
-      int cp = codePointAtConsumeBoundary(text, pos, nextPosHolder);
-      int nextPos = nextPosHolder[0];
+      long decoded = decodeAtConsumeBoundary(text, pos);
+      int cp = InputScanner.codePoint(decoded);
+      int nextPos = InputScanner.position(decoded);
 
       // Start a new thread if there have not been any matches
       // (no point starting new threads to the right of an existing match).
@@ -755,7 +755,7 @@ final class Nfa {
     }
     return instructionKey
         | GraphemeSupport.visitVariant(
-            ((StringInputScanner) text).text(),
+            text,
             pos,
             graphemeStart,
             context.consumeRegionStart(),
@@ -765,39 +765,31 @@ final class Nfa {
 
   private int inputCodePointAt(InputScanner text, int pos) {
     if (prog.hasGraphemeSemantics()) {
-      return GraphemeSupport.inputCodePointAt(
-          ((StringInputScanner) text).text(), pos, context.endPos(), true);
+      return GraphemeSupport.inputCodePointAt(text, pos, context.endPos(), true);
     }
-    int[] next = new int[1];
-    return codePointAtConsumeBoundary(text, pos, next);
+    return InputScanner.codePoint(decodeAtConsumeBoundary(text, pos));
   }
 
   private int inputNextPos(InputScanner text, int pos) {
     if (prog.hasGraphemeSemantics()) {
-      return GraphemeSupport.inputNextPos(
-          ((StringInputScanner) text).text(), pos, context.endPos(), true);
+      return GraphemeSupport.inputNextPos(text, pos, context.endPos(), true);
     }
-    int[] next = new int[1];
-    codePointAtConsumeBoundary(text, pos, next);
-    return next[0];
+    return InputScanner.position(decodeAtConsumeBoundary(text, pos));
   }
 
   private int graphemeNextPos(InputScanner text, int pos) {
-    return GraphemeSupport.graphemeNextPos(
-        ((StringInputScanner) text).text(), pos, context.graphemeConsumeEndPos());
+    return GraphemeSupport.graphemeNextPos(text, pos, context.graphemeConsumeEndPos());
   }
 
-  private int codePointAtConsumeBoundary(InputScanner text, int pos, int[] nextPos) {
+  private long decodeAtConsumeBoundary(InputScanner text, int pos) {
     if (pos < 0 || pos >= context.engineEndPos()) {
-      nextPos[0] = nextBoundaryPosition(pos, context.engineEndPos());
-      return -1;
+      return InputScanner.decoded(-1, nextBoundaryPosition(pos, context.engineEndPos()));
     }
-    int cp = text.codePointAt(pos, nextPos);
-    if (nextPos[0] <= context.engineEndPos()) {
-      return cp;
+    long decoded = text.decodeForward(pos);
+    if (InputScanner.position(decoded) <= context.engineEndPos()) {
+      return decoded;
     }
-    nextPos[0] = nextBoundaryPosition(pos, context.engineEndPos());
-    return -1;
+    return InputScanner.decoded(-1, nextBoundaryPosition(pos, context.engineEndPos()));
   }
 
   private static int nextBoundaryPosition(int pos, int endPos) {
@@ -1004,10 +996,7 @@ final class Nfa {
             if (destination != null) {
               if (scalarEnd == context.graphemeConsumeEndPos()
                   || GraphemeSupport.isGraphemeClusterBoundary(
-                      ((StringInputScanner) text).text(),
-                      scalarEnd,
-                      graphemeStart,
-                      context.graphemeContext())) {
+                      text, scalarEnd, graphemeStart, context.graphemeContext())) {
                 addToThreadq(destination, ip.out, text, scalarEnd, capture, true);
               } else {
                 boolean visited;
@@ -1353,7 +1342,7 @@ final class Nfa {
           flags |= EmptyOp.BEGIN_LINE;
         }
       } else if (pos < text.length()) {
-        int prev = text.charOrByteAt(pos - 1);
+        int prev = text.codePointBefore(pos);
         if (unixLines) {
           if (prev == '\n') {
             flags |= EmptyOp.BEGIN_LINE;
@@ -1364,7 +1353,7 @@ final class Nfa {
           // After \u0085, \u2028, \u2029: always a new line.
           if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
             flags |= EmptyOp.BEGIN_LINE;
-          } else if (prev == '\r' && text.charOrByteAt(pos) != '\n') {
+          } else if (prev == '\r' && text.asciiAt(pos) != '\n') {
             flags |= EmptyOp.BEGIN_LINE;
           }
         }
@@ -1378,7 +1367,7 @@ final class Nfa {
       if (pos == anchorEndPos) {
         flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
       } else if (pos < text.length()) {
-        int ch = text.charOrByteAt(pos);
+        int ch = text.codePointAt(pos);
         if (unixLines) {
           if (ch == '\n') {
             flags |= EmptyOp.END_LINE;
@@ -1390,7 +1379,7 @@ final class Nfa {
           // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
           // line terminator. END_LINE fires before the \r (the start of the pair), not between
           // \r and \n.
-          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charOrByteAt(pos - 1) == '\r');
+          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.asciiAt(pos - 1) == '\r');
           if (!isAtomicLF) {
             flags |= EmptyOp.END_LINE;
             if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {

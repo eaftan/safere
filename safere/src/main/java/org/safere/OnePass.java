@@ -497,7 +497,6 @@ final class OnePass {
 
     int state = 0;
     int[] bestCap = new int[ncap];
-    int[] nextPosHolder = new int[1];
     boolean matched = false;
 
     int nc = numClasses;
@@ -534,13 +533,14 @@ final class OnePass {
       // Read next character — ASCII fast path avoids codePointAt/charCount overhead.
       int nextPos;
       int cls;
-      int c = text.charOrByteAt(pos);
-      if (c < 128) {
+      int c = text.asciiAt(pos);
+      if (c >= 0) {
         nextPos = pos + 1;
         cls = ascMap[c];
       } else {
-        int cp = text.codePointAt(pos, nextPosHolder);
-        nextPos = nextPosHolder[0];
+        long decoded = text.decodeForward(pos);
+        int cp = InputScanner.codePoint(decoded);
+        nextPos = InputScanner.position(decoded);
         cls = classOf(cp);
       }
 
@@ -627,7 +627,6 @@ final class OnePass {
     int limit = Math.min(searchLimit, textLen) + 1;
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
-    int[] nextPosHolder = new int[1];
     for (int start = startPos; start < limit; start++) {
       SearchResult result = search(text, start, textLen, false, nsubmatch, graphemeContext);
       if (result.groups() != null) {
@@ -635,8 +634,7 @@ final class OnePass {
       }
       // Advance to next code point boundary.
       if (start < textLen) {
-        text.codePointAt(start, nextPosHolder);
-        start = nextPosHolder[0] - 1;
+        start = InputScanner.position(text.decodeForward(start)) - 1;
       }
     }
     return null;
