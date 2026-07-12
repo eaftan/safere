@@ -103,6 +103,8 @@ public final class Pattern implements Serializable {
   private final transient String prefix;
   private final transient boolean prefixFoldCase;
   private final transient String literalMatch;
+  private final transient byte[] literalMatchUtf8;
+  private final transient int[] literalMatchFailure;
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
   private final transient boolean hasUnsafeAlternation;
@@ -261,6 +263,11 @@ public final class Pattern implements Serializable {
     this.prefix = prefix;
     this.prefixFoldCase = prefixFoldCase;
     this.literalMatch = literalMatch;
+    this.literalMatchUtf8 =
+        literalMatch == null
+            ? null
+            : literalMatch.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
     this.hasLazy = hasLazy;
     this.hasAlternation = hasAlternation;
     this.hasUnsafeAlternation = hasUnsafeAlternation;
@@ -473,6 +480,15 @@ public final class Pattern implements Serializable {
     ArrayUtf8Input arrayInput = (ArrayUtf8Input) Objects.requireNonNull(input, "input");
     Utf8InputScanner scanner = arrayInput.scanner();
     int length = scanner.length();
+    if (literalMatchUtf8 != null && !prefixFoldCase) {
+      return scanner.indexOf(literalMatchUtf8, literalMatchFailure) >= 0;
+    }
+    if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
+      Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, 0, false, false);
+      if (result != null) {
+        return result.matched();
+      }
+    }
     return Nfa.search(
                 prog,
                 scanner,
@@ -486,6 +502,21 @@ public final class Pattern implements Serializable {
                 null)
             .groups()
         != null;
+  }
+
+  private static int[] literalFailure(byte[] literal) {
+    int[] failure = new int[literal.length];
+    int matched = 0;
+    for (int index = 1; index < literal.length; index++) {
+      while (matched > 0 && literal[index] != literal[matched]) {
+        matched = failure[matched - 1];
+      }
+      if (literal[index] == literal[matched]) {
+        matched++;
+      }
+      failure[index] = matched;
+    }
+    return failure;
   }
 
   /**

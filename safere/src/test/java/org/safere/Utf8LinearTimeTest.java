@@ -26,6 +26,9 @@ class Utf8LinearTimeTest {
   void matchingBehaviorsScaleLinearlyOverUtf8Input() {
     assertLargeFourXInputStaysNearLinear(
         size -> findAll("[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$", "a".repeat(size).getBytes(UTF_8)));
+    String overlappingLiteral = "a".repeat(1_000) + "b";
+    assertLargeFourXInputStaysNearLinear(
+        size -> findAll(overlappingLiteral, "a".repeat(size).getBytes(UTF_8)));
     assertLargeFourXInputStaysNearLinear(size -> findAll("", "😀".repeat(size).getBytes(UTF_8)));
     assertLargeFourXInputStaysNearLinear(
         size -> findAll("([a-z]+)([0-9]+)", "a1".repeat(size).getBytes(UTF_8)));

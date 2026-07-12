@@ -54,6 +54,29 @@ final class Utf8InputScanner implements InputScanner {
     return value < 0x80 ? value : -1;
   }
 
+  int indexOf(byte[] literal, int[] failure) {
+    if (literal.length == 0) {
+      return 0;
+    }
+    int matched = 0;
+    for (int position = 0; position < length; position++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      byte current = bytes[offset + position];
+      while (matched > 0 && current != literal[matched]) {
+        matched = failure[matched - 1];
+      }
+      if (current == literal[matched]) {
+        matched++;
+        if (matched == literal.length) {
+          return position - literal.length + 1;
+        }
+      }
+    }
+    return -1;
+  }
+
   @Override
   public long decodeForward(int pos) {
     if (WorkCounterConfig.ENABLED) {
