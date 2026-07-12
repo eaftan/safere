@@ -129,7 +129,7 @@ public final class Matcher implements MatchResult {
     if (matchCount == 0 || parentPattern.numGroups() == 0) {
       captureMode = CaptureMode.NONE;
     } else {
-      captureMode = capturesResolved ? CaptureMode.EAGER : CaptureMode.DEFERRED;
+      captureMode = accumulator.captured() ? CaptureMode.EAGER : CaptureMode.DEFERRED;
     }
     OperationDiagnostics event =
         accumulator.toEvent(

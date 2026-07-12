@@ -105,6 +105,10 @@ final class DiagnosticAccumulator {
     return matchCount;
   }
 
+  boolean captured() {
+    return captureStrategy != MatchStrategy.NONE;
+  }
+
   OperationDiagnostics toEvent(
       PatternDescriptor pattern,
       MatchOperation operation,

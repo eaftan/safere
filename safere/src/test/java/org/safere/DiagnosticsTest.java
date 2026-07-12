@@ -203,6 +203,32 @@ class DiagnosticsTest {
   }
 
   @Test
+  void replacementCaptureModeAgreesWithCaptureStrategyAcrossTerminalFindFailure() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern deferredPattern = Pattern.compile("(a+)b");
+
+    assertThat(deferredPattern.matcher("aaab xx ab").replaceAll("x")).isEqualTo("x xx x");
+
+    assertThat(operationsFor(deferredPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
+
+    Pattern eagerPattern = Pattern.compile("(a+)b");
+    assertThat(eagerPattern.matcher("aaab xx ab").replaceAll("$1")).isEqualTo("aaa xx a");
+    assertThat(operationsFor(eagerPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.captureStrategy()).isNotEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.EAGER);
+            });
+  }
+
+  @Test
   void functionalReplacementAlsoSuppressesNestedFindEvents() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("a");
