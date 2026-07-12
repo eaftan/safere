@@ -14,10 +14,13 @@ semantic compatibility from the direct-byte implementation.
 ## Revisions and Environment
 
 - SafeRE base: PR 530 head
-  `055e31acf5653122a0ab98242cdd20e6b01778f2` (local branch
-  `issue-516-pr530`, with the Stage 1–3 worktree applied locally).
-- Trino: `8e023609041cd8e4999aea0ecceb1e81ed887ca1` (local branch
-  `safere-utf8-feasibility`, with the temporary adapter applied locally).
+  `055e31acf5653122a0ab98242cdd20e6b01778f2`; Stage 1–3 implementation
+  `4b03d3d002ec82eb4b8d7f135368f37a40b5e902` on local branch
+  `issue-516-pr530`.
+- Trino base: `8e023609041cd8e4999aea0ecceb1e81ed887ca1`;
+  temporary feasibility adapter
+  `e8c7bb1393f3cf39d391bf1665c8e5f20a4aa008` on local branch
+  `safere-utf8-feasibility`.
 - JDK: OpenJDK 25.0.2+10-69.
 - Maven: 3.9.14.
 - SafeRE artifact: `org.safere:safere:0.9.0-SNAPSHOT`, installed from the
