@@ -12,12 +12,14 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Spliterator;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
@@ -44,6 +46,8 @@ import java.util.stream.StreamSupport;
 public final class Pattern implements Serializable {
 
   private static final long serialVersionUID = 1L;
+  private static final AtomicLong NEXT_PATTERN_ID = new AtomicLong(1);
+  private static volatile SafeReMatchDiagnostics diagnostics = SafeReMatchDiagnostics.NONE;
 
   /**
    * Enables Unix lines mode. In this mode, only {@code '\n'} is recognized as a line terminator.
@@ -114,6 +118,9 @@ public final class Pattern implements Serializable {
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
   private final transient EnginePathOptions enginePathOptions;
+  private final long patternId;
+  private transient volatile PatternAnalysis patternAnalysis;
+  private transient volatile PatternDescriptor patternDescriptor;
 
   /**
    * Precomputed character class data for the "repeated character class" fast path in {@code
@@ -245,6 +252,7 @@ public final class Pattern implements Serializable {
       long requiredMatchClassBitmap0,
       long requiredMatchClassBitmap1,
       EnginePathOptions enginePathOptions) {
+    this.patternId = nextPatternId();
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
@@ -301,6 +309,40 @@ public final class Pattern implements Serializable {
     if (!prog.anchorStart()) {
       flatReverseDfaProg();
     }
+
+    SafeReMatchDiagnostics listener = diagnostics;
+    if (SafeReMatchDiagnostics.isEnabled(listener)) {
+      listener.onPatternCompiled(new PatternCompiledEvent(descriptor()));
+    }
+  }
+
+  private static long nextPatternId() {
+    long id = NEXT_PATTERN_ID.getAndIncrement();
+    if (id <= 0) {
+      throw new IllegalStateException("pattern diagnostics identifier space exhausted");
+    }
+    return id;
+  }
+
+  /**
+   * Installs the process-wide synchronous match diagnostics listener.
+   *
+   * <p>The listener is invoked on compiling and matching threads and remains installed until
+   * replaced. Use {@link SafeReMatchDiagnostics#NONE} to disable diagnostics.
+   *
+   * @param listener the listener to install
+   */
+  public static void setDiagnostics(SafeReMatchDiagnostics listener) {
+    diagnostics = Objects.requireNonNull(listener, "listener");
+  }
+
+  /**
+   * Returns the currently installed process-wide match diagnostics listener.
+   *
+   * @return the installed listener
+   */
+  public static SafeReMatchDiagnostics diagnostics() {
+    return diagnostics;
   }
 
   /**
@@ -1063,6 +1105,172 @@ public final class Pattern implements Serializable {
    */
   public Map<String, Integer> namedGroups() {
     return namedGroups;
+  }
+
+  /**
+   * Returns immutable static diagnostics for this pattern.
+   *
+   * <p>Capabilities describe strategies that can participate for at least one supported operation
+   * and input; runtime input length, operation shape, and engine budgets can still affect
+   * selection.
+   */
+  public PatternAnalysis analysis() {
+    PatternAnalysis result = patternAnalysis;
+    if (result == null) {
+      synchronized (this) {
+        result = patternAnalysis;
+        if (result == null) {
+          result = buildPatternAnalysis();
+          patternAnalysis = result;
+        }
+      }
+    }
+    return result;
+  }
+
+  PatternDescriptor descriptor() {
+    PatternDescriptor result = patternDescriptor;
+    if (result == null) {
+      synchronized (this) {
+        result = patternDescriptor;
+        if (result == null) {
+          result = new PatternDescriptor(patternId, analysis());
+          patternDescriptor = result;
+        }
+      }
+    }
+    return result;
+  }
+
+  private PatternAnalysis buildPatternAnalysis() {
+    EnumSet<PatternFeature> features = EnumSet.noneOf(PatternFeature.class);
+    EnumSet<PatternCapability> capabilities = EnumSet.noneOf(PatternCapability.class);
+    EnumSet<PatternLimitation> limitations = EnumSet.noneOf(PatternLimitation.class);
+
+    if (literalMatch != null) {
+      features.add(PatternFeature.LITERAL);
+      capabilities.add(PatternCapability.LITERAL_MATCH);
+    }
+    if (prog.numCaptures() > 1) {
+      features.add(PatternFeature.CAPTURES);
+    }
+    if (hasAlternation) {
+      features.add(PatternFeature.ALTERNATION);
+    }
+    if (hasLazy) {
+      features.add(PatternFeature.LAZY_QUANTIFIER);
+      limitations.add(PatternLimitation.LAZY_SEMANTICS_LIMIT_ONE_PASS);
+    }
+    if (canMatchEmpty) {
+      features.add(PatternFeature.NULLABLE);
+    }
+    if (hasNullableAlternation) {
+      features.add(PatternFeature.NULLABLE_ALTERNATION);
+      limitations.add(PatternLimitation.NULLABLE_ALTERNATION_LIMITS_ONE_PASS);
+    }
+    if (prog.anchorStart()) {
+      features.add(PatternFeature.ANCHOR);
+      features.add(PatternFeature.START_ANCHOR);
+    }
+    if (prog.anchorEnd()) {
+      features.add(PatternFeature.ANCHOR);
+      features.add(PatternFeature.END_ANCHOR);
+    }
+    if (prog.hasWordBoundary()) {
+      features.add(PatternFeature.WORD_BOUNDARY);
+    }
+    if (prog.hasGraphemeSemantics()) {
+      features.add(PatternFeature.GRAPHEME);
+      limitations.add(PatternLimitation.GRAPHEME_REQUIRES_EXACT_ENGINE);
+    }
+    if ((flags & CASE_INSENSITIVE) != 0) {
+      features.add(PatternFeature.CASE_INSENSITIVE);
+    }
+    if ((flags & UNICODE_CHARACTER_CLASS) != 0) {
+      features.add(PatternFeature.UNICODE_CHARACTER_CLASS);
+    }
+    addAstAnalysisFeatures(features);
+
+    if (charClassMatchRanges != null || singleCharClassRanges != null) {
+      capabilities.add(PatternCapability.CHARACTER_CLASS_MATCH);
+    }
+    if (keywordAlternation != null) {
+      capabilities.add(PatternCapability.KEYWORD_MATCH);
+    }
+    if (canOnePassPrimary()) {
+      capabilities.add(PatternCapability.ONE_PASS_PRIMARY);
+    }
+    if (canOnePassSubmatch()) {
+      capabilities.add(PatternCapability.ONE_PASS_CAPTURE_EXTRACTION);
+    }
+    if (flatDfaProg != null && !prog.hasGraphemeSemantics()) {
+      if (prog.numLoopRegs() == 0) {
+        capabilities.add(PatternCapability.DFA_BOUNDARY_SEARCH);
+      } else {
+        capabilities.add(PatternCapability.DFA_REJECT_PREFILTER);
+      }
+    }
+    int maxBitStateText = BitState.maxTextSize(prog);
+    if (maxBitStateText >= 0) {
+      capabilities.add(PatternCapability.BIT_STATE);
+    } else {
+      limitations.add(PatternLimitation.PROGRAM_TOO_LARGE_FOR_BIT_STATE);
+    }
+    capabilities.add(PatternCapability.NFA);
+
+    if (prog.numLoopRegs() > 0) {
+      features.add(PatternFeature.NESTED_NULLABLE_QUANTIFIER);
+      features.add(PatternFeature.PROGRESS_CHECK);
+      limitations.add(PatternLimitation.NULLABLE_LOOP_REQUIRES_EXACT_ENGINE);
+    }
+    if (features.contains(PatternFeature.CAPTURES)
+        && (hasAlternation || hasLazy || prog.numLoopRegs() > 0)) {
+      limitations.add(PatternLimitation.CAPTURE_PRIORITY_REQUIRES_EXACT_ENGINE);
+    }
+
+    return new PatternAnalysis(
+        features, capabilities, limitations, prog.size(), prog.numCaptures() - 1);
+  }
+
+  private record AstAnalysisNode(Regexp regexp, boolean insideQuantifier) {}
+
+  private void addAstAnalysisFeatures(EnumSet<PatternFeature> features) {
+    Deque<AstAnalysisNode> stack = new ArrayDeque<>();
+    stack.push(new AstAnalysisNode(ast, false));
+    while (!stack.isEmpty()) {
+      AstAnalysisNode current = stack.pop();
+      Regexp node = current.regexp();
+      boolean quantifier =
+          node.op == RegexpOp.STAR
+              || node.op == RegexpOp.PLUS
+              || node.op == RegexpOp.QUEST
+              || node.op == RegexpOp.REPEAT;
+      if (node.op == RegexpOp.REPEAT) {
+        features.add(PatternFeature.BOUNDED_REPEAT);
+      }
+      switch (node.op) {
+        case LITERAL, LITERAL_STRING -> features.add(PatternFeature.LITERAL);
+        case BEGIN_LINE, BEGIN_TEXT -> {
+          features.add(PatternFeature.ANCHOR);
+          features.add(PatternFeature.START_ANCHOR);
+        }
+        case END_LINE, END_TEXT -> {
+          features.add(PatternFeature.ANCHOR);
+          features.add(PatternFeature.END_ANCHOR);
+        }
+        case WORD_BOUNDARY, NO_WORD_BOUNDARY -> features.add(PatternFeature.WORD_BOUNDARY);
+        case GRAPHEME_CLUSTER, GRAPHEME_CLUSTER_BOUNDARY -> features.add(PatternFeature.GRAPHEME);
+        default -> {}
+      }
+      if (node.op == RegexpOp.CAPTURE && node.cap > 0 && current.insideQuantifier()) {
+        features.add(PatternFeature.CAPTURES_IN_QUANTIFIER);
+      }
+      if (node.subs != null) {
+        for (Regexp sub : node.subs) {
+          stack.push(new AstAnalysisNode(sub, current.insideQuantifier() || quantifier));
+        }
+      }
+    }
   }
 
   /**

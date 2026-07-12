@@ -90,6 +90,123 @@ public final class Matcher implements MatchResult {
   private boolean fullTextRegionContext;
   private boolean findExhaustedAfterTerminalEmptyMatch;
   private int modCount;
+  private DiagnosticOperation diagnosticOperation;
+  private boolean diagnosticCaptureSearch;
+
+  private record DiagnosticOperation(
+      SafeReMatchDiagnostics listener,
+      MatchOperation operation,
+      DiagnosticAccumulator accumulator) {}
+
+  private DiagnosticOperation beginDiagnostics(MatchOperation operation) {
+    if (diagnosticOperation != null) {
+      return null;
+    }
+    SafeReMatchDiagnostics listener = Pattern.diagnostics();
+    if (!SafeReMatchDiagnostics.isEnabled(listener)) {
+      return null;
+    }
+    DiagnosticOperation started =
+        new DiagnosticOperation(listener, operation, new DiagnosticAccumulator());
+    diagnosticOperation = started;
+    return started;
+  }
+
+  private void abortDiagnostics(DiagnosticOperation operation) {
+    if (operation != null) {
+      diagnosticOperation = null;
+    }
+  }
+
+  private void completeDiagnostics(DiagnosticOperation operation, int matchCount) {
+    if (operation == null) {
+      return;
+    }
+    DiagnosticAccumulator accumulator = operation.accumulator();
+    accumulator.matchCount(matchCount);
+    MatchOutcome outcome = matchCount == 0 ? MatchOutcome.NO_MATCH : MatchOutcome.MATCH;
+    CaptureMode captureMode;
+    if (matchCount == 0 || parentPattern.numGroups() == 0) {
+      captureMode = CaptureMode.NONE;
+    } else {
+      captureMode = capturesResolved ? CaptureMode.EAGER : CaptureMode.DEFERRED;
+    }
+    OperationDiagnostics event =
+        accumulator.toEvent(
+            parentPattern.descriptor(), operation.operation(), outcome, captureMode, text.length());
+    diagnosticOperation = null;
+    operation.listener().onOperationCompleted(event);
+  }
+
+  private DiagnosticAccumulator diagnosticsAccumulator() {
+    return diagnosticOperation == null ? null : diagnosticOperation.accumulator();
+  }
+
+  private void diagnosticBoundary(MatchStrategy strategy) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.boundary(strategy);
+    }
+  }
+
+  private void diagnosticExact(MatchStrategy strategy) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      if (diagnosticCaptureSearch) {
+        accumulator.capture(strategy);
+      } else {
+        accumulator.boundary(strategy);
+      }
+    }
+  }
+
+  private void diagnosticBoundaryOverride(MatchStrategy strategy) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.replaceBoundary(strategy);
+    }
+  }
+
+  private void diagnosticCapture(MatchStrategy strategy) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.capture(strategy);
+    }
+  }
+
+  private void diagnosticParticipation(MatchStrategy strategy, StrategyRole role) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.participate(strategy, role);
+    }
+  }
+
+  private void diagnosticDecision(
+      MatchStrategy strategy, StrategyDisposition disposition, StrategyReason reason) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.decision(strategy, disposition, reason);
+    }
+  }
+
+  private void diagnosticDfaBudget(Dfa.SearchResult result) {
+    if (result == null) {
+      diagnosticDecision(
+          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+    }
+  }
+
+  private void diagnosticIncrementMatchCount() {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.incrementMatchCount();
+    }
+  }
+
+  private int diagnosticMatchCount() {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    return accumulator == null ? 0 : accumulator.matchCount();
+  }
 
   /**
    * Cached BitState instance borrowed from the parent Pattern's thread-local cache, reused across
@@ -637,6 +754,18 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if the entire input sequence matches this matcher's pattern
    */
   public boolean matches() {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.MATCHES);
+    try {
+      boolean matched = matchesImpl();
+      completeDiagnostics(operation, matched ? 1 : 0);
+      return matched;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private boolean matchesImpl() {
     modCount++;
     findExhaustedAfterTerminalEmptyMatch = false;
     searchFrom = regionStart;
@@ -686,6 +815,7 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0) {
+      diagnosticBoundary(MatchStrategy.LITERAL);
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
@@ -705,6 +835,7 @@ public final class Matcher implements MatchResult {
     // Character-class fast path: for patterns like [a-zA-Z]+, \d+, \w*, etc.
     int[] ccRanges = parentPattern.charClassMatchRanges();
     if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null) {
+      diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return charClassMatchFastPath(ccRanges);
     }
 
@@ -712,6 +843,8 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().charClassMatchFastPaths()
         && requiredRanges != null
         && !containsRequiredMatchClass(requiredRanges)) {
+      diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.REJECT_PREFILTER);
+      diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return applyFailedMatchResult();
     }
 
@@ -723,22 +856,39 @@ public final class Matcher implements MatchResult {
     if (onePass != null
         && !prog.hasGraphemeSemantics()
         && !parentPattern.hasNullableAlternation()) {
+      diagnosticBoundary(MatchStrategy.ONE_PASS);
+      if (parentPattern.numGroups() > 0) {
+        diagnosticCapture(MatchStrategy.ONE_PASS);
+      }
       int[] result = onePass.search(text, true, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
     }
 
     // Medium path: use DFA to check if a full match exists.
     if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
-
+      diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       Dfa.SearchResult dfaResult = dfa(true).doSearch(text, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
+        diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
       if (dfaResult != null && dfaResult.pos() != text.length()) {
+        diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
       if (dfaResult != null && prog.numLoopRegs() == 0) {
+        diagnosticBoundary(MatchStrategy.DFA);
         return applyDeferredMatchResult(0, text.length(), prog.numCaptures(), true, true);
+      }
+      if (dfaResult != null && dfaResult.matched() && prog.numLoopRegs() > 0) {
+        diagnosticDecision(
+            MatchStrategy.DFA,
+            StrategyDisposition.BYPASSED,
+            StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
+      }
+      if (dfaResult == null) {
+        diagnosticDecision(
+            MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
       }
     }
 
@@ -761,6 +911,7 @@ public final class Matcher implements MatchResult {
     // may accept a match ending before a trailing \n. In that case, fall back to the NFA
     // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
     if (result != null && result[1] != text.length()) {
+      diagnosticBoundaryOverride(MatchStrategy.NFA);
       int[] nfaResult =
           searchNfa(
               prog,
@@ -787,6 +938,18 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a prefix of the input sequence matches this matcher's pattern
    */
   public boolean lookingAt() {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.LOOKING_AT);
+    try {
+      boolean matched = lookingAtImpl();
+      completeDiagnostics(operation, matched ? 1 : 0);
+      return matched;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private boolean lookingAtImpl() {
     modCount++;
     findExhaustedAfterTerminalEmptyMatch = false;
     searchFrom = regionStart;
@@ -836,6 +999,7 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0) {
+      diagnosticBoundary(MatchStrategy.LITERAL);
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
         matched =
@@ -858,6 +1022,10 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().onePass()
         && parentPattern.canOnePassPrimary()
         && !prog.hasGraphemeSemantics()) {
+      diagnosticBoundary(MatchStrategy.ONE_PASS);
+      if (parentPattern.numGroups() > 0) {
+        diagnosticCapture(MatchStrategy.ONE_PASS);
+      }
       OnePass onePass = parentPattern.onePass();
       int[] result = onePass.search(text, false, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
@@ -865,10 +1033,21 @@ public final class Matcher implements MatchResult {
 
     // Medium path: use DFA to check if an anchored match exists.
     if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
-
+      diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       Dfa.SearchResult dfaResult = dfa(false).doSearch(text, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
+        diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
+      }
+      if (dfaResult == null) {
+        diagnosticDecision(
+            MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+      }
+      if (dfaResult != null && dfaResult.matched() && prog.numLoopRegs() > 0) {
+        diagnosticDecision(
+            MatchStrategy.DFA,
+            StrategyDisposition.BYPASSED,
+            StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
       }
     }
 
@@ -900,6 +1079,18 @@ public final class Matcher implements MatchResult {
    * @return {@code true} if a subsequence of the input sequence matches this matcher's pattern
    */
   public boolean find() {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.FIND);
+    try {
+      boolean matched = findImpl();
+      completeDiagnostics(operation, matched ? 1 : 0);
+      return matched;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private boolean findImpl() {
     modCount++;
     if (findExhaustedAfterTerminalEmptyMatch) {
       applyFailedMatchResult();
@@ -975,6 +1166,18 @@ public final class Matcher implements MatchResult {
    * @throws IndexOutOfBoundsException if start is negative or greater than the length of the input
    */
   public boolean find(int start) {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.FIND);
+    try {
+      boolean matched = findFromImpl(start);
+      completeDiagnostics(operation, matched ? 1 : 0);
+      return matched;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private boolean findFromImpl(int start) {
     if (start < 0 || start > text.length()) {
       throw new IndexOutOfBoundsException("start=" + start + ", length=" + text.length());
     }
@@ -1200,6 +1403,7 @@ public final class Matcher implements MatchResult {
     String literal = parentPattern.literalMatch();
     EnginePathOptions options = enginePathOptions();
     if (options.literalFastPaths() && literal != null && parentPattern.numGroups() == 0) {
+      diagnosticBoundary(MatchStrategy.LITERAL);
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, literal, searchFrom);
@@ -1210,6 +1414,7 @@ public final class Matcher implements MatchResult {
         idx = text.indexOf(literal, searchFrom);
       }
       if (idx < 0) {
+        diagnosticBoundary(MatchStrategy.LITERAL);
         if (!prog.anchorStart()) {
         } else {
           if (isPartialLiteralMatch(literal, searchFrom)) {}
@@ -1221,11 +1426,16 @@ public final class Matcher implements MatchResult {
 
     int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
     if (options.charClassMatchFastPaths() && singleCharClassRanges != null) {
+      diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return singleCharClassFindFastPath(singleCharClassRanges, searchFrom);
     }
 
     Pattern.KeywordAlternation keywordAlternation = parentPattern.keywordAlternation();
     if (options.keywordAlternationFastPath() && !regionActive && keywordAlternation != null) {
+      diagnosticBoundary(MatchStrategy.KEYWORD);
+      if (keywordAlternation.captureGroup > 0) {
+        diagnosticCapture(MatchStrategy.KEYWORD);
+      }
       return findKeywordAlternation(keywordAlternation, searchFrom, prog.numCaptures());
     }
 
@@ -1245,6 +1455,8 @@ public final class Matcher implements MatchResult {
         && requiredRanges != null
         && !hasAcceleratedSearchPath
         && !containsRequiredMatchClass(requiredRanges, searchFrom)) {
+      diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.REJECT_PREFILTER);
+      diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return applyFailedMatchResult();
     }
 
@@ -1266,6 +1478,10 @@ public final class Matcher implements MatchResult {
     if (options.onePass()
         && parentPattern.canOnePassFind()
         && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
+      diagnosticBoundary(MatchStrategy.ONE_PASS);
+      if (parentPattern.numGroups() > 0) {
+        diagnosticCapture(MatchStrategy.ONE_PASS);
+      }
       int[] result =
           parentPattern
               .onePass()
@@ -1279,6 +1495,7 @@ public final class Matcher implements MatchResult {
     boolean literalPrefixCandidateStart = false;
     String prefix = parentPattern.prefix();
     if (options.startAcceleration() && prefix != null) {
+      diagnosticParticipation(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
       int idx;
       if (parentPattern.prefixFoldCase()) {
         idx = indexOfIgnoreCase(text, prefix, searchFrom);
@@ -1289,6 +1506,7 @@ public final class Matcher implements MatchResult {
         idx = text.indexOf(prefix, searchFrom);
       }
       if (idx < 0) {
+        diagnosticBoundary(MatchStrategy.LITERAL);
         if (!prog.anchorStart()) {
         } else {
           int remainingLen = text.length() - searchFrom;
@@ -1306,8 +1524,10 @@ public final class Matcher implements MatchResult {
     // avoids running the full engine on text regions where no match can start.
     boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
     if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
+      diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
       int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
+        diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
         if (!prog.anchorStart()) {
         } else {
           if (searchFrom == text.length()) {}
@@ -1353,6 +1573,7 @@ public final class Matcher implements MatchResult {
         && canUseReverseDfa()) {
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {
+        diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
         int textLen = text.length();
         boolean budgetExceeded = false;
 
@@ -1419,11 +1640,16 @@ public final class Matcher implements MatchResult {
         if (!budgetExceeded) {
           if (matchStart < 0) {
             // No match possible at end of text — fail immediately without forward scan.
+            diagnosticBoundary(MatchStrategy.DFA);
             return applyFailedMatchResult();
           }
           if (matchStartAmbiguous) {
             // The reverse DFA can prove that a suffix match exists, but not which accepted
             // candidate supplies the leftmost start. Fall through to the normal engine path.
+            diagnosticDecision(
+                MatchStrategy.DFA,
+                StrategyDisposition.BYPASSED,
+                StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
           } else {
             // Reverse DFA found a match start. It proposes the left edge only; resolve the public
             // group(0) end with the exact engine anchored at that start so lazy alternatives and
@@ -1438,6 +1664,10 @@ public final class Matcher implements MatchResult {
             }
           }
         }
+        if (budgetExceeded) {
+          diagnosticDecision(
+              MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+        }
         // DFA budget exceeded or forward DFA disagreed — fall through to normal path.
       }
     }
@@ -1448,9 +1678,15 @@ public final class Matcher implements MatchResult {
     if (!options.dfa() || !dfaSupportsProgram(parentPattern.flatDfaProg())) {
       fwdResult = null;
     } else {
+      diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
+        diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
+      }
+      if (fwdResult == null) {
+        diagnosticDecision(
+            MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
       }
     }
 
@@ -1492,6 +1728,7 @@ public final class Matcher implements MatchResult {
       if (prog.anchorStart()) {
         // Anchored: match start is effectiveStart. Since it is start-anchored, the match end
         // is guaranteed to be earlyEnd. Avoid redundant third DFA search.
+        diagnosticBoundary(MatchStrategy.DFA);
         return applyDeferredMatchResult(
             effectiveStart,
             earlyEnd,
@@ -1504,9 +1741,12 @@ public final class Matcher implements MatchResult {
           // preceded by zero-width assertions. Verify that candidate directly; if it matches,
           // return it. Otherwise, fall through to the reverse DFA search below to find the correct
           // start.
+          diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
           Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+          diagnosticDfaBudget(fwdFirst);
           if (fwdFirst != null && fwdFirst.matched()) {
             int matchEnd = fwdFirst.pos();
+            diagnosticBoundary(MatchStrategy.DFA);
             return applyDeferredMatchResult(
                 effectiveStart,
                 matchEnd,
@@ -1518,9 +1758,11 @@ public final class Matcher implements MatchResult {
         if (canUseReverseDfa()) {
           Dfa revDfa = reverseDfa();
           if (revDfa != null) {
+            diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
             // Step 2: Reverse DFA backward from earliest match end to find match start.
             Dfa.SearchResult revResult =
                 revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+            diagnosticDfaBudget(revResult);
             if (revResult != null && revResult.matched()) {
               int matchStart = revResult.pos();
               boolean reliableStart = !revResult.ambiguous();
@@ -1548,6 +1790,7 @@ public final class Matcher implements MatchResult {
                   if (!isAtomicCrLf) {
                     Dfa.SearchResult altRevResult =
                         revDfa.doSearchReverse(text, earlyEnd - 1, effectiveStart, true, true);
+                    diagnosticDfaBudget(altRevResult);
                     if (altRevResult != null
                         && altRevResult.matched()
                         && altRevResult.pos() < matchStart) {
@@ -1559,6 +1802,7 @@ public final class Matcher implements MatchResult {
                   if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
                     Dfa.SearchResult altRevResult2 =
                         revDfa.doSearchReverse(text, earlyEnd - 2, effectiveStart, true, true);
+                    diagnosticDfaBudget(altRevResult2);
                     if (altRevResult2 != null
                         && altRevResult2.matched()
                         && altRevResult2.pos() < matchStart) {
@@ -1570,15 +1814,21 @@ public final class Matcher implements MatchResult {
               }
 
               if (!reliableStart) {
+                diagnosticDecision(
+                    MatchStrategy.DFA,
+                    StrategyDisposition.BYPASSED,
+                    StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
                 matchStart = -1;
               }
 
               // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
               if (matchStart >= 0) {
                 Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+                diagnosticDfaBudget(fwdFirst);
                 if (fwdFirst != null && fwdFirst.matched()) {
                   int matchEnd = fwdFirst.pos();
                   // Step 4: Store group(0) boundaries, defer inner captures until requested.
+                  diagnosticBoundary(MatchStrategy.DFA);
                   return applyDeferredMatchResult(
                       matchStart,
                       matchEnd,
@@ -1593,6 +1843,13 @@ public final class Matcher implements MatchResult {
           }
         }
       }
+    }
+
+    if (fwdResult != null && fwdResult.matched() && prog.numLoopRegs() > 0) {
+      diagnosticDecision(
+          MatchStrategy.DFA,
+          StrategyDisposition.BYPASSED,
+          StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED);
     }
 
     // Fallback: DFA bailed out or reverse DFA unavailable. Search only for group 0 first, then
@@ -1878,10 +2135,18 @@ public final class Matcher implements MatchResult {
       // Return to Pattern's cache for reuse by future Matchers.
       parentPattern.returnBitState(bs);
       if (!bs.budgetExceeded()) {
+        diagnosticExact(MatchStrategy.BIT_STATE);
         // BitState is a complete engine — if it searched and found no match, NFA won't either.
         if (result == null) {}
         return result;
       }
+      diagnosticDecision(
+          MatchStrategy.BIT_STATE,
+          StrategyDisposition.FALLBACK,
+          StrategyReason.WORK_BUDGET_EXCEEDED);
+    } else if (canUseBitState && maxBitStateLen >= 0 && searchRange > maxBitStateLen) {
+      diagnosticDecision(
+          MatchStrategy.BIT_STATE, StrategyDisposition.BYPASSED, StrategyReason.INPUT_TOO_LARGE);
     }
 
     // Fall back to the general NFA when BitState cannot be used or when capture semantics need
@@ -1895,6 +2160,7 @@ public final class Matcher implements MatchResult {
     } else {
       nfaKind = Nfa.MatchKind.FIRST_MATCH;
     }
+    diagnosticExact(MatchStrategy.NFA);
     return searchNfa(
         prog,
         startPos,
@@ -2183,6 +2449,18 @@ public final class Matcher implements MatchResult {
    * @return the string with the first match replaced
    */
   public String replaceFirst(String replacement) {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.REPLACE_FIRST);
+    try {
+      String result = replaceFirstImpl(replacement);
+      completeDiagnostics(operation, diagnosticMatchCount());
+      return result;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private String replaceFirstImpl(String replacement) {
     Objects.requireNonNull(replacement, "replacement");
     reset();
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
@@ -2199,6 +2477,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
+    diagnosticIncrementMatchCount();
     StringBuilder sb = new StringBuilder(text.length());
     appendReplacement(sb, replacement);
     appendTail(sb);
@@ -2217,6 +2496,7 @@ public final class Matcher implements MatchResult {
         || regionActive) {
       return null;
     }
+    diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
 
     boolean isStartAnchored = parentPattern.prog().anchorStart();
     String prefix = parentPattern.prefix();
@@ -2224,9 +2504,11 @@ public final class Matcher implements MatchResult {
     boolean hasStartAcceleration = enginePathOptions().startAcceleration() && prefix != null;
     int startPos = searchFrom;
     if (hasStartAcceleration) {
+      diagnosticParticipation(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
       int firstIdx =
           foldCase ? indexOfIgnoreCase(text, prefix, searchFrom) : text.indexOf(prefix, searchFrom);
       if (firstIdx < 0) {
+        diagnosticBoundary(MatchStrategy.LITERAL);
         return text;
       }
       startPos = firstIdx;
@@ -2245,8 +2527,10 @@ public final class Matcher implements MatchResult {
       return null;
     }
     if (matchResult == 0) {
+      diagnosticBoundary(MatchStrategy.DFA);
       return text;
     }
+    diagnosticBoundary(MatchStrategy.DFA);
 
     Prog prog = parentPattern.prog();
     int numCaptures = prog.numCaptures();
@@ -2285,25 +2569,32 @@ public final class Matcher implements MatchResult {
         Arrays.fill(groups, 2, groups.length, -1);
         int[] resultGroups;
         if (useOnePass) {
+          diagnosticCapture(MatchStrategy.ONE_PASS);
           resultGroups =
               parentPattern
                   .onePass()
                   .search(text, matchStart, matchEnd, false, numCaptures, groups);
         } else {
-          resultGroups =
-              searchWithBitStateOrNfa(
-                  prog,
-                  text,
-                  matchStart,
-                  matchEnd,
-                  matchEnd,
-                  matchEnd,
-                  true,
-                  false,
-                  false,
-                  numCaptures,
-                  true,
-                  groups);
+          boolean savedCaptureSearch = diagnosticCaptureSearch;
+          diagnosticCaptureSearch = true;
+          try {
+            resultGroups =
+                searchWithBitStateOrNfa(
+                    prog,
+                    text,
+                    matchStart,
+                    matchEnd,
+                    matchEnd,
+                    matchEnd,
+                    true,
+                    false,
+                    false,
+                    numCaptures,
+                    true,
+                    groups);
+          } finally {
+            diagnosticCaptureSearch = savedCaptureSearch;
+          }
         }
         if (resultGroups != null) {
           System.arraycopy(resultGroups, 0, groups, 0, groups.length);
@@ -2339,6 +2630,11 @@ public final class Matcher implements MatchResult {
       this.appendPos = textLen;
       this.searchFrom = textLen;
     }
+    diagnosticBoundary(MatchStrategy.DFA);
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.matchCount(matchesFound);
+    }
     return sb.toString();
   }
 
@@ -2369,6 +2665,7 @@ public final class Matcher implements MatchResult {
       }
 
       Dfa.SearchResult fwdResult = fwdDfa.doSearch(text, pos, false, false);
+      diagnosticDfaBudget(fwdResult);
       if (fwdResult == null || !fwdResult.matched()) {
         break;
       }
@@ -2385,6 +2682,7 @@ public final class Matcher implements MatchResult {
         matchEnd = earlyEnd;
       } else if (hasStartAcceleration) {
         Dfa.SearchResult fwdFirst = fwdDfa.doSearch(text, pos, true, false);
+        diagnosticDfaBudget(fwdFirst);
         if (fwdFirst != null && fwdFirst.matched()) {
           matchStart = pos;
           matchEnd = fwdFirst.pos();
@@ -2400,11 +2698,19 @@ public final class Matcher implements MatchResult {
           }
           Dfa.SearchResult revResult =
               cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+          diagnosticDfaBudget(revResult);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
+            if (revResult != null && revResult.ambiguous()) {
+              diagnosticDecision(
+                  MatchStrategy.DFA,
+                  StrategyDisposition.BYPASSED,
+                  StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
+            }
             return -1;
           }
           matchStart = revResult.pos();
           Dfa.SearchResult fwdFirst2 = fwdDfa.doSearch(text, matchStart, true, false);
+          diagnosticDfaBudget(fwdFirst2);
           if (fwdFirst2 == null || !fwdFirst2.matched()) {
             return -1;
           }
@@ -2421,11 +2727,19 @@ public final class Matcher implements MatchResult {
           }
         }
         Dfa.SearchResult revResult = cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+        diagnosticDfaBudget(revResult);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
+          if (revResult != null && revResult.ambiguous()) {
+            diagnosticDecision(
+                MatchStrategy.DFA,
+                StrategyDisposition.BYPASSED,
+                StrategyReason.AUTHORITATIVE_BOUNDS_REQUIRED);
+          }
           return -1;
         }
         matchStart = revResult.pos();
         Dfa.SearchResult fwdFirst = fwdDfa.doSearch(text, matchStart, true, false);
+        diagnosticDfaBudget(fwdFirst);
         if (fwdFirst == null || !fwdFirst.matched()) {
           return -1;
         }
@@ -2449,11 +2763,24 @@ public final class Matcher implements MatchResult {
    * @throws NullPointerException if the replacer function is null
    */
   public String replaceFirst(Function<MatchResult, String> replacer) {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.REPLACE_FIRST);
+    try {
+      String result = replaceFirstFunctionImpl(replacer);
+      completeDiagnostics(operation, diagnosticMatchCount());
+      return result;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private String replaceFirstFunctionImpl(Function<MatchResult, String> replacer) {
     requireNonNull(replacer, "replacer");
     reset();
     if (!find()) {
       return text;
     }
+    diagnosticIncrementMatchCount();
     StringBuilder sb = new StringBuilder(text.length());
     int expectedModCount = modCount;
     String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
@@ -2471,6 +2798,18 @@ public final class Matcher implements MatchResult {
    * @return the string with all matches replaced
    */
   public String replaceAll(String replacement) {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.REPLACE_ALL);
+    try {
+      String result = replaceAllImpl(replacement);
+      completeDiagnostics(operation, diagnosticMatchCount());
+      return result;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private String replaceAllImpl(String replacement) {
     reset();
     LazyTemplate template = new LazyTemplate(replacement, groupCount());
     String fastResult = charClassReplaceFastPath(template, Integer.MAX_VALUE);
@@ -2486,6 +2825,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
+    diagnosticIncrementMatchCount();
     StringBuilder sb = new StringBuilder(text.length());
     ReplacementSegment[] compiledTemplate = template.get();
     boolean needsCaptures = templateNeedsCaptures(compiledTemplate);
@@ -2496,9 +2836,17 @@ public final class Matcher implements MatchResult {
       sb.append(text, appendPos, groups[0]);
       applyReplacementTemplate(sb, compiledTemplate);
       appendPos = groups[1];
-    } while (find());
+    } while (findAndRecordReplacementMatch());
     appendTail(sb);
     return sb.toString();
+  }
+
+  private boolean findAndRecordReplacementMatch() {
+    boolean found = find();
+    if (found) {
+      diagnosticIncrementMatchCount();
+    }
+    return found;
   }
 
   /**
@@ -2511,18 +2859,31 @@ public final class Matcher implements MatchResult {
    * @throws NullPointerException if the replacer function is null
    */
   public String replaceAll(Function<MatchResult, String> replacer) {
+    DiagnosticOperation operation = beginDiagnostics(MatchOperation.REPLACE_ALL);
+    try {
+      String result = replaceAllFunctionImpl(replacer);
+      completeDiagnostics(operation, diagnosticMatchCount());
+      return result;
+    } catch (RuntimeException | Error e) {
+      abortDiagnostics(operation);
+      throw e;
+    }
+  }
+
+  private String replaceAllFunctionImpl(Function<MatchResult, String> replacer) {
     requireNonNull(replacer, "replacer");
     reset();
     if (!find()) {
       return text;
     }
+    diagnosticIncrementMatchCount();
     StringBuilder sb = new StringBuilder(text.length());
     do {
       int expectedModCount = modCount;
       String replacement = Objects.requireNonNull(replacer.apply(toMatchResult()));
       checkConcurrentModification(expectedModCount);
       appendReplacement(sb, replacement);
-    } while (find());
+    } while (findAndRecordReplacementMatch());
     appendTail(sb);
     return sb.toString();
   }
@@ -2534,6 +2895,7 @@ public final class Matcher implements MatchResult {
         || parentPattern.hasLazyQuantifiers()) {
       return null;
     }
+    diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.CANDIDATE_VERIFICATION);
     String repText = null;
 
     int textLen = text.length();
@@ -2602,6 +2964,7 @@ public final class Matcher implements MatchResult {
     }
 
     if (sb == null) {
+      diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       applyFailedMatchResult();
       return text;
     }
@@ -2614,6 +2977,12 @@ public final class Matcher implements MatchResult {
     } else {
       searchFrom = regionEnd;
       applyFailedMatchResult();
+    }
+
+    diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.matchCount(matchesFound);
     }
 
     return sb.toString();
@@ -2932,26 +3301,33 @@ public final class Matcher implements MatchResult {
     if (enginePathOptions().onePass()
         && parentPattern.canOnePassSubmatch()
         && !parentPattern.hasNullableAlternation()) {
+      diagnosticCapture(MatchStrategy.ONE_PASS);
       result =
           parentPattern
               .onePass()
               .search(
                   text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
     } else {
-      result =
-          searchWithBitStateOrNfa(
-              prog,
-              text,
-              deferredMatchStart,
-              deferredMatchEnd,
-              deferredMatchEnd,
-              deferredMatchEnd,
-              true,
-              false,
-              deferredEndMatch,
-              prog.numCaptures(),
-              true,
-              groups);
+      boolean savedCaptureSearch = diagnosticCaptureSearch;
+      diagnosticCaptureSearch = true;
+      try {
+        result =
+            searchWithBitStateOrNfa(
+                prog,
+                text,
+                deferredMatchStart,
+                deferredMatchEnd,
+                deferredMatchEnd,
+                deferredMatchEnd,
+                true,
+                false,
+                deferredEndMatch,
+                prog.numCaptures(),
+                true,
+                groups);
+      } finally {
+        diagnosticCaptureSearch = savedCaptureSearch;
+      }
     }
     if (result != null && result != groups) {
       groups = result;
