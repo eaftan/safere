@@ -667,6 +667,35 @@ revisions and configurations.
 - Trino-level results confirm that adapter and output costs do not erase the
   matcher-level benefit.
 
+### Completion record
+
+Completed locally at SafeRE revision
+`3d0b19358d0fe7a0c2ccb3a1cabd3f3684c94d26`. CPU profiling identified the
+capture-free Pike NFA path as the short-search bottleneck. Unanchored supported
+programs now use the cached DFA for boolean search, while end-anchored programs
+retain the bounded-allocation NFA path. Fully literal patterns use a precomputed
+UTF-8 KMP search, preserving linear time even for overlapping prefixes.
+
+The shared `Utf8MatchingBenchmark` covers the frozen capture-free,
+decode-inclusive, predecoded String, repeated-find, capture-bound, empty-match,
+window, construction, and hard-failure workloads; byte-native replacement is
+covered by `ByteReplacementBenchmark`. Across the six capture-free cases,
+trusted byte search has a time geomean of approximately 0.61 relative to
+predecoded String and allocates effectively zero bytes per operation. The
+legacy email workload improved from approximately 5.18 microseconds to 115
+nanoseconds before the literal specialization; the final frozen literal cases
+range from approximately 6 to 18 nanoseconds.
+
+The SafeRE String regression set remained within its gates. At Trino revision
+`7ec953a0619`, the existing function benchmark, run with the SafeRE-backed
+legacy `benchmarkLikeRe2J` method, measured literal-like, phone-like, and
+replacement paths against Joni.
+The three time ratios have a geometric mean of approximately 0.87. The
+replacement no-match case is slower but allocates approximately 152 bytes per
+operation rather than 2,384 bytes. Thus adapter and output costs do not erase
+the aggregate benefit. Full Trino publication benchmarking remains a Stage 9
+release gate.
+
 ## Stage 9: Final Trino Validation And Publication
 
 ### Objective
@@ -774,6 +803,6 @@ problems early; they are not separate release events.
 - [x] Replacement follows the single selected dialect and stays byte-native.
 - [x] Differential, state-machine, fuzz, scaling, and allocation coverage pass.
 - [ ] Early and final Trino dependency substitutions pass their recorded tests.
-- [ ] SafeRE and Trino benchmark gates pass with recorded revisions.
+- [x] SafeRE and Trino benchmark gates pass with recorded revisions.
 - [ ] Public API and Trino migration documentation are complete.
 - [ ] No provisional unsupported operation remains at publication.
