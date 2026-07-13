@@ -198,11 +198,12 @@ was attempted; it could not complete because Docker-dependent OAuth tests fail
 without a Docker environment, after which an unrelated node-state poller kept
 the failed run alive. No regex-related failure occurred before termination.
 
-The final deterministic JMH matrix runs SafeRE and RE2/J from the same Trino
-checkout using identical inputs. It covers matching and replacement over five
-pattern families and two input sizes with two forks, two 500 ms warmups, and
-five 500 ms measurements. The geometric mean of SafeRE time divided by Trino
-RE2/J time is 0.48 overall, 0.41 for capture-free matching, and 0.56 for
+The final deterministic JMH matrix runs SafeRE, RE2/J, and Joni from the same
+Trino checkout using identical inputs. It covers matching and replacement over
+five pattern families and two input sizes. All three engines ran in the same
+invocation with two forks, three 1-second warmups, and five 1-second
+measurements. The geometric mean of SafeRE time divided by Trino RE2/J time is
+0.47 overall, 0.40 for capture-free matching, and 0.57 for
 replacement. Every individual ratio is at most 1.05, satisfying the
 precommitted 1.10 aggregate and 1.20 individual gates. Values below 1.0 mean
 SafeRE is faster.

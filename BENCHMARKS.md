@@ -785,23 +785,25 @@ to Java but lighter than Java's full object model.
 
 The final external-consumer matrix was run against SafeRE commit
 `8e2394facf9c50ac3d51a15b6485b496cb591d2c` (2026-07-13T05:25:07Z) and Trino
-commit `4e070738fd759ef7cb909177bda24884b7d00dc1`. Both engines ran from the same
-Trino checkout with deterministic identical inputs, two forks, two 500 ms
-warmups, and five 500 ms measurements.
+commit `4e070738fd759ef7cb909177bda24884b7d00dc1`. All engines ran from the same
+Trino checkout with deterministic identical inputs. SafeRE, RE2/J, and Joni
+ran in the same invocation with two forks, three 1-second warmups, and five
+1-second measurements.
 
-| Workload group | SafeRE / Trino RE2/J time geomean | Interpretation |
-|---|---:|---|
-| Capture-free matching | 0.41 | SafeRE is 2.44× faster |
-| Replacement | 0.56 | SafeRE is 1.79× faster |
-| Combined matrix | 0.48 | SafeRE is 2.09× faster |
+| Workload group | SafeRE | RE2/J | Joni | Interpretation |
+|---|---:|---:|---:|---|
+| Capture-free matching | 792 ns | 2,000 ns | 2,246 ns | SafeRE is 2.52× faster than RE2/J and 2.83× faster than Joni |
+| Replacement | 7,090 ns | 12,538 ns | 4,902 ns | Joni is 1.45× faster than SafeRE; SafeRE is 1.77× faster than RE2/J |
+| Combined matrix | 2,370 ns | 5,008 ns | 3,318 ns | SafeRE is 2.11× faster than RE2/J and 1.40× faster than Joni |
 
 The matrix covers five pattern families at two input sizes for both matching
-and replacement. The largest individual SafeRE / RE2/J time ratio is 1.05, so
-the result passes the precommitted 1.10 aggregate and 1.20 individual gates.
-The initially profiled version failed the aggregate gate because capture-free
-UTF-8 search bypassed prefix acceleration. The retained optimization adds
-bounded linear-time literal and ASCII-prefix acceleration to the general UTF-8
-engine; it is not Trino-specific.
+and replacement. Geometric-mean SafeRE / RE2/J time is 0.40 for matching, 0.57
+for replacement, and 0.47 overall. The largest individual SafeRE / RE2/J time
+ratio is 1.05, so the result passes the precommitted 1.10 aggregate and 1.20
+individual gates. The initially profiled version failed the aggregate gate
+because capture-free UTF-8 search bypassed prefix acceleration. The retained
+optimization adds bounded linear-time literal and ASCII-prefix acceleration to
+the general UTF-8 engine; it is not Trino-specific.
 
 ---
 *Last updated: 2026-07-13 (completed Trino UTF-8 migration matrix)*

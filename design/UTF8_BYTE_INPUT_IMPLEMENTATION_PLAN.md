@@ -745,8 +745,8 @@ those failures. This limitation is recorded rather than presented as a passing
 full-module run.
 
 The final deterministic Trino matrix passes the precommitted performance gate:
-SafeRE / Trino RE2/J time has a 0.48 overall geometric mean, with 0.41 for
-capture-free matching and 0.56 for replacement; every individual ratio is at
+SafeRE / Trino RE2/J time has a 0.47 overall geometric mean, with 0.40 for
+capture-free matching and 0.57 for replacement; every individual ratio is at
 most 1.05. Profiling the initially failing matrix identified missing UTF-8
 prefix acceleration in the capture-free path. The general fix adds bounded
 linear-time literal, single-byte, and ASCII-prefix searches to both boolean and
