@@ -114,10 +114,11 @@ final class Utf8InputScanner implements InputScanner {
     if (first < 0) {
       return -1;
     }
-    if (WorkCounterConfig.ENABLED || second < 0) {
-      return second < 0
-          ? indexOfByte((byte) first, start)
-          : indexOfAsciiClassScalar(asciiClass, start);
+    if (WorkCounterConfig.ENABLED) {
+      return indexOfAsciiClassScalar(asciiClass, start);
+    }
+    if (second < 0) {
+      return indexOfByte((byte) first, start);
     }
     return indexOfBytePair((byte) first, (byte) second, start);
   }

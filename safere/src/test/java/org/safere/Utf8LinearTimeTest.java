@@ -38,6 +38,20 @@ class Utf8LinearTimeTest {
     assertLargeFourXInputStaysNearLinear(size -> findAll(".", malformedInput(size)));
   }
 
+  @Test
+  void singleValueAsciiPrefixScanAccountsForEveryExaminedByte() {
+    byte[] input = "a".repeat(10_000).getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(input);
+    boolean[] asciiClass = new boolean[128];
+    asciiClass['z'] = true;
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(scanner.indexOfAsciiClass(asciiClass, 0)).isEqualTo(-1));
+
+    assertThat(work).isEqualTo(input.length);
+  }
+
   private static void assertFourXInputStaysNearLinear(Consumer<Integer> task) {
     task.accept(10_000);
     task.accept(40_000);
