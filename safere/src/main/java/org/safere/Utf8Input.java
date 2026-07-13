@@ -14,7 +14,8 @@ import static java.util.Objects.requireNonNull;
  * covered bytes while the view or a matcher retaining it is in use. Metadata is safe to share
  * between threads under that precondition; a {@link Utf8Matcher} is not thread-safe.
  *
- * <p>This API is provisional while the Trino integration is validated.
+ * <p>Patterns use SafeRE's documented Java-oriented syntax and semantics. Match coordinates are
+ * always UTF-8 byte offsets and never positions inside a well-formed Unicode scalar.
  */
 public sealed interface Utf8Input permits ArrayUtf8Input {
   /**

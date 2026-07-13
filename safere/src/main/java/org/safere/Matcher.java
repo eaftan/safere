@@ -1235,10 +1235,18 @@ public final class Matcher implements MatchResult {
     if (options.literalFastPaths()
         && literal != null
         && parentPattern.numGroups() == 0
-        && text != null) {
+        && (text != null || scanner instanceof Utf8InputScanner)
+        && (!parentPattern.prefixFoldCase() || text != null)) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
-        idx = indexOfIgnoreCase(text, literal, searchFrom);
+        idx = text == null ? -1 : indexOfIgnoreCase(text, literal, searchFrom);
+      } else if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        idx =
+            utf8Scanner.indexOf(
+                parentPattern.literalMatchUtf8(),
+                parentPattern.literalMatchFailure(),
+                parentPattern.literalMatchShifts(),
+                searchFrom);
       } else {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record(Math.max(0, text.length() - searchFrom));
@@ -1252,7 +1260,11 @@ public final class Matcher implements MatchResult {
         }
         return applyEngineResult(new NoMatchResult());
       }
-      return applyEngineResult(new FullMatchResult(new int[] {idx, idx + literal.length()}));
+      int matchLength =
+          scanner instanceof Utf8InputScanner
+              ? parentPattern.literalMatchUtf8().length
+              : literal.length();
+      return applyEngineResult(new FullMatchResult(new int[] {idx, idx + matchLength}));
     }
 
     int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
@@ -1318,10 +1330,20 @@ public final class Matcher implements MatchResult {
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
     String prefix = parentPattern.prefix();
-    if (options.startAcceleration() && prefix != null && text != null) {
+    if (options.startAcceleration()
+        && prefix != null
+        && (text != null || scanner instanceof Utf8InputScanner)
+        && (!parentPattern.prefixFoldCase() || text != null)) {
       int idx;
       if (parentPattern.prefixFoldCase()) {
-        idx = indexOfIgnoreCase(text, prefix, searchFrom);
+        idx = text == null ? -1 : indexOfIgnoreCase(text, prefix, searchFrom);
+      } else if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        idx =
+            utf8Scanner.indexOf(
+                parentPattern.prefixUtf8(),
+                parentPattern.prefixUtf8Failure(),
+                parentPattern.prefixUtf8Shifts(),
+                searchFrom);
       } else {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record(Math.max(0, text.length() - searchFrom));
@@ -1348,8 +1370,11 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration()
         && !prog.hasWordBoundary()
         && ccPrefixAscii != null
-        && text != null) {
-      int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
+        && (text != null || scanner instanceof Utf8InputScanner)) {
+      int idx =
+          scanner instanceof Utf8InputScanner utf8Scanner
+              ? utf8Scanner.indexOfAsciiClass(ccPrefixAscii, searchFrom)
+              : indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         if (!prog.anchorStart()) {
         } else {

@@ -105,6 +105,10 @@ public final class Pattern implements Serializable {
   private final transient String literalMatch;
   private final transient byte[] literalMatchUtf8;
   private final transient int[] literalMatchFailure;
+  private final transient int[] literalMatchShifts;
+  private final transient byte[] prefixUtf8;
+  private final transient int[] prefixUtf8Failure;
+  private final transient int[] prefixUtf8Shifts;
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
   private final transient boolean hasUnsafeAlternation;
@@ -262,12 +266,19 @@ public final class Pattern implements Serializable {
     this.namedGroups = namedGroups;
     this.prefix = prefix;
     this.prefixFoldCase = prefixFoldCase;
+    this.prefixUtf8 =
+        prefix == null || prefix.isEmpty()
+            ? null
+            : prefix.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    this.prefixUtf8Failure = prefixUtf8 == null ? null : literalFailure(prefixUtf8);
+    this.prefixUtf8Shifts = prefixUtf8 == null ? null : literalShifts(prefixUtf8);
     this.literalMatch = literalMatch;
     this.literalMatchUtf8 =
         literalMatch == null
             ? null
             : literalMatch.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
+    this.literalMatchShifts = literalMatchUtf8 == null ? null : literalShifts(literalMatchUtf8);
     this.hasLazy = hasLazy;
     this.hasAlternation = hasAlternation;
     this.hasUnsafeAlternation = hasUnsafeAlternation;
@@ -461,7 +472,7 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Creates a provisional matcher over UTF-8 input whose positions are relative byte offsets.
+   * Creates a matcher over UTF-8 input whose positions are relative byte offsets.
    *
    * @param input borrowed UTF-8 input retained for the lifetime of the matcher
    * @return a new, non-thread-safe UTF-8 matcher
@@ -481,10 +492,22 @@ public final class Pattern implements Serializable {
     Utf8InputScanner scanner = arrayInput.scanner();
     int length = scanner.length();
     if (literalMatchUtf8 != null && !prefixFoldCase) {
-      return scanner.indexOf(literalMatchUtf8, literalMatchFailure) >= 0;
+      return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
+    }
+    int searchStart = 0;
+    if (prefixUtf8 != null && !prefixFoldCase) {
+      searchStart = scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts);
+      if (searchStart < 0) {
+        return false;
+      }
+    } else if (!prog.hasWordBoundary() && charClassPrefixAscii != null) {
+      searchStart = scanner.indexOfAsciiClass(charClassPrefixAscii, 0);
+      if (searchStart < 0) {
+        return false;
+      }
     }
     if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, 0, false, false);
+      Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, searchStart, false, false);
       if (result != null) {
         return result.matched();
       }
@@ -492,7 +515,7 @@ public final class Pattern implements Serializable {
     return Nfa.search(
                 prog,
                 scanner,
-                0,
+                searchStart,
                 length,
                 length,
                 0,
@@ -517,6 +540,18 @@ public final class Pattern implements Serializable {
       failure[index] = matched;
     }
     return failure;
+  }
+
+  private static int[] literalShifts(byte[] literal) {
+    if (literal.length < 2) {
+      return null;
+    }
+    int[] shifts = new int[256];
+    java.util.Arrays.fill(shifts, literal.length);
+    for (int index = 0; index < literal.length - 1; index++) {
+      shifts[literal[index] & 0xFF] = literal.length - index - 1;
+    }
+    return shifts;
   }
 
   /**
@@ -1065,6 +1100,30 @@ public final class Pattern implements Serializable {
    */
   String literalMatch() {
     return literalMatch;
+  }
+
+  byte[] literalMatchUtf8() {
+    return literalMatchUtf8;
+  }
+
+  int[] literalMatchFailure() {
+    return literalMatchFailure;
+  }
+
+  int[] literalMatchShifts() {
+    return literalMatchShifts;
+  }
+
+  byte[] prefixUtf8() {
+    return prefixUtf8;
+  }
+
+  int[] prefixUtf8Failure() {
+    return prefixUtf8Failure;
+  }
+
+  int[] prefixUtf8Shifts() {
+    return prefixUtf8Shifts;
   }
 
   /** Returns {@code true} if this pattern is a simple literal with no metacharacters. */

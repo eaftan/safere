@@ -5,10 +5,17 @@
 
 package org.safere;
 
+import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
+import static java.nio.ByteOrder.nativeOrder;
 import static java.util.Objects.requireNonNull;
+
+import java.lang.invoke.VarHandle;
 
 final class Utf8InputScanner implements InputScanner {
   private static final int REPLACEMENT_CHARACTER = 0xFFFD;
+  private static final long BYTE_ONES = 0x0101_0101_0101_0101L;
+  private static final long BYTE_HIGH_BITS = 0x8080_8080_8080_8080L;
+  private static final VarHandle LONG_VIEW = byteArrayViewVarHandle(long[].class, nativeOrder());
 
   private final byte[] bytes;
   private final int offset;
@@ -54,12 +61,25 @@ final class Utf8InputScanner implements InputScanner {
     return value < 0x80 ? value : -1;
   }
 
-  int indexOf(byte[] literal, int[] failure) {
+  int indexOf(byte[] literal, int[] failure, int[] shifts) {
+    return indexOf(literal, failure, shifts, 0);
+  }
+
+  int indexOf(byte[] literal, int[] failure, int[] shifts, int start) {
     if (literal.length == 0) {
-      return 0;
+      return start;
+    }
+    if (literal.length == 1 && !WorkCounterConfig.ENABLED) {
+      return indexOfByte(literal[0], start);
+    }
+    if (!WorkCounterConfig.ENABLED && shifts != null) {
+      int result = boundedBoyerMooreHorspool(literal, shifts, start);
+      if (result >= -1) {
+        return result;
+      }
     }
     int matched = 0;
-    for (int position = 0; position < length; position++) {
+    for (int position = start; position < length; position++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
@@ -72,6 +92,123 @@ final class Utf8InputScanner implements InputScanner {
         if (matched == literal.length) {
           return position - literal.length + 1;
         }
+      }
+    }
+    return -1;
+  }
+
+  int indexOfAsciiClass(boolean[] asciiClass, int start) {
+    int first = -1;
+    int second = -1;
+    for (int value = 0; value < asciiClass.length; value++) {
+      if (asciiClass[value]) {
+        if (first < 0) {
+          first = value;
+        } else if (second < 0) {
+          second = value;
+        } else {
+          return indexOfAsciiClassScalar(asciiClass, start);
+        }
+      }
+    }
+    if (first < 0) {
+      return -1;
+    }
+    if (WorkCounterConfig.ENABLED || second < 0) {
+      return second < 0
+          ? indexOfByte((byte) first, start)
+          : indexOfAsciiClassScalar(asciiClass, start);
+    }
+    return indexOfBytePair((byte) first, (byte) second, start);
+  }
+
+  private int boundedBoyerMooreHorspool(byte[] literal, int[] shifts, int start) {
+    int last = literal.length - 1;
+    int position = start + last;
+    int work = 0;
+    int workLimit = Math.max(1, (length - start) * 2);
+    while (position < length && work < workLimit) {
+      int literalPosition = last;
+      int inputPosition = position;
+      while (literalPosition >= 0
+          && bytes[offset + inputPosition] == literal[literalPosition]
+          && work++ < workLimit) {
+        literalPosition--;
+        inputPosition--;
+      }
+      if (literalPosition < 0) {
+        return inputPosition + 1;
+      }
+      position += shifts[bytes[offset + position] & 0xFF];
+      work++;
+    }
+    return position >= length ? -1 : -2;
+  }
+
+  private int indexOfByte(byte target, int start) {
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    long repeatedTarget = (target & 0xFFL) * BYTE_ONES;
+    while (position <= wordEnd) {
+      long difference = (long) LONG_VIEW.get(bytes, offset + position) ^ repeatedTarget;
+      if (((difference - BYTE_ONES) & ~difference & BYTE_HIGH_BITS) != 0) {
+        for (int index = 0; index < Long.BYTES; index++) {
+          if (bytes[offset + position + index] == target) {
+            return position + index;
+          }
+        }
+      }
+      position += Long.BYTES;
+    }
+    while (position < length) {
+      if (bytes[offset + position] == target) {
+        return position;
+      }
+      position++;
+    }
+    return -1;
+  }
+
+  private int indexOfBytePair(byte first, byte second, int start) {
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    long repeatedFirst = (first & 0xFFL) * BYTE_ONES;
+    long repeatedSecond = (second & 0xFFL) * BYTE_ONES;
+    while (position <= wordEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      long firstDifference = word ^ repeatedFirst;
+      long secondDifference = word ^ repeatedSecond;
+      if (((((firstDifference - BYTE_ONES) & ~firstDifference)
+                  | ((secondDifference - BYTE_ONES) & ~secondDifference))
+              & BYTE_HIGH_BITS)
+          != 0) {
+        for (int index = 0; index < Long.BYTES; index++) {
+          byte value = bytes[offset + position + index];
+          if (value == first || value == second) {
+            return position + index;
+          }
+        }
+      }
+      position += Long.BYTES;
+    }
+    while (position < length) {
+      byte value = bytes[offset + position];
+      if (value == first || value == second) {
+        return position;
+      }
+      position++;
+    }
+    return -1;
+  }
+
+  private int indexOfAsciiClassScalar(boolean[] asciiClass, int start) {
+    for (int position = start; position < length; position++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int value = bytes[offset + position] & 0xFF;
+      if (value < asciiClass.length && asciiClass[value]) {
+        return position;
       }
     }
     return -1;

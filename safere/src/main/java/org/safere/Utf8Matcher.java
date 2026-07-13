@@ -15,8 +15,8 @@ import java.util.Map;
  * A stateful matcher over UTF-8 input whose reported positions are relative byte offsets.
  *
  * <p>The matcher retains its borrowed input and is not thread-safe. The caller must not mutate the
- * input storage while this matcher is in use. This API is provisional while the Trino integration
- * is validated.
+ * input storage while this matcher is in use. Pattern and replacement behavior follows SafeRE's
+ * documented Java-oriented semantics; coordinates are UTF-8 byte offsets.
  */
 public final class Utf8Matcher {
   private final Pattern pattern;

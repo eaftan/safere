@@ -103,6 +103,53 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void singleByteLiteralSearchCoversEveryWindowAlignmentAndPosition() {
+    for (int offset = 0; offset < Long.BYTES * 2; offset++) {
+      for (int expected = 0; expected < 40; expected++) {
+        byte[] storage = new byte[offset + 40 + Long.BYTES];
+        Arrays.fill(storage, (byte) 'a');
+        storage[offset + expected] = 'z';
+        Utf8InputScanner scanner = new Utf8InputScanner(storage, offset, 40);
+
+        assertThat(scanner.indexOf(new byte[] {'z'}, new int[] {0}, null))
+            .as("offset %s, position %s", offset, expected)
+            .isEqualTo(expected);
+      }
+    }
+
+    Utf8InputScanner absent = new Utf8InputScanner("aaaaaaaa".getBytes(UTF_8));
+    assertThat(absent.indexOf(new byte[] {'z'}, new int[] {0}, null)).isEqualTo(-1);
+  }
+
+  @Test
+  void captureFreePrefixSearchCanSkipAFailingCandidateAndFindALaterMatch() {
+    Pattern pattern = Pattern.compile("ab+c");
+
+    assertThat(pattern.find(Utf8Input.trusted("xxabxabbc".getBytes(UTF_8)))).isTrue();
+    assertThat(pattern.find(Utf8Input.trusted("xxabx".getBytes(UTF_8)))).isFalse();
+  }
+
+  @Test
+  void optimizedLiteralSearchAgreesWithStringIndexOf() {
+    Random random = new Random(0x5AFE_09L);
+    for (int trial = 0; trial < 10_000; trial++) {
+      String text = randomAscii(random, random.nextInt(80));
+      String literal = randomAscii(random, 1 + random.nextInt(12));
+      int expected = text.indexOf(literal);
+      Pattern pattern = Pattern.compile(literal);
+      Utf8Input input = Utf8Input.trusted(text.getBytes(UTF_8));
+
+      assertThat(pattern.find(input)).as("%s in %s", literal, text).isEqualTo(expected >= 0);
+      Utf8Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.find()).as("%s in %s", literal, text).isEqualTo(expected >= 0);
+      if (expected >= 0) {
+        assertThat(matcher.start()).isEqualTo(expected);
+        assertThat(matcher.end()).isEqualTo(expected + literal.length());
+      }
+    }
+  }
+
+  @Test
   void emptySingleByteAndFourByteWindowsStayBounded() {
     Utf8InputScanner empty = new Utf8InputScanner(new byte[] {'x'}, 1, 0);
     assertThat(empty.decodeForward(0)).isEqualTo(InputScanner.decoded(-1, 0));
@@ -186,6 +233,14 @@ class Utf8InputScannerTest {
       assertThat(jdkError).as("JDK accepted %s", Arrays.toString(bytes)).isNotEqualTo(-1);
       assertThat(e).hasMessageContaining("byte " + jdkError);
     }
+  }
+
+  private static String randomAscii(Random random, int length) {
+    StringBuilder result = new StringBuilder(length);
+    for (int index = 0; index < length; index++) {
+      result.append((char) ('a' + random.nextInt(4)));
+    }
+    return result.toString();
   }
 
   private static int firstJdkError(byte[] bytes, int offset, int length) {

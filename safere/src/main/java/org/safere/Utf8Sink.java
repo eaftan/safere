@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
  * A synchronous destination for borrowed UTF-8 byte ranges.
  *
  * <p>An implementation must consume each range before returning and must not retain or mutate the
- * supplied storage. This API is provisional while the Trino integration is validated.
+ * supplied storage.
  */
 @FunctionalInterface
 public interface Utf8Sink {
