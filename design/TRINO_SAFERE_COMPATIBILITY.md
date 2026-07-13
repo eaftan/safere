@@ -2,9 +2,10 @@
 
 ## Status and Scope
 
-This report records the Stage 1 semantic-feasibility substitution for replacing
-Trino's fork of RE2/J with SafeRE. It is evidence for the provisional UTF-8 API;
-it is not a promise to reproduce every RE2/J behavior.
+This report records the semantic-feasibility and final direct-input
+substitutions for replacing Trino's fork of RE2/J with SafeRE. The final
+validation gate is complete; the resulting UTF-8 API does not promise to
+reproduce every RE2/J behavior.
 
 The feasibility run used a temporary adapter that decoded each Trino `Slice` to
 `String`, ran SafeRE, and converted well-formed UTF-16 result boundaries back to
@@ -123,7 +124,7 @@ stages. No Stage 4 blocker remains.
 
 ## Approved Provisional Semantic Policy
 
-The approved provisional policy is intentionally SafeRE-first: a Trino
+The approved policy is intentionally SafeRE-first: a Trino
 migration adopts SafeRE semantics rather than preserving RE2/J semantics by
 default. SafeRE core does not change merely to emulate the fork. A concrete
 Trino behavior may be considered separately only when it is a coherent SQL
@@ -135,13 +136,13 @@ highlighted for owner review before implementation.
 | Pattern language | SafeRE's JDK-oriented supported language is authoritative, subject to the linear-time exclusions. RE2/J-only spellings are not added without a principled independent case. |
 | Match and capture semantics | SafeRE/JDK semantics are authoritative at Unicode scalar boundaries. The byte API never exposes a position inside a UTF-8 scalar. |
 | Empty-match progress | Advance by one decoded Unicode scalar for UTF-8 input. This is required for coherent byte coordinates and matches Trino's existing observable behavior on supplementary characters. |
-| Replacement | Use SafeRE's existing `$0`, `$1`, `${name}`, and backslash-escape parser and error behavior. The Trino suite passed with this policy, so the provisional byte-native sink API is selected. |
+| Replacement | Use SafeRE's existing `$0`, `$1`, `${name}`, and backslash-escape parser and error behavior. The Trino suite passed with this policy, so the byte-native sink API is selected. |
 | Nonparticipating groups | Preserve SafeRE/JDK `-1` bounds; Trino maps them to SQL null for extraction and to empty output during ordinary replacement. |
 | Malformed subject UTF-8 | Trino supplies trusted input. Exact match results are unspecified, but execution must remain bounded, nonthrowing, memory-safe, and monotonic. Strictly validated construction is available to other callers. |
 | Error translation | SafeRE exceptions are translated at the Trino wrapper into the existing SQL error category. Exact engine-originated exception text is incidental unless a Trino assertion establishes it. |
-| DFA configuration | `re2j.dfa-states-limit` and `re2j.dfa-retries` have no principled one-to-one SafeRE meaning. Treat them as migration-time deprecated no-ops rather than altering SafeRE engines. |
+| DFA configuration | `re2j.dfa-states-limit` and `re2j.dfa-retries` have no principled one-to-one SafeRE meaning. The final validation branch removes them rather than silently ignoring operator configuration. |
 | Dot-star rewrite | Retain it only in the feasibility adapter. Whether to remove it is a performance question, not a compatibility requirement. |
-| Engine selection name | Open product/configuration question. Do not silently make a value named `RE2J` select SafeRE in a published Trino change. |
+| Engine selection name | The final validation branch adds `SAFERE` and removes `RE2J`; a value named for one engine never silently selects another. |
 
 The selected policy is therefore policy 1 from the design: migrate to SafeRE
 semantics. No observed fork behavior requires changing SafeRE core semantics.
@@ -161,21 +162,47 @@ rewrite, or exception message.
 
 | Question | Evidence and current disposition |
 | --- | --- |
-| Is compatibility with all Trino RE2/J semantics in scope? | Resolved: no. SafeRE semantics are the approved provisional policy. Any proposed exception requires a concrete SQL contract, a principled linear-time formulation, and explicit owner review before implementation. |
+| Is compatibility with all Trino RE2/J semantics in scope? | Resolved: no. SafeRE semantics are the approved policy. Any proposed exception requires a concrete SQL contract, a principled linear-time formulation, and explicit owner review before implementation. |
 | Must all Trino RE2/J semantics be retained? | No. The suite supports migration to SafeRE semantics, and no principled requirement for blanket compatibility was found. Reopen only for a concrete SQL contract. |
 | Does Trino require RE2/J replacement parsing? | No observed requirement. The complete ordinary and lambda replacement tests passed with SafeRE's parser. Selected: SafeRE replacement semantics. |
 | Are malformed UTF-8 results stable SQL behavior? | No evidence. Selected: trusted recovery safety guarantees only; exact results remain unspecified. |
 | Must the dot-star rewrite remain? | No semantic evidence. Deferred to end-to-end Trino benchmarks. |
-| Must DFA limits/retries/listeners be reproduced? | No semantic evidence and no equivalent contract. Selected: migration-time deprecated no-ops. |
+| Must DFA limits/retries/listeners be reproduced? | No semantic evidence and no equivalent contract. Resolved: remove the properties in the SafeRE migration rather than accepting ineffective configuration. |
 | May matching resume inside a UTF-8 scalar? | No. `UTF8-001` demonstrates that doing so is incoherent for the byte API and conflicts with Trino's current tests. |
 | Should RE2/J-only pattern syntax be added? | No observed case. Open only for a concrete, independently principled and linear-time feature request. |
 | Are exact exception messages contractual? | Only messages directly asserted by Trino tests are treated as adapter contracts. Engine text is otherwise incidental. |
-| What configuration value selects SafeRE? | Open product decision for a future Trino change; not needed to validate the SafeRE API locally. |
+| What configuration value selects SafeRE? | Resolved in the final validation branch: `SAFERE`. The previous `RE2J` value is not retained as an alias. |
 | Should a raw `findUtf8(byte[], offset, length)` convenience be public? | Deferred until a benchmark demonstrates that the `Utf8Input` view allocation materially affects Trino. |
 
-There is no unresolved semantic blocker to the provisional public API. The two
-remaining questions concern publication/configuration and optional performance
-convenience, not whether the API can express Trino's regex operations.
+There is no unresolved semantic or configuration blocker to the public API.
+The raw-array convenience remains deliberately deferred because the measured
+view allocation did not justify another public entry point.
+
+## Final Trino Validation
+
+The final local substitution uses SafeRE revision
+`90531d3e551bc04d470ef4b170c7a98d1a6b10d6` and Trino revision
+`b16a460dab90042a9487cb75a53dce34ed78b8f8`. The migrated path has no
+`io.trino:trino-re2j` dependency. Trino exposes the explicit `SAFERE` engine
+selector, removes the inapplicable RE2/J DFA properties, and labels its
+internal regular-expression type and implementation for SafeRE.
+
+The complete Trino regular-expression function class passed, including like,
+ordinary and lambda replacement, extraction, extract-all, split, count, and
+position behavior. The adjacent feature-configuration, type-coercion, and
+connector-expression translation tests also passed. A full `trino-main` run
+was attempted; it could not complete because Docker-dependent OAuth tests fail
+without a Docker environment, after which an unrelated node-state poller kept
+the failed run alive. No regex-related failure occurred before termination.
+
+The final deterministic JMH matrix compares the recorded pre-substitution
+Trino revision `8e023609041` with the migrated branch using identical inputs.
+It covers matching and replacement over five pattern families and two input
+sizes with two forks, two 500 ms warmups, and five 500 ms measurements. The
+geometric mean of SafeRE time divided by Trino RE2/J time is 0.63 overall,
+0.46 for capture-free matching, and 0.87 for replacement. Every individual
+ratio is at most 1.09, satisfying the precommitted 1.10 aggregate and 1.20
+individual gates. Values below 1.0 mean SafeRE is faster.
 
 ## Frozen Benchmark Membership
 

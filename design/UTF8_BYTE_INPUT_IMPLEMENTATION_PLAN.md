@@ -729,6 +729,30 @@ survived that validation.
 - No unsupported runtime operation remains on the public UTF-8 API.
 - The PR description lists exactly what validation ran and did not run.
 
+### Completion record
+
+Completed locally at SafeRE revision
+`90531d3e551bc04d470ef4b170c7a98d1a6b10d6` and Trino revision
+`b16a460dab90042a9487cb75a53dce34ed78b8f8`. The final Trino branch removes
+`io.trino:trino-re2j`, selects SafeRE explicitly with `SAFERE`, removes the
+inapplicable RE2/J DFA properties, and uses SafeRE names for the migrated
+internal type and function implementation.
+
+The complete Trino regex function suite and the adjacent configuration, type,
+and connector-expression tests pass. A full `trino-main` run was attempted but
+could not complete in this environment because Docker-dependent OAuth tests
+fail without Docker and an unrelated node-state poller remained alive after
+those failures. This limitation is recorded rather than presented as a passing
+full-module run.
+
+The final deterministic Trino matrix passes the precommitted performance gate:
+SafeRE / Trino RE2/J time has a 0.63 overall geometric mean, with 0.46 for
+capture-free matching and 0.87 for replacement; every individual ratio is at
+most 1.09. Profiling the initially failing matrix identified missing UTF-8
+prefix acceleration in the capture-free path. The general fix adds bounded
+linear-time literal, single-byte, and ASCII-prefix searches to both boolean and
+stateful UTF-8 matching. It does not add a Trino semantic exception.
+
 ## Follow-Up Storage Adapters
 
 Buffer, segmented, off-heap, and project-specific adapters are follow-up work,
@@ -787,22 +811,22 @@ problems early; they are not separate release events.
 
 ## Completion Checklist
 
-- [ ] PR #530 commits and engine refactoring are retained as the foundation.
-- [ ] The PR #530 head and baseline are recorded.
-- [ ] The Trino semantic feasibility inventory is complete.
-- [ ] All compatibility decisions are principled, documented, and linear-time.
-- [ ] `Utf8Input` is representation-neutral and its first adapter supports
+- [x] PR #530 commits and engine refactoring are retained as the foundation.
+- [x] The PR #530 head and baseline are recorded.
+- [x] The Trino semantic feasibility inventory is complete.
+- [x] All compatibility decisions are principled, documented, and linear-time.
+- [x] `Utf8Input` is representation-neutral and its first adapter supports
       trusted and validated array windows.
-- [ ] `Utf8Matcher` has static byte-coordinate and ownership contracts.
-- [ ] The JDK-compatible `Matcher` has no hidden public byte mode.
-- [ ] Captures can be consumed without copying or decoding the source.
-- [ ] Capture-free search avoids matcher and capture allocation.
+- [x] `Utf8Matcher` has static byte-coordinate and ownership contracts.
+- [x] The JDK-compatible `Matcher` has no hidden public byte mode.
+- [x] Captures can be consumed without copying or decoding the source.
+- [x] Capture-free search avoids matcher and capture allocation.
 - [x] Every reachable engine and accelerator is equivalent or safely guarded.
 - [x] Trusted malformed input is bounded, monotonic, and safe.
 - [x] Strict validation implements the documented RFC 3629 contract.
 - [x] Replacement follows the single selected dialect and stays byte-native.
 - [x] Differential, state-machine, fuzz, scaling, and allocation coverage pass.
-- [ ] Early and final Trino dependency substitutions pass their recorded tests.
+- [x] Early and final Trino dependency substitutions pass their recorded tests.
 - [x] SafeRE and Trino benchmark gates pass with recorded revisions.
-- [ ] Public API and Trino migration documentation are complete.
-- [ ] No provisional unsupported operation remains at publication.
+- [x] Public API and Trino migration documentation are complete.
+- [x] No provisional unsupported operation remains at publication.

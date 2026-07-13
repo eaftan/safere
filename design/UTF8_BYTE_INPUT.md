@@ -1,5 +1,14 @@
 # UTF-8 Input Design
 
+## Status
+
+Implemented and validated locally at SafeRE revision
+`90531d3e551bc04d470ef4b170c7a98d1a6b10d6` and Trino revision
+`b16a460dab90042a9487cb75a53dce34ed78b8f8`. The final evidence and remaining
+follow-up adapters are recorded in the
+[implementation plan](UTF8_BYTE_INPUT_IMPLEMENTATION_PLAN.md) and
+[Trino compatibility report](TRINO_SAFERE_COMPATIBILITY.md).
+
 ## Problem
 
 SafeRE accepts `CharSequence` input and exposes match positions in UTF-16 code
