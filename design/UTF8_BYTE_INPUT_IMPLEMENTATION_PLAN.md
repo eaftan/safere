@@ -120,8 +120,8 @@ The complete effort produces:
    path;
 7. differential, state-machine, engine-equivalence, fuzz, scaling, and
    allocation coverage;
-8. a Trino validation branch with `io.trino:trino-re2j` removed from the
-   relevant module;
+8. a Trino validation branch where SafeRE is independently selectable alongside
+   the existing Joni and RE2/J engines;
 9. recorded before/after SafeRE and Trino benchmark evidence;
 10. final API documentation and a follow-up roadmap for buffer and segmented
     adapters.
@@ -706,8 +706,8 @@ survived that validation.
 ### Work
 
 - Reinstall the final SafeRE artifact.
-- Repeat the Trino dependency substitution from a clean recorded revision.
-- Remove `io.trino:trino-re2j` from the relevant module and run the full regex
+- Repeat the Trino SafeRE integration from a clean recorded revision.
+- Add SafeRE independently alongside `io.trino:trino-re2j` and run the full regex
   function, cast/type, extraction, split, position, count, replacement, and
   lambda replacement coverage.
 - Run final Trino before/after benchmarks.
@@ -722,8 +722,8 @@ survived that validation.
 
 ### Exit gate
 
-- The Trino validation branch has no `io.trino:trino-re2j` dependency in the
-  migrated path.
+- The Trino validation branch selects Joni, RE2/J, and SafeRE independently,
+  without aliasing one engine name to another.
 - All selected Trino tests and benchmarks pass at the recorded revisions.
 - Every intentional semantic or configuration change is documented.
 - No unsupported runtime operation remains on the public UTF-8 API.
@@ -732,11 +732,10 @@ survived that validation.
 ### Completion record
 
 Completed locally at SafeRE revision
-`90531d3e551bc04d470ef4b170c7a98d1a6b10d6` and Trino revision
-`b16a460dab90042a9487cb75a53dce34ed78b8f8`. The final Trino branch removes
-`io.trino:trino-re2j`, selects SafeRE explicitly with `SAFERE`, removes the
-inapplicable RE2/J DFA properties, and uses SafeRE names for the migrated
-internal type and function implementation.
+`5ac880b373aa718c3591dc0625bd85d4e482ac2b` and Trino revision
+`e4936f532b804a7bd782ad62768049fec02c4f60`. The final Trino branch retains Joni and RE2/J, adds SafeRE as the
+explicit `SAFERE` option, and retains the RE2/J DFA properties for the RE2/J
+path without applying them to SafeRE.
 
 The complete Trino regex function suite and the adjacent configuration, type,
 and connector-expression tests pass. A full `trino-main` run was attempted but
@@ -826,7 +825,8 @@ problems early; they are not separate release events.
 - [x] Strict validation implements the documented RFC 3629 contract.
 - [x] Replacement follows the single selected dialect and stays byte-native.
 - [x] Differential, state-machine, fuzz, scaling, and allocation coverage pass.
-- [x] Early and final Trino dependency substitutions pass their recorded tests.
+- [x] Early substitution and final side-by-side Trino integrations pass their
+      recorded tests.
 - [x] SafeRE and Trino benchmark gates pass with recorded revisions.
 - [x] Public API and Trino migration documentation are complete.
 - [x] No provisional unsupported operation remains at publication.

@@ -90,6 +90,9 @@ provisional API directly:
 - `trino-re2j` is absent from both `core/trino-main` and root dependency
   management on the validation branch.
 
+This was an intentionally strong substitution checkpoint. The final shareable
+branch restores RE2/J and exposes SafeRE as an additional independent option.
+
 The final Stage 4 source was verified locally with:
 
 ```bash
@@ -140,9 +143,9 @@ highlighted for owner review before implementation.
 | Nonparticipating groups | Preserve SafeRE/JDK `-1` bounds; Trino maps them to SQL null for extraction and to empty output during ordinary replacement. |
 | Malformed subject UTF-8 | Trino supplies trusted input. Exact match results are unspecified, but execution must remain bounded, nonthrowing, memory-safe, and monotonic. Strictly validated construction is available to other callers. |
 | Error translation | SafeRE exceptions are translated at the Trino wrapper into the existing SQL error category. Exact engine-originated exception text is incidental unless a Trino assertion establishes it. |
-| DFA configuration | `re2j.dfa-states-limit` and `re2j.dfa-retries` have no principled one-to-one SafeRE meaning. The final validation branch removes them rather than silently ignoring operator configuration. |
+| DFA configuration | `re2j.dfa-states-limit` and `re2j.dfa-retries` have no principled one-to-one SafeRE meaning. The final validation branch retains them for RE2/J and does not apply them to SafeRE. |
 | Dot-star rewrite | Retain it only in the feasibility adapter. Whether to remove it is a performance question, not a compatibility requirement. |
-| Engine selection name | The final validation branch adds `SAFERE` and removes `RE2J`; a value named for one engine never silently selects another. |
+| Engine selection name | The final validation branch exposes `JONI`, `RE2J`, and `SAFERE` independently; a value named for one engine never silently selects another. |
 
 The selected policy is therefore policy 1 from the design: migrate to SafeRE
 semantics. No observed fork behavior requires changing SafeRE core semantics.
@@ -167,11 +170,11 @@ rewrite, or exception message.
 | Does Trino require RE2/J replacement parsing? | No observed requirement. The complete ordinary and lambda replacement tests passed with SafeRE's parser. Selected: SafeRE replacement semantics. |
 | Are malformed UTF-8 results stable SQL behavior? | No evidence. Selected: trusted recovery safety guarantees only; exact results remain unspecified. |
 | Must the dot-star rewrite remain? | No semantic evidence. Deferred to end-to-end Trino benchmarks. |
-| Must DFA limits/retries/listeners be reproduced? | No semantic evidence and no equivalent contract. Resolved: remove the properties in the SafeRE migration rather than accepting ineffective configuration. |
+| Must DFA limits/retries/listeners be reproduced? | No semantic evidence and no equivalent contract. Resolved: retain the properties for RE2/J while SafeRE neither accepts nor silently interprets them. |
 | May matching resume inside a UTF-8 scalar? | No. `UTF8-001` demonstrates that doing so is incoherent for the byte API and conflicts with Trino's current tests. |
 | Should RE2/J-only pattern syntax be added? | No observed case. Open only for a concrete, independently principled and linear-time feature request. |
 | Are exact exception messages contractual? | Only messages directly asserted by Trino tests are treated as adapter contracts. Engine text is otherwise incidental. |
-| What configuration value selects SafeRE? | Resolved in the final validation branch: `SAFERE`. The previous `RE2J` value is not retained as an alias. |
+| What configuration value selects SafeRE? | Resolved in the final validation branch: `SAFERE`. `RE2J` continues to select RE2/J and is not an alias. |
 | Should a raw `findUtf8(byte[], offset, length)` convenience be public? | Deferred until a benchmark demonstrates that the `Utf8Input` view allocation materially affects Trino. |
 
 There is no unresolved semantic or configuration blocker to the public API.
@@ -180,14 +183,13 @@ view allocation did not justify another public entry point.
 
 ## Final Trino Validation
 
-The final local substitution uses SafeRE revision
-`90531d3e551bc04d470ef4b170c7a98d1a6b10d6` and Trino revision
-`b16a460dab90042a9487cb75a53dce34ed78b8f8`. The migrated path has no
-`io.trino:trino-re2j` dependency. Trino exposes the explicit `SAFERE` engine
-selector, removes the inapplicable RE2/J DFA properties, and labels its
-internal regular-expression type and implementation for SafeRE.
+The final local integration uses SafeRE revision
+`5ac880b373aa718c3591dc0625bd85d4e482ac2b` and Trino revision
+`e4936f532b804a7bd782ad62768049fec02c4f60`. Trino exposes `JONI`, `RE2J`, and `SAFERE` as independent engine
+selectors. It retains `io.trino:trino-re2j` and its DFA properties for the
+RE2/J path while using separately named types and functions for SafeRE.
 
-The complete Trino regular-expression function class passed, including like,
+The complete SafeRE and RE2/J regular-expression function classes passed, including like,
 ordinary and lambda replacement, extraction, extract-all, split, count, and
 position behavior. The adjacent feature-configuration, type-coercion, and
 connector-expression translation tests also passed. A full `trino-main` run

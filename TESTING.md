@@ -268,21 +268,21 @@ workflow details.
 
 The UTF-8 API is externally validated by the local Trino migration recorded in
 `design/TRINO_SAFERE_COMPATIBILITY.md`. At SafeRE revision
-`90531d3e551bc04d470ef4b170c7a98d1a6b10d6`, install the artifact and run the
+`5ac880b373aa718c3591dc0625bd85d4e482ac2b`, install the artifact and run the
 selected Trino coverage at revision
-`b16a460dab90042a9487cb75a53dce34ed78b8f8`:
+`e4936f532b804a7bd782ad62768049fec02c4f60`:
 
 ```bash
 mvn install -DskipTests -q
 
 cd ../trino
 ./mvnw -pl core/trino-main \
-  -Dtest=TestSafeReRegexpFunctions,TestFeaturesConfig,TestTypeCoercion,TestConnectorExpressionTranslator \
+  -Dtest=TestSafeReRegexpFunctions,TestRe2jRegexpFunctions,TestFeaturesConfig,TestTypeCoercion,TestConnectorExpressionTranslator \
   test -q
 ```
 
-This covers Trino's complete SafeRE regex-function surface plus the adjacent
-configuration, coercion, and planner translation paths. A full
+This covers Trino's complete SafeRE and retained RE2/J regex-function surfaces
+plus the adjacent configuration, coercion, and planner translation paths. A full
 `./mvnw -pl core/trino-main test -q` run was also attempted. It is not recorded
 as passing because Docker-dependent OAuth tests cannot start without Docker and
 an unrelated node-state poller remained alive after those failures.
