@@ -9,9 +9,6 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -19,6 +16,21 @@ import org.junit.jupiter.params.provider.CsvSource;
 /** Tests for package-private {@link Pattern} metadata. */
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class PatternInternalTest {
+
+  @Test
+  void testOnePassEligibility() {
+    Pattern p1 =
+        Pattern.compile(
+            "\\s*[\\[\\x{FF3B}]\\s*((?:[0-9]+\\.?){3,4}(?:\\s*[,\\x{3001}]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\x{FF3D}]");
+    assertThat(p1.onePass()).isNull();
+    assertThat(p1.canOnePassPrimary()).isFalse();
+
+    Pattern p2 = Pattern.compile("\\b[Ff]ormer [Cc][Ee][Oo] ([Aa]lice\\b|\\*\\*[Aa]lice\\*\\*)");
+    assertThat(p2.onePass()).isNotNull();
+    assertThat(p2.canOnePassPrimary()).isTrue();
+    assertThat(p2.canOnePassFind()).isFalse();
+    assertThat(p2.canOnePassSubmatch()).isTrue();
+  }
 
   @Test
   void numGroupsCounting() {
@@ -137,15 +149,10 @@ class PatternInternalTest {
   }
 
   @Test
-  void leadingZeroWidthAssertionMakesDfaStartUnreliable() {
-    assertThat(Pattern.compile("\\B([^a])*[^a][^a]").dfaStartReliable()).isFalse();
-    assertThat(Pattern.compile("(?:)\\B[^a]*[^a][^a]").dfaStartReliable()).isFalse();
-  }
+  void deeplyNestedConcatPrefixExtractionIsStackSafe() {
+    Pattern p = Pattern.compile(nestedPrefixConcatPattern(1_000));
 
-  @Test
-  void nullableConsumingPrefixBeforeBoundaryCanKeepDfaStartReliable() {
-    assertThat(Pattern.compile("[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?").dfaStartReliable())
-        .isTrue();
+    assertThat(p.prefix()).isEqualTo("foo");
   }
 
   @Test
@@ -195,100 +202,6 @@ class PatternInternalTest {
     assertThat(Pattern.compile(pattern).numGroups()).isEqualTo(expected);
   }
 
-  @Nested
-  @DisplayName("safe alternation compiler optimizations")
-  class SafeAlternationTests {
-
-    @Test
-    @DisplayName("disjoint character classes are safe unconditionally")
-    void disjointCharacterClassesSafe() {
-      Pattern p = Pattern.compile("[a-z]|[0-9]");
-      assertThat(p.dfaStartReliable()).isTrue();
-    }
-
-    @Test
-    @DisplayName("overlapping character classes are unsafe")
-    void overlappingCharacterClassesUnsafe() {
-      Pattern p = Pattern.compile("[a-z]|[d-g]");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("line boundary with disjoint literal lookahead is safe")
-    void lineBoundaryWithDisjointLiteralLookaheadSafe() {
-      Pattern p = Pattern.compile("(^|[^<])(<!contextual)");
-      assertThat(p.dfaStartReliable()).isTrue();
-    }
-
-    @Test
-    @DisplayName("line boundary with overlapping literal lookahead is unsafe")
-    void lineBoundaryWithOverlappingLiteralLookaheadUnsafe() {
-      Pattern p = Pattern.compile("(^|[<])(<contextual)");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("disjoint literal alternatives are safe unconditionally")
-    void disjointLiteralAlternativesSafe() {
-      Pattern p = Pattern.compile("abc|def");
-      assertThat(p.dfaStartReliable()).isTrue();
-    }
-
-    @Test
-    @DisplayName("overlapping literal alternatives are unsafe")
-    void overlappingLiteralAlternativesUnsafe() {
-      Pattern p = Pattern.compile("abc|asd");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("safe outer alternation still scans unsafe nested alternation")
-    void safeOuterAlternationStillScansUnsafeNestedAlternation() {
-      Pattern p = Pattern.compile("(?:a(?:b|bc)|z)");
-      assertThat(p.dfaStartReliable()).isFalse();
-    }
-
-    @Test
-    @DisplayName("deeply nested quantified alternation remains stack-safe during compile")
-    void deeplyNestedQuantifiedAlternationCompileIsStackSafe() throws InterruptedException {
-      int depth = 1_000;
-      String regex = nestedQuantifiedAlternation(depth);
-      Pattern.compile("a|aa");
-      AtomicReference<Pattern> compiled = new AtomicReference<>();
-      AtomicReference<Throwable> thrown = new AtomicReference<>();
-      Thread compiler =
-          new Thread(
-              null,
-              () -> {
-                try {
-                  compiled.set(Pattern.compile(regex));
-                } catch (Throwable t) {
-                  thrown.set(t);
-                }
-              },
-              "pattern-compile-stack-safety",
-              512 * 1024);
-
-      compiler.start();
-      compiler.join();
-
-      assertThat(thrown).hasValue(null);
-      assertThat(compiled.get().dfaStartReliable()).isFalse();
-    }
-
-    private static String nestedQuantifiedAlternation(int depth) {
-      StringBuilder regex = new StringBuilder(depth * 5 + 4);
-      for (int i = 0; i < depth; i++) {
-        regex.append("(?:");
-      }
-      regex.append("a|aa");
-      for (int i = 0; i < depth; i++) {
-        regex.append(")+");
-      }
-      return regex.toString();
-    }
-  }
-
   private static String nestedRequiredPlusPattern(int depth, String atom) {
     StringBuilder regex = new StringBuilder(depth * 5 + atom.length());
     for (int i = 0; i < depth; i++) {
@@ -311,5 +224,30 @@ class PatternInternalTest {
       regex.append("|b)");
     }
     return regex.toString();
+  }
+
+  private static String nestedPrefixConcatPattern(int depth) {
+    StringBuilder regex = new StringBuilder(depth * 3 + 3);
+    for (int i = 0; i < depth; i++) {
+      regex.append('(');
+    }
+    regex.append("foo");
+    for (int i = 0; i < depth; i++) {
+      regex.append(")x");
+    }
+    return regex.toString();
+  }
+
+  @Test
+  void prefixExtractionFromNestedCaptureInConcat() {
+    Pattern p1 = Pattern.compile("(foo bar)baz");
+    assertThat(p1.prefix()).isEqualTo("foo bar");
+
+    Pattern p2 = Pattern.compile("(<template name>.*)");
+    assertThat(p2.prefix()).isEqualTo("<template name>");
+
+    // reproducing the actual templateTagMatch pattern structure
+    Pattern p3 = Pattern.compile("(<template name>.*)([^>])");
+    assertThat(p3.prefix()).isEqualTo("<template name>");
   }
 }

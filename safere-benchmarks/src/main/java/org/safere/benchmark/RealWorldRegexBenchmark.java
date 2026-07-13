@@ -30,6 +30,12 @@ public class RealWorldRegexBenchmark {
     boolean find(String input);
   }
 
+  /** Functional interface for regex matches operation. */
+  @FunctionalInterface
+  public interface RegexMatches {
+    boolean matches(String input);
+  }
+
   /** Functional interface for regex replace operation. */
   @FunctionalInterface
   public interface RegexReplaceAll {
@@ -37,7 +43,8 @@ public class RealWorldRegexBenchmark {
   }
 
   /** Container wrapping pattern instances and operations for a specific regex engine. */
-  public record RegexEngine(Object pattern, RegexFind finder, RegexReplaceAll replacer)
+  public record RegexEngine(
+      Object pattern, RegexFind finder, RegexMatches matcher, RegexReplaceAll replacer)
       implements AutoCloseable {
 
     @Override
@@ -64,6 +71,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
@@ -74,6 +82,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
@@ -84,6 +93,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     },
@@ -94,6 +104,7 @@ public class RealWorldRegexBenchmark {
         return new RegexEngine(
             p,
             input -> p.matcher(input).find(),
+            input -> p.matcher(input).matches(),
             (input, replacement) -> p.matcher(input).replaceAll(replacement));
       }
     };
@@ -121,11 +132,18 @@ public class RealWorldRegexBenchmark {
     "sparseUrl",
     "unprefixedWordBoundary",
     "fruitSearchQuery",
-    "fruitMarkupTag"
+    "fruitMarkupTag",
+    "jsonBlock",
+    "charReplace",
+    "greedyOnePass",
+    "layoutBlock",
+    "turnTitleWhitespaceCjk",
+    "cjkSearch",
+    "emojiSearch"
   })
   public String patternName;
 
-  @Param({"1000", "10000"})
+  @Param({"1000", "10000", "100000"})
   public int inputSize;
 
   @Param({"true", "false"})
@@ -149,8 +167,10 @@ public class RealWorldRegexBenchmark {
     benchmarkOp =
         switch (regexCase.op) {
           case "find" -> input -> regexEngine.finder().find(input);
+          case "matches" -> input -> regexEngine.matcher().matches(input);
           case "replaceAllEmpty" -> input -> regexEngine.replacer().replaceAll(input, "");
           case "replaceAllGroup1" -> input -> regexEngine.replacer().replaceAll(input, "$1");
+          case "replaceAllLiteral" -> input -> regexEngine.replacer().replaceAll(input, "xyz");
           default ->
               throw new IllegalArgumentException(
                   "Unknown real-world regex benchmark op: " + regexCase.op);
@@ -204,9 +224,40 @@ public class RealWorldRegexBenchmark {
               inputSpec.nonMatchRepeats,
               inputSpec.delimiterAlphabet);
       case "surroundWithSpaces" -> generateSurroundWithSpacesInput(inputSpec.body, size);
+      case "scaledSurroundWithSpaces" ->
+          generateScaledSurroundWithSpacesInput(
+              inputSpec.bodyPrefix,
+              inputSpec.bodySuffix,
+              inputSpec.bodyFill,
+              inputSpec.bodyScalePercent,
+              size);
       default ->
           throw new IllegalArgumentException("Unknown real-world input kind: " + inputSpec.kind);
     };
+  }
+
+  private String generateScaledSurroundWithSpacesInput(
+      String bodyPrefix, String bodySuffix, String bodyFill, int bodyScalePercent, int size) {
+    if (bodyFill.isEmpty()) {
+      throw new IllegalArgumentException("scaledSurroundWithSpaces requires non-empty bodyFill");
+    }
+    int fixedBodyLength = bodyPrefix.length() + bodySuffix.length();
+    int targetBodyLength = Math.max(fixedBodyLength, size * bodyScalePercent / 100);
+    targetBodyLength = Math.min(targetBodyLength, size);
+    int fillLength = Math.max(0, targetBodyLength - fixedBodyLength);
+    String body = bodyPrefix + repeatToLength(bodyFill, fillLength) + bodySuffix;
+    return generateSurroundWithSpacesInput(body, size);
+  }
+
+  private String repeatToLength(String unit, int size) {
+    if (size == 0) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder(size);
+    while (sb.length() < size) {
+      sb.append(unit);
+    }
+    return sb.substring(0, size);
   }
 
   private String generateSurroundWithSpacesInput(String body, int size) {

@@ -99,6 +99,34 @@ class DfaTest {
   @DisplayName("Character classes")
   class CharClasses {
     @Test
+    void nonAsciiClassCachePreservesLargeClassIds() {
+      int rangeCount = 32_769;
+      int firstCp = 0x10000;
+      int[] ranges = new int[rangeCount * 2];
+      for (int i = 0; i < rangeCount; i++) {
+        int cp = firstCp + i * 2;
+        ranges[i * 2] = cp;
+        ranges[i * 2 + 1] = cp;
+      }
+
+      Prog prog = new Prog();
+      prog.allocInst();
+      int charClass = prog.allocInst();
+      int match = prog.allocInst();
+      prog.mutableInst(charClass).initCharClass(match, ranges);
+      prog.mutableInst(match).initMatch(0);
+      prog.setStart(charClass);
+      prog.setStartUnanchored(charClass);
+      prog.freeze();
+
+      Dfa dfa = new Dfa(prog, 10_000, Dfa.buildSetup(prog), false);
+      String text = Character.toString(firstCp + (rangeCount - 1) * 2);
+
+      assertThat(dfa.doSearch(text, true, false).matched()).isTrue();
+      assertThat(dfa.doSearch(text, true, false).matched()).isTrue();
+    }
+
+    @Test
     void digitClass() {
       Dfa.SearchResult r = search("\\d+", "abc123def");
       assertThat(r.matched()).isTrue();
@@ -431,5 +459,54 @@ class DfaTest {
     assertThat(r).isNotNull();
     assertThat(r.matched()).isTrue();
     assertThat(r.pos()).isEqualTo(1);
+  }
+
+  @Test
+  void reverseDfaAsciiFastPathPreservesAnchoredStartFilter() {
+    Pattern p = Pattern.compile("^a");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    Dfa.SearchResult first = revDfa.doSearchReverse("xa", 2, 0, true, true);
+    Dfa.SearchResult second = revDfa.doSearchReverse("xa", 2, 0, true, true);
+
+    assertThat(first).isNotNull();
+    assertThat(second).isNotNull();
+    assertThat(first.matched()).isFalse();
+    assertThat(second.matched()).isFalse();
+  }
+
+  @Test
+  void reverseDfaAsciiFastPathPreservesDeferredMatchAmbiguity() {
+    Pattern p = Pattern.compile("(?:\\B{1}|a).");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    Dfa.SearchResult first = revDfa.doSearchReverse("ab", 2, 0, true, true);
+    Dfa.SearchResult second = revDfa.doSearchReverse("ab", 2, 0, true, true);
+
+    assertThat(first).isNotNull();
+    assertThat(second).isNotNull();
+    assertThat(first.matched()).isTrue();
+    assertThat(second.matched()).isTrue();
+    assertThat(first.ambiguous()).isTrue();
+    assertThat(second.ambiguous()).isTrue();
+  }
+
+  @Test
+  void reverseDfaAsciiFastPathPreservesAcceptedAfterMatchAmbiguity() {
+    Pattern p = Pattern.compile("^(?:\\B|a)b");
+    Dfa revDfa = p.reverseDfa();
+    assertThat(revDfa).isNotNull();
+
+    Dfa.SearchResult first = revDfa.doSearchReverse("ab", 2, 0, true, true);
+    Dfa.SearchResult second = revDfa.doSearchReverse("ab", 2, 0, true, true);
+
+    assertThat(first).isNotNull();
+    assertThat(second).isNotNull();
+    assertThat(first.matched()).isTrue();
+    assertThat(second.matched()).isTrue();
+    assertThat(first.ambiguous()).isTrue();
+    assertThat(second.ambiguous()).isTrue();
   }
 }

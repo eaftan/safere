@@ -59,7 +59,7 @@ final class OnePass {
 
   private static final int EMPTY_BITS = 10;
   private static final int CAP_SHIFT = EMPTY_BITS;
-  private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS;
+  private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS + 1;
   private static final long EMPTY_MASK = (1L << EMPTY_BITS) - 1;
   private static final long CAP_REG_MASK = (1L << MAX_CAP_REGS) - 1;
   private static final long NO_ACTION = -1L;
@@ -69,12 +69,23 @@ final class OnePass {
    * {@code (action & CONDITION_MASK) == 0}, both the empty-flags check and the capture application
    * can be skipped entirely — a single branch instead of two.
    */
-  private static final long CONDITION_MASK = (1L << INDEX_SHIFT) - 1;
+  private static final long CONDITION_MASK = (1L << (CAP_SHIFT + MAX_CAP_REGS)) - 1;
+
+  private static final long MATCH_WINS_MASK = 1L << (CAP_SHIFT + MAX_CAP_REGS);
 
   private static long encodeAction(int nextState, int capMask, int emptyFlags) {
-    return ((long) nextState << INDEX_SHIFT)
-        | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
-        | (emptyFlags & EMPTY_MASK);
+    return encodeAction(nextState, capMask, emptyFlags, false);
+  }
+
+  private static long encodeAction(int nextState, int capMask, int emptyFlags, boolean matchWins) {
+    long action =
+        ((long) nextState << INDEX_SHIFT)
+            | ((capMask & CAP_REG_MASK) << CAP_SHIFT)
+            | (emptyFlags & EMPTY_MASK);
+    if (matchWins) {
+      action |= MATCH_WINS_MASK;
+    }
+    return action;
   }
 
   // -------------------------------------------------------------------------
@@ -212,6 +223,12 @@ final class OnePass {
       // stack entries: [instId, capMask, emptyFlags]
       stack.push(new int[] {instId, 0, 0});
 
+      int[] nextStates = new int[numClasses];
+      Arrays.fill(nextStates, -1);
+      int[] capMasks = new int[numClasses];
+      int[] emptyFlagsList = new int[numClasses];
+      boolean matched = false;
+
       while (!stack.isEmpty()) {
         int[] entry = stack.pop();
         int id = entry[0];
@@ -274,13 +291,16 @@ final class OnePass {
                 worklist.add(ip.out);
               }
 
-              long action = encodeAction(nextState, capMask, emptyFlags);
-              long existing = tables.action(stateIndex, cls);
-              if (existing != NO_ACTION && existing != action) {
+              if (nextStates[cls] != -1
+                  && (nextStates[cls] != nextState
+                      || capMasks[cls] != capMask
+                      || emptyFlagsList[cls] != emptyFlags)) {
                 // Two different transitions for the same equivalence class -> not one-pass.
                 return null;
               }
-              tables.setAction(stateIndex, cls, action);
+              nextStates[cls] = nextState;
+              capMasks[cls] = capMask;
+              emptyFlagsList[cls] = emptyFlags;
             }
           }
           case CHAR_CLASS -> {
@@ -310,12 +330,15 @@ final class OnePass {
                   worklist.add(ip.out);
                 }
 
-                long action = encodeAction(nextState, capMask, emptyFlags);
-                long existing = tables.action(stateIndex, cls);
-                if (existing != NO_ACTION && existing != action) {
+                if (nextStates[cls] != -1
+                    && (nextStates[cls] != nextState
+                        || capMasks[cls] != capMask
+                        || emptyFlagsList[cls] != emptyFlags)) {
                   return null;
                 }
-                tables.setAction(stateIndex, cls, action);
+                nextStates[cls] = nextState;
+                capMasks[cls] = capMask;
+                emptyFlagsList[cls] = emptyFlags;
               }
             }
           }
@@ -327,8 +350,20 @@ final class OnePass {
               return null;
             }
             tables.setMatchAction(stateIndex, action);
+            matched = true;
           }
           default -> {}
+        }
+      }
+
+      for (int cls = 0; cls < numClasses; cls++) {
+        if (nextStates[cls] != -1) {
+          long action = encodeAction(nextStates[cls], capMasks[cls], emptyFlagsList[cls], matched);
+          long existing = tables.action(stateIndex, cls);
+          if (existing != NO_ACTION && existing != action) {
+            return null;
+          }
+          tables.setAction(stateIndex, cls, action);
         }
       }
     }
@@ -449,9 +484,6 @@ final class OnePass {
   // Search
   // -------------------------------------------------------------------------
 
-  @SuppressWarnings("ArrayRecordComponent")
-  record SearchResult(int[] groups) {}
-
   /**
    * Searches for a match in the given text starting at position 0. Convenience overload that
    * delegates to {@link #search(String, int, int, boolean, int)}.
@@ -461,34 +493,54 @@ final class OnePass {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions as {@code int[2*nsubmatch]}, or null if no match
    */
-  SearchResult search(String text, boolean endMatch, int nsubmatch) {
+  int[] search(String text, boolean endMatch, int nsubmatch) {
     return search(new StringInputScanner(text), 0, text.length(), endMatch, nsubmatch);
   }
 
-  SearchResult search(InputScanner text, boolean endMatch, int nsubmatch) {
+  int[] search(InputScanner text, boolean endMatch, int nsubmatch) {
     return search(text, 0, text.length(), endMatch, nsubmatch);
   }
 
-  SearchResult search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
-    GraphemeSupport.Context graphemeContext =
-        GraphemeSupport.Context.create(text, hasGraphemeSemantics);
-    return search(
-        new StringInputScanner(text), startPos, endPos, endMatch, nsubmatch, graphemeContext);
+  int[] search(InputScanner text, boolean endMatch, int nsubmatch, int[] reuseGroups) {
+    return search(text, 0, text.length(), endMatch, nsubmatch, reuseGroups);
   }
 
-  SearchResult search(
-      InputScanner text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
-    GraphemeSupport.Context graphemeContext =
-        GraphemeSupport.Context.create(text, hasGraphemeSemantics);
-    return search(text, startPos, endPos, endMatch, nsubmatch, graphemeContext);
+  int[] search(String text, boolean endMatch, int nsubmatch, int[] reuseGroups) {
+    return search(new StringInputScanner(text), 0, text.length(), endMatch, nsubmatch, reuseGroups);
   }
 
-  private SearchResult search(
+  int[] search(String text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+    return search(new StringInputScanner(text), startPos, endPos, endMatch, nsubmatch);
+  }
+
+  int[] search(InputScanner text, int startPos, int endPos, boolean endMatch, int nsubmatch) {
+    return search(text, startPos, endPos, endMatch, nsubmatch, null);
+  }
+
+  int[] search(
+      String text, int startPos, int endPos, boolean endMatch, int nsubmatch, int[] reuseGroups) {
+    return search(new StringInputScanner(text), startPos, endPos, endMatch, nsubmatch, reuseGroups);
+  }
+
+  int[] search(
       InputScanner text,
       int startPos,
       int endPos,
       boolean endMatch,
       int nsubmatch,
+      int[] reuseGroups) {
+    GraphemeSupport.Context graphemeContext =
+        GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    return search(text, startPos, endPos, endMatch, nsubmatch, reuseGroups, graphemeContext);
+  }
+
+  private int[] search(
+      InputScanner text,
+      int startPos,
+      int endPos,
+      boolean endMatch,
+      int nsubmatch,
+      int[] reuseGroups,
       GraphemeSupport.Context graphemeContext) {
     int ncap = 2 * Math.max(nsubmatch, 1);
     int[] cap = new int[ncap];
@@ -496,8 +548,8 @@ final class OnePass {
     cap[0] = startPos;
 
     int state = 0;
-    int[] bestCap = new int[ncap];
     boolean matched = false;
+    int[] bestCap = reuseGroups != null && reuseGroups.length >= ncap ? reuseGroups : new int[ncap];
 
     int nc = numClasses;
     long[] fa = flatActions;
@@ -511,7 +563,8 @@ final class OnePass {
     while (pos < endPos) {
       // Check match condition at current state BEFORE consuming next character.
       // The bitset test avoids the matchAction[] array load for non-match states.
-      if ((msb & (1L << state)) != 0) {
+      boolean shouldCopy = false;
+      if (!endMatch && !(anchorEnd && !dollarAnchorEnd) && (msb & (1L << state)) != 0) {
         long matchAct = ma[state];
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0
@@ -526,7 +579,7 @@ final class OnePass {
             cap[1] = pos;
           }
           matched = true;
-          System.arraycopy(cap, 0, bestCap, 0, ncap);
+          shouldCopy = true;
         }
       }
 
@@ -548,7 +601,26 @@ final class OnePass {
       // automaton, so no bounds check is needed on the flat actions array.
       long action = fa[state * nc + cls];
       if (action == NO_ACTION) {
+        if (shouldCopy) {
+          System.arraycopy(cap, 0, bestCap, 0, ncap);
+        }
         break;
+      }
+
+      if (shouldCopy) {
+        boolean skipCopy = false;
+        if ((action & MATCH_WINS_MASK) == 0) {
+          int nextState = (int) (action >>> INDEX_SHIFT);
+          if ((msb & (1L << nextState)) != 0) {
+            long nextMatchAct = ma[nextState];
+            if (nextMatchAct != NO_ACTION && (nextMatchAct & EMPTY_MASK) == 0) {
+              skipCopy = true;
+            }
+          }
+        }
+        if (!skipCopy) {
+          System.arraycopy(cap, 0, bestCap, 0, ncap);
+        }
       }
 
       // Combined condition check: bits below INDEX_SHIFT encode empty-width flags and capture
@@ -593,18 +665,18 @@ final class OnePass {
     }
 
     if (!matched) {
-      return new SearchResult(null);
+      return null;
     }
     if (endMatch && bestCap[1] != endPos) {
-      return new SearchResult(null);
+      return null;
     }
     if (anchorEnd && bestCap[1] != endPos) {
       // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
       if (!dollarAnchorEnd || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
-        return new SearchResult(null);
+        return null;
       }
     }
-    return new SearchResult(bestCap);
+    return bestCap;
   }
 
   /**
@@ -628,9 +700,9 @@ final class OnePass {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     for (int start = startPos; start < limit; start++) {
-      SearchResult result = search(text, start, textLen, false, nsubmatch, graphemeContext);
-      if (result.groups() != null) {
-        return result.groups();
+      int[] result = search(text, start, textLen, false, nsubmatch, null, graphemeContext);
+      if (result != null) {
+        return result;
       }
       // Advance to next code point boundary.
       if (start < textLen) {

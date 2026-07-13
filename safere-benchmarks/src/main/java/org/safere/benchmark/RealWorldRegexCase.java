@@ -41,7 +41,11 @@ final class RealWorldRegexCase {
     String pattern = requireString(obj, "pattern");
     String match = requireString(obj, "match");
     String nonMatch = requireString(obj, "nonMatch");
-    if (!"find".equals(op) && !"replaceAllEmpty".equals(op) && !"replaceAllGroup1".equals(op)) {
+    if (!"find".equals(op)
+        && !"matches".equals(op)
+        && !"replaceAllEmpty".equals(op)
+        && !"replaceAllGroup1".equals(op)
+        && !"replaceAllLiteral".equals(op)) {
       throw new IllegalArgumentException("Unknown real-world regex benchmark op: " + op);
     }
     InputSpec matchInput = InputSpec.fromJson(obj, "matchInput");
@@ -61,20 +65,36 @@ final class RealWorldRegexCase {
     final String kind;
     final String prefix;
     final String body;
+    final String bodyPrefix;
+    final String bodySuffix;
+    final String bodyFill;
+    final int bodyScalePercent;
     final int nonMatchRepeats;
     final String delimiterAlphabet;
 
     private InputSpec(
-        String kind, String prefix, String body, int nonMatchRepeats, String delimiterAlphabet) {
+        String kind,
+        String prefix,
+        String body,
+        String bodyPrefix,
+        String bodySuffix,
+        String bodyFill,
+        int bodyScalePercent,
+        int nonMatchRepeats,
+        String delimiterAlphabet) {
       this.kind = kind;
       this.prefix = prefix;
       this.body = body;
+      this.bodyPrefix = bodyPrefix;
+      this.bodySuffix = bodySuffix;
+      this.bodyFill = bodyFill;
+      this.bodyScalePercent = bodyScalePercent;
       this.nonMatchRepeats = nonMatchRepeats;
       this.delimiterAlphabet = delimiterAlphabet;
     }
 
     static InputSpec repeat() {
-      return new InputSpec("repeat", "", "", 0, "");
+      return new InputSpec("repeat", "", "", "", "", "", 0, 0, "");
     }
 
     static InputSpec fromJson(JsonObject obj, String field) {
@@ -85,15 +105,32 @@ final class RealWorldRegexCase {
       String kind = requireString(spec, "kind");
       return switch (kind) {
         case "repeat" -> repeat();
-        case "prefixedRepeat" -> new InputSpec(kind, requireString(spec, "prefix"), "", 0, "");
+        case "prefixedRepeat" ->
+            new InputSpec(kind, requireString(spec, "prefix"), "", "", "", "", 0, 0, "");
         case "sparseMatch" ->
             new InputSpec(
                 kind,
                 "",
                 "",
+                "",
+                "",
+                "",
+                0,
                 requireInt(spec, "nonMatchRepeats"),
                 requireString(spec, "delimiterAlphabet"));
-        case "surroundWithSpaces" -> new InputSpec(kind, "", requireString(spec, "body"), 0, "");
+        case "surroundWithSpaces" ->
+            new InputSpec(kind, "", requireString(spec, "body"), "", "", "", 0, 0, "");
+        case "scaledSurroundWithSpaces" ->
+            new InputSpec(
+                kind,
+                "",
+                "",
+                requireString(spec, "bodyPrefix"),
+                requireString(spec, "bodySuffix"),
+                requireString(spec, "bodyFill"),
+                requireInt(spec, "bodyScalePercent"),
+                0,
+                "");
         default -> throw new IllegalArgumentException("Unknown real-world input kind: " + kind);
       };
     }

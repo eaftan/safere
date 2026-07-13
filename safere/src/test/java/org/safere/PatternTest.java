@@ -25,6 +25,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link Pattern}. */
 class PatternTest {
+
   private static final class LiteralCharSequence implements CharSequence {
     private final String value;
 
@@ -398,6 +399,14 @@ class PatternTest {
       String[] parts = p.split(new LiteralCharSequence("a,b,c"));
       assertThat(parts).containsExactly("a", "b", "c");
     }
+
+    @Test
+    @DisplayName("split advances after internal grapheme boundary CRLF matches")
+    void splitAdvancesAfterInternalGraphemeBoundaryCrLfMatches() {
+      Pattern p = Pattern.compile("\\r\\b{g}\\n");
+      String[] parts = p.split("#\r\n\r\n$", -1);
+      assertThat(parts).containsExactly("#", "\r\n$");
+    }
   }
 
   @Nested
@@ -429,6 +438,13 @@ class PatternTest {
       Pattern p = Pattern.compile(":+");
       String[] parts = p.splitWithDelimiters("boo:::and::foo", 5);
       assertThat(parts).containsExactly("boo", ":::", "and", "::", "foo");
+    }
+
+    @Test
+    void splitWithDelimitersLargePositiveLimit() {
+      Pattern p = Pattern.compile(",");
+      String[] parts = p.splitWithDelimiters("a,b", Integer.MAX_VALUE);
+      assertThat(parts).containsExactly("a", ",", "b");
     }
 
     @Test
@@ -481,6 +497,14 @@ class PatternTest {
       Pattern p = Pattern.compile(",");
       String[] parts = p.splitWithDelimiters(new LiteralCharSequence("a,b"));
       assertThat(parts).containsExactly("a", ",", "b");
+    }
+
+    @Test
+    @DisplayName("splitWithDelimiters advances after internal grapheme boundary CRLF matches")
+    void splitWithDelimitersAdvancesAfterInternalGraphemeBoundaryCrLfMatches() {
+      Pattern p = Pattern.compile("\\r\\b{g}\\n");
+      String[] parts = p.splitWithDelimiters("#\r\n\r\n$", -1);
+      assertThat(parts).containsExactly("#", "\r\n", "\r\n$");
     }
   }
 

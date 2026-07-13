@@ -678,6 +678,31 @@ class MatcherTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"\n", "\r\n", "\u2028"})
+    @DisplayName("find() after $ before a trailing terminator advances to text end")
+    void findAfterDollarBeforeTrailingTerminatorAdvancesToTextEnd(String terminator) {
+      assertAllFindsMatchJdk("$", "x".repeat(2000) + "a" + terminator);
+    }
+
+    @Test
+    @DisplayName("find() falls back when reverse DFA start is ambiguous")
+    void findFallsBackWhenReverseDfaStartIsAmbiguous() {
+      assertAllFindsMatchJdk("(?:\\B{1}|a).a?", "ab".repeat(600) + "c");
+    }
+
+    @Test
+    @DisplayName("find() does not overconsume before trailing terminator for end anchor")
+    void findDoesNotOverconsumeBeforeTrailingTerminatorForEndAnchor() {
+      assertAllFindsMatchJdk("(?:a+?|(?:[^x])*)$", "x".repeat(1100) + "a\n");
+    }
+
+    @Test
+    @DisplayName("find() preserves boundary candidate priority in reverse DFA fallback")
+    void findPreservesBoundaryCandidatePriorityInReverseDfaFallback() {
+      assertAllFindsMatchJdk("(?:a{2,}|(?:.|\\B){1,2}){1,2}", "baax");
+    }
+
+    @ParameterizedTest
     @ValueSource(
         strings = {
           "(bcd|abcde)",
@@ -1088,11 +1113,119 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("replaceFirst() retains capture group state of the matched occurrence")
+    void replaceFirstRetainsCaptureGroups() {
+      Pattern p = Pattern.compile("testingRecord\\[(.+?)\\]");
+      Matcher m = p.matcher("object.testingDetails.testingRecord[0].result");
+      if (m.find()) {
+        m.replaceFirst("testingRecord");
+        assertThat(m.group(1)).isEqualTo("0");
+      }
+    }
+
+    @Test
     @DisplayName("replaceAll() replaces all matches")
     void replaceAll() {
       Pattern p = Pattern.compile("\\d+");
       Matcher m = p.matcher("a1b2c3");
       assertThat(m.replaceAll("X")).isEqualTo("aXbXcX");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() leaves find() positioned after the replaced match")
+    void replaceFirstLeavesFindPositionAfterReplacedMatch() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("123X456def");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("def");
+    }
+
+    @Test
+    @DisplayName("replaceAll() leaves find() exhausted after replacing matches")
+    void replaceAllLeavesFindExhaustedAfterReplacingMatches() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def");
+
+      assertThat(m.replaceAll("X")).isEqualTo("123X456X");
+
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("replaceFirst() leaves appendTail positioned after the replaced match")
+    void replaceFirstLeavesAppendTailPositionAfterReplacedMatch() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def");
+      StringBuilder sb = new StringBuilder();
+
+      assertThat(m.replaceFirst("X")).isEqualTo("123X456def");
+      m.appendTail(sb);
+
+      assertThat(sb).hasToString("456def");
+    }
+
+    @Test
+    @DisplayName("replaceAll() leaves appendTail positioned after the last replaced match")
+    void replaceAllLeavesAppendTailPositionAfterLastReplacedMatch() {
+      Pattern p = Pattern.compile("[a-z]+");
+      Matcher m = p.matcher("123abc456def789");
+      StringBuilder sb = new StringBuilder();
+
+      assertThat(m.replaceAll("X")).isEqualTo("123X456X789");
+      m.appendTail(sb);
+
+      assertThat(sb).hasToString("789");
+    }
+
+    @Test
+    @DisplayName("replaceAll() preserves lazy character-class match boundaries")
+    void replaceAllPreservesLazyCharacterClassMatchBoundaries() {
+      Pattern p = Pattern.compile("[a-z]+?");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceAll("X")).isEqualTo("XXX");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() preserves lazy character-class match boundaries")
+    void replaceFirstPreservesLazyCharacterClassMatchBoundaries() {
+      Pattern p = Pattern.compile("[a-z]+?");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("Xbc");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a?", "a*", ".*", ".?"})
+    @DisplayName("replaceAll() with nullable pattern matches JDK replacement sequence")
+    void replaceAllNullablePatternMatchesJdkReplacementSequence(String regex) {
+      String input = "a";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("X"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("X"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a?", "a*", ".*", ".?"})
+    @DisplayName("replaceFirst() with nullable pattern matches JDK replacement sequence")
+    void replaceFirstNullablePatternMatchesJdkReplacementSequence(String regex) {
+      String input = "a";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceFirst("X"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("X"));
+    }
+
+    @Test
+    @DisplayName("replaceAll() with nullable alternation matches JDK replacement sequence")
+    void replaceAllNullableAlternationMatchesJdkReplacementSequence() {
+      String regex = "(?:\\B|a).a?";
+      String input = "bbaaa";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("X"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("X"));
     }
 
     @Test
@@ -1111,12 +1244,186 @@ class MatcherTest {
       assertThat(m.replaceAll("X")).isEqualTo("abc");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceAll() with no match does not validate malformed replacement")
+    void replaceAllNoMatchDoesNotValidateMalformedReplacement(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceAll(replacement)).isEqualTo("abc");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisplayName("replaceFirst() with no match does not validate malformed replacement")
+    void replaceFirstNoMatchDoesNotValidateMalformedReplacement(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc");
+
+      assertThat(m.replaceFirst(replacement)).isEqualTo("abc");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
+    @DisplayName("replaceAll() with malformed replacement records first match before throwing")
+    void replaceAllMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("a.");
+      Matcher m = p.matcher("abc");
+
+      assertThatThrownBy(() -> m.replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+      assertThat(m.group()).isEqualTo("ab");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
+    @DisplayName("replaceFirst() with malformed replacement records first match before throwing")
+    void replaceFirstMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("a.");
+      Matcher m = p.matcher("abc");
+
+      assertThatThrownBy(() -> m.replaceFirst(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(2);
+      assertThat(m.group()).isEqualTo("ab");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
+    @DisplayName("replaceAll() char-class fast path records first match before throwing")
+    void replaceAllCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123 abc");
+
+      assertThatThrownBy(() -> m.replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.group()).isEqualTo("123");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
+    @DisplayName("replaceFirst() char-class fast path records first match before throwing")
+    void replaceFirstCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("123 abc");
+
+      assertThatThrownBy(() -> m.replaceFirst(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(m.start()).isEqualTo(0);
+      assertThat(m.end()).isEqualTo(3);
+      assertThat(m.group()).isEqualTo("123");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() with no match rejects null replacement")
+    void replaceFirstNoMatchRejectsNullReplacement() {
+      Pattern p = Pattern.compile("\\d+");
+      Matcher m = p.matcher("abc");
+
+      assertThatThrownBy(() -> m.replaceFirst((String) null))
+          .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("replaceFirst() with start-anchored pattern replaces correct match")
+    void replaceFirstStartAnchored() {
+      Pattern p = Pattern.compile("^\\d+");
+      Matcher m = p.matcher("123abc456");
+      assertThat(m.replaceFirst("X")).isEqualTo("Xabc456");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() leaves matcher state at the replaced occurrence")
+    void replaceFirstLeavesMatcherAtReplacedOccurrence() {
+      Matcher m = Pattern.compile("a").matcher("aba");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("Xba");
+
+      assertThat(m.toMatchResult().start()).isEqualTo(0);
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("replaceFirst() leaves append position after the replaced occurrence")
+    void replaceFirstLeavesAppendPositionAfterReplacedOccurrence() {
+      Matcher m = Pattern.compile("a").matcher("aba");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("Xba");
+      StringBuilder sb = new StringBuilder();
+      m.appendTail(sb);
+
+      assertThat(sb).hasToString("ba");
+    }
+
+    @Test
+    @DisplayName("replaceFirst() preserves dollar-anchor match before trailing line terminator")
+    void replaceFirstPreservesDollarAnchorBeforeTrailingLineTerminator() {
+      Matcher m = Pattern.compile("([^a](\\s\\s)+)*$").matcher("a\n");
+
+      assertThat(m.replaceFirst("X")).isEqualTo("aX\n");
+    }
+
+    @Test
+    @DisplayName("replaceAll() with start-anchored pattern replaces correct match")
+    void replaceAllStartAnchored() {
+      Pattern p = Pattern.compile("^\\d+");
+      Matcher m = p.matcher("123abc456");
+      assertThat(m.replaceAll("X")).isEqualTo("Xabc456");
+    }
+
+    @Test
+    @DisplayName("replaceAll() leaves matcher exhausted after the final replacement")
+    void replaceAllLeavesMatcherExhaustedAfterFinalReplacement() {
+      Matcher m = Pattern.compile("a").matcher("aba");
+
+      assertThat(m.replaceAll("X")).isEqualTo("XbX");
+
+      StringBuilder sb = new StringBuilder();
+      m.appendTail(sb);
+      assertThat(sb).hasToString("");
+      assertThat(m.find()).isFalse();
+      assertThatThrownBy(() -> m.toMatchResult().start()).isInstanceOf(IllegalStateException.class);
+    }
+
     @Test
     @DisplayName("replaceAll() with numeric backreference")
     void replaceAllWithBackref() {
       Pattern p = Pattern.compile("(\\w+)");
       Matcher m = p.matcher("hello world");
       assertThat(m.replaceAll("[$1]")).isEqualTo("[hello] [world]");
+    }
+
+    @Test
+    @DisplayName("replaceAll() with ambiguous reverse DFA match start handles correctness")
+    void replaceAllWithAmbiguousReverseDfaMatchStart() {
+      Pattern p = Pattern.compile("(b|ab)c");
+      Matcher m = p.matcher("abc");
+      assertThat(m.replaceAll("X")).isEqualTo("X");
+    }
+
+    @Test
+    @DisplayName("find() with alternation prefers leftmost match over earliest DFA end")
+    void testAlternationDfaSandwichCorrectness() {
+      Pattern p = Pattern.compile("b|a.c");
+      Matcher m = p.matcher("abc");
+      boolean found = m.find();
+      assertThat(found).isTrue();
+      assertThat(m.group()).isEqualTo("abc");
     }
 
     @Test
@@ -1344,6 +1651,40 @@ class MatcherTest {
       Matcher m = p.matcher("b");
       // $1 didn't participate (null), should be replaced with empty string
       assertThat(m.replaceFirst("[$1][$2]")).isEqualTo("[][b]");
+    }
+
+    @Test
+    @DisplayName("replaceAll() with dollar anchor and alternation matches JDK")
+    void testReplaceAllDollarAnchorAlternation() {
+      String regex = "(?:a+?|(?:[^x])*)$";
+      String input = "x".repeat(1100) + "a\n";
+      Pattern p = Pattern.compile(regex);
+      Matcher m = p.matcher(input);
+      String result = m.replaceAll("X");
+
+      java.util.regex.Pattern jdkP = java.util.regex.Pattern.compile(regex);
+      java.util.regex.Matcher jdkM = jdkP.matcher(input);
+      String jdkResult = jdkM.replaceAll("X");
+
+      assertThat(result).isEqualTo(jdkResult);
+    }
+
+    @Test
+    @DisplayName("find() with ambiguous reverse DFA start matches JDK")
+    void testFindAmbiguousReverseDfa() {
+      String regex = "(?:\\B|a).a?";
+      String input = "ab".repeat(600) + "c";
+      Pattern p = Pattern.compile(regex);
+      Matcher m = p.matcher(input);
+      java.util.regex.Pattern jdkP = java.util.regex.Pattern.compile(regex);
+      java.util.regex.Matcher jdkM = jdkP.matcher(input);
+
+      while (jdkM.find()) {
+        assertThat(m.find()).isTrue();
+        assertThat(m.start()).isEqualTo(jdkM.start());
+        assertThat(m.end()).isEqualTo(jdkM.end());
+      }
+      assertThat(m.find()).isFalse();
     }
   }
 

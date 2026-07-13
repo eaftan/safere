@@ -135,6 +135,7 @@
                         <exclude name="RegexpOpTest.java"/>
                         <exclude name="RegexpTest.java"/>
                         <exclude name="SafeReDiagnosticsTest.java"/>
+                        <exclude name="SearchScalingRegressionTest.java"/>
                         <exclude name="SimplifierTest.java"/>
                         <exclude name="UnicodeJdkConsistencyTest.java"/>
                         <exclude name="UnicodeTablesTest.java"/>

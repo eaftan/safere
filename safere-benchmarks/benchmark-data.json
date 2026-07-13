@@ -230,7 +230,7 @@
   },
 
   "realWorldRegex": {
-    "textSizes": [1000, 10000],
+    "textSizes": [1000, 10000, 100000],
     "safeDelimiterAlphabet": " ",
     "seed": 42,
     "cases": [
@@ -381,6 +381,100 @@
         "nonMatchInput": {
           "kind": "surroundWithSpaces",
           "body": "<Orange>"
+        }
+      },
+      {
+        "name": "jsonBlock",
+        "pattern": "(\\{[\\s\\S]*\\})",
+        "op": "replaceAllGroup1",
+        "match": "{\n  \"key1\": \"value1\",\n  \"key2\": \"value2\",\n  \"key3\": \"value3\"\n}",
+        "nonMatch": "some non-matching string containing no braces",
+        "matchInput": {
+          "kind": "scaledSurroundWithSpaces",
+          "bodyPrefix": "{ \"key\": \"value\", \"padding\": \"",
+          "bodyFill": "a",
+          "bodySuffix": "\" }",
+          "bodyScalePercent": 5
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "charReplace",
+        "pattern": "a",
+        "op": "replaceAllLiteral",
+        "match": "a",
+        "nonMatch": "b",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "greedyOnePass",
+        "pattern": "^(.+)",
+        "op": "matches",
+        "match": "abcdefghijklmnopqrstuvwxyz",
+        "nonMatch": "\nabcdefghijklmnopqrstuvwxyz",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "layoutBlock",
+        "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
+        "op": "replaceAllEmpty",
+        "match": "<block>\n  # category_defined: alpha, beta\n  entry: apple\n  entry: banana\n</block>\n",
+        "nonMatch": "<block>\n  # comment but not defined tag\n  entry: orange\n</block>\n",
+        "matchInput": {
+          "kind": "sparseMatch",
+          "nonMatchRepeats": 5,
+          "delimiterAlphabet": " "
+        }
+      },
+      {
+        "name": "turnTitleWhitespaceCjk",
+        "pattern": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
+        "op": "replaceAllEmpty",
+        "match": "いくつもの\u3000中国語と日本語の文字\u3000がここにあります\u3000そして\u3000いくつかのスペース\u3000があります",
+        "nonMatch": "いくつもの中国語と日本語の文字がここにありますそしていくつかのスペースがあります",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "cjkSearch",
+        "pattern": "[一-龥]{3,}",
+        "op": "find",
+        "match": "这是一个中文测试句子",
+        "nonMatch": "This is a sentence containing only English characters.",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
+        }
+      },
+      {
+        "name": "emojiSearch",
+        "pattern": "[😀-😇]",
+        "op": "find",
+        "match": "Today is a beautiful day 😇 with warm sunshine.",
+        "nonMatch": "Today is a beautiful day with warm sunshine.",
+        "matchInput": {
+          "kind": "repeat"
+        },
+        "nonMatchInput": {
+          "kind": "repeat"
         }
       }
     ]
