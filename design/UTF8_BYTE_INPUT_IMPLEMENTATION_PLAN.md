@@ -732,10 +732,10 @@ survived that validation.
 ### Completion record
 
 Completed locally at SafeRE revision
-`5ac880b373aa718c3591dc0625bd85d4e482ac2b` and Trino revision
-`e4936f532b804a7bd782ad62768049fec02c4f60`. The final Trino branch retains Joni and RE2/J, adds SafeRE as the
-explicit `SAFERE` option, and retains the RE2/J DFA properties for the RE2/J
-path without applying them to SafeRE.
+`8e2394facf9c50ac3d51a15b6485b496cb591d2c` and Trino revision
+`4e070738fd759ef7cb909177bda24884b7d00dc1`. The final Trino branch retains
+Joni and RE2/J, adds SafeRE as the explicit `SAFERE` option, and retains the
+RE2/J DFA properties for the RE2/J path without applying them to SafeRE.
 
 The complete Trino regex function suite and the adjacent configuration, type,
 and connector-expression tests pass. A full `trino-main` run was attempted but
@@ -745,9 +745,9 @@ those failures. This limitation is recorded rather than presented as a passing
 full-module run.
 
 The final deterministic Trino matrix passes the precommitted performance gate:
-SafeRE / Trino RE2/J time has a 0.63 overall geometric mean, with 0.46 for
-capture-free matching and 0.87 for replacement; every individual ratio is at
-most 1.09. Profiling the initially failing matrix identified missing UTF-8
+SafeRE / Trino RE2/J time has a 0.48 overall geometric mean, with 0.41 for
+capture-free matching and 0.56 for replacement; every individual ratio is at
+most 1.05. Profiling the initially failing matrix identified missing UTF-8
 prefix acceleration in the capture-free path. The general fix adds bounded
 linear-time literal, single-byte, and ASCII-prefix searches to both boolean and
 stateful UTF-8 matching. It does not add a Trino semantic exception.

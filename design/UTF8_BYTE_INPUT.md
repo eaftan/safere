@@ -3,8 +3,8 @@
 ## Status
 
 Implemented and validated locally at SafeRE revision
-`5ac880b373aa718c3591dc0625bd85d4e482ac2b` and Trino revision
-`e4936f532b804a7bd782ad62768049fec02c4f60`. The final evidence and remaining
+`8e2394facf9c50ac3d51a15b6485b496cb591d2c` and Trino revision
+`4e070738fd759ef7cb909177bda24884b7d00dc1`. The final evidence and remaining
 follow-up adapters are recorded in the
 [implementation plan](UTF8_BYTE_INPUT_IMPLEMENTATION_PLAN.md) and
 [Trino compatibility report](TRINO_SAFERE_COMPATIBILITY.md).

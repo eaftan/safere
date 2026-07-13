@@ -268,9 +268,9 @@ workflow details.
 
 The UTF-8 API is externally validated by the local Trino migration recorded in
 `design/TRINO_SAFERE_COMPATIBILITY.md`. At SafeRE revision
-`5ac880b373aa718c3591dc0625bd85d4e482ac2b`, install the artifact and run the
+`8e2394facf9c50ac3d51a15b6485b496cb591d2c`, install the artifact and run the
 selected Trino coverage at revision
-`e4936f532b804a7bd782ad62768049fec02c4f60`:
+`4e070738fd759ef7cb909177bda24884b7d00dc1`:
 
 ```bash
 mvn install -DskipTests -q

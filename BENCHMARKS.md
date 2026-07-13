@@ -784,19 +784,19 @@ to Java but lighter than Java's full object model.
 ## Trino UTF-8 Migration Matrix
 
 The final external-consumer matrix was run against SafeRE commit
-`90531d3e551bc04d470ef4b170c7a98d1a6b10d6` (2026-07-13T01:13:50Z), Trino
-SafeRE commit `b16a460dab90042a9487cb75a53dce34ed78b8f8`, and the recorded Trino RE2/J
-baseline `8e023609041`. The Trino JMH harness used deterministic identical
-inputs, two forks, two 500 ms warmups, and five 500 ms measurements.
+`8e2394facf9c50ac3d51a15b6485b496cb591d2c` (2026-07-13T05:25:07Z) and Trino
+commit `4e070738fd759ef7cb909177bda24884b7d00dc1`. Both engines ran from the same
+Trino checkout with deterministic identical inputs, two forks, two 500 ms
+warmups, and five 500 ms measurements.
 
 | Workload group | SafeRE / Trino RE2/J time geomean | Interpretation |
 |---|---:|---|
-| Capture-free matching | 0.46 | SafeRE is 2.19× faster |
-| Replacement | 0.87 | SafeRE is 1.15× faster |
-| Combined matrix | 0.63 | SafeRE is 1.58× faster |
+| Capture-free matching | 0.41 | SafeRE is 2.44× faster |
+| Replacement | 0.56 | SafeRE is 1.79× faster |
+| Combined matrix | 0.48 | SafeRE is 2.09× faster |
 
 The matrix covers five pattern families at two input sizes for both matching
-and replacement. The largest individual SafeRE / RE2/J time ratio is 1.09, so
+and replacement. The largest individual SafeRE / RE2/J time ratio is 1.05, so
 the result passes the precommitted 1.10 aggregate and 1.20 individual gates.
 The initially profiled version failed the aggregate gate because capture-free
 UTF-8 search bypassed prefix acceleration. The retained optimization adds

@@ -184,10 +184,11 @@ view allocation did not justify another public entry point.
 ## Final Trino Validation
 
 The final local integration uses SafeRE revision
-`5ac880b373aa718c3591dc0625bd85d4e482ac2b` and Trino revision
-`e4936f532b804a7bd782ad62768049fec02c4f60`. Trino exposes `JONI`, `RE2J`, and `SAFERE` as independent engine
-selectors. It retains `io.trino:trino-re2j` and its DFA properties for the
-RE2/J path while using separately named types and functions for SafeRE.
+`8e2394facf9c50ac3d51a15b6485b496cb591d2c` and Trino revision
+`4e070738fd759ef7cb909177bda24884b7d00dc1`. Trino exposes `JONI`, `RE2J`, and
+`SAFERE` as independent engine selectors. It retains `io.trino:trino-re2j` and
+its DFA properties for the RE2/J path while using separately named types and
+functions for SafeRE.
 
 The complete SafeRE and RE2/J regular-expression function classes passed, including like,
 ordinary and lambda replacement, extraction, extract-all, split, count, and
@@ -197,14 +198,14 @@ was attempted; it could not complete because Docker-dependent OAuth tests fail
 without a Docker environment, after which an unrelated node-state poller kept
 the failed run alive. No regex-related failure occurred before termination.
 
-The final deterministic JMH matrix compares the recorded pre-substitution
-Trino revision `8e023609041` with the migrated branch using identical inputs.
-It covers matching and replacement over five pattern families and two input
-sizes with two forks, two 500 ms warmups, and five 500 ms measurements. The
-geometric mean of SafeRE time divided by Trino RE2/J time is 0.63 overall,
-0.46 for capture-free matching, and 0.87 for replacement. Every individual
-ratio is at most 1.09, satisfying the precommitted 1.10 aggregate and 1.20
-individual gates. Values below 1.0 mean SafeRE is faster.
+The final deterministic JMH matrix runs SafeRE and RE2/J from the same Trino
+checkout using identical inputs. It covers matching and replacement over five
+pattern families and two input sizes with two forks, two 500 ms warmups, and
+five 500 ms measurements. The geometric mean of SafeRE time divided by Trino
+RE2/J time is 0.48 overall, 0.41 for capture-free matching, and 0.56 for
+replacement. Every individual ratio is at most 1.05, satisfying the
+precommitted 1.10 aggregate and 1.20 individual gates. Values below 1.0 mean
+SafeRE is faster.
 
 ## Frozen Benchmark Membership
 
