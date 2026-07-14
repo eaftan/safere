@@ -815,17 +815,11 @@ final class Dfa {
     if (hasGraphemeSemantics) {
       return 0;
     }
-    if (!prog.hasTextAnchor() && !prog.dollarAnchorEnd()) {
-      return Integer.MAX_VALUE;
-    }
-    int threshold = Integer.MAX_VALUE;
-    if (prog.hasTextAnchor()) {
-      threshold = 1;
-    }
-    if (prog.dollarAnchorEnd()) {
-      threshold = Math.min(threshold, trailingLineStart(text));
-    }
-    return threshold;
+    // BEGIN_TEXT is represented by the start state, and BEGIN_LINE is normally derived from the
+    // consumed character. The only position-dependent transitions are therefore near text end:
+    // END_TEXT/DOLLAR_END, plus the exception that a final line terminator must not create a
+    // BEGIN_LINE assertion past the end of the input.
+    return trailingLineStart(text);
   }
 
   private int trailingLineStart(InputScanner text) {
