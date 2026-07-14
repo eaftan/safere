@@ -154,7 +154,7 @@ public final class Matcher implements MatchResult {
     this.parentPattern = pattern;
     this.inputSequence = input;
     this.text = charSequenceToString(input);
-    this.textScanner = new StringInputScanner(text);
+    this.textScanner = null;
     this.regionEnd = text.length();
     this.groups = new int[2 * pattern.prog().numCaptures()];
   }
@@ -653,7 +653,7 @@ public final class Matcher implements MatchResult {
     searchFrom = regionStart;
 
     // --- Region setup ---
-    boolean regionActive = (regionStart != 0 || regionEnd != activeScanner().length());
+    boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
     boolean regionSubstituted = false;
 
@@ -805,7 +805,7 @@ public final class Matcher implements MatchResult {
     searchFrom = regionStart;
 
     // --- Region setup ---
-    boolean regionActive = (regionStart != 0 || regionEnd != activeScanner().length());
+    boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
     boolean regionSubstituted = false;
 
@@ -950,9 +950,11 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean endedAfterCrLf(int pos) {
-    return pos >= 2
-        && activeScanner().asciiAt(pos - 2) == '\r'
-        && activeScanner().asciiAt(pos - 1) == '\n';
+    if (pos < 2) {
+      return false;
+    }
+    InputScanner scanner = activeScanner();
+    return scanner.asciiAt(pos - 2) == '\r' && scanner.asciiAt(pos - 1) == '\n';
   }
 
   private GraphemeSupport.Context graphemeContext() {
@@ -970,7 +972,7 @@ public final class Matcher implements MatchResult {
   }
 
   private int getTextLength() {
-    return activeScanner().length();
+    return text != null ? text.length() : textScanner.length();
   }
 
   /**
@@ -1043,7 +1045,7 @@ public final class Matcher implements MatchResult {
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
     // --- Region setup: temporarily substitute text with the region substring ---
-    boolean regionActive = (regionStart != 0 || regionEnd != activeScanner().length());
+    boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
     int savedSearchFrom = searchFrom;
     boolean regionSubstituted = false;
@@ -1102,7 +1104,8 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean regionEndCanSatisfyTextEnd(Prog prog) {
-    if (regionEnd == activeScanner().length()) {
+    int textLength = getTextLength();
+    if (regionEnd == textLength) {
       return true;
     }
     if (prog.hasGraphemeSemantics() && regionEndsInsideSurrogatePair()) {
@@ -1111,21 +1114,21 @@ public final class Matcher implements MatchResult {
     if (!prog.dollarAnchorEnd()) {
       return false;
     }
-    int dollarEndPos =
-        activeScanner().trailingLineTerminatorStart(prog.unixLines(), activeScanner().length());
+    int dollarEndPos = activeScanner().trailingLineTerminatorStart(prog.unixLines(), textLength);
     return dollarEndPos >= regionStart && dollarEndPos <= regionEnd;
   }
 
   private boolean regionEndsInsideSurrogatePair() {
-    return regionEnd > 0
-        && regionEnd < activeScanner().length()
-        && !activeScanner().isCodePointBoundary(regionEnd);
+    if (regionEnd <= 0 || regionEnd >= getTextLength()) {
+      return false;
+    }
+    return !activeScanner().isCodePointBoundary(regionEnd);
   }
 
   private int graphemeConsumeEndPos(Prog prog, int endPos) {
     if (!prog.hasGraphemeClusterInstruction()
         || endPos <= 0
-        || endPos >= activeScanner().length()
+        || endPos >= getTextLength()
         || activeScanner().isCodePointBoundary(endPos)) {
       return endPos;
     }
