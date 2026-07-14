@@ -46,6 +46,16 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
+  public int codePointAt(int pos) {
+    return pos >= text.length() ? END_OF_INPUT : text.codePointAt(pos);
+  }
+
+  @Override
+  public int codePointBefore(int pos) {
+    return pos <= 0 ? END_OF_INPUT : text.codePointBefore(pos);
+  }
+
+  @Override
   public boolean isCodePointBoundary(int pos) {
     if (pos < 0 || pos > text.length()) {
       return false;
