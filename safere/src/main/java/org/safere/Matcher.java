@@ -77,7 +77,7 @@ public final class Matcher implements MatchResult {
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
-  private final InputScanner textScanner;
+  private InputScanner textScanner;
   private int[] groups;
   private int[] matchOffsets;
   private boolean hasMatch;
@@ -246,6 +246,7 @@ public final class Matcher implements MatchResult {
 
   private void resetStateForCurrentInput() {
     text = charSequenceToString(inputSequence);
+    textScanner = null;
     graphemeContextText = null;
     graphemeContext = null;
     regionStart = 0;
@@ -655,6 +656,7 @@ public final class Matcher implements MatchResult {
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
+    InputScanner savedTextScanner = textScanner;
     boolean regionSubstituted = false;
 
     try {
@@ -666,12 +668,14 @@ public final class Matcher implements MatchResult {
       }
       if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
+        textScanner = null;
         regionSubstituted = true;
       }
       return matchesCore();
     } finally {
       if (regionSubstituted) {
         text = savedText;
+        textScanner = savedTextScanner;
         if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
@@ -807,6 +811,7 @@ public final class Matcher implements MatchResult {
     // --- Region setup ---
     boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
+    InputScanner savedTextScanner = textScanner;
     boolean regionSubstituted = false;
 
     try {
@@ -818,12 +823,14 @@ public final class Matcher implements MatchResult {
       }
       if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
+        textScanner = null;
         regionSubstituted = true;
       }
       return lookingAtCore();
     } finally {
       if (regionSubstituted) {
         text = savedText;
+        textScanner = savedTextScanner;
         if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
@@ -1047,6 +1054,7 @@ public final class Matcher implements MatchResult {
     // --- Region setup: temporarily substitute text with the region substring ---
     boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
+    InputScanner savedTextScanner = textScanner;
     int savedSearchFrom = searchFrom;
     boolean regionSubstituted = false;
 
@@ -1059,6 +1067,7 @@ public final class Matcher implements MatchResult {
       }
       if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
+        textScanner = null;
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
       }
@@ -1066,6 +1075,7 @@ public final class Matcher implements MatchResult {
     } finally {
       if (regionSubstituted) {
         text = savedText;
+        textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
         if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
@@ -3085,10 +3095,10 @@ public final class Matcher implements MatchResult {
   }
 
   private InputScanner activeScanner() {
-    if (text == null) {
-      return textScanner;
+    if (textScanner == null) {
+      textScanner = new StringInputScanner(text);
     }
-    return new StringInputScanner(text);
+    return textScanner;
   }
 
   private void checkMatch() {
