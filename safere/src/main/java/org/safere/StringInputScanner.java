@@ -28,6 +28,26 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
+  public int singleUnitCodePointAt(int pos) {
+    char c = text.charAt(pos);
+    return Character.isHighSurrogate(c)
+            && pos + 1 < text.length()
+            && Character.isLowSurrogate(text.charAt(pos + 1))
+        ? -1
+        : c;
+  }
+
+  @Override
+  public int singleUnitCodePointBefore(int pos) {
+    char c = text.charAt(pos - 1);
+    return Character.isLowSurrogate(c)
+            && pos >= 2
+            && Character.isHighSurrogate(text.charAt(pos - 2))
+        ? -1
+        : c;
+  }
+
+  @Override
   public long decodeForward(int pos) {
     if (pos >= text.length()) {
       return InputScanner.decoded(END_OF_INPUT, text.length());

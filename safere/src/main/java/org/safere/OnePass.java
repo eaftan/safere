@@ -556,6 +556,8 @@ final class OnePass {
     long[] ma = matchAction;
     int[] ascMap = asciiClassMap;
     long msb = matchStateBits;
+    String stringText =
+        text instanceof StringInputScanner stringScanner ? stringScanner.text() : null;
 
     int pos = startPos;
     // Main loop: process characters from startPos to endPos-1.  The match check at endPos is
@@ -586,15 +588,31 @@ final class OnePass {
       // Read next character — ASCII fast path avoids codePointAt/charCount overhead.
       int nextPos;
       int cls;
-      int c = text.asciiAt(pos);
-      if (c >= 0) {
-        nextPos = pos + 1;
-        cls = ascMap[c];
+      if (stringText != null) {
+        char ch = stringText.charAt(pos);
+        if (ch < 128) {
+          nextPos = pos + 1;
+          cls = ascMap[ch];
+        } else if (Character.isHighSurrogate(ch)
+            && pos + 1 < endPos
+            && Character.isLowSurrogate(stringText.charAt(pos + 1))) {
+          nextPos = pos + 2;
+          cls = classOf(Character.toCodePoint(ch, stringText.charAt(pos + 1)));
+        } else {
+          nextPos = pos + 1;
+          cls = classOf(ch);
+        }
       } else {
-        long decoded = text.decodeForward(pos);
-        int cp = InputScanner.codePoint(decoded);
-        nextPos = InputScanner.position(decoded);
-        cls = classOf(cp);
+        int c = text.asciiAt(pos);
+        if (c >= 0) {
+          nextPos = pos + 1;
+          cls = ascMap[c];
+        } else {
+          long decoded = text.decodeForward(pos);
+          int cp = InputScanner.codePoint(decoded);
+          nextPos = InputScanner.position(decoded);
+          cls = classOf(cp);
+        }
       }
 
       // Equivalence classes and state indices are always valid for a well-formed OnePass

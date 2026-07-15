@@ -61,6 +61,16 @@ final class Utf8InputScanner implements InputScanner {
     return value < 0x80 ? value : -1;
   }
 
+  @Override
+  public int singleUnitCodePointAt(int pos) {
+    return asciiAt(pos);
+  }
+
+  @Override
+  public int singleUnitCodePointBefore(int pos) {
+    return asciiAt(pos - 1);
+  }
+
   int indexOf(byte[] literal, int[] failure, int[] shifts) {
     return indexOf(literal, failure, shifts, 0);
   }

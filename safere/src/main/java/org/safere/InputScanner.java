@@ -14,6 +14,18 @@ interface InputScanner {
   /** Returns the ASCII value at {@code pos}, or {@code -1} if the unit is not ASCII. */
   int asciiAt(int pos);
 
+  /**
+   * Returns the code point at {@code pos} when it can be read directly from one index unit, or
+   * {@code -1} when full decoding is required.
+   */
+  int singleUnitCodePointAt(int pos);
+
+  /**
+   * Returns the code point before {@code pos} when it can be read directly from one index unit, or
+   * {@code -1} when full decoding is required.
+   */
+  int singleUnitCodePointBefore(int pos);
+
   /** Decodes the scalar at {@code pos} and packs it with the following logical position. */
   long decodeForward(int pos);
 

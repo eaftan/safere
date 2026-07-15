@@ -418,12 +418,17 @@ public final class Matcher implements MatchResult {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
-      long decoded = scanner.decodeForward(i);
-      int cp = InputScanner.codePoint(decoded);
+      int cp = scanner.asciiAt(i);
+      if (cp >= 0) {
+        i++;
+      } else {
+        long decoded = scanner.decodeForward(i);
+        cp = InputScanner.codePoint(decoded);
+        i = InputScanner.position(decoded);
+      }
       if (charClassContains(ranges, b0, b1, cp)) {
         return true;
       }
-      i = InputScanner.position(decoded);
     }
     return false;
   }
@@ -1873,8 +1878,8 @@ public final class Matcher implements MatchResult {
    * step after DFA/OnePass have been tried or are not applicable.
    *
    * @param prog the compiled program
-   * @param text the full input text
-   * @param startPos the char index at which to begin searching
+   * @param text the full input scanner
+   * @param startPos the input index at which to begin searching
    * @param searchLimit upper bound on positions where new candidate starts are tried. Use {@code
    *     text.length()} for unbounded search.
    * @param endPos logical match end and ordinary-atom consumption limit. Use {@code text.length()}
@@ -1885,28 +1890,6 @@ public final class Matcher implements MatchResult {
    * @param nsubmatch number of submatch groups to track (including group 0)
    * @return submatch positions relative to {@code text}, or null if no match
    */
-  private int[] searchWithBitStateOrNfa(
-      Prog prog,
-      String text,
-      int startPos,
-      int searchLimit,
-      int endPos,
-      boolean anchored,
-      boolean longest,
-      boolean endMatch,
-      int nsubmatch) {
-    return searchWithBitStateOrNfa(
-        prog,
-        new StringInputScanner(text),
-        startPos,
-        searchLimit,
-        endPos,
-        anchored,
-        longest,
-        endMatch,
-        nsubmatch);
-  }
-
   private int[] searchWithBitStateOrNfa(
       Prog prog,
       InputScanner text,
@@ -2481,7 +2464,8 @@ public final class Matcher implements MatchResult {
       boolean foldCase,
       boolean hasStartAcceleration,
       DfaMatchCursor cursor) {
-    int textLen = text.length();
+    InputScanner scanner = activeScanner();
+    int textLen = scanner.length();
     int pos = cursor.pos;
 
     if (matchOffsets == null) {
@@ -2500,7 +2484,7 @@ public final class Matcher implements MatchResult {
         pos = idx;
       }
 
-      Dfa.SearchResult fwdResult = fwdDfa.doSearch(text, pos, false, false);
+      Dfa.SearchResult fwdResult = fwdDfa.doSearch(scanner, pos, false, false);
       if (fwdResult == null || !fwdResult.matched()) {
         break;
       }
@@ -2516,7 +2500,7 @@ public final class Matcher implements MatchResult {
         matchStart = pos;
         matchEnd = earlyEnd;
       } else if (hasStartAcceleration) {
-        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(text, pos, true, false);
+        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(scanner, pos, true, false);
         if (fwdFirst != null && fwdFirst.matched()) {
           matchStart = pos;
           matchEnd = fwdFirst.pos();
@@ -2531,12 +2515,12 @@ public final class Matcher implements MatchResult {
             }
           }
           Dfa.SearchResult revResult =
-              cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+              cursor.revDfa.doSearchReverse(scanner, earlyEnd, pos, true, true);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
             return -1;
           }
           matchStart = revResult.pos();
-          Dfa.SearchResult fwdFirst2 = fwdDfa.doSearch(text, matchStart, true, false);
+          Dfa.SearchResult fwdFirst2 = fwdDfa.doSearch(scanner, matchStart, true, false);
           if (fwdFirst2 == null || !fwdFirst2.matched()) {
             return -1;
           }
@@ -2552,12 +2536,13 @@ public final class Matcher implements MatchResult {
             return -1;
           }
         }
-        Dfa.SearchResult revResult = cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+        Dfa.SearchResult revResult =
+            cursor.revDfa.doSearchReverse(scanner, earlyEnd, pos, true, true);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
           return -1;
         }
         matchStart = revResult.pos();
-        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(text, matchStart, true, false);
+        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(scanner, matchStart, true, false);
         if (fwdFirst == null || !fwdFirst.matched()) {
           return -1;
         }
@@ -3403,7 +3388,8 @@ public final class Matcher implements MatchResult {
   }
 
   private long findNextMatchPacked(int fromIndex) {
-    if (fromIndex > text.length()) {
+    InputScanner scanner = activeScanner();
+    if (fromIndex > scanner.length()) {
       return -1L;
     }
     Prog prog = parentPattern.prog();
@@ -3478,7 +3464,7 @@ public final class Matcher implements MatchResult {
 
     Dfa.SearchResult fwdResult = null;
     if (canUseForwardDfa()) {
-      fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
+      fwdResult = dfa(false).doSearch(scanner, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
         return -1L;
       }
@@ -3491,7 +3477,7 @@ public final class Matcher implements MatchResult {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+        Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, effectiveStart, true, false);
         if (fwdFirst != null && fwdFirst.matched()) {
           return packPositions(effectiveStart, fwdFirst.pos());
         }
@@ -3499,10 +3485,10 @@ public final class Matcher implements MatchResult {
         Dfa revDfa = reverseDfa();
         if (revDfa != null) {
           Dfa.SearchResult revResult =
-              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+              revDfa.doSearchReverse(scanner, earlyEnd, effectiveStart, true, true);
           if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
             int matchStart = revResult.pos();
-            Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+            Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, matchStart, true, false);
             if (fwdFirst != null && fwdFirst.matched()) {
               return packPositions(matchStart, fwdFirst.pos());
             }
@@ -3515,10 +3501,10 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            scanner,
             effectiveStart,
-            text.length(),
-            text.length(),
+            scanner.length(),
+            scanner.length(),
             false,
             false,
             false,

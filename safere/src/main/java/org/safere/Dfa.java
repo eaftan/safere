@@ -1300,12 +1300,14 @@ final class Dfa {
       int nextPos;
       int cls;
       if (pos < textLen) {
-        int ch = text.asciiAt(pos);
-        if (ch >= 0) {
-          // ASCII fast path: no surrogate handling, use pre-computed class map.
-          cp = ch;
+        int singleUnitCodePoint = text.singleUnitCodePointAt(pos);
+        if (singleUnitCodePoint >= 0) {
+          cp = singleUnitCodePoint;
           nextPos = pos + 1;
-          cls = asciiClassMap[ch];
+          cls =
+              singleUnitCodePoint < asciiClassMap.length
+                  ? asciiClassMap[singleUnitCodePoint]
+                  : classOf(singleUnitCodePoint);
         } else {
           long decoded = text.decodeForward(pos);
           cp = InputScanner.codePoint(decoded);
@@ -1573,12 +1575,14 @@ final class Dfa {
       int cls;
       if (pos > 0) {
         // Read the code point just before pos (scanning backward).
-        int ch = text.asciiAt(pos - 1);
-        if (ch >= 0) {
-          // ASCII fast path.
-          cp = ch;
+        int singleUnitCodePoint = text.singleUnitCodePointBefore(pos);
+        if (singleUnitCodePoint >= 0) {
+          cp = singleUnitCodePoint;
           prevPos = pos - 1;
-          cls = asciiClassMap[ch];
+          cls =
+              singleUnitCodePoint < asciiClassMap.length
+                  ? asciiClassMap[singleUnitCodePoint]
+                  : classOf(singleUnitCodePoint);
         } else {
           long decoded = text.decodeBackward(pos);
           cp = InputScanner.codePoint(decoded);
@@ -1782,11 +1786,14 @@ final class Dfa {
         int nextPos;
         int cls;
         if (pos < textLen) {
-          int c = text.asciiAt(pos);
-          if (c >= 0) {
-            cp = c;
+          int singleUnitCodePoint = text.singleUnitCodePointAt(pos);
+          if (singleUnitCodePoint >= 0) {
+            cp = singleUnitCodePoint;
             nextPos = pos + 1;
-            cls = asciiClassMap[c];
+            cls =
+                singleUnitCodePoint < asciiClassMap.length
+                    ? asciiClassMap[singleUnitCodePoint]
+                    : classOf(singleUnitCodePoint);
           } else {
             long decoded = text.decodeForward(pos);
             cp = InputScanner.codePoint(decoded);
