@@ -410,27 +410,7 @@ public final class Matcher implements MatchResult {
   private boolean containsRequiredMatchClass(int[] ranges, int fromIndex) {
     long b0 = parentPattern.requiredMatchClassBitmap0();
     long b1 = parentPattern.requiredMatchClassBitmap1();
-    InputScanner scanner = activeScanner();
-
-    int i = Math.max(0, fromIndex);
-    int len = scanner.length();
-    while (i < len) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      int cp = scanner.asciiAt(i);
-      if (cp >= 0) {
-        i++;
-      } else {
-        long decoded = scanner.decodeForward(i);
-        cp = InputScanner.codePoint(decoded);
-        i = InputScanner.position(decoded);
-      }
-      if (charClassContains(ranges, b0, b1, cp)) {
-        return true;
-      }
-    }
-    return false;
+    return activeScanner().indexOfCodePointClass(ranges, b0, b1, fromIndex) >= 0;
   }
 
   /**

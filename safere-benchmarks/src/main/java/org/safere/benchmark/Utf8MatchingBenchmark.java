@@ -93,6 +93,24 @@ public class Utf8MatchingBenchmark extends ByteMatchingBenchmark {
     return state.pattern.find(state.input);
   }
 
+  /** Measures a required non-ASCII class absent from direct UTF-8 input. */
+  @Benchmark
+  public boolean requiredClassNonmatchBytes(RequiredClassNonmatchState state) {
+    return state.pattern.find(state.input);
+  }
+
+  /** Measures required-class rejection through a stateful UTF-8 matcher. */
+  @Benchmark
+  public boolean requiredClassNonmatchMatcher(RequiredClassNonmatchState state) {
+    return state.pattern.matcher(state.input).find();
+  }
+
+  /** Measures the same required-class rejection over a predecoded String. */
+  @Benchmark
+  public boolean requiredClassNonmatchString(RequiredClassNonmatchState state) {
+    return state.pattern.matcher(state.text).find();
+  }
+
   @State(Scope.Thread)
   public static class CaptureFreeState {
     @Param({
@@ -200,6 +218,25 @@ public class Utf8MatchingBenchmark extends ByteMatchingBenchmark {
       pattern = org.safere.Pattern.compile(data.getString("utf8Matching.hardFailure.pattern"));
       String unit = data.getString("utf8Matching.hardFailure.unit");
       String text = unit.repeat((size + unit.length() - 1) / unit.length()).substring(0, size);
+      input = org.safere.Utf8Input.trusted(text.getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
+  @State(Scope.Thread)
+  public static class RequiredClassNonmatchState {
+    private org.safere.Pattern pattern;
+    private String text;
+    private org.safere.Utf8Input input;
+
+    /** Builds the frozen required-class nonmatch input. */
+    @Setup
+    public void setup() {
+      BenchmarkData data = BenchmarkData.get();
+      String prefix = "utf8Matching.requiredClassNonmatch.";
+      pattern = org.safere.Pattern.compile(data.getString(prefix + "pattern"));
+      String unit = data.getString(prefix + "unit");
+      int size = data.getInt(prefix + "textSize");
+      text = unit.repeat((size + unit.length() - 1) / unit.length()).substring(0, size);
       input = org.safere.Utf8Input.trusted(text.getBytes(StandardCharsets.UTF_8));
     }
   }

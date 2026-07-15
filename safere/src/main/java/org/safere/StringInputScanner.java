@@ -48,6 +48,22 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
+  public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
+    int position = Math.max(0, start);
+    while (position < text.length()) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int codePoint = text.codePointAt(position);
+      if (InputScanner.classContains(ranges, bitmap0, bitmap1, codePoint)) {
+        return position;
+      }
+      position += Character.charCount(codePoint);
+    }
+    return -1;
+  }
+
+  @Override
   public long decodeForward(int pos) {
     if (pos >= text.length()) {
       return InputScanner.decoded(END_OF_INPUT, text.length());

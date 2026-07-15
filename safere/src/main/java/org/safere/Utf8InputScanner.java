@@ -71,6 +71,59 @@ final class Utf8InputScanner implements InputScanner {
     return asciiAt(pos - 1);
   }
 
+  @Override
+  public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
+    int position = Math.max(0, start);
+    if (!WorkCounterConfig.ENABLED && bitmap0 == 0 && bitmap1 == 0) {
+      return indexOfNonAsciiCodePointClass(ranges, position);
+    }
+    while (position < length) {
+      int codePointPosition = position;
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int codePoint = asciiAt(position);
+      if (codePoint >= 0) {
+        position++;
+      } else {
+        long decoded = decodeForward(position);
+        codePoint = InputScanner.codePoint(decoded);
+        position = InputScanner.position(decoded);
+      }
+      if (InputScanner.classContains(ranges, bitmap0, bitmap1, codePoint)) {
+        return codePointPosition;
+      }
+    }
+    return -1;
+  }
+
+  private int indexOfNonAsciiCodePointClass(int[] ranges, int start) {
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    while (position < length) {
+      if (position <= wordEnd) {
+        long word = (long) LONG_VIEW.get(bytes, offset + position);
+        if ((word & BYTE_HIGH_BITS) == 0) {
+          position += Long.BYTES;
+          continue;
+        }
+      }
+      int value = unsignedByteAt(position);
+      if (value < 0x80) {
+        position++;
+        continue;
+      }
+      int codePointPosition = position;
+      long decoded = decodeForward(position);
+      int codePoint = InputScanner.codePoint(decoded);
+      position = InputScanner.position(decoded);
+      if (InputScanner.classContains(ranges, 0, 0, codePoint)) {
+        return codePointPosition;
+      }
+    }
+    return -1;
+  }
+
   int indexOf(byte[] literal, int[] failure, int[] shifts) {
     return indexOf(literal, failure, shifts, 0);
   }

@@ -59,6 +59,11 @@
       "multibyteLate": { "pattern": "错误", "text": "请求处理结束：错误" },
       "multibyteNoMatch": { "pattern": "错误", "text": "请求处理成功" }
     },
+    "requiredClassNonmatch": {
+      "pattern": "[一-龥]{3,}",
+      "unit": "This is a sentence containing only English characters. ",
+      "textSize": 10000
+    },
     "repeatedFind": {
       "ascii": { "pattern": "[A-Za-z]+", "text": "one two three four five" },
       "multibyte": { "pattern": "\\p{L}+", "text": "one café 東京 naïve" }

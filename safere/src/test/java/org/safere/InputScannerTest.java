@@ -35,4 +35,24 @@ class InputScannerTest {
     assertThat(scanner.singleUnitCodePointBefore(scanner.length())).isEqualTo('Z');
     assertThat(scanner.singleUnitCodePointBefore(scanner.length() - 1)).isEqualTo(-1);
   }
+
+  @Test
+  void codePointClassSearchUsesRepresentationCoordinates() {
+    int[] cjk = {'中', '中'};
+    int[] supplementary = {0x1F600, 0x1F600};
+    String text = "aé😀中z";
+    StringInputScanner stringScanner = new StringInputScanner(text);
+    Utf8InputScanner utf8Scanner = new Utf8InputScanner(text.getBytes(UTF_8));
+
+    assertThat(stringScanner.indexOfCodePointClass(cjk, 0, 0, 0)).isEqualTo(4);
+    assertThat(stringScanner.indexOfCodePointClass(supplementary, 0, 0, 0)).isEqualTo(2);
+    assertThat(stringScanner.indexOfCodePointClass(cjk, 0, 0, 5)).isEqualTo(-1);
+    assertThat(utf8Scanner.indexOfCodePointClass(cjk, 0, 0, 0)).isEqualTo(7);
+    assertThat(utf8Scanner.indexOfCodePointClass(supplementary, 0, 0, 0)).isEqualTo(3);
+    assertThat(utf8Scanner.indexOfCodePointClass(cjk, 0, 0, 10)).isEqualTo(-1);
+
+    Utf8InputScanner paddedUtf8Scanner =
+        new Utf8InputScanner(("a".repeat(24) + "中").getBytes(UTF_8));
+    assertThat(paddedUtf8Scanner.indexOfCodePointClass(cjk, 0, 0, 0)).isEqualTo(24);
+  }
 }
