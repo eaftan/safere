@@ -695,6 +695,9 @@ final class Dfa {
   }
 
   private int emptyFlags(InputScanner text, int pos) {
+    if (!hasGraphemeSemantics && !prog.hasWordBoundary() && !prog.hasTextAnchor()) {
+      return 0;
+    }
     int flags =
         Nfa.emptyFlags(
             text,
@@ -814,6 +817,9 @@ final class Dfa {
   private int positionDependentThreshold(InputScanner text) {
     if (hasGraphemeSemantics) {
       return 0;
+    }
+    if (!prog.hasTextAnchor()) {
+      return Integer.MAX_VALUE;
     }
     // BEGIN_TEXT is represented by the start state, and BEGIN_LINE is normally derived from the
     // consumed character. The only position-dependent transitions are therefore near text end:
