@@ -245,10 +245,12 @@ public final class Matcher implements MatchResult {
   }
 
   private void resetStateForCurrentInput() {
+    if (!(inputSequence instanceof String)) {
+      textScanner = null;
+      graphemeContextText = null;
+      graphemeContext = null;
+    }
     text = charSequenceToString(inputSequence);
-    textScanner = null;
-    graphemeContextText = null;
-    graphemeContext = null;
     regionStart = 0;
     regionEnd = text.length();
     resetSearchStateForInputStart();
@@ -284,6 +286,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void invalidateInputDependentCaches() {
+    textScanner = null;
     bitStateBorrowed = false;
     cachedBitState = null;
     bitStateResult = null;
@@ -410,6 +413,20 @@ public final class Matcher implements MatchResult {
   private boolean containsRequiredMatchClass(int[] ranges, int fromIndex) {
     long b0 = parentPattern.requiredMatchClassBitmap0();
     long b1 = parentPattern.requiredMatchClassBitmap1();
+    if (text != null) {
+      int position = Math.max(0, fromIndex);
+      while (position < text.length()) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        int codePoint = text.codePointAt(position);
+        if (charClassContains(ranges, b0, b1, codePoint)) {
+          return true;
+        }
+        position += Character.charCount(codePoint);
+      }
+      return false;
+    }
     return activeScanner().indexOfCodePointClass(ranges, b0, b1, fromIndex) >= 0;
   }
 
@@ -719,17 +736,20 @@ public final class Matcher implements MatchResult {
 
     Prog prog = parentPattern.prog();
 
-    InputScanner scanner = activeScanner();
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
     EnginePathOptions options = enginePathOptions();
     OnePass onePass = options.onePass() ? parentPattern.onePass() : null;
     if (onePass != null
         && !prog.hasGraphemeSemantics()
         && !parentPattern.hasNullableAlternation()) {
-      int[] result = onePass.search(scanner, true, prog.numCaptures(), this.groups);
+      int[] result =
+          text != null
+              ? onePass.search(text, true, prog.numCaptures(), this.groups)
+              : onePass.search(activeScanner(), true, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
     }
 
+    InputScanner scanner = activeScanner();
     // Medium path: use DFA to check if a full match exists.
     if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       Dfa.SearchResult dfaResult = dfa(true).doSearch(scanner, true, true);
@@ -859,17 +879,20 @@ public final class Matcher implements MatchResult {
     }
 
     Prog prog = parentPattern.prog();
-    InputScanner scanner = activeScanner();
 
     // Fast path: try one-pass engine (anchored, with captures, O(n) time).
     if (enginePathOptions().onePass()
         && parentPattern.canOnePassPrimary()
         && !prog.hasGraphemeSemantics()) {
       OnePass onePass = parentPattern.onePass();
-      int[] result = onePass.search(scanner, false, prog.numCaptures(), this.groups);
+      int[] result =
+          text != null
+              ? onePass.search(text, false, prog.numCaptures(), this.groups)
+              : onePass.search(activeScanner(), false, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
     }
 
+    InputScanner scanner = activeScanner();
     // Medium path: use DFA to check if an anchored match exists.
     if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
 
