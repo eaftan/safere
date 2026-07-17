@@ -161,6 +161,10 @@ final class Dfa {
   private final int maxStates;
   private final boolean longest;
   private final boolean hasGraphemeSemantics;
+
+  /** Whether consuming transitions can depend on the absolute input position. */
+  private final boolean hasPositionDependentTransitions;
+
   private final int stateEmptyFlagsMask;
   private final int startCacheEmptyFlagsMask;
   private final int anchoredCacheBit;
@@ -261,6 +265,7 @@ final class Dfa {
     this.maxStates = maxStates;
     this.longest = longest;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
+    this.hasPositionDependentTransitions = hasGraphemeSemantics || prog.hasTextAnchor();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
             ? EmptyOp.ALL_FLAGS
@@ -818,9 +823,6 @@ final class Dfa {
     if (hasGraphemeSemantics) {
       return 0;
     }
-    if (!prog.hasTextAnchor()) {
-      return Integer.MAX_VALUE;
-    }
     // BEGIN_TEXT is represented by the start state, and BEGIN_LINE is normally derived from the
     // consumed character. The only position-dependent transitions are therefore near text end:
     // END_TEXT/DOLLAR_END, plus the exception that a final line terminator must not create a
@@ -1333,7 +1335,7 @@ final class Dfa {
       // is always safe to cache because it always means "at text end".
       int effectiveNextPos = Math.min(nextPos, textLen);
       State ns;
-      if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+      if (hasPositionDependentTransitions && cp >= 0 && effectiveNextPos >= posDepThreshold) {
         ns = computeNext(s, cp, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1605,7 +1607,7 @@ final class Dfa {
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
-      if (cp >= 0 && effectivePrevPos >= posDepThreshold) {
+      if (hasPositionDependentTransitions && cp >= 0 && effectivePrevPos >= posDepThreshold) {
         ns = computeNext(s, cp, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1815,7 +1817,7 @@ final class Dfa {
         // Bypass cache for position-dependent transitions (same invariant as doSearch).
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
-        if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+        if (hasPositionDependentTransitions && cp >= 0 && effectiveNextPos >= posDepThreshold) {
           ns = computeNext(s, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
