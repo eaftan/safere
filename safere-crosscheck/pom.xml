@@ -113,6 +113,7 @@
                         <!-- Compile-time structural excludes. Each excluded test class is also
                              annotated with @DisabledForCrosscheck in the original source. -->
                         <exclude name="AnchorOptTest.java"/>
+                        <exclude name="AnchoredDfaCachingTest.java"/>
                         <exclude name="BitStateTest.java"/>
                         <exclude name="CharClassTest.java"/>
                         <exclude name="CompilerTest.java"/>
@@ -123,6 +124,7 @@
                         <exclude name="GraphemeLinearTimeTest.java"/>
                         <exclude name="InstOpTest.java"/>
                         <exclude name="InstTest.java"/>
+                        <exclude name="InputScannerTest.java"/>
                         <exclude name="MatcherDeferredCaptureStateTest.java"/>
                         <exclude name="MatcherTransitionInventoryTest.java"/>
                         <exclude name="NfaTest.java"/>

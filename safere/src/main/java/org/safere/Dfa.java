@@ -839,6 +839,16 @@ final class Dfa {
     return trailing >= 0 ? trailing : len;
   }
 
+  private boolean transitionDependsOnPosition(int cp, int position, int threshold) {
+    if (!hasPositionDependentTransitions || cp < 0) {
+      return false;
+    }
+    // In the default line-ending mode, BEGIN_LINE after a carriage return depends on whether the
+    // following character is a line feed. A transition cached for CRLF therefore cannot be reused
+    // for a standalone carriage return, or vice versa.
+    return position >= threshold || (!prog.unixLines() && cp == '\r');
+  }
+
   /**
    * Computes the next DFA state from the current state for a given code point.
    *
@@ -1230,7 +1240,7 @@ final class Dfa {
       int sId = s.id * numClasses;
       while (pos < limit) {
         int ch = text.asciiAt(pos);
-        if (ch < 0) {
+        if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
           break;
         }
         int cls = asciiClassMap[ch];
@@ -1265,7 +1275,7 @@ final class Dfa {
       }
 
       int ch = text.asciiAt(pos);
-      if (ch < 0) {
+      if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
         break; // fall back to general loop
       }
       int cls = asciiClassMap[ch];
@@ -1335,7 +1345,7 @@ final class Dfa {
       // is always safe to cache because it always means "at text end".
       int effectiveNextPos = Math.min(nextPos, textLen);
       State ns;
-      if (hasPositionDependentTransitions && cp >= 0 && effectiveNextPos >= posDepThreshold) {
+      if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
         ns = computeNext(s, cp, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1470,7 +1480,7 @@ final class Dfa {
         int sId = s.id * numClasses;
         while (pos > limit) {
           int ch = text.asciiAt(pos - 1);
-          if (ch < 0) {
+          if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
             break;
           }
           int cls = asciiClassMap[ch];
@@ -1524,7 +1534,7 @@ final class Dfa {
       }
 
       int ch = text.asciiAt(pos - 1);
-      if (ch < 0) {
+      if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
         break; // fall back
       }
       int cls = asciiClassMap[ch];
@@ -1607,7 +1617,7 @@ final class Dfa {
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
-      if (hasPositionDependentTransitions && cp >= 0 && effectivePrevPos >= posDepThreshold) {
+      if (transitionDependsOnPosition(cp, effectivePrevPos, posDepThreshold)) {
         ns = computeNext(s, cp, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1738,7 +1748,7 @@ final class Dfa {
           break; // fall back to general loop for position-dependent context
         }
         int ch = text.asciiAt(pos);
-        if (ch < 0) {
+        if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
           break; // fall back
         }
         int cls = asciiClassMap[ch];
@@ -1817,7 +1827,7 @@ final class Dfa {
         // Bypass cache for position-dependent transitions (same invariant as doSearch).
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
-        if (hasPositionDependentTransitions && cp >= 0 && effectiveNextPos >= posDepThreshold) {
+        if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
           ns = computeNext(s, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded
