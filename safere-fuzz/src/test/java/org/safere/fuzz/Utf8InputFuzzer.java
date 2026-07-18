@@ -10,6 +10,7 @@ import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.regex.PatternSyntaxException;
 import org.safere.Pattern;
 import org.safere.Utf8Input;
@@ -19,6 +20,13 @@ import org.safere.Utf8Matcher;
 final class Utf8InputFuzzer {
   @FuzzTest(maxDuration = "30s")
   void arbitraryWindow(FuzzedDataProvider data) {
+    assertLiteralSearchMatchesString("XXXXXX", "..XXXXXX");
+    String repeatedLiteral =
+        String.valueOf((char) data.consumeInt('A', 'Z')).repeat(data.consumeInt(2, 32));
+    String suffix = new String(data.consumeBytes(data.consumeInt(0, 64)), StandardCharsets.UTF_8);
+    String literalInput = ".".repeat(data.consumeInt(0, 64)) + repeatedLiteral + suffix;
+    assertLiteralSearchMatchesString(repeatedLiteral, literalInput);
+
     Pattern pattern;
     try {
       pattern = Pattern.compile(data.consumeString(128), FuzzSupport.consumeFlags(data));
@@ -43,6 +51,31 @@ final class Utf8InputFuzzer {
         throw new AssertionError("strict validation rejected valid UTF-8", e);
       }
     }
+  }
+
+  private static void assertLiteralSearchMatchesString(String regex, String input) {
+    Pattern pattern = Pattern.compile(regex);
+    org.safere.Matcher stringMatcher = pattern.matcher(input);
+    byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
+    Utf8Input utf8Input = Utf8Input.validated(bytes);
+    Utf8Matcher utf8Matcher = pattern.matcher(utf8Input);
+
+    boolean stringFound = stringMatcher.find();
+    boolean utf8Found = utf8Matcher.find();
+    if (stringFound != utf8Found || pattern.find(utf8Input) != stringFound) {
+      throw new AssertionError("UTF-8 literal search result differs from String search");
+    }
+    if (stringFound
+        && (!Objects.equals(stringMatcher.group(), decodeGroup(bytes, utf8Matcher))
+            || utf8Matcher.start() < 0
+            || utf8Matcher.end() > bytes.length)) {
+      throw new AssertionError("UTF-8 literal search bounds differ from String search");
+    }
+  }
+
+  private static String decodeGroup(byte[] bytes, Utf8Matcher matcher) {
+    return new String(
+        bytes, matcher.start(), matcher.end() - matcher.start(), StandardCharsets.UTF_8);
   }
 
   private static void walk(Utf8Matcher matcher, int length) {

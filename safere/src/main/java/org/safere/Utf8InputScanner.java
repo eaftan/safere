@@ -191,22 +191,27 @@ final class Utf8InputScanner implements InputScanner {
     int position = start + last;
     int work = 0;
     int workLimit = Math.max(1, (length - start) * 2);
-    while (position < length && work < workLimit) {
+    while (position < length) {
       int literalPosition = last;
       int inputPosition = position;
-      while (literalPosition >= 0
-          && bytes[offset + inputPosition] == literal[literalPosition]
-          && work++ < workLimit) {
+      while (literalPosition >= 0 && bytes[offset + inputPosition] == literal[literalPosition]) {
+        if (work >= workLimit) {
+          return -2;
+        }
+        work++;
         literalPosition--;
         inputPosition--;
       }
       if (literalPosition < 0) {
         return inputPosition + 1;
       }
+      if (work >= workLimit) {
+        return -2;
+      }
       position += shifts[bytes[offset + position] & 0xFF];
       work++;
     }
-    return position >= length ? -1 : -2;
+    return -1;
   }
 
   private int indexOfByte(byte target, int start) {
