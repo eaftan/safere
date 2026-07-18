@@ -67,6 +67,45 @@ if (m.find()) {
 SafeRE is a drop-in replacement for `java.util.regex.Pattern` and
 `java.util.regex.Matcher`. Just change your imports.
 
+## Direct UTF-8 Input
+
+Applications that already store text as UTF-8 can match it directly without
+first decoding the entire input to a `String`. This is primarily intended for
+JVM data systems, storage engines, network services, and parsing pipelines that
+process byte-oriented text in hot loops. It can avoid an input-sized UTF-8 to
+UTF-16 conversion, preserve zero-copy capture slicing, and write replacements
+back to byte-oriented output. If an application already owns a `String`, the
+regular `Pattern` and `Matcher` APIs remain the simpler choice.
+
+For example:
+
+```java
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import org.safere.Pattern;
+import org.safere.Utf8Input;
+import org.safere.Utf8Matcher;
+
+byte[] bytes = "contact user@example.com for info".getBytes(UTF_8);
+Utf8Input input = Utf8Input.validated(bytes);
+Utf8Matcher matcher = Pattern.compile("(\\w+)@(\\w+\\.\\w+)").matcher(input);
+
+if (matcher.find()) {
+    // UTF-8 match coordinates are byte offsets relative to the input view.
+    int addressStart = matcher.start();
+    int addressEnd = matcher.end();
+}
+```
+
+`Utf8Input.validated` performs strict UTF-8 validation. Callers that already
+guarantee valid UTF-8 can use `Utf8Input.trusted` to avoid that validation pass.
+The input is a borrowed view: its covered bytes must not be mutated while a
+matcher is using them.
+
+The UTF-8 API also supports capture bounds and byte-native replacement through
+`Utf8Sink`. See [Direct UTF-8 Matching](UTF8.md) for the complete API,
+ownership, coordinate, malformed-input, and replacement contracts.
+
 ## Development
 
 SafeRE uses google-java-format through Spotless. To format Java sources, run:
@@ -112,6 +151,8 @@ exponentially and hangs at n=25.
 - **Full Unicode** — Operates on Unicode code points, supports `\p{...}`
   properties, Unicode-aware case folding
 - **Named captures** — Java-compatible `(?<name>...)` syntax
+- **Direct UTF-8 input** — Matches borrowed UTF-8 byte-array views without
+  materializing an input-sized `String`
 - **Multi-pattern matching** — `PatternSet` matches multiple patterns
   simultaneously in a single pass
 - **Five execution engines** — OnePass, DFA, BitState, NFA, and reverse DFA,
