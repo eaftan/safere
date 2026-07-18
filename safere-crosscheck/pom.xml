@@ -139,6 +139,11 @@
                         <exclude name="SimplifierTest.java"/>
                         <exclude name="UnicodeJdkConsistencyTest.java"/>
                         <exclude name="UnicodeTablesTest.java"/>
+                        <exclude name="Utf8AllocationScalingTest.java"/>
+                        <exclude name="Utf8EnginePathEquivalenceTest.java"/>
+                        <exclude name="Utf8InputScannerTest.java"/>
+                        <exclude name="Utf8InputTest.java"/>
+                        <exclude name="Utf8LinearTimeTest.java"/>
                         <exclude name="UtilsTest.java"/>
                         <exclude name="WalkerTest.java"/>
                         <exclude name="WorkCounterTest.java"/>
@@ -146,7 +151,7 @@
                       <filterchain>
                         <replaceregex
                             pattern="package org\.safere;"
-                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
+                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.Utf8Input;&#10;import org.safere.Utf8Matcher;&#10;import org.safere.Utf8Sink;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
                       </filterchain>
                     </copy>
                   </target>

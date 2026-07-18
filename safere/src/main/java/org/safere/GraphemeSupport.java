@@ -28,7 +28,7 @@ final class GraphemeSupport {
   static final class Context {
     private static final Context EMPTY = new Context(null);
 
-    private final String text;
+    private final InputScanner text;
     private int[] regionalIndicatorStartsBefore;
     private int[] regionalIndicatorRunStartBefore;
     private int[] extendedPictographicStartBefore;
@@ -36,11 +36,18 @@ final class GraphemeSupport {
     private int[] indicConjunctSequenceStartBefore;
     private int[] indicConjunctLinkerStartBefore;
 
-    private Context(String text) {
+    private Context(InputScanner text) {
       this.text = text;
     }
 
     static Context create(String text, boolean includeGraphemeClusterBoundary) {
+      if (!includeGraphemeClusterBoundary) {
+        return EMPTY;
+      }
+      return new Context(new StringInputScanner(text));
+    }
+
+    static Context create(InputScanner text, boolean includeGraphemeClusterBoundary) {
       if (!includeGraphemeClusterBoundary) {
         return EMPTY;
       }
@@ -117,8 +124,9 @@ final class GraphemeSupport {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        int cp = text.codePointAt(pos);
-        int next = pos + Character.charCount(cp);
+        long decoded = text.decodeForward(pos);
+        int cp = InputScanner.codePoint(decoded);
+        int next = InputScanner.position(decoded);
         if (isRegionalIndicator(cp)) {
           if (runLength == 0) {
             runStart = pos;
@@ -151,8 +159,9 @@ final class GraphemeSupport {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        int cp = text.codePointAt(pos);
-        int next = pos + Character.charCount(cp);
+        long decoded = text.decodeForward(pos);
+        int cp = InputScanner.codePoint(decoded);
+        int next = InputScanner.position(decoded);
         if (isIndicConjunctConsonant(cp)) {
           sequenceStart = pos;
           linkerSeen = false;
@@ -190,8 +199,9 @@ final class GraphemeSupport {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        int cp = text.codePointAt(pos);
-        int next = pos + Character.charCount(cp);
+        long decoded = text.decodeForward(pos);
+        int cp = InputScanner.codePoint(decoded);
+        int next = InputScanner.position(decoded);
         if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
           visiblePictographicStart = pos;
           visiblePrependStart = immediatePrependStartBefore(text, pos);
@@ -249,6 +259,75 @@ final class GraphemeSupport {
       variant |= REGIONAL_INDICATOR_ODD;
     }
     return variant;
+  }
+
+  static int visitVariant(
+      InputScanner text,
+      int pos,
+      int graphemeStart,
+      int consumeRegionStart,
+      int graphemeConsumeEndPos,
+      Context graphemeContext) {
+    if (text instanceof StringInputScanner stringInput) {
+      return visitVariant(
+          stringInput.text(),
+          pos,
+          graphemeStart,
+          consumeRegionStart,
+          graphemeConsumeEndPos,
+          graphemeContext);
+    }
+    int start = Math.max(consumeRegionStart, graphemeStart);
+    if (pos < 0 || pos >= graphemeConsumeEndPos || pos >= text.length()) {
+      return 0;
+    }
+    int variant = 0;
+    if (graphemeContext.hasExtendedPictographicBefore(pos, start)) {
+      variant |= EXTENDED_PICTOGRAPHIC_VISIBLE;
+    }
+    int codePoint = inputCodePointAt(text, pos, graphemeConsumeEndPos, true);
+    int scalarEnd = inputNextPos(text, pos, graphemeConsumeEndPos, true);
+    int nextCodePoint = inputCodePointAt(text, scalarEnd, graphemeConsumeEndPos, true);
+    if (graphemeContext.hasIndicConjunctSequenceBefore(pos, start)) {
+      variant |= INDIC_CONJUNCT_SEQUENCE_VISIBLE;
+    }
+    if ((isIndicConjunctConsonant(codePoint)
+            && graphemeContext.hasIndicConjunctLinkerBefore(pos, start))
+        || (isIndicConjunctConsonant(nextCodePoint)
+            && graphemeContext.hasIndicConjunctLinkerBefore(scalarEnd, start))) {
+      variant |= INDIC_CONJUNCT_LINKER_VISIBLE;
+    }
+    if (isRegionalIndicator(codePoint)
+        && !graphemeContext.hasEvenRegionalIndicatorsBefore(scalarEnd, start)) {
+      variant |= REGIONAL_INDICATOR_ODD;
+    }
+    return variant;
+  }
+
+  static int inputCodePointAt(InputScanner text, int pos, int endPos, boolean graphemeSensitive) {
+    if (text instanceof StringInputScanner stringInput) {
+      return inputCodePointAt(stringInput.text(), pos, endPos, graphemeSensitive);
+    }
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
+      return -1;
+    }
+    long decoded = text.decodeForward(pos);
+    return InputScanner.position(decoded) <= endPos ? InputScanner.codePoint(decoded) : -1;
+  }
+
+  static int inputNextPos(InputScanner text, int pos, int endPos, boolean graphemeSensitive) {
+    if (text instanceof StringInputScanner stringInput) {
+      return inputNextPos(stringInput.text(), pos, endPos, graphemeSensitive);
+    }
+    if (pos < 0 || pos >= endPos || pos >= text.length()) {
+      return endPos + 1;
+    }
+    int next = InputScanner.position(text.decodeForward(pos));
+    return next <= endPos ? next : endPos + 1;
+  }
+
+  static int graphemeNextPos(InputScanner text, int pos, int endPos) {
+    return inputNextPos(text, pos, endPos, true);
   }
 
   static int inputCodePointAt(String text, int pos, int endPos, boolean graphemeSensitive) {
@@ -326,6 +405,31 @@ final class GraphemeSupport {
   }
 
   static int boundaryFlags(
+      InputScanner text,
+      int pos,
+      Context graphemeContext,
+      int matchStart,
+      int regionStart,
+      boolean consumedInput,
+      int boundaryEndPos) {
+    if (text instanceof Utf8InputScanner) {
+      if (isGraphemeBoundaryContextEdge(pos, regionStart, boundaryEndPos)
+          || isGraphemeClusterBoundary(text, pos, regionStart, graphemeContext)) {
+        return EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY;
+      }
+      return 0;
+    }
+    return boundaryFlags(
+        ((StringInputScanner) text).text(),
+        pos,
+        graphemeContext,
+        matchStart,
+        regionStart,
+        consumedInput,
+        boundaryEndPos);
+  }
+
+  static int boundaryFlags(
       String text,
       int pos,
       Context graphemeContext,
@@ -400,6 +504,50 @@ final class GraphemeSupport {
 
   static boolean isGraphemeClusterBoundary(String text, int pos) {
     return isGraphemeClusterBoundary(text, pos, 0, Context.create(text, true));
+  }
+
+  static boolean isGraphemeClusterBoundary(
+      InputScanner text, int pos, int regionStart, Context graphemeContext) {
+    if (text instanceof StringInputScanner stringInput) {
+      return isGraphemeClusterBoundary(stringInput.text(), pos, regionStart, graphemeContext);
+    }
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record();
+    }
+    if (pos < 0 || pos > text.length() || !text.isCodePointBoundary(pos)) {
+      return false;
+    }
+    if (pos == 0 || pos == text.length()) {
+      return true;
+    }
+    int previous = text.codePointBefore(pos);
+    int next = text.codePointAt(pos);
+    if (previous == '\r' && next == '\n') {
+      return false;
+    }
+    if (isGraphemeControl(previous) || isGraphemeControl(next)) {
+      return true;
+    }
+    if (isGraphemeExtend(next) || isGraphemePrepend(previous)) {
+      return false;
+    }
+    if (isHangulGraphemeContinuation(previous, next)) {
+      return false;
+    }
+    Context context = graphemeContext != null ? graphemeContext : Context.create(text, true);
+    if (isIndicConjunctConsonant(next) && context.hasIndicConjunctLinkerBefore(pos, regionStart)) {
+      return false;
+    }
+    int previousStart = InputScanner.position(text.decodeBackward(pos));
+    if (previous == 0x200D
+        && containsCodePoint(EXTENDED_PICTOGRAPHIC, next)
+        && context.hasExtendedPictographicBefore(previousStart, regionStart)) {
+      return false;
+    }
+    if (isRegionalIndicator(previous) && isRegionalIndicator(next)) {
+      return context.hasEvenRegionalIndicatorsBefore(pos, regionStart);
+    }
+    return true;
   }
 
   static boolean isGraphemeClusterBoundary(String text, int pos, Context graphemeContext) {
@@ -612,15 +760,15 @@ final class GraphemeSupport {
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
   }
 
-  private static int immediatePrependStartBefore(String text, int pos) {
+  private static int immediatePrependStartBefore(InputScanner text, int pos) {
     if (pos <= 0) {
       return -1;
     }
-    int previous = text.codePointBefore(pos);
-    if (!isGraphemePrepend(previous)) {
+    long decoded = text.decodeBackward(pos);
+    if (!isGraphemePrepend(InputScanner.codePoint(decoded))) {
       return -1;
     }
-    return pos - Character.charCount(previous);
+    return InputScanner.position(decoded);
   }
 
   private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(

@@ -136,6 +136,16 @@ public final class Pattern implements Serializable {
     return new Matcher(this, input);
   }
 
+  /** Returns the SafeRE-only UTF-8 matcher, outside the JDK differential surface. */
+  public org.safere.Utf8Matcher matcher(org.safere.Utf8Input input) {
+    return saferePattern.matcher(input);
+  }
+
+  /** Runs the SafeRE-only capture-free UTF-8 search outside the JDK differential surface. */
+  public boolean find(org.safere.Utf8Input input) {
+    return saferePattern.find(input);
+  }
+
   /** Returns the flags this pattern was compiled with. */
   public int flags() {
     return saferePattern.flags();
