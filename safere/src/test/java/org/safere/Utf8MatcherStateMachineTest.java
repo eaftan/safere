@@ -12,8 +12,51 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class Utf8MatcherStateMachineTest {
+  @Test
+  void stringSearchInitializationDoesNotCorruptExistingUtf8Matcher() {
+    Pattern pattern = Pattern.compile("XXXXXX");
+    Matcher stringMatcher = pattern.matcher("..XXXXXX");
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated("..XXXXXX".getBytes(UTF_8)));
+
+    assertThat(stringMatcher.find()).isTrue();
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(2);
+    assertThat(utf8Matcher.end()).isEqualTo(8);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"X", "XX", "XXX", "XXXX", "XXXXX", "XXXXXX", "XXXXXXXX", "ééé"})
+  void unanchoredLiteralSearchMatchesStringApiAcrossOffsets(String literal) {
+    for (int prefixLength = 0; prefixLength <= 8; prefixLength++) {
+      String text = ".".repeat(prefixLength) + literal + "!";
+      byte[] bytes = text.getBytes(UTF_8);
+      int expectedStart = ".".repeat(prefixLength).getBytes(UTF_8).length;
+      int expectedEnd = expectedStart + literal.getBytes(UTF_8).length;
+
+      Pattern captureFreePattern = Pattern.compile(literal);
+      Matcher captureFreeStringMatcher = captureFreePattern.matcher(text);
+      assertThat(captureFreeStringMatcher.find())
+          .as("String prefix length %s", prefixLength)
+          .isTrue();
+      assertThat(captureFreePattern.find(Utf8Input.validated(bytes)))
+          .as("capture-free UTF-8 prefix length %s", prefixLength)
+          .isTrue();
+
+      Pattern matcherPattern = Pattern.compile(literal);
+      Matcher stringMatcher = matcherPattern.matcher(text);
+      assertThat(stringMatcher.find()).as("String matcher prefix length %s", prefixLength).isTrue();
+      Utf8Matcher matcher = matcherPattern.matcher(Utf8Input.validated(bytes));
+      assertThat(matcher.find()).as("UTF-8 prefix length %s", prefixLength).isTrue();
+      assertThat(matcher.start()).isEqualTo(expectedStart);
+      assertThat(matcher.end()).isEqualTo(expectedEnd);
+      assertThat(matcher.find()).isFalse();
+    }
+  }
+
   @Test
   void repeatedFindReportsByteRelativeGroupBounds() {
     Utf8Matcher matcher = matcher("(é)|(😀)", "xé😀y");

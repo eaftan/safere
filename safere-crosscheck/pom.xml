@@ -153,7 +153,7 @@
                       <filterchain>
                         <replaceregex
                             pattern="package org\.safere;"
-                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.Utf8Input;&#10;import org.safere.Utf8Matcher;&#10;import org.safere.Utf8Sink;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
+                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;&#10;import org.safere.crosscheck.Utf8Input;&#10;import org.safere.crosscheck.Utf8Matcher;&#10;import org.safere.crosscheck.Utf8Sink;"/>
                       </filterchain>
                     </copy>
                   </target>

@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.fail;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
@@ -148,6 +149,9 @@ final class ExhaustiveUtils {
       return 0;
     }
 
+    Utf8Coordinates utf8Coordinates = Utf8Coordinates.forText(text);
+    byte[] utf8 = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
     // Compare matches()
     tests++;
     try {
@@ -187,8 +191,7 @@ final class ExhaustiveUtils {
     try {
       java.util.regex.Matcher jdkM = jdkPat.matcher(text);
       Matcher safereM = saferePat.matcher(text);
-      byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-      Utf8Matcher safereByteM = saferePat.matcher(Utf8Input.validated(bytes));
+      Utf8Matcher safereByteM = saferePat.matcher(Utf8Input.validated(utf8));
 
       boolean jdkFound = jdkM.find();
       boolean safereFound = safereM.find();
@@ -220,7 +223,7 @@ final class ExhaustiveUtils {
         int byteEnd = safereByteM.end();
         String safereByteMatch =
             String.format(
-                "[%d,%d)", byteToCharOffset(text, byteStart), byteToCharOffset(text, byteEnd));
+                "[%d,%d)", utf8Coordinates.toUtf16(byteStart), utf8Coordinates.toUtf16(byteEnd));
 
         if (!jdkMatch.equals(safereMatch)) {
           failures.add(new TestResult(regexp, text, flags, "find/pos", safereMatch, jdkMatch));
@@ -232,7 +235,8 @@ final class ExhaustiveUtils {
           int sharedGroups = Math.min(jdkM.groupCount(), safereM.groupCount());
           String jdkGroups = extractGroups(jdkM, sharedGroups);
           String safereGroups = extractGroups(safereM, sharedGroups);
-          String safereByteGroups = extractGroupsForBytes(safereByteM, sharedGroups, text);
+          String safereByteGroups =
+              extractGroupsForBytes(safereByteM, sharedGroups, utf8Coordinates);
           if (!jdkGroups.equals(safereGroups)) {
             failures.add(
                 new TestResult(regexp, text, flags, "find/groups", safereGroups, jdkGroups));
@@ -254,8 +258,7 @@ final class ExhaustiveUtils {
     try {
       java.util.regex.Matcher jdkM = jdkPat.matcher(text);
       Matcher safereM = saferePat.matcher(text);
-      byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-      Utf8Matcher safereByteM = saferePat.matcher(Utf8Input.validated(bytes));
+      Utf8Matcher safereByteM = saferePat.matcher(Utf8Input.validated(utf8));
 
       List<String> jdkAll = new ArrayList<>();
       while (jdkM.find()) {
@@ -271,7 +274,7 @@ final class ExhaustiveUtils {
         int byteEnd = safereByteM.end();
         safereByteAll.add(
             String.format(
-                "[%d,%d)", byteToCharOffset(text, byteStart), byteToCharOffset(text, byteEnd)));
+                "[%d,%d)", utf8Coordinates.toUtf16(byteStart), utf8Coordinates.toUtf16(byteEnd)));
       }
 
       if (!jdkAll.equals(safereAll)) {
@@ -323,7 +326,8 @@ final class ExhaustiveUtils {
     return sb.toString();
   }
 
-  private static String extractGroupsForBytes(Utf8Matcher m, int maxGroups, String text) {
+  private static String extractGroupsForBytes(
+      Utf8Matcher m, int maxGroups, Utf8Coordinates coordinates) {
     int count = Math.min(m.groupCount(), maxGroups);
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i <= count; i++) {
@@ -332,23 +336,71 @@ final class ExhaustiveUtils {
       }
       int start = m.start(i);
       int end = m.end(i);
-      int charStart = byteToCharOffset(text, start);
-      int charEnd = byteToCharOffset(text, end);
+      int charStart = start < 0 ? -1 : coordinates.toUtf16(start);
+      int charEnd = end < 0 ? -1 : coordinates.toUtf16(end);
       sb.append(String.format("g%d=[%d,%d)", i, charStart, charEnd));
     }
     return sb.toString();
   }
 
-  private static int byteToCharOffset(String text, int byteOffset) {
-    if (byteOffset < 0) {
-      return -1;
+  /** Exact scalar-boundary mapping from relative UTF-8 offsets to UTF-16 String offsets. */
+  static final class Utf8Coordinates {
+    private final int[] utf16ByUtf8Offset;
+
+    private Utf8Coordinates(int[] utf16ByUtf8Offset) {
+      this.utf16ByUtf8Offset = utf16ByUtf8Offset;
     }
-    byte[] utf8 = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    if (byteOffset > utf8.length) {
-      return text.length();
+
+    static Utf8Coordinates forText(String text) {
+      byte[] utf8 = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      int[] utf16ByUtf8Offset = new int[utf8.length + 1];
+      Arrays.fill(utf16ByUtf8Offset, -1);
+      int utf8Offset = 0;
+      for (int utf16Offset = 0; utf16Offset < text.length(); ) {
+        char first = text.charAt(utf16Offset);
+        if (Character.isSurrogate(first)
+            && !(Character.isHighSurrogate(first)
+                && utf16Offset + 1 < text.length()
+                && Character.isLowSurrogate(text.charAt(utf16Offset + 1)))) {
+          throw new IllegalArgumentException(
+              "String contains an unpaired surrogate at UTF-16 offset " + utf16Offset);
+        }
+        utf16ByUtf8Offset[utf8Offset] = utf16Offset;
+        int codePoint = text.codePointAt(utf16Offset);
+        utf8Offset += utf8Length(codePoint);
+        utf16Offset += Character.charCount(codePoint);
+      }
+      utf16ByUtf8Offset[utf8Offset] = text.length();
+      if (utf8Offset != utf8.length) {
+        throw new IllegalStateException("UTF-8 coordinate map length mismatch");
+      }
+      return new Utf8Coordinates(utf16ByUtf8Offset);
     }
-    String prefix = new String(utf8, 0, byteOffset, java.nio.charset.StandardCharsets.UTF_8);
-    return prefix.length();
+
+    int toUtf16(int utf8Offset) {
+      if (utf8Offset < 0 || utf8Offset >= utf16ByUtf8Offset.length) {
+        throw new IndexOutOfBoundsException("UTF-8 offset: " + utf8Offset);
+      }
+      int utf16Offset = utf16ByUtf8Offset[utf8Offset];
+      if (utf16Offset < 0) {
+        throw new IllegalArgumentException(
+            "UTF-8 offset is not a Unicode scalar boundary: " + utf8Offset);
+      }
+      return utf16Offset;
+    }
+
+    private static int utf8Length(int codePoint) {
+      if (codePoint <= 0x7f) {
+        return 1;
+      }
+      if (codePoint <= 0x7ff) {
+        return 2;
+      }
+      if (codePoint <= 0xffff) {
+        return 3;
+      }
+      return 4;
+    }
   }
 
   /**
