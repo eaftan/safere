@@ -161,6 +161,10 @@ final class Dfa {
   private final int maxStates;
   private final boolean longest;
   private final boolean hasGraphemeSemantics;
+
+  /** Whether consuming transitions can depend on the absolute input position. */
+  private final boolean hasPositionDependentTransitions;
+
   private final int stateEmptyFlagsMask;
   private final int startCacheEmptyFlagsMask;
   private final int anchoredCacheBit;
@@ -261,6 +265,7 @@ final class Dfa {
     this.maxStates = maxStates;
     this.longest = longest;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
+    this.hasPositionDependentTransitions = hasGraphemeSemantics || prog.hasTextAnchor();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
             ? EmptyOp.ALL_FLAGS
@@ -695,6 +700,9 @@ final class Dfa {
   }
 
   private int emptyFlags(InputScanner text, int pos) {
+    if (!hasGraphemeSemantics && !prog.hasWordBoundary() && !prog.hasTextAnchor()) {
+      return 0;
+    }
     int flags =
         Nfa.emptyFlags(
             text,
@@ -815,17 +823,11 @@ final class Dfa {
     if (hasGraphemeSemantics) {
       return 0;
     }
-    if (!prog.hasTextAnchor() && !prog.dollarAnchorEnd()) {
-      return Integer.MAX_VALUE;
-    }
-    int threshold = Integer.MAX_VALUE;
-    if (prog.hasTextAnchor()) {
-      threshold = 1;
-    }
-    if (prog.dollarAnchorEnd()) {
-      threshold = Math.min(threshold, trailingLineStart(text));
-    }
-    return threshold;
+    // BEGIN_TEXT is represented by the start state, and BEGIN_LINE is normally derived from the
+    // consumed character. The only position-dependent transitions are therefore near text end:
+    // END_TEXT/DOLLAR_END, plus the exception that a final line terminator must not create a
+    // BEGIN_LINE assertion past the end of the input.
+    return trailingLineStart(text);
   }
 
   private int trailingLineStart(InputScanner text) {
@@ -835,6 +837,16 @@ final class Dfa {
     }
     int trailing = text.trailingLineTerminatorStart(prog.unixLines(), len);
     return trailing >= 0 ? trailing : len;
+  }
+
+  private boolean transitionDependsOnPosition(int cp, int position, int threshold) {
+    if (!hasPositionDependentTransitions || cp < 0) {
+      return false;
+    }
+    // In the default line-ending mode, BEGIN_LINE after a carriage return depends on whether the
+    // following character is a line feed. A transition cached for CRLF therefore cannot be reused
+    // for a standalone carriage return, or vice versa.
+    return position >= threshold || (!prog.unixLines() && cp == '\r');
   }
 
   /**
@@ -1228,7 +1240,7 @@ final class Dfa {
       int sId = s.id * numClasses;
       while (pos < limit) {
         int ch = text.asciiAt(pos);
-        if (ch < 0) {
+        if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
           break;
         }
         int cls = asciiClassMap[ch];
@@ -1263,7 +1275,7 @@ final class Dfa {
       }
 
       int ch = text.asciiAt(pos);
-      if (ch < 0) {
+      if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
         break; // fall back to general loop
       }
       int cls = asciiClassMap[ch];
@@ -1306,12 +1318,14 @@ final class Dfa {
       int nextPos;
       int cls;
       if (pos < textLen) {
-        int ch = text.asciiAt(pos);
-        if (ch >= 0) {
-          // ASCII fast path: no surrogate handling, use pre-computed class map.
-          cp = ch;
+        int singleUnitCodePoint = text.singleUnitCodePointAt(pos);
+        if (singleUnitCodePoint >= 0) {
+          cp = singleUnitCodePoint;
           nextPos = pos + 1;
-          cls = asciiClassMap[ch];
+          cls =
+              singleUnitCodePoint < asciiClassMap.length
+                  ? asciiClassMap[singleUnitCodePoint]
+                  : classOf(singleUnitCodePoint);
         } else {
           long decoded = text.decodeForward(pos);
           cp = InputScanner.codePoint(decoded);
@@ -1331,7 +1345,7 @@ final class Dfa {
       // is always safe to cache because it always means "at text end".
       int effectiveNextPos = Math.min(nextPos, textLen);
       State ns;
-      if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+      if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
         ns = computeNext(s, cp, text, effectiveNextPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1466,7 +1480,7 @@ final class Dfa {
         int sId = s.id * numClasses;
         while (pos > limit) {
           int ch = text.asciiAt(pos - 1);
-          if (ch < 0) {
+          if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
             break;
           }
           int cls = asciiClassMap[ch];
@@ -1520,7 +1534,7 @@ final class Dfa {
       }
 
       int ch = text.asciiAt(pos - 1);
-      if (ch < 0) {
+      if (ch < 0 || transitionDependsOnPosition(ch, pos - 1, posDepThreshold)) {
         break; // fall back
       }
       int cls = asciiClassMap[ch];
@@ -1579,12 +1593,14 @@ final class Dfa {
       int cls;
       if (pos > 0) {
         // Read the code point just before pos (scanning backward).
-        int ch = text.asciiAt(pos - 1);
-        if (ch >= 0) {
-          // ASCII fast path.
-          cp = ch;
+        int singleUnitCodePoint = text.singleUnitCodePointBefore(pos);
+        if (singleUnitCodePoint >= 0) {
+          cp = singleUnitCodePoint;
           prevPos = pos - 1;
-          cls = asciiClassMap[ch];
+          cls =
+              singleUnitCodePoint < asciiClassMap.length
+                  ? asciiClassMap[singleUnitCodePoint]
+                  : classOf(singleUnitCodePoint);
         } else {
           long decoded = text.decodeBackward(pos);
           cp = InputScanner.codePoint(decoded);
@@ -1601,7 +1617,7 @@ final class Dfa {
       // Bypass cache for position-dependent transitions (same invariant as doSearch).
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
-      if (cp >= 0 && effectivePrevPos >= posDepThreshold) {
+      if (transitionDependsOnPosition(cp, effectivePrevPos, posDepThreshold)) {
         ns = computeNext(s, cp, text, effectivePrevPos);
         if (ns == null) {
           return null; // budget exceeded
@@ -1732,7 +1748,7 @@ final class Dfa {
           break; // fall back to general loop for position-dependent context
         }
         int ch = text.asciiAt(pos);
-        if (ch < 0) {
+        if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
           break; // fall back
         }
         int cls = asciiClassMap[ch];
@@ -1788,11 +1804,14 @@ final class Dfa {
         int nextPos;
         int cls;
         if (pos < textLen) {
-          int c = text.asciiAt(pos);
-          if (c >= 0) {
-            cp = c;
+          int singleUnitCodePoint = text.singleUnitCodePointAt(pos);
+          if (singleUnitCodePoint >= 0) {
+            cp = singleUnitCodePoint;
             nextPos = pos + 1;
-            cls = asciiClassMap[c];
+            cls =
+                singleUnitCodePoint < asciiClassMap.length
+                    ? asciiClassMap[singleUnitCodePoint]
+                    : classOf(singleUnitCodePoint);
           } else {
             long decoded = text.decodeForward(pos);
             cp = InputScanner.codePoint(decoded);
@@ -1808,7 +1827,7 @@ final class Dfa {
         // Bypass cache for position-dependent transitions (same invariant as doSearch).
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
-        if (cp >= 0 && effectiveNextPos >= posDepThreshold) {
+        if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
           ns = computeNext(s, cp, text, effectiveNextPos);
           if (ns == null) {
             return null; // budget exceeded

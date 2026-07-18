@@ -14,6 +14,21 @@ interface InputScanner {
   /** Returns the ASCII value at {@code pos}, or {@code -1} if the unit is not ASCII. */
   int asciiAt(int pos);
 
+  /**
+   * Returns the code point at {@code pos} when it can be read directly from one index unit, or
+   * {@code -1} when full decoding is required.
+   */
+  int singleUnitCodePointAt(int pos);
+
+  /**
+   * Returns the code point before {@code pos} when it can be read directly from one index unit, or
+   * {@code -1} when full decoding is required.
+   */
+  int singleUnitCodePointBefore(int pos);
+
+  /** Returns the first position at or after {@code start} in the supplied code-point class. */
+  int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start);
+
   /** Decodes the scalar at {@code pos} and packs it with the following logical position. */
   long decodeForward(int pos);
 
@@ -51,5 +66,29 @@ interface InputScanner {
 
   static int position(long decoded) {
     return (int) decoded;
+  }
+
+  static boolean classContains(int[] ranges, long bitmap0, long bitmap1, int codePoint) {
+    if (codePoint < 64) {
+      return (bitmap0 & (1L << codePoint)) != 0;
+    }
+    if (codePoint < 128) {
+      return (bitmap1 & (1L << (codePoint - 64))) != 0;
+    }
+    int low = 0;
+    int high = ranges.length / 2 - 1;
+    while (low <= high) {
+      int middle = (low + high) >>> 1;
+      int rangeLow = ranges[middle * 2];
+      int rangeHigh = ranges[middle * 2 + 1];
+      if (codePoint < rangeLow) {
+        high = middle - 1;
+      } else if (codePoint > rangeHigh) {
+        low = middle + 1;
+      } else {
+        return true;
+      }
+    }
+    return false;
   }
 }

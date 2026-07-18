@@ -558,10 +558,14 @@ final class BitState {
 
         case InstOp.OP_CHAR_RANGE -> {
           if (pos < endPos) {
-            long decoded = text.decodeForward(pos);
-            int cp = InputScanner.codePoint(decoded);
+            int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
+            int nextPos = pos + 1;
+            if (cp < 0) {
+              long decoded = text.decodeForward(pos);
+              cp = InputScanner.codePoint(decoded);
+              nextPos = InputScanner.position(decoded);
+            }
             if (ip.matchesChar(cp)) {
-              int nextPos = InputScanner.position(decoded);
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }
@@ -571,10 +575,14 @@ final class BitState {
 
         case InstOp.OP_CHAR_CLASS -> {
           if (pos < endPos) {
-            long decoded = text.decodeForward(pos);
-            int cp = InputScanner.codePoint(decoded);
+            int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
+            int nextPos = pos + 1;
+            if (cp < 0) {
+              long decoded = text.decodeForward(pos);
+              cp = InputScanner.codePoint(decoded);
+              nextPos = InputScanner.position(decoded);
+            }
             if (ip.matchesCharClass(cp)) {
-              int nextPos = InputScanner.position(decoded);
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }

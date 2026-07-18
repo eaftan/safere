@@ -119,6 +119,18 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void requiredNonAsciiClassRejectsAsciiInputAcrossUtf8EntryPoints() {
+    Pattern pattern = Pattern.compile("[一-龥]{3,}");
+    Utf8Input absent = Utf8Input.trusted("ordinary ASCII text".getBytes(UTF_8));
+    Utf8Input present = Utf8Input.validated("prefix中文测试suffix".getBytes(UTF_8));
+
+    assertThat(pattern.find(absent)).isFalse();
+    assertThat(pattern.matcher(absent).find()).isFalse();
+    assertThat(pattern.find(present)).isTrue();
+    assertThat(pattern.matcher(present).find()).isTrue();
+  }
+
+  @Test
   void graphemePatternsWorkAcrossUtf8Scalars() {
     for (String input : List.of("a\r\nb", "a\u0301b", "👩‍💻x", "🇺🇸x", "क्‍षx")) {
       byte[] bytes = input.getBytes(UTF_8);

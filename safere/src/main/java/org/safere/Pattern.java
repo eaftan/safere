@@ -505,6 +505,15 @@ public final class Pattern implements Serializable {
     if (literalMatchUtf8 != null && !prefixFoldCase) {
       return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
     }
+    if (enginePathOptions.charClassMatchFastPaths()
+        && requiredMatchClassRanges != null
+        && prefixUtf8 == null
+        && charClassPrefixAscii == null
+        && scanner.indexOfCodePointClass(
+                requiredMatchClassRanges, requiredMatchClassBitmap0, requiredMatchClassBitmap1, 0)
+            < 0) {
+      return false;
+    }
     int searchStart = 0;
     if (prefixUtf8 != null && !prefixFoldCase) {
       searchStart = scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts);

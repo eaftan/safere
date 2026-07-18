@@ -28,6 +28,42 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
+  public int singleUnitCodePointAt(int pos) {
+    char c = text.charAt(pos);
+    return Character.isHighSurrogate(c)
+            && pos + 1 < text.length()
+            && Character.isLowSurrogate(text.charAt(pos + 1))
+        ? -1
+        : c;
+  }
+
+  @Override
+  public int singleUnitCodePointBefore(int pos) {
+    char c = text.charAt(pos - 1);
+    return Character.isLowSurrogate(c)
+            && pos >= 2
+            && Character.isHighSurrogate(text.charAt(pos - 2))
+        ? -1
+        : c;
+  }
+
+  @Override
+  public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
+    int position = Math.max(0, start);
+    while (position < text.length()) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int codePoint = text.codePointAt(position);
+      if (InputScanner.classContains(ranges, bitmap0, bitmap1, codePoint)) {
+        return position;
+      }
+      position += Character.charCount(codePoint);
+    }
+    return -1;
+  }
+
+  @Override
   public long decodeForward(int pos) {
     if (pos >= text.length()) {
       return InputScanner.decoded(END_OF_INPUT, text.length());
@@ -43,6 +79,16 @@ final class StringInputScanner implements InputScanner {
     }
     int codePoint = text.codePointBefore(pos);
     return InputScanner.decoded(codePoint, pos - Character.charCount(codePoint));
+  }
+
+  @Override
+  public int codePointAt(int pos) {
+    return pos >= text.length() ? END_OF_INPUT : text.codePointAt(pos);
+  }
+
+  @Override
+  public int codePointBefore(int pos) {
+    return pos <= 0 ? END_OF_INPUT : text.codePointBefore(pos);
   }
 
   @Override
