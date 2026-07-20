@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for package-private {@link Pattern} metadata. */
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
@@ -171,6 +172,58 @@ class PatternInternalTest {
     assertThat(p.requiredMatchClassRanges()).isNotNull();
   }
 
+  @ParameterizedTest
+  @CsvSource({
+    "'.*(x|y).*',             xy, az",
+    "'.*(?:m|n).*',           mn, xz",
+    "'.*([0-2]|[7-9]).*',     08, 56",
+    "'.*((?:α|β))+.*',        αβ, γδ",
+    "'.*(?:ab|cd).*',         ac, bd"
+  })
+  void mandatoryAlternativesRecordTheirRequiredCharacterUnion(
+      String regex, String members, String nonMembers) {
+    Pattern p = Pattern.compile(regex);
+
+    assertThat(p.requiredMatchClassRanges()).isNotNull();
+    members
+        .codePoints()
+        .forEach(codePoint -> assertThat(requiredClassContains(p, codePoint)).isTrue());
+    nonMembers
+        .codePoints()
+        .forEach(codePoint -> assertThat(requiredClassContains(p, codePoint)).isFalse());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {".*(x|).*", ".*(?:x|y)?.*", ".*(?:x|y){0,3}.*", ".*(?:x|y|.*).*"})
+  void nullableAlternativesDoNotRecordRequiredCharacterClasses(String regex) {
+    assertThat(Pattern.compile(regex).requiredMatchClassRanges()).isNull();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "'.*coolfunctionname.*',       coolfunctionname",
+    "'.*(needle).*',               needle",
+    "'(?:ab)+.*',                  ab",
+    "'.*short.*much-longer.*',     much-longer",
+    "'.*前置.*かなり長い必要語.*', かなり長い必要語"
+  })
+  void mandatoryCaseSensitiveLiteralsAreRecorded(String regex, String expected) {
+    assertThat(Pattern.compile(regex).requiredLiteral()).isEqualTo(expected);
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        ".*(?:needle)?.*",
+        "(?i).*needle.*",
+        ".*(?:needle|thread).*",
+        ".*(?:needle){0,2}.*",
+        "needle.*"
+      })
+  void optionalCaseInsensitiveAndAlreadyPrefixedLiteralsAreNotRecorded(String regex) {
+    assertThat(Pattern.compile(regex).requiredLiteral()).isNull();
+  }
+
   @Test
   void boundaryPrefixedLiteralRecordsRequiredClass() {
     Pattern p = Pattern.compile("\\b{g}z");
@@ -183,6 +236,14 @@ class PatternInternalTest {
     Pattern p = Pattern.compile(".*");
 
     assertThat(p.requiredMatchClassRanges()).isNull();
+  }
+
+  private static boolean requiredClassContains(Pattern pattern, int codePoint) {
+    return InputScanner.classContains(
+        pattern.requiredMatchClassRanges(),
+        pattern.requiredMatchClassBitmap0(),
+        pattern.requiredMatchClassBitmap1(),
+        codePoint);
   }
 
   @ParameterizedTest(name = "compile(\"{0}\").numGroups() == {1}")
