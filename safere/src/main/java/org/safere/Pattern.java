@@ -148,15 +148,26 @@ public final class Pattern implements Serializable {
   private final transient long singleCharClassBitmap1;
 
   /**
-   * Precomputed character class data for a mandatory character class in a full-match pattern.
-   * Non-null when {@code matches()} can reject by scanning for an absent required code point before
-   * invoking the full engine cascade. This is intentionally a negative-only accelerator: if the
-   * class is present, normal matching still determines the result.
+   * Precomputed character class data for a mandatory character class. Non-null when matching can
+   * reject by scanning for an absent required code point before invoking the full engine cascade.
+   * This is intentionally a negative-only accelerator: if the class is present, normal matching
+   * still determines the result.
    */
   private final transient int[] requiredMatchClassRanges;
 
   private final transient long requiredMatchClassBitmap0;
   private final transient long requiredMatchClassBitmap1;
+
+  /**
+   * A case-sensitive literal substring that every match must contain. This is a negative-only
+   * accelerator: an absent literal rejects the search, while a present literal still goes through
+   * the normal engine to determine match boundaries and captures.
+   */
+  private final transient String requiredLiteral;
+
+  private final transient byte[] requiredLiteralUtf8;
+  private final transient int[] requiredLiteralFailure;
+  private final transient int[] requiredLiteralShifts;
 
   /**
    * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
@@ -250,6 +261,7 @@ public final class Pattern implements Serializable {
       int[] requiredMatchClassRanges,
       long requiredMatchClassBitmap0,
       long requiredMatchClassBitmap1,
+      String requiredLiteral,
       EnginePathOptions enginePathOptions) {
     this.pattern = pattern;
     this.flags = flags;
@@ -312,6 +324,15 @@ public final class Pattern implements Serializable {
     this.requiredMatchClassRanges = requiredMatchClassRanges;
     this.requiredMatchClassBitmap0 = requiredMatchClassBitmap0;
     this.requiredMatchClassBitmap1 = requiredMatchClassBitmap1;
+    this.requiredLiteral = requiredLiteral;
+    this.requiredLiteralUtf8 =
+        requiredLiteral == null
+            ? null
+            : requiredLiteral.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    this.requiredLiteralFailure =
+        requiredLiteralUtf8 == null ? null : literalFailure(requiredLiteralUtf8);
+    this.requiredLiteralShifts =
+        requiredLiteralUtf8 == null ? null : literalShifts(requiredLiteralUtf8);
 
     // Eagerly compute analysis and setup to avoid latency spikes on first use.
     onePassAnalysis();
@@ -384,7 +405,9 @@ public final class Pattern implements Serializable {
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     CharClassScanInfo singleCharClass = extractSingleCharClass(metadataAst);
-    CharClassScanInfo requiredMatchClass = extractRequiredMatchClass(metadataAst);
+    CharClassScanInfo requiredMatchClass =
+        extractRequiredMatchClass(metadataAst, prefix == null && ccPrefixAscii == null);
+    String requiredLiteral = prefix == null ? extractRequiredLiteral(metadataAst) : null;
     // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
     return new Pattern(
         regex,
@@ -414,6 +437,7 @@ public final class Pattern implements Serializable {
         requiredMatchClass != null ? requiredMatchClass.ranges : null,
         requiredMatchClass != null ? requiredMatchClass.bitmap0 : 0,
         requiredMatchClass != null ? requiredMatchClass.bitmap1 : 0,
+        requiredLiteral,
         enginePathOptions);
   }
 
@@ -504,6 +528,13 @@ public final class Pattern implements Serializable {
     int length = scanner.length();
     if (literalMatchUtf8 != null && !prefixFoldCase) {
       return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
+    }
+    if (enginePathOptions.literalFastPaths()
+        && requiredLiteralUtf8 != null
+        && prefixUtf8 == null
+        && scanner.indexOf(requiredLiteralUtf8, requiredLiteralFailure, requiredLiteralShifts, 0)
+            < 0) {
+      return false;
     }
     if (enginePathOptions.charClassMatchFastPaths()
         && requiredMatchClassRanges != null
@@ -1048,10 +1079,7 @@ public final class Pattern implements Serializable {
     return singleCharClassBitmap1;
   }
 
-  /**
-   * Returns precomputed ranges for a required character class in {@code matches()}, or {@code
-   * null}.
-   */
+  /** Returns precomputed ranges for a required character class, or {@code null}. */
   int[] requiredMatchClassRanges() {
     return requiredMatchClassRanges;
   }
@@ -1064,6 +1092,22 @@ public final class Pattern implements Serializable {
   /** ASCII bitmap (code points 64–127) for the required-character-class fast path. */
   long requiredMatchClassBitmap1() {
     return requiredMatchClassBitmap1;
+  }
+
+  String requiredLiteral() {
+    return requiredLiteral;
+  }
+
+  byte[] requiredLiteralUtf8() {
+    return requiredLiteralUtf8;
+  }
+
+  int[] requiredLiteralFailure() {
+    return requiredLiteralFailure;
+  }
+
+  int[] requiredLiteralShifts() {
+    return requiredLiteralShifts;
   }
 
   /**
@@ -2178,35 +2222,37 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Detects a mandatory character class in a full-match pattern, such as {@code .*\\s+.*}. The
-   * resulting class is only used to reject inputs that contain no matching code point; positive
-   * results still go through the normal engine to preserve full regex semantics.
+   * Detects a mandatory character class, such as the whitespace in {@code .*\\s+.*}. The resulting
+   * class is only used to reject inputs that contain no matching code point; positive results still
+   * go through the normal engine to preserve full regex semantics.
+   *
+   * <p>Alternation is inspected only when no start-character accelerator was found. For a leading
+   * alternation, its union is already represented more precisely by that accelerator; constructing
+   * the same union again would add compile-time work without improving searches.
    */
-  private static CharClassScanInfo extractRequiredMatchClass(Regexp re) {
-    if (hasUserCaptures(re)) {
+  private static CharClassScanInfo extractRequiredMatchClass(
+      Regexp re, boolean inspectAlternation) {
+    Regexp node = unwrapRequiredNode(re);
+    if (node == null) {
       return null;
     }
-    Regexp node = re;
-    if (node.op == RegexpOp.CAPTURE && node.cap == 0) {
-      node = node.sub();
-    }
     if (node.op != RegexpOp.CONCAT || node.subs == null) {
-      CharClass cc = requiredCharClass(node);
-      return cc != null ? buildCharClassScanInfo(cc) : null;
+      CharClass required = requiredCharClass(node, inspectAlternation);
+      return required != null ? buildCharClassScanInfo(required) : null;
     }
     for (Regexp sub : node.subs) {
-      CharClass cc = requiredCharClass(sub);
-      if (cc != null) {
-        return buildCharClassScanInfo(cc);
+      CharClass required = requiredCharClass(sub, inspectAlternation);
+      if (required != null) {
+        return buildCharClassScanInfo(required);
       }
     }
     return null;
   }
 
-  private static CharClass requiredCharClass(Regexp re) {
-    Regexp node = re;
-    if (node.op == RegexpOp.NON_CAPTURE) {
-      node = node.sub();
+  private static CharClass requiredCharClass(Regexp re, boolean inspectAlternation) {
+    Regexp node = unwrapRequiredNode(re);
+    if (node == null) {
+      return null;
     }
     if (node.op == RegexpOp.LITERAL) {
       return literalCharClass(node.rune, node.flags);
@@ -2217,13 +2263,101 @@ public final class Pattern implements Serializable {
     if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null) {
       return node.charClass.isEmpty() ? null : node.charClass;
     }
-    if ((node.op == RegexpOp.PLUS || (node.op == RegexpOp.REPEAT && node.min > 0))
-        && node.sub().op == RegexpOp.CHAR_CLASS
-        && node.sub().charClass != null
-        && !node.sub().charClass.isEmpty()) {
-      return node.sub().charClass;
+    if (inspectAlternation
+        && node.op == RegexpOp.ALTERNATE
+        && node.subs != null
+        && !node.subs.isEmpty()) {
+      CharClassBuilder union = new CharClassBuilder();
+      for (Regexp branch : node.subs) {
+        CharClass branchClass = requiredAtomicCharClass(branch);
+        if (branchClass == null) {
+          return null;
+        }
+        union.addCharClass(branchClass);
+      }
+      CharClass result = union.build();
+      return result.isEmpty() ? null : result;
     }
     return null;
+  }
+
+  private static CharClass requiredAtomicCharClass(Regexp re) {
+    Regexp node = unwrapRequiredNode(re);
+    if (node == null) {
+      return null;
+    }
+    if (node.op == RegexpOp.LITERAL) {
+      return literalCharClass(node.rune, node.flags);
+    }
+    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
+      return literalCharClass(node.runes[0], node.flags);
+    }
+    if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null && !node.charClass.isEmpty()) {
+      return node.charClass;
+    }
+    return null;
+  }
+
+  private static Regexp unwrapRequiredNode(Regexp re) {
+    Regexp node = re;
+    while (true) {
+      if (node.op == RegexpOp.CAPTURE
+          || node.op == RegexpOp.NON_CAPTURE
+          || node.op == RegexpOp.PLUS) {
+        node = node.sub();
+        continue;
+      }
+      if (node.op == RegexpOp.REPEAT) {
+        if (node.min == 0) {
+          return null;
+        }
+        node = node.sub();
+        continue;
+      }
+      return node;
+    }
+  }
+
+  /**
+   * Finds the longest case-sensitive literal substring that every match must contain.
+   *
+   * <p>The worklist descends only through operators whose children are mandatory: concatenation,
+   * transparent groups, and repetitions with a positive minimum. It deliberately stops at
+   * alternation and optional repetition, so the result can only reject inputs that cannot match.
+   */
+  private static String extractRequiredLiteral(Regexp re) {
+    String longest = null;
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    while (!pending.isEmpty()) {
+      Regexp node = pending.removeLast();
+      switch (node.op) {
+        case CAPTURE, NON_CAPTURE, PLUS -> pending.addLast(node.sub());
+        case REPEAT -> {
+          if (node.min > 0) {
+            pending.addLast(node.sub());
+          }
+        }
+        case CONCAT -> {
+          if (node.subs != null) {
+            for (Regexp sub : node.subs) {
+              pending.addLast(sub);
+            }
+          }
+        }
+        case LITERAL_STRING -> {
+          if ((node.flags & ParseFlags.FOLD_CASE) == 0
+              && node.runes != null
+              && node.runes.length >= 2
+              && (longest == null
+                  || node.runes.length > longest.codePointCount(0, longest.length()))) {
+            longest = new String(node.runes, 0, node.runes.length);
+          }
+        }
+        default -> {}
+      }
+    }
+    return longest;
   }
 
   private static CharClass literalCharClass(int cp, int flags) {

@@ -1303,6 +1303,24 @@ public final class Matcher implements MatchResult {
       return applyFailedMatchResult();
     }
 
+    String requiredLiteral = parentPattern.requiredLiteral();
+    if (options.literalFastPaths()
+        && requiredLiteral != null
+        && parentPattern.prefix() == null
+        && (text != null || scanner instanceof Utf8InputScanner)) {
+      int idx =
+          scanner instanceof Utf8InputScanner utf8Scanner
+              ? utf8Scanner.indexOf(
+                  parentPattern.requiredLiteralUtf8(),
+                  parentPattern.requiredLiteralFailure(),
+                  parentPattern.requiredLiteralShifts(),
+                  searchFrom)
+              : text.indexOf(requiredLiteral, searchFrom);
+      if (idx < 0) {
+        return applyFailedMatchResult();
+      }
+    }
+
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     boolean hasAcceleratedSearchPath =
         (parentPattern.prefix() != null)

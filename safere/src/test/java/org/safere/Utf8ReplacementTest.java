@@ -193,6 +193,28 @@ class Utf8ReplacementTest {
   }
 
   @Test
+  void requiredCapturedClassPrefilterPreservesReplacementResults() {
+    assertThat(replace(".*(x|y).*", "aaaaaaaa", "X")).isEqualTo("aaaaaaaa");
+    assertThat(replace(".*(x|y).*", "aaaayaaa", "[$1]")).isEqualTo("[y]");
+    assertThat(replace(".*(cat|dog).*", "birds only", "X")).isEqualTo("birds only");
+    assertThat(replace(".*(cat|dog).*", "a dog appears", "[$1]")).isEqualTo("[dog]");
+    assertThat(replace(".*(α|β).*", "γδ", "X")).isEqualTo("γδ");
+    assertThat(replace(".*(α|β).*", "γβδ", "[$1]")).isEqualTo("[β]");
+  }
+
+  @Test
+  void requiredLiteralPrefilterPreservesReplacementResults() {
+    assertThat(replace(".*coolfunctionname.*", "cool-function-name", "X"))
+        .isEqualTo("cool-function-name");
+    assertThat(replace(".*coolfunctionname.*", "before coolfunctionname after", "X"))
+        .isEqualTo("X");
+    assertThat(replace(".*mandatory-token.*", "mandatory token", "X")).isEqualTo("mandatory token");
+    assertThat(replace(".*mandatory-token.*", "before mandatory-token after", "X")).isEqualTo("X");
+    assertThat(replace(".*必要語.*", "これは不要です", "X")).isEqualTo("これは不要です");
+    assertThat(replace(".*必要語.*", "これは必要語です", "X")).isEqualTo("X");
+  }
+
+  @Test
   @DisplayName("array and buffer sink dispatch preserve chunk boundaries and caller position")
   void sinkDispatchPreservesChunksAndBufferPosition() {
     CollectingSink sink = new CollectingSink();
