@@ -1303,10 +1303,15 @@ public final class Matcher implements MatchResult {
       return applyFailedMatchResult();
     }
 
+    boolean hasAcceleratedSearchPath =
+        (parentPattern.prefix() != null)
+            || (prog.anchorEnd()
+                && scanner.length() >= MIN_REVERSE_FIRST_LEN
+                && canUseReverseDfa());
     String requiredLiteral = parentPattern.requiredLiteral();
     if (options.literalFastPaths()
         && requiredLiteral != null
-        && parentPattern.prefix() == null
+        && !hasAcceleratedSearchPath
         && (text != null || scanner instanceof Utf8InputScanner)) {
       int idx =
           scanner instanceof Utf8InputScanner utf8Scanner
@@ -1315,18 +1320,13 @@ public final class Matcher implements MatchResult {
                   parentPattern.requiredLiteralFailure(),
                   parentPattern.requiredLiteralShifts(),
                   searchFrom)
-              : text.indexOf(requiredLiteral, searchFrom);
+              : indexOfRequiredLiteral(requiredLiteral);
       if (idx < 0) {
         return applyFailedMatchResult();
       }
     }
 
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
-    boolean hasAcceleratedSearchPath =
-        (parentPattern.prefix() != null)
-            || (prog.anchorEnd()
-                && scanner.length() >= MIN_REVERSE_FIRST_LEN
-                && canUseReverseDfa());
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
         && !hasAcceleratedSearchPath
@@ -1737,6 +1737,13 @@ public final class Matcher implements MatchResult {
     } else {
       return applyDeferredMatchResult(result[0], result[1], prog.numCaptures(), true, false);
     }
+  }
+
+  private int indexOfRequiredLiteral(String requiredLiteral) {
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record(Math.max(0, text.length() - searchFrom));
+    }
+    return text.indexOf(requiredLiteral, searchFrom);
   }
 
   private boolean findKeywordAlternation(
