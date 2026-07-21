@@ -1,6 +1,7 @@
 # Releasing SafeRE
 
-This document describes how to publish a new release of SafeRE to Maven Central.
+This document describes how to publish a new release of SafeRE to Maven Central
+and create its GitHub release notes.
 
 ## Prerequisites
 
@@ -29,11 +30,53 @@ git pull --ff-only
 Update release-facing documentation if needed, such as the version shown in the
 README installation snippets.
 
-### 2. Run local verification
+### 2. Prepare the release notes
+
+Collect the complete commit messages since the previous release:
 
 ```bash
-mvn -pl safere verify --batch-mode --no-transfer-progress
+PREVIOUS_RELEASE_TAG=$(git describe --tags --abbrev=0)
+git log --reverse --format='commit %H%n%n%B%n---' \
+  "${PREVIOUS_RELEASE_TAG}..HEAD" > /tmp/safere-release-commits.txt
 ```
+
+Review every commit in `/tmp/safere-release-commits.txt` and summarize the
+user-facing changes in `/tmp/safere-vX.Y.Z-release-notes.md`. Use the following
+structure, omitting empty sections:
+
+```markdown
+## Highlights
+
+A short description of the most important release themes.
+
+## New features
+
+- User-facing APIs and newly supported behavior.
+
+## Compatibility and correctness
+
+- JDK compatibility improvements and important bug fixes.
+
+## Performance
+
+- Meaningful optimizations, with measured results when available.
+
+## Other changes
+
+- Other changes users should know about.
+
+**Full changelog:** https://github.com/eaftan/safere/compare/PREVIOUS_TAG...vX.Y.Z
+```
+
+The commit messages are the complete input inventory, but the release notes
+should be a concise, curated summary rather than a copy of the commit log. Put
+breaking changes and migration requirements first. Follow links to pull
+requests or issues when a commit message does not provide enough context to
+describe its user-visible effect accurately.
+
+Local verification is not repeated here because every change merged into
+`main` has already passed CI. The release workflow verifies the tagged release
+build before publishing it.
 
 ### 3. Tag the release
 
@@ -62,7 +105,19 @@ Pushing the tag triggers the
 - After a few minutes, verify the artifact appears on
   [Maven Central](https://central.sonatype.com/artifact/org.safere/safere).
 
-### 6. Bump to next SNAPSHOT
+### 6. Publish the GitHub release notes
+
+After the release workflow succeeds and the artifact is available on Maven
+Central, create a GitHub Release from the tag using the prepared notes:
+
+```bash
+gh release create vX.Y.Z \
+  --verify-tag \
+  --title "SafeRE X.Y.Z" \
+  --notes-file /tmp/safere-vX.Y.Z-release-notes.md
+```
+
+### 7. Bump to next SNAPSHOT
 
 After a successful release, bump `main` to the next development version:
 
