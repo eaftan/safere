@@ -15,6 +15,16 @@ final class Utf8InputScanner implements InputScanner {
   private static final int REPLACEMENT_CHARACTER = 0xFFFD;
   private static final long BYTE_ONES = 0x0101_0101_0101_0101L;
   private static final long BYTE_HIGH_BITS = 0x8080_8080_8080_8080L;
+
+  /**
+   * Input sizes at which the SWAR candidate filter overtakes the skip loop. The filter always
+   * advances eight positions per step, while the skip loop can advance as far as the literal
+   * length, so the filter needs an input large enough to outweigh that per-step advantage. Both
+   * bounds were measured; see {@link #indexOfFiltered}.
+   */
+  private static final int MIN_FILTER_LENGTH = 64;
+
+  private static final int FILTER_LENGTH_FACTOR = 40;
   private static final VarHandle LONG_VIEW = byteArrayViewVarHandle(long[].class, nativeOrder());
 
   private final byte[] bytes;
@@ -132,15 +142,37 @@ final class Utf8InputScanner implements InputScanner {
     if (literal.length == 0) {
       return start;
     }
-    if (literal.length == 1 && !WorkCounterConfig.ENABLED) {
-      return indexOfByte(literal[0], start);
-    }
-    if (!WorkCounterConfig.ENABLED && shifts != null) {
-      int result = boundedBoyerMooreHorspool(literal, shifts, start);
-      if (result >= -1) {
-        return result;
+    if (!WorkCounterConfig.ENABLED) {
+      if (literal.length == 1) {
+        return indexOfByte(literal[0], start);
+      }
+      if (shifts != null) {
+        // Both searches beat the linear scan, but they win over different ranges. The skip loop
+        // reaches the end of a short input in a handful of steps, while the candidate filter has
+        // to pay for its wider setup and finish with a scalar tail. Once the input is long enough
+        // for the filter's eight-positions-per-step throughput to dominate that fixed cost, it
+        // wins by a growing margin. The crossover scales with the literal length, since a longer
+        // literal lets the skip loop advance further per step.
+        int result =
+            remaining(start) >= Math.max(MIN_FILTER_LENGTH, literal.length * FILTER_LENGTH_FACTOR)
+                ? indexOfFiltered(literal, failure, start)
+                : boundedBoyerMooreHorspool(literal, shifts, start);
+        // A match index or a trusted -1; only the -2 "work budget exhausted" sentinel falls
+        // through to the linear-time scan below.
+        if (result >= -1) {
+          return result;
+        }
       }
     }
+    return indexOfLinear(literal, failure, start);
+  }
+
+  private int remaining(int start) {
+    return length - start;
+  }
+
+  /** Knuth-Morris-Pratt scan, linear in the input length regardless of the literal. */
+  private int indexOfLinear(byte[] literal, int[] failure, int start) {
     int matched = 0;
     for (int position = start; position < length; position++) {
       if (WorkCounterConfig.ENABLED) {
@@ -186,11 +218,18 @@ final class Utf8InputScanner implements InputScanner {
     return indexOfBytePair((byte) first, (byte) second, start);
   }
 
+  /**
+   * Boyer-Moore-Horspool with a bad-character skip table, used for inputs too short to amortize the
+   * candidate filter's setup.
+   *
+   * @return the index of the first match, {@code -1} if the literal is absent, or {@code -2} if the
+   *     work budget was exhausted before either could be established
+   */
   private int boundedBoyerMooreHorspool(byte[] literal, int[] shifts, int start) {
     int last = literal.length - 1;
     int position = start + last;
     int work = 0;
-    int workLimit = Math.max(1, (length - start) * 2);
+    int workLimit = Math.max(1, remaining(start) * 2);
     while (position < length) {
       int literalPosition = last;
       int inputPosition = position;
@@ -212,6 +251,81 @@ final class Utf8InputScanner implements InputScanner {
       work++;
     }
     return -1;
+  }
+
+  /**
+   * Searches for a multi-byte {@code literal} by locating candidate positions with a SWAR filter on
+   * the literal's first and last bytes, then verifying each candidate in full.
+   *
+   * <p>Two words are loaded per step, one aligned with the literal's first byte and one with its
+   * last byte. XOR-ing each against the corresponding broadcast byte turns matching positions into
+   * zero bytes, so the standard zero-byte test identifies positions where both the first and last
+   * byte agree. Requiring both bytes makes candidates far rarer than a single-byte filter would.
+   *
+   * <p>This examines eight positions per step with no data-dependent branching. A skip loop such as
+   * Boyer-Moore-Horspool can advance further per step, but each of its steps is a serialized load,
+   * table lookup, and add, which costs more than the wider branch-free step here.
+   *
+   * <p>The zero-byte test never misses a matching position, but it can flag a position that does
+   * not match, so every candidate is verified against the whole literal rather than trusting the
+   * filter for the first and last byte.
+   *
+   * <p>Verification is O(literal length) per candidate, so an adversarial input can drive this to
+   * O(input length * literal length). A work budget bounds that: on exhaustion this returns {@code
+   * -2} and the caller falls back to linear-time KMP.
+   *
+   * @return the index of the first match, {@code -1} if the literal is absent, or {@code -2} if the
+   *     work budget was exhausted before either could be established
+   */
+  private int indexOfFiltered(byte[] literal, int[] failure, int start) {
+    int last = literal.length - 1;
+    long repeatedFirst = (literal[0] & 0xFFL) * BYTE_ONES;
+    long repeatedLast = (literal[last] & 0xFFL) * BYTE_ONES;
+    int wordEnd = length - last - Long.BYTES;
+    int work = 0;
+    int workLimit = Math.max(1, (length - start) * 2);
+    int position = start;
+    while (position <= wordEnd) {
+      long firstDifference = (long) LONG_VIEW.get(bytes, offset + position) ^ repeatedFirst;
+      long lastDifference = (long) LONG_VIEW.get(bytes, offset + position + last) ^ repeatedLast;
+      long candidates =
+          (firstDifference - BYTE_ONES)
+              & ~firstDifference
+              & (lastDifference - BYTE_ONES)
+              & ~lastDifference
+              & BYTE_HIGH_BITS;
+      if (candidates != 0) {
+        // Scanning the eight positions in address order keeps this independent of byte order and
+        // returns the leftmost match within the word.
+        for (int index = 0; index < Long.BYTES; index++) {
+          int candidate = position + index;
+          if (bytes[offset + candidate] == literal[0]) {
+            if (matchesAt(literal, candidate)) {
+              return candidate;
+            }
+            work += literal.length;
+          }
+        }
+        work += Long.BYTES;
+      }
+      position += Long.BYTES;
+      work++;
+      if (work >= workLimit) {
+        return -2;
+      }
+    }
+    // Fewer than literal.length + Long.BYTES positions remain. Finishing with the linear scan
+    // keeps the tail linear rather than comparing the whole literal at each remaining position.
+    return indexOfLinear(literal, failure, position);
+  }
+
+  private boolean matchesAt(byte[] literal, int position) {
+    for (int index = 0; index < literal.length; index++) {
+      if (bytes[offset + position + index] != literal[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private int indexOfByte(byte target, int start) {

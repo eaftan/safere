@@ -149,6 +149,125 @@ class Utf8InputScannerTest {
     }
   }
 
+  /**
+   * Smallest input that selects the SWAR candidate filter over the skip loop, mirroring {@code
+   * Utf8InputScanner.MIN_FILTER_LENGTH} and {@code FILTER_LENGTH_FACTOR}. Tests run each scenario
+   * both below and above this bound so that both search paths are covered.
+   */
+  private static int filterThreshold(int literalLength) {
+    return Math.max(64, literalLength * 40);
+  }
+
+  @Test
+  void multiByteLiteralSearchCoversEveryWindowAlignmentAndPosition() {
+    // The candidate filter reads eight positions at a time and hands the remainder to a linear
+    // tail, so every combination of window alignment and match position must agree.
+    for (String literal : List.of("zy", "zqy", "zabcdefy", "zabcdefghijy")) {
+      byte[] needle = literal.getBytes(UTF_8);
+      for (int window : new int[] {40, filterThreshold(needle.length) + 40}) {
+        for (int offset = 0; offset < Long.BYTES * 2; offset++) {
+          for (int expected = 0; expected <= window - needle.length; expected++) {
+            byte[] storage = new byte[offset + window + Long.BYTES];
+            Arrays.fill(storage, (byte) 'a');
+            System.arraycopy(needle, 0, storage, offset + expected, needle.length);
+            Utf8InputScanner scanner = new Utf8InputScanner(storage, offset, window);
+
+            assertThat(scanner.indexOf(needle, literalFailure(needle), literalShifts(needle)))
+                .as(
+                    "literal %s, window %s, offset %s, position %s",
+                    literal, window, offset, expected)
+                .isEqualTo(expected);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void multiByteLiteralSearchFindsMatchesFromEveryStartPosition() {
+    byte[] needle = "cab".getBytes(UTF_8);
+    int[] failure = literalFailure(needle);
+    int[] shifts = literalShifts(needle);
+    // Long enough that early start positions select the filter and late ones fall back to the
+    // skip loop as the remaining input shrinks past the threshold.
+    for (int repeats : new int[] {11, filterThreshold(needle.length)}) {
+      byte[] haystack = "abc".repeat(repeats).getBytes(UTF_8);
+      String text = new String(haystack, UTF_8);
+      Utf8InputScanner scanner = new Utf8InputScanner(haystack);
+
+      for (int start = 0; start <= haystack.length; start++) {
+        assertThat(scanner.indexOf(needle, failure, shifts, start))
+            .as("repeats %s, start %s", repeats, start)
+            .isEqualTo(text.indexOf("cab", start));
+      }
+    }
+  }
+
+  @Test
+  void multiByteLiteralSearchAgreesWithStringIndexOfOnDenseCandidateInput() {
+    // A tiny alphabet makes nearly every position pass the first/last byte filter, which is the
+    // input shape that exhausts the work budget and falls back to the linear-time scan. Texts run
+    // well past the filter threshold so the budget is actually reachable.
+    Random random = new Random(0x5AFE_5EAL);
+    for (int trial = 0; trial < 20_000; trial++) {
+      int alphabet = 1 + random.nextInt(3);
+      String text = randomFromAlphabet(random, random.nextInt(1200), alphabet);
+      String literal = randomFromAlphabet(random, 2 + random.nextInt(10), alphabet);
+      byte[] needle = literal.getBytes(UTF_8);
+      Utf8InputScanner scanner = new Utf8InputScanner(text.getBytes(UTF_8));
+      int start = text.isEmpty() ? 0 : random.nextInt(text.length());
+
+      assertThat(scanner.indexOf(needle, literalFailure(needle), literalShifts(needle), start))
+          .as("%s in %s from %s", literal, text, start)
+          .isEqualTo(text.indexOf(literal, start));
+    }
+  }
+
+  @Test
+  void multiByteLiteralSearchHandlesMatchesAtTheVeryEndOfTheInput() {
+    for (int length = 2; length <= 20; length++) {
+      StringBuilder literal = new StringBuilder();
+      for (int index = 0; index < length; index++) {
+        literal.append((char) ('a' + (index % 5)));
+      }
+      byte[] needle = literal.toString().getBytes(UTF_8);
+      // Prefix lengths straddle the threshold so the match lands in the filter's tail as well as
+      // in the skip loop.
+      for (int prefix :
+          new int[] {0, 19, filterThreshold(needle.length), filterThreshold(needle.length) + 7}) {
+        String text = "z".repeat(prefix) + literal;
+        Utf8InputScanner scanner = new Utf8InputScanner(text.getBytes(UTF_8));
+
+        assertThat(scanner.indexOf(needle, literalFailure(needle), literalShifts(needle)))
+            .as("length %s, prefix %s", length, prefix)
+            .isEqualTo(prefix);
+      }
+    }
+  }
+
+  @Test
+  void multiByteLiteralSearchAgreesWithStringIndexOfOnNonAsciiLiterals() {
+    List<String> literals = List.of("é", "café", "日本語", "😀x", "aé😀");
+    List<String> texts =
+        List.of("", "café", "le café est chaud", "日本語のテキスト", "😀😀x", "aé😀aé😀", "z".repeat(50));
+    for (String literal : literals) {
+      byte[] needle = literal.getBytes(UTF_8);
+      int[] failure = literalFailure(needle);
+      int[] shifts = literalShifts(needle);
+      for (String text : texts) {
+        // Padding pushes the same case past the threshold so both paths see non-ASCII literals.
+        for (String padded :
+            List.of(text, "\u00e9\u65e5".repeat(filterThreshold(needle.length)) + text)) {
+          byte[] haystack = padded.getBytes(UTF_8);
+
+          assertThat(new Utf8InputScanner(haystack).indexOf(needle, failure, shifts))
+              .as("%s in %s", literal, padded)
+              .isEqualTo(naiveIndexOf(haystack, needle, 0));
+        }
+      }
+    }
+  }
+
   @Test
   void emptySingleByteAndFourByteWindowsStayBounded() {
     Utf8InputScanner empty = new Utf8InputScanner(new byte[] {'x'}, 1, 0);
@@ -233,6 +352,56 @@ class Utf8InputScannerTest {
       assertThat(jdkError).as("JDK accepted %s", Arrays.toString(bytes)).isNotEqualTo(-1);
       assertThat(e).hasMessageContaining("byte " + jdkError);
     }
+  }
+
+  /** Builds the KMP failure function, mirroring what {@code Pattern} precomputes per literal. */
+  private static int[] literalFailure(byte[] literal) {
+    int[] failure = new int[literal.length];
+    int matched = 0;
+    for (int index = 1; index < literal.length; index++) {
+      while (matched > 0 && literal[index] != literal[matched]) {
+        matched = failure[matched - 1];
+      }
+      if (literal[index] == literal[matched]) {
+        matched++;
+      }
+      failure[index] = matched;
+    }
+    return failure;
+  }
+
+  /** Builds the bad-character skip table, mirroring what {@code Pattern} precomputes. */
+  private static int[] literalShifts(byte[] literal) {
+    if (literal.length < 2) {
+      return null;
+    }
+    int[] shifts = new int[256];
+    Arrays.fill(shifts, literal.length);
+    for (int index = 0; index < literal.length - 1; index++) {
+      shifts[literal[index] & 0xFF] = literal.length - index - 1;
+    }
+    return shifts;
+  }
+
+  private static int naiveIndexOf(byte[] haystack, byte[] needle, int start) {
+    outer:
+    for (int position = start; position + needle.length <= haystack.length; position++) {
+      for (int index = 0; index < needle.length; index++) {
+        if (haystack[position + index] != needle[index]) {
+          continue outer;
+        }
+      }
+      return position;
+    }
+    return -1;
+  }
+
+  private static String randomFromAlphabet(Random random, int length, int alphabet) {
+    StringBuilder result = new StringBuilder(length);
+    for (int index = 0; index < length; index++) {
+      result.append((char) ('a' + random.nextInt(alphabet)));
+    }
+    return result.toString();
   }
 
   private static String randomAscii(Random random, int length) {
