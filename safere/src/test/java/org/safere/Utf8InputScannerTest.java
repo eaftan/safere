@@ -159,6 +159,18 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void literalSearchSizeArithmeticDoesNotOverflowForLargeArrays() {
+    assertThat(Utf8InputScanner.filterThreshold(Integer.MAX_VALUE)).isEqualTo(85_899_345_880L);
+    assertThat(Utf8InputScanner.workLimit(Integer.MAX_VALUE)).isEqualTo(4_294_967_294L);
+  }
+
+  @Test
+  void candidateVerificationWorkDoesNotWrapPastIntegerMaximum() {
+    assertThat(Utf8InputScanner.addCandidateWork(2_100_000_000L, 8, 20_000_000))
+        .isEqualTo(2_260_000_008L);
+  }
+
+  @Test
   void multiByteLiteralSearchCoversEveryWindowAlignmentAndPosition() {
     // The candidate filter reads eight positions at a time and hands the remainder to a linear
     // tail, so every combination of window alignment and match position must agree.

@@ -154,7 +154,7 @@ final class Utf8InputScanner implements InputScanner {
         // wins by a growing margin. The crossover scales with the literal length, since a longer
         // literal lets the skip loop advance further per step.
         int result =
-            remaining(start) >= Math.max(MIN_FILTER_LENGTH, literal.length * FILTER_LENGTH_FACTOR)
+            remaining(start) >= filterThreshold(literal.length)
                 ? indexOfFiltered(literal, failure, start)
                 : boundedBoyerMooreHorspool(literal, shifts, start);
         // A match index or a trusted -1; only the -2 "work budget exhausted" sentinel falls
@@ -169,6 +169,18 @@ final class Utf8InputScanner implements InputScanner {
 
   private int remaining(int start) {
     return length - start;
+  }
+
+  static long filterThreshold(int literalLength) {
+    return Math.max(MIN_FILTER_LENGTH, (long) literalLength * FILTER_LENGTH_FACTOR);
+  }
+
+  static long workLimit(int remaining) {
+    return Math.max(1L, (long) remaining * 2);
+  }
+
+  static long addCandidateWork(long work, int candidateCount, int literalLength) {
+    return work + (long) candidateCount * literalLength + Long.BYTES;
   }
 
   /** Knuth-Morris-Pratt scan, linear in the input length regardless of the literal. */
@@ -228,8 +240,8 @@ final class Utf8InputScanner implements InputScanner {
   private int boundedBoyerMooreHorspool(byte[] literal, int[] shifts, int start) {
     int last = literal.length - 1;
     int position = start + last;
-    int work = 0;
-    int workLimit = Math.max(1, remaining(start) * 2);
+    long work = 0;
+    long workLimit = workLimit(remaining(start));
     while (position < length) {
       int literalPosition = last;
       int inputPosition = position;
@@ -282,8 +294,8 @@ final class Utf8InputScanner implements InputScanner {
     long repeatedFirst = (literal[0] & 0xFFL) * BYTE_ONES;
     long repeatedLast = (literal[last] & 0xFFL) * BYTE_ONES;
     int wordEnd = length - last - Long.BYTES;
-    int work = 0;
-    int workLimit = Math.max(1, (length - start) * 2);
+    long work = 0;
+    long workLimit = workLimit(remaining(start));
     int position = start;
     while (position <= wordEnd) {
       long firstDifference = (long) LONG_VIEW.get(bytes, offset + position) ^ repeatedFirst;
@@ -297,16 +309,17 @@ final class Utf8InputScanner implements InputScanner {
       if (candidates != 0) {
         // Scanning the eight positions in address order keeps this independent of byte order and
         // returns the leftmost match within the word.
+        int candidateCount = 0;
         for (int index = 0; index < Long.BYTES; index++) {
           int candidate = position + index;
           if (bytes[offset + candidate] == literal[0]) {
             if (matchesAt(literal, candidate)) {
               return candidate;
             }
-            work += literal.length;
+            candidateCount++;
           }
         }
-        work += Long.BYTES;
+        work = addCandidateWork(work, candidateCount, literal.length);
       }
       position += Long.BYTES;
       work++;
