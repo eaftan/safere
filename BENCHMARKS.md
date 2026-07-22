@@ -47,6 +47,14 @@ The full collection command was:
 ./collect-benchmark-results.sh --cross-language
 ```
 
+The targeted long confirmation command was:
+
+```bash
+./run-java-benchmarks.sh --long \
+  '^org\.safere\.benchmark\.RegexBenchmark\.alternationFind_safere$' \
+  '^org\.safere\.benchmark\.ApplicationBenchmark\.logLineParse_safere$'
+```
+
 Java used the standard project configuration: 2 forks, 2 warmup iterations of
 500 ms, and 5 measurement iterations of 500 ms. Pathological classes used
 `-f 0` so infeasible JDK cases could not strand forked JVMs. The allocation
@@ -103,6 +111,8 @@ ratio from 0.528 (1.89× faster) to 0.625 (1.60× faster).
 | Capture groups | 87 | 90 | 572 | 327 | 73 | 234 |
 | Email find | 206 | 392 | 1,923 | 244 | 83 | 548 |
 | Find in prose | 2,587 | 2,965 | 19,921 | 4,174 | 18 | 12,621 |
+| Pig Latin replacement | 2,338 | 955 | 8,307 | 2,455 | 1,816 | 2,828 |
+| Full HTTP parsing | 384 | 94 | 8,328 | 423 | 305 | 920 |
 
 | Application case (ns/op) | SafeRE | JDK | RE2/J | RE2-FFM | C++ RE2 | Go |
 |---|---:|---:|---:|---:|---:|---:|
@@ -318,6 +328,10 @@ The hard case, `[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$`, is rejected in roughly
 constant time by SafeRE and native C++ RE2. JDK exhibits quadratic behavior;
 RE2/J and Go remain linear but scan the input. Easy and medium cases show that
 linear-time safety does not imply one universal constant factor.
+
+| Pathological comparison (n=20, µs/op) | SafeRE | JDK | RE2/J | RE2-FFM | C++ RE2 | Go |
+|---|---:|---:|---:|---:|---:|---:|
+| `a?{20}a{20}` on `a{20}` | 0.09 | 17,670 | 6.9 | 0.10 | 0.07 | 3.0 |
 
 For `a?{n}a{n}` on `a{n}`, SafeRE grows from 0.05 µs at n=10 to 0.31 µs at
 n=100. RE2/J grows from 1.9 to 153 µs, Go from 0.87 to 64 µs, and native C++
