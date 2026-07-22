@@ -568,20 +568,22 @@ See [BENCHMARKS.md](BENCHMARKS.md) for full results. Highlights:
 
 | Benchmark | SafeRE | JDK | RE2/J | RE2-FFM | C++ RE2 | Go | vs JDK |
 |---|--:|--:|--:|--:|--:|--:|---|
-| Literal match | 9 ns | 13 ns | 126 ns | 55 ns | 40 ns | 78 ns | **1.4× faster** |
-| Capture groups (3) | 94 ns | 75 ns | 958 ns | 329 ns | 84 ns | 311 ns | 1.3× slower |
-| Capture groups (10) | 200 ns | 235 ns | 1,398 ns | 737 ns | 367 ns | 600 ns | **1.2× faster** |
-| Hard pattern (1 MB) | 0.019 µs | 43,773 µs | 37,857 µs | 152 µs | 0.048 µs | 25,445 µs | **2.3M× faster** |
-| Pathological (n=20) | 0.072 µs | 15,389 µs | 6.64 µs | 0.092 µs | 0.071 µs | 3.07 µs | **210,808× faster** |
-| Literal replaceFirst | 30 ns | 40 ns | 147 ns | 215 ns | 98 ns | 605 ns | **1.3× faster** |
+| Literal match | 14 ns | 13 ns | 127 ns | 59 ns | 40 ns | 76 ns | 1.1× slower |
+| Alternation find | 226 ns | 529 ns | 4,437 ns | 656 ns | 19 ns | 1,699 ns | **2.3× faster** |
+| Capture groups (10) | 214 ns | 247 ns | 1,485 ns | 765 ns | 356 ns | 578 ns | **1.2× faster** |
+| Hard pattern (1 MiB) | 0.04 µs | 44,845 µs | 38,996 µs | 350 µs | 0.04 µs | 25,453 µs | **1.1M× faster** |
+| Pathological (n=20) | 0.09 µs | 17,670 µs | 6.9 µs | 0.10 µs | 0.07 µs | 3.0 µs | **196,000× faster** |
+| Literal replaceFirst | 55 ns | 41 ns | 149 ns | 217 ns | 98 ns | 583 ns | 1.3× slower |
 
 **Summary (geometric mean of speed ratios):**
 
-| vs | Core workloads | Pathological/scaling |
-|---|---|---|
-| JDK | 1.1× slower | **13,500× faster** |
-| RE2/J | **11.5× faster** | **2,930× faster** |
-| RE2-FFM | **2.1× faster** | **17.3× faster** |
+| vs | Core | Application | Real-world matrix | Pathological/scaling |
+|---|---|---|---|---|
+| JDK | 1.09× slower | approximately even | **1.89× faster** | **13,500× faster** |
+| RE2/J | **11.7× faster** | **7.81× faster** | **10.6× faster** | **2,820× faster** |
+| RE2-FFM | **2.19× faster** | **1.66× faster** | **2.54× faster** | **23.2× faster** |
+| C++ RE2 | 2.32× slower | 1.32× slower | 1.44× slower | 1.11× slower |
+| Go `regexp` | **3.99× faster** | **2.01× faster** | **6.17× faster** | **1,520× faster** |
 
 ## License
 
