@@ -177,6 +177,13 @@ public final class Pattern implements Serializable {
   private transient volatile OnePassAnalysis onePassAnalysis;
 
   /**
+   * Whether a matcher created from this pattern has requested an inner capture. This adaptive
+   * signal lets later small-input match operations avoid a redundant DFA pass when capture
+   * extraction is demonstrably part of the workload.
+   */
+  private transient volatile boolean innerCapturesObserved;
+
+  /**
    * Lazily computed DFA equivalence-class setup for the forward program. Shared across all Matcher
    * instances. Computed on first access to avoid paying the boundary-scan cost at compile time.
    */
@@ -811,6 +818,16 @@ public final class Pattern implements Serializable {
 
   EnginePathOptions enginePathOptions() {
     return enginePathOptions;
+  }
+
+  boolean innerCapturesObserved() {
+    return innerCapturesObserved;
+  }
+
+  void recordInnerCaptureAccess() {
+    if (!innerCapturesObserved) {
+      innerCapturesObserved = true;
+    }
   }
 
   /** Returns the thread-local cached BitState, or null if none has been cached yet. */

@@ -74,6 +74,13 @@ public final class Matcher implements MatchResult {
    */
   private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
 
+  /**
+   * Maximum input length for adapting match operations to observed inner-capture demand. On small
+   * inputs BitState can produce the boolean result and all capture bounds in one bounded pass;
+   * larger inputs retain the DFA's scanning advantage.
+   */
+  private static final int CAPTURE_DEMAND_TEXT_LIMIT = 512;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
@@ -305,6 +312,22 @@ public final class Matcher implements MatchResult {
 
   private EnginePathOptions enginePathOptions() {
     return parentPattern.enginePathOptions();
+  }
+
+  private void recordInnerCaptureDemand() {
+    if (!eagerFallbackCaptures) {
+      parentPattern.recordInnerCaptureAccess();
+      eagerFallbackCaptures = true;
+    }
+  }
+
+  private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
+    return parentPattern.innerCapturesObserved()
+        && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
+        && enginePathOptions().bitState()
+        && !fullTextRegionContext
+        && !prog.hasGraphemeSemantics()
+        && BitState.maxTextSize(prog) >= scanner.length();
   }
 
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
@@ -622,6 +645,9 @@ public final class Matcher implements MatchResult {
    */
   private void applyReplacementTemplate(StringBuilder sb, ReplacementSegment[] template) {
     if (templateNeedsCaptures(template)) {
+      if (!capturesResolved) {
+        recordInnerCaptureDemand();
+      }
       resolveCaptures();
     }
     for (ReplacementSegment seg : template) {
@@ -750,8 +776,11 @@ public final class Matcher implements MatchResult {
     }
 
     InputScanner scanner = activeScanner();
+    boolean preferCaptureEngine = shouldPreferCaptureEngine(prog, scanner);
     // Medium path: use DFA to check if a full match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+    if (!preferCaptureEngine
+        && enginePathOptions().dfa()
+        && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       Dfa.SearchResult dfaResult = dfa(true).doSearch(scanner, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         return applyFailedMatchResult();
@@ -1441,6 +1470,27 @@ public final class Matcher implements MatchResult {
     // for anchored matching, trying deterministic anchored matches at successive positions can
     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
+
+    // Once callers have demonstrated that they consume inner captures, use the capture-aware
+    // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
+    // replaying the same range through BitState on every successful find().
+    if (shouldPreferCaptureEngine(prog, scanner)) {
+      int[] result =
+          searchWithBitStateOrNfa(
+              prog,
+              scanner,
+              effectiveStart,
+              scanner.length(),
+              scanner.length(),
+              scanner.length(),
+              false,
+              false,
+              false,
+              prog.numCaptures(),
+              false,
+              this.groups);
+      return applyFullMatchResult(result);
+    }
 
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
     // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
@@ -2219,7 +2269,11 @@ public final class Matcher implements MatchResult {
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
       if (group != 0) {
-        eagerFallbackCaptures = true;
+        if (!capturesResolved) {
+          recordInnerCaptureDemand();
+        } else {
+          eagerFallbackCaptures = true;
+        }
       }
       resolveCaptures();
     }
@@ -2254,7 +2308,11 @@ public final class Matcher implements MatchResult {
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
       if (group != 0) {
-        eagerFallbackCaptures = true;
+        if (!capturesResolved) {
+          recordInnerCaptureDemand();
+        } else {
+          eagerFallbackCaptures = true;
+        }
       }
       resolveCaptures();
     }
@@ -3034,7 +3092,11 @@ public final class Matcher implements MatchResult {
    *     operation failed
    */
   public MatchResult toMatchResult() {
-    eagerFallbackCaptures = true;
+    if (parentPattern.numGroups() > 0 && !capturesResolved) {
+      recordInnerCaptureDemand();
+    } else {
+      eagerFallbackCaptures = true;
+    }
     if (hasMatch) {
       resolveCaptures();
     }
