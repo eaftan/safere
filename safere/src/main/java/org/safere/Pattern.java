@@ -1686,19 +1686,25 @@ public final class Pattern implements Serializable {
     }
   }
 
-  /** Fast-path data for {@code (?i)\b(keyword|...)\b}. */
+  /** Fast-path data for {@code (?i)\b(keyword|...)\b} and its greedy whole-input form. */
   static final class KeywordAlternation {
     final String[] keywords;
     final boolean[] firstAscii;
     final int captureGroup;
     final boolean unicodeWordBoundary;
+    final boolean greedyWholeInput;
 
     KeywordAlternation(
-        String[] keywords, boolean[] firstAscii, int captureGroup, boolean unicodeWordBoundary) {
+        String[] keywords,
+        boolean[] firstAscii,
+        int captureGroup,
+        boolean unicodeWordBoundary,
+        boolean greedyWholeInput) {
       this.keywords = keywords;
       this.firstAscii = firstAscii;
       this.captureGroup = captureGroup;
       this.unicodeWordBoundary = unicodeWordBoundary;
+      this.greedyWholeInput = greedyWholeInput;
     }
   }
 
@@ -1899,12 +1905,22 @@ public final class Pattern implements Serializable {
     }
 
     Regexp node = unwrapImplicitCapture(re);
-    if (node == null || node.op != RegexpOp.CONCAT || node.nsub() != 3) {
+    if (node == null || node.op != RegexpOp.CONCAT) {
       return null;
     }
-    Regexp before = unwrapImplicitCapture(node.subs.get(0));
-    Regexp middle = unwrapImplicitCapture(node.subs.get(1));
-    Regexp after = unwrapImplicitCapture(node.subs.get(2));
+    boolean greedyWholeInput = false;
+    int coreOffset = 0;
+    if (node.nsub() == 5
+        && isGreedyAnyCharStar(node.subs.getFirst())
+        && isGreedyAnyCharStar(node.subs.getLast())) {
+      greedyWholeInput = true;
+      coreOffset = 1;
+    } else if (node.nsub() != 3) {
+      return null;
+    }
+    Regexp before = unwrapImplicitCapture(node.subs.get(coreOffset));
+    Regexp middle = unwrapImplicitCapture(node.subs.get(coreOffset + 1));
+    Regexp after = unwrapImplicitCapture(node.subs.get(coreOffset + 2));
     if (before == null
         || before.op != RegexpOp.WORD_BOUNDARY
         || after == null
@@ -1939,7 +1955,16 @@ public final class Pattern implements Serializable {
     }
 
     boolean unicodeWordBoundary = (before.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
-    return new KeywordAlternation(keywords, firstAscii, captureGroup, unicodeWordBoundary);
+    return new KeywordAlternation(
+        keywords, firstAscii, captureGroup, unicodeWordBoundary, greedyWholeInput);
+  }
+
+  private static boolean isGreedyAnyCharStar(Regexp re) {
+    Regexp node = unwrapImplicitCapture(re);
+    return node != null
+        && node.op == RegexpOp.STAR
+        && !node.nonGreedy()
+        && node.sub().op == RegexpOp.ANY_CHAR;
   }
 
   private static boolean hasOtherUserCaptures(Regexp re, int allowedCapture) {
