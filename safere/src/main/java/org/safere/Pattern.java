@@ -96,8 +96,8 @@ public final class Pattern implements Serializable {
   private final String pattern;
   private final int flags;
   private final transient Prog prog;
-  private final transient Prog flatProg;
-  private final transient Prog flatDfaProg;
+  private transient volatile Prog flatProg;
+  private transient volatile Prog flatDfaProg;
   private final transient Regexp ast;
 
   private final transient Map<String, Integer> namedGroups;
@@ -273,27 +273,6 @@ public final class Pattern implements Serializable {
     this.pattern = pattern;
     this.flags = flags;
     this.prog = prog;
-    if (enginePathOptions.dfa()) {
-      this.flatProg = new Prog(prog);
-      this.flatProg.flatten();
-      this.flatProg.freeze();
-      if (prog.numLoopRegs() > 0) {
-        Prog dfaProg = Compiler.compileForDfa(ast);
-        if (dfaProg != null) {
-          this.flatDfaProg = new Prog(dfaProg);
-          this.flatDfaProg.flatten();
-          this.flatDfaProg.freeze();
-        } else {
-          this.flatDfaProg = this.flatProg;
-        }
-      } else {
-        this.flatDfaProg = this.flatProg;
-      }
-    } else {
-      this.flatProg = null;
-      this.flatDfaProg = null;
-    }
-
     this.ast = ast;
     this.namedGroups = namedGroups;
     this.prefix = prefix;
@@ -340,13 +319,6 @@ public final class Pattern implements Serializable {
         requiredLiteralUtf8 == null ? null : literalFailure(requiredLiteralUtf8);
     this.requiredLiteralShifts =
         requiredLiteralUtf8 == null ? null : literalShifts(requiredLiteralUtf8);
-
-    // Eagerly compute analysis and setup to avoid latency spikes on first use.
-    onePassAnalysis();
-    forwardDfaSetup();
-    if (!prog.anchorStart()) {
-      flatReverseDfaProg();
-    }
   }
 
   /**
@@ -863,17 +835,40 @@ public final class Pattern implements Serializable {
    * from warm DFA transitions.
    */
   Prog flatProg() {
-    return flatProg;
+    Prog fp = flatProg;
+    if (fp == null && enginePathOptions.dfa()) {
+      fp = new Prog(prog);
+      fp.flatten();
+      fp.freeze();
+      flatProg = fp;
+    }
+    return fp;
   }
 
   Prog flatDfaProg() {
-    return flatDfaProg;
+    Prog fp = flatDfaProg;
+    if (fp == null && enginePathOptions.dfa()) {
+      if (prog.numLoopRegs() > 0) {
+        Prog dfaProg = Compiler.compileForDfa(ast);
+        if (dfaProg != null) {
+          fp = new Prog(dfaProg);
+          fp.flatten();
+          fp.freeze();
+        } else {
+          fp = flatProg();
+        }
+      } else {
+        fp = flatProg();
+      }
+      flatDfaProg = fp;
+    }
+    return fp;
   }
 
   Dfa forwardFirstMatchDfa() {
     Dfa dfa = cachedForwardFirstMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), false);
+      dfa = new Dfa(flatDfaProg(), MAX_DFA_STATES, forwardDfaSetup(), false);
       cachedForwardFirstMatchDfa.set(dfa);
     }
     return dfa;
@@ -882,7 +877,7 @@ public final class Pattern implements Serializable {
   Dfa forwardLongestMatchDfa() {
     Dfa dfa = cachedForwardLongestMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), true);
+      dfa = new Dfa(flatDfaProg(), MAX_DFA_STATES, forwardDfaSetup(), true);
       cachedForwardLongestMatchDfa.set(dfa);
     }
     return dfa;
@@ -1186,7 +1181,8 @@ public final class Pattern implements Serializable {
   Dfa.Setup forwardDfaSetup() {
     Dfa.Setup setup = forwardDfaSetup;
     if (setup == null) {
-      setup = Dfa.buildSetup(flatProg != null ? flatProg : prog);
+      Prog dfaProg = flatDfaProg();
+      setup = Dfa.buildSetup(dfaProg != null ? dfaProg : prog);
       forwardDfaSetup = setup;
     }
     return setup;

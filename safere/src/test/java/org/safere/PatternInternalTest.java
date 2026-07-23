@@ -19,6 +19,26 @@ import org.junit.jupiter.params.provider.ValueSource;
 class PatternInternalTest {
 
   @Test
+  void engineAnalysesRemainLazyUntilRequested() throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile("(foo|bar)+");
+
+    assertThat(field(pattern, "flatProg")).isNull();
+    assertThat(field(pattern, "flatDfaProg")).isNull();
+    assertThat(field(pattern, "onePassAnalysis")).isNull();
+    assertThat(field(pattern, "forwardDfaSetup")).isNull();
+    assertThat(field(pattern, "reverseProg")).isNull();
+    assertThat(field(pattern, "flatReverseProg")).isNull();
+    assertThat(field(pattern, "flatReverseDfaProg")).isNull();
+    assertThat(field(pattern, "reverseDfaSetup")).isNull();
+
+    assertThat(pattern.matcher("foo bar").find()).isTrue();
+    assertThat(field(pattern, "flatProg")).isNotNull();
+    assertThat(field(pattern, "flatDfaProg")).isNotNull();
+    assertThat(field(pattern, "onePassAnalysis")).isNotNull();
+    assertThat(field(pattern, "forwardDfaSetup")).isNotNull();
+  }
+
+  @Test
   void testOnePassEligibility() {
     Pattern p1 =
         Pattern.compile(
@@ -85,6 +105,12 @@ class PatternInternalTest {
     pattern.matcher("the quick brown fox").replaceAll("$2$1ay");
 
     assertThat(pattern.innerCapturesObserved()).isTrue();
+  }
+
+  private static Object field(Pattern pattern, String name) throws ReflectiveOperationException {
+    var field = Pattern.class.getDeclaredField(name);
+    field.setAccessible(true);
+    return field.get(pattern);
   }
 
   @Test
