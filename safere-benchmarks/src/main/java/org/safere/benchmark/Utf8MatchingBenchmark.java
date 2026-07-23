@@ -111,6 +111,44 @@ public class Utf8MatchingBenchmark extends ByteMatchingBenchmark {
     return state.pattern.matcher(state.text).find();
   }
 
+  /** Measures a full literal scan over a large input where the literal is absent. */
+  @Benchmark
+  public boolean literalScan(LiteralScanState state) {
+    return state.pattern.find(state.input);
+  }
+
+  @State(Scope.Thread)
+  public static class LiteralScanState {
+    @Param({"fourByte", "shortWord", "longWord"})
+    public String name;
+
+    private org.safere.Pattern pattern;
+    private org.safere.Utf8Input input;
+
+    /**
+     * Builds a frozen pseudo-random single-byte-alphabet input that does not contain the literal,
+     * so every invocation scans the whole input.
+     */
+    @Setup
+    public void setup() {
+      BenchmarkData data = BenchmarkData.get();
+      String prefix = "utf8Matching.literalScan.";
+      String alphabet = data.getString(prefix + "alphabet");
+      int size = data.getInt(prefix + "textSize");
+      java.util.Random random = new java.util.Random(data.getInt(prefix + "seed"));
+      StringBuilder text = new StringBuilder(size);
+      for (int index = 0; index < size; index++) {
+        text.append(alphabet.charAt(random.nextInt(alphabet.length())));
+      }
+      String literal = data.getString(prefix + "patterns." + name);
+      if (text.indexOf(literal) >= 0) {
+        throw new IllegalStateException("literal " + literal + " must be absent from the input");
+      }
+      pattern = org.safere.Pattern.compile(literal);
+      input = org.safere.Utf8Input.trusted(text.toString().getBytes(StandardCharsets.UTF_8));
+    }
+  }
+
   @State(Scope.Thread)
   public static class CaptureFreeState {
     @Param({

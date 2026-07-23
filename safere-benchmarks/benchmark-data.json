@@ -51,6 +51,16 @@
   },
 
   "utf8Matching": {
+    "literalScan": {
+      "seed": 20260721,
+      "textSize": 32768,
+      "alphabet": "abcdefghijklmnopqrstuvwxyz",
+      "patterns": {
+        "fourByte": "qjxv",
+        "shortWord": "literal",
+        "longWord": "coolfunctionname"
+      }
+    },
     "captureFreeFind": {
       "asciiEarly": { "pattern": "ERROR", "text": "ERROR request completed" },
       "asciiLate": { "pattern": "ERROR", "text": "request completed with ERROR" },
