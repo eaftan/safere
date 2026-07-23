@@ -79,6 +79,15 @@ class PatternInternalTest {
   }
 
   @Test
+  void replacementGroupConsumptionRecordsCaptureDemand() {
+    Pattern pattern = Pattern.compile("(qu|[b-df-hj-np-tv-z]*)([a-z]+)");
+
+    pattern.matcher("the quick brown fox").replaceAll("$2$1ay");
+
+    assertThat(pattern.innerCapturesObserved()).isTrue();
+  }
+
+  @Test
   void caseInsensitiveAsciiLiteralPreservesLiteralAccelerators() {
     Pattern p = Pattern.compile("(?i)needle");
 

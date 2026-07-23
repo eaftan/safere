@@ -1249,6 +1249,29 @@ class MatcherTest {
           .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("X"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "abc", "aa", "baab", "💰a💰"})
+    @DisplayName("nullable repeated character-class replacement matches JDK across input shapes")
+    void nullableRepeatedCharacterClassReplacementMatchesJdk(String input) {
+      String regex = "a*";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("xyz"));
+      assertThat(Pattern.compile(regex).matcher(input).replaceFirst("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("xyz"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[a-z]+", "[a-z]*"})
+    @DisplayName("character-class replacement fallback retains the first match")
+    void characterClassReplacementFallbackRetainsFirstMatch(String regex) {
+      String input = "abc def";
+      String replacement = "[$0]";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll(replacement))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll(replacement));
+    }
+
     @Test
     @DisplayName("replaceAll() with nullable alternation matches JDK replacement sequence")
     void replaceAllNullableAlternationMatchesJdkReplacementSequence() {
@@ -1357,6 +1380,21 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(0);
       assertThat(m.end()).isEqualTo(3);
       assertThat(m.group()).isEqualTo("123");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
+    @DisplayName("nullable char-class fast path records first match before throwing")
+    void nullableCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
+      Matcher matcher = Pattern.compile("a*").matcher("abc");
+
+      assertThatThrownBy(() -> matcher.replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(matcher.start()).isEqualTo(0);
+      assertThat(matcher.end()).isEqualTo(1);
+      assertThat(matcher.group()).isEqualTo("a");
     }
 
     @Test
@@ -1640,6 +1678,7 @@ class MatcherTest {
       Matcher m = p.matcher("b");
       String result = m.replaceAll("x");
       assertThat(result).isEqualTo("xbx");
+      assertThat(m.find()).isFalse();
     }
 
     @Test

@@ -2204,18 +2204,20 @@ public final class Pattern implements Serializable {
 
     Regexp inner = node.sub();
 
-    // The quantified element must be a character class.
-    if (inner.op != RegexpOp.CHAR_CLASS || inner.charClass == null) {
-      return null;
-    }
-
     // Reject if the original pattern has user capture groups — the fast path only produces
     // group 0, so it can't provide group(1) etc.
     if (hasUserCaptures(re)) {
       return null;
     }
 
-    CharClass cc = inner.charClass;
+    CharClass cc;
+    if (inner.op == RegexpOp.CHAR_CLASS && inner.charClass != null) {
+      cc = inner.charClass;
+    } else if (inner.op == RegexpOp.LITERAL) {
+      cc = literalCharClass(inner.rune, inner.flags);
+    } else {
+      return null;
+    }
     if (cc.isEmpty()) {
       return null;
     }
