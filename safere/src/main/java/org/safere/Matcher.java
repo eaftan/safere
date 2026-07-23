@@ -1798,6 +1798,9 @@ public final class Matcher implements MatchResult {
 
   private boolean findKeywordAlternation(
       Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
+    if (keywordAlternation.greedyWholeInput) {
+      return findGreedyWholeInputKeywordAlternation(keywordAlternation, startPos, ncap);
+    }
     for (int i = Math.max(0, startPos); i < text.length(); i++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
@@ -1809,7 +1812,7 @@ public final class Matcher implements MatchResult {
         for (String keyword : keywordAlternation.keywords) {
           int end = i + keyword.length();
           if (end <= text.length()
-              && text.regionMatches(true, i, keyword, 0, keyword.length())
+              && regionMatchesAsciiIgnoreCase(text, i, keyword, 0, keyword.length())
               && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
             int[] keywordGroups = new int[2 * ncap];
             Arrays.fill(keywordGroups, -1);
@@ -1826,6 +1829,39 @@ public final class Matcher implements MatchResult {
       }
       int cp = text.codePointAt(i);
       i += Character.charCount(cp) - 1;
+    }
+    return applyFailedMatchResult();
+  }
+
+  private boolean findGreedyWholeInputKeywordAlternation(
+      Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
+    int matchStart = Math.max(0, startPos);
+    for (int i = text.length() - 1; i >= matchStart; i--) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      char ch = text.charAt(i);
+      if (ch < 128
+          && keywordAlternation.firstAscii[asciiLower(ch)]
+          && isWordBoundaryAt(i, keywordAlternation.unicodeWordBoundary)) {
+        for (String keyword : keywordAlternation.keywords) {
+          int end = i + keyword.length();
+          if (end <= text.length()
+              && regionMatchesAsciiIgnoreCase(text, i, keyword, 0, keyword.length())
+              && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
+            int[] keywordGroups = new int[2 * ncap];
+            Arrays.fill(keywordGroups, -1);
+            keywordGroups[0] = matchStart;
+            keywordGroups[1] = text.length();
+            if (keywordAlternation.captureGroup > 0) {
+              int group = keywordAlternation.captureGroup;
+              keywordGroups[2 * group] = i;
+              keywordGroups[2 * group + 1] = end;
+            }
+            return applyFullMatchResult(keywordGroups);
+          }
+        }
+      }
     }
     return applyFailedMatchResult();
   }

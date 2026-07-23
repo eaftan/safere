@@ -568,6 +568,37 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("keyword alternation keeps default case folding ASCII-only")
+    void keywordAlternationKeepsDefaultCaseFoldingAsciiOnly() {
+      assertAllFindsMatchJdk("(?i)\\b(ak|as)\\b", "a\u212Ax ask");
+      assertAllFindsMatchJdk("(?is).*\\b(ak|as)\\b.*", "a\u212Ax ask");
+    }
+
+    @Test
+    @DisplayName("greedy whole-input keyword alternation preserves rightmost capture")
+    void greedyWholeInputKeywordAlternationPreservesRightmostCapture() {
+      assertAllFindsMatchJdk(
+          "(?is).*\\b(you|your)\\b.*",
+          "You spoke first.\nThen your example referred to YOU at the end.");
+    }
+
+    @Test
+    @DisplayName("greedy whole-input keyword alternation honors explicit find start")
+    void greedyWholeInputKeywordAlternationHonorsExplicitFindStart() {
+      String regex = "(?is).*\\b(you|your)\\b.*";
+      String input = "ignore YOU, then keep your answer";
+      Matcher safere = Pattern.compile(regex).matcher(input);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+
+      assertThat(safere.find(12)).isEqualTo(jdk.find(12));
+      assertThat(safere.start()).isEqualTo(jdk.start());
+      assertThat(safere.end()).isEqualTo(jdk.end());
+      assertThat(safere.group(1)).isEqualTo(jdk.group(1));
+      assertThat(safere.start(1)).isEqualTo(jdk.start(1));
+      assertThat(safere.end(1)).isEqualTo(jdk.end(1));
+    }
+
+    @Test
     @DisplayName("find() start acceleration matches JDK for comma-or-line-start CSV fields")
     void findStartAccelerationForCsvFields() {
       assertAllFindsMatchJdk(

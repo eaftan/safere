@@ -71,6 +71,14 @@ class PatternInternalTest {
   }
 
   @Test
+  void greedyDotAllWrappersPreserveKeywordAlternationAccelerator() {
+    Pattern p = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+
+    assertThat(p.keywordAlternation()).isNotNull();
+    assertThat(p.keywordAlternation().greedyWholeInput).isTrue();
+  }
+
+  @Test
   void caseInsensitiveAsciiLiteralPreservesLiteralAccelerators() {
     Pattern p = Pattern.compile("(?i)needle");
 
