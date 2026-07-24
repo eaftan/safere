@@ -15,6 +15,7 @@ final class Utf8InputScanner implements InputScanner {
   private static final int REPLACEMENT_CHARACTER = 0xFFFD;
   private static final long BYTE_ONES = 0x0101_0101_0101_0101L;
   private static final long BYTE_HIGH_BITS = 0x8080_8080_8080_8080L;
+  private static final int BOYER_MOORE_HORSPOOL_BATCH_SIZE = 2;
 
   /**
    * Input sizes at which the SWAR candidate filter overtakes the skip loop. The filter always
@@ -243,24 +244,29 @@ final class Utf8InputScanner implements InputScanner {
     long work = 0;
     long workLimit = workLimit(remaining(start));
     while (position < length) {
-      int literalPosition = last;
-      int inputPosition = position;
-      while (literalPosition >= 0 && bytes[offset + inputPosition] == literal[literalPosition]) {
+      // Keep two dependent skip steps under one outer backedge. C2 otherwise leaves this loop
+      // scalar when it is compiled alongside the candidate-filter path, adding a backedge and
+      // safepoint poll to every skip.
+      for (int step = 0; step < BOYER_MOORE_HORSPOOL_BATCH_SIZE && position < length; step++) {
+        int literalPosition = last;
+        int inputPosition = position;
+        while (literalPosition >= 0 && bytes[offset + inputPosition] == literal[literalPosition]) {
+          if (work >= workLimit) {
+            return -2;
+          }
+          work++;
+          literalPosition--;
+          inputPosition--;
+        }
+        if (literalPosition < 0) {
+          return inputPosition + 1;
+        }
         if (work >= workLimit) {
           return -2;
         }
+        position += shifts[bytes[offset + position] & 0xFF];
         work++;
-        literalPosition--;
-        inputPosition--;
       }
-      if (literalPosition < 0) {
-        return inputPosition + 1;
-      }
-      if (work >= workLimit) {
-        return -2;
-      }
-      position += shifts[bytes[offset + position] & 0xFF];
-      work++;
     }
     return -1;
   }
