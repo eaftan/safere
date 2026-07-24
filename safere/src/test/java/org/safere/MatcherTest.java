@@ -1250,10 +1250,25 @@ class MatcherTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "abc", "aa", "baab", "💰a💰"})
+    @ValueSource(strings = {"", "abc", "aa", "baab"})
     @DisplayName("nullable repeated character-class replacement matches JDK across input shapes")
     void nullableRepeatedCharacterClassReplacementMatchesJdk(String input) {
       String regex = "a*";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("xyz"));
+      assertThat(Pattern.compile(regex).matcher(input).replaceFirst("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("xyz"));
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "String empty-match progression may split surrogate pairs; the UTF-8 API advances by code"
+            + " point")
+    @DisplayName("nullable character-class replacement matches JDK UTF-16 progression")
+    void nullableCharacterClassReplacementMatchesJdkUtf16Progression() {
+      String regex = "a*";
+      String input = "💰a💰";
 
       assertThat(Pattern.compile(regex).matcher(input).replaceAll("xyz"))
           .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("xyz"));
