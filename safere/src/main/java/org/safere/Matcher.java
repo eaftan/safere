@@ -1611,9 +1611,10 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    // Three-DFA sandwich (like RE2): forward DFA found earliest match end above. Now use the
-    // reverse DFA to find match start, then a second forward DFA pass (anchored, longest) to find
-    // the actual match end. With lazy capture extraction, the sandwich returns group(0) without
+    // DFA sandwich (like RE2): the forward DFA found the earliest match end above. Now use the
+    // reverse DFA to find the corresponding match start. For programs whose group-0 bounds are
+    // reliable, that pair is authoritative: another anchored forward pass would only rediscover
+    // the same earliest end. With lazy capture extraction, the sandwich returns group(0) without
     // running BitState/NFA, making it worthwhile even on the first find() call.
     //
     // The reverse DFA is lazily constructed on first use and cached for subsequent calls.
@@ -1730,21 +1731,29 @@ public final class Matcher implements MatchResult {
                 matchStart = -1;
               }
 
-              // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
               if (matchStart >= 0) {
-                Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, matchStart, true, false);
-                if (fwdFirst != null && fwdFirst.matched()) {
-                  int matchEnd = fwdFirst.pos();
-                  // Step 4: Store group(0) boundaries, defer inner captures until requested.
-                  return applyDeferredMatchResult(
-                      matchStart,
-                      matchEnd,
-                      prog.numCaptures(),
-                      parentPattern.dfaGroupZeroReliable(),
-                      false);
+                if (prog.hasTextAnchor()) {
+                  Dfa.SearchResult exactEnd = dfa(false).doSearch(scanner, matchStart, true, false);
+                  if (exactEnd == null || !exactEnd.matched()) {
+                    matchStart = -1;
+                  } else {
+                    return applyDeferredMatchResult(
+                        matchStart,
+                        exactEnd.pos(),
+                        prog.numCaptures(),
+                        parentPattern.dfaGroupZeroReliable(),
+                        false);
+                  }
                 }
               }
-              // If anchored forward DFA fails, fall through to full search.
+              if (matchStart >= 0) {
+                return applyDeferredMatchResult(
+                    matchStart,
+                    earlyEnd,
+                    prog.numCaptures(),
+                    parentPattern.dfaGroupZeroReliable(),
+                    false);
+              }
             }
             // If reverse DFA bails out, fall through to full search.
           }
@@ -2642,11 +2651,7 @@ public final class Matcher implements MatchResult {
             return -1;
           }
           matchStart = revResult.pos();
-          Dfa.SearchResult fwdFirst2 = fwdDfa.doSearch(scanner, matchStart, true, false);
-          if (fwdFirst2 == null || !fwdFirst2.matched()) {
-            return -1;
-          }
-          matchEnd = fwdFirst2.pos();
+          matchEnd = earlyEnd;
         }
       } else {
         if (cursor.revDfa == null) {
@@ -2664,11 +2669,7 @@ public final class Matcher implements MatchResult {
           return -1;
         }
         matchStart = revResult.pos();
-        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(scanner, matchStart, true, false);
-        if (fwdFirst == null || !fwdFirst.matched()) {
-          return -1;
-        }
-        matchEnd = fwdFirst.pos();
+        matchEnd = earlyEnd;
       }
 
       matchOffsets[0] = matchStart;

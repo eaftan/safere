@@ -166,6 +166,15 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  @DisplayName("forward-reverse DFA bounds match the capture-aware engine trace")
+  void forwardReverseDfaBoundsMatchCaptureAwareEngineTrace() {
+    assertEquivalent(
+        "\\b[a-z]+ing\\b",
+        "walking past a thing while talking and singing",
+        EnginePathOptions.builder().dfa(false).reverseDfa(false).build());
+  }
+
+  @Test
   @DisplayName("BitState paths match the Pike NFA trace")
   void bitStatePathsMatchPikeNfaTrace() {
     assertEquivalent(
