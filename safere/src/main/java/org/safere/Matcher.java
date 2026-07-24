@@ -2728,9 +2728,8 @@ public final class Matcher implements MatchResult {
     }
     StringBuilder sb = new StringBuilder(text.length());
     ReplacementSegment[] compiledTemplate = template.get();
-    boolean needsCaptures = templateNeedsCaptures(compiledTemplate);
     do {
-      if (needsCaptures || !groupZeroResolved) {
+      if (!groupZeroResolved) {
         resolveCaptures();
       }
       sb.append(text, appendPos, groups[0]);
@@ -2770,9 +2769,11 @@ public final class Matcher implements MatchResult {
   private String charClassReplaceFastPath(LazyTemplate template, int limit) {
     if (!enginePathOptions().charClassReplacementFastPath()
         || parentPattern.charClassMatchRanges() == null
-        || parentPattern.charClassMatchAllowEmpty()
         || parentPattern.hasLazyQuantifiers()) {
       return null;
+    }
+    if (parentPattern.charClassMatchAllowEmpty()) {
+      return nullableCharClassReplaceFastPath(template, limit);
     }
     String repText = null;
 
@@ -2826,6 +2827,7 @@ public final class Matcher implements MatchResult {
         }
         if (compiledTemplate.length != 1
             || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+          clearCurrentResult();
           return null;
         }
         applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
@@ -2857,6 +2859,66 @@ public final class Matcher implements MatchResult {
     }
 
     return sb.toString();
+  }
+
+  private String nullableCharClassReplaceFastPath(LazyTemplate template, int limit) {
+    int[] ranges = parentPattern.charClassMatchRanges();
+    long b0 = parentPattern.charClassMatchBitmap0();
+    long b1 = parentPattern.charClassMatchBitmap1();
+    int textLen = text.length();
+    int firstMatchEnd = 0;
+    while (firstMatchEnd < textLen) {
+      int cp = text.codePointAt(firstMatchEnd);
+      if (!charClassContains(ranges, b0, b1, cp)) {
+        break;
+      }
+      firstMatchEnd += Character.charCount(cp);
+    }
+
+    applyFullMatchResult(new int[] {0, firstMatchEnd});
+    ReplacementSegment[] compiledTemplate = template.get();
+    if (compiledTemplate.length != 1
+        || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+      clearCurrentResult();
+      return null;
+    }
+    String replacement = literalSeg.text();
+    if (limit == 1) {
+      StringBuilder result = new StringBuilder(textLen + replacement.length());
+      result.append(replacement);
+      result.append(text, firstMatchEnd, textLen);
+      appendPos = firstMatchEnd;
+      return result.toString();
+    }
+
+    StringBuilder result = new StringBuilder(textLen + replacement.length());
+    int pos = 0;
+    while (pos < textLen) {
+      int runEnd = pos;
+      while (runEnd < textLen) {
+        int cp = text.codePointAt(runEnd);
+        if (!charClassContains(ranges, b0, b1, cp)) {
+          break;
+        }
+        runEnd += Character.charCount(cp);
+      }
+      result.append(replacement);
+      if (runEnd > pos) {
+        pos = runEnd;
+      } else {
+        // Matcher.find() advances a terminal empty match by one UTF-16 position, matching the JDK
+        // Matcher contract even when that position lies between surrogate halves.
+        result.append(text.charAt(pos));
+        pos++;
+      }
+    }
+    result.append(replacement);
+
+    appendPos = textLen;
+    searchFrom = regionEnd + 1;
+    applyFailedMatchResult();
+    findExhaustedAfterTerminalEmptyMatch = true;
+    return result.toString();
   }
 
   /**
