@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.safere</groupId>
+    <artifactId>safere-parent</artifactId>
+    <version>0.10.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>safere-recording</artifactId>
+  <packaging>jar</packaging>
+
+  <name>SafeRE Test Recording</name>
+  <description>Recording facade and overlap analysis for SafeRE public API tests</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.safere</groupId>
+      <artifactId>safere</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>3.27.7</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>21</release>
+          <compilerArgs>
+            <arg>-Xlint</arg>
+            <arg>-Werror</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>record-public-api-tests</id>
+      <build>
+        <testResources>
+          <testResource>
+            <directory>${project.basedir}/src/test/resources</directory>
+          </testResource>
+          <testResource>
+            <directory>${project.basedir}/../safere/src/test/resources</directory>
+          </testResource>
+        </testResources>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>generate-recording-public-api-tests</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <delete
+                        dir="${project.build.directory}/generated-test-sources/recording"
+                        quiet="true"/>
+                    <mkdir
+                        dir="${project.build.directory}/generated-test-sources/recording/org/safere/recording/generated"/>
+                    <copy
+                        todir="${project.build.directory}/generated-test-sources/recording/org/safere/recording/generated"
+                        flatten="true"
+                        overwrite="true">
+                      <fileset dir="${project.basedir}/../safere/src/test/java/org/safere">
+                        <include name="*Test.java"/>
+                        <include name="DisabledForCrosscheck.java"/>
+                        <include name="ExhaustiveUtils.java"/>
+                        <!-- Start with the public-API-compatible set maintained by crosscheck.
+                             Recording-only exclusions can be relaxed independently later. -->
+                        <exclude name="AnchorOptTest.java"/>
+                        <exclude name="AnchoredDfaCachingTest.java"/>
+                        <exclude name="BitStateTest.java"/>
+                        <exclude name="CharClassTest.java"/>
+                        <exclude name="CompilerTest.java"/>
+                        <exclude name="DfaNfaTest.java"/>
+                        <exclude name="DfaTest.java"/>
+                        <exclude name="EmptyOpTest.java"/>
+                        <exclude name="EnginePathEquivalenceTest.java"/>
+                        <exclude name="GraphemeLinearTimeTest.java"/>
+                        <exclude name="InstOpTest.java"/>
+                        <exclude name="InstTest.java"/>
+                        <exclude name="InputScannerTest.java"/>
+                        <exclude name="MatcherDeferredCaptureStateTest.java"/>
+                        <exclude name="MatcherTransitionInventoryTest.java"/>
+                        <exclude name="NfaTest.java"/>
+                        <exclude name="OnePassTest.java"/>
+                        <exclude name="ParseFlagsTest.java"/>
+                        <exclude name="ParserTest.java"/>
+                        <exclude name="PatternInternalTest.java"/>
+                        <exclude name="PatternSetTest.java"/>
+                        <exclude name="ProgTest.java"/>
+                        <exclude name="RegexpOpTest.java"/>
+                        <exclude name="RegexpTest.java"/>
+                        <exclude name="SafeReDiagnosticsTest.java"/>
+                        <exclude name="SearchScalingRegressionTest.java"/>
+                        <exclude name="SimplifierTest.java"/>
+                        <exclude name="UnicodeJdkConsistencyTest.java"/>
+                        <exclude name="UnicodeTablesTest.java"/>
+                        <exclude name="Utf8AllocationScalingTest.java"/>
+                        <exclude name="Utf8EnginePathEquivalenceTest.java"/>
+                        <exclude name="Utf8InputScannerTest.java"/>
+                        <exclude name="Utf8InputTest.java"/>
+                        <exclude name="Utf8LinearTimeTest.java"/>
+                        <exclude name="Utf8MatcherStateMachineTest.java"/>
+                        <exclude name="Utf8ReplacementTest.java"/>
+                        <exclude name="UtilsTest.java"/>
+                        <exclude name="WalkerTest.java"/>
+                        <exclude name="WorkCounterTest.java"/>
+                      </fileset>
+                      <filterchain>
+                        <replaceregex
+                            pattern="package org\.safere;"
+                            replace="package org.safere.recording.generated;&#10;&#10;import org.safere.recording.Matcher;&#10;import org.safere.recording.Pattern;&#10;import org.safere.recording.Utf8Input;&#10;import org.safere.recording.Utf8Matcher;&#10;import org.safere.recording.Utf8Sink;"/>
+                      </filterchain>
+                    </copy>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.1</version>
+            <executions>
+              <execution>
+                <id>add-recording-public-api-tests</id>
+                <phase>generate-test-sources</phase>
+                <goals>
+                  <goal>add-test-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>${project.build.directory}/generated-test-sources/recording</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>3.5.2</version>
+            <configuration>
+              <systemPropertyVariables>
+                <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
+                <junit.jupiter.execution.parallel.enabled>false</junit.jupiter.execution.parallel.enabled>
+                <org.safere.recording.output>${project.build.directory}/recording/events.tsv</org.safere.recording.output>
+              </systemPropertyVariables>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.5.0</version>
+            <executions>
+              <execution>
+                <id>report-recording-overlap</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <mainClass>org.safere.recording.OverlapReporter</mainClass>
+                  <arguments>
+                    <argument>${project.build.directory}/recording/events.tsv</argument>
+                    <argument>${project.build.directory}/recording/overlap-report.md</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
