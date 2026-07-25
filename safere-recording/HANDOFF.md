@@ -16,6 +16,16 @@ Tests tied directly to package-private parser, compiler, program, or execution-e
 missed. The main objective is to obtain high-value overlap data without first solving general JVM
 instrumentation.
 
+Two especially large JUnit classes currently belong to the per-PR CI population:
+`CrossEngineExhaustiveTest` and `RE2ExhaustiveTest`. Their location in the main `safere` test tree
+means Maven and CI treat them as ordinary tests even though their purpose and runtime are closer to
+offline exhaustive validation. Before investing heavily in recording and aggregating their full
+case spaces, evaluate moving their large matrices into the `safere-exhaustive` module and a
+scheduled or manually dispatched workflow. Normal PR CI should retain a small, representative
+smoke subset plus focused regression cases for previously discovered bugs. The overlap data can
+help choose that subset, but the module/tier decision should not depend on completing a full
+recording run first.
+
 ## Design Discussion and Decisions
 
 Several possible approaches were considered:
@@ -262,7 +272,25 @@ understood.
 
 ## Next Steps
 
-### 1. Make aggregation disk-scalable
+### 1. Reconsider the exhaustive JUnit test tier
+
+Decide whether `CrossEngineExhaustiveTest` and `RE2ExhaustiveTest` should remain ordinary
+per-commit tests. A likely split is:
+
+- keep small deterministic smoke matrices and readable bug regressions in `safere` for every PR;
+- move the complete generated matrices or corpus replay into `safere-exhaustive`;
+- run the full forms on a schedule and through manual workflow dispatch;
+- upload summaries and actionable divergence artifacts from scheduled runs.
+
+Preserve one source of truth for generators and cases so the PR smoke subset and scheduled full
+run cannot drift semantically. Migration should also preserve test attribution and make it obvious
+which full validation has or has not run for a PR.
+
+This decision may reduce the immediate need to make the overlap reporter consume the entire
+multi-million-case matrices. The recorder should still support representative subsets so it can
+identify overlap between ordinary regressions and the exhaustive generators.
+
+### 2. Make aggregation disk-scalable
 
 Implement an external-sort pipeline before recording the largest exhaustive JUnit class:
 
@@ -278,7 +306,7 @@ GNU `sort` is available in the current Linux development and CI environments, bu
 external merge sort would be more portable. Whichever implementation is chosen must pass exact
 typed records and must not use probabilistic fingerprints for deletion decisions.
 
-### 2. Separate setup overlap from behavioral overlap
+### 3. Separate setup overlap from behavioral overlap
 
 The current report includes compile-only pattern lifecycles. This is useful for identifying
 repeated compilation coverage, but it can dominate exact-overlap lists when several test methods
@@ -294,7 +322,7 @@ Add separate report sections for:
 Containment used for potential test removal should prioritize matcher interactions over repeated
 setup.
 
-### 3. Improve coverage inventory
+### 4. Improve coverage inventory
 
 Generate a durable included/excluded class table as part of the report. For each excluded CI test,
 state whether it is:
@@ -307,13 +335,13 @@ state whether it is:
 
 This will quantify the fraction of CI covered by the recording analysis.
 
-### 4. Add timing data
+### 5. Add timing data
 
 Parse Surefire XML or add timing callbacks so containment candidates can be ranked by estimated CI
 savings. Report both test-method runtime and generated invocation counts. Avoid inferring savings
 solely from event counts.
 
-### 5. Audit initial candidates
+### 6. Audit initial candidates
 
 Regenerate the `MatcherTest` and `QuantifiedCaptureSemanticsTest` report and inspect:
 
@@ -325,7 +353,7 @@ For each candidate, verify whether the smaller test adds readable regression int
 JDK oracle comparison, performance/scaling assertions, or source traceability before removing or
 merging it.
 
-### 6. Expand to other CI jobs selectively
+### 7. Expand to other CI jobs selectively
 
 After the main SafeRE public-API report is useful:
 
@@ -336,7 +364,7 @@ After the main SafeRE public-API report is useful:
 - keep internal work-counter and explicit engine tests in separate analysis categories rather
   than forcing them through this facade.
 
-### 7. Decide long-term automation
+### 8. Decide long-term automation
 
 Once reports are scalable and stable, choose whether to run them:
 
