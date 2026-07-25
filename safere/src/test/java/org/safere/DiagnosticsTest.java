@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
@@ -74,6 +75,8 @@ class DiagnosticsTest {
               assertThat(event.pattern().analysis()).isSameAs(pattern.analysis());
               assertThat(event.pattern().patternId()).isPositive();
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.reverseDfaSearchCount()).isZero();
             });
   }
 
@@ -195,10 +198,29 @@ class DiagnosticsTest {
               assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
               assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
               assertThat(event.matchCount()).isEqualTo(2);
+              assertThat(event.forwardDfaSearchCount()).isEqualTo(3);
+              assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
               assertThat(event.auxiliaryStrategies())
                   .contains(
                       new StrategyParticipation(
                           MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION));
+            });
+  }
+
+  @Test
+  void dfaSandwichReportsForwardAndReverseSearchCounts() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("[ab]+c");
+
+    assertThat(pattern.matcher("xxabc").find()).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.forwardDfaSearchCount()).isEqualTo(1);
+              assertThat(event.reverseDfaSearchCount()).isEqualTo(1);
             });
   }
 
@@ -481,6 +503,7 @@ class DiagnosticsTest {
     Pattern pattern = Pattern.compile(regex);
     java.util.regex.Pattern oracle = java.util.regex.Pattern.compile(regex);
     AtomicBoolean observedBudgetFallback = new AtomicBoolean();
+    AtomicInteger observedForwardSearchCount = new AtomicInteger();
     Pattern.setDiagnostics(
         new SafeReMatchDiagnostics() {
           @Override
@@ -493,6 +516,7 @@ class DiagnosticsTest {
                         StrategyDisposition.FALLBACK,
                         StrategyReason.DFA_BUDGET_EXCEEDED))) {
               observedBudgetFallback.set(true);
+              observedForwardSearchCount.set(event.forwardDfaSearchCount());
             }
           }
         });
@@ -508,6 +532,7 @@ class DiagnosticsTest {
     }
 
     assertThat(observedBudgetFallback).isTrue();
+    assertThat(observedForwardSearchCount).hasPositiveValue();
   }
 
   @Test

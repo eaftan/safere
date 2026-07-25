@@ -53,6 +53,8 @@ final class DiagnosticAccumulator {
   private int participationSize;
   private final long[] seenParticipation = new long[wordCount(PARTICIPATION_COUNT)];
   private final long[] decisions = new long[wordCount(DECISION_COUNT)];
+  private int forwardDfaSearchCount;
+  private int reverseDfaSearchCount;
   private int matchCount;
 
   private static int wordCount(int bits) {
@@ -95,6 +97,18 @@ final class DiagnosticAccumulator {
 
   void incrementMatchCount() {
     matchCount++;
+  }
+
+  void incrementForwardDfaSearchCount() {
+    if (forwardDfaSearchCount < Integer.MAX_VALUE) {
+      forwardDfaSearchCount++;
+    }
+  }
+
+  void incrementReverseDfaSearchCount() {
+    if (reverseDfaSearchCount < Integer.MAX_VALUE) {
+      reverseDfaSearchCount++;
+    }
   }
 
   void matchCount(int count) {
@@ -142,6 +156,8 @@ final class DiagnosticAccumulator {
         captureStrategy,
         participation,
         decisionSet,
+        forwardDfaSearchCount,
+        reverseDfaSearchCount,
         captureMode,
         inputLength,
         matchCount);

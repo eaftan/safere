@@ -9,7 +9,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/** Immutable summary of one normally completed public matching operation. */
+/**
+ * Immutable summary of one normally completed public matching operation.
+ *
+ * <p>DFA search counts include every attempted search, including attempts that exceed the DFA state
+ * budget. Replacement operations aggregate searches across all matches into their single event.
+ */
 public record OperationDiagnostics(
     PatternDescriptor pattern,
     MatchOperation operation,
@@ -18,6 +23,8 @@ public record OperationDiagnostics(
     MatchStrategy captureStrategy,
     List<StrategyParticipation> auxiliaryStrategies,
     Set<StrategyDecision> strategyDecisions,
+    int forwardDfaSearchCount,
+    int reverseDfaSearchCount,
     CaptureMode captureMode,
     int inputLength,
     int matchCount) {
@@ -31,8 +38,11 @@ public record OperationDiagnostics(
     auxiliaryStrategies = List.copyOf(auxiliaryStrategies);
     strategyDecisions = Set.copyOf(strategyDecisions);
     Objects.requireNonNull(captureMode, "captureMode");
-    if (inputLength < 0 || matchCount < 0) {
-      throw new IllegalArgumentException("lengths and counts must be non-negative");
+    if (forwardDfaSearchCount < 0
+        || reverseDfaSearchCount < 0
+        || inputLength < 0
+        || matchCount < 0) {
+      throw new IllegalArgumentException("counts and lengths must be non-negative");
     }
   }
 }

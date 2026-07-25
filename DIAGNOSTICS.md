@@ -158,6 +158,8 @@ state and regex result have been finalized.
 | `captureStrategy()` | Strategy that resolved capturing groups, or `NONE`. |
 | `auxiliaryStrategies()` | Ordered first participation by strategies used for acceleration, rejection, or candidate verification. |
 | `strategyDecisions()` | Bounded explanations for bypasses and fallbacks. |
+| `forwardDfaSearchCount()` | Number of attempted forward DFA searches, including budget-exhausted attempts. |
+| `reverseDfaSearchCount()` | Number of attempted reverse DFA searches, including budget-exhausted attempts. |
 | `captureMode()` | Whether captures were absent, resolved eagerly, or left deferred. |
 | `inputLength()` | Input length using Java `String.length()` semantics (UTF-16 code units). |
 | `matchCount()` | Zero or one for single-result operations; aggregate count for replacements. |
@@ -201,8 +203,24 @@ Typical examples include:
 - BitState being bypassed for a large input before NFA matching.
 
 `MatchStrategy` deliberately exposes stable strategy-level concepts rather than every internal
-pass. Reverse DFA work, cache layout, and other implementation details are not separate public
-strategies.
+engine implementation detail. Reverse DFA work is not a separate public strategy, but the forward
+and reverse DFA search counts expose how many searches an operation attempted. Cache layout and
+transition-level work remain internal.
+
+### Golden strategy tests
+
+The immutable event fields can also serve as golden expectations for benchmark patterns and
+performance regression tests. For example:
+
+```java
+assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+assertThat(event.forwardDfaSearchCount()).isEqualTo(1);
+assertThat(event.reverseDfaSearchCount()).isEqualTo(1);
+```
+
+These counts describe search invocations, not input scans: one invocation may terminate early,
+scan the available input, or exceed the DFA state budget. Replacement events aggregate searches
+across all replaced matches.
 
 ### Thread-safe aggregation
 

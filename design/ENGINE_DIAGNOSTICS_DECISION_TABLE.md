@@ -20,6 +20,11 @@ the same branches.
 | DFA replacement loop | `DFA` | `ONE_PASS`, `BIT_STATE`, or `NFA` when replacement references captures | start acceleration and DFA candidate verification | budget fallback where applicable | one replacement event with total match count |
 | Replacement through ordinary find loop | strategy used by the authoritative internal finds | exact capture strategy if replacement observes captures | accumulated first participation order | accumulated bounded decisions | one replacement event; no nested `FIND` events |
 
+Each event also reports attempted forward and reverse DFA search counts. The counts include
+budget-exhausted attempts and aggregate across replacement matches. They intentionally count search
+invocations rather than transitions or input positions so golden tests can detect added engine
+passes without exposing cache implementation details.
+
 Region and transparent-bound paths use the exact BitState/NFA selector when optimized engines cannot
 provide the public contract. A public event is emitted only after a normal return. Listener failures
 propagate after matcher state has been finalized; regex-operation failures do not emit a misleading

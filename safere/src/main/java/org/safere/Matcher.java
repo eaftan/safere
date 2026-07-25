@@ -197,6 +197,38 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  private Dfa.SearchResult searchForwardDfa(
+      Dfa dfa, InputScanner scanner, boolean anchored, boolean longest) {
+    return searchForwardDfa(dfa, scanner, 0, anchored, longest);
+  }
+
+  private Dfa.SearchResult searchForwardDfa(
+      Dfa dfa, InputScanner scanner, int startPos, boolean anchored, boolean longest) {
+    Dfa.SearchResult result = dfa.doSearch(scanner, startPos, anchored, longest);
+    DiagnosticOperation activeDiagnostics = diagnosticOperation;
+    if (activeDiagnostics != null) {
+      activeDiagnostics.accumulator().incrementForwardDfaSearchCount();
+      diagnosticDfaBudget(result);
+    }
+    return result;
+  }
+
+  private Dfa.SearchResult searchReverseDfa(
+      Dfa dfa,
+      InputScanner scanner,
+      int endPos,
+      int startLimit,
+      boolean anchored,
+      boolean longest) {
+    Dfa.SearchResult result = dfa.doSearchReverse(scanner, endPos, startLimit, anchored, longest);
+    DiagnosticOperation activeDiagnostics = diagnosticOperation;
+    if (activeDiagnostics != null) {
+      activeDiagnostics.accumulator().incrementReverseDfaSearchCount();
+      diagnosticDfaBudget(result);
+    }
+    return result;
+  }
+
   private void diagnosticDfaBudget(Dfa.SearchResult result) {
     if (result == null) {
       diagnosticDecision(
@@ -929,7 +961,7 @@ public final class Matcher implements MatchResult {
         && enginePathOptions().dfa()
         && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      Dfa.SearchResult dfaResult = dfa(true).doSearch(scanner, true, true);
+      Dfa.SearchResult dfaResult = searchForwardDfa(dfa(true), scanner, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
@@ -1104,7 +1136,7 @@ public final class Matcher implements MatchResult {
     // Medium path: use DFA to check if an anchored match exists.
     if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      Dfa.SearchResult dfaResult = dfa(false).doSearch(scanner, true, false);
+      Dfa.SearchResult dfaResult = searchForwardDfa(dfa(false), scanner, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
@@ -1747,7 +1779,7 @@ public final class Matcher implements MatchResult {
 
         // Try reverse DFA from end of text (anchored at end position).
         Dfa.SearchResult revResult =
-            revDfa.doSearchReverse(scanner, textLen, effectiveStart, true, true);
+            searchReverseDfa(revDfa, scanner, textLen, effectiveStart, true, true);
         int matchStart;
         boolean matchStartAmbiguous;
         if (revResult == null) {
@@ -1779,7 +1811,7 @@ public final class Matcher implements MatchResult {
                     && scanner.asciiAt(textLen - 1) == '\n';
             if (!isAtomicCrLf) {
               Dfa.SearchResult altRev =
-                  revDfa.doSearchReverse(scanner, textLen - 1, effectiveStart, true, true);
+                  searchReverseDfa(revDfa, scanner, textLen - 1, effectiveStart, true, true);
               if (altRev == null) {
                 budgetExceeded = true;
               } else if (altRev.matched()
@@ -1792,7 +1824,7 @@ public final class Matcher implements MatchResult {
             // For \r\n, try position before \r.
             if (!budgetExceeded && isAtomicCrLf) {
               Dfa.SearchResult altRev2 =
-                  revDfa.doSearchReverse(scanner, textLen - 2, effectiveStart, true, true);
+                  searchReverseDfa(revDfa, scanner, textLen - 2, effectiveStart, true, true);
               if (altRev2 == null) {
                 budgetExceeded = true;
               } else if (altRev2.matched()
@@ -1847,7 +1879,7 @@ public final class Matcher implements MatchResult {
       fwdResult = null;
     } else {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      fwdResult = dfa(false).doSearch(scanner, effectiveStart, false, false);
+      fwdResult = searchForwardDfa(dfa(false), scanner, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
@@ -1911,8 +1943,8 @@ public final class Matcher implements MatchResult {
           // return it. Otherwise, fall through to the reverse DFA search below to find the correct
           // start.
           diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
-          Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, effectiveStart, true, false);
-          diagnosticDfaBudget(fwdFirst);
+          Dfa.SearchResult fwdFirst =
+              searchForwardDfa(dfa(false), scanner, effectiveStart, true, false);
           if (fwdFirst != null && fwdFirst.matched()) {
             int matchEnd = fwdFirst.pos();
             diagnosticBoundary(MatchStrategy.DFA);
@@ -1930,8 +1962,7 @@ public final class Matcher implements MatchResult {
             diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
             // Step 2: Reverse DFA backward from earliest match end to find match start.
             Dfa.SearchResult revResult =
-                revDfa.doSearchReverse(scanner, earlyEnd, effectiveStart, true, true);
-            diagnosticDfaBudget(revResult);
+                searchReverseDfa(revDfa, scanner, earlyEnd, effectiveStart, true, true);
             if (revResult != null && revResult.matched()) {
               int matchStart = revResult.pos();
               boolean reliableStart = !revResult.ambiguous();
@@ -1958,8 +1989,7 @@ public final class Matcher implements MatchResult {
                           && scanner.asciiAt(len - 1) == '\n';
                   if (!isAtomicCrLf) {
                     Dfa.SearchResult altRevResult =
-                        revDfa.doSearchReverse(scanner, earlyEnd - 1, effectiveStart, true, true);
-                    diagnosticDfaBudget(altRevResult);
+                        searchReverseDfa(revDfa, scanner, earlyEnd - 1, effectiveStart, true, true);
                     if (altRevResult != null
                         && altRevResult.matched()
                         && altRevResult.pos() < matchStart) {
@@ -1970,8 +2000,7 @@ public final class Matcher implements MatchResult {
                   // For \r\n, try position before \r.
                   if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
                     Dfa.SearchResult altRevResult2 =
-                        revDfa.doSearchReverse(scanner, earlyEnd - 2, effectiveStart, true, true);
-                    diagnosticDfaBudget(altRevResult2);
+                        searchReverseDfa(revDfa, scanner, earlyEnd - 2, effectiveStart, true, true);
                     if (altRevResult2 != null
                         && altRevResult2.matched()
                         && altRevResult2.pos() < matchStart) {
@@ -1992,8 +2021,8 @@ public final class Matcher implements MatchResult {
 
               if (matchStart >= 0) {
                 if (prog.hasTextAnchor()) {
-                  Dfa.SearchResult exactEnd = dfa(false).doSearch(scanner, matchStart, true, false);
-                  diagnosticDfaBudget(exactEnd);
+                  Dfa.SearchResult exactEnd =
+                      searchForwardDfa(dfa(false), scanner, matchStart, true, false);
                   if (exactEnd == null || !exactEnd.matched()) {
                     matchStart = -1;
                   } else {
@@ -2923,8 +2952,7 @@ public final class Matcher implements MatchResult {
         pos = idx;
       }
 
-      Dfa.SearchResult fwdResult = fwdDfa.doSearch(scanner, pos, false, false);
-      diagnosticDfaBudget(fwdResult);
+      Dfa.SearchResult fwdResult = searchForwardDfa(fwdDfa, scanner, pos, false, false);
       if (fwdResult == null || !fwdResult.matched()) {
         break;
       }
@@ -2940,8 +2968,7 @@ public final class Matcher implements MatchResult {
         matchStart = pos;
         matchEnd = earlyEnd;
       } else if (hasStartAcceleration) {
-        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(scanner, pos, true, false);
-        diagnosticDfaBudget(fwdFirst);
+        Dfa.SearchResult fwdFirst = searchForwardDfa(fwdDfa, scanner, pos, true, false);
         if (fwdFirst != null && fwdFirst.matched()) {
           matchStart = pos;
           matchEnd = fwdFirst.pos();
@@ -2956,8 +2983,7 @@ public final class Matcher implements MatchResult {
             }
           }
           Dfa.SearchResult revResult =
-              cursor.revDfa.doSearchReverse(scanner, earlyEnd, pos, true, true);
-          diagnosticDfaBudget(revResult);
+              searchReverseDfa(cursor.revDfa, scanner, earlyEnd, pos, true, true);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
             if (revResult != null && revResult.ambiguous()) {
               diagnosticDecision(
@@ -2981,8 +3007,7 @@ public final class Matcher implements MatchResult {
           }
         }
         Dfa.SearchResult revResult =
-            cursor.revDfa.doSearchReverse(scanner, earlyEnd, pos, true, true);
-        diagnosticDfaBudget(revResult);
+            searchReverseDfa(cursor.revDfa, scanner, earlyEnd, pos, true, true);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
           if (revResult != null && revResult.ambiguous()) {
             diagnosticDecision(
