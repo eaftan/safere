@@ -49,6 +49,8 @@ final class MatchFuzzer {
     }
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
+    assertUnicodeLineStartAnchorsMatchJdk();
+    assertMixedCarriageReturnLineStartsMatchJdk(data);
     assertZeroWidthAlternationFindsLeftmostStartJdk();
     assertZeroWidthPossessiveCaptureRetentionJdk();
     assertDfaSandwichLeftmostStartCasesMatchJdk();
@@ -116,6 +118,52 @@ final class MatchFuzzer {
       for (String input : inputs) {
         pattern.matcher(input).find();
       }
+    }
+  }
+
+  private static void assertUnicodeLineStartAnchorsMatchJdk() {
+    List<String> terminators = List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
+    List<String> regexes = List.of("(?m)^\\s+at\\s+(\\w+)$", "(?m).+^");
+    for (String regex : regexes) {
+      FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (pattern == null) {
+        continue;
+      }
+      for (String terminator : terminators) {
+        FuzzSupport.MatcherPair matcher =
+            pattern.matcher("header" + terminator + "\tat alpha" + terminator + "\tat beta");
+        while (matcher.find()) {}
+      }
+    }
+  }
+
+  private static void assertMixedCarriageReturnLineStartsMatchJdk(FuzzedDataProvider data) {
+    List<RegressionCase> regressions =
+        List.of(
+            new RegressionCase("(?m)^.X", 0, List.of("a".repeat(500) + "\r\nqq\rqX")),
+            new RegressionCase("(?m)^\\nX", 0, List.of("a".repeat(500) + "\rqY\r\nX")));
+    for (RegressionCase regression : regressions) {
+      FuzzSupport.CompiledPattern pattern =
+          FuzzSupport.compileCompatibleOrSkip(regression.regex(), regression.flags());
+      if (pattern != null) {
+        for (String input : regression.inputs()) {
+          pattern.matcher(input).find();
+        }
+      }
+    }
+
+    String firstTerminator = data.consumeBoolean() ? "\r\n" : "\r";
+    String secondTerminator = firstTerminator.length() == 2 ? "\r" : "\r\n";
+    String regex = data.consumeBoolean() ? "(?m)^.X" : "(?m)^\\nX";
+    String input =
+        "a".repeat(data.consumeInt(257, 1024))
+            + firstTerminator
+            + data.consumeString(8)
+            + secondTerminator
+            + data.consumeString(8);
+    FuzzSupport.CompiledPattern generated = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (generated != null) {
+      generated.matcher(input).find();
     }
   }
 

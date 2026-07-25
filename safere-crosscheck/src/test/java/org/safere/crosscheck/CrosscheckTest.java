@@ -119,6 +119,57 @@ class CrosscheckTest {
   class MatcherMatchingTests {
 
     @Test
+    @DisplayName("String find operations keep a UTF-8 shadow for scalar-valid input")
+    void utf8ShadowChecksFindAndCaptures() {
+      Matcher m = Pattern.compile("(?<letter>é)|(😀)").matcher("xé😀y");
+
+      assertThat(m.utf8ShadowActive()).isTrue();
+      assertThat(m.find()).isTrue();
+      assertThat(m.group("letter")).isEqualTo("é");
+      assertThat(m.start("letter")).isEqualTo(1);
+      assertThat(m.end("letter")).isEqualTo(2);
+      assertThat(m.find()).isTrue();
+      assertThat(m.group(2)).isEqualTo("😀");
+      assertThat(m.start(2)).isEqualTo(2);
+      assertThat(m.end(2)).isEqualTo(4);
+      assertThat(m.find()).isFalse();
+      assertThat(m.utf8ShadowActive()).isTrue();
+    }
+
+    @Test
+    @DisplayName("UTF-8 shadow excludes inputs that cannot round-trip through UTF-8")
+    void utf8ShadowExcludesUnpairedSurrogatesAndMutableInputs() {
+      assertThat(Pattern.compile(".").matcher("a\ud800b").utf8ShadowActive()).isFalse();
+      assertThat(Pattern.compile(".").matcher(new StringBuilder("abc")).utf8ShadowActive())
+          .isFalse();
+    }
+
+    @Test
+    @DisplayName("reset re-enables the UTF-8 shadow after an unsupported operation")
+    void resetReenablesUtf8Shadow() {
+      Matcher m = Pattern.compile("a").matcher("a");
+
+      assertThat(m.utf8ShadowActive()).isTrue();
+      assertThat(m.matches()).isTrue();
+      assertThat(m.utf8ShadowActive()).isFalse();
+      m.reset();
+      assertThat(m.utf8ShadowActive()).isTrue();
+      assertThat(m.find()).isTrue();
+    }
+
+    @Test
+    @DisplayName("String matches inside surrogate pairs disable the UTF-8 shadow")
+    void scalarInternalStringMatchDisablesUtf8Shadow() {
+      Matcher m = Pattern.compile("\\X\\X").matcher("🇺🇸");
+
+      assertThat(m.utf8ShadowActive()).isTrue();
+      assertThat(m.find()).isTrue();
+      assertThat(m.start()).isEqualTo(1);
+      assertThat(m.end()).isEqualTo(4);
+      assertThat(m.utf8ShadowActive()).isFalse();
+    }
+
+    @Test
     @DisplayName("matches() returns true for full match")
     void matchesFull() {
       Matcher m = Pattern.compile("\\w+").matcher("hello");
@@ -210,6 +261,22 @@ class CrosscheckTest {
   @Nested
   @DisplayName("Matcher replace")
   class MatcherReplaceTests {
+
+    @Test
+    @DisplayName("String replacement operations are checked against UTF-8 output")
+    void utf8ShadowChecksReplacement() {
+      Matcher incremental = Pattern.compile("(?<letter>é)").matcher("xéyéz");
+      StringBuilder output = new StringBuilder();
+
+      while (incremental.find()) {
+        incremental.appendReplacement(output, "${letter}${letter}");
+      }
+      incremental.appendTail(output);
+
+      assertThat(output).hasToString("xééyééz");
+      assertThat(incremental.utf8ShadowActive()).isTrue();
+      assertThat(Pattern.compile("😀").matcher("a😀b😀c").replaceAll("é")).isEqualTo("aébéc");
+    }
 
     @Test
     @DisplayName("replaceAll replaces all occurrences")

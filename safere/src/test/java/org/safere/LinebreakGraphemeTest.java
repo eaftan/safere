@@ -504,6 +504,8 @@ class LinebreakGraphemeTest {
     }
 
     @Test
+    @DisabledForCrosscheck(
+        "allocation scaling must measure SafeRE directly, without crosscheck shadow bookkeeping")
     @DisplayName("unanchored multi-boundary \\X search allocation does not scale with input tail")
     void unanchoredMultiBoundarySearchDoesNotAllocatePerInputPosition() {
       AllocationTracker allocationTracker = allocationTracker();

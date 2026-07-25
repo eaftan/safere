@@ -74,9 +74,17 @@ public final class Matcher implements MatchResult {
    */
   private static final int MAX_LAZY_FALLBACK_SUBMATCHES = 3;
 
+  /**
+   * Maximum input length for adapting match operations to observed inner-capture demand. On small
+   * inputs BitState can produce the boolean result and all capture bounds in one bounded pass;
+   * larger inputs retain the DFA's scanning advantage.
+   */
+  private static final int CAPTURE_DEMAND_TEXT_LIMIT = 512;
+
   private Pattern parentPattern;
   private CharSequence inputSequence;
   private String text;
+  private InputScanner textScanner;
   private int[] groups;
   private int[] matchOffsets;
   private boolean hasMatch;
@@ -270,7 +278,15 @@ public final class Matcher implements MatchResult {
     this.parentPattern = pattern;
     this.inputSequence = input;
     this.text = charSequenceToString(input);
+    this.textScanner = null;
     this.regionEnd = text.length();
+    this.groups = new int[2 * pattern.prog().numCaptures()];
+  }
+
+  Matcher(Pattern pattern, Utf8InputScanner input) {
+    this.parentPattern = pattern;
+    this.textScanner = input;
+    this.regionEnd = input.length();
     this.groups = new int[2 * pattern.prog().numCaptures()];
   }
 
@@ -353,9 +369,12 @@ public final class Matcher implements MatchResult {
   }
 
   private void resetStateForCurrentInput() {
+    if (!(inputSequence instanceof String)) {
+      textScanner = null;
+      graphemeContextText = null;
+      graphemeContext = null;
+    }
     text = charSequenceToString(inputSequence);
-    graphemeContextText = null;
-    graphemeContext = null;
     regionStart = 0;
     regionEnd = text.length();
     resetSearchStateForInputStart();
@@ -391,6 +410,7 @@ public final class Matcher implements MatchResult {
   }
 
   private void invalidateInputDependentCaches() {
+    textScanner = null;
     bitStateBorrowed = false;
     cachedBitState = null;
     bitStateResult = null;
@@ -409,6 +429,22 @@ public final class Matcher implements MatchResult {
 
   private EnginePathOptions enginePathOptions() {
     return parentPattern.enginePathOptions();
+  }
+
+  private void recordInnerCaptureDemand() {
+    if (!eagerFallbackCaptures) {
+      parentPattern.recordInnerCaptureAccess();
+      eagerFallbackCaptures = true;
+    }
+  }
+
+  private boolean shouldPreferCaptureEngine(Prog prog, InputScanner scanner) {
+    return parentPattern.innerCapturesObserved()
+        && scanner.length() <= CAPTURE_DEMAND_TEXT_LIMIT
+        && enginePathOptions().bitState()
+        && !fullTextRegionContext
+        && !prog.hasGraphemeSemantics()
+        && BitState.maxTextSize(prog) >= scanner.length();
   }
 
   /** Returns the Pattern's thread-local cached forward DFA, caching it for reuse. */
@@ -517,20 +553,21 @@ public final class Matcher implements MatchResult {
   private boolean containsRequiredMatchClass(int[] ranges, int fromIndex) {
     long b0 = parentPattern.requiredMatchClassBitmap0();
     long b1 = parentPattern.requiredMatchClassBitmap1();
-
-    int i = Math.max(0, fromIndex);
-    int len = text.length();
-    while (i < len) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
+    if (text != null) {
+      int position = Math.max(0, fromIndex);
+      while (position < text.length()) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        int codePoint = text.codePointAt(position);
+        if (charClassContains(ranges, b0, b1, codePoint)) {
+          return true;
+        }
+        position += Character.charCount(codePoint);
       }
-      int cp = text.codePointAt(i);
-      if (charClassContains(ranges, b0, b1, cp)) {
-        return true;
-      }
-      i += Character.charCount(cp);
+      return false;
     }
-    return false;
+    return activeScanner().indexOfCodePointClass(ranges, b0, b1, fromIndex) >= 0;
   }
 
   /**
@@ -605,7 +642,7 @@ public final class Matcher implements MatchResult {
    * references (numbered or named). Pre-parsing avoids per-match scanning, {@code parseInt}, and
    * {@code substring} allocation.
    */
-  private sealed interface ReplacementSegment {
+  sealed interface ReplacementSegment {
     /** A literal text segment to be appended verbatim. */
     record Literal(String text) implements ReplacementSegment {}
 
@@ -628,7 +665,7 @@ public final class Matcher implements MatchResult {
    * @return an array of segments representing the compiled template
    * @throws IllegalArgumentException if the replacement string is malformed
    */
-  private static ReplacementSegment[] compileReplacementTemplate(String replacement, int maxGroup) {
+  static ReplacementSegment[] compileReplacementTemplate(String replacement, int maxGroup) {
     // Fast path: no special characters → single literal segment.
     if (isSimpleReplacement(replacement)) {
       return new ReplacementSegment[] {new ReplacementSegment.Literal(replacement)};
@@ -725,6 +762,9 @@ public final class Matcher implements MatchResult {
    */
   private void applyReplacementTemplate(StringBuilder sb, ReplacementSegment[] template) {
     if (templateNeedsCaptures(template)) {
+      if (!capturesResolved) {
+        recordInnerCaptureDemand();
+      }
       resolveCaptures();
     }
     for (ReplacementSegment seg : template) {
@@ -774,8 +814,9 @@ public final class Matcher implements MatchResult {
     searchFrom = regionStart;
 
     // --- Region setup ---
-    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
+    InputScanner savedTextScanner = textScanner;
     boolean regionSubstituted = false;
 
     try {
@@ -785,14 +826,16 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return matchesTransparentRegion();
       }
-      if (regionActive) {
+      if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
+        textScanner = null;
         regionSubstituted = true;
       }
       return matchesCore();
     } finally {
       if (regionSubstituted) {
         text = savedText;
+        textScanner = savedTextScanner;
         if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
@@ -817,7 +860,8 @@ public final class Matcher implements MatchResult {
     String literal = parentPattern.literalMatch();
     if (enginePathOptions().literalFastPaths()
         && literal != null
-        && parentPattern.numGroups() == 0) {
+        && parentPattern.numGroups() == 0
+        && text != null) {
       DiagnosticOperation activeDiagnostics = diagnosticOperation;
       if (activeDiagnostics != null) {
         activeDiagnostics.accumulator().boundary(MatchStrategy.LITERAL);
@@ -840,7 +884,7 @@ public final class Matcher implements MatchResult {
 
     // Character-class fast path: for patterns like [a-zA-Z]+, \d+, \w*, etc.
     int[] ccRanges = parentPattern.charClassMatchRanges();
-    if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null) {
+    if (enginePathOptions().charClassMatchFastPaths() && ccRanges != null && text != null) {
       diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return charClassMatchFastPath(ccRanges);
     }
@@ -848,6 +892,7 @@ public final class Matcher implements MatchResult {
     int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     if (enginePathOptions().charClassMatchFastPaths()
         && requiredRanges != null
+        && text != null
         && !containsRequiredMatchClass(requiredRanges)) {
       diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.REJECT_PREFILTER);
       diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
@@ -870,25 +915,32 @@ public final class Matcher implements MatchResult {
           accumulator.capture(MatchStrategy.ONE_PASS);
         }
       }
-      int[] result = onePass.search(text, true, prog.numCaptures(), this.groups);
+      int[] result =
+          text != null
+              ? onePass.search(text, true, prog.numCaptures(), this.groups)
+              : onePass.search(activeScanner(), true, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
     }
 
+    InputScanner scanner = activeScanner();
+    boolean preferCaptureEngine = shouldPreferCaptureEngine(prog, scanner);
     // Medium path: use DFA to check if a full match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+    if (!preferCaptureEngine
+        && enginePathOptions().dfa()
+        && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      Dfa.SearchResult dfaResult = dfa(true).doSearch(text, true, true);
+      Dfa.SearchResult dfaResult = dfa(true).doSearch(scanner, true, true);
       if (dfaResult != null && !dfaResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
-      if (dfaResult != null && dfaResult.pos() != text.length()) {
+      if (dfaResult != null && dfaResult.pos() != scanner.length()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
       }
       if (dfaResult != null && prog.numLoopRegs() == 0) {
         diagnosticBoundary(MatchStrategy.DFA);
-        return applyDeferredMatchResult(0, text.length(), prog.numCaptures(), true, true);
+        return applyDeferredMatchResult(0, scanner.length(), prog.numCaptures(), true, true);
       }
       if (dfaResult != null && dfaResult.matched() && prog.numLoopRegs() > 0) {
         diagnosticDecision(
@@ -906,11 +958,11 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            scanner,
             0,
-            text.length(),
-            text.length(),
-            text.length(),
+            scanner.length(),
+            scanner.length(),
+            scanner.length(),
             true,
             false,
             true,
@@ -920,15 +972,15 @@ public final class Matcher implements MatchResult {
     // matches() requires the entire text to be consumed. With dollarAnchorEnd, the BitState
     // may accept a match ending before a trailing \n. In that case, fall back to the NFA
     // which uses longest-match mode for FULL_MATCH and finds the correct full-text match.
-    if (result != null && result[1] != text.length()) {
+    if (result != null && result[1] != scanner.length()) {
       diagnosticBoundaryOverride(MatchStrategy.NFA);
       int[] nfaResult =
           searchNfa(
               prog,
               0,
-              text.length(),
-              text.length(),
-              text.length(),
+              scanner.length(),
+              scanner.length(),
+              scanner.length(),
               prog.numCaptures(),
               Nfa.Anchor.ANCHORED,
               Nfa.MatchKind.FULL_MATCH,
@@ -965,8 +1017,9 @@ public final class Matcher implements MatchResult {
     searchFrom = regionStart;
 
     // --- Region setup ---
-    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
+    InputScanner savedTextScanner = textScanner;
     boolean regionSubstituted = false;
 
     try {
@@ -976,14 +1029,16 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return lookingAtTransparentRegion();
       }
-      if (regionActive) {
+      if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
+        textScanner = null;
         regionSubstituted = true;
       }
       return lookingAtCore();
     } finally {
       if (regionSubstituted) {
         text = savedText;
+        textScanner = savedTextScanner;
         if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
             if (groups[i] >= 0) {
@@ -1008,7 +1063,8 @@ public final class Matcher implements MatchResult {
     String literal = parentPattern.literalMatch();
     if (enginePathOptions().literalFastPaths()
         && literal != null
-        && parentPattern.numGroups() == 0) {
+        && parentPattern.numGroups() == 0
+        && text != null) {
       diagnosticBoundary(MatchStrategy.LITERAL);
       boolean matched;
       if (parentPattern.prefixFoldCase()) {
@@ -1037,14 +1093,18 @@ public final class Matcher implements MatchResult {
         diagnosticCapture(MatchStrategy.ONE_PASS);
       }
       OnePass onePass = parentPattern.onePass();
-      int[] result = onePass.search(text, false, prog.numCaptures(), this.groups);
+      int[] result =
+          text != null
+              ? onePass.search(text, false, prog.numCaptures(), this.groups)
+              : onePass.search(activeScanner(), false, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
     }
 
+    InputScanner scanner = activeScanner();
     // Medium path: use DFA to check if an anchored match exists.
     if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      Dfa.SearchResult dfaResult = dfa(false).doSearch(text, true, false);
+      Dfa.SearchResult dfaResult = dfa(false).doSearch(scanner, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
@@ -1065,11 +1125,11 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            scanner,
             0,
-            text.length(),
-            text.length(),
-            text.length(),
+            scanner.length(),
+            scanner.length(),
+            scanner.length(),
             true,
             false,
             false,
@@ -1121,7 +1181,11 @@ public final class Matcher implements MatchResult {
           searchFrom = regionEnd + 1;
           return false;
         }
-        searchFrom++;
+        if (text == null) {
+          searchFrom = InputScanner.position(activeScanner().decodeForward(searchFrom));
+        } else {
+          searchFrom++;
+        }
       } else if (parentPattern.hasInternalGraphemeClusterBoundary()
           && searchFrom < regionEnd
           && endedAfterCrLf(searchFrom)) {
@@ -1132,20 +1196,29 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean endedAfterCrLf(int pos) {
-    return pos >= 2 && text.charAt(pos - 2) == '\r' && text.charAt(pos - 1) == '\n';
+    if (pos < 2) {
+      return false;
+    }
+    InputScanner scanner = activeScanner();
+    return scanner.asciiAt(pos - 2) == '\r' && scanner.asciiAt(pos - 1) == '\n';
   }
 
   private GraphemeSupport.Context graphemeContext() {
     if (graphemeContext == null || !Objects.equals(graphemeContextText, text)) {
       graphemeContextText = text;
       graphemeContext =
-          GraphemeSupport.Context.create(text, parentPattern.prog().hasGraphemeSemantics());
+          GraphemeSupport.Context.create(
+              activeScanner(), parentPattern.prog().hasGraphemeSemantics());
     }
     return graphemeContext;
   }
 
   private GraphemeSupport.Context graphemeContextFor(Prog prog) {
     return prog.hasGraphemeSemantics() ? graphemeContext() : null;
+  }
+
+  private int getTextLength() {
+    return text != null ? text.length() : textScanner.length();
   }
 
   /**
@@ -1188,8 +1261,9 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean findFromImpl(int start) {
-    if (start < 0 || start > text.length()) {
-      throw new IndexOutOfBoundsException("start=" + start + ", length=" + text.length());
+    int len = getTextLength();
+    if (start < 0 || start > len) {
+      throw new IndexOutOfBoundsException("start=" + start + ", length=" + len);
     }
     modCount++;
     reset();
@@ -1229,8 +1303,9 @@ public final class Matcher implements MatchResult {
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
   private boolean doFind() {
     // --- Region setup: temporarily substitute text with the region substring ---
-    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    boolean regionActive = (regionStart != 0 || regionEnd != getTextLength());
     String savedText = text;
+    InputScanner savedTextScanner = textScanner;
     int savedSearchFrom = searchFrom;
     boolean regionSubstituted = false;
 
@@ -1241,8 +1316,9 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return doFindTransparentRegion();
       }
-      if (regionActive) {
+      if (regionActive && text != null) {
         text = savedText.substring(regionStart, regionEnd);
+        textScanner = null;
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
       }
@@ -1250,6 +1326,7 @@ public final class Matcher implements MatchResult {
     } finally {
       if (regionSubstituted) {
         text = savedText;
+        textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
         if (hasMatch) {
           for (int i = 0; i < groups.length; i++) {
@@ -1288,7 +1365,8 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean regionEndCanSatisfyTextEnd(Prog prog) {
-    if (regionEnd == text.length()) {
+    int textLength = getTextLength();
+    if (regionEnd == textLength) {
       return true;
     }
     if (prog.hasGraphemeSemantics() && regionEndsInsideSurrogatePair()) {
@@ -1297,23 +1375,22 @@ public final class Matcher implements MatchResult {
     if (!prog.dollarAnchorEnd()) {
       return false;
     }
-    int dollarEndPos = Nfa.trailingLineTerminatorStart(text, prog.unixLines());
+    int dollarEndPos = activeScanner().trailingLineTerminatorStart(prog.unixLines(), textLength);
     return dollarEndPos >= regionStart && dollarEndPos <= regionEnd;
   }
 
   private boolean regionEndsInsideSurrogatePair() {
-    return regionEnd > 0
-        && regionEnd < text.length()
-        && Character.isHighSurrogate(text.charAt(regionEnd - 1))
-        && Character.isLowSurrogate(text.charAt(regionEnd));
+    if (regionEnd <= 0 || regionEnd >= getTextLength()) {
+      return false;
+    }
+    return !activeScanner().isCodePointBoundary(regionEnd);
   }
 
   private int graphemeConsumeEndPos(Prog prog, int endPos) {
     if (!prog.hasGraphemeClusterInstruction()
         || endPos <= 0
-        || endPos >= text.length()
-        || !Character.isHighSurrogate(text.charAt(endPos - 1))
-        || !Character.isLowSurrogate(text.charAt(endPos))) {
+        || endPos >= getTextLength()
+        || activeScanner().isCodePointBoundary(endPos)) {
       return endPos;
     }
     // \X may complete the scalar that starts inside the region; ordinary atoms and full-match
@@ -1329,7 +1406,7 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            activeScanner(),
             regionStart,
             regionStart,
             regionEnd,
@@ -1351,7 +1428,7 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            activeScanner(),
             regionStart,
             regionStart,
             regionEnd,
@@ -1379,7 +1456,7 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            activeScanner(),
             searchFrom,
             regionEnd,
             regionEnd,
@@ -1399,7 +1476,8 @@ public final class Matcher implements MatchResult {
    * assertion semantics than the substring the DFA saw.
    */
   private boolean doFindCore(boolean regionActive) {
-    if (searchFrom > text.length()) {
+    InputScanner scanner = activeScanner();
+    if (searchFrom > scanner.length()) {
       return applyFailedMatchResult();
     }
 
@@ -1412,11 +1490,22 @@ public final class Matcher implements MatchResult {
     // use String.indexOf() directly.
     String literal = parentPattern.literalMatch();
     EnginePathOptions options = enginePathOptions();
-    if (options.literalFastPaths() && literal != null && parentPattern.numGroups() == 0) {
+    if (options.literalFastPaths()
+        && literal != null
+        && parentPattern.numGroups() == 0
+        && (text != null || scanner instanceof Utf8InputScanner)
+        && (!parentPattern.prefixFoldCase() || text != null)) {
       diagnosticBoundary(MatchStrategy.LITERAL);
       int idx;
       if (parentPattern.prefixFoldCase()) {
-        idx = indexOfIgnoreCase(text, literal, searchFrom);
+        idx = text == null ? -1 : indexOfIgnoreCase(text, literal, searchFrom);
+      } else if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        idx =
+            utf8Scanner.indexOf(
+                parentPattern.literalMatchUtf8(),
+                parentPattern.literalMatchFailure(),
+                parentPattern.literalMatchShifts(),
+                searchFrom);
       } else {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record(Math.max(0, text.length() - searchFrom));
@@ -1431,17 +1520,24 @@ public final class Matcher implements MatchResult {
         }
         return applyFailedMatchResult();
       }
-      return applyFullMatchResult(new int[] {idx, idx + literal.length()});
+      int matchLength =
+          scanner instanceof Utf8InputScanner
+              ? parentPattern.literalMatchUtf8().length
+              : literal.length();
+      return applyFullMatchResult(new int[] {idx, idx + matchLength});
     }
 
     int[] singleCharClassRanges = parentPattern.singleCharClassRanges();
-    if (options.charClassMatchFastPaths() && singleCharClassRanges != null) {
+    if (options.charClassMatchFastPaths() && singleCharClassRanges != null && text != null) {
       diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
       return singleCharClassFindFastPath(singleCharClassRanges, searchFrom);
     }
 
     Pattern.KeywordAlternation keywordAlternation = parentPattern.keywordAlternation();
-    if (options.keywordAlternationFastPath() && !regionActive && keywordAlternation != null) {
+    if (options.keywordAlternationFastPath()
+        && !regionActive
+        && keywordAlternation != null
+        && text != null) {
       diagnosticBoundary(MatchStrategy.KEYWORD);
       if (keywordAlternation.captureGroup > 0) {
         diagnosticCapture(MatchStrategy.KEYWORD);
@@ -1457,10 +1553,30 @@ public final class Matcher implements MatchResult {
       return applyFailedMatchResult();
     }
 
-    int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     boolean hasAcceleratedSearchPath =
         (parentPattern.prefix() != null)
-            || (prog.anchorEnd() && text.length() >= MIN_REVERSE_FIRST_LEN && canUseReverseDfa());
+            || (prog.anchorEnd()
+                && scanner.length() >= MIN_REVERSE_FIRST_LEN
+                && canUseReverseDfa());
+    String requiredLiteral = parentPattern.requiredLiteral();
+    if (options.literalFastPaths()
+        && requiredLiteral != null
+        && !hasAcceleratedSearchPath
+        && (text != null || scanner instanceof Utf8InputScanner)) {
+      int idx =
+          scanner instanceof Utf8InputScanner utf8Scanner
+              ? utf8Scanner.indexOf(
+                  parentPattern.requiredLiteralUtf8(),
+                  parentPattern.requiredLiteralFailure(),
+                  parentPattern.requiredLiteralShifts(),
+                  searchFrom)
+              : indexOfRequiredLiteral(requiredLiteral);
+      if (idx < 0) {
+        return applyFailedMatchResult();
+      }
+    }
+
+    int[] requiredRanges = parentPattern.requiredMatchClassRanges();
     if (options.charClassMatchFastPaths()
         && requiredRanges != null
         && !hasAcceleratedSearchPath
@@ -1487,7 +1603,7 @@ public final class Matcher implements MatchResult {
     // The text size threshold (4096) matches C++ RE2. For larger texts, the DFA is more efficient.
     if (options.onePass()
         && parentPattern.canOnePassFind()
-        && text.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
+        && scanner.length() <= ONEPASS_ANCHORED_TEXT_LIMIT) {
       diagnosticBoundary(MatchStrategy.ONE_PASS);
       if (parentPattern.numGroups() > 0) {
         diagnosticCapture(MatchStrategy.ONE_PASS);
@@ -1495,7 +1611,8 @@ public final class Matcher implements MatchResult {
       int[] result =
           parentPattern
               .onePass()
-              .search(text, searchFrom, text.length(), false, prog.numCaptures(), this.groups);
+              .search(
+                  scanner, searchFrom, scanner.length(), false, prog.numCaptures(), this.groups);
       return applyFullMatchResult(result);
     }
 
@@ -1504,11 +1621,21 @@ public final class Matcher implements MatchResult {
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
     String prefix = parentPattern.prefix();
-    if (options.startAcceleration() && prefix != null) {
+    if (options.startAcceleration()
+        && prefix != null
+        && (text != null || scanner instanceof Utf8InputScanner)
+        && (!parentPattern.prefixFoldCase() || text != null)) {
       diagnosticParticipation(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
       int idx;
       if (parentPattern.prefixFoldCase()) {
-        idx = indexOfIgnoreCase(text, prefix, searchFrom);
+        idx = text == null ? -1 : indexOfIgnoreCase(text, prefix, searchFrom);
+      } else if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        idx =
+            utf8Scanner.indexOf(
+                parentPattern.prefixUtf8(),
+                parentPattern.prefixUtf8Failure(),
+                parentPattern.prefixUtf8Shifts(),
+                searchFrom);
       } else {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record(Math.max(0, text.length() - searchFrom));
@@ -1519,8 +1646,9 @@ public final class Matcher implements MatchResult {
         diagnosticBoundary(MatchStrategy.LITERAL);
         if (!prog.anchorStart()) {
         } else {
-          int remainingLen = text.length() - searchFrom;
-          if (remainingLen < prefix.length()
+          int remainingLen = scanner.length() - searchFrom;
+          if (text != null
+              && remainingLen < prefix.length()
               && literalRegionMatches(prefix, searchFrom, remainingLen)) {}
         }
         return applyFailedMatchResult();
@@ -1533,14 +1661,20 @@ public final class Matcher implements MatchResult {
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
     boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
+    if (options.startAcceleration()
+        && !prog.hasWordBoundary()
+        && ccPrefixAscii != null
+        && (text != null || scanner instanceof Utf8InputScanner)) {
       diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
-      int idx = indexOfCharClass(text, ccPrefixAscii, searchFrom);
+      int idx =
+          scanner instanceof Utf8InputScanner utf8Scanner
+              ? utf8Scanner.indexOfAsciiClass(ccPrefixAscii, searchFrom)
+              : indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
         if (!prog.anchorStart()) {
         } else {
-          if (searchFrom == text.length()) {}
+          if (searchFrom == scanner.length()) {}
         }
         return applyFailedMatchResult();
       }
@@ -1548,7 +1682,10 @@ public final class Matcher implements MatchResult {
     }
 
     Pattern.StartAcceleration startAcceleration = parentPattern.startAcceleration();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && startAcceleration != null) {
+    if (options.startAcceleration()
+        && !prog.hasWordBoundary()
+        && startAcceleration != null
+        && text != null) {
       int idx = nextAcceleratedStart(text, startAcceleration, effectiveStart, prog.unixLines());
       if (idx < 0) {
         if (!prog.anchorStart()) {
@@ -1565,6 +1702,27 @@ public final class Matcher implements MatchResult {
     // miss the leftmost start when a greedy leading repetition overlaps a later required literal.
     // The DFA/BitState/NFA pipeline below preserves leftmost find() semantics and remains linear.
 
+    // Once callers have demonstrated that they consume inner captures, use the capture-aware
+    // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
+    // replaying the same range through BitState on every successful find().
+    if (shouldPreferCaptureEngine(prog, scanner)) {
+      int[] result =
+          searchWithBitStateOrNfa(
+              prog,
+              scanner,
+              effectiveStart,
+              scanner.length(),
+              scanner.length(),
+              scanner.length(),
+              false,
+              false,
+              false,
+              prog.numCaptures(),
+              false,
+              this.groups);
+      return applyFullMatchResult(result);
+    }
+
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
     // that are NOT anchored at the start, run the reverse DFA from the end of the text first.
     // If the reverse DFA determines no match is possible at the end, we skip the O(n) forward
@@ -1579,17 +1737,17 @@ public final class Matcher implements MatchResult {
     // must fall through to the normal forward DFA path rather than returning false.
     if (!regionActive
         && prog.anchorEnd()
-        && text.length() >= MIN_REVERSE_FIRST_LEN
+        && scanner.length() >= MIN_REVERSE_FIRST_LEN
         && canUseReverseDfa()) {
       Dfa revDfa = reverseDfa();
       if (revDfa != null) {
         diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-        int textLen = text.length();
+        int textLen = scanner.length();
         boolean budgetExceeded = false;
 
         // Try reverse DFA from end of text (anchored at end position).
         Dfa.SearchResult revResult =
-            revDfa.doSearchReverse(text, textLen, effectiveStart, true, true);
+            revDfa.doSearchReverse(scanner, textLen, effectiveStart, true, true);
         int matchStart;
         boolean matchStartAmbiguous;
         if (revResult == null) {
@@ -1610,18 +1768,18 @@ public final class Matcher implements MatchResult {
           boolean ul = prog.unixLines();
           if (textLen > 0
               && (ul
-                  ? text.charAt(textLen - 1) == '\n'
-                  : Nfa.isLineTerminator(text.charAt(textLen - 1)))) {
+                  ? scanner.codePointBefore(textLen) == '\n'
+                  : Nfa.isLineTerminator(scanner.codePointBefore(textLen)))) {
             // For \r\n, the trailing terminator starts at textLen-2 (before \r), not
             // textLen-1 (between \r and \n). Skip the textLen-1 check for \r\n.
             boolean isAtomicCrLf =
                 !ul
                     && textLen >= 2
-                    && text.charAt(textLen - 2) == '\r'
-                    && text.charAt(textLen - 1) == '\n';
+                    && scanner.asciiAt(textLen - 2) == '\r'
+                    && scanner.asciiAt(textLen - 1) == '\n';
             if (!isAtomicCrLf) {
               Dfa.SearchResult altRev =
-                  revDfa.doSearchReverse(text, textLen - 1, effectiveStart, true, true);
+                  revDfa.doSearchReverse(scanner, textLen - 1, effectiveStart, true, true);
               if (altRev == null) {
                 budgetExceeded = true;
               } else if (altRev.matched()
@@ -1634,7 +1792,7 @@ public final class Matcher implements MatchResult {
             // For \r\n, try position before \r.
             if (!budgetExceeded && isAtomicCrLf) {
               Dfa.SearchResult altRev2 =
-                  revDfa.doSearchReverse(text, textLen - 2, effectiveStart, true, true);
+                  revDfa.doSearchReverse(scanner, textLen - 2, effectiveStart, true, true);
               if (altRev2 == null) {
                 budgetExceeded = true;
               } else if (altRev2.matched()
@@ -1666,7 +1824,7 @@ public final class Matcher implements MatchResult {
             // dollar-before-terminator semantics remain leftmost-first.
             int[] exact =
                 searchWithBitStateOrNfa(
-                    prog, text, matchStart, matchStart, textLen, true, false, false, 1);
+                    prog, scanner, matchStart, matchStart, textLen, true, false, false, 1);
             if (exact != null) {
               int matchEnd = exact[1];
               return applyDeferredMatchResult(
@@ -1689,7 +1847,7 @@ public final class Matcher implements MatchResult {
       fwdResult = null;
     } else {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
+      fwdResult = dfa(false).doSearch(scanner, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
@@ -1700,9 +1858,10 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    // Three-DFA sandwich (like RE2): forward DFA found earliest match end above. Now use the
-    // reverse DFA to find match start, then a second forward DFA pass (anchored, longest) to find
-    // the actual match end. With lazy capture extraction, the sandwich returns group(0) without
+    // DFA sandwich (like RE2): the forward DFA found the earliest match end above. Now use the
+    // reverse DFA to find the corresponding match start. For programs whose group-0 bounds are
+    // reliable, that pair is authoritative: another anchored forward pass would only rediscover
+    // the same earliest end. With lazy capture extraction, the sandwich returns group(0) without
     // running BitState/NFA, making it worthwhile even on the first find() call.
     //
     // The reverse DFA is lazily constructed on first use and cached for subsequent calls.
@@ -1752,7 +1911,7 @@ public final class Matcher implements MatchResult {
           // return it. Otherwise, fall through to the reverse DFA search below to find the correct
           // start.
           diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
-          Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+          Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, effectiveStart, true, false);
           diagnosticDfaBudget(fwdFirst);
           if (fwdFirst != null && fwdFirst.matched()) {
             int matchEnd = fwdFirst.pos();
@@ -1771,7 +1930,7 @@ public final class Matcher implements MatchResult {
             diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
             // Step 2: Reverse DFA backward from earliest match end to find match start.
             Dfa.SearchResult revResult =
-                revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+                revDfa.doSearchReverse(scanner, earlyEnd, effectiveStart, true, true);
             diagnosticDfaBudget(revResult);
             if (revResult != null && revResult.matched()) {
               int matchStart = revResult.pos();
@@ -1782,24 +1941,24 @@ public final class Matcher implements MatchResult {
               // trailing line terminator. The reverse DFA from textLen only finds starts for
               // matches ending AT textLen, potentially missing an earlier-starting match that
               // ends before the trailing line terminator. Check all dollar positions.
-              if (prog.dollarAnchorEnd() && earlyEnd == text.length()) {
-                int len = text.length();
+              if (prog.dollarAnchorEnd() && earlyEnd == scanner.length()) {
+                int len = scanner.length();
                 boolean ul = prog.unixLines();
                 // Try position before trailing line terminator.
                 if (len > 0
                     && (ul
-                        ? text.charAt(len - 1) == '\n'
-                        : Nfa.isLineTerminator(text.charAt(len - 1)))) {
+                        ? scanner.codePointBefore(len) == '\n'
+                        : Nfa.isLineTerminator(scanner.codePointBefore(len)))) {
                   // For \r\n, the trailing terminator starts at len-2 (before \r), not
                   // len-1 (between \r and \n). Skip the earlyEnd-1 check for \r\n.
                   boolean isAtomicCrLf =
                       !ul
                           && len >= 2
-                          && text.charAt(len - 2) == '\r'
-                          && text.charAt(len - 1) == '\n';
+                          && scanner.asciiAt(len - 2) == '\r'
+                          && scanner.asciiAt(len - 1) == '\n';
                   if (!isAtomicCrLf) {
                     Dfa.SearchResult altRevResult =
-                        revDfa.doSearchReverse(text, earlyEnd - 1, effectiveStart, true, true);
+                        revDfa.doSearchReverse(scanner, earlyEnd - 1, effectiveStart, true, true);
                     diagnosticDfaBudget(altRevResult);
                     if (altRevResult != null
                         && altRevResult.matched()
@@ -1811,7 +1970,7 @@ public final class Matcher implements MatchResult {
                   // For \r\n, try position before \r.
                   if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
                     Dfa.SearchResult altRevResult2 =
-                        revDfa.doSearchReverse(text, earlyEnd - 2, effectiveStart, true, true);
+                        revDfa.doSearchReverse(scanner, earlyEnd - 2, effectiveStart, true, true);
                     diagnosticDfaBudget(altRevResult2);
                     if (altRevResult2 != null
                         && altRevResult2.matched()
@@ -1831,23 +1990,32 @@ public final class Matcher implements MatchResult {
                 matchStart = -1;
               }
 
-              // Step 3: Forward DFA anchored at matchStart with longest=false to find actual end.
               if (matchStart >= 0) {
-                Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
-                diagnosticDfaBudget(fwdFirst);
-                if (fwdFirst != null && fwdFirst.matched()) {
-                  int matchEnd = fwdFirst.pos();
-                  // Step 4: Store group(0) boundaries, defer inner captures until requested.
-                  diagnosticBoundary(MatchStrategy.DFA);
-                  return applyDeferredMatchResult(
-                      matchStart,
-                      matchEnd,
-                      prog.numCaptures(),
-                      parentPattern.dfaGroupZeroReliable(),
-                      false);
+                if (prog.hasTextAnchor()) {
+                  Dfa.SearchResult exactEnd = dfa(false).doSearch(scanner, matchStart, true, false);
+                  diagnosticDfaBudget(exactEnd);
+                  if (exactEnd == null || !exactEnd.matched()) {
+                    matchStart = -1;
+                  } else {
+                    diagnosticBoundary(MatchStrategy.DFA);
+                    return applyDeferredMatchResult(
+                        matchStart,
+                        exactEnd.pos(),
+                        prog.numCaptures(),
+                        parentPattern.dfaGroupZeroReliable(),
+                        false);
+                  }
                 }
               }
-              // If anchored forward DFA fails, fall through to full search.
+              if (matchStart >= 0) {
+                diagnosticBoundary(MatchStrategy.DFA);
+                return applyDeferredMatchResult(
+                    matchStart,
+                    earlyEnd,
+                    prog.numCaptures(),
+                    parentPattern.dfaGroupZeroReliable(),
+                    false);
+              }
             }
             // If reverse DFA bails out, fall through to full search.
           }
@@ -1878,11 +2046,11 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            scanner,
             effectiveStart,
-            text.length(),
-            text.length(),
-            text.length(),
+            scanner.length(),
+            scanner.length(),
+            scanner.length(),
             false,
             false,
             false,
@@ -1899,8 +2067,18 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  private int indexOfRequiredLiteral(String requiredLiteral) {
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record(Math.max(0, text.length() - searchFrom));
+    }
+    return text.indexOf(requiredLiteral, searchFrom);
+  }
+
   private boolean findKeywordAlternation(
       Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
+    if (keywordAlternation.greedyWholeInput) {
+      return findGreedyWholeInputKeywordAlternation(keywordAlternation, startPos, ncap);
+    }
     for (int i = Math.max(0, startPos); i < text.length(); i++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
@@ -1912,7 +2090,7 @@ public final class Matcher implements MatchResult {
         for (String keyword : keywordAlternation.keywords) {
           int end = i + keyword.length();
           if (end <= text.length()
-              && text.regionMatches(true, i, keyword, 0, keyword.length())
+              && regionMatchesAsciiIgnoreCase(text, i, keyword, 0, keyword.length())
               && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
             int[] keywordGroups = new int[2 * ncap];
             Arrays.fill(keywordGroups, -1);
@@ -1929,6 +2107,39 @@ public final class Matcher implements MatchResult {
       }
       int cp = text.codePointAt(i);
       i += Character.charCount(cp) - 1;
+    }
+    return applyFailedMatchResult();
+  }
+
+  private boolean findGreedyWholeInputKeywordAlternation(
+      Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
+    int matchStart = Math.max(0, startPos);
+    for (int i = text.length() - 1; i >= matchStart; i--) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      char ch = text.charAt(i);
+      if (ch < 128
+          && keywordAlternation.firstAscii[asciiLower(ch)]
+          && isWordBoundaryAt(i, keywordAlternation.unicodeWordBoundary)) {
+        for (String keyword : keywordAlternation.keywords) {
+          int end = i + keyword.length();
+          if (end <= text.length()
+              && regionMatchesAsciiIgnoreCase(text, i, keyword, 0, keyword.length())
+              && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
+            int[] keywordGroups = new int[2 * ncap];
+            Arrays.fill(keywordGroups, -1);
+            keywordGroups[0] = matchStart;
+            keywordGroups[1] = text.length();
+            if (keywordAlternation.captureGroup > 0) {
+              int group = keywordAlternation.captureGroup;
+              keywordGroups[2 * group] = i;
+              keywordGroups[2 * group + 1] = end;
+            }
+            return applyFullMatchResult(keywordGroups);
+          }
+        }
+      }
     }
     return applyFailedMatchResult();
   }
@@ -2059,8 +2270,8 @@ public final class Matcher implements MatchResult {
    * step after DFA/OnePass have been tried or are not applicable.
    *
    * @param prog the compiled program
-   * @param text the full input text
-   * @param startPos the char index at which to begin searching
+   * @param text the full input scanner
+   * @param startPos the input index at which to begin searching
    * @param searchLimit upper bound on positions where new candidate starts are tried. Use {@code
    *     text.length()} for unbounded search.
    * @param endPos logical match end and ordinary-atom consumption limit. Use {@code text.length()}
@@ -2073,7 +2284,7 @@ public final class Matcher implements MatchResult {
    */
   private int[] searchWithBitStateOrNfa(
       Prog prog,
-      String text,
+      InputScanner text,
       int startPos,
       int searchLimit,
       int endPos,
@@ -2096,10 +2307,38 @@ public final class Matcher implements MatchResult {
         null);
   }
 
-  @SuppressWarnings("ReferenceEquality")
   private int[] searchWithBitStateOrNfa(
       Prog prog,
       String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      boolean anchored,
+      boolean longest,
+      boolean endMatch,
+      int nsubmatch,
+      boolean preserveOuterEmptyContext,
+      int[] reuseGroups) {
+    return searchWithBitStateOrNfa(
+        prog,
+        new StringInputScanner(text),
+        startPos,
+        searchLimit,
+        endPos,
+        graphemeConsumeEndPos,
+        anchored,
+        longest,
+        endMatch,
+        nsubmatch,
+        preserveOuterEmptyContext,
+        reuseGroups);
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private int[] searchWithBitStateOrNfa(
+      Prog prog,
+      InputScanner text,
       int startPos,
       int searchLimit,
       int endPos,
@@ -2195,6 +2434,7 @@ public final class Matcher implements MatchResult {
       Nfa.MatchKind nfaKind,
       boolean preserveOuterEmptyContext,
       int[] reuseGroups) {
+    InputScanner scanner = activeScanner();
     if (prog.start() == 0) {
       return null;
     }
@@ -2220,19 +2460,19 @@ public final class Matcher implements MatchResult {
     int emptyContextEnd = preserveOuterEmptyContext ? regionEnd : endPos;
     int boundaryRegionStart = useOuterEmptyContext && !transparentBounds ? regionStart : 0;
     int boundaryEndPos =
-        useOuterEmptyContext && !transparentBounds ? emptyContextEnd : text.length();
+        useOuterEmptyContext && !transparentBounds ? emptyContextEnd : scanner.length();
     int anchorEndPos =
         useOuterEmptyContext && !anchoringBounds && prog.anchorEnd()
-            ? text.length()
+            ? scanner.length()
             : emptyContextEnd;
     int emptyAnchorStartPos = useOuterEmptyContext && anchoringBounds ? regionStart : 0;
     int emptyAnchorEndPos =
-        useOuterEmptyContext && !anchoringBounds ? text.length() : emptyContextEnd;
+        useOuterEmptyContext && !anchoringBounds ? scanner.length() : emptyContextEnd;
 
     EngineContext context =
         EngineContext.create(
             prog,
-            text,
+            scanner,
             startPos,
             searchLimit,
             endPos,
@@ -2352,7 +2592,11 @@ public final class Matcher implements MatchResult {
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
       if (group != 0) {
-        eagerFallbackCaptures = true;
+        if (!capturesResolved) {
+          recordInnerCaptureDemand();
+        } else {
+          eagerFallbackCaptures = true;
+        }
       }
       resolveCaptures();
     }
@@ -2387,7 +2631,11 @@ public final class Matcher implements MatchResult {
     checkGroup(group);
     if (group != 0 || !groupZeroResolved) {
       if (group != 0) {
-        eagerFallbackCaptures = true;
+        if (!capturesResolved) {
+          recordInnerCaptureDemand();
+        } else {
+          eagerFallbackCaptures = true;
+        }
       }
       resolveCaptures();
     }
@@ -2655,7 +2903,8 @@ public final class Matcher implements MatchResult {
       boolean foldCase,
       boolean hasStartAcceleration,
       DfaMatchCursor cursor) {
-    int textLen = text.length();
+    InputScanner scanner = activeScanner();
+    int textLen = scanner.length();
     int pos = cursor.pos;
 
     if (matchOffsets == null) {
@@ -2674,7 +2923,7 @@ public final class Matcher implements MatchResult {
         pos = idx;
       }
 
-      Dfa.SearchResult fwdResult = fwdDfa.doSearch(text, pos, false, false);
+      Dfa.SearchResult fwdResult = fwdDfa.doSearch(scanner, pos, false, false);
       diagnosticDfaBudget(fwdResult);
       if (fwdResult == null || !fwdResult.matched()) {
         break;
@@ -2691,7 +2940,7 @@ public final class Matcher implements MatchResult {
         matchStart = pos;
         matchEnd = earlyEnd;
       } else if (hasStartAcceleration) {
-        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(text, pos, true, false);
+        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(scanner, pos, true, false);
         diagnosticDfaBudget(fwdFirst);
         if (fwdFirst != null && fwdFirst.matched()) {
           matchStart = pos;
@@ -2707,7 +2956,7 @@ public final class Matcher implements MatchResult {
             }
           }
           Dfa.SearchResult revResult =
-              cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+              cursor.revDfa.doSearchReverse(scanner, earlyEnd, pos, true, true);
           diagnosticDfaBudget(revResult);
           if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
             if (revResult != null && revResult.ambiguous()) {
@@ -2719,12 +2968,7 @@ public final class Matcher implements MatchResult {
             return -1;
           }
           matchStart = revResult.pos();
-          Dfa.SearchResult fwdFirst2 = fwdDfa.doSearch(text, matchStart, true, false);
-          diagnosticDfaBudget(fwdFirst2);
-          if (fwdFirst2 == null || !fwdFirst2.matched()) {
-            return -1;
-          }
-          matchEnd = fwdFirst2.pos();
+          matchEnd = earlyEnd;
         }
       } else {
         if (cursor.revDfa == null) {
@@ -2736,7 +2980,8 @@ public final class Matcher implements MatchResult {
             return -1;
           }
         }
-        Dfa.SearchResult revResult = cursor.revDfa.doSearchReverse(text, earlyEnd, pos, true, true);
+        Dfa.SearchResult revResult =
+            cursor.revDfa.doSearchReverse(scanner, earlyEnd, pos, true, true);
         diagnosticDfaBudget(revResult);
         if (revResult == null || !revResult.matched() || revResult.ambiguous()) {
           if (revResult != null && revResult.ambiguous()) {
@@ -2748,12 +2993,7 @@ public final class Matcher implements MatchResult {
           return -1;
         }
         matchStart = revResult.pos();
-        Dfa.SearchResult fwdFirst = fwdDfa.doSearch(text, matchStart, true, false);
-        diagnosticDfaBudget(fwdFirst);
-        if (fwdFirst == null || !fwdFirst.matched()) {
-          return -1;
-        }
-        matchEnd = fwdFirst.pos();
+        matchEnd = earlyEnd;
       }
 
       matchOffsets[0] = matchStart;
@@ -2841,9 +3081,8 @@ public final class Matcher implements MatchResult {
     diagnosticIncrementMatchCount();
     StringBuilder sb = new StringBuilder(text.length());
     ReplacementSegment[] compiledTemplate = template.get();
-    boolean needsCaptures = templateNeedsCaptures(compiledTemplate);
     do {
-      if (needsCaptures || !groupZeroResolved) {
+      if (!groupZeroResolved) {
         resolveCaptures();
       }
       sb.append(text, appendPos, groups[0]);
@@ -2904,7 +3143,6 @@ public final class Matcher implements MatchResult {
   private String charClassReplaceFastPath(LazyTemplate template, int limit) {
     if (!enginePathOptions().charClassReplacementFastPath()
         || parentPattern.charClassMatchRanges() == null
-        || parentPattern.charClassMatchAllowEmpty()
         || parentPattern.hasLazyQuantifiers()) {
       return null;
     }
@@ -2913,6 +3151,9 @@ public final class Matcher implements MatchResult {
         activeDiagnostics == null ? null : activeDiagnostics.accumulator();
     if (accumulator != null) {
       accumulator.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.CANDIDATE_VERIFICATION);
+    }
+    if (parentPattern.charClassMatchAllowEmpty()) {
+      return nullableCharClassReplaceFastPath(template, limit);
     }
     String repText = null;
 
@@ -2966,6 +3207,7 @@ public final class Matcher implements MatchResult {
         }
         if (compiledTemplate.length != 1
             || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+          clearCurrentResult();
           return null;
         }
         applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
@@ -3005,6 +3247,66 @@ public final class Matcher implements MatchResult {
     }
 
     return sb.toString();
+  }
+
+  private String nullableCharClassReplaceFastPath(LazyTemplate template, int limit) {
+    int[] ranges = parentPattern.charClassMatchRanges();
+    long b0 = parentPattern.charClassMatchBitmap0();
+    long b1 = parentPattern.charClassMatchBitmap1();
+    int textLen = text.length();
+    int firstMatchEnd = 0;
+    while (firstMatchEnd < textLen) {
+      int cp = text.codePointAt(firstMatchEnd);
+      if (!charClassContains(ranges, b0, b1, cp)) {
+        break;
+      }
+      firstMatchEnd += Character.charCount(cp);
+    }
+
+    applyFullMatchResult(new int[] {0, firstMatchEnd});
+    ReplacementSegment[] compiledTemplate = template.get();
+    if (compiledTemplate.length != 1
+        || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+      clearCurrentResult();
+      return null;
+    }
+    String replacement = literalSeg.text();
+    if (limit == 1) {
+      StringBuilder result = new StringBuilder(textLen + replacement.length());
+      result.append(replacement);
+      result.append(text, firstMatchEnd, textLen);
+      appendPos = firstMatchEnd;
+      return result.toString();
+    }
+
+    StringBuilder result = new StringBuilder(textLen + replacement.length());
+    int pos = 0;
+    while (pos < textLen) {
+      int runEnd = pos;
+      while (runEnd < textLen) {
+        int cp = text.codePointAt(runEnd);
+        if (!charClassContains(ranges, b0, b1, cp)) {
+          break;
+        }
+        runEnd += Character.charCount(cp);
+      }
+      result.append(replacement);
+      if (runEnd > pos) {
+        pos = runEnd;
+      } else {
+        // Matcher.find() advances a terminal empty match by one UTF-16 position, matching the JDK
+        // Matcher contract even when that position lies between surrogate halves.
+        result.append(text.charAt(pos));
+        pos++;
+      }
+    }
+    result.append(replacement);
+
+    appendPos = textLen;
+    searchFrom = regionEnd + 1;
+    applyFailedMatchResult();
+    findExhaustedAfterTerminalEmptyMatch = true;
+    return result.toString();
   }
 
   /**
@@ -3117,11 +3419,12 @@ public final class Matcher implements MatchResult {
    *     length of the input sequence, or if start is greater than end
    */
   public Matcher region(int start, int end) {
-    if (start < 0 || start > text.length()) {
-      throw new IndexOutOfBoundsException("start=" + start + ", length=" + text.length());
+    int len = getTextLength();
+    if (start < 0 || start > len) {
+      throw new IndexOutOfBoundsException("start=" + start + ", length=" + len);
     }
-    if (end < 0 || end > text.length()) {
-      throw new IndexOutOfBoundsException("end=" + end + ", length=" + text.length());
+    if (end < 0 || end > len) {
+      throw new IndexOutOfBoundsException("end=" + end + ", length=" + len);
     }
     if (start > end) {
       throw new IndexOutOfBoundsException("start=" + start + " > end=" + end);
@@ -3276,7 +3579,11 @@ public final class Matcher implements MatchResult {
    *     operation failed
    */
   public MatchResult toMatchResult() {
-    eagerFallbackCaptures = true;
+    if (parentPattern.numGroups() > 0 && !capturesResolved) {
+      recordInnerCaptureDemand();
+    } else {
+      eagerFallbackCaptures = true;
+    }
     if (hasMatch) {
       resolveCaptures();
     }
@@ -3307,6 +3614,7 @@ public final class Matcher implements MatchResult {
       return;
     }
     Prog prog = parentPattern.prog();
+    InputScanner scanner = activeScanner();
     // Search anchored at matchStart, bounded by matchEnd, to extract inner capture groups.
     // The DFA sandwich has already determined group(0) bounds; this pass fills in the inner
     // captures within that range.
@@ -3325,7 +3633,7 @@ public final class Matcher implements MatchResult {
           parentPattern
               .onePass()
               .search(
-                  text, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
+                  scanner, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
     } else {
       boolean savedCaptureSearch = diagnosticCaptureSearch;
       diagnosticCaptureSearch = true;
@@ -3333,7 +3641,7 @@ public final class Matcher implements MatchResult {
         result =
             searchWithBitStateOrNfa(
                 prog,
-                text,
+                scanner,
                 deferredMatchStart,
                 deferredMatchEnd,
                 deferredMatchEnd,
@@ -3353,6 +3661,13 @@ public final class Matcher implements MatchResult {
     }
     capturesResolved = true;
     groupZeroResolved = true;
+  }
+
+  private InputScanner activeScanner() {
+    if (textScanner == null) {
+      textScanner = new StringInputScanner(text);
+    }
+    return textScanner;
   }
 
   private void checkMatch() {
@@ -3657,7 +3972,8 @@ public final class Matcher implements MatchResult {
   }
 
   private long findNextMatchPacked(int fromIndex) {
-    if (fromIndex > text.length()) {
+    InputScanner scanner = activeScanner();
+    if (fromIndex > scanner.length()) {
       return -1L;
     }
     Prog prog = parentPattern.prog();
@@ -3732,7 +4048,7 @@ public final class Matcher implements MatchResult {
 
     Dfa.SearchResult fwdResult = null;
     if (canUseForwardDfa()) {
-      fwdResult = dfa(false).doSearch(text, effectiveStart, false, false);
+      fwdResult = dfa(false).doSearch(scanner, effectiveStart, false, false);
       if (fwdResult != null && !fwdResult.matched()) {
         return -1L;
       }
@@ -3745,7 +4061,7 @@ public final class Matcher implements MatchResult {
       int earlyEnd = fwdResult.pos();
 
       if (prog.anchorStart()) {
-        Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, effectiveStart, true, false);
+        Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, effectiveStart, true, false);
         if (fwdFirst != null && fwdFirst.matched()) {
           return packPositions(effectiveStart, fwdFirst.pos());
         }
@@ -3753,10 +4069,10 @@ public final class Matcher implements MatchResult {
         Dfa revDfa = reverseDfa();
         if (revDfa != null) {
           Dfa.SearchResult revResult =
-              revDfa.doSearchReverse(text, earlyEnd, effectiveStart, true, true);
+              revDfa.doSearchReverse(scanner, earlyEnd, effectiveStart, true, true);
           if (revResult != null && revResult.matched() && !revResult.ambiguous()) {
             int matchStart = revResult.pos();
-            Dfa.SearchResult fwdFirst = dfa(false).doSearch(text, matchStart, true, false);
+            Dfa.SearchResult fwdFirst = dfa(false).doSearch(scanner, matchStart, true, false);
             if (fwdFirst != null && fwdFirst.matched()) {
               return packPositions(matchStart, fwdFirst.pos());
             }
@@ -3769,10 +4085,10 @@ public final class Matcher implements MatchResult {
     int[] result =
         searchWithBitStateOrNfa(
             prog,
-            text,
+            scanner,
             effectiveStart,
-            text.length(),
-            text.length(),
+            scanner.length(),
+            scanner.length(),
             false,
             false,
             false,

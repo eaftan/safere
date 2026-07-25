@@ -233,10 +233,33 @@ final class MatcherTransitionInventory {
       TRANSITIONS.stream()
           .collect(Collectors.toUnmodifiableMap(Transition::signature, transition -> transition));
 
+  private static final List<Transition> UTF8_TRANSITIONS =
+      List.of(
+          transition(
+              signature("find"),
+              ResultEffect.MATCH_ATTEMPT,
+              DeferredCaptureEffect.MAY_DEFER,
+              CursorEffect.DERIVE_FROM_PREVIOUS_RESULT_THEN_SEARCH,
+              ReplacementEffect.PRESERVE,
+              StructuralMutationEffect.INVALIDATES_ACTIVE_TRAVERSAL,
+              CacheEffect.PRESERVE,
+              OBSERVER_ONLY),
+          observer(signature("groupCount")),
+          matchObserver(signature("start")),
+          matchObserver(signature("start", int.class)),
+          matchObserver(signature("end")),
+          matchObserver(signature("end", int.class)),
+          appendReplacement(signature("appendReplacement", Utf8Sink.class, Utf8Input.class)),
+          appendTail(signature("appendTail", Utf8Sink.class)));
+
   private MatcherTransitionInventory() {}
 
   static List<Transition> transitions() {
     return TRANSITIONS;
+  }
+
+  static List<Transition> utf8Transitions() {
+    return UTF8_TRANSITIONS;
   }
 
   static Optional<Transition> transitionFor(Signature signature) {

@@ -8,7 +8,7 @@
   <parent>
     <groupId>org.safere</groupId>
     <artifactId>safere-parent</artifactId>
-    <version>0.9.0-SNAPSHOT</version>
+    <version>0.10.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>safere-crosscheck</artifactId>
@@ -113,6 +113,7 @@
                         <!-- Compile-time structural excludes. Each excluded test class is also
                              annotated with @DisabledForCrosscheck in the original source. -->
                         <exclude name="AnchorOptTest.java"/>
+                        <exclude name="AnchoredDfaCachingTest.java"/>
                         <exclude name="BitStateTest.java"/>
                         <exclude name="CharClassTest.java"/>
                         <exclude name="CompilerTest.java"/>
@@ -124,6 +125,7 @@
                         <exclude name="GraphemeLinearTimeTest.java"/>
                         <exclude name="InstOpTest.java"/>
                         <exclude name="InstTest.java"/>
+                        <exclude name="InputScannerTest.java"/>
                         <exclude name="MatcherDeferredCaptureStateTest.java"/>
                         <exclude name="MatcherTransitionInventoryTest.java"/>
                         <exclude name="NfaTest.java"/>
@@ -140,6 +142,11 @@
                         <exclude name="SimplifierTest.java"/>
                         <exclude name="UnicodeJdkConsistencyTest.java"/>
                         <exclude name="UnicodeTablesTest.java"/>
+                        <exclude name="Utf8AllocationScalingTest.java"/>
+                        <exclude name="Utf8EnginePathEquivalenceTest.java"/>
+                        <exclude name="Utf8InputScannerTest.java"/>
+                        <exclude name="Utf8InputTest.java"/>
+                        <exclude name="Utf8LinearTimeTest.java"/>
                         <exclude name="UtilsTest.java"/>
                         <exclude name="WalkerTest.java"/>
                         <exclude name="WorkCounterTest.java"/>
@@ -147,7 +154,7 @@
                       <filterchain>
                         <replaceregex
                             pattern="package org\.safere;"
-                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;"/>
+                            replace="package org.safere.crosscheck.generated;&#10;&#10;import org.safere.crosscheck.Matcher;&#10;import org.safere.crosscheck.Pattern;&#10;import org.safere.crosscheck.Utf8Input;&#10;import org.safere.crosscheck.Utf8Matcher;&#10;import org.safere.crosscheck.Utf8Sink;"/>
                       </filterchain>
                     </copy>
                   </target>

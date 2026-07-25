@@ -263,3 +263,26 @@ When a fuzzer finds a valid SafeRE/JDK divergence or crash, minimize the input
 and add a normal JUnit regression test before fixing the bug. See
 [safere-fuzz/README.md](../safere-fuzz/README.md) for target descriptions and
 workflow details.
+
+## Trino UTF-8 Validation
+
+The UTF-8 API is externally validated by the local Trino migration recorded in
+`design/TRINO_SAFERE_COMPATIBILITY.md`. At SafeRE revision
+`8e2394facf9c50ac3d51a15b6485b496cb591d2c`, install the artifact and run the
+selected Trino coverage at revision
+`4e070738fd759ef7cb909177bda24884b7d00dc1`:
+
+```bash
+mvn install -DskipTests -q
+
+cd ../trino
+./mvnw -pl core/trino-main \
+  -Dtest=TestSafeReRegexpFunctions,TestRe2jRegexpFunctions,TestFeaturesConfig,TestTypeCoercion,TestConnectorExpressionTranslator \
+  test -q
+```
+
+This covers Trino's complete SafeRE and retained RE2/J regex-function surfaces
+plus the adjacent configuration, coercion, and planner translation paths. A full
+`./mvnw -pl core/trino-main test -q` run was also attempted. It is not recorded
+as passing because Docker-dependent OAuth tests cannot start without Docker and
+an unrelated node-state poller remained alive after those failures.

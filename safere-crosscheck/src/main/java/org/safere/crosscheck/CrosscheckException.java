@@ -30,11 +30,34 @@ public class CrosscheckException extends RuntimeException {
    */
   public CrosscheckException(
       String method, String args, String safereResult, String jdkResult, String trace) {
-    super(formatMessage(method, args, safereResult, jdkResult, trace));
+    this(method, args, "SafeRE", safereResult, "JDK", jdkResult, trace);
+  }
+
+  static CrosscheckException comparison(
+      String method,
+      String args,
+      String firstLabel,
+      String firstResult,
+      String secondLabel,
+      String secondResult,
+      String trace) {
+    return new CrosscheckException(
+        method, args, firstLabel, firstResult, secondLabel, secondResult, trace);
+  }
+
+  private CrosscheckException(
+      String method,
+      String args,
+      String firstLabel,
+      String firstResult,
+      String secondLabel,
+      String secondResult,
+      String trace) {
+    super(formatMessage(method, args, firstLabel, firstResult, secondLabel, secondResult, trace));
     this.method = method;
     this.args = args;
-    this.safereResult = safereResult;
-    this.jdkResult = jdkResult;
+    this.safereResult = firstResult;
+    this.jdkResult = secondResult;
     this.trace = trace;
   }
 
@@ -64,17 +87,27 @@ public class CrosscheckException extends RuntimeException {
   }
 
   private static String formatMessage(
-      String method, String args, String safereResult, String jdkResult, String trace) {
+      String method,
+      String args,
+      String firstLabel,
+      String firstResult,
+      String secondLabel,
+      String secondResult,
+      String trace) {
     return "Crosscheck divergence in "
         + method
         + "("
         + args
         + "):\n"
-        + "  SafeRE: "
-        + safereResult
+        + "  "
+        + firstLabel
+        + ": "
+        + firstResult
         + "\n"
-        + "  JDK:    "
-        + jdkResult
+        + "  "
+        + secondLabel
+        + ": "
+        + secondResult
         + "\n\n"
         + trace;
   }

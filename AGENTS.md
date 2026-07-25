@@ -360,21 +360,25 @@ per invocation and collect results incrementally:
 
 ### Summary Statistics
 
-When reporting benchmark results in BENCHMARKS.md, always compute and report
-**geometric mean of the speed ratios** (SafeRE time / competitor time) as the
-single summary statistic. Report three geomeans, against JDK, RE2/J, and
-RE2-FFM:
+The structure and workload groupings in `BENCHMARKS.md` must reflect the
+current benchmark suite and the questions the report is intended to answer.
+Do not preserve a fixed list of summary categories, benchmark methods, or
+competitors after the suite or reporting goals have changed.
 
-1. **Core workloads geomean** — includes: literalMatch, emailFind, findInText,
-   alternationFind, charClassMatch, captureGroups, pigLatinReplace, and
-   httpFull. These are focused microbenchmarks that isolate engine behavior.
-2. **Application workloads geomean** — includes the data-driven validation,
-   parsing, extraction, scanning, and redaction cases from
-   `ApplicationBenchmark`. This answers: "Is SafeRE competitive on ordinary
-   application regex use?"
-3. **Pathological/scaling geomean** — includes: pathological, searchHardFail,
-   and other benchmarks that demonstrate linear-time guarantees or scaling
-   behavior. This answers: "Does the linear-time guarantee matter?"
+When reporting an aggregate comparison:
+
+- Define its workload membership, parameter coverage, and weighting clearly.
+- Include the benchmark families that materially affect the report's
+  conclusions; do not silently omit important or inconvenient results.
+- Keep semantically different groups separate when combining them would hide
+  useful behavior. Label cross-runtime comparisons as context rather than
+  controlled same-runtime comparisons.
+- Compute the **geometric mean of speed ratios** rather than an arithmetic mean
+  of ratios. Use `SafeRE time / competitor time`, so values below 1.0 mean
+  SafeRE is faster.
+- Report the raw geomean and a readable interpretation such as "N× faster" or
+  "N× slower." Explain when a small number of extreme cases materially
+  influences the aggregate.
 
 **Why geometric mean:** It is the only mean consistent under inversion
 (geomean(A/B) = 1/geomean(B/A)), treats multiplicative improvements
@@ -382,9 +386,9 @@ symmetrically, and is the standard in systems benchmarking (SPEC, DaCapo,
 Renaissance). Do not use arithmetic mean of ratios — it is biased by outliers
 and inconsistent under inversion.
 
-**Ratio convention:** Express as `SafeRE / competitor` so values < 1.0 mean
-SafeRE is faster. For readability, also express as "SafeRE is N× faster" or
-"SafeRE is N× slower" alongside the raw geomean.
+`BENCHMARKS.md` must be self-contained for checked-in benchmark claims. Raw
+outputs may remain local, but do not make an ignored or machine-local artifact
+the only place where a reported result or supporting table can be inspected.
 
 ### Writing About Benchmark Results
 

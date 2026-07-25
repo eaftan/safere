@@ -30,11 +30,14 @@ public final class Matcher implements MatchResult {
   private final org.safere.Matcher safereMatcher;
   private final java.util.regex.Matcher jdkMatcher;
   private final TraceRecorder trace = new TraceRecorder();
+  private CharSequence utf8ShadowInput;
+  private Utf8Shadow utf8Shadow;
 
   Matcher(Pattern pattern, CharSequence input) {
     this.crosscheckPattern = pattern;
     this.safereMatcher = pattern.saferePattern().matcher(input);
     this.jdkMatcher = pattern.jdkPattern().matcher(input);
+    resetUtf8Shadow(input);
   }
 
   // ---------------------------------------------------------------------------
@@ -43,6 +46,7 @@ public final class Matcher implements MatchResult {
 
   /** Attempts to match the entire input against the pattern. */
   public boolean matches() {
+    disableUtf8Shadow();
     boolean sr = safereMatcher.matches();
     boolean jr = jdkMatcher.matches();
     checkBoolean("matches", "", sr, jr);
@@ -51,6 +55,7 @@ public final class Matcher implements MatchResult {
 
   /** Attempts to match the input, starting at the beginning, against the pattern. */
   public boolean lookingAt() {
+    disableUtf8Shadow();
     boolean sr = safereMatcher.lookingAt();
     boolean jr = jdkMatcher.lookingAt();
     checkBoolean("lookingAt", "", sr, jr);
@@ -61,15 +66,25 @@ public final class Matcher implements MatchResult {
   public boolean find() {
     boolean sr = safereMatcher.find();
     boolean jr = jdkMatcher.find();
+    Boolean ur = utf8Shadow == null ? null : utf8Shadow.find();
     checkBoolean("find", "", sr, jr);
+    if (ur != null && sr && !utf8Shadow.canRepresent(safereMatcher)) {
+      disableUtf8Shadow();
+      ur = null;
+    }
+    if (ur != null) {
+      checkUtf8Equal("find", "", sr, ur);
+    }
     if (sr && jr) {
       checkMatchState("find");
+      checkUtf8MatchState("find");
     }
     return sr;
   }
 
   /** Resets and finds starting at the given index. */
   public boolean find(int start) {
+    disableUtf8Shadow();
     boolean sr = safereMatcher.find(start);
     boolean jr = jdkMatcher.find(start);
     checkBoolean("find", String.valueOf(start), sr, jr);
@@ -89,6 +104,9 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.groupCount();
     int jr = jdkMatcher.groupCount();
     checkEqual("groupCount", "", sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("groupCount", "", sr, utf8Shadow.groupCount());
+    }
     return sr;
   }
 
@@ -98,6 +116,9 @@ public final class Matcher implements MatchResult {
     String sr = safereMatcher.group();
     String jr = jdkMatcher.group();
     checkEqual("group", "", sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("group", "", sr, utf8Shadow.group(0));
+    }
     return sr;
   }
 
@@ -107,6 +128,9 @@ public final class Matcher implements MatchResult {
     String sr = safereMatcher.group(group);
     String jr = jdkMatcher.group(group);
     checkEqual("group", String.valueOf(group), sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("group", String.valueOf(group), sr, utf8Shadow.group(group));
+    }
     return sr;
   }
 
@@ -115,6 +139,10 @@ public final class Matcher implements MatchResult {
     String sr = safereMatcher.group(name);
     String jr = jdkMatcher.group(name);
     checkEqual("group", quote(name), sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal(
+          "group", quote(name), sr, utf8Shadow.group(crosscheckPattern.namedGroups().get(name)));
+    }
     return sr;
   }
 
@@ -124,6 +152,9 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.start();
     int jr = jdkMatcher.start();
     checkEqual("start", "", sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("start", "", sr, utf8Shadow.start(0));
+    }
     return sr;
   }
 
@@ -133,6 +164,9 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.start(group);
     int jr = jdkMatcher.start(group);
     checkEqual("start", String.valueOf(group), sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("start", String.valueOf(group), sr, utf8Shadow.start(group));
+    }
     return sr;
   }
 
@@ -141,6 +175,10 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.start(name);
     int jr = jdkMatcher.start(name);
     checkEqual("start", quote(name), sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal(
+          "start", quote(name), sr, utf8Shadow.start(crosscheckPattern.namedGroups().get(name)));
+    }
     return sr;
   }
 
@@ -150,6 +188,9 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.end();
     int jr = jdkMatcher.end();
     checkEqual("end", "", sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("end", "", sr, utf8Shadow.end(0));
+    }
     return sr;
   }
 
@@ -159,6 +200,9 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.end(group);
     int jr = jdkMatcher.end(group);
     checkEqual("end", String.valueOf(group), sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("end", String.valueOf(group), sr, utf8Shadow.end(group));
+    }
     return sr;
   }
 
@@ -167,6 +211,10 @@ public final class Matcher implements MatchResult {
     int sr = safereMatcher.end(name);
     int jr = jdkMatcher.end(name);
     checkEqual("end", quote(name), sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal(
+          "end", quote(name), sr, utf8Shadow.end(crosscheckPattern.namedGroups().get(name)));
+    }
     return sr;
   }
 
@@ -179,6 +227,13 @@ public final class Matcher implements MatchResult {
     String sr = safereMatcher.replaceFirst(replacement);
     String jr = jdkMatcher.replaceFirst(replacement);
     checkEqual("replaceFirst", quote(replacement), sr, jr);
+    if (utf8Shadow != null) {
+      if (utf8Shadow.canEncode(replacement)) {
+        checkUtf8Equal(
+            "replaceFirst", quote(replacement), sr, utf8Shadow.replaceFirst(replacement));
+      }
+      disableUtf8Shadow();
+    }
     return sr;
   }
 
@@ -187,11 +242,18 @@ public final class Matcher implements MatchResult {
     String sr = safereMatcher.replaceAll(replacement);
     String jr = jdkMatcher.replaceAll(replacement);
     checkEqual("replaceAll", quote(replacement), sr, jr);
+    if (utf8Shadow != null) {
+      if (utf8Shadow.canEncode(replacement)) {
+        checkUtf8Equal("replaceAll", quote(replacement), sr, utf8Shadow.replaceAll(replacement));
+      }
+      disableUtf8Shadow();
+    }
     return sr;
   }
 
   /** Replaces the first match with a replacement computed from the match result. */
   public String replaceFirst(Function<MatchResult, String> replacer) {
+    disableUtf8Shadow();
     String sr = safereMatcher.replaceFirst(replacer);
     String jr = jdkMatcher.replaceFirst(replacer);
     checkEqual("replaceFirst", "<function>", sr, jr);
@@ -200,6 +262,7 @@ public final class Matcher implements MatchResult {
 
   /** Replaces all matches with replacements computed from match results. */
   public String replaceAll(Function<MatchResult, String> replacer) {
+    disableUtf8Shadow();
     String sr = safereMatcher.replaceAll(replacer);
     String jr = jdkMatcher.replaceAll(replacer);
     checkEqual("replaceAll", "<function>", sr, jr);
@@ -220,6 +283,14 @@ public final class Matcher implements MatchResult {
     String sr = safeSb.toString();
     String jr = jdkSb.toString();
     checkEqual("appendReplacement", quote(replacement), sr, jr);
+    if (utf8Shadow != null) {
+      if (utf8Shadow.canEncode(replacement)) {
+        checkUtf8Equal(
+            "appendReplacement", quote(replacement), sr, utf8Shadow.appendReplacement(replacement));
+      } else {
+        disableUtf8Shadow();
+      }
+    }
     sb.append(sr);
     return this;
   }
@@ -237,6 +308,9 @@ public final class Matcher implements MatchResult {
     String sr = safeSb.toString();
     String jr = jdkSb.toString();
     checkEqual("appendTail", "", sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("appendTail", "", sr, utf8Shadow.appendTail());
+    }
     sb.append(sr);
     return sb;
   }
@@ -250,6 +324,14 @@ public final class Matcher implements MatchResult {
     String sr = safeSbuf.toString();
     String jr = jdkSbuf.toString();
     checkEqual("appendReplacement", quote(replacement), sr, jr);
+    if (utf8Shadow != null) {
+      if (utf8Shadow.canEncode(replacement)) {
+        checkUtf8Equal(
+            "appendReplacement", quote(replacement), sr, utf8Shadow.appendReplacement(replacement));
+      } else {
+        disableUtf8Shadow();
+      }
+    }
     sb.append(sr);
     return this;
   }
@@ -263,6 +345,9 @@ public final class Matcher implements MatchResult {
     String sr = safeSbuf.toString();
     String jr = jdkSbuf.toString();
     checkEqual("appendTail", "", sr, jr);
+    if (utf8Shadow != null) {
+      checkUtf8Equal("appendTail", "", sr, utf8Shadow.appendTail());
+    }
     sb.append(sr);
     return sb;
   }
@@ -280,6 +365,7 @@ public final class Matcher implements MatchResult {
   public Matcher reset() {
     safereMatcher.reset();
     jdkMatcher.reset();
+    resetUtf8Shadow(utf8ShadowInput);
     trace.recordMatch("reset", "", "void");
     return this;
   }
@@ -288,12 +374,14 @@ public final class Matcher implements MatchResult {
   public Matcher reset(CharSequence input) {
     safereMatcher.reset(input);
     jdkMatcher.reset(input);
+    resetUtf8Shadow(input);
     trace.recordMatch("reset", quote(input), "void");
     return this;
   }
 
   /** Sets the region of the input for matching. */
   public Matcher region(int start, int end) {
+    disableUtf8Shadow();
     safereMatcher.region(start, end);
     jdkMatcher.region(start, end);
     trace.recordMatch("region", start + ", " + end, "void");
@@ -326,6 +414,7 @@ public final class Matcher implements MatchResult {
 
   /** Sets whether this matcher uses transparent bounds. */
   public Matcher useTransparentBounds(boolean b) {
+    disableUtf8Shadow();
     safereMatcher.useTransparentBounds(b);
     jdkMatcher.useTransparentBounds(b);
     trace.recordMatch("useTransparentBounds", String.valueOf(b), "void");
@@ -342,6 +431,7 @@ public final class Matcher implements MatchResult {
 
   /** Sets whether this matcher uses anchoring bounds. */
   public Matcher useAnchoringBounds(boolean b) {
+    disableUtf8Shadow();
     safereMatcher.useAnchoringBounds(b);
     jdkMatcher.useAnchoringBounds(b);
     trace.recordMatch("useAnchoringBounds", String.valueOf(b), "void");
@@ -360,6 +450,7 @@ public final class Matcher implements MatchResult {
     }
     safereMatcher.usePattern(newPattern.saferePattern());
     jdkMatcher.usePattern(newPattern.jdkPattern());
+    disableUtf8Shadow();
     crosscheckPattern = newPattern;
     trace.recordMatch("usePattern", newPattern.pattern(), "void");
     return this;
@@ -378,6 +469,7 @@ public final class Matcher implements MatchResult {
 
   /** Returns a stream of match-result snapshots. */
   public Stream<MatchResult> results() {
+    disableUtf8Shadow();
     Stream<MatchResult> safereResults = safereMatcher.results();
     Stream<MatchResult> jdkResults = jdkMatcher.results();
     Iterator<MatchResult> safereIterator = safereResults.iterator();
@@ -455,6 +547,56 @@ public final class Matcher implements MatchResult {
     }
 
     trace.recordMatch(context, "", "start=" + srStart + ", end=" + srEnd);
+  }
+
+  private void checkUtf8MatchState(String context) {
+    if (utf8Shadow == null) {
+      return;
+    }
+    int groupCount = safereMatcher.groupCount();
+    checkUtf8Equal(context + " → groupCount()", "", groupCount, utf8Shadow.groupCount());
+    for (int group = 0; group <= groupCount; group++) {
+      checkUtf8Equal(
+          context + " → start(" + group + ")",
+          "",
+          safereMatcher.start(group),
+          utf8Shadow.start(group));
+      checkUtf8Equal(
+          context + " → end(" + group + ")", "", safereMatcher.end(group), utf8Shadow.end(group));
+      checkUtf8Equal(
+          context + " → group(" + group + ")",
+          "",
+          safereMatcher.group(group),
+          utf8Shadow.group(group));
+    }
+  }
+
+  private void checkUtf8Equal(String method, String args, Object stringResult, Object utf8Result) {
+    if (!Objects.equals(stringResult, utf8Result)) {
+      String traceMethod = method + " [SafeRE String vs SafeRE UTF-8]";
+      trace.recordDivergence(traceMethod, args, stringResult, utf8Result);
+      throw CrosscheckException.comparison(
+          method,
+          args,
+          "SafeRE String",
+          Objects.toString(stringResult),
+          "SafeRE UTF-8",
+          Objects.toString(utf8Result),
+          trace.format());
+    }
+  }
+
+  private void resetUtf8Shadow(CharSequence input) {
+    utf8ShadowInput = input;
+    utf8Shadow = Utf8Shadow.create(crosscheckPattern, input);
+  }
+
+  private void disableUtf8Shadow() {
+    utf8Shadow = null;
+  }
+
+  boolean utf8ShadowActive() {
+    return utf8Shadow != null;
   }
 
   private void checkBoolean(String method, String args, boolean sr, boolean jr) {

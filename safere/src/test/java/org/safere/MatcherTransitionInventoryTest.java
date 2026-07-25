@@ -46,6 +46,30 @@ class MatcherTransitionInventoryTest {
   }
 
   @Test
+  @DisplayName("UTF-8 transition inventory covers every public Utf8Matcher method")
+  void utf8TransitionInventoryCoversPublicMatcherMethods() {
+    Set<MatcherTransitionInventory.Signature> actualPublicMethods =
+        Arrays.stream(Utf8Matcher.class.getDeclaredMethods())
+            .filter(method -> Modifier.isPublic(method.getModifiers()))
+            .filter(method -> !method.isBridge())
+            .filter(method -> !method.isSynthetic())
+            .map(MatcherTransitionInventoryTest::signature)
+            .collect(Collectors.toSet());
+
+    Set<MatcherTransitionInventory.Signature> inventoriedMethods =
+        MatcherTransitionInventory.utf8Transitions().stream()
+            .map(MatcherTransitionInventory.Transition::signature)
+            .collect(Collectors.toSet());
+
+    assertThat(formatMissing(actualPublicMethods, inventoriedMethods))
+        .as("public Utf8Matcher methods missing transition metadata")
+        .isEmpty();
+    assertThat(formatMissing(inventoriedMethods, actualPublicMethods))
+        .as("UTF-8 transition metadata entries with no public Utf8Matcher method")
+        .isEmpty();
+  }
+
+  @Test
   @DisplayName("public instance transitions declare deferred capture behavior")
   void publicInstanceTransitionsDeclareDeferredCaptureBehavior() {
     assertThat(MatcherTransitionInventory.transitions())

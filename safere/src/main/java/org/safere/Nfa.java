@@ -429,6 +429,36 @@ final class Nfa {
 
   static int[] search(
       Prog prog,
+      InputScanner text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int regionStart,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch,
+      GraphemeSupport.Context graphemeContext) {
+    return search(
+        prog,
+        text,
+        startPos,
+        searchLimit,
+        endPos,
+        endPos,
+        regionStart,
+        regionStart,
+        endPos,
+        endPos,
+        0,
+        endPos,
+        anchor,
+        kind,
+        nsubmatch,
+        graphemeContext);
+  }
+
+  static int[] search(
+      Prog prog,
       String text,
       int startPos,
       int searchLimit,
@@ -462,6 +492,42 @@ final class Nfa {
   static int[] search(
       Prog prog,
       String text,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      int consumeRegionStart,
+      int boundaryRegionStart,
+      int boundaryEndPos,
+      int anchorEndPos,
+      int emptyAnchorStartPos,
+      int emptyAnchorEndPos,
+      Anchor anchor,
+      MatchKind kind,
+      int nsubmatch,
+      GraphemeSupport.Context graphemeContext) {
+    return search(
+        prog,
+        new StringInputScanner(text),
+        startPos,
+        searchLimit,
+        endPos,
+        graphemeConsumeEndPos,
+        consumeRegionStart,
+        boundaryRegionStart,
+        boundaryEndPos,
+        anchorEndPos,
+        emptyAnchorStartPos,
+        emptyAnchorEndPos,
+        anchor,
+        kind,
+        nsubmatch,
+        graphemeContext);
+  }
+
+  static int[] search(
+      Prog prog,
+      InputScanner text,
       int startPos,
       int searchLimit,
       int endPos,
@@ -522,7 +588,7 @@ final class Nfa {
    * @param anchored whether to anchor the search at the context start
    */
   private void doSearch(boolean anchored) {
-    String text = context.text();
+    InputScanner text = context.text();
     int startPos = context.searchStart();
     int searchLimit = context.searchLimit();
     int endPos = context.endPos();
@@ -533,8 +599,9 @@ final class Nfa {
 
     int pos = startPos;
     while (true) {
-      int cp = codePointAtConsumeBoundary(text, pos);
-      int nextPos = cp >= 0 ? pos + Character.charCount(cp) : nextBoundaryPosition(pos, endPos);
+      long decoded = decodeAtConsumeBoundary(text, pos);
+      int cp = InputScanner.codePoint(decoded);
+      int nextPos = InputScanner.position(decoded);
 
       // Start a new thread if there have not been any matches
       // (no point starting new threads to the right of an existing match).
@@ -595,7 +662,7 @@ final class Nfa {
    * ordinary SafeRE programs.
    */
   private void doSearchEveryCharPosition(boolean anchored) {
-    String text = context.text();
+    InputScanner text = context.text();
     int startPos = context.searchStart();
     int searchLimit = context.searchLimit();
     int start = Math.max(0, startPos);
@@ -691,7 +758,7 @@ final class Nfa {
   }
 
   private void mergeQueues(QueueState source, QueueState destination, int pos) {
-    String text = context.text();
+    InputScanner text = context.text();
     for (int i = 0; i < source.size; i++) {
       NfaThread t = source.threads[i];
       boolean visited;
@@ -730,7 +797,7 @@ final class Nfa {
     return delayedGrapheme.computeIfAbsent(pos, unused -> allocQueueState());
   }
 
-  private long visitKey(Inst ip, int id, String text, int pos, int graphemeStart) {
+  private long visitKey(Inst ip, int id, InputScanner text, int pos, int graphemeStart) {
     long instructionKey = ((long) id) << GraphemeSupport.visitKeyVariantBits();
     if (ip.op != InstOp.GRAPHEME_CLUSTER) {
       return instructionKey;
@@ -745,36 +812,32 @@ final class Nfa {
             context.graphemeContext());
   }
 
-  private long inputStep(String text, int pos) {
+  private long inputStep(InputScanner text, int pos) {
     if (prog.hasGraphemeSemantics()) {
       int cp = GraphemeSupport.inputCodePointAt(text, pos, context.endPos(), true);
       int nextPos = GraphemeSupport.inputNextPos(text, pos, context.endPos(), true);
-      return ((long) cp << 32) | (nextPos & 0xFFFFFFFFL);
+      return InputScanner.decoded(cp, nextPos);
     }
     if (pos < 0 || pos >= context.engineEndPos()) {
       int nextPos = nextBoundaryPosition(pos, context.endPos());
-      return (-1L << 32) | (nextPos & 0xFFFFFFFFL);
+      return InputScanner.decoded(-1, nextPos);
     }
-    int cp = text.codePointAt(pos);
-    int width = Character.charCount(cp);
-    if (pos + width <= context.engineEndPos()) {
-      return ((long) cp << 32) | ((pos + width) & 0xFFFFFFFFL);
-    } else {
-      int nextPos = nextBoundaryPosition(pos, context.endPos());
-      return (-1L << 32) | (nextPos & 0xFFFFFFFFL);
-    }
+    return decodeAtConsumeBoundary(text, pos);
   }
 
-  private int graphemeNextPos(String text, int pos) {
+  private int graphemeNextPos(InputScanner text, int pos) {
     return GraphemeSupport.graphemeNextPos(text, pos, context.graphemeConsumeEndPos());
   }
 
-  private int codePointAtConsumeBoundary(String text, int pos) {
+  private long decodeAtConsumeBoundary(InputScanner text, int pos) {
     if (pos < 0 || pos >= context.engineEndPos()) {
-      return -1;
+      return InputScanner.decoded(-1, nextBoundaryPosition(pos, context.engineEndPos()));
     }
-    int cp = text.codePointAt(pos);
-    return pos + Character.charCount(cp) <= context.engineEndPos() ? cp : -1;
+    long decoded = text.decodeForward(pos);
+    if (InputScanner.position(decoded) <= context.engineEndPos()) {
+      return decoded;
+    }
+    return InputScanner.decoded(-1, nextBoundaryPosition(pos, context.engineEndPos()));
   }
 
   private static int nextBoundaryPosition(int pos, int endPos) {
@@ -792,7 +855,7 @@ final class Nfa {
    * @param t0 the current capture array (shared — will be cloned before mutation)
    */
   private void addToThreadq(
-      QueueState q, int id, String text, int pos, int[] t0, boolean consumedInput) {
+      QueueState q, int id, InputScanner text, int pos, int[] t0, boolean consumedInput) {
     AddToThreadqStack stack = addToThreadqStack;
     stack.clear();
     stack.pushInstruction(id, consumedInput);
@@ -926,7 +989,7 @@ final class Nfa {
       QueueState[] delayedBuffer,
       Map<Integer, QueueState> delayedGrapheme,
       int cp,
-      String text,
+      InputScanner text,
       int matchPos,
       int nextPos) {
     for (int threadIndex = 0; threadIndex < rq.size; threadIndex++) {
@@ -1045,7 +1108,7 @@ final class Nfa {
   }
 
   private boolean stepCodePoint(
-      QueueState rq, QueueState nq, int cp, String text, int matchPos, int nextPos) {
+      QueueState rq, QueueState nq, int cp, InputScanner text, int matchPos, int nextPos) {
     nq.clear();
 
     for (int threadIndex = 0; threadIndex < rq.size; threadIndex++) {
@@ -1114,7 +1177,7 @@ final class Nfa {
     return false;
   }
 
-  private boolean matchesEndPosition(String text, int matchPos) {
+  private boolean matchesEndPosition(InputScanner text, int matchPos) {
     if (matchPos == context.anchorEndPos()) {
       return true;
     }
@@ -1146,36 +1209,13 @@ final class Nfa {
    *
    * @param unixLines if true, only {@code '\n'} is recognized as a line terminator
    */
-  static boolean isAtTrailingLineTerminator(String text, int pos, boolean unixLines) {
+  static boolean isAtTrailingLineTerminator(InputScanner text, int pos, boolean unixLines) {
     return isAtTrailingLineTerminator(text, pos, unixLines, text.length());
   }
 
-  static int trailingLineTerminatorStart(String text, boolean unixLines) {
-    return trailingLineTerminatorStart(text, unixLines, text.length());
-  }
-
-  private static boolean isAtTrailingLineTerminator(
-      String text, int pos, boolean unixLines, int logicalEndPos) {
-    return pos == trailingLineTerminatorStart(text, unixLines, logicalEndPos);
-  }
-
-  private static int trailingLineTerminatorStart(
-      String text, boolean unixLines, int logicalEndPos) {
-    int len = logicalEndPos;
-    if (len <= 0 || len > text.length()) {
-      return -1;
-    }
-    char ch = text.charAt(len - 1);
-    if (unixLines) {
-      return ch == '\n' ? len - 1 : -1;
-    }
-    if (ch == '\n') {
-      return len >= 2 && text.charAt(len - 2) == '\r' ? len - 2 : len - 1;
-    }
-    if (ch == '\r' || ch == '\u0085' || ch == '\u2028' || ch == '\u2029') {
-      return len - 1;
-    }
-    return -1;
+  static boolean isAtTrailingLineTerminator(
+      InputScanner text, int pos, boolean unixLines, int logicalEndPos) {
+    return pos == text.trailingLineTerminatorStart(unixLines, logicalEndPos);
   }
 
   /**
@@ -1188,11 +1228,15 @@ final class Nfa {
    * @return a bitmask of {@link EmptyOp} flags
    */
   static int emptyFlags(String text, int pos, boolean unixLines) {
+    return emptyFlags(new StringInputScanner(text), pos, unixLines);
+  }
+
+  static int emptyFlags(InputScanner text, int pos, boolean unixLines) {
     return emptyFlags(text, pos, unixLines, true);
   }
 
   static int emptyFlags(
-      String text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
+      InputScanner text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
     return emptyFlags(
         text,
         pos,
@@ -1205,7 +1249,7 @@ final class Nfa {
   }
 
   static int emptyFlags(
-      String text,
+      InputScanner text,
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
@@ -1215,7 +1259,7 @@ final class Nfa {
   }
 
   static int emptyFlags(
-      String text,
+      InputScanner text,
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
@@ -1239,7 +1283,7 @@ final class Nfa {
   }
 
   static int emptyFlags(
-      String text,
+      InputScanner text,
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
@@ -1256,7 +1300,7 @@ final class Nfa {
   }
 
   static int emptyFlags(
-      String text,
+      InputScanner text,
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
@@ -1267,7 +1311,7 @@ final class Nfa {
   }
 
   private static int emptyFlags(
-      String text,
+      InputScanner text,
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
@@ -1292,7 +1336,36 @@ final class Nfa {
   }
 
   static int emptyFlags(
-      String text,
+      InputScanner text,
+      int pos,
+      boolean unixLines,
+      boolean includeGraphemeClusterBoundary,
+      int matchStart,
+      int regionStart,
+      boolean consumedInput,
+      int anchorStartPos,
+      int anchorEndPos,
+      int boundaryEndPos,
+      boolean hasWordBoundary,
+      boolean hasTextAnchor) {
+    return emptyFlags(
+        text,
+        pos,
+        unixLines,
+        includeGraphemeClusterBoundary,
+        (GraphemeSupport.Context) null,
+        matchStart,
+        regionStart,
+        consumedInput,
+        anchorStartPos,
+        anchorEndPos,
+        boundaryEndPos,
+        hasWordBoundary,
+        hasTextAnchor);
+  }
+
+  static int emptyFlags(
+      InputScanner text,
       int pos,
       boolean unixLines,
       boolean includeGraphemeClusterBoundary,
@@ -1317,11 +1390,11 @@ final class Nfa {
     if (hasTextAnchor) {
       if (pos == anchorStartPos) {
         flags |= EmptyOp.BEGIN_TEXT;
-        if (!text.isEmpty() && pos != anchorEndPos) {
+        if (text.length() != 0 && pos != anchorEndPos) {
           flags |= EmptyOp.BEGIN_LINE;
         }
       } else if (pos < text.length()) {
-        char prev = text.charAt(pos - 1);
+        int prev = text.codePointBefore(pos);
         if (unixLines) {
           if (prev == '\n') {
             flags |= EmptyOp.BEGIN_LINE;
@@ -1332,7 +1405,7 @@ final class Nfa {
           // After \u0085, \u2028, \u2029: always a new line.
           if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
             flags |= EmptyOp.BEGIN_LINE;
-          } else if (prev == '\r' && text.charAt(pos) != '\n') {
+          } else if (prev == '\r' && text.asciiAt(pos) != '\n') {
             flags |= EmptyOp.BEGIN_LINE;
           }
         }
@@ -1346,7 +1419,7 @@ final class Nfa {
       if (pos == anchorEndPos) {
         flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
       } else if (pos < text.length()) {
-        char ch = text.charAt(pos);
+        int ch = text.codePointAt(pos);
         if (unixLines) {
           if (ch == '\n') {
             flags |= EmptyOp.END_LINE;
@@ -1358,7 +1431,7 @@ final class Nfa {
           // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
           // line terminator. END_LINE fires before the \r (the start of the pair), not between
           // \r and \n.
-          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.charAt(pos - 1) == '\r');
+          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.asciiAt(pos - 1) == '\r');
           if (!isAtomicLF) {
             flags |= EmptyOp.END_LINE;
             if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {

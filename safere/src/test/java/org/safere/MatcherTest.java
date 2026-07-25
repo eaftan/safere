@@ -568,6 +568,37 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("keyword alternation keeps default case folding ASCII-only")
+    void keywordAlternationKeepsDefaultCaseFoldingAsciiOnly() {
+      assertAllFindsMatchJdk("(?i)\\b(ak|as)\\b", "a\u212Ax ask");
+      assertAllFindsMatchJdk("(?is).*\\b(ak|as)\\b.*", "a\u212Ax ask");
+    }
+
+    @Test
+    @DisplayName("greedy whole-input keyword alternation preserves rightmost capture")
+    void greedyWholeInputKeywordAlternationPreservesRightmostCapture() {
+      assertAllFindsMatchJdk(
+          "(?is).*\\b(you|your)\\b.*",
+          "You spoke first.\nThen your example referred to YOU at the end.");
+    }
+
+    @Test
+    @DisplayName("greedy whole-input keyword alternation honors explicit find start")
+    void greedyWholeInputKeywordAlternationHonorsExplicitFindStart() {
+      String regex = "(?is).*\\b(you|your)\\b.*";
+      String input = "ignore YOU, then keep your answer";
+      Matcher safere = Pattern.compile(regex).matcher(input);
+      java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+
+      assertThat(safere.find(12)).isEqualTo(jdk.find(12));
+      assertThat(safere.start()).isEqualTo(jdk.start());
+      assertThat(safere.end()).isEqualTo(jdk.end());
+      assertThat(safere.group(1)).isEqualTo(jdk.group(1));
+      assertThat(safere.start(1)).isEqualTo(jdk.start(1));
+      assertThat(safere.end(1)).isEqualTo(jdk.end(1));
+    }
+
+    @Test
     @DisplayName("find() start acceleration matches JDK for comma-or-line-start CSV fields")
     void findStartAccelerationForCsvFields() {
       assertAllFindsMatchJdk(
@@ -1218,6 +1249,44 @@ class MatcherTest {
           .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("X"));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"", "abc", "aa", "baab"})
+    @DisplayName("nullable repeated character-class replacement matches JDK across input shapes")
+    void nullableRepeatedCharacterClassReplacementMatchesJdk(String input) {
+      String regex = "a*";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("xyz"));
+      assertThat(Pattern.compile(regex).matcher(input).replaceFirst("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("xyz"));
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "String empty-match progression may split surrogate pairs; the UTF-8 API advances by code"
+            + " point")
+    @DisplayName("nullable character-class replacement matches JDK UTF-16 progression")
+    void nullableCharacterClassReplacementMatchesJdkUtf16Progression() {
+      String regex = "a*";
+      String input = "💰a💰";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll("xyz"));
+      assertThat(Pattern.compile(regex).matcher(input).replaceFirst("xyz"))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceFirst("xyz"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"[a-z]+", "[a-z]*"})
+    @DisplayName("character-class replacement fallback retains the first match")
+    void characterClassReplacementFallbackRetainsFirstMatch(String regex) {
+      String input = "abc def";
+      String replacement = "[$0]";
+
+      assertThat(Pattern.compile(regex).matcher(input).replaceAll(replacement))
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(input).replaceAll(replacement));
+    }
+
     @Test
     @DisplayName("replaceAll() with nullable alternation matches JDK replacement sequence")
     void replaceAllNullableAlternationMatchesJdkReplacementSequence() {
@@ -1326,6 +1395,21 @@ class MatcherTest {
       assertThat(m.start()).isEqualTo(0);
       assertThat(m.end()).isEqualTo(3);
       assertThat(m.group()).isEqualTo("123");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"$", "\\"})
+    @DisabledForCrosscheck(
+        "generated wrapper cannot advance both delegates after the first delegate throws")
+    @DisplayName("nullable char-class fast path records first match before throwing")
+    void nullableCharClassMalformedReplacementRecordsFirstMatch(String replacement) {
+      Matcher matcher = Pattern.compile("a*").matcher("abc");
+
+      assertThatThrownBy(() -> matcher.replaceAll(replacement))
+          .isInstanceOf(IllegalArgumentException.class);
+      assertThat(matcher.start()).isEqualTo(0);
+      assertThat(matcher.end()).isEqualTo(1);
+      assertThat(matcher.group()).isEqualTo("a");
     }
 
     @Test
@@ -1609,6 +1693,7 @@ class MatcherTest {
       Matcher m = p.matcher("b");
       String result = m.replaceAll("x");
       assertThat(result).isEqualTo("xbx");
+      assertThat(m.find()).isFalse();
     }
 
     @Test

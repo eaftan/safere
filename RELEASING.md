@@ -1,6 +1,7 @@
 # Releasing SafeRE
 
-This document describes how to publish a new release of SafeRE to Maven Central.
+This document describes how to publish a new release of SafeRE to Maven Central
+and create its GitHub release notes.
 
 ## Prerequisites
 
@@ -27,13 +28,88 @@ git pull --ff-only
 ```
 
 Update release-facing documentation if needed, such as the version shown in the
-README installation snippets.
+README installation snippets. Make all release-preparation changes on a branch,
+open a ready-for-review pull request, and merge it after CI passes. Never push
+release-preparation commits directly to `main`.
 
-### 2. Run local verification
+After the pull request is merged, return to a clean, current `main` before
+continuing:
 
 ```bash
-mvn -pl safere verify --batch-mode --no-transfer-progress
+git switch main
+git pull --ff-only
 ```
+
+### 2. Prepare the release notes
+
+Collect the complete commit messages and author/co-author identities since the
+previous release:
+
+```bash
+PREVIOUS_RELEASE_TAG=$(git describe --tags --abbrev=0)
+git log --reverse --format='commit %H%n%n%B%n---' \
+  "${PREVIOUS_RELEASE_TAG}..HEAD" > /tmp/safere-release-commits.txt
+git log --format='%an <%ae>%n%(trailers:key=Co-authored-by,valueonly)' \
+  "${PREVIOUS_RELEASE_TAG}..HEAD" \
+  | sed '/^$/d' | sort -fu > /tmp/safere-release-contributors.txt
+```
+
+Review every commit in `/tmp/safere-release-commits.txt` and every identity in
+`/tmp/safere-release-contributors.txt`. Consolidate aliases that use different
+names or email addresses, and use linked pull requests to resolve community
+contributors to their GitHub handles.
+
+Summarize the user-facing changes in
+`/tmp/safere-vX.Y.Z-release-notes.md`. Use the following structure, omitting
+empty change sections:
+
+```markdown
+## Highlights
+
+A short description of the most important release themes.
+
+## New features
+
+- User-facing APIs and newly supported behavior.
+
+## Compatibility and correctness
+
+- JDK compatibility improvements and important bug fixes.
+
+## Performance
+
+- Meaningful optimizations, with measured results when available.
+
+## Other changes
+
+- Other changes users should know about.
+
+## Contributors
+
+Thank the community contributors by GitHub handle and briefly summarize their
+areas of contribution.
+
+**Full changelog:** https://github.com/eaftan/safere/compare/PREVIOUS_TAG...vX.Y.Z
+```
+
+The commit messages are the complete input inventory, but the release notes
+should be a concise, curated summary rather than a copy of the commit log. Put
+breaking changes and migration requirements first. Follow links to pull
+requests or issues when a commit message does not provide enough context to
+describe its user-visible effect accurately.
+
+Credit every human community contributor represented in the release. Do not
+describe someone as a new contributor unless the repository history confirms
+that this is their first contribution.
+
+Write each prose paragraph and Markdown list item in the release-notes file on
+one physical line, including any parenthesized list of pull request links.
+GitHub Release rendering turns source newlines into hard line breaks, so source
+wrapping makes prose and pull request lists render one fragment per line.
+
+Local verification is not repeated here because every change merged into
+`main` has already passed CI. The release workflow verifies the tagged release
+build before publishing it.
 
 ### 3. Tag the release
 
@@ -62,18 +138,39 @@ Pushing the tag triggers the
 - After a few minutes, verify the artifact appears on
   [Maven Central](https://central.sonatype.com/artifact/org.safere/safere).
 
-### 6. Bump to next SNAPSHOT
+### 6. Publish the GitHub release notes
 
-After a successful release, bump `main` to the next development version:
+After the release workflow succeeds and the artifact is available on Maven
+Central, create a GitHub Release from the tag using the prepared notes:
 
 ```bash
+gh release create vX.Y.Z \
+  --verify-tag \
+  --title "SafeRE X.Y.Z" \
+  --notes-file /tmp/safere-vX.Y.Z-release-notes.md
+```
+
+Inspect the rendered release page and confirm that its paragraphs, pull request
+links, contributor credits, and full changelog render correctly.
+
+### 7. Bump to next SNAPSHOT
+
+After a successful release, start from an up-to-date `main` and create a branch
+for the next development version:
+
+```bash
+git switch main
+git pull --ff-only
+git switch -c bump-to-NEXT-SNAPSHOT
 mvn versions:set -DnewVersion=NEXT-SNAPSHOT -DgenerateBackupPoms=false
 git add -A
 git commit -m "Bump version to NEXT-SNAPSHOT"
-git push origin main
+git push -u origin bump-to-NEXT-SNAPSHOT
 ```
 
-For example, after releasing `v0.3.0`, bump to `0.4.0-SNAPSHOT`.
+Open the pull request as ready for review and merge it after CI passes. Never
+push the version bump directly to `main`. For example, after releasing
+`v0.3.0`, bump to `0.4.0-SNAPSHOT`.
 
 ## Troubleshooting
 
