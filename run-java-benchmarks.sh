@@ -180,19 +180,39 @@ run_benchmark() {
   if is_pathological "$bench"; then
     opts="$PATHOLOGICAL_JMH_OPTS"
   fi
-  echo "=== Running $bench ($opts ${JMH_EXTRA_ARGS[*]}) ==="
-  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $opts "${JMH_EXTRA_ARGS[@]}" "$bench"
+  if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+    echo "=== Running $bench ($opts ${JMH_EXTRA_ARGS[*]}) ==="
+    java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      $opts \
+      "${JMH_EXTRA_ARGS[@]}" \
+      "$bench"
+  else
+    echo "=== Running $bench ($opts) ==="
+    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $opts "$bench"
+  fi
 }
 
 if [ ${#BENCHMARKS[@]} -eq 0 ]; then
   echo "=== Running standard benchmarks ($DEFAULT_BENCHMARK_REGEX) ==="
-  java \
-    $JVM_ARGS \
-    -jar "$BENCHMARK_JAR" \
-    -jvmArgs "$JVM_ARGS" \
-    $JMH_OPTS \
-    "${JMH_EXTRA_ARGS[@]}" \
-    "$DEFAULT_BENCHMARK_REGEX"
+  if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+    java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      $JMH_OPTS \
+      "${JMH_EXTRA_ARGS[@]}" \
+      "$DEFAULT_BENCHMARK_REGEX"
+  else
+    java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      $JMH_OPTS \
+      "$DEFAULT_BENCHMARK_REGEX"
+  fi
 else
   for bench in "${BENCHMARKS[@]}"; do
     run_benchmark "$bench"

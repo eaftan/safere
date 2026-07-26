@@ -433,6 +433,12 @@ Application workloads live in `safere-benchmarks/benchmark-data.json`, where
 each case defines its operation semantics and expected result for the Java,
 C++, and Go harnesses.
 
+SafeRE also maintains a separate
+[OpenJDK-derived regex benchmark suite](https://github.com/eaftan/safere-openjdk-regex-benchmarks).
+It compares SafeRE and `java.util.regex` on compatible workloads adapted from
+OpenJDK's regex microbenchmarks. That suite is GPL-2.0-only, so its source is
+not vendored here or included in the `safere-benchmarks` Maven module.
+
 ### Benchmark Collection
 
 To collect a full set of benchmark data for updating
@@ -443,9 +449,19 @@ root:
 ./collect-benchmark-results.sh
 ```
 
-The default collection is Java-only: SafeRE, `java.util.regex`, RE2/J, and
-RE2-FFM. These are the normal engineering comparisons because they run in the
-same JVM environment.
+The default collection includes SafeRE's Java suite—SafeRE,
+`java.util.regex`, RE2/J, and RE2-FFM—and the external OpenJDK-derived
+SafeRE/JDK suite. Clone the external repository beside SafeRE before the first
+collection:
+
+```bash
+git clone https://github.com/eaftan/safere-openjdk-regex-benchmarks.git \
+  ../safere-openjdk-regex-benchmarks
+```
+
+These are the normal engineering comparisons because the engines run in the
+same JVM environment. Use `--openjdk-regex-repo PATH` when the external
+checkout is elsewhere.
 
 Use the longer Java mode when confirming close, surprising, or especially
 important comparisons:
@@ -470,9 +486,20 @@ To verify the collection pipeline without doing a full run:
 The script runs benchmark batches sequentially, captures raw output, and
 generates markdown tables.
 
+The collection script installs the SafeRE version from the current checkout,
+builds the external suite against that exact version, and runs both engines.
+Use `--skip-openjdk-regex` only for a deliberately incomplete local collection,
+such as when the separate checkout is unavailable. A comprehensive
+cross-runtime collection uses `--cross-language`; the OpenJDK-derived suite
+remains included by default.
+
+The OpenJDK-derived results remain a separate result set: they are not folded
+into `merged-tables.md` because the external workloads and their upstream JMH
+schedules differ from SafeRE's native suite.
+
 By default, results are written to a timestamped directory under
 `benchmark-results/`, and `benchmark-results/latest` is updated to point to
-the newest run. 
+the newest run.
 
 When the run finishes, hand off the result directory to the agent that will
 update `BENCHMARKS.md`:
@@ -497,6 +524,13 @@ cpp-results.jsonl
 go-results.jsonl
 ```
 
+Default runs also include:
+
+```text
+openjdk-regex-output.txt
+openjdk-regex-results.json
+```
+
 ### Targeted Benchmark Runs
 
 Always use the wrapper scripts — they run `mvn install` first to ensure
@@ -518,6 +552,18 @@ development iteration or focused investigation; use
 
 Arguments to the Java wrapper scripts are passed directly to JMH as benchmark
 regex filters.
+
+Run a targeted workload from the external OpenJDK-derived suite with:
+
+```bash
+./run-openjdk-regex-benchmarks.sh \
+  'org.safere.bench.openjdk.FindPatternComparison.*'
+```
+
+The wrapper defaults to a sibling `safere-openjdk-regex-benchmarks` checkout.
+Use `--repo PATH` or `SAFERE_OPENJDK_REGEX_BENCHMARKS_REPO` to select another
+location. Standard runs preserve the JMH schedules defined by the external
+suite; `--smoke` provides a short compile-and-execute check.
 
 `CrosscheckOverheadBenchmark` is excluded from the no-argument Java benchmark
 run. It measures overhead in the `safere-crosscheck` facade and should be run

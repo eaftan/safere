@@ -302,6 +302,12 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 
 # Longer confirmation run for close, surprising, or important comparisons
 ./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
+
+# Separately licensed OpenJDK-derived suite (requires an external checkout)
+./run-openjdk-regex-benchmarks.sh
+
+# Full collection; includes the external OpenJDK-derived suite by default
+./collect-benchmark-results.sh
 ```
 
 Arguments after the mode flag are passed directly to JMH as benchmark regex
@@ -345,10 +351,18 @@ per invocation and collect results incrementally:
 - **Pathological benchmarks always use `-f 0`.** The script handles this
   automatically — PathologicalBenchmark and PathologicalComparisonBenchmark
   run without forking because the JDK engine can hang on large inputs.
-- **Default benchmark collection is Java-only.** `./collect-benchmark-results.sh`
-  collects SafeRE, JDK, RE2/J, and RE2-FFM results by default. Use
-  `./collect-benchmark-results.sh --cross-language` only when broader C++ RE2
-  and Go `regexp` context is explicitly needed.
+- **Default benchmark collection includes both Java suites.**
+  `./collect-benchmark-results.sh` collects SafeRE, JDK, RE2/J, and RE2-FFM
+  results from SafeRE's suite, then SafeRE/JDK results from the external
+  OpenJDK-derived suite. Use `./collect-benchmark-results.sh --cross-language`
+  only when broader C++ RE2 and Go `regexp` context is explicitly needed.
+- **OpenJDK-derived benchmarks stay external.** Their GPL-2.0-only repository
+  must be checked out separately and must not be vendored or added to SafeRE's
+  Maven modules. The collection script runs them as a separate result set
+  against the current SafeRE snapshot. A request to run "our benchmarks" or the
+  "full benchmarks" includes this external suite unless the user explicitly
+  narrows the requested scope. Use it when broad matching, search, compilation,
+  or rejection changes could affect its workloads.
 - **NEVER run benchmarks in parallel.** All benchmark runs must run
   sequentially, one at a time. Parallel runs compete for CPU, cache, and memory
   bandwidth, producing inaccurate results.
@@ -389,6 +403,13 @@ and inconsistent under inversion.
 `BENCHMARKS.md` must be self-contained for checked-in benchmark claims. Raw
 outputs may remain local, but do not make an ignored or machine-local artifact
 the only place where a reported result or supporting table can be inspected.
+
+When updating `BENCHMARKS.md`, update the external OpenJDK-derived benchmark
+section from the same collection. Keep its results and aggregates separate from
+SafeRE's native suite, and record the SafeRE commit, external benchmark
+repository commit, pinned OpenJDK source commit, SafeRE version, and JDK
+version. Do not leave the previous external results in place after publishing a
+new full collection.
 
 ### Writing About Benchmark Results
 

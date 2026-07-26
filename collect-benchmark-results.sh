@@ -8,12 +8,14 @@
 #   ./collect-benchmark-results.sh
 #   ./collect-benchmark-results.sh --long
 #   ./collect-benchmark-results.sh --cross-language
+#   ./collect-benchmark-results.sh --skip-openjdk-regex
 #   ./collect-benchmark-results.sh --smoke
 #   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 #
 # The script intentionally does not run the test suite. It runs benchmark
 # batches sequentially, captures raw output, and generates markdown tables.
-# By default it collects Java/JMH results only. Use --cross-language to also
+# By default it collects the Java/JMH results and the separately licensed
+# OpenJDK-derived suite from an external checkout. Use --cross-language to also
 # collect C++ RE2 and Go regexp results.
 
 set -euo pipefail
@@ -23,6 +25,8 @@ DEFAULT_RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 OUTPUT_DIR="$SCRIPT_DIR/benchmark-results/$DEFAULT_RUN_ID"
 MODE="standard"
 CROSS_LANGUAGE=false
+OPENJDK_REGEX=true
+OPENJDK_REGEX_REPO=""
 
 usage() {
   cat <<EOF
@@ -30,6 +34,7 @@ Usage:
   ./collect-benchmark-results.sh
   ./collect-benchmark-results.sh --long
   ./collect-benchmark-results.sh --cross-language
+  ./collect-benchmark-results.sh --skip-openjdk-regex
   ./collect-benchmark-results.sh --smoke
   ./collect-benchmark-results.sh --output-dir benchmark-results/my-run
 
@@ -38,6 +43,10 @@ Collects benchmark outputs for updating BENCHMARKS.md.
 Options:
   --long            Use the longer Java confirmation mode.
   --cross-language  Also run C++ RE2 and Go regexp benchmark harnesses.
+  --openjdk-regex-repo PATH
+                    Select the external OpenJDK-derived suite checkout.
+  --skip-openjdk-regex
+                    Omit that external suite; the run is not a full collection.
   --smoke           Run one small benchmark through the collection pipeline.
 EOF
 }
@@ -50,6 +59,19 @@ while [ $# -gt 0 ]; do
       ;;
     --cross-language)
       CROSS_LANGUAGE=true
+      shift
+      ;;
+    --openjdk-regex-repo)
+      if [ $# -lt 2 ]; then
+        echo "ERROR: --openjdk-regex-repo requires a path" >&2
+        exit 2
+      fi
+      OPENJDK_REGEX=true
+      OPENJDK_REGEX_REPO="$2"
+      shift 2
+      ;;
+    --skip-openjdk-regex)
+      OPENJDK_REGEX=false
       shift
       ;;
     --smoke)
@@ -112,6 +134,7 @@ cd "$SCRIPT_DIR"
 log "Writing benchmark outputs to $OUTPUT_DIR"
 log "Mode: $MODE"
 log "Cross-language: $CROSS_LANGUAGE"
+log "OpenJDK regex suite: $OPENJDK_REGEX"
 
 JAVA_MODE_ARGS=()
 if [ "$MODE" = "long" ]; then
@@ -180,6 +203,27 @@ fi
 run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" \
   java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
     org.safere.benchmark.MemoryBenchmark
+
+if [ "$OPENJDK_REGEX" = true ]; then
+  OPENJDK_REGEX_ARGS=()
+  if [ -n "$OPENJDK_REGEX_REPO" ]; then
+    OPENJDK_REGEX_ARGS+=(--repo "$OPENJDK_REGEX_REPO")
+  fi
+  if [ "$MODE" = "smoke" ]; then
+    OPENJDK_REGEX_ARGS+=(
+      --smoke
+      'org.safere.bench.openjdk.FindPatternComparison.*'
+    )
+  fi
+  OPENJDK_REGEX_ARGS+=(
+    --
+    -rf json
+    -rff "$OUTPUT_DIR/openjdk-regex-results.json"
+  )
+
+  run_and_capture "$OUTPUT_DIR/openjdk-regex-output.txt" \
+    ./run-openjdk-regex-benchmarks.sh "${OPENJDK_REGEX_ARGS[@]}"
+fi
 
 COMPARE_ENGINES="safere,jdk,re2j,re2_ffm"
 COMPARE_ARGS=(
@@ -258,5 +302,12 @@ if [ "$CROSS_LANGUAGE" = true ]; then
   cat <<EOF
   cpp-results.jsonl
   go-results.jsonl
+EOF
+fi
+
+if [ "$OPENJDK_REGEX" = true ]; then
+  cat <<EOF
+  openjdk-regex-output.txt
+  openjdk-regex-results.json
 EOF
 fi

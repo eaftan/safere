@@ -72,6 +72,45 @@ RE2-FFM also pays UTF-16-to-UTF-8 conversion and native-call costs. Native
 results therefore provide ecosystem context, not a controlled language-runtime
 comparison.
 
+## External OpenJDK-derived benchmark suite
+
+The separately maintained
+[SafeRE OpenJDK regex benchmarks](https://github.com/eaftan/safere-openjdk-regex-benchmarks)
+compare SafeRE and `java.util.regex` on compatible workloads adapted from
+OpenJDK's regex microbenchmarks.
+
+The benchmark source remains outside this repository because it is
+GPL-2.0-only. SafeRE's collection tooling can build the current SafeRE snapshot
+and invoke the external checkout during the default collection. Its raw results
+remain separate from the summaries below because the workload set and JMH
+schedules differ.
+
+The initial external run compared SafeRE 0.9.0 with JDK 26.0.1 across 35 paired
+configurations. Ratios are SafeRE time / JDK time, and every row has equal
+weight within its reported geometric mean.
+
+| Workload family | Pairs | Geomean SafeRE/JDK | Interpretation |
+|---|---:|---:|---|
+| Exponential | 24 | 0.0838 | 11.93× faster |
+| FindPattern | 4 | 0.4182 | 2.39× faster |
+| PatternBench compatible subset | 4 | 1.5832 | 1.58× slower |
+| Trim compatible subset | 3 | 0.0011 | 934.82× faster |
+| All rows, equally weighted | 35 | 0.0970 | 10.31× faster |
+
+The overall result is materially influenced by adversarial no-match cases where
+the JDK does quadratic work, especially `Trim.simpleFind` at size 4096. The
+suite also identifies compilation as a clear weakness: SafeRE was 69.77×
+slower for the character-pattern compile-only workload and 25.64× slower when
+compiling and matching. The
+[complete external report](https://github.com/eaftan/safere-openjdk-regex-benchmarks/blob/main/RESULTS.md)
+contains every paired result and the full reproduction record.
+
+That run used benchmark repository commit
+`781c780ef4e83b5a8424813e5b7fb71ffcbb5013`, OpenJDK source commit
+`2d1c83340d0e3d24a52963c77464f6fa796da5e7`, and JDK 26.0.1. It started at
+`2026-07-26T22:32:29Z`, completed in 32 minutes 26 seconds, and preserved each
+upstream benchmark class's JMH schedule.
+
 ## Summary statistics
 
 Ratios are SafeRE time / competitor time; values below 1 mean SafeRE is faster.
