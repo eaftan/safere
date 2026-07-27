@@ -51,8 +51,8 @@ The targeted long confirmation command was:
 
 ```bash
 ./run-java-benchmarks.sh --long \
-  '^org\.safere\.benchmark\.RegexBenchmark\.alternationFind_safere$' \
-  '^org\.safere\.benchmark\.ApplicationBenchmark\.logLineParse_safere$'
+  '^org\.safere\.benchmark\.CrossEngineBenchmark\.run$' -- \
+  -p 'crossEngineTrial=RegexBenchmark.alternationFind@safere-string,ApplicationBenchmark.logLineParse@safere-string'
 ```
 
 Java used the standard project configuration: 2 forks, 2 warmup iterations of

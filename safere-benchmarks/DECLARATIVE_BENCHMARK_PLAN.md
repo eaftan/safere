@@ -127,7 +127,7 @@ Version 1 operations are grouped below. Names are exact JSON values.
 | Group | Operations |
 |---|---|
 | Matching | `matches`, `find`, `lookingAt`, `findAllCount`, `findAllLengthSum`, `findAllGroupLengthSum`, `matchesCorpus`, `matchesGroupLengthSum`, `findGroupPresent`, `findGroup`, `captureGroups` |
-| Replacement and splitting | `replaceFirst`, `replaceAll`, `appendReplacement`, `manualReplaceAll`, `split` |
+| Replacement and splitting | `replaceFirst`, `replaceAll`, `replaceAllLengthSum`, `appendReplacement`, `manualReplaceAll`, `split`, `splitLengthSum` |
 | Compilation and matcher state | `compile`, `compileAndFind`, `matcherConstruction`, `matcherResetFind`, `matcherRegionFind`, `findInWindow` |
 | Pattern collections | `patternSetCompile`, `patternSetFind`, `patternSetMatches` |
 | UTF-8 | `utf8CaptureBounds`, `utf8Replacement` |
@@ -135,8 +135,8 @@ Version 1 operations are grouped below. Names are exact JSON values.
 
 Operation-specific data uses a strict `arguments` object rather than
 workload-family fields. Group-consuming operations use `group` or `groups`;
-replacement operations require `replacement`; split accepts `limit`; and
-PatternSet operations require `anchor` with `anchored` or `unanchored`.
+replacement operations require `replacement`; split operations accept `limit`;
+and PatternSet operations require `anchor` with `anchored` or `unanchored`.
 Arguments may reference declared axes.
 
 Flags are `caseInsensitive`, `multiline`, `dotAll`, `unicodeCase`,

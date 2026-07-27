@@ -318,14 +318,9 @@ per invocation and collect results incrementally:
 
 ```bash
 ./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.CrossEngineBenchmark\.' \
-  '^org\.safere\.benchmark\.RegexBenchmark\.' \
-  '^org\.safere\.benchmark\.CompileBenchmark\.'
+  '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 ./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.' \
-  '^org\.safere\.benchmark\.CaptureScalingBenchmark\.'
-./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.ReplaceBenchmark\.'
+  '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.'
 ./run-java-benchmarks.sh \
   '^org\.safere\.benchmark\.PathologicalBenchmark\.' \
   '^org\.safere\.benchmark\.PathologicalComparisonBenchmark\.'

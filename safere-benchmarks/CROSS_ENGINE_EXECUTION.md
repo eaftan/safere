@@ -68,7 +68,11 @@ can override it:
 The nanosecond and microsecond entry points remain separate so units continue
 to align with native benchmark results and historical Java reports.
 
-Specialized benchmarks remain separate when their mechanics are themselves
-under measurement, including compilation, memory, splitting, capture scaling,
-replacement-focused workloads, pathological safeguards, matcher state,
-PatternSet, and dedicated UTF-8 API behavior.
+Compile, split, capture, replacement, and matcher-lifecycle workloads use the
+same generic entry points. Their declarations specify whether matcher
+construction and mutations such as reset or region configuration occur inside
+the timed invocation.
+
+Specialized benchmarks remain separate only when their mechanics require a
+dedicated execution mode, including memory, cold start, pathological
+safeguards, PatternSet, and dedicated UTF-8 API behavior.

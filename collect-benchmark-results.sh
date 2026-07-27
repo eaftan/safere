@@ -163,23 +163,14 @@ if [ "$MODE" = "smoke" ]; then
       'crossEngineTrial=RegexBenchmark.emailFind@safere-string,RegexBenchmark.emailFind@safere-utf8,RegexBenchmark.emailFind@jdk-string,RegexBenchmark.emailFind@re2j-string,RegexBenchmark.emailFind@re2-ffm-string-conversion'
 else
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh \
+      ./run-java-benchmarks.sh \
       "${JAVA_MODE_ARGS[@]}" \
-      '^org\.safere\.benchmark\.CrossEngineBenchmark\.' \
-      '^org\.safere\.benchmark\.RegexBenchmark\.' \
-      '^org\.safere\.benchmark\.CompileBenchmark\.'
+      '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
-    ./run-java-benchmarks.sh \
+      ./run-java-benchmarks.sh \
       "${JAVA_MODE_ARGS[@]}" \
-      '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.' \
-      '^org\.safere\.benchmark\.Issue481ScalingBenchmark\.' \
-      '^org\.safere\.benchmark\.CaptureScalingBenchmark\.'
-
-  run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
-    ./run-java-benchmarks.sh \
-      "${JAVA_MODE_ARGS[@]}" \
-      '^org\.safere\.benchmark\.ReplaceBenchmark\.'
+      '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
     ./run-java-benchmarks.sh \
@@ -194,7 +185,6 @@ else
   cat \
     "$OUTPUT_DIR/java-01-core.txt" \
     "$OUTPUT_DIR/java-02-scaling.txt" \
-    "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
     "$OUTPUT_DIR/java-04-pathological.txt" \
     "$OUTPUT_DIR/java-05-patternset.txt" \
     > "$OUTPUT_DIR/jmh-output.txt"
@@ -203,8 +193,7 @@ else
   run_and_capture "$OUTPUT_DIR/java-memory-core.txt" \
     ./run-java-memory-benchmarks.sh \
       --cross-engine-prefix 'RegexBenchmark.' \
-      '^org\.safere\.benchmark\.CrossEngineBenchmark\.' \
-      '^org\.safere\.benchmark\.RegexBenchmark\.'
+      '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
   run_and_capture "$OUTPUT_DIR/java-memory-scaling.txt" \
     ./run-java-memory-benchmarks.sh \
       --cross-engine-scaling-prefix 'SearchScalingBenchmark.' \

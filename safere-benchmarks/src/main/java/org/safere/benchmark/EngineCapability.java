@@ -7,8 +7,14 @@ package org.safere.benchmark;
 
 /** Native operations exposed by a cross-engine benchmark execution variant. */
 enum EngineCapability {
+  COMPILE,
   FIND,
   MATCHES,
+  LOOKING_AT,
   GROUP_TEXT,
-  REPLACE
+  REPLACE,
+  APPEND_REPLACEMENT,
+  SPLIT,
+  MATCHER_RESET,
+  REGIONS
 }

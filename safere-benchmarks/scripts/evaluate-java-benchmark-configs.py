@@ -80,6 +80,13 @@ class Task:
     params: tuple[tuple[str, str], ...] = ()
 
 
+def cross_engine_task(name: str, workload_id: str, scaling: bool = False) -> Task:
+    benchmark = "CrossEngineScalingBenchmark.run" if scaling else "CrossEngineBenchmark.run"
+    parameter = "crossEngineScalingTrial" if scaling else "crossEngineTrial"
+    trials = ",".join(f"{workload_id}@{variant}" for variant in CROSS_ENGINE_VARIANTS)
+    return Task(name, benchmark, ((parameter, trials),))
+
+
 CONFIGS = {
     "A0": Config("A0", ("-f", "0", "-wi", "0", "-i", "1", "-r", "100ms")),
     "A1": Config("A1", ("-f", "0", "-wi", "1", "-w", "100ms", "-i", "1", "-r", "100ms")),
@@ -93,43 +100,29 @@ CONFIGS = {
 }
 
 CALIBRATION_TASKS = [
-    Task(
-        "literalMatch",
-        "CrossEngineBenchmark.run",
-        (("crossEngineTrial", ",".join(
-            f"RegexBenchmark.literalMatch@{variant}"
-            for variant in CROSS_ENGINE_VARIANTS
-        )),),
+    cross_engine_task("literalMatch", "RegexBenchmark.literalMatch"),
+    cross_engine_task("emailFind", "RegexBenchmark.emailFind"),
+    cross_engine_task("urlExtraction", "ApplicationBenchmark.urlExtraction"),
+    cross_engine_task("pigLatinReplaceAll", "ReplaceBenchmark.pigLatinReplaceAll"),
+    cross_engine_task("tagFind128", "Issue481ScalingBenchmark.tagFind.128", scaling=True),
+    cross_engine_task(
+        "tagFind1MiB", "Issue481ScalingBenchmark.tagFind.1048576", scaling=True
     ),
-    Task(
-        "emailFind",
-        "CrossEngineBenchmark.run",
-        (("crossEngineTrial", ",".join(
-            f"RegexBenchmark.emailFind@{variant}"
-            for variant in CROSS_ENGINE_VARIANTS
-        )),),
+    cross_engine_task(
+        "schemeExtract128", "Issue481ScalingBenchmark.schemeExtract.128", scaling=True
     ),
-    Task(
-        "urlExtraction",
-        "CrossEngineBenchmark.run",
-        (("crossEngineTrial", ",".join(
-            f"ApplicationBenchmark.urlExtraction@{variant}"
-            for variant in CROSS_ENGINE_VARIANTS
-        )),),
+    cross_engine_task(
+        "schemeExtract1MiB",
+        "Issue481ScalingBenchmark.schemeExtract.1048576",
+        scaling=True,
     ),
-    Task("pigLatinReplaceAll", "ReplaceBenchmark.pigLatinReplaceAll_"),
-    Task("tagFind128", "Issue481ScalingBenchmark.tagFind_", (("textSize", "128"),)),
-    Task("tagFind1MiB", "Issue481ScalingBenchmark.tagFind_", (("textSize", "1048576"),)),
-    Task("schemeExtract128", "Issue481ScalingBenchmark.schemeExtract_", (("textSize", "128"),)),
-    Task("schemeExtract1MiB", "Issue481ScalingBenchmark.schemeExtract_", (("textSize", "1048576"),)),
-    Task("splitWords10KiB", "Issue481ScalingBenchmark.splitWords_", (("textSize", "10240"),)),
-    Task(
+    cross_engine_task(
+        "splitWords10KiB", "Issue481ScalingBenchmark.splitWords.10240", scaling=True
+    ),
+    cross_engine_task(
         "searchEasyFail100KiB",
-        "CrossEngineScalingBenchmark.run",
-        (("crossEngineScalingTrial", ",".join(
-            f"SearchScalingBenchmark.searchEasyFail.102400@{variant}"
-            for variant in CROSS_ENGINE_VARIANTS
-        )),),
+        "SearchScalingBenchmark.searchEasyFail.102400",
+        scaling=True,
     ),
 ]
 

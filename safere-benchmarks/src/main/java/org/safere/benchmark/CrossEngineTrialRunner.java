@@ -5,18 +5,19 @@
 
 package org.safere.benchmark;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.openjdk.jmh.infra.Blackhole;
 
 /** Prepared execution state for one supported cross-engine benchmark trial. */
 final class CrossEngineTrialRunner implements AutoCloseable {
 
-  private final RegexEngineVariant.CompiledRegex pattern;
+  private final List<RegexEngineVariant.CompiledRegex> patterns;
   private final BenchmarkOperation.BenchmarkTask task;
 
   private CrossEngineTrialRunner(
-      RegexEngineVariant.CompiledRegex pattern, BenchmarkOperation.BenchmarkTask task) {
-    this.pattern = pattern;
+      List<RegexEngineVariant.CompiledRegex> patterns, BenchmarkOperation.BenchmarkTask task) {
+    this.patterns = patterns;
     this.task = task;
   }
 
@@ -32,16 +33,41 @@ final class CrossEngineTrialRunner implements AutoCloseable {
 
     List<RegexEngineVariant.RegexInput> inputs =
         trial.variant().prepareInputs(data, workload.inputKeys());
-    RegexEngineVariant.CompiledRegex pattern = trial.variant().compile(workload.pattern());
+    List<RegexEngineVariant.CompiledRegex> patterns = new ArrayList<>();
     try {
+      if (workload.operation() != BenchmarkOperation.COMPILE) {
+        for (String pattern : workload.patterns()) {
+          patterns.add(trial.variant().compile(pattern));
+        }
+      }
       Object actual =
-          workload.operation().execute(pattern, inputs, workload.groups(), workload.replacement());
+          workload
+              .operation()
+              .execute(
+                  trial.variant(),
+                  workload.patterns(),
+                  patterns,
+                  inputs,
+                  workload.groups(),
+                  workload.replacement(),
+                  workload.limit(),
+                  workload.lifecycle());
       trial.validate(actual);
       BenchmarkOperation.BenchmarkTask task =
-          pattern.bind(workload.operation(), inputs, workload.groups(), workload.replacement());
-      return new CrossEngineTrialRunner(pattern, task);
+          workload
+              .operation()
+              .bind(
+                  trial.variant(),
+                  workload.patterns(),
+                  patterns,
+                  inputs,
+                  workload.groups(),
+                  workload.replacement(),
+                  workload.limit(),
+                  workload.lifecycle());
+      return new CrossEngineTrialRunner(List.copyOf(patterns), task);
     } catch (RuntimeException | Error exception) {
-      pattern.close();
+      close(patterns);
       throw exception;
     }
   }
@@ -52,6 +78,12 @@ final class CrossEngineTrialRunner implements AutoCloseable {
 
   @Override
   public void close() {
-    pattern.close();
+    close(patterns);
+  }
+
+  private static void close(List<RegexEngineVariant.CompiledRegex> patterns) {
+    for (RegexEngineVariant.CompiledRegex pattern : patterns.reversed()) {
+      pattern.close();
+    }
   }
 }

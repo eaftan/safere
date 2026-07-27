@@ -12,19 +12,22 @@ import java.util.Objects;
 record CrossEngineWorkload(
     String id,
     BenchmarkOperation operation,
-    String pattern,
+    List<String> patterns,
     List<String> inputKeys,
     int[] groups,
     String replacement,
     Object expected,
+    int limit,
+    DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
     TimingGroup timingGroup) {
 
   CrossEngineWorkload {
     Objects.requireNonNull(id);
     Objects.requireNonNull(operation);
-    Objects.requireNonNull(pattern);
+    patterns = List.copyOf(patterns);
     inputKeys = List.copyOf(inputKeys);
     groups = groups.clone();
+    Objects.requireNonNull(lifecycle);
     Objects.requireNonNull(timingGroup);
     if (id.isBlank()) {
       throw new IllegalArgumentException("Cross-engine workload ID must not be blank");
@@ -32,7 +35,10 @@ record CrossEngineWorkload(
     if (id.indexOf('@') >= 0) {
       throw new IllegalArgumentException("Cross-engine workload ID must not contain '@': " + id);
     }
-    if (inputKeys.isEmpty()) {
+    if (patterns.isEmpty()) {
+      throw new IllegalArgumentException(id + " requires at least one pattern");
+    }
+    if (inputKeys.isEmpty() && operation != BenchmarkOperation.COMPILE) {
       throw new IllegalArgumentException(id + " requires at least one input");
     }
   }

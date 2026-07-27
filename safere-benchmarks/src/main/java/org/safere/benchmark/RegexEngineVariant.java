@@ -43,10 +43,40 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public boolean lookingAt() {
+              return matcher.lookingAt();
+            }
+
+            @Override
             public String group(int group) {
               return matcher.group(group);
             }
+
+            @Override
+            public void reset() {
+              matcher.reset();
+            }
+
+            @Override
+            public void region(int start, int end) {
+              matcher.region(start, end);
+            }
+
+            @Override
+            public void appendReplacement(StringBuilder result, String replacement) {
+              matcher.appendReplacement(result, replacement);
+            }
+
+            @Override
+            public void appendTail(StringBuilder result) {
+              matcher.appendTail(result);
+            }
           };
+        }
+
+        @Override
+        public String replaceFirst(RegexInput input, String replacement) {
+          return pattern.matcher(string(input)).replaceFirst(replacement);
         }
 
         @Override
@@ -55,17 +85,8 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public BenchmarkOperation.BenchmarkTask bind(
-            BenchmarkOperation operation,
-            List<RegexInput> inputs,
-            int[] groups,
-            String replacement) {
-          String input = string(inputs.getFirst());
-          return switch (operation) {
-            case MATCHES -> blackhole -> blackhole.consume(pattern.matcher(input).matches());
-            case FIND -> blackhole -> blackhole.consume(pattern.matcher(input).find());
-            default -> CompiledRegex.super.bind(operation, inputs, groups, replacement);
-          };
+        public String[] split(RegexInput input, int limit) {
+          return pattern.split(string(input), limit);
         }
       };
     }
@@ -92,19 +113,6 @@ enum RegexEngineVariant {
             public boolean find() {
               return matcher.find();
             }
-          };
-        }
-
-        @Override
-        public BenchmarkOperation.BenchmarkTask bind(
-            BenchmarkOperation operation,
-            List<RegexInput> inputs,
-            int[] groups,
-            String replacement) {
-          org.safere.Utf8Input input = utf8(inputs.getFirst());
-          return switch (operation) {
-            case FIND -> blackhole -> blackhole.consume(pattern.find(input));
-            default -> CompiledRegex.super.bind(operation, inputs, groups, replacement);
           };
         }
       };
@@ -140,10 +148,40 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public boolean lookingAt() {
+              return matcher.lookingAt();
+            }
+
+            @Override
             public String group(int group) {
               return matcher.group(group);
             }
+
+            @Override
+            public void reset() {
+              matcher.reset();
+            }
+
+            @Override
+            public void region(int start, int end) {
+              matcher.region(start, end);
+            }
+
+            @Override
+            public void appendReplacement(StringBuilder result, String replacement) {
+              matcher.appendReplacement(result, replacement);
+            }
+
+            @Override
+            public void appendTail(StringBuilder result) {
+              matcher.appendTail(result);
+            }
           };
+        }
+
+        @Override
+        public String replaceFirst(RegexInput input, String replacement) {
+          return pattern.matcher(string(input)).replaceFirst(replacement);
         }
 
         @Override
@@ -152,22 +190,13 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public BenchmarkOperation.BenchmarkTask bind(
-            BenchmarkOperation operation,
-            List<RegexInput> inputs,
-            int[] groups,
-            String replacement) {
-          String input = string(inputs.getFirst());
-          return switch (operation) {
-            case MATCHES -> blackhole -> blackhole.consume(pattern.matcher(input).matches());
-            case FIND -> blackhole -> blackhole.consume(pattern.matcher(input).find());
-            default -> CompiledRegex.super.bind(operation, inputs, groups, replacement);
-          };
+        public String[] split(RegexInput input, int limit) {
+          return pattern.split(string(input), limit);
         }
       };
     }
   },
-  RE2J_STRING("re2j-string", "re2j", InputRepresentation.JAVA_STRING, allCapabilities()) {
+  RE2J_STRING("re2j-string", "re2j", InputRepresentation.JAVA_STRING, re2jCapabilities()) {
     @Override
     CompiledRegex compile(String regex) {
       com.google.re2j.Pattern pattern = com.google.re2j.Pattern.compile(regex);
@@ -197,10 +226,35 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public boolean lookingAt() {
+              return matcher.lookingAt();
+            }
+
+            @Override
             public String group(int group) {
               return matcher.group(group);
             }
+
+            @Override
+            public void reset() {
+              matcher.reset();
+            }
+
+            @Override
+            public void appendReplacement(StringBuilder result, String replacement) {
+              matcher.appendReplacement(result, replacement);
+            }
+
+            @Override
+            public void appendTail(StringBuilder result) {
+              matcher.appendTail(result);
+            }
           };
+        }
+
+        @Override
+        public String replaceFirst(RegexInput input, String replacement) {
+          return pattern.matcher(string(input)).replaceFirst(replacement);
         }
 
         @Override
@@ -209,17 +263,8 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public BenchmarkOperation.BenchmarkTask bind(
-            BenchmarkOperation operation,
-            List<RegexInput> inputs,
-            int[] groups,
-            String replacement) {
-          String input = string(inputs.getFirst());
-          return switch (operation) {
-            case MATCHES -> blackhole -> blackhole.consume(pattern.matcher(input).matches());
-            case FIND -> blackhole -> blackhole.consume(pattern.matcher(input).find());
-            default -> CompiledRegex.super.bind(operation, inputs, groups, replacement);
-          };
+        public String[] split(RegexInput input, int limit) {
+          return pattern.split(string(input), limit);
         }
       };
     }
@@ -228,7 +273,7 @@ enum RegexEngineVariant {
       "re2-ffm-string-conversion",
       "re2_ffm",
       InputRepresentation.JAVA_STRING_WITH_TIMED_UTF8_CONVERSION,
-      allCapabilities()) {
+      ffmCapabilities()) {
     @Override
     CompiledRegex compile(String regex) {
       org.safere.re2ffm.RE2FfmPattern pattern = org.safere.re2ffm.RE2FfmPattern.compile(regex);
@@ -261,7 +306,17 @@ enum RegexEngineVariant {
             public String group(int group) {
               return matcher.group(group);
             }
+
+            @Override
+            public void reset() {
+              matcher.reset();
+            }
           };
+        }
+
+        @Override
+        public String replaceFirst(RegexInput input, String replacement) {
+          return pattern.matcher(string(input)).replaceFirst(replacement);
         }
 
         @Override
@@ -270,17 +325,8 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public BenchmarkOperation.BenchmarkTask bind(
-            BenchmarkOperation operation,
-            List<RegexInput> inputs,
-            int[] groups,
-            String replacement) {
-          String input = string(inputs.getFirst());
-          return switch (operation) {
-            case MATCHES -> blackhole -> blackhole.consume(pattern.matcher(input).matches());
-            case FIND -> blackhole -> blackhole.consume(pattern.matcher(input).find());
-            default -> CompiledRegex.super.bind(operation, inputs, groups, replacement);
-          };
+        public String[] split(RegexInput input, int limit) {
+          return pattern.split(string(input), limit);
         }
       };
     }
@@ -323,12 +369,24 @@ enum RegexEngineVariant {
         EnumSet.noneOf(DeclarativeBenchmarkPlan.Feature.class);
     for (EngineCapability capability : capabilities) {
       switch (capability) {
+        case COMPILE -> {}
         case FIND -> features.add(DeclarativeBenchmarkPlan.Feature.FIND);
         case MATCHES -> features.add(DeclarativeBenchmarkPlan.Feature.MATCHES);
+        case LOOKING_AT -> features.add(DeclarativeBenchmarkPlan.Feature.LOOKING_AT);
         case GROUP_TEXT -> features.add(DeclarativeBenchmarkPlan.Feature.CAPTURE_TEXT);
         case REPLACE -> {
           features.add(DeclarativeBenchmarkPlan.Feature.REPLACE);
           features.add(DeclarativeBenchmarkPlan.Feature.NUMBERED_REPLACEMENT);
+        }
+        case APPEND_REPLACEMENT -> {
+          features.add(DeclarativeBenchmarkPlan.Feature.APPEND_REPLACEMENT);
+          features.add(DeclarativeBenchmarkPlan.Feature.NUMBERED_REPLACEMENT);
+        }
+        case SPLIT -> features.add(DeclarativeBenchmarkPlan.Feature.SPLIT);
+        case MATCHER_RESET -> features.add(DeclarativeBenchmarkPlan.Feature.MATCHER_STATE);
+        case REGIONS -> {
+          features.add(DeclarativeBenchmarkPlan.Feature.MATCHER_STATE);
+          features.add(DeclarativeBenchmarkPlan.Feature.REGIONS);
         }
       }
     }
@@ -357,6 +415,15 @@ enum RegexEngineVariant {
 
   abstract CompiledRegex compile(String regex);
 
+  Object compileForBenchmark(String regex) {
+    return switch (this) {
+      case SAFERE_STRING, SAFERE_UTF8 -> org.safere.Pattern.compile(regex);
+      case JDK_STRING -> java.util.regex.Pattern.compile(regex);
+      case RE2J_STRING -> com.google.re2j.Pattern.compile(regex);
+      case RE2_FFM_STRING_CONVERSION -> org.safere.re2ffm.RE2FfmPattern.compile(regex);
+    };
+  }
+
   static RegexEngineVariant fromId(String id) {
     for (RegexEngineVariant variant : values()) {
       if (variant.id.equals(id)) {
@@ -368,6 +435,23 @@ enum RegexEngineVariant {
 
   private static EnumSet<EngineCapability> allCapabilities() {
     return EnumSet.allOf(EngineCapability.class);
+  }
+
+  private static EnumSet<EngineCapability> ffmCapabilities() {
+    return EnumSet.of(
+        EngineCapability.COMPILE,
+        EngineCapability.FIND,
+        EngineCapability.MATCHES,
+        EngineCapability.GROUP_TEXT,
+        EngineCapability.REPLACE,
+        EngineCapability.SPLIT,
+        EngineCapability.MATCHER_RESET);
+  }
+
+  private static EnumSet<EngineCapability> re2jCapabilities() {
+    EnumSet<EngineCapability> capabilities = allCapabilities();
+    capabilities.remove(EngineCapability.REGIONS);
+    return capabilities;
   }
 
   private static String string(RegexInput input) {
@@ -393,7 +477,27 @@ enum RegexEngineVariant {
       throw new UnsupportedOperationException();
     }
 
+    default boolean lookingAt() {
+      throw new UnsupportedOperationException();
+    }
+
     default String group(int group) {
+      throw new UnsupportedOperationException();
+    }
+
+    default void reset() {
+      throw new UnsupportedOperationException();
+    }
+
+    default void region(int start, int end) {
+      throw new UnsupportedOperationException();
+    }
+
+    default void appendReplacement(StringBuilder result, String replacement) {
+      throw new UnsupportedOperationException();
+    }
+
+    default void appendTail(StringBuilder result) {
       throw new UnsupportedOperationException();
     }
   }
@@ -415,9 +519,12 @@ enum RegexEngineVariant {
       throw new UnsupportedOperationException();
     }
 
-    default BenchmarkOperation.BenchmarkTask bind(
-        BenchmarkOperation operation, List<RegexInput> inputs, int[] groups, String replacement) {
-      return operation.bind(this, inputs, groups, replacement);
+    default String replaceFirst(RegexInput input, String replacement) {
+      throw new UnsupportedOperationException();
+    }
+
+    default String[] split(RegexInput input, int limit) {
+      throw new UnsupportedOperationException();
     }
 
     @Override

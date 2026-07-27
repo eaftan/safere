@@ -1379,9 +1379,12 @@ final class DeclarativeBenchmarkPlan {
     CAPTURE_GROUPS("captureGroups", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
     REPLACE_FIRST("replaceFirst", false, true, Feature.REPLACE),
     REPLACE_ALL("replaceAll", false, true, Feature.REPLACE),
+    REPLACE_ALL_LENGTH_SUM("replaceAllLengthSum", false, true, Feature.REPLACE),
     APPEND_REPLACEMENT("appendReplacement", false, true, Feature.REPLACE),
-    MANUAL_REPLACE_ALL("manualReplaceAll", false, true, Feature.REPLACE),
+    MANUAL_REPLACE_ALL(
+        "manualReplaceAll", false, true, Feature.REPLACE, Feature.APPEND_REPLACEMENT),
     SPLIT("split", false, true, Feature.SPLIT),
+    SPLIT_LENGTH_SUM("splitLengthSum", false, true, Feature.SPLIT),
     COMPILE("compile", false, false),
     COMPILE_AND_FIND("compileAndFind", false, true, Feature.FIND),
     MATCHER_CONSTRUCTION("matcherConstruction", false, true, Feature.MATCHER_STATE),
@@ -1504,6 +1507,8 @@ final class DeclarativeBenchmarkPlan {
             MATCHES_CORPUS,
             MATCHES_GROUP_LENGTH_SUM,
             MATCHER_RESET_FIND,
+            REPLACE_ALL_LENGTH_SUM,
+            SPLIT_LENGTH_SUM,
             UTF8_CAPTURE_BOUNDS ->
             consumption == ResultConsumption.INTEGER;
         case FIND_GROUP,
@@ -1513,7 +1518,8 @@ final class DeclarativeBenchmarkPlan {
             MANUAL_REPLACE_ALL,
             UTF8_REPLACEMENT ->
             consumption == ResultConsumption.STRING;
-        case CAPTURE_GROUPS -> consumption == ResultConsumption.STRING_LIST;
+        case CAPTURE_GROUPS ->
+            consumption == ResultConsumption.STRING || consumption == ResultConsumption.STRING_LIST;
         case SPLIT ->
             consumption == ResultConsumption.STRING_LIST
                 || consumption == ResultConsumption.BLACKHOLE_OBJECT;
@@ -1532,9 +1538,14 @@ final class DeclarativeBenchmarkPlan {
             UTF8_CAPTURE_BOUNDS ->
             Map.of("groups", RecipeValueType.INTEGER_LIST);
         case FIND_GROUP_PRESENT, FIND_GROUP -> Map.of("group", RecipeValueType.INTEGER);
-        case REPLACE_FIRST, REPLACE_ALL, APPEND_REPLACEMENT, MANUAL_REPLACE_ALL, UTF8_REPLACEMENT ->
+        case REPLACE_FIRST,
+            REPLACE_ALL,
+            REPLACE_ALL_LENGTH_SUM,
+            APPEND_REPLACEMENT,
+            MANUAL_REPLACE_ALL,
+            UTF8_REPLACEMENT ->
             Map.of("replacement", RecipeValueType.STRING);
-        case SPLIT -> Map.of("limit", RecipeValueType.INTEGER);
+        case SPLIT, SPLIT_LENGTH_SUM -> Map.of("limit", RecipeValueType.INTEGER);
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
             Map.of("anchor", RecipeValueType.STRING);
         default -> Map.of();
@@ -1549,7 +1560,12 @@ final class DeclarativeBenchmarkPlan {
             UTF8_CAPTURE_BOUNDS ->
             Set.of("groups");
         case FIND_GROUP_PRESENT, FIND_GROUP -> Set.of("group");
-        case REPLACE_FIRST, REPLACE_ALL, APPEND_REPLACEMENT, MANUAL_REPLACE_ALL, UTF8_REPLACEMENT ->
+        case REPLACE_FIRST,
+            REPLACE_ALL,
+            REPLACE_ALL_LENGTH_SUM,
+            APPEND_REPLACEMENT,
+            MANUAL_REPLACE_ALL,
+            UTF8_REPLACEMENT ->
             Set.of("replacement");
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES -> Set.of("anchor");
         default -> Set.of();

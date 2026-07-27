@@ -22,12 +22,21 @@ final class CrossEngineBenchmarkPlan {
       EnumSet.of(
           DeclarativeBenchmarkPlan.Operation.MATCHES,
           DeclarativeBenchmarkPlan.Operation.FIND,
+          DeclarativeBenchmarkPlan.Operation.LOOKING_AT,
           DeclarativeBenchmarkPlan.Operation.FIND_ALL_COUNT,
           DeclarativeBenchmarkPlan.Operation.MATCHES_CORPUS,
           DeclarativeBenchmarkPlan.Operation.MATCHES_GROUP_LENGTH_SUM,
           DeclarativeBenchmarkPlan.Operation.FIND_ALL_LENGTH_SUM,
           DeclarativeBenchmarkPlan.Operation.FIND_ALL_GROUP_LENGTH_SUM,
+          DeclarativeBenchmarkPlan.Operation.CAPTURE_GROUPS,
+          DeclarativeBenchmarkPlan.Operation.REPLACE_FIRST,
           DeclarativeBenchmarkPlan.Operation.REPLACE_ALL,
+          DeclarativeBenchmarkPlan.Operation.REPLACE_ALL_LENGTH_SUM,
+          DeclarativeBenchmarkPlan.Operation.MANUAL_REPLACE_ALL,
+          DeclarativeBenchmarkPlan.Operation.SPLIT_LENGTH_SUM,
+          DeclarativeBenchmarkPlan.Operation.COMPILE,
+          DeclarativeBenchmarkPlan.Operation.MATCHER_RESET_FIND,
+          DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_FIND,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP);
 
@@ -155,12 +164,9 @@ final class CrossEngineBenchmarkPlan {
   }
 
   private static CrossEngineWorkload convert(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
-    if (workload.patterns().size() != 1) {
-      throw new IllegalArgumentException(
-          workload.id() + " ordinary cross-engine workload requires exactly one pattern");
-    }
     int[] groups = groups(workload.arguments());
     String replacement = stringArgument(workload.arguments(), "replacement");
+    int limit = integerArgument(workload.arguments(), "limit", 0);
     CrossEngineWorkload.TimingGroup timingGroup =
         switch (workload.measurement().timingUnit()) {
           case NANOSECONDS -> CrossEngineWorkload.TimingGroup.NANOSECONDS;
@@ -172,11 +178,13 @@ final class CrossEngineBenchmarkPlan {
     return new CrossEngineWorkload(
         workload.id(),
         BenchmarkOperation.fromDeclarative(workload.operation()),
-        workload.patterns().getFirst(),
+        workload.patterns(),
         workload.inputIds(),
         groups,
         replacement,
         expectedValue(workload.expected()),
+        limit,
+        workload.lifecycle(),
         timingGroup);
   }
 
@@ -197,6 +205,12 @@ final class CrossEngineBenchmarkPlan {
       Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments, String name) {
     DeclarativeBenchmarkPlan.RecipeValue value = arguments.get(name);
     return value == null ? null : ((DeclarativeBenchmarkPlan.RecipeString) value).value();
+  }
+
+  private static int integerArgument(
+      Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments, String name, int defaultValue) {
+    DeclarativeBenchmarkPlan.RecipeValue value = arguments.get(name);
+    return value == null ? defaultValue : ((DeclarativeBenchmarkPlan.RecipeInteger) value).value();
   }
 
   private static Object expectedValue(DeclarativeBenchmarkPlan.ExpectedResult expected) {
