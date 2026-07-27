@@ -5,7 +5,6 @@
 
 package org.safere.benchmark;
 
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -72,9 +71,7 @@ public class SearchScalingBenchmark {
   private String easyPattern;
   private String mediumPattern;
   private String hardPattern;
-  private String matchSuffix;
   private String findIngPattern;
-  private String proseUnit;
 
   @Setup
   public void setup() {
@@ -82,22 +79,9 @@ public class SearchScalingBenchmark {
     easyPattern = data.getString("searchScaling.patterns.easy");
     mediumPattern = data.getString("searchScaling.patterns.medium");
     hardPattern = data.getString("searchScaling.patterns.hard");
-    matchSuffix = data.getString("searchScaling.matchSuffix");
     findIngPattern = data.getString("searchScaling.findIngPattern");
-    proseUnit = data.getString("searchScaling.proseUnit");
-
-    int seed = data.getInt("searchScaling.randomText.seed");
-    String alphabet = data.getString("searchScaling.randomText.alphabet");
-    alphabet = alphabet.replace("\\n", "\n");
-
-    // Generate random lowercase + digits + space text (no uppercase).
-    Random rng = new Random(seed);
-    char[] chars = new char[textSize];
-    for (int i = 0; i < textSize; i++) {
-      chars[i] = alphabet.charAt(rng.nextInt(alphabet.length()));
-    }
-    randomText = new String(chars);
-    textWithMatch = randomText + matchSuffix;
+    randomText = data.getInputString("searchScaling.random." + textSize);
+    textWithMatch = data.getInputString("searchScaling.success." + textSize);
 
     // Compile search patterns.
     safeEasy = org.safere.Pattern.compile(easyPattern);
@@ -107,12 +91,7 @@ public class SearchScalingBenchmark {
     safeHard = org.safere.Pattern.compile(hardPattern);
     jdkHard = java.util.regex.Pattern.compile(hardPattern);
 
-    // Build scaled prose by repeating the unit to reach textSize.
-    StringBuilder sb = new StringBuilder(textSize + proseUnit.length());
-    while (sb.length() < textSize) {
-      sb.append(proseUnit);
-    }
-    scaledProse = sb.toString();
+    scaledProse = data.getInputString("searchScaling.prose." + textSize);
     safeFindIng = org.safere.Pattern.compile(findIngPattern);
     jdkFindIng = java.util.regex.Pattern.compile(findIngPattern);
 

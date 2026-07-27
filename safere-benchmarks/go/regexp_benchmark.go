@@ -11,23 +11,23 @@
 //
 // Run:
 //
-//	./regexp_benchmark [--data path/to/benchmark-data.json] [filter...]
+//	./regexp_benchmark [--manifest path/to/manifest.json] [filter...]
 //
 // Each filter is a substring match against benchmark names. If no filters
 // are given, all benchmarks are run.
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 // ---------------------------------------------------------------------------
@@ -127,18 +127,66 @@ var sink any
 // JSON loading
 // ---------------------------------------------------------------------------
 
-func loadBenchmarkData(path string) map[string]any {
+type materializedInput struct {
+	File      string `json:"file"`
+	UTF8Bytes int    `json:"utf8Bytes"`
+	SHA256    string `json:"sha256"`
+}
+
+var benchmarkInputDirectory string
+var benchmarkInputs map[string]materializedInput
+
+func loadBenchmarkManifest(manifestPath string) map[string]any {
+	benchmarkInputDirectory = filepath.Dir(manifestPath)
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: cannot open benchmark input manifest: %v\n", err)
+		os.Exit(1)
+	}
+	var manifest struct {
+		Version       int                          `json:"version"`
+		BenchmarkData map[string]any               `json:"benchmarkData"`
+		Inputs        map[string]materializedInput `json:"inputs"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: invalid benchmark input manifest: %v\n", err)
+		os.Exit(1)
+	}
+	if manifest.Version != 1 {
+		fmt.Fprintf(os.Stderr, "ERROR: unsupported benchmark input manifest version: %d\n",
+			manifest.Version)
+		os.Exit(1)
+	}
+	benchmarkInputs = manifest.Inputs
+	return manifest.BenchmarkData
+}
+
+func loadBenchmarkInput(key string) string {
+	entry, ok := benchmarkInputs[key]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "ERROR: unknown materialized benchmark input: %s\n", key)
+		os.Exit(1)
+	}
+	path := filepath.Join(benchmarkInputDirectory, entry.File)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: cannot open benchmark data file: %s\n", path)
+		fmt.Fprintf(os.Stderr, "ERROR: cannot open materialized benchmark input %s: %v\n", key, err)
 		os.Exit(1)
 	}
-	var result map[string]any
-	if err := json.Unmarshal(data, &result); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: invalid JSON in %s: %v\n", path, err)
+	if len(data) != entry.UTF8Bytes {
+		fmt.Fprintf(os.Stderr,
+			"ERROR: materialized benchmark input %s has size %d, expected %d\n",
+			key, len(data), entry.UTF8Bytes)
 		os.Exit(1)
 	}
-	return result
+	actualHash := fmt.Sprintf("%x", sha256.Sum256(data))
+	if actualHash != entry.SHA256 {
+		fmt.Fprintf(os.Stderr,
+			"ERROR: materialized benchmark input %s has SHA-256 %s, expected %s\n",
+			key, actualHash, entry.SHA256)
+		os.Exit(1)
+	}
+	return string(data)
 }
 
 // get navigates a dot-separated path in the JSON structure.
@@ -199,186 +247,6 @@ func getStringSlice(data any, path string) []string {
 		}
 	}
 	return result
-}
-
-// ---------------------------------------------------------------------------
-// Text generators
-// ---------------------------------------------------------------------------
-
-func makeRandomText(size int, alphabet string, seed int64) string {
-	rng := rand.New(rand.NewSource(seed))
-	buf := make([]byte, size)
-	for i := range buf {
-		buf[i] = alphabet[rng.Intn(len(alphabet))]
-	}
-	return string(buf)
-}
-
-func makeProse(size int, unit string) string {
-	var b strings.Builder
-	b.Grow(size + len(unit))
-	for b.Len() < size {
-		b.WriteString(unit)
-	}
-	return b.String()
-}
-
-func repeatToSize(unit string, size int) string {
-	var b strings.Builder
-	b.Grow(size + len(unit))
-	for b.Len() < size {
-		b.WriteString(unit)
-	}
-	return b.String()[:size]
-}
-
-func surroundToSize(prefix string, unit string, suffix string, size int) string {
-	bodySize := size - len(prefix) - len(suffix)
-	if bodySize < 0 {
-		bodySize = 0
-	}
-	return prefix + repeatToSize(unit, bodySize) + suffix
-}
-
-func suffixMatchToSize(prefixUnit string, match string, size int) string {
-	prefixSize := size - len(match)
-	if prefixSize < 0 {
-		prefixSize = 0
-	}
-	return repeatToSize(prefixUnit, prefixSize) + match
-}
-
-func generatedRealWorldInput(unit string, size int, alphabet string, seed int) string {
-	if len(unit) >= size {
-		return unit[:size]
-	}
-	var b strings.Builder
-	b.Grow(size + len(unit))
-	delimiterIndex := seed
-	for b.Len() < size {
-		b.WriteString(unit)
-		if b.Len() < size {
-			b.WriteByte(alphabet[delimiterIndex%len(alphabet)])
-			delimiterIndex++
-		}
-	}
-	return b.String()[:size]
-}
-
-func generatedSparseRealWorldInput(
-	matchUnit string, nonMatchUnit string, size int, seed int, nonMatchRepeats int,
-	alphabet string,
-) string {
-	var b strings.Builder
-	b.Grow(size + len(matchUnit) + len(nonMatchUnit))
-	delimiterIndex := seed
-	for b.Len() < size {
-		for i := 0; i < nonMatchRepeats && b.Len() < size; i++ {
-			b.WriteString(nonMatchUnit)
-			if b.Len() < size {
-				b.WriteByte(alphabet[delimiterIndex%len(alphabet)])
-				delimiterIndex++
-			}
-		}
-		if b.Len() < size {
-			b.WriteByte(' ')
-			b.WriteString(matchUnit)
-			b.WriteByte(' ')
-		}
-	}
-	return b.String()[:size]
-}
-
-func generateRealWorldInput(
-	inputSpec map[string]any, matchUnit string, nonMatchUnit string, match bool, size int,
-	alphabet string, seed int,
-) string {
-	unit := nonMatchUnit
-	if match {
-		unit = matchUnit
-	}
-	kind := "repeat"
-	if rawKind, ok := inputSpec["kind"]; ok {
-		kind = rawKind.(string)
-	}
-	switch kind {
-	case "repeat":
-		return generatedRealWorldInput(unit, size, alphabet, seed)
-	case "prefixedRepeat":
-		prefix := getString(inputSpec, "prefix")
-		if len(prefix) >= size {
-			return prefix[:size]
-		}
-		bodySize := size - len(prefix)
-		return prefix + generatedRealWorldInput(unit, bodySize, alphabet, seed)
-	case "sparseMatch":
-		return generatedSparseRealWorldInput(
-			matchUnit, nonMatchUnit, size, seed, getInt(inputSpec, "nonMatchRepeats"),
-			getString(inputSpec, "delimiterAlphabet"))
-	case "surroundWithSpaces":
-		body := getString(inputSpec, "body")
-		return generateSurroundWithSpacesInput(body, size)
-	case "scaledSurroundWithSpaces":
-		return generateScaledSurroundWithSpacesInput(
-			getString(inputSpec, "bodyPrefix"),
-			getString(inputSpec, "bodySuffix"),
-			getString(inputSpec, "bodyFill"),
-			getInt(inputSpec, "bodyScalePercent"),
-			size)
-	default:
-		fmt.Fprintf(os.Stderr, "ERROR: invalid realWorldRegex input kind: %s\n", kind)
-		os.Exit(1)
-	}
-	panic("unreachable")
-}
-
-func generateSurroundWithSpacesInput(body string, size int) string {
-	if len(body) >= size {
-		return body[:size]
-	}
-	totalPadding := size - len(body)
-	leadingPadding := totalPadding / 2
-	trailingPadding := totalPadding - leadingPadding
-	return strings.Repeat(" ", leadingPadding) + body + strings.Repeat(" ", trailingPadding)
-}
-
-func generateScaledSurroundWithSpacesInput(
-	bodyPrefix string, bodySuffix string, bodyFill string, bodyScalePercent int, size int,
-) string {
-	if bodyFill == "" {
-		fmt.Fprintln(os.Stderr, "ERROR: scaledSurroundWithSpaces requires non-empty bodyFill")
-		os.Exit(1)
-	}
-	fixedBodyLength := len(bodyPrefix) + len(bodySuffix)
-	targetBodyLength := size * bodyScalePercent / 100
-	if targetBodyLength < fixedBodyLength {
-		targetBodyLength = fixedBodyLength
-	}
-	if targetBodyLength > size {
-		targetBodyLength = size
-	}
-	fillLength := targetBodyLength - fixedBodyLength
-	if fillLength < 0 {
-		fillLength = 0
-	}
-	body := bodyPrefix + repeatToSize(bodyFill, fillLength) + bodySuffix
-	return generateSurroundWithSpacesInput(body, size)
-}
-
-func appendUTF8(b *strings.Builder, cp int) {
-	var buf [4]byte
-	n := utf8.EncodeRune(buf[:], rune(cp))
-	b.Write(buf[:n])
-}
-
-func makeUnicodeText(size int, codepoints []int, seed int64) string {
-	rng := rand.New(rand.NewSource(seed))
-	var b strings.Builder
-	for b.Len() < size {
-		cp := codepoints[rng.Intn(len(codepoints))]
-		appendUTF8(&b, cp)
-	}
-	return b.String()
 }
 
 // ---------------------------------------------------------------------------
@@ -572,19 +440,11 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 		os.Exit(1)
 	}
 	sizes := getIntSlice(sec, "textSizes")
-	alphabet := getString(sec, "safeDelimiterAlphabet")
-	seed := getInt(sec, "seed")
-
 	type realWorldCase struct {
-		name          string
-		op            string
-		pattern       string
-		match         string
-		nonMatch      string
-		matchInput    map[string]any
-		nonMatchInput map[string]any
-		re            *regexp.Regexp
-		fullRe        *regexp.Regexp
+		name   string
+		op     string
+		re     *regexp.Regexp
+		fullRe *regexp.Regexp
 	}
 
 	rawCases, ok := sec["cases"].([]any)
@@ -605,17 +465,10 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 			os.Exit(1)
 		}
 		pattern := getString(item, "pattern")
-		matchInput, _ := item["matchInput"].(map[string]any)
-		nonMatchInput, _ := item["nonMatchInput"].(map[string]any)
 		c := realWorldCase{
-			name:          getString(item, "name"),
-			op:            op,
-			pattern:       pattern,
-			match:         getString(item, "match"),
-			nonMatch:      getString(item, "nonMatch"),
-			matchInput:    matchInput,
-			nonMatchInput: nonMatchInput,
-			re:            regexp.MustCompile(pattern),
+			name: getString(item, "name"),
+			op:   op,
+			re:   regexp.MustCompile(pattern),
 		}
 		if op == "matches" {
 			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
@@ -631,12 +484,8 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 				matchLabel = "match"
 			}
 			for _, size := range sizes {
-				inputSpec := c.nonMatchInput
-				if match {
-					inputSpec = c.matchInput
-				}
-				text := generateRealWorldInput(
-					inputSpec, c.match, c.nonMatch, match, size, alphabet, seed)
+				text := loadBenchmarkInput(fmt.Sprintf(
+					"realWorldRegex.%s.%s.%d", c.name, matchLabel, size))
 				name := fmt.Sprintf(
 					"RealWorldRegexBenchmark.runBenchmark.%s.%s.%d",
 					c.name, matchLabel, size)
@@ -695,22 +544,15 @@ func runSearchScalingBenchmarks(data map[string]any, filters []string) {
 	sec := data["searchScaling"].(map[string]any)
 
 	sizes := getIntSlice(sec, "textSizes")
-	matchSuffix := getString(sec, "matchSuffix")
-	alphabet := getString(sec, "randomText.alphabet")
-	// Interpret \n in alphabet
-	alphabet = strings.ReplaceAll(alphabet, `\n`, "\n")
-	seed := int64(getInt(sec, "randomText.seed"))
-	proseUnit := getString(sec, "proseUnit")
-
 	easy := regexp.MustCompile(getString(sec, "patterns.easy"))
 	medium := regexp.MustCompile(getString(sec, "patterns.medium"))
 	hard := regexp.MustCompile(getString(sec, "patterns.hard"))
 	findIng := regexp.MustCompile(getString(sec, "findIngPattern"))
 
 	for _, size := range sizes {
-		randomText := makeRandomText(size, alphabet, seed)
-		textWithMatch := randomText + matchSuffix
-		proseText := makeProse(size, proseUnit)
+		randomText := loadBenchmarkInput(fmt.Sprintf("searchScaling.random.%d", size))
+		textWithMatch := loadBenchmarkInput(fmt.Sprintf("searchScaling.success.%d", size))
+		proseText := loadBenchmarkInput(fmt.Sprintf("searchScaling.prose.%d", size))
 
 		suffix := fmt.Sprintf(".%d", size)
 
@@ -768,33 +610,16 @@ func runIssue481ScalingBenchmarks(data map[string]any, filters []string) {
 	}
 
 	for _, size := range sizes {
-		splitText := repeatToSize(getString(sec, "splitW.unit"), size)
-		blockText := surroundToSize(
-			getString(sec, "block.prefix"),
-			getString(sec, "block.unit"),
-			getString(sec, "block.suffix"),
-			size)
-		blockNegativeText := surroundToSize(
-			getString(sec, "block.prefix"),
-			getString(sec, "block.unit"),
-			getString(sec, "block.negativeSuffix"),
-			size)
-		tagText := suffixMatchToSize(
-			getString(sec, "tag.prefixUnit"),
-			getString(sec, "tag.match"),
-			size)
-		tagNegativeText := suffixMatchToSize(
-			getString(sec, "tag.prefixUnit"),
-			getString(sec, "tag.negativeMatch"),
-			size)
-		schemeText := suffixMatchToSize(
-			getString(sec, "scheme.prefixUnit"),
-			getString(sec, "scheme.match"),
-			size)
-		schemeNegativeText := suffixMatchToSize(
-			getString(sec, "scheme.prefixUnit"),
-			getString(sec, "scheme.negativeMatch"),
-			size)
+		splitText := loadBenchmarkInput(fmt.Sprintf("issue481Scaling.splitW.%d", size))
+		blockText := loadBenchmarkInput(fmt.Sprintf("issue481Scaling.block.%d", size))
+		blockNegativeText := loadBenchmarkInput(
+			fmt.Sprintf("issue481Scaling.blockNegative.%d", size))
+		tagText := loadBenchmarkInput(fmt.Sprintf("issue481Scaling.tag.%d", size))
+		tagNegativeText := loadBenchmarkInput(
+			fmt.Sprintf("issue481Scaling.tagNegative.%d", size))
+		schemeText := loadBenchmarkInput(fmt.Sprintf("issue481Scaling.scheme.%d", size))
+		schemeNegativeText := loadBenchmarkInput(
+			fmt.Sprintf("issue481Scaling.schemeNegative.%d", size))
 
 		suffix := fmt.Sprintf(".%d", size)
 		run := func(name string, fn func()) {
@@ -949,8 +774,8 @@ func runPathologicalBenchmarks(data map[string]any, filters []string) {
 	ns := getIntSlice(data, "pathological.nValues")
 
 	for _, n := range ns {
-		pattern := strings.Repeat("a?", n) + strings.Repeat("a", n)
-		text := strings.Repeat("a", n)
+		pattern := loadBenchmarkInput(fmt.Sprintf("pathological.pattern.%d", n))
+		text := loadBenchmarkInput(fmt.Sprintf("pathological.text.%d", n))
 
 		name := fmt.Sprintf("PathologicalBenchmark.pathological.%d", n)
 		if matchesFilter(name, filters) {
@@ -969,15 +794,9 @@ func runFanoutBenchmarks(data map[string]any, filters []string) {
 	fanout := regexp.MustCompile(getString(sec, "unicodeFanout.pattern"))
 	nested := regexp.MustCompile(getString(sec, "nestedQuantifier.pattern"))
 
-	codepoints := getIntSlice(sec, "unicodeFanout.codePoints")
-	unicodeSeed := int64(getInt(sec, "unicodeFanout.seed"))
-
-	nestedAlphabet := getString(sec, "nestedQuantifier.alphabet")
-	nestedSeed := int64(getInt(sec, "nestedQuantifier.seed"))
-
 	for _, size := range sizes {
-		unicodeText := makeUnicodeText(size, codepoints, unicodeSeed)
-		asciiText := makeRandomText(size, nestedAlphabet, nestedSeed)
+		unicodeText := loadBenchmarkInput(fmt.Sprintf("fanout.unicode.%d", size))
+		asciiText := loadBenchmarkInput(fmt.Sprintf("fanout.ascii.%d", size))
 
 		suffix := fmt.Sprintf(".%d", size)
 
@@ -1083,20 +902,20 @@ func runMemoryBenchmarks(data map[string]any, filters []string) {
 // ---------------------------------------------------------------------------
 
 func main() {
-	dataPath := "../../benchmark-data.json"
+	manifestPath := "../../target/benchmark-corpus/manifest.json"
 	var filters []string
 
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
-		if args[i] == "--data" && i+1 < len(args) {
-			dataPath = args[i+1]
+		if args[i] == "--manifest" && i+1 < len(args) {
+			manifestPath = args[i+1]
 			i++
 		} else {
 			filters = append(filters, args[i])
 		}
 	}
 
-	data := loadBenchmarkData(dataPath)
+	data := loadBenchmarkManifest(manifestPath)
 
 	runRegexBenchmarks(data, filters)
 	runApplicationBenchmarks(data, filters)

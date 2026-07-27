@@ -5,7 +5,6 @@
 
 package org.safere.benchmark;
 
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -54,9 +53,6 @@ public class MemoryScalingBenchmark {
 
     String easyPattern = data.getString("searchScaling.patterns.easy");
     String mediumPattern = data.getString("searchScaling.patterns.medium");
-    String alphabet = data.getString("searchScaling.randomText.alphabet").replace("\\n", "\n");
-    int seed = data.getInt("searchScaling.randomText.seed");
-
     safeEasy = org.safere.Pattern.compile(easyPattern);
     jdkEasy = java.util.regex.Pattern.compile(easyPattern);
     re2jEasy = com.google.re2j.Pattern.compile(easyPattern);
@@ -65,7 +61,7 @@ public class MemoryScalingBenchmark {
     jdkMedium = java.util.regex.Pattern.compile(mediumPattern);
     re2jMedium = com.google.re2j.Pattern.compile(mediumPattern);
 
-    randomText = makeRandomText(textSize, alphabet, seed);
+    randomText = data.getInputString("searchScaling.random." + textSize);
   }
 
   // ===== Easy pattern (allocation scaling with text size) =====
@@ -100,14 +96,5 @@ public class MemoryScalingBenchmark {
   @Benchmark
   public boolean searchMedium_re2j() {
     return re2jMedium.matcher(randomText).find();
-  }
-
-  private static String makeRandomText(int size, String alphabet, int seed) {
-    Random rng = new Random(seed);
-    char[] buf = new char[size];
-    for (int i = 0; i < size; i++) {
-      buf[i] = alphabet.charAt(rng.nextInt(alphabet.length()));
-    }
-    return new String(buf);
   }
 }

@@ -47,21 +47,11 @@ public class Issue488ReplaceAllBenchmark {
 
     String lazyAltPattern = data.getString("issue488ReplaceAll.lazyAlt.pattern");
     lazyAltReplacement = data.getString("issue488ReplaceAll.lazyAlt.replacement");
-    lazyAltInput =
-        generateLazyAltInput(
-            data.getString("issue488ReplaceAll.lazyAlt.prefixUnit"),
-            data.getString("issue488ReplaceAll.lazyAlt.match"),
-            data.getString("issue488ReplaceAll.lazyAlt.suffixUnit"),
-            textSize);
+    lazyAltInput = data.getInputString("issue488ReplaceAll.lazyAlt." + textSize);
 
     String altCapturePattern = data.getString("issue488ReplaceAll.altCapture.pattern");
     altCaptureReplacement = data.getString("issue488ReplaceAll.altCapture.replacement");
-    altCaptureInput =
-        generateAltCaptureInput(
-            data.getString("issue488ReplaceAll.altCapture.hitUnit"),
-            data.getString("issue488ReplaceAll.altCapture.missUnit"),
-            data.getInt("issue488ReplaceAll.altCapture.hitInterval"),
-            textSize);
+    altCaptureInput = data.getInputString("issue488ReplaceAll.altCapture." + textSize);
 
     safereLazyAlt = org.safere.Pattern.compile(lazyAltPattern);
     safereAltCapture = org.safere.Pattern.compile(altCapturePattern);
@@ -114,30 +104,5 @@ public class Issue488ReplaceAllBenchmark {
   @Benchmark
   public String altCapture_re2ffm() {
     return re2ffmAltCapture.matcher(altCaptureInput).replaceAll(altCaptureReplacement);
-  }
-
-  private static String generateLazyAltInput(
-      String prefixUnit, String match, String suffixUnit, int size) {
-    StringBuilder sb = new StringBuilder(size + match.length() + prefixUnit.length());
-    int halfSize = size / 2;
-    while (sb.length() < halfSize) {
-      sb.append(prefixUnit);
-    }
-    sb.append(match);
-    while (sb.length() < size) {
-      sb.append(suffixUnit);
-    }
-    return sb.substring(0, size);
-  }
-
-  private static String generateAltCaptureInput(
-      String hitUnit, String missUnit, int hitInterval, int size) {
-    StringBuilder sb = new StringBuilder(size + Math.max(hitUnit.length(), missUnit.length()));
-    int counter = 0;
-    while (sb.length() < size) {
-      sb.append(counter % hitInterval == 0 ? hitUnit : missUnit);
-      counter++;
-    }
-    return sb.substring(0, size);
   }
 }

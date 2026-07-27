@@ -14,10 +14,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GO_DIR="$SCRIPT_DIR/safere-benchmarks/go"
-DATA_FILE="$SCRIPT_DIR/safere-benchmarks/benchmark-data.json"
+MANIFEST_FILE="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus/manifest.json"
+
+echo "=== Materializing shared benchmark inputs ==="
+"$SCRIPT_DIR/materialize-benchmark-inputs.sh"
 
 echo "=== Building Go regexp benchmarks ==="
 (cd "$GO_DIR" && go build -o regexp_benchmark .)
 
 echo "=== Running Go regexp benchmarks ==="
-"$GO_DIR/regexp_benchmark" --data "$DATA_FILE" "$@"
+"$GO_DIR/regexp_benchmark" --manifest "$MANIFEST_FILE" "$@"

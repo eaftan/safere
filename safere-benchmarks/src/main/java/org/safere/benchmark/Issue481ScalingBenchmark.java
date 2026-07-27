@@ -61,39 +61,13 @@ public class Issue481ScalingBenchmark {
     String tagPattern = data.getString("issue481Scaling.tag.pattern");
     String schemePattern = data.getString("issue481Scaling.scheme.pattern");
 
-    splitText = repeatToSize(data.getString("issue481Scaling.splitW.unit"), textSize);
-    blockText =
-        surroundToSize(
-            data.getString("issue481Scaling.block.prefix"),
-            data.getString("issue481Scaling.block.unit"),
-            data.getString("issue481Scaling.block.suffix"),
-            textSize);
-    blockNegativeText =
-        surroundToSize(
-            data.getString("issue481Scaling.block.prefix"),
-            data.getString("issue481Scaling.block.unit"),
-            data.getString("issue481Scaling.block.negativeSuffix"),
-            textSize);
-    tagText =
-        suffixMatchToSize(
-            data.getString("issue481Scaling.tag.prefixUnit"),
-            data.getString("issue481Scaling.tag.match"),
-            textSize);
-    tagNegativeText =
-        suffixMatchToSize(
-            data.getString("issue481Scaling.tag.prefixUnit"),
-            data.getString("issue481Scaling.tag.negativeMatch"),
-            textSize);
-    schemeText =
-        suffixMatchToSize(
-            data.getString("issue481Scaling.scheme.prefixUnit"),
-            data.getString("issue481Scaling.scheme.match"),
-            textSize);
-    schemeNegativeText =
-        suffixMatchToSize(
-            data.getString("issue481Scaling.scheme.prefixUnit"),
-            data.getString("issue481Scaling.scheme.negativeMatch"),
-            textSize);
+    splitText = data.getInputString("issue481Scaling.splitW." + textSize);
+    blockText = data.getInputString("issue481Scaling.block." + textSize);
+    blockNegativeText = data.getInputString("issue481Scaling.blockNegative." + textSize);
+    tagText = data.getInputString("issue481Scaling.tag." + textSize);
+    tagNegativeText = data.getInputString("issue481Scaling.tagNegative." + textSize);
+    schemeText = data.getInputString("issue481Scaling.scheme." + textSize);
+    schemeNegativeText = data.getInputString("issue481Scaling.schemeNegative." + textSize);
 
     safereSplitW = org.safere.Pattern.compile(splitPattern);
     safereBlock = org.safere.Pattern.compile(blockPattern);
@@ -278,24 +252,6 @@ public class Issue481ScalingBenchmark {
   @Benchmark
   public boolean schemeFindNegative_re2ffm() {
     return re2ffmScheme.matcher(schemeNegativeText).find();
-  }
-
-  private static String repeatToSize(String unit, int size) {
-    StringBuilder sb = new StringBuilder(size + unit.length());
-    while (sb.length() < size) {
-      sb.append(unit);
-    }
-    return sb.substring(0, size);
-  }
-
-  private static String surroundToSize(String prefix, String unit, String suffix, int size) {
-    int targetBodySize = Math.max(0, size - prefix.length() - suffix.length());
-    return prefix + repeatToSize(unit, targetBodySize) + suffix;
-  }
-
-  private static String suffixMatchToSize(String prefixUnit, String match, int size) {
-    int targetPrefixSize = Math.max(0, size - match.length());
-    return repeatToSize(prefixUnit, targetPrefixSize) + match;
   }
 
   private static int splitLengthSum(String[] parts) {

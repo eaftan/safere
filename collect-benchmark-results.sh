@@ -201,7 +201,9 @@ else
 fi
 
 run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" \
-  java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
+  java -Xms256m -Xmx256m \
+    -Dsafere.benchmark.corpus="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus" \
+    -cp safere-benchmarks/target/benchmarks.jar \
     org.safere.benchmark.MemoryBenchmark
 
 if [ "$OPENJDK_REGEX" = true ]; then

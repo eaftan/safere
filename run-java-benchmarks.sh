@@ -52,6 +52,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
+BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.CrosscheckOverheadBenchmark\\.).*$"
 
@@ -146,9 +147,6 @@ else
   echo "=== Standard mode ==="
 fi
 
-# JVM args for FFM native access and native library path.
-JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR"
-
 if [ "$FASTBUILD" = true ]; then
   echo "=== Fast Building safere-benchmarks only ==="
   mvn install \
@@ -165,6 +163,12 @@ else
   echo "=== Building safere + benchmark JAR ==="
   mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 fi
+
+echo "=== Materializing shared benchmark inputs ==="
+"$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
+
+# JVM args for FFM native access, native library path, and the resolved corpus.
+JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
 
 # Returns true if the benchmark name matches a pathological benchmark.
 is_pathological() {

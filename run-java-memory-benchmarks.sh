@@ -24,6 +24,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
+BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
 
 # Publication-quality settings: 3 forks × (3 warmup × 5s + 5 measurement × 5s).
@@ -53,11 +54,14 @@ else
   echo "=== Publication mode (for BENCHMARKS.md) ==="
 fi
 
-# JVM args for FFM native access and native library path.
-JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR"
-
 echo "=== Building safere + benchmark JAR ==="
 mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
+
+echo "=== Materializing shared benchmark inputs ==="
+"$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
+
+# JVM args for FFM native access, native library path, and the resolved corpus.
+JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
 
 if [ $# -eq 0 ]; then
   echo "=== Running all benchmarks with GC profiling ==="

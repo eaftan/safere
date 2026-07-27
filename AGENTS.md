@@ -368,9 +368,11 @@ per invocation and collect results incrementally:
   bandwidth, producing inaccurate results.
 - **Do not commit optimizations that do not improve benchmark results.**
   Every optimization must be validated with before/after benchmarks.
-- **All harnesses share `benchmark-data.json`.** This ensures identical
-  patterns, inputs, and parameters across Java, C++, and Go. Edit the
-  JSON file to change workloads; never hardcode values in the harness.
+- **`benchmark-data.json` is the only checked-in workload source.** Benchmark
+  scripts materialize it into a resolved manifest and exact UTF-8 input files
+  before execution. Java, C++, Go, and other harnesses read only those
+  generated artifacts. Edit the JSON file to change workloads; never hardcode
+  values or generation logic in a harness.
 
 ### Summary Statistics
 

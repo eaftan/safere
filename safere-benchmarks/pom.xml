@@ -61,14 +61,6 @@
   </dependencies>
 
   <build>
-    <resources>
-      <resource>
-        <directory>${project.basedir}</directory>
-        <includes>
-          <include>benchmark-data.json</include>
-        </includes>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

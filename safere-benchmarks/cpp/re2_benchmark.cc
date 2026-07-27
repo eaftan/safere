@@ -10,7 +10,7 @@
 //   cmake .. && cmake --build . --parallel
 //
 // Run:
-//   ./build/re2_benchmark [--data path/to/benchmark-data.json] [filter...]
+//   ./build/re2_benchmark [--manifest path/to/manifest.json] [filter...]
 //
 // Each filter is a substring match against benchmark names. If no filters
 // are given, all benchmarks are run.
@@ -20,10 +20,10 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <memory>
-#include <random>
 #include <string>
 #include <vector>
 
@@ -35,6 +35,9 @@
 #include "re2/re2.h"
 
 using json = nlohmann::json;
+
+json benchmark_input_manifest;
+std::filesystem::path benchmark_input_directory;
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -127,14 +130,50 @@ void do_not_optimize(const T& val) {
 // JSON loading
 // ---------------------------------------------------------------------------
 
-json load_benchmark_data(const std::string& path) {
-  std::ifstream ifs(path);
-  if (!ifs.is_open()) {
-    fprintf(stderr, "ERROR: cannot open benchmark data file: %s\n",
-            path.c_str());
+json load_benchmark_manifest(const std::string& manifest_path_string) {
+  std::filesystem::path manifest_path = manifest_path_string;
+  benchmark_input_directory = manifest_path.parent_path();
+  std::ifstream input(manifest_path);
+  if (!input.is_open()) {
+    fprintf(stderr, "ERROR: cannot open materialized benchmark manifest: %s\n",
+            manifest_path.string().c_str());
     exit(1);
   }
-  return json::parse(ifs);
+  json manifest = json::parse(input);
+  if (manifest.at("version").get<int>() != 1) {
+    fprintf(stderr, "ERROR: unsupported benchmark input manifest version\n");
+    exit(1);
+  }
+  benchmark_input_manifest = manifest.at("inputs");
+  return manifest.at("benchmarkData");
+}
+
+std::string load_benchmark_input(const std::string& key) {
+  auto entry = benchmark_input_manifest.find(key);
+  if (entry == benchmark_input_manifest.end()) {
+    fprintf(stderr, "ERROR: unknown materialized benchmark input: %s\n",
+            key.c_str());
+    exit(1);
+  }
+  std::filesystem::path path =
+      benchmark_input_directory / entry->at("file").get<std::string>();
+  std::ifstream input(path, std::ios::binary);
+  if (!input.is_open()) {
+    fprintf(stderr, "ERROR: cannot open materialized benchmark input: %s\n",
+            path.string().c_str());
+    exit(1);
+  }
+  std::string text((std::istreambuf_iterator<char>(input)),
+                   std::istreambuf_iterator<char>());
+  size_t expected_size = entry->at("utf8Bytes").get<size_t>();
+  if (text.size() != expected_size) {
+    fprintf(stderr,
+            "ERROR: materialized benchmark input has wrong size: %s "
+            "(expected %zu, found %zu)\n",
+            key.c_str(), expected_size, text.size());
+    exit(1);
+  }
+  return text;
 }
 
 // Convert Java-style replacement references ($N) to RE2 C++ style (\\N).
@@ -156,209 +195,6 @@ std::string convert_replacement(const std::string& repl) {
     }
   }
   return result;
-}
-
-// ---------------------------------------------------------------------------
-// Text generators (parameterized from JSON)
-// ---------------------------------------------------------------------------
-
-std::string make_random_text(int size, const std::string& alphabet,
-                             unsigned seed) {
-  std::mt19937 rng(seed);
-  std::string text(size, ' ');
-  for (int i = 0; i < size; ++i) {
-    text[i] = alphabet[rng() % alphabet.size()];
-  }
-  return text;
-}
-
-std::string make_prose(int size, const std::string& unit) {
-  std::string text;
-  text.reserve(size + unit.size());
-  while (static_cast<int>(text.size()) < size) {
-    text += unit;
-  }
-  return text;
-}
-
-std::string repeat_to_size(const std::string& unit, int size) {
-  std::string text;
-  text.reserve(size + unit.size());
-  while (static_cast<int>(text.size()) < size) {
-    text += unit;
-  }
-  text.resize(size);
-  return text;
-}
-
-std::string surround_to_size(const std::string& prefix,
-                             const std::string& unit,
-                             const std::string& suffix,
-                             int size) {
-  int body_size = size - static_cast<int>(prefix.size() + suffix.size());
-  if (body_size < 0) body_size = 0;
-  return prefix + repeat_to_size(unit, body_size) + suffix;
-}
-
-std::string suffix_match_to_size(const std::string& prefix_unit,
-                                 const std::string& match,
-                                 int size) {
-  int prefix_size = size - static_cast<int>(match.size());
-  if (prefix_size < 0) prefix_size = 0;
-  return repeat_to_size(prefix_unit, prefix_size) + match;
-}
-
-std::string generated_real_world_input(const std::string& unit, int size,
-                                       const std::string& alphabet,
-                                       int seed) {
-  if (static_cast<int>(unit.size()) >= size) {
-    return unit.substr(0, size);
-  }
-  std::string text;
-  text.reserve(size + unit.size());
-  int delimiter_index = seed;
-  while (static_cast<int>(text.size()) < size) {
-    text += unit;
-    if (static_cast<int>(text.size()) < size) {
-      text += alphabet[delimiter_index % alphabet.size()];
-      ++delimiter_index;
-    }
-  }
-  text.resize(size);
-  return text;
-}
-
-std::string generated_sparse_real_world_input(const std::string& match_unit,
-                                              const std::string& non_match_unit,
-                                              int size, int seed,
-                                              int non_match_repeats,
-                                              const std::string& alphabet) {
-  std::string text;
-  text.reserve(size + match_unit.size() + non_match_unit.size());
-  int delimiter_index = seed;
-  while (static_cast<int>(text.size()) < size) {
-    for (int i = 0; i < non_match_repeats &&
-                    static_cast<int>(text.size()) < size; ++i) {
-      text += non_match_unit;
-      if (static_cast<int>(text.size()) < size) {
-        text += alphabet[delimiter_index % alphabet.size()];
-        ++delimiter_index;
-      }
-    }
-    if (static_cast<int>(text.size()) < size) {
-      text += " ";
-      text += match_unit;
-      text += " ";
-    }
-  }
-  text.resize(size);
-  return text;
-}
-std::string generate_surround_with_spaces_input(const std::string& body, int size) {
-  if (static_cast<int>(body.size()) >= size) {
-    return body.substr(0, size);
-  }
-  int total_padding = size - static_cast<int>(body.size());
-  int leading_padding = total_padding / 2;
-  int trailing_padding = total_padding - leading_padding;
-  return std::string(leading_padding, ' ') + body + std::string(trailing_padding, ' ');
-}
-
-std::string repeat_to_length(const std::string& unit, int size) {
-  std::string text;
-  while (static_cast<int>(text.size()) < size) {
-    text += unit;
-  }
-  text.resize(size);
-  return text;
-}
-
-std::string generate_scaled_surround_with_spaces_input(
-    const std::string& body_prefix, const std::string& body_suffix,
-    const std::string& body_fill, int body_scale_percent, int size) {
-  if (body_fill.empty()) {
-    fprintf(stderr,
-            "ERROR: scaledSurroundWithSpaces requires non-empty bodyFill\n");
-    exit(1);
-  }
-  int fixed_body_length =
-      static_cast<int>(body_prefix.size() + body_suffix.size());
-  int target_body_length =
-      std::max(fixed_body_length, size * body_scale_percent / 100);
-  target_body_length = std::min(target_body_length, size);
-  int fill_length = std::max(0, target_body_length - fixed_body_length);
-  return generate_surround_with_spaces_input(
-      body_prefix + repeat_to_length(body_fill, fill_length) + body_suffix,
-      size);
-}
-
-std::string generate_real_world_input(const json& input_spec,
-                                      const std::string& match_unit,
-                                      const std::string& non_match_unit,
-                                      bool match, int size,
-                                      const std::string& alphabet, int seed) {
-  std::string unit = match ? match_unit : non_match_unit;
-  std::string kind = input_spec.value("kind", "repeat");
-  if (kind == "repeat") {
-    return generated_real_world_input(unit, size, alphabet, seed);
-  }
-  if (kind == "prefixedRepeat") {
-    std::string prefix = input_spec.at("prefix").get<std::string>();
-    if (static_cast<int>(prefix.size()) >= size) {
-      return prefix.substr(0, size);
-    }
-    int body_size = size - static_cast<int>(prefix.size());
-    return prefix + generated_real_world_input(unit, body_size, alphabet, seed);
-  }
-  if (kind == "sparseMatch") {
-    return generated_sparse_real_world_input(
-        match_unit, non_match_unit, size, seed,
-        input_spec.at("nonMatchRepeats").get<int>(),
-        input_spec.at("delimiterAlphabet").get<std::string>());
-  }
-  if (kind == "surroundWithSpaces") {
-    std::string body = input_spec.at("body").get<std::string>();
-    return generate_surround_with_spaces_input(body, size);
-  }
-  if (kind == "scaledSurroundWithSpaces") {
-    return generate_scaled_surround_with_spaces_input(
-        input_spec.at("bodyPrefix").get<std::string>(),
-        input_spec.at("bodySuffix").get<std::string>(),
-        input_spec.at("bodyFill").get<std::string>(),
-        input_spec.at("bodyScalePercent").get<int>(), size);
-  }
-  fprintf(stderr, "ERROR: invalid real-world input kind: %s\n", kind.c_str());
-  exit(1);
-}
-
-// Encode a Unicode code point as UTF-8 and append to the string.
-void append_utf8(std::string& s, int cp) {
-  if (cp < 0x80) {
-    s += static_cast<char>(cp);
-  } else if (cp < 0x800) {
-    s += static_cast<char>(0xC0 | (cp >> 6));
-    s += static_cast<char>(0x80 | (cp & 0x3F));
-  } else if (cp < 0x10000) {
-    s += static_cast<char>(0xE0 | (cp >> 12));
-    s += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-    s += static_cast<char>(0x80 | (cp & 0x3F));
-  } else {
-    s += static_cast<char>(0xF0 | (cp >> 18));
-    s += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
-    s += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
-    s += static_cast<char>(0x80 | (cp & 0x3F));
-  }
-}
-
-std::string make_unicode_text(int size, const std::vector<int>& codepoints,
-                              unsigned seed) {
-  std::mt19937 rng(seed);
-  std::string text;
-  while (static_cast<int>(text.size()) < size) {
-    int cp = codepoints[rng() % codepoints.size()];
-    append_utf8(text, cp);
-  }
-  return text;
 }
 
 // ---------------------------------------------------------------------------
@@ -598,27 +434,17 @@ void run_real_world_regex_benchmarks(
     const json& data, const std::vector<std::string>& filters) {
   const auto& sec = data["realWorldRegex"];
   std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
-  std::string alphabet = sec["safeDelimiterAlphabet"].get<std::string>();
-  int seed = sec["seed"].get<int>();
 
   struct RealWorldCase {
     std::string name;
     std::string op;
     std::string pattern;
-    std::string match;
-    std::string non_match;
-    json match_input;
-    json non_match_input;
     RE2 re;
 
     explicit RealWorldCase(const json& item)
         : name(item.at("name").get<std::string>()),
           op(item.at("op").get<std::string>()),
           pattern(item.at("pattern").get<std::string>()),
-          match(item.at("match").get<std::string>()),
-          non_match(item.at("nonMatch").get<std::string>()),
-          match_input(item.value("matchInput", json::object())),
-          non_match_input(item.value("nonMatchInput", json::object())),
           re(pattern) {}
   };
 
@@ -644,11 +470,11 @@ void run_real_world_regex_benchmarks(
   for (const auto& case_ptr : cases) {
     const RealWorldCase& c = *case_ptr;
     for (bool match : {true, false}) {
-      const json& input_spec = match ? c.match_input : c.non_match_input;
       std::string match_label = match ? "match" : "noMatch";
       for (int size : sizes) {
-        std::string text = generate_real_world_input(
-            input_spec, c.match, c.non_match, match, size, alphabet, seed);
+        std::string text = load_benchmark_input(
+            "realWorldRegex." + c.name + "." + match_label + "." +
+            std::to_string(size));
         std::string name = "RealWorldRegexBenchmark.runBenchmark." + c.name +
                            "." + match_label + "." + std::to_string(size);
         if (!matches_filter(name, filters)) {
@@ -714,10 +540,6 @@ void run_search_scaling_benchmarks(const json& data,
                                    const std::vector<std::string>& filters) {
   const auto& sec = data["searchScaling"];
   std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
-  std::string match_suffix = sec["matchSuffix"];
-  std::string alphabet = sec["randomText"]["alphabet"];
-  unsigned seed = sec["randomText"]["seed"];
-  std::string prose_unit = sec["proseUnit"];
 
   RE2 easy(sec["patterns"]["easy"].get<std::string>());
   RE2 medium(sec["patterns"]["medium"].get<std::string>());
@@ -725,9 +547,13 @@ void run_search_scaling_benchmarks(const json& data,
   RE2 find_ing(sec["findIngPattern"].get<std::string>());
 
   for (int size : sizes) {
-    std::string random_text = make_random_text(size, alphabet, seed);
-    std::string text_with_match = random_text + match_suffix;
-    std::string prose = make_prose(size, prose_unit);
+    std::string size_string = std::to_string(size);
+    std::string random_text =
+        load_benchmark_input("searchScaling.random." + size_string);
+    std::string text_with_match =
+        load_benchmark_input("searchScaling.success." + size_string);
+    std::string prose =
+        load_benchmark_input("searchScaling.prose." + size_string);
 
     std::string suffix = "." + std::to_string(size);
 
@@ -817,31 +643,21 @@ void run_issue481_scaling_benchmarks(const json& data,
   };
 
   for (int size : sizes) {
+    std::string size_string = std::to_string(size);
     std::string split_text =
-        repeat_to_size(sec["splitW"]["unit"].get<std::string>(), size);
+        load_benchmark_input("issue481Scaling.splitW." + size_string);
     std::string block_text =
-        surround_to_size(sec["block"]["prefix"].get<std::string>(),
-                         sec["block"]["unit"].get<std::string>(),
-                         sec["block"]["suffix"].get<std::string>(), size);
+        load_benchmark_input("issue481Scaling.block." + size_string);
     std::string block_negative_text =
-        surround_to_size(sec["block"]["prefix"].get<std::string>(),
-                         sec["block"]["unit"].get<std::string>(),
-                         sec["block"]["negativeSuffix"].get<std::string>(),
-                         size);
+        load_benchmark_input("issue481Scaling.blockNegative." + size_string);
     std::string tag_text =
-        suffix_match_to_size(sec["tag"]["prefixUnit"].get<std::string>(),
-                             sec["tag"]["match"].get<std::string>(), size);
+        load_benchmark_input("issue481Scaling.tag." + size_string);
     std::string tag_negative_text =
-        suffix_match_to_size(sec["tag"]["prefixUnit"].get<std::string>(),
-                             sec["tag"]["negativeMatch"].get<std::string>(),
-                             size);
+        load_benchmark_input("issue481Scaling.tagNegative." + size_string);
     std::string scheme_text =
-        suffix_match_to_size(sec["scheme"]["prefixUnit"].get<std::string>(),
-                             sec["scheme"]["match"].get<std::string>(), size);
+        load_benchmark_input("issue481Scaling.scheme." + size_string);
     std::string scheme_negative_text =
-        suffix_match_to_size(sec["scheme"]["prefixUnit"].get<std::string>(),
-                             sec["scheme"]["negativeMatch"].get<std::string>(),
-                             size);
+        load_benchmark_input("issue481Scaling.schemeNegative." + size_string);
 
     std::string suffix = "." + std::to_string(size);
     auto run = [&](const std::string& name, const std::function<void()>& fn) {
@@ -1008,10 +824,11 @@ void run_pathological_benchmarks(const json& data,
       data["pathological"]["nValues"].get<std::vector<int>>();
 
   for (int n : ns) {
-    std::string regex;
-    for (int i = 0; i < n; ++i) regex += "a?";
-    for (int i = 0; i < n; ++i) regex += "a";
-    std::string text(n, 'a');
+    std::string n_string = std::to_string(n);
+    std::string regex =
+        load_benchmark_input("pathological.pattern." + n_string);
+    std::string text =
+        load_benchmark_input("pathological.text." + n_string);
 
     std::string name =
         "PathologicalBenchmark.pathological." + std::to_string(n);
@@ -1032,18 +849,12 @@ void run_fanout_benchmarks(const json& data,
   RE2 fanout(sec["unicodeFanout"]["pattern"].get<std::string>());
   RE2 nested(sec["nestedQuantifier"]["pattern"].get<std::string>());
 
-  std::vector<int> codepoints =
-      sec["unicodeFanout"]["codePoints"].get<std::vector<int>>();
-  unsigned unicode_seed = sec["unicodeFanout"]["seed"];
-
-  std::string nested_alphabet = sec["nestedQuantifier"]["alphabet"];
-  unsigned nested_seed = sec["nestedQuantifier"]["seed"];
-
   for (int size : sizes) {
+    std::string size_string = std::to_string(size);
     std::string unicode_text =
-        make_unicode_text(size, codepoints, unicode_seed);
+        load_benchmark_input("fanout.unicode." + size_string);
     std::string ascii_text =
-        make_random_text(size, nested_alphabet, nested_seed);
+        load_benchmark_input("fanout.ascii." + size_string);
 
     std::string suffix = "." + std::to_string(size);
 
@@ -1134,19 +945,19 @@ void run_memory_benchmarks(const json& data,
 // ---------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
-  std::string data_path = "../../benchmark-data.json";
+  std::string manifest_path = "../../target/benchmark-corpus/manifest.json";
   std::vector<std::string> filters;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
-    if (arg == "--data" && i + 1 < argc) {
-      data_path = argv[++i];
+    if (arg == "--manifest" && i + 1 < argc) {
+      manifest_path = argv[++i];
     } else {
       filters.push_back(arg);
     }
   }
 
-  json data = load_benchmark_data(data_path);
+  json data = load_benchmark_manifest(manifest_path);
 
   run_regex_benchmarks(data, filters);
   run_application_benchmarks(data, filters);

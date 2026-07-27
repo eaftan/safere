@@ -15,7 +15,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CPP_DIR="$SCRIPT_DIR/safere-benchmarks/cpp"
 BUILD_DIR="$CPP_DIR/build"
-DATA_FILE="$SCRIPT_DIR/safere-benchmarks/benchmark-data.json"
+MANIFEST_FILE="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus/manifest.json"
+
+echo "=== Materializing shared benchmark inputs ==="
+"$SCRIPT_DIR/materialize-benchmark-inputs.sh"
 
 echo "=== Building C++ RE2 benchmarks ==="
 mkdir -p "$BUILD_DIR"
@@ -23,4 +26,4 @@ cmake -S "$CPP_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -Wno-dev 2>&1 | t
 cmake --build "$BUILD_DIR" -j8 2>&1 | tail -3
 
 echo "=== Running C++ RE2 benchmarks ==="
-"$BUILD_DIR/re2_benchmark" --data "$DATA_FILE" "$@"
+"$BUILD_DIR/re2_benchmark" --manifest "$MANIFEST_FILE" "$@"

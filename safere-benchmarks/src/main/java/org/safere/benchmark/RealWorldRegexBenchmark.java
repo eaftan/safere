@@ -176,133 +176,14 @@ public class RealWorldRegexBenchmark {
                   "Unknown real-world regex benchmark op: " + regexCase.op);
         };
 
-    RealWorldRegexCase.InputSpec inputSpec = match ? regexCase.matchInput : regexCase.nonMatchInput;
-    String alphabet = data.getString("realWorldRegex.safeDelimiterAlphabet");
-    int seed = data.getInt("realWorldRegex.seed");
-    testInput = generateInput(regexCase, inputSpec, match, inputSize, alphabet, seed);
+    String matchLabel = match ? "match" : "noMatch";
+    testInput =
+        data.getInputString("realWorldRegex." + patternName + "." + matchLabel + "." + inputSize);
   }
 
   @TearDown
   public void tearDown() throws Exception {
     regexEngine.close();
-  }
-
-  private String generateInput(String template, int size, String alphabet, int seed) {
-    if (template.length() >= size) {
-      return template.substring(0, size);
-    }
-    StringBuilder sb = new StringBuilder(size);
-    int delimiterIndex = seed;
-    while (sb.length() < size) {
-      sb.append(template);
-      if (sb.length() < size) {
-        sb.append(alphabet.charAt(Math.floorMod(delimiterIndex, alphabet.length())));
-        delimiterIndex++;
-      }
-    }
-    return sb.substring(0, size);
-  }
-
-  private String generateInput(
-      RealWorldRegexCase regexCase,
-      RealWorldRegexCase.InputSpec inputSpec,
-      boolean match,
-      int size,
-      String alphabet,
-      int seed) {
-    String template = match ? regexCase.match : regexCase.nonMatch;
-    return switch (inputSpec.kind) {
-      case "repeat" -> generateInput(template, size, alphabet, seed);
-      case "prefixedRepeat" ->
-          generatePrefixedInput(inputSpec.prefix, template, size, alphabet, seed);
-      case "sparseMatch" ->
-          generateSparseInput(
-              regexCase.match,
-              regexCase.nonMatch,
-              size,
-              seed,
-              inputSpec.nonMatchRepeats,
-              inputSpec.delimiterAlphabet);
-      case "surroundWithSpaces" -> generateSurroundWithSpacesInput(inputSpec.body, size);
-      case "scaledSurroundWithSpaces" ->
-          generateScaledSurroundWithSpacesInput(
-              inputSpec.bodyPrefix,
-              inputSpec.bodySuffix,
-              inputSpec.bodyFill,
-              inputSpec.bodyScalePercent,
-              size);
-      default ->
-          throw new IllegalArgumentException("Unknown real-world input kind: " + inputSpec.kind);
-    };
-  }
-
-  private String generateScaledSurroundWithSpacesInput(
-      String bodyPrefix, String bodySuffix, String bodyFill, int bodyScalePercent, int size) {
-    if (bodyFill.isEmpty()) {
-      throw new IllegalArgumentException("scaledSurroundWithSpaces requires non-empty bodyFill");
-    }
-    int fixedBodyLength = bodyPrefix.length() + bodySuffix.length();
-    int targetBodyLength = Math.max(fixedBodyLength, size * bodyScalePercent / 100);
-    targetBodyLength = Math.min(targetBodyLength, size);
-    int fillLength = Math.max(0, targetBodyLength - fixedBodyLength);
-    String body = bodyPrefix + repeatToLength(bodyFill, fillLength) + bodySuffix;
-    return generateSurroundWithSpacesInput(body, size);
-  }
-
-  private String repeatToLength(String unit, int size) {
-    if (size == 0) {
-      return "";
-    }
-    StringBuilder sb = new StringBuilder(size);
-    while (sb.length() < size) {
-      sb.append(unit);
-    }
-    return sb.substring(0, size);
-  }
-
-  private String generateSurroundWithSpacesInput(String body, int size) {
-    if (body.length() >= size) {
-      return body.substring(0, size);
-    }
-    int totalPadding = size - body.length();
-    int leadingPadding = totalPadding / 2;
-    int trailingPadding = totalPadding - leadingPadding;
-    return " ".repeat(leadingPadding) + body + " ".repeat(trailingPadding);
-  }
-
-  private String generatePrefixedInput(
-      String prefix, String template, int size, String alphabet, int seed) {
-    if (prefix.length() >= size) {
-      return prefix.substring(0, size);
-    }
-    return prefix + generateInput(template, size - prefix.length(), alphabet, seed);
-  }
-
-  private String generateSparseInput(
-      String matchPart,
-      String nonMatchPart,
-      int size,
-      int seed,
-      int nonMatchRepeats,
-      String delimiterAlphabet) {
-    StringBuilder sb = new StringBuilder(size);
-    int delimiterIndex = seed;
-    while (sb.length() < size) {
-      for (int i = 0; i < nonMatchRepeats && sb.length() < size; i++) {
-        sb.append(nonMatchPart);
-        if (sb.length() < size) {
-          sb.append(
-              delimiterAlphabet.charAt(Math.floorMod(delimiterIndex, delimiterAlphabet.length())));
-          delimiterIndex++;
-        }
-      }
-      if (sb.length() < size) {
-        sb.append(" ");
-        sb.append(matchPart);
-        sb.append(" ");
-      }
-    }
-    return sb.substring(0, size);
   }
 
   @Benchmark

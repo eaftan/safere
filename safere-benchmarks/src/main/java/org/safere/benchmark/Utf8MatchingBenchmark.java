@@ -133,19 +133,13 @@ public class Utf8MatchingBenchmark extends ByteMatchingBenchmark {
     public void setup() {
       BenchmarkData data = BenchmarkData.get();
       String prefix = "utf8Matching.literalScan.";
-      String alphabet = data.getString(prefix + "alphabet");
-      int size = data.getInt(prefix + "textSize");
-      java.util.Random random = new java.util.Random(data.getInt(prefix + "seed"));
-      StringBuilder text = new StringBuilder(size);
-      for (int index = 0; index < size; index++) {
-        text.append(alphabet.charAt(random.nextInt(alphabet.length())));
-      }
+      String text = data.getInputString("utf8Matching.literalScan.text");
       String literal = data.getString(prefix + "patterns." + name);
       if (text.indexOf(literal) >= 0) {
         throw new IllegalStateException("literal " + literal + " must be absent from the input");
       }
       pattern = org.safere.Pattern.compile(literal);
-      input = org.safere.Utf8Input.trusted(text.toString().getBytes(StandardCharsets.UTF_8));
+      input = org.safere.Utf8Input.trusted(data.getInputBytes("utf8Matching.literalScan.text"));
     }
   }
 
@@ -254,9 +248,7 @@ public class Utf8MatchingBenchmark extends ByteMatchingBenchmark {
     public void setup() {
       BenchmarkData data = BenchmarkData.get();
       pattern = org.safere.Pattern.compile(data.getString("utf8Matching.hardFailure.pattern"));
-      String unit = data.getString("utf8Matching.hardFailure.unit");
-      String text = unit.repeat((size + unit.length() - 1) / unit.length()).substring(0, size);
-      input = org.safere.Utf8Input.trusted(text.getBytes(StandardCharsets.UTF_8));
+      input = org.safere.Utf8Input.trusted(data.getInputBytes("utf8Matching.hardFailure." + size));
     }
   }
 
@@ -272,10 +264,10 @@ public class Utf8MatchingBenchmark extends ByteMatchingBenchmark {
       BenchmarkData data = BenchmarkData.get();
       String prefix = "utf8Matching.requiredClassNonmatch.";
       pattern = org.safere.Pattern.compile(data.getString(prefix + "pattern"));
-      String unit = data.getString(prefix + "unit");
-      int size = data.getInt(prefix + "textSize");
-      text = unit.repeat((size + unit.length() - 1) / unit.length()).substring(0, size);
-      input = org.safere.Utf8Input.trusted(text.getBytes(StandardCharsets.UTF_8));
+      text = data.getInputString("utf8Matching.requiredClassNonmatch.text");
+      input =
+          org.safere.Utf8Input.trusted(
+              data.getInputBytes("utf8Matching.requiredClassNonmatch.text"));
     }
   }
 

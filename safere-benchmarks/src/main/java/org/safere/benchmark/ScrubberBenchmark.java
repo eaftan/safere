@@ -43,12 +43,11 @@ public class ScrubberBenchmark {
   @Setup
   public void setup() {
     BenchmarkData data = BenchmarkData.get();
-    int repeatCount = data.getInt("scrubber.repeatCount");
     String linePattern = data.getString("scrubber.linePattern");
     String blockPattern = data.getString("scrubber.blockPattern");
 
-    inputWithoutDirectives = data.getString("scrubber.baseWithoutDirectives").repeat(repeatCount);
-    inputWithDirectives = data.getString("scrubber.baseWithDirectives").repeat(repeatCount);
+    inputWithoutDirectives = data.getInputString("scrubber.withoutDirectives");
+    inputWithDirectives = data.getInputString("scrubber.withDirectives");
 
     safeLineStrip = org.safere.Pattern.compile(linePattern, org.safere.Pattern.COMMENTS);
     safeBlockStrip = org.safere.Pattern.compile(blockPattern, org.safere.Pattern.COMMENTS);

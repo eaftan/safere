@@ -61,8 +61,10 @@ Java used the standard project configuration: 2 forks, 2 warmup iterations of
 pass used its dedicated publication configuration and GC profiler.
 
 C++ and Go used 2 warmup and 10 measurement iterations of 2 seconds in one
-process. All harnesses read the same `benchmark-data.json`. Java results report
-99.9% confidence intervals from JMH; native harnesses use Student's
+process. Before execution, the runner scripts materialize
+`benchmark-data.json` into one resolved manifest and an exact UTF-8 input
+corpus; every harness reads only those generated artifacts. Java results
+report 99.9% confidence intervals from JMH; native harnesses use Student's
 t-distribution. A targeted Java confirmation used `--long` for SafeRE
 alternation and log parsing; it did not replace standard-run values in summary
 statistics.

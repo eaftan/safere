@@ -91,7 +91,7 @@ public final class MemoryBenchmark {
     System.out.println("─".repeat(32));
 
     // Build a large text to exercise DFA cache creation across many character classes.
-    String largeText = getSampleText(data, "complex").repeat(200);
+    String largeText = data.getInputString("memory.dfaCacheText");
 
     for (String name : patternNames) {
       String pattern = data.getString("compile." + name + ".pattern");
@@ -188,17 +188,5 @@ public final class MemoryBenchmark {
 
     Arrays.sort(results);
     return results[TRIALS / 2]; // median
-  }
-
-  /** Returns a sample text appropriate for the given compile pattern name. */
-  private static String getSampleText(BenchmarkData data, String patternName) {
-    return switch (patternName) {
-      case "simple" -> "hello world hello world hello";
-      case "medium" -> "2025-12-25T10:30:00 and 2024-01-15T08:00:00";
-      case "complex" -> "contact user.name+tag@example.co.uk for info";
-      case "alternation" ->
-          "the garply went to the baz and met a quux and fred and xyzzy and plugh";
-      default -> "the quick brown fox jumps over the lazy dog";
-    };
   }
 }

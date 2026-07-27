@@ -47,11 +47,12 @@ public class PathologicalBenchmark {
 
   @Setup
   public void setup() {
-    String regex = "a?".repeat(n) + "a".repeat(n);
+    BenchmarkData data = BenchmarkData.get();
+    String regex = data.getInputString("pathological.pattern." + n);
     safePattern = org.safere.Pattern.compile(regex);
     re2jPattern = com.google.re2j.Pattern.compile(regex);
     re2ffmPattern = org.safere.re2ffm.RE2FfmPattern.compile(regex);
-    text = "a".repeat(n);
+    text = data.getInputString("pathological.text." + n);
   }
 
   /** SafeRE: should be linear in n. */

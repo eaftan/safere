@@ -429,9 +429,14 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 [FFM API](https://openjdk.org/jeps/454)), C++ RE2, and Go `regexp`.
 The suite includes focused microbenchmarks, data-driven application workloads,
 scaling/pathological cases, replacement, memory, and `PatternSet` benchmarks.
-Application workloads live in `safere-benchmarks/benchmark-data.json`, where
-each case defines its operation semantics and expected result for the Java,
-C++, and Go harnesses.
+Benchmark recipes and configuration live in
+`safere-benchmarks/benchmark-data.json`. Before a benchmark starts, its runner
+materializes that file into a resolved manifest and exact UTF-8 inputs under
+`safere-benchmarks/target/benchmark-corpus`. Java, C++, and Go consume only
+those generated artifacts instead of independently interpreting input recipes.
+See
+[`safere-benchmarks/BENCHMARK_INPUTS.md`](safere-benchmarks/BENCHMARK_INPUTS.md)
+for details.
 
 SafeRE also maintains a separate
 [OpenJDK-derived regex benchmark suite](https://github.com/eaftan/safere-openjdk-regex-benchmarks).

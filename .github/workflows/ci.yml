@@ -114,7 +114,9 @@ jobs:
 
       - name: Smoke test Java memory benchmarks (pattern sizes)
         run: |
-          java -Xms256m -Xmx256m -cp safere-benchmarks/target/benchmarks.jar \
+          java -Xms256m -Xmx256m \
+            -Dsafere.benchmark.corpus="$PWD/safere-benchmarks/target/benchmark-corpus" \
+            -cp safere-benchmarks/target/benchmarks.jar \
             org.safere.benchmark.MemoryBenchmark
 
   benchmark-smoke-test-cpp:
@@ -128,6 +130,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Materialize shared benchmark inputs
+        run: ./materialize-benchmark-inputs.sh
+
       - name: Compile C++ RE2 benchmarks
         run: |
           mkdir -p safere-benchmarks/cpp/build
@@ -138,12 +150,12 @@ jobs:
       - name: Smoke test C++ RE2 benchmarks
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \
-            --data safere-benchmarks/benchmark-data.json literalMatch
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
 
       - name: Smoke test C++ RE2 memory benchmarks
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \
-            --data safere-benchmarks/benchmark-data.json MemoryBenchmark
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark
 
   benchmark-smoke-test-go:
     needs: changes
@@ -153,11 +165,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version: '1.21'
           cache: false
+
+      - name: Materialize shared benchmark inputs
+        run: ./materialize-benchmark-inputs.sh
 
       - name: Compile Go benchmarks
         run: cd safere-benchmarks/go && go build -o regexp_benchmark .
@@ -165,9 +187,9 @@ jobs:
       - name: Smoke test Go benchmarks
         run: |
           safere-benchmarks/go/regexp_benchmark \
-            --data safere-benchmarks/benchmark-data.json literalMatch
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
 
       - name: Smoke test Go memory benchmarks
         run: |
           safere-benchmarks/go/regexp_benchmark \
-            --data safere-benchmarks/benchmark-data.json MemoryBenchmark
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark

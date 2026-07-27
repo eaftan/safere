@@ -5,7 +5,6 @@
 
 package org.safere.benchmark;
 
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -58,11 +57,6 @@ public class FanoutBenchmark {
     BenchmarkData data = BenchmarkData.get();
     fanoutPattern = data.getString("fanout.unicodeFanout.pattern");
     nestedPattern = data.getString("fanout.nestedQuantifier.pattern");
-    int[] codePoints = data.getIntArray("fanout.unicodeFanout.codePoints");
-    int unicodeSeed = data.getInt("fanout.unicodeFanout.seed");
-    String nestedAlphabet = data.getString("fanout.nestedQuantifier.alphabet");
-    int nestedSeed = data.getInt("fanout.nestedQuantifier.seed");
-
     safeFanout = org.safere.Pattern.compile(fanoutPattern);
     jdkFanout = java.util.regex.Pattern.compile(fanoutPattern);
 
@@ -75,21 +69,8 @@ public class FanoutBenchmark {
     re2ffmFanout = org.safere.re2ffm.RE2FfmPattern.compile(fanoutPattern);
     re2ffmNested = org.safere.re2ffm.RE2FfmPattern.compile(nestedPattern);
 
-    // Generate Unicode text (mix of CJK, Latin Extended, Cyrillic, Hiragana).
-    Random rng = new Random(unicodeSeed);
-    StringBuilder sb = new StringBuilder();
-    while (sb.length() < textSize) {
-      sb.appendCodePoint(codePoints[rng.nextInt(codePoints.length)]);
-    }
-    unicodeText = sb.toString();
-
-    // Generate ASCII text for nested quantifier test.
-    rng = new Random(nestedSeed);
-    char[] chars = new char[textSize];
-    for (int i = 0; i < textSize; i++) {
-      chars[i] = nestedAlphabet.charAt(rng.nextInt(nestedAlphabet.length()));
-    }
-    asciiText = new String(chars);
+    unicodeText = data.getInputString("fanout.unicode." + textSize);
+    asciiText = data.getInputString("fanout.ascii." + textSize);
   }
 
   // ===== Unicode fanout: find in Unicode text =====
