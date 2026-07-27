@@ -1,5 +1,8 @@
 # Cross-Engine Java Benchmark Execution
 
+The normalized, versioned workload and engine-independent schema is described
+in [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md).
+
 Ordinary cross-engine regex measurements use a shared execution model. A
 workload declares its stable `id` in `benchmark-data.json`; Java class and
 method names are not used to infer workload identity. The same ID joins Java,

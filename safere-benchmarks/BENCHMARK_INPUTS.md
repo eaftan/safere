@@ -1,5 +1,9 @@
 # Shared Benchmark Inputs
 
+The bounded recipe vocabulary and normalized input declaration schema are
+described in
+[DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md).
+
 `benchmark-data.json` is the only checked-in source for benchmark patterns,
 parameters, expected results, and deterministic input recipes.
 
