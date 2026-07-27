@@ -7,7 +7,7 @@
 //
 // Build:
 //   cd safere-benchmarks/cpp && mkdir -p build && cd build
-//   cmake .. && cmake --build . -j$(nproc)
+//   cmake .. && cmake --build . --parallel
 //
 // Run:
 //   ./build/re2_benchmark [--data path/to/benchmark-data.json] [filter...]
@@ -22,11 +22,14 @@
 #include <cstdlib>
 #include <fstream>
 #include <functional>
-#include <malloc.h>
 #include <memory>
 #include <random>
 #include <string>
 #include <vector>
+
+#ifdef SAFERE_HAVE_MALLINFO2
+#include <malloc.h>
+#endif
 
 #include <nlohmann/json.hpp>
 #include "re2/re2.h"
@@ -1064,9 +1067,9 @@ void run_fanout_benchmarks(const json& data,
 // Memory benchmarks
 // ---------------------------------------------------------------------------
 
-// Measure the heap allocation for compiling a single RE2 pattern, using
-// mallinfo2() heap delta.  Also reports RE2's ProgramSize() (number of
-// compiled bytecode instructions).
+// Measure the heap allocation for compiling a single RE2 pattern when
+// mallinfo2() is available. Also reports RE2's ProgramSize() (number of
+// compiled bytecode instructions) on every platform.
 void run_memory_benchmarks(const json& data,
                            const std::vector<std::string>& filters) {
   const auto& compile_sec = data["compile"];
@@ -1103,14 +1106,18 @@ void run_memory_benchmarks(const json& data,
   for (const auto& pi : patterns) {
     if (!matches_filter(pi.name, filters)) continue;
 
+#ifdef SAFERE_HAVE_MALLINFO2
     // Measure heap delta around RE2 compilation using mallinfo2().
     struct mallinfo2 before = mallinfo2();
+#endif
     auto re = std::make_unique<RE2>(pi.pattern);
+#ifdef SAFERE_HAVE_MALLINFO2
     struct mallinfo2 after = mallinfo2();
 
     long heap_delta = static_cast<long>(after.uordblks) -
                       static_cast<long>(before.uordblks);
     print_memory_json(pi.name + ".heapBytes", heap_delta);
+#endif
 
     // Report RE2's program size (number of bytecode instructions).
     if (re->ok()) {

@@ -120,7 +120,10 @@ jobs:
   benchmark-smoke-test-cpp:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v6
@@ -130,7 +133,7 @@ jobs:
           mkdir -p safere-benchmarks/cpp/build
           cmake -S safere-benchmarks/cpp -B safere-benchmarks/cpp/build \
             -DCMAKE_BUILD_TYPE=Release -Wno-dev
-          cmake --build safere-benchmarks/cpp/build -j$(nproc)
+          cmake --build safere-benchmarks/cpp/build --parallel
 
       - name: Smoke test C++ RE2 benchmarks
         run: |

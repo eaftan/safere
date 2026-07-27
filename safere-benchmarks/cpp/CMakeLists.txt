@@ -7,6 +7,10 @@ project(re2_benchmark CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Detect optional platform-specific heap accounting support.
+include(CheckCXXSymbolExists)
+check_cxx_symbol_exists(mallinfo2 "malloc.h" SAFERE_HAVE_MALLINFO2)
+
 # Fetch dependencies.
 include(FetchContent)
 
@@ -41,3 +45,6 @@ FetchContent_MakeAvailable(abseil-cpp re2 json)
 
 add_executable(re2_benchmark re2_benchmark.cc)
 target_link_libraries(re2_benchmark re2::re2 nlohmann_json::nlohmann_json)
+if(SAFERE_HAVE_MALLINFO2)
+  target_compile_definitions(re2_benchmark PRIVATE SAFERE_HAVE_MALLINFO2)
+endif()
