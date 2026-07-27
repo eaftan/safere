@@ -82,6 +82,38 @@ class DeclarativeBenchmarkPlanTest {
   }
 
   @Test
+  void patternAxisSubstitutionPreservesRegexBraceSyntax() {
+    DeclarativeBenchmarkPlan plan =
+        parse(
+            planJson(
+                """
+                [{
+                  "id": "Synthetic.braces.{suffix}",
+                  "operation": "find",
+                  "patterns": ["\\\\x{feff}{suffix}"],
+                  "inputs": ["literal.input"],
+                  "axes": {"suffix": ["x"]},
+                  "inputRepresentations": ["javaString"],
+                  "resultConsumption": "boolean",
+                  "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+                }]
+                """));
+    DeclarativeBenchmarkPlan.EngineDeclaration engine =
+        engine(
+            "string",
+            DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+            DeclarativeBenchmarkPlan.Feature.FIND);
+
+    DeclarativeBenchmarkPlan.ExpandedPlan expanded =
+        plan.expand(List.of(engine), EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
+
+    assertThat(expanded.workloads())
+        .singleElement()
+        .extracting(workload -> workload.patterns().getFirst())
+        .isEqualTo("\\x{feff}x");
+  }
+
+  @Test
   void addingWorkloadAndEngineAxesProducesEveryCompatiblePair() {
     DeclarativeBenchmarkPlan plan =
         parse(

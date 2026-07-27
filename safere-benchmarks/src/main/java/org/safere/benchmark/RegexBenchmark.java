@@ -32,9 +32,7 @@ public class RegexBenchmark {
     BenchmarkData data = BenchmarkData.get();
     String pattern = data.getString("regex.captureGroups.pattern");
     text =
-        data.getInputString(
-            BenchmarkInputMaterializer.crossEngineInputKey(
-                data.getString("regex.captureGroups.id")));
+        data.getInputString("crossEngine." + data.getString("regex.captureGroups.id") + ".input");
     saferePattern = org.safere.Pattern.compile(pattern);
     jdkPattern = java.util.regex.Pattern.compile(pattern);
     re2jPattern = com.google.re2j.Pattern.compile(pattern);

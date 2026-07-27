@@ -65,6 +65,14 @@ public final class BenchmarkData {
     return INSTANCE;
   }
 
+  JsonObject declarativePlan() {
+    JsonObject plan = new JsonObject();
+    plan.add("schemaVersion", root.get("schemaVersion").deepCopy());
+    plan.add("inputs", root.getAsJsonArray("inputs").deepCopy());
+    plan.add("workloads", root.getAsJsonArray("workloads").deepCopy());
+    return plan;
+  }
+
   /** Get a string value by dot-separated path (e.g., "regex.literalMatch.pattern"). */
   public String getString(String path) {
     String[] parts = path.split("\\.");

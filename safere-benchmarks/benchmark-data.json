@@ -2351,5 +2351,1976 @@
     ],
     "matchText": "ERROR: connection timeout after 30s to host db-primary.internal:5432",
     "noMatchText": "The quick brown fox jumps over the lazy dog near the riverbank"
-  }
+  },
+  "workloads": [
+    {
+      "id": "RegexBenchmark.literalMatch",
+      "operation": "matches",
+      "patterns": [
+        "hello"
+      ],
+      "inputs": [
+        "crossEngine.RegexBenchmark.literalMatch.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegexBenchmark.charClassMatch",
+      "operation": "matches",
+      "patterns": [
+        "[a-zA-Z]+"
+      ],
+      "inputs": [
+        "crossEngine.RegexBenchmark.charClassMatch.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegexBenchmark.alternationFind",
+      "operation": "findAllCount",
+      "patterns": [
+        "foo|bar|baz|qux|quux|corge|grault|garply"
+      ],
+      "inputs": [
+        "crossEngine.RegexBenchmark.alternationFind.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegexBenchmark.findInText",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\b\\w+ing\\b"
+      ],
+      "inputs": [
+        "crossEngine.RegexBenchmark.findInText.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RegexBenchmark.emailFind",
+      "operation": "find",
+      "patterns": [
+        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+      ],
+      "inputs": [
+        "crossEngine.RegexBenchmark.emailFind.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.uuidValidation",
+      "operation": "matchesCorpus",
+      "patterns": [
+        "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.uuidValidation.input.0",
+        "crossEngine.ApplicationBenchmark.uuidValidation.input.1",
+        "crossEngine.ApplicationBenchmark.uuidValidation.input.2",
+        "crossEngine.ApplicationBenchmark.uuidValidation.input.3",
+        "crossEngine.ApplicationBenchmark.uuidValidation.input.4",
+        "crossEngine.ApplicationBenchmark.uuidValidation.input.5"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 3
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.logLineParse",
+      "operation": "matchesGroupLengthSum",
+      "patterns": [
+        "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)\\s+(INFO|WARN|ERROR)\\s+([A-Za-z0-9_.-]+)\\s+-\\s+(.+)$"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.logLineParse.input.0",
+        "crossEngine.ApplicationBenchmark.logLineParse.input.1",
+        "crossEngine.ApplicationBenchmark.logLineParse.input.2",
+        "crossEngine.ApplicationBenchmark.logLineParse.input.3",
+        "crossEngine.ApplicationBenchmark.logLineParse.input.4"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          2,
+          3
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 39
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.apiRouteMatch",
+      "operation": "matchesGroupLengthSum",
+      "patterns": [
+        "^/api/v[0-9]+/(users|orders|inventory)/([A-Za-z0-9_-]+)(?:\\?.*)?$"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.apiRouteMatch.input.0",
+        "crossEngine.ApplicationBenchmark.apiRouteMatch.input.1",
+        "crossEngine.ApplicationBenchmark.apiRouteMatch.input.2",
+        "crossEngine.ApplicationBenchmark.apiRouteMatch.input.3",
+        "crossEngine.ApplicationBenchmark.apiRouteMatch.input.4",
+        "crossEngine.ApplicationBenchmark.apiRouteMatch.input.5"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          1,
+          2
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 41
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.stackTraceExtract",
+      "operation": "findAllGroupLengthSum",
+      "patterns": [
+        "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.stackTraceExtract.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          1,
+          4
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 93
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.caseInsensitiveKeywords",
+      "operation": "findAllCount",
+      "patterns": [
+        "(?i)\\b(error|warning|timeout|failed)\\b"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.caseInsensitiveKeywords.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.urlExtraction",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "(https?://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9._~:/?#\\[\\]@!$&'()*+,;=%-]*)?)"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.urlExtraction.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 124
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.csvFieldScan",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\\r\\n]+))"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.csvFieldScan.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 156
+      }
+    },
+    {
+      "id": "ApplicationBenchmark.secretRedaction",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?i)\\b(password|token|secret)=([^\\s&]+)"
+      ],
+      "inputs": [
+        "crossEngine.ApplicationBenchmark.secretRedaction.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": "$1=REDACTED"
+      },
+      "requirements": [
+        "numberedReplacement"
+      ],
+      "expected": {
+        "type": "string",
+        "value": "user=service password=REDACTED token=REDACTED path=/api secret=REDACTED debug=true"
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.mapFieldPath.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "([\\S]+)\\b\\[(.+)\\]"
+      ],
+      "inputs": [
+        "realWorldRegex.mapFieldPath.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.markupImageLink.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "<<!(image|media|link)(\\([^\\)]*\\))?/?>?>"
+      ],
+      "inputs": [
+        "realWorldRegex.markupImageLink.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.versionList.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]"
+      ],
+      "inputs": [
+        "realWorldRegex.versionList.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.malformedEntity.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "<[^>]*entity[^>]*>{1,2}"
+      ],
+      "inputs": [
+        "realWorldRegex.malformedEntity.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.markupEntity.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "<<!entity.*?>>"
+      ],
+      "inputs": [
+        "realWorldRegex.markupEntity.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.customProtocolLink.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "\\[(.*?)]\\(customProtocol://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)"
+      ],
+      "inputs": [
+        "realWorldRegex.customProtocolLink.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.wildcardSearch.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?is).*\\b(you|your)\\b.*"
+      ],
+      "inputs": [
+        "realWorldRegex.wildcardSearch.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.metadataBlock.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?s)<meta_start>.*?<meta_end>"
+      ],
+      "inputs": [
+        "realWorldRegex.metadataBlock.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.blockedTags1.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "```code_block\\n(\\s)*# (topic|tags)_identified:.*?\\n```"
+      ],
+      "inputs": [
+        "realWorldRegex.blockedTags1.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.blockedTags2.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "<container>\\n(\\s)*# (topic|tags)_identified:.*?\\n</container>"
+      ],
+      "inputs": [
+        "realWorldRegex.blockedTags2.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.overlappingUrl.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?"
+      ],
+      "inputs": [
+        "realWorldRegex.overlappingUrl.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?i)keyword_to_find"
+      ],
+      "inputs": [
+        "realWorldRegex.caseInsensitiveKeyword.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)"
+      ],
+      "inputs": [
+        "realWorldRegex.boundedNameMatch.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.templateTagMatch.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?s)(<template\\s+name\\s*>.*?<\\s*/\\s*template[ \\t]*)([^>]|$)"
+      ],
+      "inputs": [
+        "realWorldRegex.templateTagMatch.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.sparseUrl.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?"
+      ],
+      "inputs": [
+        "realWorldRegex.sparseUrl.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "\\b[a-zA-Z]{3,5}\\b"
+      ],
+      "inputs": [
+        "realWorldRegex.unprefixedWordBoundary.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?is).*\\b(apples?.*for banana|cherry.*dates?|elderberry lists?|fig lists?|grape lists?)\\b.*"
+      ],
+      "inputs": [
+        "realWorldRegex.fruitSearchQuery.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": "$1"
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"
+      ],
+      "inputs": [
+        "realWorldRegex.fruitMarkupTag.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": "$1"
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.jsonBlock.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(\\{[\\s\\S]*\\})"
+      ],
+      "inputs": [
+        "realWorldRegex.jsonBlock.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": "$1"
+      },
+      "requirements": [
+        "numberedReplacement"
+      ]
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.charReplace.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "a"
+      ],
+      "inputs": [
+        "realWorldRegex.charReplace.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": "xyz"
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.greedyOnePass.{matchLabel}.{size}",
+      "operation": "matches",
+      "patterns": [
+        "^(.+)"
+      ],
+      "inputs": [
+        "realWorldRegex.greedyOnePass.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.layoutBlock.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>"
+      ],
+      "inputs": [
+        "realWorldRegex.layoutBlock.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+"
+      ],
+      "inputs": [
+        "realWorldRegex.turnTitleWhitespaceCjk.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.cjkSearch.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "[一-龥]{3,}"
+      ],
+      "inputs": [
+        "realWorldRegex.cjkSearch.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.emojiSearch.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "[😀-😇]"
+      ],
+      "inputs": [
+        "realWorldRegex.emojiSearch.{matchLabel}.{size}"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "HttpBenchmark.httpFull",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "^(?:GET|POST) +([^ ]+) HTTP"
+      ],
+      "inputs": [
+        "crossEngine.HttpBenchmark.httpFull.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "HttpBenchmark.httpSmall",
+      "operation": "findGroupPresent",
+      "patterns": [
+        "^(?:GET|POST) +([^ ]+) HTTP"
+      ],
+      "inputs": [
+        "crossEngine.HttpBenchmark.httpSmall.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "HttpBenchmark.httpExtract",
+      "operation": "findGroup",
+      "patterns": [
+        "^(?:GET|POST) +([^ ]+) HTTP"
+      ],
+      "inputs": [
+        "crossEngine.HttpBenchmark.httpFull.input"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasyFail.1024",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasySuccess.1024",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.success.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchMediumFail.1024",
+      "operation": "find",
+      "patterns": [
+        "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchHardFail.1024",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.findIngScaled.1024",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\b\\w+ing\\b"
+      ],
+      "inputs": [
+        "searchScaling.prose.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasyFail.10240",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasySuccess.10240",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.success.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchMediumFail.10240",
+      "operation": "find",
+      "patterns": [
+        "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchHardFail.10240",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.findIngScaled.10240",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\b\\w+ing\\b"
+      ],
+      "inputs": [
+        "searchScaling.prose.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasyFail.102400",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasySuccess.102400",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.success.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchMediumFail.102400",
+      "operation": "find",
+      "patterns": [
+        "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchHardFail.102400",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.findIngScaled.102400",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\b\\w+ing\\b"
+      ],
+      "inputs": [
+        "searchScaling.prose.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasyFail.1048576",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.1048576"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchEasySuccess.1048576",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.success.1048576"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchMediumFail.1048576",
+      "operation": "find",
+      "patterns": [
+        "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.1048576"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.searchHardFail.1048576",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.1048576"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.findIngScaled.1048576",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\b\\w+ing\\b"
+      ],
+      "inputs": [
+        "searchScaling.prose.1048576"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FanoutBenchmark.fanoutUnicode.1024",
+      "operation": "find",
+      "patterns": [
+        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]"
+      ],
+      "inputs": [
+        "fanout.unicode.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FanoutBenchmark.nestedQuantifier.1024",
+      "operation": "find",
+      "patterns": [
+        "(?:a?){20}a{20}"
+      ],
+      "inputs": [
+        "fanout.ascii.1024"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FanoutBenchmark.fanoutUnicode.10240",
+      "operation": "find",
+      "patterns": [
+        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]"
+      ],
+      "inputs": [
+        "fanout.unicode.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FanoutBenchmark.nestedQuantifier.10240",
+      "operation": "find",
+      "patterns": [
+        "(?:a?){20}a{20}"
+      ],
+      "inputs": [
+        "fanout.ascii.10240"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FanoutBenchmark.fanoutUnicode.102400",
+      "operation": "find",
+      "patterns": [
+        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]"
+      ],
+      "inputs": [
+        "fanout.unicode.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FanoutBenchmark.nestedQuantifier.102400",
+      "operation": "find",
+      "patterns": [
+        "(?:a?){20}a{20}"
+      ],
+      "inputs": [
+        "fanout.ascii.102400"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    }
+  ]
 }

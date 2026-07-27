@@ -28,11 +28,14 @@ Materialization, UTF-8 validation, Java decoding, `Utf8Input` construction,
 pattern compilation, operation binding, and expected-result validation happen
 in JMH setup, outside the timed operation.
 
-Each variant declares native capabilities. The planner emits only supported
-workload/variant trials, so an unsupported operation is different from a
-missing implementation. In particular, SafeRE UTF-8 participates in direct
-`find` and repeated-`find` operations; it does not emulate String-only
-`matches`, group-text, replacement, or split APIs.
+Each variant declares native capabilities and one input representation. The
+planner joins those declarations with each workload's engine-neutral
+requirements and accepted representations. It emits a trial or a specific
+exclusion for every workload/variant pair, so an unsupported feature or
+representation is different from a missing adapter or operation
+implementation. In particular, SafeRE UTF-8 participates in direct `find` and
+repeated-`find` operations; it does not emulate String-only `matches`,
+group-text, replacement, or split APIs.
 
 ## JMH trials and result names
 

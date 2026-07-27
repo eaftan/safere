@@ -11,7 +11,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,10 +46,11 @@ class CrossEngineBenchmarkPlanTest {
             "HttpBenchmark.httpFull",
             "SearchScalingBenchmark.searchEasyFail.1024",
             "FanoutBenchmark.fanoutUnicode.1024");
+    assertThat(ids).hasSize(192);
   }
 
   @Test
-  void everyWorkloadHasEveryStringExecutionVariant() {
+  void everyWorkloadEnginePairIsScheduledOrExplicitlyExcluded() {
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
     List<CrossEngineBenchmarkPlan.Trial> allTrials =
         List.of(
@@ -56,6 +59,13 @@ class CrossEngineBenchmarkPlanTest {
             .stream()
             .flatMap(List::stream)
             .toList();
+    Set<String> accounted = new HashSet<>();
+    allTrials.forEach(trial -> assertThat(accounted.add(trial.id())).isTrue());
+    plan.exclusions()
+        .forEach(
+            exclusion ->
+                assertThat(accounted.add(exclusion.workloadId() + "@" + exclusion.engineId()))
+                    .isTrue());
 
     for (CrossEngineWorkload workload : plan.workloads()) {
       assertThat(
@@ -68,6 +78,30 @@ class CrossEngineBenchmarkPlanTest {
               RegexEngineVariant.RE2J_STRING,
               RegexEngineVariant.RE2_FFM_STRING_CONVERSION);
     }
+    assertThat(allTrials).hasSize(840);
+    assertThat(plan.exclusions()).hasSize(120);
+    assertThat(accounted).hasSize(192 * RegexEngineVariant.values().length);
+  }
+
+  @Test
+  void trialExpansionIsDeterministicAndPreservesTimingGroups() {
+    CrossEngineBenchmarkPlan first = CrossEngineBenchmarkPlan.load();
+    CrossEngineBenchmarkPlan second = CrossEngineBenchmarkPlan.load();
+
+    assertThat(first.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS))
+        .extracting(CrossEngineBenchmarkPlan.Trial::id)
+        .containsExactlyElementsOf(
+            second.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS).stream()
+                .map(CrossEngineBenchmarkPlan.Trial::id)
+                .toList())
+        .hasSize(710);
+    assertThat(first.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS))
+        .extracting(CrossEngineBenchmarkPlan.Trial::id)
+        .containsExactlyElementsOf(
+            second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
+                .map(CrossEngineBenchmarkPlan.Trial::id)
+                .toList())
+        .hasSize(130);
   }
 
   @Test

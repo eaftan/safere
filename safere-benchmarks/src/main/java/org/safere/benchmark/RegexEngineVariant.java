@@ -318,6 +318,31 @@ enum RegexEngineVariant {
     return capabilities.clone();
   }
 
+  DeclarativeBenchmarkPlan.EngineDeclaration declaration() {
+    EnumSet<DeclarativeBenchmarkPlan.Feature> features =
+        EnumSet.noneOf(DeclarativeBenchmarkPlan.Feature.class);
+    for (EngineCapability capability : capabilities) {
+      switch (capability) {
+        case FIND -> features.add(DeclarativeBenchmarkPlan.Feature.FIND);
+        case MATCHES -> features.add(DeclarativeBenchmarkPlan.Feature.MATCHES);
+        case GROUP_TEXT -> features.add(DeclarativeBenchmarkPlan.Feature.CAPTURE_TEXT);
+        case REPLACE -> {
+          features.add(DeclarativeBenchmarkPlan.Feature.REPLACE);
+          features.add(DeclarativeBenchmarkPlan.Feature.NUMBERED_REPLACEMENT);
+        }
+      }
+    }
+    DeclarativeBenchmarkPlan.InputRepresentation representation =
+        switch (inputRepresentation) {
+          case JAVA_STRING -> DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING;
+          case PREEXISTING_UTF8 -> DeclarativeBenchmarkPlan.InputRepresentation.PREEXISTING_UTF8;
+          case JAVA_STRING_WITH_TIMED_UTF8_CONVERSION ->
+              DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING_WITH_TIMED_UTF8_CONVERSION;
+        };
+    return new DeclarativeBenchmarkPlan.EngineDeclaration(
+        id, representation, features, EnumSet.noneOf(DeclarativeBenchmarkPlan.Flag.class), true);
+  }
+
   List<RegexInput> prepareInputs(BenchmarkData data, List<String> inputKeys) {
     List<RegexInput> inputs = new ArrayList<>(inputKeys.size());
     for (String inputKey : inputKeys) {

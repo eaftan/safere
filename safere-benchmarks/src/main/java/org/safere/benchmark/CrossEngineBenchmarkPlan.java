@@ -5,51 +5,87 @@
 
 package org.safere.benchmark;
 
+import com.google.gson.JsonElement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-/** Builds and validates the supported cross-engine workload matrix. */
+/** Expands and validates the declarative ordinary cross-engine workload matrix. */
 final class CrossEngineBenchmarkPlan {
+  private static final EnumSet<DeclarativeBenchmarkPlan.Operation> IMPLEMENTED_OPERATIONS =
+      EnumSet.of(
+          DeclarativeBenchmarkPlan.Operation.MATCHES,
+          DeclarativeBenchmarkPlan.Operation.FIND,
+          DeclarativeBenchmarkPlan.Operation.FIND_ALL_COUNT,
+          DeclarativeBenchmarkPlan.Operation.MATCHES_CORPUS,
+          DeclarativeBenchmarkPlan.Operation.MATCHES_GROUP_LENGTH_SUM,
+          DeclarativeBenchmarkPlan.Operation.FIND_ALL_LENGTH_SUM,
+          DeclarativeBenchmarkPlan.Operation.FIND_ALL_GROUP_LENGTH_SUM,
+          DeclarativeBenchmarkPlan.Operation.REPLACE_ALL,
+          DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
+          DeclarativeBenchmarkPlan.Operation.FIND_GROUP);
 
   private final Map<String, CrossEngineWorkload> workloads;
+  private final Map<String, Trial> trials;
+  private final List<DeclarativeBenchmarkPlan.Exclusion> exclusions;
 
-  private CrossEngineBenchmarkPlan(List<CrossEngineWorkload> workloads) {
-    Map<String, CrossEngineWorkload> byId = new LinkedHashMap<>();
-    for (CrossEngineWorkload workload : workloads) {
-      if (byId.put(workload.id(), workload) != null) {
-        throw new IllegalArgumentException("Duplicate cross-engine workload ID: " + workload.id());
-      }
-    }
-    this.workloads = Collections.unmodifiableMap(new LinkedHashMap<>(byId));
+  private CrossEngineBenchmarkPlan(
+      Map<String, CrossEngineWorkload> workloads,
+      Map<String, Trial> trials,
+      List<DeclarativeBenchmarkPlan.Exclusion> exclusions) {
+    this.workloads = Collections.unmodifiableMap(new LinkedHashMap<>(workloads));
+    this.trials = Collections.unmodifiableMap(new LinkedHashMap<>(trials));
+    this.exclusions = List.copyOf(exclusions);
   }
 
   static CrossEngineBenchmarkPlan load() {
-    return new CrossEngineBenchmarkPlan(loadWorkloads(BenchmarkData.get()));
+    BenchmarkData data = BenchmarkData.get();
+    DeclarativeBenchmarkPlan plan = DeclarativeBenchmarkPlan.parse(data.declarativePlan());
+    List<DeclarativeBenchmarkPlan.EngineDeclaration> engines =
+        Arrays.stream(RegexEngineVariant.values()).map(RegexEngineVariant::declaration).toList();
+    return fromExpanded(plan.expand(engines, IMPLEMENTED_OPERATIONS));
+  }
+
+  private static CrossEngineBenchmarkPlan fromExpanded(
+      DeclarativeBenchmarkPlan.ExpandedPlan expanded) {
+    Map<String, CrossEngineWorkload> workloads = new LinkedHashMap<>();
+    for (DeclarativeBenchmarkPlan.ExpandedWorkload workload : expanded.workloads()) {
+      CrossEngineWorkload converted = convert(workload);
+      if (workloads.put(converted.id(), converted) != null) {
+        throw new IllegalArgumentException("Duplicate cross-engine workload ID: " + converted.id());
+      }
+    }
+
+    Map<String, Trial> trials = new LinkedHashMap<>();
+    for (DeclarativeBenchmarkPlan.Trial trial : expanded.trials()) {
+      CrossEngineWorkload workload = workloads.get(trial.workload().id());
+      RegexEngineVariant variant = RegexEngineVariant.fromId(trial.engine().id());
+      Trial converted = new Trial(workload, variant);
+      if (trials.put(converted.id(), converted) != null) {
+        throw new IllegalArgumentException("Duplicate cross-engine trial ID: " + converted.id());
+      }
+    }
+    return new CrossEngineBenchmarkPlan(workloads, trials, expanded.exclusions());
   }
 
   List<Trial> trials(CrossEngineWorkload.TimingGroup timingGroup) {
-    List<Trial> trials = new ArrayList<>();
-    for (CrossEngineWorkload workload : workloads.values()) {
-      if (workload.timingGroup() != timingGroup) {
-        continue;
-      }
-      for (RegexEngineVariant variant : RegexEngineVariant.values()) {
-        if (workload.operation().isSupportedBy(variant)) {
-          trials.add(new Trial(workload, variant));
-        }
-      }
-    }
-    return List.copyOf(trials);
+    return trials.values().stream()
+        .filter(trial -> trial.workload().timingGroup() == timingGroup)
+        .toList();
   }
 
   List<CrossEngineWorkload> workloads() {
     return List.copyOf(workloads.values());
+  }
+
+  List<DeclarativeBenchmarkPlan.Exclusion> exclusions() {
+    return exclusions;
   }
 
   Trial resolve(String trialId) {
@@ -58,24 +94,37 @@ final class CrossEngineBenchmarkPlan {
       throw new IllegalArgumentException(
           "Cross-engine trial must be <workload-id>@<variant-id>: " + trialId);
     }
+    Trial trial = trials.get(trialId);
+    if (trial != null) {
+      return trial;
+    }
     String workloadId = trialId.substring(0, separator);
     String variantId = trialId.substring(separator + 1);
     CrossEngineWorkload workload = workloads.get(workloadId);
     if (workload == null) {
       throw new IllegalArgumentException("Unknown cross-engine workload ID: " + workloadId);
     }
-    RegexEngineVariant variant = RegexEngineVariant.fromId(variantId);
-    if (!workload.operation().isSupportedBy(variant)) {
-      throw new IllegalArgumentException(
-          "Unsupported cross-engine combination: "
-              + workloadId
-              + " uses "
-              + workload.operation()
-              + ", which "
-              + variantId
-              + " does not support");
-    }
-    return new Trial(workload, variant);
+    RegexEngineVariant.fromId(variantId);
+    DeclarativeBenchmarkPlan.Exclusion exclusion =
+        exclusions.stream()
+            .filter(
+                candidate ->
+                    candidate.workloadId().equals(workloadId)
+                        && candidate.engineId().equals(variantId))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Unaccounted cross-engine combination: " + workloadId + "@" + variantId));
+    throw new IllegalArgumentException(
+        "Unsupported cross-engine combination: "
+            + trialId
+            + " uses "
+            + workload.operation()
+            + "; "
+            + exclusion.kind()
+            + ": "
+            + exclusion.reason());
   }
 
   static void main(String[] args) {
@@ -105,269 +154,74 @@ final class CrossEngineBenchmarkPlan {
     System.out.println(trialIds);
   }
 
-  private static List<CrossEngineWorkload> loadWorkloads(BenchmarkData data) {
-    List<CrossEngineWorkload> workloads = new ArrayList<>();
-    addRegexWorkloads(workloads, data);
-    addApplicationWorkloads(workloads, data);
-    addRealWorldWorkloads(workloads, data);
-    addHttpWorkloads(workloads, data);
-    addSearchScalingWorkloads(workloads, data);
-    addFanoutWorkloads(workloads, data);
-    return workloads;
-  }
-
-  private static void addRegexWorkloads(List<CrossEngineWorkload> workloads, BenchmarkData data) {
-    addRegexWorkload(workloads, data, "literalMatch", BenchmarkOperation.MATCHES, new int[0]);
-    addRegexWorkload(workloads, data, "charClassMatch", BenchmarkOperation.MATCHES, new int[0]);
-    addRegexWorkload(
-        workloads, data, "alternationFind", BenchmarkOperation.FIND_ALL_COUNT, new int[0]);
-    addRegexWorkload(workloads, data, "findInText", BenchmarkOperation.FIND_ALL_COUNT, new int[0]);
-    addRegexWorkload(workloads, data, "emailFind", BenchmarkOperation.FIND, new int[0]);
-  }
-
-  private static void addRegexWorkload(
-      List<CrossEngineWorkload> workloads,
-      BenchmarkData data,
-      String name,
-      BenchmarkOperation operation,
-      int[] groups) {
-    String path = "regex." + name;
-    String id = data.getString(path + ".id");
-    workloads.add(
-        workload(
-            id,
-            operation,
-            data.getString(path + ".pattern"),
-            List.of(BenchmarkInputMaterializer.crossEngineInputKey(id)),
-            groups,
-            null,
-            null,
-            CrossEngineWorkload.TimingGroup.NANOSECONDS));
-  }
-
-  private static void addApplicationWorkloads(
-      List<CrossEngineWorkload> workloads, BenchmarkData data) {
-    for (ApplicationCase applicationCase : data.getApplicationCases().values()) {
-      BenchmarkOperation operation =
-          switch (applicationCase.op) {
-            case "matchesCorpus" -> BenchmarkOperation.MATCHES_CORPUS;
-            case "matchesGroupLengthSum" -> BenchmarkOperation.MATCHES_GROUP_LENGTH_SUM;
-            case "findAllCount" -> BenchmarkOperation.FIND_ALL_COUNT;
-            case "findAllLengthSum" -> BenchmarkOperation.FIND_ALL_LENGTH_SUM;
-            case "findAllGroupLengthSum" -> BenchmarkOperation.FIND_ALL_GROUP_LENGTH_SUM;
-            case "replaceAll" -> BenchmarkOperation.REPLACE_ALL;
-            default ->
-                throw new IllegalArgumentException(
-                    "Unknown application benchmark op: " + applicationCase.op);
-          };
-      if (applicationCase.op.startsWith("findAll")
-          && org.safere.Pattern.compile(applicationCase.pattern).matcher("").find()) {
-        throw new IllegalArgumentException(
-            applicationCase.id + " uses an empty-width pattern with " + applicationCase.op);
-      }
-      String baseInputKey = BenchmarkInputMaterializer.crossEngineInputKey(applicationCase.id);
-      List<String> inputKeys = new ArrayList<>();
-      if (applicationCase.texts.isEmpty()) {
-        inputKeys.add(baseInputKey);
-      } else {
-        for (int index = 0; index < applicationCase.texts.size(); index++) {
-          inputKeys.add(baseInputKey + "." + index);
-        }
-      }
-      Object expected =
-          applicationCase.expectsString()
-              ? applicationCase.expectedString()
-              : applicationCase.expectedInt();
-      workloads.add(
-          workload(
-              applicationCase.id,
-              operation,
-              applicationCase.pattern,
-              inputKeys,
-              applicationCase.groups,
-              applicationCase.replacement,
-              expected,
-              CrossEngineWorkload.TimingGroup.NANOSECONDS));
+  private static CrossEngineWorkload convert(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
+    if (workload.patterns().size() != 1) {
+      throw new IllegalArgumentException(
+          workload.id() + " ordinary cross-engine workload requires exactly one pattern");
     }
-  }
-
-  private static void addRealWorldWorkloads(
-      List<CrossEngineWorkload> workloads, BenchmarkData data) {
-    int[] inputSizes = data.getIntArray("realWorldRegex.textSizes");
-    for (RealWorldRegexCase regexCase : data.getRealWorldRegexCases().values()) {
-      BenchmarkOperation operation =
-          switch (regexCase.op) {
-            case "find" -> BenchmarkOperation.FIND;
-            case "matches" -> BenchmarkOperation.MATCHES;
-            case "replaceAllEmpty", "replaceAllGroup1", "replaceAllLiteral" ->
-                BenchmarkOperation.REPLACE_ALL;
-            default ->
-                throw new IllegalArgumentException(
-                    "Unknown real-world regex benchmark op: " + regexCase.op);
-          };
-      String replacement =
-          switch (regexCase.op) {
-            case "replaceAllEmpty" -> "";
-            case "replaceAllGroup1" -> "$1";
-            case "replaceAllLiteral" -> "xyz";
-            default -> null;
-          };
-      for (boolean match : new boolean[] {true, false}) {
-        String matchLabel = match ? "match" : "noMatch";
-        for (int inputSize : inputSizes) {
-          String id = regexCase.id + "." + matchLabel + "." + inputSize;
-          workloads.add(
-              workload(
-                  id,
-                  operation,
-                  regexCase.pattern,
-                  List.of("realWorldRegex." + regexCase.name + "." + matchLabel + "." + inputSize),
-                  new int[0],
-                  replacement,
-                  null,
-                  CrossEngineWorkload.TimingGroup.NANOSECONDS));
-        }
-      }
-    }
-  }
-
-  private static void addHttpWorkloads(List<CrossEngineWorkload> workloads, BenchmarkData data) {
-    String pattern = data.getString("http.pattern");
-    String fullId = data.getString("http.workloadIds.full");
-    workloads.add(
-        workload(
-            fullId,
-            BenchmarkOperation.FIND_GROUP_PRESENT,
-            pattern,
-            List.of(BenchmarkInputMaterializer.crossEngineInputKey(fullId)),
-            new int[] {1},
-            null,
-            null,
-            CrossEngineWorkload.TimingGroup.NANOSECONDS));
-    String smallId = data.getString("http.workloadIds.small");
-    workloads.add(
-        workload(
-            smallId,
-            BenchmarkOperation.FIND_GROUP_PRESENT,
-            pattern,
-            List.of(BenchmarkInputMaterializer.crossEngineInputKey(smallId)),
-            new int[] {1},
-            null,
-            null,
-            CrossEngineWorkload.TimingGroup.NANOSECONDS));
-    String extractId = data.getString("http.workloadIds.extract");
-    workloads.add(
-        workload(
-            extractId,
-            BenchmarkOperation.FIND_GROUP,
-            pattern,
-            List.of(BenchmarkInputMaterializer.crossEngineInputKey(fullId)),
-            new int[] {1},
-            null,
-            null,
-            CrossEngineWorkload.TimingGroup.NANOSECONDS));
-  }
-
-  private static void addSearchScalingWorkloads(
-      List<CrossEngineWorkload> workloads, BenchmarkData data) {
-    int[] inputSizes = data.getIntArray("searchScaling.textSizes");
-    for (int inputSize : inputSizes) {
-      addScalingFind(
-          workloads,
-          data,
-          "searchScaling.workloadIds.easyFail",
-          "searchScaling.patterns.easy",
-          "searchScaling.random." + inputSize,
-          inputSize);
-      addScalingFind(
-          workloads,
-          data,
-          "searchScaling.workloadIds.easySuccess",
-          "searchScaling.patterns.easy",
-          "searchScaling.success." + inputSize,
-          inputSize);
-      addScalingFind(
-          workloads,
-          data,
-          "searchScaling.workloadIds.mediumFail",
-          "searchScaling.patterns.medium",
-          "searchScaling.random." + inputSize,
-          inputSize);
-      addScalingFind(
-          workloads,
-          data,
-          "searchScaling.workloadIds.hardFail",
-          "searchScaling.patterns.hard",
-          "searchScaling.random." + inputSize,
-          inputSize);
-      String findAllId =
-          data.getString("searchScaling.workloadIds.findIngScaled") + "." + inputSize;
-      workloads.add(
-          workload(
-              findAllId,
-              BenchmarkOperation.FIND_ALL_COUNT,
-              data.getString("searchScaling.findIngPattern"),
-              List.of("searchScaling.prose." + inputSize),
-              new int[0],
-              null,
-              null,
-              CrossEngineWorkload.TimingGroup.MICROSECONDS));
-    }
-  }
-
-  private static void addScalingFind(
-      List<CrossEngineWorkload> workloads,
-      BenchmarkData data,
-      String idPath,
-      String patternPath,
-      String inputKey,
-      int inputSize) {
-    workloads.add(
-        workload(
-            data.getString(idPath) + "." + inputSize,
-            BenchmarkOperation.FIND,
-            data.getString(patternPath),
-            List.of(inputKey),
-            new int[0],
-            null,
-            null,
-            CrossEngineWorkload.TimingGroup.MICROSECONDS));
-  }
-
-  private static void addFanoutWorkloads(List<CrossEngineWorkload> workloads, BenchmarkData data) {
-    int[] inputSizes = data.getIntArray("fanout.textSizes");
-    for (int inputSize : inputSizes) {
-      addScalingFind(
-          workloads,
-          data,
-          "fanout.unicodeFanout.id",
-          "fanout.unicodeFanout.pattern",
-          "fanout.unicode." + inputSize,
-          inputSize);
-      addScalingFind(
-          workloads,
-          data,
-          "fanout.nestedQuantifier.id",
-          "fanout.nestedQuantifier.pattern",
-          "fanout.ascii." + inputSize,
-          inputSize);
-    }
-  }
-
-  private static CrossEngineWorkload workload(
-      String id,
-      BenchmarkOperation operation,
-      String pattern,
-      List<String> inputKeys,
-      int[] groups,
-      String replacement,
-      Object expected,
-      CrossEngineWorkload.TimingGroup timingGroup) {
+    int[] groups = groups(workload.arguments());
+    String replacement = stringArgument(workload.arguments(), "replacement");
+    CrossEngineWorkload.TimingGroup timingGroup =
+        switch (workload.measurement().timingUnit()) {
+          case NANOSECONDS -> CrossEngineWorkload.TimingGroup.NANOSECONDS;
+          case MICROSECONDS -> CrossEngineWorkload.TimingGroup.MICROSECONDS;
+          default ->
+              throw new IllegalArgumentException(
+                  workload.id() + " is not an ordinary nanosecond or scaling microsecond workload");
+        };
     return new CrossEngineWorkload(
-        id, operation, pattern, inputKeys, groups, replacement, expected, timingGroup);
+        workload.id(),
+        BenchmarkOperation.fromDeclarative(workload.operation()),
+        workload.patterns().getFirst(),
+        workload.inputIds(),
+        groups,
+        replacement,
+        expectedValue(workload.expected()),
+        timingGroup);
+  }
+
+  private static int[] groups(Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments) {
+    DeclarativeBenchmarkPlan.RecipeValue groups = arguments.get("groups");
+    if (groups != null) {
+      return ((DeclarativeBenchmarkPlan.RecipeIntegerList) groups)
+          .values().stream().mapToInt(Integer::intValue).toArray();
+    }
+    DeclarativeBenchmarkPlan.RecipeValue group = arguments.get("group");
+    if (group != null) {
+      return new int[] {((DeclarativeBenchmarkPlan.RecipeInteger) group).value()};
+    }
+    return new int[0];
+  }
+
+  private static String stringArgument(
+      Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments, String name) {
+    DeclarativeBenchmarkPlan.RecipeValue value = arguments.get(name);
+    return value == null ? null : ((DeclarativeBenchmarkPlan.RecipeString) value).value();
+  }
+
+  private static Object expectedValue(DeclarativeBenchmarkPlan.ExpectedResult expected) {
+    if (expected == null) {
+      return null;
+    }
+    JsonElement value = expected.value();
+    return switch (expected.type()) {
+      case BOOLEAN -> value.getAsBoolean();
+      case INTEGER -> value.getAsInt();
+      case STRING -> value.getAsString();
+      case STRING_LIST -> {
+        List<String> values = new ArrayList<>();
+        value.getAsJsonArray().forEach(element -> values.add(element.getAsString()));
+        yield List.copyOf(values);
+      }
+    };
   }
 
   record Trial(CrossEngineWorkload workload, RegexEngineVariant variant) {
+    Trial {
+      Objects.requireNonNull(workload);
+      Objects.requireNonNull(variant);
+    }
+
     String id() {
       return workload.id() + "@" + variant.id();
     }

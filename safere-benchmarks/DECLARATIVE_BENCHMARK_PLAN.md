@@ -1,10 +1,11 @@
 # Declarative Benchmark Plan
 
 SafeRE's normalized benchmark plan is a strict, versioned object within
-`benchmark-data.json`. The initial schema version is `1`. The legacy sections
-remain authoritative until their workloads are migrated in the follow-up
-issues under #606; the schema foundation itself does not change any benchmark
-timing boundary.
+`benchmark-data.json`. The initial schema version is `1`. Normalized
+declarations are authoritative for materialized inputs and ordinary/scaling
+cross-engine workloads. Legacy sections remain authoritative only for
+specialized modes until their migration in the follow-up issues under #606.
+The schema does not change any benchmark timing boundary.
 
 The normalized plan has this shape:
 

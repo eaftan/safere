@@ -31,6 +31,24 @@ enum BenchmarkOperation {
     }
   }
 
+  static BenchmarkOperation fromDeclarative(DeclarativeBenchmarkPlan.Operation operation) {
+    return switch (operation) {
+      case MATCHES -> MATCHES;
+      case FIND -> FIND;
+      case FIND_ALL_COUNT -> FIND_ALL_COUNT;
+      case MATCHES_CORPUS -> MATCHES_CORPUS;
+      case MATCHES_GROUP_LENGTH_SUM -> MATCHES_GROUP_LENGTH_SUM;
+      case FIND_ALL_LENGTH_SUM -> FIND_ALL_LENGTH_SUM;
+      case FIND_ALL_GROUP_LENGTH_SUM -> FIND_ALL_GROUP_LENGTH_SUM;
+      case REPLACE_ALL -> REPLACE_ALL;
+      case FIND_GROUP_PRESENT -> FIND_GROUP_PRESENT;
+      case FIND_GROUP -> FIND_GROUP;
+      default ->
+          throw new IllegalArgumentException(
+              "Operation is not implemented by the ordinary cross-engine runner: " + operation);
+    };
+  }
+
   boolean isSupportedBy(RegexEngineVariant variant) {
     return variant.capabilities().containsAll(requiredCapabilities);
   }

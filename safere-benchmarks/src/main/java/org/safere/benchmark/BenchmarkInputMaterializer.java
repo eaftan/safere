@@ -97,10 +97,6 @@ public final class BenchmarkInputMaterializer {
     return result;
   }
 
-  static String crossEngineInputKey(String workloadId) {
-    return "crossEngine." + workloadId + ".input";
-  }
-
   private void generate() {
     for (String inputId : declarations.keySet()) {
       materialize(inputId);

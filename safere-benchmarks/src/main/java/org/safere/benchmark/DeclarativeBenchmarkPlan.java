@@ -205,7 +205,7 @@ final class DeclarativeBenchmarkPlan {
         }
         List<String> patterns =
             workload.patternTemplates().stream()
-                .map(template -> substitute(template, parameters, id + " pattern"))
+                .map(template -> substitutePattern(template, parameters))
                 .toList();
         Map<String, RecipeValue> arguments = new LinkedHashMap<>();
         for (Map.Entry<String, RecipeValue> argument : workload.arguments().entrySet()) {
@@ -242,9 +242,6 @@ final class DeclarativeBenchmarkPlan {
       requirePlaceholderCoverage(workload.idTemplate(), axisNames, workload.idTemplate());
       for (String inputTemplate : workload.inputTemplates()) {
         requireKnownPlaceholders(inputTemplate, axisNames, workload.idTemplate() + " input");
-      }
-      for (String patternTemplate : workload.patternTemplates()) {
-        requireKnownPlaceholders(patternTemplate, axisNames, workload.idTemplate() + " pattern");
       }
     }
     Set<String> referencedInputs = new LinkedHashSet<>();
@@ -555,6 +552,21 @@ final class DeclarativeBenchmarkPlan {
             context + " references unknown axis: " + matcher.group(1));
       }
       matcher.appendReplacement(result, Matcher.quoteReplacement(value.stableText()));
+    }
+    matcher.appendTail(result);
+    return result.toString();
+  }
+
+  private static String substitutePattern(String template, Map<String, ParameterValue> parameters) {
+    Matcher matcher = PLACEHOLDER.matcher(template);
+    StringBuilder result = new StringBuilder();
+    while (matcher.find()) {
+      ParameterValue value = parameters.get(matcher.group(1));
+      if (value == null) {
+        matcher.appendReplacement(result, Matcher.quoteReplacement(matcher.group()));
+      } else {
+        matcher.appendReplacement(result, Matcher.quoteReplacement(value.stableText()));
+      }
     }
     matcher.appendTail(result);
     return result.toString();
