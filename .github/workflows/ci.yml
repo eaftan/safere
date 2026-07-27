@@ -118,16 +118,11 @@ jobs:
             org.safere.benchmark.MemoryBenchmark
 
   benchmark-smoke-test-cpp:
-    name: ${{ matrix.job_name }}
     needs: changes
     if: needs.changes.outputs.code == 'true'
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            job_name: benchmark-smoke-test-cpp
-          - os: macos-latest
-            job_name: benchmark-smoke-test-cpp (macos-latest)
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
