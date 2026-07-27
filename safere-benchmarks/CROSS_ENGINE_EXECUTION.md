@@ -78,3 +78,7 @@ dedicated execution mode, including retained memory, cold start, declared
 no-fork safeguards, PatternSet, diagnostics, and dedicated UTF-8 API behavior.
 Those shapes use generic runners selected from the declaration; see
 [`SPECIALIZED_MEASUREMENT_MODES.md`](SPECIALIZED_MEASUREMENT_MODES.md).
+
+Full collection discovers those runners and their trial parameters through
+`BenchmarkCollectionPlan`; see
+[`DECLARATIVE_COLLECTION.md`](DECLARATIVE_COLLECTION.md).

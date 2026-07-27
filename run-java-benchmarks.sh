@@ -8,6 +8,7 @@
 #   ./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+#   ./run-java-benchmarks.sh --declared
 #   ./run-java-benchmarks.sh --first-compile \
 #     '^org\.safere\.benchmark\.UnicodeFirstCompileBenchmark\.'
 #   ./run-java-benchmarks.sh                         # run all benchmarks
@@ -34,6 +35,8 @@
 #   --first-compile:     Fresh-fork first-compile signal — 10 forks, no warmup,
 #                        1 single-shot measurement. Use for cold Unicode table
 #                        initialization and short-lived CLI analysis.
+#   --declared:          Discover and run every generic runner and trial from
+#                        the declarative collection plan.
 #
 # Workloads that declare the noFork constraint run through the generic
 # CrossEngineNoForkBenchmark entry point with -f 0. The legacy pathological
@@ -72,13 +75,14 @@ NO_FORK_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 usage() {
   cat <<EOF
 Usage:
-  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [--fastbuild] [JmhBenchmarkRegex ...] [-- JmhArg ...]
+  ./run-java-benchmarks.sh [--long|--smoke|--first-compile] [--declared] [--fastbuild] [JmhBenchmarkRegex ...] [-- JmhArg ...]
 
 Modes:
   default          Standard benchmark run.
   --long           Longer confirmation run for close or important comparisons.
   --smoke          Minimal compile-and-run smoke test.
   --first-compile  Fresh-fork single-shot cold compile signal.
+  --declared       Discover generic runners and trials from the benchmark plan.
 
 Options:
   --fastbuild      Skip FFM native C++ builds and target only benchmark modules (saves ~1 minute).
@@ -88,6 +92,7 @@ EOF
 # Parse options and arguments.
 MODE="standard"
 FASTBUILD=false
+DECLARED=false
 BENCHMARKS=()
 JMH_EXTRA_ARGS=()
 
@@ -107,6 +112,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fastbuild)
       FASTBUILD=true
+      shift
+      ;;
+    --declared)
+      DECLARED=true
       shift
       ;;
     -h|--help)
@@ -174,6 +183,39 @@ echo "=== Materializing shared benchmark inputs ==="
 
 # JVM args for FFM native access, native library path, and the resolved corpus.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+
+if [ "$DECLARED" = true ]; then
+  COLLECTION_QUERY=(runners)
+  if [ "$MODE" = "smoke" ]; then
+    COLLECTION_QUERY+=(--smoke)
+  fi
+  while IFS=$'\t' read -r profile benchmark parameter trial_ids; do
+    runner_opts="$JMH_OPTS"
+    if [ "$profile" = "noFork" ]; then
+      runner_opts="$NO_FORK_JMH_OPTS"
+    elif [ "$profile" = "coldStart" ]; then
+      runner_opts="$COLD_START_JMH_OPTS"
+    fi
+    echo "=== Running declared $benchmark ($profile; $runner_opts) ==="
+    RUNNER_COMMAND=(java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      $runner_opts \
+      -p "$parameter=$trial_ids")
+    if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+      RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+    fi
+    RUNNER_COMMAND+=("^${benchmark//./\\.}$")
+    "${RUNNER_COMMAND[@]}"
+  done < <(
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.BenchmarkCollectionPlan \
+      "${COLLECTION_QUERY[@]}"
+  )
+  exit 0
+fi
 
 # JMH discovers benchmark methods statically, while the supported cross-engine
 # workload/variant matrix comes from benchmark-data.json and the centralized

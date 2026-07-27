@@ -73,6 +73,13 @@ _CROSS_ENGINE_VARIANTS = {
     "re2j-string": "re2j",
     "re2-ffm-string-conversion": "re2_ffm",
 }
+_DECLARED_TRIAL_PARAMS = (
+    "crossEngineTrial",
+    "crossEngineScalingTrial",
+    "crossEngineNoForkTrial",
+    "crossEngineColdStartTrial",
+    "specializedTrial",
+)
 _JMH_MODES = {"avgt", "thrpt", "sample", "ss", "all"}
 
 
@@ -169,7 +176,11 @@ def _parse_jmh_parameterized_line(line, param_names):
     class_name = full_name[: dot]
     method = full_name[dot + 1 :]
 
-    trial = params.get("crossEngineTrial", params.get("crossEngineScalingTrial"))
+    trial = next(
+        (params.get(name) for name in _DECLARED_TRIAL_PARAMS
+         if params.get(name) and params.get(name) != "N/A"),
+        None,
+    )
     if trial and trial != "N/A":
         try:
             benchmark, variant = trial.rsplit("@", 1)
@@ -334,7 +345,23 @@ def _rpad(text, width):
     return " " * max(0, width - len(text)) + text
 
 
-def generate_tables(results, engines):
+def load_declared_plan(path):
+    """Load declared trial and exclusion identities emitted by BenchmarkCollectionPlan."""
+    with open(path) as fh:
+        plan = json.load(fh)
+    statuses = collections.OrderedDict()
+    for trial in plan.get("trials", []):
+        engine = _CROSS_ENGINE_VARIANTS.get(trial["executionVariant"])
+        if engine:
+            statuses[(trial["workloadId"], engine)] = "declared"
+    for exclusion in plan.get("exclusions", []):
+        engine = _CROSS_ENGINE_VARIANTS.get(exclusion["executionVariant"])
+        if engine:
+            statuses.setdefault((exclusion["workloadId"], engine), "excluded")
+    return statuses
+
+
+def generate_tables(results, engines, declared_statuses=None):
     """Generate markdown tables from *results*, one per benchmark class.
 
     Args:
@@ -353,6 +380,10 @@ def generate_tables(results, engines):
         index[key] = r
         all_benchmarks[r.benchmark] = True
         seen_engines.add(r.engine)
+    if declared_statuses:
+        for benchmark, engine in declared_statuses:
+            all_benchmarks.setdefault(benchmark, True)
+            seen_engines.add(engine)
 
     # If no explicit engine list, discover from data (preserving order).
     if not engines:
@@ -404,6 +435,10 @@ def generate_tables(results, engines):
                 r = index.get((bench, eng))
                 if r:
                     cells.append(_fmt_cell(r.score, r.error))
+                elif declared_statuses and declared_statuses.get((bench, eng)) == "excluded":
+                    cells.append("excluded")
+                elif declared_statuses and declared_statuses.get((bench, eng)) == "declared":
+                    cells.append("missing")
                 else:
                     cells.append("—")
             rows.append((method, cells))
@@ -494,6 +529,11 @@ def main(argv=None):
         description="Merge benchmark results from multiple engines into markdown tables.",
     )
     parser.add_argument(
+        "--declared-plan",
+        metavar="FILE",
+        help="JSON report plan emitted by BenchmarkCollectionPlan.",
+    )
+    parser.add_argument(
         "--jmh",
         metavar="FILE",
         help="Path to JMH text-output file.",
@@ -541,7 +581,10 @@ def main(argv=None):
     if args.check_application_names:
         verify_application_names(results, args.benchmark_data, engines)
 
-    print(generate_tables(results, engines))
+    declared_statuses = (
+        load_declared_plan(args.declared_plan) if args.declared_plan else None
+    )
+    print(generate_tables(results, engines, declared_statuses))
 
 
 if __name__ == "__main__":

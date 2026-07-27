@@ -8,6 +8,7 @@
 #   ./run-java-memory-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-memory-benchmarks.sh --quick '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+#   ./run-java-memory-benchmarks.sh --declared
 #   ./run-java-memory-benchmarks.sh                         # run all benchmarks
 #
 # This runs the same benchmarks as run-java-benchmarks.sh but adds JMH's
@@ -35,6 +36,7 @@ SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
 # Parse mode flag.
 MODE="publish"
+DECLARED=false
 if [ "${1:-}" = "--quick" ]; then
   MODE="quick"
   shift
@@ -49,6 +51,10 @@ CROSS_ENGINE_PREFIXES=()
 CROSS_ENGINE_SCALING_PREFIXES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --declared)
+      DECLARED=true
+      shift
+      ;;
     --cross-engine-prefix)
       CROSS_ENGINE_PREFIXES+=("$2")
       shift 2
@@ -88,6 +94,34 @@ echo "=== Materializing shared benchmark inputs ==="
 
 # JVM args for FFM native access, native library path, and the resolved corpus.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+
+if [ "$DECLARED" = true ]; then
+  COLLECTION_QUERY=(allocation-runners)
+  if [ "$MODE" = "smoke" ]; then
+    COLLECTION_QUERY+=(--smoke)
+  fi
+  while IFS=$'\t' read -r profile benchmark parameter trial_ids; do
+    echo "=== Running declared allocation trials for $benchmark ==="
+    RUNNER_COMMAND=(java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      -prof gc \
+      $JMH_OPTS \
+      -p "$parameter=$trial_ids")
+    if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+      RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+    fi
+    RUNNER_COMMAND+=("^${benchmark//./\\.}$")
+    "${RUNNER_COMMAND[@]}"
+  done < <(
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.BenchmarkCollectionPlan \
+      "${COLLECTION_QUERY[@]}"
+  )
+  exit 0
+fi
 
 if [ ${#CROSS_ENGINE_PREFIXES[@]} -gt 0 ]; then
   CROSS_ENGINE_TRIALS="$(

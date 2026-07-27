@@ -302,6 +302,44 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
+  void collectionPlanDiscoversGenericRunnersAndStableReportRows() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+
+    assertThat(plan.runners())
+        .extracting(BenchmarkCollectionPlan.Runner::benchmark)
+        .containsExactly(
+            "org.safere.benchmark.CrossEngineBenchmark.run",
+            "org.safere.benchmark.CrossEngineScalingBenchmark.run",
+            "org.safere.benchmark.CrossEngineNoForkBenchmark.run",
+            "org.safere.benchmark.CrossEngineColdStartBenchmark.run",
+            "org.safere.benchmark.SpecializedBenchmark.run");
+    assertThat(plan.runners())
+        .allMatch(runner -> !runner.trialIds().isEmpty())
+        .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
+        .doesNotHaveDuplicates()
+        .hasSize(1443);
+    assertThat(plan.reportPlan().trials()).hasSize(1443);
+    assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
+  }
+
+  @Test
+  void collectionPlanQueriesModeTimingPrefixAndExecutionVariant() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+    BenchmarkCollectionPlan.Query query =
+        new BenchmarkCollectionPlan.Query(
+            "averageTime", "nanoseconds", "RegexBenchmark.", "safere-utf8");
+
+    assertThat(plan.trials(query))
+        .isNotEmpty()
+        .allMatch(
+            trial ->
+                trial.workloadId().startsWith("RegexBenchmark.")
+                    && trial.executionVariant().equals("safere-utf8")
+                    && trial.measurement().timingUnit()
+                        == DeclarativeBenchmarkPlan.TimingUnit.NANOSECONDS);
+  }
+
+  @Test
   void everySpecializedOperationPreparesAndRunsThroughOneEntryPoint() {
     List<String> trials =
         List.of(

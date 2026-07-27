@@ -1,5 +1,11 @@
 {
   "schemaVersion": 1,
+  "collection": {
+    "allocationWorkloadPrefixes": [
+      "RegexBenchmark.",
+      "SearchScalingBenchmark."
+    ]
+  },
   "inputs": [
     {
       "id": "crossEngine.RegexBenchmark.literalMatch.input",

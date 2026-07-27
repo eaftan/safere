@@ -17,9 +17,12 @@ import java.util.stream.Collectors;
 /** Resolves data-declared workloads that use specialized measurement machinery. */
 final class SpecializedBenchmarkPlan {
   private final Map<String, Trial> trials;
+  private final List<DeclarativeBenchmarkPlan.Exclusion> exclusions;
 
-  private SpecializedBenchmarkPlan(Map<String, Trial> trials) {
+  private SpecializedBenchmarkPlan(
+      Map<String, Trial> trials, List<DeclarativeBenchmarkPlan.Exclusion> exclusions) {
     this.trials = Collections.unmodifiableMap(new LinkedHashMap<>(trials));
+    this.exclusions = List.copyOf(exclusions);
   }
 
   static SpecializedBenchmarkPlan load() {
@@ -39,7 +42,13 @@ final class SpecializedBenchmarkPlan {
         throw new IllegalArgumentException("Duplicate specialized trial ID: " + converted.id());
       }
     }
-    return new SpecializedBenchmarkPlan(trials);
+    var workloadIds =
+        trials.values().stream().map(trial -> trial.workload().id()).collect(Collectors.toSet());
+    List<DeclarativeBenchmarkPlan.Exclusion> exclusions =
+        expanded.exclusions().stream()
+            .filter(exclusion -> workloadIds.contains(exclusion.workloadId()))
+            .toList();
+    return new SpecializedBenchmarkPlan(trials, exclusions);
   }
 
   private static boolean isSpecialized(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
@@ -95,6 +104,10 @@ final class SpecializedBenchmarkPlan {
                 trial.workload().measurement().mode()
                     == DeclarativeBenchmarkPlan.MeasurementMode.RETAINED_MEMORY)
         .toList();
+  }
+
+  List<DeclarativeBenchmarkPlan.Exclusion> exclusions() {
+    return exclusions;
   }
 
   static void main(String[] args) {
