@@ -8,6 +8,7 @@ package org.safere.benchmark;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -87,6 +88,39 @@ class BenchmarkInputMaterializerTest {
     assertThatThrownBy(() -> BenchmarkInputMaterializer.materialize(benchmarkData))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Cyclic materialized input recipe dependency: first -> second -> first");
+  }
+
+  @Test
+  void deeplyChainedAppendRecipesMaterializeWithoutUsingTheCallStack() {
+    int dependencyCount = 5_000;
+    JsonObject benchmarkData = new JsonObject();
+    benchmarkData.addProperty("schemaVersion", 1);
+    JsonArray inputs = new JsonArray();
+    for (int index = dependencyCount; index >= 1; index--) {
+      JsonObject declaration = new JsonObject();
+      declaration.addProperty("id", "input" + index);
+      JsonObject recipe = new JsonObject();
+      recipe.addProperty("kind", "appendInput");
+      recipe.addProperty("input", "input" + (index - 1));
+      recipe.addProperty("suffix", "x");
+      declaration.add("recipe", recipe);
+      declaration.addProperty("shared", true);
+      inputs.add(declaration);
+    }
+    JsonObject base = new JsonObject();
+    base.addProperty("id", "input0");
+    JsonObject baseRecipe = new JsonObject();
+    baseRecipe.addProperty("kind", "literal");
+    baseRecipe.addProperty("text", "");
+    base.add("recipe", baseRecipe);
+    base.addProperty("shared", true);
+    inputs.add(base);
+    benchmarkData.add("inputs", inputs);
+
+    Map<String, byte[]> materialized = BenchmarkInputMaterializer.materialize(benchmarkData);
+
+    assertThat(text(materialized, "input" + dependencyCount))
+        .isEqualTo("x".repeat(dependencyCount));
   }
 
   @Test

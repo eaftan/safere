@@ -14,6 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,7 +40,6 @@ public final class BenchmarkInputMaterializer {
   private final String benchmarkDataSha256;
   private final Map<String, DeclarativeBenchmarkPlan.InputDeclaration> declarations;
   private final Map<String, byte[]> inputs = new LinkedHashMap<>();
-  private final Set<String> activeRecipes = new LinkedHashSet<>();
 
   private BenchmarkInputMaterializer(JsonObject data, String benchmarkDataSha256) {
     this.data = data;
@@ -111,31 +112,57 @@ public final class BenchmarkInputMaterializer {
   }
 
   private byte[] materialize(String inputId) {
-    byte[] existing = inputs.get(inputId);
-    if (existing != null) {
-      return existing;
-    }
-    DeclarativeBenchmarkPlan.InputDeclaration declaration = declarations.get(inputId);
-    if (declaration == null) {
-      throw new IllegalArgumentException(
-          "Input recipe references unknown materialized input: " + inputId);
-    }
-    if (!activeRecipes.add(inputId)) {
-      throw new IllegalArgumentException(
-          "Cyclic materialized input recipe dependency: "
-              + String.join(" -> ", activeRecipes)
-              + " -> "
-              + inputId);
-    }
-    try {
-      byte[] bytes = evaluate(declaration.recipe()).getBytes(StandardCharsets.UTF_8);
-      if (inputs.put(inputId, bytes) != null) {
-        throw new IllegalArgumentException("Duplicate materialized input key: " + inputId);
+    Deque<MaterializationFrame> pending = new ArrayDeque<>();
+    Set<String> activeRecipes = new LinkedHashSet<>();
+    pending.push(new MaterializationFrame(inputId, false));
+    while (!pending.isEmpty()) {
+      MaterializationFrame frame = pending.pop();
+      if (inputs.containsKey(frame.inputId())) {
+        activeRecipes.remove(frame.inputId());
+        continue;
       }
-      return bytes;
-    } finally {
-      activeRecipes.remove(inputId);
+      DeclarativeBenchmarkPlan.InputDeclaration declaration = declarations.get(frame.inputId());
+      if (declaration == null) {
+        throw new IllegalArgumentException(
+            "Input recipe references unknown materialized input: " + frame.inputId());
+      }
+      if (frame.dependenciesResolved()) {
+        byte[] bytes = evaluate(declaration.recipe()).getBytes(StandardCharsets.UTF_8);
+        if (inputs.put(frame.inputId(), bytes) != null) {
+          throw new IllegalArgumentException(
+              "Duplicate materialized input key: " + frame.inputId());
+        }
+        activeRecipes.remove(frame.inputId());
+        continue;
+      }
+      if (!activeRecipes.add(frame.inputId())) {
+        throw new IllegalArgumentException(
+            "Cyclic materialized input recipe dependency: "
+                + String.join(" -> ", activeRecipes)
+                + " -> "
+                + frame.inputId());
+      }
+      pending.push(new MaterializationFrame(frame.inputId(), true));
+      String dependency = inputDependency(declaration.recipe());
+      if (dependency != null && !inputs.containsKey(dependency)) {
+        if (activeRecipes.contains(dependency)) {
+          throw new IllegalArgumentException(
+              "Cyclic materialized input recipe dependency: "
+                  + String.join(" -> ", activeRecipes)
+                  + " -> "
+                  + dependency);
+        }
+        pending.push(new MaterializationFrame(dependency, false));
+      }
     }
+    return inputs.get(inputId);
+  }
+
+  private static String inputDependency(DeclarativeBenchmarkPlan.InputRecipe recipe) {
+    if (recipe.kind() != DeclarativeBenchmarkPlan.RecipeKind.APPEND_INPUT) {
+      return null;
+    }
+    return string(recipe.arguments(), "input");
   }
 
   private String evaluate(DeclarativeBenchmarkPlan.InputRecipe recipe) {
@@ -154,7 +181,7 @@ public final class BenchmarkInputMaterializer {
               string(arguments, "delimiterAlphabet"),
               integer(arguments, "seed"));
       case APPEND_INPUT ->
-          new String(materialize(string(arguments, "input")), StandardCharsets.UTF_8)
+          new String(inputs.get(string(arguments, "input")), StandardCharsets.UTF_8)
               + string(arguments, "suffix");
       case RANDOM_CHARS ->
           randomChars(
@@ -218,6 +245,8 @@ public final class BenchmarkInputMaterializer {
               + string(arguments, "literal").repeat(integer(arguments, "count"));
     };
   }
+
+  private record MaterializationFrame(String inputId, boolean dependenciesResolved) {}
 
   private static String randomChars(String alphabet, int size, int seed) {
     Random random = new Random(seed);
