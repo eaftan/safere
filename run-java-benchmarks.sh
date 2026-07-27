@@ -196,6 +196,24 @@ if [ "$DECLARED" = true ]; then
     elif [ "$profile" = "coldStart" ]; then
       runner_opts="$COLD_START_JMH_OPTS"
     fi
+    if [ "$profile" = "coldStart" ]; then
+      IFS=',' read -r -a cold_start_trials <<< "$trial_ids"
+      for trial in "${cold_start_trials[@]}"; do
+        echo "=== Running declared $benchmark ($profile; $runner_opts; isolated trial $trial) ==="
+        RUNNER_COMMAND=(java \
+          $JVM_ARGS \
+          -jar "$BENCHMARK_JAR" \
+          -jvmArgs "$JVM_ARGS" \
+          $runner_opts \
+          -p "$parameter=$trial")
+        if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+          RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+        fi
+        RUNNER_COMMAND+=("^${benchmark//./\\.}$")
+        "${RUNNER_COMMAND[@]}"
+      done
+      continue
+    fi
     echo "=== Running declared $benchmark ($profile; $runner_opts) ==="
     RUNNER_COMMAND=(java \
       $JVM_ARGS \
