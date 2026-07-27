@@ -11,7 +11,7 @@ BenchmarkCollectionPlan runners [--smoke]
 BenchmarkCollectionPlan allocation-runners [--smoke]
 BenchmarkCollectionPlan trials [--mode MODE] [--timing UNIT]
                                [--prefix PREFIX] [--variant VARIANT]
-BenchmarkCollectionPlan report-plan
+BenchmarkCollectionPlan report-plan [--smoke]
 ```
 
 `runners` emits tab-separated execution profile, JMH entry point, parameter name, and planned trial
@@ -21,10 +21,11 @@ declarative `collection.allocationWorkloadPrefixes` selection and is consumed by
 `run-java-memory-benchmarks.sh --declared`.
 
 `report-plan` emits JSON containing every scheduled workload/variant pair and every declared
-exclusion. The result normalizer uses this catalog to render `missing` when a supported trial did
-not produce a result and `excluded` when the plan intentionally rejected that variant. An em dash
-continues to mean that the column is outside the declared Java execution matrix, such as a
-cross-runtime context column.
+exclusion. With `--smoke`, it selects the same representative workloads and compatible variants as
+`runners --smoke`. The result normalizer uses this catalog to render `missing` when a supported
+trial did not produce a result and `excluded` when the plan intentionally rejected that variant.
+An em dash continues to mean that the column is outside the declared Java execution matrix, such
+as a cross-runtime context column.
 
 JMH parameter names are an execution detail. The normalizer recognizes all generic runner
 parameters and splits each `<workload-id>@<execution-variant>` value into its stable report row and

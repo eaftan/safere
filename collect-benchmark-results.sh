@@ -277,12 +277,29 @@ fi
 
 if [ "$MODE" = "smoke" ]; then
   log "Verifying smoke output"
-  missing_cell="$(printf '\342\200\224')"
-  if grep -q "$missing_cell" "$OUTPUT_DIR/merged-tables.md" \
-    || grep -qw 'missing' "$OUTPUT_DIR/merged-tables.md"; then
-    echo "ERROR: smoke merged table contains missing result cells" >&2
-    exit 1
+  SMOKE_TABLES=("$OUTPUT_DIR/merged-tables.md")
+  if [ "$CROSS_LANGUAGE" = true ]; then
+    # Native harnesses intentionally cover only the cross-runtime subset, so
+    # their columns contain expected gaps in the merged Java report. Validate
+    # the complete Java matrix and the native subset independently.
+    python3 safere-benchmarks/scripts/compare-benchmarks.py \
+      --jmh "$OUTPUT_DIR/jmh-output.txt" \
+      --engines safere,safere_utf8,jdk,re2j,re2_ffm \
+      --declared-plan "$OUTPUT_DIR/declared-report-plan.json" \
+      > "$OUTPUT_DIR/smoke-java-tables.md"
+    SMOKE_TABLES=(
+      "$OUTPUT_DIR/smoke-java-tables.md"
+      "$OUTPUT_DIR/cross-runtime-tables.md"
+    )
   fi
+  missing_cell="$(printf '\342\200\224')"
+  for smoke_table in "${SMOKE_TABLES[@]}"; do
+    if grep -q "$missing_cell" "$smoke_table" \
+      || grep -qw 'missing' "$smoke_table"; then
+      echo "ERROR: smoke table contains missing result cells: $smoke_table" >&2
+      exit 1
+    fi
+  done
 fi
 
 log "Updating latest symlink"

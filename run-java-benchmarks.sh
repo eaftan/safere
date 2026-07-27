@@ -39,8 +39,7 @@
 #                        the declarative collection plan.
 #
 # Workloads that declare the noFork constraint run through the generic
-# CrossEngineNoForkBenchmark entry point with -f 0. The legacy pathological
-# classes also retain no-fork handling until their migration is complete.
+# CrossEngineNoForkBenchmark entry point with -f 0.
 #
 # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
 # explicitly when working on safere-crosscheck performance.
@@ -305,9 +304,7 @@ run_benchmark() {
   local bench="$1"
   local opts="$JMH_OPTS"
   case "$bench" in
-    *CrossEngineNoForkBenchmark*|*PathologicalBenchmark*|*PathologicalComparisonBenchmark*)
-      opts="$NO_FORK_JMH_OPTS"
-      ;;
+    *CrossEngineNoForkBenchmark*) opts="$NO_FORK_JMH_OPTS" ;;
     *CrossEngineColdStartBenchmark*)
       local trials="$CROSS_ENGINE_COLD_START_TRIALS"
       local extra_args=()
