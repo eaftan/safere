@@ -48,3 +48,9 @@ target_link_libraries(re2_benchmark re2::re2 nlohmann_json::nlohmann_json)
 if(SAFERE_HAVE_MALLINFO2)
   target_compile_definitions(re2_benchmark PRIVATE SAFERE_HAVE_MALLINFO2)
 endif()
+
+include(CTest)
+if(BUILD_TESTING)
+  add_test(NAME benchmark_sha256_test
+           COMMAND re2_benchmark --sha256-self-test)
+endif()

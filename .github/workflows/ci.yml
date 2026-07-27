@@ -147,6 +147,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release -Wno-dev
           cmake --build safere-benchmarks/cpp/build --parallel
 
+      - name: Test C++ benchmark support code
+        run: ctest --test-dir safere-benchmarks/cpp/build --output-on-failure
+
       - name: Smoke test C++ RE2 benchmarks
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \

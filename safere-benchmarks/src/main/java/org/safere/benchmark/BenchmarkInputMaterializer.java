@@ -346,9 +346,12 @@ public final class BenchmarkInputMaterializer {
     return " ".repeat(leading) + body + " ".repeat(padding - leading);
   }
 
-  private static String repeatToSize(String unit, int size) {
+  static String repeatToSize(String unit, int size) {
     if (size == 0) {
       return "";
+    }
+    if (unit.isEmpty()) {
+      throw new IllegalArgumentException("Repeat unit must not be empty when size is positive");
     }
     StringBuilder result = new StringBuilder(size + unit.length());
     while (result.length() < size) {
