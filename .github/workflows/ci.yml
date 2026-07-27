@@ -104,10 +104,22 @@ jobs:
           cache: maven
 
       - name: Smoke test Java benchmarks
-        run: ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
+        run: |
+          ./run-java-benchmarks.sh \
+            --smoke \
+            '^org\.safere\.benchmark\.CrossEngineBenchmark\.run$' \
+            -- \
+            -p \
+            'crossEngineTrial=RegexBenchmark.emailFind@safere-string,RegexBenchmark.emailFind@safere-utf8,RegexBenchmark.emailFind@jdk-string,RegexBenchmark.emailFind@re2j-string,RegexBenchmark.emailFind@re2-ffm-string-conversion'
 
       - name: Smoke test Java memory benchmarks (GC profiler)
-        run: ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
+        run: |
+          ./run-java-memory-benchmarks.sh \
+            --smoke \
+            '^org\.safere\.benchmark\.CrossEngineBenchmark\.run$' \
+            -- \
+            -p \
+            'crossEngineTrial=RegexBenchmark.emailFind@safere-string,RegexBenchmark.emailFind@safere-utf8,RegexBenchmark.emailFind@jdk-string,RegexBenchmark.emailFind@re2j-string,RegexBenchmark.emailFind@re2-ffm-string-conversion'
 
       - name: Smoke test Java memory benchmarks (pattern sizes)
         run: |

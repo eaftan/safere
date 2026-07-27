@@ -5,9 +5,9 @@
 # Run SafeRE JMH benchmarks with GC profiling to measure allocation rates.
 #
 # Usage:
-#   ./run-java-memory-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
-#   ./run-java-memory-benchmarks.sh --quick '^org\.safere\.benchmark\.RegexBenchmark\.'
-#   ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-memory-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+#   ./run-java-memory-benchmarks.sh --quick '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+#   ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-memory-benchmarks.sh                         # run all benchmarks
 #
 # This runs the same benchmarks as run-java-benchmarks.sh but adds JMH's
@@ -43,6 +43,32 @@ elif [ "${1:-}" = "--smoke" ]; then
   shift
 fi
 
+BENCHMARKS=()
+JMH_EXTRA_ARGS=()
+CROSS_ENGINE_PREFIXES=()
+CROSS_ENGINE_SCALING_PREFIXES=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --cross-engine-prefix)
+      CROSS_ENGINE_PREFIXES+=("$2")
+      shift 2
+      ;;
+    --cross-engine-scaling-prefix)
+      CROSS_ENGINE_SCALING_PREFIXES+=("$2")
+      shift 2
+      ;;
+    --)
+      shift
+      JMH_EXTRA_ARGS=("$@")
+      break
+      ;;
+    *)
+      BENCHMARKS+=("$1")
+      shift
+      ;;
+  esac
+done
+
 if [ "$MODE" = "smoke" ]; then
   JMH_OPTS="$SMOKE_OPTS"
   echo "=== Smoke-test mode (CI only) ==="
@@ -63,12 +89,69 @@ echo "=== Materializing shared benchmark inputs ==="
 # JVM args for FFM native access, native library path, and the resolved corpus.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
 
-if [ $# -eq 0 ]; then
-  echo "=== Running all benchmarks with GC profiling ==="
-  java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS
+if [ ${#CROSS_ENGINE_PREFIXES[@]} -gt 0 ]; then
+  CROSS_ENGINE_TRIALS="$(
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.CrossEngineBenchmarkPlan \
+      nanoseconds \
+      "${CROSS_ENGINE_PREFIXES[@]}"
+  )"
 else
-  for bench in "$@"; do
+  CROSS_ENGINE_TRIALS="$(
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.CrossEngineBenchmarkPlan \
+      nanoseconds
+  )"
+fi
+if [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -gt 0 ]; then
+  CROSS_ENGINE_SCALING_TRIALS="$(
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.CrossEngineBenchmarkPlan \
+      microseconds \
+      "${CROSS_ENGINE_SCALING_PREFIXES[@]}"
+  )"
+else
+  CROSS_ENGINE_SCALING_TRIALS="$(
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.CrossEngineBenchmarkPlan \
+      microseconds
+  )"
+fi
+CROSS_ENGINE_PARAM_ARGS=()
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineTrial=$CROSS_ENGINE_TRIALS")
+fi
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineScalingTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineScalingTrial=$CROSS_ENGINE_SCALING_TRIALS")
+fi
+RUN_ARGS=("${CROSS_ENGINE_PARAM_ARGS[@]}")
+if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+  RUN_ARGS+=("${JMH_EXTRA_ARGS[@]}")
+fi
+
+if [ ${#BENCHMARKS[@]} -eq 0 ]; then
+  echo "=== Running all benchmarks with GC profiling ==="
+  java \
+    $JVM_ARGS \
+    -jar "$BENCHMARK_JAR" \
+    -jvmArgs "$JVM_ARGS" \
+    -prof gc \
+    $JMH_OPTS \
+    "${RUN_ARGS[@]}"
+else
+  for bench in "${BENCHMARKS[@]}"; do
     echo "=== Running $bench with GC profiling ==="
-    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" -prof gc $JMH_OPTS "$bench"
+    java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      -prof gc \
+      $JMH_OPTS \
+      "${RUN_ARGS[@]}" \
+      "$bench"
   done
 fi

@@ -75,6 +75,7 @@ public final class BenchmarkInputMaterializer {
   }
 
   private void generate() {
+    generateCrossEngineInputs();
     generateUtf8Matching();
     generateSearchScaling();
     generateIssue481Scaling();
@@ -84,6 +85,36 @@ public final class BenchmarkInputMaterializer {
     generatePathological();
     generateFanout();
     add("memory.dfaCacheText", "contact user.name+tag@example.co.uk for info".repeat(200));
+  }
+
+  private void generateCrossEngineInputs() {
+    JsonObject regex = object("regex");
+    for (Map.Entry<String, JsonElement> entry : regex.entrySet()) {
+      JsonObject workload = entry.getValue().getAsJsonObject();
+      add(
+          crossEngineInputKey(workload.get("id").getAsString()),
+          workload.get("text").getAsString());
+    }
+
+    for (JsonElement element : data.getAsJsonArray("application")) {
+      ApplicationCase workload = ApplicationCase.fromJson(element.getAsJsonObject());
+      if (!workload.texts.isEmpty()) {
+        for (int index = 0; index < workload.texts.size(); index++) {
+          add(crossEngineInputKey(workload.id) + "." + index, workload.texts.get(index));
+        }
+      } else {
+        add(crossEngineInputKey(workload.id), workload.text);
+      }
+    }
+
+    String fullId = string("http.workloadIds.full");
+    add(crossEngineInputKey(fullId), string("http.fullRequest"));
+    String smallId = string("http.workloadIds.small");
+    add(crossEngineInputKey(smallId), string("http.smallRequest"));
+  }
+
+  static String crossEngineInputKey(String workloadId) {
+    return "crossEngine." + workloadId + ".input";
   }
 
   private void generateUtf8Matching() {

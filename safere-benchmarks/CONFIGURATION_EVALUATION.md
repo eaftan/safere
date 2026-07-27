@@ -6,7 +6,7 @@ The goal of this experiment was to find the fastest Java benchmark
 configuration that gives stable enough results for engineering decisions.
 
 The benchmark question we care about is not just whether an individual raw JMH
-score is stable. Most SafeRE benchmark decisions are comparative: did SafeRE get
+score is stable. Most SafeRE benchmark decisions are cross-engine: did SafeRE get
 faster or slower relative to JDK, RE2/J, or RE2-FFM? For that reason, this
 experiment evaluates stability of SafeRE/competitor ratios across independent
 benchmark invocations.
@@ -28,7 +28,7 @@ benchmark command, does the conclusion hold?
 The primary decision metric is **p90 ratio CV**.
 
 Ratio CV is the coefficient of variation of the SafeRE/competitor ratio across
-independent invocations. It directly measures whether the comparative benchmark
+independent invocations. It directly measures whether the cross-engine benchmark
 result is stable. The p90 value is used because median ratio CV is too forgiving:
 it can hide a small number of noisy benchmark/competitor pairs that still affect
 the interpretation.
@@ -140,7 +140,7 @@ its p90 ratio CV was still worse than E (5.5% vs 4.5%). Since C is only about
 bound than as the primary configuration.
 
 In the initial three-task calibration, the absolute floor configurations were
-too noisy for comparative decisions.
+too noisy for cross-engine decisions.
 A0 is extremely fast, but p90 ratio CV is 17.6%. A1 is worse despite adding a
 tiny warmup, with p90 ratio CV of 31.4% and one winner flip.
 
@@ -149,7 +149,7 @@ not improve the primary decision metric in the initial calibration run. It took
 about 15.5x as long as E, and its p90 ratio CV was worse than E because
 `urlExtraction_safere` had a slow fork in one repeat. This does not prove that
 longer runs are never useful, but it does show that the former default settings
-are not automatically more decision-stable for the kind of comparative ratios we
+are not automatically more decision-stable for the kind of cross-engine ratios we
 care about.
 
 ## Adopted Procedure
@@ -180,8 +180,8 @@ important enough to justify roughly doubling the runtime:
 The benchmark runner exposes these as:
 
 ```bash
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
-./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 ```
 
 ## Reproducing

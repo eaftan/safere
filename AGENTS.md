@@ -46,7 +46,7 @@ mvn -pl safere test -q
 mvn install -DskipTests -q
 
 # Run benchmarks (see Benchmarking section below)
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 ```
 
 ## Code Style
@@ -298,10 +298,10 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 
 ```bash
 # BENCHMARKS.md updates and routine benchmark evidence
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 
 # Longer confirmation run for close, surprising, or important comparisons
-./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 
 # Separately licensed OpenJDK-derived suite (requires an external checkout)
 ./run-openjdk-regex-benchmarks.sh
@@ -318,15 +318,14 @@ per invocation and collect results incrementally:
 
 ```bash
 ./run-java-benchmarks.sh \
+  '^org\.safere\.benchmark\.CrossEngineBenchmark\.' \
   '^org\.safere\.benchmark\.RegexBenchmark\.' \
   '^org\.safere\.benchmark\.CompileBenchmark\.'
 ./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.SearchScalingBenchmark\.' \
+  '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.' \
   '^org\.safere\.benchmark\.CaptureScalingBenchmark\.'
 ./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.HttpBenchmark\.' \
-  '^org\.safere\.benchmark\.ReplaceBenchmark\.' \
-  '^org\.safere\.benchmark\.FanoutBenchmark\.'
+  '^org\.safere\.benchmark\.ReplaceBenchmark\.'
 ./run-java-benchmarks.sh \
   '^org\.safere\.benchmark\.PathologicalBenchmark\.' \
   '^org\.safere\.benchmark\.PathologicalComparisonBenchmark\.'
@@ -335,7 +334,7 @@ per invocation and collect results incrementally:
 **Extract summary tables from JMH output** using grep:
 
 ```bash
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.' 2>&1 \
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.' 2>&1 \
   | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
 ```
 

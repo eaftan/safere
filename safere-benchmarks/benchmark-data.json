@@ -1,32 +1,38 @@
 {
   "regex": {
     "literalMatch": {
+      "id": "RegexBenchmark.literalMatch",
       "pattern": "hello",
       "text": "hello",
       "op": "matches"
     },
     "charClassMatch": {
+      "id": "RegexBenchmark.charClassMatch",
       "pattern": "[a-zA-Z]+",
       "text": "TheQuickBrownFoxJumpsOverTheLazyDog",
       "op": "matches"
     },
     "alternationFind": {
+      "id": "RegexBenchmark.alternationFind",
       "pattern": "foo|bar|baz|qux|quux|corge|grault|garply",
       "text": "the garply went to the baz and met a quux",
       "op": "findAllCount"
     },
     "captureGroups": {
+      "id": "RegexBenchmark.captureGroups",
       "pattern": "(\\d{4})-(\\d{2})-(\\d{2})",
       "text": "2025-12-25",
       "op": "matchAndExtract",
       "groups": 3
     },
     "findInText": {
+      "id": "RegexBenchmark.findInText",
       "pattern": "\\b\\w+ing\\b",
       "text": "The morning sun was shining brightly, casting long shadows across the rolling hills. Birds were singing their melodious songs while children were playing in the sprawling gardens. A gentle breeze was blowing through the swaying trees, carrying the scent of blooming flowers. People were walking along the winding paths, enjoying the refreshing air and the stunning views of the surrounding countryside. Everything was moving in perfect harmony.",
       "op": "findAllCount"
     },
     "emailFind": {
+      "id": "RegexBenchmark.emailFind",
       "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}",
       "text": "contact user.name+tag@example.co.uk for info",
       "op": "find"
@@ -125,6 +131,13 @@
   },
 
   "searchScaling": {
+    "workloadIds": {
+      "easyFail": "SearchScalingBenchmark.searchEasyFail",
+      "easySuccess": "SearchScalingBenchmark.searchEasySuccess",
+      "mediumFail": "SearchScalingBenchmark.searchMediumFail",
+      "hardFail": "SearchScalingBenchmark.searchHardFail",
+      "findIngScaled": "SearchScalingBenchmark.findIngScaled"
+    },
     "patterns": {
       "easy": "ABCDEFGHIJKLMNOPQRSTUVWXYZ$",
       "medium": "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$",
@@ -209,6 +222,11 @@
   },
 
   "http": {
+    "workloadIds": {
+      "full": "HttpBenchmark.httpFull",
+      "small": "HttpBenchmark.httpSmall",
+      "extract": "HttpBenchmark.httpExtract"
+    },
     "pattern": "^(?:GET|POST) +([^ ]+) HTTP",
     "fullRequest": "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1",
     "smallRequest": "GET /abc HTTP/1.1"
@@ -267,6 +285,7 @@
     "seed": 42,
     "cases": [
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.mapFieldPath",
         "name": "mapFieldPath",
         "pattern": "([\\S]+)\\b\\[(.+)\\]",
         "op": "find",
@@ -274,6 +293,7 @@
         "nonMatch": "config.overrides"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.markupImageLink",
         "name": "markupImageLink",
         "pattern": "<<!(image|media|link)(\\([^\\)]*\\))?/?>?>",
         "op": "replaceAllEmpty",
@@ -281,6 +301,7 @@
         "nonMatch": "<<!image"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.versionList",
         "name": "versionList",
         "pattern": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
         "op": "replaceAllEmpty",
@@ -288,6 +309,7 @@
         "nonMatch": "[1.2.3,"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.malformedEntity",
         "name": "malformedEntity",
         "pattern": "<[^>]*entity[^>]*>{1,2}",
         "op": "replaceAllEmpty",
@@ -295,6 +317,7 @@
         "nonMatch": "<ent id=\"123\">"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.markupEntity",
         "name": "markupEntity",
         "pattern": "<<!entity.*?>>",
         "op": "find",
@@ -302,6 +325,7 @@
         "nonMatch": "<<entity(id=\"123\")"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.customProtocolLink",
         "name": "customProtocolLink",
         "pattern": "\\[(.*?)]\\(customProtocol://((?:<[^>]*>|[^()]*|\\([^()]*\\))*)\\)",
         "op": "find",
@@ -309,6 +333,7 @@
         "nonMatch": "[Click here](http://google.com)"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.wildcardSearch",
         "name": "wildcardSearch",
         "pattern": "(?is).*\\b(you|your)\\b.*",
         "op": "find",
@@ -316,6 +341,7 @@
         "nonMatch": "What is the capital of France?"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.metadataBlock",
         "name": "metadataBlock",
         "pattern": "(?s)<meta_start>.*?<meta_end>",
         "op": "replaceAllEmpty",
@@ -323,6 +349,7 @@
         "nonMatch": "<meta_start>Thinking process: analyzing query..."
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.blockedTags1",
         "name": "blockedTags1",
         "pattern": "```code_block\\n(\\s)*# (topic|tags)_identified:.*?\\n```",
         "op": "replaceAllEmpty",
@@ -330,6 +357,7 @@
         "nonMatch": "```code_block\n# tags: shopping\n```"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.blockedTags2",
         "name": "blockedTags2",
         "pattern": "<container>\\n(\\s)*# (topic|tags)_identified:.*?\\n</container>",
         "op": "replaceAllEmpty",
@@ -337,6 +365,7 @@
         "nonMatch": "<container>\n# topic: sports\n</container>"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.overlappingUrl",
         "name": "overlappingUrl",
         "pattern": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
         "op": "replaceAllEmpty",
@@ -344,6 +373,7 @@
         "nonMatch": "some-random-domain-name"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword",
         "name": "caseInsensitiveKeyword",
         "pattern": "(?i)keyword_to_find",
         "op": "replaceAllEmpty",
@@ -351,6 +381,7 @@
         "nonMatch": "other_random_words"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.boundedNameMatch",
         "name": "boundedNameMatch",
         "pattern": "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)",
         "op": "replaceAllEmpty",
@@ -358,6 +389,7 @@
         "nonMatch": "first name other_value"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.templateTagMatch",
         "name": "templateTagMatch",
         "pattern": "(?s)(<template\\s+name\\s*>.*?<\\s*/\\s*template[ \\t]*)([^>]|$)",
         "op": "replaceAllEmpty",
@@ -365,6 +397,7 @@
         "nonMatch": "plain text without template tag"
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.sparseUrl",
         "name": "sparseUrl",
         "pattern": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
         "op": "replaceAllEmpty",
@@ -377,6 +410,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary",
         "name": "unprefixedWordBoundary",
         "pattern": "\\b[a-zA-Z]{3,5}\\b",
         "op": "find",
@@ -388,6 +422,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery",
         "name": "fruitSearchQuery",
         "pattern": "(?is).*\\b(apples?.*for banana|cherry.*dates?|elderberry lists?|fig lists?|grape lists?)\\b.*",
         "op": "replaceAllGroup1",
@@ -401,6 +436,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag",
         "name": "fruitMarkupTag",
         "pattern": "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$",
         "op": "replaceAllGroup1",
@@ -416,6 +452,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.jsonBlock",
         "name": "jsonBlock",
         "pattern": "(\\{[\\s\\S]*\\})",
         "op": "replaceAllGroup1",
@@ -433,6 +470,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.charReplace",
         "name": "charReplace",
         "pattern": "a",
         "op": "replaceAllLiteral",
@@ -446,6 +484,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.greedyOnePass",
         "name": "greedyOnePass",
         "pattern": "^(.+)",
         "op": "matches",
@@ -459,6 +498,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.layoutBlock",
         "name": "layoutBlock",
         "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
         "op": "replaceAllEmpty",
@@ -471,6 +511,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk",
         "name": "turnTitleWhitespaceCjk",
         "pattern": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
         "op": "replaceAllEmpty",
@@ -484,6 +525,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.cjkSearch",
         "name": "cjkSearch",
         "pattern": "[一-龥]{3,}",
         "op": "find",
@@ -497,6 +539,7 @@
         }
       },
       {
+        "id": "RealWorldRegexBenchmark.runBenchmark.emojiSearch",
         "name": "emojiSearch",
         "pattern": "[😀-😇]",
         "op": "find",
@@ -514,6 +557,7 @@
 
   "application": [
     {
+      "id": "ApplicationBenchmark.uuidValidation",
       "name": "uuidValidation",
       "op": "matchesCorpus",
       "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
@@ -528,6 +572,7 @@
       "expected": 3
     },
     {
+      "id": "ApplicationBenchmark.logLineParse",
       "name": "logLineParse",
       "op": "matchesGroupLengthSum",
       "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)\\s+(INFO|WARN|ERROR)\\s+([A-Za-z0-9_.-]+)\\s+-\\s+(.+)$",
@@ -542,6 +587,7 @@
       "expected": 39
     },
     {
+      "id": "ApplicationBenchmark.apiRouteMatch",
       "name": "apiRouteMatch",
       "op": "matchesGroupLengthSum",
       "pattern": "^/api/v[0-9]+/(users|orders|inventory)/([A-Za-z0-9_-]+)(?:\\?.*)?$",
@@ -557,6 +603,7 @@
       "expected": 41
     },
     {
+      "id": "ApplicationBenchmark.stackTraceExtract",
       "name": "stackTraceExtract",
       "op": "findAllGroupLengthSum",
       "pattern": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
@@ -565,6 +612,7 @@
       "expected": 93
     },
     {
+      "id": "ApplicationBenchmark.caseInsensitiveKeywords",
       "name": "caseInsensitiveKeywords",
       "op": "findAllCount",
       "pattern": "(?i)\\b(error|warning|timeout|failed)\\b",
@@ -572,6 +620,7 @@
       "expected": 4
     },
     {
+      "id": "ApplicationBenchmark.urlExtraction",
       "name": "urlExtraction",
       "op": "findAllLengthSum",
       "pattern": "(https?://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9._~:/?#\\[\\]@!$&'()*+,;=%-]*)?)",
@@ -579,6 +628,7 @@
       "expected": 124
     },
     {
+      "id": "ApplicationBenchmark.csvFieldScan",
       "name": "csvFieldScan",
       "op": "findAllLengthSum",
       "pattern": "(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\\r\\n]+))",
@@ -586,6 +636,7 @@
       "expected": 156
     },
     {
+      "id": "ApplicationBenchmark.secretRedaction",
       "name": "secretRedaction",
       "op": "replaceAll",
       "pattern": "(?i)\\b(password|token|secret)=([^\\s&]+)",
@@ -603,11 +654,13 @@
 
   "fanout": {
     "unicodeFanout": {
+      "id": "FanoutBenchmark.fanoutUnicode",
       "pattern": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
       "codePoints": [19968, 19969, 19970, 233, 241, 252, 1040, 1041, 1042, 12354, 12356, 12358],
       "seed": 42
     },
     "nestedQuantifier": {
+      "id": "FanoutBenchmark.nestedQuantifier",
       "pattern": "(?:a?){20}a{20}",
       "alphabet": "abcdefghijklmnopqrstuvwxyz",
       "seed": 42

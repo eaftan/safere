@@ -66,6 +66,13 @@ _JMH_ENGINE_PARAMS = {
     "RE2J": "re2j",
     "RE2_FFM": "re2_ffm",
 }
+_CROSS_ENGINE_VARIANTS = {
+    "safere-string": "safere",
+    "safere-utf8": "safere_utf8",
+    "jdk-string": "jdk",
+    "re2j-string": "re2j",
+    "re2-ffm-string-conversion": "re2_ffm",
+}
 _JMH_MODES = {"avgt", "thrpt", "sample", "ss", "all"}
 
 
@@ -161,6 +168,23 @@ def _parse_jmh_parameterized_line(line, param_names):
         return None
     class_name = full_name[: dot]
     method = full_name[dot + 1 :]
+
+    trial = params.get("crossEngineTrial", params.get("crossEngineScalingTrial"))
+    if trial and trial != "N/A":
+        try:
+            benchmark, variant = trial.rsplit("@", 1)
+        except ValueError:
+            return None
+        engine = _CROSS_ENGINE_VARIANTS.get(variant)
+        if engine is None:
+            return None
+        return Result(
+            engine=engine,
+            benchmark=benchmark,
+            score=score,
+            error=error,
+            unit=unit,
+        )
 
     engine, base_method = _engine_from_method(method)
     if "engine" in params and params["engine"] != "N/A":
@@ -416,18 +440,28 @@ def generate_tables(results, engines):
     return "\n".join(lines)
 
 
-def _application_benchmarks_from_data(path):
+def _application_cases_from_data(path):
     with open(path) as fh:
         data = json.load(fh)
     return {
-        f"ApplicationBenchmark.{case['name']}"
+        case["id"]: case["op"]
         for case in data.get("application", [])
     }
 
 
+def _expected_application_benchmarks(cases, engine):
+    if engine == "safere_utf8":
+        return {
+            benchmark
+            for benchmark, operation in cases.items()
+            if operation in {"find", "findAllCount"}
+        }
+    return set(cases)
+
+
 def verify_application_names(results, benchmark_data_path, engines):
-    """Verify every engine emitted the application case names from benchmark data."""
-    expected = _application_benchmarks_from_data(benchmark_data_path)
+    """Verify each engine emitted its supported application cases from benchmark data."""
+    cases = _application_cases_from_data(benchmark_data_path)
     by_engine = collections.defaultdict(set)
     seen_engines = collections.OrderedDict()
     for result in results:
@@ -438,6 +472,7 @@ def verify_application_names(results, benchmark_data_path, engines):
     expected_engines = engines or list(seen_engines)
     errors = []
     for engine in expected_engines:
+        expected = _expected_application_benchmarks(cases, engine)
         names = by_engine[engine]
         missing = sorted(expected - names)
         extra = sorted(names - expected)

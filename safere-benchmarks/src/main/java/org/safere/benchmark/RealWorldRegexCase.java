@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 /** One data-driven real-world regex benchmark case from {@code benchmark-data.json}. */
 final class RealWorldRegexCase {
 
+  final String id;
   final String name;
   final String op;
   final String pattern;
@@ -19,6 +20,7 @@ final class RealWorldRegexCase {
   final InputSpec nonMatchInput;
 
   private RealWorldRegexCase(
+      String id,
       String name,
       String op,
       String pattern,
@@ -26,6 +28,7 @@ final class RealWorldRegexCase {
       String nonMatch,
       InputSpec matchInput,
       InputSpec nonMatchInput) {
+    this.id = id;
     this.name = name;
     this.op = op;
     this.pattern = pattern;
@@ -36,6 +39,7 @@ final class RealWorldRegexCase {
   }
 
   static RealWorldRegexCase fromJson(JsonObject obj) {
+    String id = requireString(obj, "id");
     String name = requireString(obj, "name");
     String op = requireString(obj, "op");
     String pattern = requireString(obj, "pattern");
@@ -50,7 +54,8 @@ final class RealWorldRegexCase {
     }
     InputSpec matchInput = InputSpec.fromJson(obj, "matchInput");
     InputSpec nonMatchInput = InputSpec.fromJson(obj, "nonMatchInput");
-    return new RealWorldRegexCase(name, op, pattern, match, nonMatch, matchInput, nonMatchInput);
+    return new RealWorldRegexCase(
+        id, name, op, pattern, match, nonMatch, matchInput, nonMatchInput);
   }
 
   private static String requireString(JsonObject obj, String field) {

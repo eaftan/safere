@@ -5,9 +5,9 @@
 # Run SafeRE JMH benchmarks.
 #
 # Usage:
-#   ./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
-#   ./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
-#   ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.'
+#   ./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+#   ./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+#   ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-benchmarks.sh --first-compile \
 #     '^org\.safere\.benchmark\.UnicodeFirstCompileBenchmark\.'
 #   ./run-java-benchmarks.sh                         # run all benchmarks
@@ -45,8 +45,8 @@
 # Arguments after the mode flag are passed directly to JMH as benchmark regex
 # filters. Use `--` to pass additional options directly to JMH, for example:
 #
-#   ./run-java-benchmarks.sh RealWorldRegexBenchmark.runBenchmark -- \
-#     -p patternName=unprefixedWordBoundary -p engine=SafeRE
+#   ./run-java-benchmarks.sh CrossEngineBenchmark.run -- \
+#     -p crossEngineTrial=RegexBenchmark.emailFind@safere-utf8
 
 set -euo pipefail
 
@@ -170,6 +170,28 @@ echo "=== Materializing shared benchmark inputs ==="
 # JVM args for FFM native access, native library path, and the resolved corpus.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
 
+# JMH discovers benchmark methods statically, while the supported cross-engine
+# workload/variant matrix comes from benchmark-data.json and the centralized
+# engine registry. Supply the planned trial IDs as one parameter dimension so
+# unsupported combinations never enter JMH's Cartesian parameter expansion.
+CROSS_ENGINE_TRIALS="$(
+  java $JVM_ARGS \
+    -cp "$BENCHMARK_JAR" \
+    org.safere.benchmark.CrossEngineBenchmarkPlan nanoseconds
+)"
+CROSS_ENGINE_SCALING_TRIALS="$(
+  java $JVM_ARGS \
+    -cp "$BENCHMARK_JAR" \
+    org.safere.benchmark.CrossEngineBenchmarkPlan microseconds
+)"
+CROSS_ENGINE_PARAM_ARGS=()
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineTrial=$CROSS_ENGINE_TRIALS")
+fi
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineScalingTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineScalingTrial=$CROSS_ENGINE_SCALING_TRIALS")
+fi
+
 # Returns true if the benchmark name matches a pathological benchmark.
 is_pathological() {
   case "$1" in
@@ -191,11 +213,18 @@ run_benchmark() {
       -jar "$BENCHMARK_JAR" \
       -jvmArgs "$JVM_ARGS" \
       $opts \
+      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "${JMH_EXTRA_ARGS[@]}" \
       "$bench"
   else
     echo "=== Running $bench ($opts) ==="
-    java $JVM_ARGS -jar "$BENCHMARK_JAR" -jvmArgs "$JVM_ARGS" $opts "$bench"
+    java \
+      $JVM_ARGS \
+      -jar "$BENCHMARK_JAR" \
+      -jvmArgs "$JVM_ARGS" \
+      $opts \
+      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
+      "$bench"
   fi
 }
 
@@ -207,6 +236,7 @@ if [ ${#BENCHMARKS[@]} -eq 0 ]; then
       -jar "$BENCHMARK_JAR" \
       -jvmArgs "$JVM_ARGS" \
       $JMH_OPTS \
+      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "${JMH_EXTRA_ARGS[@]}" \
       "$DEFAULT_BENCHMARK_REGEX"
   else
@@ -215,6 +245,7 @@ if [ ${#BENCHMARKS[@]} -eq 0 ]; then
       -jar "$BENCHMARK_JAR" \
       -jvmArgs "$JVM_ARGS" \
       $JMH_OPTS \
+      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "$DEFAULT_BENCHMARK_REGEX"
   fi
 else

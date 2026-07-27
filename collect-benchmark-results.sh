@@ -143,36 +143,43 @@ fi
 
 if [ "$MODE" = "smoke" ]; then
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
-    ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.literalMatch_'
+    ./run-java-benchmarks.sh \
+      --smoke \
+      '^org\.safere\.benchmark\.CrossEngineBenchmark\.run$' \
+      -- \
+      -p \
+      'crossEngineTrial=RegexBenchmark.emailFind@safere-string,RegexBenchmark.emailFind@safere-utf8,RegexBenchmark.emailFind@jdk-string,RegexBenchmark.emailFind@re2j-string,RegexBenchmark.emailFind@re2-ffm-string-conversion'
 
   log "Combining Java JMH output"
   cp "$OUTPUT_DIR/java-01-core.txt" "$OUTPUT_DIR/jmh-output.txt"
 
   clean_benchmark_module
   run_and_capture "$OUTPUT_DIR/java-memory.txt" \
-    ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.RegexBenchmark\.literalMatch_'
+    ./run-java-memory-benchmarks.sh \
+      --smoke \
+      '^org\.safere\.benchmark\.CrossEngineBenchmark\.run$' \
+      -- \
+      -p \
+      'crossEngineTrial=RegexBenchmark.emailFind@safere-string,RegexBenchmark.emailFind@safere-utf8,RegexBenchmark.emailFind@jdk-string,RegexBenchmark.emailFind@re2j-string,RegexBenchmark.emailFind@re2-ffm-string-conversion'
 else
   run_and_capture "$OUTPUT_DIR/java-01-core.txt" \
     ./run-java-benchmarks.sh \
       "${JAVA_MODE_ARGS[@]}" \
+      '^org\.safere\.benchmark\.CrossEngineBenchmark\.' \
       '^org\.safere\.benchmark\.RegexBenchmark\.' \
-      '^org\.safere\.benchmark\.ApplicationBenchmark\.' \
-      '^org\.safere\.benchmark\.RealWorldRegexBenchmark\.' \
       '^org\.safere\.benchmark\.CompileBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-02-scaling.txt" \
     ./run-java-benchmarks.sh \
       "${JAVA_MODE_ARGS[@]}" \
-      '^org\.safere\.benchmark\.SearchScalingBenchmark\.' \
+      '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.' \
       '^org\.safere\.benchmark\.Issue481ScalingBenchmark\.' \
       '^org\.safere\.benchmark\.CaptureScalingBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-03-http-replace-fanout.txt" \
     ./run-java-benchmarks.sh \
       "${JAVA_MODE_ARGS[@]}" \
-      '^org\.safere\.benchmark\.HttpBenchmark\.' \
-      '^org\.safere\.benchmark\.ReplaceBenchmark\.' \
-      '^org\.safere\.benchmark\.FanoutBenchmark\.'
+      '^org\.safere\.benchmark\.ReplaceBenchmark\.'
 
   run_and_capture "$OUTPUT_DIR/java-04-pathological.txt" \
     ./run-java-benchmarks.sh \
@@ -193,11 +200,20 @@ else
     > "$OUTPUT_DIR/jmh-output.txt"
 
   clean_benchmark_module
-  run_and_capture "$OUTPUT_DIR/java-memory.txt" \
+  run_and_capture "$OUTPUT_DIR/java-memory-core.txt" \
     ./run-java-memory-benchmarks.sh \
-      '^org\.safere\.benchmark\.RegexBenchmark\.' \
-      '^org\.safere\.benchmark\.SearchScalingBenchmark\.' \
+      --cross-engine-prefix 'RegexBenchmark.' \
+      '^org\.safere\.benchmark\.CrossEngineBenchmark\.' \
+      '^org\.safere\.benchmark\.RegexBenchmark\.'
+  run_and_capture "$OUTPUT_DIR/java-memory-scaling.txt" \
+    ./run-java-memory-benchmarks.sh \
+      --cross-engine-scaling-prefix 'SearchScalingBenchmark.' \
+      '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.' \
       '^org\.safere\.benchmark\.MemoryScalingBenchmark\.'
+  cat \
+    "$OUTPUT_DIR/java-memory-core.txt" \
+    "$OUTPUT_DIR/java-memory-scaling.txt" \
+    > "$OUTPUT_DIR/java-memory.txt"
 fi
 
 run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" \
@@ -227,7 +243,7 @@ if [ "$OPENJDK_REGEX" = true ]; then
     ./run-openjdk-regex-benchmarks.sh "${OPENJDK_REGEX_ARGS[@]}"
 fi
 
-COMPARE_ENGINES="safere,jdk,re2j,re2_ffm"
+COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm"
 COMPARE_ARGS=(
   --jmh "$OUTPUT_DIR/jmh-output.txt"
 )
@@ -235,7 +251,7 @@ COMPARE_ARGS=(
 if [ "$CROSS_LANGUAGE" = true ]; then
   if [ "$MODE" = "smoke" ]; then
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-      ./run-cpp-benchmarks.sh RegexBenchmark.literalMatch
+      ./run-cpp-benchmarks.sh RegexBenchmark.emailFind
   else
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
       ./run-cpp-benchmarks.sh Regex Application RealWorldRegex Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
@@ -246,7 +262,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
 
   if [ "$MODE" = "smoke" ]; then
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-      ./run-go-benchmarks.sh RegexBenchmark.literalMatch
+      ./run-go-benchmarks.sh RegexBenchmark.emailFind
   else
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
       ./run-go-benchmarks.sh Regex Application RealWorldRegex Compile SearchScaling Issue481Scaling CaptureScaling Http Replace Fanout Pathological
@@ -258,7 +274,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
   COMPARE_ARGS+=(
     --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl"
   )
-  COMPARE_ENGINES="safere,jdk,re2j,re2_ffm,re2_cpp,go"
+  COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm,re2_cpp,go"
 fi
 
 log "Generating markdown tables"

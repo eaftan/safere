@@ -13,6 +13,7 @@ import java.util.List;
 /** One data-driven application benchmark case from {@code benchmark-data.json}. */
 final class ApplicationCase {
 
+  final String id;
   final String name;
   final String op;
   final String pattern;
@@ -23,6 +24,7 @@ final class ApplicationCase {
   final JsonElement expected;
 
   private ApplicationCase(
+      String id,
       String name,
       String op,
       String pattern,
@@ -31,6 +33,7 @@ final class ApplicationCase {
       int[] groups,
       String replacement,
       JsonElement expected) {
+    this.id = id;
     this.name = name;
     this.op = op;
     this.pattern = pattern;
@@ -42,6 +45,7 @@ final class ApplicationCase {
   }
 
   static ApplicationCase fromJson(JsonObject obj) {
+    String id = requireString(obj, "id");
     String name = requireString(obj, "name");
     String op = requireString(obj, "op");
     String pattern = requireString(obj, "pattern");
@@ -70,7 +74,7 @@ final class ApplicationCase {
       }
       default -> throw new IllegalArgumentException("Unknown application benchmark op: " + op);
     }
-    return new ApplicationCase(name, op, pattern, texts, text, groups, replacement, expected);
+    return new ApplicationCase(id, name, op, pattern, texts, text, groups, replacement, expected);
   }
 
   boolean expectsString() {

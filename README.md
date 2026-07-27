@@ -546,17 +546,22 @@ development iteration or focused investigation; use
 ```bash
 # Java benchmarks (throughput)
 ./run-java-benchmarks.sh                        # standard benchmarks
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.ApplicationBenchmark\.'
-./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.'
+./run-java-benchmarks.sh CrossEngineBenchmark.run -- \
+  -p crossEngineTrial=RegexBenchmark.emailFind@safere-utf8
 
 # Java memory profiling (allocation rates via JMH GC profiler)
 ./run-java-memory-benchmarks.sh                 # all benchmarks
-./run-java-memory-benchmarks.sh '^org\.safere\.benchmark\.RegexBenchmark\.'
+./run-java-memory-benchmarks.sh \
+  --cross-engine-prefix 'RegexBenchmark.' \
+  '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 ```
 
-Arguments to the Java wrapper scripts are passed directly to JMH as benchmark
-regex filters.
+Benchmark regexes select JMH entry points. Use arguments after `--` to select a
+specific cross-engine workload/variant trial or pass other JMH options. See
+[`safere-benchmarks/CROSS_ENGINE_EXECUTION.md`](safere-benchmarks/CROSS_ENGINE_EXECUTION.md)
+for workload IDs, execution variants, and timing boundaries.
 
 Run a targeted workload from the external OpenJDK-derived suite with:
 
