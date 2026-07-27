@@ -189,7 +189,21 @@ if [ "$DECLARED" = true ]; then
   if [ "$MODE" = "smoke" ]; then
     COLLECTION_QUERY+=(--smoke)
   fi
+  matched_runner=false
   while IFS=$'\t' read -r profile benchmark parameter trial_ids; do
+    if [ ${#BENCHMARKS[@]} -gt 0 ]; then
+      matches_filter=false
+      for filter in "${BENCHMARKS[@]}"; do
+        if [[ "$benchmark" =~ $filter ]]; then
+          matches_filter=true
+          break
+        fi
+      done
+      if [ "$matches_filter" = false ]; then
+        continue
+      fi
+    fi
+    matched_runner=true
     runner_opts="$JMH_OPTS"
     if [ "$profile" = "noFork" ]; then
       runner_opts="$NO_FORK_JMH_OPTS"
@@ -232,6 +246,10 @@ if [ "$DECLARED" = true ]; then
       org.safere.benchmark.BenchmarkCollectionPlan \
       "${COLLECTION_QUERY[@]}"
   )
+  if [ "$matched_runner" = false ]; then
+    echo "ERROR: no declared benchmark runner matches the requested filters" >&2
+    exit 1
+  fi
   exit 0
 fi
 

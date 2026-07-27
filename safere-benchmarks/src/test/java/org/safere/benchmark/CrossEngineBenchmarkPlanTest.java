@@ -47,7 +47,7 @@ class CrossEngineBenchmarkPlanTest {
             "HttpBenchmark.httpFull",
             "SearchScalingBenchmark.searchEasyFail.1024",
             "FanoutBenchmark.fanoutUnicode.1024");
-    assertThat(ids).hasSize(400);
+    assertThat(ids).hasSize(408);
   }
 
   @Test
@@ -76,9 +76,9 @@ class CrossEngineBenchmarkPlanTest {
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
           .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(1380);
-    assertThat(plan.exclusions()).hasSize(620);
-    assertThat(accounted).hasSize(400 * RegexEngineVariant.values().length);
+    assertThat(allTrials).hasSize(1404);
+    assertThat(plan.exclusions()).hasSize(636);
+    assertThat(accounted).hasSize(408 * RegexEngineVariant.values().length);
   }
 
   @Test
@@ -99,7 +99,7 @@ class CrossEngineBenchmarkPlanTest {
             second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(499);
+        .hasSize(523);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
@@ -320,6 +320,30 @@ class CrossEngineBenchmarkPlanTest {
         .hasSize(1443);
     assertThat(plan.reportPlan().trials()).hasSize(1443);
     assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
+    assertThat(
+            plan.reportPlan(true).trials().stream()
+                .map(BenchmarkCollectionPlan.CollectionTrial::workloadId)
+                .distinct())
+        .hasSize(5);
+  }
+
+  @Test
+  void allocationCollectionPreservesMemoryScalingWithoutAddingTimingTrials() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+
+    assertThat(plan.allocationRunners())
+        .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
+        .contains(
+            "MemoryScalingBenchmark.searchEasy.1024@safere-string",
+            "MemoryScalingBenchmark.searchEasy.1024@jdk-string",
+            "MemoryScalingBenchmark.searchEasy.1024@re2j-string",
+            "MemoryScalingBenchmark.searchMedium.1048576@safere-string",
+            "MemoryScalingBenchmark.searchMedium.1048576@jdk-string",
+            "MemoryScalingBenchmark.searchMedium.1048576@re2j-string")
+        .noneMatch(trial -> trial.startsWith("MemoryScalingBenchmark.") && trial.contains("utf8"));
+    assertThat(plan.runners())
+        .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
+        .noneMatch(trial -> trial.startsWith("MemoryScalingBenchmark."));
   }
 
   @Test

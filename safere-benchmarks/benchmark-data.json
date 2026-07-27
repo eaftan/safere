@@ -8886,6 +8886,74 @@
           "prematerializedInput"
         ]
       }
+    },
+    {
+      "id": "MemoryScalingBenchmark.searchEasy.{size}",
+      "operation": "find",
+      "patterns": [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput",
+          "allocationProfile"
+        ]
+      }
+    },
+    {
+      "id": "MemoryScalingBenchmark.searchMedium.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "searchScaling.random.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": false
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput",
+          "allocationProfile"
+        ]
+      }
     }
   ]
 }

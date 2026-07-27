@@ -188,10 +188,14 @@ fi
 run_and_capture "$OUTPUT_DIR/java-pattern-memory.txt" "${PATTERN_MEMORY_COMMAND[@]}"
 
 log "Writing declared report plan"
+REPORT_PLAN_ARGS=(report-plan)
+if [ "$MODE" = "smoke" ]; then
+  REPORT_PLAN_ARGS+=(--smoke)
+fi
 java \
   -Dsafere.benchmark.corpus="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus" \
   -cp safere-benchmarks/target/benchmarks.jar \
-  org.safere.benchmark.BenchmarkCollectionPlan report-plan \
+  org.safere.benchmark.BenchmarkCollectionPlan "${REPORT_PLAN_ARGS[@]}" \
   > "$OUTPUT_DIR/declared-report-plan.json"
 
 if [ "$OPENJDK_REGEX" = true ]; then
@@ -202,6 +206,7 @@ if [ "$OPENJDK_REGEX" = true ]; then
   if [ "$MODE" = "smoke" ]; then
     OPENJDK_REGEX_ARGS+=(
       --smoke
+      'org.safere.bench.openjdk.FindPatternComparison.*'
     )
   fi
   OPENJDK_REGEX_ARGS+=(
@@ -271,7 +276,8 @@ fi
 if [ "$MODE" = "smoke" ]; then
   log "Verifying smoke output"
   missing_cell="$(printf '\342\200\224')"
-  if grep -q "$missing_cell" "$OUTPUT_DIR/merged-tables.md"; then
+  if grep -q "$missing_cell" "$OUTPUT_DIR/merged-tables.md" \
+    || grep -qw 'missing' "$OUTPUT_DIR/merged-tables.md"; then
     echo "ERROR: smoke merged table contains missing result cells" >&2
     exit 1
   fi

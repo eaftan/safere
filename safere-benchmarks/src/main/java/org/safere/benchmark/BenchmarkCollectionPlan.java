@@ -33,6 +33,11 @@ final class BenchmarkCollectionPlan {
   }
 
   List<Runner> runners() {
+    Set<String> allocationOnly = allocationOnlyTrialIds();
+    return filterRunners(allRunners(), trialId -> !allocationOnly.contains(trialId), false);
+  }
+
+  private List<Runner> allRunners() {
     return List.of(
         runner(
             "standard",
@@ -83,23 +88,43 @@ final class BenchmarkCollectionPlan {
   List<Runner> allocationRunners() {
     List<String> prefixes =
         BenchmarkData.get().getStringList("collection.allocationWorkloadPrefixes");
-    return runners().stream()
-        .filter(runner -> runner.profile().equals("standard"))
+    Set<String> allocationOnly = allocationOnlyTrialIds();
+    return filterRunners(
+        allRunners(),
+        trialId ->
+            allocationOnly.contains(trialId)
+                || prefixes.stream()
+                    .anyMatch(trialId.substring(0, trialId.lastIndexOf('@'))::startsWith),
+        true);
+  }
+
+  private static List<Runner> filterRunners(
+      List<Runner> runners,
+      java.util.function.Predicate<String> includeTrial,
+      boolean standardOnly) {
+    return runners.stream()
+        .filter(runner -> !standardOnly || runner.profile().equals("standard"))
         .map(
             runner ->
                 new Runner(
                     runner.profile(),
                     runner.benchmark(),
                     runner.parameter(),
-                    runner.trialIds().stream()
-                        .filter(
-                            trialId ->
-                                prefixes.stream()
-                                    .anyMatch(
-                                        trialId.substring(0, trialId.lastIndexOf('@'))::startsWith))
-                        .toList()))
+                    runner.trialIds().stream().filter(includeTrial).toList()))
         .filter(runner -> !runner.trialIds().isEmpty())
         .toList();
+  }
+
+  private Set<String> allocationOnlyTrialIds() {
+    return trials(Query.ALL).stream()
+        .filter(
+            trial ->
+                trial
+                    .measurement()
+                    .constraints()
+                    .contains(DeclarativeBenchmarkPlan.ExecutionConstraint.ALLOCATION_PROFILE))
+        .map(CollectionTrial::id)
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   private static Runner runner(
@@ -138,7 +163,16 @@ final class BenchmarkCollectionPlan {
   }
 
   ReportPlan reportPlan() {
-    List<CollectionTrial> trials = trials(Query.ALL);
+    return reportPlan(false);
+  }
+
+  ReportPlan reportPlan(boolean smoke) {
+    Set<String> collectedTrialIds =
+        runners().stream()
+            .flatMap(runner -> (smoke ? smokeTrialIds(runner) : runner.trialIds()).stream())
+            .collect(Collectors.toUnmodifiableSet());
+    List<CollectionTrial> trials =
+        trials(Query.ALL).stream().filter(trial -> collectedTrialIds.contains(trial.id())).toList();
     Set<String> workloadIds =
         trials.stream()
             .map(CollectionTrial::workloadId)
@@ -178,7 +212,7 @@ final class BenchmarkCollectionPlan {
                     runner.profile(),
                     runner.benchmark(),
                     runner.parameter(),
-                    String.join(",", smoke ? runner.trialIds().subList(0, 1) : runner.trialIds())));
+                    String.join(",", smoke ? smokeTrialIds(runner) : runner.trialIds())));
       }
       case "trials" -> {
         Query query = Query.parse(Arrays.copyOfRange(args, 1, args.length));
@@ -189,9 +223,24 @@ final class BenchmarkCollectionPlan {
         System.out.println(
             selected.stream().map(CollectionTrial::id).collect(Collectors.joining(",")));
       }
-      case "report-plan" -> System.out.println(GSON.toJson(plan.reportPlan()));
+      case "report-plan" -> {
+        boolean smoke = args.length == 2 && args[1].equals("--smoke");
+        if (args.length > 2 || (args.length == 2 && !smoke)) {
+          throw new IllegalArgumentException(
+              "Usage: BenchmarkCollectionPlan report-plan [--smoke]");
+        }
+        System.out.println(GSON.toJson(plan.reportPlan(smoke)));
+      }
       default -> throw new IllegalArgumentException("Unknown collection-plan command: " + args[0]);
     }
+  }
+
+  private static List<String> smokeTrialIds(Runner runner) {
+    String firstTrial = runner.trialIds().getFirst();
+    String firstWorkload = firstTrial.substring(0, firstTrial.lastIndexOf('@'));
+    return runner.trialIds().stream()
+        .filter(trialId -> trialId.startsWith(firstWorkload + "@"))
+        .toList();
   }
 
   record Runner(String profile, String benchmark, String parameter, List<String> trialIds) {}
