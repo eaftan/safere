@@ -33,7 +33,7 @@ public class CrossEngineColdStartBenchmark {
   @Setup
   public void setup() {
     runner =
-        CrossEngineTrialRunner.prepare(
+        CrossEngineTrialRunner.prepareColdStart(
             crossEngineColdStartTrial, CrossEngineWorkload.TimingGroup.MILLISECONDS);
   }
 

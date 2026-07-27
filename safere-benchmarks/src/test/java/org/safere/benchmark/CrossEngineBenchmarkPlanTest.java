@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -197,6 +198,42 @@ class CrossEngineBenchmarkPlanTest {
             "ApplicationBenchmark.uuidValidation@safere-string",
             CrossEngineWorkload.TimingGroup.NANOSECONDS)) {
       assertThat(ignored).isNotNull();
+    }
+  }
+
+  @Test
+  void coldStartPreparationDefersCompilationUntilTheMeasuredTask() {
+    CrossEngineWorkload workload =
+        new CrossEngineWorkload(
+            "Synthetic.coldCompile",
+            BenchmarkOperation.COMPILE,
+            List.of("("),
+            List.of(),
+            new int[0],
+            null,
+            null,
+            0,
+            DeclarativeBenchmarkPlan.MatcherLifecycle.NONE,
+            "",
+            0,
+            1,
+            new DeclarativeBenchmarkPlan.Measurement(
+                DeclarativeBenchmarkPlan.MeasurementMode.SINGLE_SHOT_COLD_START,
+                DeclarativeBenchmarkPlan.TimingUnit.MILLISECONDS,
+                EnumSet.of(
+                    DeclarativeBenchmarkPlan.ExecutionConstraint.FRESH_PROCESS_PER_INVOCATION)),
+            CrossEngineWorkload.TimingGroup.MILLISECONDS);
+    CrossEngineBenchmarkPlan.Trial trial =
+        new CrossEngineBenchmarkPlan.Trial(workload, RegexEngineVariant.SAFERE_STRING);
+    Blackhole blackhole =
+        new Blackhole(
+            "Today's password is swordfish. I understand instantiating Blackholes directly is"
+                + " dangerous.");
+
+    try (CrossEngineTrialRunner runner =
+        CrossEngineTrialRunner.prepareColdStart(
+            BenchmarkData.get(), trial, CrossEngineWorkload.TimingGroup.MILLISECONDS)) {
+      assertThatThrownBy(() -> runner.run(blackhole)).isInstanceOf(IllegalArgumentException.class);
     }
   }
 

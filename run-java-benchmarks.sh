@@ -36,7 +36,8 @@
 #                        initialization and short-lived CLI analysis.
 #
 # Workloads that declare the noFork constraint run through the generic
-# CrossEngineNoForkBenchmark entry point with -f 0.
+# CrossEngineNoForkBenchmark entry point with -f 0. The legacy pathological
+# classes also retain no-fork handling until their migration is complete.
 #
 # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
 # explicitly when working on safere-crosscheck performance.
@@ -224,8 +225,48 @@ run_benchmark() {
   local bench="$1"
   local opts="$JMH_OPTS"
   case "$bench" in
-    *CrossEngineNoForkBenchmark*) opts="$NO_FORK_JMH_OPTS" ;;
-    *CrossEngineColdStartBenchmark*) opts="$COLD_START_JMH_OPTS" ;;
+    *CrossEngineNoForkBenchmark*|*PathologicalBenchmark*|*PathologicalComparisonBenchmark*)
+      opts="$NO_FORK_JMH_OPTS"
+      ;;
+    *CrossEngineColdStartBenchmark*)
+      local trials="$CROSS_ENGINE_COLD_START_TRIALS"
+      local extra_args=()
+      local index=0
+      while [ "$index" -lt "${#JMH_EXTRA_ARGS[@]}" ]; do
+        if [ "${JMH_EXTRA_ARGS[$index]}" = "-p" ] \
+          && [ "$((index + 1))" -lt "${#JMH_EXTRA_ARGS[@]}" ] \
+          && [[ "${JMH_EXTRA_ARGS[$((index + 1))]}" = crossEngineColdStartTrial=* ]]; then
+          trials="${JMH_EXTRA_ARGS[$((index + 1))]#crossEngineColdStartTrial=}"
+          index=$((index + 2))
+        else
+          extra_args+=("${JMH_EXTRA_ARGS[$index]}")
+          index=$((index + 1))
+        fi
+      done
+      IFS=',' read -r -a cold_start_trials <<< "$trials"
+      for trial in "${cold_start_trials[@]}"; do
+        echo "=== Running $bench ($COLD_START_JMH_OPTS; isolated trial $trial) ==="
+        if [ ${#extra_args[@]} -gt 0 ]; then
+          java \
+            $JVM_ARGS \
+            -jar "$BENCHMARK_JAR" \
+            -jvmArgs "$JVM_ARGS" \
+            $COLD_START_JMH_OPTS \
+            -p "crossEngineColdStartTrial=$trial" \
+            "${extra_args[@]}" \
+            "$bench"
+        else
+          java \
+            $JVM_ARGS \
+            -jar "$BENCHMARK_JAR" \
+            -jvmArgs "$JVM_ARGS" \
+            $COLD_START_JMH_OPTS \
+            -p "crossEngineColdStartTrial=$trial" \
+            "$bench"
+        fi
+      done
+      return
+      ;;
   esac
   if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
     echo "=== Running $bench ($opts ${JMH_EXTRA_ARGS[*]}) ==="

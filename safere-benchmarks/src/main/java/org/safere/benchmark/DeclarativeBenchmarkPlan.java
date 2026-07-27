@@ -543,6 +543,19 @@ final class DeclarativeBenchmarkPlan {
 
   private static String substitute(
       String template, Map<String, ParameterValue> parameters, String context) {
+    return substitute(template, parameters, context, true);
+  }
+
+  private static String substituteValue(
+      String template, Map<String, ParameterValue> parameters, String context) {
+    return substitute(template, parameters, context, false);
+  }
+
+  private static String substitute(
+      String template,
+      Map<String, ParameterValue> parameters,
+      String context,
+      boolean useStableText) {
     Matcher matcher = PLACEHOLDER.matcher(template);
     StringBuilder result = new StringBuilder();
     while (matcher.find()) {
@@ -551,7 +564,8 @@ final class DeclarativeBenchmarkPlan {
         throw new IllegalArgumentException(
             context + " references unknown axis: " + matcher.group(1));
       }
-      matcher.appendReplacement(result, Matcher.quoteReplacement(value.stableText()));
+      String replacement = useStableText ? value.stableText() : value.valueText();
+      matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
     }
     matcher.appendTail(result);
     return result.toString();
@@ -972,7 +986,7 @@ final class DeclarativeBenchmarkPlan {
     public RecipeValue substitute(
         Map<String, ParameterValue> parameters, String inputId, String argumentName) {
       return new RecipeString(
-          DeclarativeBenchmarkPlan.substitute(
+          DeclarativeBenchmarkPlan.substituteValue(
               value, parameters, inputId + " recipe " + argumentName));
     }
   }
@@ -1009,7 +1023,7 @@ final class DeclarativeBenchmarkPlan {
           values.stream()
               .map(
                   value ->
-                      DeclarativeBenchmarkPlan.substitute(
+                      DeclarativeBenchmarkPlan.substituteValue(
                           value, parameters, inputId + " recipe " + argumentName))
               .toList());
     }
@@ -1054,7 +1068,7 @@ final class DeclarativeBenchmarkPlan {
           }
           yield new RecipeInteger((Integer) value.value());
         }
-        case STRING -> new RecipeString(value.stableText());
+        case STRING -> new RecipeString(value.valueText());
         case STRING_LIST, INTEGER_LIST ->
             throw new IllegalArgumentException(
                 inputId + " recipe " + argumentName + " cannot reference a scalar axis");
