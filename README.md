@@ -438,6 +438,12 @@ See
 [`safere-benchmarks/BENCHMARK_INPUTS.md`](safere-benchmarks/BENCHMARK_INPUTS.md)
 for details.
 
+Java workload additions are data-only: declarations select generic operations,
+engine capabilities, inputs, timing modes, and result consumption. See
+[`safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md`](safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md)
+and
+[`safere-benchmarks/DECLARATIVE_COLLECTION.md`](safere-benchmarks/DECLARATIVE_COLLECTION.md).
+
 SafeRE also maintains a separate
 [OpenJDK-derived regex benchmark suite](https://github.com/eaftan/safere-openjdk-regex-benchmarks).
 It compares SafeRE and `java.util.regex` on compatible workloads adapted from
@@ -517,6 +523,7 @@ The important files in that directory are:
 
 ```text
 jmh-output.txt
+declared-report-plan.json
 merged-tables.md
 java-memory.txt
 java-pattern-memory.txt
@@ -527,6 +534,7 @@ Cross-language runs also include:
 ```text
 cpp-results.jsonl
 go-results.jsonl
+cross-runtime-tables.md
 ```
 
 Default runs also include:
@@ -546,20 +554,17 @@ development iteration or focused investigation; use
 ```bash
 # Java benchmarks (throughput)
 ./run-java-benchmarks.sh                        # standard benchmarks
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
-./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.'
-./run-java-benchmarks.sh CrossEngineBenchmark.run -- \
-  -p crossEngineTrial=RegexBenchmark.emailFind@safere-utf8
+./run-java-benchmarks.sh --declared             # all declared execution profiles
+./run-java-benchmarks.sh --long --declared
 
 # Java memory profiling (allocation rates via JMH GC profiler)
-./run-java-memory-benchmarks.sh                 # all benchmarks
-./run-java-memory-benchmarks.sh \
-  --cross-engine-prefix 'RegexBenchmark.' \
-  '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+./run-java-memory-benchmarks.sh --declared
 ```
 
-Benchmark regexes select JMH entry points. Use arguments after `--` to select a
-specific cross-engine workload/variant trial or pass other JMH options. See
+Use `BenchmarkCollectionPlan trials` to discover trial IDs by mode, timing
+unit, workload prefix, or execution variant. Benchmark regexes select generic
+JMH entry points, and arguments after `--` can select a specific trial or pass
+other JMH options. See
 [`safere-benchmarks/CROSS_ENGINE_EXECUTION.md`](safere-benchmarks/CROSS_ENGINE_EXECUTION.md)
 for workload IDs, execution variants, and timing boundaries.
 
@@ -617,14 +622,12 @@ python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --engines safere,jdk,re2j,re2_ffm,re2_cpp,go
 ```
 
-To verify that emitted application benchmark names match `benchmark-data.json`,
-add:
+To distinguish absent results from declared exclusions, include the report plan:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --jmh jmh-output.txt \
-  --benchmark-data safere-benchmarks/benchmark-data.json \
-  --check-application-names
+  --declared-plan declared-report-plan.json
 ```
 
 ### Latest Results

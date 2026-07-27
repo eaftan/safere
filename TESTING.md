@@ -183,30 +183,22 @@ mvn verify -pl safere-crosscheck -Pcrosscheck-public-api-tests
 mvn test -pl safere-fuzz
 ```
 
-## Unicode Compile Benchmarks
+## Compile and Cold-Start Benchmarks
 
-The Unicode table-generation work uses three benchmark shapes:
+Compile and cold-start workloads are selected from the declarative plan:
 
 ```bash
-# Warm repeated compile throughput.
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.UnicodeCompileBenchmark\.'
+# Run every declared execution profile with the standard schedule.
+./run-java-benchmarks.sh --declared
 
-# Fresh-fork first compile. This preserves lazy Unicode table initialization
-# costs that ordinary JMH warmup would hide.
-./run-java-benchmarks.sh --first-compile '^org\.safere\.benchmark\.UnicodeFirstCompileBenchmark\.'
-
-# Plain JVM cold-start harness for short-lived CLI-style workloads.
-mvn install -DskipTests -q
-java -cp safere-benchmarks/target/benchmarks.jar \
-  org.safere.benchmark.UnicodeColdStartMain \
-  safere '\p{L}+' 0
+# Smoke one plan-selected trial per generic execution profile.
+./run-java-benchmarks.sh --smoke --declared
 ```
 
-Use `UnicodeCompileBenchmark` to check steady-state per-compile work after
-tables are already initialized. Use `UnicodeFirstCompileBenchmark` and
-`UnicodeColdStartMain` to measure the first-use cost seen by short-lived
-processes. Do not mix these results with publication-quality steady-state
-benchmark tables unless they are clearly labeled as cold-start measurements.
+`compileOnly` declarations measure steady-state per-compile work after
+initialization. `singleShotColdStart` declarations use a fresh fork and retain
+the first-use cost seen by short-lived processes. Do not combine those timing
+groups.
 
 Coverage reports are generated at
 `safere/target/site/jacoco/index.html`.  Note that JaCoCo is disabled

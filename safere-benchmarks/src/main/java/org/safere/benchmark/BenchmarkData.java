@@ -16,9 +16,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,50 +71,6 @@ public final class BenchmarkData {
     return plan;
   }
 
-  /** Get a string value by dot-separated path (e.g., "regex.literalMatch.pattern"). */
-  public String getString(String path) {
-    String[] parts = path.split("\\.");
-    JsonElement el = root;
-    for (String part : parts) {
-      el = el.getAsJsonObject().get(part);
-      if (el == null) {
-        throw new IllegalArgumentException("No value at path: " + path);
-      }
-    }
-    return el.getAsString();
-  }
-
-  /** Get an int value by dot-separated path. */
-  public int getInt(String path) {
-    String[] parts = path.split("\\.");
-    JsonElement el = root;
-    for (String part : parts) {
-      el = el.getAsJsonObject().get(part);
-      if (el == null) {
-        throw new IllegalArgumentException("No value at path: " + path);
-      }
-    }
-    return el.getAsInt();
-  }
-
-  /** Get an int array by dot-separated path. */
-  public int[] getIntArray(String path) {
-    String[] parts = path.split("\\.");
-    JsonElement el = root;
-    for (String part : parts) {
-      el = el.getAsJsonObject().get(part);
-      if (el == null) {
-        throw new IllegalArgumentException("No value at path: " + path);
-      }
-    }
-    JsonArray arr = el.getAsJsonArray();
-    int[] result = new int[arr.size()];
-    for (int i = 0; i < arr.size(); i++) {
-      result[i] = arr.get(i).getAsInt();
-    }
-    return result;
-  }
-
   /** Get a string array by dot-separated path. */
   public List<String> getStringList(String path) {
     String[] parts = path.split("\\.");
@@ -154,33 +108,6 @@ public final class BenchmarkData {
    */
   public byte[] getInputBytes(String key) {
     return loadInputBytes(key).clone();
-  }
-
-  /** Returns application benchmark cases in JSON order, keyed by case name. */
-  public Map<String, ApplicationCase> getApplicationCases() {
-    JsonArray arr = root.getAsJsonArray("application");
-    Map<String, ApplicationCase> cases = new LinkedHashMap<>();
-    for (JsonElement item : arr) {
-      ApplicationCase appCase = ApplicationCase.fromJson(item.getAsJsonObject());
-      if (cases.put(appCase.name, appCase) != null) {
-        throw new IllegalArgumentException("Duplicate application benchmark case: " + appCase.name);
-      }
-    }
-    return Collections.unmodifiableMap(cases);
-  }
-
-  /** Returns real-world regex benchmark cases in JSON order, keyed by case name. */
-  public Map<String, RealWorldRegexCase> getRealWorldRegexCases() {
-    JsonArray arr = root.getAsJsonObject("realWorldRegex").getAsJsonArray("cases");
-    Map<String, RealWorldRegexCase> cases = new LinkedHashMap<>();
-    for (JsonElement item : arr) {
-      RealWorldRegexCase regexCase = RealWorldRegexCase.fromJson(item.getAsJsonObject());
-      if (cases.put(regexCase.name, regexCase) != null) {
-        throw new IllegalArgumentException(
-            "Duplicate real-world regex benchmark case: " + regexCase.name);
-      }
-    }
-    return Collections.unmodifiableMap(cases);
   }
 
   private byte[] loadInputBytes(String key) {

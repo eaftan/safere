@@ -87,6 +87,7 @@ else
 fi
 
 echo "=== Building safere + benchmark JAR ==="
+mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
 mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 
 echo "=== Materializing shared benchmark inputs ==="

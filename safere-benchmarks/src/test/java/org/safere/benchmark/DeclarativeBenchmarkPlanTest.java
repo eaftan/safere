@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class DeclarativeBenchmarkPlanTest {
 
   @Test
-  void expandsInputsAndWorkloadsDeterministicallyWithStableIdentities() {
+  void syntheticWorkloadAndEnginesExtendPlanWithoutPlannerBranches() {
     DeclarativeBenchmarkPlan plan =
         parse(
             """
@@ -58,10 +58,17 @@ class DeclarativeBenchmarkPlanTest {
             "test-string",
             DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
             DeclarativeBenchmarkPlan.Feature.FIND);
+    DeclarativeBenchmarkPlan.EngineDeclaration additionalEngine =
+        engine(
+            "additional-string",
+            DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+            DeclarativeBenchmarkPlan.Feature.FIND);
     DeclarativeBenchmarkPlan.ExpandedPlan first =
-        plan.expand(List.of(engine), EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
+        plan.expand(
+            List.of(engine, additionalEngine), EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
     DeclarativeBenchmarkPlan.ExpandedPlan second =
-        plan.expand(List.of(engine), EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
+        plan.expand(
+            List.of(engine, additionalEngine), EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
 
     assertThat(plan.inputs().keySet()).containsExactly("generated.input.8", "generated.input.16");
     assertThat(plan.inputs().get("generated.input.8").recipe().arguments().get("length"))
@@ -75,7 +82,8 @@ class DeclarativeBenchmarkPlanTest {
     assertThat(first.trials().stream().map(DeclarativeBenchmarkPlan.Trial::id))
         .containsExactlyElementsOf(
             second.trials().stream().map(DeclarativeBenchmarkPlan.Trial::id).toList())
-        .allMatch(id -> id.endsWith("@test-string"));
+        .hasSize(8)
+        .allMatch(id -> id.endsWith("@test-string") || id.endsWith("@additional-string"));
     assertThat(
             first.workloads().stream().map(workload -> workload.expected().value().getAsBoolean()))
         .containsExactly(true, false, true, false);

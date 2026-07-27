@@ -226,8 +226,16 @@ COMPARE_ARGS=(
 
 if [ "$CROSS_LANGUAGE" = true ]; then
   if [ "$MODE" = "smoke" ]; then
+    NATIVE_SMOKE_TRIALS="$(
+      java \
+        -Dsafere.benchmark.corpus="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus" \
+        -cp safere-benchmarks/target/benchmarks.jar \
+        org.safere.benchmark.BenchmarkCollectionPlan trials \
+        --variant re2-ffm-string-conversion
+    )"
+    NATIVE_SMOKE_WORKLOAD="${NATIVE_SMOKE_TRIALS%%@*}"
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-      ./run-cpp-benchmarks.sh RegexBenchmark.emailFind
+      ./run-cpp-benchmarks.sh "$NATIVE_SMOKE_WORKLOAD"
   else
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
       ./run-cpp-benchmarks.sh
@@ -238,7 +246,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
 
   if [ "$MODE" = "smoke" ]; then
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-      ./run-go-benchmarks.sh RegexBenchmark.emailFind
+      ./run-go-benchmarks.sh "$NATIVE_SMOKE_WORKLOAD"
   else
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
       ./run-go-benchmarks.sh
@@ -256,12 +264,6 @@ fi
 log "Generating markdown tables"
 COMPARE_ARGS+=(--engines "$COMPARE_ENGINES")
 COMPARE_ARGS+=(--declared-plan "$OUTPUT_DIR/declared-report-plan.json")
-if [ "$MODE" != "smoke" ]; then
-  COMPARE_ARGS+=(
-    --benchmark-data safere-benchmarks/benchmark-data.json
-    --check-application-names
-  )
-fi
 python3 safere-benchmarks/scripts/compare-benchmarks.py "${COMPARE_ARGS[@]}" \
   > "$OUTPUT_DIR/merged-tables.md"
 

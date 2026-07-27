@@ -3,9 +3,8 @@
 SafeRE's normalized benchmark plan is a strict, versioned object within
 `benchmark-data.json`. The initial schema version is `1`. Normalized
 declarations are authoritative for materialized inputs and ordinary/scaling
-cross-engine workloads. Legacy sections remain authoritative only for
-specialized modes until their migration in the follow-up issues under #606.
-The schema does not change any benchmark timing boundary.
+cross-engine workloads, specialized modes, collection, and reporting. The
+schema preserves the established benchmark timing boundaries.
 
 The normalized plan has this shape:
 
@@ -234,5 +233,5 @@ The schema uses generic concepts for every current family:
 | Diagnostics and analysis | Diagnostics/analysis operations and requirements |
 | Memory and cold start | Retained-memory, subprocess-memory, and cold-start modes |
 
-The generic runners now execute these declarations. Legacy benchmark classes
-remain temporary mirrors until the cleanup tracked separately under #606.
+The generic runners execute these declarations. Workload-specific Java
+benchmark classes and data adapters have been removed.

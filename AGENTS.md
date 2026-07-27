@@ -313,17 +313,12 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 Arguments after the mode flag are passed directly to JMH as benchmark regex
 filters.
 
-**Run benchmarks in batches, not all at once.** Run 2–3 benchmark classes
-per invocation and collect results incrementally:
+**Run benchmarks sequentially.** Use the declarative collection plan to select
+generic runners and trials:
 
 ```bash
-./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
-./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.CrossEngineScalingBenchmark\.'
-./run-java-benchmarks.sh \
-  '^org\.safere\.benchmark\.PathologicalBenchmark\.' \
-  '^org\.safere\.benchmark\.PathologicalComparisonBenchmark\.'
+./run-java-benchmarks.sh --declared
+./run-java-benchmarks.sh --smoke --declared
 ```
 
 **Extract summary tables from JMH output** using grep:
@@ -342,9 +337,8 @@ per invocation and collect results incrementally:
 - **Use `--long` for confirmation.** Long mode uses 2 forks, 3 warmup × 1s,
   and 5 measurement × 1s. Use it for close, surprising, or especially important
   comparisons where the extra runtime is justified.
-- **Pathological benchmarks always use `-f 0`.** The script handles this
-  automatically — PathologicalBenchmark and PathologicalComparisonBenchmark
-  run without forking because the JDK engine can hang on large inputs.
+- **Declared `noFork` workloads always use `-f 0`.** The generic collection
+  runner derives this setting from the measurement profile.
 - **Default benchmark collection includes both Java suites.**
   `./collect-benchmark-results.sh` collects SafeRE, JDK, RE2/J, and RE2-FFM
   results from SafeRE's suite, then SafeRE/JDK results from the external

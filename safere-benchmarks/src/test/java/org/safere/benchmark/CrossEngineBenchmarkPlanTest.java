@@ -15,6 +15,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -361,6 +362,37 @@ class CrossEngineBenchmarkPlanTest {
                     && trial.executionVariant().equals("safere-utf8")
                     && trial.measurement().timingUnit()
                         == DeclarativeBenchmarkPlan.TimingUnit.NANOSECONDS);
+  }
+
+  @Test
+  void everyJmhMethodIsGenericOrExplicitMeasurementInfrastructure() throws Exception {
+    Path sourceDirectory =
+        Files.exists(Path.of("src/main/java/org/safere/benchmark"))
+            ? Path.of("src/main/java/org/safere/benchmark")
+            : Path.of("safere-benchmarks/src/main/java/org/safere/benchmark");
+
+    try (Stream<Path> files = Files.list(sourceDirectory)) {
+      assertThat(
+              files
+                  .filter(path -> path.toString().endsWith(".java"))
+                  .filter(
+                      path -> {
+                        try {
+                          return Files.readString(path).contains("@Benchmark");
+                        } catch (Exception exception) {
+                          throw new IllegalStateException(exception);
+                        }
+                      })
+                  .map(path -> path.getFileName().toString())
+                  .sorted())
+          .containsExactly(
+              "CrossEngineBenchmark.java",
+              "CrossEngineColdStartBenchmark.java",
+              "CrossEngineNoForkBenchmark.java",
+              "CrossEngineScalingBenchmark.java",
+              "CrosscheckOverheadBenchmark.java",
+              "SpecializedBenchmark.java");
+    }
   }
 
   @Test

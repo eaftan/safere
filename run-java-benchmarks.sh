@@ -10,7 +10,7 @@
 #   ./run-java-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-benchmarks.sh --declared
 #   ./run-java-benchmarks.sh --first-compile \
-#     '^org\.safere\.benchmark\.UnicodeFirstCompileBenchmark\.'
+#     '^org\.safere\.benchmark\.CrossEngineColdStartBenchmark\.'
 #   ./run-java-benchmarks.sh                         # run all benchmarks
 #
 # The script builds a shaded (fat) JAR containing all dependencies and runs
@@ -49,7 +49,7 @@
 # filters. Use `--` to pass additional options directly to JMH, for example:
 #
 #   ./run-java-benchmarks.sh CrossEngineBenchmark.run -- \
-#     -p crossEngineTrial=RegexBenchmark.emailFind@safere-utf8
+#     -p crossEngineTrial=ExampleSuite.find@safere-utf8
 
 set -euo pipefail
 
@@ -57,7 +57,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
-DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark|PathologicalBenchmark|PathologicalComparisonBenchmark|PatternSetBenchmark|UnicodeFirstCompileBenchmark)\\.).*$"
+DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark)\\.).*$"
 
 # Empirically selected Java benchmark settings. See
 # safere-benchmarks/CONFIGURATION_EVALUATION.md.
@@ -163,6 +163,7 @@ fi
 
 if [ "$FASTBUILD" = true ]; then
   echo "=== Fast Building safere-benchmarks only ==="
+  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
   mvn install \
     -pl safere-benchmarks -am \
     -DskipTests \
@@ -175,6 +176,7 @@ if [ "$FASTBUILD" = true ]; then
     -f "$SCRIPT_DIR/pom.xml"
 else
   echo "=== Building safere + benchmark JAR ==="
+  mvn -pl safere-benchmarks clean -q -f "$SCRIPT_DIR/pom.xml"
   mvn install -DskipTests -q -f "$SCRIPT_DIR/pom.xml"
 fi
 

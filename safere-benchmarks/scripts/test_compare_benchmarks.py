@@ -154,34 +154,5 @@ class CrossEngineResultParsingTest(unittest.TestCase):
             ),
         )
 
-    def test_application_name_check_respects_utf8_operation_coverage(self):
-        benchmark_data = {
-            "application": [
-                {
-                    "id": "ApplicationBenchmark.find",
-                    "op": "find",
-                },
-                {
-                    "id": "ApplicationBenchmark.replace",
-                    "op": "replaceAll",
-                },
-            ]
-        }
-        results = [
-            COMPARE.Result("safere", "ApplicationBenchmark.find", 1.0, 0.0, "ns/op"),
-            COMPARE.Result("safere", "ApplicationBenchmark.replace", 1.0, 0.0, "ns/op"),
-            COMPARE.Result("safere_utf8", "ApplicationBenchmark.find", 1.0, 0.0, "ns/op"),
-        ]
-
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as data_file:
-            json.dump(benchmark_data, data_file)
-            data_file.flush()
-            COMPARE.verify_application_names(
-                results,
-                data_file.name,
-                ["safere", "safere_utf8"],
-            )
-
-
 if __name__ == "__main__":
     unittest.main()

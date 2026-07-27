@@ -31,17 +31,8 @@ construction, static pattern analysis, and diagnostics listener modes. Retained-
 implements compiled-pattern size and DFA-cache growth. Cases, patterns, parameters, inputs,
 listener choices, anchors, and timing boundaries are all declared in `benchmark-data.json`.
 
-The following remaining Java classes are measurement infrastructure or temporary legacy mirrors,
-not additional workload definitions:
-
-- `MemoryScalingBenchmark` applies JMH's allocation profiler to trials already declared in the
-  cross-engine plan.
-- `CrosscheckOverheadBenchmark` measures optional crosscheck instrumentation and remains excluded
-  from normal benchmark collection.
-- `UnicodeColdStartMain` is a plain-process diagnostic harness; declared cold-start measurements
-  use `CrossEngineColdStartBenchmark`.
-- `ByteMatchingBenchmark` contains legacy representation-adapter comparisons whose logical regex
-  workloads are declared in the ordinary plan. Decode-inclusive representation variants belong in
-  engine adapters, not workload declarations.
-- Workload-specific JMH classes retained during the migration mirror declarations and are removed
-  by the final cleanup and coverage audit (#614).
+`CrosscheckOverheadBenchmark` is the only remaining non-generic JMH class. It measures optional
+crosscheck instrumentation rather than a regex workload and remains excluded from normal benchmark
+collection. Allocation profiling is applied to declared generic trials by
+`run-java-memory-benchmarks.sh --declared`; cold-start trials use
+`CrossEngineColdStartBenchmark`.

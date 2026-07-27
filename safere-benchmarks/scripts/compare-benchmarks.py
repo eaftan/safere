@@ -21,19 +21,15 @@ Usage examples:
   python3 compare-benchmarks.py --jmh jmh.txt --json cpp.jsonl \
       --engines safere,jdk,re2j,re2_cpp
 
-  # Verify ApplicationBenchmark names match benchmark-data.json
-  python3 compare-benchmarks.py --jmh jmh.txt --json cpp.jsonl go.jsonl \
-      --benchmark-data benchmark-data.json --check-application-names
-
 JSON-lines format (one object per line):
-  {"engine":"re2_cpp","benchmark":"RegexBenchmark.literalMatch",
+  {"engine":"re2_cpp","benchmark":"ExampleSuite.literal",
    "score":40.674,"error":0.830,"unit":"ns/op"}
 
 JMH text format (whitespace-separated):
   Benchmark                          Mode  Cnt   Score   Error  Units
-  RegexBenchmark.literalMatch_jdk    avgt    5  23.456 ± 1.234  ns/op
+  ExampleSuite.literal_jdk           avgt    5  23.456 ± 1.234  ns/op
   Benchmark                          (engine)  (inputSize)  Mode  Cnt  Score  Error  Units
-  RealWorldRegexBenchmark.runBenchmark SafeRE  1000         avgt    5  23.456 ± 1.234 us/op
+  ExampleSuite.scaling              SafeRE  1000         avgt    5  23.456 ± 1.234 us/op
 """
 
 import argparse
@@ -210,17 +206,6 @@ def _parameterized_benchmark_name(class_name, method, params, param_names):
         name: params[name] for name in param_names
         if name != "engine" and params.get(name) != "N/A"
     }
-    if (
-        class_name.endswith("RealWorldRegexBenchmark")
-        and method == "runBenchmark"
-        and active_params
-    ):
-        match_label = "match" if params.get("match") == "true" else "noMatch"
-        return (
-            f"{class_name}.{method}.{params['patternName']}."
-            f"{match_label}.{params['inputSize']}"
-        )
-
     suffixes = [active_params[name] for name in param_names if name in active_params]
     if suffixes:
         return f"{class_name}.{method}." + ".".join(suffixes)
@@ -475,50 +460,6 @@ def generate_tables(results, engines, declared_statuses=None):
     return "\n".join(lines)
 
 
-def _application_cases_from_data(path):
-    with open(path) as fh:
-        data = json.load(fh)
-    return {
-        case["id"]: case["op"]
-        for case in data.get("application", [])
-    }
-
-
-def _expected_application_benchmarks(cases, engine):
-    if engine == "safere_utf8":
-        return {
-            benchmark
-            for benchmark, operation in cases.items()
-            if operation in {"find", "findAllCount"}
-        }
-    return set(cases)
-
-
-def verify_application_names(results, benchmark_data_path, engines):
-    """Verify each engine emitted its supported application cases from benchmark data."""
-    cases = _application_cases_from_data(benchmark_data_path)
-    by_engine = collections.defaultdict(set)
-    seen_engines = collections.OrderedDict()
-    for result in results:
-        seen_engines[result.engine] = True
-        if result.benchmark.startswith("ApplicationBenchmark."):
-            by_engine[result.engine].add(result.benchmark)
-
-    expected_engines = engines or list(seen_engines)
-    errors = []
-    for engine in expected_engines:
-        expected = _expected_application_benchmarks(cases, engine)
-        names = by_engine[engine]
-        missing = sorted(expected - names)
-        extra = sorted(names - expected)
-        if missing:
-            errors.append(f"{engine}: missing {', '.join(missing)}")
-        if extra:
-            errors.append(f"{engine}: unexpected {', '.join(extra)}")
-    if errors:
-        raise SystemExit("Application benchmark name mismatch:\n" + "\n".join(errors))
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -550,17 +491,6 @@ def main(argv=None):
         help="Comma-separated engine names in desired column order "
              "(e.g. safere,jdk,re2j,re2_cpp).",
     )
-    parser.add_argument(
-        "--benchmark-data",
-        metavar="FILE",
-        default="benchmark-data.json",
-        help="Path to benchmark-data.json for application benchmark validation.",
-    )
-    parser.add_argument(
-        "--check-application-names",
-        action="store_true",
-        help="Verify emitted ApplicationBenchmark names match benchmark-data.json.",
-    )
     args = parser.parse_args(argv)
 
     if not args.jmh and not args.json:
@@ -578,9 +508,6 @@ def main(argv=None):
         sys.exit(1)
 
     engines = [e.strip() for e in args.engines.split(",")] if args.engines else []
-    if args.check_application_names:
-        verify_application_names(results, args.benchmark_data, engines)
-
     declared_statuses = (
         load_declared_plan(args.declared_plan) if args.declared_plan else None
     )
