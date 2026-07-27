@@ -7,8 +7,6 @@ package org.safere.benchmark;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -18,14 +16,17 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
  * Materializes resolved benchmark configuration and deterministic UTF-8 input files.
  *
- * <p>The compact recipes in {@code benchmark-data.json} remain the human-editable source of truth.
+ * <p>The bounded recipes in {@code benchmark-data.json} remain the human-editable source of truth.
  * Benchmark engines consume only the resulting byte-identical corpus.
  */
 public final class BenchmarkInputMaterializer {
@@ -35,11 +36,22 @@ public final class BenchmarkInputMaterializer {
 
   private final JsonObject data;
   private final String benchmarkDataSha256;
+  private final Map<String, DeclarativeBenchmarkPlan.InputDeclaration> declarations;
   private final Map<String, byte[]> inputs = new LinkedHashMap<>();
+  private final Set<String> activeRecipes = new LinkedHashSet<>();
 
   private BenchmarkInputMaterializer(JsonObject data, String benchmarkDataSha256) {
     this.data = data;
     this.benchmarkDataSha256 = benchmarkDataSha256;
+    if (!data.has("schemaVersion")
+        || data.get("schemaVersion").getAsInt() != DeclarativeBenchmarkPlan.SCHEMA_VERSION) {
+      throw new IllegalArgumentException(
+          "benchmark-data.json requires schemaVersion " + DeclarativeBenchmarkPlan.SCHEMA_VERSION);
+    }
+    if (!data.has("inputs") || !data.get("inputs").isJsonArray()) {
+      throw new IllegalArgumentException("benchmark-data.json requires declarative inputs");
+    }
+    declarations = DeclarativeBenchmarkPlan.parseInputDeclarations(data.getAsJsonArray("inputs"));
   }
 
   /**
@@ -74,245 +86,180 @@ public final class BenchmarkInputMaterializer {
     materializer.write(outputDirectory);
   }
 
-  private void generate() {
-    generateCrossEngineInputs();
-    generateUtf8Matching();
-    generateSearchScaling();
-    generateIssue481Scaling();
-    generateIssue488ReplaceAll();
-    generateRealWorldRegex();
-    generateScrubber();
-    generatePathological();
-    generateFanout();
-    add("memory.dfaCacheText", "contact user.name+tag@example.co.uk for info".repeat(200));
-  }
-
-  private void generateCrossEngineInputs() {
-    JsonObject regex = object("regex");
-    for (Map.Entry<String, JsonElement> entry : regex.entrySet()) {
-      JsonObject workload = entry.getValue().getAsJsonObject();
-      add(
-          crossEngineInputKey(workload.get("id").getAsString()),
-          workload.get("text").getAsString());
-    }
-
-    for (JsonElement element : data.getAsJsonArray("application")) {
-      ApplicationCase workload = ApplicationCase.fromJson(element.getAsJsonObject());
-      if (!workload.texts.isEmpty()) {
-        for (int index = 0; index < workload.texts.size(); index++) {
-          add(crossEngineInputKey(workload.id) + "." + index, workload.texts.get(index));
-        }
-      } else {
-        add(crossEngineInputKey(workload.id), workload.text);
-      }
-    }
-
-    String fullId = string("http.workloadIds.full");
-    add(crossEngineInputKey(fullId), string("http.fullRequest"));
-    String smallId = string("http.workloadIds.small");
-    add(crossEngineInputKey(smallId), string("http.smallRequest"));
+  static Map<String, byte[]> materialize(JsonObject data) {
+    BenchmarkInputMaterializer materializer =
+        new BenchmarkInputMaterializer(
+            data, sha256(GSON.toJson(data).getBytes(StandardCharsets.UTF_8)));
+    materializer.generate();
+    Map<String, byte[]> result = new LinkedHashMap<>();
+    materializer.inputs.forEach((id, bytes) -> result.put(id, bytes.clone()));
+    return result;
   }
 
   static String crossEngineInputKey(String workloadId) {
     return "crossEngine." + workloadId + ".input";
   }
 
-  private void generateUtf8Matching() {
-    String prefix = "utf8Matching.literalScan.";
-    String alphabet = string(prefix + "alphabet");
-    int size = integer(prefix + "textSize");
-    Random random = new Random(integer(prefix + "seed"));
-    StringBuilder text = new StringBuilder(size);
-    for (int index = 0; index < size; index++) {
-      text.append(alphabet.charAt(random.nextInt(alphabet.length())));
+  private void generate() {
+    for (String inputId : declarations.keySet()) {
+      materialize(inputId);
     }
-    add("utf8Matching.literalScan.text", text.toString());
-
-    prefix = "utf8Matching.requiredClassNonmatch.";
-    add(
-        "utf8Matching.requiredClassNonmatch.text",
-        repeatToSize(string(prefix + "unit"), integer(prefix + "textSize")));
-
-    for (int textSize : integers("utf8Matching.hardFailure.textSizes")) {
-      add(
-          "utf8Matching.hardFailure." + textSize,
-          repeatToSize(string("utf8Matching.hardFailure.unit"), textSize));
+    if (inputs.size() != declarations.size()) {
+      throw new IllegalStateException(
+          "Materialized " + inputs.size() + " inputs for " + declarations.size() + " declarations");
     }
   }
 
-  private void generateSearchScaling() {
-    String alphabet = string("searchScaling.randomText.alphabet");
-    int seed = integer("searchScaling.randomText.seed");
-    String matchSuffix = string("searchScaling.matchSuffix");
-    String proseUnit = string("searchScaling.proseUnit");
-    for (int textSize : integers("searchScaling.textSizes")) {
-      Random random = new Random(seed);
-      char[] characters = new char[textSize];
-      for (int index = 0; index < textSize; index++) {
-        characters[index] = alphabet.charAt(random.nextInt(alphabet.length()));
+  private byte[] materialize(String inputId) {
+    byte[] existing = inputs.get(inputId);
+    if (existing != null) {
+      return existing;
+    }
+    DeclarativeBenchmarkPlan.InputDeclaration declaration = declarations.get(inputId);
+    if (declaration == null) {
+      throw new IllegalArgumentException(
+          "Input recipe references unknown materialized input: " + inputId);
+    }
+    if (!activeRecipes.add(inputId)) {
+      throw new IllegalArgumentException(
+          "Cyclic materialized input recipe dependency: "
+              + String.join(" -> ", activeRecipes)
+              + " -> "
+              + inputId);
+    }
+    try {
+      byte[] bytes = evaluate(declaration.recipe()).getBytes(StandardCharsets.UTF_8);
+      if (inputs.put(inputId, bytes) != null) {
+        throw new IllegalArgumentException("Duplicate materialized input key: " + inputId);
       }
-      String randomText = new String(characters);
-      add("searchScaling.random." + textSize, randomText);
-      add("searchScaling.success." + textSize, randomText + matchSuffix);
-
-      StringBuilder prose = new StringBuilder(textSize + proseUnit.length());
-      while (prose.length() < textSize) {
-        prose.append(proseUnit);
-      }
-      add("searchScaling.prose." + textSize, prose.toString());
+      return bytes;
+    } finally {
+      activeRecipes.remove(inputId);
     }
   }
 
-  private void generateIssue481Scaling() {
-    for (int textSize : integers("issue481Scaling.textSizes")) {
-      add(
-          "issue481Scaling.splitW." + textSize,
-          repeatToSize(string("issue481Scaling.splitW.unit"), textSize));
-      add(
-          "issue481Scaling.block." + textSize,
+  private String evaluate(DeclarativeBenchmarkPlan.InputRecipe recipe) {
+    Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments = recipe.arguments();
+    return switch (recipe.kind()) {
+      case LITERAL -> string(arguments, "text");
+      case REPEAT -> string(arguments, "value").repeat(integer(arguments, "count"));
+      case REPEAT_TO_LENGTH ->
+          repeatToSize(string(arguments, "unit"), integer(arguments, "length"));
+      case REPEAT_AT_LEAST_LENGTH ->
+          repeatAtLeastSize(string(arguments, "unit"), integer(arguments, "minimumLength"));
+      case DELIMITED_REPEAT_TO_LENGTH ->
+          repeatedInput(
+              string(arguments, "value"),
+              integer(arguments, "length"),
+              string(arguments, "delimiterAlphabet"),
+              integer(arguments, "seed"));
+      case APPEND_INPUT ->
+          new String(materialize(string(arguments, "input")), StandardCharsets.UTF_8)
+              + string(arguments, "suffix");
+      case RANDOM_CHARS ->
+          randomChars(
+              string(arguments, "alphabet"),
+              integer(arguments, "length"),
+              integer(arguments, "seed"));
+      case RANDOM_CODE_POINTS ->
+          randomCodePoints(
+              integers(arguments, "codePoints"),
+              integer(arguments, "minimumCodeUnits"),
+              integer(arguments, "seed"));
+      case SURROUND_TO_LENGTH ->
           surroundToSize(
-              string("issue481Scaling.block.prefix"),
-              string("issue481Scaling.block.unit"),
-              string("issue481Scaling.block.suffix"),
-              textSize));
-      add(
-          "issue481Scaling.blockNegative." + textSize,
-          surroundToSize(
-              string("issue481Scaling.block.prefix"),
-              string("issue481Scaling.block.unit"),
-              string("issue481Scaling.block.negativeSuffix"),
-              textSize));
-      add(
-          "issue481Scaling.tag." + textSize,
+              string(arguments, "prefix"),
+              string(arguments, "unit"),
+              string(arguments, "suffix"),
+              integer(arguments, "length"));
+      case SUFFIX_TO_LENGTH ->
           suffixMatchToSize(
-              string("issue481Scaling.tag.prefixUnit"),
-              string("issue481Scaling.tag.match"),
-              textSize));
-      add(
-          "issue481Scaling.tagNegative." + textSize,
-          suffixMatchToSize(
-              string("issue481Scaling.tag.prefixUnit"),
-              string("issue481Scaling.tag.negativeMatch"),
-              textSize));
-      add(
-          "issue481Scaling.scheme." + textSize,
-          suffixMatchToSize(
-              string("issue481Scaling.scheme.prefixUnit"),
-              string("issue481Scaling.scheme.match"),
-              textSize));
-      add(
-          "issue481Scaling.schemeNegative." + textSize,
-          suffixMatchToSize(
-              string("issue481Scaling.scheme.prefixUnit"),
-              string("issue481Scaling.scheme.negativeMatch"),
-              textSize));
-    }
-  }
-
-  private void generateIssue488ReplaceAll() {
-    for (int textSize : integers("issue488ReplaceAll.textSizes")) {
-      add(
-          "issue488ReplaceAll.lazyAlt." + textSize,
-          lazyAltInput(
-              string("issue488ReplaceAll.lazyAlt.prefixUnit"),
-              string("issue488ReplaceAll.lazyAlt.match"),
-              string("issue488ReplaceAll.lazyAlt.suffixUnit"),
-              textSize));
-      add(
-          "issue488ReplaceAll.altCapture." + textSize,
-          altCaptureInput(
-              string("issue488ReplaceAll.altCapture.hitUnit"),
-              string("issue488ReplaceAll.altCapture.missUnit"),
-              integer("issue488ReplaceAll.altCapture.hitInterval"),
-              textSize));
-    }
-  }
-
-  private void generateRealWorldRegex() {
-    JsonObject section = object("realWorldRegex");
-    int[] textSizes = integers("realWorldRegex.textSizes");
-    String alphabet = string("realWorldRegex.safeDelimiterAlphabet");
-    int seed = integer("realWorldRegex.seed");
-    for (JsonElement element : section.getAsJsonArray("cases")) {
-      RealWorldRegexCase benchmarkCase = RealWorldRegexCase.fromJson(element.getAsJsonObject());
-      for (boolean match : new boolean[] {true, false}) {
-        String label = match ? "match" : "noMatch";
-        RealWorldRegexCase.InputSpec inputSpec =
-            match ? benchmarkCase.matchInput : benchmarkCase.nonMatchInput;
-        for (int textSize : textSizes) {
-          add(
-              "realWorldRegex." + benchmarkCase.name + "." + label + "." + textSize,
-              realWorldInput(benchmarkCase, inputSpec, match, textSize, alphabet, seed));
-        }
-      }
-    }
-  }
-
-  private void generateScrubber() {
-    int repeatCount = integer("scrubber.repeatCount");
-    add("scrubber.withoutDirectives", string("scrubber.baseWithoutDirectives").repeat(repeatCount));
-    add("scrubber.withDirectives", string("scrubber.baseWithDirectives").repeat(repeatCount));
-  }
-
-  private void generatePathological() {
-    for (int n : integers("pathological.nValues")) {
-      add("pathological.pattern." + n, "a?".repeat(n) + "a".repeat(n));
-      add("pathological.text." + n, "a".repeat(n));
-    }
-  }
-
-  private void generateFanout() {
-    int[] codePoints = integers("fanout.unicodeFanout.codePoints");
-    int unicodeSeed = integer("fanout.unicodeFanout.seed");
-    String alphabet = string("fanout.nestedQuantifier.alphabet");
-    int asciiSeed = integer("fanout.nestedQuantifier.seed");
-    for (int textSize : integers("fanout.textSizes")) {
-      Random unicodeRandom = new Random(unicodeSeed);
-      StringBuilder unicodeText = new StringBuilder();
-      while (unicodeText.length() < textSize) {
-        unicodeText.appendCodePoint(codePoints[unicodeRandom.nextInt(codePoints.length)]);
-      }
-      add("fanout.unicode." + textSize, unicodeText.toString());
-
-      Random asciiRandom = new Random(asciiSeed);
-      char[] asciiText = new char[textSize];
-      for (int index = 0; index < textSize; index++) {
-        asciiText[index] = alphabet.charAt(asciiRandom.nextInt(alphabet.length()));
-      }
-      add("fanout.ascii." + textSize, new String(asciiText));
-    }
-  }
-
-  private String realWorldInput(
-      RealWorldRegexCase benchmarkCase,
-      RealWorldRegexCase.InputSpec inputSpec,
-      boolean match,
-      int size,
-      String alphabet,
-      int seed) {
-    String template = match ? benchmarkCase.match : benchmarkCase.nonMatch;
-    return switch (inputSpec.kind) {
-      case "repeat" -> repeatedInput(template, size, alphabet, seed);
-      case "prefixedRepeat" -> prefixedInput(inputSpec.prefix, template, size, alphabet, seed);
-      case "sparseMatch" ->
+              string(arguments, "prefixUnit"),
+              string(arguments, "suffix"),
+              integer(arguments, "length"));
+      case PREFIXED_REPEAT_TO_LENGTH ->
+          prefixedInput(
+              string(arguments, "prefix"),
+              string(arguments, "value"),
+              integer(arguments, "length"),
+              string(arguments, "delimiterAlphabet"),
+              integer(arguments, "seed"));
+      case SPARSE_MATCH_TO_LENGTH ->
           sparseInput(
-              benchmarkCase.match,
-              benchmarkCase.nonMatch,
-              size,
-              seed,
-              inputSpec.nonMatchRepeats,
-              inputSpec.delimiterAlphabet);
-      case "surroundWithSpaces" -> surroundWithSpaces(inputSpec.body, size);
-      case "scaledSurroundWithSpaces" ->
+              string(arguments, "match"),
+              string(arguments, "nonMatch"),
+              integer(arguments, "length"),
+              integer(arguments, "seed"),
+              integer(arguments, "nonMatchRepeats"),
+              string(arguments, "delimiterAlphabet"));
+      case CENTER_IN_SPACES ->
+          surroundWithSpaces(string(arguments, "body"), integer(arguments, "length"));
+      case SCALED_CENTER_IN_SPACES ->
           scaledSurroundWithSpaces(
-              inputSpec.bodyPrefix,
-              inputSpec.bodySuffix,
-              inputSpec.bodyFill,
-              inputSpec.bodyScalePercent,
-              size);
-      default ->
-          throw new IllegalArgumentException("Unknown real-world input kind: " + inputSpec.kind);
+              string(arguments, "bodyPrefix"),
+              string(arguments, "bodySuffix"),
+              string(arguments, "bodyFill"),
+              integer(arguments, "bodyScalePercent"),
+              integer(arguments, "length"));
+      case LAZY_ALTERNATION_TO_LENGTH ->
+          lazyAltInput(
+              string(arguments, "prefixUnit"),
+              string(arguments, "match"),
+              string(arguments, "suffixUnit"),
+              integer(arguments, "length"));
+      case PERIODIC_ALTERNATION_TO_LENGTH ->
+          altCaptureInput(
+              string(arguments, "hitUnit"),
+              string(arguments, "missUnit"),
+              integer(arguments, "hitInterval"),
+              integer(arguments, "length"));
+      case OPTIONAL_REQUIRED_REPEAT_PATTERN ->
+          string(arguments, "literal").concat("?").repeat(integer(arguments, "count"))
+              + string(arguments, "literal").repeat(integer(arguments, "count"));
     };
+  }
+
+  private static String randomChars(String alphabet, int size, int seed) {
+    Random random = new Random(seed);
+    char[] characters = new char[size];
+    for (int index = 0; index < size; index++) {
+      characters[index] = alphabet.charAt(random.nextInt(alphabet.length()));
+    }
+    return new String(characters);
+  }
+
+  private static String randomCodePoints(List<Integer> codePoints, int minimumSize, int seed) {
+    Random random = new Random(seed);
+    StringBuilder result = new StringBuilder(minimumSize);
+    while (result.length() < minimumSize) {
+      result.appendCodePoint(codePoints.get(random.nextInt(codePoints.size())));
+    }
+    return result.toString();
+  }
+
+  private static String repeatAtLeastSize(String unit, int minimumSize) {
+    if (minimumSize == 0) {
+      return "";
+    }
+    StringBuilder result = new StringBuilder(minimumSize + unit.length());
+    while (result.length() < minimumSize) {
+      result.append(unit);
+    }
+    return result.toString();
+  }
+
+  static String repeatToSize(String unit, int size) {
+    if (size == 0) {
+      return "";
+    }
+    if (unit.isEmpty()) {
+      throw new IllegalArgumentException("Repeat unit must not be empty when size is positive");
+    }
+    StringBuilder result = new StringBuilder(size + unit.length());
+    while (result.length() < size) {
+      result.append(unit);
+    }
+    return result.substring(0, size);
   }
 
   private static String repeatedInput(String template, int size, String alphabet, int seed) {
@@ -377,20 +324,6 @@ public final class BenchmarkInputMaterializer {
     return " ".repeat(leading) + body + " ".repeat(padding - leading);
   }
 
-  static String repeatToSize(String unit, int size) {
-    if (size == 0) {
-      return "";
-    }
-    if (unit.isEmpty()) {
-      throw new IllegalArgumentException("Repeat unit must not be empty when size is positive");
-    }
-    StringBuilder result = new StringBuilder(size + unit.length());
-    while (result.length() < size) {
-      result.append(unit);
-    }
-    return result.substring(0, size);
-  }
-
   private static String surroundToSize(String prefix, String unit, String suffix, int size) {
     int bodySize = Math.max(0, size - prefix.length() - suffix.length());
     return prefix + repeatToSize(unit, bodySize) + suffix;
@@ -424,11 +357,19 @@ public final class BenchmarkInputMaterializer {
     return result.substring(0, size);
   }
 
-  private void add(String key, String value) {
-    byte[] previous = inputs.put(key, value.getBytes(StandardCharsets.UTF_8));
-    if (previous != null) {
-      throw new IllegalArgumentException("Duplicate materialized input key: " + key);
-    }
+  private static String string(
+      Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments, String name) {
+    return ((DeclarativeBenchmarkPlan.RecipeString) arguments.get(name)).value();
+  }
+
+  private static int integer(
+      Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments, String name) {
+    return ((DeclarativeBenchmarkPlan.RecipeInteger) arguments.get(name)).value();
+  }
+
+  private static List<Integer> integers(
+      Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments, String name) {
+    return ((DeclarativeBenchmarkPlan.RecipeIntegerList) arguments.get(name)).values();
   }
 
   private void write(Path corpusDirectory) throws IOException {
@@ -473,8 +414,10 @@ public final class BenchmarkInputMaterializer {
     for (Map.Entry<String, byte[]> input : inputs.entrySet()) {
       byte[] bytes = input.getValue();
       String text = new String(bytes, StandardCharsets.UTF_8);
+      DeclarativeBenchmarkPlan.InputDeclaration declaration = declarations.get(input.getKey());
       JsonObject entry = new JsonObject();
       entry.addProperty("file", input.getKey().replace('.', '/') + ".txt");
+      entry.addProperty("shared", declaration.shared());
       entry.addProperty("utf8Bytes", bytes.length);
       entry.addProperty("utf16CodeUnits", text.length());
       entry.addProperty("unicodeScalars", text.codePointCount(0, text.length()));
@@ -491,37 +434,5 @@ public final class BenchmarkInputMaterializer {
     } catch (NoSuchAlgorithmException exception) {
       throw new AssertionError("SHA-256 must be available", exception);
     }
-  }
-
-  private JsonObject object(String path) {
-    return element(path).getAsJsonObject();
-  }
-
-  private String string(String path) {
-    return element(path).getAsString();
-  }
-
-  private int integer(String path) {
-    return element(path).getAsInt();
-  }
-
-  private int[] integers(String path) {
-    JsonArray array = element(path).getAsJsonArray();
-    int[] values = new int[array.size()];
-    for (int index = 0; index < array.size(); index++) {
-      values[index] = array.get(index).getAsInt();
-    }
-    return values;
-  }
-
-  private JsonElement element(String path) {
-    JsonElement current = data;
-    for (String part : path.split("\\.")) {
-      current = current.getAsJsonObject().get(part);
-      if (current == null) {
-        throw new IllegalArgumentException("No benchmark data at path: " + path);
-      }
-    }
-    return current;
   }
 }

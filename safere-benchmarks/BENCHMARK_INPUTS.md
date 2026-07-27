@@ -27,12 +27,11 @@ Unicode scalar count, and SHA-256 digest, along with the resolved benchmark
 configuration. The generated directory is ignored and is replaced on every
 materialization, so there is no second checked-in representation to update.
 
-The materializer preserves the Java harness's previous generator behavior.
-Consequently, the Java workloads are unchanged. C++ and Go previously
+Every benchmark input is an explicit declaration in `benchmark-data.json`.
+The materializer evaluates only the schema's bounded, generic recipe kinds; it
+contains no workload-family dispatch or hidden input defaults. These
+declarations preserve the Java harness's previous generator behavior, so the
+Java workloads are unchanged. C++ and Go previously
 implemented their own random and Unicode generators, which differed in PRNG
 and size semantics; affected cross-language results collected before this
 corpus was introduced are not directly comparable with new results.
-
-Java-only diagnostic and engine-instrumentation benchmarks may still construct
-inputs locally when no other harness consumes them. Any workload shared by
-multiple engines belongs in the materialized corpus.

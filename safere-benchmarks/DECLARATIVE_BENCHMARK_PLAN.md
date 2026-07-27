@@ -84,6 +84,9 @@ classes, scripts, or workload-family code. Version 1 defines:
 | `literal` | Exact text |
 | `repeat` | Repeat text a fixed count |
 | `repeatToLength` | Repeat and truncate to a target UTF-16 length |
+| `repeatAtLeastLength` | Repeat through the first unit boundary at or beyond a minimum length |
+| `delimitedRepeatToLength` | Repeat text with a deterministic delimiter sequence and truncate |
+| `appendInput` | Append a suffix to another declared materialized input |
 | `randomChars` | Seeded selection from a UTF-16 alphabet |
 | `randomCodePoints` | Seeded selection from declared Unicode code points |
 | `surroundToLength` | Prefix, repeated body, and suffix at a target length |
@@ -97,8 +100,9 @@ classes, scripts, or workload-family code. Version 1 defines:
 | `optionalRequiredRepeatPattern` | Pathological optional/required literal pattern |
 
 Recipe fields are fixed for each kind. A new shape requires one generic recipe
-kind and validation, not a family-specific branch. Materialization and exact
-recipe semantics are implemented by #609.
+kind and validation, not a family-specific branch. The central materializer
+evaluates these recipes and rejects unknown dependencies and dependency
+cycles.
 
 ## Workload requirements
 

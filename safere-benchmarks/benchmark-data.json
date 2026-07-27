@@ -1,4 +1,1521 @@
 {
+  "schemaVersion": 1,
+  "inputs": [
+    {
+      "id": "crossEngine.RegexBenchmark.literalMatch.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "hello"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.RegexBenchmark.charClassMatch.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "TheQuickBrownFoxJumpsOverTheLazyDog"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.RegexBenchmark.alternationFind.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "the garply went to the baz and met a quux"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.RegexBenchmark.captureGroups.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "2025-12-25"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.RegexBenchmark.findInText.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "The morning sun was shining brightly, casting long shadows across the rolling hills. Birds were singing their melodious songs while children were playing in the sprawling gardens. A gentle breeze was blowing through the swaying trees, carrying the scent of blooming flowers. People were walking along the winding paths, enjoying the refreshing air and the stunning views of the surrounding countryside. Everything was moving in perfect harmony."
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.RegexBenchmark.emailFind.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "contact user.name+tag@example.co.uk for info"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.uuidValidation.input.0",
+      "recipe": {
+        "kind": "literal",
+        "text": "550e8400-e29b-41d4-a716-446655440000"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.uuidValidation.input.1",
+      "recipe": {
+        "kind": "literal",
+        "text": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.uuidValidation.input.2",
+      "recipe": {
+        "kind": "literal",
+        "text": "not-a-uuid"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.uuidValidation.input.3",
+      "recipe": {
+        "kind": "literal",
+        "text": "550e8400e29b41d4a716446655440000"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.uuidValidation.input.4",
+      "recipe": {
+        "kind": "literal",
+        "text": "ffffffff-ffff-5fff-bfff-ffffffffffff"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.uuidValidation.input.5",
+      "recipe": {
+        "kind": "literal",
+        "text": "12345678-1234-7234-9234-123456789abc"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.logLineParse.input.0",
+      "recipe": {
+        "kind": "literal",
+        "text": "2026-03-31T14:22:08Z INFO api.gateway - request completed status=200 latency=38ms"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.logLineParse.input.1",
+      "recipe": {
+        "kind": "literal",
+        "text": "2026-03-31T14:22:09Z WARN db.pool - connection wait exceeded threshold=100ms"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.logLineParse.input.2",
+      "recipe": {
+        "kind": "literal",
+        "text": "2026-03-31T14:22:10Z ERROR worker-7 - job failed id=abc123 retry=2"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.logLineParse.input.3",
+      "recipe": {
+        "kind": "literal",
+        "text": "debug line without structured prefix"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.logLineParse.input.4",
+      "recipe": {
+        "kind": "literal",
+        "text": "2026-03-31 14:22:11 INFO api.gateway - malformed timestamp"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.apiRouteMatch.input.0",
+      "recipe": {
+        "kind": "literal",
+        "text": "/api/v1/users/12345"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.apiRouteMatch.input.1",
+      "recipe": {
+        "kind": "literal",
+        "text": "/api/v2/orders/ord_9f3a?include=items"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.apiRouteMatch.input.2",
+      "recipe": {
+        "kind": "literal",
+        "text": "/api/v3/inventory/sku-7788"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.apiRouteMatch.input.3",
+      "recipe": {
+        "kind": "literal",
+        "text": "/assets/app.js"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.apiRouteMatch.input.4",
+      "recipe": {
+        "kind": "literal",
+        "text": "/api/v1/users/"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.apiRouteMatch.input.5",
+      "recipe": {
+        "kind": "literal",
+        "text": "/api/latest/users/12345"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.stackTraceExtract.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.caseInsensitiveKeywords.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "INFO startup complete\nWarning cache miss ratio high\nrequest failed after TIMEOUT waiting for backend\nERROR circuit breaker opened\nhealth check passed"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.urlExtraction.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "Docs: https://example.com/docs/v1/index.html?lang=en and callback http://localhost:8080/api/callback?id=42; mirror at https://cdn.example.org/assets/app.js"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.csvFieldScan.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "id,name,email,status,created_at\n42,\"Ada Lovelace\",ada@example.com,active,2026-03-31T14:22:08Z\n43,\"Grace Hopper\",grace@example.com,pending,2026-04-01T09:15:00Z"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ApplicationBenchmark.secretRedaction.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "user=service password=hunter2 token=abc123XYZ path=/api secret=prod-key-9 debug=true"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.HttpBenchmark.httpFull.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.HttpBenchmark.httpSmall.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "GET /abc HTTP/1.1"
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8Matching.literalScan.text",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 32768,
+        "seed": 20260721
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8Matching.requiredClassNonmatch.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "This is a sentence containing only English characters. ",
+        "length": 10000
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8Matching.hardFailure.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "ordinary ASCII text without the required suffix ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.random.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz0123456789 \n",
+        "length": "{size}",
+        "seed": 42
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.success.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "appendInput",
+        "input": "searchScaling.random.{size}",
+        "suffix": "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.prose.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatAtLeastLength",
+        "unit": "The morning sun was shining brightly casting long shadows across the rolling hills Birds were singing their melodious songs while children were playing in the sprawling gardens A gentle breeze was blowing through the swaying trees carrying the scent of blooming flowers People were walking along the winding paths enjoying the refreshing air and the stunning views ",
+        "minimumLength": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.splitW.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "This is a generic sentence containing words that will be used to test splitting routines. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.block.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "This is a <block>",
+        "unit": "content bytes here... blah blah blah ",
+        "suffix": "</block> transcript.",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.blockNegative.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "This is a <block>",
+        "unit": "content bytes here... blah blah blah ",
+        "suffix": " transcript without a closing block tag.",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.tag.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "plain text before the tagged value ",
+        "suffix": "Hello <<tag type=\"typeA\" value=\"valA\">>!",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.tagNegative.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "plain text before the tagged value ",
+        "suffix": "Hello <<notag type=\"typeA\" value=\"valA\">>!",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.scheme.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "ordinary prose without a custom scheme link ",
+        "suffix": "Check [this link](customScheme://<id_1>) or [another](customScheme://id_2).",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue481Scaling.schemeNegative.{size}",
+      "axes": {
+        "size": [
+          128,
+          1024,
+          10240,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "ordinary prose without a custom scheme link ",
+        "suffix": "Check [this link](https://example.test/id_1) or [another](otherScheme://id_2).",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue488ReplaceAll.lazyAlt.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "lazyAlternationToLength",
+        "prefixUnit": "Some prefix text preceding the render block element. ",
+        "match": "\n<block>\nrenderElement(id=\"el-42\", width=100, height=200, label=\"hello world\")\n</block>\n",
+        "suffixUnit": "Some suffix text following the render block element. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "issue488ReplaceAll.altCapture.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "periodicAlternationToLength",
+        "hitUnit": "This is some sample prose text that contains a tag marker #!customTag and more text here. ",
+        "missUnit": "This is some sample prose text that contains a tag marker #customTag and more text here. ",
+        "hitInterval": 5,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.mapFieldPath.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "config.overrides[some_value]",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.mapFieldPath.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "config.overrides",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.markupImageLink.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<<!image(src=\"http://image.png\")>>",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.markupImageLink.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<<!image",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.versionList.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "[1.2.3, 4.5.6]",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.versionList.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "[1.2.3,",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.malformedEntity.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<entity id=\"123\">",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.malformedEntity.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<ent id=\"123\">",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.markupEntity.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<<!entity(id=\"123\")>>",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.markupEntity.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<<entity(id=\"123\")",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.customProtocolLink.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "[Click here](customProtocol://<doc_1>)",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.customProtocolLink.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "[Click here](http://google.com)",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.wildcardSearch.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "What can I do for you today?",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.wildcardSearch.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "What is the capital of France?",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.metadataBlock.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<meta_start>Thinking process: analyzing query...<meta_end>",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.metadataBlock.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<meta_start>Thinking process: analyzing query...",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.blockedTags1.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "```code_block\n# tags_identified: shopping\n```",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.blockedTags1.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "```code_block\n# tags: shopping\n```",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.blockedTags2.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<container>\n# topic_identified: sports\n</container>",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.blockedTags2.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<container>\n# topic: sports\n</container>",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.overlappingUrl.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "https://www.example.com/search?q=testing&hl=en",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.overlappingUrl.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "some-random-domain-name",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.caseInsensitiveKeyword.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "KEYWORD_TO_FIND",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.caseInsensitiveKeyword.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "other_random_words",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.boundedNameMatch.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "first name value",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.boundedNameMatch.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "first name other_value",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.templateTagMatch.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<template name>content to match</template",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.templateTagMatch.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "plain text without template tag",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.sparseUrl.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "https://www.example.com/search?q=testing&hl=en",
+        "nonMatch": "some-random-domain-name",
+        "nonMatchRepeats": 20,
+        "delimiterAlphabet": "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ0123456789",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.sparseUrl.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "some-random-domain-name",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.unprefixedWordBoundary.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "12345 ",
+        "value": "hello",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.unprefixedWordBoundary.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "12345",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fruitSearchQuery.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "Here are the apples to show for banana in this session.",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fruitSearchQuery.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "Orange lemon melon peach pear plum.",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fruitMarkupTag.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "centerInSpaces",
+        "body": "<Banana>",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fruitMarkupTag.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "centerInSpaces",
+        "body": "<Orange>",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.jsonBlock.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "scaledCenterInSpaces",
+        "bodyPrefix": "{ \"key\": \"value\", \"padding\": \"",
+        "bodySuffix": "\" }",
+        "bodyFill": "a",
+        "bodyScalePercent": 5,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.jsonBlock.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "some non-matching string containing no braces",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.charReplace.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "a",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.charReplace.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "b",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.greedyOnePass.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "abcdefghijklmnopqrstuvwxyz",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.greedyOnePass.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "\nabcdefghijklmnopqrstuvwxyz",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.layoutBlock.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "<block>\n  # category_defined: alpha, beta\n  entry: apple\n  entry: banana\n</block>\n",
+        "nonMatch": "<block>\n  # comment but not defined tag\n  entry: orange\n</block>\n",
+        "nonMatchRepeats": 5,
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.layoutBlock.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "<block>\n  # comment but not defined tag\n  entry: orange\n</block>\n",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.turnTitleWhitespaceCjk.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "いくつもの　中国語と日本語の文字　がここにあります　そして　いくつかのスペース　があります",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.turnTitleWhitespaceCjk.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "いくつもの中国語と日本語の文字がここにありますそしていくつかのスペースがあります",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.cjkSearch.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "这是一个中文测试句子",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.cjkSearch.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "This is a sentence containing only English characters.",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.emojiSearch.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "Today is a beautiful day 😇 with warm sunshine.",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.emojiSearch.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "Today is a beautiful day with warm sunshine.",
+        "delimiterAlphabet": " ",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.withoutDirectives",
+      "recipe": {
+        "kind": "repeat",
+        "value": "public class Foo {\n  // Some comment\n  public void bar() {\n    System.out.println(\"Hello, world!\");\n  }\n}\n",
+        "count": 500
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.withDirectives",
+      "recipe": {
+        "kind": "repeat",
+        "value": "public class Foo {\n  // SCRUB:strip_line\n  public void bar() {\n    // SCRUB:begin_strip\n    System.out.println(\"Secret code\");\n    // SCRUB:end_strip\n  }\n}\n",
+        "count": 500
+      },
+      "shared": true
+    },
+    {
+      "id": "pathological.pattern.{size}",
+      "axes": {
+        "size": [
+          10,
+          15,
+          20,
+          25,
+          30,
+          50,
+          100
+        ]
+      },
+      "recipe": {
+        "kind": "optionalRequiredRepeatPattern",
+        "literal": "a",
+        "count": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "pathological.text.{size}",
+      "axes": {
+        "size": [
+          10,
+          15,
+          20,
+          25,
+          30,
+          50,
+          100
+        ]
+      },
+      "recipe": {
+        "kind": "repeat",
+        "value": "a",
+        "count": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "fanout.unicode.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400
+        ]
+      },
+      "recipe": {
+        "kind": "randomCodePoints",
+        "codePoints": [
+          19968,
+          19969,
+          19970,
+          233,
+          241,
+          252,
+          1040,
+          1041,
+          1042,
+          12354,
+          12356,
+          12358
+        ],
+        "minimumCodeUnits": "{size}",
+        "seed": 42
+      },
+      "shared": true
+    },
+    {
+      "id": "fanout.ascii.{size}",
+      "axes": {
+        "size": [
+          1024,
+          10240,
+          102400
+        ]
+      },
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": "{size}",
+        "seed": 42
+      },
+      "shared": true
+    },
+    {
+      "id": "memory.dfaCacheText",
+      "recipe": {
+        "kind": "repeat",
+        "value": "contact user.name+tag@example.co.uk for info",
+        "count": 200
+      },
+      "shared": true
+    }
+  ],
   "regex": {
     "literalMatch": {
       "id": "RegexBenchmark.literalMatch",
@@ -38,7 +1555,6 @@
       "op": "find"
     }
   },
-
   "matcherApi": {
     "lookingAt": {
       "pattern": "[A-Za-z]+:\\s+\\d+",
@@ -55,7 +1571,6 @@
       "text": "item1 item22 item333"
     }
   },
-
   "utf8Matching": {
     "literalScan": {
       "seed": 20260721,
@@ -68,12 +1583,30 @@
       }
     },
     "captureFreeFind": {
-      "asciiEarly": { "pattern": "ERROR", "text": "ERROR request completed" },
-      "asciiLate": { "pattern": "ERROR", "text": "request completed with ERROR" },
-      "asciiNoMatch": { "pattern": "ERROR", "text": "request completed normally" },
-      "multibyteEarly": { "pattern": "错误", "text": "错误：请求失败" },
-      "multibyteLate": { "pattern": "错误", "text": "请求处理结束：错误" },
-      "multibyteNoMatch": { "pattern": "错误", "text": "请求处理成功" }
+      "asciiEarly": {
+        "pattern": "ERROR",
+        "text": "ERROR request completed"
+      },
+      "asciiLate": {
+        "pattern": "ERROR",
+        "text": "request completed with ERROR"
+      },
+      "asciiNoMatch": {
+        "pattern": "ERROR",
+        "text": "request completed normally"
+      },
+      "multibyteEarly": {
+        "pattern": "错误",
+        "text": "错误：请求失败"
+      },
+      "multibyteLate": {
+        "pattern": "错误",
+        "text": "请求处理结束：错误"
+      },
+      "multibyteNoMatch": {
+        "pattern": "错误",
+        "text": "请求处理成功"
+      }
     },
     "requiredClassNonmatch": {
       "pattern": "[一-龥]{3,}",
@@ -81,8 +1614,14 @@
       "textSize": 10000
     },
     "repeatedFind": {
-      "ascii": { "pattern": "[A-Za-z]+", "text": "one two three four five" },
-      "multibyte": { "pattern": "\\p{L}+", "text": "one café 東京 naïve" }
+      "ascii": {
+        "pattern": "[A-Za-z]+",
+        "text": "one two three four five"
+      },
+      "multibyte": {
+        "pattern": "\\p{L}+",
+        "text": "one café 東京 naïve"
+      }
     },
     "captureBounds": {
       "numbered": {
@@ -93,11 +1632,21 @@
         "pattern": "(?<key>[A-Za-z]+)=(?<value>[^&]+)",
         "text": "city=東京&name=Renée"
       },
-      "nonparticipating": { "pattern": "(cat)|(dog)", "text": "dog" }
+      "nonparticipating": {
+        "pattern": "(cat)|(dog)",
+        "text": "dog"
+      }
     },
-    "emptyMatchIteration": { "pattern": "", "text": "a💰有" },
+    "emptyMatchIteration": {
+      "pattern": "",
+      "text": "a💰有"
+    },
     "replacement": {
-      "literal": { "pattern": "错误", "text": "错误 then 错误", "replacement": "OK" },
+      "literal": {
+        "pattern": "错误",
+        "text": "错误 then 错误",
+        "replacement": "OK"
+      },
       "numbered": {
         "pattern": "([A-Za-z]+)=([^&]+)",
         "text": "city=東京&name=Renée",
@@ -118,18 +1667,32 @@
     "hardFailure": {
       "pattern": "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$",
       "unit": "ordinary ASCII text without the required suffix ",
-      "textSizes": [1024, 10240, 102400, 1048576]
+      "textSizes": [
+        1024,
+        10240,
+        102400,
+        1048576
+      ]
     },
-    "constructionModes": ["trusted", "validated"]
+    "constructionModes": [
+      "trusted",
+      "validated"
+    ]
   },
-
   "compile": {
-    "simple": { "pattern": "hello" },
-    "medium": { "pattern": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})" },
-    "complex": { "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}" },
-    "alternation": { "pattern": "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy" }
+    "simple": {
+      "pattern": "hello"
+    },
+    "medium": {
+      "pattern": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})"
+    },
+    "complex": {
+      "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+    },
+    "alternation": {
+      "pattern": "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy"
+    }
   },
-
   "searchScaling": {
     "workloadIds": {
       "easyFail": "SearchScalingBenchmark.searchEasyFail",
@@ -145,16 +1708,26 @@
     },
     "matchSuffix": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
     "findIngPattern": "\\b\\w+ing\\b",
-    "textSizes": [1024, 10240, 102400, 1048576],
+    "textSizes": [
+      1024,
+      10240,
+      102400,
+      1048576
+    ],
     "randomText": {
       "alphabet": "abcdefghijklmnopqrstuvwxyz0123456789 \n",
       "seed": 42
     },
     "proseUnit": "The morning sun was shining brightly casting long shadows across the rolling hills Birds were singing their melodious songs while children were playing in the sprawling gardens A gentle breeze was blowing through the swaying trees carrying the scent of blooming flowers People were walking along the winding paths enjoying the refreshing air and the stunning views "
   },
-
   "issue481Scaling": {
-    "textSizes": [128, 1024, 10240, 102400, 1048576],
+    "textSizes": [
+      128,
+      1024,
+      10240,
+      102400,
+      1048576
+    ],
     "splitW": {
       "pattern": "\\W+",
       "unit": "This is a generic sentence containing words that will be used to test splitting routines. "
@@ -179,9 +1752,12 @@
       "negativeMatch": "Check [this link](https://example.test/id_1) or [another](otherScheme://id_2)."
     }
   },
-
   "issue488ReplaceAll": {
-    "textSizes": [1000, 10000, 100000],
+    "textSizes": [
+      1000,
+      10000,
+      100000
+    ],
     "lazyAlt": {
       "pattern": "(?i)(?s)\\s*\\n*(?:<block>|\\[block\\])\\s*\\n?renderElement\\(.*?\\)\\s*\\n?(?:</block>|\\[/block\\])",
       "replacement": "",
@@ -197,7 +1773,6 @@
       "hitInterval": 5
     }
   },
-
   "captureScaling": {
     "capture0": {
       "pattern": "[0-9]+-[0-9]+-[0-9]+",
@@ -220,7 +1795,6 @@
       "groups": 10
     }
   },
-
   "http": {
     "workloadIds": {
       "full": "HttpBenchmark.httpFull",
@@ -231,7 +1805,6 @@
     "fullRequest": "GET /asdfhjasdhfasdlfhasdflkjasdfkljasdhflaskdjhflkajsdhflkajshfklasjdhfklasjdhfklashdflka HTTP/1.1",
     "smallRequest": "GET /abc HTTP/1.1"
   },
-
   "replace": {
     "literalReplaceFirst": {
       "pattern": "b",
@@ -270,7 +1843,6 @@
       "op": "replaceAll"
     }
   },
-
   "scrubber": {
     "repeatCount": 500,
     "linePattern": "[^\\n]*\\bSCRUB:strip_line\\b[^\\n]*\\n?",
@@ -278,9 +1850,12 @@
     "baseWithoutDirectives": "public class Foo {\n  // Some comment\n  public void bar() {\n    System.out.println(\"Hello, world!\");\n  }\n}\n",
     "baseWithDirectives": "public class Foo {\n  // SCRUB:strip_line\n  public void bar() {\n    // SCRUB:begin_strip\n    System.out.println(\"Secret code\");\n    // SCRUB:end_strip\n  }\n}\n"
   },
-
   "realWorldRegex": {
-    "textSizes": [1000, 10000, 100000],
+    "textSizes": [
+      1000,
+      10000,
+      100000
+    ],
     "safeDelimiterAlphabet": " ",
     "seed": 42,
     "cases": [
@@ -515,7 +2090,7 @@
         "name": "turnTitleWhitespaceCjk",
         "pattern": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
         "op": "replaceAllEmpty",
-        "match": "いくつもの\u3000中国語と日本語の文字\u3000がここにあります\u3000そして\u3000いくつかのスペース\u3000があります",
+        "match": "いくつもの　中国語と日本語の文字　がここにあります　そして　いくつかのスペース　があります",
         "nonMatch": "いくつもの中国語と日本語の文字がここにありますそしていくつかのスペースがあります",
         "matchInput": {
           "kind": "repeat"
@@ -554,7 +2129,6 @@
       }
     ]
   },
-
   "application": [
     {
       "id": "ApplicationBenchmark.uuidValidation",
@@ -583,7 +2157,10 @@
         "debug line without structured prefix",
         "2026-03-31 14:22:11 INFO api.gateway - malformed timestamp"
       ],
-      "groups": [2, 3],
+      "groups": [
+        2,
+        3
+      ],
       "expected": 39
     },
     {
@@ -599,7 +2176,10 @@
         "/api/v1/users/",
         "/api/latest/users/12345"
       ],
-      "groups": [1, 2],
+      "groups": [
+        1,
+        2
+      ],
       "expected": 41
     },
     {
@@ -608,7 +2188,10 @@
       "op": "findAllGroupLengthSum",
       "pattern": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
       "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)",
-      "groups": [1, 4],
+      "groups": [
+        1,
+        4
+      ],
       "expected": 93
     },
     {
@@ -645,18 +2228,41 @@
       "expected": "user=service password=REDACTED token=REDACTED path=/api secret=REDACTED debug=true"
     }
   ],
-
   "pathological": {
-    "nValues": [10, 15, 20, 25, 30, 50, 100],
-    "nValuesComparison": [10, 15, 20],
+    "nValues": [
+      10,
+      15,
+      20,
+      25,
+      30,
+      50,
+      100
+    ],
+    "nValuesComparison": [
+      10,
+      15,
+      20
+    ],
     "note": "Pattern is 'a?' repeated n times followed by 'a' repeated n times. Text is 'a' repeated n times."
   },
-
   "fanout": {
     "unicodeFanout": {
       "id": "FanoutBenchmark.fanoutUnicode",
       "pattern": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
-      "codePoints": [19968, 19969, 19970, 233, 241, 252, 1040, 1041, 1042, 12354, 12356, 12358],
+      "codePoints": [
+        19968,
+        19969,
+        19970,
+        233,
+        241,
+        252,
+        1040,
+        1041,
+        1042,
+        12354,
+        12356,
+        12358
+      ],
       "seed": 42
     },
     "nestedQuantifier": {
@@ -665,36 +2271,84 @@
       "alphabet": "abcdefghijklmnopqrstuvwxyz",
       "seed": 42
     },
-    "textSizes": [1024, 10240, 102400]
+    "textSizes": [
+      1024,
+      10240,
+      102400
+    ]
   },
-
   "patternSet": {
     "basePatterns": [
-      "ERROR", "WARNING", "INFO", "DEBUG", "FATAL",
-      "connection\\s+timeout", "\\d+\\.\\d+\\.\\d+\\.\\d+",
-      "host\\s+\\S+", "port\\s*:\\s*\\d+", "after\\s+\\d+s",
-      "[A-Z]{2,}:", "\\w+\\.internal", "db-\\w+",
+      "ERROR",
+      "WARNING",
+      "INFO",
+      "DEBUG",
+      "FATAL",
+      "connection\\s+timeout",
+      "\\d+\\.\\d+\\.\\d+\\.\\d+",
+      "host\\s+\\S+",
+      "port\\s*:\\s*\\d+",
+      "after\\s+\\d+s",
+      "[A-Z]{2,}:",
+      "\\w+\\.internal",
+      "db-\\w+",
       "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
-      "timeout|refused|reset|closed", "\\[\\w+\\]",
-      "status\\s*=\\s*\\d+", "retry\\s+\\d+/\\d+",
-      "latency\\s*>\\s*\\d+ms", "queue\\s+full",
-      "memory\\s+\\d+[kmg]b?", "cpu\\s+\\d+%", "disk\\s+(full|low)",
-      "\\w+Exception", "at\\s+\\w+\\.\\w+\\(",
-      "null\\s*pointer", "stack\\s*overflow", "out\\s+of\\s+memory",
-      "permission\\s+denied", "not\\s+found",
-      "already\\s+exists", "invalid\\s+\\w+", "expired",
-      "unauthorized", "rate\\s+limit", "circuit\\s+breaker",
-      "health\\s+check\\s+failed", "graceful\\s+shutdown",
-      "leader\\s+election", "split\\s+brain", "rebalancing",
-      "partition\\s+\\d+", "offset\\s+\\d+", "consumer\\s+group",
-      "dead\\s+letter", "backpressure", "throttled", "degraded",
-      "failover", "rollback", "checkpoint\\s+\\d+", "snapshot\\s+\\w+",
-      "compaction", "gc\\s+pause\\s+\\d+ms", "safepoint",
-      "jit\\s+compilation", "class\\s+loading", "thread\\s+pool\\s+\\w+",
-      "blocked\\s+thread", "deadlock", "lock\\s+contention",
-      "cache\\s+(hit|miss)", "eviction", "bloom\\s+filter"
+      "timeout|refused|reset|closed",
+      "\\[\\w+\\]",
+      "status\\s*=\\s*\\d+",
+      "retry\\s+\\d+/\\d+",
+      "latency\\s*>\\s*\\d+ms",
+      "queue\\s+full",
+      "memory\\s+\\d+[kmg]b?",
+      "cpu\\s+\\d+%",
+      "disk\\s+(full|low)",
+      "\\w+Exception",
+      "at\\s+\\w+\\.\\w+\\(",
+      "null\\s*pointer",
+      "stack\\s*overflow",
+      "out\\s+of\\s+memory",
+      "permission\\s+denied",
+      "not\\s+found",
+      "already\\s+exists",
+      "invalid\\s+\\w+",
+      "expired",
+      "unauthorized",
+      "rate\\s+limit",
+      "circuit\\s+breaker",
+      "health\\s+check\\s+failed",
+      "graceful\\s+shutdown",
+      "leader\\s+election",
+      "split\\s+brain",
+      "rebalancing",
+      "partition\\s+\\d+",
+      "offset\\s+\\d+",
+      "consumer\\s+group",
+      "dead\\s+letter",
+      "backpressure",
+      "throttled",
+      "degraded",
+      "failover",
+      "rollback",
+      "checkpoint\\s+\\d+",
+      "snapshot\\s+\\w+",
+      "compaction",
+      "gc\\s+pause\\s+\\d+ms",
+      "safepoint",
+      "jit\\s+compilation",
+      "class\\s+loading",
+      "thread\\s+pool\\s+\\w+",
+      "blocked\\s+thread",
+      "deadlock",
+      "lock\\s+contention",
+      "cache\\s+(hit|miss)",
+      "eviction",
+      "bloom\\s+filter"
     ],
-    "patternCounts": [4, 16, 64],
+    "patternCounts": [
+      4,
+      16,
+      64
+    ],
     "matchText": "ERROR: connection timeout after 30s to host db-primary.internal:5432",
     "noMatchText": "The quick brown fox jumps over the lazy dog near the riverbank"
   }

@@ -51,14 +51,7 @@ final class DeclarativeBenchmarkPlan {
           "Unsupported benchmark plan schema version: " + schemaVersion);
     }
 
-    Map<String, InputDeclaration> inputs = new LinkedHashMap<>();
-    for (JsonElement element : root.requiredArray("inputs")) {
-      for (InputDeclaration input : parseInputs(element)) {
-        if (inputs.put(input.id(), input) != null) {
-          throw new IllegalArgumentException("Duplicate benchmark input ID: " + input.id());
-        }
-      }
-    }
+    Map<String, InputDeclaration> inputs = parseInputDeclarations(root.requiredArray("inputs"));
 
     List<WorkloadDeclaration> workloads = new ArrayList<>();
     Set<String> workloadTemplates = new LinkedHashSet<>();
@@ -81,6 +74,18 @@ final class DeclarativeBenchmarkPlan {
 
   Map<String, InputDeclaration> inputs() {
     return inputs;
+  }
+
+  static Map<String, InputDeclaration> parseInputDeclarations(JsonArray declarations) {
+    Map<String, InputDeclaration> inputs = new LinkedHashMap<>();
+    for (JsonElement element : declarations) {
+      for (InputDeclaration input : parseInputs(element)) {
+        if (inputs.put(input.id(), input) != null) {
+          throw new IllegalArgumentException("Duplicate benchmark input ID: " + input.id());
+        }
+      }
+    }
+    return Collections.unmodifiableMap(inputs);
   }
 
   List<WorkloadDeclaration> workloads() {
@@ -1090,6 +1095,20 @@ final class DeclarativeBenchmarkPlan {
         "repeatToLength",
         field("unit", RecipeValueType.STRING),
         field("length", RecipeValueType.INTEGER)),
+    REPEAT_AT_LEAST_LENGTH(
+        "repeatAtLeastLength",
+        field("unit", RecipeValueType.STRING),
+        field("minimumLength", RecipeValueType.INTEGER)),
+    DELIMITED_REPEAT_TO_LENGTH(
+        "delimitedRepeatToLength",
+        field("value", RecipeValueType.STRING),
+        field("delimiterAlphabet", RecipeValueType.STRING),
+        field("seed", RecipeValueType.INTEGER),
+        field("length", RecipeValueType.INTEGER)),
+    APPEND_INPUT(
+        "appendInput",
+        field("input", RecipeValueType.STRING),
+        field("suffix", RecipeValueType.STRING)),
     RANDOM_CHARS(
         "randomChars",
         field("alphabet", RecipeValueType.STRING),
@@ -1186,6 +1205,16 @@ final class DeclarativeBenchmarkPlan {
           requireNonNegative(arguments, "length");
           requireUnitWhenOutputIsRequired(arguments, "unit", "length", 0);
         }
+        case REPEAT_AT_LEAST_LENGTH -> {
+          requireNonNegative(arguments, "minimumLength");
+          requireUnitWhenOutputIsRequired(arguments, "unit", "minimumLength", 0);
+        }
+        case DELIMITED_REPEAT_TO_LENGTH -> {
+          requireNonNegative(arguments, "length");
+          requireNonEmpty(arguments, "value");
+          requireNonEmpty(arguments, "delimiterAlphabet");
+        }
+        case APPEND_INPUT -> requireNonEmpty(arguments, "input");
         case RANDOM_CHARS -> {
           requireNonNegative(arguments, "length");
           requireNonEmpty(arguments, "alphabet");
