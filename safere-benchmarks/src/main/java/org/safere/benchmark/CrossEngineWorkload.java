@@ -19,6 +19,10 @@ record CrossEngineWorkload(
     Object expected,
     int limit,
     DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
+    String flagSet,
+    int seed,
+    int count,
+    DeclarativeBenchmarkPlan.Measurement measurement,
     TimingGroup timingGroup) {
 
   CrossEngineWorkload {
@@ -28,6 +32,7 @@ record CrossEngineWorkload(
     inputKeys = List.copyOf(inputKeys);
     groups = groups.clone();
     Objects.requireNonNull(lifecycle);
+    Objects.requireNonNull(measurement);
     Objects.requireNonNull(timingGroup);
     if (id.isBlank()) {
       throw new IllegalArgumentException("Cross-engine workload ID must not be blank");
@@ -38,7 +43,10 @@ record CrossEngineWorkload(
     if (patterns.isEmpty()) {
       throw new IllegalArgumentException(id + " requires at least one pattern");
     }
-    if (inputKeys.isEmpty() && operation != BenchmarkOperation.COMPILE) {
+    if (inputKeys.isEmpty()
+        && operation != BenchmarkOperation.COMPILE
+        && operation != BenchmarkOperation.FIND_ROTATING_UTF16
+        && operation != BenchmarkOperation.COMPILE_AND_FIND_ROTATING_UTF16) {
       throw new IllegalArgumentException(id + " requires at least one input");
     }
   }
@@ -46,6 +54,7 @@ record CrossEngineWorkload(
   /** Benchmark schedule group, kept separate so historical output units remain stable. */
   enum TimingGroup {
     NANOSECONDS,
-    MICROSECONDS
+    MICROSECONDS,
+    MILLISECONDS
   }
 }

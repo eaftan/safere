@@ -6,7 +6,9 @@
 package org.safere.benchmark;
 
 import java.util.Arrays;
+import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Measures the retained heap size of compiled regex patterns across engines (SafeRE, JDK, RE2/J).
@@ -36,68 +38,38 @@ public final class MemoryBenchmark {
   private MemoryBenchmark() {}
 
   public static void main(String[] args) throws Exception {
-    BenchmarkData data = BenchmarkData.get();
-
-    System.out.println("=== Compiled Pattern Size (bytes, retained heap) ===");
-    System.out.println();
-    System.out.printf("%-18s %10s %10s %10s%n", "Pattern", "SafeRE", "JDK", "RE2/J");
-    System.out.println("─".repeat(52));
-
-    String[] patternNames = {"simple", "medium", "complex", "alternation"};
-
-    for (String name : patternNames) {
-      String pattern = data.getString("compile." + name + ".pattern");
-
-      long safereSize = measureRetainedSize(() -> org.safere.Pattern.compile(pattern));
-      long jdkSize = measureRetainedSize(() -> java.util.regex.Pattern.compile(pattern));
-      long re2jSize = measureRetainedSize(() -> com.google.re2j.Pattern.compile(pattern));
-
-      System.out.printf("%-18s %,10d %,10d %,10d%n", name, safereSize, jdkSize, re2jSize);
+    SpecializedBenchmarkPlan plan = SpecializedBenchmarkPlan.load();
+    Set<String> selected = Arrays.stream(args).collect(Collectors.toSet());
+    System.out.println("=== Declarative retained-memory measurements (bytes) ===");
+    for (SpecializedBenchmarkPlan.Trial trial : plan.retainedMemoryTrials()) {
+      if (!selected.isEmpty() && !selected.contains(trial.id())) {
+        continue;
+      }
+      DeclarativeBenchmarkPlan.ExpandedWorkload workload = trial.workload();
+      long bytes =
+          switch (workload.operation()) {
+            case COMPILE ->
+                measureRetainedSize(
+                    () ->
+                        trial
+                            .variant()
+                            .compileForBenchmark(
+                                workload.patterns().getFirst(), flagSet(workload)));
+            case DFA_CACHE_GROWTH ->
+                measureDfaCacheGrowth(
+                    workload.patterns().getFirst(),
+                    BenchmarkData.get().getInputString(workload.inputIds().getFirst()));
+            default ->
+                throw new IllegalArgumentException(
+                    "Unsupported retained-memory operation: " + workload.operation());
+          };
+      System.out.printf("%s %,d%n", trial.id(), bytes);
     }
+  }
 
-    // Also measure the core regex benchmark patterns (match-time patterns).
-    System.out.println();
-    System.out.println("=== Match-Time Pattern Size (bytes, retained heap) ===");
-    System.out.println();
-    System.out.printf("%-18s %10s %10s %10s%n", "Pattern", "SafeRE", "JDK", "RE2/J");
-    System.out.println("─".repeat(52));
-
-    String[][] regexPatterns = {
-      {"literalMatch", "regex.literalMatch.pattern"},
-      {"charClassMatch", "regex.charClassMatch.pattern"},
-      {"alternationFind", "regex.alternationFind.pattern"},
-      {"captureGroups", "regex.captureGroups.pattern"},
-      {"findInText", "regex.findInText.pattern"},
-      {"emailFind", "regex.emailFind.pattern"},
-    };
-
-    for (String[] entry : regexPatterns) {
-      String name = entry[0];
-      String pattern = data.getString(entry[1]);
-
-      long safereSize = measureRetainedSize(() -> org.safere.Pattern.compile(pattern));
-      long jdkSize = measureRetainedSize(() -> java.util.regex.Pattern.compile(pattern));
-      long re2jSize = measureRetainedSize(() -> com.google.re2j.Pattern.compile(pattern));
-
-      System.out.printf("%-18s %,10d %,10d %,10d%n", name, safereSize, jdkSize, re2jSize);
-    }
-
-    // DFA cache growth: compile a single SafeRE pattern, measure heap before/after matching
-    // against a large text to populate the DFA state cache.
-    System.out.println();
-    System.out.println("=== DFA Cache Growth (SafeRE only, bytes) ===");
-    System.out.println();
-    System.out.printf("%-18s %12s%n", "Pattern", "Cache growth");
-    System.out.println("─".repeat(32));
-
-    // Build a large text to exercise DFA cache creation across many character classes.
-    String largeText = data.getInputString("memory.dfaCacheText");
-
-    for (String name : patternNames) {
-      String pattern = data.getString("compile." + name + ".pattern");
-      long growth = measureDfaCacheGrowth(pattern, largeText);
-      System.out.printf("%-18s %,12d%n", name, growth);
-    }
+  private static String flagSet(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
+    DeclarativeBenchmarkPlan.RecipeValue value = workload.arguments().get("flagSet");
+    return value == null ? null : ((DeclarativeBenchmarkPlan.RecipeString) value).value();
   }
 
   /**

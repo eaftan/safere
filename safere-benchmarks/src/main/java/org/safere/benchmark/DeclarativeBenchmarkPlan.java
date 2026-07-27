@@ -31,7 +31,7 @@ final class DeclarativeBenchmarkPlan {
 
   static final int SCHEMA_VERSION = 1;
   private static final java.util.regex.Pattern PLACEHOLDER =
-      java.util.regex.Pattern.compile("\\{([A-Za-z][A-Za-z0-9_]*)}");
+      java.util.regex.Pattern.compile("(?<!\\$)\\{([A-Za-z][A-Za-z0-9_]*)}");
 
   private final Map<String, InputDeclaration> inputs;
   private final List<WorkloadDeclaration> workloads;
@@ -565,7 +565,7 @@ final class DeclarativeBenchmarkPlan {
       if (value == null) {
         matcher.appendReplacement(result, Matcher.quoteReplacement(matcher.group()));
       } else {
-        matcher.appendReplacement(result, Matcher.quoteReplacement(value.stableText()));
+        matcher.appendReplacement(result, Matcher.quoteReplacement(value.valueText()));
       }
     }
     matcher.appendTail(result);
@@ -1062,33 +1062,53 @@ final class DeclarativeBenchmarkPlan {
     }
   }
 
-  record ParameterValue(ParameterType type, Object value) {
+  record ParameterValue(ParameterType type, Object value, String stableText) {
     static ParameterValue parse(JsonElement element, String axis) {
+      return parse(element, axis, true);
+    }
+
+    private static ParameterValue parse(
+        JsonElement element, String axis, boolean validateStableValue) {
+      if (element.isJsonObject()) {
+        JsonReader labeled = JsonReader.object("benchmark axis value", element);
+        labeled.requireOnly("id", "value");
+        String id = labeled.requiredString("id");
+        validateStableText(id);
+        ParameterValue value = parse(element.getAsJsonObject().get("value"), axis, false);
+        return new ParameterValue(value.type(), value.value(), id);
+      }
       if (!element.isJsonPrimitive()) {
         throw new IllegalArgumentException(
-            "Benchmark axis values must be strings, integers, or booleans: " + axis);
+            "Benchmark axis values must be scalars or labeled {id,value} objects: " + axis);
       }
       JsonPrimitive primitive = element.getAsJsonPrimitive();
       if (primitive.isBoolean()) {
-        return new ParameterValue(ParameterType.BOOLEAN, primitive.getAsBoolean());
+        boolean value = primitive.getAsBoolean();
+        return new ParameterValue(ParameterType.BOOLEAN, value, Boolean.toString(value));
       }
       if (primitive.isNumber()) {
         try {
-          return new ParameterValue(
-              ParameterType.INTEGER, primitive.getAsBigDecimal().intValueExact());
+          int value = primitive.getAsBigDecimal().intValueExact();
+          return new ParameterValue(ParameterType.INTEGER, value, Integer.toString(value));
         } catch (ArithmeticException | NumberFormatException exception) {
           throw new IllegalArgumentException(
               "Benchmark axis numeric values must be integers: " + axis, exception);
         }
       }
       String value = primitive.getAsString();
+      if (validateStableValue) {
+        validateStableText(value);
+      }
+      return new ParameterValue(ParameterType.STRING, value, value);
+    }
+
+    private static void validateStableText(String value) {
       if (value.isBlank() || value.contains("@") || value.contains("{") || value.contains("}")) {
         throw new IllegalArgumentException("Invalid stable benchmark axis value: " + value);
       }
-      return new ParameterValue(ParameterType.STRING, value);
     }
 
-    String stableText() {
+    String valueText() {
       return String.valueOf(value);
     }
   }
@@ -1387,7 +1407,9 @@ final class DeclarativeBenchmarkPlan {
     SPLIT_LENGTH_SUM("splitLengthSum", false, true, Feature.SPLIT),
     COMPILE("compile", false, false),
     COMPILE_AND_FIND("compileAndFind", false, true, Feature.FIND),
-    MATCHER_CONSTRUCTION("matcherConstruction", false, true, Feature.MATCHER_STATE),
+    FIND_ROTATING_UTF16("findRotatingUtf16", false, false, Feature.FIND),
+    COMPILE_AND_FIND_ROTATING_UTF16("compileAndFindRotatingUtf16", false, false, Feature.FIND),
+    MATCHER_CONSTRUCTION("matcherConstruction", false, true, Feature.UTF8_INPUT),
     MATCHER_RESET_FIND("matcherResetFind", true, true, Feature.FIND, Feature.MATCHER_STATE),
     MATCHER_REGION_FIND(
         "matcherRegionFind", true, true, Feature.FIND, Feature.MATCHER_STATE, Feature.REGIONS),
@@ -1396,6 +1418,7 @@ final class DeclarativeBenchmarkPlan {
     PATTERN_SET_FIND("patternSetFind", false, true, Feature.PATTERN_SET),
     PATTERN_SET_MATCHES("patternSetMatches", false, true, Feature.PATTERN_SET),
     UTF8_CAPTURE_BOUNDS("utf8CaptureBounds", false, true, Feature.FIND, Feature.UTF8_INPUT),
+    UTF8_DECODE_FIND("utf8DecodeFind", false, true, Feature.FIND, Feature.UTF8_INPUT),
     UTF8_REPLACEMENT("utf8Replacement", false, true, Feature.UTF8_INPUT, Feature.UTF8_REPLACEMENT),
     ANALYZE_PATTERN("analyzePattern", false, false, Feature.DIAGNOSTICS),
     CACHED_ANALYSIS("cachedAnalysis", false, false, Feature.DIAGNOSTICS),
@@ -1495,12 +1518,18 @@ final class DeclarativeBenchmarkPlan {
             LOOKING_AT,
             FIND_GROUP_PRESENT,
             COMPILE_AND_FIND,
+            FIND_ROTATING_UTF16,
+            COMPILE_AND_FIND_ROTATING_UTF16,
             MATCHER_REGION_FIND,
             FIND_IN_WINDOW,
-            PATTERN_SET_FIND,
-            PATTERN_SET_MATCHES,
-            DIAGNOSTICS_FIND ->
+            UTF8_DECODE_FIND ->
             consumption == ResultConsumption.BOOLEAN;
+        case DIAGNOSTICS_FIND ->
+            consumption == ResultConsumption.BOOLEAN
+                || consumption == ResultConsumption.BLACKHOLE_OBJECT;
+        case PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
+            consumption == ResultConsumption.BOOLEAN
+                || consumption == ResultConsumption.BLACKHOLE_OBJECT;
         case FIND_ALL_COUNT,
             FIND_ALL_LENGTH_SUM,
             FIND_ALL_GROUP_LENGTH_SUM,
@@ -1509,14 +1538,10 @@ final class DeclarativeBenchmarkPlan {
             MATCHER_RESET_FIND,
             REPLACE_ALL_LENGTH_SUM,
             SPLIT_LENGTH_SUM,
-            UTF8_CAPTURE_BOUNDS ->
-            consumption == ResultConsumption.INTEGER;
-        case FIND_GROUP,
-            REPLACE_FIRST,
-            REPLACE_ALL,
-            APPEND_REPLACEMENT,
-            MANUAL_REPLACE_ALL,
+            UTF8_CAPTURE_BOUNDS,
             UTF8_REPLACEMENT ->
+            consumption == ResultConsumption.INTEGER;
+        case FIND_GROUP, REPLACE_FIRST, REPLACE_ALL, APPEND_REPLACEMENT, MANUAL_REPLACE_ALL ->
             consumption == ResultConsumption.STRING;
         case CAPTURE_GROUPS ->
             consumption == ResultConsumption.STRING || consumption == ResultConsumption.STRING_LIST;
@@ -1532,11 +1557,12 @@ final class DeclarativeBenchmarkPlan {
 
     Map<String, RecipeValueType> argumentTypes() {
       return switch (this) {
-        case FIND_ALL_GROUP_LENGTH_SUM,
-            MATCHES_GROUP_LENGTH_SUM,
-            CAPTURE_GROUPS,
-            UTF8_CAPTURE_BOUNDS ->
+        case FIND_ALL_GROUP_LENGTH_SUM, MATCHES_GROUP_LENGTH_SUM, CAPTURE_GROUPS ->
             Map.of("groups", RecipeValueType.INTEGER_LIST);
+        case UTF8_CAPTURE_BOUNDS ->
+            Map.of(
+                "groups", RecipeValueType.INTEGER_LIST,
+                "bounds", RecipeValueType.STRING);
         case FIND_GROUP_PRESENT, FIND_GROUP -> Map.of("group", RecipeValueType.INTEGER);
         case REPLACE_FIRST,
             REPLACE_ALL,
@@ -1546,8 +1572,21 @@ final class DeclarativeBenchmarkPlan {
             UTF8_REPLACEMENT ->
             Map.of("replacement", RecipeValueType.STRING);
         case SPLIT, SPLIT_LENGTH_SUM -> Map.of("limit", RecipeValueType.INTEGER);
+        case COMPILE -> Map.of("flagSet", RecipeValueType.STRING);
+        case MATCHER_CONSTRUCTION -> Map.of("mode", RecipeValueType.STRING);
+        case FIND_ROTATING_UTF16, COMPILE_AND_FIND_ROTATING_UTF16 ->
+            Map.of(
+                "seed", RecipeValueType.INTEGER,
+                "count", RecipeValueType.INTEGER);
+        case DIAGNOSTICS_FIND ->
+            Map.of(
+                "action", RecipeValueType.STRING,
+                "listener", RecipeValueType.STRING,
+                "replacement", RecipeValueType.STRING);
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
-            Map.of("anchor", RecipeValueType.STRING);
+            Map.of(
+                "anchor", RecipeValueType.STRING,
+                "patternCount", RecipeValueType.INTEGER);
         default -> Map.of();
       };
     }
@@ -1568,6 +1607,7 @@ final class DeclarativeBenchmarkPlan {
             UTF8_REPLACEMENT ->
             Set.of("replacement");
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES -> Set.of("anchor");
+        case FIND_ROTATING_UTF16, COMPILE_AND_FIND_ROTATING_UTF16 -> Set.of("seed", "count");
         default -> Set.of();
       };
     }
@@ -1591,6 +1631,21 @@ final class DeclarativeBenchmarkPlan {
         if (!value.equals("unanchored") && !value.equals("anchored")) {
           throw new IllegalArgumentException(
               id + " anchor argument must be unanchored or anchored");
+        }
+      }
+      RecipeValue patternCount = arguments.get("patternCount");
+      if (patternCount != null && ((RecipeInteger) patternCount).value() <= 0) {
+        throw new IllegalArgumentException(id + " patternCount argument must be positive");
+      }
+      RecipeValue count = arguments.get("count");
+      if (count != null && ((RecipeInteger) count).value() <= 0) {
+        throw new IllegalArgumentException(id + " count argument must be positive");
+      }
+      RecipeValue bounds = arguments.get("bounds");
+      if (bounds != null) {
+        String value = ((RecipeString) bounds).value();
+        if (!value.equals("start") && !value.equals("startEnd")) {
+          throw new IllegalArgumentException(id + " bounds argument must be start or startEnd");
         }
       }
     }
@@ -1644,7 +1699,11 @@ final class DeclarativeBenchmarkPlan {
     UTF8_INPUT("utf8Input"),
     UTF8_REPLACEMENT("utf8Replacement"),
     DIAGNOSTICS("diagnostics"),
-    DFA_CACHE("dfaCache");
+    DFA_CACHE("dfaCache"),
+    FLAGGED_COMPILE("flaggedCompile"),
+    JAVA_CHARACTER_CLASS("javaCharacterClass"),
+    LINEAR_TIME("linearTime"),
+    RETAINED_HEAP("retainedHeap");
 
     private final String jsonName;
 

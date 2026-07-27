@@ -46,7 +46,7 @@ class CrossEngineBenchmarkPlanTest {
             "HttpBenchmark.httpFull",
             "SearchScalingBenchmark.searchEasyFail.1024",
             "FanoutBenchmark.fanoutUnicode.1024");
-    assertThat(ids).hasSize(254);
+    assertThat(ids).hasSize(400);
   }
 
   @Test
@@ -55,7 +55,8 @@ class CrossEngineBenchmarkPlanTest {
     List<CrossEngineBenchmarkPlan.Trial> allTrials =
         List.of(
                 plan.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS),
-                plan.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS))
+                plan.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS),
+                plan.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
             .stream()
             .flatMap(List::stream)
             .toList();
@@ -72,11 +73,11 @@ class CrossEngineBenchmarkPlanTest {
               allTrials.stream()
                   .filter(trial -> trial.workload().id().equals(workload.id()))
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
-          .contains(RegexEngineVariant.SAFERE_STRING);
+          .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(1083);
-    assertThat(plan.exclusions()).hasSize(187);
-    assertThat(accounted).hasSize(254 * RegexEngineVariant.values().length);
+    assertThat(allTrials).hasSize(1380);
+    assertThat(plan.exclusions()).hasSize(620);
+    assertThat(accounted).hasSize(400 * RegexEngineVariant.values().length);
   }
 
   @Test
@@ -90,14 +91,21 @@ class CrossEngineBenchmarkPlanTest {
             second.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(773);
+        .hasSize(809);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
             second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(310);
+        .hasSize(499);
+    assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
+        .extracting(CrossEngineBenchmarkPlan.Trial::id)
+        .containsExactlyElementsOf(
+            second.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS).stream()
+                .map(CrossEngineBenchmarkPlan.Trial::id)
+                .toList())
+        .hasSize(72);
   }
 
   @Test
@@ -165,7 +173,10 @@ class CrossEngineBenchmarkPlanTest {
             new int[0],
             null,
             0,
-            DeclarativeBenchmarkPlan.MatcherLifecycle.NONE);
+            DeclarativeBenchmarkPlan.MatcherLifecycle.NONE,
+            null,
+            0,
+            0);
     Blackhole blackhole =
         new Blackhole(
             "Today's password is swordfish. I understand instantiating Blackholes directly is"
@@ -221,13 +232,61 @@ class CrossEngineBenchmarkPlanTest {
             "MatcherApiBenchmark.regionFind@jdk-string",
             "MatcherApiBenchmark.resetAndFind@safere-string",
             "MatcherApiBenchmark.resetAndFind@jdk-string",
-            "MatcherApiBenchmark.resetAndFind@re2j-string");
+            "MatcherApiBenchmark.resetAndFind@re2j-string",
+            "JavaCharacterClassBenchmark.compileAndFindJavaLetter@safere-string",
+            "JavaCharacterClassBenchmark.compileAndFindJavaLetter@jdk-string",
+            "JavaCharacterClassBenchmark.findJavaLetter@safere-string",
+            "JavaCharacterClassBenchmark.findJavaLetter@jdk-string");
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
 
     for (String trialId : trials) {
       CrossEngineWorkload.TimingGroup timingGroup = plan.resolve(trialId).workload().timingGroup();
       try (CrossEngineTrialRunner ignored = CrossEngineTrialRunner.prepare(trialId, timingGroup)) {
         assertThat(ignored).as(trialId).isNotNull();
+      }
+    }
+  }
+
+  @Test
+  void specializedMeasurementModesSelectStableGenericTrials() {
+    SpecializedBenchmarkPlan first = SpecializedBenchmarkPlan.load();
+    SpecializedBenchmarkPlan second = SpecializedBenchmarkPlan.load();
+
+    assertThat(first.averageTimeTrials())
+        .extracting(SpecializedBenchmarkPlan.Trial::id)
+        .containsExactlyElementsOf(
+            second.averageTimeTrials().stream().map(SpecializedBenchmarkPlan.Trial::id).toList())
+        .hasSize(63);
+    assertThat(first.retainedMemoryTrials())
+        .extracting(SpecializedBenchmarkPlan.Trial::id)
+        .containsExactlyElementsOf(
+            second.retainedMemoryTrials().stream().map(SpecializedBenchmarkPlan.Trial::id).toList())
+        .hasSize(34);
+  }
+
+  @Test
+  void everySpecializedOperationPreparesAndRunsThroughOneEntryPoint() {
+    List<String> trials =
+        List.of(
+            "PatternSetBenchmark.unanchoredMatch.4@safere-string",
+            "Utf8MatchingBenchmark.captureBounds.numbered@safere-utf8",
+            "Utf8MatchingBenchmark.captureFreeDecode.asciiEarly@safere-utf8",
+            "ByteReplacementBenchmark.numbered@safere-utf8",
+            "Utf8MatchingBenchmark.window@safere-utf8",
+            "Utf8MatchingBenchmark.construction.validated@safere-utf8",
+            "PatternAnalysisBenchmark.cachedAnalysis@safere-string",
+            "PatternAnalysisBenchmark.compileOnly@safere-string",
+            "PatternAnalysisBenchmark.compileAndAnalyze@safere-string",
+            "DiagnosticsDisabledBenchmark.tinyLiteralFindHit@safere-string",
+            "DiagnosticsEnabledBenchmark.charClassDenseReplaceAll.longAdder@safere-string");
+    Blackhole blackhole =
+        new Blackhole(
+            "Today's password is swordfish. I understand instantiating Blackholes directly is"
+                + " dangerous.");
+
+    for (String trial : trials) {
+      try (SpecializedTrialRunner runner = SpecializedTrialRunner.prepare(trial)) {
+        runner.run(blackhole);
       }
     }
   }

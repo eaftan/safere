@@ -35,9 +35,8 @@
 #                        1 single-shot measurement. Use for cold Unicode table
 #                        initialization and short-lived CLI analysis.
 #
-# Pathological benchmarks (PathologicalBenchmark, PathologicalComparisonBenchmark)
-# always run with -f 0 (no forking) because the JDK engine can hang on large
-# inputs, making forked JVM processes unrecoverable.
+# Workloads that declare the noFork constraint run through the generic
+# CrossEngineNoForkBenchmark entry point with -f 0.
 #
 # CrosscheckOverheadBenchmark is excluded from default no-argument runs. Run it
 # explicitly when working on safere-crosscheck performance.
@@ -54,7 +53,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BENCHMARK_JAR="$SCRIPT_DIR/safere-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 RE2_SHIM_DIR="$SCRIPT_DIR/safere-ffm-re2/build"
-DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.CrosscheckOverheadBenchmark\\.).*$"
+DEFAULT_BENCHMARK_REGEX="^(?!org\\.safere\\.benchmark\\.(CrosscheckOverheadBenchmark|CrossEngineNoForkBenchmark|CrossEngineColdStartBenchmark|PathologicalBenchmark|PathologicalComparisonBenchmark|PatternSetBenchmark|UnicodeFirstCompileBenchmark)\\.).*$"
 
 # Empirically selected Java benchmark settings. See
 # safere-benchmarks/CONFIGURATION_EVALUATION.md.
@@ -62,11 +61,12 @@ STANDARD_OPTS="-f 2 -wi 2 -w 500ms -i 5 -r 500ms"
 LONG_OPTS="-f 2 -wi 3 -w 1 -i 5 -r 1"
 SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 FIRST_COMPILE_OPTS="-f 10 -wi 0 -i 1 -r 1 -bm ss"
+COLD_START_SMOKE_OPTS="-f 1 -wi 0 -i 1 -r 1 -bm ss"
 
-# Pathological benchmarks must run without forking (JDK can hang).
-PATHOLOGICAL_STANDARD_OPTS="-f 0 -wi 2 -w 500ms -i 5 -r 500ms"
-PATHOLOGICAL_LONG_OPTS="-f 0 -wi 3 -w 1 -i 5 -r 1"
-PATHOLOGICAL_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
+# Generic options for workloads whose declarations require no-fork execution.
+NO_FORK_STANDARD_OPTS="-f 0 -wi 2 -w 500ms -i 5 -r 500ms"
+NO_FORK_LONG_OPTS="-f 0 -wi 3 -w 1 -i 5 -r 1"
+NO_FORK_SMOKE_OPTS="-f 0 -wi 1 -w 1 -i 1 -r 1"
 
 usage() {
   cat <<EOF
@@ -131,19 +131,23 @@ done
 
 if [ "$MODE" = "first-compile" ]; then
   JMH_OPTS="$FIRST_COMPILE_OPTS"
-  PATHOLOGICAL_JMH_OPTS="$FIRST_COMPILE_OPTS"
+  NO_FORK_JMH_OPTS="$FIRST_COMPILE_OPTS"
+  COLD_START_JMH_OPTS="$FIRST_COMPILE_OPTS"
   echo "=== First-compile mode (cold Unicode/CLI signal) ==="
 elif [ "$MODE" = "smoke" ]; then
   JMH_OPTS="$SMOKE_OPTS"
-  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_SMOKE_OPTS"
+  NO_FORK_JMH_OPTS="$NO_FORK_SMOKE_OPTS"
+  COLD_START_JMH_OPTS="$COLD_START_SMOKE_OPTS"
   echo "=== Smoke-test mode (CI only) ==="
 elif [ "$MODE" = "long" ]; then
   JMH_OPTS="$LONG_OPTS"
-  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_LONG_OPTS"
+  NO_FORK_JMH_OPTS="$NO_FORK_LONG_OPTS"
+  COLD_START_JMH_OPTS="$FIRST_COMPILE_OPTS"
   echo "=== Long mode (confirmation run) ==="
 else
   JMH_OPTS="$STANDARD_OPTS"
-  PATHOLOGICAL_JMH_OPTS="$PATHOLOGICAL_STANDARD_OPTS"
+  NO_FORK_JMH_OPTS="$NO_FORK_STANDARD_OPTS"
+  COLD_START_JMH_OPTS="$FIRST_COMPILE_OPTS"
   echo "=== Standard mode ==="
 fi
 
@@ -184,6 +188,21 @@ CROSS_ENGINE_SCALING_TRIALS="$(
     -cp "$BENCHMARK_JAR" \
     org.safere.benchmark.CrossEngineBenchmarkPlan microseconds
 )"
+CROSS_ENGINE_NO_FORK_TRIALS="$(
+  java $JVM_ARGS \
+    -cp "$BENCHMARK_JAR" \
+    org.safere.benchmark.CrossEngineBenchmarkPlan no-fork-microseconds
+)"
+CROSS_ENGINE_COLD_START_TRIALS="$(
+  java $JVM_ARGS \
+    -cp "$BENCHMARK_JAR" \
+    org.safere.benchmark.CrossEngineBenchmarkPlan cold-start
+)"
+SPECIALIZED_TRIALS="$(
+  java $JVM_ARGS \
+    -cp "$BENCHMARK_JAR" \
+    org.safere.benchmark.SpecializedBenchmarkPlan average-time
+)"
 CROSS_ENGINE_PARAM_ARGS=()
 if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineTrial= ]]; then
   CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineTrial=$CROSS_ENGINE_TRIALS")
@@ -191,21 +210,23 @@ fi
 if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineScalingTrial= ]]; then
   CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineScalingTrial=$CROSS_ENGINE_SCALING_TRIALS")
 fi
-
-# Returns true if the benchmark name matches a pathological benchmark.
-is_pathological() {
-  case "$1" in
-    *Pathological*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineNoForkTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineNoForkTrial=$CROSS_ENGINE_NO_FORK_TRIALS")
+fi
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineColdStartTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineColdStartTrial=$CROSS_ENGINE_COLD_START_TRIALS")
+fi
+if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]specializedTrial= ]]; then
+  CROSS_ENGINE_PARAM_ARGS+=(-p "specializedTrial=$SPECIALIZED_TRIALS")
+fi
 
 run_benchmark() {
   local bench="$1"
   local opts="$JMH_OPTS"
-  if is_pathological "$bench"; then
-    opts="$PATHOLOGICAL_JMH_OPTS"
-  fi
+  case "$bench" in
+    *CrossEngineNoForkBenchmark*) opts="$NO_FORK_JMH_OPTS" ;;
+    *CrossEngineColdStartBenchmark*) opts="$COLD_START_JMH_OPTS" ;;
+  esac
   if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
     echo "=== Running $bench ($opts ${JMH_EXTRA_ARGS[*]}) ==="
     java \

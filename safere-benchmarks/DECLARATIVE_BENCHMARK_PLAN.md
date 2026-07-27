@@ -58,9 +58,11 @@ version is used by a released benchmark plan.
 ## Stable identities and expansion
 
 Input and workload `axes` are ordered maps. Expansion is a deterministic
-Cartesian product in declaration order. Axis values are strings, integers, or
-booleans, and every workload axis must appear in the workload ID. This makes
-the expanded ID an unambiguous historical result identity.
+Cartesian product in declaration order. Axis values are strings, integers,
+booleans, or labeled `{"id": "...", "value": ...}` scalars. A labeled value
+uses `id` in the stable workload identity and `value` in the expanded pattern.
+Every workload axis must appear in the workload ID. This makes the expanded ID
+an unambiguous historical result identity.
 
 Axis references use `{axisName}` in IDs, input references, patterns, string
 recipe arguments, and scalar integer recipe arguments. Expanded workload IDs
@@ -128,16 +130,17 @@ Version 1 operations are grouped below. Names are exact JSON values.
 |---|---|
 | Matching | `matches`, `find`, `lookingAt`, `findAllCount`, `findAllLengthSum`, `findAllGroupLengthSum`, `matchesCorpus`, `matchesGroupLengthSum`, `findGroupPresent`, `findGroup`, `captureGroups` |
 | Replacement and splitting | `replaceFirst`, `replaceAll`, `replaceAllLengthSum`, `appendReplacement`, `manualReplaceAll`, `split`, `splitLengthSum` |
-| Compilation and matcher state | `compile`, `compileAndFind`, `matcherConstruction`, `matcherResetFind`, `matcherRegionFind`, `findInWindow` |
+| Compilation and matcher state | `compile`, `compileAndFind`, `findRotatingUtf16`, `compileAndFindRotatingUtf16`, `matcherConstruction`, `matcherResetFind`, `matcherRegionFind`, `findInWindow` |
 | Pattern collections | `patternSetCompile`, `patternSetFind`, `patternSetMatches` |
-| UTF-8 | `utf8CaptureBounds`, `utf8Replacement` |
+| UTF-8 | `utf8CaptureBounds`, `utf8DecodeFind`, `utf8Replacement` |
 | Diagnostics and memory | `analyzePattern`, `cachedAnalysis`, `compileAndAnalyze`, `dfaCacheGrowth`, `diagnosticsFind` |
 
 Operation-specific data uses a strict `arguments` object rather than
 workload-family fields. Group-consuming operations use `group` or `groups`;
 replacement operations require `replacement`; split operations accept `limit`;
-and PatternSet operations require `anchor` with `anchored` or `unanchored`.
-Arguments may reference declared axes.
+PatternSet operations require `anchor` with `anchored` or `unanchored` and may
+declare `patternCount`; flagged compilation uses `flagSet`; rotating UTF-16
+operations use `seed` and `count`. Arguments may reference declared axes.
 
 Flags are `caseInsensitive`, `multiline`, `dotAll`, `unicodeCase`,
 `comments`, `literal`, and `unicodeCharacterClass`. Engine adapters declare
@@ -148,10 +151,11 @@ Engine-neutral requirements are `find`, `matches`, `lookingAt`,
 `captureText`, `namedGroups`, `replace`, `numberedReplacement`,
 `namedReplacement`, `appendReplacement`, `functionalReplacement`, `split`,
 `matcherState`, `regions`, `bounds`, `patternSet`, `utf8Input`,
-`utf8Replacement`, `diagnostics`, and `dfaCache`. Operations and lifecycle
-steps derive their intrinsic requirements automatically. Declarations add
-requirements only for semantic details that cannot be inferred, such as the
-replacement-reference form.
+`utf8Replacement`, `diagnostics`, `dfaCache`, `flaggedCompile`,
+`javaCharacterClass`, `linearTime`, and `retainedHeap`. Operations and
+lifecycle steps derive their intrinsic requirements automatically.
+Declarations add requirements only for semantic details that cannot be
+inferred, such as the replacement-reference form.
 
 Input representations are `javaString`, `preexistingUtf8`, and
 `javaStringWithTimedUtf8Conversion`. Result consumption is `boolean`,
@@ -201,6 +205,9 @@ The version 1 modes are:
 | `retainedMemory` | Retained-size measurement |
 | `subprocessMemory` | Process-level memory measurement |
 
+Generic runner selection and the boundary of each unusual mode are documented in
+[`SPECIALIZED_MEASUREMENT_MODES.md`](SPECIALIZED_MEASUREMENT_MODES.md).
+
 Timing units are `nanoseconds`, `microseconds`, `milliseconds`, or `bytes`.
 Constraints are `noFork`, `freshProcessPerInvocation`, `retainState`,
 `prematerializedInput`, and `allocationProfile`. Incompatible combinations,
@@ -227,6 +234,5 @@ The schema uses generic concepts for every current family:
 | Diagnostics and analysis | Diagnostics/analysis operations and requirements |
 | Memory and cold start | Retained-memory, subprocess-memory, and cold-start modes |
 
-Future migration issues replace the legacy declarations and runners with this
-model. They must preserve existing stable IDs and timing boundaries unless a
-change is explicitly documented.
+The generic runners now execute these declarations. Legacy benchmark classes
+remain temporary mirrors until the cleanup tracked separately under #606.

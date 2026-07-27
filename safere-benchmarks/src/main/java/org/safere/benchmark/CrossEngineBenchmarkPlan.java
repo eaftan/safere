@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 
 /** Expands and validates the declarative ordinary cross-engine workload matrix. */
 final class CrossEngineBenchmarkPlan {
-  private static final EnumSet<DeclarativeBenchmarkPlan.Operation> IMPLEMENTED_OPERATIONS =
+  private static final EnumSet<DeclarativeBenchmarkPlan.Operation> CROSS_ENGINE_OPERATIONS =
       EnumSet.of(
           DeclarativeBenchmarkPlan.Operation.MATCHES,
           DeclarativeBenchmarkPlan.Operation.FIND,
@@ -35,10 +35,29 @@ final class CrossEngineBenchmarkPlan {
           DeclarativeBenchmarkPlan.Operation.MANUAL_REPLACE_ALL,
           DeclarativeBenchmarkPlan.Operation.SPLIT_LENGTH_SUM,
           DeclarativeBenchmarkPlan.Operation.COMPILE,
+          DeclarativeBenchmarkPlan.Operation.COMPILE_AND_FIND,
+          DeclarativeBenchmarkPlan.Operation.FIND_ROTATING_UTF16,
+          DeclarativeBenchmarkPlan.Operation.COMPILE_AND_FIND_ROTATING_UTF16,
           DeclarativeBenchmarkPlan.Operation.MATCHER_RESET_FIND,
           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_FIND,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP);
+  private static final EnumSet<DeclarativeBenchmarkPlan.Operation> IMPLEMENTED_OPERATIONS =
+      EnumSet.copyOf(CROSS_ENGINE_OPERATIONS);
+
+  static {
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.ANALYZE_PATTERN);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.CACHED_ANALYSIS);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.COMPILE_AND_ANALYZE);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.DFA_CACHE_GROWTH);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.DIAGNOSTICS_FIND);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.FIND_IN_WINDOW);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.MATCHER_CONSTRUCTION);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.PATTERN_SET_MATCHES);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.UTF8_CAPTURE_BOUNDS);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.UTF8_DECODE_FIND);
+    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.UTF8_REPLACEMENT);
+  }
 
   private final Map<String, CrossEngineWorkload> workloads;
   private final Map<String, Trial> trials;
@@ -65,6 +84,10 @@ final class CrossEngineBenchmarkPlan {
       DeclarativeBenchmarkPlan.ExpandedPlan expanded) {
     Map<String, CrossEngineWorkload> workloads = new LinkedHashMap<>();
     for (DeclarativeBenchmarkPlan.ExpandedWorkload workload : expanded.workloads()) {
+      if (!CROSS_ENGINE_OPERATIONS.contains(workload.operation())
+          || !workload.measurement().timingUnit().isTime()) {
+        continue;
+      }
       CrossEngineWorkload converted = convert(workload);
       if (workloads.put(converted.id(), converted) != null) {
         throw new IllegalArgumentException("Duplicate cross-engine workload ID: " + converted.id());
@@ -74,18 +97,42 @@ final class CrossEngineBenchmarkPlan {
     Map<String, Trial> trials = new LinkedHashMap<>();
     for (DeclarativeBenchmarkPlan.Trial trial : expanded.trials()) {
       CrossEngineWorkload workload = workloads.get(trial.workload().id());
+      if (workload == null) {
+        continue;
+      }
       RegexEngineVariant variant = RegexEngineVariant.fromId(trial.engine().id());
       Trial converted = new Trial(workload, variant);
       if (trials.put(converted.id(), converted) != null) {
         throw new IllegalArgumentException("Duplicate cross-engine trial ID: " + converted.id());
       }
     }
-    return new CrossEngineBenchmarkPlan(workloads, trials, expanded.exclusions());
+    List<DeclarativeBenchmarkPlan.Exclusion> exclusions =
+        expanded.exclusions().stream()
+            .filter(exclusion -> workloads.containsKey(exclusion.workloadId()))
+            .toList();
+    return new CrossEngineBenchmarkPlan(workloads, trials, exclusions);
   }
 
   List<Trial> trials(CrossEngineWorkload.TimingGroup timingGroup) {
     return trials.values().stream()
         .filter(trial -> trial.workload().timingGroup() == timingGroup)
+        .toList();
+  }
+
+  List<Trial> trials(
+      CrossEngineWorkload.TimingGroup timingGroup,
+      DeclarativeBenchmarkPlan.MeasurementMode mode,
+      boolean noFork) {
+    return trials(timingGroup).stream()
+        .filter(trial -> trial.workload().measurement().mode() == mode)
+        .filter(
+            trial ->
+                trial
+                        .workload()
+                        .measurement()
+                        .constraints()
+                        .contains(DeclarativeBenchmarkPlan.ExecutionConstraint.NO_FORK)
+                    == noFork)
         .toList();
   }
 
@@ -139,17 +186,42 @@ final class CrossEngineBenchmarkPlan {
   static void main(String[] args) {
     if (args.length < 1) {
       throw new IllegalArgumentException(
-          "Usage: CrossEngineBenchmarkPlan <nanoseconds|microseconds> [workload-prefix ...]");
+          "Usage: CrossEngineBenchmarkPlan "
+              + "<nanoseconds|microseconds|no-fork-microseconds|cold-start> "
+              + "[workload-prefix ...]");
     }
-    CrossEngineWorkload.TimingGroup timingGroup =
+    Query query =
         switch (args[0]) {
-          case "nanoseconds" -> CrossEngineWorkload.TimingGroup.NANOSECONDS;
-          case "microseconds" -> CrossEngineWorkload.TimingGroup.MICROSECONDS;
+          case "nanoseconds" -> new Query(CrossEngineWorkload.TimingGroup.NANOSECONDS, null, false);
+          case "microseconds" ->
+              new Query(CrossEngineWorkload.TimingGroup.MICROSECONDS, null, false);
+          case "no-fork-microseconds" ->
+              new Query(
+                  CrossEngineWorkload.TimingGroup.MICROSECONDS,
+                  DeclarativeBenchmarkPlan.MeasurementMode.AVERAGE_TIME,
+                  true);
+          case "cold-start" ->
+              new Query(
+                  CrossEngineWorkload.TimingGroup.MILLISECONDS,
+                  DeclarativeBenchmarkPlan.MeasurementMode.SINGLE_SHOT_COLD_START,
+                  false);
           default ->
               throw new IllegalArgumentException("Unknown cross-engine timing group: " + args[0]);
         };
+    CrossEngineBenchmarkPlan plan = load();
     String trialIds =
-        load().trials(timingGroup).stream()
+        plan.trials(query.timingGroup()).stream()
+            .filter(
+                trial ->
+                    query.mode() == null || trial.workload().measurement().mode() == query.mode())
+            .filter(
+                trial ->
+                    trial
+                            .workload()
+                            .measurement()
+                            .constraints()
+                            .contains(DeclarativeBenchmarkPlan.ExecutionConstraint.NO_FORK)
+                        == query.noFork())
             .filter(
                 trial ->
                     args.length == 1
@@ -158,10 +230,15 @@ final class CrossEngineBenchmarkPlan {
             .map(Trial::id)
             .collect(Collectors.joining(","));
     if (trialIds.isEmpty()) {
-      throw new IllegalStateException("No cross-engine trials for " + timingGroup);
+      throw new IllegalStateException("No cross-engine trials for " + args[0]);
     }
     System.out.println(trialIds);
   }
+
+  private record Query(
+      CrossEngineWorkload.TimingGroup timingGroup,
+      DeclarativeBenchmarkPlan.MeasurementMode mode,
+      boolean noFork) {}
 
   private static CrossEngineWorkload convert(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
     int[] groups = groups(workload.arguments());
@@ -171,9 +248,10 @@ final class CrossEngineBenchmarkPlan {
         switch (workload.measurement().timingUnit()) {
           case NANOSECONDS -> CrossEngineWorkload.TimingGroup.NANOSECONDS;
           case MICROSECONDS -> CrossEngineWorkload.TimingGroup.MICROSECONDS;
+          case MILLISECONDS -> CrossEngineWorkload.TimingGroup.MILLISECONDS;
           default ->
               throw new IllegalArgumentException(
-                  workload.id() + " is not an ordinary nanosecond or scaling microsecond workload");
+                  workload.id() + " is not a time-based cross-engine workload");
         };
     return new CrossEngineWorkload(
         workload.id(),
@@ -185,6 +263,10 @@ final class CrossEngineBenchmarkPlan {
         expectedValue(workload.expected()),
         limit,
         workload.lifecycle(),
+        stringArgument(workload.arguments(), "flagSet"),
+        integerArgument(workload.arguments(), "seed", 0),
+        integerArgument(workload.arguments(), "count", 0),
+        workload.measurement(),
         timingGroup);
   }
 

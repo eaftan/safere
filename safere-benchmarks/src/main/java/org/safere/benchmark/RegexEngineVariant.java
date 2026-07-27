@@ -390,6 +390,34 @@ enum RegexEngineVariant {
         }
       }
     }
+    switch (this) {
+      case SAFERE_STRING -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.DFA_CACHE);
+        features.add(DeclarativeBenchmarkPlan.Feature.DIAGNOSTICS);
+        features.add(DeclarativeBenchmarkPlan.Feature.FLAGGED_COMPILE);
+        features.add(DeclarativeBenchmarkPlan.Feature.JAVA_CHARACTER_CLASS);
+        features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
+        features.add(DeclarativeBenchmarkPlan.Feature.PATTERN_SET);
+        features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
+      }
+      case SAFERE_UTF8 -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
+        features.add(DeclarativeBenchmarkPlan.Feature.MATCHER_STATE);
+        features.add(DeclarativeBenchmarkPlan.Feature.REGIONS);
+        features.add(DeclarativeBenchmarkPlan.Feature.UTF8_INPUT);
+        features.add(DeclarativeBenchmarkPlan.Feature.UTF8_REPLACEMENT);
+      }
+      case JDK_STRING -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.FLAGGED_COMPILE);
+        features.add(DeclarativeBenchmarkPlan.Feature.JAVA_CHARACTER_CLASS);
+        features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
+      }
+      case RE2J_STRING -> {
+        features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
+        features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
+      }
+      case RE2_FFM_STRING_CONVERSION -> features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
+    }
     DeclarativeBenchmarkPlan.InputRepresentation representation =
         switch (inputRepresentation) {
           case JAVA_STRING -> DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING;
@@ -415,12 +443,23 @@ enum RegexEngineVariant {
 
   abstract CompiledRegex compile(String regex);
 
-  Object compileForBenchmark(String regex) {
+  Object compileForBenchmark(String regex, String flagSet) {
+    int flags = flagSet == null ? 0 : BenchmarkFlags.parse(flagSet);
     return switch (this) {
-      case SAFERE_STRING, SAFERE_UTF8 -> org.safere.Pattern.compile(regex);
-      case JDK_STRING -> java.util.regex.Pattern.compile(regex);
-      case RE2J_STRING -> com.google.re2j.Pattern.compile(regex);
-      case RE2_FFM_STRING_CONVERSION -> org.safere.re2ffm.RE2FfmPattern.compile(regex);
+      case SAFERE_STRING, SAFERE_UTF8 -> org.safere.Pattern.compile(regex, flags);
+      case JDK_STRING -> java.util.regex.Pattern.compile(regex, flags);
+      case RE2J_STRING -> {
+        if (flags != 0) {
+          throw new UnsupportedOperationException("RE2/J flagged compilation is unsupported");
+        }
+        yield com.google.re2j.Pattern.compile(regex);
+      }
+      case RE2_FFM_STRING_CONVERSION -> {
+        if (flags != 0) {
+          throw new UnsupportedOperationException("RE2-FFM flagged compilation is unsupported");
+        }
+        yield org.safere.re2ffm.RE2FfmPattern.compile(regex);
+      }
     };
   }
 

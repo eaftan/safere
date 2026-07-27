@@ -1605,6 +1605,209 @@
         "kind": "literal",
         "text": "item1 item22 item333"
       }
+    },
+    {
+      "id": "patternSet.match",
+      "recipe": {
+        "kind": "literal",
+        "text": "ERROR: connection timeout after 30s to host db-primary.internal:5432"
+      }
+    },
+    {
+      "id": "patternSet.noMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "The quick brown fox jumps over the lazy dog near the riverbank"
+      }
+    },
+    {
+      "id": "utf8.captureFree.asciiEarly",
+      "recipe": {
+        "kind": "literal",
+        "text": "ERROR request completed"
+      }
+    },
+    {
+      "id": "utf8.captureFree.asciiLate",
+      "recipe": {
+        "kind": "literal",
+        "text": "request completed with ERROR"
+      }
+    },
+    {
+      "id": "utf8.captureFree.asciiNoMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "request completed normally"
+      }
+    },
+    {
+      "id": "utf8.captureFree.multibyteEarly",
+      "recipe": {
+        "kind": "literal",
+        "text": "错误：请求失败"
+      }
+    },
+    {
+      "id": "utf8.captureFree.multibyteLate",
+      "recipe": {
+        "kind": "literal",
+        "text": "请求处理结束：错误"
+      }
+    },
+    {
+      "id": "utf8.captureFree.multibyteNoMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "请求处理成功"
+      }
+    },
+    {
+      "id": "utf8.repeatedFind.ascii",
+      "recipe": {
+        "kind": "literal",
+        "text": "one two three four five"
+      }
+    },
+    {
+      "id": "utf8.repeatedFind.multibyte",
+      "recipe": {
+        "kind": "literal",
+        "text": "one café 東京 naïve"
+      }
+    },
+    {
+      "id": "utf8.captureBounds.numbered",
+      "recipe": {
+        "kind": "literal",
+        "text": "user=service&token=abc123"
+      }
+    },
+    {
+      "id": "utf8.captureBounds.named",
+      "recipe": {
+        "kind": "literal",
+        "text": "city=東京&name=Renée"
+      }
+    },
+    {
+      "id": "utf8.captureBounds.nonparticipating",
+      "recipe": {
+        "kind": "literal",
+        "text": "dog"
+      }
+    },
+    {
+      "id": "utf8.emptyMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "a💰有"
+      }
+    },
+    {
+      "id": "utf8.window",
+      "recipe": {
+        "kind": "literal",
+        "text": "sentinel-before-city=東京&name=Renée-sentinel-after"
+      }
+    },
+    {
+      "id": "utf8.construction",
+      "recipe": {
+        "kind": "literal",
+        "text": "one café 東京 naïve"
+      }
+    },
+    {
+      "id": "utf8.replacement.literal",
+      "recipe": {
+        "kind": "literal",
+        "text": "错误 then 错误"
+      }
+    },
+    {
+      "id": "utf8.replacement.numbered",
+      "recipe": {
+        "kind": "literal",
+        "text": "city=東京&name=Renée"
+      }
+    },
+    {
+      "id": "utf8.replacement.named",
+      "recipe": {
+        "kind": "literal",
+        "text": "city=東京&name=Renée"
+      }
+    },
+    {
+      "id": "diagnostics.tinyLiteralMatches",
+      "recipe": {
+        "kind": "literal",
+        "text": "abc"
+      }
+    },
+    {
+      "id": "diagnostics.tinyLiteralFindHit",
+      "recipe": {
+        "kind": "literal",
+        "text": "xabc"
+      }
+    },
+    {
+      "id": "diagnostics.tinyLiteralFindMiss",
+      "recipe": {
+        "kind": "literal",
+        "text": "xyz"
+      }
+    },
+    {
+      "id": "diagnostics.onePassMatches",
+      "recipe": {
+        "kind": "literal",
+        "text": "HEADER:12345"
+      }
+    },
+    {
+      "id": "diagnostics.dfaLongFind",
+      "recipe": {
+        "kind": "literal",
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxaaab"
+      }
+    },
+    {
+      "id": "diagnostics.bitStateShortMatches",
+      "recipe": {
+        "kind": "literal",
+        "text": "aaaaab"
+      }
+    },
+    {
+      "id": "diagnostics.nfaLongMatches",
+      "recipe": {
+        "kind": "literal",
+        "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab"
+      }
+    },
+    {
+      "id": "diagnostics.dfaSparseReplaceAll",
+      "recipe": {
+        "kind": "literal",
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx aaab xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "id": "diagnostics.charClassDenseReplaceAll",
+      "recipe": {
+        "kind": "literal",
+        "text": "1 22 333 4444 55555 666666"
+      }
+    },
+    {
+      "id": "diagnostics.charClassNoMatchReplaceAll",
+      "recipe": {
+        "kind": "literal",
+        "text": "no digits here"
+      }
     }
   ],
   "regex": {
@@ -5906,6 +6109,2775 @@
           {
             "kind": "reset"
           }
+        ]
+      }
+    },
+    {
+      "id": "PathologicalComparisonBenchmark.pathological.10",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?aaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.10"
+      ],
+      "requirements": [],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalComparisonBenchmark.pathological.15",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.15"
+      ],
+      "requirements": [],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalComparisonBenchmark.pathological.20",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.20"
+      ],
+      "requirements": [],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.10",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?aaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.10"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.15",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.15"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.20",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.20"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.25",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.25"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.30",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.30"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.50",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.50"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PathologicalBenchmark.pathological.100",
+      "operation": "matches",
+      "patterns": [
+        "a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "inputs": [
+        "pathological.text.100"
+      ],
+      "requirements": [
+        "linearTime"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "javaStringWithTimedUtf8Conversion"
+      ],
+      "resultConsumption": "boolean",
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "noFork",
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "UnicodeCompileBenchmark.compile.{regex}.{flagSet}",
+      "operation": "compile",
+      "patterns": [
+        "{regex}"
+      ],
+      "axes": {
+        "regex": [
+          {
+            "id": "letter",
+            "value": "\\p{L}+"
+          },
+          {
+            "id": "uppercaseLetter",
+            "value": "\\p{Lu}+"
+          },
+          {
+            "id": "lowercaseLetter",
+            "value": "\\p{Ll}+"
+          },
+          {
+            "id": "titlecaseLetter",
+            "value": "\\p{Lt}+"
+          },
+          {
+            "id": "alphabetic",
+            "value": "\\p{IsAlphabetic}+"
+          },
+          {
+            "id": "ideographic",
+            "value": "\\p{IsIdeographic}+"
+          },
+          {
+            "id": "emoji",
+            "value": "\\p{IsEmoji}+"
+          },
+          {
+            "id": "extendedPictographic",
+            "value": "\\p{IsExtended_Pictographic}+"
+          },
+          {
+            "id": "scriptLatin",
+            "value": "\\p{script=Latin}+"
+          },
+          {
+            "id": "scriptHan",
+            "value": "\\p{script=Han}+"
+          },
+          {
+            "id": "blockBasicLatin",
+            "value": "\\p{block=BasicLatin}+"
+          },
+          {
+            "id": "blockCjk",
+            "value": "\\p{block=CJK_Unified_Ideographs}+"
+          },
+          {
+            "id": "word",
+            "value": "\\w+"
+          },
+          {
+            "id": "digit",
+            "value": "\\d+"
+          },
+          {
+            "id": "space",
+            "value": "\\s+"
+          },
+          {
+            "id": "asciiLower",
+            "value": "[a-z]+"
+          },
+          {
+            "id": "asciiRange",
+            "value": "[h-j]+"
+          },
+          {
+            "id": "letterIntersection",
+            "value": "[\\p{L}&&[^\\p{Lu}]]+"
+          },
+          {
+            "id": "identifier",
+            "value": "\\p{L}[\\p{L}\\p{Nd}_]*"
+          }
+        ],
+        "flagSet": [
+          "0",
+          "CASE_INSENSITIVE",
+          "CASE_INSENSITIVE_UNICODE_CASE",
+          "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS"
+        ]
+      },
+      "arguments": {
+        "flagSet": "{flagSet}"
+      },
+      "requirements": [
+        "flaggedCompile"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "compileOnly",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "UnicodeFirstCompileBenchmark.firstCompile.{regex}.{flagSet}",
+      "operation": "compile",
+      "patterns": [
+        "{regex}"
+      ],
+      "axes": {
+        "regex": [
+          {
+            "id": "letter",
+            "value": "\\p{L}+"
+          },
+          {
+            "id": "uppercaseLetter",
+            "value": "\\p{Lu}+"
+          },
+          {
+            "id": "alphabetic",
+            "value": "\\p{IsAlphabetic}+"
+          },
+          {
+            "id": "emoji",
+            "value": "\\p{IsEmoji}+"
+          },
+          {
+            "id": "extendedPictographic",
+            "value": "\\p{IsExtended_Pictographic}+"
+          },
+          {
+            "id": "scriptLatin",
+            "value": "\\p{script=Latin}+"
+          },
+          {
+            "id": "scriptHan",
+            "value": "\\p{script=Han}+"
+          },
+          {
+            "id": "blockBasicLatin",
+            "value": "\\p{block=BasicLatin}+"
+          },
+          {
+            "id": "word",
+            "value": "\\w+"
+          },
+          {
+            "id": "asciiLower",
+            "value": "[a-z]+"
+          },
+          {
+            "id": "asciiRange",
+            "value": "[h-j]+"
+          },
+          {
+            "id": "identifier",
+            "value": "\\p{L}[\\p{L}\\p{Nd}_]*"
+          }
+        ],
+        "flagSet": [
+          "0",
+          "CASE_INSENSITIVE_UNICODE_CASE",
+          "UNICODE_CHARACTER_CLASS"
+        ]
+      },
+      "arguments": {
+        "flagSet": "{flagSet}"
+      },
+      "requirements": [
+        "flaggedCompile"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "singleShotColdStart",
+        "timingUnit": "milliseconds",
+        "constraints": [
+          "freshProcessPerInvocation"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.compileSimple",
+      "operation": "compile",
+      "patterns": [
+        "hello"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.compileMedium",
+      "operation": "compile",
+      "patterns": [
+        "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.compileComplex",
+      "operation": "compile",
+      "patterns": [
+        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.compileAlternation",
+      "operation": "compile",
+      "patterns": [
+        "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.literalMatch",
+      "operation": "compile",
+      "patterns": [
+        "hello"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.charClassMatch",
+      "operation": "compile",
+      "patterns": [
+        "[a-zA-Z]+"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.alternationFind",
+      "operation": "compile",
+      "patterns": [
+        "foo|bar|baz|qux|quux|corge|grault|garply"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.captureGroups",
+      "operation": "compile",
+      "patterns": [
+        "(\\d{4})-(\\d{2})-(\\d{2})"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.findInText",
+      "operation": "compile",
+      "patterns": [
+        "\\b\\w+ing\\b"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.emailFind",
+      "operation": "compile",
+      "patterns": [
+        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+      ],
+      "requirements": [
+        "retainedHeap"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.dfaCacheGrowth.simple",
+      "operation": "dfaCacheGrowth",
+      "patterns": [
+        "hello"
+      ],
+      "inputs": [
+        "memory.dfaCacheText"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.dfaCacheGrowth.medium",
+      "operation": "dfaCacheGrowth",
+      "patterns": [
+        "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})"
+      ],
+      "inputs": [
+        "memory.dfaCacheText"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.dfaCacheGrowth.complex",
+      "operation": "dfaCacheGrowth",
+      "patterns": [
+        "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+      ],
+      "inputs": [
+        "memory.dfaCacheText"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "MemoryBenchmark.dfaCacheGrowth.alternation",
+      "operation": "dfaCacheGrowth",
+      "patterns": [
+        "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy"
+      ],
+      "inputs": [
+        "memory.dfaCacheText"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "retainedMemory",
+        "timingUnit": "bytes",
+        "constraints": [
+          "retainState"
+        ]
+      }
+    },
+    {
+      "id": "PatternSetBenchmark.unanchoredMatch.{patternCount}",
+      "operation": "patternSetMatches",
+      "patterns": [
+        "ERROR",
+        "WARNING",
+        "INFO",
+        "DEBUG",
+        "FATAL",
+        "connection\\s+timeout",
+        "\\d+\\.\\d+\\.\\d+\\.\\d+",
+        "host\\s+\\S+",
+        "port\\s*:\\s*\\d+",
+        "after\\s+\\d+s",
+        "[A-Z]{2,}:",
+        "\\w+\\.internal",
+        "db-\\w+",
+        "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
+        "timeout|refused|reset|closed",
+        "\\[\\w+\\]",
+        "status\\s*=\\s*\\d+",
+        "retry\\s+\\d+/\\d+",
+        "latency\\s*>\\s*\\d+ms",
+        "queue\\s+full",
+        "memory\\s+\\d+[kmg]b?",
+        "cpu\\s+\\d+%",
+        "disk\\s+(full|low)",
+        "\\w+Exception",
+        "at\\s+\\w+\\.\\w+\\(",
+        "null\\s*pointer",
+        "stack\\s*overflow",
+        "out\\s+of\\s+memory",
+        "permission\\s+denied",
+        "not\\s+found",
+        "already\\s+exists",
+        "invalid\\s+\\w+",
+        "expired",
+        "unauthorized",
+        "rate\\s+limit",
+        "circuit\\s+breaker",
+        "health\\s+check\\s+failed",
+        "graceful\\s+shutdown",
+        "leader\\s+election",
+        "split\\s+brain",
+        "rebalancing",
+        "partition\\s+\\d+",
+        "offset\\s+\\d+",
+        "consumer\\s+group",
+        "dead\\s+letter",
+        "backpressure",
+        "throttled",
+        "degraded",
+        "failover",
+        "rollback",
+        "checkpoint\\s+\\d+",
+        "snapshot\\s+\\w+",
+        "compaction",
+        "gc\\s+pause\\s+\\d+ms",
+        "safepoint",
+        "jit\\s+compilation",
+        "class\\s+loading",
+        "thread\\s+pool\\s+\\w+",
+        "blocked\\s+thread",
+        "deadlock",
+        "lock\\s+contention",
+        "cache\\s+(hit|miss)",
+        "eviction",
+        "bloom\\s+filter"
+      ],
+      "inputs": [
+        "patternSet.match"
+      ],
+      "axes": {
+        "patternCount": [
+          4,
+          16,
+          64
+        ]
+      },
+      "arguments": {
+        "anchor": "unanchored",
+        "patternCount": "{patternCount}"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PatternSetBenchmark.unanchoredNoMatch.{patternCount}",
+      "operation": "patternSetMatches",
+      "patterns": [
+        "ERROR",
+        "WARNING",
+        "INFO",
+        "DEBUG",
+        "FATAL",
+        "connection\\s+timeout",
+        "\\d+\\.\\d+\\.\\d+\\.\\d+",
+        "host\\s+\\S+",
+        "port\\s*:\\s*\\d+",
+        "after\\s+\\d+s",
+        "[A-Z]{2,}:",
+        "\\w+\\.internal",
+        "db-\\w+",
+        "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
+        "timeout|refused|reset|closed",
+        "\\[\\w+\\]",
+        "status\\s*=\\s*\\d+",
+        "retry\\s+\\d+/\\d+",
+        "latency\\s*>\\s*\\d+ms",
+        "queue\\s+full",
+        "memory\\s+\\d+[kmg]b?",
+        "cpu\\s+\\d+%",
+        "disk\\s+(full|low)",
+        "\\w+Exception",
+        "at\\s+\\w+\\.\\w+\\(",
+        "null\\s*pointer",
+        "stack\\s*overflow",
+        "out\\s+of\\s+memory",
+        "permission\\s+denied",
+        "not\\s+found",
+        "already\\s+exists",
+        "invalid\\s+\\w+",
+        "expired",
+        "unauthorized",
+        "rate\\s+limit",
+        "circuit\\s+breaker",
+        "health\\s+check\\s+failed",
+        "graceful\\s+shutdown",
+        "leader\\s+election",
+        "split\\s+brain",
+        "rebalancing",
+        "partition\\s+\\d+",
+        "offset\\s+\\d+",
+        "consumer\\s+group",
+        "dead\\s+letter",
+        "backpressure",
+        "throttled",
+        "degraded",
+        "failover",
+        "rollback",
+        "checkpoint\\s+\\d+",
+        "snapshot\\s+\\w+",
+        "compaction",
+        "gc\\s+pause\\s+\\d+ms",
+        "safepoint",
+        "jit\\s+compilation",
+        "class\\s+loading",
+        "thread\\s+pool\\s+\\w+",
+        "blocked\\s+thread",
+        "deadlock",
+        "lock\\s+contention",
+        "cache\\s+(hit|miss)",
+        "eviction",
+        "bloom\\s+filter"
+      ],
+      "inputs": [
+        "patternSet.noMatch"
+      ],
+      "axes": {
+        "patternCount": [
+          4,
+          16,
+          64
+        ]
+      },
+      "arguments": {
+        "anchor": "unanchored",
+        "patternCount": "{patternCount}"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PatternSetBenchmark.anchoredMatch.{patternCount}",
+      "operation": "patternSetMatches",
+      "patterns": [
+        "ERROR",
+        "WARNING",
+        "INFO",
+        "DEBUG",
+        "FATAL",
+        "connection\\s+timeout",
+        "\\d+\\.\\d+\\.\\d+\\.\\d+",
+        "host\\s+\\S+",
+        "port\\s*:\\s*\\d+",
+        "after\\s+\\d+s",
+        "[A-Z]{2,}:",
+        "\\w+\\.internal",
+        "db-\\w+",
+        "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
+        "timeout|refused|reset|closed",
+        "\\[\\w+\\]",
+        "status\\s*=\\s*\\d+",
+        "retry\\s+\\d+/\\d+",
+        "latency\\s*>\\s*\\d+ms",
+        "queue\\s+full",
+        "memory\\s+\\d+[kmg]b?",
+        "cpu\\s+\\d+%",
+        "disk\\s+(full|low)",
+        "\\w+Exception",
+        "at\\s+\\w+\\.\\w+\\(",
+        "null\\s*pointer",
+        "stack\\s*overflow",
+        "out\\s+of\\s+memory",
+        "permission\\s+denied",
+        "not\\s+found",
+        "already\\s+exists",
+        "invalid\\s+\\w+",
+        "expired",
+        "unauthorized",
+        "rate\\s+limit",
+        "circuit\\s+breaker",
+        "health\\s+check\\s+failed",
+        "graceful\\s+shutdown",
+        "leader\\s+election",
+        "split\\s+brain",
+        "rebalancing",
+        "partition\\s+\\d+",
+        "offset\\s+\\d+",
+        "consumer\\s+group",
+        "dead\\s+letter",
+        "backpressure",
+        "throttled",
+        "degraded",
+        "failover",
+        "rollback",
+        "checkpoint\\s+\\d+",
+        "snapshot\\s+\\w+",
+        "compaction",
+        "gc\\s+pause\\s+\\d+ms",
+        "safepoint",
+        "jit\\s+compilation",
+        "class\\s+loading",
+        "thread\\s+pool\\s+\\w+",
+        "blocked\\s+thread",
+        "deadlock",
+        "lock\\s+contention",
+        "cache\\s+(hit|miss)",
+        "eviction",
+        "bloom\\s+filter"
+      ],
+      "inputs": [
+        "patternSet.match"
+      ],
+      "axes": {
+        "patternCount": [
+          4,
+          16,
+          64
+        ]
+      },
+      "arguments": {
+        "anchor": "anchored",
+        "patternCount": "{patternCount}"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PatternSetBenchmark.anchoredNoMatch.{patternCount}",
+      "operation": "patternSetMatches",
+      "patterns": [
+        "ERROR",
+        "WARNING",
+        "INFO",
+        "DEBUG",
+        "FATAL",
+        "connection\\s+timeout",
+        "\\d+\\.\\d+\\.\\d+\\.\\d+",
+        "host\\s+\\S+",
+        "port\\s*:\\s*\\d+",
+        "after\\s+\\d+s",
+        "[A-Z]{2,}:",
+        "\\w+\\.internal",
+        "db-\\w+",
+        "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+",
+        "timeout|refused|reset|closed",
+        "\\[\\w+\\]",
+        "status\\s*=\\s*\\d+",
+        "retry\\s+\\d+/\\d+",
+        "latency\\s*>\\s*\\d+ms",
+        "queue\\s+full",
+        "memory\\s+\\d+[kmg]b?",
+        "cpu\\s+\\d+%",
+        "disk\\s+(full|low)",
+        "\\w+Exception",
+        "at\\s+\\w+\\.\\w+\\(",
+        "null\\s*pointer",
+        "stack\\s*overflow",
+        "out\\s+of\\s+memory",
+        "permission\\s+denied",
+        "not\\s+found",
+        "already\\s+exists",
+        "invalid\\s+\\w+",
+        "expired",
+        "unauthorized",
+        "rate\\s+limit",
+        "circuit\\s+breaker",
+        "health\\s+check\\s+failed",
+        "graceful\\s+shutdown",
+        "leader\\s+election",
+        "split\\s+brain",
+        "rebalancing",
+        "partition\\s+\\d+",
+        "offset\\s+\\d+",
+        "consumer\\s+group",
+        "dead\\s+letter",
+        "backpressure",
+        "throttled",
+        "degraded",
+        "failover",
+        "rollback",
+        "checkpoint\\s+\\d+",
+        "snapshot\\s+\\w+",
+        "compaction",
+        "gc\\s+pause\\s+\\d+ms",
+        "safepoint",
+        "jit\\s+compilation",
+        "class\\s+loading",
+        "thread\\s+pool\\s+\\w+",
+        "blocked\\s+thread",
+        "deadlock",
+        "lock\\s+contention",
+        "cache\\s+(hit|miss)",
+        "eviction",
+        "bloom\\s+filter"
+      ],
+      "inputs": [
+        "patternSet.noMatch"
+      ],
+      "axes": {
+        "patternCount": [
+          4,
+          16,
+          64
+        ]
+      },
+      "arguments": {
+        "anchor": "anchored",
+        "patternCount": "{patternCount}"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeDecode.asciiEarly",
+      "operation": "utf8DecodeFind",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiEarly"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeDecode.asciiLate",
+      "operation": "utf8DecodeFind",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeDecode.asciiNoMatch",
+      "operation": "utf8DecodeFind",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiNoMatch"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeDecode.multibyteEarly",
+      "operation": "utf8DecodeFind",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteEarly"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeDecode.multibyteLate",
+      "operation": "utf8DecodeFind",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeDecode.multibyteNoMatch",
+      "operation": "utf8DecodeFind",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteNoMatch"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeBytes.asciiEarly",
+      "operation": "find",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiEarly"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeBytes.asciiLate",
+      "operation": "find",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeBytes.asciiNoMatch",
+      "operation": "find",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiNoMatch"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeBytes.multibyteEarly",
+      "operation": "find",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteEarly"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeBytes.multibyteLate",
+      "operation": "find",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteLate"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeBytes.multibyteNoMatch",
+      "operation": "find",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteNoMatch"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeString.asciiEarly",
+      "operation": "find",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiEarly"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeString.asciiLate",
+      "operation": "find",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiLate"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeString.asciiNoMatch",
+      "operation": "find",
+      "patterns": [
+        "ERROR"
+      ],
+      "inputs": [
+        "utf8.captureFree.asciiNoMatch"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeString.multibyteEarly",
+      "operation": "find",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteEarly"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeString.multibyteLate",
+      "operation": "find",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteLate"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureFreeString.multibyteNoMatch",
+      "operation": "find",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.captureFree.multibyteNoMatch"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.repeatedFind.ascii",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        "[A-Za-z]+"
+      ],
+      "inputs": [
+        "utf8.repeatedFind.ascii"
+      ],
+      "arguments": {
+        "groups": [
+          0
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.repeatedFind.multibyte",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        "\\p{L}+"
+      ],
+      "inputs": [
+        "utf8.repeatedFind.multibyte"
+      ],
+      "arguments": {
+        "groups": [
+          0
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureBounds.numbered",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        "([A-Za-z]+)=([^&]+)"
+      ],
+      "inputs": [
+        "utf8.captureBounds.numbered"
+      ],
+      "arguments": {
+        "groups": [
+          0,
+          1,
+          2
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureBounds.named",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        "(?<key>[A-Za-z]+)=(?<value>[^&]+)"
+      ],
+      "inputs": [
+        "utf8.captureBounds.named"
+      ],
+      "arguments": {
+        "groups": [
+          0,
+          1,
+          2
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.captureBounds.nonparticipating",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        "(cat)|(dog)"
+      ],
+      "inputs": [
+        "utf8.captureBounds.nonparticipating"
+      ],
+      "arguments": {
+        "groups": [
+          0,
+          1,
+          2
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.emptyMatchIteration",
+      "operation": "utf8CaptureBounds",
+      "patterns": [
+        ""
+      ],
+      "inputs": [
+        "utf8.emptyMatch"
+      ],
+      "arguments": {
+        "groups": [
+          0
+        ],
+        "bounds": "start"
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.window",
+      "operation": "findInWindow",
+      "patterns": [
+        "東京"
+      ],
+      "inputs": [
+        "utf8.window"
+      ],
+      "arguments": {},
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation",
+        "steps": [
+          {
+            "kind": "region",
+            "start": 16,
+            "end": 39
+          }
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.construction.trusted",
+      "operation": "matcherConstruction",
+      "patterns": [
+        ""
+      ],
+      "inputs": [
+        "utf8.construction"
+      ],
+      "arguments": {
+        "mode": "trusted"
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.construction.validated",
+      "operation": "matcherConstruction",
+      "patterns": [
+        ""
+      ],
+      "inputs": [
+        "utf8.construction"
+      ],
+      "arguments": {
+        "mode": "validated"
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.requiredClassNonmatchBytes",
+      "operation": "find",
+      "patterns": [
+        "[一-龥]{3,}"
+      ],
+      "inputs": [
+        "utf8Matching.requiredClassNonmatch.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.requiredClassNonmatchMatcher",
+      "operation": "find",
+      "patterns": [
+        "[一-龥]{3,}"
+      ],
+      "inputs": [
+        "utf8Matching.requiredClassNonmatch.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation"
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.requiredClassNonmatchString",
+      "operation": "find",
+      "patterns": [
+        "[一-龥]{3,}"
+      ],
+      "inputs": [
+        "utf8Matching.requiredClassNonmatch.text"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.literalScan.fourByte",
+      "operation": "find",
+      "patterns": [
+        "qjxv"
+      ],
+      "inputs": [
+        "utf8Matching.literalScan.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.literalScan.shortWord",
+      "operation": "find",
+      "patterns": [
+        "literal"
+      ],
+      "inputs": [
+        "utf8Matching.literalScan.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.literalScan.longWord",
+      "operation": "find",
+      "patterns": [
+        "coolfunctionname"
+      ],
+      "inputs": [
+        "utf8Matching.literalScan.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.hardFailure.1024",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "utf8Matching.hardFailure.1024"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.hardFailure.10240",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "utf8Matching.hardFailure.10240"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.hardFailure.102400",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "utf8Matching.hardFailure.102400"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.hardFailure.1048576",
+      "operation": "find",
+      "patterns": [
+        "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
+      ],
+      "inputs": [
+        "utf8Matching.hardFailure.1048576"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.literal",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "错误"
+      ],
+      "inputs": [
+        "utf8.replacement.literal"
+      ],
+      "arguments": {
+        "replacement": "OK"
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.numbered",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "([A-Za-z]+)=([^&]+)"
+      ],
+      "inputs": [
+        "utf8.replacement.numbered"
+      ],
+      "arguments": {
+        "replacement": "$1=[$2]"
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ByteReplacementBenchmark.named",
+      "operation": "utf8Replacement",
+      "patterns": [
+        "(?<key>[A-Za-z]+)=(?<value>[^&]+)"
+      ],
+      "inputs": [
+        "utf8.replacement.named"
+      ],
+      "arguments": {
+        "replacement": "${key}=[${value}]"
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "PatternAnalysisBenchmark.cachedAnalysis",
+      "operation": "cachedAnalysis",
+      "patterns": [
+        "^(?:(a)?)*$|(?i)\\b(error|warning|timeout)\\b"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds"
+      }
+    },
+    {
+      "id": "PatternAnalysisBenchmark.compileOnly",
+      "operation": "analyzePattern",
+      "patterns": [
+        "^(?:(a)?)*$|(?i)\\b(error|warning|timeout)\\b"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds"
+      }
+    },
+    {
+      "id": "PatternAnalysisBenchmark.compileAndAnalyze",
+      "operation": "compileAndAnalyze",
+      "patterns": [
+        "^(?:(a)?)*$|(?i)\\b(error|warning|timeout)\\b"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds"
+      }
+    },
+    {
+      "id": "JavaCharacterClassBenchmark.compileAndFindJavaLetter",
+      "operation": "compileAndFindRotatingUtf16",
+      "patterns": [
+        "\\p{javaLetter}"
+      ],
+      "arguments": {
+        "seed": 95413077,
+        "count": 4096
+      },
+      "requirements": [
+        "javaCharacterClass"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "JavaCharacterClassBenchmark.findJavaLetter",
+      "operation": "findRotatingUtf16",
+      "patterns": [
+        "\\p{javaLetter}"
+      ],
+      "arguments": {
+        "seed": 95413077,
+        "count": 4096
+      },
+      "requirements": [
+        "javaCharacterClass"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.tinyLiteralMatches",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "abc"
+      ],
+      "inputs": [
+        "diagnostics.tinyLiteralMatches"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "matches",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.tinyLiteralFindHit",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "abc"
+      ],
+      "inputs": [
+        "diagnostics.tinyLiteralFindHit"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "find",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.tinyLiteralFindMiss",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "abc"
+      ],
+      "inputs": [
+        "diagnostics.tinyLiteralFindMiss"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "find",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.onePassMatches",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "^([A-Z]+):(\\d+)$"
+      ],
+      "inputs": [
+        "diagnostics.onePassMatches"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "matches",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.dfaLongFind",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "a+b"
+      ],
+      "inputs": [
+        "diagnostics.dfaLongFind"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "find",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.bitStateShortMatches",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "(?:a|aa)+b"
+      ],
+      "inputs": [
+        "diagnostics.bitStateShortMatches"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "matches",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.nfaLongMatches",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "(?:a|aa)+b"
+      ],
+      "inputs": [
+        "diagnostics.nfaLongMatches"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "matches",
+        "listener": "disabled",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.dfaSparseReplaceAll",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "a+b"
+      ],
+      "inputs": [
+        "diagnostics.dfaSparseReplaceAll"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "replaceAll",
+        "listener": "disabled",
+        "replacement": "z"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.charClassDenseReplaceAll",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "[0-9]+"
+      ],
+      "inputs": [
+        "diagnostics.charClassDenseReplaceAll"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "replaceAll",
+        "listener": "disabled",
+        "replacement": "#"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsDisabledBenchmark.charClassNoMatchReplaceAll",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "[0-9]+"
+      ],
+      "inputs": [
+        "diagnostics.charClassNoMatchReplaceAll"
+      ],
+      "axes": {},
+      "arguments": {
+        "action": "replaceAll",
+        "listener": "disabled",
+        "replacement": "#"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.tinyLiteralMatches.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "abc"
+      ],
+      "inputs": [
+        "diagnostics.tinyLiteralMatches"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "matches",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.tinyLiteralFindHit.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "abc"
+      ],
+      "inputs": [
+        "diagnostics.tinyLiteralFindHit"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "find",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.tinyLiteralFindMiss.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "abc"
+      ],
+      "inputs": [
+        "diagnostics.tinyLiteralFindMiss"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "find",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.onePassMatches.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "^([A-Z]+):(\\d+)$"
+      ],
+      "inputs": [
+        "diagnostics.onePassMatches"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "matches",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.dfaLongFind.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "a+b"
+      ],
+      "inputs": [
+        "diagnostics.dfaLongFind"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "find",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.bitStateShortMatches.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "(?:a|aa)+b"
+      ],
+      "inputs": [
+        "diagnostics.bitStateShortMatches"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "matches",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.nfaLongMatches.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "(?:a|aa)+b"
+      ],
+      "inputs": [
+        "diagnostics.nfaLongMatches"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "matches",
+        "listener": "{listener}",
+        "replacement": ""
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.dfaSparseReplaceAll.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "a+b"
+      ],
+      "inputs": [
+        "diagnostics.dfaSparseReplaceAll"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "replaceAll",
+        "listener": "{listener}",
+        "replacement": "z"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.charClassDenseReplaceAll.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "[0-9]+"
+      ],
+      "inputs": [
+        "diagnostics.charClassDenseReplaceAll"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "replaceAll",
+        "listener": "{listener}",
+        "replacement": "#"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "DiagnosticsEnabledBenchmark.charClassNoMatchReplaceAll.{listener}",
+      "operation": "diagnosticsFind",
+      "patterns": [
+        "[0-9]+"
+      ],
+      "inputs": [
+        "diagnostics.charClassNoMatchReplaceAll"
+      ],
+      "axes": {
+        "listener": [
+          "noop",
+          "longAdder"
+        ]
+      },
+      "arguments": {
+        "action": "replaceAll",
+        "listener": "{listener}",
+        "replacement": "#"
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "resultConsumption": "blackholeObject",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
         ]
       }
     }

@@ -114,6 +114,42 @@ class DeclarativeBenchmarkPlanTest {
   }
 
   @Test
+  void labeledAxisSeparatesStableIdentityFromPatternValue() {
+    DeclarativeBenchmarkPlan plan =
+        parse(
+            """
+            {
+              "schemaVersion": 1,
+              "inputs": [],
+              "workloads": [{
+                  "id": "Synthetic.unicode.{regex}",
+                  "operation": "compile",
+                  "patterns": ["{regex}"],
+                  "axes": {
+                    "regex": [{"id": "letter", "value": "\\\\p{L}+"}]
+                  },
+                  "inputRepresentations": ["javaString"],
+                  "resultConsumption": "compiledObject",
+                  "measurement": {"mode": "compileOnly", "timingUnit": "microseconds"}
+              }]
+            }
+            """);
+    DeclarativeBenchmarkPlan.EngineDeclaration engine =
+        engine("string", DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING);
+
+    DeclarativeBenchmarkPlan.ExpandedPlan expanded =
+        plan.expand(List.of(engine), EnumSet.of(DeclarativeBenchmarkPlan.Operation.COMPILE));
+
+    assertThat(expanded.workloads())
+        .singleElement()
+        .satisfies(
+            workload -> {
+              assertThat(workload.id()).isEqualTo("Synthetic.unicode.letter");
+              assertThat(workload.patterns()).containsExactly("\\p{L}+");
+            });
+  }
+
+  @Test
   void addingWorkloadAndEngineAxesProducesEveryCompatiblePair() {
     DeclarativeBenchmarkPlan plan =
         parse(

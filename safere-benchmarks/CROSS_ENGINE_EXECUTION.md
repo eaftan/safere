@@ -74,5 +74,7 @@ construction and mutations such as reset or region configuration occur inside
 the timed invocation.
 
 Specialized benchmarks remain separate only when their mechanics require a
-dedicated execution mode, including memory, cold start, pathological
-safeguards, PatternSet, and dedicated UTF-8 API behavior.
+dedicated execution mode, including retained memory, cold start, declared
+no-fork safeguards, PatternSet, diagnostics, and dedicated UTF-8 API behavior.
+Those shapes use generic runners selected from the declaration; see
+[`SPECIALIZED_MEASUREMENT_MODES.md`](SPECIALIZED_MEASUREMENT_MODES.md).
