@@ -30,20 +30,20 @@ SafeRE is available on [Maven Central](https://central.sonatype.com/artifact/org
 <dependency>
   <groupId>org.safere</groupId>
   <artifactId>safere</artifactId>
-  <version>0.9.0</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 
 **Gradle (Kotlin DSL):**
 
 ```kotlin
-implementation("org.safere:safere:0.9.0")
+implementation("org.safere:safere:0.10.0")
 ```
 
 **Gradle (Groovy DSL):**
 
 ```groovy
-implementation 'org.safere:safere:0.9.0'
+implementation 'org.safere:safere:0.10.0'
 ```
 
 ## Quick Start
