@@ -77,8 +77,8 @@ class CrossEngineBenchmarkPlanTest {
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
           .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(1406);
-    assertThat(plan.exclusions()).hasSize(634);
+    assertThat(allTrials).hasSize(1404);
+    assertThat(plan.exclusions()).hasSize(636);
     assertThat(accounted).hasSize(408 * RegexEngineVariant.values().length);
   }
 
@@ -100,7 +100,7 @@ class CrossEngineBenchmarkPlanTest {
             second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(525);
+        .hasSize(523);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
@@ -293,10 +293,8 @@ class CrossEngineBenchmarkPlanTest {
             "MatcherApiBenchmark.resetAndFind@re2j-string",
             "JavaCharacterClassBenchmark.compileAndFindJavaLetter@safere-string",
             "JavaCharacterClassBenchmark.compileAndFindJavaLetter@jdk-string",
-            "JavaCharacterClassBenchmark.compileAndFindJavaLetter@re2j-string",
             "JavaCharacterClassBenchmark.findJavaLetter@safere-string",
-            "JavaCharacterClassBenchmark.findJavaLetter@jdk-string",
-            "JavaCharacterClassBenchmark.findJavaLetter@re2j-string");
+            "JavaCharacterClassBenchmark.findJavaLetter@jdk-string");
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
 
     for (String trialId : trials) {
@@ -340,8 +338,8 @@ class CrossEngineBenchmarkPlanTest {
         .allMatch(runner -> !runner.trialIds().isEmpty())
         .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
         .doesNotHaveDuplicates()
-        .hasSize(1445);
-    assertThat(plan.reportPlan().trials()).hasSize(1445);
+        .hasSize(1443);
+    assertThat(plan.reportPlan().trials()).hasSize(1443);
     assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
     assertThat(
             plan.reportPlan(true).trials().stream()

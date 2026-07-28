@@ -8575,6 +8575,9 @@
         "seed": 95413077,
         "count": 4096
       },
+      "requirements": [
+        "javaCharacterClass"
+      ],
       "inputRepresentations": [
         "javaString"
       ],
@@ -8606,6 +8609,9 @@
         "seed": 95413077,
         "count": 4096
       },
+      "requirements": [
+        "javaCharacterClass"
+      ],
       "inputRepresentations": [
         "javaString"
       ],
