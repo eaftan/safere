@@ -116,6 +116,8 @@ class PatternProfilesTest {
     assertThat(profiles.select("re2", "\\p{script=Latin}+")).isEqualTo("\\p{Latin}+");
     assertThat(profiles.select("re2", "[\\p{L}&&[^\\p{Lu}]]+"))
         .isEqualTo("[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+");
+    assertThat(profiles.select("re2", "\\p{IsAlphabetic}+")).isEqualTo("\\p{IsAlphabetic}+");
+    assertThat(profiles.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
     for (JsonElement profile : normalized.getAsJsonObject("patternProfiles").asMap().values()) {
       for (JsonElement entry : profile.getAsJsonArray()) {
         String javaPattern = entry.getAsJsonObject().get("java").getAsString();

@@ -77,8 +77,8 @@ class CrossEngineBenchmarkPlanTest {
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
           .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(1404);
-    assertThat(plan.exclusions()).hasSize(636);
+    assertThat(allTrials).hasSize(1406);
+    assertThat(plan.exclusions()).hasSize(634);
     assertThat(accounted).hasSize(408 * RegexEngineVariant.values().length);
   }
 
@@ -100,7 +100,7 @@ class CrossEngineBenchmarkPlanTest {
             second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(523);
+        .hasSize(525);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
@@ -157,6 +157,20 @@ class CrossEngineBenchmarkPlanTest {
   void re2BasedAdaptersShareARegexSyntaxProfile() {
     assertThat(RegexEngineVariant.RE2J_STRING.patternProfile()).isEqualTo("re2");
     assertThat(RegexEngineVariant.RE2_FFM_STRING_CONVERSION.patternProfile()).isEqualTo("re2");
+  }
+
+  @Test
+  void javaOnlyUnicodePropertyCompileWorkloadsRemainExcludedFromRe2Adapters() {
+    CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+
+    assertThatThrownBy(
+            () -> plan.resolve("UnicodeCompileBenchmark.compile.alphabetic.0@re2j-string"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("engine lacks [flaggedCompile]");
+    assertThatThrownBy(
+            () -> plan.resolve("UnicodeCompileBenchmark.compile.ideographic.0@re2j-string"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("engine lacks [flaggedCompile]");
   }
 
   @Test
@@ -279,8 +293,10 @@ class CrossEngineBenchmarkPlanTest {
             "MatcherApiBenchmark.resetAndFind@re2j-string",
             "JavaCharacterClassBenchmark.compileAndFindJavaLetter@safere-string",
             "JavaCharacterClassBenchmark.compileAndFindJavaLetter@jdk-string",
+            "JavaCharacterClassBenchmark.compileAndFindJavaLetter@re2j-string",
             "JavaCharacterClassBenchmark.findJavaLetter@safere-string",
-            "JavaCharacterClassBenchmark.findJavaLetter@jdk-string");
+            "JavaCharacterClassBenchmark.findJavaLetter@jdk-string",
+            "JavaCharacterClassBenchmark.findJavaLetter@re2j-string");
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
 
     for (String trialId : trials) {
@@ -324,8 +340,8 @@ class CrossEngineBenchmarkPlanTest {
         .allMatch(runner -> !runner.trialIds().isEmpty())
         .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
         .doesNotHaveDuplicates()
-        .hasSize(1443);
-    assertThat(plan.reportPlan().trials()).hasSize(1443);
+        .hasSize(1445);
+    assertThat(plan.reportPlan().trials()).hasSize(1445);
     assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
     assertThat(
             plan.reportPlan(true).trials().stream()
