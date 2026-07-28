@@ -1837,14 +1837,30 @@
     },
     "captureGroups": {
       "id": "RegexBenchmark.captureGroups",
-      "pattern": "(\\d{4})-(\\d{2})-(\\d{2})",
+      "pattern": {
+        "java": "(\\d{4})-(\\d{2})-(\\d{2})",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "([0-9]{4})-([0-9]{2})-([0-9]{2})",
+            "reason": "Rust regex gives \\d Unicode semantics"
+          }
+        }
+      },
       "text": "2025-12-25",
       "op": "matchAndExtract",
       "groups": 3
     },
     "findInText": {
       "id": "RegexBenchmark.findInText",
-      "pattern": "\\b\\w+ing\\b",
+      "pattern": {
+        "java": "\\b\\w+ing\\b",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "(?-u:\\b)[A-Za-z0-9_]+ing(?-u:\\b)",
+            "reason": "Rust regex gives word classes and boundaries Unicode semantics"
+          }
+        }
+      },
       "text": "The morning sun was shining brightly, casting long shadows across the rolling hills. Birds were singing their melodious songs while children were playing in the sprawling gardens. A gentle breeze was blowing through the swaying trees, carrying the scent of blooming flowers. People were walking along the winding paths, enjoying the refreshing air and the stunning views of the surrounding countryside. Everything was moving in perfect harmony.",
       "op": "findAllCount"
     },
@@ -1984,7 +2000,15 @@
       "pattern": "hello"
     },
     "medium": {
-      "pattern": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})"
+      "pattern": {
+        "java": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})",
+            "reason": "Rust regex gives \\d Unicode semantics"
+          }
+        }
+      }
     },
     "complex": {
       "pattern": "[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
@@ -2007,7 +2031,15 @@
       "hard": "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$"
     },
     "matchSuffix": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    "findIngPattern": "\\b\\w+ing\\b",
+    "findIngPattern": {
+      "java": "\\b\\w+ing\\b",
+      "alternates": {
+        "rust-regex": {
+          "pattern": "(?-u:\\b)[A-Za-z0-9_]+ing(?-u:\\b)",
+          "reason": "Rust regex gives word classes and boundaries Unicode semantics"
+        }
+      }
+    },
     "textSizes": [
       1024,
       10240,
@@ -2029,7 +2061,15 @@
       1048576
     ],
     "splitW": {
-      "pattern": "\\W+",
+      "pattern": {
+        "java": "\\W+",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "[^A-Za-z0-9_]+",
+            "reason": "Rust regex gives \\W Unicode semantics"
+          }
+        }
+      },
       "unit": "This is a generic sentence containing words that will be used to test splitting routines. "
     },
     "block": {
@@ -2090,7 +2130,15 @@
       "groups": 3
     },
     "capture10": {
-      "pattern": "(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+)",
+      "pattern": {
+        "java": "(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+);(\\w+)=(\\w+)",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "([A-Za-z0-9_]+)=([A-Za-z0-9_]+);([A-Za-z0-9_]+)=([A-Za-z0-9_]+);([A-Za-z0-9_]+)=([A-Za-z0-9_]+);([A-Za-z0-9_]+)=([A-Za-z0-9_]+);([A-Za-z0-9_]+)=([A-Za-z0-9_]+)",
+            "reason": "Rust regex gives \\w Unicode semantics"
+          }
+        }
+      },
       "text": "a=1;b=2;c=3;d=4;e=5",
       "groups": 10
     }
@@ -2127,11 +2175,27 @@
     "pigLatinReplaceAll": {
       "pattern": "(qu|[b-df-hj-np-tv-z]*)([a-z]+)",
       "text": "the quick brown fox jumps over the lazy dogs",
-      "replacement": "$2$1ay",
+      "replacement": {
+        "java": "$2$1ay",
+        "alternates": {
+          "rust-regex": {
+            "replacement": "${2}${1}ay",
+            "reason": "Rust replacement references need braces before adjacent letters"
+          }
+        }
+      },
       "op": "replaceAll"
     },
     "digitReplaceAll": {
-      "pattern": "\\d+",
+      "pattern": {
+        "java": "\\d+",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "[0-9]+",
+            "reason": "Rust regex gives \\d Unicode semantics"
+          }
+        }
+      },
       "text": "order 12345 shipped on 2025-03-22 tracking 9876543210 weight 42kg price $199",
       "replacement": "NUM",
       "op": "replaceAll"
@@ -2162,7 +2226,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.mapFieldPath",
         "name": "mapFieldPath",
-        "pattern": "([\\S]+)\\b\\[(.+)\\]",
+        "pattern": {
+          "java": "([\\S]+)\\b\\[(.+)\\]",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "([^\\x20\\t\\n\\x0B\\f\\r]+)(?-u:\\b)\\[(.+)\\]",
+              "reason": "Rust regex gives \\S and word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "find",
         "match": "config.overrides[some_value]",
         "nonMatch": "config.overrides"
@@ -2178,7 +2250,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.versionList",
         "name": "versionList",
-        "pattern": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+        "pattern": {
+          "java": " ?[\\[［](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]］]",
+          "alternates": {
+            "rust-regex": {
+              "pattern": " ?[\\[［](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]］]",
+              "reason": "Rust regex gives \\d Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "[1.2.3, 4.5.6]",
         "nonMatch": "[1.2.3,"
@@ -2210,7 +2290,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.wildcardSearch",
         "name": "wildcardSearch",
-        "pattern": "(?is).*\\b(you|your)\\b.*",
+        "pattern": {
+          "java": "(?is).*\\b(you|your)\\b.*",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?is).*(?-u:\\b)(you|your)(?-u:\\b).*",
+              "reason": "Rust regex gives word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "find",
         "match": "What can I do for you today?",
         "nonMatch": "What is the capital of France?"
@@ -2226,7 +2314,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.blockedTags1",
         "name": "blockedTags1",
-        "pattern": "```code_block\\n(\\s)*# (topic|tags)_identified:.*?\\n```",
+        "pattern": {
+          "java": "```code_block\\n(\\s)*# (topic|tags)_identified:.*?\\n```",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "```code_block\\n((?-u:\\s))*# (topic|tags)_identified:.*?\\n```",
+              "reason": "Rust regex gives \\s Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "```code_block\n# tags_identified: shopping\n```",
         "nonMatch": "```code_block\n# tags: shopping\n```"
@@ -2234,7 +2330,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.blockedTags2",
         "name": "blockedTags2",
-        "pattern": "<container>\\n(\\s)*# (topic|tags)_identified:.*?\\n</container>",
+        "pattern": {
+          "java": "<container>\\n(\\s)*# (topic|tags)_identified:.*?\\n</container>",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "<container>\\n((?-u:\\s))*# (topic|tags)_identified:.*?\\n</container>",
+              "reason": "Rust regex gives \\s Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "<container>\n# topic_identified: sports\n</container>",
         "nonMatch": "<container>\n# topic: sports\n</container>"
@@ -2242,7 +2346,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.overlappingUrl",
         "name": "overlappingUrl",
-        "pattern": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+        "pattern": {
+          "java": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?i)(?-u:\\b)(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+              "reason": "Rust regex gives word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "https://www.example.com/search?q=testing&hl=en",
         "nonMatch": "some-random-domain-name"
@@ -2258,7 +2370,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.boundedNameMatch",
         "name": "boundedNameMatch",
-        "pattern": "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)",
+        "pattern": {
+          "java": "\\b[Ff]irst [Nn]ame (\\bvalue\\b|\\*\\*value\\*\\*)",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?-u:\\b)[Ff]irst [Nn]ame ((?-u:\\b)value(?-u:\\b)|\\*\\*value\\*\\*)",
+              "reason": "Rust regex gives word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "first name value",
         "nonMatch": "first name other_value"
@@ -2266,7 +2386,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.templateTagMatch",
         "name": "templateTagMatch",
-        "pattern": "(?s)(<template\\s+name\\s*>.*?<\\s*/\\s*template[ \\t]*)([^>]|$)",
+        "pattern": {
+          "java": "(?s)(<template\\s+name\\s*>.*?<\\s*/\\s*template[ \\t]*)([^>]|$)",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?s)(<template(?-u:\\s)+name(?-u:\\s)*>.*?<(?-u:\\s)*/(?-u:\\s)*template[ \\t]*)([^>]|$)",
+              "reason": "Rust regex gives \\s Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "<template name>content to match</template",
         "nonMatch": "plain text without template tag"
@@ -2274,7 +2402,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.sparseUrl",
         "name": "sparseUrl",
-        "pattern": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+        "pattern": {
+          "java": "(?i)\\b(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?i)(?-u:\\b)(?:https?://|www\\.)(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,6}(?:/[a-zA-Z0-9-._~:/?#\\[\\]@!$&'()*+,;=]*)?",
+              "reason": "Rust regex gives word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "https://www.example.com/search?q=testing&hl=en",
         "nonMatch": "some-random-domain-name",
@@ -2287,7 +2423,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary",
         "name": "unprefixedWordBoundary",
-        "pattern": "\\b[a-zA-Z]{3,5}\\b",
+        "pattern": {
+          "java": "\\b[a-zA-Z]{3,5}\\b",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?-u:\\b)[a-zA-Z]{3,5}(?-u:\\b)",
+              "reason": "Rust regex gives word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "find",
         "match": "hello",
         "nonMatch": "12345",
@@ -2299,7 +2443,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery",
         "name": "fruitSearchQuery",
-        "pattern": "(?is).*\\b(apples?.*for banana|cherry.*dates?|elderberry lists?|fig lists?|grape lists?)\\b.*",
+        "pattern": {
+          "java": "(?is).*\\b(apples?.*for banana|cherry.*dates?|elderberry lists?|fig lists?|grape lists?)\\b.*",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?is).*(?-u:\\b)(apples?.*for banana|cherry.*dates?|elderberry lists?|fig lists?|grape lists?)(?-u:\\b).*",
+              "reason": "Rust regex gives word boundaries Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllGroup1",
         "match": "Here are the apples to show for banana in this session.",
         "nonMatch": "Orange lemon melon peach pear plum.",
@@ -2329,7 +2481,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.jsonBlock",
         "name": "jsonBlock",
-        "pattern": "(\\{[\\s\\S]*\\})",
+        "pattern": {
+          "java": "(\\{[\\s\\S]*\\})",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(\\{(?s:.)*\\})",
+              "reason": "Rust regex gives \\s and \\S Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllGroup1",
         "match": "{\n  \"key1\": \"value1\",\n  \"key2\": \"value2\",\n  \"key3\": \"value3\"\n}",
         "nonMatch": "some non-matching string containing no braces",
@@ -2375,7 +2535,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.layoutBlock",
         "name": "layoutBlock",
-        "pattern": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
+        "pattern": {
+          "java": "(?s)<block>\\n(\\s)*# (category|group)_defined:.*?\\n</block>",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "(?s)<block>\\n((?-u:\\s))*# (category|group)_defined:.*?\\n</block>",
+              "reason": "Rust regex gives \\s Unicode semantics"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "match": "<block>\n  # category_defined: alpha, beta\n  entry: apple\n  entry: banana\n</block>\n",
         "nonMatch": "<block>\n  # comment but not defined tag\n  entry: orange\n</block>\n",
@@ -2449,7 +2617,15 @@
       "id": "ApplicationBenchmark.logLineParse",
       "name": "logLineParse",
       "op": "matchesGroupLengthSum",
-      "pattern": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)\\s+(INFO|WARN|ERROR)\\s+([A-Za-z0-9_.-]+)\\s+-\\s+(.+)$",
+      "pattern": {
+        "java": "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)\\s+(INFO|WARN|ERROR)\\s+([A-Za-z0-9_.-]+)\\s+-\\s+(.+)$",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)(?-u:\\s)+(INFO|WARN|ERROR)(?-u:\\s)+([A-Za-z0-9_.-]+)(?-u:\\s)+-(?-u:\\s)+(.+)$",
+            "reason": "Rust regex gives \\d and \\s Unicode semantics"
+          }
+        }
+      },
       "texts": [
         "2026-03-31T14:22:08Z INFO api.gateway - request completed status=200 latency=38ms",
         "2026-03-31T14:22:09Z WARN db.pool - connection wait exceeded threshold=100ms",
@@ -2486,7 +2662,15 @@
       "id": "ApplicationBenchmark.stackTraceExtract",
       "name": "stackTraceExtract",
       "op": "findAllGroupLengthSum",
-      "pattern": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+      "pattern": {
+        "java": "(?m)^\\s+at\\s+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):(\\d+)\\)$",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "(?m)^(?-u:\\s)+at(?-u:\\s)+([A-Za-z0-9_.$]+)\\.([A-Za-z0-9_$<>]+)\\(([^:()]+):([0-9]+)\\)$",
+            "reason": "Rust regex gives \\d and \\s Unicode semantics"
+          }
+        }
+      },
       "text": "java.lang.IllegalStateException: failed to process request\n\tat org.example.api.Handler.handle(Handler.java:87)\n\tat org.example.api.Router.dispatch(Router.java:142)\n\tat org.example.Main.main(Main.java:25)\nCaused by: java.io.IOException: timeout\n\tat org.example.net.Client.read(Client.java:203)",
       "groups": [
         1,
@@ -2498,7 +2682,15 @@
       "id": "ApplicationBenchmark.caseInsensitiveKeywords",
       "name": "caseInsensitiveKeywords",
       "op": "findAllCount",
-      "pattern": "(?i)\\b(error|warning|timeout|failed)\\b",
+      "pattern": {
+        "java": "(?i)\\b(error|warning|timeout|failed)\\b",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "(?i)(?-u:\\b)(error|warning|timeout|failed)(?-u:\\b)",
+            "reason": "Rust regex gives word boundaries Unicode semantics"
+          }
+        }
+      },
       "text": "INFO startup complete\nWarning cache miss ratio high\nrequest failed after TIMEOUT waiting for backend\nERROR circuit breaker opened\nhealth check passed",
       "expected": 4
     },
@@ -2522,7 +2714,15 @@
       "id": "ApplicationBenchmark.secretRedaction",
       "name": "secretRedaction",
       "op": "replaceAll",
-      "pattern": "(?i)\\b(password|token|secret)=([^\\s&]+)",
+      "pattern": {
+        "java": "(?i)\\b(password|token|secret)=([^\\s&]+)",
+        "alternates": {
+          "rust-regex": {
+            "pattern": "(?i)(?-u:\\b)(password|token|secret)=([^\\x20\\t\\n\\x0B\\f\\r&]+)",
+            "reason": "Rust regex gives \\s and word boundaries Unicode semantics"
+          }
+        }
+      },
       "text": "user=service password=hunter2 token=abc123XYZ path=/api secret=prod-key-9 debug=true",
       "replacement": "$1=REDACTED",
       "expected": "user=service password=REDACTED token=REDACTED path=/api secret=REDACTED debug=true"
@@ -4934,7 +5134,15 @@
         ]
       },
       "arguments": {
-        "replacement": "$2$1ay"
+        "replacement": {
+          "java": "$2$1ay",
+          "alternates": {
+            "rust-regex": {
+              "replacement": "${2}${1}ay",
+              "reason": "Rust replacement references need braces before adjacent letters"
+            }
+          }
+        }
       },
       "requirements": [
         "numberedReplacement"
@@ -5012,7 +5220,15 @@
         ]
       },
       "arguments": {
-        "replacement": "$2$1ay"
+        "replacement": {
+          "java": "$2$1ay",
+          "alternates": {
+            "rust-regex": {
+              "replacement": "${2}${1}ay",
+              "reason": "Rust replacement references need braces before adjacent letters"
+            }
+          }
+        }
       },
       "requirements": [
         "numberedReplacement",

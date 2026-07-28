@@ -7,6 +7,7 @@
 use regex::{NoExpand, Regex};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+#[cfg(feature = "memory-tracking")]
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::collections::HashMap;
 use std::env;
@@ -14,39 +15,53 @@ use std::fs;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+#[cfg(feature = "memory-tracking")]
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
+#[cfg(feature = "memory-tracking")]
 struct TrackingAllocator;
 
+#[cfg(feature = "memory-tracking")]
 static TRACK_ALLOCATIONS: AtomicBool = AtomicBool::new(false);
-static ALLOCATED_BYTES: AtomicUsize = AtomicUsize::new(0);
+#[cfg(feature = "memory-tracking")]
+static RETAINED_BYTES: AtomicUsize = AtomicUsize::new(0);
 static PATTERN_PROFILE: OnceLock<HashMap<String, String>> = OnceLock::new();
+static REPLACEMENT_PROFILE: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 // SAFETY: Every operation delegates to the system allocator with the original
 // pointer and layout. The counters only observe successful allocations.
+#[cfg(feature = "memory-tracking")]
 unsafe impl GlobalAlloc for TrackingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let pointer = unsafe { System.alloc(layout) };
         if !pointer.is_null() && TRACK_ALLOCATIONS.load(Ordering::Relaxed) {
-            ALLOCATED_BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+            RETAINED_BYTES.fetch_add(layout.size(), Ordering::Relaxed);
         }
         pointer
     }
 
     unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        if TRACK_ALLOCATIONS.load(Ordering::Relaxed) {
+            RETAINED_BYTES.fetch_sub(layout.size(), Ordering::Relaxed);
+        }
         unsafe { System.dealloc(pointer, layout) };
     }
 
     unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let new_pointer = unsafe { System.realloc(pointer, layout, new_size) };
         if !new_pointer.is_null() && TRACK_ALLOCATIONS.load(Ordering::Relaxed) {
-            ALLOCATED_BYTES.fetch_add(new_size, Ordering::Relaxed);
+            if new_size >= layout.size() {
+                RETAINED_BYTES.fetch_add(new_size - layout.size(), Ordering::Relaxed);
+            } else {
+                RETAINED_BYTES.fetch_sub(layout.size() - new_size, Ordering::Relaxed);
+            }
         }
         new_pointer
     }
 }
 
+#[cfg(feature = "memory-tracking")]
 #[global_allocator]
 static GLOBAL_ALLOCATOR: TrackingAllocator = TrackingAllocator;
 
@@ -55,6 +70,7 @@ struct Corpus {
     input_directory: PathBuf,
     inputs: Value,
     pattern_profile: HashMap<String, String>,
+    replacement_profile: HashMap<String, String>,
 }
 
 impl Corpus {
@@ -74,7 +90,8 @@ impl Corpus {
         );
         let data = manifest["benchmarkData"].clone();
         Self {
-            pattern_profile: load_pattern_profile(&data, "rust-regex"),
+            pattern_profile: load_profile(&data, "patternProfiles", "rust-regex"),
+            replacement_profile: load_profile(&data, "replacementProfiles", "rust-regex"),
             data,
             input_directory: manifest_path
                 .parent()
@@ -111,8 +128,8 @@ impl Corpus {
     }
 }
 
-fn load_pattern_profile(data: &Value, profile_id: &str) -> HashMap<String, String> {
-    data.get("patternProfiles")
+fn load_profile(data: &Value, registry: &str, profile_id: &str) -> HashMap<String, String> {
+    data.get(registry)
         .and_then(|profiles| profiles.get(profile_id))
         .map(|entries| {
             entries
@@ -185,6 +202,13 @@ fn selected_pattern(java_pattern: &str) -> String {
         .get()
         .and_then(|profile| profile.get(java_pattern))
         .map_or_else(|| java_pattern.to_owned(), Clone::clone)
+}
+
+fn selected_replacement(java_replacement: &str) -> String {
+    REPLACEMENT_PROFILE
+        .get()
+        .and_then(|profile| profile.get(java_replacement))
+        .map_or_else(|| java_replacement.to_owned(), Clone::clone)
 }
 
 fn compile_rust_pattern(pattern: &str) -> Regex {
@@ -289,7 +313,7 @@ fn run_regex_benchmarks(data: &Value, filters: &[String]) {
         black_box(find_ing.find_iter(black_box(&prose)).count());
     });
     run_ns("RegexBenchmark.emailFind", filters, || {
-        black_box(email.find(black_box(&email_text)));
+        black_box(email.is_match(black_box(&email_text)));
     });
 }
 
@@ -369,6 +393,10 @@ fn run_application_benchmarks(data: &Value, filters: &[String]) {
         .map(|item| {
             let pattern = required_string(item, "pattern");
             let operation = required_string(item, "op");
+            let replacement = item
+                .get("replacement")
+                .map(|_| selected_replacement(&required_string(item, "replacement")))
+                .unwrap_or_default();
             ApplicationCase {
                 name: required_string(item, "name"),
                 texts: item
@@ -383,10 +411,7 @@ fn run_application_benchmarks(data: &Value, filters: &[String]) {
                     .get("groups")
                     .map(|_| int_list(item, "groups"))
                     .unwrap_or_default(),
-                replacement: item
-                    .get("replacement")
-                    .map(|_| required_string(item, "replacement"))
-                    .unwrap_or_default(),
+                replacement,
                 expected: item["expected"].clone(),
                 regex: compile(&pattern),
                 full_regex: operation
@@ -456,7 +481,7 @@ fn run_real_world_benchmarks(corpus: &Corpus, filters: &[String]) {
                 );
                 match operation.as_str() {
                     "find" => run_ns(&name, filters, || {
-                        black_box(regex.find(black_box(&text)));
+                        black_box(regex.is_match(black_box(&text)));
                     }),
                     "matches" => run_ns(&name, filters, || {
                         black_box(full_regex.as_ref().unwrap().is_match(black_box(&text)));
@@ -664,7 +689,7 @@ fn run_replace_benchmarks(data: &Value, filters: &[String]) {
         }
         let regex = compile(&required_string(entry, "pattern"));
         let text = required_string(entry, "text");
-        let replacement = required_string(entry, "replacement");
+        let replacement = selected_replacement(&required_string(entry, "replacement"));
         match required_string(entry, "op").as_str() {
             "replaceFirst" => run_ns(&name, filters, || {
                 black_box(regex.replace(black_box(&text), replacement.as_str()));
@@ -679,7 +704,7 @@ fn run_replace_benchmarks(data: &Value, filters: &[String]) {
 
 fn run_pathological_benchmarks(corpus: &Corpus, filters: &[String]) {
     for n in int_list(&corpus.data, "pathological.nValues") {
-        let regex = compile(&corpus.input(&format!("pathological.pattern.{n}")));
+        let regex = compile_full(&corpus.input(&format!("pathological.pattern.{n}")));
         let text = corpus.input(&format!("pathological.text.{n}"));
         let name = format!("PathologicalBenchmark.pathological.{n}");
         run_us(&name, filters, || {
@@ -712,18 +737,20 @@ fn run_fanout_benchmarks(corpus: &Corpus, filters: &[String]) {
     }
 }
 
-fn compiled_allocation_bytes(pattern: &str) -> usize {
+#[cfg(feature = "memory-tracking")]
+fn compiled_retained_bytes(pattern: &str) -> usize {
     let pattern = selected_pattern(pattern);
     black_box(compile_rust_pattern(&pattern));
-    ALLOCATED_BYTES.store(0, Ordering::Relaxed);
+    RETAINED_BYTES.store(0, Ordering::Relaxed);
     TRACK_ALLOCATIONS.store(true, Ordering::SeqCst);
     let regex = compile_rust_pattern(&pattern);
     TRACK_ALLOCATIONS.store(false, Ordering::SeqCst);
-    let bytes = ALLOCATED_BYTES.load(Ordering::Relaxed);
+    let bytes = RETAINED_BYTES.load(Ordering::Relaxed);
     black_box(regex);
     bytes
 }
 
+#[cfg(feature = "memory-tracking")]
 fn run_memory_benchmarks(data: &Value, filters: &[String]) {
     let compile_section = &data["compile"];
     let regex_section = &data["regex"];
@@ -776,7 +803,7 @@ fn run_memory_benchmarks(data: &Value, filters: &[String]) {
                 json!({
                     "engine": "rust_regex",
                     "benchmark": benchmark,
-                    "score": compiled_allocation_bytes(&pattern),
+                    "score": compiled_retained_bytes(&pattern),
                     "error": 0,
                     "unit": "bytes",
                 })
@@ -805,17 +832,23 @@ fn main() {
     PATTERN_PROFILE
         .set(corpus.pattern_profile.clone())
         .expect("Rust pattern profile must only be initialized once");
-    run_regex_benchmarks(&corpus.data, &filters);
-    run_application_benchmarks(&corpus.data, &filters);
-    run_real_world_benchmarks(&corpus, &filters);
-    run_compile_benchmarks(&corpus.data, &filters);
-    run_search_scaling_benchmarks(&corpus, &filters);
-    run_issue_481_benchmarks(&corpus, &filters);
-    run_capture_benchmarks(&corpus.data, &filters);
-    run_http_benchmarks(&corpus.data, &filters);
-    run_replace_benchmarks(&corpus.data, &filters);
-    run_pathological_benchmarks(&corpus, &filters);
-    run_fanout_benchmarks(&corpus, &filters);
+    REPLACEMENT_PROFILE
+        .set(corpus.replacement_profile.clone())
+        .expect("Rust replacement profile must only be initialized once");
+    if !cfg!(feature = "memory-tracking") {
+        run_regex_benchmarks(&corpus.data, &filters);
+        run_application_benchmarks(&corpus.data, &filters);
+        run_real_world_benchmarks(&corpus, &filters);
+        run_compile_benchmarks(&corpus.data, &filters);
+        run_search_scaling_benchmarks(&corpus, &filters);
+        run_issue_481_benchmarks(&corpus, &filters);
+        run_capture_benchmarks(&corpus.data, &filters);
+        run_http_benchmarks(&corpus.data, &filters);
+        run_replace_benchmarks(&corpus.data, &filters);
+        run_pathological_benchmarks(&corpus, &filters);
+        run_fanout_benchmarks(&corpus, &filters);
+    }
+    #[cfg(feature = "memory-tracking")]
     run_memory_benchmarks(&corpus.data, &filters);
 }
 
@@ -828,15 +861,24 @@ mod tests {
         let data = json!({
             "patternProfiles": {
                 "rust-regex": [{
-                    "java": r"\Qfoo.bar\E",
-                    "alternate": r"foo\.bar"
+                    "java": "same",
+                    "alternate": "pattern"
+                }]
+            },
+            "replacementProfiles": {
+                "rust-regex": [{
+                    "java": "same",
+                    "alternate": "replacement"
                 }]
             }
         });
-        let profile = load_pattern_profile(&data, "rust-regex");
+        let patterns = load_profile(&data, "patternProfiles", "rust-regex");
+        let replacements = load_profile(&data, "replacementProfiles", "rust-regex");
 
-        assert_eq!(profile.get(r"\Qfoo.bar\E").unwrap(), r"foo\.bar");
-        assert!(!profile.contains_key("unchanged"));
+        assert_eq!(patterns.get("same").unwrap(), "pattern");
+        assert_eq!(replacements.get("same").unwrap(), "replacement");
+        assert!(!patterns.contains_key("unchanged"));
+        assert!(!replacements.contains_key("unchanged"));
     }
 
     #[test]

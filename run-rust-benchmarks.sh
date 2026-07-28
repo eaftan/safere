@@ -22,5 +22,12 @@ echo "=== Materializing shared benchmark inputs ==="
 echo "=== Building Rust regex benchmarks ==="
 cargo build --release --locked --manifest-path "$RUST_DIR/Cargo.toml"
 
-echo "=== Running Rust regex benchmarks ==="
+echo "=== Running Rust regex timing benchmarks ==="
+"$RUST_DIR/target/release/safere-regex-benchmark" --manifest "$MANIFEST_FILE" "$@"
+
+echo "=== Building Rust regex memory benchmarks ==="
+cargo build --release --locked --features memory-tracking \
+  --manifest-path "$RUST_DIR/Cargo.toml"
+
+echo "=== Running Rust regex memory benchmarks ==="
 "$RUST_DIR/target/release/safere-regex-benchmark" --manifest "$MANIFEST_FILE" "$@"

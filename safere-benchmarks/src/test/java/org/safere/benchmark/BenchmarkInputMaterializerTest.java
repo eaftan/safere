@@ -149,7 +149,9 @@ class BenchmarkInputMaterializerTest {
     JsonObject resolvedData = manifest.getAsJsonObject("benchmarkData");
     assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("re2")).hasSize(6);
     assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("rust-regex"))
-        .hasSize(4);
+        .hasSize(26);
+    assertThat(resolvedData.getAsJsonObject("replacementProfiles").getAsJsonArray("rust-regex"))
+        .hasSize(1);
     assertThat(
             resolvedData.getAsJsonArray("workloads").asList().stream()
                 .filter(

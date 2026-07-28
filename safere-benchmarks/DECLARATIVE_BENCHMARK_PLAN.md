@@ -98,17 +98,37 @@ the pattern definition declares an exact alternate inline:
 }
 ```
 
+Java-canonical replacement templates use the same colocated declaration shape,
+with a `replacement` field instead of `pattern`:
+
+```json
+{
+  "replacement": {
+    "java": "$2$1ay",
+    "alternates": {
+      "rust-regex": {
+        "replacement": "${2}${1}ay",
+        "reason": "Rust replacement references need braces before adjacent letters"
+      }
+    }
+  }
+}
+```
+
 An engine adapter selects one syntax-family profile. SafeRE and JDK select
 `java`; RE2/J, RE2-FFM, native C++ RE2, and Go select `re2`; and Rust
 `regex` selects `rust-regex`. If the selected profile has no entry for a Java
-pattern, the adapter uses the Java pattern unchanged.
+syntax value, the adapter uses the Java value unchanged.
 
 Alternates are exact reviewed strings. Runners must not rewrite regex syntax
 automatically. The required nonblank `reason` records why the alternate is
 necessary. The materializer replaces inline definitions with their Java strings
-and emits a resolved profile lookup in the generated manifest. Conflicting
-alternates for the same Java pattern and profile, malformed profile IDs, blank
-fields, and unknown fields are rejected during materialization.
+and emits separate resolved pattern and replacement profile lookups in the
+generated manifest. Keeping the namespaces separate prevents the same Java
+string from selecting a pattern alternate when it is used as a replacement, or
+vice versa. Conflicting alternates for the same Java value, kind, and profile,
+malformed profile IDs, blank fields, and unknown fields are rejected during
+materialization.
 Pattern selection and compilation happen outside timed matching operations;
 compile benchmarks select the alternate before starting the timed compilation.
 

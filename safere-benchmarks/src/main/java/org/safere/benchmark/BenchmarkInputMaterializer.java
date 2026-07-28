@@ -53,6 +53,7 @@ public final class BenchmarkInputMaterializer {
       throw new IllegalArgumentException("benchmark-data.json requires declarative inputs");
     }
     PatternProfiles.parse(this.data.get("patternProfiles"));
+    PatternProfiles.parse(this.data.get("replacementProfiles"));
     declarations =
         DeclarativeBenchmarkPlan.parseInputDeclarations(this.data.getAsJsonArray("inputs"));
   }

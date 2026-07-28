@@ -13,6 +13,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PatternProfilesTest {
@@ -75,8 +76,7 @@ class PatternProfilesTest {
                             """)
                         .getAsJsonObject()))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage(
-            "benchmark-data.json must define pattern alternates next to their Java patterns");
+        .hasMessage("benchmark-data.json must define syntax alternates next to their Java values");
 
     assertThatThrownBy(
             () ->
@@ -85,15 +85,19 @@ class PatternProfilesTest {
                             """
                             {
                               "first": {
-                                "java": "x",
-                                "alternates": {
-                                  "re2": {"pattern": "y", "reason": "first"}
+                                "pattern": {
+                                  "java": "x",
+                                  "alternates": {
+                                    "re2": {"pattern": "y", "reason": "first"}
+                                  }
                                 }
                               },
                               "second": {
-                                "java": "x",
-                                "alternates": {
-                                  "re2": {"pattern": "z", "reason": "second"}
+                                "pattern": {
+                                  "java": "x",
+                                  "alternates": {
+                                    "re2": {"pattern": "z", "reason": "second"}
+                                  }
                                 }
                               }
                             }
@@ -104,6 +108,83 @@ class PatternProfilesTest {
   }
 
   @Test
+  void rejectsAlternateWhoseKindDoesNotMatchContainingField() {
+    assertThatThrownBy(
+            () ->
+                PatternProfiles.normalizeInline(
+                    JsonParser.parseString(
+                            """
+                            {
+                              "pattern": {
+                                "java": "x",
+                                "alternates": {
+                                  "rust-regex": {
+                                    "replacement": "y",
+                                    "reason": "wrong kind"
+                                  }
+                                }
+                              }
+                            }
+                            """)
+                        .getAsJsonObject()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Inline benchmark pattern definition contains replacement alternate");
+
+    assertThatThrownBy(
+            () ->
+                PatternProfiles.normalizeInline(
+                    JsonParser.parseString(
+                            """
+                            {
+                              "replacement": {
+                                "java": "x",
+                                "alternates": {
+                                  "rust-regex": {
+                                    "pattern": "y",
+                                    "reason": "wrong kind"
+                                  }
+                                }
+                              }
+                            }
+                            """)
+                        .getAsJsonObject()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Inline benchmark replacement definition contains pattern alternate");
+  }
+
+  @Test
+  void separatesPatternAndReplacementAlternatesWithTheSameJavaValue() {
+    JsonObject normalized =
+        PatternProfiles.normalizeInline(
+            JsonParser.parseString(
+                    """
+                    {
+                      "pattern": {
+                        "java": "same",
+                        "alternates": {
+                          "rust-regex": {"pattern": "pattern", "reason": "pattern syntax"}
+                        }
+                      },
+                      "replacement": {
+                        "java": "same",
+                        "alternates": {
+                          "rust-regex": {
+                            "replacement": "replacement",
+                            "reason": "replacement syntax"
+                          }
+                        }
+                      }
+                    }
+                    """)
+                .getAsJsonObject());
+
+    PatternProfiles patterns = PatternProfiles.parse(normalized.get("patternProfiles"));
+    PatternProfiles replacements = PatternProfiles.parse(normalized.get("replacementProfiles"));
+    assertThat(patterns.select("rust-regex", "same")).isEqualTo("pattern");
+    assertThat(replacements.select("rust-regex", "same")).isEqualTo("replacement");
+  }
+
+  @Test
   void checkedInProfilesContainReviewedDialectAlternates() throws Exception {
     Path benchmarkData =
         Files.exists(Path.of("benchmark-data.json"))
@@ -111,21 +192,29 @@ class PatternProfilesTest {
             : Path.of("safere-benchmarks", "benchmark-data.json");
     JsonObject root = JsonParser.parseString(Files.readString(benchmarkData)).getAsJsonObject();
     JsonObject normalized = PatternProfiles.normalizeInline(root);
-    PatternProfiles profiles = PatternProfiles.parse(normalized.get("patternProfiles"));
+    PatternProfiles patterns = PatternProfiles.parse(normalized.get("patternProfiles"));
+    PatternProfiles replacements = PatternProfiles.parse(normalized.get("replacementProfiles"));
 
-    assertThat(profiles.select("re2", "\\p{script=Latin}+")).isEqualTo("\\p{Latin}+");
-    assertThat(profiles.select("re2", "[\\p{L}&&[^\\p{Lu}]]+"))
+    assertThat(patterns.select("re2", "\\p{script=Latin}+")).isEqualTo("\\p{Latin}+");
+    assertThat(patterns.select("re2", "[\\p{L}&&[^\\p{Lu}]]+"))
         .isEqualTo("[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+");
-    assertThat(profiles.select("re2", "\\p{IsAlphabetic}+")).isEqualTo("\\p{IsAlphabetic}+");
-    assertThat(profiles.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
-    assertThat(profiles.select("rust-regex", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
+    assertThat(patterns.select("re2", "\\p{IsAlphabetic}+")).isEqualTo("\\p{IsAlphabetic}+");
+    assertThat(patterns.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
+    assertThat(patterns.select("rust-regex", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
         .isEqualTo("^[[:space:]]*<(Apple|Banana|Cherry)>[[:space:]]*$");
-    for (JsonElement profile : normalized.getAsJsonObject("patternProfiles").asMap().values()) {
-      for (JsonElement entry : profile.getAsJsonArray()) {
-        String javaPattern = entry.getAsJsonObject().get("java").getAsString();
-        assertThat(containsString(root.getAsJsonArray("workloads"), javaPattern))
-            .as("checked-in workload uses canonical pattern %s", javaPattern)
-            .isTrue();
+    assertThat(patterns.select("rust-regex", "(\\d{4})-(\\d{2})-(\\d{2})"))
+        .isEqualTo("([0-9]{4})-([0-9]{2})-([0-9]{2})");
+    assertThat(patterns.select("rust-regex", "\\b\\w+ing\\b"))
+        .isEqualTo("(?-u:\\b)[A-Za-z0-9_]+ing(?-u:\\b)");
+    assertThat(replacements.select("rust-regex", "$2$1ay")).isEqualTo("${2}${1}ay");
+    for (String profileType : List.of("patternProfiles", "replacementProfiles")) {
+      for (JsonElement profile : normalized.getAsJsonObject(profileType).asMap().values()) {
+        for (JsonElement entry : profile.getAsJsonArray()) {
+          String javaValue = entry.getAsJsonObject().get("java").getAsString();
+          assertThat(containsString(root.getAsJsonArray("workloads"), javaValue))
+              .as("checked-in workload uses canonical syntax value %s", javaValue)
+              .isTrue();
+        }
       }
     }
     for (JsonElement entry : normalized.getAsJsonObject("patternProfiles").getAsJsonArray("re2")) {

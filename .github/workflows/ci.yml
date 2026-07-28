@@ -244,8 +244,9 @@ jobs:
       - name: Test Rust benchmark support code
         run: |
           cargo fmt --check --manifest-path safere-benchmarks/rust/Cargo.toml
-          cargo test --locked --manifest-path safere-benchmarks/rust/Cargo.toml
-          cargo clippy --locked --all-targets \
+          cargo test --locked --all-features \
+            --manifest-path safere-benchmarks/rust/Cargo.toml
+          cargo clippy --locked --all-targets --all-features \
             --manifest-path safere-benchmarks/rust/Cargo.toml -- -D warnings
 
       - name: Smoke test Rust regex benchmarks

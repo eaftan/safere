@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-/** Explicit engine-profile alternatives for Java-canonical benchmark patterns. */
+/** Explicit engine-profile alternatives for Java-canonical benchmark regex syntax. */
 final class PatternProfiles {
   private static final Pattern PROFILE_ID = Pattern.compile("[a-z][a-z0-9-]*");
 
@@ -28,24 +28,30 @@ final class PatternProfiles {
   }
 
   static JsonObject normalizeInline(JsonObject source) {
-    if (source.has("patternProfiles")) {
+    if (source.has("patternProfiles") || source.has("replacementProfiles")) {
       throw new IllegalArgumentException(
-          "benchmark-data.json must define pattern alternates next to their Java patterns");
+          "benchmark-data.json must define syntax alternates next to their Java values");
     }
     JsonObject normalized = source.deepCopy();
-    Map<String, Map<String, Alternate>> profiles = new LinkedHashMap<>();
-    Deque<JsonElement> pending = new ArrayDeque<>();
-    pending.push(normalized);
+    Map<String, Map<String, Alternate>> patternProfiles = new LinkedHashMap<>();
+    Map<String, Map<String, Alternate>> replacementProfiles = new LinkedHashMap<>();
+    Deque<NormalizationFrame> pending = new ArrayDeque<>();
+    pending.push(new NormalizationFrame(normalized, null));
     while (!pending.isEmpty()) {
-      JsonElement element = pending.pop();
+      NormalizationFrame frame = pending.pop();
+      JsonElement element = frame.element();
       if (element.isJsonObject()) {
         JsonObject object = element.getAsJsonObject();
         for (Map.Entry<String, JsonElement> entry : List.copyOf(object.entrySet())) {
           JsonElement child = entry.getValue();
+          ValueKind childKind = valueKind(entry.getKey(), frame.kind());
           if (isInlinePattern(child)) {
-            object.add(entry.getKey(), normalizePattern(child.getAsJsonObject(), profiles));
+            object.add(
+                entry.getKey(),
+                normalizePattern(
+                    child.getAsJsonObject(), childKind, patternProfiles, replacementProfiles));
           } else if (child.isJsonArray() || child.isJsonObject()) {
-            pending.push(child);
+            pending.push(new NormalizationFrame(child, childKind));
           }
         }
       } else {
@@ -53,14 +59,18 @@ final class PatternProfiles {
         for (int index = 0; index < array.size(); index++) {
           JsonElement child = array.get(index);
           if (isInlinePattern(child)) {
-            array.set(index, normalizePattern(child.getAsJsonObject(), profiles));
+            array.set(
+                index,
+                normalizePattern(
+                    child.getAsJsonObject(), frame.kind(), patternProfiles, replacementProfiles));
           } else if (child.isJsonArray() || child.isJsonObject()) {
-            pending.push(child);
+            pending.push(new NormalizationFrame(child, frame.kind()));
           }
         }
       }
     }
-    normalized.add("patternProfiles", profileJson(profiles));
+    normalized.add("patternProfiles", profileJson(patternProfiles));
+    normalized.add("replacementProfiles", profileJson(replacementProfiles));
     return normalized;
   }
 
@@ -69,8 +79,25 @@ final class PatternProfiles {
         && (element.getAsJsonObject().has("java") || element.getAsJsonObject().has("alternates"));
   }
 
+  private static ValueKind valueKind(String field, ValueKind inherited) {
+    if (field.equals("pattern")
+        || field.equals("patterns")
+        || field.equals("regex")
+        || field.endsWith("Pattern")) {
+      return ValueKind.PATTERN;
+    }
+    return field.equals("replacement") ? ValueKind.REPLACEMENT : inherited;
+  }
+
   private static JsonPrimitive normalizePattern(
-      JsonObject definition, Map<String, Map<String, Alternate>> profiles) {
+      JsonObject definition,
+      ValueKind expectedKind,
+      Map<String, Map<String, Alternate>> patternProfiles,
+      Map<String, Map<String, Alternate>> replacementProfiles) {
+    if (expectedKind == null) {
+      throw new IllegalArgumentException(
+          "Inline benchmark syntax definition is not inside a pattern or replacement field");
+    }
     for (String field : definition.keySet()) {
       if (!field.equals("java") && !field.equals("alternates")) {
         throw new IllegalArgumentException("Inline benchmark pattern has unknown field: " + field);
@@ -85,6 +112,7 @@ final class PatternProfiles {
     if (alternates.isEmpty()) {
       throw new IllegalArgumentException("Inline benchmark pattern alternates must not be empty");
     }
+    String definitionKind = null;
     for (Map.Entry<String, JsonElement> entry : alternates.entrySet()) {
       String profileId = entry.getKey();
       if (!PROFILE_ID.matcher(profileId).matches()) {
@@ -96,24 +124,47 @@ final class PatternProfiles {
       }
       JsonObject alternateObject = entry.getValue().getAsJsonObject();
       for (String field : alternateObject.keySet()) {
-        if (!field.equals("pattern") && !field.equals("reason")) {
+        if (!field.equals("pattern") && !field.equals("replacement") && !field.equals("reason")) {
           throw new IllegalArgumentException(
               "Inline benchmark pattern alternate " + profileId + " has unknown field: " + field);
         }
       }
+      boolean hasPattern = alternateObject.has("pattern");
+      boolean hasReplacement = alternateObject.has("replacement");
+      if (hasPattern == hasReplacement) {
+        throw new IllegalArgumentException(
+            "Inline benchmark pattern alternate "
+                + profileId
+                + " requires exactly one of: pattern, replacement");
+      }
+      String valueField = hasPattern ? "pattern" : "replacement";
+      ValueKind alternateKind = hasPattern ? ValueKind.PATTERN : ValueKind.REPLACEMENT;
+      if (alternateKind != expectedKind) {
+        throw new IllegalArgumentException(
+            "Inline benchmark "
+                + expectedKind.field()
+                + " definition contains "
+                + alternateKind.field()
+                + " alternate");
+      }
+      if (definitionKind != null && !definitionKind.equals(valueField)) {
+        throw new IllegalArgumentException(
+            "Inline benchmark definition mixes pattern and replacement alternates");
+      }
+      definitionKind = valueField;
       Alternate alternate =
           new Alternate(
               requiredInlineString(
-                  alternateObject, "pattern", "Inline benchmark pattern alternate " + profileId),
+                  alternateObject, valueField, "Inline benchmark pattern alternate " + profileId),
               requiredInlineString(
                   alternateObject, "reason", "Inline benchmark pattern alternate " + profileId));
       Alternate previous =
-          profiles
+          (hasPattern ? patternProfiles : replacementProfiles)
               .computeIfAbsent(profileId, unused -> new LinkedHashMap<>())
               .putIfAbsent(javaPattern, alternate);
       if (previous != null && !previous.equals(alternate)) {
         throw new IllegalArgumentException(
-            "Conflicting " + profileId + " alternates for Java pattern: " + javaPattern);
+            "Conflicting " + profileId + " alternates for Java " + valueField + ": " + javaPattern);
       }
     }
     return new JsonPrimitive(javaPattern);
@@ -138,7 +189,7 @@ final class PatternProfiles {
       for (Map.Entry<String, Alternate> alternate : profile.getValue().entrySet()) {
         JsonObject entry = new JsonObject();
         entry.addProperty("java", alternate.getKey());
-        entry.addProperty("alternate", alternate.getValue().pattern());
+        entry.addProperty("alternate", alternate.getValue().value());
         entry.addProperty("reason", alternate.getValue().reason());
         entries.add(entry);
       }
@@ -214,5 +265,22 @@ final class PatternProfiles {
     return alternatives == null ? javaPattern : alternatives.getOrDefault(javaPattern, javaPattern);
   }
 
-  private record Alternate(String pattern, String reason) {}
+  private enum ValueKind {
+    PATTERN("pattern"),
+    REPLACEMENT("replacement");
+
+    private final String field;
+
+    ValueKind(String field) {
+      this.field = field;
+    }
+
+    String field() {
+      return field;
+    }
+  }
+
+  private record NormalizationFrame(JsonElement element, ValueKind kind) {}
+
+  private record Alternate(String value, String reason) {}
 }
