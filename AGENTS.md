@@ -343,7 +343,8 @@ generic runners and trials:
   `./collect-benchmark-results.sh` collects SafeRE, JDK, RE2/J, and RE2-FFM
   results from SafeRE's suite, then SafeRE/JDK results from the external
   OpenJDK-derived suite. Use `./collect-benchmark-results.sh --cross-language`
-  only when broader C++ RE2 and Go `regexp` context is explicitly needed.
+  only when broader C++ RE2, Go `regexp`, and Rust `regex` context is explicitly
+  needed.
 - **OpenJDK-derived benchmarks stay external.** Their GPL-2.0-only repository
   must be checked out separately and must not be vendored or added to SafeRE's
   Maven modules. The collection script runs them as a separate result set
@@ -358,7 +359,7 @@ generic runners and trials:
   Every optimization must be validated with before/after benchmarks.
 - **`benchmark-data.json` is the only checked-in workload source.** Benchmark
   scripts materialize it into a resolved manifest and exact UTF-8 input files
-  before execution. Java, C++, Go, and other harnesses read only those
+  before execution. Java, C++, Go, Rust, and other harnesses read only those
   generated artifacts. Edit the JSON file to change workloads; never hardcode
   values or generation logic in a harness.
 

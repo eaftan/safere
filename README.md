@@ -426,13 +426,14 @@ mvn javadoc:javadoc -pl safere
 SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 `safere-benchmarks` module, comparing SafeRE against `java.util.regex` (JDK),
 [RE2/J](https://github.com/google/re2j), RE2-FFM (C++ RE2 via Java
-[FFM API](https://openjdk.org/jeps/454)), C++ RE2, and Go `regexp`.
+[FFM API](https://openjdk.org/jeps/454)), C++ RE2, Go `regexp`, and Rust
+[`regex`](https://crates.io/crates/regex).
 The suite includes focused microbenchmarks, data-driven application workloads,
 scaling/pathological cases, replacement, memory, and `PatternSet` benchmarks.
 Benchmark recipes and configuration live in
 `safere-benchmarks/benchmark-data.json`. Before a benchmark starts, its runner
 materializes that file into a resolved manifest and exact UTF-8 inputs under
-`safere-benchmarks/target/benchmark-corpus`. Java, C++, and Go consume only
+`safere-benchmarks/target/benchmark-corpus`. Java, C++, Go, and Rust consume only
 those generated artifacts instead of independently interpreting input recipes.
 See
 [`safere-benchmarks/BENCHMARK_INPUTS.md`](safere-benchmarks/BENCHMARK_INPUTS.md)
@@ -482,7 +483,7 @@ important comparisons:
 ```
 
 Use the cross-language mode only when you need broader ecosystem context from
-C++ RE2 and Go `regexp`:
+C++ RE2, Go `regexp`, and Rust `regex`:
 
 ```bash
 ./collect-benchmark-results.sh --cross-language
@@ -534,6 +535,7 @@ Cross-language runs also include:
 ```text
 cpp-results.jsonl
 go-results.jsonl
+rust-results.jsonl
 cross-runtime-tables.md
 ```
 
@@ -588,13 +590,14 @@ explicitly only when optimizing crosscheck:
 ./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrosscheckOverheadBenchmark\.'
 ```
 
-### C++ RE2 and Go Benchmarks
+### C++ RE2, Go, and Rust Benchmarks
 
-The benchmark suite includes C++ RE2 and Go `regexp` harnesses for
-cross-language comparison. Prerequisites are
+The benchmark suite includes C++ RE2, Go `regexp`, and Rust `regex` harnesses
+for cross-language comparison. Prerequisites are
 [CMake ≥ 3.14](https://cmake.org/download/) with a C++17 compiler,
-[Go ≥ 1.21](https://go.dev/doc/install). Dependencies are fetched
-automatically.
+[Go ≥ 1.21](https://go.dev/doc/install), and
+[Rust ≥ 1.85 with Cargo](https://rust-lang.org/tools/install/). Dependencies
+are fetched automatically.
 
 Benchmark patterns are written in Java syntax. A pattern that needs different
 syntax in another regex dialect declares exact alternatives beside its
@@ -611,6 +614,10 @@ for profile mappings and validation rules.
 # Go regexp benchmarks
 ./run-go-benchmarks.sh                     # all Go benchmarks
 ./run-go-benchmarks.sh Regex Application   # specific benchmark groups
+
+# Rust regex benchmarks
+./run-rust-benchmarks.sh                   # all Rust benchmarks
+./run-rust-benchmarks.sh Regex Application # specific benchmark groups
 ```
 
 ### Comparing Results Manually
@@ -622,13 +629,13 @@ python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --jmh jmh-output.txt
 ```
 
-Add C++ and Go JSON-lines files when comparing cross-language results:
+Add C++, Go, and Rust JSON-lines files when comparing cross-language results:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --jmh jmh-output.txt \
-  --json cpp-results.jsonl go-results.jsonl \
-  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go
+  --json cpp-results.jsonl go-results.jsonl rust-results.jsonl \
+  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go,rust
 ```
 
 To distinguish absent results from declared exclusions, include the report plan:

@@ -99,9 +99,9 @@ the pattern definition declares an exact alternate inline:
 ```
 
 An engine adapter selects one syntax-family profile. SafeRE and JDK select
-`java`; RE2/J, RE2-FFM, native C++ RE2, and Go select `re2`. If the selected
-profile has no entry for a Java pattern, the adapter uses the Java pattern
-unchanged.
+`java`; RE2/J, RE2-FFM, native C++ RE2, and Go select `re2`; and Rust
+`regex` selects `rust-regex`. If the selected profile has no entry for a Java
+pattern, the adapter uses the Java pattern unchanged.
 
 Alternates are exact reviewed strings. Runners must not rewrite regex syntax
 automatically. The required nonblank `reason` records why the alternate is

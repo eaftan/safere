@@ -15,7 +15,8 @@ Usage examples:
   python3 compare-benchmarks.py --jmh jmh-output.txt
 
   # JMH + one or more JSON-lines files
-  python3 compare-benchmarks.py --jmh jmh-output.txt --json cpp.jsonl go.jsonl
+  python3 compare-benchmarks.py --jmh jmh-output.txt \
+      --json cpp.jsonl go.jsonl rust.jsonl
 
   # Specify engine column order
   python3 compare-benchmarks.py --jmh jmh.txt --json cpp.jsonl \
@@ -55,6 +56,7 @@ _ENGINE_SUFFIXES = collections.OrderedDict([
 _DEFAULT_ENGINE = "safere"
 _ENGINE_ALIASES = {
     "go_regexp": "go",
+    "rust_regex": "rust",
 }
 _JMH_ENGINE_PARAMS = {
     "SafeRE": "safere",

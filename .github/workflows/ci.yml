@@ -88,6 +88,22 @@ jobs:
           mvn -pl safere-fuzz test
           --batch-mode --no-transfer-progress
 
+  benchmark-python-tests:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Test benchmark result processing
+        run: python -m unittest safere-benchmarks/scripts/test_compare_benchmarks.py
+
   benchmark-smoke-test-java:
     needs: changes
     if: needs.changes.outputs.code == 'true'

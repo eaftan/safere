@@ -118,6 +118,8 @@ class PatternProfilesTest {
         .isEqualTo("[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+");
     assertThat(profiles.select("re2", "\\p{IsAlphabetic}+")).isEqualTo("\\p{IsAlphabetic}+");
     assertThat(profiles.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
+    assertThat(profiles.select("rust-regex", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
+        .isEqualTo("^[[:space:]]*<(Apple|Banana|Cherry)>[[:space:]]*$");
     for (JsonElement profile : normalized.getAsJsonObject("patternProfiles").asMap().values()) {
       for (JsonElement entry : profile.getAsJsonArray()) {
         String javaPattern = entry.getAsJsonObject().get("java").getAsString();

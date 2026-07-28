@@ -154,5 +154,16 @@ class CrossEngineResultParsingTest(unittest.TestCase):
             ),
         )
 
+    def test_cross_language_engine_aliases_are_normalized(self):
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as output:
+            output.write(
+                '{"engine":"rust_regex","benchmark":"RegexBenchmark.literalMatch",'
+                '"score":3.1,"error":0.2,"unit":"ns/op"}\n'
+            )
+            output.flush()
+            results = COMPARE.parse_jsonl(output.name)
+
+        self.assertEqual(results[0].engine, "rust")
+
 if __name__ == "__main__":
     unittest.main()
