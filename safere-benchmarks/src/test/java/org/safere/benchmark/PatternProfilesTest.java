@@ -223,6 +223,8 @@ class PatternProfilesTest {
         .isEqualTo("[\\u0000-\\u007F]+");
     assertThat(patterns.select("dotnet", "\\p{block=CJK_Unified_Ideographs}+"))
         .isEqualTo("[\\u4E00-\\u9FFF]+");
+    assertThat(patterns.select("dotnet", "[\\p{L}&&[^\\p{Lu}]]+"))
+        .isEqualTo("[\\p{L}-[\\p{Lu}]]+");
     for (String profileType : List.of("patternProfiles", "replacementProfiles")) {
       for (JsonElement profile : normalized.getAsJsonObject(profileType).asMap().values()) {
         for (JsonElement entry : profile.getAsJsonArray()) {

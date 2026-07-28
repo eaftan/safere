@@ -33,8 +33,6 @@ internal static class ResolvedPlanProgram
         "findGroupPresent",
         "findRotatingUtf16",
         "lookingAt",
-        "manualReplaceAll",
-        "matcherRegionFind",
         "matches",
         "matchesCorpus",
         "matchesGroupLengthSum",
@@ -49,7 +47,10 @@ internal static class ResolvedPlanProgram
     private static Dictionary<string, string> patternProfile = [];
     private static string inputDirectory = "";
     private static string manifestPath = "";
-    private static object? sink;
+    private static volatile bool boolSink;
+    private static volatile int intSink;
+    private static volatile string? stringSink;
+    private static volatile Regex? regexSink;
 
     private sealed record BenchResult(
         string Engine,
@@ -81,6 +82,10 @@ internal static class ResolvedPlanProgram
 
     private static int Main(string[] args)
     {
+        if (args.SequenceEqual(["--self-test"]))
+        {
+            return RunSelfTest();
+        }
         Options options = ParseOptions(args);
         LoadManifest();
         List<Exclusion> exclusions = [];
@@ -170,7 +175,8 @@ internal static class ResolvedPlanProgram
                 : Measure(workload, options.Smoke);
             Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
         }
-        GC.KeepAlive(sink);
+        GC.KeepAlive(stringSink);
+        GC.KeepAlive(regexSink);
         return 0;
     }
 
@@ -259,8 +265,10 @@ internal static class ResolvedPlanProgram
                 "matcherConstruction" or "utf8CaptureBounds" or "utf8DecodeFind"
                     or "utf8Replacement" =>
                     "workload measures SafeRE's byte-oriented UTF-8 API",
-                "matcherResetFind" =>
-                    ".NET Regex has no retained mutable matcher with reset semantics",
+                "manualReplaceAll" =>
+                    ".NET Regex has no append-replacement and append-tail matcher API",
+                "matcherRegionFind" or "matcherResetFind" =>
+                    ".NET Regex has no retained mutable matcher lifecycle",
                 _ => $"operation is not implemented by the .NET runner: {operation}"
             };
         }
@@ -281,7 +289,78 @@ internal static class ResolvedPlanProgram
         {
             return "workload has no UTF-16 string representation";
         }
+
+        string flagSet = OptionalString(workload["arguments"], "flagSet") ?? "0";
+        if (flagSet == "CASE_INSENSITIVE")
+        {
+            return ".NET cannot combine non-backtracking mode with Java's ASCII-only "
+                + "case-insensitive semantics";
+        }
+        string[] patterns = Strings(workload, "patterns");
+        if (patterns.Any(EnablesInlineCaseInsensitive))
+        {
+            return ".NET inline case-insensitive matching is Unicode-aware, unlike Java's "
+                + "default ASCII-only mode";
+        }
+        bool unicodeCharacterClass = flagSet.Contains(
+            "UNICODE_CHARACTER_CLASS",
+            StringComparison.Ordinal);
+        if (!unicodeCharacterClass && patterns.Any(UsesJavaAsciiShorthand))
+        {
+            return ".NET gives \\d, \\s, and \\w Unicode semantics while Java defaults "
+                + "to ASCII semantics";
+        }
         return null;
+    }
+
+    private static bool UsesJavaAsciiShorthand(string pattern)
+    {
+        for (int i = 0; i + 1 < pattern.Length; i++)
+        {
+            if (pattern[i] != '\\')
+            {
+                continue;
+            }
+            if ("dDsSwW".Contains(pattern[i + 1]))
+            {
+                return true;
+            }
+            i++;
+        }
+        return false;
+    }
+
+    private static bool EnablesInlineCaseInsensitive(string pattern)
+    {
+        for (int start = 0; start + 2 < pattern.Length; start++)
+        {
+            if (pattern[start] != '(' || pattern[start + 1] != '?')
+            {
+                continue;
+            }
+            bool enabled = true;
+            for (int i = start + 2; i < pattern.Length; i++)
+            {
+                char current = pattern[i];
+                if (current is ':' or ')')
+                {
+                    break;
+                }
+                if (current == '-')
+                {
+                    enabled = false;
+                }
+                else if (current == 'i' && enabled)
+                {
+                    return true;
+                }
+                else if (!char.IsAsciiLetter(current))
+                {
+                    break;
+                }
+            }
+        }
+        return false;
     }
 
     private static Prepared Prepare(JsonObject workload, bool skipPatternProbe)
@@ -366,71 +445,58 @@ internal static class ResolvedPlanProgram
 
         return operation switch
         {
-            "matches" => () => sink = fullRegex!.IsMatch(input),
-            "find" => () => sink = regex.IsMatch(input),
+            "matches" => () => boolSink = fullRegex!.IsMatch(input),
+            "find" => () => boolSink = regex.IsMatch(input),
             "lookingAt" => () =>
             {
                 Match match = regex.Match(input);
-                sink = match.Success && match.Index == 0;
+                boolSink = match.Success && match.Index == 0;
             },
-            "findAllCount" => () => sink = regex.Matches(input).Count,
+            "findAllCount" => () => intSink = regex.Matches(input).Count,
             "matchesCorpus" => () =>
-                sink = inputTexts.Count(text => fullRegex!.IsMatch(text)),
+                intSink = inputTexts.Count(text => fullRegex!.IsMatch(text)),
             "matchesGroupLengthSum" => () =>
-                sink = inputTexts.Select(text => fullRegex!.Match(text))
+                intSink = inputTexts.Select(text => fullRegex!.Match(text))
                     .Where(match => match.Success)
                     .Sum(match => GroupLengthSum(match, groups)),
             "findAllLengthSum" => () =>
-                sink = regex.Matches(input).Sum(match => match.Length),
+                intSink = regex.Matches(input).Sum(match => match.Length),
             "findAllGroupLengthSum" => () =>
-                sink = regex.Matches(input).Sum(match => GroupLengthSum(match, groups)),
-            "captureGroups" => () => sink = CaptureGroups(fullRegex!.Match(input), groups),
-            "replaceFirst" => () => sink = regex.Replace(input, replacement, 1),
-            "replaceAll" => () => sink = regex.Replace(input, replacement),
+                intSink = regex.Matches(input).Sum(match => GroupLengthSum(match, groups)),
+            "captureGroups" => () => stringSink = CaptureGroups(fullRegex!.Match(input), groups),
+            "replaceFirst" => () => stringSink = regex.Replace(input, replacement, 1),
+            "replaceAll" => () => stringSink = regex.Replace(input, replacement),
             "replaceAllLengthSum" => () =>
-                sink = regexes.Sum(item => item.Replace(input, replacement).Length),
-            "manualReplaceAll" => () =>
-                sink = regex.Replace(input, match => match.Result(replacement)),
-            "splitLengthSum" => () => sink = SplitLengthSum(regex, input, limit),
-            "compile" => () => sink = new Regex(patternSources[0], options),
+                intSink = regexes.Sum(item => item.Replace(input, replacement).Length),
+            "splitLengthSum" => () => intSink = SplitLengthSum(regex, input, limit),
+            "compile" => () => regexSink = new Regex(patternSources[0], options),
             "compileAndFind" => () =>
-                sink = new Regex(patternSources[0], options).IsMatch(input),
+                boolSink = new Regex(patternSources[0], options).IsMatch(input),
             "findRotatingUtf16" => () =>
             {
-                sink = regex.IsMatch(rotatingInputs[rotatingIndex]);
+                boolSink = regex.IsMatch(rotatingInputs[rotatingIndex]);
                 rotatingIndex = (rotatingIndex + 1) % rotatingInputs.Length;
             },
             "compileAndFindRotatingUtf16" => () =>
             {
-                sink = new Regex(patternSources[0], options)
+                boolSink = new Regex(patternSources[0], options)
                     .IsMatch(rotatingInputs[rotatingIndex]);
                 rotatingIndex = (rotatingIndex + 1) % rotatingInputs.Length;
             },
-            "matcherRegionFind" => BuildRegionAction(workload, regex, input),
             "findGroupPresent" => () =>
             {
                 Match match = regex.Match(input);
-                sink = match.Success && match.Groups[group].Success;
+                boolSink = match.Success && match.Groups[group].Success;
             },
             "findGroup" => () =>
             {
                 Match match = regex.Match(input);
-                sink = match.Success && match.Groups[group].Success
+                stringSink = match.Success && match.Groups[group].Success
                     ? match.Groups[group].Value
                     : null;
             },
             _ => throw new InvalidDataException($"Unsupported operation: {operation}")
         };
-    }
-
-    private static Action BuildRegionAction(JsonObject workload, Regex regex, string input)
-    {
-        JsonObject region = workload["lifecycle"]!["steps"]!.AsArray()
-            .Select(node => node!.AsObject())
-            .Single(step => String(step, "kind") == "region");
-        int start = Int(region, "start");
-        int end = Int(region, "end");
-        return () => sink = regex.Match(input, start, end - start).Success;
     }
 
     private static void Validate(Prepared prepared)
@@ -446,19 +512,28 @@ internal static class ResolvedPlanProgram
         string type = expected["type"]!.GetValue<string>();
         bool matches = type switch
         {
-            "boolean" => sink is bool actual && actual == value.GetValue<bool>(),
-            "integer" => Convert.ToInt64(sink, CultureInfo.InvariantCulture)
-                == value.GetValue<long>(),
-            "string" => (string?)sink == value.GetValue<string>(),
+            "boolean" => boolSink == value.GetValue<bool>(),
+            "integer" => intSink == value.GetValue<long>(),
+            "string" => stringSink == value.GetValue<string>(),
             _ => throw new InvalidDataException(
                 $"Unsupported expected result type for {prepared.Id}: {type}")
         };
         if (!matches)
         {
             throw new InvalidDataException(
-                $"Result mismatch for {prepared.Id}: expected {value}, got {sink}");
+                $"Result mismatch for {prepared.Id}: expected {value}, got "
+                    + ActualResult(type));
         }
     }
+
+    private static object? ActualResult(string type) =>
+        type switch
+        {
+            "boolean" => boolSink,
+            "integer" => intSink,
+            "string" => stringSink,
+            _ => null
+        };
 
     private static BenchResult Measure(Prepared workload, bool smoke)
     {
@@ -637,9 +712,37 @@ internal static class ResolvedPlanProgram
         string[] result = new string[count];
         for (int i = 0; i < count; i++)
         {
-            result[i] = new string((char)random.Next(65_536), 1);
+            result[i] = new string(unchecked((char)random.NextInt()), 1);
         }
         return result;
+    }
+
+    private static int RunSelfTest()
+    {
+        int[] expected = [0xF1D9, 0x75DF, 0x36DF, 0xCFC7, 0x4907, 0xF2F7, 0x6405, 0xB194];
+        string[] actual = RotatingUtf16Inputs(95_413_077, expected.Length);
+        if (!actual.Select(value => (int)value[0]).SequenceEqual(expected))
+        {
+            throw new InvalidOperationException(
+                "Java Random compatibility self-test produced the wrong UTF-16 sequence");
+        }
+        if (!UsesJavaAsciiShorthand(@"\d+")
+            || UsesJavaAsciiShorthand(@"\\d+")
+            || !EnablesInlineCaseInsensitive("(?is)abc")
+            || !EnablesInlineCaseInsensitive("(?mi:abc)")
+            || EnablesInlineCaseInsensitive("(?-i:abc)"))
+        {
+            throw new InvalidOperationException(
+                "Java regex compatibility classification self-test failed");
+        }
+        Regex letterWithoutUppercase =
+            new(@"[\p{L}-[\p{Lu}]]+", BaseOptions);
+        if (!letterWithoutUppercase.IsMatch("a") || letterWithoutUppercase.IsMatch("A"))
+        {
+            throw new InvalidOperationException(
+                ".NET character-class subtraction self-test failed");
+        }
+        return 0;
     }
 
     private sealed class JavaRandom(int seed)
@@ -665,6 +768,8 @@ internal static class ResolvedPlanProgram
             while (bits - value + (bound - 1) < 0);
             return value;
         }
+
+        public int NextInt() => NextBits(32);
 
         private int NextBits(int bits)
         {

@@ -6337,6 +6337,10 @@
                 "re2": {
                   "pattern": "[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+",
                   "reason": "RE2 does not support Java character-class intersection"
+                },
+                "dotnet": {
+                  "pattern": "[\\p{L}-[\\p{Lu}]]+",
+                  "reason": ".NET expresses character-class subtraction with a hyphen"
                 }
               }
             }

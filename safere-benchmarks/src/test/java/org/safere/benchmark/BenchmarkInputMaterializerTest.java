@@ -156,7 +156,7 @@ class BenchmarkInputMaterializerTest {
         .hasSize(6);
     assertThat(resolvedData.getAsJsonObject("replacementProfiles").getAsJsonArray("rust-regex"))
         .hasSize(1);
-    assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("dotnet")).hasSize(7);
+    assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("dotnet")).hasSize(8);
     assertThat(manifest.getAsJsonArray("resolvedWorkloads")).hasSize(485);
     assertThat(
             resolvedData.getAsJsonArray("workloads").asList().stream()
