@@ -226,6 +226,7 @@ final class DeclarativeBenchmarkPlan {
                 workload.flags(),
                 workload.requirements(),
                 workload.inputRepresentations(),
+                workload.inputRepresentationReason(),
                 workload.resultConsumption(),
                 expected,
                 workload.lifecycle(),
@@ -312,6 +313,7 @@ final class DeclarativeBenchmarkPlan {
         "flags",
         "requirements",
         "inputRepresentations",
+        "inputRepresentationReason",
         "resultConsumption",
         "expected",
         "lifecycle",
@@ -338,6 +340,7 @@ final class DeclarativeBenchmarkPlan {
     } else {
       representations = EnumSet.allOf(InputRepresentation.class);
     }
+    String inputRepresentationReason = workload.optionalString("inputRepresentationReason");
     ResultConsumption consumption =
         ResultConsumption.fromJson(workload.requiredString("resultConsumption"));
     ExpectedResult expected = parseExpected(workload.optionalObject("expected"), axes.keySet());
@@ -356,6 +359,15 @@ final class DeclarativeBenchmarkPlan {
       throw new IllegalArgumentException(
           id + " accepts every input representation; omit inputRepresentations instead");
     }
+    if (representationsDeclared
+        && (inputRepresentationReason == null || inputRepresentationReason.isBlank())) {
+      throw new IllegalArgumentException(
+          id + " requires a nonblank inputRepresentationReason when inputRepresentations is set");
+    }
+    if (!representationsDeclared && inputRepresentationReason != null) {
+      throw new IllegalArgumentException(
+          id + " must not declare inputRepresentationReason without inputRepresentations");
+    }
     if (disabledReason != null && disabledReason.isBlank()) {
       throw new IllegalArgumentException(id + " disabledReason must not be blank");
     }
@@ -373,6 +385,7 @@ final class DeclarativeBenchmarkPlan {
         flags,
         requirements,
         representations,
+        inputRepresentationReason,
         consumption,
         expected,
         lifecycle,
@@ -695,6 +708,7 @@ final class DeclarativeBenchmarkPlan {
       EnumSet<Flag> flags,
       EnumSet<Feature> requirements,
       EnumSet<InputRepresentation> inputRepresentations,
+      String inputRepresentationReason,
       ResultConsumption resultConsumption,
       ExpectedResult expected,
       MatcherLifecycle lifecycle,
@@ -736,6 +750,7 @@ final class DeclarativeBenchmarkPlan {
       EnumSet<Flag> flags,
       EnumSet<Feature> requirements,
       EnumSet<InputRepresentation> inputRepresentations,
+      String inputRepresentationReason,
       ResultConsumption resultConsumption,
       ExpectedResult expected,
       MatcherLifecycle lifecycle,

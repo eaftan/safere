@@ -77,8 +77,8 @@ class CrossEngineBenchmarkPlanTest {
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
           .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(1431);
-    assertThat(plan.exclusions()).hasSize(609);
+    assertThat(allTrials).hasSize(1457);
+    assertThat(plan.exclusions()).hasSize(583);
     assertThat(accounted).hasSize(408 * RegexEngineVariant.values().length);
   }
 
@@ -93,14 +93,14 @@ class CrossEngineBenchmarkPlanTest {
             second.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(824);
+        .hasSize(825);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
             second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(535);
+        .hasSize(560);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
@@ -249,6 +249,7 @@ class CrossEngineBenchmarkPlanTest {
             "MatcherApiBenchmark.lookingAt@safere-utf8",
             "MatcherApiBenchmark.regionFind@safere-utf8",
             "MatcherApiBenchmark.resetAndFind@safere-utf8",
+            "Issue481ScalingBenchmark.blockFind.128@safere-utf8",
             "PathologicalBenchmark.pathological.10@safere-utf8")) {
       CrossEngineBenchmarkPlan.Trial trial = plan.resolve(id);
       try (CrossEngineTrialRunner runner =
@@ -256,6 +257,8 @@ class CrossEngineBenchmarkPlanTest {
         runner.run(blackhole);
       }
     }
+    assertThat(plan.resolve("MatcherApiBenchmark.resetAndFind@re2-ffm-string-conversion"))
+        .isNotNull();
   }
 
   @Test
@@ -395,8 +398,8 @@ class CrossEngineBenchmarkPlanTest {
         .allMatch(runner -> !runner.trialIds().isEmpty())
         .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
         .doesNotHaveDuplicates()
-        .hasSize(1470);
-    assertThat(plan.reportPlan().trials()).hasSize(1470);
+        .hasSize(1496);
+    assertThat(plan.reportPlan().trials()).hasSize(1496);
     assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
     assertThat(
             plan.reportPlan(true).trials().stream()

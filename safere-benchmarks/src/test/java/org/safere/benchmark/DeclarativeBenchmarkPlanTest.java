@@ -42,6 +42,7 @@ class DeclarativeBenchmarkPlanTest {
                 },
                 "requirements": ["find"],
                 "inputRepresentations": ["javaString"],
+                "inputRepresentationReason": "Test restriction.",
                 "resultConsumption": "boolean",
                 "expected": {"type": "boolean", "axis": "match"},
                 "measurement": {
@@ -102,6 +103,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "axes": {"suffix": ["x"]},
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }]
@@ -137,6 +139,7 @@ class DeclarativeBenchmarkPlanTest {
                     "regex": [{"id": "letter", "value": "\\\\p{L}+"}]
                   },
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "compiledObject",
                   "measurement": {"mode": "compileOnly", "timingUnit": "microseconds"}
               }]
@@ -181,6 +184,7 @@ class DeclarativeBenchmarkPlanTest {
                 },
                 "arguments": {"replacement": "{replacement}"},
                 "inputRepresentations": ["javaString"],
+                "inputRepresentationReason": "Test restriction.",
                 "resultConsumption": "string",
                 "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
               }]
@@ -249,6 +253,66 @@ class DeclarativeBenchmarkPlanTest {
   }
 
   @Test
+  void explicitInputRepresentationsRequireANonblankReason() {
+    String workload =
+        """
+        [{
+          "id": "Synthetic.find",
+          "operation": "find",
+          "patterns": ["x"],
+          "inputs": ["literal.input"],
+          "requirements": ["find"],
+          "inputRepresentations": ["javaString"],
+          "resultConsumption": "boolean",
+          "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+        }]
+        """;
+
+    assertThatThrownBy(() -> parse(planJson(workload)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(
+            "requires a nonblank inputRepresentationReason when inputRepresentations is set");
+    assertThatThrownBy(
+            () ->
+                parse(
+                    planJson(
+                        workload.replace(
+                            "\"resultConsumption\"",
+                            "\"inputRepresentationReason\": \"  \","
+                                + System.lineSeparator()
+                                + "  \"resultConsumption\""))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(
+            "requires a nonblank inputRepresentationReason when inputRepresentations is set");
+  }
+
+  @Test
+  void inputRepresentationReasonWithoutARestrictionIsRejected() {
+    assertThatThrownBy(
+            () ->
+                parse(
+                    planJson(
+                        """
+                        [{
+                          "id": "Synthetic.find",
+                          "operation": "find",
+                          "patterns": ["x"],
+                          "inputs": ["literal.input"],
+                          "requirements": ["find"],
+                          "inputRepresentationReason": "There is no corresponding restriction.",
+                          "resultConsumption": "boolean",
+                          "measurement": {
+                            "mode": "averageTime",
+                            "timingUnit": "nanoseconds"
+                          }
+                        }]
+                        """)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(
+            "must not declare inputRepresentationReason without inputRepresentations");
+  }
+
+  @Test
   void explicitlyListingEveryInputRepresentationIsRejected() {
     assertThatThrownBy(
             () ->
@@ -266,6 +330,7 @@ class DeclarativeBenchmarkPlanTest {
                             "preexistingUtf8",
                             "javaStringWithTimedUtf8Conversion"
                           ],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "measurement": {
                             "mode": "averageTime",
@@ -290,6 +355,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "requirements": ["find"],
                   "inputRepresentations": ["javaString", "preexistingUtf8"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }, {
@@ -299,6 +365,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "requirements": ["matches"],
                   "inputRepresentations": ["javaString", "preexistingUtf8"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }]
@@ -349,6 +416,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "flags": ["caseInsensitive"],
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "lifecycle": {
                     "matcher": "retained",
@@ -382,6 +450,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "arguments": {"replacement": "y"},
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "string",
                   "expected": {"type": "string", "value": "y"},
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
@@ -392,6 +461,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "arguments": {"anchor": "unanchored"},
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }, {
@@ -400,6 +470,7 @@ class DeclarativeBenchmarkPlanTest {
                   "patterns": ["x"],
                   "inputs": ["literal.input"],
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "retainedMemory", "timingUnit": "bytes"}
                 }, {
@@ -407,6 +478,7 @@ class DeclarativeBenchmarkPlanTest {
                   "operation": "compile",
                   "patterns": ["x"],
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "compiledObject",
                   "measurement": {"mode": "compileOnly", "timingUnit": "nanoseconds"}
                 }, {
@@ -414,6 +486,7 @@ class DeclarativeBenchmarkPlanTest {
                   "operation": "compile",
                   "patterns": ["x"],
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "compiledObject",
                   "measurement": {
                     "mode": "singleShotColdStart",
@@ -446,6 +519,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "requirements": ["find"],
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }]
@@ -496,6 +570,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "flags": ["comments"],
                   "inputRepresentations": ["javaString"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }]
@@ -527,6 +602,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "requirements": ["utf8Input"],
                   "inputRepresentations": ["preexistingUtf8"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"},
                   "disabledReason": "awaiting the dedicated UTF-8 runner"
@@ -564,6 +640,7 @@ class DeclarativeBenchmarkPlanTest {
                   "inputs": ["literal.input"],
                   "requirements": ["utf8Input"],
                   "inputRepresentations": ["preexistingUtf8"],
+                  "inputRepresentationReason": "Test restriction.",
                   "resultConsumption": "boolean",
                   "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                 }]
@@ -623,6 +700,7 @@ class DeclarativeBenchmarkPlanTest {
                           "patterns": ["x"],
                           "inputs": ["literal.input"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -649,6 +727,7 @@ class DeclarativeBenchmarkPlanTest {
                         "patterns": ["x"],
                         "inputs": ["same"],
                         "inputRepresentations": ["javaString"],
+                        "inputRepresentationReason": "Test restriction.",
                         "resultConsumption": "boolean",
                         "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                       }]
@@ -668,6 +747,7 @@ class DeclarativeBenchmarkPlanTest {
                           "patterns": ["x"],
                           "inputs": ["missing.input"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -687,6 +767,7 @@ class DeclarativeBenchmarkPlanTest {
                           "inputs": ["literal.input"],
                           "axes": {"size": [8, 16]},
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -710,6 +791,7 @@ class DeclarativeBenchmarkPlanTest {
                         "operation": "compile",
                         "patterns": ["x"],
                         "inputRepresentations": ["javaString"],
+                        "inputRepresentationReason": "Test restriction.",
                         "resultConsumption": "compiledObject",
                         "measurement": {"mode": "compileOnly", "timingUnit": "nanoseconds"}
                       }]
@@ -733,6 +815,7 @@ class DeclarativeBenchmarkPlanTest {
                           "patterns": ["x"],
                           "inputs": ["literal.input"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "expected": {"type": "integer", "value": 1},
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
@@ -752,6 +835,7 @@ class DeclarativeBenchmarkPlanTest {
                           "patterns": ["x"],
                           "inputs": ["literal.input"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -769,6 +853,7 @@ class DeclarativeBenchmarkPlanTest {
                           "operation": "compile",
                           "patterns": ["x"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "compiledObject",
                           "measurement": {
                             "mode": "singleShotColdStart",
@@ -790,6 +875,7 @@ class DeclarativeBenchmarkPlanTest {
                           "patterns": ["x"],
                           "inputs": ["literal.input"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "integer",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -808,6 +894,7 @@ class DeclarativeBenchmarkPlanTest {
                           "patterns": ["x"],
                           "inputs": ["literal.input"],
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "string",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -827,6 +914,7 @@ class DeclarativeBenchmarkPlanTest {
                           "inputs": ["literal.input"],
                           "arguments": {"family": "Regex"},
                           "inputRepresentations": ["javaString"],
+                          "inputRepresentationReason": "Test restriction.",
                           "resultConsumption": "boolean",
                           "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                         }]
@@ -853,6 +941,7 @@ class DeclarativeBenchmarkPlanTest {
                         "patterns": ["x"],
                         "inputs": ["bad.input"],
                         "inputRepresentations": ["javaString"],
+                        "inputRepresentationReason": "Test restriction.",
                         "resultConsumption": "boolean",
                         "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                       }]
@@ -881,6 +970,7 @@ class DeclarativeBenchmarkPlanTest {
                         "patterns": ["x"],
                         "inputs": ["bad.input"],
                         "inputRepresentations": ["javaString"],
+                        "inputRepresentationReason": "Test restriction.",
                         "resultConsumption": "boolean",
                         "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                       }]
@@ -909,6 +999,7 @@ class DeclarativeBenchmarkPlanTest {
                         "patterns": ["x"],
                         "inputs": ["bad.input"],
                         "inputRepresentations": ["javaString"],
+                        "inputRepresentationReason": "Test restriction.",
                         "resultConsumption": "boolean",
                         "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
                       }]

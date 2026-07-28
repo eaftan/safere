@@ -152,8 +152,10 @@ A workload describes behavior without naming engines:
   or diagnostics.
 - Omitted `inputRepresentations` accepts every input representation. An explicit
   proper subset restricts the workload to those timing boundaries, not to
-  particular engines. Empty lists and lists containing every known
-  representation are rejected.
+  particular engines. Every explicit subset requires a nonblank
+  `inputRepresentationReason`; declaring a reason without a restriction is
+  also rejected. Empty lists and lists containing every known representation
+  are rejected.
 - `resultConsumption` controls how the result enters the blackhole.
 - `expected` is a typed optional correctness value.
 
