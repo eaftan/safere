@@ -115,8 +115,10 @@ the Java values directly. RE2/J and RE2-FFM select the `re2` pattern profile;
 native C++ RE2 selects `re2` patterns and `re2-cpp` replacements; Go selects
 `re2` patterns and `go-regexp` replacements where adjacent text makes a Java
 capture reference ambiguous; and Rust `regex` selects `rust-regex` for both
-kinds. If the selected profile has no entry for a Java syntax value, the adapter
-uses the Java value unchanged.
+kinds. PCRE2 JIT selects `pcre2` for both kinds; this remains separate from
+`re2` because PCRE2 accepts some Java-canonical forms that RE2 does not, while
+other forms need PCRE2-specific equivalents. If the selected profile has no
+entry for a Java syntax value, the adapter uses the Java value unchanged.
 
 Alternates are exact reviewed strings. Runners must not rewrite regex or
 replacement syntax automatically or derive replacement templates from operation

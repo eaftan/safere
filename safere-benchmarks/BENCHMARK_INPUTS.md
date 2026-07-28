@@ -9,8 +9,8 @@ parameters, expected results, and deterministic input recipes.
 
 Before execution, each benchmark runner invokes the central materializer. It
 writes a resolved manifest and exact UTF-8 inputs under
-`target/benchmark-corpus/`. Java, C++, Go, Rust, .NET, and future harnesses read
-only those generated artifacts; they do not read or interpret
+`target/benchmark-corpus/`. Java, C++ RE2, PCRE2 JIT, Go, Rust, .NET, and future
+harnesses read only those generated artifacts; they do not read or interpret
 `benchmark-data.json`.
 Java string engines decode input files as UTF-8 during benchmark setup, while
 byte-oriented engines use the bytes directly. Materialization and decoding are

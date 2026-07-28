@@ -6289,6 +6289,10 @@
                 "dotnet": {
                   "pattern": "[\\u0000-\\u007F]+",
                   "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
+                },
+                "pcre2": {
+                  "pattern": "[\\x{0}-\\x{7F}]+",
+                  "reason": "PCRE2 does not expose Java Unicode block names"
                 }
               }
             }
@@ -6309,6 +6313,10 @@
                 "dotnet": {
                   "pattern": "[\\u4E00-\\u9FFF]+",
                   "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
+                },
+                "pcre2": {
+                  "pattern": "[\\x{4E00}-\\x{9FFF}]+",
+                  "reason": "PCRE2 does not expose Java Unicode block names"
                 }
               }
             }
@@ -6345,6 +6353,10 @@
                 "dotnet": {
                   "pattern": "[\\p{L}-[\\p{Lu}]]+",
                   "reason": ".NET expresses character-class subtraction with a hyphen"
+                },
+                "pcre2": {
+                  "pattern": "[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+",
+                  "reason": "PCRE2 default character classes do not use Java intersection syntax"
                 }
               }
             }
@@ -6445,6 +6457,10 @@
                 "dotnet": {
                   "pattern": "[\\u0000-\\u007F]+",
                   "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
+                },
+                "pcre2": {
+                  "pattern": "[\\x{0}-\\x{7F}]+",
+                  "reason": "PCRE2 does not expose Java Unicode block names"
                 }
               }
             }
@@ -8079,6 +8095,10 @@
             "dotnet": {
               "pattern": "\\p{L}",
               "reason": ".NET uses Unicode general categories rather than Java character properties"
+            },
+            "pcre2": {
+              "pattern": "\\p{L}",
+              "reason": "PCRE2 uses the Unicode letter category rather than Java character properties"
             }
           }
         }
@@ -8118,6 +8138,10 @@
             "dotnet": {
               "pattern": "\\p{L}",
               "reason": ".NET uses Unicode general categories rather than Java character properties"
+            },
+            "pcre2": {
+              "pattern": "\\p{L}",
+              "reason": "PCRE2 uses the Unicode letter category rather than Java character properties"
             }
           }
         }

@@ -164,7 +164,7 @@ jobs:
       - name: Materialize shared benchmark inputs
         run: ./materialize-benchmark-inputs.sh
 
-      - name: Compile C++ RE2 benchmarks
+      - name: Compile native C++ regex benchmarks
         run: |
           mkdir -p safere-benchmarks/cpp/build
           cmake -S safere-benchmarks/cpp -B safere-benchmarks/cpp/build \
@@ -180,8 +180,20 @@ jobs:
             --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
 
       - name: Smoke test C++ RE2 memory benchmarks
+        if: matrix.os == 'ubuntu-latest'
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark
+
+      - name: Smoke test PCRE2 JIT benchmarks
+        run: |
+          safere-benchmarks/cpp/build/pcre2_jit_benchmark \
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
+
+      - name: Smoke test PCRE2 JIT memory benchmarks
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          safere-benchmarks/cpp/build/pcre2_jit_benchmark \
             --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark
 
   benchmark-smoke-test-go:

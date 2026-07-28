@@ -16,7 +16,8 @@
 # batches sequentially, captures raw output, and generates markdown tables.
 # By default it collects the Java/JMH results and the separately licensed
 # OpenJDK-derived suite from an external checkout. Use --cross-language to also
-# collect C++ RE2, Go regexp, Rust regex, and .NET non-backtracking results.
+# collect C++ RE2, PCRE2 JIT, Go regexp, Rust regex, and .NET
+# non-backtracking results.
 
 set -euo pipefail
 
@@ -42,7 +43,8 @@ Collects benchmark outputs for updating BENCHMARKS.md.
 
 Options:
   --long            Use the longer Java confirmation mode.
-  --cross-language  Also run the C++, Go, Rust, and .NET benchmark harnesses.
+  --cross-language  Also run C++ RE2, PCRE2 JIT, Go regexp, Rust regex, and
+                    .NET non-backtracking harnesses.
   --openjdk-regex-repo PATH
                     Select the external OpenJDK-derived suite checkout.
   --skip-openjdk-regex
@@ -277,7 +279,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
     --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl" \
       "$OUTPUT_DIR/rust-results.jsonl" "$OUTPUT_DIR/dotnet-results.jsonl"
   )
-  COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm,re2_cpp,go,rust,dotnet_nonbacktracking"
+  COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm,re2_cpp,pcre2_jit,go,rust,dotnet_nonbacktracking"
 fi
 
 log "Generating markdown tables"
@@ -292,7 +294,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
     --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl" \
       "$OUTPUT_DIR/rust-results.jsonl" \
       "$OUTPUT_DIR/dotnet-results.jsonl" \
-    --engines re2_cpp,go,rust,dotnet_nonbacktracking \
+    --engines re2_cpp,pcre2_jit,go,rust,dotnet_nonbacktracking \
     > "$OUTPUT_DIR/cross-runtime-tables.md"
 fi
 
