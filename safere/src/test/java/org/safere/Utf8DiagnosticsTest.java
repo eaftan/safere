@@ -13,13 +13,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @Isolated
 @Execution(ExecutionMode.SAME_THREAD)
@@ -180,6 +183,34 @@ class Utf8DiagnosticsTest {
                           MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION));
               assertThat(event.matchCount()).isZero();
             });
+  }
+
+  @ParameterizedTest
+  @MethodSource("patternBooleanFindScenarios")
+  void patternBooleanFindDiagnosticsPreserveResults(
+      String regex, String text, boolean expectedResult) {
+    Pattern pattern = Pattern.compile(regex);
+    Utf8Input input = input(text);
+
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+    assertThat(pattern.find(input)).isEqualTo(expectedResult);
+
+    Pattern.setDiagnostics(diagnostics);
+    assertThat(pattern.find(input)).isEqualTo(expectedResult);
+    assertThat(operationsFor(pattern)).hasSize(1);
+  }
+
+  private static Stream<Arguments> patternBooleanFindScenarios() {
+    return Stream.of(
+        Arguments.of("é", "xéy", true),
+        Arguments.of("é", "xyz", false),
+        Arguments.of("é[ab]+c", "xxéabc", true),
+        Arguments.of("é[ab]+c", "xxézz", false),
+        Arguments.of("[ab]+é", "xxabé", true),
+        Arguments.of("[一-龥]{3,}", "ordinary ASCII text", false),
+        Arguments.of("\\Xz", "a\u0301z", true),
+        Arguments.of(".*z$", "abc", false),
+        Arguments.of("(a?)*X", "aaaaX", true));
   }
 
   @Test
