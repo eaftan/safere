@@ -59,6 +59,29 @@ class Utf8CrosscheckTest {
   }
 
   @Test
+  void matchOperationsResetAndRegionsCrosscheckByteCoordinates() {
+    Utf8Matcher whole = Pattern.compile("é😀").matcher(input("é😀"));
+    Utf8Matcher prefix = Pattern.compile("é").matcher(input("é😀"));
+
+    assertThat(whole.matches()).isTrue();
+    assertThat(prefix.matches()).isFalse();
+    assertThat(prefix.lookingAt()).isTrue();
+
+    Utf8Matcher region = Pattern.compile("(\\b(?:a|aa))").matcher(input("xaa"));
+    assertThat(region.region(1, 3)).isSameAs(region);
+    assertThat(region.regionStart()).isEqualTo(1);
+    assertThat(region.regionEnd()).isEqualTo(3);
+    assertThat(region.matches()).isTrue();
+    assertThat(region.start(1)).isEqualTo(1);
+    assertThat(region.end(1)).isEqualTo(3);
+
+    assertThat(region.reset()).isSameAs(region);
+    assertThat(region.regionStart()).isZero();
+    assertThat(region.regionEnd()).isEqualTo(3);
+    assertThat(region.find()).isFalse();
+  }
+
+  @Test
   void observationsCrosscheckSuccessAndExceptionStates() {
     Utf8Matcher matcher = Pattern.compile("(a)").matcher(input("a"));
 

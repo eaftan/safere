@@ -37,6 +37,40 @@ public final class Utf8Matcher {
     }
   }
 
+  /** Attempts to match the entire input. */
+  public boolean matches() {
+    boolean actual = delegate.matches();
+    if (oracles == null) {
+      return actual;
+    }
+    boolean stringResult = oracles.safereString().matches();
+    boolean jdkResult = oracles.jdk().matches();
+    compare("matches", "", "SafeRE UTF-8", actual, "SafeRE String", stringResult);
+    compare("matches", "", "SafeRE String", stringResult, "JDK", jdkResult);
+    if (actual) {
+      checkMatchState("matches");
+    }
+    trace.recordMatch("matches", "", actual);
+    return actual;
+  }
+
+  /** Attempts to match a prefix of the input. */
+  public boolean lookingAt() {
+    boolean actual = delegate.lookingAt();
+    if (oracles == null) {
+      return actual;
+    }
+    boolean stringResult = oracles.safereString().lookingAt();
+    boolean jdkResult = oracles.jdk().lookingAt();
+    compare("lookingAt", "", "SafeRE UTF-8", actual, "SafeRE String", stringResult);
+    compare("lookingAt", "", "SafeRE String", stringResult, "JDK", jdkResult);
+    if (actual) {
+      checkMatchState("lookingAt");
+    }
+    trace.recordMatch("lookingAt", "", actual);
+    return actual;
+  }
+
   /** Attempts to find the next matching subsequence. */
   public boolean find() {
     boolean actual = delegate.find();
@@ -52,6 +86,40 @@ public final class Utf8Matcher {
     }
     trace.recordMatch("find", "", actual);
     return actual;
+  }
+
+  /** Resets this matcher to the whole retained input. */
+  public Utf8Matcher reset() {
+    delegate.reset();
+    if (oracles != null) {
+      oracles.safereString().reset();
+      oracles.jdk().reset();
+      trace.recordMatch("reset", "", "this");
+    }
+    return this;
+  }
+
+  /** Sets the byte-offset range searched by this matcher. */
+  public Utf8Matcher region(int start, int end) {
+    delegate.region(start, end);
+    if (oracles != null) {
+      int utf16Start = oracles.coordinates().toUtf16(start);
+      int utf16End = oracles.coordinates().toUtf16(end);
+      oracles.safereString().region(utf16Start, utf16End);
+      oracles.jdk().region(utf16Start, utf16End);
+      trace.recordMatch("region", start + ", " + end, "this");
+    }
+    return this;
+  }
+
+  /** Returns the current region's relative byte start. */
+  public int regionStart() {
+    return observeRegionBoundary("regionStart", true);
+  }
+
+  /** Returns the current region's relative byte end. */
+  public int regionEnd() {
+    return observeRegionBoundary("regionEnd", false);
   }
 
   /** Returns the previous full match's relative byte start. */
@@ -186,6 +254,21 @@ public final class Utf8Matcher {
           "JDK",
           jdkResult);
     }
+  }
+
+  private int observeRegionBoundary(String method, boolean start) {
+    int actual = start ? delegate.regionStart() : delegate.regionEnd();
+    if (oracles == null) {
+      return actual;
+    }
+    int stringResult =
+        start ? oracles.safereString().regionStart() : oracles.safereString().regionEnd();
+    int jdkResult = start ? oracles.jdk().regionStart() : oracles.jdk().regionEnd();
+    compare(method, "", "SafeRE String", stringResult, "JDK", jdkResult);
+    compareOracleBoundary(method, "", actual, "SafeRE String", stringResult);
+    compareOracleBoundary(method, "", actual, "JDK", jdkResult);
+    trace.recordMatch(method, "", actual);
+    return actual;
   }
 
   private int observeBoundary(String method, String args, int group, boolean start) {
