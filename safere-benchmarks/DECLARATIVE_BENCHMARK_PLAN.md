@@ -6,6 +6,14 @@ declarations are authoritative for materialized inputs and ordinary/scaling
 cross-engine workloads, specialized modes, collection, and reporting. The
 schema preserves the established benchmark timing boundaries.
 
+The complete checked-in document is validated before materialization. Its only
+top-level fields are `schemaVersion`, `configuration`, `inputs`, and
+`workloads`. `configuration` holds typed non-workload settings for collection
+and the crosscheck instrumentation diagnostic; workload-family data is not
+allowed there. Syntax normalization visits only authoritative `workloads`, and
+rejects any engine-specific profile whose canonical value is not referenced by
+an expanded workload.
+
 The normalized plan has this shape:
 
 ```json

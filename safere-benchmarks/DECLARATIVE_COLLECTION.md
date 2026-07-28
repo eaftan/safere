@@ -17,7 +17,7 @@ BenchmarkCollectionPlan report-plan [--smoke]
 `runners` emits tab-separated execution profile, JMH entry point, parameter name, and planned trial
 IDs. `run-java-benchmarks.sh --declared` consumes those rows sequentially and applies standard,
 no-fork, or fresh-process settings from the selected profile. `allocation-runners` uses the
-declarative `collection.allocationWorkloadPrefixes` selection and is consumed by
+declarative `configuration.collection.allocationWorkloadPrefixes` selection and is consumed by
 `run-java-memory-benchmarks.sh --declared`.
 
 `report-plan` emits JSON containing every scheduled workload/variant pair and every declared

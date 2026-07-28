@@ -44,9 +44,9 @@ public class CrosscheckOverheadBenchmark {
     }
     text = sb.toString();
     BenchmarkData data = BenchmarkData.get();
-    replacement = data.getString("crosscheckOverhead.replacement");
+    replacement = data.getString("configuration.crosscheckOverhead.replacement");
 
-    String regex = data.getString("crosscheckOverhead.pattern");
+    String regex = data.getString("configuration.crosscheckOverhead.pattern");
     saferePattern = org.safere.Pattern.compile(regex);
     jdkPattern = java.util.regex.Pattern.compile(regex);
     crosscheckPattern = org.safere.crosscheck.Pattern.compile(regex);

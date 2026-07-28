@@ -88,6 +88,19 @@ final class ResolvedBenchmarkPlan {
             }));
 
     List<DeclarativeBenchmarkPlan.ExpandedWorkload> workloads = plan.expandedWorkloads();
+    patternProfiles.validateReferences(
+        workloads.stream()
+            .flatMap(workload -> workload.patterns().stream())
+            .collect(java.util.stream.Collectors.toSet()),
+        "pattern");
+    replacementProfiles.validateReferences(
+        workloads.stream()
+            .map(workload -> workload.arguments().get("replacement"))
+            .filter(DeclarativeBenchmarkPlan.RecipeString.class::isInstance)
+            .map(DeclarativeBenchmarkPlan.RecipeString.class::cast)
+            .map(DeclarativeBenchmarkPlan.RecipeString::value)
+            .collect(java.util.stream.Collectors.toSet()),
+        "replacement");
     JsonArray entries = new JsonArray();
     for (DeclarativeBenchmarkPlan.ExpandedWorkload workload : workloads) {
       for (Engine engine : engines) {

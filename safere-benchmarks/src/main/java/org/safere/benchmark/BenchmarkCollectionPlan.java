@@ -87,7 +87,7 @@ final class BenchmarkCollectionPlan {
 
   List<Runner> allocationRunners() {
     List<String> prefixes =
-        BenchmarkData.get().getStringList("collection.allocationWorkloadPrefixes");
+        BenchmarkData.get().getStringList("configuration.collection.allocationWorkloadPrefixes");
     Set<String> allocationOnly = allocationOnlyTrialIds();
     return filterRunners(
         allRunners(),

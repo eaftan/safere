@@ -14,6 +14,7 @@ import com.google.gson.JsonParser;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class PatternProfilesTest {
@@ -182,6 +183,26 @@ class PatternProfilesTest {
     PatternProfiles replacements = PatternProfiles.parse(normalized.get("replacementProfiles"));
     assertThat(patterns.select("rust-regex", "same")).isEqualTo("pattern");
     assertThat(replacements.select("rust-regex", "same")).isEqualTo("replacement");
+  }
+
+  @Test
+  void rejectsProfilesThatNoAuthoritativeWorkloadReferences() {
+    PatternProfiles profiles =
+        PatternProfiles.parse(
+            JsonParser.parseString(
+                """
+                {
+                  "re2": [{
+                    "java": "legacy-only",
+                    "alternate": "alternate",
+                    "reason": "Only a deleted legacy section used this value"
+                  }]
+                }
+                """));
+
+    assertThatThrownBy(() -> profiles.validateReferences(Set.of("used"), "pattern"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Unreferenced pattern profile value for re2: legacy-only");
   }
 
   @Test

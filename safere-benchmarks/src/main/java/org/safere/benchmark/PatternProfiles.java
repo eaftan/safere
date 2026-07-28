@@ -15,6 +15,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Explicit engine-profile alternatives for Java-canonical benchmark regex syntax. */
@@ -36,7 +37,11 @@ final class PatternProfiles {
     Map<String, Map<String, Alternate>> patternProfiles = new LinkedHashMap<>();
     Map<String, Map<String, Alternate>> replacementProfiles = new LinkedHashMap<>();
     Deque<NormalizationFrame> pending = new ArrayDeque<>();
-    pending.push(new NormalizationFrame(normalized, null));
+    JsonElement syntaxRoot =
+        normalized.has("schemaVersion") ? normalized.getAsJsonArray("workloads") : normalized;
+    if (syntaxRoot != null) {
+      pending.push(new NormalizationFrame(syntaxRoot, null));
+    }
     while (!pending.isEmpty()) {
       NormalizationFrame frame = pending.pop();
       JsonElement element = frame.element();
@@ -324,6 +329,17 @@ final class PatternProfiles {
     return alternatives == null
         ? new Selection(javaPattern, null)
         : alternatives.getOrDefault(javaPattern, new Selection(javaPattern, null));
+  }
+
+  void validateReferences(Set<String> authoritativeValues, String kind) {
+    for (Map.Entry<String, Map<String, Selection>> profile : profiles.entrySet()) {
+      for (String javaValue : profile.getValue().keySet()) {
+        if (!authoritativeValues.contains(javaValue)) {
+          throw new IllegalArgumentException(
+              "Unreferenced " + kind + " profile value for " + profile.getKey() + ": " + javaValue);
+        }
+      }
+    }
   }
 
   private enum ValueKind {
