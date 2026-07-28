@@ -2521,7 +2521,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag",
         "name": "fruitMarkupTag",
-        "pattern": "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$",
+        "pattern": {
+          "java": "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$",
+          "alternates": {
+            "dotnet": {
+              "pattern": "^\\s*<(Apple|Banana|Cherry)>\\s*$",
+              "reason": ".NET does not support Java quoted literals with \\Q and \\E"
+            }
+          }
+        },
         "op": "replaceAllGroup1",
         "replacement": {
           "java": "$1",
@@ -2632,7 +2640,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk",
         "name": "turnTitleWhitespaceCjk",
-        "pattern": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
+        "pattern": {
+          "java": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
+          "alternates": {
+            "dotnet": {
+              "pattern": "[ \\f\\r\\t\\v\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff\\u3164]+",
+              "reason": ".NET uses UTF-16 escapes rather than Java code-point hex escapes"
+            }
+          }
+        },
         "op": "replaceAllEmpty",
         "replacement": "",
         "match": "いくつもの　中国語と日本語の文字　がここにあります　そして　いくつかのスペース　があります",
@@ -2661,7 +2677,15 @@
       {
         "id": "RealWorldRegexBenchmark.runBenchmark.emojiSearch",
         "name": "emojiSearch",
-        "pattern": "[😀-😇]",
+        "pattern": {
+          "java": "[😀-😇]",
+          "alternates": {
+            "dotnet": {
+              "pattern": "\\uD83D[\\uDE00-\\uDE07]",
+              "reason": ".NET character classes operate on UTF-16 code units"
+            }
+          }
+        },
         "op": "find",
         "match": "Today is a beautiful day 😇 with warm sunshine.",
         "nonMatch": "Today is a beautiful day with warm sunshine.",
@@ -2833,7 +2857,15 @@
   "fanout": {
     "unicodeFanout": {
       "id": "FanoutBenchmark.fanoutUnicode",
-      "pattern": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
+      "pattern": {
+        "java": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
+        "alternates": {
+          "dotnet": {
+            "pattern": "(?:(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])?){100}(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])",
+            "reason": ".NET character classes operate on UTF-16 code units"
+          }
+        }
+      },
       "codePoints": [
         19968,
         19969,
@@ -3795,6 +3827,10 @@
             "rust-regex": {
               "pattern": "^[[:space:]]*<(Apple|Banana|Cherry)>[[:space:]]*$",
               "reason": "Rust regex lacks Java quoted literals and gives \\s Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "^\\s*<(Apple|Banana|Cherry)>\\s*$",
+              "reason": ".NET does not support Java quoted literals with \\Q and \\E"
             }
           }
         }
@@ -3962,7 +3998,15 @@
       "id": "RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.{matchLabel}.{size}",
       "operation": "replaceAll",
       "patterns": [
-        "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+"
+        {
+          "java": "[ \\f\\r\\t\\v\\x{00a0}\\x{1680}\\x{2000}-\\x{200a}\\x{2028}\\x{2029}\\x{202f}\\x{205f}\\x{3000}\\x{feff}\\x{3164}]+",
+          "alternates": {
+            "dotnet": {
+              "pattern": "[ \\f\\r\\t\\v\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff\\u3164]+",
+              "reason": ".NET uses UTF-16 escapes rather than Java code-point hex escapes"
+            }
+          }
+        }
       ],
       "inputs": [
         "realWorldRegex.turnTitleWhitespaceCjk.{matchLabel}.{size}"
@@ -4024,7 +4068,15 @@
       "id": "RealWorldRegexBenchmark.runBenchmark.emojiSearch.{matchLabel}.{size}",
       "operation": "find",
       "patterns": [
-        "[😀-😇]"
+        {
+          "java": "[😀-😇]",
+          "alternates": {
+            "dotnet": {
+              "pattern": "\\uD83D[\\uDE00-\\uDE07]",
+              "reason": ".NET character classes operate on UTF-16 code units"
+            }
+          }
+        }
       ],
       "inputs": [
         "realWorldRegex.emojiSearch.{matchLabel}.{size}"
@@ -4476,7 +4528,15 @@
       "id": "FanoutBenchmark.fanoutUnicode.1024",
       "operation": "find",
       "patterns": [
-        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]"
+        {
+          "java": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
+          "alternates": {
+            "dotnet": {
+              "pattern": "(?:(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])?){100}(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])",
+              "reason": ".NET character classes operate on UTF-16 code units"
+            }
+          }
+        }
       ],
       "inputs": [
         "fanout.unicode.1024"
@@ -4512,7 +4572,15 @@
       "id": "FanoutBenchmark.fanoutUnicode.10240",
       "operation": "find",
       "patterns": [
-        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]"
+        {
+          "java": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
+          "alternates": {
+            "dotnet": {
+              "pattern": "(?:(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])?){100}(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])",
+              "reason": ".NET character classes operate on UTF-16 code units"
+            }
+          }
+        }
       ],
       "inputs": [
         "fanout.unicode.10240"
@@ -4548,7 +4616,15 @@
       "id": "FanoutBenchmark.fanoutUnicode.102400",
       "operation": "find",
       "patterns": [
-        "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]"
+        {
+          "java": "(?:[\\x{80}-\\x{10FFFF}]?){100}[\\x{80}-\\x{10FFFF}]",
+          "alternates": {
+            "dotnet": {
+              "pattern": "(?:(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])?){100}(?:[\\u0080-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF])",
+              "reason": ".NET character classes operate on UTF-16 code units"
+            }
+          }
+        }
       ],
       "inputs": [
         "fanout.unicode.102400"
@@ -6205,6 +6281,10 @@
                 "rust-regex": {
                   "pattern": "[\\x{0}-\\x{7F}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
+                },
+                "dotnet": {
+                  "pattern": "[\\u0000-\\u007F]+",
+                  "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
                 }
               }
             }
@@ -6221,6 +6301,10 @@
                 "rust-regex": {
                   "pattern": "[\\x{4E00}-\\x{9FFF}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
+                },
+                "dotnet": {
+                  "pattern": "[\\u4E00-\\u9FFF]+",
+                  "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
                 }
               }
             }
@@ -6349,6 +6433,10 @@
                 "rust-regex": {
                   "pattern": "[\\x{0}-\\x{7F}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
+                },
+                "dotnet": {
+                  "pattern": "[\\u0000-\\u007F]+",
+                  "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
                 }
               }
             }
@@ -7979,6 +8067,10 @@
             "rust-regex": {
               "pattern": "\\p{L}",
               "reason": "Rust regex uses the Unicode letter category rather than Java properties"
+            },
+            "dotnet": {
+              "pattern": "\\p{L}",
+              "reason": ".NET uses Unicode general categories rather than Java character properties"
             }
           }
         }
@@ -8014,6 +8106,10 @@
             "rust-regex": {
               "pattern": "\\p{L}",
               "reason": "Rust regex uses the Unicode letter category rather than Java properties"
+            },
+            "dotnet": {
+              "pattern": "\\p{L}",
+              "reason": ".NET uses Unicode general categories rather than Java character properties"
             }
           }
         }

@@ -438,6 +438,7 @@ public final class BenchmarkInputMaterializer {
         "description", "Resolved benchmark configuration and generated UTF-8 inputs.");
     manifest.addProperty("benchmarkDataSha256", benchmarkDataSha256);
     manifest.add("benchmarkData", data.deepCopy());
+    manifest.add("resolvedWorkloads", ResolvedBenchmarkPlan.create(data));
     JsonObject entries = new JsonObject();
     for (Map.Entry<String, byte[]> input : inputs.entrySet()) {
       byte[] bytes = input.getValue();

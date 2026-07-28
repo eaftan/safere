@@ -427,14 +427,15 @@ SafeRE includes a [JMH](https://github.com/openjdk/jmh) benchmark suite in the
 `safere-benchmarks` module, comparing SafeRE against `java.util.regex` (JDK),
 [RE2/J](https://github.com/google/re2j), RE2-FFM (C++ RE2 via Java
 [FFM API](https://openjdk.org/jeps/454)), C++ RE2, Go `regexp`, and Rust
-[`regex`](https://crates.io/crates/regex).
+[`regex`](https://crates.io/crates/regex), and .NET's non-backtracking regex engine.
 The suite includes focused microbenchmarks, data-driven application workloads,
 scaling/pathological cases, replacement, memory, and `PatternSet` benchmarks.
 Benchmark recipes and configuration live in
 `safere-benchmarks/benchmark-data.json`. Before a benchmark starts, its runner
 materializes that file into a resolved manifest and exact UTF-8 inputs under
-`safere-benchmarks/target/benchmark-corpus`. Java, C++, Go, and Rust consume only
-those generated artifacts instead of independently interpreting input recipes.
+`safere-benchmarks/target/benchmark-corpus`. Java, C++, Go, Rust, and .NET
+consume only those generated artifacts instead of independently interpreting
+input recipes.
 See
 [`safere-benchmarks/BENCHMARK_INPUTS.md`](safere-benchmarks/BENCHMARK_INPUTS.md)
 for details.
@@ -483,7 +484,7 @@ important comparisons:
 ```
 
 Use the cross-language mode only when you need broader ecosystem context from
-C++ RE2, Go `regexp`, and Rust `regex`:
+C++ RE2, Go `regexp`, Rust `regex`, and .NET non-backtracking:
 
 ```bash
 ./collect-benchmark-results.sh --cross-language
@@ -536,6 +537,7 @@ Cross-language runs also include:
 cpp-results.jsonl
 go-results.jsonl
 rust-results.jsonl
+dotnet-results.jsonl
 cross-runtime-tables.md
 ```
 
@@ -590,14 +592,17 @@ explicitly only when optimizing crosscheck:
 ./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrosscheckOverheadBenchmark\.'
 ```
 
-### C++ RE2, Go, and Rust Benchmarks
+### Cross-runtime Benchmarks
 
-The benchmark suite includes C++ RE2, Go `regexp`, and Rust `regex` harnesses
-for cross-language comparison. Prerequisites are
+The benchmark suite includes C++ RE2, Go `regexp`, Rust `regex`, and .NET
+non-backtracking harnesses for cross-language comparison. Prerequisites are
 [CMake ≥ 3.14](https://cmake.org/download/) with a C++17 compiler,
-[Go ≥ 1.21](https://go.dev/doc/install), and
-[Rust ≥ 1.85 with Cargo](https://rust-lang.org/tools/install/). Dependencies
-are fetched automatically.
+[Go ≥ 1.21](https://go.dev/doc/install),
+[Rust ≥ 1.85 with Cargo](https://rust-lang.org/tools/install/), and
+[.NET SDK ≥ 8](https://learn.microsoft.com/dotnet/core/install/). Dependencies
+are fetched automatically. Installation, verification, and smoke-test
+instructions for every engine are in
+[`safere-benchmarks/CROSS_RUNTIME_TOOLCHAINS.md`](safere-benchmarks/CROSS_RUNTIME_TOOLCHAINS.md).
 
 Benchmark patterns and replacement templates are written in Java syntax. A
 value that needs different syntax in another regex dialect declares exact
@@ -611,16 +616,33 @@ for profile mappings and validation rules.
 ```bash
 # C++ RE2 benchmarks
 ./run-cpp-benchmarks.sh                    # all C++ benchmarks
+./run-cpp-benchmarks.sh --smoke            # exercise each selected workload once
 ./run-cpp-benchmarks.sh Regex Application  # specific benchmark groups
 
 # Go regexp benchmarks
 ./run-go-benchmarks.sh                     # all Go benchmarks
+./run-go-benchmarks.sh --smoke             # exercise each selected workload once
 ./run-go-benchmarks.sh Regex Application   # specific benchmark groups
 
 # Rust regex benchmarks
 ./run-rust-benchmarks.sh                   # all Rust benchmarks
 ./run-rust-benchmarks.sh Regex Application # specific benchmark groups
+
+# .NET non-backtracking benchmarks
+./run-dotnet-benchmarks.sh                    # all supported .NET workloads
+./run-dotnet-benchmarks.sh --smoke            # exercise each supported workload once
+./run-dotnet-benchmarks.sh --list-exclusions  # explain every unsupported workload
+./run-dotnet-benchmarks.sh Regex Application  # specific benchmark groups
 ```
+
+The .NET harness uses `RegexOptions.NonBacktracking` and
+`RegexOptions.CultureInvariant`. It decodes the shared UTF-8 corpus and
+selects exact `dotnet` pattern-profile alternatives before timing. Unicode
+scalar ranges use equivalent UTF-16 regex expressions, including surrogate-pair
+alternatives where needed. This setup work is excluded from execution and
+compilation measurements. The runner consumes the fully expanded workload
+plan and executes every compatible workload. `--list-exclusions` emits a
+reason for every excluded workload.
 
 ### Comparing Results Manually
 
@@ -631,13 +653,13 @@ python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --jmh jmh-output.txt
 ```
 
-Add C++, Go, and Rust JSON-lines files when comparing cross-language results:
+Add the cross-runtime JSON-lines files when comparing cross-language results:
 
 ```bash
 python3 safere-benchmarks/scripts/compare-benchmarks.py \
   --jmh jmh-output.txt \
-  --json cpp-results.jsonl go-results.jsonl rust-results.jsonl \
-  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go,rust
+  --json cpp-results.jsonl go-results.jsonl rust-results.jsonl dotnet-results.jsonl \
+  --engines safere,jdk,re2j,re2_ffm,re2_cpp,go,rust,dotnet_nonbacktracking
 ```
 
 To distinguish absent results from declared exclusions, include the report plan:

@@ -6,7 +6,7 @@ in [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md).
 Ordinary cross-engine regex measurements use a shared execution model. A
 workload declares its stable `id` in `benchmark-data.json`; Java class and
 method names are not used to infer workload identity. The same ID joins Java,
-C++, Go, Rust, generated reports, and historical results.
+C++, Go, Rust, .NET, generated reports, and historical results.
 
 A materially changed operation, input, result-consumption rule, or timing
 boundary requires a new workload ID. Display labels and the shared JMH entry

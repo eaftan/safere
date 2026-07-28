@@ -9,8 +9,9 @@ parameters, expected results, and deterministic input recipes.
 
 Before execution, each benchmark runner invokes the central materializer. It
 writes a resolved manifest and exact UTF-8 inputs under
-`target/benchmark-corpus/`. Java, C++, Go, Rust, and future harnesses read only
-those generated artifacts; they do not read or interpret `benchmark-data.json`.
+`target/benchmark-corpus/`. Java, C++, Go, Rust, .NET, and future harnesses read
+only those generated artifacts; they do not read or interpret
+`benchmark-data.json`.
 Java string engines decode input files as UTF-8 during benchmark setup, while
 byte-oriented engines use the bytes directly. Materialization and decoding are
 outside the timed operation.
@@ -30,9 +31,12 @@ without starting a benchmark, run from the repository root:
 ```
 
 The manifest records each input's UTF-8 byte length, UTF-16 code-unit length,
-Unicode scalar count, and SHA-256 digest, along with the resolved benchmark
-configuration. The generated directory is ignored and is replaced on every
-materialization, so there is no second checked-in representation to update.
+Unicode scalar count, and SHA-256 digest, along with the normalized benchmark
+configuration and a `resolvedWorkloads` array containing every expanded
+workload identity. Native runners can therefore consume the same axis
+expansion as the Java planner. The generated directory is ignored and is
+replaced on every materialization, so there is no second checked-in
+representation to update.
 
 Every benchmark input is an explicit declaration in `benchmark-data.json`.
 The materializer evaluates only the schema's bounded, generic recipe kinds; it

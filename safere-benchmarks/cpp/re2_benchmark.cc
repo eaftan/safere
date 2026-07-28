@@ -43,6 +43,7 @@ json benchmark_input_manifest;
 std::filesystem::path benchmark_input_directory;
 std::unordered_map<std::string, std::string> benchmark_pattern_profile;
 std::unordered_map<std::string, std::string> benchmark_replacement_profile;
+bool smoke_mode = false;
 
 std::string sha256_hex(std::string_view input) {
   static constexpr std::array<uint32_t, 64> kRoundConstants = {
@@ -185,6 +186,14 @@ BenchResult measure(const std::string& name,
                     int measure_iters = 10, double measure_time_sec = 2.0,
                     const std::string& unit = "ns/op",
                     double unit_divisor = 1.0) {
+  if (smoke_mode) {
+    auto start = std::chrono::high_resolution_clock::now();
+    fn();
+    auto elapsed = std::chrono::high_resolution_clock::now() - start;
+    double ns = std::chrono::duration<double, std::nano>(elapsed).count();
+    return {name, ns / unit_divisor, 0, unit};
+  }
+
   // Warmup.
   for (int w = 0; w < warmup_iters; ++w) {
     auto end = std::chrono::high_resolution_clock::now() +
@@ -1116,6 +1125,8 @@ int main(int argc, char* argv[]) {
     std::string arg = argv[i];
     if (arg == "--manifest" && i + 1 < argc) {
       manifest_path = argv[++i];
+    } else if (arg == "--smoke") {
+      smoke_mode = true;
     } else {
       filters.push_back(arg);
     }

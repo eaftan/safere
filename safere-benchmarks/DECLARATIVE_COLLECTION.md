@@ -33,6 +33,10 @@ engine column. `safere-utf8` remains a distinct column from `safere-string`, and
 `re2-ffm-string-conversion` remains distinct from native cross-runtime RE2 results, so input
 representation and timed conversion boundaries are not erased.
 
-C++ RE2, Go `regexp`, and Rust `regex` harnesses run in separate processes and emit JSONL with the
-same stable workload identities. Their results remain cross-runtime context; they are not treated
-as missing or excluded Java execution variants.
+C++ RE2, Go `regexp`, Rust `regex`, and .NET non-backtracking harnesses run in separate processes
+and emit JSONL with the same stable workload identities. The materialized manifest includes the
+fully expanded `resolvedWorkloads` plan for native consumers. The .NET runner accounts for every
+entry by either executing it or making an explicit capability exclusion available through
+`--list-exclusions`. Native results remain cross-runtime context; they are not treated as missing
+or excluded Java execution variants. Toolchain and smoke instructions are in
+[CROSS_RUNTIME_TOOLCHAINS.md](CROSS_RUNTIME_TOOLCHAINS.md).

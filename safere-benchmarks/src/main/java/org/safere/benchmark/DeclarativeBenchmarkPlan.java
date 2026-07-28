@@ -92,6 +92,10 @@ final class DeclarativeBenchmarkPlan {
     return workloads;
   }
 
+  List<ExpandedWorkload> expandedWorkloads() {
+    return expandWorkloads();
+  }
+
   ExpandedPlan expand(List<EngineDeclaration> engines, Set<Operation> implementedOperations) {
     Objects.requireNonNull(engines);
     Objects.requireNonNull(implementedOperations);

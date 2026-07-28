@@ -13,6 +13,10 @@ safere-benchmarks/cpp/build/
 # Go benchmark binary
 safere-benchmarks/go/regexp_benchmark
 
+# .NET benchmark build artifacts
+safere-benchmarks/dotnet/bin/
+safere-benchmarks/dotnet/obj/
+
 # IDE files
 .codex
 .idea/

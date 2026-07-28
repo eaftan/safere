@@ -215,6 +215,14 @@ class PatternProfilesTest {
     assertThat(replacements.select("re2-cpp", "$1")).isEqualTo("\\1");
     assertThat(replacements.select("go-regexp", "$2$1ay")).isEqualTo("${2}${1}ay");
     assertThat(replacements.select("rust-regex", "$2$1ay")).isEqualTo("${2}${1}ay");
+    assertThat(patterns.select("dotnet", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
+        .isEqualTo("^\\s*<(Apple|Banana|Cherry)>\\s*$");
+    assertThat(patterns.select("dotnet", "[😀-😇]")).isEqualTo("\\uD83D[\\uDE00-\\uDE07]");
+    assertThat(patterns.select("dotnet", "\\p{javaLetter}")).isEqualTo("\\p{L}");
+    assertThat(patterns.select("dotnet", "\\p{block=BasicLatin}+"))
+        .isEqualTo("[\\u0000-\\u007F]+");
+    assertThat(patterns.select("dotnet", "\\p{block=CJK_Unified_Ideographs}+"))
+        .isEqualTo("[\\u4E00-\\u9FFF]+");
     for (String profileType : List.of("patternProfiles", "replacementProfiles")) {
       for (JsonElement profile : normalized.getAsJsonObject(profileType).asMap().values()) {
         for (JsonElement entry : profile.getAsJsonArray()) {
