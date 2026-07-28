@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -22,6 +23,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 @Isolated
 @Execution(ExecutionMode.SAME_THREAD)
@@ -443,6 +446,35 @@ class DiagnosticsTest {
     assertThat(PatternDescriptor.class.getRecordComponents())
         .noneMatch(component -> component.getType() == String.class);
     assertThat(event.inputLength()).isEqualTo(inputSecret.length());
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = MatchOperation.class,
+      names = {"MATCHES", "LOOKING_AT", "FIND"})
+  void utf8OperationsReportDiagnosticsWithByteInputLength(MatchOperation operation) {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(".*é.*");
+    byte[] inputBytes = "xéy".getBytes(UTF_8);
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(inputBytes, 0, inputBytes.length));
+
+    boolean matched =
+        switch (operation) {
+          case MATCHES -> matcher.matches();
+          case LOOKING_AT -> matcher.lookingAt();
+          case FIND -> matcher.find();
+          default -> throw new AssertionError("Unexpected operation: " + operation);
+        };
+
+    assertThat(matched).isTrue();
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.operation()).isEqualTo(operation);
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.inputLength()).isEqualTo(inputBytes.length);
+            });
   }
 
   @Test

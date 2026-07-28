@@ -14,6 +14,9 @@ import java.util.Set;
  *
  * <p>DFA search counts include every attempted search, including attempts that exceed the DFA state
  * budget. Replacement operations aggregate searches across all matches into their single event.
+ *
+ * @param inputLength input length in UTF-16 code units for {@link Matcher} operations or UTF-8
+ *     bytes for {@link Utf8Matcher} operations
  */
 public record OperationDiagnostics(
     PatternDescriptor pattern,

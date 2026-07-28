@@ -141,7 +141,11 @@ public final class Matcher implements MatchResult {
     }
     OperationDiagnostics event =
         accumulator.toEvent(
-            parentPattern.descriptor(), operation.operation(), outcome, captureMode, text.length());
+            parentPattern.descriptor(),
+            operation.operation(),
+            outcome,
+            captureMode,
+            getTextLength());
     diagnosticOperation = null;
     operation.listener().onOperationCompleted(event);
   }
