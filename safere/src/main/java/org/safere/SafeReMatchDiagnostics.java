@@ -15,6 +15,10 @@ package org.safere;
  * <p>When {@link #NONE} is installed, matching allocates no diagnostics objects. Enabled listeners
  * receive one bounded event per supported public operation, irrespective of internal engine passes
  * or replacement match count.
+ *
+ * <p>Supported operations are {@link Matcher#matches()}, {@link Matcher#lookingAt()}, {@link
+ * Matcher#find()}, the {@link Matcher} replacement operations, the corresponding matching
+ * operations on {@link Utf8Matcher}, and {@link Pattern#find(Utf8Input)}.
  */
 public class SafeReMatchDiagnostics {
   /** Listener used when match diagnostics are disabled. */

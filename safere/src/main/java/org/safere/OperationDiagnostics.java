@@ -16,7 +16,7 @@ import java.util.Set;
  * budget. Replacement operations aggregate searches across all matches into their single event.
  *
  * @param inputLength input length in UTF-16 code units for {@link Matcher} operations or UTF-8
- *     bytes for {@link Utf8Matcher} operations
+ *     bytes for {@link Utf8Matcher} and {@link Pattern#find(Utf8Input)} operations
  */
 public record OperationDiagnostics(
     PatternDescriptor pattern,

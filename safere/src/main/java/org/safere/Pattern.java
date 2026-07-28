@@ -594,15 +594,44 @@ public final class Pattern implements Serializable {
   public boolean find(Utf8Input input) {
     ArrayUtf8Input arrayInput = (ArrayUtf8Input) Objects.requireNonNull(input, "input");
     Utf8InputScanner scanner = arrayInput.scanner();
+    SafeReMatchDiagnostics listener = diagnostics();
+    DiagnosticAccumulator accumulator =
+        SafeReMatchDiagnostics.isEnabled(listener) ? new DiagnosticAccumulator() : null;
+    boolean matched = find(scanner, accumulator);
+    if (accumulator != null) {
+      accumulator.matchCount(matched ? 1 : 0);
+      MatchOutcome outcome = matched ? MatchOutcome.MATCH : MatchOutcome.NO_MATCH;
+      OperationDiagnostics event =
+          accumulator.toEvent(
+              descriptor(),
+              MatchOperation.FIND,
+              outcome,
+              CaptureMode.NONE,
+              scanner.length());
+      listener.onOperationCompleted(event);
+    }
+    return matched;
+  }
+
+  private boolean find(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
     if (literalMatchUtf8 != null && !prefixFoldCase) {
-      return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
+      boolean matched =
+          scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
+      if (diagnostics != null) {
+        diagnostics.boundary(MatchStrategy.LITERAL);
+      }
+      return matched;
     }
     if (enginePathOptions.literalFastPaths()
         && requiredLiteralUtf8 != null
         && prefixUtf8 == null
         && scanner.indexOf(requiredLiteralUtf8, requiredLiteralFailure, requiredLiteralShifts, 0)
             < 0) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER);
+        diagnostics.boundary(MatchStrategy.LITERAL);
+      }
       return false;
     }
     if (enginePathOptions.charClassMatchFastPaths()
@@ -612,38 +641,72 @@ public final class Pattern implements Serializable {
         && scanner.indexOfCodePointClass(
                 requiredMatchClassRanges, requiredMatchClassBitmap0, requiredMatchClassBitmap1, 0)
             < 0) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.REJECT_PREFILTER);
+        diagnostics.boundary(MatchStrategy.CHARACTER_CLASS);
+      }
       return false;
     }
     int searchStart = 0;
     if (prefixUtf8 != null && !prefixFoldCase) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
+      }
       searchStart = scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts);
       if (searchStart < 0) {
+        if (diagnostics != null) {
+          diagnostics.boundary(MatchStrategy.LITERAL);
+        }
         return false;
       }
     } else if (!prog.hasWordBoundary() && charClassPrefixAscii != null) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
+      }
       searchStart = scanner.indexOfAsciiClass(charClassPrefixAscii, 0);
       if (searchStart < 0) {
+        if (diagnostics != null) {
+          diagnostics.boundary(MatchStrategy.CHARACTER_CLASS);
+        }
         return false;
       }
     }
     if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
+      if (diagnostics != null) {
+        diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+        diagnostics.incrementForwardDfaSearchCount();
+      }
       Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, searchStart, false, false);
       if (result != null) {
+        if (diagnostics != null) {
+          diagnostics.boundary(MatchStrategy.DFA);
+        }
         return result.matched();
       }
+      if (diagnostics != null) {
+        diagnostics.decision(
+            MatchStrategy.DFA,
+            StrategyDisposition.FALLBACK,
+            StrategyReason.DFA_BUDGET_EXCEEDED);
+      }
     }
-    return Nfa.search(
-            prog,
-            scanner,
-            searchStart,
-            length,
-            length,
-            0,
-            Nfa.Anchor.UNANCHORED,
-            Nfa.MatchKind.FIRST_MATCH,
-            0,
-            null)
-        != null;
+    boolean matched =
+        Nfa.search(
+                prog,
+                scanner,
+                searchStart,
+                length,
+                length,
+                0,
+                Nfa.Anchor.UNANCHORED,
+                Nfa.MatchKind.FIRST_MATCH,
+                0,
+                null)
+            != null;
+    if (diagnostics != null) {
+      diagnostics.boundary(MatchStrategy.NFA);
+    }
+    return matched;
   }
 
   private static int[] literalFailure(byte[] literal) {
