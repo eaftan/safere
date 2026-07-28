@@ -4855,6 +4855,10 @@
         "replacement": {
           "java": "$2$1ay",
           "alternates": {
+            "go-regexp": {
+              "replacement": "${2}${1}ay",
+              "reason": "Go replacement references need braces before adjacent letters"
+            },
             "rust-regex": {
               "replacement": "${2}${1}ay",
               "reason": "Rust replacement references need braces before adjacent letters"
@@ -4929,6 +4933,10 @@
         "replacement": {
           "java": "$2$1ay",
           "alternates": {
+            "go-regexp": {
+              "replacement": "${2}${1}ay",
+              "reason": "Go replacement references need braces before adjacent letters"
+            },
             "rust-regex": {
               "replacement": "${2}${1}ay",
               "reason": "Rust replacement references need braces before adjacent letters"

@@ -469,10 +469,9 @@ fn run_real_world_benchmarks(corpus: &Corpus, filters: &[String]) {
         let case_name = required_string(item, "name");
         let operation = required_string(item, "op");
         let pattern = required_string(item, "pattern");
-        let replacement = item
-            .get("replacement")
-            .map(|_| selected_replacement(&required_string(item, "replacement")))
-            .unwrap_or_default();
+        let replacement = operation
+            .starts_with("replaceAll")
+            .then(|| selected_replacement(&required_string(item, "replacement")));
         let regex = compile(&pattern);
         let full_regex = (operation == "matches").then(|| compile_full(&pattern));
         for matches in [true, false] {
@@ -491,13 +490,19 @@ fn run_real_world_benchmarks(corpus: &Corpus, filters: &[String]) {
                         black_box(full_regex.as_ref().unwrap().is_match(black_box(&text)));
                     }),
                     "replaceAllEmpty" => run_ns(&name, filters, || {
-                        black_box(regex.replace_all(black_box(&text), replacement.as_str()));
+                        black_box(
+                            regex.replace_all(black_box(&text), replacement.as_deref().unwrap()),
+                        );
                     }),
                     "replaceAllGroup1" => run_ns(&name, filters, || {
-                        black_box(regex.replace_all(black_box(&text), replacement.as_str()));
+                        black_box(
+                            regex.replace_all(black_box(&text), replacement.as_deref().unwrap()),
+                        );
                     }),
                     "replaceAllLiteral" => run_ns(&name, filters, || {
-                        black_box(regex.replace_all(black_box(&text), replacement.as_str()));
+                        black_box(
+                            regex.replace_all(black_box(&text), replacement.as_deref().unwrap()),
+                        );
                     }),
                     _ => panic!("invalid realWorldRegex op: {operation}"),
                 }

@@ -55,7 +55,7 @@ func TestCheckedInRE2PatternProfileCompiles(t *testing.T) {
 	}
 }
 
-func TestExplicitProfileAlternateIsSelectedWithJavaFallback(t *testing.T) {
+func TestReplacementProfileSelectsExactAlternateWithJavaFallback(t *testing.T) {
 	data := map[string]any{
 		"replacementProfiles": map[string]any{
 			"go-regexp": []any{
@@ -67,12 +67,19 @@ func TestExplicitProfileAlternateIsSelectedWithJavaFallback(t *testing.T) {
 		},
 	}
 
-	profile := loadProfile(data, "replacementProfiles", "go-regexp")
+	benchmarkReplacementProfile = loadProfile(data, "replacementProfiles", "go-regexp")
+	t.Cleanup(func() {
+		benchmarkReplacementProfile = nil
+	})
 
-	if got := selectedProfileValue(profile, "$2$1ay"); got != "${2}${1}ay" {
-		t.Fatalf("selected alternate = %q, want %q", got, "${2}${1}ay")
+	if actual := selectedReplacement("$2$1ay"); actual != "${2}${1}ay" {
+		t.Fatalf("selected replacement %q, want %q", actual, "${2}${1}ay")
 	}
-	if got := selectedProfileValue(profile, "$1=[$2]"); got != "$1=[$2]" {
-		t.Fatalf("fallback = %q, want unchanged Java value", got)
+	if actual := selectedReplacement("$1=REDACTED"); actual != "$1=REDACTED" {
+		t.Fatalf("fallback replacement %q, want unchanged Java value", actual)
+	}
+	re := regexp.MustCompile("(qu|[b-df-hj-np-tv-z]*)([a-z]+)")
+	if actual := re.ReplaceAllString("the", selectedReplacement("$2$1ay")); actual != "ethay" {
+		t.Fatalf("replacement result %q, want %q", actual, "ethay")
 	}
 }
