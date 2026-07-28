@@ -45,8 +45,7 @@ class Utf8DiagnosticsTest {
     byte[] logicalInput = "xéy".getBytes(UTF_8);
     byte[] storage = new byte[logicalInput.length + 5];
     System.arraycopy(logicalInput, 0, storage, 2, logicalInput.length);
-    Utf8Matcher matcher =
-        pattern.matcher(Utf8Input.trusted(storage, 2, logicalInput.length));
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.trusted(storage, 2, logicalInput.length));
 
     boolean matched =
         switch (operation) {
@@ -142,8 +141,7 @@ class Utf8DiagnosticsTest {
                   .containsExactly(
                       new StrategyParticipation(
                           MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION),
-                      new StrategyParticipation(
-                          MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
+                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
             });
   }
 
@@ -231,8 +229,7 @@ class Utf8DiagnosticsTest {
                   .containsExactly(
                       new StrategyParticipation(
                           MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION),
-                      new StrategyParticipation(
-                          MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER),
+                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER),
                       new StrategyParticipation(
                           MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION));
             });

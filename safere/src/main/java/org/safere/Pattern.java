@@ -59,10 +59,8 @@ public final class Pattern implements Serializable {
       MethodType.methodType(boolean.class, Pattern.class, Utf8InputScanner.class);
   private static final MutableCallSite UTF8_FIND_SITE = new MutableCallSite(UTF8_FIND_TYPE);
   private static final MethodHandle UTF8_FIND_INVOKER = UTF8_FIND_SITE.dynamicInvoker();
-  private static final MethodHandle UTF8_FIND_DISABLED =
-      findUtf8Handle("findWithoutDiagnostics");
-  private static final MethodHandle UTF8_FIND_ENABLED =
-      findUtf8Handle("findWithDiagnostics");
+  private static final MethodHandle UTF8_FIND_DISABLED = findUtf8Handle("findWithoutDiagnostics");
+  private static final MethodHandle UTF8_FIND_ENABLED = findUtf8Handle("findWithDiagnostics");
 
   static {
     setDiagnosticsTarget(SafeReMatchDiagnostics.NONE);
@@ -691,8 +689,7 @@ public final class Pattern implements Serializable {
         != null;
   }
 
-  private boolean findWithDiagnostics(
-      Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
+  private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
     if (literalMatchUtf8 != null && !prefixFoldCase) {
       boolean matched =
@@ -745,9 +742,7 @@ public final class Pattern implements Serializable {
         return result.matched();
       }
       diagnostics.decision(
-          MatchStrategy.DFA,
-          StrategyDisposition.FALLBACK,
-          StrategyReason.DFA_BUDGET_EXCEEDED);
+          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
     }
     boolean matched =
         Nfa.search(
