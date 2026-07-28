@@ -5,9 +5,7 @@
 
 package org.safere.benchmark;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,42 +15,38 @@ import java.util.stream.Collectors;
 /** Resolves data-declared workloads that use specialized measurement machinery. */
 final class SpecializedBenchmarkPlan {
   private final Map<String, Trial> trials;
-  private final List<DeclarativeBenchmarkPlan.Exclusion> exclusions;
+  private final List<MaterializedExecutionPlan.Entry> exclusions;
 
   private SpecializedBenchmarkPlan(
-      Map<String, Trial> trials, List<DeclarativeBenchmarkPlan.Exclusion> exclusions) {
+      Map<String, Trial> trials, List<MaterializedExecutionPlan.Entry> exclusions) {
     this.trials = Collections.unmodifiableMap(new LinkedHashMap<>(trials));
     this.exclusions = List.copyOf(exclusions);
   }
 
   static SpecializedBenchmarkPlan load() {
-    DeclarativeBenchmarkPlan plan =
-        DeclarativeBenchmarkPlan.parse(BenchmarkData.get().declarativePlan());
-    List<DeclarativeBenchmarkPlan.EngineDeclaration> engines =
-        Arrays.stream(RegexEngineVariant.values()).map(RegexEngineVariant::declaration).toList();
-    DeclarativeBenchmarkPlan.ExpandedPlan expanded =
-        plan.expand(engines, EnumSet.allOf(DeclarativeBenchmarkPlan.Operation.class));
     Map<String, Trial> trials = new LinkedHashMap<>();
-    for (DeclarativeBenchmarkPlan.Trial trial : expanded.trials()) {
-      if (!isSpecialized(trial.workload())) {
+    List<MaterializedExecutionPlan.Entry> exclusions = new java.util.ArrayList<>();
+    for (MaterializedExecutionPlan.Entry entry :
+        MaterializedExecutionPlan.load().entriesForRunner("java")) {
+      if (!isSpecialized(entry.operation(), entry.measurement())) {
         continue;
       }
-      Trial converted = new Trial(trial.workload(), RegexEngineVariant.fromId(trial.engine().id()));
+      if (!entry.runnable()) {
+        exclusions.add(entry);
+        continue;
+      }
+      Trial converted = new Trial(entry.workload(), RegexEngineVariant.fromId(entry.engineId()));
       if (trials.put(converted.id(), converted) != null) {
         throw new IllegalArgumentException("Duplicate specialized trial ID: " + converted.id());
       }
     }
-    var workloadIds =
-        trials.values().stream().map(trial -> trial.workload().id()).collect(Collectors.toSet());
-    List<DeclarativeBenchmarkPlan.Exclusion> exclusions =
-        expanded.exclusions().stream()
-            .filter(exclusion -> workloadIds.contains(exclusion.workloadId()))
-            .toList();
     return new SpecializedBenchmarkPlan(trials, exclusions);
   }
 
-  private static boolean isSpecialized(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
-    return switch (workload.operation()) {
+  private static boolean isSpecialized(
+      DeclarativeBenchmarkPlan.Operation operation,
+      DeclarativeBenchmarkPlan.Measurement measurement) {
+    return switch (operation) {
           case PATTERN_SET_MATCHES,
               UTF8_CAPTURE_BOUNDS,
               UTF8_DECODE_FIND,
@@ -66,9 +60,8 @@ final class SpecializedBenchmarkPlan {
               true;
           default -> false;
         }
-        || workload.measurement().mode() == DeclarativeBenchmarkPlan.MeasurementMode.RETAINED_MEMORY
-        || workload.measurement().mode()
-            == DeclarativeBenchmarkPlan.MeasurementMode.SUBPROCESS_MEMORY;
+        || measurement.mode() == DeclarativeBenchmarkPlan.MeasurementMode.RETAINED_MEMORY
+        || measurement.mode() == DeclarativeBenchmarkPlan.MeasurementMode.SUBPROCESS_MEMORY;
   }
 
   Trial resolve(String id) {
@@ -106,7 +99,7 @@ final class SpecializedBenchmarkPlan {
         .toList();
   }
 
-  List<DeclarativeBenchmarkPlan.Exclusion> exclusions() {
+  List<MaterializedExecutionPlan.Entry> exclusions() {
     return exclusions;
   }
 

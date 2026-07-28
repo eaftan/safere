@@ -110,7 +110,7 @@ with a `replacement` field instead of `pattern`:
 }
 ```
 
-An engine adapter selects one profile for each syntax kind. SafeRE and JDK use
+The execution-plan materializer selects one profile for each engine and syntax kind. SafeRE and JDK use
 the Java values directly. RE2/J and RE2-FFM select the `re2` pattern profile;
 native C++ RE2 selects `re2` patterns and `re2-cpp` replacements; Go selects
 `re2` patterns and `go-regexp` replacements where adjacent text makes a Java
@@ -118,20 +118,40 @@ capture reference ambiguous; and Rust `regex` selects `rust-regex` for both
 kinds. PCRE2 JIT selects `pcre2` for both kinds; this remains separate from
 `re2` because PCRE2 accepts some Java-canonical forms that RE2 does not, while
 other forms need PCRE2-specific equivalents. If the selected profile has no
-entry for a Java syntax value, the adapter uses the Java value unchanged.
+entry for a Java syntax value, the materializer uses the Java value unchanged.
+An alternate may instead declare `unsupported: true` and a reason when the
+same semantics cannot be expressed in that dialect; the corresponding
+workload/engine entry is then an explicit `unsupportedSyntax` exclusion.
 
 Alternates are exact reviewed strings. Runners must not rewrite regex or
 replacement syntax automatically or derive replacement templates from operation
 names. The required nonblank `reason` records why the alternate is necessary.
-The materializer replaces inline definitions with their Java strings and emits
-separate resolved pattern and replacement profile lookups in the generated
-manifest. Keeping the namespaces separate prevents the same Java string from
+The materializer replaces inline definitions with their Java strings, keeps
+pattern and replacement namespaces separate, and writes only the selected
+values into runnable execution-plan entries. Keeping the namespaces separate prevents the same Java string from
 selecting a pattern alternate when it is used as a replacement, or vice versa.
 Conflicting alternates for the same Java value, kind, and profile, malformed
 profile IDs, blank fields, and unknown fields are rejected during
 materialization.
-Pattern selection and compilation happen outside timed matching operations;
-compile benchmarks select the alternate before starting the timed compilation.
+Pattern selection happens before any runner starts. Compilation happens outside
+timed matching operations; compile benchmarks receive the selected pattern
+before starting timed compilation.
+
+## Materialized execution plan
+
+The generated manifest's `executionPlan.version` is independent of
+`schemaVersion`, so the runner contract can evolve explicitly. Version 1
+declares the engine catalog, workload and engine counts, and an `entries`
+array containing exactly one entry for every expanded workload and engine.
+Consumers reject unknown versions and incomplete joins.
+
+Runnable entries contain engine-selected `patterns`, materialized input IDs,
+resolved `arguments`, `options`, `inputRepresentation`, `resultConsumption`,
+`measurement`, and optional expected results and lifecycle. Excluded entries
+contain an `exclusion` object with a stable kind and explanatory reason.
+Runners may implement generic regex operations only; an entry declared
+runnable that cannot be prepared is an error rather than a new runtime
+exclusion.
 
 ## Bounded input recipes
 

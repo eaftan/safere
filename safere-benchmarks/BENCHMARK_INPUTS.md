@@ -17,10 +17,10 @@ byte-oriented engines use the bytes directly. Materialization and decoding are
 outside the timed operation.
 
 Regex patterns and replacement templates remain Java-canonical in
-`benchmark-data.json`. Explicit engine-dialect alternatives live beside the
-value that needs them. The materializer collects those inline definitions into
-separate resolved pattern and replacement profiles; runners select exact values
-there and otherwise use the Java string unchanged. See
+`benchmark-data.json`. Explicit engine-dialect alternatives and unsupported
+syntax declarations live beside the value that needs them. The materializer
+selects those values while building the execution plan; runners receive only
+the exact syntax selected for their engine. See
 [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md#pattern-profiles).
 
 The normal runner scripts materialize automatically. To prepare the corpus
@@ -32,9 +32,12 @@ without starting a benchmark, run from the repository root:
 
 The manifest records each input's UTF-8 byte length, UTF-16 code-unit length,
 Unicode scalar count, and SHA-256 digest, along with the normalized benchmark
-configuration and a `resolvedWorkloads` array containing every expanded
-workload identity. Native runners can therefore consume the same axis
-expansion as the Java planner. The generated directory is ignored and is
+configuration and a versioned `executionPlan`. Its entries are the complete
+Cartesian product of expanded workloads and declared engines. Every entry is
+either runnable, with exact patterns, inputs, arguments, options, lifecycle,
+and measurement boundaries, or excluded with a durable kind and reason. Java
+and native runners consume this same join and do not repeat capability or
+syntax selection. The generated directory is ignored and is
 replaced on every materialization, so there is no second checked-in
 representation to update.
 

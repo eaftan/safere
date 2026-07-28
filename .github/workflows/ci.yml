@@ -177,24 +177,26 @@ jobs:
       - name: Smoke test C++ RE2 benchmarks
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \
-            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json \
+            --smoke RegexBenchmark.literalMatch
 
-      - name: Smoke test C++ RE2 memory benchmarks
-        if: matrix.os == 'ubuntu-latest'
+      - name: Check C++ RE2 planned exclusions
         run: |
           safere-benchmarks/cpp/build/re2_benchmark \
-            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json \
+            --list-exclusions MemoryBenchmark.compileSimple
 
       - name: Smoke test PCRE2 JIT benchmarks
         run: |
           safere-benchmarks/cpp/build/pcre2_jit_benchmark \
-            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json \
+            --smoke RegexBenchmark.literalMatch
 
-      - name: Smoke test PCRE2 JIT memory benchmarks
-        if: matrix.os == 'ubuntu-latest'
+      - name: Check PCRE2 JIT planned exclusions
         run: |
           safere-benchmarks/cpp/build/pcre2_jit_benchmark \
-            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json \
+            --list-exclusions ReplaceBenchmark
 
   benchmark-smoke-test-go:
     needs: changes
@@ -226,12 +228,14 @@ jobs:
       - name: Smoke test Go benchmarks
         run: |
           safere-benchmarks/go/regexp_benchmark \
-            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json literalMatch
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json \
+            --smoke RegexBenchmark.literalMatch
 
-      - name: Smoke test Go memory benchmarks
+      - name: Check Go planned exclusions
         run: |
           safere-benchmarks/go/regexp_benchmark \
-            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json MemoryBenchmark
+            --manifest safere-benchmarks/target/benchmark-corpus/manifest.json \
+            --list-exclusions UnicodeCompileBenchmark
 
   benchmark-smoke-test-rust:
     needs: changes
@@ -265,7 +269,7 @@ jobs:
             --manifest-path safere-benchmarks/rust/Cargo.toml -- -D warnings
 
       - name: Smoke test Rust regex benchmarks
-        run: ./run-rust-benchmarks.sh RegexBenchmark.literalMatch
+        run: ./run-rust-benchmarks.sh --smoke RegexBenchmark.literalMatch
 
   benchmark-smoke-test-dotnet:
     needs: changes
@@ -288,3 +292,6 @@ jobs:
 
       - name: Smoke test .NET non-backtracking benchmarks
         run: ./run-dotnet-benchmarks.sh --smoke RegexBenchmark.literalMatch
+
+      - name: Check .NET planned exclusions
+        run: ./run-dotnet-benchmarks.sh --list-exclusions UnicodeCompileBenchmark

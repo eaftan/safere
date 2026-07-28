@@ -252,12 +252,12 @@ final class BenchmarkCollectionPlan {
       DeclarativeBenchmarkPlan.Measurement measurement) {}
 
   record ReportExclusion(String workloadId, String executionVariant, String kind, String reason) {
-    static ReportExclusion from(DeclarativeBenchmarkPlan.Exclusion exclusion) {
+    static ReportExclusion from(MaterializedExecutionPlan.Entry exclusion) {
       return new ReportExclusion(
           exclusion.workloadId(),
           exclusion.engineId(),
-          exclusion.kind().name(),
-          exclusion.reason());
+          exclusion.exclusion().kind(),
+          exclusion.exclusion().reason());
     }
   }
 

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Eddie Aftandilian. Licensed under the MIT License.
 // See LICENSE file in the project root for details.
 //
-// .NET non-backtracking regex benchmark harness. It consumes the resolved
-// engine-neutral workload plan emitted by BenchmarkInputMaterializer.
+// .NET non-backtracking regex benchmark harness. It consumes the common
+// engine-specific execution plan emitted by BenchmarkInputMaterializer.
 
 using System.Diagnostics;
 using System.Globalization;
@@ -19,33 +19,8 @@ internal static class ResolvedPlanProgram
     private const string EngineName = "dotnet_nonbacktracking";
     private static readonly JsonSerializerOptions JsonOptions =
         new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    private static readonly HashSet<string> SupportedOperations =
-    [
-        "captureGroups",
-        "compile",
-        "compileAndFind",
-        "compileAndFindRotatingUtf16",
-        "find",
-        "findAllCount",
-        "findAllGroupLengthSum",
-        "findAllLengthSum",
-        "findGroup",
-        "findGroupPresent",
-        "findRotatingUtf16",
-        "lookingAt",
-        "matches",
-        "matchesCorpus",
-        "matchesGroupLengthSum",
-        "replaceAll",
-        "replaceAllLengthSum",
-        "replaceFirst",
-        "splitLengthSum"
-    ];
-
     private static JsonObject inputs = null!;
-    private static JsonArray workloads = null!;
-    private static Dictionary<string, string> patternProfile = [];
-    private static Dictionary<string, string> replacementProfile = [];
+    private static JsonArray entries = null!;
     private static string inputDirectory = "";
     private static string manifestPath = "";
     private static volatile bool boolSink;
@@ -92,11 +67,15 @@ internal static class ResolvedPlanProgram
         List<Exclusion> exclusions = [];
         List<Prepared> prepared = [];
 
-        foreach (JsonNode? raw in workloads)
+        foreach (JsonNode? raw in entries)
         {
-            JsonObject workload = raw?.AsObject()
-                ?? throw new InvalidDataException("Null resolved workload");
-            string id = String(workload, "id");
+            JsonObject entry = raw?.AsObject()
+                ?? throw new InvalidDataException("Null execution-plan entry");
+            if (String(entry, "engineId") != EngineName)
+            {
+                continue;
+            }
+            string id = String(entry, "workloadId");
             if (options.ColdChild is not null
                 ? options.ColdChild != id
                 : !MatchesFilter(id, options.Filters))
@@ -104,35 +83,17 @@ internal static class ResolvedPlanProgram
                 continue;
             }
 
-            string? staticReason = StaticExclusionReason(workload);
-            if (staticReason is not null)
+            string status = String(entry, "status");
+            if (status == "excluded")
             {
-                exclusions.Add(new(EngineName, id, staticReason));
+                exclusions.Add(new(EngineName, id, String(entry, "exclusion.reason")));
                 continue;
             }
-
-            try
+            if (status != "runnable")
             {
-                prepared.Add(Prepare(workload, options.ColdChild == id));
+                throw new InvalidDataException($"Unknown execution status for {id}: {status}");
             }
-            catch (ArgumentException exception)
-            {
-                exclusions.Add(
-                    new(
-                        EngineName,
-                        id,
-                        "pattern is not accepted by .NET non-backtracking mode: "
-                            + FirstLine(exception.Message)));
-            }
-            catch (NotSupportedException exception)
-            {
-                exclusions.Add(
-                    new(
-                        EngineName,
-                        id,
-                        "pattern is not supported by .NET non-backtracking mode: "
-                            + FirstLine(exception.Message)));
-            }
+            prepared.Add(Prepare(entry, options.ColdChild == id));
         }
 
         if (options.ColdChild is not null)
@@ -226,156 +187,19 @@ internal static class ResolvedPlanProgram
 
         inputDirectory = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
         inputs = manifest["inputs"]!.AsObject();
-        workloads = manifest["resolvedWorkloads"]?.AsArray()
+        JsonObject executionPlan = manifest["executionPlan"]?.AsObject()
             ?? throw new InvalidDataException(
-                "Manifest has no resolvedWorkloads; rerun materialize-benchmark-inputs.sh");
-        patternProfile = LoadProfile(
-            manifest["benchmarkData"]!,
-            "patternProfiles",
-            "dotnet");
-        replacementProfile = LoadProfile(
-            manifest["benchmarkData"]!,
-            "replacementProfiles",
-            "dotnet");
-    }
-
-    private static Dictionary<string, string> LoadProfile(
-        JsonNode data,
-        string registry,
-        string profileId)
-    {
-        Dictionary<string, string> result = [];
-        JsonArray? entries = data[registry]?[profileId]?.AsArray();
-        if (entries is null)
+                "Manifest has no executionPlan; rerun materialize-benchmark-inputs.sh");
+        if (executionPlan["version"]!.GetValue<int>() != 1)
         {
-            return result;
+            throw new InvalidDataException("Unsupported benchmark execution-plan version");
         }
-        foreach (JsonNode? rawEntry in entries)
-        {
-            JsonNode entry = rawEntry
-                ?? throw new InvalidDataException(
-                    $"Null {registry} entry: {profileId}");
-            result.Add(String(entry, "java"), String(entry, "alternate"));
-        }
-        return result;
-    }
-
-    private static string? StaticExclusionReason(JsonObject workload)
-    {
-        string operation = String(workload, "operation");
-        if (!SupportedOperations.Contains(operation))
-        {
-            return operation switch
-            {
-                "analyzePattern" or "cachedAnalysis" or "compileAndAnalyze"
-                    or "diagnosticsFind" =>
-                    "SafeRE diagnostics have no .NET Regex equivalent",
-                "dfaCacheGrowth" => ".NET does not expose its regex-engine cache state",
-                "patternSetMatches" => ".NET Regex has no compiled multi-pattern set API",
-                "matcherConstruction" or "utf8CaptureBounds" or "utf8DecodeFind"
-                    or "utf8Replacement" =>
-                    "workload measures SafeRE's byte-oriented UTF-8 API",
-                "manualReplaceAll" =>
-                    ".NET Regex has no append-replacement and append-tail matcher API",
-                "matcherRegionFind" or "matcherResetFind" =>
-                    ".NET Regex has no retained mutable matcher lifecycle",
-                _ => $"operation is not implemented by the .NET runner: {operation}"
-            };
-        }
-
-        string mode = String(workload, "measurement.mode");
-        if (mode == "retainedMemory")
-        {
-            return "retained-heap measurement is not available from the .NET Regex API";
-        }
-        if (mode is not ("averageTime" or "compileOnly" or "singleShotColdStart"))
-        {
-            return $"measurement mode is not implemented by the .NET runner: {mode}";
-        }
-
-        HashSet<string> representations =
-            Strings(workload, "inputRepresentations").ToHashSet();
-        if (!representations.Contains("javaString"))
-        {
-            return "workload has no UTF-16 string representation";
-        }
-
-        string flagSet = OptionalString(workload["arguments"], "flagSet") ?? "0";
-        if (flagSet == "CASE_INSENSITIVE")
-        {
-            return ".NET cannot combine non-backtracking mode with Java's ASCII-only "
-                + "case-insensitive semantics";
-        }
-        string[] patterns = Strings(workload, "patterns");
-        if (patterns.Any(EnablesInlineCaseInsensitive))
-        {
-            return ".NET inline case-insensitive matching is Unicode-aware, unlike Java's "
-                + "default ASCII-only mode";
-        }
-        bool unicodeCharacterClass = flagSet.Contains(
-            "UNICODE_CHARACTER_CLASS",
-            StringComparison.Ordinal);
-        if (!unicodeCharacterClass && patterns.Any(UsesJavaAsciiShorthand))
-        {
-            return ".NET gives \\d, \\s, and \\w Unicode semantics while Java defaults "
-                + "to ASCII semantics";
-        }
-        return null;
-    }
-
-    private static bool UsesJavaAsciiShorthand(string pattern)
-    {
-        for (int i = 0; i + 1 < pattern.Length; i++)
-        {
-            if (pattern[i] != '\\')
-            {
-                continue;
-            }
-            if ("dDsSwW".Contains(pattern[i + 1]))
-            {
-                return true;
-            }
-            i++;
-        }
-        return false;
-    }
-
-    private static bool EnablesInlineCaseInsensitive(string pattern)
-    {
-        for (int start = 0; start + 2 < pattern.Length; start++)
-        {
-            if (pattern[start] != '(' || pattern[start + 1] != '?')
-            {
-                continue;
-            }
-            bool enabled = true;
-            for (int i = start + 2; i < pattern.Length; i++)
-            {
-                char current = pattern[i];
-                if (current is ':' or ')')
-                {
-                    break;
-                }
-                if (current == '-')
-                {
-                    enabled = false;
-                }
-                else if (current == 'i' && enabled)
-                {
-                    return true;
-                }
-                else if (!char.IsAsciiLetter(current))
-                {
-                    break;
-                }
-            }
-        }
-        return false;
+        entries = executionPlan["entries"]!.AsArray();
     }
 
     private static Prepared Prepare(JsonObject workload, bool skipPatternProbe)
     {
-        string id = String(workload, "id");
+        string id = String(workload, "workloadId");
         string operation = String(workload, "operation");
         string mode = String(workload, "measurement.mode");
         string unit = String(workload, "measurement.timingUnit") switch
@@ -386,11 +210,8 @@ internal static class ResolvedPlanProgram
             string other => throw new InvalidDataException(
                 $"Unsupported timing unit for {id}: {other}")
         };
-        string flagSet = OptionalString(workload["arguments"], "flagSet") ?? "0";
-        RegexOptions options = OptionsFor(flagSet);
-        string[] patternSources = Strings(workload, "patterns")
-            .Select(SelectPattern)
-            .ToArray();
+        RegexOptions options = OptionsFor(Strings(workload, "options"));
+        string[] patternSources = Strings(workload, "patterns");
         foreach (string pattern in patternSources)
         {
             if (!skipPatternProbe)
@@ -440,8 +261,7 @@ internal static class ResolvedPlanProgram
         JsonNode arguments = workload["arguments"]!;
         int[] groups = OptionalInts(arguments, "groups");
         int group = OptionalInt(arguments, "group") ?? 0;
-        string replacement = SelectReplacement(
-            OptionalString(arguments, "replacement") ?? "");
+        string replacement = OptionalString(arguments, "replacement") ?? "";
         int limit = OptionalInt(arguments, "limit") ?? 0;
         int seed = OptionalInt(arguments, "seed") ?? 0;
         int count = OptionalInt(arguments, "count") ?? 0;
@@ -656,21 +476,23 @@ internal static class ResolvedPlanProgram
             workload.Unit);
     }
 
-    private static RegexOptions OptionsFor(string flagSet) =>
-        flagSet switch
+    private static RegexOptions OptionsFor(IEnumerable<string> options)
+    {
+        HashSet<string> selected = options.ToHashSet();
+        selected.Remove("unicodeCase");
+        selected.Remove("unicodeCharacterClass");
+        RegexOptions result = BaseOptions;
+        if (selected.Remove("caseInsensitive"))
         {
-            "0" or "UNICODE_CHARACTER_CLASS" => BaseOptions,
-            "CASE_INSENSITIVE" or "CASE_INSENSITIVE_UNICODE_CASE"
-                or "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS" =>
-                BaseOptions | RegexOptions.IgnoreCase,
-            _ => throw new NotSupportedException($"Java flag set has no mapping: {flagSet}")
-        };
-
-    private static string SelectPattern(string javaPattern) =>
-        patternProfile.GetValueOrDefault(javaPattern, javaPattern);
-
-    private static string SelectReplacement(string javaReplacement) =>
-        replacementProfile.GetValueOrDefault(javaReplacement, javaReplacement);
+            result |= RegexOptions.IgnoreCase;
+        }
+        if (selected.Count != 0)
+        {
+            throw new InvalidDataException(
+                $"Unsupported materialized .NET options: {string.Join(",", selected)}");
+        }
+        return result;
+    }
 
     private static string LoadBenchmarkInput(string key)
     {
@@ -740,28 +562,12 @@ internal static class ResolvedPlanProgram
             throw new InvalidOperationException(
                 "Java Random compatibility self-test produced the wrong UTF-16 sequence");
         }
-        if (!UsesJavaAsciiShorthand(@"\d+")
-            || UsesJavaAsciiShorthand(@"\\d+")
-            || !EnablesInlineCaseInsensitive("(?is)abc")
-            || !EnablesInlineCaseInsensitive("(?mi:abc)")
-            || EnablesInlineCaseInsensitive("(?-i:abc)"))
-        {
-            throw new InvalidOperationException(
-                "Java regex compatibility classification self-test failed");
-        }
         Regex letterWithoutUppercase =
             new(@"[\p{L}-[\p{Lu}]]+", BaseOptions);
         if (!letterWithoutUppercase.IsMatch("a") || letterWithoutUppercase.IsMatch("A"))
         {
             throw new InvalidOperationException(
                 ".NET character-class subtraction self-test failed");
-        }
-        replacementProfile = new() { ["$1word"] = "${1}word" };
-        if (SelectReplacement("$1word") != "${1}word"
-            || SelectReplacement("$1") != "$1")
-        {
-            throw new InvalidOperationException(
-                ".NET replacement-profile selection self-test failed");
         }
         return 0;
     }
@@ -801,10 +607,6 @@ internal static class ResolvedPlanProgram
 
     private static bool MatchesFilter(string name, IReadOnlyCollection<string> filters) =>
         filters.Count == 0 || filters.Any(name.Contains);
-
-    private static string FirstLine(string value) =>
-        value.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
-            ?? value;
 
     private static JsonNode Get(JsonNode node, string path)
     {

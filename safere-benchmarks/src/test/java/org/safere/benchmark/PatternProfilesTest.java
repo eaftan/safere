@@ -222,7 +222,7 @@ class PatternProfilesTest {
     assertThat(replacements.select("pcre2", "$1")).isEqualTo("$1");
     assertThat(replacements.select("rust-regex", "$2$1ay")).isEqualTo("${2}${1}ay");
     assertThat(patterns.select("dotnet", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
-        .isEqualTo("^\\s*<(Apple|Banana|Cherry)>\\s*$");
+        .isEqualTo("^[ \\t\\n\\x0B\\f\\r]*<(Apple|Banana|Cherry)>[ \\t\\n\\x0B\\f\\r]*$");
     assertThat(patterns.select("dotnet", "[😀-😇]")).isEqualTo("\\uD83D[\\uDE00-\\uDE07]");
     assertThat(patterns.select("dotnet", "\\p{javaLetter}")).isEqualTo("\\p{L}");
     assertThat(patterns.select("dotnet", "\\p{block=BasicLatin}+")).isEqualTo("[\\u0000-\\u007F]+");

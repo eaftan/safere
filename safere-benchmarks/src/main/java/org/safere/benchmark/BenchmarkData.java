@@ -31,8 +31,8 @@ public final class BenchmarkData {
 
   private final Path corpusDirectory;
   private final JsonObject root;
+  private final JsonObject executionPlan;
   private final JsonObject materializedInputs;
-  private final PatternProfiles patternProfiles;
   private final Map<String, byte[]> inputBytes = new ConcurrentHashMap<>();
   private final Map<String, String> inputStrings = new ConcurrentHashMap<>();
 
@@ -53,8 +53,12 @@ public final class BenchmarkData {
             "Unsupported benchmark input manifest version: " + manifest.get("version"));
       }
       root = manifest.getAsJsonObject("benchmarkData");
+      executionPlan = manifest.getAsJsonObject("executionPlan");
+      if (executionPlan == null
+          || executionPlan.get("version").getAsInt() != ResolvedBenchmarkPlan.VERSION) {
+        throw new IllegalArgumentException("Unsupported or missing benchmark execution plan");
+      }
       materializedInputs = manifest.getAsJsonObject("inputs");
-      patternProfiles = PatternProfiles.parse(root.get("patternProfiles"));
     } catch (Exception e) {
       throw new RuntimeException("Failed to load materialized benchmark data: " + manifestPath, e);
     }
@@ -65,12 +69,8 @@ public final class BenchmarkData {
     return INSTANCE;
   }
 
-  JsonObject declarativePlan() {
-    JsonObject plan = new JsonObject();
-    plan.add("schemaVersion", root.get("schemaVersion").deepCopy());
-    plan.add("inputs", root.getAsJsonArray("inputs").deepCopy());
-    plan.add("workloads", root.getAsJsonArray("workloads").deepCopy());
-    return plan;
+  JsonObject executionPlan() {
+    return executionPlan.deepCopy();
   }
 
   /**
@@ -128,17 +128,6 @@ public final class BenchmarkData {
    */
   public byte[] getInputBytes(String key) {
     return loadInputBytes(key).clone();
-  }
-
-  /**
-   * Selects an explicit profile alternative or returns the Java-canonical pattern unchanged.
-   *
-   * @param profileId pattern profile selected by an engine adapter
-   * @param javaPattern Java-canonical benchmark pattern
-   * @return exact pattern source for the selected profile
-   */
-  public String getPattern(String profileId, String javaPattern) {
-    return patternProfiles.select(profileId, javaPattern);
   }
 
   private byte[] loadInputBytes(String key) {

@@ -35,9 +35,11 @@ representation and timed conversion boundaries are not erased.
 
 C++ RE2, PCRE2 JIT, Go `regexp`, Rust `regex`, and .NET non-backtracking harnesses run outside the
 JVM and emit JSONL with the same stable workload identities. RE2 and PCRE2 JIT share one C++
-workload harness but emit distinct engine IDs. The materialized manifest includes the fully expanded
-`resolvedWorkloads` plan for native consumers. The .NET runner accounts for every entry by either
-executing it or making an explicit capability exclusion available through `--list-exclusions`.
-Cross-runtime results are not treated as missing or excluded Java execution variants. Per-engine
+workload harness but emit distinct engine IDs. The materialized manifest includes one versioned
+`executionPlan` for Java and native consumers. It contains the complete workload-by-engine join;
+each entry is runnable with exact engine-selected syntax and arguments, or excluded with a durable
+reason. Native runners implement generic operations and expose planned exclusions through
+`--list-exclusions`; they do not select profiles, dispatch workload families, or infer
+capabilities. Cross-runtime results are not treated as missing or excluded Java execution variants. Per-engine
 workload, toolchain, and smoke-test details are documented in
 [`CROSS_RUNTIME_ENGINES.md`](CROSS_RUNTIME_ENGINES.md).

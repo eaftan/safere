@@ -42,74 +42,45 @@ final class CrossEngineBenchmarkPlan {
           DeclarativeBenchmarkPlan.Operation.MATCHER_REGION_FIND,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP);
-  private static final EnumSet<DeclarativeBenchmarkPlan.Operation> IMPLEMENTED_OPERATIONS =
-      EnumSet.copyOf(CROSS_ENGINE_OPERATIONS);
-
-  static {
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.ANALYZE_PATTERN);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.CACHED_ANALYSIS);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.COMPILE_AND_ANALYZE);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.DFA_CACHE_GROWTH);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.DIAGNOSTICS_FIND);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.FIND_IN_WINDOW);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.MATCHER_CONSTRUCTION);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.PATTERN_SET_MATCHES);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.UTF8_CAPTURE_BOUNDS);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.UTF8_DECODE_FIND);
-    IMPLEMENTED_OPERATIONS.add(DeclarativeBenchmarkPlan.Operation.UTF8_REPLACEMENT);
-  }
-
   private final Map<String, CrossEngineWorkload> workloads;
   private final Map<String, Trial> trials;
-  private final List<DeclarativeBenchmarkPlan.Exclusion> exclusions;
+  private final List<MaterializedExecutionPlan.Entry> exclusions;
 
   private CrossEngineBenchmarkPlan(
       Map<String, CrossEngineWorkload> workloads,
       Map<String, Trial> trials,
-      List<DeclarativeBenchmarkPlan.Exclusion> exclusions) {
+      List<MaterializedExecutionPlan.Entry> exclusions) {
     this.workloads = Collections.unmodifiableMap(new LinkedHashMap<>(workloads));
     this.trials = Collections.unmodifiableMap(new LinkedHashMap<>(trials));
     this.exclusions = List.copyOf(exclusions);
   }
 
   static CrossEngineBenchmarkPlan load() {
-    BenchmarkData data = BenchmarkData.get();
-    DeclarativeBenchmarkPlan plan = DeclarativeBenchmarkPlan.parse(data.declarativePlan());
-    List<DeclarativeBenchmarkPlan.EngineDeclaration> engines =
-        Arrays.stream(RegexEngineVariant.values()).map(RegexEngineVariant::declaration).toList();
-    return fromExpanded(plan.expand(engines, IMPLEMENTED_OPERATIONS));
+    return fromMaterialized(MaterializedExecutionPlan.load().entriesForRunner("java"));
   }
 
-  private static CrossEngineBenchmarkPlan fromExpanded(
-      DeclarativeBenchmarkPlan.ExpandedPlan expanded) {
+  private static CrossEngineBenchmarkPlan fromMaterialized(
+      List<MaterializedExecutionPlan.Entry> entries) {
     Map<String, CrossEngineWorkload> workloads = new LinkedHashMap<>();
-    for (DeclarativeBenchmarkPlan.ExpandedWorkload workload : expanded.workloads()) {
-      if (!CROSS_ENGINE_OPERATIONS.contains(workload.operation())
-          || !workload.measurement().timingUnit().isTime()) {
-        continue;
-      }
-      CrossEngineWorkload converted = convert(workload);
-      if (workloads.put(converted.id(), converted) != null) {
-        throw new IllegalArgumentException("Duplicate cross-engine workload ID: " + converted.id());
-      }
-    }
-
     Map<String, Trial> trials = new LinkedHashMap<>();
-    for (DeclarativeBenchmarkPlan.Trial trial : expanded.trials()) {
-      CrossEngineWorkload workload = workloads.get(trial.workload().id());
-      if (workload == null) {
+    List<MaterializedExecutionPlan.Entry> exclusions = new ArrayList<>();
+    for (MaterializedExecutionPlan.Entry entry : entries) {
+      if (!CROSS_ENGINE_OPERATIONS.contains(entry.operation())
+          || !entry.measurement().timingUnit().isTime()) {
         continue;
       }
-      RegexEngineVariant variant = RegexEngineVariant.fromId(trial.engine().id());
+      if (!entry.runnable()) {
+        exclusions.add(entry);
+        continue;
+      }
+      CrossEngineWorkload workload = convert(entry.workload());
+      workloads.putIfAbsent(entry.workloadId(), workload);
+      RegexEngineVariant variant = RegexEngineVariant.fromId(entry.engineId());
       Trial converted = new Trial(workload, variant);
       if (trials.put(converted.id(), converted) != null) {
         throw new IllegalArgumentException("Duplicate cross-engine trial ID: " + converted.id());
       }
     }
-    List<DeclarativeBenchmarkPlan.Exclusion> exclusions =
-        expanded.exclusions().stream()
-            .filter(exclusion -> workloads.containsKey(exclusion.workloadId()))
-            .toList();
     return new CrossEngineBenchmarkPlan(workloads, trials, exclusions);
   }
 
@@ -140,7 +111,7 @@ final class CrossEngineBenchmarkPlan {
     return List.copyOf(workloads.values());
   }
 
-  List<DeclarativeBenchmarkPlan.Exclusion> exclusions() {
+  List<MaterializedExecutionPlan.Entry> exclusions() {
     return exclusions;
   }
 
@@ -161,7 +132,7 @@ final class CrossEngineBenchmarkPlan {
       throw new IllegalArgumentException("Unknown cross-engine workload ID: " + workloadId);
     }
     RegexEngineVariant.fromId(variantId);
-    DeclarativeBenchmarkPlan.Exclusion exclusion =
+    MaterializedExecutionPlan.Entry exclusion =
         exclusions.stream()
             .filter(
                 candidate ->
@@ -178,9 +149,9 @@ final class CrossEngineBenchmarkPlan {
             + " uses "
             + workload.operation()
             + "; "
-            + exclusion.kind()
+            + exclusion.exclusion().kind()
             + ": "
-            + exclusion.reason());
+            + exclusion.exclusion().reason());
   }
 
   static void main(String[] args) {

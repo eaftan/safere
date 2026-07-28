@@ -3,7 +3,8 @@
 The cross-runtime matrix contains native C++ RE2, PCRE2 JIT, Go `regexp`, Rust
 `regex`, and .NET non-backtracking. All runners read materialized inputs,
 Java-canonical patterns and replacement templates, and stable workload
-identities derived from `benchmark-data.json`.
+identities derived from `benchmark-data.json`. Every runner consumes its rows
+from the same versioned materialized execution plan.
 
 ## Workload coverage
 
@@ -16,10 +17,10 @@ interpreted matching rather than JIT matching; reporting those measurements
 under the `pcre2_jit` engine ID would be misleading. Filters are forwarded
 unchanged to the selected engines.
 
-Go `regexp` and Rust `regex` run every workload implemented by their respective
-harnesses. .NET consumes the expanded workload plan and reports an explicit
-reason for every workload it cannot execute. Engine-specific syntax is selected
-through declared pattern and replacement profiles; unsupported syntax is not
+Go `regexp`, Rust `regex`, and .NET non-backtracking run every entry declared
+runnable for that engine. Every harness can list the plan's explicit
+exclusions with `--list-exclusions`. Engine-specific syntax and compatibility
+are resolved during materialization; unsupported syntax is never inferred or
 rewritten by a runner.
 
 These measurements are cross-runtime context rather than controlled same-JVM
@@ -84,9 +85,8 @@ the declared linear-time behavior. Replacement workloads are also absent
 because PCRE2 does not expose a JIT substitution operation. The engine
 self-test still checks substitution correctness outside benchmark measurement.
 
-On platforms with `mallinfo2`, both C++ engines also emit native heap deltas
-for memory workloads. Other platforms still run timing workloads and the
-engine self-tests, but do not emit that platform-specific heap measurement.
+C++ retained-memory rows are explicitly excluded because no portable,
+comparable retained-heap measurement is available across supported hosts.
 
 ## Go `regexp`
 
