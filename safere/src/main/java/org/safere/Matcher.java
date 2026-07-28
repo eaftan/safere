@@ -872,6 +872,7 @@ public final class Matcher implements MatchResult {
       return matchesCore();
     } finally {
       if (regionSubstituted) {
+        resolveCapturesBeforeRestoringRegion();
         text = savedText;
         textScanner = savedTextScanner;
         if (hasMatch) {
@@ -880,10 +881,6 @@ public final class Matcher implements MatchResult {
               groups[i] += regionStart;
             }
           }
-        }
-        if (hasMatch && !capturesResolved) {
-          deferredMatchStart += regionStart;
-          deferredMatchEnd += regionStart;
         }
       }
       fullTextRegionContext = false;
@@ -1079,6 +1076,7 @@ public final class Matcher implements MatchResult {
       return lookingAtCore();
     } finally {
       if (regionSubstituted) {
+        resolveCapturesBeforeRestoringRegion();
         text = savedText;
         textScanner = savedTextScanner;
         if (hasMatch) {
@@ -1087,10 +1085,6 @@ public final class Matcher implements MatchResult {
               groups[i] += regionStart;
             }
           }
-        }
-        if (hasMatch && !capturesResolved) {
-          deferredMatchStart += regionStart;
-          deferredMatchEnd += regionStart;
         }
       }
       fullTextRegionContext = false;
@@ -1371,6 +1365,7 @@ public final class Matcher implements MatchResult {
       return doFindCore(regionActive);
     } finally {
       if (regionSubstituted) {
+        resolveCapturesBeforeRestoringRegion();
         text = savedText;
         textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
@@ -1380,10 +1375,6 @@ public final class Matcher implements MatchResult {
               groups[i] += regionStart;
             }
           }
-        }
-        if (hasMatch && !capturesResolved) {
-          deferredMatchStart += regionStart;
-          deferredMatchEnd += regionStart;
         }
       }
       fullTextRegionContext = false;
@@ -3700,6 +3691,15 @@ public final class Matcher implements MatchResult {
     }
     capturesResolved = true;
     groupZeroResolved = true;
+  }
+
+  private void resolveCapturesBeforeRestoringRegion() {
+    // Deferred captures must be replayed against the same opaque region view that produced the
+    // match. Restoring the full input first would change empty-width assertion semantics at the
+    // region boundaries.
+    if (hasMatch && !capturesResolved) {
+      resolveCaptures();
+    }
   }
 
   private InputScanner activeScanner() {

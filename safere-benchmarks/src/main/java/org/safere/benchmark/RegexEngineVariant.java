@@ -54,6 +54,11 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public int start(int group) {
+              return matcher.start(group);
+            }
+
+            @Override
             public void reset() {
               matcher.reset();
             }
@@ -138,8 +143,8 @@ enum RegexEngineVariant {
             }
 
             @Override
-            public boolean groupParticipated(int group) {
-              return matcher.start(group) >= 0;
+            public int start(int group) {
+              return matcher.start(group);
             }
 
             @Override
@@ -193,6 +198,11 @@ enum RegexEngineVariant {
             @Override
             public String group(int group) {
               return matcher.group(group);
+            }
+
+            @Override
+            public int start(int group) {
+              return matcher.start(group);
             }
 
             @Override
@@ -274,6 +284,11 @@ enum RegexEngineVariant {
             }
 
             @Override
+            public int start(int group) {
+              return matcher.start(group);
+            }
+
+            @Override
             public void reset() {
               matcher.reset();
             }
@@ -344,6 +359,11 @@ enum RegexEngineVariant {
             @Override
             public String group(int group) {
               return matcher.group(group);
+            }
+
+            @Override
+            public int start(int group) {
+              return matcher.start(group);
             }
 
             @Override
@@ -573,8 +593,12 @@ enum RegexEngineVariant {
       throw new UnsupportedOperationException();
     }
 
+    default int start(int group) {
+      throw new UnsupportedOperationException();
+    }
+
     default boolean groupParticipated(int group) {
-      return group(group) != null;
+      return start(group) >= 0;
     }
 
     default void reset() {

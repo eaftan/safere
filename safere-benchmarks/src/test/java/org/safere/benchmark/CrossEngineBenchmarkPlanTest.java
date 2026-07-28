@@ -259,6 +259,25 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
+  void groupParticipationUsesBoundsWithoutMaterializingCaptureText() {
+    RegexEngineVariant.MatchCursor cursor =
+        new RegexEngineVariant.MatchCursor() {
+          @Override
+          public int start(int group) {
+            return group == 1 ? 4 : -1;
+          }
+
+          @Override
+          public String group(int group) {
+            throw new AssertionError("group participation must not materialize capture text");
+          }
+        };
+
+    assertThat(cursor.groupParticipated(1)).isTrue();
+    assertThat(cursor.groupParticipated(2)).isFalse();
+  }
+
+  @Test
   void coldStartPreparationDefersCompilationUntilTheMeasuredTask() {
     CrossEngineWorkload workload =
         new CrossEngineWorkload(

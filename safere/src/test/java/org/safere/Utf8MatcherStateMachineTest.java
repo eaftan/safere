@@ -162,6 +162,47 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void regionMatchOperationsPreserveBoundarySensitiveCaptures() {
+    record Scenario(String regex, String input, int regionStart, int regionEnd) {}
+
+    for (Scenario scenario :
+        List.of(
+            new Scenario("(\\b(?:a|aa))", "xaa", 1, 3),
+            new Scenario("((?:a|aa)\\b)", "aax", 0, 2))) {
+      for (String operation : List.of("matches", "lookingAt", "find")) {
+        java.util.regex.Matcher oracle =
+            java.util.regex.Pattern.compile(scenario.regex()).matcher(scenario.input());
+        oracle.region(scenario.regionStart(), scenario.regionEnd());
+        boolean expected =
+            switch (operation) {
+              case "matches" -> oracle.matches();
+              case "lookingAt" -> oracle.lookingAt();
+              case "find" -> oracle.find();
+              default -> throw new AssertionError(operation);
+            };
+
+        Utf8Matcher actual = matcher(scenario.regex(), scenario.input());
+        actual.region(scenario.regionStart(), scenario.regionEnd());
+        boolean matched =
+            switch (operation) {
+              case "matches" -> actual.matches();
+              case "lookingAt" -> actual.lookingAt();
+              case "find" -> actual.find();
+              default -> throw new AssertionError(operation);
+            };
+
+        assertThat(matched).as("%s for /%s/", operation, scenario.regex()).isEqualTo(expected);
+        assertThat(actual.start(1))
+            .as("%s capture start for /%s/", operation, scenario.regex())
+            .isEqualTo(oracle.start(1));
+        assertThat(actual.end(1))
+            .as("%s capture end for /%s/", operation, scenario.regex())
+            .isEqualTo(oracle.end(1));
+      }
+    }
+  }
+
+  @Test
   void regionRejectsInvalidByteRanges() {
     Utf8Matcher matcher = matcher("é", "xéy");
 
