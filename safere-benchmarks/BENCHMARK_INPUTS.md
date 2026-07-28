@@ -15,11 +15,12 @@ Java string engines decode input files as UTF-8 during benchmark setup, while
 byte-oriented engines use the bytes directly. Materialization and decoding are
 outside the timed operation.
 
-Patterns remain Java-canonical in `benchmark-data.json`. Explicit
-engine-dialect alternatives live beside the pattern that needs them. The
-materializer collects those inline definitions into the resolved manifest;
-runners select their profile there and otherwise use the Java string unchanged.
-See [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md#pattern-profiles).
+Regex patterns and replacement templates remain Java-canonical in
+`benchmark-data.json`. Explicit engine-dialect alternatives live beside the
+value that needs them. The materializer collects those inline definitions into
+separate resolved pattern and replacement profiles; runners select exact values
+there and otherwise use the Java string unchanged. See
+[DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md#pattern-profiles).
 
 The normal runner scripts materialize automatically. To prepare the corpus
 without starting a benchmark, run from the repository root:

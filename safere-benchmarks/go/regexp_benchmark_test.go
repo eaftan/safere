@@ -54,3 +54,25 @@ func TestCheckedInRE2PatternProfileCompiles(t *testing.T) {
 		t.Fatal("no inline re2 pattern alternates found")
 	}
 }
+
+func TestExplicitProfileAlternateIsSelectedWithJavaFallback(t *testing.T) {
+	data := map[string]any{
+		"replacementProfiles": map[string]any{
+			"go-regexp": []any{
+				map[string]any{
+					"java":      "$2$1ay",
+					"alternate": "${2}${1}ay",
+				},
+			},
+		},
+	}
+
+	profile := loadProfile(data, "replacementProfiles", "go-regexp")
+
+	if got := selectedProfileValue(profile, "$2$1ay"); got != "${2}${1}ay" {
+		t.Fatalf("selected alternate = %q, want %q", got, "${2}${1}ay")
+	}
+	if got := selectedProfileValue(profile, "$1=[$2]"); got != "$1=[$2]" {
+		t.Fatalf("fallback = %q, want unchanged Java value", got)
+	}
+}

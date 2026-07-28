@@ -73,6 +73,24 @@ public final class BenchmarkData {
     return plan;
   }
 
+  /**
+   * Gets a string value by dot-separated path.
+   *
+   * @param path path within the resolved benchmark data
+   * @return exact configured string
+   */
+  public String getString(String path) {
+    String[] parts = path.split("\\.");
+    JsonElement element = root;
+    for (String part : parts) {
+      element = element.getAsJsonObject().get(part);
+      if (element == null) {
+        throw new IllegalArgumentException("No value at path: " + path);
+      }
+    }
+    return element.getAsString();
+  }
+
   /** Get a string array by dot-separated path. */
   public List<String> getStringList(String path) {
     String[] parts = path.split("\\.");

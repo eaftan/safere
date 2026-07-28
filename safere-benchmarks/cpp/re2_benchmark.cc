@@ -16,7 +16,6 @@
 // are given, all benchmarks are run.
 
 #include <array>
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -43,6 +42,7 @@ using json = nlohmann::json;
 json benchmark_input_manifest;
 std::filesystem::path benchmark_input_directory;
 std::unordered_map<std::string, std::string> benchmark_pattern_profile;
+std::unordered_map<std::string, std::string> benchmark_replacement_profile;
 
 std::string sha256_hex(std::string_view input) {
   static constexpr std::array<uint32_t, 64> kRoundConstants = {
@@ -283,6 +283,16 @@ json load_benchmark_manifest(const std::string& manifest_path_string) {
       }
     }
   }
+  if (benchmark_data.contains("replacementProfiles")) {
+    const auto& profiles = benchmark_data.at("replacementProfiles");
+    if (profiles.contains("re2-cpp")) {
+      for (const auto& entry : profiles.at("re2-cpp")) {
+        benchmark_replacement_profile.emplace(
+            entry.at("java").get<std::string>(),
+            entry.at("alternate").get<std::string>());
+      }
+    }
+  }
   return benchmark_data;
 }
 
@@ -290,6 +300,13 @@ std::string select_pattern(const std::string& java_pattern) {
   auto alternate = benchmark_pattern_profile.find(java_pattern);
   return alternate == benchmark_pattern_profile.end()
              ? java_pattern
+             : alternate->second;
+}
+
+std::string select_replacement(const std::string& java_replacement) {
+  auto alternate = benchmark_replacement_profile.find(java_replacement);
+  return alternate == benchmark_replacement_profile.end()
+             ? java_replacement
              : alternate->second;
 }
 
@@ -328,27 +345,6 @@ std::string load_benchmark_input(const std::string& key) {
     exit(1);
   }
   return text;
-}
-
-// Convert Java-style replacement references ($N) to RE2 C++ style (\\N).
-std::string convert_replacement(const std::string& repl) {
-  std::string result;
-  for (size_t i = 0; i < repl.size(); ++i) {
-    if (repl[i] == '$' && i + 1 < repl.size() &&
-        std::isdigit(static_cast<unsigned char>(repl[i + 1]))) {
-      result += '\\';
-      ++i;
-      while (i < repl.size() &&
-             std::isdigit(static_cast<unsigned char>(repl[i]))) {
-        result += repl[i];
-        ++i;
-      }
-      --i;
-    } else {
-      result += repl[i];
-    }
-  }
-  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -444,7 +440,7 @@ void run_application_benchmarks(const json& data,
           groups(item.contains("groups") ? item.at("groups").get<std::vector<int>>()
                                          : std::vector<int>()),
           replacement(item.contains("replacement")
-                          ? convert_replacement(item.at("replacement").get<std::string>())
+                          ? select_replacement(item.at("replacement").get<std::string>())
                           : ""),
           expected(item.at("expected")),
           re(pattern) {}
@@ -593,12 +589,17 @@ void run_real_world_regex_benchmarks(
     std::string name;
     std::string op;
     std::string pattern;
+    std::string replacement;
     RE2 re;
 
     explicit RealWorldCase(const json& item)
         : name(item.at("name").get<std::string>()),
           op(item.at("op").get<std::string>()),
           pattern(select_pattern(item.at("pattern").get<std::string>())),
+          replacement(item.contains("replacement")
+                          ? select_replacement(
+                                item.at("replacement").get<std::string>())
+                          : ""),
           re(pattern) {}
   };
 
@@ -645,19 +646,19 @@ void run_real_world_regex_benchmarks(
         } else if (c.op == "replaceAllEmpty") {
           print_json(measure(name, [&]() {
             std::string replaced = text;
-            RE2::GlobalReplace(&replaced, c.re, "");
+            RE2::GlobalReplace(&replaced, c.re, c.replacement);
             do_not_optimize(replaced);
           }));
         } else if (c.op == "replaceAllGroup1") {
           print_json(measure(name, [&]() {
             std::string replaced = text;
-            RE2::GlobalReplace(&replaced, c.re, "\\1");
+            RE2::GlobalReplace(&replaced, c.re, c.replacement);
             do_not_optimize(replaced);
           }));
         } else if (c.op == "replaceAllLiteral") {
           print_json(measure(name, [&]() {
             std::string replaced = text;
-            RE2::GlobalReplace(&replaced, c.re, "xyz");
+            RE2::GlobalReplace(&replaced, c.re, c.replacement);
             do_not_optimize(replaced);
           }));
         }
@@ -950,7 +951,7 @@ void run_replace_benchmarks(const json& data,
         key,
         select_pattern(val["pattern"].get<std::string>()),
         val["text"].get<std::string>(),
-        convert_replacement(val["replacement"].get<std::string>()),
+        select_replacement(val["replacement"].get<std::string>()),
         val["op"].get<std::string>()
     });
   }

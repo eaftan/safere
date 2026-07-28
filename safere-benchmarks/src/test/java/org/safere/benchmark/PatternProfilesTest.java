@@ -206,6 +206,14 @@ class PatternProfilesTest {
         .isEqualTo("([0-9]{4})-([0-9]{2})-([0-9]{2})");
     assertThat(patterns.select("rust-regex", "\\b\\w+ing\\b"))
         .isEqualTo("(?-u:\\b)[A-Za-z0-9_]+ing(?-u:\\b)");
+    assertThat(replacements.select("re2-cpp", "$1=[$2]")).isEqualTo("\\1=[\\2]");
+    assertThat(replacements.select("re2-cpp", "${key}=[${value}]")).isEqualTo("\\1=[\\2]");
+    assertThat(replacements.select("re2-cpp", "$1<tag type=\"custom\""))
+        .isEqualTo("\\1<tag type=\"custom\"");
+    assertThat(replacements.select("re2-cpp", "$2$1ay")).isEqualTo("\\2\\1ay");
+    assertThat(replacements.select("re2-cpp", "$1=REDACTED")).isEqualTo("\\1=REDACTED");
+    assertThat(replacements.select("re2-cpp", "$1")).isEqualTo("\\1");
+    assertThat(replacements.select("go-regexp", "$2$1ay")).isEqualTo("${2}${1}ay");
     assertThat(replacements.select("rust-regex", "$2$1ay")).isEqualTo("${2}${1}ay");
     for (String profileType : List.of("patternProfiles", "replacementProfiles")) {
       for (JsonElement profile : normalized.getAsJsonObject(profileType).asMap().values()) {

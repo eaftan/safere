@@ -4,7 +4,7 @@
 // Rust regex benchmark harness. Runs the same patterns and inputs as the Java,
 // C++, and Go benchmarks and outputs JSON lines for cross-language comparison.
 
-use regex::{NoExpand, Regex};
+use regex::Regex;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 #[cfg(feature = "memory-tracking")]
@@ -469,6 +469,10 @@ fn run_real_world_benchmarks(corpus: &Corpus, filters: &[String]) {
         let case_name = required_string(item, "name");
         let operation = required_string(item, "op");
         let pattern = required_string(item, "pattern");
+        let replacement = item
+            .get("replacement")
+            .map(|_| selected_replacement(&required_string(item, "replacement")))
+            .unwrap_or_default();
         let regex = compile(&pattern);
         let full_regex = (operation == "matches").then(|| compile_full(&pattern));
         for matches in [true, false] {
@@ -487,13 +491,13 @@ fn run_real_world_benchmarks(corpus: &Corpus, filters: &[String]) {
                         black_box(full_regex.as_ref().unwrap().is_match(black_box(&text)));
                     }),
                     "replaceAllEmpty" => run_ns(&name, filters, || {
-                        black_box(regex.replace_all(black_box(&text), NoExpand("")));
+                        black_box(regex.replace_all(black_box(&text), replacement.as_str()));
                     }),
                     "replaceAllGroup1" => run_ns(&name, filters, || {
-                        black_box(regex.replace_all(black_box(&text), "$1"));
+                        black_box(regex.replace_all(black_box(&text), replacement.as_str()));
                     }),
                     "replaceAllLiteral" => run_ns(&name, filters, || {
-                        black_box(regex.replace_all(black_box(&text), NoExpand("xyz")));
+                        black_box(regex.replace_all(black_box(&text), replacement.as_str()));
                     }),
                     _ => panic!("invalid realWorldRegex op: {operation}"),
                 }

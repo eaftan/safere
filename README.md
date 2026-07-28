@@ -599,10 +599,12 @@ for cross-language comparison. Prerequisites are
 [Rust ≥ 1.85 with Cargo](https://rust-lang.org/tools/install/). Dependencies
 are fetched automatically.
 
-Benchmark patterns are written in Java syntax. A pattern that needs different
-syntax in another regex dialect declares exact alternatives beside its
-Java-canonical definition in `safere-benchmarks/benchmark-data.json`; a missing
-alternate means that the Java pattern is used unchanged. See the
+Benchmark patterns and replacement templates are written in Java syntax. A
+value that needs different syntax in another regex dialect declares exact
+alternatives beside its Java-canonical definition in
+`safere-benchmarks/benchmark-data.json`; a missing alternate means that the Java
+value is used unchanged. Harnesses do not translate syntax or infer replacement
+templates from operation names. See the
 [pattern-profile schema](safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md#pattern-profiles)
 for profile mappings and validation rules.
 

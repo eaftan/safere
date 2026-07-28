@@ -136,6 +136,7 @@ type materializedInput struct {
 var benchmarkInputDirectory string
 var benchmarkInputs map[string]materializedInput
 var benchmarkPatternProfile map[string]string
+var benchmarkReplacementProfile map[string]string
 
 func loadBenchmarkManifest(manifestPath string) map[string]any {
 	benchmarkInputDirectory = filepath.Dir(manifestPath)
@@ -159,13 +160,15 @@ func loadBenchmarkManifest(manifestPath string) map[string]any {
 		os.Exit(1)
 	}
 	benchmarkInputs = manifest.Inputs
-	benchmarkPatternProfile = loadPatternProfile(manifest.BenchmarkData, "re2")
+	benchmarkPatternProfile = loadProfile(manifest.BenchmarkData, "patternProfiles", "re2")
+	benchmarkReplacementProfile =
+		loadProfile(manifest.BenchmarkData, "replacementProfiles", "go-regexp")
 	return manifest.BenchmarkData
 }
 
-func loadPatternProfile(data map[string]any, profileID string) map[string]string {
+func loadProfile(data map[string]any, registry string, profileID string) map[string]string {
 	result := make(map[string]string)
-	profiles, ok := data["patternProfiles"].(map[string]any)
+	profiles, ok := data[registry].(map[string]any)
 	if !ok {
 		return result
 	}
@@ -185,10 +188,18 @@ func mustCompile(javaPattern string) *regexp.Regexp {
 }
 
 func selectedPattern(javaPattern string) string {
-	if alternate, ok := benchmarkPatternProfile[javaPattern]; ok {
+	return selectedProfileValue(benchmarkPatternProfile, javaPattern)
+}
+
+func selectedReplacement(javaReplacement string) string {
+	return selectedProfileValue(benchmarkReplacementProfile, javaReplacement)
+}
+
+func selectedProfileValue(profile map[string]string, javaValue string) string {
+	if alternate, ok := profile[javaValue]; ok {
 		return alternate
 	}
-	return javaPattern
+	return javaValue
 }
 
 func loadBenchmarkInput(key string) string {
@@ -366,7 +377,7 @@ func runApplicationBenchmarks(data map[string]any, filters []string) {
 			texts:       getStringSlice(item, "texts"),
 			text:        getString(item, "text"),
 			groups:      getIntSlice(item, "groups"),
-			replacement: convertReplacement(getString(item, "replacement")),
+			replacement: selectedReplacement(getString(item, "replacement")),
 			expected:    item["expected"],
 			re:          mustCompile(pattern),
 		}
@@ -471,10 +482,11 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 	}
 	sizes := getIntSlice(sec, "textSizes")
 	type realWorldCase struct {
-		name   string
-		op     string
-		re     *regexp.Regexp
-		fullRe *regexp.Regexp
+		name        string
+		op          string
+		replacement string
+		re          *regexp.Regexp
+		fullRe      *regexp.Regexp
 	}
 
 	rawCases, ok := sec["cases"].([]any)
@@ -496,9 +508,10 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 		}
 		pattern := getString(item, "pattern")
 		c := realWorldCase{
-			name: getString(item, "name"),
-			op:   op,
-			re:   mustCompile(pattern),
+			name:        getString(item, "name"),
+			op:          op,
+			replacement: selectedReplacement(getString(item, "replacement")),
+			re:          mustCompile(pattern),
 		}
 		if op == "matches" {
 			c.fullRe = mustCompile("^(?:" + selectedPattern(pattern) + ")$")
@@ -532,15 +545,15 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 					}))
 				} else if c.op == "replaceAllEmpty" {
 					printJSON(measureNs(name, func() {
-						sink = c.re.ReplaceAllString(text, "")
+						sink = c.re.ReplaceAllString(text, c.replacement)
 					}))
 				} else if c.op == "replaceAllGroup1" {
 					printJSON(measureNs(name, func() {
-						sink = c.re.ReplaceAllString(text, "$1")
+						sink = c.re.ReplaceAllString(text, c.replacement)
 					}))
 				} else if c.op == "replaceAllLiteral" {
 					printJSON(measureNs(name, func() {
-						sink = c.re.ReplaceAllString(text, "xyz")
+						sink = c.re.ReplaceAllString(text, c.replacement)
 					}))
 				}
 			}
@@ -748,11 +761,8 @@ func runReplaceBenchmarks(data map[string]any, filters []string) {
 		entry := val.(map[string]any)
 		pattern := entry["pattern"].(string)
 		text := entry["text"].(string)
-		replacement := entry["replacement"].(string)
+		replacement := selectedReplacement(entry["replacement"].(string))
 		op := entry["op"].(string)
-
-		// Convert Java-style $N backreferences to Go-style ${N}
-		goReplacement := convertReplacement(replacement)
 
 		re := mustCompile(pattern)
 		benchName := "ReplaceBenchmark." + key
@@ -768,37 +778,17 @@ func runReplaceBenchmarks(data map[string]any, filters []string) {
 				sink = re.ReplaceAllStringFunc(text, func(match string) string {
 					if !replaced {
 						replaced = true
-						return re.ReplaceAllString(match, goReplacement)
+						return re.ReplaceAllString(match, replacement)
 					}
 					return match
 				})
 			}))
 		} else {
 			printJSON(measureNs(benchName, func() {
-				sink = re.ReplaceAllString(text, goReplacement)
+				sink = re.ReplaceAllString(text, replacement)
 			}))
 		}
 	}
-}
-
-// convertReplacement translates Java-style $N to Go-style ${N}.
-func convertReplacement(repl string) string {
-	var b strings.Builder
-	for i := 0; i < len(repl); i++ {
-		if repl[i] == '$' && i+1 < len(repl) && repl[i+1] >= '0' && repl[i+1] <= '9' {
-			b.WriteString("${")
-			i++
-			for i < len(repl) && repl[i] >= '0' && repl[i] <= '9' {
-				b.WriteByte(repl[i])
-				i++
-			}
-			b.WriteByte('}')
-			i--
-		} else {
-			b.WriteByte(repl[i])
-		}
-	}
-	return b.String()
 }
 
 func runPathologicalBenchmarks(data map[string]any, filters []string) {
