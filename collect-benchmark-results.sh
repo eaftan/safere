@@ -235,7 +235,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
     )"
     NATIVE_SMOKE_WORKLOAD="${NATIVE_SMOKE_TRIALS%%@*}"
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
-      ./run-cpp-benchmarks.sh --smoke "$NATIVE_SMOKE_WORKLOAD"
+      ./run-cpp-benchmarks.sh "$NATIVE_SMOKE_WORKLOAD"
   else
     run_and_capture "$OUTPUT_DIR/cpp-raw.txt" \
       ./run-cpp-benchmarks.sh
@@ -246,7 +246,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
 
   if [ "$MODE" = "smoke" ]; then
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
-      ./run-go-benchmarks.sh --smoke "$NATIVE_SMOKE_WORKLOAD"
+      ./run-go-benchmarks.sh "$NATIVE_SMOKE_WORKLOAD"
   else
     run_and_capture "$OUTPUT_DIR/go-raw.txt" \
       ./run-go-benchmarks.sh
@@ -257,7 +257,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
 
   if [ "$MODE" = "smoke" ]; then
     run_and_capture "$OUTPUT_DIR/rust-raw.txt" \
-      ./run-rust-benchmarks.sh --smoke "$NATIVE_SMOKE_WORKLOAD"
+      ./run-rust-benchmarks.sh "$NATIVE_SMOKE_WORKLOAD"
     run_and_capture "$OUTPUT_DIR/dotnet-raw.txt" \
       ./run-dotnet-benchmarks.sh --smoke "$NATIVE_SMOKE_WORKLOAD"
   else

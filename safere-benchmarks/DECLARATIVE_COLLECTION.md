@@ -38,5 +38,5 @@ and emit JSONL with the same stable workload identities. The materialized manife
 fully expanded `resolvedWorkloads` plan for native consumers. The .NET runner accounts for every
 entry by either executing it or making an explicit capability exclusion available through
 `--list-exclusions`. Native results remain cross-runtime context; they are not treated as missing
-or excluded Java execution variants. Toolchain and smoke instructions are in
-[CROSS_RUNTIME_TOOLCHAINS.md](CROSS_RUNTIME_TOOLCHAINS.md).
+or excluded Java execution variants. Toolchain and smoke instructions are in the benchmark section
+of the project [README](../README.md#cross-runtime-benchmarks).

@@ -46,17 +46,6 @@ type benchResult struct {
 // the mean time per operation and 99.9% CI half-width.
 func measure(name string, fn func(), warmupIters int, warmupTime time.Duration,
 	measureIters int, measureTime time.Duration, unit string, unitDivisor float64) benchResult {
-	if smokeMode {
-		start := time.Now()
-		fn()
-		elapsed := float64(time.Since(start).Nanoseconds()) / unitDivisor
-		return benchResult{
-			Engine:    "go_regexp",
-			Benchmark: name,
-			Score:     math.Round(elapsed*1000) / 1000,
-			Unit:      unit,
-		}
-	}
 
 	// Warmup.
 	for w := 0; w < warmupIters; w++ {
@@ -133,7 +122,6 @@ func matchesFilter(name string, filters []string) bool {
 
 // sink prevents the compiler from optimizing away results.
 var sink any
-var smokeMode bool
 
 // ---------------------------------------------------------------------------
 // JSON loading
@@ -943,8 +931,6 @@ func main() {
 		if args[i] == "--manifest" && i+1 < len(args) {
 			manifestPath = args[i+1]
 			i++
-		} else if args[i] == "--smoke" {
-			smokeMode = true
 		} else {
 			filters = append(filters, args[i])
 		}

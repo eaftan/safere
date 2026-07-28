@@ -28,7 +28,6 @@ static TRACK_ALLOCATIONS: AtomicBool = AtomicBool::new(false);
 static RETAINED_BYTES: AtomicUsize = AtomicUsize::new(0);
 static PATTERN_PROFILE: OnceLock<HashMap<String, String>> = OnceLock::new();
 static REPLACEMENT_PROFILE: OnceLock<HashMap<String, String>> = OnceLock::new();
-static SMOKE_MODE: OnceLock<bool> = OnceLock::new();
 
 // SAFETY: Every operation delegates to the system allocator with the original
 // pointer and layout. The counters only observe successful allocations.
@@ -232,18 +231,6 @@ fn measure<F>(name: &str, mut operation: F, unit: &str, divisor: f64) -> Value
 where
     F: FnMut(),
 {
-    if SMOKE_MODE.get().copied().unwrap_or(false) {
-        let start = Instant::now();
-        operation();
-        return json!({
-            "engine": "rust_regex",
-            "benchmark": name,
-            "score": round_millis(start.elapsed().as_nanos() as f64 / divisor),
-            "error": 0,
-            "unit": unit,
-        });
-    }
-
     for _ in 0..2 {
         let deadline = Instant::now() + Duration::from_secs(2);
         while Instant::now() < deadline {
@@ -837,7 +824,6 @@ fn run_memory_benchmarks(data: &Value, filters: &[String]) {
 fn main() {
     let mut manifest_path = PathBuf::from("../../target/benchmark-corpus/manifest.json");
     let mut filters = Vec::new();
-    let mut smoke_mode = false;
     let mut arguments = env::args().skip(1);
     while let Some(argument) = arguments.next() {
         if argument == "--manifest" {
@@ -846,15 +832,10 @@ fn main() {
                     .next()
                     .expect("--manifest requires a following path"),
             );
-        } else if argument == "--smoke" {
-            smoke_mode = true;
         } else {
             filters.push(argument);
         }
     }
-    SMOKE_MODE
-        .set(smoke_mode)
-        .expect("Rust smoke mode must only be initialized once");
 
     let corpus = Corpus::load(&manifest_path);
     PATTERN_PROFILE

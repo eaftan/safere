@@ -253,7 +253,7 @@ jobs:
             --manifest-path safere-benchmarks/rust/Cargo.toml -- -D warnings
 
       - name: Smoke test Rust regex benchmarks
-        run: ./run-rust-benchmarks.sh --smoke RegexBenchmark.literalMatch
+        run: ./run-rust-benchmarks.sh RegexBenchmark.literalMatch
 
   benchmark-smoke-test-dotnet:
     needs: changes
@@ -263,15 +263,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up JDK 25
+      - name: Set up JDK
         uses: actions/setup-java@v5
         with:
-          java-version: '25'
-          distribution: 'temurin'
+          java-version-file: .sdkmanrc
           cache: maven
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 

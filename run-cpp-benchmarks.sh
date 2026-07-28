@@ -6,7 +6,6 @@
 #
 # Usage:
 #   ./run-cpp-benchmarks.sh                    # run all benchmarks
-#   ./run-cpp-benchmarks.sh --smoke            # exercise each workload once
 #   ./run-cpp-benchmarks.sh RegexBenchmark     # run matching benchmarks
 #
 # Prerequisites: CMake >= 3.14, C++17 compiler.

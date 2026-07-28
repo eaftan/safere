@@ -12,7 +12,15 @@ import com.google.gson.JsonPrimitive;
 import java.util.Map;
 import java.util.function.Function;
 
-/** Serializes expanded engine-neutral workloads for cross-runtime benchmark harnesses. */
+/**
+ * Serializes expanded engine-neutral workloads for cross-runtime benchmark harnesses.
+ *
+ * <p>The Java harness can consume the typed declarative plan directly, but external runtimes
+ * cannot. This projection resolves axes and recipe references once during materialization so a
+ * native runner can execute or explicitly exclude every concrete workload without interpreting the
+ * checked-in plan schema. Pattern and replacement profile selection remains the responsibility of
+ * each engine adapter.
+ */
 final class ResolvedBenchmarkPlan {
   private ResolvedBenchmarkPlan() {}
 

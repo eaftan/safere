@@ -408,7 +408,8 @@ For a detailed architecture walkthrough, see [DESIGN.md](DESIGN.md).
 
 ## Building
 
-Requires Java 21+ and Maven.
+Requires [OpenJDK 21 or newer](https://openjdk.org/install/) and
+[Apache Maven 3.9 or newer](https://maven.apache.org/install.html).
 
 ```bash
 # Build and install (library + benchmarks)
@@ -596,13 +597,14 @@ explicitly only when optimizing crosscheck:
 
 The benchmark suite includes C++ RE2, Go `regexp`, Rust `regex`, and .NET
 non-backtracking harnesses for cross-language comparison. Prerequisites are
-[CMake ≥ 3.14](https://cmake.org/download/) with a C++17 compiler,
+[CMake ≥ 3.14](https://cmake.org/download/) with a C++17 compiler such as
+[GCC](https://gcc.gnu.org/install/) or
+[Clang](https://clang.llvm.org/get_started.html),
 [Go ≥ 1.21](https://go.dev/doc/install),
 [Rust ≥ 1.85 with Cargo](https://rust-lang.org/tools/install/), and
 [.NET SDK ≥ 8](https://learn.microsoft.com/dotnet/core/install/). Dependencies
-are fetched automatically. Installation, verification, and smoke-test
-instructions for every engine are in
-[`safere-benchmarks/CROSS_RUNTIME_TOOLCHAINS.md`](safere-benchmarks/CROSS_RUNTIME_TOOLCHAINS.md).
+are fetched automatically. The runtime-only .NET package is insufficient
+because the wrapper builds the harness.
 
 Benchmark patterns and replacement templates are written in Java syntax. A
 value that needs different syntax in another regex dialect declares exact
@@ -616,17 +618,17 @@ for profile mappings and validation rules.
 ```bash
 # C++ RE2 benchmarks
 ./run-cpp-benchmarks.sh                    # all C++ benchmarks
-./run-cpp-benchmarks.sh --smoke            # exercise each selected workload once
+./run-cpp-benchmarks.sh RegexBenchmark.literalMatch # smoke test
 ./run-cpp-benchmarks.sh Regex Application  # specific benchmark groups
 
 # Go regexp benchmarks
 ./run-go-benchmarks.sh                     # all Go benchmarks
-./run-go-benchmarks.sh --smoke             # exercise each selected workload once
+./run-go-benchmarks.sh RegexBenchmark.literalMatch # smoke test
 ./run-go-benchmarks.sh Regex Application   # specific benchmark groups
 
 # Rust regex benchmarks
 ./run-rust-benchmarks.sh                   # all Rust benchmarks
-./run-rust-benchmarks.sh --smoke           # exercise each selected workload once
+./run-rust-benchmarks.sh RegexBenchmark.literalMatch # smoke test
 ./run-rust-benchmarks.sh Regex Application # specific benchmark groups
 
 # .NET non-backtracking benchmarks

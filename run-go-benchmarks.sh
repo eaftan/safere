@@ -6,7 +6,6 @@
 #
 # Usage:
 #   ./run-go-benchmarks.sh                    # run all benchmarks
-#   ./run-go-benchmarks.sh --smoke            # exercise each workload once
 #   ./run-go-benchmarks.sh RegexBenchmark     # run matching benchmarks
 #
 # Prerequisites: Go >= 1.21.

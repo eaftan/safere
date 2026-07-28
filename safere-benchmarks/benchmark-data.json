@@ -2524,6 +2524,10 @@
         "pattern": {
           "java": "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$",
           "alternates": {
+            "rust-regex": {
+              "pattern": "^[[:space:]]*<(Apple|Banana|Cherry)>[[:space:]]*$",
+              "reason": "Rust regex lacks Java quoted literals and gives \\s Unicode semantics"
+            },
             "dotnet": {
               "pattern": "^\\s*<(Apple|Banana|Cherry)>\\s*$",
               "reason": ".NET does not support Java quoted literals with \\Q and \\E"
