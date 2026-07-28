@@ -16,7 +16,7 @@
 # batches sequentially, captures raw output, and generates markdown tables.
 # By default it collects the Java/JMH results and the separately licensed
 # OpenJDK-derived suite from an external checkout. Use --cross-language to also
-# collect C++ RE2, Go regexp, and Rust regex results.
+# collect C++ RE2, PCRE2 JIT, Go regexp, and Rust regex results.
 
 set -euo pipefail
 
@@ -42,7 +42,7 @@ Collects benchmark outputs for updating BENCHMARKS.md.
 
 Options:
   --long            Use the longer Java confirmation mode.
-  --cross-language  Also run C++ RE2, Go regexp, and Rust regex harnesses.
+  --cross-language  Also run C++ RE2, PCRE2 JIT, Go regexp, and Rust regex harnesses.
   --openjdk-regex-repo PATH
                     Select the external OpenJDK-derived suite checkout.
   --skip-openjdk-regex
@@ -270,7 +270,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
     --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl" \
       "$OUTPUT_DIR/rust-results.jsonl"
   )
-  COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm,re2_cpp,go,rust"
+  COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm,re2_cpp,pcre2_jit,go,rust"
 fi
 
 log "Generating markdown tables"
@@ -284,7 +284,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
   python3 safere-benchmarks/scripts/compare-benchmarks.py \
     --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl" \
       "$OUTPUT_DIR/rust-results.jsonl" \
-    --engines re2_cpp,go,rust \
+    --engines re2_cpp,pcre2_jit,go,rust \
     > "$OUTPUT_DIR/cross-runtime-tables.md"
 fi
 

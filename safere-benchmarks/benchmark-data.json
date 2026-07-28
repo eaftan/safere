@@ -6205,6 +6205,10 @@
                 "rust-regex": {
                   "pattern": "[\\x{0}-\\x{7F}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
+                },
+                "pcre2": {
+                  "pattern": "[\\x{0}-\\x{7F}]+",
+                  "reason": "PCRE2 does not expose Java Unicode block names"
                 }
               }
             }
@@ -6221,6 +6225,10 @@
                 "rust-regex": {
                   "pattern": "[\\x{4E00}-\\x{9FFF}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
+                },
+                "pcre2": {
+                  "pattern": "[\\x{4E00}-\\x{9FFF}]+",
+                  "reason": "PCRE2 does not expose Java Unicode block names"
                 }
               }
             }
@@ -6253,6 +6261,10 @@
                 "re2": {
                   "pattern": "[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+",
                   "reason": "RE2 does not support Java character-class intersection"
+                },
+                "pcre2": {
+                  "pattern": "[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+",
+                  "reason": "PCRE2 default character classes do not use Java intersection syntax"
                 }
               }
             }
@@ -6349,6 +6361,10 @@
                 "rust-regex": {
                   "pattern": "[\\x{0}-\\x{7F}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
+                },
+                "pcre2": {
+                  "pattern": "[\\x{0}-\\x{7F}]+",
+                  "reason": "PCRE2 does not expose Java Unicode block names"
                 }
               }
             }
@@ -7979,6 +7995,10 @@
             "rust-regex": {
               "pattern": "\\p{L}",
               "reason": "Rust regex uses the Unicode letter category rather than Java properties"
+            },
+            "pcre2": {
+              "pattern": "\\p{L}",
+              "reason": "PCRE2 uses the Unicode letter category rather than Java character properties"
             }
           }
         }
@@ -8014,6 +8034,10 @@
             "rust-regex": {
               "pattern": "\\p{L}",
               "reason": "Rust regex uses the Unicode letter category rather than Java properties"
+            },
+            "pcre2": {
+              "pattern": "\\p{L}",
+              "reason": "PCRE2 uses the Unicode letter category rather than Java character properties"
             }
           }
         }

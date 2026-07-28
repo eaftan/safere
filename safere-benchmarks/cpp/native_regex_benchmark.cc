@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Eddie Aftandilian. Licensed under the MIT License.
 // See LICENSE file in the project root for details.
 //
-// C++ RE2 benchmark harness. Runs the same patterns and inputs as the Java
-// JMH benchmarks and outputs JSON lines for cross-language comparison.
+// Native C++ regex benchmark harness. Runs the same patterns and inputs as the
+// Java JMH benchmarks and outputs JSON lines for cross-language comparison.
 // Patterns and inputs are loaded from a shared JSON data file.
 //
 // Build:
@@ -11,6 +11,7 @@
 //
 // Run:
 //   ./build/re2_benchmark [--manifest path/to/manifest.json] [filter...]
+//   ./build/pcre2_jit_benchmark [--manifest path/to/manifest.json] [filter...]
 //
 // Each filter is a substring match against benchmark names. If no filters
 // are given, all benchmarks are run.
@@ -35,9 +36,27 @@
 #endif
 
 #include <nlohmann/json.hpp>
+#ifdef SAFERE_PCRE2_JIT
+#include "pcre2_re2_compat.h"
+#else
 #include "re2/re2.h"
+#endif
 
 using json = nlohmann::json;
+
+#ifdef SAFERE_PCRE2_JIT
+constexpr const char* kEngineId = "pcre2_jit";
+constexpr const char* kPatternProfileId = "pcre2";
+constexpr const char* kReplacementProfileId = "pcre2";
+constexpr bool kSupportsLinearTimeWorkloads = false;
+constexpr bool kSupportsMeasuredReplacementWorkloads = false;
+#else
+constexpr const char* kEngineId = "re2_cpp";
+constexpr const char* kPatternProfileId = "re2";
+constexpr const char* kReplacementProfileId = "re2-cpp";
+constexpr bool kSupportsLinearTimeWorkloads = true;
+constexpr bool kSupportsMeasuredReplacementWorkloads = true;
+#endif
 
 json benchmark_input_manifest;
 std::filesystem::path benchmark_input_directory;
@@ -223,18 +242,18 @@ BenchResult measure(const std::string& name,
 }
 
 void print_json(const BenchResult& r) {
-  printf("{\"engine\":\"re2_cpp\",\"benchmark\":\"%s\","
+  printf("{\"engine\":\"%s\",\"benchmark\":\"%s\","
          "\"score\":%.3f,\"error\":%.3f,\"unit\":\"%s\"}\n",
-         r.name.c_str(), r.ns_per_op, r.error, r.unit.c_str());
+         kEngineId, r.name.c_str(), r.ns_per_op, r.error, r.unit.c_str());
   fflush(stdout);
 }
 
 // Print a memory measurement result as JSON.
 void print_memory_json(const std::string& name, long bytes,
                        const std::string& unit = "bytes") {
-  printf("{\"engine\":\"re2_cpp\",\"benchmark\":\"%s\","
+  printf("{\"engine\":\"%s\",\"benchmark\":\"%s\","
          "\"score\":%ld,\"error\":0,\"unit\":\"%s\"}\n",
-         name.c_str(), bytes, unit.c_str());
+         kEngineId, name.c_str(), bytes, unit.c_str());
   fflush(stdout);
 }
 
@@ -275,8 +294,8 @@ json load_benchmark_manifest(const std::string& manifest_path_string) {
   json benchmark_data = manifest.at("benchmarkData");
   if (benchmark_data.contains("patternProfiles")) {
     const auto& profiles = benchmark_data.at("patternProfiles");
-    if (profiles.contains("re2")) {
-      for (const auto& entry : profiles.at("re2")) {
+    if (profiles.contains(kPatternProfileId)) {
+      for (const auto& entry : profiles.at(kPatternProfileId)) {
         benchmark_pattern_profile.emplace(
             entry.at("java").get<std::string>(),
             entry.at("alternate").get<std::string>());
@@ -285,8 +304,8 @@ json load_benchmark_manifest(const std::string& manifest_path_string) {
   }
   if (benchmark_data.contains("replacementProfiles")) {
     const auto& profiles = benchmark_data.at("replacementProfiles");
-    if (profiles.contains("re2-cpp")) {
-      for (const auto& entry : profiles.at("re2-cpp")) {
+    if (profiles.contains(kReplacementProfileId)) {
+      for (const auto& entry : profiles.at(kReplacementProfileId)) {
         benchmark_replacement_profile.emplace(
             entry.at("java").get<std::string>(),
             entry.at("alternate").get<std::string>());
@@ -308,6 +327,18 @@ std::string select_replacement(const std::string& java_replacement) {
   return alternate == benchmark_replacement_profile.end()
              ? java_replacement
              : alternate->second;
+}
+
+void validate_pattern_profile() {
+  for (const auto& [java_pattern, alternate] : benchmark_pattern_profile) {
+    RE2 pattern(alternate);
+    if (!pattern.ok()) {
+      fprintf(
+          stderr, "ERROR: %s pattern alternate for %s does not compile\n",
+          kPatternProfileId, java_pattern.c_str());
+      exit(1);
+    }
+  }
 }
 
 std::string load_benchmark_input(const std::string& key) {
@@ -546,6 +577,10 @@ void run_application_benchmarks(const json& data,
               app_case.name.c_str());
       exit(1);
     }
+    if (app_case.op == "replaceAll" &&
+        !kSupportsMeasuredReplacementWorkloads) {
+      continue;
+    }
     if (app_case.op.rfind("findAll", 0) == 0 &&
         RE2::PartialMatch("", app_case.re)) {
       fprintf(stderr, "ERROR: empty-width find-all application pattern: %s\n",
@@ -570,6 +605,10 @@ void run_application_benchmarks(const json& data,
 
   for (const auto& app_case_ptr : cases) {
     const AppCase& app_case = *app_case_ptr;
+    if (app_case.op == "replaceAll" &&
+        !kSupportsMeasuredReplacementWorkloads) {
+      continue;
+    }
     run("ApplicationBenchmark." + app_case.name, [&]() {
       if (app_case.op == "replaceAll") {
         do_not_optimize(run_string(app_case));
@@ -624,6 +663,10 @@ void run_real_world_regex_benchmarks(
 
   for (const auto& case_ptr : cases) {
     const RealWorldCase& c = *case_ptr;
+    if (c.op.rfind("replaceAll", 0) == 0 &&
+        !kSupportsMeasuredReplacementWorkloads) {
+      continue;
+    }
     for (bool match : {true, false}) {
       std::string match_label = match ? "match" : "noMatch";
       for (int size : sizes) {
@@ -1090,6 +1133,7 @@ void run_memory_benchmarks(const json& data,
     print_memory_json(pi.name + ".heapBytes", heap_delta);
 #endif
 
+#ifndef SAFERE_PCRE2_JIT
     // Report RE2's program size (number of bytecode instructions).
     if (re->ok()) {
       print_memory_json(pi.name + ".programSize",
@@ -1097,6 +1141,7 @@ void run_memory_benchmarks(const json& data,
       print_memory_json(pi.name + ".reverseProgramSize",
                         re->ReverseProgramSize(), "instructions");
     }
+#endif
   }
 }
 
@@ -1107,6 +1152,44 @@ void run_memory_benchmarks(const json& data,
 int main(int argc, char* argv[]) {
   if (argc == 2 && std::string_view(argv[1]) == "--sha256-self-test") {
     return run_sha256_self_test() ? 0 : 1;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "--engine-self-test") {
+    RE2 pattern("(a+)-(b+)");
+    if (!pattern.ok()) {
+      fprintf(stderr, "%s self-test failed to compile\n", kEngineId);
+      return 1;
+    }
+#ifdef SAFERE_PCRE2_JIT
+    if (pattern.jit_size() == 0) {
+      fprintf(stderr, "PCRE2 JIT self-test did not generate JIT code\n");
+      return 1;
+    }
+#endif
+    std::string first;
+    std::string second;
+    if (!RE2::FullMatch("aaa-bb", pattern, &first, &second) ||
+        first != "aaa" || second != "bb") {
+      fprintf(stderr, "%s self-test failed to match captures\n", kEngineId);
+      return 1;
+    }
+    RE2 alternative("a|ab");
+    if (!RE2::FullMatch("ab", alternative)) {
+      fprintf(stderr, "%s self-test failed to end-anchor alternatives\n",
+              kEngineId);
+      return 1;
+    }
+    std::string replaced = "aaa-bb a-b";
+#ifdef SAFERE_PCRE2_JIT
+    const std::string replacement = "$2:$1";
+#else
+    const std::string replacement = "\\2:\\1";
+#endif
+    if (RE2::GlobalReplace(&replaced, pattern, replacement) != 2 ||
+        replaced != "bb:aaa b:a") {
+      fprintf(stderr, "%s self-test failed to replace captures\n", kEngineId);
+      return 1;
+    }
+    return 0;
   }
 
   std::string manifest_path = "../../target/benchmark-corpus/manifest.json";
@@ -1122,6 +1205,7 @@ int main(int argc, char* argv[]) {
   }
 
   json data = load_benchmark_manifest(manifest_path);
+  validate_pattern_profile();
 
   run_regex_benchmarks(data, filters);
   run_application_benchmarks(data, filters);
@@ -1131,8 +1215,12 @@ int main(int argc, char* argv[]) {
   run_issue481_scaling_benchmarks(data, filters);
   run_capture_scaling_benchmarks(data, filters);
   run_http_benchmarks(data, filters);
-  run_replace_benchmarks(data, filters);
-  run_pathological_benchmarks(data, filters);
+  if (kSupportsMeasuredReplacementWorkloads) {
+    run_replace_benchmarks(data, filters);
+  }
+  if (kSupportsLinearTimeWorkloads) {
+    run_pathological_benchmarks(data, filters);
+  }
   run_fanout_benchmarks(data, filters);
   run_memory_benchmarks(data, filters);
 

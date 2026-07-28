@@ -198,6 +198,11 @@ class PatternProfilesTest {
     assertThat(patterns.select("re2", "\\p{script=Latin}+")).isEqualTo("\\p{Latin}+");
     assertThat(patterns.select("re2", "[\\p{L}&&[^\\p{Lu}]]+"))
         .isEqualTo("[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+");
+    assertThat(patterns.select("pcre2", "\\p{block=BasicLatin}+")).isEqualTo("[\\x{0}-\\x{7F}]+");
+    assertThat(patterns.select("pcre2", "[\\p{L}&&[^\\p{Lu}]]+"))
+        .isEqualTo("[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+");
+    assertThat(patterns.select("pcre2", "\\p{javaLetter}")).isEqualTo("\\p{L}");
+    assertThat(patterns.select("pcre2", "\\p{script=Latin}+")).isEqualTo("\\p{script=Latin}+");
     assertThat(patterns.select("re2", "\\p{IsAlphabetic}+")).isEqualTo("\\p{IsAlphabetic}+");
     assertThat(patterns.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
     assertThat(patterns.select("rust-regex", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
@@ -214,6 +219,7 @@ class PatternProfilesTest {
     assertThat(replacements.select("re2-cpp", "$1=REDACTED")).isEqualTo("\\1=REDACTED");
     assertThat(replacements.select("re2-cpp", "$1")).isEqualTo("\\1");
     assertThat(replacements.select("go-regexp", "$2$1ay")).isEqualTo("${2}${1}ay");
+    assertThat(replacements.select("pcre2", "$1")).isEqualTo("$1");
     assertThat(replacements.select("rust-regex", "$2$1ay")).isEqualTo("${2}${1}ay");
     for (String profileType : List.of("patternProfiles", "replacementProfiles")) {
       for (JsonElement profile : normalized.getAsJsonObject(profileType).asMap().values()) {

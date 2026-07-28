@@ -362,6 +362,16 @@ generic runners and trials:
   before execution. Java, C++, Go, Rust, and other harnesses read only those
   generated artifacts. Edit the JSON file to change workloads; never hardcode
   values or generation logic in a harness.
+- **Zero implicit benchmark syntax conversion.** Regex patterns and
+  replacement templates remain Java-canonical workload data. When an engine
+  needs different syntax, declare the engine's exact alternate beside the
+  canonical value in `benchmark-data.json`, with a reason, and have the adapter
+  select that profile or use the canonical value unchanged. Runners and
+  adapters must not parse, rewrite, translate, escape, or otherwise infer
+  engine-specific pattern or replacement syntax, including numbered or named
+  group references and quoting rules. If the schema cannot yet express the
+  required alternate, extend and validate the schema first; do not add a
+  conversion helper in a harness.
 
 ### Summary Statistics
 
