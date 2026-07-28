@@ -237,7 +237,9 @@ jobs:
           cache: maven
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        # Pin the master ancestor behind the synthetic 1.85.0 ref. Synthetic commits may
+        # eventually be garbage-collected because they are outside master history.
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
           toolchain: 1.85.0
           components: clippy, rustfmt
