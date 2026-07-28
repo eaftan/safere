@@ -103,6 +103,77 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void wholeInputAndPrefixMatchesUseUtf8Input() {
+    Utf8Matcher whole = matcher("é😀", "é😀");
+    Utf8Matcher prefix = matcher("é", "é😀");
+
+    assertThat(whole.matches()).isTrue();
+    assertThat(whole.start()).isZero();
+    assertThat(whole.end()).isEqualTo(6);
+    assertThat(prefix.matches()).isFalse();
+    assertThat(prefix.lookingAt()).isTrue();
+    assertThat(prefix.start()).isZero();
+    assertThat(prefix.end()).isEqualTo(2);
+  }
+
+  @Test
+  void resetRestoresWholeInputAndInvalidatesPreviousResult() {
+    Utf8Matcher matcher = matcher("é|😀", "é😀");
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isZero();
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(2);
+
+    assertThat(matcher.reset()).isSameAs(matcher);
+    assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+    assertThat(matcher.regionStart()).isZero();
+    assertThat(matcher.regionEnd()).isEqualTo(6);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isZero();
+  }
+
+  @Test
+  void regionUsesRelativeByteOffsetsAndResetRestoresWholeInput() {
+    Utf8Matcher matcher = matcher("😀", "xé😀y");
+
+    assertThat(matcher.region(3, 7)).isSameAs(matcher);
+    assertThat(matcher.regionStart()).isEqualTo(3);
+    assertThat(matcher.regionEnd()).isEqualTo(7);
+    assertThat(matcher.matches()).isTrue();
+    assertThat(matcher.start()).isEqualTo(3);
+    assertThat(matcher.end()).isEqualTo(7);
+
+    matcher.region(3, 8);
+    assertThat(matcher.lookingAt()).isTrue();
+    assertThat(matcher.start()).isEqualTo(3);
+    assertThat(matcher.end()).isEqualTo(7);
+
+    matcher.region(3, 8);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(3);
+    assertThat(matcher.end()).isEqualTo(7);
+
+    matcher.reset();
+    assertThat(matcher.regionStart()).isZero();
+    assertThat(matcher.regionEnd()).isEqualTo(8);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(3);
+  }
+
+  @Test
+  void regionRejectsInvalidByteRanges() {
+    Utf8Matcher matcher = matcher("é", "xéy");
+
+    assertThatThrownBy(() -> matcher.region(-1, 1)).isInstanceOf(IndexOutOfBoundsException.class);
+    assertThatThrownBy(() -> matcher.region(0, 5)).isInstanceOf(IndexOutOfBoundsException.class);
+    assertThatThrownBy(() -> matcher.region(3, 2)).isInstanceOf(IndexOutOfBoundsException.class);
+    assertThatThrownBy(() -> matcher.region(2, 3))
+        .isInstanceOf(IndexOutOfBoundsException.class)
+        .hasMessageContaining("code-point boundaries");
+  }
+
+  @Test
   void observationBeforeMatchAndInvalidGroupsThrow() {
     Utf8Matcher matcher = matcher("(a)", "a");
 

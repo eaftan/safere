@@ -1408,7 +1408,8 @@ final class DeclarativeBenchmarkPlan {
     MATCHES_CORPUS("matchesCorpus", false, true, Feature.MATCHES),
     MATCHES_GROUP_LENGTH_SUM(
         "matchesGroupLengthSum", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
-    FIND_GROUP_PRESENT("findGroupPresent", false, true, Feature.FIND, Feature.CAPTURE_TEXT),
+    FIND_GROUP_PRESENT(
+        "findGroupPresent", false, true, Feature.FIND, Feature.CAPTURE_PARTICIPATION),
     FIND_GROUP("findGroup", false, true, Feature.FIND, Feature.CAPTURE_TEXT),
     CAPTURE_GROUPS("captureGroups", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
     REPLACE_FIRST("replaceFirst", false, true, Feature.REPLACE),
@@ -1698,6 +1699,7 @@ final class DeclarativeBenchmarkPlan {
     FIND("find"),
     MATCHES("matches"),
     LOOKING_AT("lookingAt"),
+    CAPTURE_PARTICIPATION("captureParticipation"),
     CAPTURE_TEXT("captureText"),
     NAMED_GROUPS("namedGroups"),
     REPLACE("replace"),

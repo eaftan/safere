@@ -401,14 +401,16 @@ public final class Matcher implements MatchResult {
   }
 
   private void resetStateForCurrentInput() {
-    if (!(inputSequence instanceof String)) {
-      textScanner = null;
-      graphemeContextText = null;
-      graphemeContext = null;
+    if (inputSequence != null) {
+      if (!(inputSequence instanceof String)) {
+        textScanner = null;
+        graphemeContextText = null;
+        graphemeContext = null;
+      }
+      text = charSequenceToString(inputSequence);
     }
-    text = charSequenceToString(inputSequence);
     regionStart = 0;
-    regionEnd = text.length();
+    regionEnd = getTextLength();
     resetSearchStateForInputStart();
     resetReplacementState();
     clearCurrentResult();
@@ -858,9 +860,13 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return matchesTransparentRegion();
       }
-      if (regionActive && text != null) {
-        text = savedText.substring(regionStart, regionEnd);
-        textScanner = null;
+      if (regionActive) {
+        if (text != null) {
+          text = savedText.substring(regionStart, regionEnd);
+          textScanner = null;
+        } else {
+          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
+        }
         regionSubstituted = true;
       }
       return matchesCore();
@@ -1061,9 +1067,13 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return lookingAtTransparentRegion();
       }
-      if (regionActive && text != null) {
-        text = savedText.substring(regionStart, regionEnd);
-        textScanner = null;
+      if (regionActive) {
+        if (text != null) {
+          text = savedText.substring(regionStart, regionEnd);
+          textScanner = null;
+        } else {
+          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
+        }
         regionSubstituted = true;
       }
       return lookingAtCore();
@@ -1348,9 +1358,13 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return doFindTransparentRegion();
       }
-      if (regionActive && text != null) {
-        text = savedText.substring(regionStart, regionEnd);
-        textScanner = null;
+      if (regionActive) {
+        if (text != null) {
+          text = savedText.substring(regionStart, regionEnd);
+          textScanner = null;
+        } else {
+          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
+        }
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
       }

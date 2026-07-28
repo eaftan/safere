@@ -4697,6 +4697,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6032,7 +6033,8 @@
         "matcherApi.lookingAt.input"
       ],
       "inputRepresentations": [
-        "javaString"
+        "javaString",
+        "preexistingUtf8"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -6060,7 +6062,8 @@
         "matcherApi.regionFind.input"
       ],
       "inputRepresentations": [
-        "javaString"
+        "javaString",
+        "preexistingUtf8"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -6095,7 +6098,8 @@
         "matcherApi.resetAndFind.input"
       ],
       "inputRepresentations": [
-        "javaString"
+        "javaString",
+        "preexistingUtf8"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -6130,6 +6134,7 @@
       "requirements": [],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6158,6 +6163,7 @@
       "requirements": [],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6186,6 +6192,7 @@
       "requirements": [],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6216,6 +6223,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6246,6 +6254,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6276,6 +6285,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6306,6 +6316,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6336,6 +6347,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6366,6 +6378,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
@@ -6396,6 +6409,7 @@
       ],
       "inputRepresentations": [
         "javaString",
+        "preexistingUtf8",
         "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",

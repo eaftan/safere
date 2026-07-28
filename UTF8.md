@@ -122,7 +122,12 @@ mode to the `java.util.regex`-compatible `Matcher` API.
 |---|---|
 | `Pattern.find(Utf8Input)` | Capture-free existence check |
 | `Pattern.matcher(Utf8Input)` | Create a stateful `Utf8Matcher` |
+| `Utf8Matcher.matches()` | Match the whole input or active region |
+| `Utf8Matcher.lookingAt()` | Match at the start of the input or active region |
 | `Utf8Matcher.find()` | Find the next match |
+| `Utf8Matcher.reset()` | Reset matching to the whole retained input |
+| `region(int, int)` | Set byte-relative search bounds and reset match state |
+| `regionStart()`, `regionEnd()` | Inspect the active byte-relative region |
 | `start()`, `end()` | Group-zero byte bounds |
 | `start(int)`, `end(int)` | Numbered capture byte bounds |
 | `groupCount()` | Number of capturing groups |
@@ -131,6 +136,10 @@ An unmatched optional group has start and end positions of `-1`, as it does in
 the String API. SafeRE returns bounds rather than allocating byte arrays for
 captured text. Callers can use those bounds to slice their existing storage or
 decode only the capture they need.
+
+Region coordinates are byte offsets relative to the logical `Utf8Input` view.
+Both ends of a region must fall on UTF-8 code-point boundaries. Calling
+`reset()` restores the region to the whole retained input.
 
 `Utf8Matcher` is stateful and is not thread-safe. A compiled `Pattern` remains
 thread-safe and reusable across String and UTF-8 inputs. An immutable
@@ -167,10 +176,11 @@ method for transferring bounded buffer ranges.
 
 ## Current Scope
 
-The UTF-8 API currently provides capture-free search, repeated `find()`,
-numbered capture bounds, and append-style replacement. It does not expose every
-operation from the String `Matcher` API: there is currently no UTF-8 `matches`,
-`lookingAt`, region, reset, split, stream, or direct group-value method.
+The UTF-8 API currently provides capture-free search, whole-input and prefix
+matching, repeated `find()`, matcher reset and regions, numbered capture
+bounds, and append-style replacement. It does not expose every operation from
+the String `Matcher` API: there is currently no UTF-8 split, stream, or direct
+group-value method.
 
 Input storage is currently adapted from byte arrays. `Utf8Input` is a separate
 abstraction so additional storage adapters can be added without changing

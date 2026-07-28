@@ -97,7 +97,13 @@ enum RegexEngineVariant {
       "safere_utf8",
       "java",
       InputRepresentation.PREEXISTING_UTF8,
-      EnumSet.of(EngineCapability.FIND)) {
+      EnumSet.of(
+          EngineCapability.FIND,
+          EngineCapability.MATCHES,
+          EngineCapability.LOOKING_AT,
+          EngineCapability.GROUP_PARTICIPATION,
+          EngineCapability.MATCHER_RESET,
+          EngineCapability.REGIONS)) {
     @Override
     CompiledRegex compile(String regex) {
       org.safere.Pattern pattern = org.safere.Pattern.compile(regex);
@@ -108,12 +114,42 @@ enum RegexEngineVariant {
         }
 
         @Override
+        public boolean matches(RegexInput input) {
+          return pattern.matcher(utf8(input)).matches();
+        }
+
+        @Override
         public MatchCursor matcher(RegexInput input) {
           org.safere.Utf8Matcher matcher = pattern.matcher(utf8(input));
           return new MatchCursor() {
             @Override
             public boolean find() {
               return matcher.find();
+            }
+
+            @Override
+            public boolean matches() {
+              return matcher.matches();
+            }
+
+            @Override
+            public boolean lookingAt() {
+              return matcher.lookingAt();
+            }
+
+            @Override
+            public boolean groupParticipated(int group) {
+              return matcher.start(group) >= 0;
+            }
+
+            @Override
+            public void reset() {
+              matcher.reset();
+            }
+
+            @Override
+            public void region(int start, int end) {
+              matcher.region(start, end);
             }
           };
         }
@@ -383,6 +419,8 @@ enum RegexEngineVariant {
         case FIND -> features.add(DeclarativeBenchmarkPlan.Feature.FIND);
         case MATCHES -> features.add(DeclarativeBenchmarkPlan.Feature.MATCHES);
         case LOOKING_AT -> features.add(DeclarativeBenchmarkPlan.Feature.LOOKING_AT);
+        case GROUP_PARTICIPATION ->
+            features.add(DeclarativeBenchmarkPlan.Feature.CAPTURE_PARTICIPATION);
         case GROUP_TEXT -> features.add(DeclarativeBenchmarkPlan.Feature.CAPTURE_TEXT);
         case REPLACE -> {
           features.add(DeclarativeBenchmarkPlan.Feature.REPLACE);
@@ -491,6 +529,7 @@ enum RegexEngineVariant {
         EngineCapability.COMPILE,
         EngineCapability.FIND,
         EngineCapability.MATCHES,
+        EngineCapability.GROUP_PARTICIPATION,
         EngineCapability.GROUP_TEXT,
         EngineCapability.REPLACE,
         EngineCapability.SPLIT,
@@ -532,6 +571,10 @@ enum RegexEngineVariant {
 
     default String group(int group) {
       throw new UnsupportedOperationException();
+    }
+
+    default boolean groupParticipated(int group) {
+      return group(group) != null;
     }
 
     default void reset() {

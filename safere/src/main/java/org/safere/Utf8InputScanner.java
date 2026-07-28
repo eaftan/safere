@@ -66,6 +66,10 @@ final class Utf8InputScanner implements InputScanner {
     return length;
   }
 
+  Utf8InputScanner slice(int start, int end) {
+    return new Utf8InputScanner(bytes, offset + start, end - start);
+  }
+
   @Override
   public int asciiAt(int pos) {
     int value = unsignedByteAt(pos);

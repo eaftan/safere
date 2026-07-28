@@ -77,8 +77,8 @@ class CrossEngineBenchmarkPlanTest {
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
           .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(1406);
-    assertThat(plan.exclusions()).hasSize(634);
+    assertThat(allTrials).hasSize(1431);
+    assertThat(plan.exclusions()).hasSize(609);
     assertThat(accounted).hasSize(408 * RegexEngineVariant.values().length);
   }
 
@@ -93,14 +93,14 @@ class CrossEngineBenchmarkPlanTest {
             second.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(809);
+        .hasSize(824);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
             second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
                 .map(CrossEngineBenchmarkPlan.Trial::id)
                 .toList())
-        .hasSize(525);
+        .hasSize(535);
     assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
         .extracting(CrossEngineBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
@@ -111,7 +111,7 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
-  void utf8ParticipatesOnlyInNativeSupportedOperations() {
+  void utf8ParticipatesInEveryOperationSupportedByItsNativeApi() {
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
     List<CrossEngineBenchmarkPlan.Trial> utf8Trials =
         List.of(
@@ -124,20 +124,32 @@ class CrossEngineBenchmarkPlanTest {
 
     assertThat(utf8Trials).isNotEmpty();
     assertThat(utf8Trials)
-        .allMatch(
-            trial ->
-                trial.workload().operation() == BenchmarkOperation.FIND
-                    || trial.workload().operation() == BenchmarkOperation.FIND_ALL_COUNT);
+        .extracting(trial -> trial.workload().operation())
+        .contains(
+            BenchmarkOperation.FIND,
+            BenchmarkOperation.FIND_ALL_COUNT,
+            BenchmarkOperation.MATCHES,
+            BenchmarkOperation.MATCHES_CORPUS,
+            BenchmarkOperation.LOOKING_AT,
+            BenchmarkOperation.MATCHER_RESET_FIND,
+            BenchmarkOperation.MATCHER_REGION_FIND,
+            BenchmarkOperation.FIND_GROUP_PRESENT)
+        .doesNotContain(
+            BenchmarkOperation.CAPTURE_GROUPS,
+            BenchmarkOperation.FIND_GROUP,
+            BenchmarkOperation.REPLACE_ALL,
+            BenchmarkOperation.SPLIT_LENGTH_SUM);
   }
 
   @Test
   void unsupportedCombinationIsDistinctFromMissingImplementation() {
     CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
 
-    assertThatThrownBy(() -> plan.resolve("RegexBenchmark.literalMatch@safere-utf8"))
+    assertThat(plan.resolve("RegexBenchmark.literalMatch@safere-utf8")).isNotNull();
+    assertThatThrownBy(() -> plan.resolve("HttpBenchmark.httpExtract@safere-utf8"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unsupported cross-engine combination")
-        .hasMessageContaining("MATCHES");
+        .hasMessageContaining("captureText");
     assertThatThrownBy(() -> plan.resolve("missing.workload@safere-string"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Unknown cross-engine workload ID: missing.workload");
@@ -219,6 +231,30 @@ class CrossEngineBenchmarkPlanTest {
             "ApplicationBenchmark.uuidValidation@safere-string",
             CrossEngineWorkload.TimingGroup.NANOSECONDS)) {
       assertThat(ignored).isNotNull();
+    }
+  }
+
+  @Test
+  void expandedUtf8OperationsPrepareAndRunThroughTheGenericAdapter() {
+    CrossEngineBenchmarkPlan plan = CrossEngineBenchmarkPlan.load();
+    Blackhole blackhole =
+        new Blackhole(
+            "Today's password is swordfish. I understand instantiating Blackholes directly is"
+                + " dangerous.");
+    for (String id :
+        List.of(
+            "RegexBenchmark.literalMatch@safere-utf8",
+            "ApplicationBenchmark.uuidValidation@safere-utf8",
+            "HttpBenchmark.httpFull@safere-utf8",
+            "MatcherApiBenchmark.lookingAt@safere-utf8",
+            "MatcherApiBenchmark.regionFind@safere-utf8",
+            "MatcherApiBenchmark.resetAndFind@safere-utf8",
+            "PathologicalBenchmark.pathological.10@safere-utf8")) {
+      CrossEngineBenchmarkPlan.Trial trial = plan.resolve(id);
+      try (CrossEngineTrialRunner runner =
+          CrossEngineTrialRunner.prepare(id, trial.workload().timingGroup())) {
+        runner.run(blackhole);
+      }
     }
   }
 
@@ -340,8 +376,8 @@ class CrossEngineBenchmarkPlanTest {
         .allMatch(runner -> !runner.trialIds().isEmpty())
         .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
         .doesNotHaveDuplicates()
-        .hasSize(1445);
-    assertThat(plan.reportPlan().trials()).hasSize(1445);
+        .hasSize(1470);
+    assertThat(plan.reportPlan().trials()).hasSize(1470);
     assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
     assertThat(
             plan.reportPlan(true).trials().stream()

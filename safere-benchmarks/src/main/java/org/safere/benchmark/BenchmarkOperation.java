@@ -32,7 +32,7 @@ enum BenchmarkOperation {
   COMPILE_AND_FIND_ROTATING_UTF16(EngineCapability.COMPILE, EngineCapability.FIND),
   MATCHER_RESET_FIND(EngineCapability.FIND, EngineCapability.MATCHER_RESET),
   MATCHER_REGION_FIND(EngineCapability.FIND, EngineCapability.REGIONS),
-  FIND_GROUP_PRESENT(EngineCapability.FIND, EngineCapability.GROUP_TEXT),
+  FIND_GROUP_PRESENT(EngineCapability.FIND, EngineCapability.GROUP_PARTICIPATION),
   FIND_GROUP(EngineCapability.FIND, EngineCapability.GROUP_TEXT);
 
   private final EnumSet<EngineCapability> requiredCapabilities;
@@ -381,7 +381,7 @@ enum BenchmarkOperation {
   }
 
   private static boolean findGroupPresent(RegexEngineVariant.MatchCursor matcher, int group) {
-    return matcher.find() && matcher.group(group) != null;
+    return matcher.find() && matcher.groupParticipated(group);
   }
 
   private static String findGroup(RegexEngineVariant.MatchCursor matcher, int group) {

@@ -34,8 +34,9 @@ requirements and accepted representations. It emits a trial or a specific
 exclusion for every workload/variant pair, so an unsupported feature or
 representation is different from a missing adapter or operation
 implementation. In particular, SafeRE UTF-8 participates in direct `find` and
-repeated-`find` operations; it does not emulate String-only `matches`,
-group-text, replacement, or split APIs.
+repeated-`find`, whole-input `matches`, `lookingAt`, capture-participation, and
+matcher reset/region operations. Group-text, String replacement, and split
+workloads remain excluded rather than being emulated across representations.
 
 ## JMH trials and result names
 
