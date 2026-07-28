@@ -21,3 +21,10 @@ func TestFullMatchIsNotWeakenedByMultilineMode(t *testing.T) {
 		t.Fatal("full match did not anchor the complete input")
 	}
 }
+
+func TestJavaZeroSplitLimitMeansUnlimitedAndDropsTrailingEmptyParts(t *testing.T) {
+	re := regexp.MustCompile(",")
+	if actual := splitLengthSum(re, "a,b,", 0); actual != 4 {
+		t.Fatalf("split length sum %d, want %d", actual, 4)
+	}
+}

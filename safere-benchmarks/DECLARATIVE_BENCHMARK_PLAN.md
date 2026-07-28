@@ -130,6 +130,10 @@ entry for a Java syntax value, the materializer uses the Java value unchanged.
 An alternate may instead declare `unsupported: true` and a reason when the
 same semantics cannot be expressed in that dialect; the corresponding
 workload/engine entry is then an explicit `unsupportedSyntax` exclusion.
+An optional nonempty `flagSets` array restricts an alternate to the listed
+exact Java flag-set IDs. For other flag sets, the materializer retains the
+canonical Java value. This represents cases such as .NET's Unicode shorthand
+defaults without making runners infer or rewrite syntax from flags.
 
 Alternates are exact reviewed strings. Runners must not rewrite regex or
 replacement syntax automatically or derive replacement templates from operation

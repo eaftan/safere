@@ -4068,7 +4068,12 @@
             },
             "dotnet": {
               "pattern": "[0-9]+",
-              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII",
+              "flagSets": [
+                "0",
+                "CASE_INSENSITIVE",
+                "CASE_INSENSITIVE_UNICODE_CASE"
+              ]
             }
           }
         }
@@ -5521,7 +5526,12 @@
               "alternates": {
                 "dotnet": {
                   "pattern": "[A-Za-z0-9_]+",
-                  "reason": ".NET gives \\w Unicode semantics while Java defaults to ASCII"
+                  "reason": ".NET gives \\w Unicode semantics while Java defaults to ASCII",
+                  "flagSets": [
+                    "0",
+                    "CASE_INSENSITIVE",
+                    "CASE_INSENSITIVE_UNICODE_CASE"
+                  ]
                 }
               }
             }
@@ -5533,7 +5543,12 @@
               "alternates": {
                 "dotnet": {
                   "pattern": "[0-9]+",
-                  "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+                  "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII",
+                  "flagSets": [
+                    "0",
+                    "CASE_INSENSITIVE",
+                    "CASE_INSENSITIVE_UNICODE_CASE"
+                  ]
                 }
               }
             }
@@ -5545,7 +5560,12 @@
               "alternates": {
                 "dotnet": {
                   "pattern": "[ \\t\\n\\x0B\\f\\r]+",
-                  "reason": ".NET gives \\s Unicode semantics while Java defaults to ASCII"
+                  "reason": ".NET gives \\s Unicode semantics while Java defaults to ASCII",
+                  "flagSets": [
+                    "0",
+                    "CASE_INSENSITIVE",
+                    "CASE_INSENSITIVE_UNICODE_CASE"
+                  ]
                 }
               }
             }

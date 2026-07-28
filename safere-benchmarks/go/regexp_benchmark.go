@@ -163,7 +163,11 @@ func capturedText(text string, indices []int, groups []int) string {
 }
 
 func splitLengthSum(re *regexp.Regexp, text string, limit int) int {
-	parts := re.Split(text, limit)
+	goLimit := limit
+	if limit == 0 {
+		goLimit = -1
+	}
+	parts := re.Split(text, goLimit)
 	if limit == 0 {
 		for len(parts) > 0 && parts[len(parts)-1] == "" {
 			parts = parts[:len(parts)-1]

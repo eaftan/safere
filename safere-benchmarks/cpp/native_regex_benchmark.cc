@@ -366,7 +366,8 @@ json execute_workload(
     const std::vector<std::string>& texts) {
   const std::string operation = entry.at("operation");
   const json& arguments = entry.at("arguments");
-  const std::string text = texts.empty() ? std::string() : texts.front();
+  static const std::string empty_text;
+  const std::string& text = texts.empty() ? empty_text : texts.front();
   const RE2& regex = *regexes.front();
   std::vector<int> groups =
       arguments.contains("groups")

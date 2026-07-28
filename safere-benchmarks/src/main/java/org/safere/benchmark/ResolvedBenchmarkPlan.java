@@ -314,6 +314,7 @@ final class ResolvedBenchmarkPlan {
     entry.addProperty("reportEngine", engine.reportEngine());
     entry.addProperty("operation", workload.operation().jsonName());
     entry.add("measurement", measurement(workload.measurement()));
+    String flagSet = flagSet(workload);
 
     Exclusion exclusion = exclusion(workload, engine, patternProfiles, replacementProfiles);
     if (exclusion != null) {
@@ -330,11 +331,11 @@ final class ResolvedBenchmarkPlan {
         "patterns",
         strings(
             workload.patterns().stream()
-                .map(pattern -> patternProfiles.select(engine.patternProfile(), pattern))
+                .map(pattern -> patternProfiles.select(engine.patternProfile(), pattern, flagSet))
                 .toList()));
     entry.add("inputs", strings(workload.inputIds()));
-    entry.add("arguments", arguments(workload.arguments(), engine, replacementProfiles));
-    entry.add("options", strings(options(flagSet(workload))));
+    entry.add("arguments", arguments(workload.arguments(), engine, replacementProfiles, flagSet));
+    entry.add("options", strings(options(flagSet)));
     entry.addProperty("inputRepresentation", engine.declaration().inputRepresentation().jsonName());
     entry.addProperty("resultConsumption", workload.resultConsumption().jsonName());
     if (workload.expected() != null) {
@@ -389,7 +390,8 @@ final class ResolvedBenchmarkPlan {
       return new Exclusion("unsupportedFeature", "engine lacks " + featureNames(missing));
     }
     for (String pattern : workload.patterns()) {
-      String reason = patternProfiles.resolve(engine.patternProfile(), pattern).unsupportedReason();
+      String reason =
+          patternProfiles.resolve(engine.patternProfile(), pattern, flagSet).unsupportedReason();
       if (reason != null) {
         return new Exclusion("unsupportedSyntax", reason);
       }
@@ -398,7 +400,9 @@ final class ResolvedBenchmarkPlan {
     if (replacement != null) {
       String value = ((DeclarativeBenchmarkPlan.RecipeString) replacement).value();
       String reason =
-          replacementProfiles.resolve(engine.replacementProfile(), value).unsupportedReason();
+          replacementProfiles
+              .resolve(engine.replacementProfile(), value, flagSet)
+              .unsupportedReason();
       if (reason != null) {
         return new Exclusion("unsupportedSyntax", reason);
       }
@@ -409,7 +413,8 @@ final class ResolvedBenchmarkPlan {
   private static JsonObject arguments(
       Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments,
       Engine engine,
-      PatternProfiles replacementProfiles) {
+      PatternProfiles replacementProfiles,
+      String flagSet) {
     JsonObject result = new JsonObject();
     arguments.forEach(
         (name, value) -> {
@@ -417,7 +422,8 @@ final class ResolvedBenchmarkPlan {
           if (name.equals("replacement")) {
             json =
                 new JsonPrimitive(
-                    replacementProfiles.select(engine.replacementProfile(), json.getAsString()));
+                    replacementProfiles.select(
+                        engine.replacementProfile(), json.getAsString(), flagSet));
           }
           result.add(name, json);
         });

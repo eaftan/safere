@@ -205,41 +205,45 @@ fn captured_text(regex: &Regex, text: &str, groups: &[usize]) -> String {
 
 struct Prepared {
     entry: Value,
+    operation: String,
     patterns: Vec<String>,
     regexes: Vec<Regex>,
     full_regex: Option<Regex>,
     inputs: Vec<String>,
+    groups: Vec<usize>,
+    group: usize,
+    replacement: String,
+    limit: usize,
 }
 
 fn prepare(entry: &Value, corpus: &Corpus) -> Prepared {
     let patterns = string_list(entry, "patterns");
+    let arguments = &entry["arguments"];
     Prepared {
+        operation: required_string(entry, "operation"),
         regexes: patterns.iter().map(|pattern| compile(pattern)).collect(),
         full_regex: patterns.first().map(|pattern| compile_full(pattern)),
         inputs: string_list(entry, "inputs")
             .iter()
             .map(|key| corpus.input(key))
             .collect(),
+        groups: int_list(arguments, "groups"),
+        group: optional_usize(arguments, "group"),
+        replacement: optional_string(arguments, "replacement"),
+        limit: optional_usize(arguments, "limit"),
         entry: entry.clone(),
         patterns,
     }
 }
 
 fn execute(prepared: &Prepared) -> Value {
-    let entry = &prepared.entry;
-    let operation = required_string(entry, "operation");
     let patterns = &prepared.patterns;
     let inputs = &prepared.inputs;
-    let arguments = &entry["arguments"];
-    let groups = int_list(arguments, "groups");
-    let group = optional_usize(arguments, "group");
-    let replacement = optional_string(arguments, "replacement");
-    let limit = optional_usize(arguments, "limit");
     let regexes = &prepared.regexes;
     let regex = regexes.first();
     let text = inputs.first().map(String::as_str).unwrap_or_default();
 
-    match operation.as_str() {
+    match prepared.operation.as_str() {
         "compile" => {
             black_box(compile(&patterns[0]));
             json!(true)
@@ -257,7 +261,7 @@ fn execute(prepared: &Prepared) -> Value {
                 inputs
                     .iter()
                     .filter_map(|input| full.captures(input))
-                    .map(|captures| group_length_sum(&captures, &groups))
+                    .map(|captures| group_length_sum(&captures, &prepared.groups))
                     .sum::<usize>()
             )
         }
@@ -275,7 +279,7 @@ fn execute(prepared: &Prepared) -> Value {
                 regex
                     .unwrap()
                     .captures_iter(text)
-                    .map(|captures| group_length_sum(&captures, &groups))
+                    .map(|captures| group_length_sum(&captures, &prepared.groups))
                     .sum::<usize>()
             )
         }
@@ -283,26 +287,38 @@ fn execute(prepared: &Prepared) -> Value {
             json!(captured_text(
                 prepared.full_regex.as_ref().unwrap(),
                 text,
-                &groups
+                &prepared.groups
             ))
         }
-        "replaceFirst" => json!(regex.unwrap().replacen(text, 1, replacement.as_str())),
-        "replaceAll" => json!(regex.unwrap().replace_all(text, replacement.as_str())),
+        "replaceFirst" => {
+            json!(
+                regex
+                    .unwrap()
+                    .replacen(text, 1, prepared.replacement.as_str())
+            )
+        }
+        "replaceAll" => {
+            json!(
+                regex
+                    .unwrap()
+                    .replace_all(text, prepared.replacement.as_str())
+            )
+        }
         "replaceAllLengthSum" => {
             json!(
                 regexes
                     .iter()
-                    .map(|item| item.replace_all(text, replacement.as_str()).len())
+                    .map(|item| { item.replace_all(text, prepared.replacement.as_str()).len() })
                     .sum::<usize>()
             )
         }
         "splitLengthSum" => {
-            let mut parts: Vec<&str> = if limit > 0 {
-                regex.unwrap().splitn(text, limit).collect()
+            let mut parts: Vec<&str> = if prepared.limit > 0 {
+                regex.unwrap().splitn(text, prepared.limit).collect()
             } else {
                 regex.unwrap().split(text).collect()
             };
-            if limit == 0 {
+            if prepared.limit == 0 {
                 while parts.last() == Some(&"") {
                     parts.pop();
                 }
@@ -314,7 +330,7 @@ fn execute(prepared: &Prepared) -> Value {
                 regex
                     .unwrap()
                     .captures(text)
-                    .and_then(|captures| captures.get(group))
+                    .and_then(|captures| captures.get(prepared.group))
                     .is_some()
             )
         }
@@ -323,7 +339,11 @@ fn execute(prepared: &Prepared) -> Value {
                 regex
                     .unwrap()
                     .captures(text)
-                    .and_then(|captures| captures.get(group).map(|found| found.as_str().to_owned()))
+                    .and_then(|captures| {
+                        captures
+                            .get(prepared.group)
+                            .map(|found| found.as_str().to_owned())
+                    })
                     .unwrap_or_default()
             )
         }
@@ -413,6 +433,11 @@ fn matches_filter(name: &str, filters: &[String]) -> bool {
     filters.is_empty() || filters.iter().any(|filter| name.contains(filter))
 }
 
+fn matches_build_mode(entry: &Value, memory_tracking: bool) -> bool {
+    let memory = entry["measurement"]["mode"].as_str() == Some("retainedMemory");
+    memory == memory_tracking
+}
+
 fn main() {
     let mut manifest_path = PathBuf::from("../../target/benchmark-corpus/manifest.json");
     let mut filters = Vec::new();
@@ -441,6 +466,9 @@ fn main() {
         if !matches_filter(&id, &filters) {
             continue;
         }
+        if !matches_build_mode(entry, cfg!(feature = "memory-tracking")) {
+            continue;
+        }
         if entry["status"].as_str() == Some("excluded") {
             if list_exclusions {
                 println!(
@@ -455,15 +483,11 @@ fn main() {
             continue;
         }
         assert_eq!(entry["status"].as_str(), Some("runnable"));
-        let memory = entry["measurement"]["mode"].as_str() == Some("retainedMemory");
-        if memory != cfg!(feature = "memory-tracking") {
-            continue;
-        }
         if list {
             println!("{id}");
         } else if !list_exclusions {
             #[cfg(feature = "memory-tracking")]
-            if memory {
+            if matches_build_mode(entry, true) {
                 println!(
                     "{}",
                     json!({
@@ -495,5 +519,16 @@ mod tests {
         let regex = compile_full("(?m)abc");
         assert!(regex.is_match("abc"));
         assert!(!regex.is_match("abc\nother"));
+    }
+
+    #[test]
+    fn entries_are_partitioned_between_timing_and_memory_builds() {
+        let timing = json!({"measurement": {"mode": "averageTime"}});
+        let memory = json!({"measurement": {"mode": "retainedMemory"}});
+
+        assert!(matches_build_mode(&timing, false));
+        assert!(!matches_build_mode(&timing, true));
+        assert!(!matches_build_mode(&memory, false));
+        assert!(matches_build_mode(&memory, true));
     }
 }

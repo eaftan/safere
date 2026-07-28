@@ -165,6 +165,22 @@ class BenchmarkInputMaterializerTest {
     assertThat(executionPlan.get("workloadCount").getAsInt()).isEqualTo(485);
     assertThat(executionPlan.get("engineCount").getAsInt()).isEqualTo(10);
     assertThat(executionPlan.getAsJsonArray("entries")).hasSize(4_850);
+    assertThat(
+            executionEntry(
+                    executionPlan, "UnicodeCompileBenchmark.compile.word.0@dotnet_nonbacktracking")
+                .getAsJsonArray("patterns")
+                .get(0)
+                .getAsString())
+        .isEqualTo("[A-Za-z0-9_]+");
+    assertThat(
+            executionEntry(
+                    executionPlan,
+                    "UnicodeCompileBenchmark.compile.word."
+                        + "CASE_INSENSITIVE_UNICODE_CHARACTER_CLASS@dotnet_nonbacktracking")
+                .getAsJsonArray("patterns")
+                .get(0)
+                .getAsString())
+        .isEqualTo("\\w+");
     for (JsonElement engineElement : executionPlan.getAsJsonArray("engines")) {
       String engineId = engineElement.getAsJsonObject().get("id").getAsString();
       assertThat(
@@ -229,5 +245,13 @@ class BenchmarkInputMaterializerTest {
 
   private static String text(Map<String, byte[]> inputs, String id) {
     return new String(inputs.get(id), StandardCharsets.UTF_8);
+  }
+
+  private static JsonObject executionEntry(JsonObject plan, String id) {
+    return plan.getAsJsonArray("entries").asList().stream()
+        .map(JsonElement::getAsJsonObject)
+        .filter(entry -> entry.get("id").getAsString().equals(id))
+        .findFirst()
+        .orElseThrow();
   }
 }
