@@ -9,11 +9,17 @@ parameters, expected results, and deterministic input recipes.
 
 Before execution, each benchmark runner invokes the central materializer. It
 writes a resolved manifest and exact UTF-8 inputs under
-`target/benchmark-corpus/`. Java, C++, Go, and future harnesses read only those
-generated artifacts; they do not read or interpret `benchmark-data.json`.
+`target/benchmark-corpus/`. Java, C++, Go, and future harnesses read only
+those generated artifacts; they do not read or interpret `benchmark-data.json`.
 Java string engines decode input files as UTF-8 during benchmark setup, while
 byte-oriented engines use the bytes directly. Materialization and decoding are
 outside the timed operation.
+
+Patterns remain Java-canonical in `benchmark-data.json`. Explicit
+engine-dialect alternatives live beside the pattern that needs them. The
+materializer collects those inline definitions into the resolved manifest;
+runners select their profile there and otherwise use the Java string unchanged.
+See [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md#pattern-profiles).
 
 The normal runner scripts materialize automatically. To prepare the corpus
 without starting a benchmark, run from the repository root:

@@ -6438,11 +6438,27 @@
           },
           {
             "id": "alphabetic",
-            "value": "\\p{IsAlphabetic}+"
+            "value": {
+              "java": "\\p{IsAlphabetic}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{L}+",
+                  "reason": "RE2 uses Unicode general-category names rather than Java Is properties"
+                }
+              }
+            }
           },
           {
             "id": "ideographic",
-            "value": "\\p{IsIdeographic}+"
+            "value": {
+              "java": "\\p{IsIdeographic}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{Han}+",
+                  "reason": "RE2 exposes the Han script rather than Java's IsIdeographic property"
+                }
+              }
+            }
           },
           {
             "id": "emoji",
@@ -6454,19 +6470,51 @@
           },
           {
             "id": "scriptLatin",
-            "value": "\\p{script=Latin}+"
+            "value": {
+              "java": "\\p{script=Latin}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{Latin}+",
+                  "reason": "RE2 uses bare Unicode script names"
+                }
+              }
+            }
           },
           {
             "id": "scriptHan",
-            "value": "\\p{script=Han}+"
+            "value": {
+              "java": "\\p{script=Han}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{Han}+",
+                  "reason": "RE2 uses bare Unicode script names"
+                }
+              }
+            }
           },
           {
             "id": "blockBasicLatin",
-            "value": "\\p{block=BasicLatin}+"
+            "value": {
+              "java": "\\p{block=BasicLatin}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "[\\x{0}-\\x{7F}]+",
+                  "reason": "RE2 does not expose Java Unicode block names"
+                }
+              }
+            }
           },
           {
             "id": "blockCjk",
-            "value": "\\p{block=CJK_Unified_Ideographs}+"
+            "value": {
+              "java": "\\p{block=CJK_Unified_Ideographs}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "[\\x{4E00}-\\x{9FFF}]+",
+                  "reason": "RE2 does not expose Java Unicode block names"
+                }
+              }
+            }
           },
           {
             "id": "word",
@@ -6490,7 +6538,15 @@
           },
           {
             "id": "letterIntersection",
-            "value": "[\\p{L}&&[^\\p{Lu}]]+"
+            "value": {
+              "java": "[\\p{L}&&[^\\p{Lu}]]+",
+              "alternates": {
+                "re2": {
+                  "pattern": "[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+",
+                  "reason": "RE2 does not support Java character-class intersection"
+                }
+              }
+            }
           },
           {
             "id": "identifier",
@@ -6537,7 +6593,15 @@
           },
           {
             "id": "alphabetic",
-            "value": "\\p{IsAlphabetic}+"
+            "value": {
+              "java": "\\p{IsAlphabetic}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{L}+",
+                  "reason": "RE2 uses Unicode general-category names rather than Java Is properties"
+                }
+              }
+            }
           },
           {
             "id": "emoji",
@@ -6549,15 +6613,39 @@
           },
           {
             "id": "scriptLatin",
-            "value": "\\p{script=Latin}+"
+            "value": {
+              "java": "\\p{script=Latin}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{Latin}+",
+                  "reason": "RE2 uses bare Unicode script names"
+                }
+              }
+            }
           },
           {
             "id": "scriptHan",
-            "value": "\\p{script=Han}+"
+            "value": {
+              "java": "\\p{script=Han}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "\\p{Han}+",
+                  "reason": "RE2 uses bare Unicode script names"
+                }
+              }
+            }
           },
           {
             "id": "blockBasicLatin",
-            "value": "\\p{block=BasicLatin}+"
+            "value": {
+              "java": "\\p{block=BasicLatin}+",
+              "alternates": {
+                "re2": {
+                  "pattern": "[\\x{0}-\\x{7F}]+",
+                  "reason": "RE2 does not expose Java Unicode block names"
+                }
+              }
+            }
           },
           {
             "id": "word",
@@ -8257,7 +8345,15 @@
       "id": "JavaCharacterClassBenchmark.compileAndFindJavaLetter",
       "operation": "compileAndFindRotatingUtf16",
       "patterns": [
-        "\\p{javaLetter}"
+        {
+          "java": "\\p{javaLetter}",
+          "alternates": {
+            "re2": {
+              "pattern": "\\p{L}",
+              "reason": "RE2 uses the Unicode letter category rather than Java character properties"
+            }
+          }
+        }
       ],
       "arguments": {
         "seed": 95413077,
@@ -8279,7 +8375,15 @@
       "id": "JavaCharacterClassBenchmark.findJavaLetter",
       "operation": "findRotatingUtf16",
       "patterns": [
-        "\\p{javaLetter}"
+        {
+          "java": "\\p{javaLetter}",
+          "alternates": {
+            "re2": {
+              "pattern": "\\p{L}",
+              "reason": "RE2 uses the Unicode letter category rather than Java character properties"
+            }
+          }
+        }
       ],
       "arguments": {
         "seed": 95413077,

@@ -76,6 +76,42 @@ A materially changed operation, input, result-consumption rule, lifecycle, or
 timing boundary requires a new workload ID. Reordering JSON or changing a
 display label does not.
 
+## Pattern profiles
+
+All workload patterns use Java regex syntax as their canonical representation.
+When another regex dialect needs different syntax for the same semantics,
+the pattern definition declares an exact alternate inline:
+
+```json
+{
+  "patterns": [
+    {
+      "java": "\\p{script=Latin}+",
+      "alternates": {
+        "re2": {
+          "pattern": "\\p{Latin}+",
+          "reason": "RE2 uses bare Unicode script names"
+        }
+      }
+    }
+  ]
+}
+```
+
+An engine adapter selects one syntax-family profile. SafeRE and JDK select
+`java`; RE2/J, RE2-FFM, native C++ RE2, and Go select `re2`. If the selected
+profile has no entry for a Java pattern, the adapter uses the Java pattern
+unchanged.
+
+Alternates are exact reviewed strings. Runners must not rewrite regex syntax
+automatically. The required nonblank `reason` records why the alternate is
+necessary. The materializer replaces inline definitions with their Java strings
+and emits a resolved profile lookup in the generated manifest. Conflicting
+alternates for the same Java pattern and profile, malformed profile IDs, blank
+fields, and unknown fields are rejected during materialization.
+Pattern selection and compilation happen outside timed matching operations;
+compile benchmarks select the alternate before starting the timed compilation.
+
 ## Bounded input recipes
 
 Recipes describe data and deterministic generation; they cannot invoke Java

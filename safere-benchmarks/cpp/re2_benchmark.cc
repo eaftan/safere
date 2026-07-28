@@ -28,6 +28,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #ifdef SAFERE_HAVE_MALLINFO2
@@ -41,6 +42,7 @@ using json = nlohmann::json;
 
 json benchmark_input_manifest;
 std::filesystem::path benchmark_input_directory;
+std::unordered_map<std::string, std::string> benchmark_pattern_profile;
 
 std::string sha256_hex(std::string_view input) {
   static constexpr std::array<uint32_t, 64> kRoundConstants = {
@@ -270,7 +272,25 @@ json load_benchmark_manifest(const std::string& manifest_path_string) {
     exit(1);
   }
   benchmark_input_manifest = manifest.at("inputs");
-  return manifest.at("benchmarkData");
+  json benchmark_data = manifest.at("benchmarkData");
+  if (benchmark_data.contains("patternProfiles")) {
+    const auto& profiles = benchmark_data.at("patternProfiles");
+    if (profiles.contains("re2")) {
+      for (const auto& entry : profiles.at("re2")) {
+        benchmark_pattern_profile.emplace(
+            entry.at("java").get<std::string>(),
+            entry.at("alternate").get<std::string>());
+      }
+    }
+  }
+  return benchmark_data;
+}
+
+std::string select_pattern(const std::string& java_pattern) {
+  auto alternate = benchmark_pattern_profile.find(java_pattern);
+  return alternate == benchmark_pattern_profile.end()
+             ? java_pattern
+             : alternate->second;
 }
 
 std::string load_benchmark_input(const std::string& key) {
@@ -339,12 +359,12 @@ void run_regex_benchmarks(const json& data,
                           const std::vector<std::string>& filters) {
   const auto& sec = data["regex"];
 
-  RE2 hello(sec["literalMatch"]["pattern"].get<std::string>());
-  RE2 alpha(sec["charClassMatch"]["pattern"].get<std::string>());
-  RE2 alt(sec["alternationFind"]["pattern"].get<std::string>());
-  RE2 date(sec["captureGroups"]["pattern"].get<std::string>());
-  RE2 find_ing(sec["findInText"]["pattern"].get<std::string>());
-  RE2 email(sec["emailFind"]["pattern"].get<std::string>());
+  RE2 hello(select_pattern(sec["literalMatch"]["pattern"].get<std::string>()));
+  RE2 alpha(select_pattern(sec["charClassMatch"]["pattern"].get<std::string>()));
+  RE2 alt(select_pattern(sec["alternationFind"]["pattern"].get<std::string>()));
+  RE2 date(select_pattern(sec["captureGroups"]["pattern"].get<std::string>()));
+  RE2 find_ing(select_pattern(sec["findInText"]["pattern"].get<std::string>()));
+  RE2 email(select_pattern(sec["emailFind"]["pattern"].get<std::string>()));
 
   std::string hello_text = sec["literalMatch"]["text"];
   std::string alpha_text = sec["charClassMatch"]["text"];
@@ -416,7 +436,7 @@ void run_application_benchmarks(const json& data,
     explicit AppCase(const json& item)
         : name(item.at("name").get<std::string>()),
           op(item.at("op").get<std::string>()),
-          pattern(item.at("pattern").get<std::string>()),
+          pattern(select_pattern(item.at("pattern").get<std::string>())),
           texts(item.contains("texts")
                     ? item.at("texts").get<std::vector<std::string>>()
                     : std::vector<std::string>()),
@@ -578,7 +598,7 @@ void run_real_world_regex_benchmarks(
     explicit RealWorldCase(const json& item)
         : name(item.at("name").get<std::string>()),
           op(item.at("op").get<std::string>()),
-          pattern(item.at("pattern").get<std::string>()),
+          pattern(select_pattern(item.at("pattern").get<std::string>())),
           re(pattern) {}
   };
 
@@ -650,10 +670,14 @@ void run_compile_benchmarks(const json& data,
                             const std::vector<std::string>& filters) {
   const auto& sec = data["compile"];
 
-  std::string simple = sec["simple"]["pattern"];
-  std::string medium = sec["medium"]["pattern"];
-  std::string complex_pat = sec["complex"]["pattern"];
-  std::string alternation = sec["alternation"]["pattern"];
+  std::string simple =
+      select_pattern(sec["simple"]["pattern"].get<std::string>());
+  std::string medium =
+      select_pattern(sec["medium"]["pattern"].get<std::string>());
+  std::string complex_pat =
+      select_pattern(sec["complex"]["pattern"].get<std::string>());
+  std::string alternation =
+      select_pattern(sec["alternation"]["pattern"].get<std::string>());
 
   auto run = [&](const std::string& name, const std::string& pattern) {
     if (matches_filter(name, filters)) {
@@ -675,10 +699,10 @@ void run_search_scaling_benchmarks(const json& data,
   const auto& sec = data["searchScaling"];
   std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
 
-  RE2 easy(sec["patterns"]["easy"].get<std::string>());
-  RE2 medium(sec["patterns"]["medium"].get<std::string>());
-  RE2 hard(sec["patterns"]["hard"].get<std::string>());
-  RE2 find_ing(sec["findIngPattern"].get<std::string>());
+  RE2 easy(select_pattern(sec["patterns"]["easy"].get<std::string>()));
+  RE2 medium(select_pattern(sec["patterns"]["medium"].get<std::string>()));
+  RE2 hard(select_pattern(sec["patterns"]["hard"].get<std::string>()));
+  RE2 find_ing(select_pattern(sec["findIngPattern"].get<std::string>()));
 
   for (int size : sizes) {
     std::string size_string = std::to_string(size);
@@ -725,10 +749,10 @@ void run_issue481_scaling_benchmarks(const json& data,
   const auto& sec = data["issue481Scaling"];
   std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
 
-  RE2 split_w(sec["splitW"]["pattern"].get<std::string>());
-  RE2 block(sec["block"]["pattern"].get<std::string>());
-  RE2 tag(sec["tag"]["pattern"].get<std::string>());
-  RE2 scheme(sec["scheme"]["pattern"].get<std::string>());
+  RE2 split_w(select_pattern(sec["splitW"]["pattern"].get<std::string>()));
+  RE2 block(select_pattern(sec["block"]["pattern"].get<std::string>()));
+  RE2 tag(select_pattern(sec["tag"]["pattern"].get<std::string>()));
+  RE2 scheme(select_pattern(sec["scheme"]["pattern"].get<std::string>()));
 
   auto split_length_sum = [](const std::string& text, RE2& re) {
     int sum = 0;
@@ -829,10 +853,10 @@ void run_capture_scaling_benchmarks(const json& data,
                                     const std::vector<std::string>& filters) {
   const auto& sec = data["captureScaling"];
 
-  RE2 pat0(sec["capture0"]["pattern"].get<std::string>());
-  RE2 pat1(sec["capture1"]["pattern"].get<std::string>());
-  RE2 pat3(sec["capture3"]["pattern"].get<std::string>());
-  RE2 pat10(sec["capture10"]["pattern"].get<std::string>());
+  RE2 pat0(select_pattern(sec["capture0"]["pattern"].get<std::string>()));
+  RE2 pat1(select_pattern(sec["capture1"]["pattern"].get<std::string>()));
+  RE2 pat3(select_pattern(sec["capture3"]["pattern"].get<std::string>()));
+  RE2 pat10(select_pattern(sec["capture10"]["pattern"].get<std::string>()));
 
   std::string text0 = sec["capture0"]["text"];
   std::string text1 = sec["capture1"]["text"];
@@ -881,7 +905,7 @@ void run_http_benchmarks(const json& data,
                          const std::vector<std::string>& filters) {
   const auto& sec = data["http"];
 
-  RE2 http(sec["pattern"].get<std::string>());
+  RE2 http(select_pattern(sec["pattern"].get<std::string>()));
   std::string full = sec["fullRequest"];
   std::string small = sec["smallRequest"];
 
@@ -924,7 +948,7 @@ void run_replace_benchmarks(const json& data,
   for (auto& [key, val] : sec.items()) {
     cases.push_back({
         key,
-        val["pattern"].get<std::string>(),
+        select_pattern(val["pattern"].get<std::string>()),
         val["text"].get<std::string>(),
         convert_replacement(val["replacement"].get<std::string>()),
         val["op"].get<std::string>()
@@ -967,7 +991,7 @@ void run_pathological_benchmarks(const json& data,
     std::string name =
         "PathologicalBenchmark.pathological." + std::to_string(n);
     if (matches_filter(name, filters)) {
-      RE2 re(regex);
+      RE2 re(select_pattern(regex));
       print_json(measure(name, [&]() {
         do_not_optimize(RE2::FullMatch(text, re));
       }, 2, 2.0, 10, 2.0, "us/op", 1000.0));
@@ -980,8 +1004,8 @@ void run_fanout_benchmarks(const json& data,
   const auto& sec = data["fanout"];
   std::vector<int> sizes = sec["textSizes"].get<std::vector<int>>();
 
-  RE2 fanout(sec["unicodeFanout"]["pattern"].get<std::string>());
-  RE2 nested(sec["nestedQuantifier"]["pattern"].get<std::string>());
+  RE2 fanout(select_pattern(sec["unicodeFanout"]["pattern"].get<std::string>()));
+  RE2 nested(select_pattern(sec["nestedQuantifier"]["pattern"].get<std::string>()));
 
   for (int size : sizes) {
     std::string size_string = std::to_string(size);
@@ -1050,12 +1074,13 @@ void run_memory_benchmarks(const json& data,
 
   for (const auto& pi : patterns) {
     if (!matches_filter(pi.name, filters)) continue;
+    std::string pattern = select_pattern(pi.pattern);
 
 #ifdef SAFERE_HAVE_MALLINFO2
     // Measure heap delta around RE2 compilation using mallinfo2().
     struct mallinfo2 before = mallinfo2();
 #endif
-    auto re = std::make_unique<RE2>(pi.pattern);
+    auto re = std::make_unique<RE2>(pattern);
 #ifdef SAFERE_HAVE_MALLINFO2
     struct mallinfo2 after = mallinfo2();
 

@@ -146,6 +146,27 @@ class BenchmarkInputMaterializerTest {
     assertThat(entry.get("unicodeScalars").getAsInt()).isEqualTo(5);
     assertThat(entry.get("sha256").getAsString())
         .isEqualTo("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    JsonObject resolvedData = manifest.getAsJsonObject("benchmarkData");
+    assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("re2")).hasSize(8);
+    assertThat(
+            resolvedData.getAsJsonArray("workloads").asList().stream()
+                .filter(
+                    workload ->
+                        workload
+                            .getAsJsonObject()
+                            .get("id")
+                            .getAsString()
+                            .equals("UnicodeCompileBenchmark.compile.{regex}.{flagSet}"))
+                .findFirst()
+                .orElseThrow()
+                .getAsJsonObject()
+                .getAsJsonObject("axes")
+                .getAsJsonArray("regex")
+                .get(4)
+                .getAsJsonObject()
+                .get("value")
+                .getAsString())
+        .isEqualTo("\\p{IsAlphabetic}+");
   }
 
   @Test

@@ -591,8 +591,17 @@ explicitly only when optimizing crosscheck:
 ### C++ RE2 and Go Benchmarks
 
 The benchmark suite includes C++ RE2 and Go `regexp` harnesses for
-cross-language comparison. Prerequisites: CMake ≥ 3.14 + C++17 compiler
-(for C++), Go ≥ 1.21 (for Go). Dependencies are fetched automatically.
+cross-language comparison. Prerequisites are
+[CMake ≥ 3.14](https://cmake.org/download/) with a C++17 compiler,
+[Go ≥ 1.21](https://go.dev/doc/install). Dependencies are fetched
+automatically.
+
+Benchmark patterns are written in Java syntax. A pattern that needs different
+syntax in another regex dialect declares exact alternatives beside its
+Java-canonical definition in `safere-benchmarks/benchmark-data.json`; a missing
+alternate means that the Java pattern is used unchanged. See the
+[pattern-profile schema](safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md#pattern-profiles)
+for profile mappings and validation rules.
 
 ```bash
 # C++ RE2 benchmarks

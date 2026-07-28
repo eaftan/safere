@@ -135,6 +135,7 @@ type materializedInput struct {
 
 var benchmarkInputDirectory string
 var benchmarkInputs map[string]materializedInput
+var benchmarkPatternProfile map[string]string
 
 func loadBenchmarkManifest(manifestPath string) map[string]any {
 	benchmarkInputDirectory = filepath.Dir(manifestPath)
@@ -158,7 +159,36 @@ func loadBenchmarkManifest(manifestPath string) map[string]any {
 		os.Exit(1)
 	}
 	benchmarkInputs = manifest.Inputs
+	benchmarkPatternProfile = loadPatternProfile(manifest.BenchmarkData, "re2")
 	return manifest.BenchmarkData
+}
+
+func loadPatternProfile(data map[string]any, profileID string) map[string]string {
+	result := make(map[string]string)
+	profiles, ok := data["patternProfiles"].(map[string]any)
+	if !ok {
+		return result
+	}
+	entries, ok := profiles[profileID].([]any)
+	if !ok {
+		return result
+	}
+	for _, raw := range entries {
+		entry := raw.(map[string]any)
+		result[entry["java"].(string)] = entry["alternate"].(string)
+	}
+	return result
+}
+
+func mustCompile(javaPattern string) *regexp.Regexp {
+	return regexp.MustCompile(selectedPattern(javaPattern))
+}
+
+func selectedPattern(javaPattern string) string {
+	if alternate, ok := benchmarkPatternProfile[javaPattern]; ok {
+		return alternate
+	}
+	return javaPattern
 }
 
 func loadBenchmarkInput(key string) string {
@@ -256,12 +286,12 @@ func getStringSlice(data any, path string) []string {
 func runRegexBenchmarks(data map[string]any, filters []string) {
 	sec := data["regex"]
 
-	hello := regexp.MustCompile(getString(sec, "literalMatch.pattern"))
-	alpha := regexp.MustCompile(getString(sec, "charClassMatch.pattern"))
-	alt := regexp.MustCompile(getString(sec, "alternationFind.pattern"))
-	date := regexp.MustCompile(getString(sec, "captureGroups.pattern"))
-	findIng := regexp.MustCompile(getString(sec, "findInText.pattern"))
-	email := regexp.MustCompile(getString(sec, "emailFind.pattern"))
+	hello := mustCompile(getString(sec, "literalMatch.pattern"))
+	alpha := mustCompile(getString(sec, "charClassMatch.pattern"))
+	alt := mustCompile(getString(sec, "alternationFind.pattern"))
+	date := mustCompile(getString(sec, "captureGroups.pattern"))
+	findIng := mustCompile(getString(sec, "findInText.pattern"))
+	email := mustCompile(getString(sec, "emailFind.pattern"))
 
 	helloText := getString(sec, "literalMatch.text")
 	alphaText := getString(sec, "charClassMatch.text")
@@ -338,10 +368,10 @@ func runApplicationBenchmarks(data map[string]any, filters []string) {
 			groups:      getIntSlice(item, "groups"),
 			replacement: convertReplacement(getString(item, "replacement")),
 			expected:    item["expected"],
-			re:          regexp.MustCompile(pattern),
+			re:          mustCompile(pattern),
 		}
 		if strings.HasPrefix(c.op, "matches") {
-			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+			c.fullRe = mustCompile("^(?:" + selectedPattern(pattern) + ")$")
 		}
 		cases = append(cases, c)
 	}
@@ -468,10 +498,10 @@ func runRealWorldRegexBenchmarks(data map[string]any, filters []string) {
 		c := realWorldCase{
 			name: getString(item, "name"),
 			op:   op,
-			re:   regexp.MustCompile(pattern),
+			re:   mustCompile(pattern),
 		}
 		if op == "matches" {
-			c.fullRe = regexp.MustCompile("^(?:" + pattern + ")$")
+			c.fullRe = mustCompile("^(?:" + selectedPattern(pattern) + ")$")
 		}
 		cases = append(cases, c)
 	}
@@ -528,8 +558,9 @@ func runCompileBenchmarks(data map[string]any, filters []string) {
 
 	run := func(name string, pattern string) {
 		if matchesFilter(name, filters) {
+			selected := selectedPattern(pattern)
 			printJSON(measureUs(name, func() {
-				sink = regexp.MustCompile(pattern)
+				sink = regexp.MustCompile(selected)
 			}))
 		}
 	}
@@ -544,10 +575,10 @@ func runSearchScalingBenchmarks(data map[string]any, filters []string) {
 	sec := data["searchScaling"].(map[string]any)
 
 	sizes := getIntSlice(sec, "textSizes")
-	easy := regexp.MustCompile(getString(sec, "patterns.easy"))
-	medium := regexp.MustCompile(getString(sec, "patterns.medium"))
-	hard := regexp.MustCompile(getString(sec, "patterns.hard"))
-	findIng := regexp.MustCompile(getString(sec, "findIngPattern"))
+	easy := mustCompile(getString(sec, "patterns.easy"))
+	medium := mustCompile(getString(sec, "patterns.medium"))
+	hard := mustCompile(getString(sec, "patterns.hard"))
+	findIng := mustCompile(getString(sec, "findIngPattern"))
 
 	for _, size := range sizes {
 		randomText := loadBenchmarkInput(fmt.Sprintf("searchScaling.random.%d", size))
@@ -585,10 +616,10 @@ func runIssue481ScalingBenchmarks(data map[string]any, filters []string) {
 	sec := data["issue481Scaling"].(map[string]any)
 
 	sizes := getIntSlice(sec, "textSizes")
-	splitW := regexp.MustCompile(getString(sec, "splitW.pattern"))
-	block := regexp.MustCompile(getString(sec, "block.pattern"))
-	tag := regexp.MustCompile(getString(sec, "tag.pattern"))
-	scheme := regexp.MustCompile(getString(sec, "scheme.pattern"))
+	splitW := mustCompile(getString(sec, "splitW.pattern"))
+	block := mustCompile(getString(sec, "block.pattern"))
+	tag := mustCompile(getString(sec, "tag.pattern"))
+	scheme := mustCompile(getString(sec, "scheme.pattern"))
 
 	splitLengthSum := func(parts []string) int {
 		for len(parts) > 0 && parts[len(parts)-1] == "" {
@@ -656,10 +687,10 @@ func runIssue481ScalingBenchmarks(data map[string]any, filters []string) {
 func runCaptureScalingBenchmarks(data map[string]any, filters []string) {
 	sec := data["captureScaling"]
 
-	pat0 := regexp.MustCompile(getString(sec, "capture0.pattern"))
-	pat1 := regexp.MustCompile(getString(sec, "capture1.pattern"))
-	pat3 := regexp.MustCompile(getString(sec, "capture3.pattern"))
-	pat10 := regexp.MustCompile(getString(sec, "capture10.pattern"))
+	pat0 := mustCompile(getString(sec, "capture0.pattern"))
+	pat1 := mustCompile(getString(sec, "capture1.pattern"))
+	pat3 := mustCompile(getString(sec, "capture3.pattern"))
+	pat10 := mustCompile(getString(sec, "capture10.pattern"))
 
 	text0 := getString(sec, "capture0.text")
 	text1 := getString(sec, "capture1.text")
@@ -689,7 +720,7 @@ func runCaptureScalingBenchmarks(data map[string]any, filters []string) {
 func runHTTPBenchmarks(data map[string]any, filters []string) {
 	sec := data["http"]
 
-	http := regexp.MustCompile(getString(sec, "pattern"))
+	http := mustCompile(getString(sec, "pattern"))
 	full := getString(sec, "fullRequest")
 	small := getString(sec, "smallRequest")
 
@@ -723,7 +754,7 @@ func runReplaceBenchmarks(data map[string]any, filters []string) {
 		// Convert Java-style $N backreferences to Go-style ${N}
 		goReplacement := convertReplacement(replacement)
 
-		re := regexp.MustCompile(pattern)
+		re := mustCompile(pattern)
 		benchName := "ReplaceBenchmark." + key
 
 		if !matchesFilter(benchName, filters) {
@@ -779,7 +810,7 @@ func runPathologicalBenchmarks(data map[string]any, filters []string) {
 
 		name := fmt.Sprintf("PathologicalBenchmark.pathological.%d", n)
 		if matchesFilter(name, filters) {
-			re := regexp.MustCompile(pattern)
+			re := mustCompile(pattern)
 			printJSON(measureUs(name, func() {
 				sink = re.MatchString(text)
 			}))
@@ -791,8 +822,8 @@ func runFanoutBenchmarks(data map[string]any, filters []string) {
 	sec := data["fanout"].(map[string]any)
 	sizes := getIntSlice(sec, "textSizes")
 
-	fanout := regexp.MustCompile(getString(sec, "unicodeFanout.pattern"))
-	nested := regexp.MustCompile(getString(sec, "nestedQuantifier.pattern"))
+	fanout := mustCompile(getString(sec, "unicodeFanout.pattern"))
+	nested := mustCompile(getString(sec, "nestedQuantifier.pattern"))
 
 	for _, size := range sizes {
 		unicodeText := loadBenchmarkInput(fmt.Sprintf("fanout.unicode.%d", size))
@@ -887,7 +918,7 @@ func runMemoryBenchmarks(data map[string]any, filters []string) {
 		if !matchesFilter(pi.name, filters) {
 			continue
 		}
-		heapBytes := measureCompiledSize(pi.pattern)
+		heapBytes := measureCompiledSize(selectedPattern(pi.pattern))
 		printMemoryJSON(memoryResult{
 			Engine:    "go_regexp",
 			Benchmark: pi.name + ".heapBytes",

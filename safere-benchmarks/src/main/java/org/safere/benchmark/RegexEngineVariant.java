@@ -13,7 +13,8 @@ import java.util.List;
 
 /** Java-side regex execution variants and their representation/timing boundaries. */
 enum RegexEngineVariant {
-  SAFERE_STRING("safere-string", "safere", InputRepresentation.JAVA_STRING, allCapabilities()) {
+  SAFERE_STRING(
+      "safere-string", "safere", "java", InputRepresentation.JAVA_STRING, allCapabilities()) {
     @Override
     CompiledRegex compile(String regex) {
       org.safere.Pattern pattern = org.safere.Pattern.compile(regex);
@@ -94,6 +95,7 @@ enum RegexEngineVariant {
   SAFERE_UTF8(
       "safere-utf8",
       "safere_utf8",
+      "java",
       InputRepresentation.PREEXISTING_UTF8,
       EnumSet.of(EngineCapability.FIND)) {
     @Override
@@ -118,7 +120,7 @@ enum RegexEngineVariant {
       };
     }
   },
-  JDK_STRING("jdk-string", "jdk", InputRepresentation.JAVA_STRING, allCapabilities()) {
+  JDK_STRING("jdk-string", "jdk", "java", InputRepresentation.JAVA_STRING, allCapabilities()) {
     @Override
     CompiledRegex compile(String regex) {
       java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
@@ -196,7 +198,7 @@ enum RegexEngineVariant {
       };
     }
   },
-  RE2J_STRING("re2j-string", "re2j", InputRepresentation.JAVA_STRING, re2jCapabilities()) {
+  RE2J_STRING("re2j-string", "re2j", "re2", InputRepresentation.JAVA_STRING, re2jCapabilities()) {
     @Override
     CompiledRegex compile(String regex) {
       com.google.re2j.Pattern pattern = com.google.re2j.Pattern.compile(regex);
@@ -272,6 +274,7 @@ enum RegexEngineVariant {
   RE2_FFM_STRING_CONVERSION(
       "re2-ffm-string-conversion",
       "re2_ffm",
+      "re2",
       InputRepresentation.JAVA_STRING_WITH_TIMED_UTF8_CONVERSION,
       ffmCapabilities()) {
     @Override
@@ -334,16 +337,19 @@ enum RegexEngineVariant {
 
   private final String id;
   private final String reportEngine;
+  private final String patternProfile;
   private final InputRepresentation inputRepresentation;
   private final EnumSet<EngineCapability> capabilities;
 
   RegexEngineVariant(
       String id,
       String reportEngine,
+      String patternProfile,
       InputRepresentation inputRepresentation,
       EnumSet<EngineCapability> capabilities) {
     this.id = id;
     this.reportEngine = reportEngine;
+    this.patternProfile = patternProfile;
     this.inputRepresentation = inputRepresentation;
     this.capabilities = capabilities;
   }
@@ -354,6 +360,10 @@ enum RegexEngineVariant {
 
   String reportEngine() {
     return reportEngine;
+  }
+
+  String patternProfile() {
+    return patternProfile;
   }
 
   InputRepresentation inputRepresentation() {

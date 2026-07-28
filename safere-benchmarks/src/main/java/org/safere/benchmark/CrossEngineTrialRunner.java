@@ -60,10 +60,14 @@ final class CrossEngineTrialRunner implements AutoCloseable {
 
     List<RegexEngineVariant.RegexInput> inputs =
         trial.variant().prepareInputs(data, workload.inputKeys());
+    List<String> patternSources =
+        workload.patterns().stream()
+            .map(pattern -> data.getPattern(trial.variant().patternProfile(), pattern))
+            .toList();
     List<RegexEngineVariant.CompiledRegex> patterns = new ArrayList<>();
     try {
       if (workload.operation() != BenchmarkOperation.COMPILE) {
-        for (String pattern : workload.patterns()) {
+        for (String pattern : patternSources) {
           patterns.add(trial.variant().compile(pattern));
         }
       }
@@ -73,7 +77,7 @@ final class CrossEngineTrialRunner implements AutoCloseable {
                 .operation()
                 .execute(
                     trial.variant(),
-                    workload.patterns(),
+                    patternSources,
                     patterns,
                     inputs,
                     workload.groups(),
@@ -90,7 +94,7 @@ final class CrossEngineTrialRunner implements AutoCloseable {
               .operation()
               .bind(
                   trial.variant(),
-                  workload.patterns(),
+                  patternSources,
                   patterns,
                   inputs,
                   workload.groups(),

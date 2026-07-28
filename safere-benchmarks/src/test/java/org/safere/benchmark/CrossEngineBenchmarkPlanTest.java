@@ -154,6 +154,12 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
+  void re2BasedAdaptersShareARegexSyntaxProfile() {
+    assertThat(RegexEngineVariant.RE2J_STRING.patternProfile()).isEqualTo("re2");
+    assertThat(RegexEngineVariant.RE2_FFM_STRING_CONVERSION.patternProfile()).isEqualTo("re2");
+  }
+
+  @Test
   void boundTaskReusesInputPreparedBeforeTimedInvocation() {
     RegexEngineVariant.RegexInput preparedInput =
         new RegexEngineVariant.StringRegexInput("materialized before binding");

@@ -42,17 +42,19 @@ public final class BenchmarkInputMaterializer {
   private final Map<String, byte[]> inputs = new LinkedHashMap<>();
 
   private BenchmarkInputMaterializer(JsonObject data, String benchmarkDataSha256) {
-    this.data = data;
+    this.data = PatternProfiles.normalizeInline(data);
     this.benchmarkDataSha256 = benchmarkDataSha256;
-    if (!data.has("schemaVersion")
-        || data.get("schemaVersion").getAsInt() != DeclarativeBenchmarkPlan.SCHEMA_VERSION) {
+    if (!this.data.has("schemaVersion")
+        || this.data.get("schemaVersion").getAsInt() != DeclarativeBenchmarkPlan.SCHEMA_VERSION) {
       throw new IllegalArgumentException(
           "benchmark-data.json requires schemaVersion " + DeclarativeBenchmarkPlan.SCHEMA_VERSION);
     }
-    if (!data.has("inputs") || !data.get("inputs").isJsonArray()) {
+    if (!this.data.has("inputs") || !this.data.get("inputs").isJsonArray()) {
       throw new IllegalArgumentException("benchmark-data.json requires declarative inputs");
     }
-    declarations = DeclarativeBenchmarkPlan.parseInputDeclarations(data.getAsJsonArray("inputs"));
+    PatternProfiles.parse(this.data.get("patternProfiles"));
+    declarations =
+        DeclarativeBenchmarkPlan.parseInputDeclarations(this.data.getAsJsonArray("inputs"));
   }
 
   /**

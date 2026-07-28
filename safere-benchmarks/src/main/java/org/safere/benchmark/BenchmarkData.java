@@ -32,6 +32,7 @@ public final class BenchmarkData {
   private final Path corpusDirectory;
   private final JsonObject root;
   private final JsonObject materializedInputs;
+  private final PatternProfiles patternProfiles;
   private final Map<String, byte[]> inputBytes = new ConcurrentHashMap<>();
   private final Map<String, String> inputStrings = new ConcurrentHashMap<>();
 
@@ -53,6 +54,7 @@ public final class BenchmarkData {
       }
       root = manifest.getAsJsonObject("benchmarkData");
       materializedInputs = manifest.getAsJsonObject("inputs");
+      patternProfiles = PatternProfiles.parse(root.get("patternProfiles"));
     } catch (Exception e) {
       throw new RuntimeException("Failed to load materialized benchmark data: " + manifestPath, e);
     }
@@ -108,6 +110,17 @@ public final class BenchmarkData {
    */
   public byte[] getInputBytes(String key) {
     return loadInputBytes(key).clone();
+  }
+
+  /**
+   * Selects an explicit profile alternative or returns the Java-canonical pattern unchanged.
+   *
+   * @param profileId pattern profile selected by an engine adapter
+   * @param javaPattern Java-canonical benchmark pattern
+   * @return exact pattern source for the selected profile
+   */
+  public String getPattern(String profileId, String javaPattern) {
+    return patternProfiles.select(profileId, javaPattern);
   }
 
   private byte[] loadInputBytes(String key) {
