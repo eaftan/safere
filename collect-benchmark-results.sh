@@ -257,7 +257,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
 
   if [ "$MODE" = "smoke" ]; then
     run_and_capture "$OUTPUT_DIR/rust-raw.txt" \
-      ./run-rust-benchmarks.sh "$NATIVE_SMOKE_WORKLOAD"
+      ./run-rust-benchmarks.sh --smoke "$NATIVE_SMOKE_WORKLOAD"
     run_and_capture "$OUTPUT_DIR/dotnet-raw.txt" \
       ./run-dotnet-benchmarks.sh --smoke "$NATIVE_SMOKE_WORKLOAD"
   else

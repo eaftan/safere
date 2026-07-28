@@ -2,7 +2,7 @@
 
 The benchmark wrappers build their harnesses from source and materialize the
 shared corpus automatically. Run them from the repository root. Benchmark
-dependencies are downloaded into normal build caches; no C++, Go, or .NET
+dependencies are downloaded into normal build caches; no C++, Go, Rust, or .NET
 regex dependency needs to be installed separately.
 
 ## Java engines
@@ -71,6 +71,21 @@ go version
 ./run-go-benchmarks.sh --smoke
 ```
 
+## Rust `regex`
+
+The Rust harness requires
+[Rust 1.85 or newer with Cargo](https://www.rust-lang.org/tools/install/).
+Cargo downloads the locked `regex`, serialization, and hashing dependencies.
+
+Verify and run it with:
+
+```bash
+rustc --version
+cargo --version
+./run-rust-benchmarks.sh
+./run-rust-benchmarks.sh --smoke
+```
+
 ## .NET non-backtracking
 
 The .NET harness targets `net8.0` and requires the
@@ -103,7 +118,7 @@ UTF-8 workloads, unsupported measurement modes, and regex-dialect gaps.
 ## Collection smoke test
 
 The collection-level smoke test runs a representative workload through every
-selected Java engine. Add `--cross-language` to include the three native
+selected Java engine. Add `--cross-language` to include the four native
 harnesses:
 
 ```bash

@@ -6,6 +6,7 @@
 #
 # Usage:
 #   ./run-rust-benchmarks.sh                    # run all benchmarks
+#   ./run-rust-benchmarks.sh --smoke            # exercise each selected workload once
 #   ./run-rust-benchmarks.sh RegexBenchmark     # run matching benchmarks
 #
 # Prerequisites: Rust >= 1.85 and Cargo.

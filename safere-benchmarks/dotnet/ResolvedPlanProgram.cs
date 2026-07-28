@@ -45,6 +45,7 @@ internal static class ResolvedPlanProgram
     private static JsonObject inputs = null!;
     private static JsonArray workloads = null!;
     private static Dictionary<string, string> patternProfile = [];
+    private static Dictionary<string, string> replacementProfile = [];
     private static string inputDirectory = "";
     private static string manifestPath = "";
     private static volatile bool boolSink;
@@ -228,15 +229,23 @@ internal static class ResolvedPlanProgram
         workloads = manifest["resolvedWorkloads"]?.AsArray()
             ?? throw new InvalidDataException(
                 "Manifest has no resolvedWorkloads; rerun materialize-benchmark-inputs.sh");
-        patternProfile = LoadPatternProfile(manifest["benchmarkData"]!, "dotnet");
+        patternProfile = LoadProfile(
+            manifest["benchmarkData"]!,
+            "patternProfiles",
+            "dotnet");
+        replacementProfile = LoadProfile(
+            manifest["benchmarkData"]!,
+            "replacementProfiles",
+            "dotnet");
     }
 
-    private static Dictionary<string, string> LoadPatternProfile(
+    private static Dictionary<string, string> LoadProfile(
         JsonNode data,
+        string registry,
         string profileId)
     {
         Dictionary<string, string> result = [];
-        JsonArray? entries = data["patternProfiles"]?[profileId]?.AsArray();
+        JsonArray? entries = data[registry]?[profileId]?.AsArray();
         if (entries is null)
         {
             return result;
@@ -244,7 +253,8 @@ internal static class ResolvedPlanProgram
         foreach (JsonNode? rawEntry in entries)
         {
             JsonNode entry = rawEntry
-                ?? throw new InvalidDataException($"Null pattern profile entry: {profileId}");
+                ?? throw new InvalidDataException(
+                    $"Null {registry} entry: {profileId}");
             result.Add(String(entry, "java"), String(entry, "alternate"));
         }
         return result;
@@ -430,7 +440,8 @@ internal static class ResolvedPlanProgram
         JsonNode arguments = workload["arguments"]!;
         int[] groups = OptionalInts(arguments, "groups");
         int group = OptionalInt(arguments, "group") ?? 0;
-        string replacement = OptionalString(arguments, "replacement") ?? "";
+        string replacement = SelectReplacement(
+            OptionalString(arguments, "replacement") ?? "");
         int limit = OptionalInt(arguments, "limit") ?? 0;
         int seed = OptionalInt(arguments, "seed") ?? 0;
         int count = OptionalInt(arguments, "count") ?? 0;
@@ -658,6 +669,9 @@ internal static class ResolvedPlanProgram
     private static string SelectPattern(string javaPattern) =>
         patternProfile.GetValueOrDefault(javaPattern, javaPattern);
 
+    private static string SelectReplacement(string javaReplacement) =>
+        replacementProfile.GetValueOrDefault(javaReplacement, javaReplacement);
+
     private static string LoadBenchmarkInput(string key)
     {
         JsonObject entry = inputs[key]?.AsObject()
@@ -741,6 +755,13 @@ internal static class ResolvedPlanProgram
         {
             throw new InvalidOperationException(
                 ".NET character-class subtraction self-test failed");
+        }
+        replacementProfile = new() { ["$1word"] = "${1}word" };
+        if (SelectReplacement("$1word") != "${1}word"
+            || SelectReplacement("$1") != "$1")
+        {
+            throw new InvalidOperationException(
+                ".NET replacement-profile selection self-test failed");
         }
         return 0;
     }

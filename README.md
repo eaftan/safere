@@ -626,6 +626,7 @@ for profile mappings and validation rules.
 
 # Rust regex benchmarks
 ./run-rust-benchmarks.sh                   # all Rust benchmarks
+./run-rust-benchmarks.sh --smoke           # exercise each selected workload once
 ./run-rust-benchmarks.sh Regex Application # specific benchmark groups
 
 # .NET non-backtracking benchmarks
@@ -637,12 +638,12 @@ for profile mappings and validation rules.
 
 The .NET harness uses `RegexOptions.NonBacktracking` and
 `RegexOptions.CultureInvariant`. It decodes the shared UTF-8 corpus and
-selects exact `dotnet` pattern-profile alternatives before timing. Unicode
-scalar ranges use equivalent UTF-16 regex expressions, including surrogate-pair
-alternatives where needed. This setup work is excluded from execution and
-compilation measurements. The runner consumes the fully expanded workload
-plan and executes every compatible workload. `--list-exclusions` emits a
-reason for every excluded workload.
+selects exact `dotnet` pattern- and replacement-profile alternatives before
+timing. Unicode scalar ranges use equivalent UTF-16 regex expressions,
+including surrogate-pair alternatives where needed. This setup work is
+excluded from execution and compilation measurements. The runner consumes the
+fully expanded workload plan and executes every compatible workload.
+`--list-exclusions` emits a reason for every excluded workload.
 
 ### Comparing Results Manually
 
