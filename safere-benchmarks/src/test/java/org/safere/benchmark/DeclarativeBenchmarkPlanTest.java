@@ -209,6 +209,75 @@ class DeclarativeBenchmarkPlanTest {
   }
 
   @Test
+  void omittedInputRepresentationsAcceptsEveryEngineRepresentation() {
+    DeclarativeBenchmarkPlan plan =
+        parse(
+            planJson(
+                """
+                [{
+                  "id": "Synthetic.find",
+                  "operation": "find",
+                  "patterns": ["x"],
+                  "inputs": ["literal.input"],
+                  "requirements": ["find"],
+                  "resultConsumption": "boolean",
+                  "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+                }]
+                """));
+
+    DeclarativeBenchmarkPlan.ExpandedPlan expanded =
+        plan.expand(
+            List.of(
+                engine(
+                    "string",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.FIND),
+                engine(
+                    "utf8",
+                    DeclarativeBenchmarkPlan.InputRepresentation.PREEXISTING_UTF8,
+                    DeclarativeBenchmarkPlan.Feature.FIND),
+                engine(
+                    "conversion",
+                    DeclarativeBenchmarkPlan.InputRepresentation
+                        .JAVA_STRING_WITH_TIMED_UTF8_CONVERSION,
+                    DeclarativeBenchmarkPlan.Feature.FIND)),
+            EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
+
+    assertThat(expanded.trials().stream().map(DeclarativeBenchmarkPlan.Trial::id))
+        .containsExactly(
+            "Synthetic.find@string", "Synthetic.find@utf8", "Synthetic.find@conversion");
+  }
+
+  @Test
+  void explicitlyListingEveryInputRepresentationIsRejected() {
+    assertThatThrownBy(
+            () ->
+                parse(
+                    planJson(
+                        """
+                        [{
+                          "id": "Synthetic.find",
+                          "operation": "find",
+                          "patterns": ["x"],
+                          "inputs": ["literal.input"],
+                          "requirements": ["find"],
+                          "inputRepresentations": [
+                            "javaString",
+                            "preexistingUtf8",
+                            "javaStringWithTimedUtf8Conversion"
+                          ],
+                          "resultConsumption": "boolean",
+                          "measurement": {
+                            "mode": "averageTime",
+                            "timingUnit": "nanoseconds"
+                          }
+                        }]
+                        """)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("omit inputRepresentations instead");
+  }
+
+  @Test
   void addingWorkloadAndEngineAxesProducesEveryCompatiblePair() {
     DeclarativeBenchmarkPlan plan =
         parse(

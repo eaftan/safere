@@ -2662,11 +2662,6 @@
       "inputs": [
         "crossEngine.RegexBenchmark.literalMatch.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -2684,11 +2679,6 @@
       ],
       "inputs": [
         "crossEngine.RegexBenchmark.charClassMatch.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -2708,11 +2698,6 @@
       "inputs": [
         "crossEngine.RegexBenchmark.alternationFind.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -2731,11 +2716,6 @@
       "inputs": [
         "crossEngine.RegexBenchmark.findInText.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -2753,11 +2733,6 @@
       ],
       "inputs": [
         "crossEngine.RegexBenchmark.emailFind.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -2781,11 +2756,6 @@
         "crossEngine.ApplicationBenchmark.uuidValidation.input.3",
         "crossEngine.ApplicationBenchmark.uuidValidation.input.4",
         "crossEngine.ApplicationBenchmark.uuidValidation.input.5"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -2812,11 +2782,6 @@
         "crossEngine.ApplicationBenchmark.logLineParse.input.2",
         "crossEngine.ApplicationBenchmark.logLineParse.input.3",
         "crossEngine.ApplicationBenchmark.logLineParse.input.4"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -2851,11 +2816,6 @@
         "crossEngine.ApplicationBenchmark.apiRouteMatch.input.4",
         "crossEngine.ApplicationBenchmark.apiRouteMatch.input.5"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -2883,11 +2843,6 @@
       ],
       "inputs": [
         "crossEngine.ApplicationBenchmark.stackTraceExtract.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -2917,11 +2872,6 @@
       "inputs": [
         "crossEngine.ApplicationBenchmark.caseInsensitiveKeywords.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -2943,11 +2893,6 @@
       ],
       "inputs": [
         "crossEngine.ApplicationBenchmark.urlExtraction.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -2971,11 +2916,6 @@
       "inputs": [
         "crossEngine.ApplicationBenchmark.csvFieldScan.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -2997,11 +2937,6 @@
       ],
       "inputs": [
         "crossEngine.ApplicationBenchmark.secretRedaction.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3031,11 +2966,6 @@
       "inputs": [
         "realWorldRegex.mapFieldPath.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3064,11 +2994,6 @@
       ],
       "inputs": [
         "realWorldRegex.markupImageLink.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3103,11 +3028,6 @@
       "inputs": [
         "realWorldRegex.versionList.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3140,11 +3060,6 @@
       ],
       "inputs": [
         "realWorldRegex.malformedEntity.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3179,11 +3094,6 @@
       "inputs": [
         "realWorldRegex.markupEntity.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3212,11 +3122,6 @@
       ],
       "inputs": [
         "realWorldRegex.customProtocolLink.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -3247,11 +3152,6 @@
       "inputs": [
         "realWorldRegex.wildcardSearch.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3280,11 +3180,6 @@
       ],
       "inputs": [
         "realWorldRegex.metadataBlock.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3319,11 +3214,6 @@
       "inputs": [
         "realWorldRegex.blockedTags1.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3356,11 +3246,6 @@
       ],
       "inputs": [
         "realWorldRegex.blockedTags2.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3395,11 +3280,6 @@
       "inputs": [
         "realWorldRegex.overlappingUrl.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3432,11 +3312,6 @@
       ],
       "inputs": [
         "realWorldRegex.caseInsensitiveKeyword.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3471,11 +3346,6 @@
       "inputs": [
         "realWorldRegex.boundedNameMatch.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3508,11 +3378,6 @@
       ],
       "inputs": [
         "realWorldRegex.templateTagMatch.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3547,11 +3412,6 @@
       "inputs": [
         "realWorldRegex.sparseUrl.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3585,11 +3445,6 @@
       "inputs": [
         "realWorldRegex.unprefixedWordBoundary.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3618,11 +3473,6 @@
       ],
       "inputs": [
         "realWorldRegex.fruitSearchQuery.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3659,11 +3509,6 @@
       "inputs": [
         "realWorldRegex.fruitMarkupTag.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3698,11 +3543,6 @@
       ],
       "inputs": [
         "realWorldRegex.jsonBlock.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3739,11 +3579,6 @@
       "inputs": [
         "realWorldRegex.charReplace.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3777,11 +3612,6 @@
       "inputs": [
         "realWorldRegex.greedyOnePass.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3810,11 +3640,6 @@
       ],
       "inputs": [
         "realWorldRegex.layoutBlock.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "string",
       "measurement": {
@@ -3849,11 +3674,6 @@
       "inputs": [
         "realWorldRegex.turnTitleWhitespaceCjk.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -3887,11 +3707,6 @@
       "inputs": [
         "realWorldRegex.cjkSearch.{matchLabel}.{size}"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3920,11 +3735,6 @@
       ],
       "inputs": [
         "realWorldRegex.emojiSearch.{matchLabel}.{size}"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -3955,11 +3765,6 @@
       "inputs": [
         "crossEngine.HttpBenchmark.httpFull.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -3980,11 +3785,6 @@
       ],
       "inputs": [
         "crossEngine.HttpBenchmark.httpSmall.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4007,11 +3807,6 @@
       "inputs": [
         "crossEngine.HttpBenchmark.httpFull.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",
@@ -4033,11 +3828,6 @@
       "inputs": [
         "searchScaling.random.1024"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4055,11 +3845,6 @@
       ],
       "inputs": [
         "searchScaling.success.1024"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4079,11 +3864,6 @@
       "inputs": [
         "searchScaling.random.1024"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4101,11 +3881,6 @@
       ],
       "inputs": [
         "searchScaling.random.1024"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4125,11 +3900,6 @@
       "inputs": [
         "searchScaling.prose.1024"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -4147,11 +3917,6 @@
       ],
       "inputs": [
         "searchScaling.random.10240"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4171,11 +3936,6 @@
       "inputs": [
         "searchScaling.success.10240"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4193,11 +3953,6 @@
       ],
       "inputs": [
         "searchScaling.random.10240"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4217,11 +3972,6 @@
       "inputs": [
         "searchScaling.random.10240"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4239,11 +3989,6 @@
       ],
       "inputs": [
         "searchScaling.prose.10240"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -4263,11 +4008,6 @@
       "inputs": [
         "searchScaling.random.102400"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4285,11 +4025,6 @@
       ],
       "inputs": [
         "searchScaling.success.102400"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4309,11 +4044,6 @@
       "inputs": [
         "searchScaling.random.102400"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4331,11 +4061,6 @@
       ],
       "inputs": [
         "searchScaling.random.102400"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4355,11 +4080,6 @@
       "inputs": [
         "searchScaling.prose.102400"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
@@ -4377,11 +4097,6 @@
       ],
       "inputs": [
         "searchScaling.random.1048576"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4401,11 +4116,6 @@
       "inputs": [
         "searchScaling.success.1048576"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4423,11 +4133,6 @@
       ],
       "inputs": [
         "searchScaling.random.1048576"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4447,11 +4152,6 @@
       "inputs": [
         "searchScaling.random.1048576"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4469,11 +4169,6 @@
       ],
       "inputs": [
         "searchScaling.prose.1048576"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "integer",
       "measurement": {
@@ -4493,11 +4188,6 @@
       "inputs": [
         "fanout.unicode.1024"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4515,11 +4205,6 @@
       ],
       "inputs": [
         "fanout.ascii.1024"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4539,11 +4224,6 @@
       "inputs": [
         "fanout.unicode.10240"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4561,11 +4241,6 @@
       ],
       "inputs": [
         "fanout.ascii.10240"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4585,11 +4260,6 @@
       "inputs": [
         "fanout.unicode.102400"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
@@ -4607,11 +4277,6 @@
       ],
       "inputs": [
         "fanout.ascii.102400"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4694,11 +4359,6 @@
       ],
       "inputs": [
         "captureScaling.capture0.input"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -6132,11 +5792,6 @@
         "pathological.text.10"
       ],
       "requirements": [],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {
         "type": "boolean",
@@ -6161,11 +5816,6 @@
         "pathological.text.15"
       ],
       "requirements": [],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {
         "type": "boolean",
@@ -6190,11 +5840,6 @@
         "pathological.text.20"
       ],
       "requirements": [],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {
         "type": "boolean",
@@ -6220,11 +5865,6 @@
       ],
       "requirements": [
         "linearTime"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "expected": {
@@ -6252,11 +5892,6 @@
       "requirements": [
         "linearTime"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {
         "type": "boolean",
@@ -6282,11 +5917,6 @@
       ],
       "requirements": [
         "linearTime"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "expected": {
@@ -6314,11 +5944,6 @@
       "requirements": [
         "linearTime"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {
         "type": "boolean",
@@ -6344,11 +5969,6 @@
       ],
       "requirements": [
         "linearTime"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "expected": {
@@ -6376,11 +5996,6 @@
       "requirements": [
         "linearTime"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {
         "type": "boolean",
@@ -6406,11 +6021,6 @@
       ],
       "requirements": [
         "linearTime"
-      ],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
       ],
       "resultConsumption": "boolean",
       "expected": {

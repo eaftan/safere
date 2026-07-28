@@ -32,11 +32,6 @@ The normalized plan has this shape:
       "axes": {"size": [1024, 10240]},
       "flags": [],
       "requirements": ["find"],
-      "inputRepresentations": [
-        "javaString",
-        "preexistingUtf8",
-        "javaStringWithTimedUtf8Conversion"
-      ],
       "resultConsumption": "boolean",
       "expected": {"type": "boolean", "value": false},
       "measurement": {
@@ -155,7 +150,10 @@ A workload describes behavior without naming engines:
 - `requirements` declares engine-neutral API features such as capture text,
   named groups, replacement, matcher state, regions, PatternSet, UTF-8 input,
   or diagnostics.
-- `inputRepresentations` declares acceptable timing boundaries, not engines.
+- Omitted `inputRepresentations` accepts every input representation. An explicit
+  proper subset restricts the workload to those timing boundaries, not to
+  particular engines. Empty lists and lists containing every known
+  representation are rejected.
 - `resultConsumption` controls how the result enters the blackhole.
 - `expected` is a typed optional correctness value.
 

@@ -327,11 +327,17 @@ final class DeclarativeBenchmarkPlan {
     EnumSet<Flag> flags = enumSet(workload.optionalStringList("flags"), Flag::fromJson, Flag.class);
     EnumSet<Feature> requirements =
         enumSet(workload.optionalStringList("requirements"), Feature::fromJson, Feature.class);
-    EnumSet<InputRepresentation> representations =
-        enumSet(
-            workload.requiredStringList("inputRepresentations"),
-            InputRepresentation::fromJson,
-            InputRepresentation.class);
+    boolean representationsDeclared = workload.has("inputRepresentations");
+    EnumSet<InputRepresentation> representations;
+    if (representationsDeclared) {
+      representations =
+          enumSet(
+              workload.requiredStringList("inputRepresentations"),
+              InputRepresentation::fromJson,
+              InputRepresentation.class);
+    } else {
+      representations = EnumSet.allOf(InputRepresentation.class);
+    }
     ResultConsumption consumption =
         ResultConsumption.fromJson(workload.requiredString("resultConsumption"));
     ExpectedResult expected = parseExpected(workload.optionalObject("expected"), axes.keySet());
@@ -344,6 +350,11 @@ final class DeclarativeBenchmarkPlan {
     }
     if (representations.isEmpty()) {
       throw new IllegalArgumentException(id + " requires at least one input representation");
+    }
+    if (representationsDeclared
+        && representations.equals(EnumSet.allOf(InputRepresentation.class))) {
+      throw new IllegalArgumentException(
+          id + " accepts every input representation; omit inputRepresentations instead");
     }
     if (disabledReason != null && disabledReason.isBlank()) {
       throw new IllegalArgumentException(id + " disabledReason must not be blank");
@@ -2071,6 +2082,10 @@ final class DeclarativeBenchmarkPlan {
           throw new IllegalArgumentException(context + " has unknown field: " + name);
         }
       }
+    }
+
+    boolean has(String name) {
+      return object.has(name) && !object.get(name).isJsonNull();
     }
 
     JsonElement required(String name) {
