@@ -36,16 +36,90 @@ public final class Utf8Matcher {
   }
 
   /**
+   * Attempts to match the entire input against this pattern.
+   *
+   * @return whether the entire input matches
+   */
+  public boolean matches() {
+    beginMatchOperation();
+    return delegate.matches();
+  }
+
+  /**
+   * Attempts to match a prefix of the input against this pattern.
+   *
+   * @return whether an input prefix matches
+   */
+  public boolean lookingAt() {
+    beginMatchOperation();
+    return delegate.lookingAt();
+  }
+
+  /**
    * Attempts to find the next subsequence matching this pattern.
    *
    * @return whether a match was found
    */
   public boolean find() {
-    if (appending) {
-      throw new ConcurrentModificationException();
-    }
-    modCount++;
+    beginMatchOperation();
     return delegate.find();
+  }
+
+  /**
+   * Resets this matcher to search the whole retained input from its beginning.
+   *
+   * @return this matcher
+   */
+  public Utf8Matcher reset() {
+    beginMatchOperation();
+    delegate.reset();
+    resetReplacementState();
+    return this;
+  }
+
+  /**
+   * Sets the byte-offset range searched by this matcher and resets its match state.
+   *
+   * <p>Both offsets must be UTF-8 code-point boundaries in the retained input.
+   *
+   * @param start relative byte offset at the start of the region
+   * @param end relative byte offset after the end of the region
+   * @return this matcher
+   * @throws IndexOutOfBoundsException if the range is invalid or either offset is not a code-point
+   *     boundary
+   */
+  public Utf8Matcher region(int start, int end) {
+    if (start < 0 || end < start || end > input.length()) {
+      throw new IndexOutOfBoundsException(
+          "start=" + start + ", end=" + end + ", length=" + input.length());
+    }
+    Utf8InputScanner scanner = input.scanner();
+    if (!scanner.isCodePointBoundary(start) || !scanner.isCodePointBoundary(end)) {
+      throw new IndexOutOfBoundsException(
+          "Region offsets must be UTF-8 code-point boundaries: start=" + start + ", end=" + end);
+    }
+    beginMatchOperation();
+    delegate.region(start, end);
+    resetReplacementState();
+    return this;
+  }
+
+  /**
+   * Returns the relative byte offset at the start of this matcher's region.
+   *
+   * @return the region start
+   */
+  public int regionStart() {
+    return delegate.regionStart();
+  }
+
+  /**
+   * Returns the relative byte offset after the end of this matcher's region.
+   *
+   * @return the region end
+   */
+  public int regionEnd() {
+    return delegate.regionEnd();
   }
 
   /**
@@ -196,6 +270,18 @@ public final class Utf8Matcher {
       throw new ConcurrentModificationException();
     }
     appending = true;
+  }
+
+  private void beginMatchOperation() {
+    if (appending) {
+      throw new ConcurrentModificationException();
+    }
+    modCount++;
+  }
+
+  private void resetReplacementState() {
+    appendPosition = 0;
+    replacementFailed = false;
   }
 
   private void checkForConcurrentModification(int expectedModCount) {

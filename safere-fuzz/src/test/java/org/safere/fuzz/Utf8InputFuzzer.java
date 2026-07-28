@@ -10,6 +10,7 @@ import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.PatternSyntaxException;
 import org.safere.Pattern;
@@ -18,9 +19,12 @@ import org.safere.Utf8Matcher;
 
 /** Exercises arbitrary UTF-8 storage, windows, and repeated matcher transitions. */
 final class Utf8InputFuzzer {
+  private record RegionCaptureCase(String regex, String input, int start, int end) {}
+
   @FuzzTest(maxDuration = "30s")
   void arbitraryWindow(FuzzedDataProvider data) {
     assertLiteralSearchMatchesString("XXXXXX", "..XXXXXX");
+    assertBoundarySensitiveRegionCaptures();
     String repeatedLiteral =
         String.valueOf((char) data.consumeInt('A', 'Z')).repeat(data.consumeInt(2, 32));
     String suffix = new String(data.consumeBytes(data.consumeInt(0, 64)), StandardCharsets.UTF_8);
@@ -49,6 +53,45 @@ final class Utf8InputFuzzer {
     } catch (IllegalArgumentException e) {
       if (valid) {
         throw new AssertionError("strict validation rejected valid UTF-8", e);
+      }
+    }
+  }
+
+  private static void assertBoundarySensitiveRegionCaptures() {
+    for (RegionCaptureCase testCase :
+        List.of(
+            new RegionCaptureCase("(\\b(?:a|aa))", "xaa", 1, 3),
+            new RegionCaptureCase("((?:a|aa)\\b)", "aax", 0, 2))) {
+      for (String operation : List.of("matches", "lookingAt", "find")) {
+        java.util.regex.Matcher stringMatcher =
+            java.util.regex.Pattern.compile(testCase.regex()).matcher(testCase.input());
+        stringMatcher.region(testCase.start(), testCase.end());
+        Utf8Matcher utf8Matcher =
+            Pattern.compile(testCase.regex())
+                .matcher(Utf8Input.validated(testCase.input().getBytes(StandardCharsets.UTF_8)))
+                .region(testCase.start(), testCase.end());
+
+        boolean stringMatched =
+            switch (operation) {
+              case "matches" -> stringMatcher.matches();
+              case "lookingAt" -> stringMatcher.lookingAt();
+              case "find" -> stringMatcher.find();
+              default -> throw new AssertionError(operation);
+            };
+        boolean utf8Matched =
+            switch (operation) {
+              case "matches" -> utf8Matcher.matches();
+              case "lookingAt" -> utf8Matcher.lookingAt();
+              case "find" -> utf8Matcher.find();
+              default -> throw new AssertionError(operation);
+            };
+        if (utf8Matched != stringMatched
+            || (utf8Matched
+                && (utf8Matcher.start(1) != stringMatcher.start(1)
+                    || utf8Matcher.end(1) != stringMatcher.end(1)))) {
+          throw new AssertionError(
+              "UTF-8 region capture bounds differ from String matcher for " + operation);
+        }
       }
     }
   }

@@ -152,6 +152,22 @@ class Utf8ReplacementTest {
   }
 
   @Test
+  void resetRecoversReplacementStateAndAppendPosition() {
+    Utf8Matcher matcher = matcher("(a)", "xa");
+    assertThat(matcher.find()).isTrue();
+    assertThatThrownBy(() -> matcher.appendReplacement(new CollectingSink(), input("${missing}")))
+        .isInstanceOf(IllegalArgumentException.class);
+
+    matcher.reset();
+    CollectingSink sink = new CollectingSink();
+    assertThat(matcher.find()).isTrue();
+    matcher.appendReplacement(sink, input("b"));
+    matcher.appendTail(sink);
+
+    assertThat(sink.toString()).isEqualTo("xb");
+  }
+
+  @Test
   void replacementTemplateIsCompiledOnceAcrossRepeatedMatches() {
     Utf8Matcher matcher = matcher("a", "aaa");
     byte[] expected = "é".getBytes(UTF_8);

@@ -226,6 +226,7 @@ final class DeclarativeBenchmarkPlan {
                 workload.flags(),
                 workload.requirements(),
                 workload.inputRepresentations(),
+                workload.inputRepresentationReason(),
                 workload.resultConsumption(),
                 expected,
                 workload.lifecycle(),
@@ -312,6 +313,7 @@ final class DeclarativeBenchmarkPlan {
         "flags",
         "requirements",
         "inputRepresentations",
+        "inputRepresentationReason",
         "resultConsumption",
         "expected",
         "lifecycle",
@@ -327,11 +329,18 @@ final class DeclarativeBenchmarkPlan {
     EnumSet<Flag> flags = enumSet(workload.optionalStringList("flags"), Flag::fromJson, Flag.class);
     EnumSet<Feature> requirements =
         enumSet(workload.optionalStringList("requirements"), Feature::fromJson, Feature.class);
-    EnumSet<InputRepresentation> representations =
-        enumSet(
-            workload.requiredStringList("inputRepresentations"),
-            InputRepresentation::fromJson,
-            InputRepresentation.class);
+    boolean representationsDeclared = workload.has("inputRepresentations");
+    EnumSet<InputRepresentation> representations;
+    if (representationsDeclared) {
+      representations =
+          enumSet(
+              workload.requiredStringList("inputRepresentations"),
+              InputRepresentation::fromJson,
+              InputRepresentation.class);
+    } else {
+      representations = EnumSet.allOf(InputRepresentation.class);
+    }
+    String inputRepresentationReason = workload.optionalString("inputRepresentationReason");
     ResultConsumption consumption =
         ResultConsumption.fromJson(workload.requiredString("resultConsumption"));
     ExpectedResult expected = parseExpected(workload.optionalObject("expected"), axes.keySet());
@@ -344,6 +353,20 @@ final class DeclarativeBenchmarkPlan {
     }
     if (representations.isEmpty()) {
       throw new IllegalArgumentException(id + " requires at least one input representation");
+    }
+    if (representationsDeclared
+        && representations.equals(EnumSet.allOf(InputRepresentation.class))) {
+      throw new IllegalArgumentException(
+          id + " accepts every input representation; omit inputRepresentations instead");
+    }
+    if (representationsDeclared
+        && (inputRepresentationReason == null || inputRepresentationReason.isBlank())) {
+      throw new IllegalArgumentException(
+          id + " requires a nonblank inputRepresentationReason when inputRepresentations is set");
+    }
+    if (!representationsDeclared && inputRepresentationReason != null) {
+      throw new IllegalArgumentException(
+          id + " must not declare inputRepresentationReason without inputRepresentations");
     }
     if (disabledReason != null && disabledReason.isBlank()) {
       throw new IllegalArgumentException(id + " disabledReason must not be blank");
@@ -362,6 +385,7 @@ final class DeclarativeBenchmarkPlan {
         flags,
         requirements,
         representations,
+        inputRepresentationReason,
         consumption,
         expected,
         lifecycle,
@@ -684,6 +708,7 @@ final class DeclarativeBenchmarkPlan {
       EnumSet<Flag> flags,
       EnumSet<Feature> requirements,
       EnumSet<InputRepresentation> inputRepresentations,
+      String inputRepresentationReason,
       ResultConsumption resultConsumption,
       ExpectedResult expected,
       MatcherLifecycle lifecycle,
@@ -725,6 +750,7 @@ final class DeclarativeBenchmarkPlan {
       EnumSet<Flag> flags,
       EnumSet<Feature> requirements,
       EnumSet<InputRepresentation> inputRepresentations,
+      String inputRepresentationReason,
       ResultConsumption resultConsumption,
       ExpectedResult expected,
       MatcherLifecycle lifecycle,
@@ -1408,7 +1434,8 @@ final class DeclarativeBenchmarkPlan {
     MATCHES_CORPUS("matchesCorpus", false, true, Feature.MATCHES),
     MATCHES_GROUP_LENGTH_SUM(
         "matchesGroupLengthSum", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
-    FIND_GROUP_PRESENT("findGroupPresent", false, true, Feature.FIND, Feature.CAPTURE_TEXT),
+    FIND_GROUP_PRESENT(
+        "findGroupPresent", false, true, Feature.FIND, Feature.CAPTURE_PARTICIPATION),
     FIND_GROUP("findGroup", false, true, Feature.FIND, Feature.CAPTURE_TEXT),
     CAPTURE_GROUPS("captureGroups", false, true, Feature.MATCHES, Feature.CAPTURE_TEXT),
     REPLACE_FIRST("replaceFirst", false, true, Feature.REPLACE),
@@ -1698,6 +1725,7 @@ final class DeclarativeBenchmarkPlan {
     FIND("find"),
     MATCHES("matches"),
     LOOKING_AT("lookingAt"),
+    CAPTURE_PARTICIPATION("captureParticipation"),
     CAPTURE_TEXT("captureText"),
     NAMED_GROUPS("namedGroups"),
     REPLACE("replace"),
@@ -2069,6 +2097,10 @@ final class DeclarativeBenchmarkPlan {
           throw new IllegalArgumentException(context + " has unknown field: " + name);
         }
       }
+    }
+
+    boolean has(String name) {
+      return object.has(name) && !object.get(name).isJsonNull();
     }
 
     JsonElement required(String name) {

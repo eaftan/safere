@@ -401,14 +401,16 @@ public final class Matcher implements MatchResult {
   }
 
   private void resetStateForCurrentInput() {
-    if (!(inputSequence instanceof String)) {
-      textScanner = null;
-      graphemeContextText = null;
-      graphemeContext = null;
+    if (inputSequence != null) {
+      if (!(inputSequence instanceof String)) {
+        textScanner = null;
+        graphemeContextText = null;
+        graphemeContext = null;
+      }
+      text = charSequenceToString(inputSequence);
     }
-    text = charSequenceToString(inputSequence);
     regionStart = 0;
-    regionEnd = text.length();
+    regionEnd = getTextLength();
     resetSearchStateForInputStart();
     resetReplacementState();
     clearCurrentResult();
@@ -858,14 +860,19 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return matchesTransparentRegion();
       }
-      if (regionActive && text != null) {
-        text = savedText.substring(regionStart, regionEnd);
-        textScanner = null;
+      if (regionActive) {
+        if (text != null) {
+          text = savedText.substring(regionStart, regionEnd);
+          textScanner = null;
+        } else {
+          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
+        }
         regionSubstituted = true;
       }
       return matchesCore();
     } finally {
       if (regionSubstituted) {
+        resolveCapturesBeforeRestoringRegion();
         text = savedText;
         textScanner = savedTextScanner;
         if (hasMatch) {
@@ -874,10 +881,6 @@ public final class Matcher implements MatchResult {
               groups[i] += regionStart;
             }
           }
-        }
-        if (hasMatch && !capturesResolved) {
-          deferredMatchStart += regionStart;
-          deferredMatchEnd += regionStart;
         }
       }
       fullTextRegionContext = false;
@@ -1061,14 +1064,19 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return lookingAtTransparentRegion();
       }
-      if (regionActive && text != null) {
-        text = savedText.substring(regionStart, regionEnd);
-        textScanner = null;
+      if (regionActive) {
+        if (text != null) {
+          text = savedText.substring(regionStart, regionEnd);
+          textScanner = null;
+        } else {
+          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
+        }
         regionSubstituted = true;
       }
       return lookingAtCore();
     } finally {
       if (regionSubstituted) {
+        resolveCapturesBeforeRestoringRegion();
         text = savedText;
         textScanner = savedTextScanner;
         if (hasMatch) {
@@ -1077,10 +1085,6 @@ public final class Matcher implements MatchResult {
               groups[i] += regionStart;
             }
           }
-        }
-        if (hasMatch && !capturesResolved) {
-          deferredMatchStart += regionStart;
-          deferredMatchEnd += regionStart;
         }
       }
       fullTextRegionContext = false;
@@ -1348,15 +1352,20 @@ public final class Matcher implements MatchResult {
       if (needsFullTextRegionContext(regionActive, parentPattern.prog())) {
         return doFindTransparentRegion();
       }
-      if (regionActive && text != null) {
-        text = savedText.substring(regionStart, regionEnd);
-        textScanner = null;
+      if (regionActive) {
+        if (text != null) {
+          text = savedText.substring(regionStart, regionEnd);
+          textScanner = null;
+        } else {
+          textScanner = ((Utf8InputScanner) savedTextScanner).slice(regionStart, regionEnd);
+        }
         searchFrom = Math.max(0, savedSearchFrom - regionStart);
         regionSubstituted = true;
       }
       return doFindCore(regionActive);
     } finally {
       if (regionSubstituted) {
+        resolveCapturesBeforeRestoringRegion();
         text = savedText;
         textScanner = savedTextScanner;
         searchFrom = savedSearchFrom;
@@ -1366,10 +1375,6 @@ public final class Matcher implements MatchResult {
               groups[i] += regionStart;
             }
           }
-        }
-        if (hasMatch && !capturesResolved) {
-          deferredMatchStart += regionStart;
-          deferredMatchEnd += regionStart;
         }
       }
       fullTextRegionContext = false;
@@ -3686,6 +3691,15 @@ public final class Matcher implements MatchResult {
     }
     capturesResolved = true;
     groupZeroResolved = true;
+  }
+
+  private void resolveCapturesBeforeRestoringRegion() {
+    // Deferred captures must be replayed against the same opaque region view that produced the
+    // match. Restoring the full input first would change empty-width assertion semantics at the
+    // region boundaries.
+    if (hasMatch && !capturesResolved) {
+      resolveCaptures();
+    }
   }
 
   private InputScanner activeScanner() {
