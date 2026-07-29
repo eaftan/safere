@@ -380,27 +380,7 @@ final class CompactDivergenceLogs implements AutoCloseable {
     }
   }
 
-  private static final class WorkerSnapshot {
-    private final long nextCaseIndex;
-    private final long durableBytes;
-    private final long[] classCounts;
-
-    WorkerSnapshot(long nextCaseIndex, long durableBytes, long[] classCounts) {
-      this.nextCaseIndex = nextCaseIndex;
-      this.durableBytes = durableBytes;
-      this.classCounts = classCounts;
-    }
-
-    long nextCaseIndex() {
-      return nextCaseIndex;
-    }
-
-    long durableBytes() {
-      return durableBytes;
-    }
-
-    long[] classCounts() {
-      return classCounts;
-    }
-  }
+  // classCounts is a private snapshot buffer; record value semantics are not used.
+  @SuppressWarnings("ArrayRecordComponent")
+  private record WorkerSnapshot(long nextCaseIndex, long durableBytes, long[] classCounts) {}
 }

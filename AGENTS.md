@@ -265,9 +265,14 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   acceptable only for test helpers or implementation details with a clearly
   static, small bound.
 - **No `\C`**: RE2's "match any byte" is not applicable to Java strings.
-- **No `@SuppressWarnings`**: Do not add `@SuppressWarnings` annotations
-  without explicit approval from the project owner. Fix the underlying
-  issue instead.
+- **No `@SuppressWarnings` by default**: Do not add `@SuppressWarnings`
+  annotations without explicit approval from the project owner. Fix the
+  underlying issue instead.
+  `@SuppressWarnings("ArrayRecordComponent")` is pre-approved for non-public
+  records that intentionally hold arrays as internal data carriers, provided
+  array value semantics are not relied upon and an adjacent comment explains
+  the ownership or performance rationale. Public API records and records that
+  require value semantics still require explicit approval.
 - **Avoid `Object` arrays**: Use typed collections (`List<T>`, etc.) instead
   of `Object[]` to maintain type safety. Primitive arrays (e.g., `int[]`)
   are fine for performance reasons.
