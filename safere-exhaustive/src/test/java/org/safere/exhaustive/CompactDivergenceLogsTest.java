@@ -73,11 +73,11 @@ class CompactDivergenceLogsTest {
         new byte[] {1, 2, 3},
         StandardOpenOption.APPEND);
 
-    List<CompactDivergenceLogs.Record> records = new ArrayList<>();
+    List<CompactDivergenceLogs.DivergenceRecord> records = new ArrayList<>();
     CompactDivergenceLogs.readRecords(
         tempDir, CompactDivergenceLogs.readManifest(tempDir), records::add);
 
-    assertThat(records).containsExactly(new CompactDivergenceLogs.Record(12, 0));
+    assertThat(records).containsExactly(new CompactDivergenceLogs.DivergenceRecord(12, 0));
   }
 
   @Test
@@ -98,12 +98,12 @@ class CompactDivergenceLogsTest {
       logs.record(1, 3, 0);
     }
 
-    List<CompactDivergenceLogs.Record> records = new ArrayList<>();
+    List<CompactDivergenceLogs.DivergenceRecord> records = new ArrayList<>();
     CompactDivergenceLogs.readRecordsSorted(
         tempDir, CompactDivergenceLogs.readManifest(tempDir), records::add);
 
     assertThat(records)
-        .extracting(CompactDivergenceLogs.Record::caseIndex)
+        .extracting(CompactDivergenceLogs.DivergenceRecord::caseIndex)
         .containsExactly(0L, 1L, 2L, 3L);
   }
 

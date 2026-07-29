@@ -8,6 +8,7 @@ package org.safere.fuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import java.util.Objects;
 
 final class DialectSyntaxFuzzer {
 
@@ -86,7 +87,7 @@ final class DialectSyntaxFuzzer {
     if (!matcher.matches()) {
       throw new AssertionError("SafeRE Python-style named group did not match: " + regex);
     }
-    if (!"a".equals(matcher.group(1))) {
+    if (!Objects.equals(matcher.group(1), "a")) {
       throw new AssertionError("SafeRE Python-style named group captured wrong text: " + regex);
     }
   }

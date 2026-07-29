@@ -100,7 +100,7 @@ class SweepRunStateTest {
     assertThat(Files.readString(tempDir.resolve("progress.json"))).contains("\"nextCaseIndex\":7");
   }
 
-  private ByteArrayOutputStream progressOutputAfterCheckedCases(
+  private static ByteArrayOutputStream progressOutputAfterCheckedCases(
       SweepOptions options, long checkedCases, long generated, long totalChecks) throws Exception {
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     PrintStream originalOut = System.out;

@@ -140,8 +140,8 @@ class CrosscheckTest {
     @DisplayName("UTF-8 shadow excludes inputs that cannot round-trip through UTF-8")
     void utf8ShadowExcludesUnpairedSurrogatesAndMutableInputs() {
       assertThat(Pattern.compile(".").matcher("a\ud800b").utf8ShadowActive()).isFalse();
-      assertThat(Pattern.compile(".").matcher(new StringBuilder("abc")).utf8ShadowActive())
-          .isFalse();
+      CharSequence mutableInput = new StringBuffer("abc");
+      assertThat(Pattern.compile(".").matcher(mutableInput).utf8ShadowActive()).isFalse();
     }
 
     @Test

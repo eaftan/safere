@@ -1020,7 +1020,6 @@ class DeclarativeBenchmarkPlanTest {
         .formatted(workloads);
   }
 
-  @SafeVarargs
   private static DeclarativeBenchmarkPlan.EngineDeclaration engine(
       String id,
       DeclarativeBenchmarkPlan.InputRepresentation representation,

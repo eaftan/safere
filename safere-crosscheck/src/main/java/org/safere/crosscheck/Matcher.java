@@ -603,6 +603,12 @@ public final class Matcher implements MatchResult {
     return utf8Shadow != null;
   }
 
+  /** Returns a string representation of this matcher's state. */
+  @Override
+  public String toString() {
+    return safereMatcher.toString();
+  }
+
   private void checkBoolean(String method, String args, boolean sr, boolean jr) {
     if (sr != jr) {
       trace.recordDivergence(method, args, sr, jr);
