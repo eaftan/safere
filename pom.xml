@@ -63,6 +63,31 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <compilerArgs>
+            <arg>-Xlint</arg>
+            <arg>-Werror</arg>
+            <!-- Error Prone runs as a javac plugin. -XDcompilePolicy=simple tells javac to
+                 compile all files in a single batch (required by Error Prone). -->
+            <arg>-XDcompilePolicy=simple</arg>
+            <!-- Continue compilation past type-checking errors so Error Prone can analyze
+                 code that has downstream errors in later phases. -->
+            <arg>--should-stop=ifError=FLOW</arg>
+            <arg>-Xplugin:ErrorProne ${error-prone.checks}</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_core</artifactId>
+              <version>${error-prone.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
         <version>${spotless.version}</version>
