@@ -7179,9 +7179,10 @@
         "phoneSearch.digitsNoSlash.text"
       ],
       "inputRepresentations": [
+        "javaString",
         "preexistingUtf8"
       ],
-      "inputRepresentationReason": "Measures fixed-offset phone-pattern rejection in realistic text containing unrelated digits but no slash.",
+      "inputRepresentationReason": "Compares fixed-offset phone-pattern rejection over Java strings and preexisting UTF-8 in realistic text containing unrelated digits but no slash.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {
@@ -7202,9 +7203,10 @@
         "phoneSearch.slashNoise.text"
       ],
       "inputRepresentations": [
+        "javaString",
         "preexistingUtf8"
       ],
-      "inputRepresentationReason": "Measures fixed-offset candidate filtering when unrelated digits and slashes are present.",
+      "inputRepresentationReason": "Compares fixed-offset candidate filtering over Java strings and preexisting UTF-8 when unrelated digits and slashes are present.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {
@@ -7233,9 +7235,10 @@
         ]
       },
       "inputRepresentations": [
+        "javaString",
         "preexistingUtf8"
       ],
-      "inputRepresentationReason": "Measures fixed-offset acceleration for planted phone numbers at several realistic match densities.",
+      "inputRepresentationReason": "Compares Java-string and preexisting-UTF-8 searches for planted phone numbers at several realistic match densities.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {
@@ -7264,9 +7267,10 @@
         ]
       },
       "inputRepresentations": [
+        "javaString",
         "preexistingUtf8"
       ],
-      "inputRepresentationReason": "Measures repeated UTF-8 find cost for planted phone numbers at several match densities.",
+      "inputRepresentationReason": "Compares repeated Java-string and UTF-8 find cost for planted phone numbers at several match densities.",
       "requirements": [],
       "resultConsumption": "integer",
       "measurement": {
@@ -7287,9 +7291,10 @@
         "phoneSearch.denseDigitsAndSlashes.text"
       ],
       "inputRepresentations": [
+        "javaString",
         "preexistingUtf8"
       ],
-      "inputRepresentationReason": "Provides the dense synthetic control where neither digit nor slash filtering is selective.",
+      "inputRepresentationReason": "Provides Java-string and UTF-8 dense synthetic controls where neither digit nor slash filtering is selective.",
       "requirements": [],
       "resultConsumption": "integer",
       "measurement": {
