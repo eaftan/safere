@@ -240,7 +240,7 @@ public final class DfaSandwichLeftmostStartDivergenceSweep {
     DivergenceClass classification = classify(jdk, safere);
     String json = divergenceJson(spec, regex, jdk, safere, classification, caseIndex);
     if (workerIndex >= 0 && caseIndex >= 0) {
-      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      runState.recordCompactDivergence(workerIndex, caseIndex, classificationId(classification));
     } else {
       runState.recordDivergence();
     }
@@ -388,6 +388,14 @@ public final class DfaSandwichLeftmostStartDivergenceSweep {
     public String rationale() {
       return rationale;
     }
+  }
+
+  private static int classificationId(DivergenceClass classification) {
+    return switch (classification) {
+      case ACCEPTANCE_MISMATCH -> 0;
+      case TRACE_MISMATCH -> 1;
+      case UNKNOWN -> 2;
+    };
   }
 
   private record PrefixCase(String label, String regex) {}

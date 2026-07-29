@@ -724,13 +724,6 @@ public final class CharacterClassDivergenceSweep {
         .replace("\"", "\\\"");
   }
 
-  private static String differenceInputs(Outcome jdk, Outcome safere) {
-    if (jdk.accepted() != safere.accepted()) {
-      return "compile";
-    }
-    return "jdk=" + jdk.matches() + ";safere=" + safere.matches();
-  }
-
   private static String bucketFor(CaseSpec spec, Outcome jdk, Outcome safere) {
     String kind = jdk.accepted() != safere.accepted() ? "compile" : "membership";
     String direction = direction(jdk, safere);
@@ -1266,9 +1259,5 @@ public final class CharacterClassDivergenceSweep {
       return false;
     }
     return !left.accepted() || left.matches().equals(right.matches());
-  }
-
-  private static String printable(String value) {
-    return value.replace("\n", "\\n").replace("\t", "\\t");
   }
 }

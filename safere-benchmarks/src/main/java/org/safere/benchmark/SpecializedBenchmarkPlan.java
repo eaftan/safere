@@ -103,7 +103,7 @@ final class SpecializedBenchmarkPlan {
     return exclusions;
   }
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
     if (args.length != 1) {
       throw new IllegalArgumentException(
           "Usage: SpecializedBenchmarkPlan <average-time|pattern-set|retained-memory>");

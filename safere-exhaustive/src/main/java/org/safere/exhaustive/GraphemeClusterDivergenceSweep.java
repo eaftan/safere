@@ -614,7 +614,7 @@ public final class GraphemeClusterDivergenceSweep {
     return !left.accepted() || left.trace().equals(right.trace());
   }
 
-  private static DivergenceClass classifyDivergence(CaseSpec spec, Outcome jdk, Outcome safere) {
+  private static DivergenceClass classifyDivergence(CaseSpec spec) {
     String regexLabel = spec.regexTemplate().label();
     if (isNonAnchoringDollarRegionEnd(spec)) {
       return DivergenceClass.NON_ANCHORING_DOLLAR_REGION_END;
@@ -881,7 +881,7 @@ public final class GraphemeClusterDivergenceSweep {
           input(
               "targetEmojiZwjModifierChain" + chainLength,
               "\uD83D\uDC69\uD83C\uDFFD"
-                  + ("\u200D\uD83D\uDC69\uD83C\uDFFD").repeat(chainLength - 1)));
+                  + "\u200D\uD83D\uDC69\uD83C\uDFFD".repeat(chainLength - 1)));
     }
 
     for (int leadingCount = 1; leadingCount <= 6; leadingCount++) {
@@ -901,8 +901,8 @@ public final class GraphemeClusterDivergenceSweep {
     for (int count = 1; count <= 8; count++) {
       addInput(inputs, input("targetHighLowPairs" + count, "\uD83D\uDE00".repeat(count)));
       addInput(inputs, input("targetLowHighPairs" + count, "\uDE00\uD83D".repeat(count)));
-      addInput(inputs, input("targetHighLowZwj" + count, ("\uD83D\uDE00\u200D").repeat(count)));
-      addInput(inputs, input("targetLowZwj" + count, ("\uDE00\u200D").repeat(count)));
+      addInput(inputs, input("targetHighLowZwj" + count, "\uD83D\uDE00\u200D".repeat(count)));
+      addInput(inputs, input("targetLowZwj" + count, "\uDE00\u200D".repeat(count)));
     }
 
     return List.copyOf(inputs.values());
@@ -1203,6 +1203,19 @@ public final class GraphemeClusterDivergenceSweep {
     }
   }
 
+  private static int classificationId(DivergenceClass classification) {
+    return switch (classification) {
+      case BOUNDARY_CLUSTER_BOUNDARY_COMPOSITION -> 0;
+      case BOUNDARY_ONLY_ALTERNATIVE_FIND_CURSOR -> 1;
+      case BOUNDARY_CLUSTER_ALTERNATIVE_FIND_CURSOR -> 2;
+      case REGION_LOCAL_CONTINUATION_CLUSTER -> 3;
+      case TRANSPARENT_BOUNDARY_JDK_DETAIL -> 4;
+      case NON_ANCHORING_DOLLAR_REGION_END -> 5;
+      case GRAPHEME_CANDIDATE_START_DEDUP -> 6;
+      case UNKNOWN -> 7;
+    };
+  }
+
   private record Divergence(
       long caseIndex,
       CaseSpec spec,
@@ -1318,11 +1331,11 @@ public final class GraphemeClusterDivergenceSweep {
       return;
     }
     String bucketName = bucketFor(spec, jdk, safere);
-    DivergenceClass classification = classifyDivergence(spec, jdk, safere);
+    DivergenceClass classification = classifyDivergence(spec);
     Divergence divergence =
         new Divergence(caseIndex, spec, jdk, safere, bucketName, classification);
     if (workerIndex >= 0) {
-      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      runState.recordCompactDivergence(workerIndex, caseIndex, classificationId(classification));
       summary.record(classification, caseIndex, null);
       return;
     }

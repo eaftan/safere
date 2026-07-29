@@ -265,7 +265,7 @@ public final class RegionZeroWidthDivergenceSweep {
     }
     DivergenceClass classification = classifyDivergence(spec);
     if (workerIndex >= 0) {
-      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      runState.recordCompactDivergence(workerIndex, caseIndex, classificationId(classification));
       return;
     }
     if (classification.status() == DivergenceStatus.KNOWN_INTENTIONAL) {
@@ -292,8 +292,8 @@ public final class RegionZeroWidthDivergenceSweep {
   }
 
   private static boolean isKnownAsciiWordBoundaryCombiningMarkDivergence(CaseSpec spec) {
-    return ("baseBeforeMark".equals(spec.textRegion().label())
-            || "markOnlyAfterBase".equals(spec.textRegion().label()))
+    return (spec.textRegion().label().equals("baseBeforeMark")
+            || spec.textRegion().label().equals("markOnlyAfterBase"))
         && spec.boundsMode().transparentBounds()
         && switch (spec.regexCase().label()) {
           case "wordBoundary",
@@ -322,7 +322,7 @@ public final class RegionZeroWidthDivergenceSweep {
   }
 
   private static boolean isOpaqueRegionCrlfPairContextDivergence(CaseSpec spec) {
-    return "finalCrLfLfOnly".equals(spec.textRegion().label())
+    return spec.textRegion().label().equals("finalCrLfLfOnly")
         && !spec.boundsMode().transparentBounds()
         && spec.boundsMode().anchoringBounds()
         && switch (spec.regexCase().label()) {
@@ -334,7 +334,7 @@ public final class RegionZeroWidthDivergenceSweep {
 
   private static boolean isBoundaryAnyClassSplitSurrogateScalarCompositionDivergence(
       CaseSpec spec) {
-    return "splitHighThroughAscii".equals(spec.textRegion().label())
+    return spec.textRegion().label().equals("splitHighThroughAscii")
         && spec.boundsMode().transparentBounds()
         && switch (spec.regexCase().label()) {
           case "nonWordBoundaryThenAnyClass",
@@ -346,7 +346,7 @@ public final class RegionZeroWidthDivergenceSweep {
   }
 
   private static boolean isNonWordBoundarySplitSurrogateInteriorPositionDivergence(CaseSpec spec) {
-    return "splitHighThroughAscii".equals(spec.textRegion().label())
+    return spec.textRegion().label().equals("splitHighThroughAscii")
         && spec.boundsMode().transparentBounds()
         && switch (spec.regexCase().label()) {
           case "nonWordBoundary",
@@ -704,8 +704,19 @@ public final class RegionZeroWidthDivergenceSweep {
       return status;
     }
 
-    String rationale() {
-      return rationale;
+    @Override
+    public String toString() {
+      return name() + ": " + rationale;
     }
+  }
+
+  private static int classificationId(DivergenceClass classification) {
+    return switch (classification) {
+      case ASCII_WORD_BOUNDARY_COMBINING_MARK -> 0;
+      case OPAQUE_REGION_CRLF_PAIR_CONTEXT -> 1;
+      case BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION -> 2;
+      case NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION -> 3;
+      case UNKNOWN -> 4;
+    };
   }
 }

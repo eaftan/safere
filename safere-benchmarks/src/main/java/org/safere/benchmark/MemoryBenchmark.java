@@ -83,7 +83,7 @@ public final class MemoryBenchmark {
     for (int trial = 0; trial < TRIALS; trial++) {
       // Warm up the factory (JIT compile, class loading).
       for (int i = 0; i < 20; i++) {
-        var unused = factory.get();
+        var _ = factory.get();
       }
 
       forceGc();

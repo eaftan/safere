@@ -137,13 +137,12 @@ public final class RegionScalarDivergenceSweep {
     }
     options.printStartup("region-scalar");
 
-    RegionScalarDivergenceSweep sweep = new RegionScalarDivergenceSweep();
     if (options.replayFile() != null) {
-      sweep.runReplay(options);
+      RegionScalarDivergenceSweep.runReplay(options);
       return;
     }
 
-    SweepRunState state = sweep.runSweep(options);
+    SweepRunState state = RegionScalarDivergenceSweep.runSweep(options);
     System.out.println("checked=" + state.checked.sum());
     System.out.println("generated=" + state.generated);
     System.out.println("totalCases=" + totalCases());
@@ -205,7 +204,7 @@ public final class RegionScalarDivergenceSweep {
     return null;
   }
 
-  private SweepRunState runSweep(SweepOptions options) throws IOException {
+  private static SweepRunState runSweep(SweepOptions options) throws IOException {
     try (SweepRunState runState = new SweepRunState(options, options.totalChecks(totalCases()))) {
       runState.enableCompactLogs(
           "region-scalar",
@@ -236,7 +235,7 @@ public final class RegionScalarDivergenceSweep {
     }
   }
 
-  private void runReplay(SweepOptions options) throws IOException {
+  private static void runReplay(SweepOptions options) throws IOException {
     try (BufferedReader reader =
             Files.newBufferedReader(options.replayFile(), StandardCharsets.UTF_8);
         SweepRunState runState = new SweepRunState(options, 0)) {
@@ -263,7 +262,7 @@ public final class RegionScalarDivergenceSweep {
     }
   }
 
-  private void evaluateCase(
+  private static void evaluateCase(
       SweepRunState runState, CaseSpec spec, int workerIndex, long caseIndex) {
     Outcome jdk = jdkOutcome(spec);
     Outcome safere = safeReOutcome(spec);
@@ -272,7 +271,7 @@ public final class RegionScalarDivergenceSweep {
     }
     DivergenceClass classification = classifyDivergence(spec);
     if (workerIndex >= 0) {
-      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      runState.recordCompactDivergence(workerIndex, caseIndex, classificationId(classification));
       return;
     }
     if (classification.status() == DivergenceStatus.KNOWN_INTENTIONAL) {
@@ -290,8 +289,8 @@ public final class RegionScalarDivergenceSweep {
   }
 
   private static boolean isQuantifiedSplitSurrogateScalarComposition(CaseSpec spec) {
-    return ("starGreedy".equals(spec.wrapperCase().label())
-            || "plusGreedy".equals(spec.wrapperCase().label()))
+    return (spec.wrapperCase().label().equals("starGreedy")
+            || spec.wrapperCase().label().equals("plusGreedy"))
         && regionEndsInsideSurrogatePair(spec.textRegion());
   }
 
@@ -304,7 +303,7 @@ public final class RegionScalarDivergenceSweep {
         && Character.isLowSurrogate(text.charAt(end));
   }
 
-  private Outcome jdkOutcome(CaseSpec spec) {
+  private static Outcome jdkOutcome(CaseSpec spec) {
     try {
       java.util.regex.Pattern pattern =
           java.util.regex.Pattern.compile(spec.regex(), spec.flagMode().flags());
@@ -318,7 +317,7 @@ public final class RegionScalarDivergenceSweep {
     }
   }
 
-  private Outcome safeReOutcome(CaseSpec spec) {
+  private static Outcome safeReOutcome(CaseSpec spec) {
     try {
       org.safere.Pattern pattern =
           org.safere.Pattern.compile(spec.regex(), spec.flagMode().flags());
@@ -750,8 +749,16 @@ public final class RegionScalarDivergenceSweep {
       return status;
     }
 
-    String rationale() {
-      return rationale;
+    @Override
+    public String toString() {
+      return name() + ": " + rationale;
     }
+  }
+
+  private static int classificationId(DivergenceClass classification) {
+    return switch (classification) {
+      case QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION -> 0;
+      case UNKNOWN -> 1;
+    };
   }
 }

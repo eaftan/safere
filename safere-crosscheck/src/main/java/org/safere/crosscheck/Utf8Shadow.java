@@ -12,7 +12,7 @@ final class Utf8Shadow {
   private final org.safere.Pattern pattern;
   private final byte[] bytes;
   private final Utf8Coordinates coordinates;
-  private org.safere.Utf8Matcher matcher;
+  private final org.safere.Utf8Matcher matcher;
 
   private Utf8Shadow(org.safere.Pattern pattern, byte[] bytes, Utf8Coordinates coordinates) {
     this.pattern = pattern;

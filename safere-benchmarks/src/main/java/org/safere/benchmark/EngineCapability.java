@@ -17,5 +17,21 @@ enum EngineCapability {
   APPEND_REPLACEMENT,
   SPLIT,
   MATCHER_RESET,
-  REGIONS
+  REGIONS;
+
+  int bit() {
+    return switch (this) {
+      case COMPILE -> 1;
+      case FIND -> 1 << 1;
+      case MATCHES -> 1 << 2;
+      case LOOKING_AT -> 1 << 3;
+      case GROUP_PARTICIPATION -> 1 << 4;
+      case GROUP_TEXT -> 1 << 5;
+      case REPLACE -> 1 << 6;
+      case APPEND_REPLACEMENT -> 1 << 7;
+      case SPLIT -> 1 << 8;
+      case MATCHER_RESET -> 1 << 9;
+      case REGIONS -> 1 << 10;
+    };
+  }
 }

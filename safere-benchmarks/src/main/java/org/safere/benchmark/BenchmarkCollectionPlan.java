@@ -189,7 +189,7 @@ final class BenchmarkCollectionPlan {
     return new ReportPlan(trials, exclusions.stream().distinct().toList());
   }
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
     if (args.length == 0) {
       throw new IllegalArgumentException(
           "Usage: BenchmarkCollectionPlan "

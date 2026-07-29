@@ -167,14 +167,6 @@ public final class ControlEscapeDivergenceSweep {
     }
   }
 
-  private static Outcome jdkOutcome(String regex) {
-    return jdkOutcome(regex, 0, defaultReplayInputs());
-  }
-
-  private static Outcome safeReOutcome(String regex) {
-    return safeReOutcome(regex, 0, defaultReplayInputs());
-  }
-
   private static String matches(java.util.regex.Pattern pattern, List<String> inputs) {
     StringBuilder result = new StringBuilder();
     for (String input : inputs) {
@@ -222,10 +214,6 @@ public final class ControlEscapeDivergenceSweep {
       inputs.add(target + "a");
     }
     return List.copyOf(inputs);
-  }
-
-  private static List<String> defaultReplayInputs() {
-    return List.of("", "a", "A", "!", "\u0001", "\u001b", "\u0140", "\uf57f", "\uD83D\uDE40");
   }
 
   private static void addIfValid(Set<String> inputs, int codePoint) {

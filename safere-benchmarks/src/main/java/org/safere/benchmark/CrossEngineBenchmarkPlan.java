@@ -154,7 +154,7 @@ final class CrossEngineBenchmarkPlan {
             + exclusion.exclusion().reason());
   }
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
     if (args.length < 1) {
       throw new IllegalArgumentException(
           "Usage: CrossEngineBenchmarkPlan "

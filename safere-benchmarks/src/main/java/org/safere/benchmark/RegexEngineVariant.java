@@ -395,7 +395,7 @@ enum RegexEngineVariant {
   private final String reportEngine;
   private final String patternProfile;
   private final InputRepresentation inputRepresentation;
-  private final EnumSet<EngineCapability> capabilities;
+  private final long capabilities;
 
   RegexEngineVariant(
       String id,
@@ -407,7 +407,11 @@ enum RegexEngineVariant {
     this.reportEngine = reportEngine;
     this.patternProfile = patternProfile;
     this.inputRepresentation = inputRepresentation;
-    this.capabilities = capabilities;
+    long capabilityBits = 0;
+    for (EngineCapability capability : capabilities) {
+      capabilityBits |= capability.bit();
+    }
+    this.capabilities = capabilityBits;
   }
 
   String id() {
@@ -427,13 +431,19 @@ enum RegexEngineVariant {
   }
 
   EnumSet<EngineCapability> capabilities() {
-    return capabilities.clone();
+    EnumSet<EngineCapability> result = EnumSet.noneOf(EngineCapability.class);
+    for (EngineCapability capability : EngineCapability.values()) {
+      if ((capabilities & capability.bit()) != 0) {
+        result.add(capability);
+      }
+    }
+    return result;
   }
 
   DeclarativeBenchmarkPlan.EngineDeclaration declaration() {
     EnumSet<DeclarativeBenchmarkPlan.Feature> features =
         EnumSet.noneOf(DeclarativeBenchmarkPlan.Feature.class);
-    for (EngineCapability capability : capabilities) {
+    for (EngineCapability capability : capabilities()) {
       switch (capability) {
         case COMPILE -> {}
         case FIND -> features.add(DeclarativeBenchmarkPlan.Feature.FIND);

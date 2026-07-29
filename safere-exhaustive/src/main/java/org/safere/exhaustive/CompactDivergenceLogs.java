@@ -238,7 +238,7 @@ final class CompactDivergenceLogs implements AutoCloseable {
           try {
             long caseIndex = input.readLong();
             int classificationId = input.readUnsignedByte();
-            consumer.accept(new Record(caseIndex, classificationId));
+            consumer.accept(new DivergenceRecord(caseIndex, classificationId));
           } catch (EOFException e) {
             break;
           }
@@ -275,20 +275,30 @@ final class CompactDivergenceLogs implements AutoCloseable {
           queue.add(input);
         }
       }
-    } finally {
-      IOException failure = null;
-      for (WorkerInput input : inputs) {
-        try {
-          input.close();
-        } catch (IOException e) {
-          if (failure == null) {
-            failure = e;
-          } else {
-            failure.addSuppressed(e);
-          }
+    } catch (IOException | RuntimeException | Error e) {
+      closeInputs(inputs, e);
+      throw e;
+    }
+    closeInputs(inputs, null);
+  }
+
+  private static void closeInputs(List<WorkerInput> inputs, Throwable primary) throws IOException {
+    IOException failure = null;
+    for (WorkerInput input : inputs) {
+      try {
+        input.close();
+      } catch (IOException e) {
+        if (failure == null) {
+          failure = e;
+        } else {
+          failure.addSuppressed(e);
         }
       }
-      if (failure != null) {
+    }
+    if (failure != null) {
+      if (primary != null) {
+        primary.addSuppressed(failure);
+      } else {
         throw failure;
       }
     }
@@ -303,15 +313,15 @@ final class CompactDivergenceLogs implements AutoCloseable {
       List<String> classifications,
       List<DivergenceStatus> classificationStatuses) {}
 
-  record Record(long caseIndex, int classificationId) {}
+  record DivergenceRecord(long caseIndex, int classificationId) {}
 
   interface RecordConsumer {
-    void accept(Record record) throws IOException;
+    void accept(DivergenceRecord record) throws IOException;
   }
 
   private static final class WorkerInput implements AutoCloseable {
     private final DataInputStream input;
-    Record record;
+    DivergenceRecord record;
 
     WorkerInput(Path path) throws IOException {
       input = new DataInputStream(new BufferedInputStream(Files.newInputStream(path)));
@@ -319,7 +329,7 @@ final class CompactDivergenceLogs implements AutoCloseable {
 
     boolean advance() throws IOException {
       try {
-        record = new Record(input.readLong(), input.readUnsignedByte());
+        record = new DivergenceRecord(input.readLong(), input.readUnsignedByte());
         return true;
       } catch (EOFException e) {
         record = null;
@@ -370,5 +380,27 @@ final class CompactDivergenceLogs implements AutoCloseable {
     }
   }
 
-  private record WorkerSnapshot(long nextCaseIndex, long durableBytes, long[] classCounts) {}
+  private static final class WorkerSnapshot {
+    private final long nextCaseIndex;
+    private final long durableBytes;
+    private final long[] classCounts;
+
+    WorkerSnapshot(long nextCaseIndex, long durableBytes, long[] classCounts) {
+      this.nextCaseIndex = nextCaseIndex;
+      this.durableBytes = durableBytes;
+      this.classCounts = classCounts;
+    }
+
+    long nextCaseIndex() {
+      return nextCaseIndex;
+    }
+
+    long durableBytes() {
+      return durableBytes;
+    }
+
+    long[] classCounts() {
+      return classCounts;
+    }
+  }
 }

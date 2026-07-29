@@ -646,6 +646,25 @@ public final class ZeroWidthQuantifierDivergenceSweep {
     }
   }
 
+  private static int classificationId(DivergenceClass classification) {
+    return switch (classification) {
+      case STACK_OVERFLOW -> 0;
+      case RELUCTANT_QUANTIFIER_MODIFIER -> 1;
+      case COMMENTS_MODE_GRAPHEME_QUANTIFIER_TRIVIA -> 2;
+      case INVALID_QUANTIFIER_CHAIN_ACCEPTED -> 3;
+      case ZERO_WIDTH_POSSESSIVE_QUANTIFIER_REJECTED -> 4;
+      case ZERO_WIDTH_POSSESSIVE_CAPTURE_RETENTION -> 5;
+      case POSSESSIVE_QUANTIFIER_UNSUPPORTED -> 6;
+      case GRAPHEME_BOUNDARY_ALTERNATIVE_FIND_CURSOR -> 7;
+      case REPEATED_GRAPHEME_BOUNDARY_COMPOSITION -> 8;
+      case GRAPHEME_BOUNDARY_ALTERNATIVE_GRAPHEME_MODEL -> 9;
+      case GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL -> 10;
+      case ASCII_WORD_BOUNDARY_COMBINING_MARK -> 11;
+      case FAILED_PATH_CAPTURE_LEAKAGE -> 12;
+      case UNKNOWN -> 13;
+    };
+  }
+
   private record CaseSpec(
       Operand operand,
       Wrapper wrapper,
@@ -869,7 +888,7 @@ public final class ZeroWidthQuantifierDivergenceSweep {
       DivergenceClass classification,
       int workerIndex) {
     if (workerIndex >= 0) {
-      runState.recordCompactDivergence(workerIndex, caseIndex, classification.ordinal());
+      runState.recordCompactDivergence(workerIndex, caseIndex, classificationId(classification));
       summary.record(classification, caseIndex, null);
       return;
     }

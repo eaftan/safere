@@ -194,7 +194,7 @@ final class PatternProfiles {
               optionalFlagSets(alternateObject, "Inline benchmark pattern alternate " + profileId));
       Alternate previous =
           (expectedKind == ValueKind.PATTERN ? patternProfiles : replacementProfiles)
-              .computeIfAbsent(profileId, unused -> new LinkedHashMap<>())
+              .computeIfAbsent(profileId, _ -> new LinkedHashMap<>())
               .putIfAbsent(javaPattern, alternate);
       if (previous != null && !previous.equals(alternate)) {
         throw new IllegalArgumentException(

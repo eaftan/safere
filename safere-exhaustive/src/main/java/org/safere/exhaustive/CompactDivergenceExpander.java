@@ -135,23 +135,11 @@ public final class CompactDivergenceExpander {
                 output.writeLong(record.caseIndex());
               }
             });
-      } finally {
-        IOException failure = null;
-        for (DataOutputStream output : indexOutputs.values()) {
-          try {
-            output.close();
-          } catch (IOException e) {
-            if (failure == null) {
-              failure = e;
-            } else {
-              failure.addSuppressed(e);
-            }
-          }
-        }
-        if (failure != null) {
-          throw failure;
-        }
+      } catch (IOException | RuntimeException | Error e) {
+        closeOutputs(indexOutputs.values(), e);
+        throw e;
       }
+      closeOutputs(indexOutputs.values(), null);
       for (String classification : indexPaths.keySet()) {
         try (BufferedWriter writer =
             Files.newBufferedWriter(
@@ -381,6 +369,29 @@ public final class CompactDivergenceExpander {
 
   interface StatusPredicate {
     boolean test(DivergenceStatus status);
+  }
+
+  private static void closeOutputs(Iterable<DataOutputStream> outputs, Throwable primary)
+      throws IOException {
+    IOException failure = null;
+    for (DataOutputStream output : outputs) {
+      try {
+        output.close();
+      } catch (IOException e) {
+        if (failure == null) {
+          failure = e;
+        } else {
+          failure.addSuppressed(e);
+        }
+      }
+    }
+    if (failure != null) {
+      if (primary != null) {
+        primary.addSuppressed(failure);
+      } else {
+        throw failure;
+      }
+    }
   }
 
   private record SweepDefinition(
