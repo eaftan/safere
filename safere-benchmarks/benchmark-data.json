@@ -264,6 +264,15 @@
       "shared": true
     },
     {
+      "id": "utf8Matching.asciiClassNonmatch.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "a",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -7031,6 +7040,75 @@
         "preexistingUtf8"
       ],
       "inputRepresentationReason": "Measures SafeRE required-class rejection over preexisting UTF-8 bytes.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.requiredSingleAsciiNonmatchBytes",
+      "operation": "find",
+      "patterns": [
+        ".*x.*"
+      ],
+      "inputs": [
+        "utf8Matching.asciiClassNonmatch.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures SafeRE single-ASCII required-class rejection over preexisting UTF-8 bytes.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.asciiRangePrefixNonmatchBytes",
+      "operation": "find",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "utf8Matching.asciiClassNonmatch.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures SafeRE contiguous-ASCII class start acceleration over preexisting UTF-8 bytes.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8MatchingBenchmark.literalPrefixNonmatchBytes",
+      "operation": "find",
+      "patterns": [
+        "x.*"
+      ],
+      "inputs": [
+        "utf8Matching.asciiClassNonmatch.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls for SafeRE literal start acceleration over the same preexisting UTF-8 bytes.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {

@@ -122,6 +122,87 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void asciiCodePointClassSearchCoversOptimizedShapesAlignmentsAndPositions() {
+    for (int[] ranges :
+        List.of(new int[] {'x', 'x'}, new int[] {'x', 'x', 'z', 'z'}, new int[] {'0', '9'})) {
+      int matchingByte =
+          ranges.length == 2 && ranges[0] != ranges[1] ? '5' : ranges[ranges.length - 1];
+      long bitmap0 = asciiBitmap(ranges, 0, 63);
+      long bitmap1 = asciiBitmap(ranges, 64, 127);
+      for (int offset = 0; offset < Long.BYTES * 2; offset++) {
+        for (int expected = 0; expected < 40; expected++) {
+          byte[] storage = new byte[offset + 40 + Long.BYTES];
+          Arrays.fill(storage, (byte) 'a');
+          storage[offset + expected] = (byte) matchingByte;
+          Utf8InputScanner scanner = new Utf8InputScanner(storage, offset, 40);
+
+          assertThat(scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, 0))
+              .as("ranges %s, offset %s, position %s", Arrays.toString(ranges), offset, expected)
+              .isEqualTo(expected);
+        }
+      }
+    }
+  }
+
+  @Test
+  void asciiCodePointClassSearchHonorsStartsAndSkipsNonAsciiScalars() {
+    byte[] bytes = "5é😀a7".getBytes(UTF_8);
+    int[] digits = {'0', '9'};
+    long bitmap0 = asciiBitmap(digits, 0, 63);
+
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes);
+
+    assertThat(scanner.indexOfCodePointClass(digits, bitmap0, 0, -4)).isEqualTo(0);
+    assertThat(scanner.indexOfCodePointClass(digits, bitmap0, 0, 1)).isEqualTo(bytes.length - 1);
+    assertThat(scanner.indexOfCodePointClass(digits, bitmap0, 0, bytes.length)).isEqualTo(-1);
+  }
+
+  @Test
+  void asciiCodePointClassSearchAgreesForEveryRangeAndWindowAlignment() {
+    for (int offset = 0; offset < Long.BYTES * 2; offset++) {
+      byte[] storage = new byte[offset + 128 + Long.BYTES];
+      Arrays.fill(storage, (byte) 0x7F);
+      for (int value = 0; value < 128; value++) {
+        storage[offset + value] = (byte) value;
+      }
+      Utf8InputScanner scanner = new Utf8InputScanner(storage, offset, 128);
+
+      for (int low = 0; low < 128; low++) {
+        for (int high = low; high < 128; high++) {
+          int[] ranges = {low, high};
+          long bitmap0 = asciiBitmap(ranges, 0, 63);
+          long bitmap1 = asciiBitmap(ranges, 64, 127);
+          for (int start : new int[] {-1, 0, low, high, high + 1, 127, 128}) {
+            int clampedStart = Math.max(0, start);
+            int expected = clampedStart <= high ? Math.max(clampedStart, low) : -1;
+
+            assertThat(scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, start))
+                .as("offset %s, range [%s, %s], start %s", offset, low, high, start)
+                .isEqualTo(expected);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void asciiPrefixClassSearchCoversSingletonPairAndRange() {
+    for (int[] members : List.of(new int[] {'x'}, new int[] {'x', 'z'}, asciiRange('0', '9'))) {
+      boolean[] asciiClass = new boolean[128];
+      for (int member : members) {
+        asciiClass[member] = true;
+      }
+      byte matchingByte = (byte) members[members.length - 1];
+      byte[] bytes = "a".repeat(40).getBytes(UTF_8);
+      bytes[31] = matchingByte;
+      Utf8InputScanner scanner = new Utf8InputScanner(bytes);
+
+      assertThat(scanner.indexOfAsciiClass(asciiClass, 0)).isEqualTo(31);
+      assertThat(scanner.indexOfAsciiClass(asciiClass, 32)).isEqualTo(-1);
+    }
+  }
+
+  @Test
   void captureFreePrefixSearchCanSkipAFailingCandidateAndFindALaterMatch() {
     Pattern pattern = Pattern.compile("ab+c");
 
@@ -406,6 +487,26 @@ class Utf8InputScannerTest {
       return position;
     }
     return -1;
+  }
+
+  private static long asciiBitmap(int[] ranges, int first, int last) {
+    long bitmap = 0;
+    for (int index = 0; index < ranges.length; index += 2) {
+      int low = Math.max(first, ranges[index]);
+      int high = Math.min(last, ranges[index + 1]);
+      for (int value = low; value <= high; value++) {
+        bitmap |= 1L << (value - first);
+      }
+    }
+    return bitmap;
+  }
+
+  private static int[] asciiRange(int low, int high) {
+    int[] result = new int[high - low + 1];
+    for (int value = low; value <= high; value++) {
+      result[value - low] = value;
+    }
+    return result;
   }
 
   private static String randomFromAlphabet(Random random, int length, int alphabet) {

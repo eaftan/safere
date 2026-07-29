@@ -89,8 +89,14 @@ final class Utf8InputScanner implements InputScanner {
   @Override
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
     int position = Math.max(0, start);
-    if (!WorkCounterConfig.ENABLED && bitmap0 == 0 && bitmap1 == 0) {
-      return indexOfNonAsciiCodePointClass(ranges, position);
+    if (!WorkCounterConfig.ENABLED) {
+      int asciiResult = indexOfAsciiRanges(ranges, position);
+      if (asciiResult >= -1) {
+        return asciiResult;
+      }
+      if (bitmap0 == 0 && bitmap1 == 0) {
+        return indexOfNonAsciiCodePointClass(ranges, position);
+      }
     }
     while (position < length) {
       int codePointPosition = position;
@@ -110,6 +116,34 @@ final class Utf8InputScanner implements InputScanner {
       }
     }
     return -1;
+  }
+
+  /**
+   * Searches classes that can be represented by the specialized ASCII scanners.
+   *
+   * @return the match position, {@code -1} when the class is absent, or {@code -2} when the class
+   *     requires the general code-point scan
+   */
+  private int indexOfAsciiRanges(int[] ranges, int start) {
+    if (ranges.length == 2 && ranges[0] >= 0 && ranges[1] < 0x80) {
+      int low = ranges[0];
+      int high = ranges[1];
+      if (low == high) {
+        return indexOfByte((byte) low, start);
+      }
+      if (high == low + 1) {
+        return indexOfBytePair((byte) low, (byte) high, start);
+      }
+      return indexOfByteRange(low, high, start);
+    }
+    if (ranges.length == 4
+        && ranges[0] == ranges[1]
+        && ranges[2] == ranges[3]
+        && ranges[0] >= 0
+        && ranges[3] < 0x80) {
+      return indexOfBytePair((byte) ranges[0], (byte) ranges[2], start);
+    }
+    return -2;
   }
 
   private int indexOfNonAsciiCodePointClass(int[] ranges, int start) {
@@ -212,15 +246,17 @@ final class Utf8InputScanner implements InputScanner {
   int indexOfAsciiClass(boolean[] asciiClass, int start) {
     int first = -1;
     int second = -1;
+    int last = -1;
+    boolean contiguous = true;
     for (int value = 0; value < asciiClass.length; value++) {
       if (asciiClass[value]) {
         if (first < 0) {
           first = value;
         } else if (second < 0) {
           second = value;
-        } else {
-          return indexOfAsciiClassScalar(asciiClass, start);
         }
+        contiguous &= last < 0 || value == last + 1;
+        last = value;
       }
     }
     if (first < 0) {
@@ -232,7 +268,12 @@ final class Utf8InputScanner implements InputScanner {
     if (second < 0) {
       return indexOfByte((byte) first, start);
     }
-    return indexOfBytePair((byte) first, (byte) second, start);
+    if (last == second) {
+      return indexOfBytePair((byte) first, (byte) second, start);
+    }
+    return contiguous
+        ? indexOfByteRange(first, last, start)
+        : indexOfAsciiClassScalar(asciiClass, start);
   }
 
   /**
@@ -400,6 +441,44 @@ final class Utf8InputScanner implements InputScanner {
     while (position < length) {
       byte value = bytes[offset + position];
       if (value == first || value == second) {
+        return position;
+      }
+      position++;
+    }
+    return -1;
+  }
+
+  /**
+   * Searches for a byte in the inclusive ASCII range {@code [low, high]}.
+   *
+   * <p>The word filter compares the common binary prefix of the range endpoints across eight bytes
+   * at once. Every byte in the range has that prefix, so the filter cannot miss a match. It may
+   * admit bytes outside the range when the endpoints do not cover their entire binary-prefix
+   * bucket; the scalar candidate check provides the exact answer.
+   */
+  private int indexOfByteRange(int low, int high, int start) {
+    int differingBit = Integer.highestOneBit(low ^ high);
+    int commonMask = ~((differingBit << 1) - 1) & 0xFF;
+    long repeatedMask = (commonMask & 0xFFL) * BYTE_ONES;
+    long repeatedPrefix = (low & commonMask) * BYTE_ONES;
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    while (position <= wordEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      long difference = (word & repeatedMask) ^ repeatedPrefix;
+      if (((difference - BYTE_ONES) & ~difference & BYTE_HIGH_BITS) != 0) {
+        for (int index = 0; index < Long.BYTES; index++) {
+          int value = unsignedByteAt(position + index);
+          if (value >= low && value <= high) {
+            return position + index;
+          }
+        }
+      }
+      position += Long.BYTES;
+    }
+    while (position < length) {
+      int value = unsignedByteAt(position);
+      if (value >= low && value <= high) {
         return position;
       }
       position++;
