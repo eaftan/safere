@@ -150,6 +150,7 @@ public final class Pattern implements Serializable {
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
+  private final transient FixedOffsetLiteral fixedOffsetLiteral;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
   private final transient EnginePathOptions enginePathOptions;
@@ -292,6 +293,7 @@ public final class Pattern implements Serializable {
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       boolean[] charClassPrefixAscii,
+      FixedOffsetLiteral fixedOffsetLiteral,
       StartAcceleration startAcceleration,
       KeywordAlternation keywordAlternation,
       int[] charClassMatchRanges,
@@ -355,6 +357,7 @@ public final class Pattern implements Serializable {
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
+    this.fixedOffsetLiteral = fixedOffsetLiteral;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
     this.enginePathOptions = enginePathOptions;
@@ -488,8 +491,12 @@ public final class Pattern implements Serializable {
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     // Extract character-class prefix for acceleration when no literal prefix exists.
     boolean[] ccPrefixAscii = (prefix == null) ? extractCharClassPrefixAscii(metadataAst) : null;
+    FixedOffsetLiteral fixedOffsetLiteral =
+        prefix == null ? extractFixedOffsetLiteral(metadataAst) : null;
     StartAcceleration startAcceleration =
-        (prefix == null && ccPrefixAscii == null) ? extractStartAcceleration(metadataAst) : null;
+        (prefix == null && ccPrefixAscii == null && fixedOffsetLiteral == null)
+            ? extractStartAcceleration(metadataAst)
+            : null;
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     // Detect "repeated character class" pattern for matches() fast path.
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
@@ -514,6 +521,7 @@ public final class Pattern implements Serializable {
         startsWithGcb,
         hasInternalGcb,
         ccPrefixAscii,
+        fixedOffsetLiteral,
         startAcceleration,
         keywordAlternation,
         ccMatch != null ? ccMatch.ranges : null,
@@ -663,6 +671,11 @@ public final class Pattern implements Serializable {
       if (searchStart < 0) {
         return false;
       }
+    } else if (enginePathOptions.startAcceleration() && fixedOffsetLiteral != null) {
+      searchStart = nextFixedOffsetCandidate(scanner, 0);
+      if (searchStart < 0) {
+        return false;
+      }
     } else if (!prog.hasWordBoundary() && charClassPrefixAscii != null) {
       searchStart = scanner.indexOfAsciiClass(charClassPrefixAscii, 0);
       if (searchStart < 0) {
@@ -725,6 +738,13 @@ public final class Pattern implements Serializable {
         diagnostics.boundary(MatchStrategy.LITERAL);
         return false;
       }
+    } else if (enginePathOptions.startAcceleration() && fixedOffsetLiteral != null) {
+      diagnostics.participate(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
+      searchStart = nextFixedOffsetCandidate(scanner, 0);
+      if (searchStart < 0) {
+        diagnostics.boundary(MatchStrategy.LITERAL);
+        return false;
+      }
     } else if (!prog.hasWordBoundary() && charClassPrefixAscii != null) {
       diagnostics.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
       searchStart = scanner.indexOfAsciiClass(charClassPrefixAscii, 0);
@@ -759,6 +779,29 @@ public final class Pattern implements Serializable {
             != null;
     diagnostics.boundary(MatchStrategy.NFA);
     return matched;
+  }
+
+  private int nextFixedOffsetCandidate(Utf8InputScanner scanner, int searchFrom) {
+    int literalFrom = searchFrom + fixedOffsetLiteral.offset();
+    while (literalFrom <= scanner.length()) {
+      int literalStart =
+          scanner.indexOf(
+              fixedOffsetLiteral.utf8(),
+              fixedOffsetLiteral.failure(),
+              fixedOffsetLiteral.shifts(),
+              literalFrom);
+      if (literalStart < 0) {
+        return -1;
+      }
+      int candidateStart = literalStart - fixedOffsetLiteral.offset();
+      int first = scanner.asciiAt(candidateStart);
+      if (charClassPrefixAscii == null
+          || (first >= 0 && first < charClassPrefixAscii.length && charClassPrefixAscii[first])) {
+        return candidateStart;
+      }
+      literalFrom = literalStart + 1;
+    }
+    return -1;
   }
 
   private static int[] literalFailure(byte[] literal) {
@@ -1218,6 +1261,11 @@ public final class Pattern implements Serializable {
    */
   boolean[] charClassPrefixAscii() {
     return charClassPrefixAscii;
+  }
+
+  /** Returns a mandatory ASCII literal at a fixed offset from the match start, or {@code null}. */
+  FixedOffsetLiteral fixedOffsetLiteral() {
+    return fixedOffsetLiteral;
   }
 
   /** Returns conservative start-position acceleration data, or {@code null} if unavailable. */
@@ -2029,6 +2077,42 @@ public final class Pattern implements Serializable {
     }
   }
 
+  static final class FixedOffsetLiteral {
+    private final String literal;
+    private final int offset;
+    private final byte[] utf8;
+    private final int[] failure;
+    private final int[] shifts;
+
+    FixedOffsetLiteral(String literal, int offset) {
+      this.literal = literal;
+      this.offset = offset;
+      this.utf8 = literal.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      this.failure = literalFailure(utf8);
+      this.shifts = literalShifts(utf8);
+    }
+
+    String literal() {
+      return literal;
+    }
+
+    int offset() {
+      return offset;
+    }
+
+    byte[] utf8() {
+      return utf8;
+    }
+
+    int[] failure() {
+      return failure;
+    }
+
+    int[] shifts() {
+      return shifts;
+    }
+  }
+
   /** Fast-path data for {@code (?i)\b(keyword|...)\b} and its greedy whole-input form. */
   static final class KeywordAlternation {
     final String[] keywords;
@@ -2049,6 +2133,119 @@ public final class Pattern implements Serializable {
       this.unicodeWordBoundary = unicodeWordBoundary;
       this.greedyWholeInput = greedyWholeInput;
     }
+  }
+
+  /**
+   * Finds the longest case-sensitive ASCII literal after a fixed-width ASCII match prefix.
+   *
+   * <p>This deliberately recognizes only the simple concatenation shape produced by simplification.
+   * Stopping at the first variable-width or non-ASCII atom keeps byte and UTF-16 offsets identical
+   * and makes every derived start position exact.
+   */
+  private static FixedOffsetLiteral extractFixedOffsetLiteral(Regexp re) {
+    Regexp node = unwrapFixedOffsetNode(re);
+    if (node.op != RegexpOp.CONCAT || node.subs == null) {
+      return null;
+    }
+    FixedOffsetLiteral best = null;
+    int offset = 0;
+    for (Regexp sub : node.subs) {
+      String literal = fixedOffsetAsciiLiteral(sub);
+      if (offset > 0
+          && literal != null
+          && (best == null || literal.length() > best.literal().length())) {
+        best = new FixedOffsetLiteral(literal, offset);
+      }
+      int width = exactAsciiWidth(sub);
+      if (width < 0 || offset > Integer.MAX_VALUE - width) {
+        break;
+      }
+      offset += width;
+    }
+    return best;
+  }
+
+  private static Regexp unwrapFixedOffsetNode(Regexp re) {
+    Regexp node = re;
+    while (node.op == RegexpOp.CAPTURE || node.op == RegexpOp.NON_CAPTURE) {
+      node = node.sub();
+    }
+    return node;
+  }
+
+  private static String fixedOffsetAsciiLiteral(Regexp re) {
+    Regexp node = unwrapFixedOffsetNode(re);
+    if ((node.flags & ParseFlags.FOLD_CASE) != 0) {
+      return null;
+    }
+    if (node.op == RegexpOp.LITERAL && node.rune >= 0 && node.rune < 128) {
+      return Character.toString(node.rune);
+    }
+    if (node.op != RegexpOp.LITERAL_STRING || node.runes == null || node.runes.length == 0) {
+      return null;
+    }
+    for (int rune : node.runes) {
+      if (rune < 0 || rune >= 128) {
+        return null;
+      }
+    }
+    return new String(node.runes, 0, node.runes.length);
+  }
+
+  private static int exactAsciiWidth(Regexp re) {
+    record WidthNode(Regexp regexp, int multiplier) {}
+    Deque<WidthNode> pending = new ArrayDeque<>();
+    pending.push(new WidthNode(re, 1));
+    int width = 0;
+    while (!pending.isEmpty()) {
+      WidthNode current = pending.pop();
+      Regexp node = current.regexp();
+      int multiplier = current.multiplier();
+      if (node.op == RegexpOp.CAPTURE || node.op == RegexpOp.NON_CAPTURE) {
+        pending.push(new WidthNode(node.sub(), multiplier));
+        continue;
+      }
+      if (node.op == RegexpOp.CONCAT && node.subs != null) {
+        for (int index = node.subs.size() - 1; index >= 0; index--) {
+          pending.push(new WidthNode(node.subs.get(index), multiplier));
+        }
+        continue;
+      }
+      if (node.op == RegexpOp.REPEAT && node.min == node.max && node.min >= 0) {
+        if (node.min != 0 && multiplier > Integer.MAX_VALUE / node.min) {
+          return -1;
+        }
+        pending.push(new WidthNode(node.sub(), multiplier * node.min));
+        continue;
+      }
+      int atomWidth;
+      if (node.op == RegexpOp.EMPTY_MATCH) {
+        atomWidth = 0;
+      } else if (node.op == RegexpOp.LITERAL) {
+        atomWidth = node.rune >= 0 && node.rune < 128 ? 1 : -1;
+      } else if (node.op == RegexpOp.LITERAL_STRING && node.runes != null) {
+        atomWidth = node.runes.length;
+        for (int rune : node.runes) {
+          if (rune < 0 || rune >= 128) {
+            return -1;
+          }
+        }
+      } else if (node.op == RegexpOp.CHAR_CLASS
+          && node.charClass != null
+          && !node.charClass.isEmpty()
+          && node.charClass.hi(node.charClass.numRanges() - 1) < 128) {
+        atomWidth = 1;
+      } else {
+        return -1;
+      }
+      if (atomWidth < 0
+          || (atomWidth != 0 && multiplier > Integer.MAX_VALUE / atomWidth)
+          || width > Integer.MAX_VALUE - atomWidth * multiplier) {
+        return -1;
+      }
+      width += atomWidth * multiplier;
+    }
+    return width;
   }
 
   /**
@@ -2627,13 +2824,15 @@ public final class Pattern implements Serializable {
       CharClass required = requiredCharClass(node, inspectAlternation);
       return required != null ? buildCharClassScanInfo(required) : null;
     }
+    CharClass mostSelective = null;
     for (Regexp sub : node.subs) {
       CharClass required = requiredCharClass(sub, inspectAlternation);
-      if (required != null) {
-        return buildCharClassScanInfo(required);
+      if (required != null
+          && (mostSelective == null || required.numRunes() < mostSelective.numRunes())) {
+        mostSelective = required;
       }
     }
-    return null;
+    return mostSelective != null ? buildCharClassScanInfo(mostSelective) : null;
   }
 
   private static CharClass requiredCharClass(Regexp re, boolean inspectAlternation) {

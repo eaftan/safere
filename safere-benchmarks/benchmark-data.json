@@ -273,6 +273,56 @@
       "shared": true
     },
     {
+      "id": "phoneSearch.digitsNoSlash.text",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz0123456789 ",
+        "length": 32768,
+        "seed": 20260729
+      },
+      "shared": true
+    },
+    {
+      "id": "phoneSearch.slashNoise.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "service 42 completed path /api/v1/items with 7 records ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "phoneSearch.denseDigitsAndSlashes.text",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "/0123456789",
+        "length": 32768,
+        "seed": 20260729
+      },
+      "shared": true
+    },
+    {
+      "id": "phoneSearch.sparseMatches.{nonMatchRepeats}",
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "123/456/7890",
+        "nonMatch": "ordinary prose event 42 completed normally",
+        "nonMatchRepeats": "{nonMatchRepeats}",
+        "delimiterAlphabet": " .,;:-",
+        "seed": 20260729,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -7111,6 +7161,137 @@
       "inputRepresentationReason": "Controls for SafeRE literal start acceleration over the same preexisting UTF-8 bytes.",
       "requirements": [],
       "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findDigitsWithoutSlash",
+      "operation": "find",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "phoneSearch.digitsNoSlash.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures fixed-offset phone-pattern rejection in realistic text containing unrelated digits but no slash.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findSlashNoise",
+      "operation": "find",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "phoneSearch.slashNoise.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures fixed-offset candidate filtering when unrelated digits and slashes are present.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findSparse.{nonMatchRepeats}",
+      "operation": "find",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "phoneSearch.sparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures fixed-offset acceleration for planted phone numbers at several realistic match densities.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.countSparse.{nonMatchRepeats}",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "phoneSearch.sparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures repeated UTF-8 find cost for planted phone numbers at several match densities.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.countDenseDigitsAndSlashes",
+      "operation": "findAllCount",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "phoneSearch.denseDigitsAndSlashes.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Provides the dense synthetic control where neither digit nor slash filtering is selective.",
+      "requirements": [],
+      "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "nanoseconds",

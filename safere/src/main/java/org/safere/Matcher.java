@@ -1596,6 +1596,7 @@ public final class Matcher implements MatchResult {
 
     boolean hasAcceleratedSearchPath =
         (parentPattern.prefix() != null)
+            || (options.startAcceleration() && parentPattern.fixedOffsetLiteral() != null)
             || (prog.anchorEnd()
                 && scanner.length() >= MIN_REVERSE_FIRST_LEN
                 && canUseReverseDfa());
@@ -1698,6 +1699,20 @@ public final class Matcher implements MatchResult {
       literalPrefixCandidateStart = true;
     }
 
+    Pattern.FixedOffsetLiteral fixedOffsetLiteral = parentPattern.fixedOffsetLiteral();
+    if (options.startAcceleration()
+        && fixedOffsetLiteral != null
+        && (text != null || scanner instanceof Utf8InputScanner)) {
+      diagnosticParticipation(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
+      int idx = nextFixedOffsetCandidate(scanner, fixedOffsetLiteral, searchFrom);
+      if (idx < 0) {
+        diagnosticBoundary(MatchStrategy.LITERAL);
+        return applyFailedMatchResult();
+      }
+      effectiveStart = idx;
+      literalPrefixCandidateStart = true;
+    }
+
     // Character-class prefix acceleration: when the pattern starts with a character class (and
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
@@ -1705,6 +1720,7 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration()
         && !prog.hasWordBoundary()
         && ccPrefixAscii != null
+        && !literalPrefixCandidateStart
         && (text != null || scanner instanceof Utf8InputScanner)) {
       diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
       int idx =
@@ -2110,6 +2126,45 @@ public final class Matcher implements MatchResult {
       WorkCounter.record(Math.max(0, text.length() - searchFrom));
     }
     return text.indexOf(requiredLiteral, searchFrom);
+  }
+
+  private int nextFixedOffsetCandidate(
+      InputScanner scanner, Pattern.FixedOffsetLiteral fixedOffsetLiteral, int fromIndex) {
+    if (fixedOffsetLiteral.offset() > scanner.length() - fromIndex) {
+      return -1;
+    }
+    int literalFrom = fromIndex + fixedOffsetLiteral.offset();
+    boolean[] firstAscii = parentPattern.charClassPrefixAscii();
+    while (literalFrom <= scanner.length()) {
+      int literalStart;
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        literalStart =
+            utf8Scanner.indexOf(
+                fixedOffsetLiteral.utf8(),
+                fixedOffsetLiteral.failure(),
+                fixedOffsetLiteral.shifts(),
+                literalFrom);
+      } else {
+        literalStart = text.indexOf(fixedOffsetLiteral.literal(), literalFrom);
+        if (WorkCounterConfig.ENABLED) {
+          int scanned =
+              literalStart >= 0
+                  ? literalStart - literalFrom + fixedOffsetLiteral.literal().length()
+                  : text.length() - literalFrom;
+          WorkCounter.record(Math.max(0, scanned));
+        }
+      }
+      if (literalStart < 0) {
+        return -1;
+      }
+      int candidateStart = literalStart - fixedOffsetLiteral.offset();
+      int first = scanner.asciiAt(candidateStart);
+      if (firstAscii == null || (first >= 0 && first < firstAscii.length && firstAscii[first])) {
+        return candidateStart;
+      }
+      literalFrom = literalStart + 1;
+    }
+    return -1;
   }
 
   private boolean findKeywordAlternation(

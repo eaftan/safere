@@ -34,6 +34,8 @@ class Utf8LinearTimeTest {
         size -> findAll("([a-z]+)([0-9]+)", "a1".repeat(size).getBytes(UTF_8)));
     assertLargeFourXInputStaysNearLinear(
         size -> findAll("\\bword\\b", "word ".repeat(size).getBytes(UTF_8)));
+    assertLargeFourXInputStaysNearLinear(
+        size -> findAll("\\d{3}/\\d{3}/\\d{4}", "path /api ".repeat(size).getBytes(UTF_8)));
     assertLargeFourXInputStaysNearLinear(size -> findAll("\\X", "á".repeat(size).getBytes(UTF_8)));
     assertLargeFourXInputStaysNearLinear(size -> findAll(".", malformedInput(size)));
   }

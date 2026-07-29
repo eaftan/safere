@@ -274,6 +274,16 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void patternBooleanSearchUsesFixedOffsetLiteralCandidates() {
+    Pattern phone = Pattern.compile("\\d{3}/\\d{3}/\\d{4}");
+
+    assertThat(phone.find(Utf8Input.validated("path /api/42".getBytes(UTF_8)))).isFalse();
+    assertThat(phone.find(Utf8Input.validated("path /api then 123/456/7890".getBytes(UTF_8))))
+        .isTrue();
+    assertThat(phone.find(Utf8Input.validated("digits 1234567890".getBytes(UTF_8)))).isFalse();
+  }
+
+  @Test
   void requiredNonAsciiClassRejectsAsciiInputAcrossUtf8EntryPoints() {
     Pattern pattern = Pattern.compile("[一-龥]{3,}");
     Utf8Input absent = Utf8Input.trusted("ordinary ASCII text".getBytes(UTF_8));

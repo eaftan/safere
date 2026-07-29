@@ -626,6 +626,14 @@ class MatcherTest {
       assertAllFindsMatchJdk("(?m)^\\s+at\\s+(\\w+)$", "header\u2028\tat alpha\u2029\tat beta");
     }
 
+    @Test
+    @DisplayName("find() skips fixed-offset literals that cannot start a match")
+    void findSkipsInvalidFixedOffsetLiteralCandidates() {
+      assertAllFindsMatchJdk(
+          "\\d{3}/\\d{3}/\\d{4}",
+          "path /api/42 then 12/345/6789 and finally 123/456/7890 plus 987/654/3210");
+    }
+
     @ParameterizedTest
     @ValueSource(
         strings = {

@@ -191,6 +191,40 @@ class PatternInternalTest {
 
   @ParameterizedTest
   @CsvSource({
+    "'\\d{3}/\\d{3}/\\d{4}', /, 0",
+    "'[A-Z]{2}:[0-9]{4}',    :, A",
+    "'\\w+#[a-f0-9]{8}',     #, a"
+  })
+  void requiredCharacterClassPrefersTheMostSelectiveMandatoryAtom(
+      String regex, char expectedMember, char expectedNonMember) {
+    Pattern p = Pattern.compile(regex);
+
+    assertThat(requiredClassContains(p, expectedMember)).isTrue();
+    assertThat(requiredClassContains(p, expectedNonMember)).isFalse();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "'\\d{3}/\\d{3}/\\d{4}', /, 3",
+    "'[A-Z][0-9]::[a-z]+',   ::, 2",
+    "'[ab][cd]-xyz',          -xyz, 2"
+  })
+  void fixedOffsetAsciiLiteralsAreRecorded(String regex, String literal, int offset) {
+    Pattern.FixedOffsetLiteral fixedOffsetLiteral = Pattern.compile(regex).fixedOffsetLiteral();
+
+    assertThat(fixedOffsetLiteral).isNotNull();
+    assertThat(fixedOffsetLiteral.literal()).isEqualTo(literal);
+    assertThat(fixedOffsetLiteral.offset()).isEqualTo(offset);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\\d+/x", "[αβ]/x", "[ab](?i:x)", "literal-prefix"})
+  void variableWidthUnicodeAndOrdinaryPrefixesDoNotRecordFixedOffsetLiterals(String regex) {
+    assertThat(Pattern.compile(regex).fixedOffsetLiteral()).isNull();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
     "'.*(x|y).*',             xy, az",
     "'.*(?:m|n).*',           mn, xz",
     "'.*([0-2]|[7-9]).*',     08, 56",
