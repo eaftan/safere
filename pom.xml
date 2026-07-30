@@ -49,16 +49,16 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>21</maven.compiler.release>
-    <junit.version>6.0.3</junit.version>
-    <jacoco.version>0.8.12</jacoco.version>
+    <junit.version>6.1.2</junit.version>
+    <jacoco.version>0.8.15</jacoco.version>
     <jazzer.version>0.30.0</jazzer.version>
-    <gson.version>2.11.0</gson.version>
+    <gson.version>2.14.0</gson.version>
     <jmh.version>1.37</jmh.version>
     <error-prone.version>2.50.0</error-prone.version>
     <error-prone.checks>-Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
     <google-java-format.version>1.35.0</google-java-format.version>
     <pmd.version>7.26.0</pmd.version>
-    <spotless.version>2.44.4</spotless.version>
+    <spotless.version>3.9.0</spotless.version>
   </properties>
 
   <build>
@@ -66,7 +66,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
+        <version>3.15.0</version>
         <configuration>
           <compilerArgs>
             <arg>-Xlint</arg>
@@ -124,7 +124,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>flatten-maven-plugin</artifactId>
-            <version>1.6.0</version>
+            <version>1.8.0</version>
             <configuration>
               <flattenMode>ossrh</flattenMode>
             </configuration>
@@ -148,7 +148,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-source-plugin</artifactId>
-            <version>3.3.1</version>
+            <version>3.4.0</version>
             <executions>
               <execution>
                 <id>attach-sources</id>
@@ -161,7 +161,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
-            <version>3.11.2</version>
+            <version>3.12.0</version>
             <configuration>
               <source>21</source>
               <doclint>all,-missing</doclint>
@@ -179,7 +179,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>3.2.7</version>
+            <version>3.2.8</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
@@ -193,7 +193,7 @@
           <plugin>
             <groupId>org.sonatype.central</groupId>
             <artifactId>central-publishing-maven-plugin</artifactId>
-            <version>0.10.0</version>
+            <version>0.11.0</version>
             <extensions>true</extensions>
             <configuration>
               <publishingServerId>central</publishingServerId>
