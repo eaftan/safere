@@ -57,6 +57,7 @@
     <error-prone.version>2.50.0</error-prone.version>
     <error-prone.checks>-Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
     <google-java-format.version>1.35.0</google-java-format.version>
+    <pmd.version>7.26.0</pmd.version>
     <spotless.version>2.44.4</spotless.version>
   </properties>
 
