@@ -80,18 +80,14 @@ fi
 
 echo "=== Building SafeRE benchmark inputs ==="
 if [ "$FASTBUILD" = true ]; then
-  mvn install \
+  mvn -pl safere-benchmarks -am install \
     -DskipTests \
+    -Dexec.skip=true \
+    -Dmaven.javadoc.skip=true \
     -Dpmd.skip=true \
     -Dspotless.check.skip=true \
     -q \
-    -f "$SCRIPT_DIR/safere/pom.xml"
-  mvn package \
-    -DskipTests \
-    -Dpmd.skip=true \
-    -Dspotless.check.skip=true \
-    -q \
-    -f "$SCRIPT_DIR/safere-benchmarks/pom.xml"
+    -f "$SCRIPT_DIR/pom.xml"
 else
   mvn -pl safere-benchmarks -am install \
     -DskipTests \
