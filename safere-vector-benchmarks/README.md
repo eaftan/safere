@@ -18,7 +18,9 @@ Use `--methods` with a pipe-separated list to select benchmark implementations, 
 `--methods 'swar|vectorCursor'`.
 Use `--end-to-end` to run complete `Pattern.find(Utf8Input)` comparisons in separate SWAR and
 Vector JVMs. Use `--provider swar` or `--provider vector` to run only one side. The latter exercises
-the production multi-release JAR selection path and immutable startup selection.
+the production multi-release JAR selection path and immutable startup selection. End-to-end runs
+use pair and range trials; singleton regexes are compiled to the literal scanner and therefore do
+not exercise the character-class provider.
 
 The Vector implementation, activation property, supported scans, and tuning thresholds are
 experimental and may change incompatibly or be removed in any SafeRE release.

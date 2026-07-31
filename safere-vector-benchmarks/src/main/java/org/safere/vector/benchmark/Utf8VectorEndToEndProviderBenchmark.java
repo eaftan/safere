@@ -47,7 +47,9 @@ public class Utf8VectorEndToEndProviderBenchmark {
     }
     String regex =
         switch (fields[0].toLowerCase(Locale.ROOT)) {
-          case "singleton" -> "x+";
+          case "singleton" ->
+              throw new IllegalArgumentException(
+                  "Singleton patterns use literal scanning, not the character-class provider");
           case "pair" -> "[xy]";
           case "range" -> "[0-9]";
           default -> throw new IllegalArgumentException("Unknown shape: " + fields[0]);

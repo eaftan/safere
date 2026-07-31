@@ -266,6 +266,30 @@ final class WorkCounterConfig {
       <build>
         <plugins>
           <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>add-jdk26-vector-source-resource</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>add-resource</goal>
+                </goals>
+                <configuration>
+                  <resources>
+                    <resource>
+                      <directory>${project.basedir}/src/main/java-jdk26</directory>
+                      <targetPath>META-INF/versions/26</targetPath>
+                      <includes>
+                        <include>**/*.java</include>
+                      </includes>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <executions>
@@ -301,28 +325,14 @@ final class WorkCounterConfig {
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-antrun-plugin</artifactId>
+            <artifactId>maven-jar-plugin</artifactId>
             <executions>
               <execution>
-                <id>prepare-vector-test-classes</id>
+                <id>package-vector-test-jar</id>
                 <phase>process-test-classes</phase>
                 <goals>
-                  <goal>run</goal>
+                  <goal>jar</goal>
                 </goals>
-                <configuration>
-                  <target>
-                    <delete dir="${project.build.directory}/vector-test-classes" quiet="true"/>
-                    <copy todir="${project.build.directory}/vector-test-classes">
-                      <fileset dir="${project.build.outputDirectory}"/>
-                    </copy>
-                    <copy
-                        todir="${project.build.directory}/vector-test-classes/org/safere"
-                        overwrite="true">
-                      <fileset
-                          dir="${project.build.outputDirectory}/META-INF/versions/26/org/safere"/>
-                    </copy>
-                  </target>
-                </configuration>
               </execution>
             </executions>
           </plugin>
@@ -334,7 +344,9 @@ final class WorkCounterConfig {
                 @{argLine} --add-modules=jdk.incubator.vector
                 -Dorg.safere.experimental.utf8ScanProvider=vector
               </argLine>
-              <classesDirectory>${project.build.directory}/vector-test-classes</classesDirectory>
+              <classesDirectory>
+                ${project.build.directory}/${project.build.finalName}.jar
+              </classesDirectory>
               <useModulePath>false</useModulePath>
             </configuration>
           </plugin>

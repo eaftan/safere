@@ -32,6 +32,7 @@ import org.safere.Utf8ScannerBenchmarkAccess;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
 public class Utf8VectorScanBenchmark {
+  private static final String PROVIDER_PROPERTY = "org.safere.experimental.utf8ScanProvider";
   private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
   private static final int[] SINGLETON_RANGES = {'x', 'x'};
   private static final int[] PAIR_RANGES = {'x', 'x', 'y', 'y'};
@@ -56,6 +57,11 @@ public class Utf8VectorScanBenchmark {
   /** Materializes the declared input and verifies that both implementations agree. */
   @Setup(Level.Trial)
   public void setup() {
+    String configuredProvider = System.getProperty(PROVIDER_PROPERTY, "").trim();
+    if (!configuredProvider.isEmpty() && !configuredProvider.equals("swar")) {
+      throw new IllegalStateException(
+          "Low-level benchmarks require the SWAR production provider, not " + configuredProvider);
+    }
     String[] fields = vectorScanTrial.split("/", -1);
     if (fields.length != 5) {
       throw new IllegalArgumentException("Malformed Vector scan trial: " + vectorScanTrial);

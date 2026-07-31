@@ -237,7 +237,7 @@ jobs:
             --smoke \
             --end-to-end \
             --trials \
-            'singleton/first/absent/1024/0,pair/first/absent/1024/0,range/first/absent/1024/0'
+            'pair/first/absent/1024/0,range/first/absent/1024/0'
 
   benchmark-smoke-test-cpp:
     needs: changes

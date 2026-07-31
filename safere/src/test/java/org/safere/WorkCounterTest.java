@@ -12,6 +12,8 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -36,10 +38,20 @@ class WorkCounterTest {
       throws IOException, URISyntaxException {
     Path classesRoot =
         Path.of(WorkCounter.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-    Path packageRoot = classesRoot.resolve("org/safere");
+
+    if (Files.isRegularFile(classesRoot)) {
+      try (FileSystem jarFileSystem = FileSystems.newFileSystem(classesRoot)) {
+        assertNoWorkCounterReferences(jarFileSystem.getPath("/"));
+      }
+    } else {
+      assertNoWorkCounterReferences(classesRoot);
+    }
+  }
+
+  private static void assertNoWorkCounterReferences(Path classesRoot) throws IOException {
     List<String> references = new ArrayList<>();
 
-    try (var classFiles = Files.walk(packageRoot)) {
+    try (var classFiles = Files.walk(classesRoot)) {
       List<Path> compiledClasses =
           classFiles.filter(path -> path.toString().endsWith(".class")).toList();
       for (Path classFile : compiledClasses) {

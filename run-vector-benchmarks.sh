@@ -112,7 +112,10 @@ mvn clean package \
 echo "=== Materializing shared benchmark inputs ==="
 "$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
 
-JVM_ARGS="--add-modules=jdk.incubator.vector -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+JVM_ARGS=(
+  --add-modules=jdk.incubator.vector
+  "-Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+)
 echo "=== Checking packaged provider selection ==="
 java -cp "$BENCHMARK_JAR" org.safere.vector.benchmark.VectorProviderSmoke
 java \
@@ -132,7 +135,7 @@ else
   JMH_OPTS="-f 2 -wi 2 -w 500ms -i 5 -r 500ms"
 fi
 
-TRIALS="$(java $JVM_ARGS \
+TRIALS="$(java "${JVM_ARGS[@]}" \
   -cp "$BENCHMARK_JAR" \
   org.safere.vector.benchmark.VectorScanTrialPlan "$PROFILE")"
 if [ -n "$TRIAL_OVERRIDE" ]; then
@@ -142,7 +145,7 @@ if [ "$END_TO_END" = true ]; then
   FIRST_HIT_TRIALS=""
   IFS=',' read -ra trial_list <<< "$TRIALS"
   for trial in "${trial_list[@]}"; do
-    if [[ "$trial" == */first/* ]]; then
+    if [[ "$trial" != singleton/* && "$trial" == */first/* ]]; then
       if [ -n "$FIRST_HIT_TRIALS" ]; then
         FIRST_HIT_TRIALS+=","
       fi
@@ -150,7 +153,7 @@ if [ "$END_TO_END" = true ]; then
     fi
   done
   if [ -z "$FIRST_HIT_TRIALS" ]; then
-    echo "ERROR: End-to-end provider benchmarks require at least one first-hit trial" >&2
+    echo "ERROR: End-to-end provider benchmarks require at least one pair or range first-hit trial" >&2
     exit 2
   fi
   TRIALS="$FIRST_HIT_TRIALS"
@@ -158,13 +161,22 @@ fi
 
 run_benchmarks() {
   local provider="$1"
-  local benchmark_jvm_args="$JVM_ARGS"
+  local benchmark_jvm_args=("${JVM_ARGS[@]}")
   if [ "$provider" = "vector" ]; then
-    benchmark_jvm_args="$benchmark_jvm_args -Dorg.safere.experimental.utf8ScanProvider=vector"
+    benchmark_jvm_args+=("-Dorg.safere.experimental.utf8ScanProvider=vector")
   fi
+  local fork_jvm_args=""
+  local argument
+  for argument in "${benchmark_jvm_args[@]}"; do
+    if [[ "$argument" == *\"* ]]; then
+      echo "ERROR: JMH JVM arguments cannot contain a double quote: $argument" >&2
+      return 2
+    fi
+    fork_jvm_args+="\"$argument\" "
+  done
   echo "=== Running Vector scan benchmarks ($MODE, provider=$provider) ==="
-  local command=(java $benchmark_jvm_args -jar "$BENCHMARK_JAR"
-    -jvmArgs "$benchmark_jvm_args"
+  local command=(java "${benchmark_jvm_args[@]}" -jar "$BENCHMARK_JAR"
+    -jvmArgs "$fork_jvm_args"
     $JMH_OPTS
     -p "vectorScanTrial=$TRIALS")
   if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
@@ -185,5 +197,5 @@ if [ "$END_TO_END" = true ] && [ "$PROVIDER" = "both" ]; then
 elif [ "$END_TO_END" = true ]; then
   run_benchmarks "$PROVIDER"
 else
-  run_benchmarks vector
+  run_benchmarks swar
 fi
