@@ -240,6 +240,7 @@ final class Dfa {
   private final InputScanner.LiteralSearchDesc literalSearchDesc;
   private final boolean[] charClassPrefixAscii;
   private final Pattern.StartAcceleration startAcceleration;
+  private final boolean hasStartAcceleration;
 
   // ---------------------------------------------------------------------------
   // Construction
@@ -306,6 +307,8 @@ final class Dfa {
     this.literalSearchDesc = literalSearchDesc;
     this.charClassPrefixAscii = charClassPrefixAscii;
     this.startAcceleration = startAcceleration;
+    this.hasStartAcceleration =
+        (literalSearchDesc != null || charClassPrefixAscii != null || startAcceleration != null);
   }
 
   Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
@@ -1283,10 +1286,12 @@ final class Dfa {
     State[] offsetToState = this.offsetToState;
     int[] asciiClassMap = this.asciiClassMap;
     int pos = startPos;
+    int lastFastForwardPos = startPos - 65;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
-      if (s.isStartState && !anchored) {
+      if (hasStartAcceleration && s.isStartState && !anchored && (pos - lastFastForwardPos > 64)) {
         int nextPos = fastForward(text, pos, textLen, posDepThreshold);
+        lastFastForwardPos = nextPos;
         if (nextPos > pos) {
           pos = nextPos;
           if (pos >= textLen) {
@@ -1321,9 +1326,11 @@ final class Dfa {
           }
         }
         sId = nsId;
-        if (offsetToState[sId].isStartState && !anchored) {
-          pos++;
-          break;
+        if (hasStartAcceleration && offsetToState[sId].isStartState && !anchored) {
+          if (pos - lastFastForwardPos > 64) {
+            pos++;
+            break;
+          }
         }
         pos++;
       }
@@ -1373,8 +1380,9 @@ final class Dfa {
 
     // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
-      if (s.isStartState && !anchored) {
+      if (hasStartAcceleration && s.isStartState && !anchored && (pos - lastFastForwardPos > 64)) {
         int nextPos = fastForward(text, pos, textLen, posDepThreshold);
+        lastFastForwardPos = nextPos;
         if (nextPos > pos) {
           pos = nextPos;
           if (pos > textLen) {
