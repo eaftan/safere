@@ -6,4 +6,7 @@
 /** SafeRE: a linear-time regular expression matching library for Java. */
 module org.safere {
   exports org.safere;
+  exports org.safere.spi;
+
+  uses org.safere.spi.Utf8ScanProvider;
 }

@@ -18,12 +18,10 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.safere.Pattern;
 import org.safere.Utf8Input;
-import org.safere.VectorUtf8ScanProviderBenchmarkAccess;
 
-/** Measures complete UTF-8 find operations with native SWAR or an installed Vector provider. */
+/** Measures complete UTF-8 find operations with the provider selected at JVM startup. */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
@@ -32,14 +30,14 @@ public class Utf8VectorEndToEndProviderBenchmark {
   @Param({})
   public String vectorScanTrial;
 
-  /** Scanner provider selected before the UTF-8 input constructs its scanner. */
+  /** Scanner provider expected to have been selected by the benchmark runner. */
   @Param({"swar", "vector"})
   public String scanProvider;
 
   private Pattern pattern;
   private Utf8Input input;
 
-  /** Installs the selected provider, materializes input, and verifies its complete result. */
+  /** Materializes input and verifies the selected provider and complete result. */
   @Setup(Level.Trial)
   public void setup() {
     String[] fields = vectorScanTrial.split("/", -1);
@@ -56,29 +54,22 @@ public class Utf8VectorEndToEndProviderBenchmark {
         };
     int length = Integer.parseInt(fields[3]);
     int offset = Integer.parseInt(fields[4]);
+    String configuredProvider = System.getProperty("org.safere.utf8ScanProvider", "swar").trim();
+    if (!scanProvider.equals(configuredProvider)) {
+      throw new IllegalStateException(
+          "Expected provider " + scanProvider + " but JVM selected " + configuredProvider);
+    }
     byte[] source = VectorScanConfiguration.input(fields[2], length);
     byte[] storage = new byte[offset + source.length + ByteVector.SPECIES_PREFERRED.length()];
     Arrays.fill(storage, (byte) 0x7f);
     System.arraycopy(source, 0, storage, offset, source.length);
 
-    VectorUtf8ScanProviderBenchmarkAccess.clear();
     pattern = Pattern.compile(regex);
-    boolean expected = pattern.find(Utf8Input.trusted(storage, offset, length));
-    switch (scanProvider) {
-      case "swar" -> VectorUtf8ScanProviderBenchmarkAccess.clear();
-      case "vector" -> VectorUtf8ScanProviderBenchmarkAccess.install();
-      default -> throw new IllegalArgumentException("Unknown scan provider: " + scanProvider);
-    }
     input = Utf8Input.trusted(storage, offset, length);
+    boolean expected = !fields[2].equals("absent");
     if (pattern.find(input) != expected) {
-      throw new AssertionError("Provider disagreement for " + vectorScanTrial);
+      throw new AssertionError("Unexpected result for " + vectorScanTrial);
     }
-  }
-
-  /** Restores native scanner construction after each trial. */
-  @TearDown(Level.Trial)
-  public void tearDown() {
-    VectorUtf8ScanProviderBenchmarkAccess.clear();
   }
 
   /** Runs the complete direct UTF-8 find operation. */

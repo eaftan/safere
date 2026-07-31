@@ -12,6 +12,7 @@ BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 MODE="standard"
 FASTBUILD=false
 END_TO_END=false
+PROVIDER="both"
 TRIAL_OVERRIDE=""
 METHODS="safeRe|swar|swarProvider|vector|vectorProvider|vectorCursor"
 JMH_EXTRA_ARGS=()
@@ -33,6 +34,14 @@ while [ "$#" -gt 0 ]; do
     --end-to-end)
       END_TO_END=true
       shift
+      ;;
+    --provider)
+      if [ "$#" -lt 2 ] || [[ ! "$2" =~ ^(swar|vector|both)$ ]]; then
+        echo "ERROR: --provider requires swar, vector, or both" >&2
+        exit 2
+      fi
+      PROVIDER="$2"
+      shift 2
       ;;
     --trials)
       if [ "$#" -lt 2 ]; then
@@ -56,7 +65,7 @@ while [ "$#" -gt 0 ]; do
       set --
       ;;
     *)
-      echo "Usage: $0 [--smoke|--long] [--fastbuild] [--end-to-end] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
+      echo "Usage: $0 [--smoke|--long] [--fastbuild] [--end-to-end] [--provider swar|vector|both] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
       exit 2
       ;;
   esac
@@ -93,6 +102,12 @@ else
 fi
 
 echo "=== Building JDK 26 Vector benchmark JAR ==="
+mvn clean install \
+  -DskipTests \
+  -Dpmd.skip=true \
+  -Dspotless.check.skip=true \
+  -q \
+  -f "$SCRIPT_DIR/safere-vector-jdk26/pom.xml"
 mvn clean package \
   -DskipTests \
   -Dpmd.skip=true \
@@ -121,18 +136,52 @@ TRIALS="$(java $JVM_ARGS \
 if [ -n "$TRIAL_OVERRIDE" ]; then
   TRIALS="$TRIAL_OVERRIDE"
 fi
-
-echo "=== Running Vector scan benchmarks ($MODE) ==="
-COMMAND=(java $JVM_ARGS -jar "$BENCHMARK_JAR" \
-  -jvmArgs "$JVM_ARGS" \
-  $JMH_OPTS \
-  -p "vectorScanTrial=$TRIALS")
-if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
-  COMMAND+=("${JMH_EXTRA_ARGS[@]}")
-fi
 if [ "$END_TO_END" = true ]; then
-  COMMAND+=('^org\.safere\.vector\.benchmark\.Utf8VectorEndToEndProviderBenchmark\.safeReFind$')
-else
-  COMMAND+=("^org\.safere\.vector\.benchmark\.Utf8VectorScanBenchmark\.($METHODS)$")
+  FIRST_HIT_TRIALS=""
+  IFS=',' read -ra trial_list <<< "$TRIALS"
+  for trial in "${trial_list[@]}"; do
+    if [[ "$trial" == */first/* ]]; then
+      if [ -n "$FIRST_HIT_TRIALS" ]; then
+        FIRST_HIT_TRIALS+=","
+      fi
+      FIRST_HIT_TRIALS+="$trial"
+    fi
+  done
+  if [ -z "$FIRST_HIT_TRIALS" ]; then
+    echo "ERROR: End-to-end provider benchmarks require at least one first-hit trial" >&2
+    exit 2
+  fi
+  TRIALS="$FIRST_HIT_TRIALS"
 fi
-"${COMMAND[@]}"
+
+run_benchmarks() {
+  local provider="$1"
+  local benchmark_jvm_args="$JVM_ARGS"
+  if [ "$provider" = "vector" ]; then
+    benchmark_jvm_args="$benchmark_jvm_args -Dorg.safere.utf8ScanProvider=vector"
+  fi
+  echo "=== Running Vector scan benchmarks ($MODE, provider=$provider) ==="
+  local command=(java $benchmark_jvm_args -jar "$BENCHMARK_JAR"
+    -jvmArgs "$benchmark_jvm_args"
+    $JMH_OPTS
+    -p "vectorScanTrial=$TRIALS")
+  if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+    command+=("${JMH_EXTRA_ARGS[@]}")
+  fi
+  if [ "$END_TO_END" = true ]; then
+    command+=(-p "scanProvider=$provider")
+    command+=('^org\.safere\.vector\.benchmark\.Utf8VectorEndToEndProviderBenchmark\.safeReFind$')
+  else
+    command+=("^org\.safere\.vector\.benchmark\.Utf8VectorScanBenchmark\.($METHODS)$")
+  fi
+  "${command[@]}"
+}
+
+if [ "$END_TO_END" = true ] && [ "$PROVIDER" = "both" ]; then
+  run_benchmarks swar
+  run_benchmarks vector
+elif [ "$END_TO_END" = true ]; then
+  run_benchmarks "$PROVIDER"
+else
+  run_benchmarks vector
+fi

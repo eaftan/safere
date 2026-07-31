@@ -3,10 +3,11 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-package org.safere;
+/** JDK 26 Vector API acceleration for SafeRE UTF-8 scans. */
+module org.safere.vector.jdk26 {
+  requires jdk.incubator.vector;
+  requires org.safere;
 
-/** Experimental internal provider for specialized ASCII scans over UTF-8 storage. */
-interface Utf8ScanProvider {
-  int indexOfAsciiClass(
-      byte[] bytes, int offset, int length, int[] ranges, int start);
+  provides org.safere.spi.Utf8ScanProvider with
+      org.safere.vector.jdk26.Jdk26VectorUtf8ScanProvider;
 }
