@@ -10,6 +10,81 @@
     "crosscheckOverhead": {
       "pattern": "([a-z]+)(\\d+)",
       "replacement": "$2:$1"
+    },
+    "vectorScan": {
+      "smokeTrials": [
+        "singleton/first/absent/64/0",
+        "pair/first/late/64/7",
+        "range/all/dense/32768/0"
+      ],
+      "standardTrials": [
+        "singleton/first/absent/15/0",
+        "singleton/first/absent/16/0",
+        "singleton/first/absent/17/0",
+        "singleton/first/absent/31/0",
+        "singleton/first/absent/32/0",
+        "singleton/first/absent/33/0",
+        "singleton/first/absent/63/0",
+        "singleton/first/absent/64/0",
+        "singleton/first/absent/65/0",
+        "singleton/first/absent/256/0",
+        "singleton/first/absent/1024/0",
+        "singleton/first/absent/32768/0",
+        "singleton/first/absent/1048576/0",
+        "pair/first/absent/15/0",
+        "pair/first/absent/16/0",
+        "pair/first/absent/17/0",
+        "pair/first/absent/31/0",
+        "pair/first/absent/32/0",
+        "pair/first/absent/33/0",
+        "pair/first/absent/63/0",
+        "pair/first/absent/64/0",
+        "pair/first/absent/65/0",
+        "pair/first/absent/256/0",
+        "pair/first/absent/1024/0",
+        "pair/first/absent/32768/0",
+        "pair/first/absent/1048576/0",
+        "range/first/absent/15/0",
+        "range/first/absent/16/0",
+        "range/first/absent/17/0",
+        "range/first/absent/31/0",
+        "range/first/absent/32/0",
+        "range/first/absent/33/0",
+        "range/first/absent/63/0",
+        "range/first/absent/64/0",
+        "range/first/absent/65/0",
+        "range/first/absent/256/0",
+        "range/first/absent/1024/0",
+        "range/first/absent/32768/0",
+        "range/first/absent/1048576/0",
+        "singleton/first/late/32768/0",
+        "singleton/first/sparse/32768/0",
+        "singleton/first/dense/32768/0",
+        "singleton/all/absent/32768/0",
+        "singleton/all/late/32768/0",
+        "singleton/all/sparse/32768/0",
+        "singleton/all/dense/32768/0",
+        "pair/first/late/32768/0",
+        "pair/first/sparse/32768/0",
+        "pair/first/dense/32768/0",
+        "pair/all/absent/32768/0",
+        "pair/all/late/32768/0",
+        "pair/all/sparse/32768/0",
+        "pair/all/dense/32768/0",
+        "range/first/late/32768/0",
+        "range/first/sparse/32768/0",
+        "range/first/dense/32768/0",
+        "range/all/absent/32768/0",
+        "range/all/late/32768/0",
+        "range/all/sparse/32768/0",
+        "range/all/dense/32768/0",
+        "singleton/first/absent/32768/7",
+        "singleton/first/late/32768/7",
+        "pair/first/absent/32768/7",
+        "pair/first/late/32768/7",
+        "range/first/absent/32768/7",
+        "range/first/late/32768/7"
+      ]
     }
   },
   "inputs": [
@@ -260,6 +335,70 @@
         "alphabet": "abcdefghijklmnopqrstuvwxyz",
         "length": 32768,
         "seed": 20260721
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.absent.{length}",
+      "axes": {
+        "length": [
+          15,
+          16,
+          17,
+          31,
+          32,
+          33,
+          63,
+          64,
+          65,
+          256,
+          1024,
+          32768,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "b",
+        "length": "{length}"
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.late.{length}",
+      "axes": {
+        "length": [
+          64,
+          32768
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "b",
+        "suffix": "xy5",
+        "length": "{length}"
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.sparse.32768",
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "xy5",
+        "nonMatch": "b",
+        "nonMatchRepeats": 127,
+        "delimiterAlphabet": "b",
+        "seed": 20260731,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.dense.32768",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "bxy5",
+        "length": 32768
       },
       "shared": true
     },

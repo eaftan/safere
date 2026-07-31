@@ -29,7 +29,7 @@ class BenchmarkDataSchemaTest {
     assertThat(root.keySet())
         .containsExactlyInAnyOrder("schemaVersion", "configuration", "inputs", "workloads");
     assertThat(root.getAsJsonObject("configuration").keySet())
-        .containsExactlyInAnyOrder("collection", "crosscheckOverhead");
+        .containsExactlyInAnyOrder("collection", "crosscheckOverhead", "vectorScan");
   }
 
   @Test

@@ -1,0 +1,129 @@
+#!/bin/bash
+# Copyright (c) 2026 Eddie Aftandilian. Licensed under the MIT License.
+# See LICENSE file in the project root for details.
+
+# Runs the optional JDK 26 Vector API benchmark prototypes.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BENCHMARK_JAR="$SCRIPT_DIR/safere-vector-benchmarks/target/benchmarks.jar"
+BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
+MODE="standard"
+FASTBUILD=false
+TRIAL_OVERRIDE=""
+METHODS="safeRe|swar|vector|vectorCursor"
+JMH_EXTRA_ARGS=()
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --smoke)
+      MODE="smoke"
+      shift
+      ;;
+    --long)
+      MODE="long"
+      shift
+      ;;
+    --fastbuild)
+      FASTBUILD=true
+      shift
+      ;;
+    --trials)
+      if [ "$#" -lt 2 ]; then
+        echo "ERROR: --trials requires a comma-separated trial list" >&2
+        exit 2
+      fi
+      TRIAL_OVERRIDE="$2"
+      shift 2
+      ;;
+    --methods)
+      if [ "$#" -lt 2 ]; then
+        echo "ERROR: --methods requires a pipe-separated method list" >&2
+        exit 2
+      fi
+      METHODS="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      JMH_EXTRA_ARGS=("$@")
+      set --
+      ;;
+    *)
+      echo "Usage: $0 [--smoke|--long] [--fastbuild] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+JAVA_FEATURE="$(java -XshowSettings:properties -version 2>&1 \
+  | awk -F= '/java.specification.version/ {gsub(/ /, "", $2); print $2}')"
+if [ "$JAVA_FEATURE" -ne 26 ]; then
+  echo "ERROR: These Vector benchmarks target the JDK 26 incubator API; found JDK $JAVA_FEATURE" >&2
+  exit 1
+fi
+
+echo "=== Building SafeRE benchmark inputs ==="
+if [ "$FASTBUILD" = true ]; then
+  mvn install \
+    -DskipTests \
+    -Dpmd.skip=true \
+    -Dspotless.check.skip=true \
+    -q \
+    -f "$SCRIPT_DIR/safere/pom.xml"
+  mvn package \
+    -DskipTests \
+    -Dpmd.skip=true \
+    -Dspotless.check.skip=true \
+    -q \
+    -f "$SCRIPT_DIR/safere-benchmarks/pom.xml"
+else
+  mvn -pl safere-benchmarks -am install \
+    -DskipTests \
+    -Dpmd.skip=true \
+    -Dspotless.check.skip=true \
+    -q \
+    -f "$SCRIPT_DIR/pom.xml"
+fi
+
+echo "=== Building JDK 26 Vector benchmark JAR ==="
+mvn clean package \
+  -DskipTests \
+  -Dpmd.skip=true \
+  -Dspotless.check.skip=true \
+  -q \
+  -f "$SCRIPT_DIR/safere-vector-benchmarks/pom.xml"
+
+echo "=== Materializing shared benchmark inputs ==="
+"$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
+
+JVM_ARGS="--add-modules=jdk.incubator.vector -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+if [ "$MODE" = "smoke" ]; then
+  PROFILE="smoke"
+  JMH_OPTS="-f 1 -wi 1 -w 1 -i 1 -r 1"
+elif [ "$MODE" = "long" ]; then
+  PROFILE="standard"
+  JMH_OPTS="-f 2 -wi 3 -w 1 -i 5 -r 1"
+else
+  PROFILE="standard"
+  JMH_OPTS="-f 2 -wi 2 -w 500ms -i 5 -r 500ms"
+fi
+
+TRIALS="$(java $JVM_ARGS \
+  -cp "$BENCHMARK_JAR" \
+  org.safere.vector.benchmark.VectorScanTrialPlan "$PROFILE")"
+if [ -n "$TRIAL_OVERRIDE" ]; then
+  TRIALS="$TRIAL_OVERRIDE"
+fi
+
+echo "=== Running Vector scan benchmarks ($MODE) ==="
+COMMAND=(java $JVM_ARGS -jar "$BENCHMARK_JAR" \
+  -jvmArgs "$JVM_ARGS" \
+  $JMH_OPTS \
+  -p "vectorScanTrial=$TRIALS")
+if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+  COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+fi
+COMMAND+=("^org\.safere\.vector\.benchmark\.Utf8VectorScanBenchmark\.($METHODS)$")
+"${COMMAND[@]}"

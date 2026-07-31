@@ -15,9 +15,10 @@ final class BenchmarkDataSchema {
   private static final Set<String> ROOT_FIELDS =
       Set.of("schemaVersion", "configuration", "inputs", "workloads");
   private static final Set<String> CONFIGURATION_FIELDS =
-      Set.of("collection", "crosscheckOverhead");
+      Set.of("collection", "crosscheckOverhead", "vectorScan");
   private static final Set<String> COLLECTION_FIELDS = Set.of("allocationWorkloadPrefixes");
   private static final Set<String> CROSSCHECK_OVERHEAD_FIELDS = Set.of("pattern", "replacement");
+  private static final Set<String> VECTOR_SCAN_FIELDS = Set.of("smokeTrials", "standardTrials");
 
   private BenchmarkDataSchema() {}
 
@@ -63,6 +64,26 @@ final class BenchmarkDataSchema {
           CROSSCHECK_OVERHEAD_FIELDS);
       requiredString(crosscheck, "pattern");
       requiredString(crosscheck, "replacement");
+    }
+    if (configuration.has("vectorScan")) {
+      JsonObject vectorScan = requiredObject(configuration, "vectorScan");
+      requireOnly(vectorScan, "benchmark-data.json configuration.vectorScan", VECTOR_SCAN_FIELDS);
+      validateNonblankStrings(vectorScan, "smokeTrials", "Vector scan smoke trials");
+      validateNonblankStrings(vectorScan, "standardTrials", "Vector scan standard trials");
+    }
+  }
+
+  private static void validateNonblankStrings(JsonObject object, String field, String description) {
+    JsonArray values = requiredArray(object, field);
+    if (values.isEmpty()) {
+      throw new IllegalArgumentException(description + " must not be empty");
+    }
+    for (JsonElement value : values) {
+      if (!value.isJsonPrimitive()
+          || !value.getAsJsonPrimitive().isString()
+          || value.getAsString().isBlank()) {
+        throw new IllegalArgumentException(description + " must be nonblank strings");
+      }
     }
   }
 
