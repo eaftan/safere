@@ -3,7 +3,7 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-package org.safere.vector.jdk26.experimental;
+package org.safere;
 
 import static jdk.incubator.vector.VectorOperators.GE;
 import static jdk.incubator.vector.VectorOperators.LE;
@@ -11,21 +11,12 @@ import static jdk.incubator.vector.VectorOperators.LE;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
-import org.safere.experimental.spi.Utf8ScanProvider;
 
 /** UTF-8 ASCII character-class scanning implemented with the JDK 26 Vector API. */
-public final class Jdk26VectorUtf8ScanProvider implements Utf8ScanProvider {
+final class Jdk26VectorUtf8ScanProvider implements Utf8ScanProvider {
   private static final int MINIMUM_INPUT_LENGTH = 1024;
   private static final int SCALAR_PROLOGUE_LENGTH = Integer.BYTES;
   private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
-
-  /** Creates the provider. Called by {@link java.util.ServiceLoader}. */
-  public Jdk26VectorUtf8ScanProvider() {}
-
-  @Override
-  public String name() {
-    return "vector";
-  }
 
   @Override
   public int minimumInputLength() {

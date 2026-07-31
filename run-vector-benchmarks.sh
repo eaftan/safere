@@ -102,12 +102,6 @@ else
 fi
 
 echo "=== Building JDK 26 Vector benchmark JAR ==="
-mvn clean install \
-  -DskipTests \
-  -Dpmd.skip=true \
-  -Dspotless.check.skip=true \
-  -q \
-  -f "$SCRIPT_DIR/safere-vector-jdk26-experimental/pom.xml"
 mvn clean package \
   -DskipTests \
   -Dpmd.skip=true \
@@ -119,6 +113,14 @@ echo "=== Materializing shared benchmark inputs ==="
 "$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
 
 JVM_ARGS="--add-modules=jdk.incubator.vector -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+echo "=== Checking packaged provider selection ==="
+java -cp "$BENCHMARK_JAR" org.safere.vector.benchmark.VectorProviderSmoke
+java \
+  --add-modules=jdk.incubator.vector \
+  -Dorg.safere.experimental.utf8ScanProvider=vector \
+  -cp "$BENCHMARK_JAR" \
+  org.safere.vector.benchmark.VectorProviderSmoke
+
 if [ "$MODE" = "smoke" ]; then
   PROFILE="smoke"
   JMH_OPTS="-f 1 -wi 1 -w 1 -i 1 -r 1"

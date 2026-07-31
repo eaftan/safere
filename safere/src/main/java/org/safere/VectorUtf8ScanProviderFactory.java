@@ -3,7 +3,13 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-/** SafeRE: a linear-time regular expression matching library for Java. */
-module org.safere {
-  exports org.safere;
+package org.safere;
+
+/** Java 21 fallback replaced by the JDK 26 implementation in the multi-release JAR. */
+final class VectorUtf8ScanProviderFactory {
+  private VectorUtf8ScanProviderFactory() {}
+
+  static Utf8ScanProvider create() {
+    return null;
+  }
 }

@@ -30,11 +30,6 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.safere</groupId>
-      <artifactId>safere-vector-jdk26-experimental</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>${gson.version}</version>
@@ -85,10 +80,11 @@
               <finalName>benchmarks</finalName>
               <transformers>
                 <transformer
-                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                <transformer
                     implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>org.openjdk.jmh.Main</mainClass>
+                  <manifestEntries>
+                    <Multi-Release>true</Multi-Release>
+                  </manifestEntries>
                 </transformer>
               </transformers>
             </configuration>

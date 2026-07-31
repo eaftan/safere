@@ -143,6 +143,48 @@ jobs:
             -cp safere-benchmarks/target/benchmarks.jar \
             org.safere.benchmark.MemoryBenchmark
 
+  vector-multi-release:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v5
+        with:
+          java-version: '26'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Check Vector source formatting
+        run: |
+          mvn spotless:check \
+            --batch-mode --no-transfer-progress \
+            -f safere/pom.xml
+          mvn spotless:check \
+            --batch-mode --no-transfer-progress \
+            -f safere-vector-benchmarks/pom.xml
+
+      - name: Build and inspect multi-release SafeRE JAR
+        run: |
+          mvn package -pl safere -am -Prelease -DskipTests \
+            --batch-mode --no-transfer-progress
+          SAFERE_JAR="$(find safere/target -maxdepth 1 -name 'safere-*.jar' \
+            ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
+          jar --list --file "$SAFERE_JAR" \
+            | grep 'META-INF/versions/26/org/safere/Jdk26VectorUtf8ScanProvider.class'
+
+      - name: Smoke test experimental Vector scanner
+        run: |
+          ./run-vector-benchmarks.sh \
+            --fastbuild \
+            --smoke \
+            --end-to-end \
+            --trials \
+            'singleton/first/absent/1024/0,pair/first/absent/1024/0,range/first/absent/1024/0'
+
   benchmark-smoke-test-cpp:
     needs: changes
     if: needs.changes.outputs.code == 'true'

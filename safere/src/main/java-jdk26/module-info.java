@@ -3,7 +3,9 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-/** SafeRE: a linear-time regular expression matching library for Java. */
+/** SafeRE on JDK 26, with optional readability of the incubator Vector API. */
 module org.safere {
+  requires static jdk.incubator.vector;
+
   exports org.safere;
 }

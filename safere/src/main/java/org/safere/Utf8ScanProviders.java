@@ -5,12 +5,9 @@
 
 package org.safere;
 
-import java.util.ServiceConfigurationError;
-import java.util.ServiceLoader;
-import org.safere.experimental.spi.Utf8ScanProvider;
-
 /**
- * Loads the optional UTF-8 scan provider once, without linking core SafeRE to a JDK-specific API.
+ * Selects the optional UTF-8 scan provider once, without linking Java 21 classes to a JDK-specific
+ * API.
  */
 final class Utf8ScanProviders {
   static final String PROVIDER_PROPERTY = "org.safere.experimental.utf8ScanProvider";
@@ -27,26 +24,21 @@ final class Utf8ScanProviders {
     if (requested.isEmpty() || requested.equals("swar")) {
       return null;
     }
+    if (!requested.equals("vector")) {
+      throw new IllegalStateException("Unknown UTF-8 scan provider '" + requested + "'");
+    }
     try {
-      for (Utf8ScanProvider provider : ServiceLoader.load(Utf8ScanProvider.class)) {
-        if (provider.name().equals(requested)) {
-          if (provider.minimumInputLength() < 0) {
-            throw new IllegalStateException(
-                "UTF-8 scan provider '" + requested + "' returned a negative minimum length");
-          }
-          return provider;
-        }
+      Utf8ScanProvider provider = VectorUtf8ScanProviderFactory.create();
+      if (provider == null) {
+        throw new IllegalStateException(
+            "The SafeRE JAR does not contain a Vector scanner for this JDK");
       }
-    } catch (RuntimeException | LinkageError | ServiceConfigurationError e) {
+      return provider;
+    } catch (RuntimeException | LinkageError e) {
       throw new IllegalStateException(
-          "Could not load UTF-8 scan provider '"
-              + requested
-              + "'; check its JDK version and required JVM flags",
+          "Could not enable the experimental Vector UTF-8 scanner; use JDK 26 and add "
+              + "--add-modules=jdk.incubator.vector",
           e);
     }
-    throw new IllegalStateException(
-        "UTF-8 scan provider '"
-            + requested
-            + "' was requested but no matching provider is available");
   }
 }

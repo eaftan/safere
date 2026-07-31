@@ -3,7 +3,11 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-/** SafeRE: a linear-time regular expression matching library for Java. */
-module org.safere {
-  exports org.safere;
+package org.safere;
+
+/** Internal provider for specialized ASCII scans over UTF-8 storage. */
+interface Utf8ScanProvider {
+  int minimumInputLength();
+
+  int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start);
 }
