@@ -64,6 +64,18 @@ class PatternInternalTest {
   }
 
   @Test
+  void characterClassPrefixScanInfoPreclassifiesCommonAsciiShapes() {
+    assertThat(Pattern.compile("x+").charClassPrefixScanInfo().ranges)
+        .containsExactly('x', 'x');
+    assertThat(Pattern.compile("[xy]+").charClassPrefixScanInfo().ranges)
+        .containsExactly('x', 'y');
+    assertThat(Pattern.compile("[0-9]+").charClassPrefixScanInfo().ranges)
+        .containsExactly('0', '9');
+    assertThat(Pattern.compile("[ace]+").charClassPrefixScanInfo().ranges)
+        .containsExactly('a', 'a', 'c', 'c', 'e', 'e');
+  }
+
+  @Test
   void transparentGroupsPreserveKeywordAlternationAccelerator() {
     Pattern p = Pattern.compile("(?i)\\b(?:error|warning)\\b");
 

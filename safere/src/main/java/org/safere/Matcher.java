@@ -1717,6 +1717,7 @@ public final class Matcher implements MatchResult {
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
     boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
+    Pattern.CharClassScanInfo ccPrefixScanInfo = parentPattern.charClassPrefixScanInfo();
     if (options.startAcceleration()
         && !prog.hasWordBoundary()
         && ccPrefixAscii != null
@@ -1725,7 +1726,11 @@ public final class Matcher implements MatchResult {
       diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
       int idx =
           scanner instanceof Utf8InputScanner utf8Scanner
-              ? utf8Scanner.indexOfAsciiClass(ccPrefixAscii, searchFrom)
+              ? utf8Scanner.indexOfCodePointClass(
+                  ccPrefixScanInfo.ranges,
+                  ccPrefixScanInfo.bitmap0,
+                  ccPrefixScanInfo.bitmap1,
+                  searchFrom)
               : indexOfCharClass(text, ccPrefixAscii, searchFrom);
       if (idx < 0) {
         diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
