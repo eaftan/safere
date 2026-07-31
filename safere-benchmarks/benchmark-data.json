@@ -384,6 +384,27 @@
       "shared": true
     },
     {
+      "id": "phoneSearch.trulySparseMatches.{nonMatchRepeats}",
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "123/456/7890",
+        "nonMatch": "4. This is a very long sentence with absolutely no digits in it. We need it to be long enough so that the distance between candidates is more than sixty four characters. Let's repeat this text to make it even longer. It is important that there are no numbers or digits in this padding text so that the only digit candidates are the ones at the start of each block.",
+        "nonMatchRepeats": "{nonMatchRepeats}",
+        "delimiterAlphabet": " ",
+        "seed": 20260729,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -7576,6 +7597,37 @@
         "preexistingUtf8"
       ],
       "inputRepresentationReason": "Compares Java-string and preexisting-UTF-8 searches for planted phone numbers at several realistic match densities.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findTrulySparse.{nonMatchRepeats}",
+      "operation": "find",
+      "patterns": [
+        "\\d{3}/\\d{3}/\\d{4}"
+      ],
+      "inputs": [
+        "phoneSearch.trulySparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Verifies start acceleration jump efficiency over long gaps with sparse false alarm candidates.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {
