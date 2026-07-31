@@ -7,13 +7,13 @@ package org.safere;
 
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
-import org.safere.spi.Utf8ScanProvider;
+import org.safere.experimental.spi.Utf8ScanProvider;
 
 /**
  * Loads the optional UTF-8 scan provider once, without linking core SafeRE to a JDK-specific API.
  */
 final class Utf8ScanProviders {
-  static final String PROVIDER_PROPERTY = "org.safere.utf8ScanProvider";
+  static final String PROVIDER_PROPERTY = "org.safere.experimental.utf8ScanProvider";
   private static final Utf8ScanProvider SELECTED = loadSelected();
 
   private Utf8ScanProviders() {}

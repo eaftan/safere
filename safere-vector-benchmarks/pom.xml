@@ -31,7 +31,7 @@
     </dependency>
     <dependency>
       <groupId>org.safere</groupId>
-      <artifactId>safere-vector-jdk26</artifactId>
+      <artifactId>safere-vector-jdk26-experimental</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

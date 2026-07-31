@@ -3,7 +3,7 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-package org.safere.vector.jdk26;
+package org.safere.vector.jdk26.experimental;
 
 import static jdk.incubator.vector.VectorOperators.GE;
 import static jdk.incubator.vector.VectorOperators.LE;
@@ -11,7 +11,7 @@ import static jdk.incubator.vector.VectorOperators.LE;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
-import org.safere.spi.Utf8ScanProvider;
+import org.safere.experimental.spi.Utf8ScanProvider;
 
 /** UTF-8 ASCII character-class scanning implemented with the JDK 26 Vector API. */
 public final class Jdk26VectorUtf8ScanProvider implements Utf8ScanProvider {

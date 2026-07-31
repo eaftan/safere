@@ -107,7 +107,7 @@ mvn clean install \
   -Dpmd.skip=true \
   -Dspotless.check.skip=true \
   -q \
-  -f "$SCRIPT_DIR/safere-vector-jdk26/pom.xml"
+  -f "$SCRIPT_DIR/safere-vector-jdk26-experimental/pom.xml"
 mvn clean package \
   -DskipTests \
   -Dpmd.skip=true \
@@ -158,7 +158,7 @@ run_benchmarks() {
   local provider="$1"
   local benchmark_jvm_args="$JVM_ARGS"
   if [ "$provider" = "vector" ]; then
-    benchmark_jvm_args="$benchmark_jvm_args -Dorg.safere.utf8ScanProvider=vector"
+    benchmark_jvm_args="$benchmark_jvm_args -Dorg.safere.experimental.utf8ScanProvider=vector"
   fi
   echo "=== Running Vector scan benchmarks ($MODE, provider=$provider) ==="
   local command=(java $benchmark_jvm_args -jar "$BENCHMARK_JAR"

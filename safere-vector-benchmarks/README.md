@@ -20,6 +20,9 @@ Use `--end-to-end` to run complete `Pattern.find(Utf8Input)` comparisons in sepa
 Vector JVMs. Use `--provider swar` or `--provider vector` to run only one side. The latter exercises
 the production-shaped service-loading path and immutable startup selection.
 
+The provider artifact and SPI are experimental and may change incompatibly or be removed in any
+SafeRE release. They are intended for evaluation rather than third-party provider compatibility.
+
 The `swarProvider` and `vectorProvider` methods call their scanners through stable, monomorphic
 benchmark-only provider interfaces. They measure the dispatch shape an optional provider would add
 without committing production SafeRE to a provider-loading mechanism.

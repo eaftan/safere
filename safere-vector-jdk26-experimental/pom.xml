@@ -12,11 +12,11 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>safere-vector-jdk26</artifactId>
+  <artifactId>safere-vector-jdk26-experimental</artifactId>
   <packaging>jar</packaging>
 
-  <name>SafeRE Vector Provider for JDK 26</name>
-  <description>Optional JDK 26 incubator Vector API scan provider for SafeRE</description>
+  <name>SafeRE Experimental Vector Provider for JDK 26</name>
+  <description>Experimental JDK 26 incubator Vector API scan provider for SafeRE</description>
 
   <properties>
     <maven.compiler.release>26</maven.compiler.release>

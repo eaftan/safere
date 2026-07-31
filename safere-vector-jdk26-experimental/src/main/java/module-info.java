@@ -4,10 +4,10 @@
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
 /** JDK 26 Vector API acceleration for SafeRE UTF-8 scans. */
-module org.safere.vector.jdk26 {
+module org.safere.vector.jdk26.experimental {
   requires jdk.incubator.vector;
   requires org.safere;
 
-  provides org.safere.spi.Utf8ScanProvider with
-      org.safere.vector.jdk26.Jdk26VectorUtf8ScanProvider;
+  provides org.safere.experimental.spi.Utf8ScanProvider with
+      org.safere.vector.jdk26.experimental.Jdk26VectorUtf8ScanProvider;
 }

@@ -3,16 +3,22 @@
 // Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
 // Licensed under the BSD 3-Clause License (see LICENSE file).
 
-package org.safere.spi;
+package org.safere.experimental.spi;
 
 /**
- * A provider for specialized ASCII character-class scans over UTF-8 storage.
+ * An experimental provider for specialized ASCII character-class scans over UTF-8 storage.
  *
  * <p>This service-provider interface is intended for optional, JDK-specific SafeRE artifacts. A
  * provider must be thread-safe and must not modify the supplied arrays.
+ *
+ * <p><strong>This interface is experimental.</strong> It may change incompatibly or be removed in
+ * any SafeRE release. It is not yet a supported third-party extension point.
  */
 public interface Utf8ScanProvider {
-  /** Returns the value used to select this provider with {@code org.safere.utf8ScanProvider}. */
+  /**
+   * Returns the value used to select this provider with {@code
+   * org.safere.experimental.utf8ScanProvider}.
+   */
   String name();
 
   /** Returns the minimum remaining input length for which this provider should be used. */

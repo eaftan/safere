@@ -54,7 +54,8 @@ public class Utf8VectorEndToEndProviderBenchmark {
         };
     int length = Integer.parseInt(fields[3]);
     int offset = Integer.parseInt(fields[4]);
-    String configuredProvider = System.getProperty("org.safere.utf8ScanProvider", "swar").trim();
+    String configuredProvider =
+        System.getProperty("org.safere.experimental.utf8ScanProvider", "swar").trim();
     if (!scanProvider.equals(configuredProvider)) {
       throw new IllegalStateException(
           "Expected provider " + scanProvider + " but JVM selected " + configuredProvider);

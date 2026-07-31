@@ -10,7 +10,7 @@ import static java.nio.ByteOrder.nativeOrder;
 import static java.util.Objects.requireNonNull;
 
 import java.lang.invoke.VarHandle;
-import org.safere.spi.Utf8ScanProvider;
+import org.safere.experimental.spi.Utf8ScanProvider;
 
 final class Utf8InputScanner implements InputScanner {
   private static final int REPLACEMENT_CHARACTER = 0xFFFD;
