@@ -1291,15 +1291,29 @@ final class Dfa {
     while (pos < textLen) {
       if (hasStartAcceleration && s.isStartState && !anchored && (pos - lastFastForwardPos > 64)) {
         int nextPos = fastForward(text, pos, textLen, posDepThreshold);
-        lastFastForwardPos = nextPos;
         if (nextPos > pos) {
+          int jump = nextPos - pos;
+          if (jump < 64) {
+            lastFastForwardPos = nextPos + 512;
+          } else {
+            lastFastForwardPos = nextPos;
+          }
           pos = nextPos;
           if (pos >= textLen) {
             break;
           }
+        } else {
+          lastFastForwardPos = pos + 512;
         }
       }
       int limit = Math.min(textLen, posDepThreshold - 1);
+      if (hasStartAcceleration && !anchored) {
+        if (pos < lastFastForwardPos) {
+          limit = Math.min(limit, lastFastForwardPos);
+        } else {
+          limit = Math.min(limit, pos + 64);
+        }
+      }
       int sId = s.id * numClasses;
       while (pos < limit) {
         int ch = text.asciiAt(pos);
@@ -1326,12 +1340,6 @@ final class Dfa {
           }
         }
         sId = nsId;
-        if (hasStartAcceleration && offsetToState[sId].isStartState && !anchored) {
-          if (pos - lastFastForwardPos > 64) {
-            pos++;
-            break;
-          }
-        }
         pos++;
       }
       s = offsetToState[sId];
@@ -1382,12 +1390,19 @@ final class Dfa {
     while (pos <= textLen) {
       if (hasStartAcceleration && s.isStartState && !anchored && (pos - lastFastForwardPos > 64)) {
         int nextPos = fastForward(text, pos, textLen, posDepThreshold);
-        lastFastForwardPos = nextPos;
         if (nextPos > pos) {
+          int jump = nextPos - pos;
+          if (jump < 64) {
+            lastFastForwardPos = nextPos + 512;
+          } else {
+            lastFastForwardPos = nextPos;
+          }
           pos = nextPos;
           if (pos > textLen) {
             break;
           }
+        } else {
+          lastFastForwardPos = pos + 512;
         }
       }
       if (WorkCounterConfig.ENABLED) {
