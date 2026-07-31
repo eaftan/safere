@@ -47,6 +47,8 @@ public class Utf8VectorScanBenchmark {
   private Shape shape;
   private boolean scanAll;
   private Utf8ScannerBenchmarkAccess swarScanner;
+  private ScanProvider swarProvider;
+  private ScanProvider vectorProvider;
   private Pattern safeRePattern;
   private Utf8Input safeReInput;
   private Utf8Matcher safeReMatcher;
@@ -72,20 +74,31 @@ public class Utf8VectorScanBenchmark {
     Arrays.fill(storage, (byte) 0x7f);
     System.arraycopy(input, 0, storage, offset, input.length);
     swarScanner = new Utf8ScannerBenchmarkAccess(storage, offset, length);
+    swarProvider = new SwarProvider();
+    vectorProvider = new VectorProvider();
     safeRePattern = Pattern.compile(shape.pattern);
     safeReInput = Utf8Input.trusted(storage, offset, length);
     safeReMatcher = safeRePattern.matcher(safeReInput);
     int swarResult = runSwar();
+    int swarProviderResult = runSwarProvider();
     int vectorResult = runVector();
+    int vectorProviderResult = runVectorProvider();
     int vectorCursorResult = runVectorCursor();
-    if (swarResult != vectorResult || swarResult != vectorCursorResult) {
+    if (swarResult != swarProviderResult
+        || swarResult != vectorResult
+        || swarResult != vectorProviderResult
+        || swarResult != vectorCursorResult) {
       throw new AssertionError(
           "Scanner disagreement for "
               + vectorScanTrial
               + ": SWAR="
               + swarResult
+              + ", SWAR provider="
+              + swarProviderResult
               + ", Vector="
               + vectorResult
+              + ", Vector provider="
+              + vectorProviderResult
               + ", Vector cursor="
               + vectorCursorResult);
     }
@@ -108,10 +121,22 @@ public class Utf8VectorScanBenchmark {
     return runSwar();
   }
 
+  /** Runs current SWAR through a stable benchmark-only provider interface. */
+  @Benchmark
+  public int swarProvider() {
+    return runSwarProvider();
+  }
+
   /** Runs the benchmark-only ByteVector implementation. */
   @Benchmark
   public int vector() {
     return runVector();
+  }
+
+  /** Runs ByteVector through a stable benchmark-only provider interface. */
+  @Benchmark
+  public int vectorProvider() {
+    return runVectorProvider();
   }
 
   /** Runs a ByteVector implementation that retains and drains each complete match mask. */
@@ -155,6 +180,23 @@ public class Utf8VectorScanBenchmark {
     return checksum;
   }
 
+  private int runSwarProvider() {
+    if (!scanAll) {
+      return swarProvider.indexOf(0);
+    }
+    int checksum = 0;
+    int start = 0;
+    while (start < length) {
+      int found = swarProvider.indexOf(start);
+      if (found < 0) {
+        break;
+      }
+      checksum += found;
+      start = found + 1;
+    }
+    return checksum;
+  }
+
   private int runVector() {
     if (!scanAll) {
       return indexOfVector(0);
@@ -163,6 +205,23 @@ public class Utf8VectorScanBenchmark {
     int start = 0;
     while (start < length) {
       int found = indexOfVector(start);
+      if (found < 0) {
+        break;
+      }
+      checksum += found;
+      start = found + 1;
+    }
+    return checksum;
+  }
+
+  private int runVectorProvider() {
+    if (!scanAll) {
+      return vectorProvider.indexOf(0);
+    }
+    int checksum = 0;
+    int start = 0;
+    while (start < length) {
+      int found = vectorProvider.indexOf(start);
       if (found < 0) {
         break;
       }
@@ -216,6 +275,24 @@ public class Utf8VectorScanBenchmark {
       }
     }
     return -1;
+  }
+
+  private interface ScanProvider {
+    int indexOf(int start);
+  }
+
+  private final class SwarProvider implements ScanProvider {
+    @Override
+    public int indexOf(int start) {
+      return swarScanner.indexOfCodePointClass(shape.ranges, start);
+    }
+  }
+
+  private final class VectorProvider implements ScanProvider {
+    @Override
+    public int indexOf(int start) {
+      return indexOfVector(start);
+    }
   }
 
   private enum Shape {

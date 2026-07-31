@@ -12,6 +12,8 @@ import static java.util.Objects.requireNonNull;
 import java.lang.invoke.VarHandle;
 
 final class Utf8InputScanner implements InputScanner {
+  private static final int MIN_SCAN_PROVIDER_LENGTH = 1024;
+  private static volatile Utf8ScanProvider installedScanProvider;
   private static final int REPLACEMENT_CHARACTER = 0xFFFD;
   private static final long BYTE_ONES = 0x0101_0101_0101_0101L;
   private static final long BYTE_HIGH_BITS = 0x8080_8080_8080_8080L;
@@ -31,6 +33,7 @@ final class Utf8InputScanner implements InputScanner {
   private final byte[] bytes;
   private final int offset;
   private final int length;
+  private final Utf8ScanProvider scanProvider;
 
   Utf8InputScanner(byte[] bytes) {
     this(bytes, 0, bytes.length);
@@ -44,6 +47,11 @@ final class Utf8InputScanner implements InputScanner {
     }
     this.offset = offset;
     this.length = length;
+    this.scanProvider = length >= MIN_SCAN_PROVIDER_LENGTH ? installedScanProvider : null;
+  }
+
+  static void installScanProviderForBenchmark(Utf8ScanProvider provider) {
+    installedScanProvider = provider;
   }
 
   static void validate(byte[] bytes, int offset, int length) {
@@ -126,6 +134,9 @@ final class Utf8InputScanner implements InputScanner {
    */
   private int indexOfAsciiRanges(int[] ranges, int start) {
     if (ranges.length == 2 && ranges[0] >= 0 && ranges[1] < 0x80) {
+      if (scanProvider != null && length - start >= MIN_SCAN_PROVIDER_LENGTH) {
+        return scanProvider.indexOfAsciiClass(bytes, offset, length, ranges, start);
+      }
       int low = ranges[0];
       int high = ranges[1];
       if (low == high) {
@@ -141,6 +152,9 @@ final class Utf8InputScanner implements InputScanner {
         && ranges[2] == ranges[3]
         && ranges[0] >= 0
         && ranges[3] < 0x80) {
+      if (scanProvider != null && length - start >= MIN_SCAN_PROVIDER_LENGTH) {
+        return scanProvider.indexOfAsciiClass(bytes, offset, length, ranges, start);
+      }
       return indexOfBytePair((byte) ranges[0], (byte) ranges[2], start);
     }
     return -2;

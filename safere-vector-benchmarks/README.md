@@ -16,6 +16,12 @@ Use `--long` for confirmation runs and `--trials` to select comma-separated tria
 both the host JVM and JMH forks. All inputs and trial lists come from the shared benchmark data.
 Use `--methods` with a pipe-separated list to select benchmark implementations, for example
 `--methods 'swar|vectorCursor'`.
+Use `--end-to-end` to run complete `Pattern.find(Utf8Input)` comparisons with native SWAR and the
+benchmark-only Vector provider selected before scanner construction.
+
+The `swarProvider` and `vectorProvider` methods call their scanners through stable, monomorphic
+benchmark-only provider interfaces. They measure the dispatch shape an optional provider would add
+without committing production SafeRE to a provider-loading mechanism.
 
 The `vectorCursor` benchmark drains all matching lanes from each vector mask before advancing. It
 models a scan-all cursor that retains rather than discards the remaining matches in a loaded vector.

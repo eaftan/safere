@@ -11,8 +11,9 @@ BENCHMARK_JAR="$SCRIPT_DIR/safere-vector-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 MODE="standard"
 FASTBUILD=false
+END_TO_END=false
 TRIAL_OVERRIDE=""
-METHODS="safeRe|swar|vector|vectorCursor"
+METHODS="safeRe|swar|swarProvider|vector|vectorProvider|vectorCursor"
 JMH_EXTRA_ARGS=()
 
 while [ "$#" -gt 0 ]; do
@@ -27,6 +28,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --fastbuild)
       FASTBUILD=true
+      shift
+      ;;
+    --end-to-end)
+      END_TO_END=true
       shift
       ;;
     --trials)
@@ -51,7 +56,7 @@ while [ "$#" -gt 0 ]; do
       set --
       ;;
     *)
-      echo "Usage: $0 [--smoke|--long] [--fastbuild] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
+      echo "Usage: $0 [--smoke|--long] [--fastbuild] [--end-to-end] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
       exit 2
       ;;
   esac
@@ -125,5 +130,9 @@ COMMAND=(java $JVM_ARGS -jar "$BENCHMARK_JAR" \
 if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
   COMMAND+=("${JMH_EXTRA_ARGS[@]}")
 fi
-COMMAND+=("^org\.safere\.vector\.benchmark\.Utf8VectorScanBenchmark\.($METHODS)$")
+if [ "$END_TO_END" = true ]; then
+  COMMAND+=('^org\.safere\.vector\.benchmark\.Utf8VectorEndToEndProviderBenchmark\.safeReFind$')
+else
+  COMMAND+=("^org\.safere\.vector\.benchmark\.Utf8VectorScanBenchmark\.($METHODS)$")
+fi
 "${COMMAND[@]}"
