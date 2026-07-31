@@ -2258,6 +2258,10 @@ public final class Matcher implements MatchResult {
     return ('A' <= ch && ch <= 'Z') ? ch + ('a' - 'A') : ch;
   }
 
+  static int indexOfLiteral(String text, String prefix, boolean foldCase, int fromIndex) {
+    return foldCase ? indexOfIgnoreCase(text, prefix, fromIndex) : text.indexOf(prefix, fromIndex);
+  }
+
   /** ASCII case-insensitive indexOf for Java's default CASE_INSENSITIVE semantics. */
   private static int indexOfIgnoreCase(String text, String prefix, int fromIndex) {
     int prefixLen = prefix.length();
@@ -2298,7 +2302,7 @@ public final class Matcher implements MatchResult {
    * set in the ASCII bitmap. Returns the index, or {@code -1} if no matching character is found.
    * Non-ASCII characters are skipped (never match).
    */
-  private static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
+  static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
     for (int i = fromIndex; i < text.length(); i++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
@@ -2311,7 +2315,7 @@ public final class Matcher implements MatchResult {
     return -1;
   }
 
-  private static int nextAcceleratedStart(
+  static int nextAcceleratedStart(
       String text, Pattern.StartAcceleration acceleration, int fromIndex, boolean unixLines) {
     int start = Math.max(0, fromIndex);
     for (int i = start; i < text.length(); i++) {

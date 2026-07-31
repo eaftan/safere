@@ -21,6 +21,12 @@ import org.junit.jupiter.api.Test;
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class DfaTest {
 
+  @Test
+  void testPrefix() {
+    Pattern p = Pattern.compile("<<!(image|media|link)(\\([^\\)]*\\))?/?>?>");
+    System.out.println("DEBUG PATTERN PREFIX: " + p.prefix());
+  }
+
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 

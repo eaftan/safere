@@ -658,4 +658,20 @@ final class Utf8InputScanner implements InputScanner {
     }
     return true;
   }
+
+  @Override
+  public int indexOfLiteral(LiteralSearchDesc desc, int start) {
+    return indexOf(desc.prefixUtf8(), desc.prefixUtf8Failure(), desc.prefixUtf8Shifts(), start);
+  }
+
+  @Override
+  public int indexOfCharClass(boolean[] charClassPrefixAscii, int start) {
+    return indexOfAsciiClass(charClassPrefixAscii, start);
+  }
+
+  @Override
+  public int indexOfStartAcceleration(
+      Pattern.StartAcceleration startAcceleration, int start, boolean unixLines) {
+    return start; // Not supported, fallback to scalar.
+  }
 }

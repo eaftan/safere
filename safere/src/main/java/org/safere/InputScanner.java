@@ -91,4 +91,56 @@ interface InputScanner {
     }
     return false;
   }
+
+  /** Holds the precomputed configuration parameters for accelerating literal prefix searches. */
+  final class LiteralSearchDesc {
+    private final String prefix;
+    private final boolean prefixFoldCase;
+    private final byte[] prefixUtf8;
+    private final int[] prefixUtf8Failure;
+    private final int[] prefixUtf8Shifts;
+
+    LiteralSearchDesc(
+        String prefix,
+        boolean prefixFoldCase,
+        byte[] prefixUtf8,
+        int[] prefixUtf8Failure,
+        int[] prefixUtf8Shifts) {
+      this.prefix = prefix;
+      this.prefixFoldCase = prefixFoldCase;
+      this.prefixUtf8 = prefixUtf8;
+      this.prefixUtf8Failure = prefixUtf8Failure;
+      this.prefixUtf8Shifts = prefixUtf8Shifts;
+    }
+
+    String prefix() {
+      return prefix;
+    }
+
+    boolean prefixFoldCase() {
+      return prefixFoldCase;
+    }
+
+    byte[] prefixUtf8() {
+      return prefixUtf8;
+    }
+
+    int[] prefixUtf8Failure() {
+      return prefixUtf8Failure;
+    }
+
+    int[] prefixUtf8Shifts() {
+      return prefixUtf8Shifts;
+    }
+  }
+
+  /** Finds the next candidate match position using the prefix literal search descriptor. */
+  int indexOfLiteral(LiteralSearchDesc desc, int start);
+
+  /** Finds the next candidate match position matching a character class prefix. */
+  int indexOfCharClass(boolean[] charClassPrefixAscii, int start);
+
+  /** Finds the next candidate match position using start-acceleration. */
+  int indexOfStartAcceleration(
+      Pattern.StartAcceleration startAcceleration, int start, boolean unixLines);
 }

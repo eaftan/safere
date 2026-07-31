@@ -135,4 +135,20 @@ final class StringInputScanner implements InputScanner {
     }
     return threshold;
   }
+
+  @Override
+  public int indexOfLiteral(LiteralSearchDesc desc, int start) {
+    return Matcher.indexOfLiteral(text, desc.prefix(), desc.prefixFoldCase(), start);
+  }
+
+  @Override
+  public int indexOfCharClass(boolean[] charClassPrefixAscii, int start) {
+    return Matcher.indexOfCharClass(text, charClassPrefixAscii, start);
+  }
+
+  @Override
+  public int indexOfStartAcceleration(
+      Pattern.StartAcceleration startAcceleration, int start, boolean unixLines) {
+    return Matcher.nextAcceleratedStart(text, startAcceleration, start, unixLines);
+  }
 }
