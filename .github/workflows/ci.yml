@@ -63,6 +63,60 @@ jobs:
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
+  build-vector:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v5
+        with:
+          java-version: '26'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Install multi-release SafeRE JAR
+        run: >
+          mvn install -pl safere -am
+          -DskipTests
+          --batch-mode --no-transfer-progress
+
+      - name: Run full SafeRE tests with Vector enabled
+        run: >
+          mvn clean test -pl safere
+          -Pvector-tests
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
+      - name: Run public API crosscheck with Vector enabled
+        run: >
+          mvn clean test
+          -f safere-crosscheck/pom.xml
+          -Pcrosscheck-public-api-tests
+          -DargLine="--add-modules=jdk.incubator.vector
+          -Dorg.safere.experimental.utf8ScanProvider=vector"
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
+      - name: Run exhaustive validation tests with Vector enabled
+        run: >
+          mvn clean test
+          -f safere-exhaustive/pom.xml
+          -DargLine="--add-modules=jdk.incubator.vector
+          -Dorg.safere.experimental.utf8ScanProvider=vector"
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
+      - name: Run work-counter scaling tests with Vector enabled
+        run: >
+          mvn clean test -pl safere
+          -Pwork-counters,vector-tests
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
   fuzz-regression:
     needs: changes
     if: needs.changes.outputs.code == 'true'
