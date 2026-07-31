@@ -146,6 +146,25 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void patternBooleanFindReportsAsciiPrefixClassRejection() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("[xy]q?");
+
+    assertThat(pattern.find(input("bbbb"))).isFalse();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactly(
+                      new StrategyParticipation(
+                          MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION));
+            });
+  }
+
+  @Test
   void patternBooleanFindReportsNfaForGraphemeSemantics() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("\\Xz");

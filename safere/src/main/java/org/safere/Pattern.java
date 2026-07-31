@@ -150,6 +150,7 @@ public final class Pattern implements Serializable {
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient boolean[] charClassPrefixAscii;
+  private final transient CharClassScanInfo charClassPrefixScanInfo;
   private final transient FixedOffsetLiteral fixedOffsetLiteral;
   private final transient StartAcceleration startAcceleration;
   private final transient KeywordAlternation keywordAlternation;
@@ -357,6 +358,7 @@ public final class Pattern implements Serializable {
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefixAscii = charClassPrefixAscii;
+    this.charClassPrefixScanInfo = buildAsciiClassScanInfo(charClassPrefixAscii);
     this.fixedOffsetLiteral = fixedOffsetLiteral;
     this.startAcceleration = startAcceleration;
     this.keywordAlternation = keywordAlternation;
@@ -676,8 +678,13 @@ public final class Pattern implements Serializable {
       if (searchStart < 0) {
         return false;
       }
-    } else if (!prog.hasWordBoundary() && charClassPrefixAscii != null) {
-      searchStart = scanner.indexOfAsciiClass(charClassPrefixAscii, 0);
+    } else if (!prog.hasWordBoundary() && charClassPrefixScanInfo != null) {
+      searchStart =
+          scanner.indexOfCodePointClass(
+              charClassPrefixScanInfo.ranges,
+              charClassPrefixScanInfo.bitmap0,
+              charClassPrefixScanInfo.bitmap1,
+              0);
       if (searchStart < 0) {
         return false;
       }
@@ -745,9 +752,14 @@ public final class Pattern implements Serializable {
         diagnostics.boundary(MatchStrategy.LITERAL);
         return false;
       }
-    } else if (!prog.hasWordBoundary() && charClassPrefixAscii != null) {
+    } else if (!prog.hasWordBoundary() && charClassPrefixScanInfo != null) {
       diagnostics.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
-      searchStart = scanner.indexOfAsciiClass(charClassPrefixAscii, 0);
+      searchStart =
+          scanner.indexOfCodePointClass(
+              charClassPrefixScanInfo.ranges,
+              charClassPrefixScanInfo.bitmap0,
+              charClassPrefixScanInfo.bitmap1,
+              0);
       if (searchStart < 0) {
         diagnostics.boundary(MatchStrategy.CHARACTER_CLASS);
         return false;
@@ -1261,6 +1273,11 @@ public final class Pattern implements Serializable {
    */
   boolean[] charClassPrefixAscii() {
     return charClassPrefixAscii;
+  }
+
+  /** Returns preclassified UTF-8 scan data for the character-class prefix, or {@code null}. */
+  CharClassScanInfo charClassPrefixScanInfo() {
+    return charClassPrefixScanInfo;
   }
 
   /** Returns a mandatory ASCII literal at a fixed offset from the match start, or {@code null}. */
@@ -2694,7 +2711,7 @@ public final class Pattern implements Serializable {
   private record CharClassMatchInfo(int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
 
   /** Holds precomputed data for scanning one character class. */
-  private static final class CharClassScanInfo {
+  static final class CharClassScanInfo {
     final int[] ranges;
     final long bitmap0;
     final long bitmap1;
@@ -2704,6 +2721,43 @@ public final class Pattern implements Serializable {
       this.bitmap0 = bitmap0;
       this.bitmap1 = bitmap1;
     }
+  }
+
+  static CharClassScanInfo buildAsciiClassScanInfo(boolean[] asciiClass) {
+    if (asciiClass == null) {
+      return null;
+    }
+    int[] ranges = new int[asciiClass.length * 2];
+    int rangeCount = 0;
+    long bitmap0 = 0;
+    long bitmap1 = 0;
+    int value = 0;
+    while (value < asciiClass.length) {
+      if (!asciiClass[value]) {
+        value++;
+        continue;
+      }
+      int low = value;
+      while (value + 1 < asciiClass.length && asciiClass[value + 1]) {
+        value++;
+      }
+      int high = value;
+      ranges[rangeCount * 2] = low;
+      ranges[rangeCount * 2 + 1] = high;
+      rangeCount++;
+      for (int member = low; member <= high; member++) {
+        if (member < Long.SIZE) {
+          bitmap0 |= 1L << member;
+        } else {
+          bitmap1 |= 1L << (member - Long.SIZE);
+        }
+      }
+      value++;
+    }
+    if (rangeCount == 0) {
+      return null;
+    }
+    return new CharClassScanInfo(Arrays.copyOf(ranges, rangeCount * 2), bitmap0, bitmap1);
   }
 
   /**

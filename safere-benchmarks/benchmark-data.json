@@ -273,6 +273,67 @@
       "shared": true
     },
     {
+      "id": "utf8AsciiPrefix.shortFirst.text",
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "x5",
+        "unit": "b",
+        "suffix": "",
+        "length": 256
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8AsciiPrefix.shortAbsent.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "b",
+        "length": 256
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8AsciiPrefix.longAbsent.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "b",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8AsciiPrefix.longLate.text",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "b",
+        "suffix": "x5",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8AsciiPrefix.sparse.text",
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "x5",
+        "nonMatch": "bbb",
+        "nonMatchRepeats": 31,
+        "delimiterAlphabet": "b",
+        "seed": 20260731,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8AsciiPrefix.dense.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "bxy5",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "phoneSearch.digitsNoSlash.text",
       "recipe": {
         "kind": "randomChars",
@@ -7161,6 +7222,282 @@
       "inputRepresentationReason": "Controls for SafeRE literal start acceleration over the same preexisting UTF-8 bytes.",
       "requirements": [],
       "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findPair.shortFirst",
+      "operation": "find",
+      "patterns": [
+        "[xy]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.shortFirst.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures a short UTF-8 search whose first byte is in a two-member ASCII prefix class.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findRange.shortFirst",
+      "operation": "find",
+      "patterns": [
+        "[0-9]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.shortFirst.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures a short UTF-8 search whose first candidate is in a contiguous ASCII prefix range.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findPair.shortAbsent",
+      "operation": "find",
+      "patterns": [
+        "[xy]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.shortAbsent.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures fixed prefix-class metadata cost when a short UTF-8 input contains no pair member.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findRange.shortAbsent",
+      "operation": "find",
+      "patterns": [
+        "[0-9]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.shortAbsent.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures fixed prefix-class metadata cost when a short UTF-8 input contains no range member.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findPair.longAbsent",
+      "operation": "find",
+      "patterns": [
+        "[xy]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.longAbsent.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls for a long absent pair scan where input traversal dominates fixed prefix metadata cost.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findRange.longAbsent",
+      "operation": "find",
+      "patterns": [
+        "[0-9]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.longAbsent.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls for a long absent range scan where input traversal dominates fixed prefix metadata cost.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findPair.longLate",
+      "operation": "find",
+      "patterns": [
+        "[xy]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.longLate.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls for a pair candidate near the end of a long UTF-8 input.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.findRange.longLate",
+      "operation": "find",
+      "patterns": [
+        "[0-9]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.longLate.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Controls for a range candidate near the end of a long UTF-8 input.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.countPair.sparse",
+      "operation": "findAllCount",
+      "patterns": [
+        "[xy]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.sparse.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures repeated UTF-8 searches with pair-prefix candidates approximately every 128 bytes.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.countRange.sparse",
+      "operation": "findAllCount",
+      "patterns": [
+        "[0-9]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.sparse.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures repeated UTF-8 searches with range-prefix candidates approximately every 128 bytes.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.countPair.dense",
+      "operation": "findAllCount",
+      "patterns": [
+        "[xy]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.dense.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures repeated UTF-8 searches over dense two-member ASCII prefix candidates.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8AsciiPrefixBenchmark.countRange.dense",
+      "operation": "findAllCount",
+      "patterns": [
+        "[0-9]q?"
+      ],
+      "inputs": [
+        "utf8AsciiPrefix.dense.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures repeated UTF-8 searches over dense contiguous-range prefix candidates.",
+      "requirements": [],
+      "resultConsumption": "integer",
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "nanoseconds",

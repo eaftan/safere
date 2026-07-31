@@ -284,6 +284,37 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void asciiPrefixClassesAgreeAcrossStringAndUtf8SearchState() {
+    String text = "ébbxqbybbzbb5qbb7bb@qbb";
+    Utf8Input input = Utf8Input.validated(text.getBytes(UTF_8));
+
+    for (String regex : List.of("[x]q?", "[xy]q?", "[xz]q?", "[0-9]q?", "[ace@]q?")) {
+      Pattern pattern = Pattern.compile(regex);
+      Matcher stringMatcher = pattern.matcher(text);
+      Utf8Matcher utf8Matcher = pattern.matcher(input);
+      List<List<Integer>> expected = new ArrayList<>();
+      List<List<Integer>> actual = new ArrayList<>();
+
+      while (stringMatcher.find()) {
+        expected.add(
+            List.of(
+                utf8Offset(text, stringMatcher.start()), utf8Offset(text, stringMatcher.end())));
+      }
+      while (utf8Matcher.find()) {
+        actual.add(List.of(utf8Matcher.start(), utf8Matcher.end()));
+      }
+
+      assertThat(pattern.find(input)).as("direct UTF-8 find for /%s/", regex).isTrue();
+      assertThat(actual).as("repeated UTF-8 find for /%s/", regex).isEqualTo(expected);
+
+      utf8Matcher.region(2, input.length());
+      assertThat(utf8Matcher.find()).as("region find for /%s/", regex).isTrue();
+      utf8Matcher.reset();
+      assertThat(findTrace(utf8Matcher)).as("reset find trace for /%s/", regex).isEqualTo(expected);
+    }
+  }
+
+  @Test
   void requiredNonAsciiClassRejectsAsciiInputAcrossUtf8EntryPoints() {
     Pattern pattern = Pattern.compile("[一-龥]{3,}");
     Utf8Input absent = Utf8Input.trusted("ordinary ASCII text".getBytes(UTF_8));

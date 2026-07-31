@@ -64,6 +64,30 @@ class PatternInternalTest {
   }
 
   @Test
+  void asciiPrefixScanInfoHandlesMissingAndEmptyClasses() {
+    assertThat(Pattern.buildAsciiClassScanInfo(null)).isNull();
+    assertThat(Pattern.buildAsciiClassScanInfo(new boolean[128])).isNull();
+  }
+
+  @Test
+  void asciiPrefixScanInfoExactlyRepresentsCommonClassShapes() {
+    assertAsciiScanInfo(new int[] {'x'}, new int[] {'x', 'x'});
+    assertAsciiScanInfo(new int[] {'x', 'y'}, new int[] {'x', 'y'});
+    assertAsciiScanInfo(new int[] {'x', 'z'}, new int[] {'x', 'x', 'z', 'z'});
+    assertAsciiScanInfo(asciiRange('0', '9'), new int[] {'0', '9'});
+    assertAsciiScanInfo(new int[] {'a', 'c', 'e'}, new int[] {'a', 'a', 'c', 'c', 'e', 'e'});
+  }
+
+  @Test
+  void asciiPrefixScanInfoPreservesMembersAcrossBitmapBoundary() {
+    Pattern.CharClassScanInfo info =
+        assertAsciiScanInfo(new int[] {62, 63, 64, 65}, new int[] {62, 65});
+
+    assertThat(info.bitmap0).isEqualTo((1L << 62) | (1L << 63));
+    assertThat(info.bitmap1).isEqualTo((1L << 0) | (1L << 1));
+  }
+
+  @Test
   void transparentGroupsPreserveKeywordAlternationAccelerator() {
     Pattern p = Pattern.compile("(?i)\\b(?:error|warning)\\b");
 
@@ -295,6 +319,33 @@ class PatternInternalTest {
         pattern.requiredMatchClassBitmap0(),
         pattern.requiredMatchClassBitmap1(),
         codePoint);
+  }
+
+  private static Pattern.CharClassScanInfo assertAsciiScanInfo(
+      int[] members, int[] expectedRanges) {
+    boolean[] asciiClass = new boolean[128];
+    for (int member : members) {
+      asciiClass[member] = true;
+    }
+
+    Pattern.CharClassScanInfo info = Pattern.buildAsciiClassScanInfo(asciiClass);
+
+    assertThat(info).isNotNull();
+    assertThat(info.ranges).containsExactly(expectedRanges);
+    for (int codePoint = 0; codePoint < asciiClass.length; codePoint++) {
+      assertThat(InputScanner.classContains(info.ranges, info.bitmap0, info.bitmap1, codePoint))
+          .as("ASCII member %s", codePoint)
+          .isEqualTo(asciiClass[codePoint]);
+    }
+    return info;
+  }
+
+  private static int[] asciiRange(int low, int high) {
+    int[] members = new int[high - low + 1];
+    for (int index = 0; index < members.length; index++) {
+      members[index] = low + index;
+    }
+    return members;
   }
 
   @ParameterizedTest(name = "compile(\"{0}\").numGroups() == {1}")
