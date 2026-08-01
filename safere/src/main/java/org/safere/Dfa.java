@@ -1209,21 +1209,27 @@ final class Dfa {
       if (idx >= 0) {
         return Math.min(idx, posDepThreshold - 1);
       }
-      return textLen;
+      if (idx == -1) {
+        return textLen;
+      }
     }
     if (charClassPrefixAscii != null) {
       int idx = text.indexOfCharClass(charClassPrefixAscii, pos);
       if (idx >= 0) {
         return idx;
       }
-      return textLen;
+      if (idx == -1) {
+        return textLen;
+      }
     }
     if (startAcceleration != null) {
       int idx = text.indexOfStartAcceleration(startAcceleration, pos, prog.unixLines());
       if (idx >= 0) {
         return idx;
       }
-      return textLen;
+      if (idx == -1) {
+        return textLen;
+      }
     }
     return pos;
   }

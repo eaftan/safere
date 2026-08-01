@@ -661,6 +661,9 @@ final class Utf8InputScanner implements InputScanner {
 
   @Override
   public int indexOfLiteral(LiteralSearchDesc desc, int start) {
+    if (desc.prefixFoldCase()) {
+      return -2; // Fallback: Utf8InputScanner doesn't support case-insensitive literal search.
+    }
     return indexOf(desc.prefixUtf8(), desc.prefixUtf8Failure(), desc.prefixUtf8Shifts(), start);
   }
 
