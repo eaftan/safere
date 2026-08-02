@@ -16,6 +16,7 @@ final class Utf8InputScanner implements InputScanner {
   private static final long BYTE_ONES = 0x0101_0101_0101_0101L;
   private static final long BYTE_HIGH_BITS = 0x8080_8080_8080_8080L;
   private static final int BOYER_MOORE_HORSPOOL_BATCH_SIZE = 2;
+  private static final int VECTOR_SCALAR_PROLOGUE_LENGTH = Integer.BYTES;
 
   /**
    * Input sizes at which the SWAR candidate filter overtakes the skip loop. The filter always
@@ -92,7 +93,7 @@ final class Utf8InputScanner implements InputScanner {
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
     int position = Math.max(0, start);
     if (!WorkCounterConfig.ENABLED) {
-      int asciiResult = indexOfAsciiRanges(ranges, position);
+      int asciiResult = indexOfAsciiRanges(ranges, bitmap0, bitmap1, position);
       if (asciiResult >= -1) {
         return asciiResult;
       }
@@ -126,11 +127,23 @@ final class Utf8InputScanner implements InputScanner {
    * @return the match position, {@code -1} when the class is absent, or {@code -2} when the class
    *     requires the general code-point scan
    */
-  private int indexOfAsciiRanges(int[] ranges, int start) {
-    if (ranges.length == 2 && ranges[0] >= 0 && ranges[1] < 0x80) {
+  private int indexOfAsciiRanges(int[] ranges, long bitmap0, long bitmap1, int start) {
+    if (ranges.length >= 2 && ranges[0] >= 0 && ranges[ranges.length - 1] < 0x80) {
       if (scanProvider != null && length - start >= scanProvider.minimumInputLength()) {
-        return scanProvider.indexOfAsciiClass(bytes, offset, length, ranges, start);
+        int position = start;
+        int scalarLimit = Math.min(length, position + VECTOR_SCALAR_PROLOGUE_LENGTH);
+        for (; position < scalarLimit; position++) {
+          if (InputScanner.classContains(ranges, bitmap0, bitmap1, unsignedByteAt(position))) {
+            return position;
+          }
+        }
+        int result = scanProvider.indexOfAsciiClass(bytes, offset, length, ranges, position);
+        if (result != VectorScanProvider.UNSUPPORTED) {
+          return result;
+        }
       }
+    }
+    if (ranges.length == 2 && ranges[0] >= 0 && ranges[1] < 0x80) {
       int low = ranges[0];
       int high = ranges[1];
       if (low == high) {
@@ -146,9 +159,6 @@ final class Utf8InputScanner implements InputScanner {
         && ranges[2] == ranges[3]
         && ranges[0] >= 0
         && ranges[3] < 0x80) {
-      if (scanProvider != null && length - start >= scanProvider.minimumInputLength()) {
-        return scanProvider.indexOfAsciiClass(bytes, offset, length, ranges, start);
-      }
       return indexOfBytePair((byte) ranges[0], (byte) ranges[2], start);
     }
     return -2;

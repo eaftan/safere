@@ -15,7 +15,9 @@
       "smokeTrials": [
         "singleton/first/absent/64/0",
         "pair/first/late/64/7",
-        "range/all/dense/32768/0"
+        "range/all/dense/32768/0",
+        "alnum3/first/absent/32768/0",
+        "mixed4/all/sparse/32768/0"
       ],
       "standardTrials": [
         "singleton/first/absent/15/0",
@@ -83,7 +85,35 @@
         "pair/first/absent/32768/7",
         "pair/first/late/32768/7",
         "range/first/absent/32768/7",
-        "range/first/late/32768/7"
+        "range/first/late/32768/7",
+        "alnum3/first/absent/64/0",
+        "alnum3/first/absent/256/0",
+        "alnum3/first/absent/1024/0",
+        "alnum3/first/absent/32768/0",
+        "alnum3/first/absent/1048576/0",
+        "alnum3/first/late/32768/0",
+        "alnum3/first/sparse/32768/0",
+        "alnum3/first/dense/32768/0",
+        "alnum3/all/absent/32768/0",
+        "alnum3/all/late/32768/0",
+        "alnum3/all/sparse/32768/0",
+        "alnum3/all/dense/32768/0",
+        "alnum3/first/absent/32768/7",
+        "alnum3/first/late/32768/7",
+        "mixed4/first/absent/64/0",
+        "mixed4/first/absent/256/0",
+        "mixed4/first/absent/1024/0",
+        "mixed4/first/absent/32768/0",
+        "mixed4/first/absent/1048576/0",
+        "mixed4/first/late/32768/0",
+        "mixed4/first/sparse/32768/0",
+        "mixed4/first/dense/32768/0",
+        "mixed4/all/absent/32768/0",
+        "mixed4/all/late/32768/0",
+        "mixed4/all/sparse/32768/0",
+        "mixed4/all/dense/32768/0",
+        "mixed4/first/absent/32768/7",
+        "mixed4/first/late/32768/7"
       ]
     }
   },
@@ -399,6 +429,56 @@
       "recipe": {
         "kind": "repeatToLength",
         "unit": "bxy5",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.multi.absent.{length}",
+      "axes": {
+        "length": [
+          64,
+          256,
+          1024,
+          32768,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "~",
+        "length": "{length}"
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.multi.late.32768",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "~",
+        "suffix": "!#5Aa",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.multi.sparse.32768",
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "!#5Aa",
+        "nonMatch": "~",
+        "nonMatchRepeats": 127,
+        "delimiterAlphabet": "~",
+        "seed": 20260801,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "vectorScan.multi.dense.32768",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "~!#5Aa",
         "length": 32768
       },
       "shared": true

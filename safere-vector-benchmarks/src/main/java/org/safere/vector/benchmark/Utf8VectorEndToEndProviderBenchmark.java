@@ -20,6 +20,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.safere.Pattern;
 import org.safere.Utf8Input;
+import org.safere.Utf8Matcher;
 
 /** Measures complete UTF-8 find operations with the provider selected at JVM startup. */
 @BenchmarkMode(Mode.AverageTime)
@@ -36,15 +37,22 @@ public class Utf8VectorEndToEndProviderBenchmark {
 
   private Pattern pattern;
   private Utf8Input input;
+  private Utf8Matcher matcher;
+  private boolean scanAll;
+  private int expected;
 
   /** Materializes input and verifies the selected provider and complete result. */
   @Setup(Level.Trial)
   public void setup() {
     String[] fields = vectorScanTrial.split("/", -1);
-    if (fields.length != 5 || !fields[1].equals("first")) {
-      throw new IllegalArgumentException(
-          "Expected first-hit Vector scan trial: " + vectorScanTrial);
+    if (fields.length != 5) {
+      throw new IllegalArgumentException("Malformed Vector scan trial: " + vectorScanTrial);
     }
+    scanAll = fields[1].equals("all");
+    if (!scanAll && !fields[1].equals("first")) {
+      throw new IllegalArgumentException("Unknown traversal: " + fields[1]);
+    }
+    String inputProfile = "";
     String regex =
         switch (fields[0].toLowerCase(Locale.ROOT)) {
           case "singleton" ->
@@ -52,6 +60,14 @@ public class Utf8VectorEndToEndProviderBenchmark {
                   "Singleton patterns use literal scanning, not the character-class provider");
           case "pair" -> "[xy]";
           case "range" -> "[0-9]";
+          case "alnum3" -> {
+            inputProfile = "multi.";
+            yield "[0-9A-Za-z]";
+          }
+          case "mixed4" -> {
+            inputProfile = "multi.";
+            yield "[!#0-9A-Z]";
+          }
           default -> throw new IllegalArgumentException("Unknown shape: " + fields[0]);
         };
     int length = Integer.parseInt(fields[3]);
@@ -62,22 +78,65 @@ public class Utf8VectorEndToEndProviderBenchmark {
       throw new IllegalStateException(
           "Expected provider " + scanProvider + " but JVM selected " + configuredProvider);
     }
-    byte[] source = VectorScanConfiguration.input(fields[2], length);
+    byte[] source = VectorScanConfiguration.input(inputProfile, fields[2], length);
     byte[] storage = new byte[offset + source.length + ByteVector.SPECIES_PREFERRED.length()];
     Arrays.fill(storage, (byte) 0x7f);
     System.arraycopy(source, 0, storage, offset, source.length);
 
     pattern = Pattern.compile(regex);
     input = Utf8Input.trusted(storage, offset, length);
-    boolean expected = !fields[2].equals("absent");
-    if (pattern.find(input) != expected) {
+    matcher = pattern.matcher(input);
+    expected = expectedResult(fields[0], source);
+    if (runSafeRe() != expected) {
       throw new AssertionError("Unexpected result for " + vectorScanTrial);
     }
   }
 
   /** Runs the complete direct UTF-8 find operation. */
   @Benchmark
-  public boolean safeReFind() {
-    return pattern.find(input);
+  public int safeReFind() {
+    return runSafeRe();
+  }
+
+  private int runSafeRe() {
+    if (!scanAll) {
+      return pattern.find(input) ? 1 : 0;
+    }
+    matcher.reset();
+    int checksum = 0;
+    while (matcher.find()) {
+      checksum += matcher.start();
+    }
+    return checksum;
+  }
+
+  private int expectedResult(String shape, byte[] source) {
+    int checksum = 0;
+    for (int position = 0; position < source.length; position++) {
+      if (matches(shape, source[position])) {
+        if (!scanAll) {
+          return 1;
+        }
+        checksum += position;
+      }
+    }
+    return checksum;
+  }
+
+  private static boolean matches(String shape, byte value) {
+    return switch (shape) {
+      case "pair" -> value == 'x' || value == 'y';
+      case "range" -> value >= '0' && value <= '9';
+      case "alnum3" ->
+          (value >= '0' && value <= '9')
+              || (value >= 'A' && value <= 'Z')
+              || (value >= 'a' && value <= 'z');
+      case "mixed4" ->
+          value == '!'
+              || value == '#'
+              || (value >= '0' && value <= '9')
+              || (value >= 'A' && value <= 'Z');
+      default -> throw new IllegalArgumentException("Unknown shape: " + shape);
+    };
   }
 }

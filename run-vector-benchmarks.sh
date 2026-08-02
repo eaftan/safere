@@ -14,7 +14,7 @@ FASTBUILD=false
 END_TO_END=false
 PROVIDER="both"
 TRIAL_OVERRIDE=""
-METHODS="safeRe|swar|swarProvider|vector|vectorProvider|vectorCursor"
+METHODS="safeRe|swar|swarProvider|vector|vectorProvider|vectorBounds|vectorCursor"
 JMH_EXTRA_ARGS=()
 
 while [ "$#" -gt 0 ]; do
@@ -138,21 +138,21 @@ if [ -n "$TRIAL_OVERRIDE" ]; then
   TRIALS="$TRIAL_OVERRIDE"
 fi
 if [ "$END_TO_END" = true ]; then
-  FIRST_HIT_TRIALS=""
+  END_TO_END_TRIALS=""
   IFS=',' read -ra trial_list <<< "$TRIALS"
   for trial in "${trial_list[@]}"; do
-    if [[ "$trial" != singleton/* && "$trial" == */first/* ]]; then
-      if [ -n "$FIRST_HIT_TRIALS" ]; then
-        FIRST_HIT_TRIALS+=","
+    if [[ "$trial" != singleton/* ]]; then
+      if [ -n "$END_TO_END_TRIALS" ]; then
+        END_TO_END_TRIALS+=","
       fi
-      FIRST_HIT_TRIALS+="$trial"
+      END_TO_END_TRIALS+="$trial"
     fi
   done
-  if [ -z "$FIRST_HIT_TRIALS" ]; then
-    echo "ERROR: End-to-end provider benchmarks require at least one pair or range first-hit trial" >&2
+  if [ -z "$END_TO_END_TRIALS" ]; then
+    echo "ERROR: End-to-end provider benchmarks require at least one non-singleton trial" >&2
     exit 2
   fi
-  TRIALS="$FIRST_HIT_TRIALS"
+  TRIALS="$END_TO_END_TRIALS"
 fi
 
 run_benchmarks() {

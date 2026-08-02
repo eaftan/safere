@@ -36,9 +36,9 @@ final class VectorScanConfiguration {
     return List.copyOf(result);
   }
 
-  static byte[] input(String density, int length) {
+  static byte[] input(String profile, String density, int length) {
     JsonObject manifest = manifest();
-    String inputId = "vectorScan." + density + "." + length;
+    String inputId = "vectorScan." + profile + density + "." + length;
     String file =
         manifest.getAsJsonObject("inputs").getAsJsonObject(inputId).get("file").getAsString();
     try {

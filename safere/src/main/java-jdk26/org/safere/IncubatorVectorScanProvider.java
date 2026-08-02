@@ -15,7 +15,6 @@ import jdk.incubator.vector.VectorSpecies;
 /** Experimental scan operations implemented with the incubating Vector API. */
 final class IncubatorVectorScanProvider implements VectorScanProvider {
   private static final int MINIMUM_INPUT_LENGTH = 1024;
-  private static final int SCALAR_PROLOGUE_LENGTH = Integer.BYTES;
   private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
 
   @Override
@@ -25,13 +24,10 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
 
   @Override
   public int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start) {
-    int position = Math.max(0, start);
-    int scalarLimit = Math.min(length, position + SCALAR_PROLOGUE_LENGTH);
-    for (; position < scalarLimit; position++) {
-      if (matches(bytes[offset + position], ranges)) {
-        return position;
-      }
+    if (ranges.length < 2 || ranges.length > 8 || (ranges.length & 1) != 0) {
+      return UNSUPPORTED;
     }
+    int position = Math.max(0, start);
     int limit = position + SPECIES.loopBound(length - position);
     for (; position < limit; position += SPECIES.length()) {
       ByteVector values = ByteVector.fromArray(SPECIES, bytes, offset + position);
@@ -49,11 +45,22 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
   }
 
   private static VectorMask<Byte> matches(ByteVector values, int[] ranges) {
-    if (ranges.length == 4) {
-      return values.eq((byte) ranges[0]).or(values.eq((byte) ranges[2]));
+    VectorMask<Byte> matches = matches(values, ranges[0], ranges[1]);
+    if (ranges.length >= 4) {
+      matches = matches.or(matches(values, ranges[2], ranges[3]));
     }
-    byte low = (byte) ranges[0];
-    byte high = (byte) ranges[1];
+    if (ranges.length >= 6) {
+      matches = matches.or(matches(values, ranges[4], ranges[5]));
+    }
+    if (ranges.length == 8) {
+      matches = matches.or(matches(values, ranges[6], ranges[7]));
+    }
+    return matches;
+  }
+
+  private static VectorMask<Byte> matches(ByteVector values, int lowBound, int highBound) {
+    byte low = (byte) lowBound;
+    byte high = (byte) highBound;
     if (low == high) {
       return values.eq(low);
     }
@@ -64,9 +71,11 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
   }
 
   private static boolean matches(byte value, int[] ranges) {
-    if (ranges.length == 4) {
-      return value == (byte) ranges[0] || value == (byte) ranges[2];
+    for (int index = 0; index < ranges.length; index += 2) {
+      if (value >= (byte) ranges[index] && value <= (byte) ranges[index + 1]) {
+        return true;
+      }
     }
-    return value >= (byte) ranges[0] && value <= (byte) ranges[1];
+    return false;
   }
 }

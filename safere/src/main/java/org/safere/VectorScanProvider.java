@@ -7,7 +7,10 @@ package org.safere;
 
 /** Internal provider for experimental Vector API scan operations. */
 interface VectorScanProvider {
+  int UNSUPPORTED = -2;
+
   int minimumInputLength();
 
+  /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
   int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start);
 }

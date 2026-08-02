@@ -16,6 +16,19 @@ public final class Utf8ScannerBenchmarkAccess {
 
   /** Returns the first byte position in the supplied code-point ranges. */
   public int indexOfCodePointClass(int[] ranges, int start) {
-    return scanner.indexOfCodePointClass(ranges, 0, 0, start);
+    return scanner.indexOfCodePointClass(
+        ranges, asciiBitmap(ranges, 0, 63), asciiBitmap(ranges, 64, 127), start);
+  }
+
+  private static long asciiBitmap(int[] ranges, int first, int last) {
+    long bitmap = 0;
+    for (int index = 0; index < ranges.length; index += 2) {
+      int low = Math.max(first, ranges[index]);
+      int high = Math.min(last, ranges[index + 1]);
+      for (int value = low; value <= high; value++) {
+        bitmap |= 1L << (value - first);
+      }
+    }
+    return bitmap;
   }
 }
