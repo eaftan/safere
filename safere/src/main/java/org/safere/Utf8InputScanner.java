@@ -31,7 +31,7 @@ final class Utf8InputScanner implements InputScanner {
   private final byte[] bytes;
   private final int offset;
   private final int length;
-  private final Utf8ScanProvider scanProvider;
+  private final VectorScanProvider scanProvider;
 
   Utf8InputScanner(byte[] bytes) {
     this(bytes, 0, bytes.length);
@@ -45,7 +45,7 @@ final class Utf8InputScanner implements InputScanner {
     }
     this.offset = offset;
     this.length = length;
-    this.scanProvider = Utf8ScanProviders.providerForLength(length);
+    this.scanProvider = VectorScanProviders.providerForLength(length);
   }
 
   static void validate(byte[] bytes, int offset, int length) {

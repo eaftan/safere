@@ -12,8 +12,8 @@ import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
-/** UTF-8 ASCII character-class scanning implemented with the JDK 26 Vector API. */
-final class Jdk26VectorUtf8ScanProvider implements Utf8ScanProvider {
+/** Experimental scan operations implemented with the incubating Vector API. */
+final class IncubatorVectorScanProvider implements VectorScanProvider {
   private static final int MINIMUM_INPUT_LENGTH = 1024;
   private static final int SCALAR_PROLOGUE_LENGTH = Integer.BYTES;
   private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;

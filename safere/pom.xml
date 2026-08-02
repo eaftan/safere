@@ -342,7 +342,7 @@ final class WorkCounterConfig {
             <configuration>
               <argLine>
                 @{argLine} --add-modules=jdk.incubator.vector
-                -Dorg.safere.experimental.utf8ScanProvider=vector
+                -Dorg.safere.experimental.vectorScanProvider=vector
               </argLine>
               <classesDirectory>
                 ${project.build.directory}/${project.build.finalName}.jar

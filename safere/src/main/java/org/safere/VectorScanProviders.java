@@ -6,29 +6,29 @@
 package org.safere;
 
 /**
- * Selects the optional UTF-8 scan provider once, without linking Java 21 classes to a JDK-specific
+ * Selects the optional Vector scan provider once, without linking Java 21 classes to a JDK-specific
  * API.
  */
-final class Utf8ScanProviders {
-  static final String PROVIDER_PROPERTY = "org.safere.experimental.utf8ScanProvider";
-  private static final Utf8ScanProvider SELECTED = loadSelected();
+final class VectorScanProviders {
+  static final String PROVIDER_PROPERTY = "org.safere.experimental.vectorScanProvider";
+  private static final VectorScanProvider SELECTED = loadSelected();
 
-  private Utf8ScanProviders() {}
+  private VectorScanProviders() {}
 
-  static Utf8ScanProvider providerForLength(int length) {
+  static VectorScanProvider providerForLength(int length) {
     return SELECTED != null && length >= SELECTED.minimumInputLength() ? SELECTED : null;
   }
 
-  private static Utf8ScanProvider loadSelected() {
+  private static VectorScanProvider loadSelected() {
     String requested = System.getProperty(PROVIDER_PROPERTY, "").trim();
     if (requested.isEmpty() || requested.equals("swar")) {
       return null;
     }
     if (!requested.equals("vector")) {
-      throw new IllegalStateException("Unknown UTF-8 scan provider '" + requested + "'");
+      throw new IllegalStateException("Unknown Vector scan provider '" + requested + "'");
     }
     try {
-      Utf8ScanProvider provider = VectorUtf8ScanProviderFactory.create();
+      VectorScanProvider provider = VectorScanProviderFactory.create();
       if (provider == null) {
         throw new IllegalStateException(
             "The SafeRE JAR does not contain a Vector scanner for this JDK");

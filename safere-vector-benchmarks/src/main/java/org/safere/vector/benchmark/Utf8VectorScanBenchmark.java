@@ -32,7 +32,7 @@ import org.safere.Utf8ScannerBenchmarkAccess;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Thread)
 public class Utf8VectorScanBenchmark {
-  private static final String PROVIDER_PROPERTY = "org.safere.experimental.utf8ScanProvider";
+  private static final String PROVIDER_PROPERTY = "org.safere.experimental.vectorScanProvider";
   private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
   private static final int[] SINGLETON_RANGES = {'x', 'x'};
   private static final int[] PAIR_RANGES = {'x', 'x', 'y', 'y'};

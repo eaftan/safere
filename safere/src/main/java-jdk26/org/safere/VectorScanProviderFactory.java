@@ -5,11 +5,11 @@
 
 package org.safere;
 
-/** Java 21 fallback replaced by the JDK 26 implementation in the multi-release JAR. */
-final class VectorUtf8ScanProviderFactory {
-  private VectorUtf8ScanProviderFactory() {}
+/** JDK 26 replacement that constructs the incubator Vector API provider. */
+final class VectorScanProviderFactory {
+  private VectorScanProviderFactory() {}
 
-  static Utf8ScanProvider create() {
-    return null;
+  static VectorScanProvider create() {
+    return new IncubatorVectorScanProvider();
   }
 }

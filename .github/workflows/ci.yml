@@ -97,7 +97,7 @@ jobs:
           -f safere-crosscheck/pom.xml
           -Pcrosscheck-public-api-tests
           -DargLine="--add-modules=jdk.incubator.vector
-          -Dorg.safere.experimental.utf8ScanProvider=vector"
+          -Dorg.safere.experimental.vectorScanProvider=vector"
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
@@ -106,7 +106,7 @@ jobs:
           mvn clean test
           -f safere-exhaustive/pom.xml
           -DargLine="--add-modules=jdk.incubator.vector
-          -Dorg.safere.experimental.utf8ScanProvider=vector"
+          -Dorg.safere.experimental.vectorScanProvider=vector"
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
@@ -228,7 +228,7 @@ jobs:
           SAFERE_JAR="$(find safere/target -maxdepth 1 -name 'safere-*.jar' \
             ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           jar --list --file "$SAFERE_JAR" \
-            | grep 'META-INF/versions/26/org/safere/Jdk26VectorUtf8ScanProvider.class'
+            | grep 'META-INF/versions/26/org/safere/IncubatorVectorScanProvider.class'
 
       - name: Smoke test experimental Vector scanner
         run: |

@@ -116,7 +116,7 @@ echo "=== Checking packaged provider selection ==="
 java -cp "$BENCHMARK_JAR" org.safere.vector.benchmark.VectorProviderSmoke
 java \
   --add-modules=jdk.incubator.vector \
-  -Dorg.safere.experimental.utf8ScanProvider=vector \
+  -Dorg.safere.experimental.vectorScanProvider=vector \
   -cp "$BENCHMARK_JAR" \
   org.safere.vector.benchmark.VectorProviderSmoke
 
@@ -159,7 +159,7 @@ run_benchmarks() {
   local provider="$1"
   local benchmark_jvm_args=("${JVM_ARGS[@]}")
   if [ "$provider" = "vector" ]; then
-    benchmark_jvm_args+=("-Dorg.safere.experimental.utf8ScanProvider=vector")
+    benchmark_jvm_args+=("-Dorg.safere.experimental.vectorScanProvider=vector")
   fi
   local fork_jvm_args=""
   local argument

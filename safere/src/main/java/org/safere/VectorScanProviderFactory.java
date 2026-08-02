@@ -5,9 +5,11 @@
 
 package org.safere;
 
-/** Internal provider for specialized ASCII scans over UTF-8 storage. */
-interface Utf8ScanProvider {
-  int minimumInputLength();
+/** Java 21 fallback replaced by the JDK 26 implementation in the multi-release JAR. */
+final class VectorScanProviderFactory {
+  private VectorScanProviderFactory() {}
 
-  int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start);
+  static VectorScanProvider create() {
+    return null;
+  }
 }

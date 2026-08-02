@@ -130,7 +130,7 @@ On JDK 26, enable the provider when starting the application:
 
 ```text
 --add-modules=jdk.incubator.vector
--Dorg.safere.experimental.utf8ScanProvider=vector
+-Dorg.safere.experimental.vectorScanProvider=vector
 ```
 
 Both flags are required. Without the system property, SafeRE continues to use its built-in SWAR

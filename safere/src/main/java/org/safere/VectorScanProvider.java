@@ -5,11 +5,9 @@
 
 package org.safere;
 
-/** JDK 26 replacement that constructs the incubator Vector API provider. */
-final class VectorUtf8ScanProviderFactory {
-  private VectorUtf8ScanProviderFactory() {}
+/** Internal provider for experimental Vector API scan operations. */
+interface VectorScanProvider {
+  int minimumInputLength();
 
-  static Utf8ScanProvider create() {
-    return new Jdk26VectorUtf8ScanProvider();
-  }
+  int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start);
 }
