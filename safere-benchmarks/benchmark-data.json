@@ -524,6 +524,27 @@
       "shared": true
     },
     {
+      "id": "phoneSearch.trulySparseMatches.{nonMatchRepeats}",
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "foo123",
+        "nonMatch": "foobar. This is a very long text. We want to test. We can write many words. We do not use the letter. We are happy. We are coding.",
+        "nonMatchRepeats": "{nonMatchRepeats}",
+        "delimiterAlphabet": " ",
+        "seed": 20260729,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -7716,6 +7737,37 @@
         "preexistingUtf8"
       ],
       "inputRepresentationReason": "Compares Java-string and preexisting-UTF-8 searches for planted phone numbers at several realistic match densities.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findTrulySparse.{nonMatchRepeats}",
+      "operation": "find",
+      "patterns": [
+        "foo\\d{3}"
+      ],
+      "inputs": [
+        "phoneSearch.trulySparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Verifies start acceleration jump efficiency over long gaps with sparse false alarm candidates.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {

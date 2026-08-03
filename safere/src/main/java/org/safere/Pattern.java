@@ -134,15 +134,11 @@ public final class Pattern implements Serializable {
   private final transient Regexp ast;
 
   private final transient Map<String, Integer> namedGroups;
-  private final transient String prefix;
-  private final transient boolean prefixFoldCase;
+  private final transient InputScanner.LiteralSearchDesc literalSearchDesc;
   private final transient String literalMatch;
   private final transient byte[] literalMatchUtf8;
   private final transient int[] literalMatchFailure;
   private final transient int[] literalMatchShifts;
-  private final transient byte[] prefixUtf8;
-  private final transient int[] prefixUtf8Failure;
-  private final transient int[] prefixUtf8Shifts;
   private final transient boolean hasLazy;
   private final transient boolean hasAlternation;
   private final transient boolean hasNullableAlternation;
@@ -336,14 +332,17 @@ public final class Pattern implements Serializable {
 
     this.ast = ast;
     this.namedGroups = namedGroups;
-    this.prefix = prefix;
-    this.prefixFoldCase = prefixFoldCase;
-    this.prefixUtf8 =
+    byte[] prefixUtf8 =
         prefix == null || prefix.isEmpty()
             ? null
             : prefix.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    this.prefixUtf8Failure = prefixUtf8 == null ? null : literalFailure(prefixUtf8);
-    this.prefixUtf8Shifts = prefixUtf8 == null ? null : literalShifts(prefixUtf8);
+    int[] prefixUtf8Failure = prefixUtf8 == null ? null : literalFailure(prefixUtf8);
+    int[] prefixUtf8Shifts = prefixUtf8 == null ? null : literalShifts(prefixUtf8);
+    this.literalSearchDesc =
+        prefix == null || prefix.isEmpty()
+            ? null
+            : new InputScanner.LiteralSearchDesc(
+                prefix, prefixFoldCase, prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts);
     this.literalMatch = literalMatch;
     this.literalMatchUtf8 =
         literalMatch == null
@@ -648,19 +647,19 @@ public final class Pattern implements Serializable {
 
   boolean findWithoutDiagnostics(Utf8InputScanner scanner) {
     int length = scanner.length();
-    if (literalMatchUtf8 != null && !prefixFoldCase) {
+    if (literalMatchUtf8 != null && !prefixFoldCase()) {
       return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
     }
     if (enginePathOptions.literalFastPaths()
         && requiredLiteralUtf8 != null
-        && prefixUtf8 == null
+        && literalSearchDesc == null
         && scanner.indexOf(requiredLiteralUtf8, requiredLiteralFailure, requiredLiteralShifts, 0)
             < 0) {
       return false;
     }
     if (enginePathOptions.charClassMatchFastPaths()
         && requiredMatchClassRanges != null
-        && prefixUtf8 == null
+        && literalSearchDesc == null
         && charClassPrefixAscii == null
         && scanner.indexOfCodePointClass(
                 requiredMatchClassRanges, requiredMatchClassBitmap0, requiredMatchClassBitmap1, 0)
@@ -668,8 +667,8 @@ public final class Pattern implements Serializable {
       return false;
     }
     int searchStart = 0;
-    if (prefixUtf8 != null && !prefixFoldCase) {
-      searchStart = scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts);
+    if (literalSearchDesc != null && !literalSearchDesc.prefixFoldCase()) {
+      searchStart = scanner.indexOfLiteral(literalSearchDesc, 0);
       if (searchStart < 0) {
         return false;
       }
@@ -711,7 +710,7 @@ public final class Pattern implements Serializable {
 
   private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
-    if (literalMatchUtf8 != null && !prefixFoldCase) {
+    if (literalMatchUtf8 != null && !prefixFoldCase()) {
       boolean matched =
           scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
       diagnostics.boundary(MatchStrategy.LITERAL);
@@ -719,7 +718,7 @@ public final class Pattern implements Serializable {
     }
     if (enginePathOptions.literalFastPaths()
         && requiredLiteralUtf8 != null
-        && prefixUtf8 == null
+        && literalSearchDesc == null
         && scanner.indexOf(requiredLiteralUtf8, requiredLiteralFailure, requiredLiteralShifts, 0)
             < 0) {
       diagnostics.participate(MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER);
@@ -728,7 +727,7 @@ public final class Pattern implements Serializable {
     }
     if (enginePathOptions.charClassMatchFastPaths()
         && requiredMatchClassRanges != null
-        && prefixUtf8 == null
+        && literalSearchDesc == null
         && charClassPrefixAscii == null
         && scanner.indexOfCodePointClass(
                 requiredMatchClassRanges, requiredMatchClassBitmap0, requiredMatchClassBitmap1, 0)
@@ -738,9 +737,9 @@ public final class Pattern implements Serializable {
       return false;
     }
     int searchStart = 0;
-    if (prefixUtf8 != null && !prefixFoldCase) {
+    if (literalSearchDesc != null && !literalSearchDesc.prefixFoldCase()) {
       diagnostics.participate(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
-      searchStart = scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts);
+      searchStart = scanner.indexOfLiteral(literalSearchDesc, 0);
       if (searchStart < 0) {
         diagnostics.boundary(MatchStrategy.LITERAL);
         return false;
@@ -1105,7 +1104,15 @@ public final class Pattern implements Serializable {
   Dfa forwardFirstMatchDfa() {
     Dfa dfa = cachedForwardFirstMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), false);
+      dfa =
+          new Dfa(
+              flatDfaProg,
+              MAX_DFA_STATES,
+              forwardDfaSetup(),
+              false,
+              literalSearchDesc,
+              charClassPrefixAscii,
+              startAcceleration);
       cachedForwardFirstMatchDfa.set(dfa);
     }
     return dfa;
@@ -1114,7 +1121,15 @@ public final class Pattern implements Serializable {
   Dfa forwardLongestMatchDfa() {
     Dfa dfa = cachedForwardLongestMatchDfa.get();
     if (dfa == null) {
-      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), true);
+      dfa =
+          new Dfa(
+              flatDfaProg,
+              MAX_DFA_STATES,
+              forwardDfaSetup(),
+              true,
+              literalSearchDesc,
+              charClassPrefixAscii,
+              startAcceleration);
       cachedForwardLongestMatchDfa.set(dfa);
     }
     return dfa;
@@ -1129,7 +1144,7 @@ public final class Pattern implements Serializable {
     if (dfa == null) {
       Prog rp = flatReverseDfaProg();
       if (rp != null) {
-        dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true);
+        dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true, null, null, null);
         cachedReverseDfa.set(dfa);
       }
     }
@@ -1258,12 +1273,12 @@ public final class Pattern implements Serializable {
    * literal prefix. Used for prefix acceleration in {@link Matcher#doFind()}.
    */
   String prefix() {
-    return prefix;
+    return literalSearchDesc == null ? null : literalSearchDesc.prefix();
   }
 
   /** Returns whether the prefix should be matched case-insensitively. */
   boolean prefixFoldCase() {
-    return prefixFoldCase;
+    return literalSearchDesc != null && literalSearchDesc.prefixFoldCase();
   }
 
   /**
@@ -1461,15 +1476,15 @@ public final class Pattern implements Serializable {
   }
 
   byte[] prefixUtf8() {
-    return prefixUtf8;
+    return literalSearchDesc == null ? null : literalSearchDesc.prefixUtf8();
   }
 
   int[] prefixUtf8Failure() {
-    return prefixUtf8Failure;
+    return literalSearchDesc == null ? null : literalSearchDesc.prefixUtf8Failure();
   }
 
   int[] prefixUtf8Shifts() {
-    return prefixUtf8Shifts;
+    return literalSearchDesc == null ? null : literalSearchDesc.prefixUtf8Shifts();
   }
 
   /** Returns {@code true} if this pattern is a simple literal with no metacharacters. */

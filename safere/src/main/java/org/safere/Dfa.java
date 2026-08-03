@@ -90,6 +90,7 @@ final class Dfa {
     final int[] insts; // sorted NFA instruction IDs (CHAR_RANGE, EMPTY_WIDTH, and MATCH only)
     final int flags;
     final boolean isHighestPriorityMatch;
+    boolean isStartState;
 
     /**
      * Match IDs from word-boundary expansion (for PatternSet multi-match). Null if not applicable.
@@ -236,6 +237,11 @@ final class Dfa {
   private State[] offsetToState;
   private int nextStateId;
 
+  private final InputScanner.LiteralSearchDesc literalSearchDesc;
+  private final boolean[] charClassPrefixAscii;
+  private final Pattern.StartAcceleration startAcceleration;
+  private final boolean hasStartAcceleration;
+
   // ---------------------------------------------------------------------------
   // Construction
   // ---------------------------------------------------------------------------
@@ -260,7 +266,14 @@ final class Dfa {
     return new Setup(boundaries, numClasses, asciiClassMap);
   }
 
-  Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
+  Dfa(
+      Prog prog,
+      int maxStates,
+      Setup setup,
+      boolean longest,
+      InputScanner.LiteralSearchDesc literalSearchDesc,
+      boolean[] charClassPrefixAscii,
+      Pattern.StartAcceleration startAcceleration) {
     this.prog = prog;
     this.maxStates = maxStates;
     this.longest = longest;
@@ -291,6 +304,15 @@ final class Dfa {
     this.transitions = new int[1024];
     this.offsetToState = new State[1024];
     addStateToFlatArrays(deadState);
+    this.literalSearchDesc = literalSearchDesc;
+    this.charClassPrefixAscii = charClassPrefixAscii;
+    this.startAcceleration = startAcceleration;
+    this.hasStartAcceleration =
+        (literalSearchDesc != null || charClassPrefixAscii != null || startAcceleration != null);
+  }
+
+  Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
+    this(prog, maxStates, setup, longest, null, null, null);
   }
 
   private void addStateToFlatArrays(State s) {
@@ -797,6 +819,7 @@ final class Dfa {
     }
     State s = getOrCreate(insts, flags);
     if (s != null) {
+      s.isStartState = true;
       startStateByContext[cacheKey] = s;
     }
     return s;
@@ -1155,7 +1178,7 @@ final class Dfa {
       boolean anchored,
       boolean longest,
       int maxStates) {
-    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), longest);
+    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), longest, null, null, null);
     return dfa.doSearch(text, startPos, anchored, longest);
   }
 
@@ -1174,6 +1197,41 @@ final class Dfa {
 
   SearchResult doSearch(InputScanner text, boolean anchored, boolean longest) {
     return doSearch(text, 0, anchored, longest);
+  }
+
+  /**
+   * Fast-forwards the start position of unanchored search matching when returning to the start
+   * state.
+   */
+  private int fastForward(InputScanner text, int pos, int textLen, int posDepThreshold) {
+    if (literalSearchDesc != null) {
+      int idx = text.indexOfLiteral(literalSearchDesc, pos);
+      if (idx >= 0) {
+        return Math.min(idx, posDepThreshold - 1);
+      }
+      if (idx == -1) {
+        return textLen;
+      }
+    }
+    if (charClassPrefixAscii != null) {
+      int idx = text.indexOfCharClass(charClassPrefixAscii, pos);
+      if (idx >= 0) {
+        return idx;
+      }
+      if (idx == -1) {
+        return textLen;
+      }
+    }
+    if (startAcceleration != null) {
+      int idx = text.indexOfStartAcceleration(startAcceleration, pos, prog.unixLines());
+      if (idx >= 0) {
+        return idx;
+      }
+      if (idx == -1) {
+        return textLen;
+      }
+    }
+    return pos;
   }
 
   /**
@@ -1234,9 +1292,34 @@ final class Dfa {
     State[] offsetToState = this.offsetToState;
     int[] asciiClassMap = this.asciiClassMap;
     int pos = startPos;
+    int lastFastForwardPos = startPos - 65;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
+      if (hasStartAcceleration && s.isStartState && !anchored && (pos - lastFastForwardPos > 64)) {
+        int nextPos = fastForward(text, pos, textLen, posDepThreshold);
+        if (nextPos > pos) {
+          int jump = nextPos - pos;
+          if (jump < 64) {
+            lastFastForwardPos = nextPos + 512;
+          } else {
+            lastFastForwardPos = nextPos;
+          }
+          pos = nextPos;
+          if (pos >= textLen) {
+            break;
+          }
+        } else {
+          lastFastForwardPos = pos + 512;
+        }
+      }
       int limit = Math.min(textLen, posDepThreshold - 1);
+      if (hasStartAcceleration && !anchored) {
+        if (pos < lastFastForwardPos) {
+          limit = Math.min(limit, lastFastForwardPos);
+        } else {
+          limit = Math.min(limit, pos + 64);
+        }
+      }
       int sId = s.id * numClasses;
       while (pos < limit) {
         int ch = text.asciiAt(pos);
@@ -1311,6 +1394,23 @@ final class Dfa {
 
     // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
+      if (hasStartAcceleration && s.isStartState && !anchored && (pos - lastFastForwardPos > 64)) {
+        int nextPos = fastForward(text, pos, textLen, posDepThreshold);
+        if (nextPos > pos) {
+          int jump = nextPos - pos;
+          if (jump < 64) {
+            lastFastForwardPos = nextPos + 512;
+          } else {
+            lastFastForwardPos = nextPos;
+          }
+          pos = nextPos;
+          if (pos > textLen) {
+            break;
+          }
+        } else {
+          lastFastForwardPos = pos + 512;
+        }
+      }
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
@@ -1695,7 +1795,7 @@ final class Dfa {
 
   /** Multi-match search with explicit state budget. */
   static ManyMatchResult searchMany(Prog prog, String text, boolean anchored, int maxStates) {
-    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), true);
+    Dfa dfa = new Dfa(prog, maxStates, buildSetup(prog), true, null, null, null);
     return dfa.doSearchMany(text, anchored);
   }
 
