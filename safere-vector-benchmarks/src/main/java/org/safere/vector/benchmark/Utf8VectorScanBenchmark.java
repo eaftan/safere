@@ -83,7 +83,7 @@ public class Utf8VectorScanBenchmark {
     storage = new byte[offset + input.length + SPECIES.length()];
     Arrays.fill(storage, (byte) 0x7f);
     System.arraycopy(input, 0, storage, offset, input.length);
-    swarScanner = new Utf8ScannerBenchmarkAccess(storage, offset, length);
+    swarScanner = new Utf8ScannerBenchmarkAccess(storage, offset, length, shape.ranges);
     swarProvider = new SwarProvider();
     vectorProvider = new VectorProvider();
     int rangeCount = shape.ranges.length / 2;
@@ -192,12 +192,12 @@ public class Utf8VectorScanBenchmark {
 
   private int runSwar() {
     if (!scanAll) {
-      return swarScanner.indexOfCodePointClass(shape.ranges, 0);
+      return swarScanner.indexOfCodePointClass(0);
     }
     int checksum = 0;
     int start = 0;
     while (start < length) {
-      int found = swarScanner.indexOfCodePointClass(shape.ranges, start);
+      int found = swarScanner.indexOfCodePointClass(start);
       if (found < 0) {
         break;
       }
@@ -352,7 +352,7 @@ public class Utf8VectorScanBenchmark {
   private final class SwarProvider implements ScanProvider {
     @Override
     public int indexOf(int start) {
-      return swarScanner.indexOfCodePointClass(shape.ranges, start);
+      return swarScanner.indexOfCodePointClass(start);
     }
   }
 
