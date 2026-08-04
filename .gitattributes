@@ -1,0 +1,7 @@
+# Published benchmark artifacts preserve raw harness bytes and generated views.
+benchmark-results/published/**/*-raw.txt -diff
+benchmark-results/published/**/java-*.txt -diff
+benchmark-results/published/**/jmh-output.txt -diff
+benchmark-results/published/**/*.json -diff
+benchmark-results/published/**/*.jsonl -diff
+benchmark-results/published/**/*-tables.md -diff

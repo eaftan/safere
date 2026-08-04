@@ -44,8 +44,10 @@ safere-ffm-re2/build/
 org.safere.benchmark.*
 .flattened-pom.xml
 
-# Local benchmark result captures
-benchmark-results/
+# Local benchmark result captures; reviewed publication artifacts are retained.
+benchmark-results/*
+!benchmark-results/published/
+!benchmark-results/published/**
 
 # Local Jazzer fuzzing corpus
 safere-fuzz/.cifuzz-corpus/

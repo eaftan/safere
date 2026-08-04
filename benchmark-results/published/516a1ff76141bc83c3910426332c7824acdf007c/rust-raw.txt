@@ -1,0 +1,358 @@
+=== Materializing shared benchmark inputs ===
+Materialized 337 benchmark inputs in /home/eaftan/safere-benchmarks/safere-benchmarks/target/benchmark-corpus
+=== Building Rust regex benchmarks ===
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded memchr v2.8.3
+  Downloaded digest v0.10.7
+  Downloaded aho-corasick v1.1.4
+  Downloaded cfg-if v1.0.4
+  Downloaded itoa v1.0.18
+  Downloaded regex-syntax v0.8.11
+  Downloaded serde_json v1.0.151
+  Downloaded regex v1.13.1
+  Downloaded block-buffer v0.10.4
+  Downloaded serde_core v1.0.229
+  Downloaded cpufeatures v0.2.17
+  Downloaded zmij v1.0.23
+  Downloaded typenum v1.20.1
+  Downloaded regex-automata v0.4.16
+  Downloaded version_check v0.9.5
+  Downloaded sha2 v0.10.9
+  Downloaded crypto-common v0.1.7
+  Downloaded generic-array v0.14.7
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling memchr v2.8.3
+   Compiling zmij v1.0.23
+   Compiling serde_core v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling regex-syntax v0.8.11
+   Compiling cfg-if v1.0.4
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling generic-array v0.14.7
+   Compiling aho-corasick v1.1.4
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling regex-automata v0.4.16
+   Compiling regex v1.13.1
+   Compiling safere-regex-benchmark v0.1.0 (/home/eaftan/safere-benchmarks/safere-benchmarks/rust)
+    Finished `release` profile [optimized] target(s) in 6.48s
+=== Running Rust regex timing benchmarks ===
+{"benchmark":"RegexBenchmark.literalMatch","engine":"rust_regex","error":0.235,"score":39.187,"unit":"ns/op"}
+{"benchmark":"RegexBenchmark.charClassMatch","engine":"rust_regex","error":0.365,"score":76.779,"unit":"ns/op"}
+{"benchmark":"RegexBenchmark.alternationFind","engine":"rust_regex","error":0.38,"score":98.993,"unit":"ns/op"}
+{"benchmark":"RegexBenchmark.findInText","engine":"rust_regex","error":3.354,"score":653.776,"unit":"ns/op"}
+{"benchmark":"RegexBenchmark.emailFind","engine":"rust_regex","error":0.576,"score":96.445,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.uuidValidation","engine":"rust_regex","error":0.667,"score":171.188,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.logLineParse","engine":"rust_regex","error":7.17,"score":1629.326,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.apiRouteMatch","engine":"rust_regex","error":3.369,"score":419.451,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.stackTraceExtract","engine":"rust_regex","error":10.229,"score":2176.164,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.caseInsensitiveKeywords","engine":"rust_regex","error":1.721,"score":450.951,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.urlExtraction","engine":"rust_regex","error":2.817,"score":502.399,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.csvFieldScan","engine":"rust_regex","error":3.405,"score":854.793,"unit":"ns/op"}
+{"benchmark":"ApplicationBenchmark.secretRedaction","engine":"rust_regex","error":5.869,"score":799.898,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.mapFieldPath.match.1000","engine":"rust_regex","error":0.27,"score":66.822,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.mapFieldPath.match.10000","engine":"rust_regex","error":0.506,"score":66.648,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.mapFieldPath.match.100000","engine":"rust_regex","error":0.368,"score":66.763,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.mapFieldPath.noMatch.1000","engine":"rust_regex","error":8.101,"score":1273.872,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.mapFieldPath.noMatch.10000","engine":"rust_regex","error":51.955,"score":12457.493,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.mapFieldPath.noMatch.100000","engine":"rust_regex","error":891.114,"score":124162.113,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupImageLink.match.1000","engine":"rust_regex","error":25.513,"score":2789.706,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupImageLink.match.10000","engine":"rust_regex","error":83.544,"score":26766.035,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupImageLink.match.100000","engine":"rust_regex","error":1189.714,"score":269917.804,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupImageLink.noMatch.1000","engine":"rust_regex","error":3.875,"score":1392.778,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupImageLink.noMatch.10000","engine":"rust_regex","error":88.166,"score":13154.125,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupImageLink.noMatch.100000","engine":"rust_regex","error":1153.695,"score":133601.045,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.versionList.match.1000","engine":"rust_regex","error":43.143,"score":4917.751,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.versionList.match.10000","engine":"rust_regex","error":309.961,"score":50773.111,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.versionList.match.100000","engine":"rust_regex","error":1383.658,"score":468697.513,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.versionList.noMatch.1000","engine":"rust_regex","error":4.907,"score":1316.089,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.versionList.noMatch.10000","engine":"rust_regex","error":82.123,"score":12547.165,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.versionList.noMatch.100000","engine":"rust_regex","error":686.746,"score":126074.393,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.malformedEntity.match.1000","engine":"rust_regex","error":31.063,"score":3531.948,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.malformedEntity.match.10000","engine":"rust_regex","error":234.306,"score":33896.939,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.malformedEntity.match.100000","engine":"rust_regex","error":1710.075,"score":341519.447,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.malformedEntity.noMatch.1000","engine":"rust_regex","error":8.427,"score":1264.18,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.malformedEntity.noMatch.10000","engine":"rust_regex","error":65.729,"score":12068.885,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.malformedEntity.noMatch.100000","engine":"rust_regex","error":791.228,"score":121377.899,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupEntity.match.1000","engine":"rust_regex","error":0.33,"score":75.277,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupEntity.match.10000","engine":"rust_regex","error":0.308,"score":68.778,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupEntity.match.100000","engine":"rust_regex","error":0.346,"score":67.765,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupEntity.noMatch.1000","engine":"rust_regex","error":0.317,"score":58.092,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupEntity.noMatch.10000","engine":"rust_regex","error":1.547,"score":264.035,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.markupEntity.noMatch.100000","engine":"rust_regex","error":11.163,"score":2392.172,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.customProtocolLink.match.1000","engine":"rust_regex","error":0.465,"score":89.416,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.customProtocolLink.match.10000","engine":"rust_regex","error":0.291,"score":91.121,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.customProtocolLink.match.100000","engine":"rust_regex","error":0.482,"score":89.629,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.customProtocolLink.noMatch.1000","engine":"rust_regex","error":3.185,"score":1287.78,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.customProtocolLink.noMatch.10000","engine":"rust_regex","error":54.704,"score":12428.985,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.customProtocolLink.noMatch.100000","engine":"rust_regex","error":351.408,"score":124554.958,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.wildcardSearch.match.1000","engine":"rust_regex","error":0.25,"score":60.847,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.wildcardSearch.match.10000","engine":"rust_regex","error":0.131,"score":61.082,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.wildcardSearch.match.100000","engine":"rust_regex","error":0.606,"score":58.84,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.wildcardSearch.noMatch.1000","engine":"rust_regex","error":2.999,"score":1275.724,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.wildcardSearch.noMatch.10000","engine":"rust_regex","error":21.305,"score":12464.278,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.wildcardSearch.noMatch.100000","engine":"rust_regex","error":144.166,"score":124466.394,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.metadataBlock.match.1000","engine":"rust_regex","error":17.429,"score":2651.31,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.metadataBlock.match.10000","engine":"rust_regex","error":177.496,"score":25879.248,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.metadataBlock.match.100000","engine":"rust_regex","error":1578.601,"score":264967.116,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.metadataBlock.noMatch.1000","engine":"rust_regex","error":3.941,"score":1306.513,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.metadataBlock.noMatch.10000","engine":"rust_regex","error":37.67,"score":12551.24,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.metadataBlock.noMatch.100000","engine":"rust_regex","error":595.67,"score":126288.074,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags1.match.1000","engine":"rust_regex","error":8.142,"score":2684.587,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags1.match.10000","engine":"rust_regex","error":123.651,"score":26532.9,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags1.match.100000","engine":"rust_regex","error":1487.273,"score":272552.157,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags1.noMatch.1000","engine":"rust_regex","error":6.761,"score":877.874,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags1.noMatch.10000","engine":"rust_regex","error":68.416,"score":8122.86,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags1.noMatch.100000","engine":"rust_regex","error":935.668,"score":81451.486,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags2.match.1000","engine":"rust_regex","error":54.769,"score":2840.762,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags2.match.10000","engine":"rust_regex","error":78.175,"score":26143.77,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags2.match.100000","engine":"rust_regex","error":1524.19,"score":260245.44,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags2.noMatch.1000","engine":"rust_regex","error":6.039,"score":728.311,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags2.noMatch.10000","engine":"rust_regex","error":54.535,"score":6534.485,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.blockedTags2.noMatch.100000","engine":"rust_regex","error":404.276,"score":66086.851,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.overlappingUrl.match.1000","engine":"rust_regex","error":29.065,"score":4099.756,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.overlappingUrl.match.10000","engine":"rust_regex","error":153.301,"score":39934.936,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.overlappingUrl.match.100000","engine":"rust_regex","error":1321.923,"score":399951.245,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.overlappingUrl.noMatch.1000","engine":"rust_regex","error":0.531,"score":137.975,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.overlappingUrl.noMatch.10000","engine":"rust_regex","error":6.443,"score":856.765,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.overlappingUrl.noMatch.100000","engine":"rust_regex","error":106.777,"score":9101.793,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.match.1000","engine":"rust_regex","error":26.774,"score":4624.474,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.match.10000","engine":"rust_regex","error":378.736,"score":48864.868,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.match.100000","engine":"rust_regex","error":6695.599,"score":464515.497,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.noMatch.1000","engine":"rust_regex","error":6.437,"score":158.423,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.noMatch.10000","engine":"rust_regex","error":14.023,"score":867.098,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.caseInsensitiveKeyword.noMatch.100000","engine":"rust_regex","error":131.002,"score":8887.645,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.match.1000","engine":"rust_regex","error":53.483,"score":4741.941,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.match.10000","engine":"rust_regex","error":639.276,"score":45984.064,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.match.100000","engine":"rust_regex","error":8111.106,"score":475888.924,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.noMatch.1000","engine":"rust_regex","error":8.963,"score":671.569,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.noMatch.10000","engine":"rust_regex","error":59.289,"score":5912.154,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.boundedNameMatch.noMatch.100000","engine":"rust_regex","error":1480.153,"score":58995.581,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.templateTagMatch.match.1000","engine":"rust_regex","error":54.412,"score":2122.04,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.templateTagMatch.match.10000","engine":"rust_regex","error":219.158,"score":20579.757,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.templateTagMatch.match.100000","engine":"rust_regex","error":2852.728,"score":211736.947,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.templateTagMatch.noMatch.1000","engine":"rust_regex","error":0.725,"score":80.052,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.templateTagMatch.noMatch.10000","engine":"rust_regex","error":4.064,"score":345.298,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.templateTagMatch.noMatch.100000","engine":"rust_regex","error":46.153,"score":3791.569,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.sparseUrl.match.1000","engine":"rust_regex","error":9.54,"score":358.056,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.sparseUrl.match.10000","engine":"rust_regex","error":34.115,"score":4499.676,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.sparseUrl.match.100000","engine":"rust_regex","error":749.608,"score":47994.574,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.sparseUrl.noMatch.1000","engine":"rust_regex","error":2.438,"score":137.09,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.sparseUrl.noMatch.10000","engine":"rust_regex","error":6.246,"score":836.999,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.sparseUrl.noMatch.100000","engine":"rust_regex","error":88.517,"score":9143.951,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.match.1000","engine":"rust_regex","error":0.898,"score":48.831,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.match.10000","engine":"rust_regex","error":0.745,"score":45.94,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.match.100000","engine":"rust_regex","error":0.254,"score":46.329,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.noMatch.1000","engine":"rust_regex","error":8.156,"score":1276.308,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.noMatch.10000","engine":"rust_regex","error":196.595,"score":12426.056,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.unprefixedWordBoundary.noMatch.100000","engine":"rust_regex","error":1716.688,"score":124384.036,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.match.1000","engine":"rust_regex","error":43.169,"score":9325.882,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.match.10000","engine":"rust_regex","error":1120.818,"score":86474.18,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.match.100000","engine":"rust_regex","error":159352.007,"score":8823554.929,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.noMatch.1000","engine":"rust_regex","error":20.163,"score":1313.845,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.noMatch.10000","engine":"rust_regex","error":111.484,"score":12612.979,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitSearchQuery.noMatch.100000","engine":"rust_regex","error":1349.074,"score":125817.732,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.match.1000","engine":"rust_regex","error":30.065,"score":2297.898,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.match.10000","engine":"rust_regex","error":275.3,"score":21395.931,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.match.100000","engine":"rust_regex","error":2517.999,"score":213110.304,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.noMatch.1000","engine":"rust_regex","error":13.503,"score":1135.131,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.noMatch.10000","engine":"rust_regex","error":142.415,"score":9856.69,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.fruitMarkupTag.noMatch.100000","engine":"rust_regex","error":1839.629,"score":100524.211,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.jsonBlock.match.1000","engine":"rust_regex","error":14.652,"score":1760.148,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.jsonBlock.match.10000","engine":"rust_regex","error":163.997,"score":15935.973,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.jsonBlock.match.100000","engine":"rust_regex","error":2329.441,"score":159256.959,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.jsonBlock.noMatch.1000","engine":"rust_regex","error":1.504,"score":83.175,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.jsonBlock.noMatch.10000","engine":"rust_regex","error":0.868,"score":249.561,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.jsonBlock.noMatch.100000","engine":"rust_regex","error":43.434,"score":2539.29,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.charReplace.match.1000","engine":"rust_regex","error":130.929,"score":7992.081,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.charReplace.match.10000","engine":"rust_regex","error":910.9,"score":76248.151,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.charReplace.match.100000","engine":"rust_regex","error":4713.943,"score":773062.091,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.charReplace.noMatch.1000","engine":"rust_regex","error":0.782,"score":54.945,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.charReplace.noMatch.10000","engine":"rust_regex","error":2.961,"score":171.82,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.charReplace.noMatch.100000","engine":"rust_regex","error":29.214,"score":2470.972,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.greedyOnePass.match.1000","engine":"rust_regex","error":11.036,"score":1280.805,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.greedyOnePass.match.10000","engine":"rust_regex","error":170.312,"score":12409.437,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.greedyOnePass.match.100000","engine":"rust_regex","error":2258.334,"score":124064.618,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.greedyOnePass.noMatch.1000","engine":"rust_regex","error":0.414,"score":29.154,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.greedyOnePass.noMatch.10000","engine":"rust_regex","error":0.246,"score":28.588,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.greedyOnePass.noMatch.100000","engine":"rust_regex","error":0.459,"score":28.358,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.layoutBlock.match.1000","engine":"rust_regex","error":37.827,"score":1708.274,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.layoutBlock.match.10000","engine":"rust_regex","error":234.475,"score":18272.335,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.layoutBlock.match.100000","engine":"rust_regex","error":1348.428,"score":183713.274,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.layoutBlock.noMatch.1000","engine":"rust_regex","error":5.337,"score":364.702,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.layoutBlock.noMatch.10000","engine":"rust_regex","error":55.038,"score":3079.039,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.layoutBlock.noMatch.100000","engine":"rust_regex","error":196.319,"score":30944.158,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.match.1000","engine":"rust_regex","error":79.197,"score":7357.181,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.match.10000","engine":"rust_regex","error":1191.754,"score":74392.72,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.match.100000","engine":"rust_regex","error":14547.454,"score":731937.392,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.noMatch.1000","engine":"rust_regex","error":24.818,"score":4814.451,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.noMatch.10000","engine":"rust_regex","error":459.437,"score":46972.488,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.turnTitleWhitespaceCjk.noMatch.100000","engine":"rust_regex","error":7987.894,"score":472189.598,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.cjkSearch.match.1000","engine":"rust_regex","error":0.855,"score":44.735,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.cjkSearch.match.10000","engine":"rust_regex","error":0.196,"score":44.25,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.cjkSearch.match.100000","engine":"rust_regex","error":0.571,"score":43.365,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.cjkSearch.noMatch.1000","engine":"rust_regex","error":20.24,"score":1270.12,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.cjkSearch.noMatch.10000","engine":"rust_regex","error":228.1,"score":12417.117,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.cjkSearch.noMatch.100000","engine":"rust_regex","error":1034.841,"score":125127.75,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.emojiSearch.match.1000","engine":"rust_regex","error":0.607,"score":43.179,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.emojiSearch.match.10000","engine":"rust_regex","error":0.724,"score":42.935,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.emojiSearch.match.100000","engine":"rust_regex","error":0.975,"score":46.362,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.emojiSearch.noMatch.1000","engine":"rust_regex","error":0.886,"score":105.392,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.emojiSearch.noMatch.10000","engine":"rust_regex","error":11.527,"score":768.055,"unit":"ns/op"}
+{"benchmark":"RealWorldRegexBenchmark.runBenchmark.emojiSearch.noMatch.100000","engine":"rust_regex","error":125.148,"score":7433.237,"unit":"ns/op"}
+{"benchmark":"HttpBenchmark.httpFull","engine":"rust_regex","error":5.43,"score":263.474,"unit":"ns/op"}
+{"benchmark":"HttpBenchmark.httpSmall","engine":"rust_regex","error":0.936,"score":95.34,"unit":"ns/op"}
+{"benchmark":"HttpBenchmark.httpExtract","engine":"rust_regex","error":5.349,"score":276.04,"unit":"ns/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasyFail.1024","engine":"rust_regex","error":0.001,"score":0.033,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasySuccess.1024","engine":"rust_regex","error":0.001,"score":0.068,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchMediumFail.1024","engine":"rust_regex","error":0.0,"score":0.031,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchHardFail.1024","engine":"rust_regex","error":0.001,"score":0.03,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.findIngScaled.1024","engine":"rust_regex","error":0.025,"score":1.524,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasyFail.10240","engine":"rust_regex","error":0.002,"score":0.033,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasySuccess.10240","engine":"rust_regex","error":0.002,"score":0.07,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchMediumFail.10240","engine":"rust_regex","error":0.001,"score":0.03,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchHardFail.10240","engine":"rust_regex","error":0.002,"score":0.032,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.findIngScaled.10240","engine":"rust_regex","error":0.246,"score":14.402,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasyFail.102400","engine":"rust_regex","error":0.0,"score":0.031,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasySuccess.102400","engine":"rust_regex","error":0.001,"score":0.067,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchMediumFail.102400","engine":"rust_regex","error":0.001,"score":0.032,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchHardFail.102400","engine":"rust_regex","error":0.001,"score":0.032,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.findIngScaled.102400","engine":"rust_regex","error":1.675,"score":139.492,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasyFail.1048576","engine":"rust_regex","error":0.001,"score":0.031,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchEasySuccess.1048576","engine":"rust_regex","error":0.002,"score":0.068,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchMediumFail.1048576","engine":"rust_regex","error":0.0,"score":0.031,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.searchHardFail.1048576","engine":"rust_regex","error":0.001,"score":0.032,"unit":"us/op"}
+{"benchmark":"SearchScalingBenchmark.findIngScaled.1048576","engine":"rust_regex","error":23.131,"score":1418.754,"unit":"us/op"}
+{"benchmark":"FanoutBenchmark.fanoutUnicode.1024","engine":"rust_regex","error":0.001,"score":0.037,"unit":"us/op"}
+{"benchmark":"FanoutBenchmark.nestedQuantifier.1024","engine":"rust_regex","error":0.007,"score":1.317,"unit":"us/op"}
+{"benchmark":"FanoutBenchmark.fanoutUnicode.10240","engine":"rust_regex","error":0.001,"score":0.036,"unit":"us/op"}
+{"benchmark":"FanoutBenchmark.nestedQuantifier.10240","engine":"rust_regex","error":0.208,"score":12.696,"unit":"us/op"}
+{"benchmark":"FanoutBenchmark.fanoutUnicode.102400","engine":"rust_regex","error":0.001,"score":0.036,"unit":"us/op"}
+{"benchmark":"FanoutBenchmark.nestedQuantifier.102400","engine":"rust_regex","error":0.645,"score":128.375,"unit":"us/op"}
+{"benchmark":"CompileBenchmark.compileSimple","engine":"rust_regex","error":0.018,"score":1.776,"unit":"us/op"}
+{"benchmark":"CompileBenchmark.compileMedium","engine":"rust_regex","error":2.643,"score":149.11,"unit":"us/op"}
+{"benchmark":"CompileBenchmark.compileComplex","engine":"rust_regex","error":0.298,"score":13.581,"unit":"us/op"}
+{"benchmark":"CompileBenchmark.compileAlternation","engine":"rust_regex","error":0.553,"score":58.28,"unit":"us/op"}
+{"benchmark":"CaptureScalingBenchmark.capture0","engine":"rust_regex","error":0.602,"score":47.711,"unit":"ns/op"}
+{"benchmark":"CaptureScalingBenchmark.capture1","engine":"rust_regex","error":1.902,"score":114.188,"unit":"ns/op"}
+{"benchmark":"CaptureScalingBenchmark.capture3","engine":"rust_regex","error":2.733,"score":134.08,"unit":"ns/op"}
+{"benchmark":"CaptureScalingBenchmark.capture10","engine":"rust_regex","error":1.543,"score":185.096,"unit":"ns/op"}
+{"benchmark":"RegexBenchmark.captureGroups","engine":"rust_regex","error":1.739,"score":119.041,"unit":"ns/op"}
+{"benchmark":"ReplaceBenchmark.literalReplaceFirst","engine":"rust_regex","error":1.555,"score":68.647,"unit":"ns/op"}
+{"benchmark":"ReplaceBenchmark.literalReplaceFirstNoMatch","engine":"rust_regex","error":1.49,"score":71.12,"unit":"ns/op"}
+{"benchmark":"ReplaceBenchmark.literalReplaceAll","engine":"rust_regex","error":2.26,"score":130.633,"unit":"ns/op"}
+{"benchmark":"ReplaceBenchmark.pigLatinReplaceAll","engine":"rust_regex","error":27.556,"score":1700.226,"unit":"ns/op"}
+{"benchmark":"ReplaceBenchmark.digitReplaceAll","engine":"rust_regex","error":9.629,"score":467.697,"unit":"ns/op"}
+{"benchmark":"ReplaceBenchmark.emptyReplaceAll","engine":"rust_regex","error":5.052,"score":244.336,"unit":"ns/op"}
+{"benchmark":"Issue481ScalingBenchmark.splitWords.128","engine":"rust_regex","error":0.008,"score":0.869,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFind.128","engine":"rust_regex","error":0.004,"score":0.181,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFindNegative.128","engine":"rust_regex","error":0.003,"score":0.19,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFind.128","engine":"rust_regex","error":0.002,"score":0.084,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFindNegative.128","engine":"rust_regex","error":0.001,"score":0.036,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeExtract.128","engine":"rust_regex","error":0.013,"score":0.737,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeFindNegative.128","engine":"rust_regex","error":0.002,"score":0.133,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.splitWords.1024","engine":"rust_regex","error":0.14,"score":6.367,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFind.1024","engine":"rust_regex","error":0.01,"score":1.302,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFindNegative.1024","engine":"rust_regex","error":0.025,"score":1.296,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFind.1024","engine":"rust_regex","error":0.003,"score":0.103,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFindNegative.1024","engine":"rust_regex","error":0.001,"score":0.061,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeExtract.1024","engine":"rust_regex","error":0.018,"score":1.896,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeFindNegative.1024","engine":"rust_regex","error":0.002,"score":0.137,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.splitWords.10240","engine":"rust_regex","error":1.175,"score":61.893,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFind.10240","engine":"rust_regex","error":0.192,"score":12.826,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFindNegative.10240","engine":"rust_regex","error":0.139,"score":12.809,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFind.10240","engine":"rust_regex","error":0.006,"score":0.318,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFindNegative.10240","engine":"rust_regex","error":0.006,"score":0.272,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeExtract.10240","engine":"rust_regex","error":0.219,"score":13.503,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeFindNegative.10240","engine":"rust_regex","error":0.002,"score":0.198,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.splitWords.102400","engine":"rust_regex","error":12.039,"score":607.894,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFind.102400","engine":"rust_regex","error":2.825,"score":127.234,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFindNegative.102400","engine":"rust_regex","error":0.944,"score":128.371,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFind.102400","engine":"rust_regex","error":0.029,"score":2.53,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFindNegative.102400","engine":"rust_regex","error":0.077,"score":2.475,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeExtract.102400","engine":"rust_regex","error":3.0,"score":129.19,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeFindNegative.102400","engine":"rust_regex","error":0.009,"score":0.977,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.splitWords.1048576","engine":"rust_regex","error":77.919,"score":6260.514,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFind.1048576","engine":"rust_regex","error":24.792,"score":1301.882,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.blockFindNegative.1048576","engine":"rust_regex","error":32.816,"score":1305.084,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFind.1048576","engine":"rust_regex","error":0.591,"score":26.353,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.tagFindNegative.1048576","engine":"rust_regex","error":0.415,"score":26.2,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeExtract.1048576","engine":"rust_regex","error":23.91,"score":1327.925,"unit":"us/op"}
+{"benchmark":"Issue481ScalingBenchmark.schemeFindNegative.1048576","engine":"rust_regex","error":0.556,"score":14.305,"unit":"us/op"}
+{"benchmark":"Issue488ReplaceAllBenchmark.lazyAlt.1000","engine":"rust_regex","error":0.013,"score":2.156,"unit":"us/op"}
+{"benchmark":"Issue488ReplaceAllBenchmark.altCapture.1000","engine":"rust_regex","error":0.009,"score":0.574,"unit":"us/op"}
+{"benchmark":"Issue488ReplaceAllBenchmark.lazyAlt.10000","engine":"rust_regex","error":0.4,"score":19.022,"unit":"us/op"}
+{"benchmark":"Issue488ReplaceAllBenchmark.altCapture.10000","engine":"rust_regex","error":0.08,"score":3.498,"unit":"us/op"}
+{"benchmark":"Issue488ReplaceAllBenchmark.lazyAlt.100000","engine":"rust_regex","error":1.233,"score":191.809,"unit":"us/op"}
+{"benchmark":"Issue488ReplaceAllBenchmark.altCapture.100000","engine":"rust_regex","error":0.596,"score":33.511,"unit":"us/op"}
+{"benchmark":"ScrubberBenchmark.scrubNoDirectives","engine":"rust_regex","error":1602.807,"score":67066.95,"unit":"ns/op"}
+{"benchmark":"ScrubberBenchmark.scrubWithDirectives","engine":"rust_regex","error":6937.26,"score":289702.06,"unit":"ns/op"}
+{"benchmark":"PathologicalComparisonBenchmark.pathological.10","engine":"rust_regex","error":0.0,"score":0.047,"unit":"us/op"}
+{"benchmark":"PathologicalComparisonBenchmark.pathological.15","engine":"rust_regex","error":0.001,"score":0.053,"unit":"us/op"}
+{"benchmark":"PathologicalComparisonBenchmark.pathological.20","engine":"rust_regex","error":0.001,"score":0.058,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.10","engine":"rust_regex","error":0.001,"score":0.047,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.15","engine":"rust_regex","error":0.0,"score":0.054,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.20","engine":"rust_regex","error":0.001,"score":0.058,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.25","engine":"rust_regex","error":0.001,"score":0.064,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.30","engine":"rust_regex","error":0.0,"score":0.071,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.50","engine":"rust_regex","error":0.002,"score":0.097,"unit":"us/op"}
+{"benchmark":"PathologicalBenchmark.pathological.100","engine":"rust_regex","error":0.004,"score":0.16,"unit":"us/op"}
+{"benchmark":"Utf8MatchingBenchmark.captureFreeBytes.asciiEarly","engine":"rust_regex","error":0.702,"score":30.335,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.captureFreeBytes.asciiLate","engine":"rust_regex","error":0.248,"score":29.624,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.captureFreeBytes.asciiNoMatch","engine":"rust_regex","error":1.121,"score":32.12,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.captureFreeBytes.multibyteEarly","engine":"rust_regex","error":0.658,"score":29.424,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.captureFreeBytes.multibyteLate","engine":"rust_regex","error":0.188,"score":29.813,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.captureFreeBytes.multibyteNoMatch","engine":"rust_regex","error":0.255,"score":33.954,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.requiredClassNonmatchBytes","engine":"rust_regex","error":93.292,"score":12678.03,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.requiredSingleAsciiNonmatchBytes","engine":"rust_regex","error":709.988,"score":41651.037,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.asciiRangePrefixNonmatchBytes","engine":"rust_regex","error":0.683,"score":248.499,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.literalPrefixNonmatchBytes","engine":"rust_regex","error":1.644,"score":251.357,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findPair.shortFirst","engine":"rust_regex","error":0.163,"score":43.37,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findRange.shortFirst","engine":"rust_regex","error":0.229,"score":40.675,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findPair.shortAbsent","engine":"rust_regex","error":0.423,"score":34.896,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findRange.shortAbsent","engine":"rust_regex","error":1.092,"score":356.017,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findPair.longAbsent","engine":"rust_regex","error":3.03,"score":901.107,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findRange.longAbsent","engine":"rust_regex","error":124.932,"score":41746.279,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findPair.longLate","engine":"rust_regex","error":7.085,"score":913.639,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.findRange.longLate","engine":"rust_regex","error":173.317,"score":41826.203,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.countPair.sparse","engine":"rust_regex","error":44.614,"score":5892.831,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.countRange.sparse","engine":"rust_regex","error":357.265,"score":48049.396,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.countPair.dense","engine":"rust_regex","error":1060.052,"score":289008.147,"unit":"ns/op"}
+{"benchmark":"Utf8AsciiPrefixBenchmark.countRange.dense","engine":"rust_regex","error":747.305,"score":170453.105,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.findDigitsWithoutSlash","engine":"rust_regex","error":2.016,"score":248.026,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.findSlashNoise","engine":"rust_regex","error":79.146,"score":20084.118,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.findSparse.511","engine":"rust_regex","error":1.323,"score":217.542,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.findSparse.63","engine":"rust_regex","error":1.0,"score":82.217,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.findSparse.7","engine":"rust_regex","error":0.549,"score":67.149,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.findSparse.1","engine":"rust_regex","error":0.543,"score":65.867,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.countSparse.511","engine":"rust_regex","error":1.455,"score":307.75,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.countSparse.63","engine":"rust_regex","error":3.463,"score":833.492,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.countSparse.7","engine":"rust_regex","error":56.669,"score":4886.522,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.countSparse.1","engine":"rust_regex","error":512.917,"score":25871.339,"unit":"ns/op"}
+{"benchmark":"FixedOffsetAccelerationBenchmark.countDenseDigitsAndSlashes","engine":"rust_regex","error":213.529,"score":50932.187,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.literalScan.fourByte","engine":"rust_regex","error":7.793,"score":809.669,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.literalScan.shortWord","engine":"rust_regex","error":3.647,"score":809.339,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.literalScan.longWord","engine":"rust_regex","error":5.232,"score":816.306,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.hardFailure.1024","engine":"rust_regex","error":0.203,"score":31.149,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.hardFailure.10240","engine":"rust_regex","error":0.101,"score":31.162,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.hardFailure.102400","engine":"rust_regex","error":1.005,"score":33.131,"unit":"ns/op"}
+{"benchmark":"Utf8MatchingBenchmark.hardFailure.1048576","engine":"rust_regex","error":0.74,"score":33.159,"unit":"ns/op"}
+=== Building Rust regex memory benchmarks ===
+   Compiling safere-regex-benchmark v0.1.0 (/home/eaftan/safere-benchmarks/safere-benchmarks/rust)
+    Finished `release` profile [optimized] target(s) in 0.89s
+=== Running Rust regex memory benchmarks ===
+{"benchmark":"MemoryBenchmark.compileSimple","engine":"rust_regex","error":0,"score":2957,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.compileMedium","engine":"rust_regex","error":0,"score":16494,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.compileComplex","engine":"rust_regex","error":0,"score":7876,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.compileAlternation","engine":"rust_regex","error":0,"score":17908,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.literalMatch","engine":"rust_regex","error":0,"score":2957,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.charClassMatch","engine":"rust_regex","error":0,"score":5832,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.alternationFind","engine":"rust_regex","error":0,"score":11049,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.captureGroups","engine":"rust_regex","error":0,"score":13894,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.findInText","engine":"rust_regex","error":0,"score":6120,"unit":"bytes"}
+{"benchmark":"MemoryBenchmark.emailFind","engine":"rust_regex","error":0,"score":7876,"unit":"bytes"}

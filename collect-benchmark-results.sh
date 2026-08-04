@@ -285,6 +285,7 @@ fi
 log "Generating markdown tables"
 COMPARE_ARGS+=(--engines "$COMPARE_ENGINES")
 COMPARE_ARGS+=(--declared-plan "$OUTPUT_DIR/declared-report-plan.json")
+COMPARE_ARGS+=(--output-jsonl "$OUTPUT_DIR/normalized-results.jsonl")
 python3 safere-benchmarks/scripts/compare-benchmarks.py "${COMPARE_ARGS[@]}" \
   > "$OUTPUT_DIR/merged-tables.md"
 
@@ -339,6 +340,7 @@ Point the agent at:
 
 Key files:
   jmh-output.txt
+  normalized-results.jsonl
   declared-report-plan.json
   merged-tables.md
   java-memory.txt

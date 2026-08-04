@@ -553,6 +553,7 @@ The important files in that directory are:
 
 ```text
 jmh-output.txt
+normalized-results.jsonl
 declared-report-plan.json
 merged-tables.md
 java-memory.txt
@@ -568,6 +569,12 @@ rust-results.jsonl
 dotnet-results.jsonl
 cross-runtime-tables.md
 ```
+
+`normalized-results.jsonl` combines the parsed Java and selected native
+measurements into the common engine/benchmark/score/error/unit schema used by
+the comparison tooling. Reviewed result sets supporting published claims are
+retained under `benchmark-results/published/<full-SafeRE-commit>/`; other
+timestamped result directories remain local and ignored by Git.
 
 Default runs also include:
 

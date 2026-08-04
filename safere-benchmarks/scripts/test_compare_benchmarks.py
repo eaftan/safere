@@ -165,5 +165,43 @@ class CrossEngineResultParsingTest(unittest.TestCase):
 
         self.assertEqual(results[0].engine, "rust")
 
+    def test_serializes_normalized_results_as_json_lines(self):
+        output = COMPARE.generate_jsonl([
+            COMPARE.Result(
+                "safere",
+                "RegexBenchmark.literalMatch",
+                23.7,
+                1.2,
+                "ns/op",
+            ),
+            COMPARE.Result(
+                "rust",
+                "RegexBenchmark.literalMatch",
+                39.2,
+                0.8,
+                "ns/op",
+            ),
+        ])
+
+        self.assertEqual(
+            [json.loads(line) for line in output.splitlines()],
+            [
+                {
+                    "engine": "safere",
+                    "benchmark": "RegexBenchmark.literalMatch",
+                    "score": 23.7,
+                    "error": 1.2,
+                    "unit": "ns/op",
+                },
+                {
+                    "engine": "rust",
+                    "benchmark": "RegexBenchmark.literalMatch",
+                    "score": 39.2,
+                    "error": 0.8,
+                    "unit": "ns/op",
+                },
+            ],
+        )
+
 if __name__ == "__main__":
     unittest.main()
