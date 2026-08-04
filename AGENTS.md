@@ -7,7 +7,7 @@ SafeRE is a linear-time regular expression matching library for Java, modeled on
 The RE2/J (Java) reference is in `re2j-reference/`.
 
 - **Package**: `org.safere`
-- **Java version**: 21 (LTS) — built and tested with OpenJDK 25
+- **Java version**: 21 (LTS) — built with OpenJDK 26 and tested on JDK 21 through 26
 - **Build**: Maven (`mvn`)
 - **Tests**: JUnit 6 (6.0.3), AssertJ
 - **Coverage**: JaCoCo
@@ -509,7 +509,7 @@ asprof collect -d 30 -e cpu -o flat -I 'org.safere.*' -f /tmp/safere-cpu.txt <pi
 
 ### Java Flight Recorder (JFR)
 
-JFR is built into OpenJDK 25 and always available. It's best for allocation
+JFR is built into OpenJDK 26 and always available. It's best for allocation
 profiling and event-based analysis.
 
 **Record to file:**

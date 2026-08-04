@@ -34,7 +34,7 @@ Install the following:
 
 | Tool | Requirement | Installation |
 |---|---|---|
-| JDK | JDK 25, matching `.sdkmanrc` | [Eclipse Temurin installation guide](https://adoptium.net/installation/) |
+| JDK | JDK 26, matching `.sdkmanrc` | [Eclipse Temurin installation guide](https://adoptium.net/installation/) |
 | Maven | Maven available as `mvn` | [Apache Maven installation guide](https://maven.apache.org/install.html) |
 | Bash | Required by the repository runner scripts | Install [GNU Bash](https://www.gnu.org/software/bash/) from the operating system's package source |
 

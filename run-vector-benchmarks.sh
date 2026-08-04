@@ -11,6 +11,7 @@ BENCHMARK_JAR="$SCRIPT_DIR/safere-vector-benchmarks/target/benchmarks.jar"
 BENCHMARK_CORPUS="$SCRIPT_DIR/safere-benchmarks/target/benchmark-corpus"
 MODE="standard"
 FASTBUILD=false
+NO_BUILD=false
 END_TO_END=false
 PROVIDER="both"
 TRIAL_OVERRIDE=""
@@ -29,6 +30,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --fastbuild)
       FASTBUILD=true
+      shift
+      ;;
+    --no-build)
+      NO_BUILD=true
       shift
       ;;
     --end-to-end)
@@ -65,7 +70,7 @@ while [ "$#" -gt 0 ]; do
       set --
       ;;
     *)
-      echo "Usage: $0 [--smoke|--long] [--fastbuild] [--end-to-end] [--provider swar|vector|both] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
+      echo "Usage: $0 [--smoke|--long] [--fastbuild|--no-build] [--end-to-end] [--provider swar|vector|both] [--trials LIST] [--methods LIST] [-- JMH arguments]" >&2
       exit 2
       ;;
   esac
@@ -78,35 +83,40 @@ if [ "$JAVA_FEATURE" -lt 21 ] || [ "$JAVA_FEATURE" -gt 26 ]; then
   exit 1
 fi
 
-echo "=== Building SafeRE benchmark inputs ==="
-if [ "$FASTBUILD" = true ]; then
-  mvn -pl safere-benchmarks -am install \
-    -DskipTests \
-    -Dexec.skip=true \
-    -Dmaven.javadoc.skip=true \
+if [ "$NO_BUILD" = false ]; then
+  echo "=== Building SafeRE benchmark inputs ==="
+  if [ "$FASTBUILD" = true ]; then
+    mvn -pl safere-benchmarks -am install \
+      -Dmaven.test.skip=true \
+      -Dexec.skip=true \
+      -Dmaven.javadoc.skip=true \
+      -Dpmd.skip=true \
+      -Dspotless.check.skip=true \
+      -q \
+      -f "$SCRIPT_DIR/pom.xml"
+  else
+    mvn -pl safere-benchmarks -am install \
+      -Dmaven.test.skip=true \
+      -Dpmd.skip=true \
+      -Dspotless.check.skip=true \
+      -q \
+      -f "$SCRIPT_DIR/pom.xml"
+  fi
+
+  echo "=== Building Vector benchmark JAR ==="
+  mvn clean package \
+    -Dmaven.test.skip=true \
     -Dpmd.skip=true \
     -Dspotless.check.skip=true \
     -q \
-    -f "$SCRIPT_DIR/pom.xml"
-else
-  mvn -pl safere-benchmarks -am install \
-    -DskipTests \
-    -Dpmd.skip=true \
-    -Dspotless.check.skip=true \
-    -q \
-    -f "$SCRIPT_DIR/pom.xml"
+    -f "$SCRIPT_DIR/safere-vector-benchmarks/pom.xml"
+
+  echo "=== Materializing shared benchmark inputs ==="
+  "$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
+elif [ ! -f "$BENCHMARK_JAR" ] || [ ! -f "$BENCHMARK_CORPUS/manifest.json" ]; then
+  echo "ERROR: --no-build requires an existing benchmark JAR and materialized corpus" >&2
+  exit 1
 fi
-
-echo "=== Building Vector benchmark JAR ==="
-mvn clean package \
-  -DskipTests \
-  -Dpmd.skip=true \
-  -Dspotless.check.skip=true \
-  -q \
-  -f "$SCRIPT_DIR/safere-vector-benchmarks/pom.xml"
-
-echo "=== Materializing shared benchmark inputs ==="
-"$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
 
 JVM_ARGS=(
   --add-modules=jdk.incubator.vector

@@ -11,6 +11,11 @@ Run the smoke or standard configuration with any supported JDK (21 through 26):
 ./run-vector-benchmarks.sh
 ```
 
+The shared Java benchmark module targets JDK 22 because it includes the FFM engine. To measure the
+Vector provider on JDK 21, first build and materialize the benchmark artifacts with the production
+JDK 26 toolchain, then select JDK 21 and reuse those Java 21-compatible artifacts with
+`./run-vector-benchmarks.sh --no-build`.
+
 Use `--long` for confirmation runs and `--trials` to select comma-separated trial IDs from
 `safere-benchmarks/benchmark-data.json`. The runner passes `--add-modules=jdk.incubator.vector` to
 both the host JVM and JMH forks. All inputs and trial lists come from the shared benchmark data.

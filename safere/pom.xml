@@ -120,8 +120,9 @@ final class WorkCounterConfig {
               <goal>testCompile</goal>
             </goals>
             <configuration>
-              <compilerArgs>
+              <compilerArgs combine.self="override">
                 <arg>-Xlint</arg>
+                <arg>-Xlint:-incubating</arg>
                 <arg>-Werror</arg>
                 <!-- Error Prone runs as a javac plugin. -XDcompilePolicy=simple tells javac to
                      compile all files in a single batch (required by Error Prone). -->

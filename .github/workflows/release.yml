@@ -12,11 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 26
+      - name: Set up production JDK
         uses: actions/setup-java@v5.6.0
         with:
-          java-version: '26'
-          distribution: 'temurin'
+          java-version-file: .sdkmanrc
           cache: maven
           server-id: central
           server-username: MAVEN_CENTRAL_USERNAME

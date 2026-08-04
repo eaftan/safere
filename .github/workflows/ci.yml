@@ -63,9 +63,64 @@ jobs:
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
-  build-vector:
+  build-vector-runtime-artifacts:
     needs: changes
     if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up production JDK
+        uses: actions/setup-java@v5.6.0
+        with:
+          java-version-file: .sdkmanrc
+          cache: maven
+
+      - name: Compile production and runtime-test artifacts
+        run: |
+          mvn clean install -pl safere -am \
+            -DskipTests \
+            --batch-mode --no-transfer-progress
+          mvn clean process-test-classes \
+            -f safere-crosscheck/pom.xml \
+            -Pcrosscheck-public-api-tests \
+            -DskipTests \
+            --batch-mode --no-transfer-progress
+          mvn clean process-test-classes \
+            -f safere-exhaustive/pom.xml \
+            -DskipTests \
+            --batch-mode --no-transfer-progress
+
+      - name: Package regular runtime-test artifacts
+        run: |
+          mkdir -p .ci-artifacts
+          tar -czf .ci-artifacts/vector-runtime-tests.tar.gz \
+            safere/target \
+            safere-crosscheck/target \
+            safere-exhaustive/target
+          tar -C "$HOME/.m2/repository" \
+            -czf "$PWD/.ci-artifacts/safere-maven-repository.tar.gz" \
+            org/safere
+
+      - name: Compile and package work-counter runtime-test artifacts
+        run: |
+          mvn clean package -pl safere \
+            -Pwork-counters \
+            -DskipTests \
+            --batch-mode --no-transfer-progress
+          tar -czf .ci-artifacts/vector-work-counter-tests.tar.gz \
+            safere/target
+
+      - name: Upload runtime-test artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: vector-runtime-tests
+          path: .ci-artifacts/*.tar.gz
+          retention-days: 1
+
+  build-vector:
+    needs: build-vector-runtime-artifacts
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -75,29 +130,36 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK ${{ matrix.java }}
+      - name: Set up runtime JDK ${{ matrix.java }}
         uses: actions/setup-java@v5.6.0
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: maven
 
-      - name: Install SafeRE JAR
-        run: >
-          mvn install -pl safere -am
-          -DskipTests
-          --batch-mode --no-transfer-progress
+      - name: Download runtime-test artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: vector-runtime-tests
+          path: .ci-artifacts
+
+      - name: Restore runtime-test artifacts
+        run: |
+          mkdir -p "$HOME/.m2/repository"
+          tar -C "$HOME/.m2/repository" \
+            -xzf .ci-artifacts/safere-maven-repository.tar.gz
+          tar -xzf .ci-artifacts/vector-runtime-tests.tar.gz
 
       - name: Run full SafeRE tests with Vector enabled
         run: >
-          mvn clean test -pl safere
+          mvn jacoco:prepare-agent surefire:test -pl safere
           -Pvector-tests
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
       - name: Run public API crosscheck with Vector enabled
         run: >
-          mvn clean test
+          mvn surefire:test
           -f safere-crosscheck/pom.xml
           -Pcrosscheck-public-api-tests
           -DargLine="--add-modules=jdk.incubator.vector
@@ -107,7 +169,7 @@ jobs:
 
       - name: Run exhaustive validation tests with Vector enabled
         run: >
-          mvn clean test
+          mvn surefire:test
           -f safere-exhaustive/pom.xml
           -DargLine="--add-modules=jdk.incubator.vector
           -Dorg.safere.experimental.vectorScanProvider=vector"
@@ -115,11 +177,12 @@ jobs:
           --batch-mode --no-transfer-progress
 
       - name: Run work-counter scaling tests with Vector enabled
-        run: >
-          mvn clean test -pl safere
-          -Pwork-counters,vector-tests
-          -Dtest.parallelism=4
-          --batch-mode --no-transfer-progress
+        run: |
+          tar -xzf .ci-artifacts/vector-work-counter-tests.tar.gz
+          mvn jacoco:prepare-agent surefire:test -pl safere \
+            -Pwork-counters,vector-tests \
+            -Dtest.parallelism=4 \
+            --batch-mode --no-transfer-progress
 
   fuzz-regression:
     needs: changes
@@ -209,11 +272,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 26
+      - name: Set up production JDK
         uses: actions/setup-java@v5.6.0
         with:
-          java-version: '26'
-          distribution: 'temurin'
+          java-version-file: .sdkmanrc
           cache: maven
 
       - name: Check Vector source formatting
@@ -254,11 +316,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 25
+      - name: Set up production JDK
         uses: actions/setup-java@v5.6.0
         with:
-          java-version: '25'
-          distribution: 'temurin'
+          java-version-file: .sdkmanrc
           cache: maven
 
       - name: Materialize shared benchmark inputs
@@ -306,11 +367,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 25
+      - name: Set up production JDK
         uses: actions/setup-java@v5.6.0
         with:
-          java-version: '25'
-          distribution: 'temurin'
+          java-version-file: .sdkmanrc
           cache: maven
 
       - name: Set up Go
@@ -345,11 +405,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 25
+      - name: Set up production JDK
         uses: actions/setup-java@v5.6.0
         with:
-          java-version: '25'
-          distribution: 'temurin'
+          java-version-file: .sdkmanrc
           cache: maven
 
       - name: Set up Rust
