@@ -95,6 +95,12 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void keywordAlternationPreservesIndependentUtf8BoundaryModes() {
+    assertKeywordAlternationMatch("(?-U)\\b(?i)(foo|bar)(?U)\\b", "éfoo! fooé bar!", 0);
+    assertKeywordAlternationMatch("(?U)\\b(?i)(foo|bar)(?-U)\\b", "éfoo! fooé bar!", 0);
+  }
+
+  @Test
   void keywordAlternationFindsAlternativesAndRejectsAdjacentWordCharacters() {
     String input = "préface error warning2 _timeout failed!";
     Utf8Matcher matcher = matcher("(?i)\\b(error|warning|timeout|failed)\\b", input);

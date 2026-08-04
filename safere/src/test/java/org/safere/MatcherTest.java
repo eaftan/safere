@@ -562,6 +562,13 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("keyword alternation preserves independently scoped boundary modes")
+    void keywordAlternationPreservesIndependentlyScopedBoundaryModes() {
+      assertAllFindsMatchJdk("(?-U)\\b(?i)(foo|bar)(?U)\\b", "éfoo! fooé bar!");
+      assertAllFindsMatchJdk("(?U)\\b(?i)(foo|bar)(?-U)\\b", "éfoo! fooé bar!");
+    }
+
+    @Test
     @DisplayName("find() keyword alternation rejects partly case-sensitive scoped flags")
     void findKeywordAlternationRejectsPartlyCaseSensitiveScopedFlags() {
       assertAllFindsMatchJdk("\\b((?i:a)B|(?i:x)Y)\\b", "ab aB AB xy xY XY");

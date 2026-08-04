@@ -2595,9 +2595,13 @@ public final class Pattern implements Serializable {
       firstAscii[keyword.charAt(0)] = true;
     }
 
-    boolean unicodeWordBoundary = (before.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
+    boolean beforeUnicodeWordBoundary = (before.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
+    boolean afterUnicodeWordBoundary = (after.flags & ParseFlags.UNICODE_CHAR_CLASS) != 0;
+    if (beforeUnicodeWordBoundary != afterUnicodeWordBoundary) {
+      return null;
+    }
     return new KeywordAlternation(
-        keywords, firstAscii, captureGroup, unicodeWordBoundary, greedyWholeInput);
+        keywords, firstAscii, captureGroup, beforeUnicodeWordBoundary, greedyWholeInput);
   }
 
   private static boolean isGreedyAnyCharStar(Regexp re) {

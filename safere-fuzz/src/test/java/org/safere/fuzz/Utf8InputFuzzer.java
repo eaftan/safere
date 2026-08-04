@@ -123,8 +123,11 @@ final class Utf8InputFuzzer {
     String prefix = data.pickValue(List.of("", "plain ", "é ", "β-", "word_"));
     String suffix = data.pickValue(List.of("", "!", " 中", "2", "_word"));
     boolean greedy = data.consumeBoolean();
-    String regex =
-        greedy ? "(?is).*\\b(you|your|error|timeout)\\b.*" : "(?i)\\b(you|your|error|timeout)\\b";
+    String beforeBoundaryMode = data.pickValue(List.of("", "(?U)", "(?-U)"));
+    String afterBoundaryMode = data.pickValue(List.of("", "(?U)", "(?-U)"));
+    String core =
+        beforeBoundaryMode + "\\b(?i)(you|your|error|timeout)" + afterBoundaryMode + "\\b";
+    String regex = greedy ? "(?s).*" + core + ".*" : core;
     String input =
         prefix + data.pickValue(List.of(keyword, keyword.toUpperCase(Locale.ROOT))) + suffix;
     Pattern pattern = Pattern.compile(regex);
