@@ -651,6 +651,9 @@ public final class Pattern implements Serializable {
     if (literalMatchUtf8 != null && !prefixFoldCase) {
       return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
     }
+    if (enginePathOptions.keywordAlternationFastPath() && keywordAlternation != null) {
+      return keywordAlternation.find(scanner, 0) >= 0;
+    }
     if (enginePathOptions.literalFastPaths()
         && requiredLiteralUtf8 != null
         && prefixUtf8 == null
@@ -715,6 +718,11 @@ public final class Pattern implements Serializable {
       boolean matched =
           scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts) >= 0;
       diagnostics.boundary(MatchStrategy.LITERAL);
+      return matched;
+    }
+    if (enginePathOptions.keywordAlternationFastPath() && keywordAlternation != null) {
+      boolean matched = keywordAlternation.find(scanner, 0) >= 0;
+      diagnostics.boundary(MatchStrategy.KEYWORD);
       return matched;
     }
     if (enginePathOptions.literalFastPaths()
@@ -2149,6 +2157,82 @@ public final class Pattern implements Serializable {
       this.captureGroup = captureGroup;
       this.unicodeWordBoundary = unicodeWordBoundary;
       this.greedyWholeInput = greedyWholeInput;
+    }
+
+    long find(InputScanner scanner, int startPos) {
+      int matchStart = Math.max(0, startPos);
+      if (greedyWholeInput) {
+        for (int position = scanner.length() - 1; position >= matchStart; position--) {
+          long match = matchAt(scanner, position);
+          if (match >= 0) {
+            return match;
+          }
+        }
+        return -1;
+      }
+      int position = matchStart;
+      while (position < scanner.length()) {
+        long match = matchAt(scanner, position);
+        if (match >= 0) {
+          return match;
+        }
+        int ascii = scanner.asciiAt(position);
+        position =
+            ascii >= 0 ? position + 1 : InputScanner.position(scanner.decodeForward(position));
+      }
+      return -1;
+    }
+
+    private long matchAt(InputScanner scanner, int position) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      int first = scanner.asciiAt(position);
+      if (first < 0 || !firstAscii[asciiLower(first)] || !isWordBoundaryAt(scanner, position)) {
+        return -1;
+      }
+      for (String keyword : keywords) {
+        int end = position + keyword.length();
+        if (end <= scanner.length()
+            && matchesAsciiIgnoreCase(scanner, position, keyword)
+            && isWordBoundaryAt(scanner, end)) {
+          return ((long) position << 32) | (end & 0xFFFF_FFFFL);
+        }
+      }
+      return -1;
+    }
+
+    private boolean isWordBoundaryAt(InputScanner scanner, int position) {
+      boolean previousWord =
+          position > 0
+              && isBoundaryWordChar(scanner.codePointBefore(position), unicodeWordBoundary);
+      boolean nextWord =
+          position < scanner.length()
+              && isBoundaryWordChar(scanner.codePointAt(position), unicodeWordBoundary);
+      return previousWord != nextWord;
+    }
+
+    private static boolean matchesAsciiIgnoreCase(
+        InputScanner scanner, int position, String keyword) {
+      for (int index = 0; index < keyword.length(); index++) {
+        int input = scanner.asciiAt(position + index);
+        if (input < 0 || asciiLower(input) != keyword.charAt(index)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private static boolean isBoundaryWordChar(int codePoint, boolean unicodeWordBoundary) {
+      return unicodeWordBoundary ? Nfa.isUnicodeWordChar(codePoint) : Nfa.isWordChar(codePoint);
+    }
+
+    static int matchStart(long match) {
+      return (int) (match >>> 32);
+    }
+
+    static int matchEnd(long match) {
+      return (int) match;
     }
   }
 

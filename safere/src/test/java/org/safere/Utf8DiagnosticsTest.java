@@ -124,6 +124,36 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void keywordAlternationFindReportsUtf8FastPath() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern matcherPattern = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+    Pattern booleanPattern = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+    Utf8Input input = input("a long prefix ending with YOUR answer");
+
+    assertThat(matcherPattern.matcher(input).find()).isTrue();
+    assertThat(booleanPattern.find(input)).isTrue();
+
+    assertThat(operationsFor(matcherPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.KEYWORD);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.KEYWORD);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.reverseDfaSearchCount()).isZero();
+            });
+    assertThat(operationsFor(booleanPattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.KEYWORD);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.reverseDfaSearchCount()).isZero();
+            });
+  }
+
+  @Test
   void patternBooleanFindReportsAccelerationAndDfaSearch() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("é[ab]+c");

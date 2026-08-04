@@ -31,6 +31,17 @@ class SearchScalingRegressionTest {
         size -> pattern.matcher(Utf8Input.trusted("a".repeat(size).getBytes(UTF_8))).find());
   }
 
+  @Test
+  void greedyKeywordAlternationSuccessNearEndIsConstantWorkForUtf8Input() {
+    Pattern pattern = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+    assertConstantWork(
+        size ->
+            pattern
+                .matcher(Utf8Input.trusted(("a".repeat(size) + " YOUR tail").getBytes(UTF_8)))
+                .find(),
+        "UTF-8 keyword search");
+  }
+
   private static void assertReverseDfaSuffixFailureIsConstantWork(IntPredicate find) {
     long work2000 =
         WorkCounter.countForTesting(
@@ -64,6 +75,17 @@ class SearchScalingRegressionTest {
     // Assert that scaling is sub-linear (effectively constant)
     assertThat(work10000)
         .as("Work scaling should be flat, not linear with input size increase")
+        .isLessThan(work2000 * 2);
+  }
+
+  private static void assertConstantWork(IntPredicate find, String description) {
+    long work2000 = WorkCounter.countForTesting(() -> assertThat(find.test(2_000)).isTrue());
+    long work10000 = WorkCounter.countForTesting(() -> assertThat(find.test(10_000)).isTrue());
+
+    assertThat(work2000).as("%s on short input", description).isPositive().isLessThan(200);
+    assertThat(work10000).as("%s on long input", description).isPositive().isLessThan(200);
+    assertThat(work10000)
+        .as("%s should not scale with the prefix", description)
         .isLessThan(work2000 * 2);
   }
 }

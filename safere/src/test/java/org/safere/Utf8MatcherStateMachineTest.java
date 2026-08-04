@@ -81,6 +81,37 @@ class Utf8MatcherStateMachineTest {
   }
 
   @Test
+  void keywordAlternationMatchesJdkAcrossUtf8Boundaries() {
+    assertKeywordAlternationMatch(
+        "(?is).*\\b(you|your)\\b.*",
+        "préface You spoke first.\nThen your example ended with YOU!",
+        0);
+    assertKeywordAlternationMatch(
+        "(?is).*\\b(you|your)\\b.*",
+        "é ignore YOU, then keep your answer",
+        "é ignore YOU, ".length());
+    assertKeywordAlternationMatch("(?isU).*\\b(you|your)\\b.*", "éyoué -- your!", 0);
+    assertKeywordAlternationMatch("(?isU).*\\b(you|your)\\b.*", "éyoué -- βyourβ", 0);
+  }
+
+  @Test
+  void keywordAlternationFindsAlternativesAndRejectsAdjacentWordCharacters() {
+    String input = "préface error warning2 _timeout failed!";
+    Utf8Matcher matcher = matcher("(?i)\\b(error|warning|timeout|failed)\\b", input);
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(utf8Slice(input, matcher.start(1), matcher.end(1))).isEqualTo("error");
+    assertThat(matcher.find()).isTrue();
+    assertThat(utf8Slice(input, matcher.start(1), matcher.end(1))).isEqualTo("failed");
+    assertThat(matcher.find()).isFalse();
+
+    Pattern absent = Pattern.compile("(?is).*\\b(you|your)\\b.*");
+    Utf8Input absentInput = Utf8Input.validated("é youth yours".getBytes(UTF_8));
+    assertThat(absent.matcher(absentInput).find()).isFalse();
+    assertThat(absent.find(absentInput)).isFalse();
+  }
+
+  @Test
   void emptyFindAdvancesByOneCodePoint() {
     Utf8Matcher matcher = matcher("", "😀");
     List<List<Integer>> bounds = new ArrayList<>();
@@ -364,6 +395,35 @@ class Utf8MatcherStateMachineTest {
 
   private static Utf8Matcher matcher(String pattern, String input) {
     return Pattern.compile(pattern).matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+  }
+
+  private static void assertKeywordAlternationMatch(String regex, String input, int regionStart) {
+    Pattern pattern = Pattern.compile(regex);
+    java.util.regex.Matcher jdkMatcher =
+        java.util.regex.Pattern.compile(regex).matcher(input).region(regionStart, input.length());
+    int byteRegionStart = utf8Offset(input, regionStart);
+    Utf8Input utf8Input = Utf8Input.validated(input.getBytes(UTF_8));
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(utf8Input).region(byteRegionStart, utf8Input.length());
+
+    boolean jdkFound = jdkMatcher.find();
+    assertThat(pattern.find(utf8Input)).isEqualTo(jdkFound);
+    assertThat(utf8Matcher.find()).isEqualTo(jdkFound);
+    if (!jdkFound) {
+      return;
+    }
+    for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
+      int expectedStart =
+          jdkMatcher.start(group) < 0 ? -1 : utf8Offset(input, jdkMatcher.start(group));
+      int expectedEnd = jdkMatcher.end(group) < 0 ? -1 : utf8Offset(input, jdkMatcher.end(group));
+      assertThat(utf8Matcher.start(group)).as("group %s start", group).isEqualTo(expectedStart);
+      assertThat(utf8Matcher.end(group)).as("group %s end", group).isEqualTo(expectedEnd);
+    }
+  }
+
+  private static String utf8Slice(String input, int start, int end) {
+    byte[] bytes = input.getBytes(UTF_8);
+    return new String(bytes, start, end - start, UTF_8);
   }
 
   private static List<List<Integer>> findTrace(Utf8Matcher matcher) {

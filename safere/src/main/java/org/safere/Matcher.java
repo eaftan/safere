@@ -1575,10 +1575,7 @@ public final class Matcher implements MatchResult {
     }
 
     Pattern.KeywordAlternation keywordAlternation = parentPattern.keywordAlternation();
-    if (options.keywordAlternationFastPath()
-        && !regionActive
-        && keywordAlternation != null
-        && text != null) {
+    if (options.keywordAlternationFastPath() && keywordAlternation != null) {
       diagnosticBoundary(MatchStrategy.KEYWORD);
       if (keywordAlternation.captureGroup > 0) {
         diagnosticCapture(MatchStrategy.KEYWORD);
@@ -2174,84 +2171,24 @@ public final class Matcher implements MatchResult {
 
   private boolean findKeywordAlternation(
       Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
-    if (keywordAlternation.greedyWholeInput) {
-      return findGreedyWholeInputKeywordAlternation(keywordAlternation, startPos, ncap);
-    }
-    for (int i = Math.max(0, startPos); i < text.length(); i++) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      char ch = text.charAt(i);
-      if (ch < 128
-          && keywordAlternation.firstAscii[asciiLower(ch)]
-          && isWordBoundaryAt(i, keywordAlternation.unicodeWordBoundary)) {
-        for (String keyword : keywordAlternation.keywords) {
-          int end = i + keyword.length();
-          if (end <= text.length()
-              && regionMatchesAsciiIgnoreCase(text, i, keyword, 0, keyword.length())
-              && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
-            int[] keywordGroups = new int[2 * ncap];
-            Arrays.fill(keywordGroups, -1);
-            keywordGroups[0] = i;
-            keywordGroups[1] = end;
-            if (keywordAlternation.captureGroup > 0) {
-              int group = keywordAlternation.captureGroup;
-              keywordGroups[2 * group] = i;
-              keywordGroups[2 * group + 1] = end;
-            }
-            return applyFullMatchResult(keywordGroups);
-          }
-        }
-      }
-      int cp = text.codePointAt(i);
-      i += Character.charCount(cp) - 1;
-    }
-    return applyFailedMatchResult();
-  }
-
-  private boolean findGreedyWholeInputKeywordAlternation(
-      Pattern.KeywordAlternation keywordAlternation, int startPos, int ncap) {
+    InputScanner scanner = activeScanner();
     int matchStart = Math.max(0, startPos);
-    for (int i = text.length() - 1; i >= matchStart; i--) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      char ch = text.charAt(i);
-      if (ch < 128
-          && keywordAlternation.firstAscii[asciiLower(ch)]
-          && isWordBoundaryAt(i, keywordAlternation.unicodeWordBoundary)) {
-        for (String keyword : keywordAlternation.keywords) {
-          int end = i + keyword.length();
-          if (end <= text.length()
-              && regionMatchesAsciiIgnoreCase(text, i, keyword, 0, keyword.length())
-              && isWordBoundaryAt(end, keywordAlternation.unicodeWordBoundary)) {
-            int[] keywordGroups = new int[2 * ncap];
-            Arrays.fill(keywordGroups, -1);
-            keywordGroups[0] = matchStart;
-            keywordGroups[1] = text.length();
-            if (keywordAlternation.captureGroup > 0) {
-              int group = keywordAlternation.captureGroup;
-              keywordGroups[2 * group] = i;
-              keywordGroups[2 * group + 1] = end;
-            }
-            return applyFullMatchResult(keywordGroups);
-          }
-        }
-      }
+    long match = keywordAlternation.find(scanner, matchStart);
+    if (match < 0) {
+      return applyFailedMatchResult();
     }
-    return applyFailedMatchResult();
-  }
-
-  private boolean isWordBoundaryAt(int pos, boolean unicodeWordBoundary) {
-    boolean prevWord =
-        pos > 0 && isBoundaryWordChar(text.codePointBefore(pos), unicodeWordBoundary);
-    boolean nextWord =
-        pos < text.length() && isBoundaryWordChar(text.codePointAt(pos), unicodeWordBoundary);
-    return prevWord != nextWord;
-  }
-
-  private static boolean isBoundaryWordChar(int cp, boolean unicodeWordBoundary) {
-    return unicodeWordBoundary ? Nfa.isUnicodeWordChar(cp) : Nfa.isWordChar(cp);
+    int keywordStart = Pattern.KeywordAlternation.matchStart(match);
+    int keywordEnd = Pattern.KeywordAlternation.matchEnd(match);
+    int[] keywordGroups = new int[2 * ncap];
+    Arrays.fill(keywordGroups, -1);
+    keywordGroups[0] = keywordAlternation.greedyWholeInput ? matchStart : keywordStart;
+    keywordGroups[1] = keywordAlternation.greedyWholeInput ? scanner.length() : keywordEnd;
+    if (keywordAlternation.captureGroup > 0) {
+      int group = keywordAlternation.captureGroup;
+      keywordGroups[2 * group] = keywordStart;
+      keywordGroups[2 * group + 1] = keywordEnd;
+    }
+    return applyFullMatchResult(keywordGroups);
   }
 
   private static int asciiLower(int ch) {
