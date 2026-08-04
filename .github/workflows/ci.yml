@@ -67,18 +67,22 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['21', '22', '23', '24', '25', '26']
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up JDK 26
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v5.6.0
         with:
-          java-version: '26'
+          java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: maven
 
-      - name: Install multi-release SafeRE JAR
+      - name: Install SafeRE JAR
         run: >
           mvn install -pl safere -am
           -DskipTests
@@ -197,7 +201,7 @@ jobs:
             -cp safere-benchmarks/target/benchmarks.jar \
             org.safere.benchmark.MemoryBenchmark
 
-  vector-multi-release:
+  vector-benchmark-smoke:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
@@ -221,14 +225,14 @@ jobs:
             --batch-mode --no-transfer-progress \
             -f safere-vector-benchmarks/pom.xml
 
-      - name: Build and inspect multi-release SafeRE JAR
+      - name: Build and inspect SafeRE JAR
         run: |
           mvn package -pl safere -am -Prelease -DskipTests \
             --batch-mode --no-transfer-progress
           SAFERE_JAR="$(find safere/target -maxdepth 1 -name 'safere-*.jar' \
             ! -name '*-sources.jar' ! -name '*-javadoc.jar' -print -quit)"
           jar --list --file "$SAFERE_JAR" \
-            | grep 'META-INF/versions/26/org/safere/IncubatorVectorScanProvider.class'
+            | grep 'org/safere/IncubatorVectorScanProvider.class'
 
       - name: Smoke test experimental Vector scanner
         run: |

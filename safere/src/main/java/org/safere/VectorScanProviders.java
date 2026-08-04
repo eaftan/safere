@@ -5,10 +5,7 @@
 
 package org.safere;
 
-/**
- * Selects the optional Vector scan provider once, without linking Java 21 classes to a JDK-specific
- * API.
- */
+/** Selects the optional Vector scan provider once without loading it unless requested. */
 final class VectorScanProviders {
   static final String PROVIDER_PROPERTY = "org.safere.experimental.vectorScanProvider";
   private static final VectorScanProvider SELECTED = loadSelected();
@@ -28,15 +25,10 @@ final class VectorScanProviders {
       throw new IllegalStateException("Unknown Vector scan provider '" + requested + "'");
     }
     try {
-      VectorScanProvider provider = VectorScanProviderFactory.create();
-      if (provider == null) {
-        throw new IllegalStateException(
-            "The SafeRE JAR does not contain a Vector scanner for this JDK");
-      }
-      return provider;
+      return VectorScanProviderFactory.create();
     } catch (RuntimeException | LinkageError e) {
       throw new IllegalStateException(
-          "Could not enable the experimental Vector UTF-8 scanner; use JDK 26 and add "
+          "Could not enable the experimental Vector UTF-8 scanner; use JDK 21 or later and add "
               + "--add-modules=jdk.incubator.vector",
           e);
     }

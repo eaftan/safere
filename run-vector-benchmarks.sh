@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Eddie Aftandilian. Licensed under the MIT License.
 # See LICENSE file in the project root for details.
 
-# Runs the optional JDK 26 Vector API benchmark prototypes.
+# Runs the optional Vector API benchmark prototypes.
 
 set -euo pipefail
 
@@ -73,8 +73,8 @@ done
 
 JAVA_FEATURE="$(java -XshowSettings:properties -version 2>&1 \
   | awk -F= '/java.specification.version/ {gsub(/ /, "", $2); print $2}')"
-if [ "$JAVA_FEATURE" -ne 26 ]; then
-  echo "ERROR: These Vector benchmarks target the JDK 26 incubator API; found JDK $JAVA_FEATURE" >&2
+if [ "$JAVA_FEATURE" -lt 21 ] || [ "$JAVA_FEATURE" -gt 26 ]; then
+  echo "ERROR: These Vector benchmarks require a supported JDK (21 through 26); found JDK $JAVA_FEATURE" >&2
   exit 1
 fi
 
@@ -97,7 +97,7 @@ else
     -f "$SCRIPT_DIR/pom.xml"
 fi
 
-echo "=== Building JDK 26 Vector benchmark JAR ==="
+echo "=== Building Vector benchmark JAR ==="
 mvn clean package \
   -DskipTests \
   -Dpmd.skip=true \

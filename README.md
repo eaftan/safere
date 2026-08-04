@@ -115,18 +115,17 @@ The UTF-8 API also supports capture bounds and byte-native replacement through
 `Utf8Sink`. See [Direct UTF-8 Matching](UTF8.md) for the complete API,
 ownership, coordinate, malformed-input, and replacement contracts.
 
-### Experimental JDK 26 Vector scanner
+### Experimental Vector scanner
 
-SafeRE has an experimental JDK 26 Vector API provider for selected ASCII character-class scans
+SafeRE has an experimental Vector API provider for selected ASCII character-class scans
 over direct UTF-8 input. It currently accelerates the singleton, pair, and range scans used by
 UTF-8 prefix searching on sufficiently long inputs. It does not affect matching against
 `String`.
 
-The normal SafeRE artifact is a multi-release JAR. Its base classes target Java 21, while its JDK
-26 implementation under `META-INF/versions/26` contains all references to the incubator Vector
-API. No additional dependency or class-path configuration is required.
+The provider uses the incubating Vector API included with every JDK version supported by SafeRE.
+No additional dependency or class-path configuration is required.
 
-On JDK 26, enable the provider when starting the application:
+Enable the provider when starting the application on JDK 21 or later:
 
 ```text
 --add-modules=jdk.incubator.vector
@@ -135,8 +134,7 @@ On JDK 26, enable the provider when starting the application:
 
 Both flags are required. Without the system property, SafeRE continues to use its built-in SWAR
 scanner. Without the incubator module flag, requesting the Vector scanner fails with a
-configuration error. Java 21 through 25 ignore the versioned implementation and continue to use
-the Java 21 classes.
+configuration error.
 
 The activation property, supported scans, implementation, and tuning thresholds are experimental
 and may change incompatibly or be removed in any SafeRE release.

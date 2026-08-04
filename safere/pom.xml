@@ -107,6 +107,11 @@ final class WorkCounterConfig {
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <compilerArgs combine.children="append">
+            <arg>-Xlint:-incubating</arg>
+          </compilerArgs>
+        </configuration>
         <executions>
           <execution>
             <id>default-testCompile</id>
@@ -162,7 +167,6 @@ final class WorkCounterConfig {
           <java>
             <includes>
               <include>src/main/java/**/*.java</include>
-              <include>src/main/java-jdk26/**/*.java</include>
               <include>src/test/java/**/*.java</include>
             </includes>
           </java>
@@ -176,7 +180,6 @@ final class WorkCounterConfig {
           <archive>
             <manifestEntries>
               <Automatic-Module-Name>org.safere</Automatic-Module-Name>
-              <Multi-Release>true</Multi-Release>
             </manifestEntries>
           </archive>
         </configuration>
@@ -258,67 +261,6 @@ final class WorkCounterConfig {
   </build>
 
   <profiles>
-    <profile>
-      <id>jdk26-vector</id>
-      <activation>
-        <jdk>[26,27)</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>build-helper-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>add-jdk26-vector-source-resource</id>
-                <phase>prepare-package</phase>
-                <goals>
-                  <goal>add-resource</goal>
-                </goals>
-                <configuration>
-                  <resources>
-                    <resource>
-                      <directory>${project.basedir}/src/main/java-jdk26</directory>
-                      <targetPath>META-INF/versions/26</targetPath>
-                      <includes>
-                        <include>**/*.java</include>
-                      </includes>
-                    </resource>
-                  </resources>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>compile-jdk26-vector</id>
-                <phase>process-classes</phase>
-                <goals>
-                  <goal>compile</goal>
-                </goals>
-                <configuration>
-                  <release>26</release>
-                  <compileSourceRoots combine.self="override">
-                    <compileSourceRoot>${project.basedir}/src/main/java-jdk26</compileSourceRoot>
-                  </compileSourceRoots>
-                  <multiReleaseOutput>true</multiReleaseOutput>
-                  <compilerArgs combine.self="override">
-                    <arg>--add-modules</arg>
-                    <arg>jdk.incubator.vector</arg>
-                    <arg>--patch-module</arg>
-                    <arg>org.safere=${project.build.outputDirectory}</arg>
-                  </compilerArgs>
-                  <annotationProcessorPaths combine.self="override"/>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
     <profile>
       <id>vector-tests</id>
       <build>

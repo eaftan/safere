@@ -4,7 +4,7 @@ This benchmark-only module compares SafeRE's current UTF-8 SWAR scanners with op
 `jdk.incubator.vector` prototypes. It is intentionally outside the normal Maven reactor so SafeRE's
 production and standard benchmark builds retain their existing JDK requirements.
 
-Run the smoke or standard configuration with JDK 26:
+Run the smoke or standard configuration with any supported JDK (21 through 26):
 
 ```bash
 ./run-vector-benchmarks.sh --smoke
