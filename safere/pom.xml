@@ -260,6 +260,12 @@ final class WorkCounterConfig {
           <source>21</source>
           <doclint>all,-missing</doclint>
           <quiet>true</quiet>
+          <additionalOptions>
+            <additionalOption>--add-modules</additionalOption>
+            <additionalOption>jdk.incubator.vector</additionalOption>
+            <additionalOption>--add-reads</additionalOption>
+            <additionalOption>org.safere=jdk.incubator.vector</additionalOption>
+          </additionalOptions>
         </configuration>
       </plugin>
     </plugins>

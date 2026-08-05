@@ -94,13 +94,13 @@ jobs:
 
       - name: Package regular runtime-test artifacts
         run: |
-          mkdir -p .ci-artifacts
-          tar -czf .ci-artifacts/vector-runtime-tests.tar.gz \
+          mkdir -p ci-artifacts
+          tar -czf ci-artifacts/vector-runtime-tests.tar.gz \
             safere/target \
             safere-crosscheck/target \
             safere-exhaustive/target
           tar -C "$HOME/.m2/repository" \
-            -czf "$PWD/.ci-artifacts/safere-maven-repository.tar.gz" \
+            -czf "$PWD/ci-artifacts/safere-maven-repository.tar.gz" \
             org/safere
 
       - name: Compile and package work-counter runtime-test artifacts
@@ -109,14 +109,15 @@ jobs:
             -Pwork-counters \
             -DskipTests \
             --batch-mode --no-transfer-progress
-          tar -czf .ci-artifacts/vector-work-counter-tests.tar.gz \
+          tar -czf ci-artifacts/vector-work-counter-tests.tar.gz \
             safere/target
 
       - name: Upload runtime-test artifacts
         uses: actions/upload-artifact@v7
         with:
           name: vector-runtime-tests
-          path: .ci-artifacts/*.tar.gz
+          path: ci-artifacts/*.tar.gz
+          if-no-files-found: error
           retention-days: 1
 
   build-vector:
@@ -141,14 +142,14 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: vector-runtime-tests
-          path: .ci-artifacts
+          path: ci-artifacts
 
       - name: Restore runtime-test artifacts
         run: |
           mkdir -p "$HOME/.m2/repository"
           tar -C "$HOME/.m2/repository" \
-            -xzf .ci-artifacts/safere-maven-repository.tar.gz
-          tar -xzf .ci-artifacts/vector-runtime-tests.tar.gz
+            -xzf ci-artifacts/safere-maven-repository.tar.gz
+          tar -xzf ci-artifacts/vector-runtime-tests.tar.gz
 
       - name: Run full SafeRE tests with Vector enabled
         run: >
@@ -178,7 +179,7 @@ jobs:
 
       - name: Run work-counter scaling tests with Vector enabled
         run: |
-          tar -xzf .ci-artifacts/vector-work-counter-tests.tar.gz
+          tar -xzf ci-artifacts/vector-work-counter-tests.tar.gz
           mvn jacoco:prepare-agent surefire:test -pl safere \
             -Pwork-counters,vector-tests \
             -Dtest.parallelism=4 \

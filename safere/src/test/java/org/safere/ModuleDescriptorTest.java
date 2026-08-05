@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+@DisabledForCrosscheck("requires SafeRE's named module and the JDK Vector module")
 class ModuleDescriptorTest {
   private static final String VECTOR_MODULE_NAME = "jdk.incubator.vector";
 
