@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -365,38 +367,53 @@ class Utf8MatcherStateMachineTest {
 
   @Test
   void graphemePatternsWorkAcrossUtf8Scalars() {
-    for (String input : List.of("a\r\nb", "a\u0301b", "👩‍💻x", "🇺🇸x", "क्‍षx")) {
-      byte[] bytes = input.getBytes(UTF_8);
-      Utf8Matcher clusters = Pattern.compile("\\X").matcher(Utf8Input.validated(bytes));
-      List<List<Integer>> actualClusters = new ArrayList<>();
-      while (clusters.find()) {
-        actualClusters.add(List.of(clusters.start(), clusters.end()));
-      }
-
-      Matcher stringClusters = Pattern.compile("\\X").matcher(input);
-      List<List<Integer>> expectedClusters = new ArrayList<>();
-      while (stringClusters.find()) {
-        expectedClusters.add(
-            List.of(
-                utf8Offset(input, stringClusters.start()),
-                utf8Offset(input, stringClusters.end())));
-      }
-      assertThat(actualClusters).as("grapheme clusters for %s", input).isEqualTo(expectedClusters);
-
-      Utf8Matcher boundaries = Pattern.compile("\\b{g}").matcher(Utf8Input.validated(bytes));
-      List<Integer> actualBoundaries = new ArrayList<>();
-      while (boundaries.find()) {
-        actualBoundaries.add(boundaries.start());
-      }
-      Matcher stringBoundaries = Pattern.compile("\\b{g}").matcher(input);
-      List<Integer> expectedBoundaries = new ArrayList<>();
-      while (stringBoundaries.find()) {
-        expectedBoundaries.add(utf8Offset(input, stringBoundaries.start()));
-      }
-      assertThat(actualBoundaries)
-          .as("grapheme boundaries for %s", input)
-          .isEqualTo(expectedBoundaries);
+    for (String input : List.of("a\r\nb", "a\u0301b", "👩‍💻x", "🇺🇸x")) {
+      assertGraphemePatternsWorkAcrossUtf8Scalars(input);
     }
+  }
+
+  @Test
+  @DisabledForCrosscheck("SafeRE uses Unicode 17 grapheme rule GB9c while JDK 21 uses Unicode 15.0")
+  void indicConjunctGraphemePatternsWorkAcrossUtf8ScalarsOnEverySupportedJdk() {
+    assertGraphemePatternsWorkAcrossUtf8Scalars("क्‍षx");
+  }
+
+  @Test
+  @EnabledForJreRange(min = JRE.JAVA_22)
+  void indicConjunctGraphemePatternsMatchJdk22AndLaterAcrossUtf8Scalars() {
+    assertGraphemePatternsWorkAcrossUtf8Scalars("क्‍षx");
+  }
+
+  private static void assertGraphemePatternsWorkAcrossUtf8Scalars(String input) {
+    byte[] bytes = input.getBytes(UTF_8);
+    Utf8Matcher clusters = Pattern.compile("\\X").matcher(Utf8Input.validated(bytes));
+    List<List<Integer>> actualClusters = new ArrayList<>();
+    while (clusters.find()) {
+      actualClusters.add(List.of(clusters.start(), clusters.end()));
+    }
+
+    Matcher stringClusters = Pattern.compile("\\X").matcher(input);
+    List<List<Integer>> expectedClusters = new ArrayList<>();
+    while (stringClusters.find()) {
+      expectedClusters.add(
+          List.of(
+              utf8Offset(input, stringClusters.start()), utf8Offset(input, stringClusters.end())));
+    }
+    assertThat(actualClusters).as("grapheme clusters for %s", input).isEqualTo(expectedClusters);
+
+    Utf8Matcher boundaries = Pattern.compile("\\b{g}").matcher(Utf8Input.validated(bytes));
+    List<Integer> actualBoundaries = new ArrayList<>();
+    while (boundaries.find()) {
+      actualBoundaries.add(boundaries.start());
+    }
+    Matcher stringBoundaries = Pattern.compile("\\b{g}").matcher(input);
+    List<Integer> expectedBoundaries = new ArrayList<>();
+    while (stringBoundaries.find()) {
+      expectedBoundaries.add(utf8Offset(input, stringBoundaries.start()));
+    }
+    assertThat(actualBoundaries)
+        .as("grapheme boundaries for %s", input)
+        .isEqualTo(expectedBoundaries);
   }
 
   private static Utf8Matcher matcher(String pattern, String input) {
