@@ -568,18 +568,10 @@ public final class Matcher implements MatchResult {
   private boolean singleCharClassFindFastPath(int[] ranges, int fromIndex) {
     long b0 = parentPattern.singleCharClassBitmap0();
     long b1 = parentPattern.singleCharClassBitmap1();
-
-    int i = fromIndex;
-    int len = text.length();
-    while (i < len) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      int cp = text.codePointAt(i);
-      if (charClassContains(ranges, b0, b1, cp)) {
-        return applyFullMatchResult(new int[] {i, i + Character.charCount(cp)});
-      }
-      i += Character.charCount(cp);
+    int idx = activeScanner().indexOfCodePointClass(ranges, b0, b1, fromIndex);
+    if (idx >= 0) {
+      int cp = text.codePointAt(idx);
+      return applyFullMatchResult(new int[] {idx, idx + Character.charCount(cp)});
     }
     return applyFailedMatchResult();
   }
@@ -591,20 +583,6 @@ public final class Matcher implements MatchResult {
   private boolean containsRequiredMatchClass(int[] ranges, int fromIndex) {
     long b0 = parentPattern.requiredMatchClassBitmap0();
     long b1 = parentPattern.requiredMatchClassBitmap1();
-    if (text != null) {
-      int position = Math.max(0, fromIndex);
-      while (position < text.length()) {
-        if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record();
-        }
-        int codePoint = text.codePointAt(position);
-        if (charClassContains(ranges, b0, b1, codePoint)) {
-          return true;
-        }
-        position += Character.charCount(codePoint);
-      }
-      return false;
-    }
     return activeScanner().indexOfCodePointClass(ranges, b0, b1, fromIndex) >= 0;
   }
 
@@ -1717,11 +1695,10 @@ public final class Matcher implements MatchResult {
     // Character-class prefix acceleration: when the pattern starts with a character class (and
     // no literal prefix exists), scan for the first character that could begin a match. This
     // avoids running the full engine on text regions where no match can start.
-    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
     Pattern.CharClassScanInfo ccPrefixScanInfo = parentPattern.charClassPrefixScanInfo();
     if (options.startAcceleration()
         && !prog.hasWordBoundary()
-        && ccPrefixAscii != null
+        && ccPrefixScanInfo != null
         && !literalPrefixCandidateStart
         && (text != null || scanner instanceof Utf8InputScanner)) {
       diagnosticParticipation(MatchStrategy.CHARACTER_CLASS, StrategyRole.START_ACCELERATION);
@@ -1732,7 +1709,7 @@ public final class Matcher implements MatchResult {
                   ccPrefixScanInfo.bitmap0,
                   ccPrefixScanInfo.bitmap1,
                   searchFrom)
-              : indexOfCharClass(text, ccPrefixAscii, searchFrom);
+              : scanner.indexOfCharClass(ccPrefixScanInfo, searchFrom);
       if (idx < 0) {
         diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);
         if (!prog.anchorStart()) {
@@ -2283,6 +2260,13 @@ public final class Matcher implements MatchResult {
 
   /** ASCII case-insensitive indexOf for Java's default CASE_INSENSITIVE semantics. */
   private static int indexOfIgnoreCase(String text, String prefix, int fromIndex) {
+    VectorScanProvider scanner = VectorScanProviders.providerForLength(text.length());
+    if (scanner != null) {
+      int idx = scanner.indexOfIgnoreCase(text, prefix, fromIndex);
+      if (idx != VectorScanProvider.UNSUPPORTED) {
+        return idx;
+      }
+    }
     int prefixLen = prefix.length();
     int limit = text.length() - prefixLen;
     for (int i = fromIndex; i <= limit; i++) {
@@ -2296,7 +2280,7 @@ public final class Matcher implements MatchResult {
     return -1;
   }
 
-  private static boolean regionMatchesAsciiIgnoreCase(
+  static boolean regionMatchesAsciiIgnoreCase(
       String text, int textOffset, String prefix, int prefixOffset, int length) {
     if (textOffset < 0
         || prefixOffset < 0
@@ -2321,19 +2305,6 @@ public final class Matcher implements MatchResult {
    * set in the ASCII bitmap. Returns the index, or {@code -1} if no matching character is found.
    * Non-ASCII characters are skipped (never match).
    */
-  private static int indexOfCharClass(String text, boolean[] asciiMap, int fromIndex) {
-    for (int i = fromIndex; i < text.length(); i++) {
-      if (WorkCounterConfig.ENABLED) {
-        WorkCounter.record();
-      }
-      char ch = text.charAt(i);
-      if (ch < 128 && asciiMap[ch]) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
   private static int nextAcceleratedStart(
       String text, Pattern.StartAcceleration acceleration, int fromIndex, boolean unixLines) {
     int start = Math.max(0, fromIndex);
@@ -4223,9 +4194,9 @@ public final class Matcher implements MatchResult {
       effectiveStart = idx;
     }
 
-    boolean[] ccPrefixAscii = parentPattern.charClassPrefixAscii();
-    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixAscii != null) {
-      int idx = indexOfCharClass(text, ccPrefixAscii, fromIndex);
+    Pattern.CharClassScanInfo ccPrefixScanInfo = parentPattern.charClassPrefixScanInfo();
+    if (options.startAcceleration() && !prog.hasWordBoundary() && ccPrefixScanInfo != null) {
+      int idx = scanner.indexOfCharClass(ccPrefixScanInfo, fromIndex);
       if (idx < 0) {
         return -1L;
       }

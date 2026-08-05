@@ -676,4 +676,20 @@ final class Utf8InputScanner implements InputScanner {
     }
     return true;
   }
+
+  @Override
+  public int indexOfCharClass(Pattern.CharClassScanInfo scanInfo, int start) {
+    int pos = Math.max(0, start);
+    int[] ranges = scanInfo.ranges;
+    long b0 = scanInfo.bitmap0;
+    long b1 = scanInfo.bitmap1;
+    while (pos < length) {
+      int ascii = asciiAt(pos);
+      if (ascii >= 0 && InputScanner.classContains(ranges, b0, b1, ascii)) {
+        return pos;
+      }
+      pos++;
+    }
+    return -1;
+  }
 }

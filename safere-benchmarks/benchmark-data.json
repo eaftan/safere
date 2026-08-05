@@ -604,6 +604,100 @@
       "shared": true
     },
     {
+      "id": "phoneSearch.trulySparseMatches.{nonMatchRepeats}",
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "foo123",
+        "nonMatch": "foobar. This is a very long text. We want to test. We can write many words. We do not use the letter. We are happy. We are coding.",
+        "nonMatchRepeats": "{nonMatchRepeats}",
+        "delimiterAlphabet": " ",
+        "seed": 20260729,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "charClassSearch.trulySparseMatches.{nonMatchRepeats}",
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "123foo",
+        "nonMatch": "foobar. This is a very long text. We want to test. We can write many words. We do not use the letter. We are happy. We are coding.",
+        "nonMatchRepeats": "{nonMatchRepeats}",
+        "delimiterAlphabet": " ",
+        "seed": 20260729,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "charClassSearch.lengthSweep.{length}",
+      "axes": {
+        "length": [
+          16,
+          24,
+          32,
+          48,
+          64,
+          128,
+          512,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "a",
+        "suffix": "1",
+        "length": "{length}"
+      },
+      "shared": true
+    },
+    {
+      "id": "complexScriptSearch.trulySparseMatches.{nonMatchRepeats}",
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "recipe": {
+        "kind": "sparseMatchToLength",
+        "match": "\u0100\u0101\u0102foo",
+        "nonMatch": "\u0370oobar. This is a very long text. We want to test. We can write many words. We do not use the letter. We are happy. We are coding.",
+        "nonMatchRepeats": "{nonMatchRepeats}",
+        "delimiterAlphabet": " ",
+        "seed": 20260729,
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "complexScriptSearch.nonAsciiText",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u0370",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -7878,6 +7972,158 @@
         "preexistingUtf8"
       ],
       "inputRepresentationReason": "Compares Java-string and preexisting-UTF-8 searches for planted phone numbers at several realistic match densities.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findTrulySparse.{nonMatchRepeats}",
+      "operation": "find",
+      "patterns": [
+        "foo\\d{3}"
+      ],
+      "inputs": [
+        "phoneSearch.trulySparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Verifies start acceleration jump efficiency over long gaps with sparse false alarm candidates.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CharClassStartAccelerationBenchmark.findTrulySparse.{nonMatchRepeats}",
+      "operation": "find",
+      "patterns": [
+        "\\d{3}foo"
+      ],
+      "inputs": [
+        "charClassSearch.trulySparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Verifies character class start acceleration jump efficiency over long gaps with sparse false alarm candidates.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CharClassStartAccelerationBenchmark.lengthSweep.{length}",
+      "operation": "find",
+      "patterns": [
+        "[0-9]+"
+      ],
+      "inputs": [
+        "charClassSearch.lengthSweep.{length}"
+      ],
+      "axes": {
+        "length": [
+          16,
+          24,
+          32,
+          48,
+          64,
+          128,
+          512,
+          2048
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Sweeps string length to evaluate crossover threshold for Vector API vs scalar fallback.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ComplexScriptStartAccelerationBenchmark.findTrulySparse.{nonMatchRepeats}",
+      "operation": "find",
+      "patterns": [
+        "[\\u0100-\\u024F]{3}foo"
+      ],
+      "inputs": [
+        "complexScriptSearch.trulySparseMatches.{nonMatchRepeats}"
+      ],
+      "axes": {
+        "nonMatchRepeats": [
+          511,
+          63,
+          7,
+          1
+        ]
+      },
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Verifies non-ASCII BMP complex range search efficiency on UTF-16 strings to measure Vector API gains over scalar range loop.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "ComplexScriptStartAccelerationBenchmark.findNonAsciiText",
+      "operation": "find",
+      "patterns": [
+        "[\\u0100-\\u024F]{3}foo"
+      ],
+      "inputs": [
+        "complexScriptSearch.nonAsciiText"
+      ],
+      "axes": {},
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Verifies non-ASCII BMP complex range search efficiency on pure non-ASCII UTF-16 strings to force range evaluation and compare SIMD vs scalar.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {

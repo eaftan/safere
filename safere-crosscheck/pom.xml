@@ -55,6 +55,11 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.6</version>
+        <configuration>
+          <argLine>
+            --add-modules jdk.incubator.vector
+          </argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -175,6 +180,9 @@
             <artifactId>maven-surefire-plugin</artifactId>
             <version>3.5.6</version>
             <configuration>
+              <argLine>
+                --add-modules jdk.incubator.vector
+              </argLine>
               <systemPropertyVariables>
                 <org.safere.crosscheck.generatedTests>true</org.safere.crosscheck.generatedTests>
               </systemPropertyVariables>

@@ -183,7 +183,7 @@ echo "=== Materializing shared benchmark inputs ==="
 "$SCRIPT_DIR/materialize-benchmark-inputs.sh" --no-build
 
 # JVM args for FFM native access, native library path, and the resolved corpus.
-JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+JVM_ARGS="--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
 
 if [ "$DECLARED" = true ]; then
   COLLECTION_QUERY=(runners)

@@ -6,6 +6,8 @@
 package org.safere;
 
 final class StringInputScanner implements InputScanner {
+  private static final VectorScanProvider VECTOR_SCANNER = VectorScanProviders.get();
+  private static final int SCALAR_PROLOGUE_LENGTH = 4;
   private final String text;
 
   StringInputScanner(String text) {
@@ -50,6 +52,23 @@ final class StringInputScanner implements InputScanner {
   @Override
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
     int position = Math.max(0, start);
+    if (VECTOR_SCANNER != null) {
+      int scalarLimit = Math.min(text.length(), position + SCALAR_PROLOGUE_LENGTH);
+      while (position < scalarLimit) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        int codePoint = text.codePointAt(position);
+        if (InputScanner.classContains(ranges, bitmap0, bitmap1, codePoint)) {
+          return position;
+        }
+        position += Character.charCount(codePoint);
+      }
+      int idx = VECTOR_SCANNER.indexOfCodePointClass(text, ranges, bitmap0, bitmap1, position);
+      if (idx != VectorScanProvider.UNSUPPORTED) {
+        return idx;
+      }
+    }
     while (position < text.length()) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
@@ -134,5 +153,41 @@ final class StringInputScanner implements InputScanner {
       }
     }
     return threshold;
+  }
+
+  @Override
+  public int indexOfCharClass(Pattern.CharClassScanInfo scanInfo, int start) {
+    int position = Math.max(0, start);
+    int[] ranges = scanInfo.ranges;
+    long b0 = scanInfo.bitmap0;
+    long b1 = scanInfo.bitmap1;
+    if (VECTOR_SCANNER != null) {
+      int scalarLimit = Math.min(text.length(), position + SCALAR_PROLOGUE_LENGTH);
+      for (; position < scalarLimit; position++) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        char ch = text.charAt(position);
+        if (ch < 128 && InputScanner.classContains(ranges, b0, b1, ch)) {
+          return position;
+        }
+      }
+      int idx = VECTOR_SCANNER.indexOfCharClass(text, scanInfo, position);
+      if (idx != VectorScanProvider.UNSUPPORTED) {
+        return idx;
+      }
+    }
+    // Fallback scalar implementation using classContains
+    while (position < text.length()) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
+      char ch = text.charAt(position);
+      if (ch < 128 && InputScanner.classContains(ranges, b0, b1, ch)) {
+        return position;
+      }
+      position++;
+    }
+    return -1;
   }
 }

@@ -2798,16 +2798,24 @@ public final class Pattern implements Serializable {
   @SuppressWarnings("ArrayRecordComponent")
   private record CharClassMatchInfo(int[] ranges, long bitmap0, long bitmap1, boolean allowEmpty) {}
 
-  /** Holds precomputed data for scanning one character class. */
-  static final class CharClassScanInfo {
-    final int[] ranges;
-    final long bitmap0;
-    final long bitmap1;
+  public static final class CharClassScanInfo {
+    public final int[] ranges;
+    public final long bitmap0;
+    public final long bitmap1;
+    public final boolean isAscii;
 
-    CharClassScanInfo(int[] ranges, long bitmap0, long bitmap1) {
+    public CharClassScanInfo(int[] ranges, long bitmap0, long bitmap1) {
       this.ranges = ranges;
       this.bitmap0 = bitmap0;
       this.bitmap1 = bitmap1;
+      boolean ascii = true;
+      for (int bound : ranges) {
+        if (bound > 127) {
+          ascii = false;
+          break;
+        }
+      }
+      this.isAscii = ascii;
     }
   }
 

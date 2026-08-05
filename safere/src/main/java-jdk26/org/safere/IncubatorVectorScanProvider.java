@@ -16,6 +16,19 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
   private static final int MINIMUM_INPUT_LENGTH = 1024;
   private static final VectorSpecies<Byte> SPECIES = ByteVector.SPECIES_PREFERRED;
 
+  private final VectorScanProvider stringDelegate;
+
+  public IncubatorVectorScanProvider() {
+    String mode = System.getProperty("safere.vector.mode", "unsafe-byte");
+    if ("copy".equals(mode)) {
+      this.stringDelegate = new CopyVectorScanner(this);
+    } else if ("unsafe".equals(mode)) {
+      this.stringDelegate = new UnsafeShortVectorScanner(this);
+    } else {
+      this.stringDelegate = new UnsafeByteVectorScanner(this);
+    }
+  }
+
   @Override
   public int minimumInputLength() {
     return MINIMUM_INPUT_LENGTH;
@@ -41,6 +54,22 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
       }
     }
     return -1;
+  }
+
+  @Override
+  public int indexOfCharClass(String text, Pattern.CharClassScanInfo scanInfo, int start) {
+    return stringDelegate.indexOfCharClass(text, scanInfo, start);
+  }
+
+  @Override
+  public int indexOfCodePointClass(
+      String text, int[] ranges, long bitmap0, long bitmap1, int start) {
+    return stringDelegate.indexOfCodePointClass(text, ranges, bitmap0, bitmap1, start);
+  }
+
+  @Override
+  public int indexOfIgnoreCase(String text, String prefix, int start) {
+    return stringDelegate.indexOfIgnoreCase(text, prefix, start);
   }
 
   private static VectorMask<Byte> matches(ByteVector values, int[] ranges) {
