@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.regex.MatchResult;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -24,6 +26,18 @@ class GraphemeRegionCompatibilityMatrixTest {
   @MethodSource("supportedContractCases")
   @DisplayName("supported grapheme-region contract matches java.util.regex")
   void supportedGraphemeRegionContractMatchesJdk(Scenario scenario, String regex) {
+    assertMatchesJdk(scenario, regex);
+  }
+
+  @ParameterizedTest(name = "[{index}] {0} /{1}/")
+  @MethodSource("indicConjunctCases")
+  @EnabledForJreRange(min = JRE.JAVA_22)
+  @DisplayName("Indic conjunct grapheme contract matches java.util.regex")
+  void indicConjunctGraphemeContractMatchesJdk(Scenario scenario, String regex) {
+    assertMatchesJdk(scenario, regex);
+  }
+
+  private static void assertMatchesJdk(Scenario scenario, String regex) {
     Trace safeTrace = safeTrace(regex, scenario);
     Trace jdkTrace = jdkTrace(regex, scenario);
 
@@ -44,6 +58,21 @@ class GraphemeRegionCompatibilityMatrixTest {
     return scenarios().stream()
         .flatMap(
             scenario -> scenario.regexes().stream().map(regex -> Arguments.of(scenario, regex)));
+  }
+
+  private static Stream<Arguments> indicConjunctCases() {
+    Scenario scenario =
+        new Scenario(
+            "indic conjunct remains one extended cluster",
+            "Indic conjunct segmentation follows the extended grapheme cluster rules rather than"
+                + " splitting at the virama linker.",
+            "\u0915\u094D\u0937",
+            0,
+            3,
+            false,
+            true,
+            List.of("\\X", "\\X+", "(\\X)+", "\\X\\b{g}", "\\b{g}\\X\\b{g}"));
+    return scenario.regexes().stream().map(regex -> Arguments.of(scenario, regex));
   }
 
   private static List<Scenario> scenarios() {
@@ -296,16 +325,6 @@ class GraphemeRegionCompatibilityMatrixTest {
             true,
             true,
             List.of("\\b{g}", "\\b{g}\\X", "\\X\\b{g}")),
-        new Scenario(
-            "indic conjunct remains one extended cluster",
-            "Indic conjunct segmentation follows the extended grapheme cluster rules rather than"
-                + " splitting at the virama linker.",
-            "\u0915\u094D\u0937",
-            0,
-            3,
-            false,
-            true,
-            List.of("\\X", "\\X+", "(\\X)+", "\\X\\b{g}", "\\b{g}\\X\\b{g}")),
         new Scenario(
             "greedy grapheme quantifiers preserve priority",
             "Repeated and quantified \\X atoms remain leftmost-first and greedy while preserving"

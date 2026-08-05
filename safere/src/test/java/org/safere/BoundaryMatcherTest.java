@@ -15,6 +15,8 @@ import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
+import org.junit.jupiter.api.condition.JRE;
 
 /**
  * Tests for boundary matcher constructs: {@code \b}, {@code \B}, {@code \A}, {@code \z}, {@code
@@ -509,6 +511,7 @@ class BoundaryMatcherTest {
     }
 
     @Test
+    @EnabledForJreRange(min = JRE.JAVA_22)
     @DisplayName("chained \\X find() preserves leftmost starts inside Indic conjunct clusters")
     void chainedGraphemeClustersPreserveLeftmostStartsInsideIndicConjuncts() {
       String devanagariConjunct = "\u0915\u094D\u200D\u0915";

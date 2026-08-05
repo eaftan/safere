@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.lang.module.ModuleDescriptor;
+import java.lang.module.ModuleFinder;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,10 +24,13 @@ class ModuleDescriptorTest {
   @TempDir Path temporaryDirectory;
 
   @Test
-  void doesNotExposeIncubatorModulesToConsumers() {
-    ModuleDescriptor descriptor = Pattern.class.getModule().getDescriptor();
+  void doesNotExposeIncubatorModulesToConsumers() throws URISyntaxException {
+    ModuleDescriptor descriptor =
+        ModuleFinder.of(safeReModulePath())
+            .find("org.safere")
+            .orElseThrow(() -> new AssertionError("SafeRE module descriptor not found"))
+            .descriptor();
 
-    assertThat(descriptor).isNotNull();
     assertThat(descriptor.requires())
         .extracting(ModuleDescriptor.Requires::name)
         .noneMatch(name -> name.startsWith("jdk.incubator."));
@@ -66,8 +70,7 @@ class ModuleDescriptorTest {
         """,
         StandardCharsets.UTF_8);
 
-    Path safeReModulePath =
-        Path.of(Pattern.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+    Path safeReModulePath = safeReModulePath();
     ProcessResult compilation =
         run(
             javaTool("javac"),
@@ -96,6 +99,10 @@ class ModuleDescriptorTest {
   private static String javaTool(String name) {
     String suffix = System.getProperty("os.name").startsWith("Windows") ? ".exe" : "";
     return Path.of(System.getProperty("java.home"), "bin", name + suffix).toString();
+  }
+
+  private static Path safeReModulePath() throws URISyntaxException {
+    return Path.of(Pattern.class.getProtectionDomain().getCodeSource().getLocation().toURI());
   }
 
   private static ProcessResult run(String... command) throws IOException, InterruptedException {
