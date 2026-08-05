@@ -109,6 +109,10 @@ final class WorkCounterConfig {
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <compilerArgs combine.children="append">
+            <arg>--add-modules</arg>
+            <arg>jdk.incubator.vector</arg>
+            <arg>--add-reads</arg>
+            <arg>org.safere=jdk.incubator.vector</arg>
             <arg>-Xlint:-incubating</arg>
           </compilerArgs>
         </configuration>
