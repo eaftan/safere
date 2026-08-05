@@ -88,6 +88,11 @@ final class ResolvedBenchmarkPlan {
             }));
 
     List<DeclarativeBenchmarkPlan.ExpandedWorkload> workloads = plan.expandedWorkloads();
+    plan.validateTrialExclusions(
+        workloads,
+        engines.stream()
+            .map(Engine::id)
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)));
     patternProfiles.validateReferences(
         workloads.stream()
             .flatMap(workload -> workload.patterns().stream())
@@ -353,6 +358,10 @@ final class ResolvedBenchmarkPlan {
       Engine engine,
       PatternProfiles patternProfiles,
       PatternProfiles replacementProfiles) {
+    DeclarativeBenchmarkPlan.TrialExclusion trialExclusion = workload.trialExclusion(engine.id());
+    if (trialExclusion != null) {
+      return new Exclusion("explicitTrialExclusion", trialExclusion.reason());
+    }
     if (workload.disabledReason() != null) {
       return new Exclusion("workloadDisabled", workload.disabledReason());
     }

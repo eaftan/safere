@@ -585,6 +585,240 @@ class DeclarativeBenchmarkPlanTest {
   }
 
   @Test
+  void trialExclusionsSelectExactExpandedEnginePairs() {
+    DeclarativeBenchmarkPlan plan =
+        parse(
+            planJson(
+                """
+                [{
+                  "id": "RealWorldRegexBenchmark.runBenchmark.recitation.{matchLabel}.{size}",
+                  "operation": "replaceAll",
+                  "patterns": ["x"],
+                  "inputs": ["literal.input"],
+                  "arguments": {"replacement": ""},
+                  "axes": {
+                    "matchLabel": ["match", "noMatch"],
+                    "size": [1000, 10000, 100000]
+                  },
+                  "trialExclusions": [{
+                    "engineIds": ["jdk-string"],
+                    "when": {"size": [10000, 100000]},
+                    "reason": "OpenJDK 26.0.2 throws StackOverflowError for the nested quantifiers"
+                  }],
+                  "resultConsumption": "string",
+                  "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+                }]
+                """));
+
+    DeclarativeBenchmarkPlan.ExpandedPlan expanded =
+        plan.expand(
+            List.of(
+                engine(
+                    "safere-string",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.REPLACE),
+                engine(
+                    "jdk-string",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.REPLACE)),
+            EnumSet.of(DeclarativeBenchmarkPlan.Operation.REPLACE_ALL));
+
+    assertThat(expanded.exclusions())
+        .extracting(
+            exclusion -> exclusion.workloadId() + "@" + exclusion.engineId(),
+            DeclarativeBenchmarkPlan.Exclusion::kind,
+            DeclarativeBenchmarkPlan.Exclusion::reason)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple(
+                "RealWorldRegexBenchmark.runBenchmark.recitation.match.10000@jdk-string",
+                DeclarativeBenchmarkPlan.ExclusionKind.EXPLICIT_TRIAL_EXCLUSION,
+                "OpenJDK 26.0.2 throws StackOverflowError for the nested quantifiers"),
+            org.assertj.core.groups.Tuple.tuple(
+                "RealWorldRegexBenchmark.runBenchmark.recitation.match.100000@jdk-string",
+                DeclarativeBenchmarkPlan.ExclusionKind.EXPLICIT_TRIAL_EXCLUSION,
+                "OpenJDK 26.0.2 throws StackOverflowError for the nested quantifiers"),
+            org.assertj.core.groups.Tuple.tuple(
+                "RealWorldRegexBenchmark.runBenchmark.recitation.noMatch.10000@jdk-string",
+                DeclarativeBenchmarkPlan.ExclusionKind.EXPLICIT_TRIAL_EXCLUSION,
+                "OpenJDK 26.0.2 throws StackOverflowError for the nested quantifiers"),
+            org.assertj.core.groups.Tuple.tuple(
+                "RealWorldRegexBenchmark.runBenchmark.recitation.noMatch.100000@jdk-string",
+                DeclarativeBenchmarkPlan.ExclusionKind.EXPLICIT_TRIAL_EXCLUSION,
+                "OpenJDK 26.0.2 throws StackOverflowError for the nested quantifiers"));
+    assertThat(expanded.trials().stream().map(DeclarativeBenchmarkPlan.Trial::id))
+        .hasSize(8)
+        .contains(
+            "RealWorldRegexBenchmark.runBenchmark.recitation.match.1000@jdk-string",
+            "RealWorldRegexBenchmark.runBenchmark.recitation.noMatch.1000@jdk-string")
+        .filteredOn(id -> id.endsWith("@safere-string"))
+        .hasSize(6);
+  }
+
+  @Test
+  void trialExclusionsSupportConjunctiveLabeledSelectorsAndWorkloadWideRules() {
+    DeclarativeBenchmarkPlan plan =
+        parse(
+            planJson(
+                """
+                [{
+                  "id": "Synthetic.find.{case}.{size}",
+                  "operation": "find",
+                  "patterns": ["x"],
+                  "inputs": ["literal.input"],
+                  "axes": {
+                    "case": [{"id": "hit", "value": true}, {"id": "miss", "value": false}],
+                    "size": [8, 16]
+                  },
+                  "trialExclusions": [{
+                    "engineIds": ["first", "second"],
+                    "when": {"case": [{"id": "hit", "value": true}], "size": [16]},
+                    "reason": "conjunctive selector"
+                  }, {
+                    "engineIds": ["third"],
+                    "when": {},
+                    "reason": "all workload expansions"
+                  }],
+                  "resultConsumption": "boolean",
+                  "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+                }]
+                """));
+
+    DeclarativeBenchmarkPlan.ExpandedPlan expanded =
+        plan.expand(
+            List.of(
+                engine(
+                    "first",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.FIND),
+                engine(
+                    "second",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.FIND),
+                engine(
+                    "third",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.FIND),
+                engine(
+                    "unexcluded",
+                    DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING,
+                    DeclarativeBenchmarkPlan.Feature.FIND)),
+            EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND));
+
+    assertThat(expanded.exclusions())
+        .extracting(exclusion -> exclusion.workloadId() + "@" + exclusion.engineId())
+        .containsExactly(
+            "Synthetic.find.hit.8@third",
+            "Synthetic.find.hit.16@first",
+            "Synthetic.find.hit.16@second",
+            "Synthetic.find.hit.16@third",
+            "Synthetic.find.miss.8@third",
+            "Synthetic.find.miss.16@third");
+  }
+
+  @Test
+  void trialExclusionsRejectInvalidSelectorsAndOverlaps() {
+    assertInvalidTrialExclusion("{}", "requires engineIds");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [], \"reason\": \"reason\"}", "requires at least one engine ID");
+    assertInvalidTrialExclusion("{\"engineIds\": [\"jdk-string\"]}", "requires reason");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\", \"jdk-string\"], \"reason\": \"reason\"}",
+        "duplicate engine ID");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"reason\": \"  \"}", "reason must not be blank");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"when\": {\"unknown\": [8]},"
+            + " \"reason\": \"reason\"}",
+        "references unknown axis");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"when\": {\"size\": []}," + " \"reason\": \"reason\"}",
+        "selector must not be empty");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"when\": {\"size\": [32]},"
+            + " \"reason\": \"reason\"}",
+        "selects undeclared axis value");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"when\": {\"size\": [8, 8]},"
+            + " \"reason\": \"reason\"}",
+        "duplicate axis value");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"reason\": \"reason\"," + " \"unknown\": true}",
+        "has unknown field: unknown");
+    assertThatThrownBy(
+            () ->
+                parse(
+                    planJson(
+                        """
+                        [{
+                          "id": "Synthetic.find",
+                          "operation": "find",
+                          "patterns": ["x"],
+                          "inputs": ["literal.input"],
+                          "trialExclusions": {},
+                          "resultConsumption": "boolean",
+                          "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+                        }]
+                        """)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("trialExclusions must be an array");
+    assertInvalidTrialExclusion(
+        "{\"engineIds\": [\"jdk-string\"], \"when\": [], \"reason\": \"reason\"}",
+        "when must be an object");
+
+    assertThatThrownBy(
+            () ->
+                parse(
+                    planJson(
+                        """
+                        [{
+                          "id": "Synthetic.find",
+                          "operation": "find",
+                          "patterns": ["x"],
+                          "inputs": ["literal.input"],
+                          "trialExclusions": [{
+                            "engineIds": ["jdk-string"],
+                            "reason": "reason"
+                          }],
+                          "disabledReason": "disabled",
+                          "resultConsumption": "boolean",
+                          "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+                        }]
+                        """)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("must not declare both disabledReason and trialExclusions");
+
+    DeclarativeBenchmarkPlan unknownEngine =
+        planWithTrialExclusions("{\"engineIds\": [\"jdk-string\"], \"reason\": \"reason\"}");
+    assertThatThrownBy(
+            () ->
+                unknownEngine.expand(
+                    List.of(
+                        engine(
+                            "safere-string",
+                            DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING)),
+                    EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("references unknown engine ID: jdk-string");
+
+    DeclarativeBenchmarkPlan overlap =
+        planWithTrialExclusions(
+            "{\"engineIds\": [\"jdk-string\"], \"when\": {\"size\": [8]},"
+                + " \"reason\": \"first\"},"
+                + "{\"engineIds\": [\"jdk-string\"], \"reason\": \"second\"}");
+    assertThatThrownBy(
+            () ->
+                overlap.expand(
+                    List.of(
+                        engine(
+                            "jdk-string",
+                            DeclarativeBenchmarkPlan.InputRepresentation.JAVA_STRING)),
+                    EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(
+            "Synthetic.find.8 has overlapping trial exclusions for engine jdk-string");
+  }
+
+  @Test
   void unsupportedFlagsHaveAMachineReadableExclusion() {
     DeclarativeBenchmarkPlan plan =
         parse(
@@ -1004,6 +1238,30 @@ class DeclarativeBenchmarkPlanTest {
 
   private static DeclarativeBenchmarkPlan parse(String json) {
     return DeclarativeBenchmarkPlan.parse(JsonParser.parseString(json).getAsJsonObject());
+  }
+
+  private static void assertInvalidTrialExclusion(String exclusion, String message) {
+    assertThatThrownBy(() -> planWithTrialExclusions(exclusion))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining(message);
+  }
+
+  private static DeclarativeBenchmarkPlan planWithTrialExclusions(String exclusions) {
+    return parse(
+        planJson(
+            """
+            [{
+              "id": "Synthetic.find.{size}",
+              "operation": "find",
+              "patterns": ["x"],
+              "inputs": ["literal.input"],
+              "axes": {"size": [8, 16]},
+              "trialExclusions": [%s],
+              "resultConsumption": "boolean",
+              "measurement": {"mode": "averageTime", "timingUnit": "nanoseconds"}
+            }]
+            """
+                .formatted(exclusions)));
   }
 
   private static String planJson(String workloads) {

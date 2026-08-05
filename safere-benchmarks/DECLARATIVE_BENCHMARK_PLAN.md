@@ -79,6 +79,34 @@ A materially changed operation, input, result-consumption rule, lifecycle, or
 timing boundary requires a new workload ID. Reordering JSON or changing a
 display label does not.
 
+### Explicit trial exclusions
+
+A workload may declare known-unsafe engine trials with `trialExclusions`. Each
+rule names one or more exact execution-plan engine IDs, a nonblank reason, and
+optional axis selectors:
+
+```json
+"trialExclusions": [{
+  "engineIds": ["jdk-string"],
+  "when": {"size": [10000, 100000]},
+  "reason": "OpenJDK 26.0.2 throws StackOverflowError for this pattern at these sizes"
+}]
+```
+
+Conditions within `when` are conjunctive. An omitted axis is a wildcard, and
+an omitted or empty `when` selects every expansion of the workload for the
+named engines. Selector values use the same typed scalar or labeled
+`{"id": ..., "value": ...}` representation as the corresponding axis and
+must exactly equal a declared value.
+
+Engine IDs are exact; report-engine names, runners, and syntax profiles are not
+selectors. Rules may not overlap on an expanded workload/engine pair. Unknown
+engines, axes, and values, duplicate selectors, empty selections, and blank
+reasons are rejected. Explicit trial exclusions are resolved before general
+engine capability and syntax exclusions so the checked-in reason remains the
+auditable explanation. A workload cannot combine `trialExclusions` with
+`disabledReason`.
+
 ## Pattern profiles
 
 All workload patterns use Java regex syntax as their canonical representation.
@@ -164,6 +192,10 @@ contain an `exclusion` object with a stable kind and explanatory reason.
 Runners may implement generic regex operations only; an entry declared
 runnable that cannot be prepared is an error rather than a new runtime
 exclusion.
+
+Explicit trial rules materialize with exclusion kind
+`explicitTrialExclusion`. They remain in the complete execution-plan join but
+are omitted from runner trial lists.
 
 ## Bounded input recipes
 

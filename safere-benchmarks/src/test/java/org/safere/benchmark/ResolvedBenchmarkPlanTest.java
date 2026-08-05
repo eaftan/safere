@@ -97,6 +97,61 @@ class ResolvedBenchmarkPlanTest {
         .isEqualTo("alternate-replacement");
   }
 
+  @Test
+  void explicitTrialExclusionsSurviveResolutionAndMaterializedConsumption() {
+    JsonObject data = normalizedData();
+    JsonObject find = data.getAsJsonArray("workloads").get(0).getAsJsonObject();
+    find.add(
+        "trialExclusions",
+        JsonParser.parseString(
+            """
+            [{
+              "engineIds": ["jdk-string"],
+              "reason": "OpenJDK 26.0.2 throws StackOverflowError for this trial"
+            }]
+            """));
+
+    JsonObject resolved =
+        ResolvedBenchmarkPlan.create(
+            data,
+            List.of(
+                engine(
+                    "safere-string",
+                    "alternate",
+                    EnumSet.of(DeclarativeBenchmarkPlan.Feature.FIND),
+                    EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND)),
+                engine(
+                    "jdk-string",
+                    "alternate",
+                    EnumSet.of(DeclarativeBenchmarkPlan.Feature.FIND),
+                    EnumSet.of(DeclarativeBenchmarkPlan.Operation.FIND))));
+
+    JsonObject exclusion = entry(resolved, "Synthetic.find@jdk-string");
+    assertThat(exclusion.get("status").getAsString()).isEqualTo("excluded");
+    assertThat(exclusion.getAsJsonObject("exclusion").get("kind").getAsString())
+        .isEqualTo("explicitTrialExclusion");
+    assertThat(exclusion.getAsJsonObject("exclusion").get("reason").getAsString())
+        .isEqualTo("OpenJDK 26.0.2 throws StackOverflowError for this trial");
+    assertThat(entry(resolved, "Synthetic.find@safere-string").get("status").getAsString())
+        .isEqualTo("runnable");
+
+    MaterializedExecutionPlan materialized = MaterializedExecutionPlan.parse(resolved);
+    assertThat(materialized.resolve("Synthetic.find@jdk-string").exclusion())
+        .isEqualTo(
+            new MaterializedExecutionPlan.Exclusion(
+                "explicitTrialExclusion",
+                "OpenJDK 26.0.2 throws StackOverflowError for this trial"));
+    CrossEngineBenchmarkPlan collection =
+        CrossEngineBenchmarkPlan.fromMaterialized(materialized.entriesForRunner("java"));
+    assertThat(collection.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS))
+        .extracting(CrossEngineBenchmarkPlan.Trial::id)
+        .contains("Synthetic.find@safere-string")
+        .doesNotContain("Synthetic.find@jdk-string");
+    assertThat(collection.exclusions())
+        .extracting(MaterializedExecutionPlan.Entry::id)
+        .contains("Synthetic.find@jdk-string");
+  }
+
   private static ResolvedBenchmarkPlan.Engine engine(
       String id,
       String profile,
@@ -105,7 +160,7 @@ class ResolvedBenchmarkPlanTest {
     return new ResolvedBenchmarkPlan.Engine(
         id,
         id,
-        "test",
+        "java",
         profile,
         profile,
         new DeclarativeBenchmarkPlan.EngineDeclaration(

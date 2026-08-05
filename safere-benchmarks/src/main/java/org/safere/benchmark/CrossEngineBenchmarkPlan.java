@@ -59,8 +59,7 @@ final class CrossEngineBenchmarkPlan {
     return fromMaterialized(MaterializedExecutionPlan.load().entriesForRunner("java"));
   }
 
-  private static CrossEngineBenchmarkPlan fromMaterialized(
-      List<MaterializedExecutionPlan.Entry> entries) {
+  static CrossEngineBenchmarkPlan fromMaterialized(List<MaterializedExecutionPlan.Entry> entries) {
     Map<String, CrossEngineWorkload> workloads = new LinkedHashMap<>();
     Map<String, Trial> trials = new LinkedHashMap<>();
     List<MaterializedExecutionPlan.Entry> exclusions = new ArrayList<>();

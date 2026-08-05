@@ -178,7 +178,8 @@ final class MaterializedExecutionPlan {
         expected,
         lifecycle,
         measurement,
-        null);
+        null,
+        List.of());
   }
 
   private static Map<String, DeclarativeBenchmarkPlan.RecipeValue> parseArguments(

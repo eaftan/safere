@@ -111,6 +111,7 @@ final class DeclarativeBenchmarkPlan {
     }
 
     List<ExpandedWorkload> expandedWorkloads = expandWorkloads();
+    validateTrialExclusions(expandedWorkloads, engineIds);
     List<Trial> trials = new ArrayList<>();
     List<Exclusion> exclusions = new ArrayList<>();
     for (ExpandedWorkload workload : expandedWorkloads) {
@@ -143,6 +144,14 @@ final class DeclarativeBenchmarkPlan {
 
   private static Exclusion exclusion(
       ExpandedWorkload workload, EngineDeclaration engine, Set<Operation> implementedOperations) {
+    TrialExclusion trialExclusion = workload.trialExclusion(engine.id());
+    if (trialExclusion != null) {
+      return new Exclusion(
+          workload.id(),
+          engine.id(),
+          ExclusionKind.EXPLICIT_TRIAL_EXCLUSION,
+          trialExclusion.reason());
+    }
     if (!engine.adapterAvailable()) {
       return new Exclusion(
           workload.id(),
@@ -235,10 +244,35 @@ final class DeclarativeBenchmarkPlan {
                 expected,
                 workload.lifecycle(),
                 workload.measurement(),
-                workload.disabledReason()));
+                workload.disabledReason(),
+                workload.trialExclusions().stream()
+                    .filter(exclusion -> exclusion.matches(parameters))
+                    .toList()));
       }
     }
     return List.copyOf(result);
+  }
+
+  void validateTrialExclusions(List<ExpandedWorkload> workloads, Set<String> engineIds) {
+    Objects.requireNonNull(workloads);
+    Objects.requireNonNull(engineIds);
+    for (WorkloadDeclaration workload : this.workloads) {
+      for (TrialExclusion exclusion : workload.trialExclusions()) {
+        for (String engineId : exclusion.engineIds()) {
+          if (!engineIds.contains(engineId)) {
+            throw new IllegalArgumentException(
+                workload.idTemplate()
+                    + " trial exclusion references unknown engine ID: "
+                    + engineId);
+          }
+        }
+      }
+    }
+    for (ExpandedWorkload workload : workloads) {
+      for (String engineId : engineIds) {
+        workload.trialExclusion(engineId);
+      }
+    }
   }
 
   private void validateReferencesAndIdentities() {
@@ -322,7 +356,8 @@ final class DeclarativeBenchmarkPlan {
         "expected",
         "lifecycle",
         "measurement",
-        "disabledReason");
+        "disabledReason",
+        "trialExclusions");
     String id = workload.requiredString("id");
     Operation operation = Operation.fromJson(workload.requiredString("operation"));
     List<String> patterns = workload.requiredStringList("patterns");
@@ -351,6 +386,8 @@ final class DeclarativeBenchmarkPlan {
     MatcherLifecycle lifecycle = parseLifecycle(workload.optionalObject("lifecycle"));
     Measurement measurement = parseMeasurement(workload.requiredObject("measurement"));
     String disabledReason = workload.optionalString("disabledReason");
+    List<TrialExclusion> trialExclusions =
+        parseTrialExclusions(workload.optionalArray("trialExclusions"), id, axes);
 
     if (patterns.isEmpty()) {
       throw new IllegalArgumentException(id + " requires at least one pattern");
@@ -375,6 +412,10 @@ final class DeclarativeBenchmarkPlan {
     if (disabledReason != null && disabledReason.isBlank()) {
       throw new IllegalArgumentException(id + " disabledReason must not be blank");
     }
+    if (disabledReason != null && !trialExclusions.isEmpty()) {
+      throw new IllegalArgumentException(
+          id + " must not declare both disabledReason and trialExclusions");
+    }
     requirements.addAll(operation.requiredFeatures());
     requirements.addAll(lifecycle.requiredFeatures());
     operation.validate(id, patterns, inputs, consumption, lifecycle, measurement);
@@ -394,7 +435,84 @@ final class DeclarativeBenchmarkPlan {
         expected,
         lifecycle,
         measurement,
-        disabledReason);
+        disabledReason,
+        trialExclusions);
+  }
+
+  private static List<TrialExclusion> parseTrialExclusions(
+      JsonArray declarations, String workloadId, Map<String, List<ParameterValue>> axes) {
+    List<TrialExclusion> result = new ArrayList<>();
+    for (JsonElement element : declarations) {
+      JsonReader exclusion = JsonReader.object(workloadId + " trial exclusion", element);
+      exclusion.requireOnly("engineIds", "when", "reason");
+      List<String> engineIds = exclusion.requiredStringList("engineIds");
+      if (engineIds.isEmpty()) {
+        throw new IllegalArgumentException(
+            workloadId + " trial exclusion requires at least one engine ID");
+      }
+      Set<String> distinctEngineIds = new LinkedHashSet<>();
+      for (String engineId : engineIds) {
+        requireSimpleId(engineId, "benchmark engine");
+        if (!distinctEngineIds.add(engineId)) {
+          throw new IllegalArgumentException(
+              workloadId + " trial exclusion has duplicate engine ID: " + engineId);
+        }
+      }
+
+      Map<String, Set<ParameterValue>> selectors = new LinkedHashMap<>();
+      JsonObject when = exclusion.optionalObject("when");
+      if (when != null) {
+        for (Map.Entry<String, JsonElement> selector : when.entrySet()) {
+          String axis = selector.getKey();
+          List<ParameterValue> declaredValues = axes.get(axis);
+          if (declaredValues == null) {
+            throw new IllegalArgumentException(
+                workloadId + " trial exclusion references unknown axis: " + axis);
+          }
+          JsonArray values;
+          try {
+            values = selector.getValue().getAsJsonArray();
+          } catch (RuntimeException exception) {
+            throw new IllegalArgumentException(
+                workloadId + " trial exclusion selector must be an array: " + axis, exception);
+          }
+          if (values.isEmpty()) {
+            throw new IllegalArgumentException(
+                workloadId + " trial exclusion selector must not be empty: " + axis);
+          }
+          Set<ParameterValue> parsedValues = new LinkedHashSet<>();
+          for (JsonElement value : values) {
+            ParameterValue parsed = ParameterValue.parse(value, axis);
+            if (!parsedValues.add(parsed)) {
+              throw new IllegalArgumentException(
+                  workloadId
+                      + " trial exclusion has duplicate axis value: "
+                      + axis
+                      + "="
+                      + parsed.stableText());
+            }
+            if (!declaredValues.contains(parsed)) {
+              throw new IllegalArgumentException(
+                  workloadId
+                      + " trial exclusion selects undeclared axis value: "
+                      + axis
+                      + "="
+                      + parsed.stableText());
+            }
+          }
+          selectors.put(axis, Collections.unmodifiableSet(parsedValues));
+        }
+      }
+      String reason = exclusion.requiredString("reason");
+      if (reason.isBlank()) {
+        throw new IllegalArgumentException(
+            workloadId + " trial exclusion reason must not be blank");
+      }
+      result.add(
+          new TrialExclusion(
+              List.copyOf(distinctEngineIds), Collections.unmodifiableMap(selectors), reason));
+    }
+    return List.copyOf(result);
   }
 
   private static Map<String, List<ParameterValue>> parseAxes(JsonObject object) {
@@ -717,7 +835,8 @@ final class DeclarativeBenchmarkPlan {
       ExpectedResult expected,
       MatcherLifecycle lifecycle,
       Measurement measurement,
-      String disabledReason) {
+      String disabledReason,
+      List<TrialExclusion> trialExclusions) {
     WorkloadDeclaration {
       patternTemplates = List.copyOf(patternTemplates);
       inputTemplates = List.copyOf(inputTemplates);
@@ -726,6 +845,7 @@ final class DeclarativeBenchmarkPlan {
       flags = flags.clone();
       requirements = requirements.clone();
       inputRepresentations = inputRepresentations.clone();
+      trialExclusions = List.copyOf(trialExclusions);
     }
 
     @Override
@@ -759,7 +879,8 @@ final class DeclarativeBenchmarkPlan {
       ExpectedResult expected,
       MatcherLifecycle lifecycle,
       Measurement measurement,
-      String disabledReason) {
+      String disabledReason,
+      List<TrialExclusion> trialExclusions) {
     ExpandedWorkload {
       patterns = List.copyOf(patterns);
       inputIds = List.copyOf(inputIds);
@@ -768,6 +889,7 @@ final class DeclarativeBenchmarkPlan {
       flags = flags.clone();
       requirements = requirements.clone();
       inputRepresentations = inputRepresentations.clone();
+      trialExclusions = List.copyOf(trialExclusions);
     }
 
     @Override
@@ -783,6 +905,38 @@ final class DeclarativeBenchmarkPlan {
     @Override
     public EnumSet<InputRepresentation> inputRepresentations() {
       return inputRepresentations.clone();
+    }
+
+    TrialExclusion trialExclusion(String engineId) {
+      TrialExclusion result = null;
+      for (TrialExclusion exclusion : trialExclusions) {
+        if (!exclusion.engineIds().contains(engineId)) {
+          continue;
+        }
+        if (result != null) {
+          throw new IllegalArgumentException(
+              id + " has overlapping trial exclusions for engine " + engineId);
+        }
+        result = exclusion;
+      }
+      return result;
+    }
+  }
+
+  record TrialExclusion(
+      List<String> engineIds, Map<String, Set<ParameterValue>> when, String reason) {
+    TrialExclusion {
+      engineIds = List.copyOf(engineIds);
+      Map<String, Set<ParameterValue>> copied = new LinkedHashMap<>();
+      when.forEach(
+          (axis, values) ->
+              copied.put(axis, Collections.unmodifiableSet(new LinkedHashSet<>(values))));
+      when = Collections.unmodifiableMap(copied);
+    }
+
+    boolean matches(Map<String, ParameterValue> parameters) {
+      return when.entrySet().stream()
+          .allMatch(selector -> selector.getValue().contains(parameters.get(selector.getKey())));
     }
   }
 
@@ -2052,6 +2206,7 @@ final class DeclarativeBenchmarkPlan {
   }
 
   enum ExclusionKind {
+    EXPLICIT_TRIAL_EXCLUSION,
     WORKLOAD_DISABLED,
     UNSUPPORTED_FEATURE,
     UNSUPPORTED_FLAG,
