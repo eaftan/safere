@@ -241,38 +241,38 @@ public final class Pattern implements Serializable {
   private transient volatile Dfa.Setup reverseDfaSetup;
 
   /**
-   * Thread-local cached BitState instance. Shared across all Matchers created from this Pattern
-   * within the same thread, enabling reuse even with the common {@code pattern.matcher(t).find()}
-   * idiom where each call creates a new Matcher.
+   * Bounded lock-free concurrent pool of cached BitState instances. Shared across Matchers created
+   * from this Pattern across all threads, enabling reuse even with the common {@code
+   * pattern.matcher(t).find()} idiom where each call creates a new Matcher, while avoiding
+   * ThreadLocal allocation overhead in virtual-thread environments.
    */
-  // Per-Pattern ThreadLocals are intentional: each Pattern caches its own DFA/BitState per thread,
-  // so the warm state cache persists across the common pattern.matcher(t).find() idiom.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<BitState> cachedBitState = new ThreadLocal<>();
-
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Nfa> cachedNfa = new ThreadLocal<>();
+  private final transient ArrayPool<BitState> cachedBitState;
 
   /**
-   * Thread-local cached forward DFA. Shared across all Matchers created from this Pattern within
-   * the same thread, so the DFA state cache persists across the common {@code
-   * pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by NFA
-   * instruction sets and flags), so it remains valid for any input text.
+   * Bounded lock-free concurrent pool of cached Nfa instances. Shared across Matchers like the
+   * BitState cache.
    */
-  // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedForwardFirstMatchDfa = new ThreadLocal<>();
-
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedForwardLongestMatchDfa = new ThreadLocal<>();
+  private final transient ArrayPool<Nfa> cachedNfa;
 
   /**
-   * Thread-local cached reverse DFA. Shared like the forward DFA, enabling the DFA sandwich to run
-   * with a warm state cache across Matcher instances.
+   * Bounded lock-free concurrent pool of cached forward first-match DFAs. Shared across Matchers
+   * created from this Pattern across all threads, so the DFA state cache persists across the common
+   * {@code pattern.matcher(t).find()} idiom. The DFA's state cache is text-independent (keyed by
+   * NFA instruction sets and flags), so it remains valid for any input text.
    */
-  // Per-Pattern ThreadLocals are intentional; see cachedBitState above.
-  @SuppressWarnings("ThreadLocalUsage")
-  private final transient ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
+  private final transient ArrayPool<Dfa> cachedForwardFirstMatchDfa;
+
+  /**
+   * Bounded lock-free concurrent pool of cached forward longest-match DFAs. Shared like the forward
+   * first-match DFA cache.
+   */
+  private final transient ArrayPool<Dfa> cachedForwardLongestMatchDfa;
+
+  /**
+   * Bounded lock-free concurrent pool of cached reverse DFAs. Shared like the forward DFA, enabling
+   * the DFA sandwich to run with a warm state cache across Matcher instances.
+   */
+  private final transient ArrayPool<Dfa> cachedReverseDfa;
 
   /** Holder for lazily computed OnePass analysis results. */
   private record OnePassAnalysis(
@@ -388,6 +388,54 @@ public final class Pattern implements Serializable {
     forwardDfaSetup();
     if (!prog.anchorStart()) {
       flatReverseDfaProg();
+    }
+
+    // Initialize bounded object pools
+    int dfaPoolSize = DEFAULT_DFA_POOL_SIZE;
+    int otherPoolSize = DEFAULT_OTHER_POOL_SIZE;
+
+    this.cachedBitState =
+        new ArrayPool<>(
+            otherPoolSize,
+            () ->
+                BitState.getOrCreate(
+                    null, prog, "", 0, 0, 2 * Math.max(prog.numCaptures(), 1), false, false),
+            BitState::clear);
+    this.cachedNfa =
+        new ArrayPool<>(
+            otherPoolSize,
+            () ->
+                Nfa.getOrCreate(
+                    null, prog, null, 2 * Math.max(prog.numCaptures(), 1), false, false),
+            Nfa::clear);
+
+    if (enginePathOptions.dfa()) {
+      this.cachedForwardFirstMatchDfa =
+          new ArrayPool<>(
+              dfaPoolSize,
+              () -> new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), false),
+              null);
+      this.cachedForwardLongestMatchDfa =
+          new ArrayPool<>(
+              dfaPoolSize,
+              () -> new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), true),
+              null);
+    } else {
+      this.cachedForwardFirstMatchDfa = null;
+      this.cachedForwardLongestMatchDfa = null;
+    }
+
+    if (enginePathOptions.dfa() && !prog.anchorStart()) {
+      this.cachedReverseDfa =
+          new ArrayPool<>(
+              dfaPoolSize,
+              () -> {
+                Prog rp = flatReverseDfaProg();
+                return rp != null ? new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true) : null;
+              },
+              null);
+    } else {
+      this.cachedReverseDfa = null;
     }
 
     SafeReMatchDiagnostics listener = diagnostics();
@@ -693,9 +741,16 @@ public final class Pattern implements Serializable {
       }
     }
     if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, searchStart, false, false);
-      if (result != null) {
-        return result.matched();
+      Dfa dfa = borrowForwardFirstMatchDfa();
+      if (dfa != null) {
+        try {
+          Dfa.SearchResult result = dfa.doSearch(scanner, searchStart, false, false);
+          if (result != null) {
+            return result.matched();
+          }
+        } finally {
+          returnForwardFirstMatchDfa(dfa);
+        }
       }
     }
     return Nfa.search(
@@ -1070,38 +1125,29 @@ public final class Pattern implements Serializable {
     }
   }
 
-  /** Returns the thread-local cached BitState, or null if none has been cached yet. */
+  /** Borrows a cached BitState from the pool, or creates one if empty. */
   BitState borrowBitState() {
-    BitState bs = cachedBitState.get();
-    cachedBitState.set(null); // take ownership
-    return bs;
+    return cachedBitState.acquire();
   }
 
-  /** Returns a BitState to the thread-local cache for reuse by future Matchers. */
+  /** Returns a BitState instance to the pool for reuse. */
   void returnBitState(BitState bs) {
-    bs.releaseInput();
-    cachedBitState.set(bs);
+    cachedBitState.release(bs);
   }
 
+  /** Borrows a cached Nfa from the pool, or creates one if empty. */
   Nfa borrowNfa() {
-    Nfa nfa = cachedNfa.get();
-    cachedNfa.set(null);
-    return nfa;
+    return cachedNfa.acquire();
   }
 
+  /** Returns an Nfa instance to the pool for reuse. */
   void returnNfa(Nfa nfa) {
-    nfa.releaseInputContext();
-    cachedNfa.set(nfa);
+    cachedNfa.release(nfa);
   }
 
   /** Maximum number of DFA states before the DFA bails out. */
   static final int MAX_DFA_STATES = 10_000;
 
-  /**
-   * Returns the thread-local cached forward DFA, creating it on first access. The DFA state cache
-   * persists across Matcher instances, so repeated {@code pattern.matcher(t).find()} calls benefit
-   * from warm DFA transitions.
-   */
   Prog flatProg() {
     return flatProg;
   }
@@ -1110,35 +1156,52 @@ public final class Pattern implements Serializable {
     return flatDfaProg;
   }
 
-  Dfa forwardFirstMatchDfa() {
-    Dfa dfa = cachedForwardFirstMatchDfa.get();
-    if (dfa == null) {
-      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), false);
-      cachedForwardFirstMatchDfa.set(dfa);
-    }
-    return dfa;
+  /** Borrows a cached forward first-match DFA from the pool (or null if DFA engine disabled). */
+  Dfa borrowForwardFirstMatchDfa() {
+    return cachedForwardFirstMatchDfa != null ? cachedForwardFirstMatchDfa.acquire() : null;
   }
 
-  Dfa forwardLongestMatchDfa() {
-    Dfa dfa = cachedForwardLongestMatchDfa.get();
-    if (dfa == null) {
-      dfa = new Dfa(flatDfaProg, MAX_DFA_STATES, forwardDfaSetup(), true);
-      cachedForwardLongestMatchDfa.set(dfa);
+  /** Returns a forward first-match DFA instance to the pool. */
+  void returnForwardFirstMatchDfa(Dfa dfa) {
+    if (cachedForwardFirstMatchDfa != null) {
+      cachedForwardFirstMatchDfa.release(dfa);
     }
-    return dfa;
+  }
+
+  /** Borrows a cached forward longest-match DFA from the pool (or null if DFA engine disabled). */
+  Dfa borrowForwardLongestMatchDfa() {
+    return cachedForwardLongestMatchDfa != null ? cachedForwardLongestMatchDfa.acquire() : null;
+  }
+
+  /** Returns a forward longest-match DFA instance to the pool. */
+  void returnForwardLongestMatchDfa(Dfa dfa) {
+    if (cachedForwardLongestMatchDfa != null) {
+      cachedForwardLongestMatchDfa.release(dfa);
+    }
+  }
+
+  /** Borrows a cached reverse DFA from the pool (or null if DFA engine disabled or anchored). */
+  Dfa borrowReverseDfa() {
+    return cachedReverseDfa != null ? cachedReverseDfa.acquire() : null;
+  }
+
+  /** Returns a reverse DFA instance to the pool. */
+  void returnReverseDfa(Dfa dfa) {
+    if (cachedReverseDfa != null) {
+      cachedReverseDfa.release(dfa);
+    }
   }
 
   /**
-   * Returns the thread-local cached reverse DFA, creating it on first access. Triggers lazy
-   * compilation of the reverse program if needed.
+   * Returns a cached reverse DFA from the pool or creates an unpooled instance if needed. Triggers
+   * lazy compilation of the reverse program on first access.
    */
   Dfa reverseDfa() {
-    Dfa dfa = cachedReverseDfa.get();
+    Dfa dfa = borrowReverseDfa();
     if (dfa == null) {
       Prog rp = flatReverseDfaProg();
       if (rp != null) {
         dfa = new Dfa(rp, MAX_DFA_STATES, reverseDfaSetup(), true);
-        cachedReverseDfa.set(dfa);
       }
     }
     return dfa;
@@ -3213,6 +3276,20 @@ public final class Pattern implements Serializable {
     }
     return foldCase ? sb.toString().toLowerCase(Locale.ROOT) : sb.toString();
   }
+
+  private static int roundToPowerOfTwo(int value) {
+    int highestOneBit = Integer.highestOneBit(value);
+    return value == highestOneBit ? value : highestOneBit << 1;
+  }
+
+  private static final int DEFAULT_DFA_POOL_SIZE =
+      roundToPowerOfTwo(
+          Math.max(
+              2,
+              Integer.getInteger(
+                  "safere.dfa_pool_size", Runtime.getRuntime().availableProcessors())));
+  private static final int DEFAULT_OTHER_POOL_SIZE =
+      roundToPowerOfTwo(Math.max(2, DEFAULT_DFA_POOL_SIZE / 2));
 
   /** Deserialization: recompile the pattern from the stored string and flags. */
   private Object readResolve() {

@@ -679,4 +679,10 @@ final class BitState {
       Arrays.fill(loopRegs, -1);
     }
   }
+
+  void clear() {
+    this.text = null;
+    this.graphemeContext = null;
+    this.bestMatch = null;
+  }
 }

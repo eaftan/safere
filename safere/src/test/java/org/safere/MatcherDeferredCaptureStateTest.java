@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -85,8 +86,16 @@ class MatcherDeferredCaptureStateTest {
 
     assertThat(pattern.matcher("abc123").find()).isTrue();
 
-    ThreadLocal<?> cachedNfa = (ThreadLocal<?>) field(Pattern.class, "cachedNfa").get(pattern);
-    Object nfa = cachedNfa.get();
+    ArrayPool<?> cachedNfa = (ArrayPool<?>) field(Pattern.class, "cachedNfa").get(pattern);
+    AtomicReferenceArray<?> array =
+        (AtomicReferenceArray<?>) field(ArrayPool.class, "array").get(cachedNfa);
+    Object nfa = null;
+    for (int i = 0; i < array.length(); i++) {
+      nfa = array.get(i);
+      if (nfa != null) {
+        break;
+      }
+    }
     assertThat(nfa).isNotNull();
     assertThat(field(Nfa.class, "context").get(nfa)).isNull();
   }
