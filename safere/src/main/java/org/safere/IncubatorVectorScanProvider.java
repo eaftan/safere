@@ -5,7 +5,8 @@
 
 package org.safere;
 
-import static jdk.incubator.vector.VectorOperators.ULE;
+import static jdk.incubator.vector.VectorOperators.GE;
+import static jdk.incubator.vector.VectorOperators.LE;
 
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorMask;
@@ -66,9 +67,7 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
     if (high == low + 1) {
       return values.eq(low).or(values.eq(high));
     }
-    ByteVector lowVector = ByteVector.broadcast(SPECIES, low);
-    ByteVector rangeVector = ByteVector.broadcast(SPECIES, (byte) (high - low));
-    return values.sub(lowVector).compare(ULE, rangeVector);
+    return values.compare(GE, low).and(values.compare(LE, high));
   }
 
   private static boolean matches(byte value, int[] ranges) {
