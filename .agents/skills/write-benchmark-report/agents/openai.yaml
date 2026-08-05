@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Benchmark Report"
+  short_description: "Create reproducible SafeRE benchmark reports"
+  default_prompt: "Use $write-benchmark-report to collect results and write a reproducible SafeRE benchmark report."

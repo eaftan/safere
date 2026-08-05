@@ -313,6 +313,12 @@ Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
 
 # Full collection; includes the external OpenJDK-derived suite by default
 ./collect-benchmark-results.sh
+
+# Longer confirmation collection
+./collect-benchmark-results.sh --long
+
+# Add cross-runtime engines
+./collect-benchmark-results.sh --cross-language
 ```
 
 Arguments after the mode flag are passed directly to JMH as benchmark regex
@@ -348,8 +354,8 @@ generic runners and trials:
   `./collect-benchmark-results.sh` collects SafeRE, JDK, RE2/J, and RE2-FFM
   results from SafeRE's suite, then SafeRE/JDK results from the external
   OpenJDK-derived suite. Use `./collect-benchmark-results.sh --cross-language`
-  only when broader C++ RE2, Go `regexp`, and Rust `regex` context is explicitly
-  needed.
+  only when broader C++ RE2, PCRE2 JIT, Go `regexp`, Rust `regex`, and .NET
+  non-backtracking context is explicitly needed.
 - **OpenJDK-derived benchmarks stay external.** Their GPL-2.0-only repository
   must be checked out separately and must not be vendored or added to SafeRE's
   Maven modules. The collection script runs them as a separate result set
@@ -360,6 +366,13 @@ generic runners and trials:
 - **NEVER run benchmarks in parallel.** All benchmark runs must run
   sequentially, one at a time. Parallel runs compete for CPU, cache, and memory
   bandwidth, producing inaccurate results.
+- **A collection does not require continuous monitoring.** Launch long
+  collections in a durable session with captured output. Verify that
+  prerequisites and builds succeed and that the first actual benchmark starts,
+  then stop polling unless the user explicitly asks for continuous oversight.
+  Before analyzing the results, verify the final exit status and the expected
+  artifacts for every selected suite. Do not describe a successfully started
+  collection as completed.
 - **Do not commit optimizations that do not improve benchmark results.**
   Every optimization must be validated with before/after benchmarks.
 - **`benchmark-data.json` is the only checked-in workload source.** Benchmark
@@ -396,9 +409,13 @@ When reporting an aggregate comparison:
 - Compute the **geometric mean of speed ratios** rather than an arithmetic mean
   of ratios. Use `SafeRE time / competitor time`, so values below 1.0 mean
   SafeRE is faster.
-- Report the raw geomean and a readable interpretation such as "N× faster" or
-  "N× slower." Explain when a small number of extreme cases materially
-  influences the aggregate.
+- Compute each competitor aggregate over its actual pairwise shared membership
+  when engine coverage differs. Report the row count and material exclusions;
+  do not present a partial-coverage aggregate as an overall engine comparison.
+- Report the raw geomean and a readable interpretation. For ratios below 1.0,
+  use "N× faster." For ratios above 1.0, use a percentage such as "13% slower"
+  or the unambiguous "takes 2.03× as long," not "1.13× slower." Explain when a
+  small number of extreme cases materially influences the aggregate.
 
 **Why geometric mean:** It is the only mean consistent under inversion
 (geomean(A/B) = 1/geomean(B/A)), treats multiplicative improvements
@@ -406,16 +423,23 @@ symmetrically, and is the standard in systems benchmarking (SPEC, DaCapo,
 Renaissance). Do not use arithmetic mean of ratios — it is biased by outliers
 and inconsistent under inversion.
 
-`BENCHMARKS.md` must be self-contained for checked-in benchmark claims. Raw
-outputs may remain local, but do not make an ignored or machine-local artifact
-the only place where a reported result or supporting table can be inspected.
+`BENCHMARKS.md` must be self-contained for checked-in benchmark claims. For a
+published benchmark report, check in the reviewed collection under
+`benchmark-results/published/<full-SafeRE-commit>/`, including complete raw
+outputs, normalized results, the resolved plan, a publication README, and
+SHA-256 checksums. Keep ordinary timestamped runs ignored. The report must link
+prominently to the published artifacts, and its claims must be reproducible
+from them; neither the report nor an ignored or machine-local artifact may be
+the sole inspectable evidence.
 
 When updating `BENCHMARKS.md`, update the external OpenJDK-derived benchmark
 section from the same collection. Keep its results and aggregates separate from
 SafeRE's native suite, and record the SafeRE commit, external benchmark
 repository commit, pinned OpenJDK source commit, SafeRE version, and JDK
-version. Do not leave the previous external results in place after publishing a
-new full collection.
+version. If the user explicitly narrows the collection to skip that suite,
+identify the report as incomplete and remove stale external results rather than
+retaining results from a different collection. Do not leave the previous
+external results in place after publishing a new full collection.
 
 ### Writing About Benchmark Results
 
@@ -424,10 +448,11 @@ new full collection.
   implementations. Every engine makes deliberate design tradeoffs.
 - **State facts and ratios.** Write "SafeRE is 50× faster than RE2/J"
   rather than "SafeRE crushes RE2/J."
-- **Explain *why* differences exist.** Attribute performance gaps to
-  specific design decisions (e.g., "RE2/J lacks a DFA engine" or "JDK
-  defers compilation work to match time") rather than implying one
-  implementation is poorly written.
+- **Explain supported causes.** Attribute performance gaps to specific design
+  decisions only when workload inspection, implementation tracing, or profiling
+  supports the explanation. Label inferences as such, and profile before
+  proposing an optimization. Do not present speculation as a measured cause or
+  imply that another implementation is poorly written.
 - **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
   in return (e.g., linear-time guarantees). When it's faster, note what
   the other engine optimizes for instead.
