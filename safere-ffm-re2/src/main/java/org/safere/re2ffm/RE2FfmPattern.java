@@ -110,7 +110,7 @@ public final class RE2FfmPattern {
     String text = input.toString();
     byte[] inputUtf8 = text.getBytes(StandardCharsets.UTF_8);
 
-    RE2FfmMatcher matcher = matcher(text);
+    RE2FfmMatcher matcher = new RE2FfmMatcher(this, text, inputUtf8);
 
     // Start with a buffer for the expected matches (or a default of 128).
     // The buffer size is doubled dynamically inside the loop if the text contains more matches.
@@ -118,9 +118,9 @@ public final class RE2FfmPattern {
     int numMatches;
     int[] byteOffsets;
 
-    while (true) {
-      try (Arena arena = Arena.ofConfined()) {
-        MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
+    try (Arena arena = Arena.ofConfined()) {
+      MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
+      while (true) {
         MemorySegment matchesSeg = arena.allocate(ValueLayout.JAVA_INT, 2L * maxMatches);
 
         numMatches =

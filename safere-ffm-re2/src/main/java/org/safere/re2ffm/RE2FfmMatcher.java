@@ -40,6 +40,14 @@ public final class RE2FfmMatcher {
     reset(input);
   }
 
+  RE2FfmMatcher(RE2FfmPattern pattern, String input, byte[] inputUtf8) {
+    this.pattern = pattern;
+    this.inputString = input;
+    this.inputUtf8 = inputUtf8;
+    this.matchByteOffsets = new int[2 * (pattern.numGroups() + 1)];
+    buildCharToByteMap(inputString, inputUtf8);
+  }
+
   /**
    * Resets this matcher with a new input string.
    *
@@ -211,40 +219,16 @@ public final class RE2FfmMatcher {
    * @return the result string
    */
   public String replaceAll(String replacement) {
-    // Convert Java-style $N backreferences to RE2-style \N.
-    String re2Rewrite = convertReplacement(replacement);
-    byte[] rewriteUtf8 = re2Rewrite.getBytes(StandardCharsets.UTF_8);
-
-    // Start with a buffer 2x the input size.
-    int outCap = Math.max(inputUtf8.length * 2, 256);
-    while (true) {
-      try (Arena arena = Arena.ofConfined()) {
-        MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, inputUtf8);
-        MemorySegment rewriteSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, rewriteUtf8);
-        MemorySegment outBuf = arena.allocate(outCap);
-        MemorySegment outLenSeg = arena.allocate(ValueLayout.JAVA_INT);
-
-        int result =
-            Re2Shim.replaceAll(
-                pattern.nativeHandle(),
-                textSeg,
-                inputUtf8.length,
-                rewriteSeg,
-                rewriteUtf8.length,
-                outBuf,
-                outCap,
-                outLenSeg);
-
-        if (result >= 0) {
-          int outLen = outLenSeg.get(ValueLayout.JAVA_INT, 0);
-          byte[] resultBytes = outBuf.asSlice(0, outLen).toArray(ValueLayout.JAVA_BYTE);
-          return new String(resultBytes, StandardCharsets.UTF_8);
-        }
-        // Buffer too small; grow and retry.
-        int needed = outLenSeg.get(ValueLayout.JAVA_INT, 0);
-        outCap = needed + needed / 2;
-      }
+    String rewrite = translateToRE2Rewrite(replacement);
+    if (rewrite != null) {
+      byte[] rewriteBytes = rewrite.getBytes(StandardCharsets.UTF_8);
+      String result =
+          Re2Shim.replaceAll(pattern.nativeHandle(), inputUtf8, inputString, rewriteBytes).result();
+      this.matched = false;
+      this.searchBytePos = inputUtf8.length;
+      return result;
     }
+    return replaceAllJava(replacement);
   }
 
   /**
@@ -332,6 +316,65 @@ public final class RE2FfmMatcher {
         sb.append(c);
       }
     }
+  }
+
+  private String translateToRE2Rewrite(String replacement) {
+    int numGroups = pattern.numGroups();
+    if (numGroups > 9) {
+      return null;
+    }
+    if (replacement.indexOf('{') >= 0) {
+      return null;
+    }
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < replacement.length(); i++) {
+      char c = replacement.charAt(i);
+      if (c == '\\') {
+        if (++i >= replacement.length()) {
+          return null;
+        }
+        char next = replacement.charAt(i);
+        if (next == '$') {
+          sb.append('$');
+        } else if (next == '\\') {
+          sb.append("\\\\");
+        } else {
+          sb.append(next);
+        }
+      } else if (c == '$') {
+        if (++i >= replacement.length()) {
+          return null;
+        }
+        char next = replacement.charAt(i);
+        if (next >= '0' && next <= '9') {
+          int groupIndex = next - '0';
+          if (groupIndex > numGroups) {
+            return null;
+          }
+          sb.append('\\').append(next);
+        } else {
+          return null;
+        }
+      } else {
+        sb.append(c);
+      }
+    }
+    return sb.toString();
+  }
+
+  private String replaceAllJava(String replacement) {
+    reset();
+    String re2Rewrite = convertReplacement(replacement);
+    StringBuilder sb = new StringBuilder();
+    int lastAppend = 0;
+    while (find()) {
+      int matchStartChar = start();
+      sb.append(inputString, lastAppend, matchStartChar);
+      appendRewrite(sb, re2Rewrite);
+      lastAppend = end();
+    }
+    sb.append(inputString, lastAppend, inputString.length());
+    return sb.toString();
   }
 
   private void buildCharToByteMap(String s, byte[] bytes) {

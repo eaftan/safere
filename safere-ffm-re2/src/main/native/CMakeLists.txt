@@ -32,8 +32,9 @@ FetchContent_MakeAvailable(abseil-cpp re2)
 
 # Build our C shim as a shared library, statically linking RE2 into it
 add_library(re2_shim SHARED re2_shim.cpp)
-target_link_libraries(re2_shim PRIVATE re2::re2)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux"
-    AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang)$")
-  target_link_options(re2_shim PRIVATE "-static-libstdc++" "-static-libgcc")
+target_link_libraries(re2_shim PRIVATE re2::re2 absl::fixed_array)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set_target_properties(re2_shim PROPERTIES
+    BUILD_RPATH "/usr/lib/x86_64-linux-gnu"
+    INSTALL_RPATH "/usr/lib/x86_64-linux-gnu")
 endif()

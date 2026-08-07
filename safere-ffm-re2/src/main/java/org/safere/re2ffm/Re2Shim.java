@@ -30,7 +30,9 @@ final class Re2Shim {
   private static final MethodHandle FULL_MATCH;
   private static final MethodHandle FIND;
   private static final MethodHandle FIND_ALL;
+  private static final MethodHandle REPLACE_FIRST;
   private static final MethodHandle REPLACE_ALL;
+  private static final MethodHandle REPLACE_LITERAL;
 
   static {
     // Load the native library from the build directory or system path.
@@ -107,6 +109,23 @@ final class Re2Shim {
                 ValueLayout.ADDRESS,
                 ValueLayout.JAVA_INT));
 
+    // int re2_replace_first(const re2_pattern_t* p, const char* text, int text_len,
+    //                      const char* rewrite, int rewrite_len,
+    //                      char* out_buf, int out_cap, int* out_len)
+    REPLACE_FIRST =
+        linker.downcallHandle(
+            lookup.find("re2_replace_first").orElseThrow(),
+            FunctionDescriptor.of(
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS));
+
     // int re2_replace_all(const re2_pattern_t* p, const char* text, int text_len,
     //                    const char* rewrite, int rewrite_len,
     //                    char* out_buf, int out_cap, int* out_len)
@@ -136,6 +155,22 @@ final class Re2Shim {
                 ValueLayout.JAVA_INT,
                 ValueLayout.ADDRESS,
                 ValueLayout.JAVA_INT));
+
+    // void re2_replace_literal(const uint8_t* input, int input_len,
+    //                          const int* groups, int groups_count,
+    //                          const uint8_t* replacement, int replacement_len,
+    //                          uint8_t* output)
+    REPLACE_LITERAL =
+        linker.downcallHandle(
+            lookup.find("re2_replace_literal").orElseThrow(),
+            FunctionDescriptor.ofVoid(
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS,
+                ValueLayout.JAVA_INT,
+                ValueLayout.ADDRESS));
   }
 
   private Re2Shim() {}
@@ -239,6 +274,85 @@ final class Re2Shim {
               handle, text, textLen, rewrite, rewriteLen, outBuf, outCap, outLen);
     } catch (Throwable t) {
       throw new AssertionError("FFM call failed", t);
+    }
+  }
+
+  static void replaceLiteral(
+      MemorySegment input,
+      int inputLen,
+      MemorySegment groups,
+      int groupsCount,
+      MemorySegment replacement,
+      int replacementLen,
+      MemorySegment output) {
+    try {
+      REPLACE_LITERAL.invokeExact(
+          input, inputLen, groups, groupsCount, replacement, replacementLen, output);
+    } catch (Throwable t) {
+      throw new AssertionError("FFM call failed", t);
+    }
+  }
+
+  static int replaceFirst(
+      MemorySegment handle,
+      MemorySegment text,
+      int textLen,
+      MemorySegment rewrite,
+      int rewriteLen,
+      MemorySegment outBuf,
+      int outCap,
+      MemorySegment outLen) {
+    try {
+      return (int)
+          REPLACE_FIRST.invokeExact(
+              handle, text, textLen, rewrite, rewriteLen, outBuf, outCap, outLen);
+    } catch (Throwable t) {
+      throw new AssertionError("FFM call failed", t);
+    }
+  }
+
+  public record ReplaceResult(String result, int count) {}
+
+  public static ReplaceResult replaceAll(
+      MemorySegment re2Ptr, byte[] textBytes, String textString, byte[] rewriteBytes) {
+    try (Arena arena = Arena.ofConfined()) {
+      MemorySegment textSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, textBytes);
+      MemorySegment rewriteSeg = arena.allocateFrom(ValueLayout.JAVA_BYTE, rewriteBytes);
+      MemorySegment outLenSeg = arena.allocate(ValueLayout.JAVA_INT);
+      int cap = Math.max(textBytes.length * 2, 256);
+      MemorySegment outBuf = arena.allocate(cap);
+      int count =
+          replaceAll(
+              re2Ptr,
+              textSeg,
+              textBytes.length,
+              rewriteSeg,
+              rewriteBytes.length,
+              outBuf,
+              cap,
+              outLenSeg);
+      if (count < 0) {
+        int needed = outLenSeg.get(ValueLayout.JAVA_INT, 0);
+        outBuf = arena.allocate(needed);
+        count =
+            replaceAll(
+                re2Ptr,
+                textSeg,
+                textBytes.length,
+                rewriteSeg,
+                rewriteBytes.length,
+                outBuf,
+                needed,
+                outLenSeg);
+      }
+      if (count == 0) {
+        return new ReplaceResult(textString, 0);
+      }
+      int actualLen = outLenSeg.get(ValueLayout.JAVA_INT, 0);
+      byte[] resBytes = new byte[actualLen];
+      MemorySegment.copy(outBuf, ValueLayout.JAVA_BYTE, 0, resBytes, 0, actualLen);
+      return new ReplaceResult(
+          new String(resBytes, java.nio.charset.StandardCharsets.UTF_8), count);
     }
   }
 }

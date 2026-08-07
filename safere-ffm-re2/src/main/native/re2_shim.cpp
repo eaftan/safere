@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/container/fixed_array.h"
 #include "re2/re2.h"
 
 struct re2_pattern {
@@ -71,7 +72,7 @@ bool re2_find(const re2_pattern_t* p, const char* text, int text_len,
   if (!p || !p->re2->ok()) return false;
 
   int nsub = nmatches + 1;  // group 0 + nmatches capture groups
-  std::vector<absl::string_view> submatch(nsub);
+  absl::FixedArray<absl::string_view, 10> submatch(nsub);
 
   bool found = p->re2->Match(absl::string_view(text, text_len),
                               startpos, text_len, RE2::UNANCHORED,
@@ -132,6 +133,24 @@ int re2_find_all(const re2_pattern_t* p, const char* text, int text_len,
   return count;
 }
 
+int re2_replace_first(const re2_pattern_t* p,
+                      const char* text, int text_len,
+                      const char* rewrite, int rewrite_len,
+                      char* out_buf, int out_cap, int* out_len) {
+  if (!p || !p->re2->ok()) return -1;
+
+  std::string str(text, text_len);
+  bool replaced = RE2::Replace(&str, *p->re2,
+                               absl::string_view(rewrite, rewrite_len));
+
+  *out_len = static_cast<int>(str.size());
+  if (static_cast<int>(str.size()) > out_cap) {
+    return -1;  // buffer too small
+  }
+  std::memcpy(out_buf, str.data(), str.size());
+  return replaced ? 1 : 0;
+}
+
 int re2_replace_all(const re2_pattern_t* p,
                     const char* text, int text_len,
                     const char* rewrite, int rewrite_len,
@@ -148,6 +167,32 @@ int re2_replace_all(const re2_pattern_t* p,
   }
   std::memcpy(out_buf, str.data(), str.size());
   return count;
+}
+
+void re2_replace_literal(const uint8_t* __restrict__ input, int input_len,
+                         const int* __restrict__ groups, int groups_count,
+                         const uint8_t* __restrict__ replacement, int replacement_len,
+                         uint8_t* __restrict__ output) {
+  int last_end = 0;
+  uint8_t* out_ptr = output;
+  for (int i = 0; i < groups_count; i++) {
+    int match_start = groups[2 * i];
+    int match_end = groups[2 * i + 1];
+    int slice_len = match_start - last_end;
+    if (slice_len > 0) {
+      std::memcpy(out_ptr, input + last_end, slice_len);
+      out_ptr += slice_len;
+    }
+    if (replacement_len > 0) {
+      std::memcpy(out_ptr, replacement, replacement_len);
+      out_ptr += replacement_len;
+    }
+    last_end = match_end;
+  }
+  int tail_len = input_len - last_end;
+  if (tail_len > 0) {
+    std::memcpy(out_ptr, input + last_end, tail_len);
+  }
 }
 
 }  // extern "C"
