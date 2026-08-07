@@ -37,6 +37,7 @@ public class Utf8VectorScanBenchmark {
   private static final int[] SINGLETON_RANGES = {'x', 'x'};
   private static final int[] PAIR_RANGES = {'x', 'x', 'y', 'y'};
   private static final int[] RANGE_RANGES = {'0', '9'};
+  private static final int[] RANGE2_RANGES = {'0', '9', 'A', 'Z'};
   private static final int[] ALNUM3_RANGES = {'0', '9', 'A', 'Z', 'a', 'z'};
   private static final int[] MIXED4_RANGES = {'!', '!', '#', '#', '0', '9', 'A', 'Z'};
 
@@ -395,6 +396,20 @@ public class Utf8VectorScanBenchmark {
       @Override
       boolean matches(byte value) {
         return value >= '0' && value <= '9';
+      }
+    },
+    RANGE2(RANGE2_RANGES, "[0-9A-Z]", "multi.") {
+      @Override
+      VectorMask<Byte> matches(ByteVector values) {
+        VectorMask<Byte> digits =
+            values.compare(GE, (byte) '0').and(values.compare(LE, (byte) '9'));
+        VectorMask<Byte> upper = values.compare(GE, (byte) 'A').and(values.compare(LE, (byte) 'Z'));
+        return digits.or(upper);
+      }
+
+      @Override
+      boolean matches(byte value) {
+        return (value >= '0' && value <= '9') || (value >= 'A' && value <= 'Z');
       }
     },
     ALNUM3(ALNUM3_RANGES, "[0-9A-Za-z]", "multi.") {

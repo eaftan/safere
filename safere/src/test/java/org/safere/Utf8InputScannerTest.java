@@ -177,6 +177,49 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void exactAsciiRangeMaskAgreesForEveryRangeAndByteValue() {
+    long byteOnes = 0x0101_0101_0101_0101L;
+    long byteHighBits = 0x8080_8080_8080_8080L;
+
+    for (int low = 0; low < 128; low++) {
+      for (int high = low; high < 128; high++) {
+        for (int value = 0; value < 256; value++) {
+          long word = value * byteOnes;
+          long expected = value >= low && value <= high ? byteHighBits : 0;
+          long actual = Utf8InputScanner.exactAsciiRangeMask(word, low, high);
+          if (actual != expected) {
+            fail(
+                "Incorrect range mask for [%s, %s] and byte %s: expected %s, actual %s",
+                low, high, value, Long.toHexString(expected), Long.toHexString(actual));
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void exactAsciiRangeMaskKeepsByteLanesIndependent() {
+    Random random = new Random(20260805);
+    for (int trial = 0; trial < 100_000; trial++) {
+      int low = random.nextInt(128);
+      int high = low + random.nextInt(128 - low);
+      long word = 0;
+      long expected = 0;
+      for (int lane = 0; lane < Long.BYTES; lane++) {
+        int value = random.nextInt(256);
+        word |= (long) value << (lane * Byte.SIZE);
+        if (value >= low && value <= high) {
+          expected |= 0x80L << (lane * Byte.SIZE);
+        }
+      }
+
+      assertThat(Utf8InputScanner.exactAsciiRangeMask(word, low, high))
+          .as("range [%s, %s], word %s", low, high, Long.toHexString(word))
+          .isEqualTo(expected);
+    }
+  }
+
+  @Test
   void asciiCodePointClassSearchHonorsStartsAndSkipsNonAsciiScalars() {
     byte[] bytes = "5é😀a7".getBytes(UTF_8);
     int[] digits = {'0', '9'};
