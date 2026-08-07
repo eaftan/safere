@@ -32,7 +32,7 @@ class BenchmarkInputMaterializerTest {
     Map<String, byte[]> first = BenchmarkInputMaterializer.materialize(benchmarkData);
     Map<String, byte[]> second = BenchmarkInputMaterializer.materialize(benchmarkData);
 
-    assertThat(first).hasSize(360);
+    assertThat(first).hasSize(372);
     assertThat(second.keySet()).containsExactlyElementsOf(first.keySet());
     first.forEach((id, bytes) -> assertThat(second.get(id)).as(id).containsExactly(bytes));
     assertThat(text(first, "crossEngine.RegexBenchmark.literalMatch.input")).isEqualTo("hello");
@@ -162,9 +162,9 @@ class BenchmarkInputMaterializerTest {
         .hasSize(38);
     JsonObject executionPlan = manifest.getAsJsonObject("executionPlan");
     assertThat(executionPlan.get("version").getAsInt()).isEqualTo(1);
-    assertThat(executionPlan.get("workloadCount").getAsInt()).isEqualTo(518);
+    assertThat(executionPlan.get("workloadCount").getAsInt()).isEqualTo(547);
     assertThat(executionPlan.get("engineCount").getAsInt()).isEqualTo(10);
-    assertThat(executionPlan.getAsJsonArray("entries")).hasSize(5_180);
+    assertThat(executionPlan.getAsJsonArray("entries")).hasSize(5_470);
     assertThat(
             executionEntry(
                     executionPlan, "UnicodeCompileBenchmark.compile.word.0@dotnet_nonbacktracking")
@@ -192,7 +192,7 @@ class BenchmarkInputMaterializerTest {
                           Set.of("runnable", "excluded")
                               .contains(planEntry.get("status").getAsString())))
           .as(engineId)
-          .hasSize(518);
+          .hasSize(547);
     }
     assertThat(
             executionPlan.getAsJsonArray("entries").asList().stream()

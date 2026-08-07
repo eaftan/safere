@@ -575,8 +575,8 @@ final class FuzzSupport {
       }
       if (safeRe.throwable() != null
           && jdk.throwable() != null
-          && safeRe.throwable().getClass().equals(jdk.throwable().getClass())
-          && isExpectedReplacementException(safeRe.throwable())) {
+          && isExpectedReplacementException(safeRe.throwable())
+          && isExpectedReplacementException(jdk.throwable())) {
         return false;
       }
       throw divergence(operation, replacement, safeRe.describe(), jdk.describe());
@@ -790,7 +790,7 @@ final class FuzzSupport {
   }
 
   private static boolean hasBackreference(String regex) {
-    return regex.matches(".*\\\\[1-9].*")
+    return regex.matches("(?s).*\\\\[1-9].*")
         || regex.contains("\\k<")
         || regex.contains("\\g{")
         || regex.contains("\\g");

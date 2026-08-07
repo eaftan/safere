@@ -25,6 +25,7 @@ final class ReplacementFuzzer {
     if (!replaceAllMatcher.replaceAll(replacement)) {
       return;
     }
+    replaceAllMatcher.reset();
     replaceAllMatcher.find();
 
     FuzzSupport.MatcherPair replaceFirstMatcher = pattern.matcher(input);
