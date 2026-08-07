@@ -15,7 +15,10 @@ final class Utf8InputScanner implements InputScanner {
   private static final int REPLACEMENT_CHARACTER = 0xFFFD;
   private static final long BYTE_ONES = 0x0101_0101_0101_0101L;
   private static final long BYTE_HIGH_BITS = 0x8080_8080_8080_8080L;
+  private static final long BYTE_LOW_BITS = ~BYTE_HIGH_BITS;
   private static final int BOYER_MOORE_HORSPOOL_BATCH_SIZE = 2;
+  private static final int MULTI_RANGE_SWAR_MINIMUM_LENGTH = 64;
+  private static final int MULTI_RANGE_SWAR_SCALAR_PROLOGUE_LENGTH = Long.BYTES;
   private static final int VECTOR_SCALAR_PROLOGUE_LENGTH = Integer.BYTES;
 
   /**
@@ -93,6 +96,25 @@ final class Utf8InputScanner implements InputScanner {
   public int indexOfCodePointClass(int[] ranges, long bitmap0, long bitmap1, int start) {
     int position = Math.max(0, start);
     if (!WorkCounterConfig.ENABLED) {
+      if (scanProvider == null
+          && ranges.length >= 4
+          && ranges.length <= 8
+          && ranges[0] >= 0
+          && ranges[ranges.length - 1] < 0x80
+          && length - position >= MULTI_RANGE_SWAR_MINIMUM_LENGTH
+          && (ranges.length != 4 || ranges[0] != ranges[1] || ranges[2] != ranges[3])) {
+        int scalarLimit = position + MULTI_RANGE_SWAR_SCALAR_PROLOGUE_LENGTH;
+        for (; position < scalarLimit; position++) {
+          int value = unsignedByteAt(position);
+          if ((value < Long.SIZE && (bitmap0 & (1L << value)) != 0)
+              || (value >= Long.SIZE
+                  && value < 128
+                  && (bitmap1 & (1L << (value - Long.SIZE))) != 0)) {
+            return position;
+          }
+        }
+        return indexOfMultipleByteRanges(ranges, bitmap0, bitmap1, position);
+      }
       int asciiResult = indexOfAsciiRanges(ranges, bitmap0, bitmap1, position);
       if (asciiResult >= -1) {
         return asciiResult;
@@ -162,6 +184,113 @@ final class Utf8InputScanner implements InputScanner {
       return indexOfBytePair((byte) ranges[0], (byte) ranges[2], start);
     }
     return -2;
+  }
+
+  private int indexOfMultipleByteRanges(int[] ranges, long bitmap0, long bitmap1, int start) {
+    return switch (ranges.length) {
+      case 4 -> indexOfTwoByteRanges(ranges, bitmap0, bitmap1, start);
+      case 6 -> indexOfThreeByteRanges(ranges, bitmap0, bitmap1, start);
+      case 8 -> indexOfFourByteRanges(ranges, bitmap0, bitmap1, start);
+      default -> throw new AssertionError("unexpected range count");
+    };
+  }
+
+  private int indexOfTwoByteRanges(int[] ranges, long bitmap0, long bitmap1, int start) {
+    long low0 = ranges[0] * BYTE_ONES;
+    long high0 = ranges[1] * BYTE_ONES;
+    long low1 = ranges[2] * BYTE_ONES;
+    long high1 = ranges[3] * BYTE_ONES;
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    while (position <= wordEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      long values = word & BYTE_LOW_BITS;
+      long ascii = ~word & BYTE_HIGH_BITS;
+      long matches = exactAsciiRangeMask(values, ascii, low0, high0);
+      matches |= exactAsciiRangeMask(values, ascii, low1, high1);
+      if (matches != 0) {
+        return scalarRangeCheck(bitmap0, bitmap1, position, position + Long.BYTES);
+      }
+      position += Long.BYTES;
+    }
+    return scalarRangeCheck(bitmap0, bitmap1, position, length);
+  }
+
+  private int indexOfThreeByteRanges(int[] ranges, long bitmap0, long bitmap1, int start) {
+    long low0 = ranges[0] * BYTE_ONES;
+    long high0 = ranges[1] * BYTE_ONES;
+    long low1 = ranges[2] * BYTE_ONES;
+    long high1 = ranges[3] * BYTE_ONES;
+    long low2 = ranges[4] * BYTE_ONES;
+    long high2 = ranges[5] * BYTE_ONES;
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    while (position <= wordEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      long values = word & BYTE_LOW_BITS;
+      long ascii = ~word & BYTE_HIGH_BITS;
+      long matches = exactAsciiRangeMask(values, ascii, low0, high0);
+      matches |= exactAsciiRangeMask(values, ascii, low1, high1);
+      matches |= exactAsciiRangeMask(values, ascii, low2, high2);
+      if (matches != 0) {
+        return scalarRangeCheck(bitmap0, bitmap1, position, position + Long.BYTES);
+      }
+      position += Long.BYTES;
+    }
+    return scalarRangeCheck(bitmap0, bitmap1, position, length);
+  }
+
+  private int indexOfFourByteRanges(int[] ranges, long bitmap0, long bitmap1, int start) {
+    long low0 = ranges[0] * BYTE_ONES;
+    long high0 = ranges[1] * BYTE_ONES;
+    long low1 = ranges[2] * BYTE_ONES;
+    long high1 = ranges[3] * BYTE_ONES;
+    long low2 = ranges[4] * BYTE_ONES;
+    long high2 = ranges[5] * BYTE_ONES;
+    long low3 = ranges[6] * BYTE_ONES;
+    long high3 = ranges[7] * BYTE_ONES;
+    int position = start;
+    int wordEnd = length - Long.BYTES;
+    while (position <= wordEnd) {
+      long word = (long) LONG_VIEW.get(bytes, offset + position);
+      long values = word & BYTE_LOW_BITS;
+      long ascii = ~word & BYTE_HIGH_BITS;
+      long matches = exactAsciiRangeMask(values, ascii, low0, high0);
+      matches |= exactAsciiRangeMask(values, ascii, low1, high1);
+      matches |= exactAsciiRangeMask(values, ascii, low2, high2);
+      matches |= exactAsciiRangeMask(values, ascii, low3, high3);
+      if (matches != 0) {
+        return scalarRangeCheck(bitmap0, bitmap1, position, position + Long.BYTES);
+      }
+      position += Long.BYTES;
+    }
+    return scalarRangeCheck(bitmap0, bitmap1, position, length);
+  }
+
+  private int scalarRangeCheck(long bitmap0, long bitmap1, int position, int limit) {
+    for (; position < limit; position++) {
+      int value = unsignedByteAt(position);
+      if ((value < Long.SIZE && (bitmap0 & (1L << value)) != 0)
+          || (value >= Long.SIZE && value < 128 && (bitmap1 & (1L << (value - Long.SIZE))) != 0)) {
+        return position;
+      }
+    }
+    return -1;
+  }
+
+  static long exactAsciiRangeMask(long word, int low, int high) {
+    long values = word & BYTE_LOW_BITS;
+    long ascii = ~word & BYTE_HIGH_BITS;
+    return exactAsciiRangeMask(values, ascii, low * BYTE_ONES, high * BYTE_ONES);
+  }
+
+  private static long exactAsciiRangeMask(
+      long values, long ascii, long repeatedLow, long repeatedHigh) {
+    // Setting each minuend's high bit makes both subtractions independent in every byte lane:
+    // each lane subtracts at most 127 from at least 128, so no borrow can cross a lane boundary.
+    long atLeastLow = ((values | BYTE_HIGH_BITS) - repeatedLow) & BYTE_HIGH_BITS;
+    long atMostHigh = ((repeatedHigh | BYTE_HIGH_BITS) - values) & BYTE_HIGH_BITS;
+    return ascii & atLeastLow & atMostHigh;
   }
 
   private int indexOfNonAsciiCodePointClass(int[] ranges, int start) {

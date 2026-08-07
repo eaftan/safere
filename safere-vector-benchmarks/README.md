@@ -43,8 +43,8 @@ trials and a reset `Utf8Matcher.find` loop for scan-all trials.
 
 The trial ID format is `shape/traversal/density/length/offset`, where:
 
-- `shape` is `singleton`, `pair`, `range`, `alnum3`, or `mixed4`;
+- `shape` is `singleton`, `pair`, `range`, `range2`, `alnum3`, or `mixed4`;
 - `traversal` is `first` or `all`;
-- `density` is `absent`, `late`, `sparse`, or `dense`;
+- `density` is `absent`, `late`, `sparse`, `dense`, `prefixFalse`, or `nonascii`;
 - `length` is the logical UTF-8 byte length; and
 - `offset` is the borrowed array window's starting offset.
