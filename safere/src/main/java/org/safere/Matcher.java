@@ -2136,11 +2136,14 @@ public final class Matcher implements MatchResult {
 
   private int nextFixedOffsetCandidate(
       InputScanner scanner, Pattern.FixedOffsetLiteral fixedOffsetLiteral, int fromIndex) {
-    if (fixedOffsetLiteral.offset() > scanner.length() - fromIndex) {
+    int minOffset = fixedOffsetLiteral.minOffset();
+    if (minOffset > scanner.length() - fromIndex) {
       return -1;
     }
-    int literalFrom = fromIndex + fixedOffsetLiteral.offset();
+    int literalFrom = fromIndex + minOffset;
     boolean[] firstAscii = parentPattern.charClassPrefixAscii();
+    int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
+
     while (literalFrom <= scanner.length()) {
       int literalStart;
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
@@ -2163,12 +2166,28 @@ public final class Matcher implements MatchResult {
       if (literalStart < 0) {
         return -1;
       }
-      int candidateStart = literalStart - fixedOffsetLiteral.offset();
-      int first = scanner.asciiAt(candidateStart);
-      if (firstAscii == null || (first >= 0 && first < firstAscii.length && firstAscii[first])) {
-        return candidateStart;
+      if (discreteOffsets != null && firstAscii != null) {
+        boolean matchFound = false;
+        int earliestValid = -1;
+        for (int offset : discreteOffsets) {
+          int candidateStart = literalStart - offset;
+          if (candidateStart >= fromIndex) {
+            int first = scanner.asciiAt(candidateStart);
+            if (first >= 0 && first < firstAscii.length && firstAscii[first]) {
+              matchFound = true;
+              if (earliestValid < 0 || candidateStart < earliestValid) {
+                earliestValid = candidateStart;
+              }
+            }
+          }
+        }
+        if (matchFound) {
+          return earliestValid;
+        }
+        literalFrom = literalStart + 1;
+        continue;
       }
-      literalFrom = literalStart + 1;
+      return Math.max(fromIndex, literalStart - fixedOffsetLiteral.maxOffset());
     }
     return -1;
   }

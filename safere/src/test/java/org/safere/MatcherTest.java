@@ -88,6 +88,35 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("discrete multi-offset shifted start acceleration matches correctly")
+    void discreteMultiOffsetShiftedStartAcceleration() {
+      Pattern p = Pattern.compile("(^|[^#])(#!customTag)");
+      Matcher m = p.matcher("###!customTag #!customTag\n#!customTag");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo(" #!customTag");
+      assertThat(m.start()).isEqualTo(13);
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("\n#!customTag");
+      assertThat(m.start()).isEqualTo(25);
+
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
+    @DisplayName("bounded range shifted start acceleration matches correctly")
+    void boundedRangeShiftedStartAcceleration() {
+      Pattern p = Pattern.compile("\\s{0,8}renderElement\\(");
+      Matcher m = p.matcher("ignore text    renderElement(arg)");
+
+      assertThat(m.find()).isTrue();
+      assertThat(m.group()).isEqualTo("    renderElement(");
+      assertThat(m.start()).isEqualTo(11);
+      assertThat(m.find()).isFalse();
+    }
+
+    @Test
     @DisplayName("lookingAt() respects lazy quantifier priority")
     void lookingAtRespectsLazyQuantifierPriority() {
       Matcher m = Pattern.compile("(a+?)").matcher("aaa");

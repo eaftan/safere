@@ -247,6 +247,25 @@ class PatternInternalTest {
     assertThat(Pattern.compile(regex).fixedOffsetLiteral()).isNull();
   }
 
+  @Test
+  void discreteMultiOffsetLiteralsAreRecorded() {
+    Pattern.FixedOffsetLiteral fixed =
+        Pattern.compile("(^|[^#])(#!customTag)").fixedOffsetLiteral();
+    assertThat(fixed).isNotNull();
+    assertThat(fixed.literal()).isEqualTo("#!customTag");
+    assertThat(fixed.discreteOffsets()).containsExactly(0, 1);
+  }
+
+  @Test
+  void boundedRangeOffsetLiteralsAreRecorded() {
+    Pattern.FixedOffsetLiteral fixed =
+        Pattern.compile("\\s{0,8}renderElement\\(").fixedOffsetLiteral();
+    assertThat(fixed).isNotNull();
+    assertThat(fixed.literal()).isEqualTo("renderElement(");
+    assertThat(fixed.minOffset()).isEqualTo(0);
+    assertThat(fixed.maxOffset()).isEqualTo(8);
+  }
+
   @ParameterizedTest
   @CsvSource({
     "'.*(x|y).*',             xy, az",
