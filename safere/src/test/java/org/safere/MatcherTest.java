@@ -1332,20 +1332,22 @@ class MatcherTest {
     @ValueSource(strings = {"$", "\\"})
     @DisplayName("replaceAll() with no match does not validate malformed replacement")
     void replaceAllNoMatchDoesNotValidateMalformedReplacement(String replacement) {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("abc");
+      for (String regex : new String[] {"\\d+", "literal"}) {
+        Matcher matcher = Pattern.compile(regex).matcher("abc");
 
-      assertThat(m.replaceAll(replacement)).isEqualTo("abc");
+        assertThat(matcher.replaceAll(replacement)).as("pattern %s", regex).isEqualTo("abc");
+      }
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"$", "\\"})
     @DisplayName("replaceFirst() with no match does not validate malformed replacement")
     void replaceFirstNoMatchDoesNotValidateMalformedReplacement(String replacement) {
-      Pattern p = Pattern.compile("\\d+");
-      Matcher m = p.matcher("abc");
+      for (String regex : new String[] {"\\d+", "literal"}) {
+        Matcher matcher = Pattern.compile(regex).matcher("abc");
 
-      assertThat(m.replaceFirst(replacement)).isEqualTo("abc");
+        assertThat(matcher.replaceFirst(replacement)).as("pattern %s", regex).isEqualTo("abc");
+      }
     }
 
     @ParameterizedTest
@@ -1483,6 +1485,21 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("literal replaceFirst() retains numbered and named captures")
+    void literalReplaceFirstRetainsCaptures() {
+      Matcher matcher = Pattern.compile("(?<word>(foo))").matcher("foo bar");
+
+      assertThat(matcher.replaceFirst("X")).isEqualTo("X bar");
+
+      assertThat(matcher.group()).isEqualTo("foo");
+      assertThat(matcher.group(1)).isEqualTo("foo");
+      assertThat(matcher.group(2)).isEqualTo("foo");
+      assertThat(matcher.group("word")).isEqualTo("foo");
+      assertThat(matcher.start(1)).isZero();
+      assertThat(matcher.end(2)).isEqualTo(3);
+    }
+
+    @Test
     @DisplayName("anchored OnePass replaceFirst preserves the append position")
     void anchoredOnePassReplaceFirstPreservesAppendPosition() {
       Matcher m = Pattern.compile("^([a-z]+)$").matcher("abc\n");
@@ -1536,6 +1553,19 @@ class MatcherTest {
       assertThat(sb).hasToString("");
       assertThat(m.find()).isFalse();
       assertThatThrownBy(() -> m.toMatchResult().start()).isInstanceOf(IllegalStateException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "b", "bbb"})
+    @DisplayName("nullable DFA replaceAll() consumes its terminal empty match")
+    void nullableDfaReplaceAllConsumesTerminalEmptyMatch(String input) {
+      Matcher matcher = Pattern.compile("a?").matcher(input);
+      java.util.regex.Matcher jdkMatcher = java.util.regex.Pattern.compile("a?").matcher(input);
+
+      assertThat(matcher.replaceAll("X")).isEqualTo(jdkMatcher.replaceAll("X"));
+
+      assertThat(matcher.find()).isEqualTo(jdkMatcher.find()).isFalse();
+      assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

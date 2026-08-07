@@ -21,10 +21,18 @@ final class ReplacementFuzzer {
       return;
     }
 
-    if (!pattern.matcher(input).replaceAll(replacement)
-        || !pattern.matcher(input).replaceFirst(replacement)) {
+    FuzzSupport.MatcherPair replaceAllMatcher = pattern.matcher(input);
+    if (!replaceAllMatcher.replaceAll(replacement)) {
       return;
     }
+    replaceAllMatcher.find();
+
+    FuzzSupport.MatcherPair replaceFirstMatcher = pattern.matcher(input);
+    if (!replaceFirstMatcher.replaceFirst(replacement)) {
+      return;
+    }
+    replaceFirstMatcher.hasReplacementMatchState();
+
     appendReplacementLoop(pattern, input, replacement, data.consumeBoolean());
   }
 

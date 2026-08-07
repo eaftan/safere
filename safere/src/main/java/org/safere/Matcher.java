@@ -3063,13 +3063,14 @@ public final class Matcher implements MatchResult {
       builderAppendPos = matchEnd;
 
       cursor.pos = matchEnd;
+      matchesFound++;
       if (matchStart == matchEnd) {
         if (cursor.pos >= regionEnd) {
+          findExhaustedAfterTerminalEmptyMatch = true;
           break;
         }
         cursor.pos++;
       }
-      matchesFound++;
       if (matchesFound < limit) {
         matchResult =
             findNextDfaMatch(
@@ -3389,7 +3390,7 @@ public final class Matcher implements MatchResult {
     int firstMatchStart = -1;
     int firstMatchEnd = -1;
 
-    ReplacementSegment[] compiledTemplate = simpleReplacement ? null : template.get();
+    ReplacementSegment[] compiledTemplate = null;
 
     while (matchesFound < limit && (matchStart = text.indexOf(literal, searchFrom)) != -1) {
       if (sb == null) {
@@ -3400,6 +3401,10 @@ public final class Matcher implements MatchResult {
       if (matchesFound == 0) {
         firstMatchStart = matchStart;
         firstMatchEnd = matchStart + literal.length();
+        if (!simpleReplacement) {
+          applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
+          compiledTemplate = template.get();
+        }
       }
 
       if (simpleReplacement) {
@@ -3427,7 +3432,13 @@ public final class Matcher implements MatchResult {
     sb.append(text, appendPosition, text.length());
 
     if (limit == 1) {
-      applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
+      if (groupCount() == 0) {
+        applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
+      } else {
+        applyDeferredMatchResult(
+            firstMatchStart, firstMatchEnd, parentPattern.prog().numCaptures(), true, false);
+        resolveCaptures();
+      }
     } else {
       this.searchFrom = regionEnd;
       applyFailedMatchResult();

@@ -418,6 +418,33 @@ final class FuzzSupport {
           () -> runJdkOracle("replaceFirst", null, () -> jdkMatcher.replaceFirst(replacement)));
     }
 
+    boolean hasReplacementMatchState() {
+      boolean safeRe;
+      try {
+        safeReMatcher.start();
+        safeRe = true;
+      } catch (IllegalStateException e) {
+        safeRe = false;
+      }
+      boolean jdk =
+          runJdkOracle(
+              "replacement match state",
+              safeRe,
+              () -> {
+                try {
+                  jdkMatcher.start();
+                  return true;
+                } catch (IllegalStateException e) {
+                  return false;
+                }
+              });
+      assertSame("replacement match state", safeRe, jdk);
+      if (safeRe) {
+        assertMatchState("replacement match state");
+      }
+      return safeRe;
+    }
+
     boolean appendReplacement(StringBuilder output, String replacement) {
       StringBuilder safeRe = new StringBuilder();
       StringBuilder jdk = new StringBuilder();

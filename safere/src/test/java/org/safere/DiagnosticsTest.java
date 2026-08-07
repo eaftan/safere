@@ -208,6 +208,28 @@ class DiagnosticsTest {
   }
 
   @Test
+  void nullableDfaReplacementCountsTerminalEmptyMatch() {
+    Pattern.setDiagnostics(diagnostics);
+
+    for (String input : List.of("", "b", "bbb")) {
+      Pattern pattern = Pattern.compile("a?");
+      long expectedMatches = input.length() + 1L;
+
+      assertThat(pattern.matcher(input).replaceAll("x"))
+          .isEqualTo(java.util.regex.Pattern.compile("a?").matcher(input).replaceAll("x"));
+
+      assertThat(operationsFor(pattern))
+          .singleElement()
+          .satisfies(
+              event -> {
+                assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+                assertThat(event.matchCount()).isEqualTo(expectedMatches);
+              });
+    }
+  }
+
+  @Test
   void dfaSandwichReportsForwardAndReverseSearchCounts() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("[ab]+c");
