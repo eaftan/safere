@@ -262,6 +262,13 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      benchmark mismatch, inconclusive benchmark evidence, unresolved review findings, merge
      conflict, or scope concern.
    - Keep this section decision-oriented. It should tell the human reviewer what to focus on.
+   - Write the copy/paste review in the human reviewer's first-person voice, addressed to the PR
+     author. When local fixes resolve the findings, assume the human will push those fixes to the PR
+     branch before posting the review but that the author has not been told separately. Briefly
+     state what was noticed, say "I've pushed a commit that fixes it" (or equivalent), summarize
+     verification, and end with "LGTM" when the fixed result satisfies the merge criteria. Do not
+     ask the author to apply a local scout commit or refer to a machine-local branch/path in the
+     copy/paste text. Keep unresolved concerns explicit and do not say "LGTM" when they remain.
 
 9. Update the durable report and state after each PR, not only at the end. If the sweep is
    interrupted, completed PRs should still be discoverable.
@@ -375,7 +382,8 @@ Human review focus:
 ### Copy/Paste PR Review
 
 ```markdown
-<ready-to-paste review text>
+<first-person review addressed to the author; for resolved scout fixes, explain the problem, say
+the reviewer pushed a fixing commit, summarize verification, and conclude LGTM>
 ```
 ````
 
