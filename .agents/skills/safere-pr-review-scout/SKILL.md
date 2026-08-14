@@ -131,6 +131,24 @@ gh pr view <number> --json \
   number,title,url,body,labels,author,headRefName,headRefOid,baseRefName,updatedAt,comments,reviews
 ```
 
+Determine the authenticated reviewer's GitHub login with `gh api user --jq .login`. For each PR,
+find that reviewer's latest public comment or submitted review and record it as the human-review
+cutoff. Treat this as the signal for when the human last inspected the PR. If there is no such
+comment or review, treat the report as the human's first review of the PR.
+
+Keep two narrative baselines separate:
+
+- **Human report baseline:** write the current decision support from the human-review cutoff, not
+  as a diff from the previous scout run. Consolidate prior unposted scout work when needed so the
+  report is understandable without reading older scout reports. If the human has already approved
+  or commented and nothing actionable remains, say that no further review comment is needed.
+- **PR-author baseline:** assume the author knows only the public PR description and discussion.
+  Explain every finding or pushed fix that has not been communicated publicly, even if an earlier
+  scout found it. Never assume the author saw an internal scout report or local work.
+
+Use scout state and earlier reports for freshness, crash recovery, and evidence reuse only. Do not
+use the previous scout run as the narrative point of view.
+
 Also inspect linked issues when the PR body or discussion clearly references them and the link is
 needed to understand the PR's intent.
 
@@ -269,6 +287,11 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      verification, and end with "LGTM" when the fixed result satisfies the merge criteria. Do not
      ask the author to apply a local scout commit or refer to a machine-local branch/path in the
      copy/paste text. Keep unresolved concerns explicit and do not say "LGTM" when they remain.
+   - Base the prose on the public PR discussion, not scout chronology. Avoid phrases such as
+     "yesterday's run", "the previous scout", "still", "remains", "new commits", "retained fix",
+     or "refreshed against main" unless the public discussion makes that history meaningful to the
+     author. When the author has not been told about a finding, introduce it directly: "I noticed
+     that ... I've pushed a commit that fixes it."
 
 9. Update the durable report and state after each PR, not only at the end. If the sweep is
    interrupted, completed PRs should still be discoverable.
@@ -305,6 +328,7 @@ Merged main: yes | blocked | already up to date
 Post-merge/pre-fix head: <sha or none>
 Experiment branch: codex/review/pr-<number>/<short-sha>
 Artifacts: <path>
+Human review cutoff: <timestamp and comment/review summary, or "none; first-review perspective">
 
 ### PR Intent Review
 
@@ -383,7 +407,9 @@ Human review focus:
 
 ```markdown
 <first-person review addressed to the author; for resolved scout fixes, explain the problem, say
-the reviewer pushed a fixing commit, summarize verification, and conclude LGTM>
+the reviewer pushed a fixing commit, summarize verification, and conclude LGTM. Make the text
+self-contained from the public discussion; never rely on the author knowing about earlier scout
+runs or unposted local work.>
 ```
 ````
 
