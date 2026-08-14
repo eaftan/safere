@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +19,18 @@ class MatcherDeferredCaptureStateTest {
   private static final Pattern DEFERRED_CAPTURE_PATTERN =
       Pattern.compile("(?m)(?:^|,)(?:\"([^\"]*)\"|([^,\r\n]+))");
   private static final String CSV = "id,name\n42,\"Ada Lovelace\"";
+
+  @Test
+  @DisplayName("new patterns do not prewarm engine pools")
+  void newPatternsDoNotPrewarmEnginePools() throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile("a+b");
+
+    assertThat(firstPooled(pattern, "cachedBitState")).isNull();
+    assertThat(firstPooled(pattern, "cachedNfa")).isNull();
+    assertThat(firstPooled(pattern, "cachedForwardFirstMatchDfa")).isNull();
+    assertThat(firstPooled(pattern, "cachedForwardLongestMatchDfa")).isNull();
+    assertThat(firstPooled(pattern, "cachedReverseDfa")).isNull();
+  }
 
   @Test
   @DisplayName("reset clears stale deferred captures")
@@ -85,10 +98,57 @@ class MatcherDeferredCaptureStateTest {
 
     assertThat(pattern.matcher("abc123").find()).isTrue();
 
-    ThreadLocal<?> cachedNfa = (ThreadLocal<?>) field(Pattern.class, "cachedNfa").get(pattern);
-    Object nfa = cachedNfa.get();
+    ArrayPool<?> cachedNfa = (ArrayPool<?>) field(Pattern.class, "cachedNfa").get(pattern);
+    AtomicReferenceArray<?> array =
+        (AtomicReferenceArray<?>) field(ArrayPool.class, "array").get(cachedNfa);
+    Object nfa = null;
+    for (int i = 0; i < array.length(); i++) {
+      nfa = array.get(i);
+      if (nfa != null) {
+        break;
+      }
+    }
     assertThat(nfa).isNotNull();
     assertThat(field(Nfa.class, "context").get(nfa)).isNull();
+  }
+
+  @Test
+  @DisplayName("optimized replacement returns borrowed DFA to its pool")
+  void optimizedReplacementReturnsBorrowedDfa() throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile("a+b");
+    Matcher matcher = pattern.matcher("aaab xx ab");
+
+    assertThat(matcher.replaceAll("x")).isEqualTo("x xx x");
+
+    assertThat(field(Matcher.class, "cachedForwardFirstMatchDfa").get(matcher)).isNull();
+  }
+
+  @Test
+  @DisplayName("split returns borrowed DFA to its pool")
+  void splitReturnsBorrowedDfa() throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile("a+b");
+
+    assertThat(pattern.split("xaaaabyabz")).containsExactly("x", "y", "z");
+
+    assertThat(firstPooled(pattern, "cachedForwardFirstMatchDfa")).isNotNull();
+  }
+
+  @Test
+  @DisplayName("deferred capture resolution returns its borrowed NFA")
+  void deferredCaptureResolutionReturnsBorrowedNfa() throws ReflectiveOperationException {
+    Pattern pattern =
+        Pattern.compile(
+            "([a-z]+)([0-9]+)",
+            0,
+            EnginePathOptions.builder().onePass(false).bitState(false).build());
+    Matcher matcher = pattern.matcher("x".repeat(300) + "123");
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(booleanField(matcher, "capturesResolved")).isFalse();
+    assertThat(matcher.group(2)).isEqualTo("123");
+
+    assertThat(field(Matcher.class, "cachedNfa").get(matcher)).isNull();
+    assertThat(firstPooled(pattern, "cachedNfa")).isNotNull();
   }
 
   @Test
@@ -208,6 +268,20 @@ class MatcherDeferredCaptureStateTest {
 
   private static Field field(String name) throws ReflectiveOperationException {
     return field(Matcher.class, name);
+  }
+
+  private static Object firstPooled(Pattern pattern, String fieldName)
+      throws ReflectiveOperationException {
+    ArrayPool<?> pool = (ArrayPool<?>) field(Pattern.class, fieldName).get(pattern);
+    AtomicReferenceArray<?> array =
+        (AtomicReferenceArray<?>) field(ArrayPool.class, "array").get(pool);
+    for (int i = 0; i < array.length(); i++) {
+      Object item = array.get(i);
+      if (item != null) {
+        return item;
+      }
+    }
+    return null;
   }
 
   private static Field field(Class<?> type, String name) throws ReflectiveOperationException {

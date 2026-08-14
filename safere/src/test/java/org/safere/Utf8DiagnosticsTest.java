@@ -176,6 +176,25 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void patternBooleanFindDoesNotReportDisabledDfa() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("é[ab]+c", 0, EnginePathOptions.builder().dfa(false).build());
+
+    assertThat(pattern.find(input("xxéabc"))).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .doesNotContain(
+                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
+            });
+  }
+
+  @Test
   void patternBooleanFindReportsAsciiPrefixClassRejection() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("[xy]q?");
