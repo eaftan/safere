@@ -197,9 +197,12 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
   temporary file first and pass it with `--body-file`. Do not inline
   multi-line Markdown in the shell command, because quoting and escaping are
   easy to get wrong.
-- **File issues for bugs found during other work.** If you discover a bug
-  while working on an unrelated task, you *must* file a GitHub issue for it
-  immediately. Do not silently work around it or leave it undocumented.
+- **File issues only for genuinely unrelated bugs found during other work.** If
+  you discover a bug that is caused by the PR you are working on or is related
+  to that PR's goal, do not open a separate issue; add regression coverage and
+  fix it as part of the PR work. If you discover a bug outside the cause and
+  intended scope of the current PR or task, you *must* file a GitHub issue for
+  it immediately. Do not silently work around it or leave it undocumented.
 
 ## Bug Fixing Philosophy
 
