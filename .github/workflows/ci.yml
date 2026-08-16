@@ -455,3 +455,36 @@ jobs:
 
       - name: Check .NET planned exclusions
         run: ./run-dotnet-benchmarks.sh --list-exclusions UnicodeCompileBenchmark
+
+  ci-gate:
+    if: ${{ always() }}
+    needs:
+      - changes
+      - build
+      - build-vector-runtime-artifacts
+      - build-vector
+      - fuzz-regression
+      - benchmark-python-tests
+      - benchmark-smoke-test-java
+      - vector-benchmark-smoke
+      - benchmark-smoke-test-cpp
+      - benchmark-smoke-test-go
+      - benchmark-smoke-test-rust
+      - benchmark-smoke-test-dotnet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require successful CI jobs
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          UNSUCCESSFUL_JOBS=$(jq -r '
+            to_entries[]
+            | select(.value.result == "failure" or .value.result == "cancelled")
+            | "\(.key): \(.value.result)"
+          ' <<< "$JOB_RESULTS")
+          if [ -n "$UNSUCCESSFUL_JOBS" ]; then
+            echo "The following required CI jobs did not complete successfully:"
+            echo "$UNSUCCESSFUL_JOBS"
+            exit 1
+          fi
