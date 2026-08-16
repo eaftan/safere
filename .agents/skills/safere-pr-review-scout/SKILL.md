@@ -293,13 +293,34 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      author. When the author has not been told about a finding, introduce it directly: "I noticed
      that ... I've pushed a commit that fixes it."
 
-9. Update the durable report and state after each PR, not only at the end. If the sweep is
-   interrupted, completed PRs should still be discoverable.
+9. Update the durable report and state after each PR, not only at the end. Update that PR's row in
+   the report's PR Summary table at the same checkpoint. If the sweep is interrupted, completed
+   PRs should still be discoverable.
 
 ## Report Format
 
 Append every reviewed PR to the run report. Also update
 `$HOME/.codex/safere-pr-review/LATEST.md` with a pointer to the latest run report.
+
+At the top of the run report, after any report title or run metadata and before other report
+sections, include a compact decision-oriented summary of every trusted PR represented in the
+report. Keep each assessment to one brief sentence or phrase. Make the PR text in each row an
+internal link to that PR's detailed section. Use an explicit `pr-<number>` HTML anchor immediately
+before every detailed PR heading so the link remains stable regardless of punctuation or Unicode
+in the PR title. Include reviewed, blocked, and deferred PRs; do not include untrusted PRs because
+they were not inspected and therefore have no assessment.
+
+```markdown
+## PR Summary
+
+| PR | Brief Assessment | Recommendation |
+|---|---|---|
+| [PR #123: Optimize matching](#pr-123) | Correct after local fixes; claimed gains reproduced. | Can merge |
+| [PR #124: Revise parser API](#pr-124) | The public API shape needs a maintainer decision. | Focus human review |
+```
+
+Update the summary row whenever its detailed PR section changes. The summary is an index and a
+quick decision aid, not a substitute for the evidence in the detailed section.
 
 If any open non-draft PRs are skipped because the author is not trusted, include this section near
 the top of the run report:
@@ -317,6 +338,7 @@ These PRs were not inspected because the author is not on the trusted contributo
 Use this structure:
 
 ````markdown
+<a id="pr-<number>"></a>
 ## PR #<number>: <title>
 
 URL: <url>
