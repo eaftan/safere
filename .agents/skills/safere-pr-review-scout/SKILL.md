@@ -294,6 +294,20 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      It is useful to say that a pushed fix adds regression coverage, to report benchmark evidence,
      or to explain an underlying problem discovered by a local check; do not report the status of
      the local check itself.
+   - Use plain, concrete language in author-facing text. Prefer "add tests covering these cases" to
+     "add systematic coverage," and describe the measurements wanted instead of asking for a
+     "threshold sweep." Avoid scout vocabulary, abstract process labels, and compressed jargon that
+     the author would need to decode. Keep necessary code and domain terms, but define an unfamiliar
+     term on first use. Before finalizing, rewrite any phrase whose practical request is not obvious.
+   - Keep review feedback respectful and collaborative. Describe the observed code behavior and its
+     impact without assigning blame. Ask genuine questions when the author may have context or when
+     more than one fix is reasonable; prefer phrasing such as "Could we...?", "It looks like...",
+     and "What do you think?" over commands or prosecutorial conclusions. Do not manufacture doubt
+     about a verified bug: state the fact calmly, explain why it matters, and invite the author to
+     choose or discuss the remedy. Reread line comments specifically for accusatory tone.
+   - For every suggested line comment, include the file path, current PR-head line number, and exact
+     source line the comment should attach to. Verify the quoted line and number against the PR head
+     before finalizing the report so the human can place the comment without guessing.
    - Base the prose on the public PR discussion, not scout chronology. Avoid phrases such as
      "yesterday's run", "the previous scout", "still", "remains", "new commits", "retained fix",
      or "refreshed against main" unless the public discussion makes that history meaningful to the
@@ -438,8 +452,11 @@ Human review focus:
 <first-person review addressed to the author; for resolved scout fixes, explain the problem, say
 the reviewer pushed a fixing commit, include only author-relevant evidence, and conclude LGTM. Keep
 all local validation status, commands, test counts, shell checks, and internal automated-review
-status in the report rather than this comment. Make the text self-contained from the public
-discussion; never rely on the author knowing about earlier scout runs or unposted local work.>
+status in the report rather than this comment. Use plain, concrete language and state requests in
+terms of the code, behavior, tests, or measurements wanted. Keep the tone respectful and
+collaborative: explain impact without blame and use genuine questions where design judgment is
+involved. Make the text self-contained from the public discussion; never rely on the author knowing
+about earlier scout runs or unposted local work.>
 ```
 ````
 
