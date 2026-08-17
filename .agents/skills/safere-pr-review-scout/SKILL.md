@@ -284,9 +284,16 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      author. When local fixes resolve the findings, assume the human will push those fixes to the PR
      branch before posting the review but that the author has not been told separately. Briefly
      state what was noticed, say "I've pushed a commit that fixes it" (or equivalent), summarize
-     verification, and end with "LGTM" when the fixed result satisfies the merge criteria. Do not
-     ask the author to apply a local scout commit or refer to a machine-local branch/path in the
-     copy/paste text. Keep unresolved concerns explicit and do not say "LGTM" when they remain.
+     only evidence material to the author's understanding or decision, and end with "LGTM" when
+     the fixed result satisfies the merge criteria. Do not ask the author to apply a local scout
+     commit or refer to a machine-local branch/path in the copy/paste text. Keep unresolved concerns
+     explicit and do not say "LGTM" when they remain.
+   - Keep all local validation bookkeeping in the report, not the copy/paste review. Required CI is
+     the merge gate, so never tell the author that local tests passed, give test counts, list local
+     test or shell commands, or mention review-fix-loop/Codex/agent passes or an "automated review."
+     It is useful to say that a pushed fix adds regression coverage, to report benchmark evidence,
+     or to explain an underlying problem discovered by a local check; do not report the status of
+     the local check itself.
    - Base the prose on the public PR discussion, not scout chronology. Avoid phrases such as
      "yesterday's run", "the previous scout", "still", "remains", "new commits", "retained fix",
      or "refreshed against main" unless the public discussion makes that history meaningful to the
@@ -429,9 +436,10 @@ Human review focus:
 
 ```markdown
 <first-person review addressed to the author; for resolved scout fixes, explain the problem, say
-the reviewer pushed a fixing commit, summarize verification, and conclude LGTM. Make the text
-self-contained from the public discussion; never rely on the author knowing about earlier scout
-runs or unposted local work.>
+the reviewer pushed a fixing commit, include only author-relevant evidence, and conclude LGTM. Keep
+all local validation status, commands, test counts, shell checks, and internal automated-review
+status in the report rather than this comment. Make the text self-contained from the public
+discussion; never rely on the author knowing about earlier scout runs or unposted local work.>
 ```
 ````
 
