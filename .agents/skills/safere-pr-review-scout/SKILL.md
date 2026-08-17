@@ -302,11 +302,16 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      It is useful to say that a pushed fix adds regression coverage, to report benchmark evidence,
      or to explain an underlying problem discovered by a local check; do not report the status of
      the local check itself.
-   - Use plain, concrete language in author-facing text. Prefer "add tests covering these cases" to
-     "add systematic coverage," and describe the measurements wanted instead of asking for a
-     "threshold sweep." Avoid scout vocabulary, abstract process labels, and compressed jargon that
-     the author would need to decode. Keep necessary code and domain terms, but define an unfamiliar
-     term on first use. Before finalizing, rewrite any phrase whose practical request is not obvious.
+   - Use precise, concrete language in author-facing text. Standard technical terminology is useful
+     and encouraged when it accurately names the concept, such as SIMD, KMP, integer overflow,
+     register pressure, or linear time. Do not replace precise terms with vague labels that merely
+     sound technical. For example, do not call unrelated worst-case complexity and integer-overflow
+     bugs "boundary problems"; name each problem directly. Prefer "add tests covering these cases"
+     to "add systematic coverage," and describe the measurements wanted instead of asking for a
+     "threshold sweep." Avoid scout vocabulary, abstract process labels, invented umbrella terms,
+     and compressed wording that the author would need to decode. Define genuinely unfamiliar or
+     project-specific terms on first use. Before finalizing, rewrite any phrase that does not convey
+     a recognized technical concept or whose practical meaning is unclear.
    - Keep review feedback respectful and collaborative. Describe the observed code behavior and its
      impact without assigning blame. Ask genuine questions when the author may have context or when
      more than one fix is reasonable; prefer phrasing such as "Could we...?", "It looks like...",
