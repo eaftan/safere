@@ -39,6 +39,17 @@ sealed interface Utf8StartAccelerator {
     if (descriptor.charClassPrefix() != null && !hasWordBoundary) {
       return new CharClass(descriptor.charClassPrefix());
     }
+    if (descriptor.leadingExpansion() != null) {
+      Utf8StartAccelerator inner =
+          create(descriptor.leadingExpansion().innerDescriptor(), hasWordBoundary);
+      if (inner != null) {
+        return new LeadingExpansion(
+            descriptor.leadingExpansion().leadingClass(),
+            descriptor.leadingExpansion().minRepetition(),
+            descriptor.leadingExpansion().maxRepetition(),
+            inner);
+      }
+    }
     return null;
   }
 
@@ -65,6 +76,7 @@ sealed interface Utf8StartAccelerator {
       case FixedOffset fo -> fo.findCandidate(scanner, pos);
       case CharClass cc -> cc.findCandidate(scanner, pos);
       case Teddy t -> t.findCandidate(scanner, pos);
+      case LeadingExpansion le -> le.findCandidate(scanner, pos);
     };
   }
 
@@ -254,6 +266,57 @@ sealed interface Utf8StartAccelerator {
             return i;
           }
         }
+      }
+      return -1;
+    }
+  }
+
+  record LeadingExpansion(
+      CharClassScanInfo leadingClass,
+      int minRepetition,
+      int maxRepetition,
+      Utf8StartAccelerator inner)
+      implements Utf8StartAccelerator {
+
+    @Override
+    public AcceleratorPolicy policy() {
+      return new AcceleratorPolicy(16, 4, false, inner.policy().strategy());
+    }
+
+    @Override
+    public int findCandidate(Utf8InputScanner scanner, int fromIndex) {
+      int searchPos = Math.max(0, fromIndex);
+      int textLen = scanner.length();
+      while (searchPos < textLen) {
+        int innerMatch = Utf8StartAccelerator.findNextCandidate(inner, scanner, searchPos);
+        if (innerMatch < 0) {
+          return -1;
+        }
+        int start = innerMatch;
+        int count = 0;
+        while (start > fromIndex) {
+          int cp = scanner.singleUnitCodePointBefore(start);
+          int prevPos;
+          if (cp >= 0) {
+            prevPos = start - 1;
+          } else {
+            long decoded = scanner.decodeBackward(start);
+            cp = InputScanner.codePoint(decoded);
+            prevPos = InputScanner.position(decoded);
+          }
+          if (!leadingClass.contains(cp)) {
+            break;
+          }
+          if (count + 1 > maxRepetition) {
+            break;
+          }
+          count++;
+          start = prevPos;
+        }
+        if (count >= minRepetition) {
+          return start;
+        }
+        searchPos = innerMatch + 1;
       }
       return -1;
     }

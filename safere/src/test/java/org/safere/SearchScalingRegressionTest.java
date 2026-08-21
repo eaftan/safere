@@ -744,4 +744,105 @@ class SearchScalingRegressionTest {
       return false;
     }
   }
+
+  @Test
+  void leadingWhitespaceCharClassExpansionIsLinearForStringInput() {
+    Pattern pattern = Pattern.compile("\\s*[\\[\\uff3b]\\d+[\\]\\uff3d]");
+    String input2000 = "a".repeat(2_000);
+    String input10000 = "a".repeat(10_000);
+
+    long work2000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input2000).find()).isFalse());
+    long work10000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input10000).find()).isFalse());
+
+    assertThat(work10000)
+        .as("Leading expansion char class find on String should scale linearly")
+        .isLessThan(work2000 * 6);
+
+    assertRepeatedFindWorkIsLinear(
+        size -> pattern.matcher("   [123] ".repeat(size))::find, "String");
+  }
+
+  @Test
+  void leadingWhitespaceCharClassExpansionIsLinearForUtf8Input() {
+    Pattern pattern = Pattern.compile("\\s*[\\[\\uff3b]\\d+[\\]\\uff3d]");
+    byte[] input2000 = "a".repeat(2_000).getBytes(UTF_8);
+    byte[] input10000 = "a".repeat(10_000).getBytes(UTF_8);
+
+    long work2000 =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(input2000)).find()).isFalse());
+    long work10000 =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(input10000)).find()).isFalse());
+
+    assertThat(work10000)
+        .as("Leading expansion char class find on UTF-8 should scale linearly")
+        .isLessThan(work2000 * 6);
+
+    assertRepeatedFindWorkIsLinear(
+        size -> pattern.matcher(Utf8Input.trusted("   [123] ".repeat(size).getBytes(UTF_8)))::find,
+        "UTF-8");
+  }
+
+  @Test
+  void leadingWhitespaceLiteralExpansionIsLinearForStringInput() {
+    Pattern pattern = Pattern.compile("\\s+https?://\\w+");
+    String input2000 = "a".repeat(2_000);
+    String input10000 = "a".repeat(10_000);
+
+    long work2000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input2000).find()).isFalse());
+    long work10000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input10000).find()).isFalse());
+
+    assertThat(work10000)
+        .as("Leading expansion literal find on String should scale linearly")
+        .isLessThan(work2000 * 6);
+
+    assertRepeatedFindWorkIsLinear(
+        size -> pattern.matcher("  http://example ".repeat(size))::find, "String");
+  }
+
+  @Test
+  void leadingWhitespaceMultiLiteralExpansionIsLinearForStringInput() {
+    Pattern pattern = Pattern.compile("\\s*(?:apple|banana|cherry)");
+    String input2000 = "x".repeat(2_000);
+    String input10000 = "x".repeat(10_000);
+
+    long work2000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input2000).find()).isFalse());
+    long work10000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input10000).find()).isFalse());
+
+    assertThat(work10000)
+        .as("Leading expansion multi-literal find on String should scale linearly")
+        .isLessThan(work2000 * 6);
+  }
+
+  @Test
+  void leadingUnicodeExpansionIsLinearForStringAndUtf8Input() {
+    Pattern pattern = Pattern.compile("[\\u00e9\\u00e8]+:target");
+    String input2000 = "x".repeat(2_000);
+    String input10000 = "x".repeat(10_000);
+
+    long work2000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input2000).find()).isFalse());
+    long work10000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input10000).find()).isFalse());
+
+    assertThat(work10000)
+        .as("Leading expansion unicode find on String should scale linearly")
+        .isLessThan(work2000 * 6);
+
+    assertRepeatedFindWorkIsLinear(
+        size -> pattern.matcher("  \u00e9\u00e9:target ".repeat(size))::find, "String");
+    assertRepeatedFindWorkIsLinear(
+        size ->
+            pattern.matcher(
+                    Utf8Input.trusted("  \u00e9\u00e9:target ".repeat(size).getBytes(UTF_8)))
+                ::find,
+        "UTF-8");
+  }
 }

@@ -2447,6 +2447,78 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "realWorldRegex.markdownCitationScrub.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "According to source documentation [1.2.3.4, 5.6.7.8], the query completed in 42ms. For details, see [System Overview](https://example.com/sys) and metrics [9.10.11.12].",
+        "delimiterAlphabet": "\n\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.markdownCitationScrub.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "For more information, see the [User Guide](https://example.com/guide) and [API Reference](https://example.com/api). This section describes standard operational behavior without recitation data.",
+        "delimiterAlphabet": "\n\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.llmCitationScrub.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "## 1. Overview\n\nThe SafeRE execution engine processes regular expressions in linear O(N) time with guaranteed bounds [1.2.3.4, 5.6.7.8]. As documented in version 2.4 release notes, queries execute in approximately 15ms. For further details on configuration parameters and error handling, refer to the [SafeRE Documentation](https://github.com/safere/docs/v2) and review the [Architecture Guide](https://github.com/safere/arch/v2). All operations maintain backward compatibility.\n\n",
+        "delimiterAlphabet": "\n\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.llmCitationScrub.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "## 1. Overview\n\nThe SafeRE execution engine processes regular expressions in linear O(N) time with guaranteed bounds. As documented in version 2.4 release notes, queries execute in approximately 15ms. For further details on configuration parameters and error handling, refer to the [SafeRE Documentation](https://github.com/safere/docs/v2) and review the [Architecture Guide](https://github.com/safere/arch/v2). All operations maintain backward compatibility.\n\n",
+        "delimiterAlphabet": "\n\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
     }
   ],
   "workloads": [
@@ -11222,6 +11294,98 @@
         "timingUnit": "nanoseconds",
         "constraints": [
           "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.markdownCitationScrub.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "\\s*[\\[\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\uff3d]"
+      ],
+      "inputs": [
+        "realWorldRegex.markdownCitationScrub.{matchLabel}.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "when": {
+            "size": [
+              10000,
+              100000
+            ]
+          },
+          "reason": "JDK backtracking matcher throws StackOverflowError on nested quantifiers"
+        }
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.llmCitationScrub.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "\\s*[\\[\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\uff3d]"
+      ],
+      "inputs": [
+        "realWorldRegex.llmCitationScrub.{matchLabel}.{size}"
+      ],
+      "trialExclusions": [
+        {
+          "engineIds": [
+            "jdk-string"
+          ],
+          "when": {
+            "size": [
+              10000,
+              100000
+            ]
+          },
+          "reason": "JDK backtracking matcher throws StackOverflowError on nested quantifiers"
+        }
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
         ]
       }
     }
