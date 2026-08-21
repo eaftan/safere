@@ -2233,7 +2233,7 @@ public final class Matcher implements MatchResult {
     if (prefixLen == 1) {
       return Ascii.indexOfIgnoreCase(text, prefix.charAt(0), fromIndex);
     }
-    int anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefixLen);
+    int anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefixLen, true);
     char anchor = prefix.charAt(anchorOffset);
     char low = Ascii.toLowerCase(anchor);
     char high = Ascii.toUpperCase(anchor);

@@ -14,29 +14,52 @@ class RarityOracleTest {
 
   @Test
   void spaceIsMostCommonAndRareLettersHaveHighRank() {
-    assertThat(RarityOracle.byteRarity(' ')).isEqualTo(0);
-    assertThat(RarityOracle.byteRarity('e')).isLessThan(RarityOracle.byteRarity('z'));
-    assertThat(RarityOracle.byteRarity('t')).isLessThan(RarityOracle.byteRarity('q'));
-    assertThat(RarityOracle.byteRarity('a')).isLessThan(RarityOracle.byteRarity('x'));
+    assertThat(RarityOracle.exactByteRarity(' ')).isEqualTo(0);
+    assertThat(RarityOracle.caseFoldedByteRarity(' ')).isEqualTo(0);
+    assertThat(RarityOracle.exactByteRarity('e')).isLessThan(RarityOracle.exactByteRarity('z'));
+    assertThat(RarityOracle.exactByteRarity('t')).isLessThan(RarityOracle.exactByteRarity('q'));
+    assertThat(RarityOracle.exactByteRarity('a')).isLessThan(RarityOracle.exactByteRarity('x'));
   }
 
   @Test
   void caseInsensitiveLettersShareIdenticalRanks() {
-    assertThat(RarityOracle.byteRarity('A')).isEqualTo(RarityOracle.byteRarity('a'));
-    assertThat(RarityOracle.byteRarity('Z')).isEqualTo(RarityOracle.byteRarity('z'));
-    assertThat(RarityOracle.byteRarity('E')).isEqualTo(RarityOracle.byteRarity('e'));
+    assertThat(RarityOracle.caseFoldedByteRarity('A'))
+        .isEqualTo(RarityOracle.caseFoldedByteRarity('a'));
+    assertThat(RarityOracle.caseFoldedByteRarity('Z'))
+        .isEqualTo(RarityOracle.caseFoldedByteRarity('z'));
+    assertThat(RarityOracle.caseFoldedByteRarity('E'))
+        .isEqualTo(RarityOracle.caseFoldedByteRarity('e'));
   }
 
   @Test
-  void rarestAsciiOffsetFindsRarestCharacter() {
+  void exactCaseDistinguishesUppercaseAndLowercaseRarity() {
+    assertThat(RarityOracle.exactByteRarity('A')).isGreaterThan(RarityOracle.exactByteRarity('a'));
+    assertThat(RarityOracle.exactByteRarity('E')).isGreaterThan(RarityOracle.exactByteRarity('e'));
+    assertThat(RarityOracle.exactByteRarity('Z')).isGreaterThan(RarityOracle.exactByteRarity('z'));
+  }
+
+  @Test
+  void rarestAsciiOffsetFindsRarestCharacterCaseFolded() {
     // 't', 'h', 'e' are common, 'q' is rare
     String prefix = "the_query";
-    int offset = RarityOracle.rarestAsciiOffset(prefix, prefix.length());
+    int offset = RarityOracle.rarestAsciiOffset(prefix, prefix.length(), true);
     assertThat(offset).isEqualTo(prefix.indexOf('q'));
 
     // 'a' is common, 'z' is rare
     String zone = "authorization";
-    assertThat(RarityOracle.rarestAsciiOffset(zone, zone.length())).isEqualTo(zone.indexOf('z'));
+    assertThat(RarityOracle.rarestAsciiOffset(zone, zone.length(), true))
+        .isEqualTo(zone.indexOf('z'));
+  }
+
+  @Test
+  void rarestAsciiOffsetFindsUppercaseAnchorForExactCase() {
+    String bean = "AbstractBeanFactory";
+    int offset = RarityOracle.rarestAsciiOffset(bean, bean.length(), false);
+    assertThat(bean.charAt(offset)).isIn('B', 'F');
+
+    String header = "Content-Type";
+    int headerOffset = RarityOracle.rarestAsciiOffset(header, header.length(), false);
+    assertThat(header.charAt(headerOffset)).isIn('C', 'T');
   }
 
   @Test
@@ -52,5 +75,12 @@ class RarityOracleTest {
   void literalSelectivityRetainsLengthForTheMostCommonCharacter() {
     assertThat(RarityOracle.literalSelectivityScore(" ".repeat(32)))
         .isGreaterThan(RarityOracle.literalSelectivityScore("ee"));
+  }
+
+  @Test
+  void literalSelectivityDistinguishesExactAndFoldedScores() {
+    int exactUpperScore = RarityOracle.literalSelectivityScore("ERROR", false);
+    int exactLowerScore = RarityOracle.literalSelectivityScore("error", false);
+    assertThat(exactUpperScore).isGreaterThan(exactLowerScore);
   }
 }

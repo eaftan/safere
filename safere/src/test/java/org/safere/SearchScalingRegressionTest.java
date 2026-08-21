@@ -347,6 +347,46 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void exactCaseFixedOffsetSelectsUppercaseAnchorToAvoidCandidateWork() {
+    // "AbstractBeanFactory" contains uppercase 'B' and 'F'.
+    // The input is filled with lowercase vowels and common consonants ('e', 'a', 't', 'r', 's',
+    // 'c').
+    Pattern pattern = Pattern.compile("[0-9]{3}AbstractBeanFactory[0-9]{3}");
+    String input = "the create starter test transaction context service\n".repeat(1_000);
+
+    long work =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input).find()).isFalse());
+
+    assertThat(work)
+        .as(
+            "Exact-case RarityOracle must anchor on uppercase letters to avoid false candidates in"
+                + " lowercase text")
+        .isLessThanOrEqualTo(input.length() + 100);
+  }
+
+  @Test
+  void caseInsensitiveStartAccelerationIsInvariantToPatternCapitalization() {
+    Pattern pLower = Pattern.compile("(?i)userid");
+    Pattern pUpper = Pattern.compile("(?i)USERID");
+    Pattern pMixed = Pattern.compile("(?i)UserId");
+    String input = "the_quick_brown_fox_jumps_over_the_lazy_dog\n".repeat(500);
+
+    long workLower =
+        WorkCounter.countForTesting(() -> assertThat(pLower.matcher(input).find()).isFalse());
+    long workUpper =
+        WorkCounter.countForTesting(() -> assertThat(pUpper.matcher(input).find()).isFalse());
+    long workMixed =
+        WorkCounter.countForTesting(() -> assertThat(pMixed.matcher(input).find()).isFalse());
+
+    assertThat(workLower)
+        .as(
+            "Case-folded RarityOracle must produce identical work counts regardless of pattern"
+                + " casing")
+        .isEqualTo(workUpper)
+        .isEqualTo(workMixed);
+  }
+
+  @Test
   void literalSelectivityScoringIsLinearInPatternSize() {
     long smallerWork = WorkCounter.countForTesting(() -> Pattern.compile(selectivityPattern(100)));
     long largerWork = WorkCounter.countForTesting(() -> Pattern.compile(selectivityPattern(400)));

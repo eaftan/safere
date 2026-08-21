@@ -80,7 +80,7 @@ sealed interface StringStartAccelerator {
       this.prefixFoldCase = prefixFoldCase;
       if (prefixFoldCase && prefix != null && !prefix.isEmpty()) {
         this.failure = Ascii.ignoreCaseFailure(prefix);
-        this.anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefix.length());
+        this.anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefix.length(), true);
         char anchor = prefix.charAt(anchorOffset);
         this.anchorLow = Ascii.toLowerCase(anchor);
         this.anchorHigh = Ascii.toUpperCase(anchor);
