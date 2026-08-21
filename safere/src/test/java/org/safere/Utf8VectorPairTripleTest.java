@@ -157,9 +157,11 @@ class Utf8VectorPairTripleTest {
 
     Pattern pPairAlt = Pattern.compile("Y|Z");
     Class<?> expectedPairAltClass =
-        VectorScanProviders.teddyProviderAvailable()
-            ? Utf8StartAccelerator.Teddy.class
-            : Utf8StartAccelerator.CharClass.class;
+        VectorScanProviders.multiLiteralProviderAvailable()
+            ? Utf8StartAccelerator.MultiLiteral.class
+            : (VectorScanProviders.teddyProviderAvailable()
+                ? Utf8StartAccelerator.Teddy.class
+                : Utf8StartAccelerator.CharClass.class);
     assertThat(pPairAlt.utf8StartAccelerator()).isInstanceOf(expectedPairAltClass);
 
     Pattern pConsecutivePair = Pattern.compile("[ab]");
@@ -172,9 +174,11 @@ class Utf8VectorPairTripleTest {
 
     Pattern pTripleAlt = Pattern.compile("X|Y|Z");
     Class<?> expectedTripleAltClass =
-        VectorScanProviders.teddyProviderAvailable()
-            ? Utf8StartAccelerator.Teddy.class
-            : Utf8StartAccelerator.CharClass.class;
+        VectorScanProviders.multiLiteralProviderAvailable()
+            ? Utf8StartAccelerator.MultiLiteral.class
+            : (VectorScanProviders.teddyProviderAvailable()
+                ? Utf8StartAccelerator.Teddy.class
+                : Utf8StartAccelerator.CharClass.class);
     assertThat(pTripleAlt.utf8StartAccelerator()).isInstanceOf(expectedTripleAltClass);
   }
 

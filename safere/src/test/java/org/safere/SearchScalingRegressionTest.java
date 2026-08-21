@@ -736,6 +736,20 @@ class SearchScalingRegressionTest {
         "String");
   }
 
+  @Test
+  void multiLiteralPrefilterOnDenseCandidateNoiseIsBoundedByWorkLimit() {
+    Pattern pattern = Pattern.compile("APPLE|BANANA|CHERRY");
+    byte[] noise = "A B C A B C ".repeat(10_000).getBytes(UTF_8);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(noise)).find()).isFalse());
+
+    assertThat(work)
+        .as("Multi-literal candidate verification must be bounded by WorkLimit on dense noise")
+        .isLessThan(500);
+  }
+
   private static boolean isVectorApiAvailable() {
     try {
       Class.forName("jdk.incubator.vector.ByteVector");

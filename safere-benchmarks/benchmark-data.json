@@ -702,6 +702,8 @@
       "id": "searchScaling.random.{size}",
       "axes": {
         "size": [
+          64,
+          256,
           1024,
           10240,
           102400,
@@ -4692,6 +4694,42 @@
         "searchScaling.success.1048576"
       ],
       "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.multiLiteral3Fail.64",
+      "operation": "find",
+      "patterns": [
+        "APPLE|BANANA|CHERRY"
+      ],
+      "inputs": [
+        "searchScaling.random.64"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.multiLiteral3Fail.256",
+      "operation": "find",
+      "patterns": [
+        "APPLE|BANANA|CHERRY"
+      ],
+      "inputs": [
+        "searchScaling.random.256"
+      ],
+      "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "nanoseconds",

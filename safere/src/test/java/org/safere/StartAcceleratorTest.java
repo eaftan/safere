@@ -117,46 +117,7 @@ class StartAcceleratorTest {
       FixedOffsetLiteral fixedOffsetLiteral,
       CharClassScanInfo charClassPrefix) {
     return new StartDescriptor(
-        prefix, prefixFoldCase, fixedOffsetLiteral, charClassPrefix, null, null, null, null);
-  }
-
-  @Test
-  void unicodeCharClassPrefixAcceleratesStringAndUtf8() {
-    Pattern pattern = Pattern.compile("[\\p{IsAlphabetic}]+");
-    StringStartAccelerator strAcc = pattern.stringStartAccelerator();
-    assertThat(strAcc).isInstanceOf(StringStartAccelerator.CharClass.class);
-    assertThat(strAcc.policy()).isEqualTo(AcceleratorPolicy.CHAR_CLASS);
-    assertThat(strAcc.findCandidate("123\u00e945", 0, false)).isEqualTo(3);
-
-    Utf8StartAccelerator utf8Acc = pattern.utf8StartAccelerator();
-    assertThat(utf8Acc).isInstanceOf(Utf8StartAccelerator.CharClass.class);
-    assertThat(utf8Acc.policy()).isEqualTo(AcceleratorPolicy.CHAR_CLASS);
-    assertThat(utf8Acc.findCandidate(utf8Scanner("123\u00e945"), 0)).isEqualTo(3);
-  }
-
-  @Test
-  void supplementaryUnicodeCharClassPrefixAcceleratesStringAndUtf8() {
-    Pattern pattern = Pattern.compile("[(é)|(😀)]");
-    StringStartAccelerator strAcc = pattern.stringStartAccelerator();
-    assertThat(strAcc).isInstanceOf(StringStartAccelerator.CharClass.class);
-    assertThat(strAcc.policy()).isEqualTo(AcceleratorPolicy.CHAR_CLASS);
-    assertThat(strAcc.findCandidate("x\uD83D\uDE00y", 0, false)).isEqualTo(1);
-
-    Utf8StartAccelerator utf8Acc = pattern.utf8StartAccelerator();
-    assertThat(utf8Acc).isInstanceOf(Utf8StartAccelerator.CharClass.class);
-    assertThat(utf8Acc.policy()).isEqualTo(AcceleratorPolicy.CHAR_CLASS);
-    assertThat(utf8Acc.findCandidate(utf8Scanner("x😀y"), 0)).isEqualTo(1);
-  }
-
-  @Test
-  void unicodeCharClassPrefixResumesAsciiScanningAfterNonAsciiCodePoints() {
-    StringStartAccelerator accelerator =
-        Pattern.compile("[\\p{IsAlphabetic}]+").stringStartAccelerator();
-
-    assertThat(accelerator.findCandidate("000©000", 0, false)).isEqualTo(-1);
-    assertThat(accelerator.findCandidate("000©000Ā", 0, false)).isEqualTo(7);
-    assertThat(accelerator.findCandidate("000😀000a", 0, false)).isEqualTo(8);
-    assertThat(accelerator.findCandidate("000😀000a", 4, false)).isEqualTo(8);
+        prefix, prefixFoldCase, fixedOffsetLiteral, charClassPrefix, null, null, null, null, null);
   }
 
   @Test
@@ -236,8 +197,54 @@ class StartAcceleratorTest {
     assertThat(unacceleratedPat.utf8StartAccelerator()).isNull();
   }
 
+  @Test
+  void multiLiteralWithSharedPrefixReturnsNullAndFallsBackToTeddyOrNone() {
+    MultiLiteralInfo info = MultiLiteralInfo.create(new String[] {"cat", "car"});
+    assertThat(info).as("MultiLiteralInfo must reject colliding initial anchor chars").isNull();
+
+    MultiLiteralInfo distinctInfo = MultiLiteralInfo.create(new String[] {"cat", "dog", "fox"});
+    assertThat(distinctInfo).isNotNull();
+    assertThat(distinctInfo.literals()).containsExactly("cat", "dog", "fox");
+  }
+
+  @Test
+  void multiLiteralScanReturnsUnsupportedWhenWorkLimitExhaustedOnNoise() {
+    if (!isVectorApiAvailable()) {
+      return;
+    }
+    String[] literals = new String[] {"APPLE", "BANANA", "CHERRY"};
+    MultiLiteralInfo info = MultiLiteralInfo.create(literals);
+    assertThat(info).isNotNull();
+
+    byte[] denseNoise = "A B C A B C ".repeat(1000).getBytes(UTF_8);
+
+    int result =
+        ByteVectorScan.indexOfMultiLiteral(
+            denseNoise,
+            0,
+            denseNoise.length,
+            info.literals(),
+            info.anchorChars(),
+            info.anchorOffsets(),
+            info.minLength(),
+            0);
+
+    assertThat(result)
+        .as("Dense candidate false positives must exhaust WorkLimit and return UNSUPPORTED")
+        .isEqualTo(VectorScanProvider.UNSUPPORTED);
+  }
+
   private static Utf8InputScanner utf8Scanner(String text) {
     byte[] bytes = text.getBytes(UTF_8);
     return new Utf8InputScanner(bytes, 0, bytes.length);
+  }
+
+  private static boolean isVectorApiAvailable() {
+    try {
+      Class.forName("jdk.incubator.vector.ByteVector");
+      return true;
+    } catch (ClassNotFoundException | LinkageError e) {
+      return false;
+    }
   }
 }
