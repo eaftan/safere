@@ -664,7 +664,7 @@ public final class Pattern implements Serializable {
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
-      searchStart = utf8StartAccelerator.findCandidate(scanner, 0);
+      searchStart = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
       if (searchStart < 0) {
         return false;
       }
@@ -738,7 +738,7 @@ public final class Pattern implements Serializable {
       if (strategy != null) {
         diagnostics.participate(strategy, StrategyRole.START_ACCELERATION);
       }
-      searchStart = utf8StartAccelerator.findCandidate(scanner, 0);
+      searchStart = Utf8StartAccelerator.findNextCandidate(utf8StartAccelerator, scanner, 0);
       if (searchStart < 0) {
         if (strategy != null) {
           diagnostics.boundary(strategy);
