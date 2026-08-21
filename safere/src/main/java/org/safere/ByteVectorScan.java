@@ -45,6 +45,30 @@ final class ByteVectorScan {
     return -1;
   }
 
+  static int indexOfByte(byte[] bytes, int offset, int length, byte target, int start) {
+    return indexOfByte(SPECIES, bytes, offset, length, target, start);
+  }
+
+  static int indexOfByte(
+      VectorSpecies<Byte> species, byte[] bytes, int offset, int length, byte target, int start) {
+    int position = Math.max(0, start);
+    int limit = position + species.loopBound(length - position);
+    ByteVector targetVec = ByteVector.broadcast(species, target);
+    for (; position < limit; position += species.length()) {
+      ByteVector values = ByteVector.fromArray(species, bytes, offset + position);
+      VectorMask<Byte> matches = values.compare(EQ, targetVec);
+      if (matches.anyTrue()) {
+        return position + matches.firstTrue();
+      }
+    }
+    for (; position < length; position++) {
+      if (bytes[offset + position] == target) {
+        return position;
+      }
+    }
+    return -1;
+  }
+
   static int indexOfAsciiPair(byte[] bytes, int offset, int length, byte b0, byte b1, int start) {
     int position = Math.max(0, start);
     int limit = position + SPECIES.loopBound(length - position);

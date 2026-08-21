@@ -4035,6 +4035,24 @@
       }
     },
     {
+      "id": "SearchScalingBenchmark.optionalIndentBracketScaled.64",
+      "operation": "find",
+      "patterns": [
+        "(?:a*x|b*y|c*z)"
+      ],
+      "inputs": [
+        "searchScaling.prose.64"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "SearchScalingBenchmark.alternationScaled.64",
       "operation": "find",
       "patterns": [
@@ -4053,6 +4071,24 @@
       }
     },
     {
+      "id": "SearchScalingBenchmark.optionalIndentBracketScaled.256",
+      "operation": "find",
+      "patterns": [
+        "(?:a*x|b*y|c*z)"
+      ],
+      "inputs": [
+        "searchScaling.prose.256"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "SearchScalingBenchmark.alternationScaled.256",
       "operation": "find",
       "patterns": [
@@ -4060,6 +4096,24 @@
       ],
       "inputs": [
         "searchScaling.prose.256"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.optionalIndentBracketScaled.1024",
+      "operation": "find",
+      "patterns": [
+        "(?:a*x|b*y|c*z)"
+      ],
+      "inputs": [
+        "searchScaling.prose.1024"
       ],
       "resultConsumption": "boolean",
       "measurement": {
@@ -4251,6 +4305,24 @@
       }
     },
     {
+      "id": "SearchScalingBenchmark.optionalIndentBracketScaled.10240",
+      "operation": "find",
+      "patterns": [
+        "(?:a*x|b*y|c*z)"
+      ],
+      "inputs": [
+        "searchScaling.prose.10240"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "SearchScalingBenchmark.alternationScaled.10240",
       "operation": "find",
       "patterns": [
@@ -4431,6 +4503,24 @@
       }
     },
     {
+      "id": "SearchScalingBenchmark.optionalIndentBracketScaled.102400",
+      "operation": "find",
+      "patterns": [
+        "(?:a*x|b*y|c*z)"
+      ],
+      "inputs": [
+        "searchScaling.prose.102400"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
       "id": "SearchScalingBenchmark.alternationScaled.102400",
       "operation": "find",
       "patterns": [
@@ -4605,6 +4695,24 @@
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.optionalIndentBracketScaled.1048576",
+      "operation": "find",
+      "patterns": [
+        "(?:a*x|b*y|c*z)"
+      ],
+      "inputs": [
+        "searchScaling.prose.1048576"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
         "constraints": [
           "prematerializedInput"
         ]
