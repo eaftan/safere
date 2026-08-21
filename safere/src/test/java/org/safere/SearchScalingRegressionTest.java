@@ -347,6 +347,36 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void requiredInfixLiteralRejectsDensePrefixNoiseWithSinglePassWork() {
+    // Prefix "{Link:" is common (appears 1,000 times).
+    // Infix "<<!nav>>" is rare and absent.
+    Pattern pattern = Pattern.compile("(\\{Link:[^}]*?)<<!nav>>([^}]*?\\})");
+    String input = "{Link: target=home_page, category=general, priority=high}\n".repeat(1_000);
+
+    long work =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input).find()).isFalse());
+
+    assertThat(work)
+        .as(
+            "Infix literal prefilter must reject dense-prefix noise in a single pass without DFA"
+                + " churn")
+        .isLessThanOrEqualTo(input.length() + 100);
+  }
+
+  @Test
+  void requiredInfixLiteralRejectsDensePrefixNoiseInSplitWithSinglePassWork() {
+    Pattern pattern = Pattern.compile("(\\{Link:[^}]*?)<<!nav>>([^}]*?\\})");
+    String input = "{Link: target=home_page, category=general, priority=high}\n".repeat(1_000);
+
+    long work =
+        WorkCounter.countForTesting(() -> assertThat(pattern.split(input)).containsExactly(input));
+
+    assertThat(work)
+        .as("Split must reject dense-prefix noise in a single pass without DFA churn")
+        .isLessThanOrEqualTo(input.length() + 100);
+  }
+
+  @Test
   void literalSelectivityScoringIsLinearInPatternSize() {
     long smallerWork = WorkCounter.countForTesting(() -> Pattern.compile(selectivityPattern(100)));
     long largerWork = WorkCounter.countForTesting(() -> Pattern.compile(selectivityPattern(400)));

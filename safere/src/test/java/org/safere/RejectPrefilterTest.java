@@ -312,4 +312,50 @@ class RejectPrefilterTest {
     byte[] bytes = text.getBytes(UTF_8);
     return new Utf8InputScanner(bytes, 0, bytes.length);
   }
+
+  @Test
+  void requiredInfixLiteralRetainedWhenPrefixPresent() {
+    Pattern p = Pattern.compile("(\\{Link:[^}]*?)<<!nav>>([^}]*?\\})");
+    assertThat(p.prefix()).isEqualTo("{Link:");
+    assertThat(p.rejectDescriptor().requiredLiteral()).isEqualTo("<<!nav>>");
+    assertThat(p.rejectPrefilter()).isNotNull();
+
+    // Negative text with {Link:...} but missing <<!nav>> should reject in Tier 0
+    String textNoNav = "{Link: home_page}{Link: about_page}{Link: contact_page}";
+    assertThat(p.rejectPrefilter().canReject(null, textNoNav, 0, EnginePathOptions.allEnabled()))
+        .isTrue();
+    assertThat(p.find(Utf8Input.validated(textNoNav.getBytes(UTF_8)))).isFalse();
+
+    // Positive text with <<!nav>> should match and capture properly
+    String textWithNav = "{Link: home_page}{Link: section<<!nav>>item}";
+    assertThat(p.rejectPrefilter().canReject(null, textWithNav, 0, EnginePathOptions.allEnabled()))
+        .isFalse();
+    Matcher m = p.matcher(textWithNav);
+    assertThat(m.find()).isTrue();
+    assertThat(m.group(1)).isEqualTo("{Link: section");
+    assertThat(m.group(2)).isEqualTo("item}");
+  }
+
+  @Test
+  void requiredLiteralPrefersDistinctCandidateOverPrefix() {
+    Pattern p = Pattern.compile("(?s)<meta_start>.*?<meta_end>");
+    assertThat(p.prefix()).isEqualTo("<meta_start>");
+    // Even though "<meta_start>" is longer than "<meta_end>", extractRequiredLiteral
+    // should skip the prefix and select "<meta_end>".
+    assertThat(p.rejectDescriptor().requiredLiteral()).isEqualTo("<meta_end>");
+    assertThat(p.rejectPrefilter()).isNotNull();
+
+    String inputNoEnd = "<meta_start>Thinking process: analyzing query...\n".repeat(1_000);
+    assertThat(p.rejectPrefilter().canReject(null, inputNoEnd, 0, EnginePathOptions.allEnabled()))
+        .isTrue();
+    assertThat(p.matcher(inputNoEnd).replaceAll("")).isEqualTo(inputNoEnd);
+  }
+
+  @Test
+  void identicalPrefixAndRequiredLiteralDeduplicated() {
+    Pattern p = Pattern.compile("abc[0-9]+");
+    assertThat(p.prefix()).isEqualTo("abc");
+    // "abc" is already the start prefix, so requiredLiteral should not duplicate "abc"
+    assertThat(p.rejectDescriptor().requiredLiteral()).isNull();
+  }
 }

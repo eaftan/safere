@@ -3178,9 +3178,11 @@ public final class Pattern implements Serializable {
         endAnchoredSuffix == null ? extractEndAnchoredCharClass(metadataAst, flags) : null;
     String prefix = startDescriptor != null ? startDescriptor.prefix() : null;
     CharClassScanInfo ccPrefix = startDescriptor != null ? startDescriptor.charClassPrefix() : null;
-    String requiredLiteral = prefix == null ? extractRequiredLiteral(metadataAst) : null;
+    String suffixStr = endAnchoredSuffix != null ? endAnchoredSuffix.suffix() : null;
+    String requiredLiteral =
+        !anchorStart ? extractRequiredLiteral(metadataAst, prefix, suffixStr) : null;
     CharClassScanInfo requiredMatchClass = null;
-    if (prefix == null && endAnchoredCharClass == null) {
+    if (!anchorStart && prefix == null && endAnchoredCharClass == null) {
       if (ccPrefix == null) {
         requiredMatchClass = extractRequiredMatchClass(metadataAst, true);
       } else {
@@ -3435,8 +3437,13 @@ public final class Pattern implements Serializable {
    * alternation and optional repetition, so the result can only reject inputs that cannot match.
    */
   private static String extractRequiredLiteral(Regexp re) {
-    String longest = null;
-    int longestScore = 0;
+    return extractRequiredLiteral(re, null, null);
+  }
+
+  private static String extractRequiredLiteral(
+      Regexp re, String excludePrefix, String excludeSuffix) {
+    String best = null;
+    int bestScore = 0;
     Deque<Regexp> pending = new ArrayDeque<>();
     pending.addLast(re);
     while (!pending.isEmpty()) {
@@ -3460,17 +3467,20 @@ public final class Pattern implements Serializable {
               && node.runes != null
               && node.runes.length >= 2) {
             String candidate = new String(node.runes, 0, node.runes.length);
-            int candidateScore = RarityOracle.literalSelectivityScore(candidate);
-            if (longest == null || candidateScore > longestScore) {
-              longest = candidate;
-              longestScore = candidateScore;
+            if ((excludePrefix == null || !candidate.equals(excludePrefix))
+                && (excludeSuffix == null || !candidate.equals(excludeSuffix))) {
+              int candidateScore = RarityOracle.literalSelectivityScore(candidate);
+              if (best == null || candidateScore > bestScore) {
+                best = candidate;
+                bestScore = candidateScore;
+              }
             }
           }
         }
         default -> {}
       }
     }
-    return longest;
+    return best;
   }
 
   /**
