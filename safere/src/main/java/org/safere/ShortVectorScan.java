@@ -24,7 +24,7 @@ import jdk.incubator.vector.VectorSpecies;
  * Stateless SIMD kernels using the incubating Vector API for 2-byte sequences (UTF-16 and char[]).
  */
 final class ShortVectorScan {
-  private static final VectorSpecies<Short> SPECIES = ShortVector.SPECIES_PREFERRED;
+  static final VectorSpecies<Short> SPECIES = ShortVector.SPECIES_PREFERRED;
 
   static int indexOfCharClass(char[] chars, int offset, int length, int[] ranges, int start) {
     return indexOfCharClass(SPECIES, chars, offset, length, ranges, start);
@@ -226,7 +226,7 @@ final class ShortVectorScan {
     return -1;
   }
 
-  private static VectorMask<Short> matches(ShortVector values, int[] ranges) {
+  static VectorMask<Short> matches(ShortVector values, int[] ranges) {
     VectorMask<Short> matches = matches(values, ranges[0], ranges[1]);
     if (ranges.length >= 4) {
       matches = matches.or(matches(values, ranges[2], ranges[3]));
@@ -258,7 +258,7 @@ final class ShortVectorScan {
     return biasedValues.compare(GE, biasedLow).and(biasedValues.compare(LE, biasedHigh));
   }
 
-  private static boolean matches(char value, int[] ranges) {
+  static boolean matches(char value, int[] ranges) {
     for (int index = 0; index < ranges.length; index += 2) {
       if (value >= ranges[index] && value <= ranges[index + 1]) {
         return true;
