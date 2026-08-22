@@ -736,6 +736,51 @@ class SearchScalingRegressionTest {
         "String");
   }
 
+  @Test
+  void unicodeCaseInsensitiveLinearChainUsesOnePassForSubmatchExtraction() {
+    // (?iu) triggers inst.foldCase = true on literal runes (e.g. Kelvin sign K <-> K <-> k)
+    Pattern pattern = Pattern.compile("(?iu)key:([0-9]+)");
+    assertThat(pattern.canOnePassSubmatch()).isTrue();
+    assertThat(pattern.onePass()).isNotNull();
+
+    String input = "prefix noise KEY:98765 trailing text";
+    Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+    long groupReadWork =
+        WorkCounter.countForTesting(
+            () -> {
+              assertThat(matcher.group(0)).isEqualTo("KEY:98765");
+              assertThat(matcher.group(1)).isEqualTo("98765");
+            });
+    assertThat(groupReadWork)
+        .as(
+            "Unicode case-insensitive linear chain submatch extraction must run in OnePass with"
+                + " zero NFA allocations")
+        .isLessThanOrEqualTo(30);
+  }
+
+  @Test
+  void unanchoredLinearChainSubmatchWorkIsBoundedByMatchSlice() {
+    Pattern pattern = Pattern.compile("([a-z]+)@([a-z]+)\\.com");
+    String prefix = "noise ".repeat(500);
+    String match = "alice@google.com";
+    String suffix = " trailing".repeat(500);
+    String input = prefix + match + suffix;
+    Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+    long groupReadWork =
+        WorkCounter.countForTesting(
+            () -> {
+              assertThat(matcher.group(1)).isEqualTo("alice");
+              assertThat(matcher.group(2)).isEqualTo("google");
+            });
+    assertThat(groupReadWork)
+        .as(
+            "Submatch extraction work must be strictly bounded by match slice length, not haystack"
+                + " length")
+        .isLessThanOrEqualTo(match.length() * 2L + 20);
+  }
+
   private static boolean isVectorApiAvailable() {
     try {
       Class.forName("jdk.incubator.vector.ByteVector");

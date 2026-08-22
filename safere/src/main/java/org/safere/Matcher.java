@@ -296,6 +296,7 @@ public final class Matcher implements MatchResult {
 
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
+  private int[] onePassScratchCap;
 
   /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
   private Nfa cachedNfa;
@@ -4014,11 +4015,21 @@ public final class Matcher implements MatchResult {
         && parentPattern.canOnePassSubmatch()
         && !parentPattern.hasNullableAlternation()) {
       diagnosticCapture(MatchStrategy.ONE_PASS);
+      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+      if (onePassScratchCap == null || onePassScratchCap.length < ncap) {
+        onePassScratchCap = new int[ncap];
+      }
       result =
           parentPattern
               .onePass()
               .search(
-                  scanner, deferredMatchStart, deferredMatchEnd, false, prog.numCaptures(), groups);
+                  scanner,
+                  deferredMatchStart,
+                  deferredMatchEnd,
+                  true,
+                  prog.numCaptures(),
+                  groups,
+                  onePassScratchCap);
     } else {
       boolean savedCaptureSearch = diagnosticCaptureSearch;
       diagnosticCaptureSearch = true;

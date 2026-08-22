@@ -103,6 +103,19 @@ class OnePassTest {
       assertThat(build("x(y|z)")).isNotNull();
       assertThat(build("\\d+-\\d+")).isNotNull();
       assertThat(build("[^ ]+ .*")).isNotNull();
+      assertThat(build("(?i)abc")).isNotNull();
+      assertThat(build("(?i)[a-z]+")).isNotNull();
+      assertThat(build("(?i)id:([0-9]+)")).isNotNull();
+    }
+
+    @Test
+    void caseInsensitiveOnePass() {
+      assertThat(build("(?i)apple")).isNotNull();
+      assertThat(build("(?i)key:([a-z]+)")).isNotNull();
+      int[] r = search("(?i)abc", "ABCdef");
+      assertThat(r).isNotNull();
+      assertThat(r[0]).isEqualTo(0);
+      assertThat(r[1]).isEqualTo(3);
     }
 
     @Test

@@ -11224,6 +11224,31 @@
           "prematerializedInput"
         ]
       }
+    },
+    {
+      "id": "UnicodeCaseFoldingBenchmark.linearChainCapture",
+      "operation": "matchesGroupLengthSum",
+      "patterns": [
+        "^(?iu)([a-z]+)://([^:/]+):([0-9]+)$"
+      ],
+      "inputs": [
+        "onePassScaling.withCaptures.4096"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "groups": [
+          1,
+          2,
+          3
+        ]
+      }
     }
   ]
 }

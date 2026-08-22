@@ -105,6 +105,11 @@ final class OnePass {
   /** Direct lookup table mapping ASCII code points (0–127) to equivalence class indices. */
   private final int[] asciiClassMap;
 
+  /** Cache for mapping code points >= 128 to their equivalence class. */
+  private final int[] cacheCps = new int[256];
+
+  private final int[] cacheClasses = new int[256];
+
   /** Whether the program requires end-of-text matching (stripped trailing {@code $} or \z). */
   private final boolean anchorEnd;
 
@@ -132,6 +137,7 @@ final class OnePass {
     this.matchAction = matchAction;
     this.boundaries = boundaries;
     this.asciiClassMap = buildAsciiClassMap(boundaries);
+    Arrays.fill(this.cacheCps, -1);
     this.anchorEnd = anchorEnd;
     this.dollarAnchorEnd = dollarAnchorEnd;
     this.unixLines = unixLines;
@@ -154,14 +160,7 @@ final class OnePass {
     if (prog.numCaptures() > MAX_CAPTURE_GROUPS) {
       return null;
     }
-    // Reject patterns with case-folding CHAR_RANGE instructions; the equivalence class
-    // overlap check doesn't account for fold-case semantics.
-    for (int i = 0; i < prog.size(); i++) {
-      Inst inst = prog.inst(i);
-      if (inst.op == InstOp.CHAR_RANGE && inst.foldCase) {
-        return null;
-      }
-    }
+    // Case-folding CHAR_RANGE instructions are supported via case-fold boundary expansion.
 
     int[] boundaries = buildBoundaries(prog);
     int numClasses = boundaries.length;
@@ -280,12 +279,7 @@ final class OnePass {
             // For each equivalence class this CHAR_RANGE covers, set transition.
             for (int cls = 0; cls < numClasses; cls++) {
               int classLo = boundaries[cls];
-              int classHi =
-                  (cls + 1 < boundaries.length)
-                      ? boundaries[cls + 1] - 1
-                      : Character.MAX_CODE_POINT;
-              // Check overlap.
-              if (ip.lo > classHi || ip.hi < classLo) {
+              if (!ip.matchesChar(classLo)) {
                 continue;
               }
 
@@ -477,6 +471,18 @@ final class OnePass {
         if (inst.hi < Utils.MAX_RUNE) {
           bounds.add(inst.hi + 1);
         }
+        if (inst.foldCase) {
+          for (int r = inst.lo; r <= inst.hi; r++) {
+            int folded = Inst.simpleFold(r);
+            while (folded != r) {
+              bounds.add(folded);
+              if (folded < Utils.MAX_RUNE) {
+                bounds.add(folded + 1);
+              }
+              folded = Inst.simpleFold(folded);
+            }
+          }
+        }
       } else if (inst.op == InstOp.CHAR_CLASS) {
         for (int j = 0; j < inst.ranges.length; j += 2) {
           bounds.add(inst.ranges[j]);
@@ -538,9 +544,21 @@ final class OnePass {
       boolean endMatch,
       int nsubmatch,
       int[] reuseGroups) {
+    return search(text, startPos, endPos, endMatch, nsubmatch, reuseGroups, null);
+  }
+
+  int[] search(
+      InputScanner text,
+      int startPos,
+      int endPos,
+      boolean endMatch,
+      int nsubmatch,
+      int[] reuseGroups,
+      int[] scratchCap) {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
-    return search(text, startPos, endPos, endMatch, nsubmatch, reuseGroups, graphemeContext);
+    return search(
+        text, startPos, endPos, endMatch, nsubmatch, reuseGroups, scratchCap, graphemeContext);
   }
 
   private int[] search(
@@ -550,10 +568,11 @@ final class OnePass {
       boolean endMatch,
       int nsubmatch,
       int[] reuseGroups,
+      int[] scratchCap,
       GraphemeSupport.Context graphemeContext) {
     int ncap = 2 * Math.max(nsubmatch, 1);
-    int[] cap = new int[ncap];
-    Arrays.fill(cap, -1);
+    int[] cap = scratchCap != null && scratchCap.length >= ncap ? scratchCap : new int[ncap];
+    Arrays.fill(cap, 0, ncap, -1);
     cap[0] = startPos;
 
     int stateOffset = 0;
@@ -727,7 +746,7 @@ final class OnePass {
     GraphemeSupport.Context graphemeContext =
         GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     for (int start = startPos; start < limit; start++) {
-      int[] result = search(text, start, textLen, false, nsubmatch, null, graphemeContext);
+      int[] result = search(text, start, textLen, false, nsubmatch, null, null, graphemeContext);
       if (result != null) {
         return result;
       }
@@ -744,11 +763,15 @@ final class OnePass {
     if (cp < 128 && cp >= 0) {
       return asciiClassMap[cp];
     }
-    int idx = Arrays.binarySearch(boundaries, cp);
-    if (idx >= 0) {
-      return idx;
+    int cacheIdx = cp & 255;
+    if (cacheCps[cacheIdx] == cp) {
+      return cacheClasses[cacheIdx];
     }
-    return (-idx - 1) - 1;
+    int idx = Arrays.binarySearch(boundaries, cp);
+    int cls = (idx >= 0) ? idx : (-idx - 1) - 1;
+    cacheCps[cacheIdx] = cp;
+    cacheClasses[cacheIdx] = cls;
+    return cls;
   }
 
   /**
