@@ -623,6 +623,46 @@ class Utf8InputScannerTest {
     }
   }
 
+  @Test
+  void boyerMooreHorspoolReturnsExhaustionSentinelOnAdversarialInput() {
+    byte[] needle = "baaaaa".getBytes(UTF_8);
+    int[] shifts = literalShifts(needle);
+    // 100 "a"s is below the filter threshold so Horspool is selected
+    byte[] haystack = "a".repeat(100).getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(haystack);
+
+    // Tests that boundedBoyerMooreHorspool hits the WorkLimit on repetitive mismatches and returns
+    // -2
+    assertThat(scanner.boundedBoyerMooreHorspool(needle, shifts, 0)).isEqualTo(-2);
+
+    // Tests that the public indexOf catches -2, falls back to linear KMP, and correctly completes
+    int[] failure = literalFailure(needle);
+    assertThat(scanner.indexOf(needle, failure, shifts, 0)).isEqualTo(-1);
+  }
+
+  @Test
+  void boyerMooreHorspoolFindsMatchWithinBudgetWithoutExhaustion() {
+    byte[] needle = "xyz".getBytes(UTF_8);
+    int[] shifts = literalShifts(needle);
+    byte[] haystack = "abcdefghijklmnopqrstuvwxyz".getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(haystack);
+
+    assertThat(scanner.boundedBoyerMooreHorspool(needle, shifts, 0)).isEqualTo(23);
+  }
+
+  @Test
+  void boyerMooreHorspoolCompletesMatchWithoutExhaustionWhenWinningCandidateMatches() {
+    byte[] needle = "abcde".getBytes(UTF_8);
+    int[] shifts = literalShifts(needle);
+    // Haystack has prefix noise followed by match:
+    // With hoisted work checking, the inner loop verifies all 5 characters of the true match
+    // without aborting.
+    byte[] haystack = ("noise " + "abcde").getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(haystack);
+
+    assertThat(scanner.boundedBoyerMooreHorspool(needle, shifts, 0)).isEqualTo(6);
+  }
+
   private static List<Integer> traceForward(Utf8InputScanner scanner) {
     ArrayList<Integer> result = new ArrayList<>();
     int position = 0;
