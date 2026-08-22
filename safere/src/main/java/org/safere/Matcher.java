@@ -1203,13 +1203,20 @@ public final class Matcher implements MatchResult {
 
     Prog prog = parentPattern.prog();
     InputScanner scanner = activeScanner();
+    boolean preferCaptureEngine = shouldPreferCaptureEngine(prog, scanner);
     // Medium path: use DFA to check if an anchored match exists.
-    if (enginePathOptions().dfa() && dfaSupportsProgram(parentPattern.flatDfaProg())) {
+    if (!preferCaptureEngine
+        && enginePathOptions().dfa()
+        && dfaSupportsProgram(parentPattern.flatDfaProg())) {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       Dfa.SearchResult dfaResult = searchForwardDfa(dfa(false), scanner, true, false);
       if (dfaResult != null && !dfaResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
+      }
+      if (dfaResult != null && prog.numLoopRegs() == 0) {
+        diagnosticBoundary(MatchStrategy.DFA);
+        return applyDeferredMatchResult(0, dfaResult.pos(), prog.numCaptures(), true, false);
       }
       if (dfaResult == null) {
         diagnosticDecision(

@@ -2447,6 +2447,46 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "crossEngine.ValidationBenchmark.ambiguousValid.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "helloworldbwelcome"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ValidationBenchmark.ambiguousInvalid.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ValidationBenchmark.overlapValid.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "application:12345"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ValidationBenchmark.overlapInvalid.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "applenotvalid:12345"
+      },
+      "shared": true
+    },
+    {
+      "id": "crossEngine.ValidationBenchmark.overlapLookingAt.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "application:12345 (and trailing data that is not matched)"
+      },
+      "shared": true
     }
   ],
   "workloads": [
@@ -11223,6 +11263,119 @@
         "constraints": [
           "prematerializedInput"
         ]
+      }
+    },
+    {
+      "id": "ValidationBenchmark.ambiguousLoopMatches.match",
+      "operation": "matches",
+      "patterns": [
+        "^([a-z]+)b([a-z]+)$"
+      ],
+      "inputs": [
+        "crossEngine.ValidationBenchmark.ambiguousValid.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "ValidationBenchmark.ambiguousLoopMatches.noMatch",
+      "operation": "matches",
+      "patterns": [
+        "^([a-z]+)b([a-z]+)$"
+      ],
+      "inputs": [
+        "crossEngine.ValidationBenchmark.ambiguousInvalid.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "ValidationBenchmark.overlappingAlternationMatches.match",
+      "operation": "matches",
+      "patterns": [
+        "^(?:apple|application|apply):([0-9]+)$"
+      ],
+      "inputs": [
+        "crossEngine.ValidationBenchmark.overlapValid.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      }
+    },
+    {
+      "id": "ValidationBenchmark.overlappingAlternationMatches.noMatch",
+      "operation": "matches",
+      "patterns": [
+        "^(?:apple|application|apply):([0-9]+)$"
+      ],
+      "inputs": [
+        "crossEngine.ValidationBenchmark.overlapInvalid.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": false
+      }
+    },
+    {
+      "id": "ValidationBenchmark.overlappingLookingAt",
+      "operation": "lookingAt",
+      "patterns": [
+        "^(?:apple|application|apply):([0-9]+)"
+      ],
+      "inputs": [
+        "crossEngine.ValidationBenchmark.overlapLookingAt.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "boolean",
+        "value": true
+      },
+      "lifecycle": {
+        "matcher": "newPerInvocation"
       }
     }
   ]
