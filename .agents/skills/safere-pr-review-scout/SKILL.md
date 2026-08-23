@@ -1,6 +1,6 @@
 ---
 name: safere-pr-review-scout
-description: "Run a serialized background sweep of open SafeRE GitHub PRs: skip drafts, track reviewed PR head SHAs and discussion changes, assess PR intent against implementation, run the review-fix-loop skill for P2+ findings, reproduce optimization benchmark claims against current main, and write self-contained durable reports and artifacts without pushing or commenting."
+description: "Run a serialized background sweep of open SafeRE GitHub PRs: skip drafts, track reviewed PR head SHAs and discussion changes, assess PR intent and merge ordering, run the review-fix-loop skill for P2+ findings, reproduce optimization benchmark claims against current main, and write self-contained durable reports and artifacts without pushing or commenting."
 ---
 
 # SafeRE PR Review Scout
@@ -178,6 +178,35 @@ report.
 The report may identify internally which sections were reviewed in this run and which reused valid
 evidence, but it must contain all information the human needs to decide and comment without opening
 an earlier scout report.
+
+## Merge Ordering Assessment
+
+After the per-PR assessments are current, give the human a practical merge-order recommendation for
+the open trusted non-draft PRs in the report. Check:
+
+- explicit stacked-PR or base-branch relationships;
+- commit ancestry between PR heads;
+- semantic dependencies, such as one PR changing data or behavior that another PR accelerates;
+- shared production APIs and files that make conflicts likely; and
+- whether each branch already conflicts with current `origin/main` independently of the other open
+  PRs.
+
+Distinguish three cases clearly:
+
+- **Required ordering:** one PR actually depends on another and should not merge first.
+- **Recommended ordering:** the PRs are logically independent, but an order will produce a cleaner
+  integration, benchmark the final behavior, or reduce repeated conflict resolution.
+- **Independent:** either order is reasonable despite possible file overlap.
+
+Do not infer a dependency from overlapping files alone. Explain the specific behavior, API, or
+conflict that supports each recommendation. Separate conflicts already caused by current main from
+conflicts likely to arise between the open PRs. If useful, provide a concrete sequence with
+parenthesized groups for PRs that can land in either order. Account for unresolved review feedback
+and local fixes that still need to be pushed; do not present a PR as merge-ready merely to make the
+sequence tidy.
+
+Refresh open/merged state before finalizing this section so PRs merged during a long scout run are
+not included in the remaining sequence.
 
 ## Classification
 
@@ -382,6 +411,12 @@ they were not inspected and therefore have no assessment.
 Update the summary row whenever its detailed PR section changes. The summary is an index and a
 quick decision aid, not a substitute for the evidence in the detailed section.
 
+Immediately after the PR Summary, include a `Merge Ordering` section covering only PRs that remain
+open and non-draft when the report is finalized. State whether any hard dependencies exist, give a
+recommended sequence or independent groups when useful, and explain the specific semantic or
+conflict rationale. Also identify branches that already need current main merged independently of
+the recommended inter-PR order.
+
 If any open non-draft PRs are skipped because the author is not trusted, include this section near
 the top of the run report:
 
@@ -565,6 +600,12 @@ trusted non-draft PR, including PRs skipped because their prior review is still 
 skipped PR, copy and consolidate its latest still-valid assessment, recommendation, copy/paste
 review text, fix references, and benchmark evidence into the new report; do not require the human
 to read an earlier report. Exclude merged, closed, and draft PRs.
+
+After the PR assessments are current, add a merge-order recommendation for the PRs that remain open.
+Check explicit stacking, commit ancestry, semantic dependencies, shared APIs and production files,
+and conflicts with current main. Distinguish required ordering from optional conflict-minimizing
+ordering and genuinely independent PRs. Give a practical sequence when useful, explain every
+constraint, and do not infer a dependency from file overlap alone.
 
 Run $review-fix-loop for P2-or-higher findings in an isolated worktree. Do not push branches, post
 comments, close issues, or publish review text. Local worktrees, local branches, local commits,
