@@ -1,6 +1,6 @@
 ---
 name: safere-pr-review-scout
-description: "Run a serialized background sweep of open SafeRE GitHub PRs: skip drafts, track reviewed PR head SHAs and discussion changes, assess PR intent against implementation, run the review-fix-loop skill for P2+ findings, reproduce optimization benchmark claims against current main, and write durable reports and artifacts without pushing or commenting."
+description: "Run a serialized background sweep of open SafeRE GitHub PRs: skip drafts, track reviewed PR head SHAs and discussion changes, assess PR intent against implementation, run the review-fix-loop skill for P2+ findings, reproduce optimization benchmark claims against current main, and write self-contained durable reports and artifacts without pushing or commenting."
 ---
 
 # SafeRE PR Review Scout
@@ -153,6 +153,31 @@ Also inspect linked issues when the PR body or discussion clearly references the
 needed to understand the PR's intent.
 
 Process selected PRs in increasing PR number order so the oldest open PRs are reviewed first.
+
+## Self-Contained Report Scope
+
+Every run report is a current decision-support snapshot of all open trusted non-draft PRs, not only
+a log of PRs reviewed during that run. The human reviewer may not have read any earlier scout
+report.
+
+- Include every trusted non-draft PR returned by discovery in the report summary and in a detailed
+  PR section.
+- When a PR is eligible for review, replace its prior assessment with the completed assessment from
+  the current run.
+- When a PR is fresh enough to skip, carry forward and consolidate its most recent still-valid
+  assessment, recommendation, copy/paste review text, local-fix references, and benchmark evidence
+  into the new report. Do not merely link to or tell the human to read an older report.
+- Carry evidence forward only after discovery confirms that the PR remains open and non-draft and
+  that its head SHA, discussion timestamp, and reviewed base SHA satisfy the normal skip rules. If
+  any freshness key changed, review the PR instead.
+- Exclude merged, closed, and draft PRs. Include open deferred PRs with their defer reason.
+- Keep carried-forward author-facing text coherent from the public PR discussion and human-review
+  cutoff. Do not describe it as old, carried forward, or unchanged in the copy/paste comment unless
+  that history is meaningful in the public discussion.
+
+The report may identify internally which sections were reviewed in this run and which reused valid
+evidence, but it must contain all information the human needs to decide and comment without opening
+an earlier scout report.
 
 ## Classification
 
@@ -333,12 +358,13 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
 
 ## Report Format
 
-Append every reviewed PR to the run report. Also update
-`$HOME/.codex/safere-pr-review/LATEST.md` with a pointer to the latest run report.
+Include every open trusted non-draft PR in the run report, using the current run's assessment for
+reviewed PRs and a self-contained copy of the latest still-valid assessment for skipped PRs. Also
+update `$HOME/.codex/safere-pr-review/LATEST.md` with a pointer to the latest run report.
 
 At the top of the run report, after any report title or run metadata and before other report
-sections, include a compact decision-oriented summary of every trusted PR represented in the
-report. Keep each assessment to one brief sentence or phrase. Make the PR text in each row an
+sections, include a compact decision-oriented summary of every open trusted non-draft PR. Keep each
+assessment to one brief sentence or phrase. Make the PR text in each row an
 internal link to that PR's detailed section. Use an explicit `pr-<number>` HTML anchor immediately
 before every detailed PR heading so the link remains stable regardless of punctuation or Unicode
 in the PR title. Include reviewed, blocked, and deferred PRs; do not include untrusted PRs because
@@ -533,6 +559,12 @@ review, tests, or benchmarks. If conflicts require product/design judgment, mark
 and continue with the next PR. Read the PR description, comments, reviews, and linked issue context
 needed to understand intent. Assess whether the PR idea makes sense for SafeRE and whether the
 implementation matches that intent.
+
+Make the resulting report self-contained. Include a summary row and detailed section for every open
+trusted non-draft PR, including PRs skipped because their prior review is still fresh. For each
+skipped PR, copy and consolidate its latest still-valid assessment, recommendation, copy/paste
+review text, fix references, and benchmark evidence into the new report; do not require the human
+to read an earlier report. Exclude merged, closed, and draft PRs.
 
 Run $review-fix-loop for P2-or-higher findings in an isolated worktree. Do not push branches, post
 comments, close issues, or publish review text. Local worktrees, local branches, local commits,
