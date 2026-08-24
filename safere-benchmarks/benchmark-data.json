@@ -5846,11 +5846,6 @@
       "inputs": [
         "replace.anchoredReplace.input"
       ],
-      "inputRepresentations": [
-        "javaString",
-        "javaStringWithTimedUtf8Conversion"
-      ],
-      "inputRepresentationReason": "The Matcher replacement fast path operates on Java strings; preexisting UTF-8 replacement uses a separate API.",
       "resultConsumption": "string",
       "measurement": {
         "mode": "averageTime",

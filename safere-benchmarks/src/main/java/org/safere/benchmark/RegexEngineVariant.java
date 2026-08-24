@@ -7,9 +7,13 @@
 
 package org.safere.benchmark;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import org.openjdk.jmh.infra.Blackhole;
+import org.safere.Utf8Sink;
 
 /** Java-side regex execution variants and their representation/timing boundaries. */
 enum RegexEngineVariant {
@@ -81,13 +85,15 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public String replaceFirst(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceFirst(replacement);
+        public ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceFirst(string(replacement)));
         }
 
         @Override
-        public String replaceAll(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceAll(replacement);
+        public ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceAll(string(replacement)));
         }
 
         @Override
@@ -107,6 +113,8 @@ enum RegexEngineVariant {
           EngineCapability.MATCHES,
           EngineCapability.LOOKING_AT,
           EngineCapability.GROUP_PARTICIPATION,
+          EngineCapability.REPLACE,
+          EngineCapability.APPEND_REPLACEMENT,
           EngineCapability.MATCHER_RESET,
           EngineCapability.REGIONS)) {
     @Override
@@ -157,6 +165,22 @@ enum RegexEngineVariant {
               matcher.region(start, end);
             }
           };
+        }
+
+        @Override
+        public ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
+          return replaceUtf8(pattern.matcher(utf8(input)), utf8(replacement), true);
+        }
+
+        @Override
+        public ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
+          return replaceUtf8(pattern.matcher(utf8(input)), utf8(replacement), false);
+        }
+
+        @Override
+        public ReplacementOutput manualReplaceAll(
+            RegexInput input, PreparedReplacement replacement) {
+          return replaceUtf8(pattern.matcher(utf8(input)), utf8(replacement), false);
         }
       };
     }
@@ -228,13 +252,15 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public String replaceFirst(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceFirst(replacement);
+        public ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceFirst(string(replacement)));
         }
 
         @Override
-        public String replaceAll(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceAll(replacement);
+        public ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceAll(string(replacement)));
         }
 
         @Override
@@ -306,13 +332,15 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public String replaceFirst(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceFirst(replacement);
+        public ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceFirst(string(replacement)));
         }
 
         @Override
-        public String replaceAll(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceAll(replacement);
+        public ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceAll(string(replacement)));
         }
 
         @Override
@@ -374,13 +402,15 @@ enum RegexEngineVariant {
         }
 
         @Override
-        public String replaceFirst(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceFirst(replacement);
+        public ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceFirst(string(replacement)));
         }
 
         @Override
-        public String replaceAll(RegexInput input, String replacement) {
-          return pattern.matcher(string(input)).replaceAll(replacement);
+        public ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
+          return new StringReplacementOutput(
+              pattern.matcher(string(input)).replaceAll(string(replacement)));
         }
 
         @Override
@@ -519,6 +549,17 @@ enum RegexEngineVariant {
     return List.copyOf(inputs);
   }
 
+  PreparedReplacement prepareReplacement(String replacement) {
+    if (replacement == null) {
+      return null;
+    }
+    if (inputRepresentation == InputRepresentation.PREEXISTING_UTF8) {
+      return new Utf8Replacement(
+          org.safere.Utf8Input.trusted(replacement.getBytes(StandardCharsets.UTF_8)));
+    }
+    return new StringReplacement(replacement);
+  }
+
   abstract CompiledRegex compile(String regex);
 
   Object compileForBenchmark(String regex, String flagSet) {
@@ -580,11 +621,89 @@ enum RegexEngineVariant {
     return ((Utf8RegexInput) input).value();
   }
 
+  private static String string(PreparedReplacement replacement) {
+    return ((StringReplacement) replacement).value();
+  }
+
+  private static org.safere.Utf8Input utf8(PreparedReplacement replacement) {
+    return ((Utf8Replacement) replacement).value();
+  }
+
+  private static ReplacementOutput replaceUtf8(
+      org.safere.Utf8Matcher matcher, org.safere.Utf8Input replacement, boolean firstOnly) {
+    ByteArraySink sink = new ByteArraySink();
+    while (matcher.find()) {
+      matcher.appendReplacement(sink, replacement);
+      if (firstOnly) {
+        break;
+      }
+    }
+    matcher.appendTail(sink);
+    return sink.output();
+  }
+
   sealed interface RegexInput permits StringRegexInput, Utf8RegexInput {}
 
   record StringRegexInput(String value) implements RegexInput {}
 
   record Utf8RegexInput(org.safere.Utf8Input value) implements RegexInput {}
+
+  sealed interface PreparedReplacement permits StringReplacement, Utf8Replacement {}
+
+  record StringReplacement(String value) implements PreparedReplacement {}
+
+  record Utf8Replacement(org.safere.Utf8Input value) implements PreparedReplacement {}
+
+  sealed interface ReplacementOutput permits StringReplacementOutput, Utf8ReplacementOutput {
+    int nativeLength();
+
+    String validationValue();
+
+    void consume(Blackhole blackhole);
+  }
+
+  record StringReplacementOutput(String value) implements ReplacementOutput {
+    @Override
+    public int nativeLength() {
+      return value.length();
+    }
+
+    @Override
+    public String validationValue() {
+      return value;
+    }
+
+    @Override
+    public void consume(Blackhole blackhole) {
+      blackhole.consume(value);
+    }
+  }
+
+  private static final class Utf8ReplacementOutput implements ReplacementOutput {
+    private final byte[] bytes;
+    private final int length;
+
+    Utf8ReplacementOutput(byte[] bytes, int length) {
+      this.bytes = bytes;
+      this.length = length;
+    }
+
+    @Override
+    public int nativeLength() {
+      return length;
+    }
+
+    @Override
+    public String validationValue() {
+      return new String(bytes, 0, length, StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public void consume(Blackhole blackhole) {
+      blackhole.consume(bytes);
+      blackhole.consume(length);
+    }
+  }
 
   interface MatchCursor {
     default boolean find() {
@@ -641,12 +760,22 @@ enum RegexEngineVariant {
       throw new UnsupportedOperationException();
     }
 
-    default String replaceAll(RegexInput input, String replacement) {
+    default ReplacementOutput replaceAll(RegexInput input, PreparedReplacement replacement) {
       throw new UnsupportedOperationException();
     }
 
-    default String replaceFirst(RegexInput input, String replacement) {
+    default ReplacementOutput replaceFirst(RegexInput input, PreparedReplacement replacement) {
       throw new UnsupportedOperationException();
+    }
+
+    default ReplacementOutput manualReplaceAll(RegexInput input, PreparedReplacement replacement) {
+      MatchCursor matcher = matcher(input);
+      StringBuilder result = new StringBuilder();
+      while (matcher.find()) {
+        matcher.appendReplacement(result, string(replacement));
+      }
+      matcher.appendTail(result);
+      return new StringReplacementOutput(result.toString());
     }
 
     default String[] split(RegexInput input, int limit) {
@@ -661,5 +790,24 @@ enum RegexEngineVariant {
     JAVA_STRING,
     PREEXISTING_UTF8,
     JAVA_STRING_WITH_TIMED_UTF8_CONVERSION
+  }
+
+  private static final class ByteArraySink implements Utf8Sink {
+    private byte[] bytes = new byte[256];
+    private int length;
+
+    @Override
+    public void append(byte[] source, int offset, int rangeLength) {
+      int requiredLength = length + rangeLength;
+      if (requiredLength > bytes.length) {
+        bytes = Arrays.copyOf(bytes, Math.max(requiredLength, bytes.length * 2));
+      }
+      System.arraycopy(source, offset, bytes, length, rangeLength);
+      length = requiredLength;
+    }
+
+    ReplacementOutput output() {
+      return new Utf8ReplacementOutput(bytes, length);
+    }
   }
 }

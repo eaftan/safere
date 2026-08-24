@@ -84,7 +84,7 @@ enum BenchmarkOperation {
       List<RegexEngineVariant.CompiledRegex> patterns,
       List<RegexEngineVariant.RegexInput> inputs,
       int[] groups,
-      String replacement,
+      RegexEngineVariant.PreparedReplacement replacement,
       int limit,
       DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
       String flagSet,
@@ -123,12 +123,12 @@ enum BenchmarkOperation {
       case CAPTURE_GROUPS ->
           blackhole -> blackhole.consume(captureGroups(pattern.matcher(input), groups));
       case REPLACE_FIRST ->
-          blackhole -> blackhole.consume(pattern.replaceFirst(input, replacement));
-      case REPLACE_ALL -> blackhole -> blackhole.consume(pattern.replaceAll(input, replacement));
+          blackhole -> pattern.replaceFirst(input, replacement).consume(blackhole);
+      case REPLACE_ALL -> blackhole -> pattern.replaceAll(input, replacement).consume(blackhole);
       case REPLACE_ALL_LENGTH_SUM ->
           blackhole -> blackhole.consume(replaceAllLengthSum(patterns, input, replacement));
       case MANUAL_REPLACE_ALL ->
-          blackhole -> blackhole.consume(manualReplaceAll(pattern.matcher(input), replacement));
+          blackhole -> pattern.manualReplaceAll(input, replacement).consume(blackhole);
       case SPLIT_LENGTH_SUM ->
           blackhole -> blackhole.consume(splitLengthSum(pattern.split(input, limit)));
       case COMPILE_AND_FIND ->
@@ -168,7 +168,7 @@ enum BenchmarkOperation {
       List<RegexEngineVariant.CompiledRegex> patterns,
       List<RegexEngineVariant.RegexInput> inputs,
       int[] groups,
-      String replacement,
+      RegexEngineVariant.PreparedReplacement replacement,
       int limit,
       DeclarativeBenchmarkPlan.MatcherLifecycle lifecycle,
       String flagSet,
@@ -201,10 +201,10 @@ enum BenchmarkOperation {
       case FIND_ALL_LENGTH_SUM -> findAllLengthSum(pattern.matcher(input));
       case FIND_ALL_GROUP_LENGTH_SUM -> findAllGroupLengthSum(pattern.matcher(input), groups);
       case CAPTURE_GROUPS -> captureGroups(pattern.matcher(input), groups);
-      case REPLACE_FIRST -> pattern.replaceFirst(input, replacement);
-      case REPLACE_ALL -> pattern.replaceAll(input, replacement);
+      case REPLACE_FIRST -> pattern.replaceFirst(input, replacement).validationValue();
+      case REPLACE_ALL -> pattern.replaceAll(input, replacement).validationValue();
       case REPLACE_ALL_LENGTH_SUM -> replaceAllLengthSum(patterns, input, replacement);
-      case MANUAL_REPLACE_ALL -> manualReplaceAll(pattern.matcher(input), replacement);
+      case MANUAL_REPLACE_ALL -> pattern.manualReplaceAll(input, replacement).validationValue();
       case SPLIT_LENGTH_SUM -> splitLengthSum(pattern.split(input, limit));
       case COMPILE_AND_FIND -> {
         try (RegexEngineVariant.CompiledRegex compiled =
@@ -354,22 +354,12 @@ enum BenchmarkOperation {
   private static int replaceAllLengthSum(
       List<RegexEngineVariant.CompiledRegex> patterns,
       RegexEngineVariant.RegexInput input,
-      String replacement) {
+      RegexEngineVariant.PreparedReplacement replacement) {
     int sum = 0;
     for (RegexEngineVariant.CompiledRegex pattern : patterns) {
-      sum += pattern.replaceAll(input, replacement).length();
+      sum += pattern.replaceAll(input, replacement).nativeLength();
     }
     return sum;
-  }
-
-  private static String manualReplaceAll(
-      RegexEngineVariant.MatchCursor matcher, String replacement) {
-    StringBuilder result = new StringBuilder();
-    while (matcher.find()) {
-      matcher.appendReplacement(result, replacement);
-    }
-    matcher.appendTail(result);
-    return result.toString();
   }
 
   private static int splitLengthSum(String[] parts) {

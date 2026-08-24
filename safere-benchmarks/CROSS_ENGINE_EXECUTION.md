@@ -25,8 +25,8 @@ The Java comparison matrix is declared in one engine registry:
 | `re2-ffm-string-conversion` | `re2_ffm` | Java `String`; UTF-8 conversion at the FFM API boundary is timed |
 
 Materialization, UTF-8 validation, Java decoding, `Utf8Input` construction,
-pattern compilation, operation binding, and expected-result validation happen
-in JMH setup, outside the timed operation.
+pattern compilation, replacement-template encoding, operation binding, and expected-result
+validation happen in JMH setup, outside the timed operation.
 
 Each variant declares native capabilities and one input representation. The
 planner joins those declarations with each workload's engine-neutral
@@ -34,9 +34,18 @@ requirements and accepted representations. It emits a trial or a specific
 exclusion for every workload/variant pair, so an unsupported feature or
 representation is different from a missing adapter or operation
 implementation. In particular, SafeRE UTF-8 participates in direct `find` and
-repeated-`find`, whole-input `matches`, `lookingAt`, capture-participation, and
-matcher reset/region operations. Group-text, String replacement, and split
-workloads remain excluded rather than being emulated across representations.
+repeated-`find`, whole-input `matches`, `lookingAt`, capture-participation,
+replacement, and matcher reset/region operations. Group-text and split workloads remain excluded
+rather than being emulated across representations.
+
+Generic replacement workloads use each variant's native output representation. String variants
+produce and consume a Java `String`. The `safere-utf8` variant supplies a pre-encoded `Utf8Input`
+replacement to `Utf8Matcher.appendReplacement(Utf8Sink, Utf8Input)` and `appendTail`, and consumes
+the resulting bytes and byte length without decoding them during measurement. Setup-time validation
+decodes that byte result only after replaying the operation outside measurement. Literal, numbered,
+and named group templates therefore exercise SafeRE's byte-native replacement path. Direct capture
+text, split, duplicate UTF-8 compilation, PatternSet, retained-heap, and String-specific diagnostics
+remain explicitly excluded where their operation or comparison boundary is not available.
 
 ## JMH trials and result names
 
