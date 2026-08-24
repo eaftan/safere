@@ -382,8 +382,8 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      that ... I've pushed a commit that fixes it."
 
 9. Update the durable report and state after each PR, not only at the end. Update that PR's row in
-   the report's PR Summary table at the same checkpoint. If the sweep is interrupted, completed
-   PRs should still be discoverable.
+   the report's PR Summary table at the same checkpoint while preserving its reviewer-owned `Done`
+   value. If the sweep is interrupted, completed PRs should still be discoverable.
 
 ## Report Format
 
@@ -397,15 +397,18 @@ assessment to one brief sentence or phrase. Make the PR text in each row an
 internal link to that PR's detailed section. Use an explicit `pr-<number>` HTML anchor immediately
 before every detailed PR heading so the link remains stable regardless of punctuation or Unicode
 in the PR title. Include reviewed, blocked, and deferred PRs; do not include untrusted PRs because
-they were not inspected and therefore have no assessment.
+they were not inspected and therefore have no assessment. Make `Done` the first column. Leave it
+empty when creating a row so the human reviewer can enter `Y` after handling the PR. The column is
+reviewer-owned: never fill it in or infer completion, and preserve any existing value when updating
+a row in the same report.
 
 ```markdown
 ## PR Summary
 
-| PR | Brief Assessment | Recommendation |
-|---|---|---|
-| [PR #123: Optimize matching](#pr-123) | Correct after local fixes; claimed gains reproduced. | Can merge |
-| [PR #124: Revise parser API](#pr-124) | The public API shape needs a maintainer decision. | Focus human review |
+| Done | PR | Brief Assessment | Recommendation |
+|---|---|---|---|
+|  | [PR #123: Optimize matching](#pr-123) | Correct after local fixes; claimed gains reproduced. | Can merge |
+|  | [PR #124: Revise parser API](#pr-124) | The public API shape needs a maintainer decision. | Focus human review |
 ```
 
 Update the summary row whenever its detailed PR section changes. The summary is an index and a
