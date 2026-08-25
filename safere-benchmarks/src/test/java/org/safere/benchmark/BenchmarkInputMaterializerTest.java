@@ -16,12 +16,19 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class BenchmarkInputMaterializerTest {
+  // Historical floors guard against accidental corpus loss. Additions do not raise them.
+  private static final int MINIMUM_MATERIALIZED_INPUTS = 419;
+  private static final int MINIMUM_DECLARED_WORKLOADS = 354;
+  private static final int MINIMUM_EXPANDED_WORKLOADS = 683;
+
   @TempDir Path tempDirectory;
 
   @Test
@@ -32,7 +39,11 @@ class BenchmarkInputMaterializerTest {
     Map<String, byte[]> first = BenchmarkInputMaterializer.materialize(benchmarkData);
     Map<String, byte[]> second = BenchmarkInputMaterializer.materialize(benchmarkData);
 
-    assertThat(first).hasSize(419);
+    Set<String> declaredInputIds =
+        DeclarativeBenchmarkPlan.parseInputDeclarations(benchmarkData.getAsJsonArray("inputs"))
+            .keySet();
+    assertThat(first).hasSizeGreaterThanOrEqualTo(MINIMUM_MATERIALIZED_INPUTS);
+    assertThat(first.keySet()).containsExactlyElementsOf(declaredInputIds);
     assertThat(second.keySet()).containsExactlyElementsOf(first.keySet());
     first.forEach((id, bytes) -> assertThat(second.get(id)).as(id).containsExactly(bytes));
     assertThat(text(first, "crossEngine.RegexBenchmark.literalMatch.input")).isEqualTo("hello");
@@ -127,6 +138,8 @@ class BenchmarkInputMaterializerTest {
 
   @Test
   void manifestAttributesInputsAndRecordsExactEncodingMetadata() throws Exception {
+    JsonObject declaredData =
+        JsonParser.parseString(Files.readString(Path.of("benchmark-data.json"))).getAsJsonObject();
     BenchmarkInputMaterializer.main(
         new String[] {
           Path.of(".").toAbsolutePath().normalize().toString(), tempDirectory.toString()
@@ -149,22 +162,47 @@ class BenchmarkInputMaterializerTest {
     assertThat(entry.get("sha256").getAsString())
         .isEqualTo("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
     JsonObject resolvedData = manifest.getAsJsonObject("benchmarkData");
-    assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("re2")).hasSize(8);
+    // These are historical floors: adding syntax alternates must not require a test update.
+    assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("re2"))
+        .hasSizeGreaterThanOrEqualTo(8);
     assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("rust-regex"))
-        .hasSize(28);
+        .hasSizeGreaterThanOrEqualTo(28);
     assertThat(resolvedData.getAsJsonObject("replacementProfiles").getAsJsonArray("go-regexp"))
-        .hasSize(1);
+        .hasSizeGreaterThanOrEqualTo(1);
     assertThat(resolvedData.getAsJsonObject("replacementProfiles").getAsJsonArray("re2-cpp"))
-        .hasSize(8);
+        .hasSizeGreaterThanOrEqualTo(8);
     assertThat(resolvedData.getAsJsonObject("replacementProfiles").getAsJsonArray("rust-regex"))
-        .hasSize(1);
+        .hasSizeGreaterThanOrEqualTo(1);
     assertThat(resolvedData.getAsJsonObject("patternProfiles").getAsJsonArray("dotnet"))
-        .hasSize(40);
+        .hasSizeGreaterThanOrEqualTo(40);
+    assertThat(declarationIds(resolvedData.getAsJsonArray("inputs")))
+        .containsExactlyElementsOf(declarationIds(declaredData.getAsJsonArray("inputs")));
+    assertThat(manifest.getAsJsonObject("inputs").keySet())
+        .containsExactlyElementsOf(
+            DeclarativeBenchmarkPlan.parseInputDeclarations(declaredData.getAsJsonArray("inputs"))
+                .keySet());
+    Set<String> declaredWorkloadIds = declarationIds(declaredData.getAsJsonArray("workloads"));
+    assertThat(declaredWorkloadIds).hasSizeGreaterThanOrEqualTo(MINIMUM_DECLARED_WORKLOADS);
+    assertThat(declarationIds(resolvedData.getAsJsonArray("workloads")))
+        .containsExactlyElementsOf(declaredWorkloadIds);
     JsonObject executionPlan = manifest.getAsJsonObject("executionPlan");
     assertThat(executionPlan.get("version").getAsInt()).isEqualTo(1);
-    assertThat(executionPlan.get("workloadCount").getAsInt()).isEqualTo(683);
-    assertThat(executionPlan.get("engineCount").getAsInt()).isEqualTo(10);
-    assertThat(executionPlan.getAsJsonArray("entries")).hasSize(6_830);
+    Set<String> workloadIds = executionPlanIds(executionPlan, "workloadId");
+    Set<String> expectedWorkloadIds = expandedWorkloadIds(resolvedData);
+    assertThat(expectedWorkloadIds).hasSizeGreaterThanOrEqualTo(MINIMUM_EXPANDED_WORKLOADS);
+    assertThat(workloadIds).containsExactlyInAnyOrderElementsOf(expectedWorkloadIds);
+    Set<String> engineIds = declarationIds(executionPlan.getAsJsonArray("engines"));
+    Set<String> expectedExecutionIds = new LinkedHashSet<>();
+    for (String workloadId : workloadIds) {
+      for (String engineId : engineIds) {
+        expectedExecutionIds.add(workloadId + "@" + engineId);
+      }
+    }
+    assertThat(executionPlan.get("workloadCount").getAsInt()).isEqualTo(expectedWorkloadIds.size());
+    assertThat(executionPlan.get("engineCount").getAsInt()).isEqualTo(engineIds.size());
+    assertThat(executionPlan.getAsJsonArray("entries")).hasSize(expectedExecutionIds.size());
+    assertThat(executionPlanIds(executionPlan, "id"))
+        .containsExactlyInAnyOrderElementsOf(expectedExecutionIds);
     assertThat(
             executionEntry(
                     executionPlan, "UnicodeCompileBenchmark.compile.word.0@dotnet_nonbacktracking")
@@ -236,7 +274,6 @@ class BenchmarkInputMaterializerTest {
                   .getAsString())
           .isEqualTo("[\\u4E00-\\u9FFF]+[0-9]+");
     }
-    assertThat(resolvedData.getAsJsonArray("workloads")).hasSize(354);
     for (JsonElement engineElement : executionPlan.getAsJsonArray("engines")) {
       String engineId = engineElement.getAsJsonObject().get("id").getAsString();
       assertThat(
@@ -248,7 +285,8 @@ class BenchmarkInputMaterializerTest {
                           Set.of("runnable", "excluded")
                               .contains(planEntry.get("status").getAsString())))
           .as(engineId)
-          .hasSize(683);
+          .extracting(planEntry -> planEntry.get("workloadId").getAsString())
+          .containsExactlyInAnyOrderElementsOf(workloadIds);
     }
     assertThat(
             executionPlan.getAsJsonArray("entries").asList().stream()
@@ -309,5 +347,29 @@ class BenchmarkInputMaterializerTest {
         .filter(entry -> entry.get("id").getAsString().equals(id))
         .findFirst()
         .orElseThrow();
+  }
+
+  private static Set<String> declarationIds(JsonArray declarations) {
+    return declarations.asList().stream()
+        .map(JsonElement::getAsJsonObject)
+        .map(declaration -> declaration.get("id").getAsString())
+        .collect(Collectors.toCollection(LinkedHashSet::new));
+  }
+
+  private static Set<String> executionPlanIds(JsonObject plan, String property) {
+    return plan.getAsJsonArray("entries").asList().stream()
+        .map(JsonElement::getAsJsonObject)
+        .map(entry -> entry.get(property).getAsString())
+        .collect(Collectors.toCollection(LinkedHashSet::new));
+  }
+
+  private static Set<String> expandedWorkloadIds(JsonObject data) {
+    JsonObject planData = new JsonObject();
+    planData.add("schemaVersion", data.get("schemaVersion").deepCopy());
+    planData.add("inputs", data.getAsJsonArray("inputs").deepCopy());
+    planData.add("workloads", data.getAsJsonArray("workloads").deepCopy());
+    return DeclarativeBenchmarkPlan.parse(planData).expandedWorkloads().stream()
+        .map(DeclarativeBenchmarkPlan.ExpandedWorkload::id)
+        .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 }

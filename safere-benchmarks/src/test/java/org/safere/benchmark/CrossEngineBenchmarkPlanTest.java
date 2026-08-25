@@ -23,6 +23,12 @@ import org.junit.jupiter.api.io.TempDir;
 import org.openjdk.jmh.infra.Blackhole;
 
 class CrossEngineBenchmarkPlanTest {
+  // This is a historical floor, not a snapshot. Additions do not raise it.
+  private static final int MINIMUM_CROSS_ENGINE_WORKLOADS = 606;
+  private static final int MINIMUM_RUNNABLE_CROSS_ENGINE_TRIALS = 2_448;
+  private static final int MINIMUM_SPECIALIZED_AVERAGE_TIME_TRIALS = 63;
+  private static final int MINIMUM_SPECIALIZED_RETAINED_MEMORY_TRIALS = 34;
+  private static final int MINIMUM_COLLECTION_RUNNER_TRIALS = 2_487;
 
   @TempDir static Path temporaryDirectory;
 
@@ -49,7 +55,7 @@ class CrossEngineBenchmarkPlanTest {
             "HttpBenchmark.httpFull",
             "SearchScalingBenchmark.searchEasyFail.1024",
             "FanoutBenchmark.fanoutUnicode.1024");
-    assertThat(ids).hasSize(606);
+    assertThat(ids).hasSizeGreaterThanOrEqualTo(MINIMUM_CROSS_ENGINE_WORKLOADS);
   }
 
   @Test
@@ -78,9 +84,14 @@ class CrossEngineBenchmarkPlanTest {
                   .map(CrossEngineBenchmarkPlan.Trial::variant))
           .containsAnyOf(RegexEngineVariant.SAFERE_STRING, RegexEngineVariant.SAFERE_UTF8);
     }
-    assertThat(allTrials).hasSize(2448);
-    assertThat(plan.exclusions()).hasSize(582);
-    assertThat(accounted).hasSize(606 * RegexEngineVariant.values().length);
+    assertThat(allTrials).hasSizeGreaterThanOrEqualTo(MINIMUM_RUNNABLE_CROSS_ENGINE_TRIALS);
+    Set<String> expected = new HashSet<>();
+    for (CrossEngineWorkload workload : plan.workloads()) {
+      for (RegexEngineVariant variant : RegexEngineVariant.values()) {
+        expected.add(workload.id() + "@" + variant.id());
+      }
+    }
+    assertThat(accounted).containsExactlyInAnyOrderElementsOf(expected);
   }
 
   @Test
@@ -118,27 +129,18 @@ class CrossEngineBenchmarkPlanTest {
     CrossEngineBenchmarkPlan first = CrossEngineBenchmarkPlan.load();
     CrossEngineBenchmarkPlan second = CrossEngineBenchmarkPlan.load();
 
-    assertThat(first.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS))
-        .extracting(CrossEngineBenchmarkPlan.Trial::id)
-        .containsExactlyElementsOf(
-            second.trials(CrossEngineWorkload.TimingGroup.NANOSECONDS).stream()
-                .map(CrossEngineBenchmarkPlan.Trial::id)
-                .toList())
-        .hasSize(1787);
-    assertThat(first.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS))
-        .extracting(CrossEngineBenchmarkPlan.Trial::id)
-        .containsExactlyElementsOf(
-            second.trials(CrossEngineWorkload.TimingGroup.MICROSECONDS).stream()
-                .map(CrossEngineBenchmarkPlan.Trial::id)
-                .toList())
-        .hasSize(589);
-    assertThat(first.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS))
-        .extracting(CrossEngineBenchmarkPlan.Trial::id)
-        .containsExactlyElementsOf(
-            second.trials(CrossEngineWorkload.TimingGroup.MILLISECONDS).stream()
-                .map(CrossEngineBenchmarkPlan.Trial::id)
-                .toList())
-        .hasSize(72);
+    Set<String> trialIds = new HashSet<>();
+    for (CrossEngineWorkload.TimingGroup timingGroup : CrossEngineWorkload.TimingGroup.values()) {
+      List<CrossEngineBenchmarkPlan.Trial> firstTrials = first.trials(timingGroup);
+      assertThat(firstTrials)
+          .as(timingGroup.name())
+          .isNotEmpty()
+          .allMatch(trial -> trial.workload().timingGroup() == timingGroup)
+          .extracting(CrossEngineBenchmarkPlan.Trial::id)
+          .containsExactlyElementsOf(
+              second.trials(timingGroup).stream().map(CrossEngineBenchmarkPlan.Trial::id).toList());
+      firstTrials.forEach(trial -> assertThat(trialIds.add(trial.id())).as(trial.id()).isTrue());
+    }
   }
 
   @Test
@@ -472,15 +474,25 @@ class CrossEngineBenchmarkPlanTest {
     SpecializedBenchmarkPlan second = SpecializedBenchmarkPlan.load();
 
     assertThat(first.averageTimeTrials())
+        .hasSizeGreaterThanOrEqualTo(MINIMUM_SPECIALIZED_AVERAGE_TIME_TRIALS)
+        .allMatch(
+            trial ->
+                trial.workload().measurement().mode()
+                    == DeclarativeBenchmarkPlan.MeasurementMode.AVERAGE_TIME)
         .extracting(SpecializedBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
-            second.averageTimeTrials().stream().map(SpecializedBenchmarkPlan.Trial::id).toList())
-        .hasSize(63);
+            second.averageTimeTrials().stream().map(SpecializedBenchmarkPlan.Trial::id).toList());
     assertThat(first.retainedMemoryTrials())
+        .hasSizeGreaterThanOrEqualTo(MINIMUM_SPECIALIZED_RETAINED_MEMORY_TRIALS)
+        .allMatch(
+            trial ->
+                trial.workload().measurement().mode()
+                    == DeclarativeBenchmarkPlan.MeasurementMode.RETAINED_MEMORY)
         .extracting(SpecializedBenchmarkPlan.Trial::id)
         .containsExactlyElementsOf(
-            second.retainedMemoryTrials().stream().map(SpecializedBenchmarkPlan.Trial::id).toList())
-        .hasSize(34);
+            second.retainedMemoryTrials().stream()
+                .map(SpecializedBenchmarkPlan.Trial::id)
+                .toList());
   }
 
   @Test
@@ -495,18 +507,27 @@ class CrossEngineBenchmarkPlanTest {
             "org.safere.benchmark.CrossEngineNoForkBenchmark.run",
             "org.safere.benchmark.CrossEngineColdStartBenchmark.run",
             "org.safere.benchmark.SpecializedBenchmark.run");
-    assertThat(plan.runners())
-        .allMatch(runner -> !runner.trialIds().isEmpty())
-        .flatExtracting(BenchmarkCollectionPlan.Runner::trialIds)
-        .doesNotHaveDuplicates()
-        .hasSize(2487);
-    assertThat(plan.reportPlan().trials()).hasSize(2487);
+    List<String> runnerTrialIds =
+        plan.runners().stream().flatMap(runner -> runner.trialIds().stream()).toList();
+    assertThat(plan.runners()).allMatch(runner -> !runner.trialIds().isEmpty());
+    assertThat(runnerTrialIds)
+        .hasSizeGreaterThanOrEqualTo(MINIMUM_COLLECTION_RUNNER_TRIALS)
+        .doesNotHaveDuplicates();
+    assertThat(plan.reportPlan().trials())
+        .extracting(BenchmarkCollectionPlan.CollectionTrial::id)
+        .containsExactlyInAnyOrderElementsOf(runnerTrialIds);
     assertThat(plan.reportPlan().exclusions()).isNotEmpty().doesNotHaveDuplicates();
-    assertThat(
-            plan.reportPlan(true).trials().stream()
-                .map(BenchmarkCollectionPlan.CollectionTrial::workloadId)
-                .distinct())
-        .hasSize(5);
+    Set<String> expectedSmokeTrialIds = new HashSet<>();
+    for (BenchmarkCollectionPlan.Runner runner : plan.runners()) {
+      String firstTrial = runner.trialIds().getFirst();
+      String firstWorkload = firstTrial.substring(0, firstTrial.lastIndexOf('@'));
+      runner.trialIds().stream()
+          .filter(trialId -> trialId.startsWith(firstWorkload + "@"))
+          .forEach(expectedSmokeTrialIds::add);
+    }
+    assertThat(plan.reportPlan(true).trials())
+        .extracting(BenchmarkCollectionPlan.CollectionTrial::id)
+        .containsExactlyInAnyOrderElementsOf(expectedSmokeTrialIds);
   }
 
   @Test
