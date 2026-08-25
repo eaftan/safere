@@ -84,7 +84,7 @@ abstract class ByteSwarScan {
         return -2;
       }
     }
-    int anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefixLen);
+    int anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefixLen, true);
     char anchor = prefix.charAt(anchorOffset);
     byte low = (byte) Ascii.toLowerCase(anchor);
     byte high = (byte) Ascii.toUpperCase(anchor);

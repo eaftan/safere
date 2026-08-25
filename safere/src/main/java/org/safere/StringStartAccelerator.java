@@ -109,7 +109,7 @@ sealed interface StringStartAccelerator {
         return new CaseInsensitiveLiteral(prefix, null, 0, '\0', '\0');
       }
       int[] failure = Ascii.ignoreCaseFailure(prefix);
-      int anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefix.length());
+      int anchorOffset = RarityOracle.rarestAsciiOffset(prefix, prefix.length(), true);
       char anchor = prefix.charAt(anchorOffset);
       char anchorLow = Ascii.toLowerCase(anchor);
       char anchorHigh = Ascii.toUpperCase(anchor);
