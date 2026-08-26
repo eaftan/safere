@@ -16,10 +16,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -120,8 +118,7 @@ public final class Pattern implements Serializable {
   private final transient Prog flatProg;
   private final transient Prog flatDfaProg;
   private final transient Regexp ast;
-
-  private final transient Map<String, Integer> namedGroups;
+  private final transient AstAnalysis astAnalysis;
   private final transient String prefix;
   private final transient boolean prefixFoldCase;
   private final transient MatchDescriptor matchDescriptor;
@@ -131,10 +128,6 @@ public final class Pattern implements Serializable {
   private final transient byte[] prefixUtf8;
   private final transient String anchoredPrefix;
   private final transient byte[] anchoredPrefixUtf8;
-  private final transient boolean hasLazy;
-  private final transient boolean hasAlternation;
-  private final transient boolean hasNullableAlternation;
-  private final transient boolean canMatchEmpty;
   private final transient boolean startsWithGraphemeClusterBoundary;
   private final transient boolean hasInternalGraphemeClusterBoundary;
   private final transient CharClassScanInfo charClassPrefix;
@@ -252,13 +245,9 @@ public final class Pattern implements Serializable {
       int flags,
       Prog prog,
       Regexp ast,
-      Map<String, Integer> namedGroups,
+      AstAnalysis astAnalysis,
       StartDescriptor startDescriptor,
       MatchDescriptor matchDescriptor,
-      boolean hasLazy,
-      boolean hasAlternation,
-      boolean hasNullableAlternation,
-      boolean canMatchEmpty,
       boolean startsWithGraphemeClusterBoundary,
       boolean hasInternalGraphemeClusterBoundary,
       RejectDescriptor rejectDescriptor,
@@ -289,7 +278,7 @@ public final class Pattern implements Serializable {
     }
 
     this.ast = ast;
-    this.namedGroups = namedGroups;
+    this.astAnalysis = astAnalysis;
     this.prefix = startDescriptor.prefix();
     this.prefixFoldCase = startDescriptor.prefixFoldCase();
     this.prefixUtf8 =
@@ -307,10 +296,6 @@ public final class Pattern implements Serializable {
         literalMatch == null ? null : literalMatch.getBytes(StandardCharsets.UTF_8);
     this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
     this.literalMatchShifts = literalMatchUtf8 == null ? null : literalShifts(literalMatchUtf8);
-    this.hasLazy = hasLazy;
-    this.hasAlternation = hasAlternation;
-    this.hasNullableAlternation = hasNullableAlternation;
-    this.canMatchEmpty = canMatchEmpty;
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefix = startDescriptor.charClassPrefix();
@@ -453,13 +438,9 @@ public final class Pattern implements Serializable {
     if (metadataAst == null) {
       throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
     }
-    Map<String, Integer> named = extractNamedGroups(re);
+    AstAnalysis astAnalysis = AstAnalysis.analyze(re);
     StartDescriptor startDescriptor = extractStartDescriptor(metadataAst);
     MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, re, flags, compiled);
-    boolean hasLazy = hasLazyQuantifiers(re);
-    boolean hasAlt = hasAlternation(re);
-    boolean canMatchEmpty = canMatchEmpty(re);
-    boolean hasNullableAlt = hasAlt && hasNullableAlternation(re);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
     RejectDescriptor rejectDescriptor =
@@ -471,13 +452,9 @@ public final class Pattern implements Serializable {
         effectiveFlags,
         compiled,
         re,
-        named,
+        astAnalysis,
         startDescriptor,
         matchDescriptor,
-        hasLazy,
-        hasAlt,
-        hasNullableAlt,
-        canMatchEmpty,
         startsWithGcb,
         hasInternalGcb,
         rejectDescriptor,
@@ -1326,7 +1303,7 @@ public final class Pattern implements Serializable {
       // Lazy quantifiers are excluded because OnePass returns leftmost-longest capture group
       // boundaries, which differs from leftmost-first semantics for lazy groups. When hasLazy is
       // true, neither canPrimary nor canSubmatch can use OnePass, so we can skip building OnePass.
-      if (hasLazy || prog.numCaptures() > OnePass.MAX_CAPTURE_GROUPS) {
+      if (astAnalysis.hasLazy() || prog.numCaptures() > OnePass.MAX_CAPTURE_GROUPS) {
         analysis = OnePassAnalysis.DISABLED;
       } else {
         OnePass op = OnePass.build(prog);
@@ -1337,7 +1314,7 @@ public final class Pattern implements Serializable {
         boolean canPrimary =
             op != null
                 && op.search("", false, 0) == null
-                && !hasNullableAlternation
+                && !astAnalysis.hasNullableAlt()
                 && !prog.hasGraphemeSemantics();
         // canFind is canPrimary restricted to anchored patterns (legacy flag).
         boolean canFind = canPrimary && prog.anchorStart();
@@ -1406,38 +1383,6 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns {@code true} if the pattern contains alternation ({@code |}). Used by the Matcher to
-   * skip OnePass primary for find() — OnePass always uses longest-match semantics, which can pick
-   * the wrong alternative when a zero-width branch competes with a consuming branch.
-   */
-  boolean hasAlternation() {
-    return hasAlternation;
-  }
-
-  /**
-   * Returns {@code true} if the pattern contains an alternation where at least one branch can match
-   * zero characters. This is the specific case where OnePass's longest-match semantics produce
-   * incorrect results: a zero-width branch (assertion, nullable repetition) loses to a consuming
-   * branch under longest-match, but should win under first-match (leftmost-first).
-   *
-   * <p>When this returns {@code false}, alternations are safe for OnePass because all branches must
-   * consume at least one character, making longest-match and first-match equivalent.
-   */
-  boolean hasNullableAlternation() {
-    return hasNullableAlternation;
-  }
-
-  /** Returns {@code true} if this pattern can match zero characters. */
-  boolean canMatchEmpty() {
-    return canMatchEmpty;
-  }
-
-  /** Returns whether this pattern contains any lazy quantifiers. */
-  boolean hasLazyQuantifiers() {
-    return hasLazy;
-  }
-
-  /**
    * Returns true if this pattern can participate in reverse DFA matching (e.g. unanchored find or
    * end-anchored reverse-first rejection).
    */
@@ -1446,7 +1391,7 @@ public final class Pattern implements Serializable {
   }
 
   private boolean shouldEagerlyBuildOnePass() {
-    return !hasLazy && !matchDescriptor.hasFindFastPath();
+    return !astAnalysis.hasLazy() && !matchDescriptor.hasFindFastPath();
   }
 
   /**
@@ -1662,7 +1607,11 @@ public final class Pattern implements Serializable {
    * @since 20
    */
   public Map<String, Integer> namedGroups() {
-    return namedGroups;
+    return astAnalysis.namedGroups();
+  }
+
+  AstAnalysis astAnalysis() {
+    return astAnalysis;
   }
 
   /**
@@ -1712,17 +1661,17 @@ public final class Pattern implements Serializable {
     if (prog.numCaptures() > 1) {
       features.add(PatternFeature.CAPTURES);
     }
-    if (hasAlternation) {
+    if (astAnalysis.hasAlt()) {
       features.add(PatternFeature.ALTERNATION);
     }
-    if (hasLazy) {
+    if (astAnalysis.hasLazy()) {
       features.add(PatternFeature.LAZY_QUANTIFIER);
       limitations.add(PatternLimitation.LAZY_SEMANTICS_LIMIT_ONE_PASS);
     }
-    if (canMatchEmpty) {
+    if (astAnalysis.canMatchEmpty()) {
       features.add(PatternFeature.NULLABLE);
     }
-    if (hasNullableAlternation) {
+    if (astAnalysis.hasNullableAlt()) {
       features.add(PatternFeature.NULLABLE_ALTERNATION);
       limitations.add(PatternLimitation.NULLABLE_ALTERNATION_LIMITS_ONE_PASS);
     }
@@ -1782,7 +1731,7 @@ public final class Pattern implements Serializable {
       limitations.add(PatternLimitation.NULLABLE_LOOP_REQUIRES_EXACT_ENGINE);
     }
     if (features.contains(PatternFeature.CAPTURES)
-        && (hasAlternation || hasLazy || prog.numLoopRegs() > 0)) {
+        && (astAnalysis.hasAlt() || astAnalysis.hasLazy() || prog.numLoopRegs() > 0)) {
       limitations.add(PatternLimitation.CAPTURE_PRIORITY_REQUIRES_EXACT_ENGINE);
     }
 
@@ -1879,7 +1828,7 @@ public final class Pattern implements Serializable {
    * <p>The baseline is {@link ParseFlags#LIKE_PERL}, which includes {@code ONE_LINE} (single-line
    * mode where {@code ^} and {@code $} match only at the start/end of the entire input).
    */
-  private static int toParseFlags(int flags) {
+  static int toParseFlags(int flags) {
     // Start with LIKE_PERL as the baseline.
     int pf = ParseFlags.LIKE_PERL;
 
@@ -1913,153 +1862,8 @@ public final class Pattern implements Serializable {
   }
 
   // ---------------------------------------------------------------------------
-  // Named group extraction
+  // Grapheme cluster boundary analysis
   // ---------------------------------------------------------------------------
-
-  /** Walks the AST to extract named capture groups and their 1-based indices. */
-  private static Map<String, Integer> extractNamedGroups(Regexp re) {
-    Map<String, Integer> map = new HashMap<>();
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.CAPTURE && node.name != null) {
-        map.put(node.name, node.cap);
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return Collections.unmodifiableMap(map);
-  }
-
-  /**
-   * Returns {@code true} if the AST contains any lazy (non-greedy) quantifiers ({@code +?}, {@code
-   * *?}, {@code ??}, or {@code {n,m}?}). OnePass does not respect lazy vs greedy semantics for
-   * overall match boundaries, so patterns with lazy quantifiers must use the DFA pipeline in {@code
-   * find()}.
-   */
-  private static boolean hasLazyQuantifiers(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.nonGreedy()) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns {@code true} if the AST contains any explicit alternation ({@link RegexpOp#ALTERNATE}).
-   * Patterns with alternation may have branches of different match lengths, causing the DFA's
-   * leftmost-longest match to disagree with RE2's leftmost-first alternation priority. When this
-   * flag is set, the submatch engine must resolve the correct group(0) boundaries.
-   */
-  private static boolean hasAlternation(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.ALTERNATE) {
-        return true;
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns {@code true} if the AST contains an alternation where at least one branch can match
-   * zero characters (is "nullable"). This detects the case where OnePass's longest-match semantics
-   * differ from first-match: a zero-width branch (assertion, empty match, nullable repetition)
-   * competing with a consuming branch. For alternations where all branches must consume at least
-   * one character (e.g., {@code GET|POST}), OnePass gives correct results.
-   */
-  private static boolean hasNullableAlternation(Regexp re) {
-    Deque<Regexp> stack = new ArrayDeque<>();
-    stack.push(re);
-    while (!stack.isEmpty()) {
-      Regexp node = stack.pop();
-      if (node.op == RegexpOp.ALTERNATE && node.subs != null) {
-        for (Regexp branch : node.subs) {
-          if (canMatchEmpty(branch)) {
-            return true;
-          }
-        }
-      }
-      if (node.subs != null) {
-        for (Regexp sub : node.subs) {
-          stack.push(sub);
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns {@code true} if the given regexp can match the empty string. Used to detect nullable
-   * alternation branches where OnePass's longest-match semantics may differ from first-match.
-   */
-  static boolean canMatchEmpty(Regexp re) {
-    return new CanMatchEmptyWalker().walk(re, false);
-  }
-
-  private static final class CanMatchEmptyWalker extends Walker<Boolean> {
-
-    @Override
-    protected Boolean shortVisit(Regexp re, Boolean parentArg) {
-      return false;
-    }
-
-    @Override
-    protected Boolean postVisit(
-        Regexp re, Boolean parentArg, Boolean preArg, List<Boolean> childArgs) {
-      return switch (re.op) {
-        case EMPTY_MATCH,
-            BEGIN_LINE,
-            END_LINE,
-            BEGIN_TEXT,
-            END_TEXT,
-            WORD_BOUNDARY,
-            NO_WORD_BOUNDARY,
-            GRAPHEME_CLUSTER_BOUNDARY ->
-            true;
-        case STAR, QUEST -> true;
-        case REPEAT -> re.min == 0 || (!childArgs.isEmpty() && childArgs.getFirst());
-        case PLUS, NON_CAPTURE, CAPTURE -> !childArgs.isEmpty() && childArgs.getFirst();
-        case CONCAT -> {
-          for (boolean childCanMatchEmpty : childArgs) {
-            if (!childCanMatchEmpty) {
-              yield false;
-            }
-          }
-          yield true;
-        }
-        case ALTERNATE -> {
-          for (boolean childCanMatchEmpty : childArgs) {
-            if (childCanMatchEmpty) {
-              yield true;
-            }
-          }
-          yield childArgs.isEmpty();
-        }
-        default -> false;
-      };
-    }
-  }
 
   private static boolean startsWithGraphemeClusterBoundary(Regexp re) {
     Regexp first = firstMeaningfulNode(re);

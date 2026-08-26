@@ -508,7 +508,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       Regexp node = stack.pop();
       if (isCaptureRetainingQuantifier(node)
           && hasCapture(node.sub())
-          && Pattern.canMatchEmpty(node.sub())) {
+          && AstAnalysis.analyze(node.sub()).canMatchEmpty()) {
         return true;
       }
       if (node.subs != null) {

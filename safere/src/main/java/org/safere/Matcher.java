@@ -3051,7 +3051,7 @@ public final class Matcher implements MatchResult {
         // dollarAnchorEnd is safe if start-anchored because we skip the reverse DFA scan.
         || (parentPattern.prog().dollarAnchorEnd() && !parentPattern.prog().anchorStart())
         || parentPattern.literalMatch() != null
-        || parentPattern.hasNullableAlternation()
+        || parentPattern.astAnalysis().hasNullableAlt()
         || regionActive) {
       return null;
     }
@@ -3109,7 +3109,7 @@ public final class Matcher implements MatchResult {
         needsCaptures
             && enginePathOptions().onePass()
             && parentPattern.canOnePassSubmatch()
-            && !parentPattern.hasNullableAlternation();
+            && !parentPattern.astAnalysis().hasNullableAlt();
 
     int textLen = text.length();
     StringBuilder sb = new StringBuilder(textLen);
@@ -3622,7 +3622,7 @@ public final class Matcher implements MatchResult {
     Pattern.CharClassMatchInfo ccMatch = parentPattern.matchDescriptor().charClassMatch();
     if (!enginePathOptions().charClassReplacementFastPath()
         || ccMatch == null
-        || parentPattern.hasLazyQuantifiers()) {
+        || parentPattern.astAnalysis().hasLazy()) {
       return null;
     }
     DiagnosticOperation activeDiagnostics = diagnosticOperation;
@@ -4116,7 +4116,7 @@ public final class Matcher implements MatchResult {
     int[] result;
     if (enginePathOptions().onePass()
         && parentPattern.canOnePassSubmatch()
-        && !parentPattern.hasNullableAlternation()) {
+        && !parentPattern.astAnalysis().hasNullableAlt()) {
       diagnosticCapture(MatchStrategy.ONE_PASS);
       int ncap = 2 * Math.max(prog.numCaptures(), 1);
       if (onePassScratchCap == null || onePassScratchCap.length < ncap) {
@@ -5077,7 +5077,9 @@ public final class Matcher implements MatchResult {
       Pattern pattern = matcher.parentPattern;
       Prog prog = pattern.prog();
       OnePass onePass = pattern.onePass();
-      if (onePass != null && !prog.hasGraphemeSemantics() && !pattern.hasNullableAlternation()) {
+      if (onePass != null
+          && !prog.hasGraphemeSemantics()
+          && !pattern.astAnalysis().hasNullableAlt()) {
         matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
         if (pattern.numGroups() > 0) {
           matcher.diagnosticCapture(MatchStrategy.ONE_PASS);
