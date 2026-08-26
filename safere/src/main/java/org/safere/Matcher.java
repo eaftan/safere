@@ -2257,6 +2257,13 @@ public final class Matcher implements MatchResult {
 
   /** ASCII case-insensitive indexOf for Java's default CASE_INSENSITIVE semantics. */
   static int indexOfIgnoreCase(String text, String prefix, int fromIndex) {
+    VectorScanProvider provider = VectorScanProviders.providerForLength(text.length());
+    if (provider != null) {
+      int vectorIdx = StringVectorScan.indexOfIgnoreCase(text, prefix, fromIndex);
+      if (vectorIdx != VectorScanProvider.UNSUPPORTED) {
+        return vectorIdx;
+      }
+    }
     int prefixLen = prefix.length();
     if (prefixLen == 0) {
       return Math.min(Math.max(0, fromIndex), text.length());
