@@ -71,6 +71,21 @@ class AstAnalysisTest {
     assertThat(analysis.namedGroups()).isEqualTo(Map.of("year", 1, "month", 2));
   }
 
+  @Test
+  void nulLiteralConsumesOneCodePoint() {
+    Regexp re = Parser.parse("\\x00", Pattern.toParseFlags(0));
+
+    AstAnalysis analysis = AstAnalysis.analyze(re);
+
+    assertThat(analysis.canMatchEmpty()).isFalse();
+    assertThat(analysis.minMatchLength()).isEqualTo(1);
+
+    PatternAnalysis publicAnalysis = Pattern.compile("\\x00|a").analysis();
+    assertThat(publicAnalysis.features())
+        .doesNotContain(PatternFeature.NULLABLE, PatternFeature.NULLABLE_ALTERNATION);
+    assertThat(publicAnalysis.capabilities()).contains(PatternCapability.ONE_PASS_PRIMARY);
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"abc", "(?:abc)", "a[0-9]c", "^abc$"})
   void patternsWithoutUserCaptures(String regex) {

@@ -109,9 +109,8 @@ record AstAnalysis(
           minMatchLength = 0;
         }
         case LITERAL -> {
-          int count = re.rune != 0 ? Character.charCount(re.rune) : 0;
-          canMatchEmpty = count == 0;
-          minMatchLength = count;
+          canMatchEmpty = false;
+          minMatchLength = Character.charCount(re.rune);
         }
         case LITERAL_STRING -> {
           int count = 0;
