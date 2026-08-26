@@ -462,6 +462,33 @@ class SearchScalingRegressionTest {
         "Case-insensitive literal find");
   }
 
+  @Test
+  void preselectedUtf8DfaCandidateSkipsRedundantStartScan() {
+    Pattern pattern = Pattern.compile("\\d{3}/\\d{3}/\\d{4}");
+    byte[] bytes = ("123/456/7890" + "x".repeat(100)).getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes, 0, bytes.length);
+    int candidate =
+        Utf8StartAccelerator.findNextCandidate(pattern.utf8StartAccelerator(), scanner, 0);
+    Dfa dfa = pattern.forwardFirstMatchDfa();
+
+    assertThat(candidate).isZero();
+    dfa.doSearch(scanner, candidate, false, false, false);
+    long ordinaryWork =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(dfa.doSearch(scanner, candidate, false, false, false).matched())
+                    .isTrue());
+    long preselectedWork =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(dfa.doSearch(scanner, candidate, false, false, true).matched())
+                    .isTrue());
+
+    assertThat(preselectedWork)
+        .as("DFA must trust a candidate already selected by the caller")
+        .isLessThan(ordinaryWork);
+  }
+
   private static void assertRepeatedFindWorkIsLinear(
       IntFunction<FindIterator> matcherFactory, String description) {
     long smallerWork = countAllMatches(matcherFactory.apply(500), 500);

@@ -782,6 +782,7 @@ public final class Pattern implements Serializable {
       return false;
     }
     int searchStart = 0;
+    boolean startPositionPreselected = false;
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
@@ -789,9 +790,12 @@ public final class Pattern implements Serializable {
       if (searchStart < 0) {
         return false;
       }
+      startPositionPreselected = true;
     }
     if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, searchStart, false, false);
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa()
+              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
       if (result != null) {
         return result.matched();
       }
@@ -852,6 +856,7 @@ public final class Pattern implements Serializable {
       return false;
     }
     int searchStart = 0;
+    boolean startPositionPreselected = false;
     if (enginePathOptions.startAcceleration()
         && utf8StartAccelerator != null
         && !prog.anchorStart()) {
@@ -866,11 +871,14 @@ public final class Pattern implements Serializable {
         }
         return false;
       }
+      startPositionPreselected = true;
     }
     if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
       diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
       diagnostics.incrementForwardDfaSearchCount();
-      Dfa.SearchResult result = forwardFirstMatchDfa().doSearch(scanner, searchStart, false, false);
+      Dfa.SearchResult result =
+          forwardFirstMatchDfa()
+              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
       if (result != null) {
         diagnostics.boundary(MatchStrategy.DFA);
         return result.matched();

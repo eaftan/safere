@@ -1321,6 +1321,23 @@ final class Dfa {
   }
 
   /**
+   * Searches from a position that the caller may already have selected with this DFA's start
+   * accelerator.
+   *
+   * <p>A preselected position must still be matched normally because it is only a candidate. The
+   * flag suppresses the redundant accelerator call at exactly {@code startPos}; acceleration
+   * remains available after the DFA consumes input and returns to its start state.
+   */
+  SearchResult doSearch(
+      InputScanner text,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      boolean startPositionPreselected) {
+    return doSearchInternal(text, startPos, anchored, longest, startPositionPreselected);
+  }
+
+  /**
    * Fast-forwards the start position of unanchored search matching when returning to the start
    * state.
    */
@@ -1370,6 +1387,15 @@ final class Dfa {
    *     exceeded its state budget
    */
   SearchResult doSearch(InputScanner text, int startPos, boolean anchored, boolean longest) {
+    return doSearchInternal(text, startPos, anchored, longest, false);
+  }
+
+  private SearchResult doSearchInternal(
+      InputScanner text,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      boolean startPositionPreselected) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
     int textLen = text.length();
     // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
@@ -1431,7 +1457,11 @@ final class Dfa {
     int pos = startPos;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
-      if (canAccelerate && !accelerationDisabled && s.isStartState && (textLen - pos >= minSkip)) {
+      if (canAccelerate
+          && !accelerationDisabled
+          && s.isStartState
+          && (!startPositionPreselected || pos != startPos)
+          && (textLen - pos >= minSkip)) {
         int nextPos = fastForward(text, pos, posDepThreshold, s);
         if (nextPos == -1) {
           return new SearchResult(matched, matchEnd);
@@ -1554,7 +1584,11 @@ final class Dfa {
 
     // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
-      if (canAccelerate && !accelerationDisabled && s.isStartState && (textLen - pos >= minSkip)) {
+      if (canAccelerate
+          && !accelerationDisabled
+          && s.isStartState
+          && (!startPositionPreselected || pos != startPos)
+          && (textLen - pos >= minSkip)) {
         int nextPos = fastForward(text, pos, posDepThreshold, s);
         if (nextPos == -1) {
           return new SearchResult(matched, matchEnd);

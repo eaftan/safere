@@ -243,7 +243,18 @@ public final class Matcher implements MatchResult {
 
   private Dfa.SearchResult searchForwardDfa(
       Dfa dfa, InputScanner scanner, int startPos, boolean anchored, boolean longest) {
-    Dfa.SearchResult result = dfa.doSearch(scanner, startPos, anchored, longest);
+    return searchForwardDfa(dfa, scanner, startPos, anchored, longest, false);
+  }
+
+  private Dfa.SearchResult searchForwardDfa(
+      Dfa dfa,
+      InputScanner scanner,
+      int startPos,
+      boolean anchored,
+      boolean longest,
+      boolean startPositionPreselected) {
+    Dfa.SearchResult result =
+        dfa.doSearch(scanner, startPos, anchored, longest, startPositionPreselected);
     DiagnosticOperation activeDiagnostics = diagnosticOperation;
     if (activeDiagnostics != null) {
       activeDiagnostics.accumulator().incrementForwardDfaSearchCount();
@@ -1664,6 +1675,7 @@ public final class Matcher implements MatchResult {
     // character-class, or line-anchor), skip ahead to candidate match positions.
     int effectiveStart = searchFrom;
     boolean literalPrefixCandidateStart = false;
+    boolean startPositionPreselected = false;
     if (options.startAcceleration() && !prog.anchorStart()) {
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         Utf8StartAccelerator accelerator = parentPattern.utf8StartAccelerator();
@@ -1682,6 +1694,7 @@ public final class Matcher implements MatchResult {
           }
           effectiveStart = idx;
           literalPrefixCandidateStart = policy.isExactMatchCandidate();
+          startPositionPreselected = true;
         }
       } else if (text != null) {
         StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
@@ -1702,6 +1715,7 @@ public final class Matcher implements MatchResult {
           }
           effectiveStart = idx;
           literalPrefixCandidateStart = policy.isExactMatchCandidate();
+          startPositionPreselected = true;
         }
       }
     }
@@ -1856,7 +1870,14 @@ public final class Matcher implements MatchResult {
       fwdResult = null;
     } else {
       diagnosticParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      fwdResult = searchForwardDfa(dfa(false), scanner, effectiveStart, prog.anchorStart(), false);
+      fwdResult =
+          searchForwardDfa(
+              dfa(false),
+              scanner,
+              effectiveStart,
+              prog.anchorStart(),
+              false,
+              startPositionPreselected);
       if (fwdResult != null && !fwdResult.matched()) {
         diagnosticBoundary(MatchStrategy.DFA);
         return applyFailedMatchResult();
@@ -3214,7 +3235,8 @@ public final class Matcher implements MatchResult {
         pos = idx;
       }
 
-      Dfa.SearchResult fwdResult = searchForwardDfa(fwdDfa, scanner, pos, isStartAnchored, false);
+      Dfa.SearchResult fwdResult =
+          searchForwardDfa(fwdDfa, scanner, pos, isStartAnchored, false, hasStartAcceleration);
       if (fwdResult == null || !fwdResult.matched()) {
         break;
       }
@@ -4556,6 +4578,7 @@ public final class Matcher implements MatchResult {
     }
 
     int effectiveStart = fromIndex;
+    boolean startPositionPreselected = false;
     if (options.startAcceleration() && text != null && !prog.anchorStart()) {
       StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
       if (accelerator != null) {
@@ -4566,12 +4589,16 @@ public final class Matcher implements MatchResult {
           return -1L;
         }
         effectiveStart = idx;
+        startPositionPreselected = true;
       }
     }
 
     Dfa.SearchResult fwdResult = null;
     if (canUseForwardDfa()) {
-      fwdResult = dfa(false).doSearch(scanner, effectiveStart, prog.anchorStart(), false);
+      fwdResult =
+          dfa(false)
+              .doSearch(
+                  scanner, effectiveStart, prog.anchorStart(), false, startPositionPreselected);
       if (fwdResult != null && !fwdResult.matched()) {
         return -1L;
       }
