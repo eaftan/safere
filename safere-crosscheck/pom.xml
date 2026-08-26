@@ -104,6 +104,7 @@
                         <exclude name="AnchoredDfaCachingTest.java"/>
                         <exclude name="AsciiBitmapTest.java"/>
                         <exclude name="AsciiTest.java"/>
+                        <exclude name="AstAnalysisTest.java"/>
                         <exclude name="BitStateTest.java"/>
                         <exclude name="CharClassTest.java"/>
                         <exclude name="CompilerTest.java"/>
