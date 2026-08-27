@@ -356,6 +356,13 @@ git diff <post-merge-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      It is useful to say that a pushed fix adds regression coverage, to report benchmark evidence,
      or to explain an underlying problem discovered by a local check; do not report the status of
      the local check itself.
+   - Whenever the copy/paste review reports benchmark results, present the measurements in a
+     Markdown table, even when there is only one result. Do not report benchmark measurements only
+     in prose. Use columns that make the comparison self-contained, including the benchmark or
+     workload identity, the relevant representations or configurations, the normalized ratio or
+     baseline and experiment values, and a concise interpretation. State the ratio direction near
+     the table (for example, lower is better for `PR/main` time), and keep any explanation of the
+     cause, tradeoff, confidence intervals, or recommendation in prose around the table.
    - Use precise, concrete language in author-facing text. Standard technical terminology is useful
      and encouraged when it accurately names the concept, such as SIMD, KMP, integer overflow,
      register pressure, or linear time. Do not replace precise terms with vague labels that merely
@@ -533,7 +540,9 @@ status in the report rather than this comment. Use plain, concrete language and 
 terms of the code, behavior, tests, or measurements wanted. Keep the tone respectful and
 collaborative: explain impact without blame and use genuine questions where design judgment is
 involved. Make the text self-contained from the public discussion; never rely on the author knowing
-about earlier scout runs or unposted local work.>
+about earlier scout runs or unposted local work. Whenever benchmark measurements are included,
+present them in a Markdown table rather than only in prose, define the normalization direction, and
+give each row a concise interpretation.>
 ```
 ````
 
