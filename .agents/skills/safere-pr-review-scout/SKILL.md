@@ -300,10 +300,26 @@ declaredBaseSha="$(git rev-parse origin/<baseRefName>)"
 5. Perform PR intent review before running automated review:
    - State the PR's claimed goal from title, description, linked issue, comments, and reviews.
    - Inspect the diff and relevant code.
-   - Decide whether the idea makes sense for SafeRE.
+   - Identify the central benefit the PR is intended to deliver, such as correctness,
+     maintainability, throughput, lower allocation, lower retained memory, or broader capability.
+     Express it as an observable outcome rather than accepting the implementation technique itself
+     as the benefit.
+   - Identify the costs introduced to obtain that benefit: implementation size and duplication,
+     conceptual complexity, new public API, persistent state, maintenance burden, compatibility
+     risk, and performance tradeoffs. Consider whether a simpler approach could obtain most of the
+     benefit.
+   - Decide whether the idea makes sense for SafeRE by weighing the demonstrated benefit against
+     those costs. Apply this proportionally: a small cleanup may be justified directly by clearer
+     code, while a substantial increase in complexity requires correspondingly strong evidence.
+   - Check that the evidence measures the central benefit. Throughput does not demonstrate lower
+     allocation, reduced allocation does not demonstrate lower retained memory, and correctness
+     tests do not demonstrate maintainability or performance. When the primary benefit is not
+     measured, say so and ask what evidence would establish it.
    - Decide whether the implementation matches the stated goal.
    - Check design fit, JDK compatibility, linear-time risk, test adequacy, benchmark evidence, and
      scope creep.
+   - After local correctness fixes, reassess the value proposition. If a necessary fix reduces or
+     removes part of the claimed benefit, do not carry forward the original justification unchanged.
    - Record a recommendation: ready after fixes, needs clarification, needs more tests, needs
      benchmark evidence, or needs redesign.
 
@@ -326,6 +342,10 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
 ```
 
 7. For optimization PRs only, reproduce benchmarks:
+   - Name the primary performance claim and its matching metric before selecting workloads. Use
+     elapsed time for throughput or latency, allocation per operation for allocation claims, and a
+     retained-object or heap measurement for footprint claims. Measure each material claimed axis;
+     do not substitute a convenient metric for the one that motivates the PR.
    - For a standalone PR, baseline is the current declared base and experiment is the updated PR
      plus local review fixes.
    - For a stack bottom, baseline is the current trunk. For an upper layer, baseline is the prepared
@@ -348,6 +368,10 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - Save raw benchmark output and extracted summary tables under the PR artifact directory.
    - Report ratios as experiment time divided by baseline time, where values below `1.0` mean the
      PR is faster.
+   - If the repository lacks a suitable measurement for the primary benefit, do not treat a
+     secondary neutral result as successful reproduction. Record the missing evidence, propose a
+     concrete way to measure it, and recommend focused human review when the unmeasured benefit is
+     needed to justify material complexity or another tradeoff.
    - If reproduced results do not roughly match the PR's claimed performance outcome, diagnose the
      mismatch before writing the final recommendation:
      - First check whether `$review-fix-loop` made local correctness fixes that could plausibly
@@ -368,11 +392,13 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - Recommend `can merge` only when the PR description is a reasonable thing to do for SafeRE, the
      implementation matches the stated intent, there are no major correctness/design/linear-time
      concerns, review-fix-loop found no unresolved P2+ findings, required verification passed, and
-     benchmark results for optimization PRs roughly match the PR's claimed performance outcome.
+     evidence appropriate to the central claimed benefit supports the cost of the change. For an
+     optimization PR, benchmark results must roughly match each performance outcome needed to
+     justify the change; a neutral secondary metric does not satisfy an unmeasured primary claim.
    - Otherwise recommend focused human review and list the specific concerns: intent mismatch,
      design risk, correctness risk, compatibility risk, linear-time risk, missing or failing tests,
-     benchmark mismatch, inconclusive benchmark evidence, unresolved review findings, merge
-     conflict, or scope concern.
+     benchmark mismatch, missing or inconclusive benefit evidence, complexity not justified by the
+     measured benefit, unresolved review findings, merge conflict, or scope concern.
    - Keep this section decision-oriented. It should tell the human reviewer what to focus on.
    - Write the copy/paste review in the human reviewer's first-person voice, addressed to the PR
      author. When local fixes resolve the findings, assume the human will push those fixes to the PR
@@ -382,6 +408,10 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      the fixed result satisfies the merge criteria. Do not ask the author to apply a local scout
      commit or refer to a machine-local branch/path in the copy/paste text. Keep unresolved concerns
      explicit and do not say "LGTM" when they remain.
+   - When the evidence does not yet justify a material tradeoff, make the missing decision explicit
+     in the copy/paste review. Explain the cost and the unmeasured benefit, ask focused questions
+     about evidence or simpler alternatives, and offer concrete measurements that would resolve the
+     question. Do not convert uncertainty into approval merely because correctness checks pass.
    - Keep all local validation bookkeeping in the report, not the copy/paste review. Required CI is
      the merge gate, so never tell the author that local tests passed, give test counts, list local
      test or shell commands, or mention review-fix-loop/Codex/agent passes or an "automated review."
@@ -497,8 +527,16 @@ Human review cutoff: <timestamp and comment/review summary, or "none; first-revi
 Claimed goal:
 - ...
 
+Central benefit and evidence:
+- Intended observable benefit: ...
+- Evidence that directly measures it: ...
+- Material costs or tradeoffs: ...
+- Simpler alternatives considered: ...
+- Effect of local fixes on the benefit: unchanged | narrowed | removed | not applicable
+
 Assessment:
 - Makes sense for SafeRE: yes | partial | no
+- Benefit justifies complexity: yes | partial | no | evidence needed
 - Implementation matches stated goal: yes | partial | no
 - Linear-time/design concerns: ...
 - Compatibility concerns: ...
@@ -561,6 +599,7 @@ Assessment:
 - Review-fix-loop status: clean | fixes committed locally | blocked | unresolved findings
 - Verification status: passed | failed | incomplete
 - Benchmark status: matches claim | roughly matches claim | does not match claim | inconclusive | not applicable
+- Benefit/cost status: justified | partially justified | evidence needed | not justified
 
 Human review focus:
 - <specific issues to inspect, or "No major concerns found.">
@@ -646,7 +685,11 @@ Keep stack preparation local and linear; do not push a stack rebase. Resolve str
 conflicts. If conflicts require product/design judgment, mark that PR blocked and continue with the
 next PR. Read the PR description, comments, reviews, and linked issue context needed to understand
 intent. Assess whether the PR idea makes sense for SafeRE and whether the implementation matches
-that intent.
+that intent. Identify the central observable benefit, the evidence that directly measures it, and
+the material complexity or tradeoffs introduced to obtain it. Require evidence proportional to the
+cost: do not recommend a substantial increase in implementation or maintenance complexity when its
+central benefit is unmeasured. Reassess that tradeoff after local fixes, especially when a fix
+narrows the claimed benefit.
 
 Make the resulting report self-contained. Include a summary row and detailed section for every open
 trusted non-draft PR, including PRs skipped because their prior review is still fresh. For each
@@ -670,6 +713,11 @@ patch contains only scout fixes, not base updates.
 For optimization PRs, reproduce benchmark claims against the PR's effective base: the current
 declared base for standalone PRs, the trunk for a stack bottom, or the prepared lower-layer head for
 an upper stack layer. Treat a cumulative stack-to-trunk claim as a separate labeled comparison.
+Choose metrics that directly measure the primary claim: elapsed time for throughput, allocation per
+operation for allocation, and retained-object or heap evidence for footprint. Do not treat neutral
+throughput as reproduction of an allocation or retained-memory benefit. If no suitable measurement
+exists and the unmeasured benefit is needed to justify material complexity, recommend focused human
+review and ask concrete questions about the missing evidence or a simpler alternative.
 Prefer
 safere-benchmarks/scripts/compare-branch.sh for comparable targeted SafeRE nanosecond workloads;
 otherwise use ./run-java-benchmarks.sh directly. Never run tests or benchmarks concurrently. If
@@ -680,8 +728,9 @@ revision drift, workload changes, stale PR numbers, command differences, or meas
 
 For each PR, include an Assessment And Recommendation section. Recommend `can merge` only when the
 PR intent is reasonable, implementation matches intent, no major correctness/design/linear-time
-concerns remain, verification passed, and benchmark results for optimization PRs roughly match the
-PR description. Otherwise list the specific concerns the human reviewer should focus on.
+concerns remain, verification passed, and evidence appropriate to the central claimed benefit
+justifies the change's costs. Otherwise list the specific concerns the human reviewer should focus
+on.
 
 Store state, reports, and artifacts under ~/.codex/safere-pr-review and update LATEST.md.
 ```
