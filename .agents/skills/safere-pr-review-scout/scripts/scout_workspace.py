@@ -19,7 +19,7 @@ import subprocess
 from datetime import UTC, datetime
 
 
-TRUSTED_AUTHORS = frozenset(("cushon", "eamonnmcmanus", "kluever"))
+TRUSTED_AUTHORS = frozenset(("cushon", "wendigo"))
 
 
 def utc_now() -> datetime:
