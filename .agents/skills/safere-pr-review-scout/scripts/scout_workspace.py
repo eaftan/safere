@@ -146,8 +146,6 @@ def discover_prs(args: argparse.Namespace) -> int:
         "list",
         "--state",
         "open",
-        "--base",
-        args.base,
         "--limit",
         str(args.limit),
         "--json",
@@ -244,7 +242,6 @@ def main() -> int:
     worktree.set_defaults(func=worktree_path)
 
     discover = subparsers.add_parser("discover-prs")
-    discover.add_argument("--base", default="main")
     discover.add_argument("--limit", type=int, default=1000)
     discover.set_defaults(func=discover_prs)
 
