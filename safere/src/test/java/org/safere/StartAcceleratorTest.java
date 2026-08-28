@@ -17,19 +17,23 @@ class StartAcceleratorTest {
 
   @Test
   void nullAndNoneDescriptorsProduceNullAccelerators() {
-    assertThat(StringStartAccelerator.create(null, false)).isNull();
-    assertThat(StringStartAccelerator.create(StartDescriptor.NONE, false)).isNull();
-    assertThat(Utf8StartAccelerator.create(null, false)).isNull();
-    assertThat(Utf8StartAccelerator.create(StartDescriptor.NONE, false)).isNull();
-    assertThat(StartDescriptor.NONE.hasStartAcceleration()).isFalse();
+    assertThat(StringStartAccelerator.create((MultiAnchorDescriptor) null, false)).isNull();
+    assertThat(StringStartAccelerator.create((MultiAnchorDescriptor.StartPlan) null, false))
+        .isNull();
+    assertThat(StringStartAccelerator.create(MultiAnchorDescriptor.StartPlan.None.INSTANCE, false))
+        .isNull();
+    assertThat(Utf8StartAccelerator.create((MultiAnchorDescriptor) null, false)).isNull();
+    assertThat(Utf8StartAccelerator.create((MultiAnchorDescriptor.StartPlan) null, false)).isNull();
+    assertThat(Utf8StartAccelerator.create(MultiAnchorDescriptor.StartPlan.None.INSTANCE, false))
+        .isNull();
+    assertThat(MultiAnchorDescriptor.NONE.hasStartAcceleration()).isFalse();
   }
 
   @Test
   void literalPrefixAcceleratesStringAndUtf8() {
-    StartDescriptor desc = descriptor("needle", false, null, null);
-    assertThat(desc.hasStartAcceleration()).isTrue();
+    MultiAnchorDescriptor.StartPlan plan = plan("needle", false, null, null);
 
-    StringStartAccelerator strAcc = StringStartAccelerator.create(desc, false);
+    StringStartAccelerator strAcc = StringStartAccelerator.create(plan, false);
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.Literal.class);
     assertThat(strAcc.policy()).isEqualTo(AcceleratorPolicy.LITERAL);
     assertThat(
@@ -40,7 +44,7 @@ class StartAcceleratorTest {
                 strAcc, "haystack with needle here", 15, false))
         .isEqualTo(-1);
 
-    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(desc, false);
+    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(plan, false);
     assertThat(utf8Acc).isInstanceOf(Utf8StartAccelerator.Literal.class);
     assertThat(utf8Acc.policy()).isEqualTo(AcceleratorPolicy.LITERAL);
     assertThat(
@@ -55,16 +59,15 @@ class StartAcceleratorTest {
 
   @Test
   void caseInsensitiveLiteralAcceleratesStringAndUtf8() {
-    StartDescriptor desc = descriptor("needle", true, null, null);
-    assertThat(desc.hasStartAcceleration()).isTrue();
+    MultiAnchorDescriptor.StartPlan plan = plan("needle", true, null, null);
 
-    StringStartAccelerator strAcc = StringStartAccelerator.create(desc, false);
+    StringStartAccelerator strAcc = StringStartAccelerator.create(plan, false);
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.CaseInsensitiveLiteral.class);
     assertThat(
             StringStartAccelerator.findNextCandidate(strAcc, "haystack with NEEDLE here", 0, false))
         .isEqualTo(14);
 
-    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(desc, false);
+    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(plan, false);
     assertThat(utf8Acc).isInstanceOf(Utf8StartAccelerator.CaseInsensitiveLiteral.class);
     assertThat(utf8Acc.policy().strategy()).isEqualTo(MatchStrategy.LITERAL);
     assertThat(utf8Acc.policy().isExactMatchCandidate()).isTrue();
@@ -82,7 +85,7 @@ class StartAcceleratorTest {
         .isEqualTo(-1);
 
     // Single character case-insensitive prefix
-    StartDescriptor singleDesc = descriptor("a", true, null, null);
+    MultiAnchorDescriptor.StartPlan singleDesc = plan("a", true, null, null);
     Utf8StartAccelerator singleUtf8 = Utf8StartAccelerator.create(singleDesc, false);
     assertThat(singleUtf8).isInstanceOf(Utf8StartAccelerator.CaseInsensitiveLiteral.class);
     assertThat(Utf8StartAccelerator.findNextCandidate(singleUtf8, utf8Scanner("xxxA"), 0))
@@ -91,22 +94,22 @@ class StartAcceleratorTest {
         .isEqualTo(3);
 
     // Non-ASCII case-insensitive prefix falls back (null)
-    StartDescriptor nonAsciiDesc = descriptor("café", true, null, null);
+    MultiAnchorDescriptor.StartPlan nonAsciiDesc = plan("café", true, null, null);
     assertThat(Utf8StartAccelerator.create(nonAsciiDesc, false)).isNull();
   }
 
   @Test
   void fixedOffsetLiteralAcceleratesStringAndUtf8() {
     FixedOffsetLiteral fixed = new FixedOffsetLiteral("token", 2, 2, new int[] {2});
-    StartDescriptor desc = descriptor(null, false, fixed, null);
+    MultiAnchorDescriptor.StartPlan plan = plan(null, false, fixed, null);
 
-    StringStartAccelerator strAcc = StringStartAccelerator.create(desc, false);
+    StringStartAccelerator strAcc = StringStartAccelerator.create(plan, false);
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.FixedOffset.class);
     assertThat(strAcc.policy()).isEqualTo(AcceleratorPolicy.LITERAL);
     assertThat(StringStartAccelerator.findNextCandidate(strAcc, "abtoken cd", 0, false))
         .isEqualTo(0);
 
-    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(desc, false);
+    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(plan, false);
     assertThat(utf8Acc).isInstanceOf(Utf8StartAccelerator.FixedOffset.class);
     assertThat(utf8Acc.policy()).isEqualTo(AcceleratorPolicy.LITERAL);
     assertThat(Utf8StartAccelerator.findNextCandidate(utf8Acc, utf8Scanner("abtoken cd"), 0))
@@ -116,7 +119,7 @@ class StartAcceleratorTest {
   @Test
   void charClassPrefixAcceleratesStringAndUtf8() {
     CharClassScanInfo pairScanInfo = Pattern.compile("[ab]").charClassPrefix();
-    StartDescriptor descPair = descriptor(null, false, null, pairScanInfo);
+    MultiAnchorDescriptor.StartPlan descPair = plan(null, false, null, pairScanInfo);
 
     StringStartAccelerator strAcc = StringStartAccelerator.create(descPair, false);
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.CharClass.class);
@@ -132,50 +135,50 @@ class StartAcceleratorTest {
         .isEqualTo(3);
 
     CharClassScanInfo tripleScanInfo = Pattern.compile("[abc]").charClassPrefix();
-    StartDescriptor descTriple = descriptor(null, false, null, tripleScanInfo);
-    Utf8StartAccelerator utf8TripleAcc = Utf8StartAccelerator.create(descTriple, false);
+    MultiAnchorDescriptor.StartPlan planTriple = plan(null, false, null, tripleScanInfo);
+    Utf8StartAccelerator utf8TripleAcc = Utf8StartAccelerator.create(planTriple, false);
     assertThat(utf8TripleAcc).isInstanceOf(Utf8StartAccelerator.CharClass.class);
     assertThat(utf8TripleAcc.policy()).isEqualTo(AcceleratorPolicy.CHAR_CLASS);
     assertThat(Utf8StartAccelerator.findNextCandidate(utf8TripleAcc, utf8Scanner("xxxc"), 0))
         .isEqualTo(3);
 
     CharClassScanInfo multiScanInfo = Pattern.compile("[abcd]").charClassPrefix();
-    StartDescriptor descMulti = descriptor(null, false, null, multiScanInfo);
+    MultiAnchorDescriptor.StartPlan descMulti = plan(null, false, null, multiScanInfo);
     assertThat(Utf8StartAccelerator.create(descMulti, false)).isNull();
     assertThat(StringStartAccelerator.create(descMulti, false)).isNull();
 
     CharClassScanInfo denseUnicodeScanInfo = Pattern.compile("[0-9é]").charClassPrefix();
-    StartDescriptor denseUnicode = descriptor(null, false, null, denseUnicodeScanInfo);
+    MultiAnchorDescriptor.StartPlan denseUnicode = plan(null, false, null, denseUnicodeScanInfo);
     assertThat(Utf8StartAccelerator.create(denseUnicode, false)).isNull();
     assertThat(StringStartAccelerator.create(denseUnicode, false)).isNull();
 
     CharClassScanInfo sparseUnicodeScanInfo = Pattern.compile("[aé]").charClassPrefix();
-    StartDescriptor sparseUnicode = descriptor(null, false, null, sparseUnicodeScanInfo);
+    MultiAnchorDescriptor.StartPlan sparseUnicode = plan(null, false, null, sparseUnicodeScanInfo);
     assertThat(Utf8StartAccelerator.create(sparseUnicode, false)).isNotNull();
     assertThat(StringStartAccelerator.create(sparseUnicode, false)).isNotNull();
 
     CharClassScanInfo nonAsciiScanInfo = Pattern.compile("[éê]").charClassPrefix();
-    StartDescriptor nonAscii = descriptor(null, false, null, nonAsciiScanInfo);
+    MultiAnchorDescriptor.StartPlan nonAscii = plan(null, false, null, nonAsciiScanInfo);
     assertThat(Utf8StartAccelerator.create(nonAscii, false)).isNotNull();
     assertThat(StringStartAccelerator.create(nonAscii, false)).isNotNull();
   }
 
-  private static StartDescriptor descriptor(
+  private static MultiAnchorDescriptor.StartPlan plan(
       String prefix,
       boolean prefixFoldCase,
       FixedOffsetLiteral fixedOffsetLiteral,
       CharClassScanInfo charClassPrefix) {
-    return new StartDescriptor(
-        prefix,
-        prefixFoldCase,
-        fixedOffsetLiteral,
-        charClassPrefix,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null);
+    if (prefix != null) {
+      ClassHashChain chain = prefixFoldCase ? ClassHashChain.compileCaseInsensitive(prefix) : null;
+      return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase, chain);
+    }
+    if (fixedOffsetLiteral != null) {
+      return new MultiAnchorDescriptor.StartPlan.FixedOffset(fixedOffsetLiteral, charClassPrefix);
+    }
+    if (charClassPrefix != null) {
+      return new MultiAnchorDescriptor.StartPlan.CharClass(charClassPrefix);
+    }
+    return MultiAnchorDescriptor.StartPlan.None.INSTANCE;
   }
 
   @Test
@@ -391,9 +394,8 @@ class StartAcceleratorTest {
   @Test
   void leadingWhitespaceCharClassExpansionAcceleratesStringAndUtf8() {
     Pattern pattern = Pattern.compile("\\s*[\\[\\uff3b]\\d+[\\]\\uff3d]");
-    StartDescriptor desc = pattern.startDescriptor();
-    assertThat(desc.hasStartAcceleration()).isTrue();
-    assertThat(desc.leadingExpansion()).isNotNull();
+    MultiAnchorDescriptor.StartPlan plan = pattern.startPlan();
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
 
     StringStartAccelerator strAcc = pattern.stringStartAccelerator();
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.LeadingExpansion.class);
@@ -425,9 +427,8 @@ class StartAcceleratorTest {
   @Test
   void leadingWhitespaceLiteralExpansionAcceleratesStringAndUtf8() {
     Pattern pattern = Pattern.compile("\\s+https?://\\w+");
-    StartDescriptor desc = pattern.startDescriptor();
-    assertThat(desc.hasStartAcceleration()).isTrue();
-    assertThat(desc.leadingExpansion()).isNotNull();
+    MultiAnchorDescriptor.StartPlan plan = pattern.startPlan();
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
 
     StringStartAccelerator strAcc = pattern.stringStartAccelerator();
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.LeadingExpansion.class);
@@ -454,11 +455,12 @@ class StartAcceleratorTest {
   @Test
   void leadingBoundedUnicodeExpansionAcceleratesStringAndUtf8() {
     Pattern pattern = Pattern.compile("[\\u00e9\\u00e8]+:target");
-    StartDescriptor desc = pattern.startDescriptor();
-    assertThat(desc.hasStartAcceleration()).isTrue();
-    assertThat(desc.leadingExpansion()).isNotNull();
-    assertThat(desc.leadingExpansion().minRepetition()).isEqualTo(1);
-    assertThat(desc.leadingExpansion().maxRepetition()).isEqualTo(Integer.MAX_VALUE);
+    MultiAnchorDescriptor.StartPlan plan = pattern.startPlan();
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
+    MultiAnchorDescriptor.StartPlan.LeadingExpansion le =
+        (MultiAnchorDescriptor.StartPlan.LeadingExpansion) plan;
+    assertThat(le.minRepetition()).isEqualTo(1);
+    assertThat(le.maxRepetition()).isEqualTo(Integer.MAX_VALUE);
 
     StringStartAccelerator strAcc = pattern.stringStartAccelerator();
     assertThat(strAcc).isInstanceOf(StringStartAccelerator.LeadingExpansion.class);
@@ -496,9 +498,8 @@ class StartAcceleratorTest {
   void leadingSupplementaryUnicodeExpansionAcceleratesStringAndUtf8() {
     // Supplementary code point class: U+1F600, U+1F601 (Grinning Face, Beaming Face)
     Pattern pattern = Pattern.compile("[\\x{1F600}\\x{1F601}]+:target");
-    StartDescriptor desc = pattern.startDescriptor();
-    assertThat(desc.hasStartAcceleration()).isTrue();
-    assertThat(desc.leadingExpansion()).isNotNull();
+    MultiAnchorDescriptor.StartPlan plan = pattern.startPlan();
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
 
     String emoji4 =
         new StringBuilder("abc")

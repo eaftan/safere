@@ -6,7 +6,8 @@
 package org.safere;
 
 import java.nio.charset.StandardCharsets;
-import org.safere.Pattern.DisjointRequiredLiterals;
+import java.util.ArrayList;
+import java.util.List;
 import org.safere.Pattern.EndAnchoredCharClassInfo;
 import org.safere.Pattern.SuffixInfo;
 
@@ -51,64 +52,48 @@ sealed interface RejectPrefilter
 
   MatchStrategy strategy();
 
-  static RejectPrefilter create(RejectDescriptor descriptor) {
+  static RejectPrefilter create(MultiAnchorDescriptor descriptor) {
     if (descriptor == null) {
       return null;
     }
-    RejectPrefilter suffixFilter =
-        descriptor.endAnchoredSuffix() != null
-            ? EndAnchoredSuffix.create(descriptor.endAnchoredSuffix())
-            : null;
-    RejectPrefilter endCcFilter =
-        descriptor.endAnchoredCharClass() != null
-            ? EndAnchoredCharClass.create(descriptor.endAnchoredCharClass())
-            : null;
-    RejectPrefilter litFilter =
-        descriptor.requiredLiteral() != null ? Literal.create(descriptor.requiredLiteral()) : null;
-    RejectPrefilter ccFilter =
-        descriptor.requiredCharClass() != null
-            ? CharClass.create(descriptor.requiredCharClass())
-            : null;
-    RejectPrefilter disjointFilter =
-        descriptor.disjointRequiredLiterals() != null
-            ? DisjointLiterals.create(descriptor.disjointRequiredLiterals())
-            : null;
-    int count = 0;
-    if (suffixFilter != null) count++;
-    if (endCcFilter != null) count++;
-    if (litFilter != null) count++;
-    if (ccFilter != null) count++;
-    if (disjointFilter != null) count++;
+    return create(descriptor.rejectPlan());
+  }
 
-    if (count == 0) {
+  static RejectPrefilter create(MultiAnchorDescriptor.RejectPlan plan) {
+    if (plan == null || plan instanceof MultiAnchorDescriptor.RejectPlan.None) {
       return null;
     }
-    if (count == 1) {
-      if (suffixFilter != null) return suffixFilter;
-      if (endCcFilter != null) return endCcFilter;
-      if (litFilter != null) return litFilter;
-      if (ccFilter != null) return ccFilter;
-      if (disjointFilter != null) return disjointFilter;
-      return null;
-    }
-    RejectPrefilter[] filters = new RejectPrefilter[count];
-    int idx = 0;
-    if (suffixFilter != null) {
-      filters[idx++] = suffixFilter;
-    }
-    if (endCcFilter != null) {
-      filters[idx++] = endCcFilter;
-    }
-    if (litFilter != null) {
-      filters[idx++] = litFilter;
-    }
-    if (ccFilter != null) {
-      filters[idx++] = ccFilter;
-    }
-    if (disjointFilter != null) {
-      filters[idx] = disjointFilter;
-    }
-    return new Composite(filters);
+    return switch (plan) {
+      case MultiAnchorDescriptor.RejectPlan.None unusedNone -> null;
+      case MultiAnchorDescriptor.RejectPlan.RequiredLiteral l -> Literal.create(l.literal());
+      case MultiAnchorDescriptor.RejectPlan.RequiredCharClass c -> CharClass.create(c.scanInfo());
+      case MultiAnchorDescriptor.RejectPlan.DisjointLiterals d ->
+          DisjointLiterals.create(d.literals());
+      case MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix s ->
+          EndAnchoredSuffix.create(s.suffix());
+      case MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass ecc ->
+          EndAnchoredCharClass.create(ecc.charClass());
+      case MultiAnchorDescriptor.RejectPlan.Composite comp -> {
+        List<RejectPrefilter> list = new ArrayList<>();
+        for (MultiAnchorDescriptor.RejectPlan p : comp.plans()) {
+          RejectPrefilter filter = create(p);
+          if (filter != null) {
+            if (filter instanceof Composite subComp) {
+              list.addAll(List.of(subComp.filters()));
+            } else {
+              list.add(filter);
+            }
+          }
+        }
+        if (list.isEmpty()) {
+          yield null;
+        }
+        if (list.size() == 1) {
+          yield list.get(0);
+        }
+        yield new Composite(list.toArray(RejectPrefilter[]::new));
+      }
+    };
   }
 
   @SuppressWarnings("ArrayRecordComponent")
@@ -167,8 +152,19 @@ sealed interface RejectPrefilter
       if (!options.charClassMatchFastPaths()) {
         return false;
       }
-      return scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, scanner.length())
-          < 0;
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        return canReject(utf8Scanner, searchFrom, options);
+      }
+      if (scanner != null) {
+        return scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, scanner.length())
+            < 0;
+      }
+      if (text != null) {
+        return new StringInputScanner(text)
+                .indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, text.length())
+            < 0;
+      }
+      return false;
     }
 
     @Override
@@ -189,11 +185,11 @@ sealed interface RejectPrefilter
   @SuppressWarnings("ArrayRecordComponent")
   record DisjointLiterals(String[] literals) implements RejectPrefilter {
 
-    static DisjointLiterals create(DisjointRequiredLiterals disjoint) {
-      if (disjoint == null || disjoint.literals() == null || disjoint.literals().length == 0) {
+    static DisjointLiterals create(String[] literals) {
+      if (literals == null || literals.length == 0) {
         return null;
       }
-      return new DisjointLiterals(disjoint.literals());
+      return new DisjointLiterals(literals);
     }
 
     @Override

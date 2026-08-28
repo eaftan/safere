@@ -227,7 +227,7 @@ class PatternInternalTest {
   void deeplyNestedFixedOffsetWidthExtractionIsStackSafe() {
     Pattern p = Pattern.compile(nestedFixedOffsetPattern(2_000));
 
-    assertThat(p.fixedOffsetLiteral()).isNotNull();
+    assertThat(p.startPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.FixedOffset.class);
   }
 
   @Test
@@ -237,11 +237,13 @@ class PatternInternalTest {
       regex.append("(x)");
     }
 
-    Pattern.FixedOffsetLiteral fixed = Pattern.compile(regex.toString()).fixedOffsetLiteral();
-
-    assertThat(fixed).isNotNull();
-    assertThat(fixed.literal()).hasSize(2_000);
-    assertThat(fixed.minOffset()).isEqualTo(1);
+    assertThat(Pattern.compile(regex.toString()).startPlan())
+        .isInstanceOfSatisfying(
+            MultiAnchorDescriptor.StartPlan.FixedOffset.class,
+            plan -> {
+              assertThat(plan.fol().literal()).hasSize(2_000);
+              assertThat(plan.fol().minOffset()).isEqualTo(1);
+            });
   }
 
   @Test
@@ -257,7 +259,7 @@ class PatternInternalTest {
   void dotStarAroundWhitespaceRecordsRequiredWhitespaceClass() {
     Pattern p = Pattern.compile(".*\\s+.*");
 
-    assertThat(p.rejectDescriptor().requiredCharClass()).isNotNull();
+    assertThat(requiredCharClass(p)).isNotNull();
   }
 
   @ParameterizedTest
@@ -281,48 +283,57 @@ class PatternInternalTest {
     "'[ab][cd]-xyz',          -xyz, 2"
   })
   void fixedOffsetAsciiLiteralsAreRecorded(String regex, String literal, int offset) {
-    Pattern.FixedOffsetLiteral fixedOffsetLiteral = Pattern.compile(regex).fixedOffsetLiteral();
-
-    assertThat(fixedOffsetLiteral).isNotNull();
-    assertThat(fixedOffsetLiteral.literal()).isEqualTo(literal);
-    assertThat(fixedOffsetLiteral.offset()).isEqualTo(offset);
+    assertThat(Pattern.compile(regex).startPlan())
+        .isInstanceOfSatisfying(
+            MultiAnchorDescriptor.StartPlan.FixedOffset.class,
+            plan -> {
+              assertThat(plan.fol().literal()).isEqualTo(literal);
+              assertThat(plan.fol().offset()).isEqualTo(offset);
+            });
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"\\d+/x", "[ab](?i:x)", "literal-prefix"})
   void variableWidthUnicodeAndOrdinaryPrefixesDoNotRecordFixedOffsetLiterals(String regex) {
-    assertThat(Pattern.compile(regex).fixedOffsetLiteral()).isNull();
+    assertThat(Pattern.compile(regex).startPlan())
+        .isNotInstanceOf(MultiAnchorDescriptor.StartPlan.FixedOffset.class);
   }
 
   @Test
   void unicodeClassOffsetsAreRecordedAsNonDiscreteCodePointRanges() {
-    Pattern.FixedOffsetLiteral fixed = Pattern.compile("[αβ]/x").fixedOffsetLiteral();
-
-    assertThat(fixed).isNotNull();
-    assertThat(fixed.minOffset()).isEqualTo(1);
-    assertThat(fixed.maxOffset()).isEqualTo(1);
-    assertThat(fixed.discreteOffsets()).isNull();
+    assertThat(Pattern.compile("[αβ]/x").startPlan())
+        .isInstanceOfSatisfying(
+            MultiAnchorDescriptor.StartPlan.FixedOffset.class,
+            plan -> {
+              assertThat(plan.fol().minOffset()).isEqualTo(1);
+              assertThat(plan.fol().maxOffset()).isEqualTo(1);
+              assertThat(plan.fol().discreteOffsets()).isNull();
+            });
   }
 
   @Test
   void discreteMultiOffsetLiteralsAreRecorded() {
-    Pattern.FixedOffsetLiteral fixed =
-        Pattern.compile("(^|[a-z])(#!customTag)").fixedOffsetLiteral();
-    assertThat(fixed).isNotNull();
-    assertThat(fixed.literal()).isEqualTo("#!customTag");
-    assertThat(fixed.minOffset()).isZero();
-    assertThat(fixed.maxOffset()).isEqualTo(1);
-    assertThat(fixed.discreteOffsets()).containsExactly(0, 1);
+    assertThat(Pattern.compile("(^|[a-z])(#!customTag)").startPlan())
+        .isInstanceOfSatisfying(
+            MultiAnchorDescriptor.StartPlan.FixedOffset.class,
+            plan -> {
+              assertThat(plan.fol().literal()).isEqualTo("#!customTag");
+              assertThat(plan.fol().minOffset()).isZero();
+              assertThat(plan.fol().maxOffset()).isEqualTo(1);
+              assertThat(plan.fol().discreteOffsets()).containsExactly(0, 1);
+            });
   }
 
   @Test
   void boundedRangeOffsetLiteralsAreRecorded() {
-    Pattern.FixedOffsetLiteral fixed =
-        Pattern.compile("\\s{0,8}renderElement\\(").fixedOffsetLiteral();
-    assertThat(fixed).isNotNull();
-    assertThat(fixed.literal()).isEqualTo("renderElement(");
-    assertThat(fixed.minOffset()).isEqualTo(0);
-    assertThat(fixed.maxOffset()).isEqualTo(8);
+    assertThat(Pattern.compile("\\s{0,8}renderElement\\(").startPlan())
+        .isInstanceOfSatisfying(
+            MultiAnchorDescriptor.StartPlan.FixedOffset.class,
+            plan -> {
+              assertThat(plan.fol().literal()).isEqualTo("renderElement(");
+              assertThat(plan.fol().minOffset()).isEqualTo(0);
+              assertThat(plan.fol().maxOffset()).isEqualTo(8);
+            });
   }
 
   @ParameterizedTest
@@ -337,7 +348,7 @@ class PatternInternalTest {
       String regex, String members, String nonMembers) {
     Pattern p = Pattern.compile(regex);
 
-    assertThat(p.rejectDescriptor().requiredCharClass()).isNotNull();
+    assertThat(requiredCharClass(p)).isNotNull();
     members
         .codePoints()
         .forEach(codePoint -> assertThat(requiredClassContains(p, codePoint)).isTrue());
@@ -349,7 +360,7 @@ class PatternInternalTest {
   @ParameterizedTest
   @ValueSource(strings = {".*(x|).*", ".*(?:x|y)?.*", ".*(?:x|y){0,3}.*", ".*(?:x|y|.*).*"})
   void nullableAlternativesDoNotRecordRequiredCharacterClasses(String regex) {
-    assertThat(Pattern.compile(regex).rejectDescriptor().requiredCharClass()).isNull();
+    assertThat(requiredCharClass(Pattern.compile(regex))).isNull();
   }
 
   @ParameterizedTest
@@ -361,7 +372,7 @@ class PatternInternalTest {
     "'.*前置.*かなり長い必要語.*', かなり長い必要語"
   })
   void mandatoryCaseSensitiveLiteralsAreRecorded(String regex, String expected) {
-    assertThat(Pattern.compile(regex).rejectDescriptor().requiredLiteral()).isEqualTo(expected);
+    assertThat(requiredLiteral(Pattern.compile(regex))).isEqualTo(expected);
   }
 
   @ParameterizedTest
@@ -374,7 +385,7 @@ class PatternInternalTest {
         "needle.*"
       })
   void optionalCaseInsensitiveAndAlreadyPrefixedLiteralsAreNotRecorded(String regex) {
-    assertThat(Pattern.compile(regex).rejectDescriptor().requiredLiteral()).isNull();
+    assertThat(requiredLiteral(Pattern.compile(regex))).isNull();
   }
 
   @ParameterizedTest
@@ -388,7 +399,7 @@ class PatternInternalTest {
     "'.*(?i:test)\\z',                     test,                         true"
   })
   void endAnchoredLiteralSuffixIsRecorded(String regex, String expected, boolean foldCase) {
-    Pattern.SuffixInfo info = Pattern.compile(regex).rejectDescriptor().endAnchoredSuffix();
+    Pattern.SuffixInfo info = endAnchoredSuffix(Pattern.compile(regex));
     assertThat(info.suffix()).isEqualTo(expected);
     assertThat(info.foldCase()).isEqualTo(foldCase);
   }
@@ -396,7 +407,7 @@ class PatternInternalTest {
   @ParameterizedTest
   @ValueSource(strings = {".*", ".*json", "(?m).*\\.json$"})
   void unanchoredOrMultilineDollarDoNotRecordEndAnchoredSuffix(String regex) {
-    assertThat(Pattern.compile(regex).rejectDescriptor().endAnchoredSuffix()).isNull();
+    assertThat(endAnchoredSuffix(Pattern.compile(regex))).isNull();
   }
 
   @Test
@@ -409,34 +420,51 @@ class PatternInternalTest {
   @Test
   void disjointRequiredLiteralsAreRecordedForAlternations() {
     Pattern p = Pattern.compile(".*(?:apple|banana|cherry).*");
-    assertThat(p.requiredDisjointLiterals()).containsExactly("apple", "banana", "cherry");
-    assertThat(p.rejectDescriptor().requiredLiteral()).isNull();
+    assertThat(findRejectPlan(p, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(
+            plan -> assertThat(plan.literals()).containsExactly("apple", "banana", "cherry"));
+    assertThat(requiredLiteral(p)).isNull();
 
     Pattern p2 = Pattern.compile("(foo.*|bar.*|baz.*)");
-    assertThat(p2.requiredDisjointLiterals()).containsExactly("foo", "bar", "baz");
+    assertThat(findRejectPlan(p2, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(plan -> assertThat(plan.literals()).containsExactly("foo", "bar", "baz"));
 
     Pattern p3 = Pattern.compile("(?:\\bfirstToken\\b|\\bsecondToken\\b)");
-    assertThat(p3.requiredDisjointLiterals()).containsExactly("firstToken", "secondToken");
+    assertThat(findRejectPlan(p3, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(
+            plan -> assertThat(plan.literals()).containsExactly("firstToken", "secondToken"));
   }
 
   @Test
   void disjointRequiredLiteralsSubsumptionMinimization() {
     // pineapple contains apple, so pineapple is pruned and apple + banana are required.
     Pattern p1 = Pattern.compile(".*(?:apple|pineapple|banana).*");
-    assertThat(p1.requiredDisjointLiterals()).containsExactly("apple", "banana");
+    assertThat(findRejectPlan(p1, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(plan -> assertThat(plan.literals()).containsExactly("apple", "banana"));
 
     // prefix_foo contains foo, bar_baz contains baz
     Pattern p2 = Pattern.compile(".*(?:prefix_foo|foo|bar_baz|baz).*");
-    assertThat(p2.requiredDisjointLiterals()).containsExactly("foo", "baz");
+    assertThat(findRejectPlan(p2, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(plan -> assertThat(plan.literals()).containsExactly("foo", "baz"));
 
     // https contains http, ftp is distinct
     Pattern p3 = Pattern.compile(".*(?:http|https|ftp).*");
-    assertThat(p3.requiredDisjointLiterals()).containsExactly("http", "ftp");
+    assertThat(findRejectPlan(p3, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(plan -> assertThat(plan.literals()).containsExactly("http", "ftp"));
 
     // A lone surrogate is not a code-point substring of a supplementary character.
     Pattern p4 = Pattern.compile("(?:a\uD83D|za\uD83D\uDE00|banana)");
-    assertThat(p4.requiredDisjointLiterals())
-        .containsExactly("a\uD83D", "za\uD83D\uDE00", "banana");
+    assertThat(findRejectPlan(p4, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(
+            plan ->
+                assertThat(plan.literals()).containsExactly("a\uD83D", "za\uD83D\uDE00", "banana"));
   }
 
   @Test
@@ -447,15 +475,27 @@ class PatternInternalTest {
     }
     regex.append(')');
 
-    assertThat(Pattern.compile(regex.toString()).requiredDisjointLiterals()).isNull();
+    assertThat(
+            findRejectPlan(
+                Pattern.compile(regex.toString()),
+                MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNull();
   }
 
   @Test
   void disjointRequiredLiteralCountIsBoundedByMeasuredCrossover() {
-    assertThat(Pattern.compile("(?:apple|banana|cherry|orange)\\d").requiredDisjointLiterals())
-        .containsExactly("apple", "banana", "cherry", "orange");
     assertThat(
-            Pattern.compile("(?:apple|banana|cherry|orange|papaya)\\d").requiredDisjointLiterals())
+            findRejectPlan(
+                Pattern.compile("(?:apple|banana|cherry|orange)\\d"),
+                MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+        .isNotNull()
+        .satisfies(
+            plan ->
+                assertThat(plan.literals()).containsExactly("apple", "banana", "cherry", "orange"));
+    assertThat(
+            findRejectPlan(
+                Pattern.compile("(?:apple|banana|cherry|orange|papaya)\\d"),
+                MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
         .isNull();
   }
 
@@ -469,8 +509,9 @@ class PatternInternalTest {
       })
   void invalidOrNullableAlternationsDoNotRecordDisjointLiterals(String regex) {
     Pattern p = Pattern.compile(regex);
-    if (p.prefix() == null && p.rejectDescriptor().requiredLiteral() == null) {
-      assertThat(p.requiredDisjointLiterals()).isNull();
+    if (p.prefix() == null && requiredLiteral(p) == null) {
+      assertThat(findRejectPlan(p, MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class))
+          .isNull();
     }
   }
 
@@ -478,18 +519,52 @@ class PatternInternalTest {
   void boundaryPrefixedLiteralRecordsRequiredClass() {
     Pattern p = Pattern.compile("\\b{g}z");
 
-    assertThat(p.rejectDescriptor().requiredCharClass()).isNotNull();
+    assertThat(requiredCharClass(p)).isNotNull();
   }
 
   @Test
   void pureNullablePatternsDoNotRecordRequiredCharacterClasses() {
     Pattern p = Pattern.compile(".*");
 
-    assertThat(p.rejectDescriptor().requiredCharClass()).isNull();
+    assertThat(requiredCharClass(p)).isNull();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T extends MultiAnchorDescriptor.RejectPlan> T findRejectPlan(
+      Pattern p, Class<T> clazz) {
+    if (clazz.isInstance(p.rejectPlan())) {
+      return (T) p.rejectPlan();
+    }
+    if (p.rejectPlan() instanceof MultiAnchorDescriptor.RejectPlan.Composite comp) {
+      for (MultiAnchorDescriptor.RejectPlan plan : comp.plans()) {
+        if (clazz.isInstance(plan)) {
+          return (T) plan;
+        }
+      }
+    }
+    return null;
+  }
+
+  private static CharClassScanInfo requiredCharClass(Pattern p) {
+    MultiAnchorDescriptor.RejectPlan.RequiredCharClass cc =
+        findRejectPlan(p, MultiAnchorDescriptor.RejectPlan.RequiredCharClass.class);
+    return cc != null ? cc.scanInfo() : null;
+  }
+
+  private static Pattern.SuffixInfo endAnchoredSuffix(Pattern p) {
+    MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix s =
+        findRejectPlan(p, MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix.class);
+    return s != null ? s.suffix() : null;
+  }
+
+  private static String requiredLiteral(Pattern p) {
+    MultiAnchorDescriptor.RejectPlan.RequiredLiteral lit =
+        findRejectPlan(p, MultiAnchorDescriptor.RejectPlan.RequiredLiteral.class);
+    return lit != null ? lit.literal() : null;
   }
 
   private static boolean requiredClassContains(Pattern pattern, int codePoint) {
-    CharClassScanInfo info = pattern.rejectDescriptor().requiredCharClass();
+    CharClassScanInfo info = requiredCharClass(pattern);
     return info != null
         && InputScanner.classContains(info.ranges(), info.bitmap0(), info.bitmap1(), codePoint);
   }
@@ -606,15 +681,16 @@ class PatternInternalTest {
     // "____" has length 4 with common underscores.
     // "zq" has length 2 with rare letters 'z' and 'q'.
     Pattern pattern = Pattern.compile("[0-9]{2}____[a-z]zq[a-z]");
-    assertThat(pattern.fixedOffsetLiteral()).isNotNull();
-    // "zq" has higher selectivity than "____"
-    assertThat(pattern.fixedOffsetLiteral().literal()).isEqualTo("zq");
+    assertThat(pattern.startPlan())
+        .isInstanceOfSatisfying(
+            MultiAnchorDescriptor.StartPlan.FixedOffset.class,
+            plan -> assertThat(plan.fol().literal()).isEqualTo("zq"));
   }
 
   @Test
   void requiredLiteralPrefersRareToken() {
     Pattern pattern = Pattern.compile(".*(____).*?(404_ERROR).*");
-    assertThat(pattern.rejectDescriptor().requiredLiteral()).isEqualTo("404_ERROR");
+    assertThat(requiredLiteral(pattern)).isEqualTo("404_ERROR");
   }
 
   @Test
@@ -622,6 +698,6 @@ class PatternInternalTest {
     String spaces = " ".repeat(32);
     Pattern pattern = Pattern.compile(".*(" + spaces + ").*?(ee).*");
 
-    assertThat(pattern.rejectDescriptor().requiredLiteral()).isEqualTo(spaces);
+    assertThat(requiredLiteral(pattern)).isEqualTo(spaces);
   }
 }

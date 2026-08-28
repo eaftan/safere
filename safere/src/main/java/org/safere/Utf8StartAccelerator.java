@@ -18,46 +18,61 @@ sealed interface Utf8StartAccelerator {
    * Creates a {@link Utf8StartAccelerator} for the given pattern descriptor, or {@code null} if no
    * acceleration strategy applies.
    */
-  static Utf8StartAccelerator create(StartDescriptor descriptor, boolean hasWordBoundary) {
-    if (descriptor == null || !descriptor.hasStartAcceleration()) {
+  static Utf8StartAccelerator create(MultiAnchorDescriptor descriptor, boolean hasWordBoundary) {
+    if (descriptor == null) {
       return null;
     }
-    if (descriptor.prefix() != null) {
-      if (descriptor.prefixFoldCase()) {
-        return CaseInsensitiveLiteral.create(descriptor.prefix());
+    return create(descriptor.startPlan(), hasWordBoundary);
+  }
+
+  static Utf8StartAccelerator create(
+      MultiAnchorDescriptor.StartPlan plan, boolean hasWordBoundary) {
+    if (plan == null || plan instanceof MultiAnchorDescriptor.StartPlan.None) {
+      return null;
+    }
+    return switch (plan) {
+      case MultiAnchorDescriptor.StartPlan.None unusedNone -> null;
+      case MultiAnchorDescriptor.StartPlan.Literal lit ->
+          lit.foldCase()
+              ? CaseInsensitiveLiteral.create(lit.prefix())
+              : Literal.create(lit.prefix());
+      case MultiAnchorDescriptor.StartPlan.CharClass cc ->
+          hasWordBoundary || !cc.scanInfo().isSelective() ? null : new CharClass(cc.scanInfo());
+      case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
+          new FixedOffset(fo.fol(), fo.leadingClass());
+      case MultiAnchorDescriptor.StartPlan.MultiLiteral ml -> {
+        if (hasWordBoundary) {
+          yield null;
+        }
+        if (VectorScanProviders.multiLiteralProviderAvailable()) {
+          MultiLiteralInfo info = MultiLiteralInfo.create(ml.literals());
+          if (info != null) {
+            TeddyModel teddy =
+                VectorScanProviders.teddyProviderAvailable()
+                    ? TeddyModel.compileForSelectedProvider(ml.literals())
+                    : null;
+            yield new MultiLiteral(info, teddy);
+          }
+        }
+        if (VectorScanProviders.teddyProviderAvailable()) {
+          TeddyModel model = TeddyModel.compileForSelectedProvider(ml.literals());
+          if (model != null) {
+            yield new Teddy(model);
+          }
+        }
+        if (ml.fallbackClass() != null) {
+          yield new CharClass(ml.fallbackClass());
+        }
+        yield null;
       }
-      return Literal.create(descriptor.prefix());
-    }
-    if (descriptor.fixedOffsetLiteral() != null) {
-      return new FixedOffset(descriptor.fixedOffsetLiteral(), descriptor.charClassPrefix());
-    }
-    if (descriptor.multiLiteral() != null
-        && !hasWordBoundary
-        && VectorScanProviders.multiLiteralProviderAvailable()) {
-      return new MultiLiteral(descriptor.multiLiteral(), descriptor.teddyModel());
-    }
-    if (descriptor.teddyModel() != null
-        && !hasWordBoundary
-        && VectorScanProviders.teddyProviderAvailable()) {
-      return new Teddy(descriptor.teddyModel());
-    }
-    if (descriptor.charClassPrefix() != null
-        && !hasWordBoundary
-        && descriptor.charClassPrefix().isSelective()) {
-      return new CharClass(descriptor.charClassPrefix());
-    }
-    if (descriptor.leadingExpansion() != null) {
-      Utf8StartAccelerator inner =
-          create(descriptor.leadingExpansion().innerDescriptor(), hasWordBoundary);
-      if (inner != null) {
-        return new LeadingExpansion(
-            descriptor.leadingExpansion().leadingClass(),
-            descriptor.leadingExpansion().minRepetition(),
-            descriptor.leadingExpansion().maxRepetition(),
-            inner);
+      case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {
+        Utf8StartAccelerator inner = create(le.innerPlan(), hasWordBoundary);
+        yield inner != null
+            ? new LeadingExpansion(le.leadingClass(), le.minRepetition(), le.maxRepetition(), inner)
+            : null;
       }
-    }
-    return null;
+      case MultiAnchorDescriptor.StartPlan.LineAnchor unusedLa -> null;
+    };
   }
 
   /**
@@ -353,16 +368,30 @@ sealed interface Utf8StartAccelerator {
       int len = scanner.length();
       int minLen = info.minLength();
       String[] literals = info.literals();
+      char[] anchorChars = info.anchorChars();
+      int[] anchorOffsets = info.anchorOffsets();
       byte[] bytes = scanner.bytes();
       int offset = scanner.offset();
+      long verificationWork = 0;
+      long workLimit = WorkLimit.forRemaining(len - fromIndex);
+
       for (int i = fromIndex; i <= len - minLen; i++) {
-        for (String lit : literals) {
-          if (i + lit.length() <= len) {
-            if (WorkCounterConfig.ENABLED) {
-              WorkCounter.record(lit.length());
-            }
-            if (Ascii.regionMatches(bytes, offset + i, lit, lit.length())) {
-              return i;
+        int val = bytes[offset + i] & 0xFF;
+        for (int k = 0; k < literals.length; k++) {
+          if (val == (anchorChars[k] & 0xFF)) {
+            String lit = literals[k];
+            int start = i - anchorOffsets[k];
+            if (start >= fromIndex && start + lit.length() <= len) {
+              if (WorkCounterConfig.ENABLED) {
+                WorkCounter.record(lit.length());
+              }
+              if (Ascii.regionMatches(bytes, offset + start, lit, lit.length())) {
+                return start;
+              }
+              verificationWork += lit.length();
+              if (WorkLimit.isExhausted(verificationWork, workLimit)) {
+                return fromIndex;
+              }
             }
           }
         }
