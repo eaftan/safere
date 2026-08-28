@@ -4206,6 +4206,70 @@
       }
     },
     {
+      "id": "RealWorldRegexBenchmark.runBenchmark.multiInfixLogCaptures.{matchLabel}.{size}",
+      "operation": "findGroup",
+      "patterns": [
+        ".*error:\\[([A-Z]+)\\]\\s+code:(500)\\s+msg:(crash)"
+      ],
+      "inputs": [
+        "realWorldRegex.multiInfixLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.unanchoredLogCaptures.{matchLabel}.{size}",
+      "operation": "findGroup",
+      "patterns": [
+        "error:\\[([A-Z]+)\\]\\s+code:(500)\\s+msg:([^\\n]+)"
+      ],
+      "inputs": [
+        "realWorldRegex.multiInfixLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
       "id": "RealWorldRegexBenchmark.runBenchmark.multiClauseSequence.{matchLabel}.{size}",
       "operation": "find",
       "patterns": [
