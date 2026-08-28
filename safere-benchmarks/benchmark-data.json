@@ -1213,6 +1213,112 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.multiInfixLog.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-08-27 12:00:00.123 [worker-42] error:[NORMAL] code:200 msg:Operation completed successfully for transaction 987654321\n",
+        "suffix": "2026-08-27 12:00:00.123 [worker-42] error:[CRITICAL] code:500 msg:crash\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.multiInfixLog.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "2026-08-27 12:00:00.123 [worker-42] error:[NORMAL] code:200 msg:Operation completed successfully for transaction 987654321",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.multiClauseSequence.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "foo ",
+        "unit": "data payload channel verification token buffer stream block record alpha beta gamma delta ",
+        "suffix": " bar data payload channel verification token buffer stream block record alpha beta gamma delta baz\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.multiClauseSequence.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "foo ",
+        "unit": "data payload channel verification token buffer stream block record alpha beta gamma delta ",
+        "suffix": " bar data payload channel verification token buffer stream block record alpha beta gamma delta qux\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.structuredJsonPath.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "{\"header\":{\"id\":\"12345\",\"type\":\"event\"},\"body\":{\"status\":\"pending\",\"payload\":\"data\"}}\n",
+        "suffix": "{\"header\":{\"id\":\"99999\",\"type\":\"event\"},\"body\":{\"status\":\"ok\",\"payload\":\"data\"}}\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.structuredJsonPath.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "{\"header\":{\"id\":\"12345\",\"type\":\"event\"},\"body\":{\"status\":\"pending\",\"payload\":\"data\"}}",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.blockedTags1.match.{size}",
       "axes": {
         "size": [
@@ -4049,6 +4155,93 @@
       ],
       "inputs": [
         "realWorldRegex.emojiSearch.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.multiInfixLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        ".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash"
+      ],
+      "inputs": [
+        "realWorldRegex.multiInfixLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.multiClauseSequence.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "foo[^\\n]*bar[^\\n]*baz"
+      ],
+      "inputs": [
+        "realWorldRegex.multiClauseSequence.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.structuredJsonPath.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?s).*\"id\":\\s*\"99999\".*\"status\":\\s*\"ok\""
+      ],
+      "inputs": [
+        "realWorldRegex.structuredJsonPath.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {

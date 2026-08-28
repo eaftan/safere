@@ -387,15 +387,13 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
   }
 
   boolean isExecutableChain() {
-    if (chain.segments().length < 2 || isReverseAnchor()) {
+    if (chain.segments().length < 2) {
       return false;
     }
     for (Segment segment : chain.segments()) {
-      if (segment.gap().kind() == GapKind.BOUNDED_CLASS_REPEAT) {
-        return false;
-      }
       if (!(segment.anchor() instanceof Anchor.Single)
-          && !(segment.anchor() instanceof Anchor.Alternation)) {
+          && !(segment.anchor() instanceof Anchor.Alternation)
+          && !(segment.anchor() instanceof Anchor.CharClass)) {
         return false;
       }
     }
@@ -459,7 +457,7 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           null,
           charClass,
           charClass != null ? charClass.toRanges() : null,
-          null,
+          charClass != null ? CharClassScanInfo.fromAsciiBitmap(charClass) : null,
           isGreedy);
     }
 
@@ -555,12 +553,12 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
         case ANY_STAR -> true;
         case SINGLE_LINE_ANY_STAR -> text.indexOf('\n', from) < 0 || text.indexOf('\n', from) >= to;
         case BOUNDED_CLASS_REPEAT -> {
-          if (charClass == null) {
+          if (scanInfo == null) {
             yield true;
           }
           for (int i = from; i < to; i++) {
             char c = text.charAt(i);
-            if (c > 127 || !charClass.containsAscii(c)) {
+            if (c > 127 || !scanInfo.contains(c)) {
               yield false;
             }
           }
@@ -586,11 +584,11 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           yield nl < 0 || nl >= to;
         }
         case BOUNDED_CLASS_REPEAT -> {
-          if (charClass == null) {
+          if (scanInfo == null) {
             yield true;
           }
           for (int i = from; i < to; i++) {
-            if (!charClass.contains(scanner.asciiAt(i))) {
+            if (!scanInfo.contains(scanner.asciiAt(i))) {
               yield false;
             }
           }
@@ -717,8 +715,8 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           int limit =
               Math.min(maxPos, maxLength == Integer.MAX_VALUE ? maxPos : fromPos + maxLength);
           int cur = fromPos;
-          while (cur < limit && (charClass == null || charClass.contains(text.charAt(cur)))) {
-            cur++;
+          while (cur < limit && (scanInfo == null || scanInfo.contains(text.codePointAt(cur)))) {
+            cur += Character.charCount(text.codePointAt(cur));
           }
           int matched = cur - fromPos;
           if (matched < minLength) {
@@ -754,8 +752,14 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           int limit =
               Math.min(maxPos, maxLength == Integer.MAX_VALUE ? maxPos : fromPos + maxLength);
           int cur = fromPos;
-          while (cur < limit && (charClass == null || charClass.contains(scanner.asciiAt(cur)))) {
-            cur++;
+          while (cur < limit) {
+            long decoded = scanner.decodeForward(cur);
+            int cp = InputScanner.codePoint(decoded);
+            int nextPos = InputScanner.position(decoded);
+            if (scanInfo != null && !scanInfo.contains(cp)) {
+              break;
+            }
+            cur = nextPos;
           }
           int matched = cur - fromPos;
           if (matched < minLength) {
@@ -778,6 +782,56 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           yield (maxPos - fromPos >= minLength) ? maxPos : -1;
         }
       };
+    }
+
+    int scanClassEnd(String text, int fromPos, int maxPos) {
+      if (kind == GapKind.BOUNDED_CLASS_REPEAT) {
+        int limit = Math.min(maxPos, maxLength == Integer.MAX_VALUE ? maxPos : fromPos + maxLength);
+        int cur = fromPos;
+        while (cur < limit) {
+          int cp = text.codePointAt(cur);
+          if (scanInfo != null && !scanInfo.contains(cp)) {
+            break;
+          }
+          cur += Character.charCount(cp);
+        }
+        return cur;
+      }
+      if (kind == GapKind.SINGLE_LINE_ANY_STAR) {
+        int limit = Math.min(maxPos, maxLength == Integer.MAX_VALUE ? maxPos : fromPos + maxLength);
+        int nl = text.indexOf('\n', fromPos);
+        return (nl >= fromPos && nl < limit) ? nl : limit;
+      }
+      if (maxLength != Integer.MAX_VALUE) {
+        return Math.min(maxPos, fromPos + maxLength);
+      }
+      return maxPos;
+    }
+
+    int scanClassEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
+      if (kind == GapKind.BOUNDED_CLASS_REPEAT) {
+        int limit = Math.min(maxPos, maxLength == Integer.MAX_VALUE ? maxPos : fromPos + maxLength);
+        int cur = fromPos;
+        while (cur < limit) {
+          long decoded = scanner.decodeForward(cur);
+          int cp = InputScanner.codePoint(decoded);
+          int nextPos = InputScanner.position(decoded);
+          if (scanInfo != null && !scanInfo.contains(cp)) {
+            break;
+          }
+          cur = nextPos;
+        }
+        return cur;
+      }
+      if (kind == GapKind.SINGLE_LINE_ANY_STAR) {
+        int limit = Math.min(maxPos, maxLength == Integer.MAX_VALUE ? maxPos : fromPos + maxLength);
+        int nl = scanner.indexOfAscii('\n', fromPos, limit);
+        return (nl >= fromPos && nl < limit) ? nl : limit;
+      }
+      if (maxLength != Integer.MAX_VALUE) {
+        return Math.min(maxPos, fromPos + maxLength);
+      }
+      return maxPos;
     }
   }
 
@@ -821,6 +875,22 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
     int findNext(String text, int fromIndex);
 
     int findNext(Utf8InputScanner scanner, int fromIndex);
+
+    default int findNextWithin(String text, int fromIndex, int toIndex) {
+      if (fromIndex > toIndex) {
+        return -1;
+      }
+      int idx = findNext(text, fromIndex);
+      return idx >= 0 && idx <= toIndex ? idx : -1;
+    }
+
+    default int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+      if (fromIndex > toIndex) {
+        return -1;
+      }
+      int idx = findNext(scanner, fromIndex);
+      return idx >= 0 && idx <= toIndex ? idx : -1;
+    }
 
     boolean startsWith(String text, int pos);
 
@@ -904,12 +974,54 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
       }
 
       @Override
+      public int findNextWithin(String text, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex + literal.length() > text.length()) {
+          return -1;
+        }
+        int maxStart = Math.min(toIndex, text.length() - literal.length());
+        if (fromIndex > maxStart) {
+          return -1;
+        }
+        if (maxStart - fromIndex <= 64) {
+          for (int i = fromIndex; i <= maxStart; i++) {
+            if (startsWith(text, i)) {
+              return i;
+            }
+          }
+          return -1;
+        }
+        int idx = findNext(text, fromIndex);
+        return idx >= 0 && idx <= maxStart ? idx : -1;
+      }
+
+      @Override
       public int findNext(Utf8InputScanner scanner, int fromIndex) {
         if (foldCase) {
           return scanner.indexOfIgnoreCase(
               literal, failure, anchorOffset, anchorLowByte, anchorHighByte, fromIndex);
         }
         return scanner.indexOf(literalUtf8, failure, shifts, fromIndex);
+      }
+
+      @Override
+      public int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex + literalUtf8.length > scanner.length()) {
+          return -1;
+        }
+        int maxStart = Math.min(toIndex, scanner.length() - literalUtf8.length);
+        if (fromIndex > maxStart) {
+          return -1;
+        }
+        if (maxStart - fromIndex <= 64) {
+          for (int i = fromIndex; i <= maxStart; i++) {
+            if (startsWith(scanner, i)) {
+              return i;
+            }
+          }
+          return -1;
+        }
+        int idx = findNext(scanner, fromIndex);
+        return idx >= 0 && idx <= maxStart ? idx : -1;
       }
 
       @Override
@@ -1102,6 +1214,48 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
       }
 
       @Override
+      public int findNextWithin(String text, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex + minLength > text.length()) {
+          return -1;
+        }
+        int maxStart = Math.min(toIndex, text.length() - minLength);
+        if (fromIndex > maxStart) {
+          return -1;
+        }
+        if (maxStart - fromIndex <= 64) {
+          for (int i = fromIndex; i <= maxStart; i++) {
+            if (startsWith(text, i)) {
+              return i;
+            }
+          }
+          return -1;
+        }
+        int idx = findNext(text, fromIndex);
+        return idx >= 0 && idx <= maxStart ? idx : -1;
+      }
+
+      @Override
+      public int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex + minLength > scanner.length()) {
+          return -1;
+        }
+        int maxStart = Math.min(toIndex, scanner.length() - minLength);
+        if (fromIndex > maxStart) {
+          return -1;
+        }
+        if (maxStart - fromIndex <= 64) {
+          for (int i = fromIndex; i <= maxStart; i++) {
+            if (startsWith(scanner, i)) {
+              return i;
+            }
+          }
+          return -1;
+        }
+        int idx = findNext(scanner, fromIndex);
+        return idx >= 0 && idx <= maxStart ? idx : -1;
+      }
+
+      @Override
       public boolean startsWith(String text, int pos) {
         if (pos < 0 || pos + minLength > text.length()) {
           return false;
@@ -1281,6 +1435,45 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
         }
         int len = scanner.length();
         for (int i = Math.max(0, fromIndex); i < len; i++) {
+          int c = scanner.asciiAt(i);
+          if (c >= 0 && bitmap != null && bitmap.containsAscii(c)) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      @Override
+      public int findNextWithin(String text, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex >= text.length()) {
+          return -1;
+        }
+        int limit = Math.min(toIndex + 1, text.length());
+        for (int i = Math.max(0, fromIndex); i < limit; ) {
+          int cp = text.codePointAt(i);
+          if (scanInfo != null) {
+            if (scanInfo.contains(cp)) {
+              return i;
+            }
+          } else if (cp < 128 && bitmap != null && bitmap.containsAscii(cp)) {
+            return i;
+          }
+          i += Character.charCount(cp);
+        }
+        return -1;
+      }
+
+      @Override
+      public int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex >= scanner.length()) {
+          return -1;
+        }
+        int limit = Math.min(toIndex + 1, scanner.length());
+        if (scanInfo != null) {
+          return scanner.indexOfCodePointClass(
+              scanInfo.ranges(), scanInfo.bitmap0(), scanInfo.bitmap1(), fromIndex, limit);
+        }
+        for (int i = Math.max(0, fromIndex); i < limit; i++) {
           int c = scanner.asciiAt(i);
           if (c >= 0 && bitmap != null && bitmap.containsAscii(c)) {
             return i;

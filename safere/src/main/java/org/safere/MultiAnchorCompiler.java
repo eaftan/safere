@@ -12,6 +12,7 @@ import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -854,6 +855,42 @@ final class MultiAnchorCompiler {
           }
           idx++;
 
+          while (idx < n && extractConsecutiveLiteralAnchor(node.subs, idx, flags) == null) {
+            MultiAnchorDescriptor.Gap nextGap = classifyGap(node.subs.get(idx), flags);
+            if (nextGap == null) {
+              break;
+            }
+            if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+                && nextGap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+                && Objects.equals(gap.charClass(), nextGap.charClass())) {
+              int min = gap.minLength() + nextGap.minLength();
+              int max =
+                  (gap.maxLength() == Integer.MAX_VALUE || nextGap.maxLength() == Integer.MAX_VALUE)
+                      ? Integer.MAX_VALUE
+                      : gap.maxLength() + nextGap.maxLength();
+              gap =
+                  new MultiAnchorDescriptor.Gap(
+                      MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
+                      min,
+                      max,
+                      gap.charClass(),
+                      gap.isGreedy());
+              idx++;
+            } else if (gap.kind() == nextGap.kind()
+                && (gap.kind() == MultiAnchorDescriptor.GapKind.ANY_STAR
+                    || gap.kind() == MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR)) {
+              int min = gap.minLength() + nextGap.minLength();
+              int max =
+                  (gap.maxLength() == Integer.MAX_VALUE || nextGap.maxLength() == Integer.MAX_VALUE)
+                      ? Integer.MAX_VALUE
+                      : gap.maxLength() + nextGap.maxLength();
+              gap = new MultiAnchorDescriptor.Gap(gap.kind(), min, max, null, gap.isGreedy());
+              idx++;
+            } else {
+              break;
+            }
+          }
+
           if (idx >= n) {
             gaps.add(gap);
             break;
@@ -1681,6 +1718,9 @@ final class MultiAnchorCompiler {
               : MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_LAZY;
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
+        if (bitmap == null) {
+          return null;
+        }
         return new MultiAnchorDescriptor.Gap(
             MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
             0,
@@ -1715,6 +1755,9 @@ final class MultiAnchorCompiler {
               greedy);
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
+        if (bitmap == null) {
+          return null;
+        }
         return new MultiAnchorDescriptor.Gap(
             MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
             1,
@@ -1742,6 +1785,9 @@ final class MultiAnchorCompiler {
               MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, re.min, max, null, greedy);
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
+        if (bitmap == null) {
+          return null;
+        }
         return new MultiAnchorDescriptor.Gap(
             MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, re.min, max, bitmap, greedy);
       }
@@ -1764,6 +1810,9 @@ final class MultiAnchorCompiler {
               MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 0, 1, null, greedy);
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
+        if (bitmap == null) {
+          return null;
+        }
         return new MultiAnchorDescriptor.Gap(
             MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 0, 1, bitmap, greedy);
       }
@@ -1773,6 +1822,9 @@ final class MultiAnchorCompiler {
             MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 1, 1, null, true);
       }
       AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(re.charClass);
+      if (bitmap == null) {
+        return null;
+      }
       return new MultiAnchorDescriptor.Gap(
           MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 1, 1, bitmap, true);
     }

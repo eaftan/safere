@@ -50,6 +50,27 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void multiAnchorLogChainExtracted() {
+    Regexp ast =
+        Parser.parse(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash", Pattern.toParseFlags(0));
+    MultiAnchorDescriptor descriptor = MultiAnchorCompiler.compile(ast, 0);
+
+    assertThat(descriptor).isNotNull();
+    assertThat(descriptor.segments()).hasSize(4);
+    assertThat(descriptor.isExecutableChain()).isTrue();
+
+    Pattern pattern = Pattern.compile(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    MultiAnchorExecutor.Result res =
+        MultiAnchorExecutor.find(
+            pattern.multiAnchor(),
+            "2026-08-27 12:00:00 [worker-1] error:[CRITICAL] code:500 msg:crash\n",
+            0);
+    assertThat(res.isMatched()).isTrue();
+  }
+
+  @Test
   void fixedOffsetLiteralExtracted() {
     Regexp ast = Parser.parse("[0-9]{4}-[0-9]{2}-target", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.StartPlan start = MultiAnchorCompiler.extractStartPlan(ast);

@@ -123,6 +123,7 @@
                         <exclude name="MatcherTransitionInventoryTest.java"/>
                         <exclude name="MatchDescriptorTest.java"/>
                         <exclude name="MultiAnchorCompilerTest.java"/>
+                        <exclude name="MultiAnchorGapEngineTest.java"/>
                         <exclude name="MultiLiteralTest.java"/>
                         <exclude name="NfaTest.java"/>
                         <exclude name="OnePassTest.java"/>

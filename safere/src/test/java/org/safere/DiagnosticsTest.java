@@ -729,6 +729,39 @@ class DiagnosticsTest {
     assertThat(counts.get(MatchStrategy.LITERAL).sum()).isEqualTo(64);
   }
 
+  @Test
+  void multiAnchorChainsBypassDfaEntirely() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash");
+    String input = "2026-08-27 12:00:00 [worker-1] error:[CRITICAL] code:500 msg:crash\n";
+    Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.MULTI_ANCHOR);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+            });
+  }
+
+  @Test
+  void multiAnchorNegativeShortCircuitBypassesDfa() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash");
+    String input = "2026-08-27 12:00:00 [worker-1] error:[NORMAL] code:200 msg:ok\n";
+    Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isFalse();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.forwardDfaSearchCount()).isZero();
+            });
+  }
+
   private List<OperationDiagnostics> operationsFor(Pattern pattern) {
     long patternId = pattern.descriptor().patternId();
     return diagnostics.operations.stream()
