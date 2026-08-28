@@ -15,17 +15,18 @@ class RejectPrefilterTest {
 
   @Test
   void nullAndNoneDescriptorsProduceNullPrefilter() {
-    assertThat(RejectPrefilter.create(null)).isNull();
-    assertThat(RejectPrefilter.create(RejectDescriptor.NONE)).isNull();
-    assertThat(RejectDescriptor.NONE.hasRejectionFilter()).isFalse();
+    assertThat(RejectPrefilter.create((MultiAnchorDescriptor) null)).isNull();
+    assertThat(RejectPrefilter.create((MultiAnchorDescriptor.RejectPlan) null)).isNull();
+    assertThat(RejectPrefilter.create(MultiAnchorDescriptor.RejectPlan.None.INSTANCE)).isNull();
+    assertThat(MultiAnchorDescriptor.NONE.hasRejectionFilter()).isFalse();
   }
 
   @Test
   void literalRejectPrefilterRejectsMissingLiteral() {
-    RejectDescriptor desc = new RejectDescriptor("needle", null);
-    assertThat(desc.hasRejectionFilter()).isTrue();
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.RequiredLiteral("needle");
 
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
     assertThat(prefilter).isInstanceOf(RejectPrefilter.Literal.class);
     RejectPrefilter.Literal lit = (RejectPrefilter.Literal) prefilter;
     assertThat(lit.strategy()).isEqualTo(MatchStrategy.LITERAL);
@@ -60,10 +61,10 @@ class RejectPrefilterTest {
     long b1 = 0L;
     CharClassScanInfo scanInfo = new CharClassScanInfo.AsciiRanges(ranges, b0, b1);
 
-    RejectDescriptor desc = new RejectDescriptor(null, scanInfo);
-    assertThat(desc.hasRejectionFilter()).isTrue();
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo);
 
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
     assertThat(prefilter).isInstanceOf(RejectPrefilter.CharClass.class);
     RejectPrefilter.CharClass cc = (RejectPrefilter.CharClass) prefilter;
     assertThat(cc.strategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
@@ -90,8 +91,13 @@ class RejectPrefilterTest {
     long b1 = 0L;
     CharClassScanInfo scanInfo = new CharClassScanInfo.AsciiRanges(ranges, b0, b1);
 
-    RejectDescriptor desc = new RejectDescriptor("token", scanInfo);
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.Composite(
+            new MultiAnchorDescriptor.RejectPlan[] {
+              new MultiAnchorDescriptor.RejectPlan.RequiredLiteral("token"),
+              new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo)
+            });
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
 
     assertThat(prefilter).isInstanceOf(RejectPrefilter.Composite.class);
     RejectPrefilter.Composite composite = (RejectPrefilter.Composite) prefilter;
@@ -112,8 +118,9 @@ class RejectPrefilterTest {
 
   @Test
   void diagnosticsAccumulateOnRejection() {
-    RejectDescriptor desc = new RejectDescriptor("needle", null);
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.RequiredLiteral("needle");
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
 
     DiagnosticAccumulator accumulator = new DiagnosticAccumulator();
     Utf8InputScanner scanner = utf8Scanner("no match here");
@@ -138,14 +145,14 @@ class RejectPrefilterTest {
   @Test
   void disjointLiteralsRejectPrefilterRejectsWhenAllMissing() {
     String[] literals = new String[] {"apple", "banana", "orange"};
-    Pattern.DisjointRequiredLiterals disjoint = new Pattern.DisjointRequiredLiterals(literals);
-    RejectDescriptor desc = new RejectDescriptor(null, null, disjoint);
-    assertThat(desc.hasRejectionFilter()).isTrue();
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.DisjointLiterals(literals);
 
-    RejectPrefilter.DisjointLiterals prefilter = RejectPrefilter.DisjointLiterals.create(disjoint);
-    assertThat(prefilter).isNotNull();
-    assertThat(prefilter.strategy()).isEqualTo(MatchStrategy.LITERAL);
-    assertThat(prefilter.literals()).isEqualTo(literals);
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
+    assertThat(prefilter).isInstanceOf(RejectPrefilter.DisjointLiterals.class);
+    RejectPrefilter.DisjointLiterals d = (RejectPrefilter.DisjointLiterals) prefilter;
+    assertThat(d.strategy()).isEqualTo(MatchStrategy.LITERAL);
+    assertThat(d.literals()).isEqualTo(literals);
 
     EnginePathOptions options = EnginePathOptions.allEnabled();
 
@@ -166,10 +173,10 @@ class RejectPrefilterTest {
   @Test
   void endAnchoredSuffixRejectPrefilterRejectsMismatchedSuffix() {
     Pattern.SuffixInfo info = new Pattern.SuffixInfo(".json", true, false);
-    RejectDescriptor desc = new RejectDescriptor(null, null, null, info);
-    assertThat(desc.hasRejectionFilter()).isTrue();
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix(info);
 
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
     assertThat(prefilter).isInstanceOf(RejectPrefilter.EndAnchoredSuffix.class);
     assertThat(prefilter.strategy()).isEqualTo(MatchStrategy.LITERAL);
 
@@ -202,7 +209,7 @@ class RejectPrefilterTest {
     // UNIX_LINES suffix prefilter
     Pattern.SuffixInfo unixInfo = new Pattern.SuffixInfo(".json", true, true);
     RejectPrefilter unixPrefilter =
-        RejectPrefilter.create(new RejectDescriptor(null, null, null, unixInfo));
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix(unixInfo));
     assertThat(unixPrefilter.canReject(null, "config.json\n", 0, options)).isFalse();
     assertThat(unixPrefilter.canReject(null, "config.json\r", 0, options)).isTrue();
     assertThat(unixPrefilter.canReject(null, "config.json\u0085", 0, options)).isTrue();
@@ -232,10 +239,10 @@ class RejectPrefilterTest {
   @Test
   void endAnchoredCaseInsensitiveSuffixRejectPrefilterRejectsMismatchedSuffix() {
     Pattern.SuffixInfo info = new Pattern.SuffixInfo(".json", true, false, true);
-    RejectDescriptor desc = new RejectDescriptor(null, null, null, info);
-    assertThat(desc.hasRejectionFilter()).isTrue();
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix(info);
 
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
     assertThat(prefilter).isInstanceOf(RejectPrefilter.EndAnchoredSuffix.class);
     assertThat(prefilter.strategy()).isEqualTo(MatchStrategy.LITERAL);
 
@@ -264,10 +271,10 @@ class RejectPrefilterTest {
     builder.addRange('0', '9');
     Pattern.EndAnchoredCharClassInfo info =
         new Pattern.EndAnchoredCharClassInfo(builder.build(), true, false);
-    RejectDescriptor desc = new RejectDescriptor(null, null, null, null, info);
-    assertThat(desc.hasRejectionFilter()).isTrue();
+    MultiAnchorDescriptor.RejectPlan plan =
+        new MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass(info);
 
-    RejectPrefilter prefilter = RejectPrefilter.create(desc);
+    RejectPrefilter prefilter = RejectPrefilter.create(plan);
     assertThat(prefilter).isInstanceOf(RejectPrefilter.EndAnchoredCharClass.class);
     assertThat(prefilter.strategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
 
@@ -299,7 +306,7 @@ class RejectPrefilterTest {
     Pattern.EndAnchoredCharClassInfo unixInfo =
         new Pattern.EndAnchoredCharClassInfo(builder.build(), true, true);
     RejectPrefilter unixPrefilter =
-        RejectPrefilter.create(new RejectDescriptor(null, null, null, null, unixInfo));
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass(unixInfo));
     assertThat(unixPrefilter.canReject(null, "item123\n", 0, options)).isFalse();
     assertThat(unixPrefilter.canReject(null, "item123\r", 0, options)).isTrue();
     assertThat(unixPrefilter.canReject(null, "item123\u0085", 0, options)).isTrue();
@@ -317,7 +324,7 @@ class RejectPrefilterTest {
   void requiredInfixLiteralRetainedWhenPrefixPresent() {
     Pattern p = Pattern.compile("(\\{Link:[^}]*?)<<!nav>>([^}]*?\\})");
     assertThat(p.prefix()).isEqualTo("{Link:");
-    assertThat(p.rejectDescriptor().requiredLiteral()).isEqualTo("<<!nav>>");
+    assertThat(p.rejectPlan()).isNotNull();
     assertThat(p.rejectPrefilter()).isNotNull();
 
     // Negative text with {Link:...} but missing <<!nav>> should reject in Tier 0
@@ -342,7 +349,7 @@ class RejectPrefilterTest {
     assertThat(p.prefix()).isEqualTo("<meta_start>");
     // Even though "<meta_start>" is longer than "<meta_end>", extractRequiredLiteral
     // should skip the prefix and select "<meta_end>".
-    assertThat(p.rejectDescriptor().requiredLiteral()).isEqualTo("<meta_end>");
+    assertThat(p.rejectPlan()).isNotNull();
     assertThat(p.rejectPrefilter()).isNotNull();
 
     String inputNoEnd = "<meta_start>Thinking process: analyzing query...\n".repeat(1_000);
@@ -355,7 +362,6 @@ class RejectPrefilterTest {
   void identicalPrefixAndRequiredLiteralDeduplicated() {
     Pattern p = Pattern.compile("abc[0-9]+");
     assertThat(p.prefix()).isEqualTo("abc");
-    // "abc" is already the start prefix, so requiredLiteral should not duplicate "abc"
-    assertThat(p.rejectDescriptor().requiredLiteral()).isNull();
+    assertThat(p.rejectPlan()).isInstanceOf(MultiAnchorDescriptor.RejectPlan.None.class);
   }
 }

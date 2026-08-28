@@ -19,11 +19,10 @@ class MultiLiteralTest {
   @Test
   void patternMetadataFollowsVectorProviderAvailability() {
     Pattern pattern = Pattern.compile("apple|banana|cherry");
+    assertThat(pattern.startPlan())
+        .isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
 
-    if (!VectorScanProviders.multiLiteralProviderAvailable()) {
-      assertThat(pattern.multiLiteral()).isNull();
-    } else {
-      assertThat(pattern.multiLiteral()).isNotNull();
+    if (VectorScanProviders.multiLiteralProviderAvailable()) {
       assertThat(VectorScanProviders.providerForLength(64)).isNull();
       assertThat(VectorScanProviders.providerForMultiLiteralLength(64)).isNotNull();
       assertThat(VectorScanProviders.providerForLength(1024)).isNotNull();
@@ -74,7 +73,8 @@ class MultiLiteralTest {
   @Test
   void testFivePlusLiteralsFallbackToCharClass() {
     Pattern pattern = Pattern.compile("apple|banana|cherry|date|fig");
-    assertThat(pattern.multiLiteral()).isNull();
+    assertThat(pattern.startPlan())
+        .isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
 
     String haystack = "prefix date suffix";
     Utf8Matcher m = pattern.matcher(Utf8Input.validated(haystack.getBytes(UTF_8)));
@@ -119,9 +119,7 @@ class MultiLiteralTest {
     String[] keywords = {"alpha", "beta", "gamma", "delta"};
     String regex = String.join("|", keywords);
     Pattern safere = Pattern.compile(regex);
-    if (VectorScanProviders.multiLiteralProviderAvailable()) {
-      assertThat(safere.multiLiteral()).isNotNull();
-    }
+    assertThat(safere.startPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
     java.util.regex.Pattern jre = java.util.regex.Pattern.compile(regex);
 
     Random rnd = new Random(42);

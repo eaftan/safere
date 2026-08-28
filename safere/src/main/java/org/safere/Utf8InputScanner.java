@@ -215,10 +215,16 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
   }
 
   boolean startsWith(byte[] prefix, int startPos) {
+    return startsWith(prefix, startPos, false);
+  }
+
+  boolean startsWith(byte[] prefix, int startPos, boolean foldCase) {
     int prefixLen = prefix.length;
     if (startPos >= 0 && length - startPos >= prefixLen) {
       int start = offset + startPos;
-      if (Arrays.equals(bytes, start, start + prefixLen, prefix, 0, prefixLen)) {
+      if (foldCase
+          ? equalsFoldCase(bytes, start, prefix, 0, prefixLen)
+          : Arrays.equals(bytes, start, start + prefixLen, prefix, 0, prefixLen)) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record(prefixLen);
         }
