@@ -146,4 +146,61 @@ class MultiAnchorGapEngineTest {
     }
     assertThat(safereMatcher.find()).isFalse();
   }
+
+  @Test
+  void fixedOffsetPrefixSingleAnchor() {
+    String regex = "[0-9]{4}-target";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "noise 2026-target intermediate 1999-target trailing";
+    Matcher matcher = pattern.matcher(text);
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("2026-target");
+    assertThat(matcher.start()).isEqualTo(6);
+    assertThat(matcher.end()).isEqualTo(17);
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("1999-target");
+    assertThat(matcher.start()).isEqualTo(31);
+    assertThat(matcher.end()).isEqualTo(42);
+
+    assertThat(matcher.find()).isFalse();
+  }
+
+  @Test
+  void singleAnchorWithTrailingClass() {
+    String regex = "foo[0-9]+";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "bar foo12345 baz foo999 end";
+    Matcher matcher = pattern.matcher(text);
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("foo12345");
+    assertThat(matcher.start()).isEqualTo(4);
+    assertThat(matcher.end()).isEqualTo(12);
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("foo999");
+    assertThat(matcher.start()).isEqualTo(17);
+    assertThat(matcher.end()).isEqualTo(23);
+
+    assertThat(matcher.find()).isFalse();
+  }
+
+  @Test
+  void suffixAnchorSingleAnchor() {
+    String regex = ".*\\.json$";
+    Pattern pattern = Pattern.compile(regex);
+
+    String valid = "config/settings.json";
+    Matcher m1 = pattern.matcher(valid);
+    assertThat(m1.find()).isTrue();
+    assertThat(m1.group(0)).isEqualTo(valid);
+
+    String invalid = "config/settings.xml";
+    Matcher m2 = pattern.matcher(invalid);
+    assertThat(m2.find()).isFalse();
+  }
 }

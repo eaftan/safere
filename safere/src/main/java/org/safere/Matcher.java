@@ -1674,7 +1674,6 @@ public final class Matcher implements MatchResult {
     // Multi-Anchor Gap Engine: for unanchored multi-segment chains (A₁ G₁ A₂ ... Aₖ),
     // sequentially locate anchors via SIMD hops and verify intervening gap invariants.
     if (options.multiAnchorGapEngine()
-        && parentPattern.numGroups() == 0
         && !prog.anchorStart()
         && parentPattern.multiAnchor().isExecutableChain()) {
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
@@ -1683,7 +1682,10 @@ public final class Matcher implements MatchResult {
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
-          return applyGroupZeroMatchResult(res.start(), res.end());
+          if (prog.numCaptures() <= 1) {
+            return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
         }
         if (res.isDefiniteMismatch()) {
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
@@ -1695,7 +1697,10 @@ public final class Matcher implements MatchResult {
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
-          return applyGroupZeroMatchResult(res.start(), res.end());
+          if (prog.numCaptures() <= 1) {
+            return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
         }
         if (res.isDefiniteMismatch()) {
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);

@@ -32,10 +32,11 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
       int[] checkOrder,
       int minTotalLength,
       boolean isStartAnchored,
-      boolean isEndAnchored) {
+      boolean isEndAnchored,
+      boolean isCompleteChain) {
 
     public static final Chain EMPTY =
-        new Chain(new Segment[0], Gap.EMPTY, new int[0], 0, false, false);
+        new Chain(new Segment[0], Gap.EMPTY, new int[0], 0, false, false, false);
 
     public Chain {
       Objects.requireNonNull(segments, "segments");
@@ -56,7 +57,8 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           checkOrder,
           minTotalLength,
           isStartAnchored,
-          isEndAnchored);
+          isEndAnchored,
+          true);
     }
 
     Chain(Segment[] segments, Gap trailingGap, int minTotalLength, boolean isStartAnchored) {
@@ -66,6 +68,7 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
           defaultOrder(segments.length),
           minTotalLength,
           isStartAnchored,
+          false,
           false);
     }
   }
@@ -192,9 +195,26 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
       int minTotalLength,
       boolean isStartAnchored,
       boolean isEndAnchored) {
+    this(segments, trailingGap, checkOrder, minTotalLength, isStartAnchored, isEndAnchored, false);
+  }
+
+  MultiAnchorDescriptor(
+      Segment[] segments,
+      Gap trailingGap,
+      int[] checkOrder,
+      int minTotalLength,
+      boolean isStartAnchored,
+      boolean isEndAnchored,
+      boolean isCompleteChain) {
     this(
         new Chain(
-            segments, trailingGap, checkOrder, minTotalLength, isStartAnchored, isEndAnchored),
+            segments,
+            trailingGap,
+            checkOrder,
+            minTotalLength,
+            isStartAnchored,
+            isEndAnchored,
+            isCompleteChain),
         StartPlan.None.INSTANCE,
         RejectPlan.None.INSTANCE);
   }
@@ -213,7 +233,8 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
             checkOrder,
             minTotalLength,
             isStartAnchored,
-            isEndAnchored),
+            isEndAnchored,
+            true),
         StartPlan.None.INSTANCE,
         RejectPlan.None.INSTANCE);
   }
@@ -227,6 +248,7 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
             defaultOrder(segments.length),
             minTotalLength,
             isStartAnchored,
+            false,
             false),
         StartPlan.None.INSTANCE,
         RejectPlan.None.INSTANCE);
@@ -387,14 +409,28 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
   }
 
   boolean isExecutableChain() {
-    if (chain.segments().length < 2) {
+    if (!chain.isCompleteChain()) {
       return false;
     }
-    for (Segment segment : chain.segments()) {
-      if (!(segment.anchor() instanceof Anchor.Single)
-          && !(segment.anchor() instanceof Anchor.Alternation)
-          && !(segment.anchor() instanceof Anchor.CharClass)) {
+    int n = chain.segments().length;
+    if (n < 1) {
+      return false;
+    }
+    if (n == 1) {
+      Anchor anchor = chain.segments()[0].anchor();
+      if (!(anchor instanceof Anchor.Single) && !(anchor instanceof Anchor.Alternation)) {
         return false;
+      }
+      if (anchor.minLength() < 2) {
+        return false;
+      }
+    } else {
+      for (Segment segment : chain.segments()) {
+        if (!(segment.anchor() instanceof Anchor.Single)
+            && !(segment.anchor() instanceof Anchor.Alternation)
+            && !(segment.anchor() instanceof Anchor.CharClass)) {
+          return false;
+        }
       }
     }
     return true;

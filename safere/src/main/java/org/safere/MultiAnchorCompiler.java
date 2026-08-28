@@ -130,7 +130,8 @@ final class MultiAnchorCompiler {
                 new int[0],
                 0,
                 anchorStart,
-                anchorEnd);
+                anchorEnd,
+                false);
 
     MultiAnchorDescriptor.StartPlan startPlan = extractStartPlan(re);
     MultiAnchorDescriptor.RejectPlan rejectPlan =
