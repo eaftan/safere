@@ -75,27 +75,36 @@ final class MultiAnchorCompiler {
   @SuppressWarnings("ArrayRecordComponent")
   record RejectFacets(
       String bestRequiredLiteral,
+      int bestRequiredLiteralScore,
       CharClass bestRequiredClass,
       String[] disjointRequiredLiterals,
       Pattern.SuffixInfo endAnchoredSuffix,
       Pattern.EndAnchoredCharClassInfo endAnchoredCharClass) {
 
-    static final RejectFacets EMPTY = new RejectFacets(null, null, null, null, null);
+    static final RejectFacets EMPTY = new RejectFacets(null, 0, null, null, null, null);
   }
 
-  record NodeAnalysis(AsciiWidthRange width, StartFacets start, RejectFacets reject) {
+  record NodeAnalysis(
+      AsciiWidthRange width,
+      StartFacets start,
+      RejectFacets reject,
+      CharClass atomicRequiredClass) {
 
     static final NodeAnalysis EMPTY =
-        new NodeAnalysis(AsciiWidthRange.ZERO, StartFacets.EMPTY, RejectFacets.EMPTY);
+        new NodeAnalysis(AsciiWidthRange.ZERO, StartFacets.EMPTY, RejectFacets.EMPTY, null);
   }
 
   private MultiAnchorCompiler() {}
 
   static NodeAnalysis analyze(Regexp re) {
+    return analyze(re, 0);
+  }
+
+  private static NodeAnalysis analyze(Regexp re, int flags) {
     if (re == null) {
       return NodeAnalysis.EMPTY;
     }
-    return new MultiAnchorWalker().walk(re, NodeAnalysis.EMPTY);
+    return new MultiAnchorWalker(re, flags).walk(re, NodeAnalysis.EMPTY);
   }
 
   static MultiAnchorDescriptor compile(Regexp re, int flags) {
@@ -328,7 +337,7 @@ final class MultiAnchorCompiler {
     if (metadataAst == null) {
       return MultiAnchorDescriptor.RejectPlan.None.INSTANCE;
     }
-    NodeAnalysis analysis = analyze(metadataAst);
+    NodeAnalysis analysis = analyze(metadataAst, flags);
     RejectFacets reject = analysis.reject();
 
     List<MultiAnchorDescriptor.RejectPlan> plans = new ArrayList<>();
@@ -410,37 +419,48 @@ final class MultiAnchorCompiler {
 
   private static final class MultiAnchorWalker extends Walker<NodeAnalysis> {
 
+    private final int flags;
+    private final Regexp fullAnalysisRoot;
+
+    MultiAnchorWalker(Regexp root, int flags) {
+      this.flags = flags;
+      fullAnalysisRoot = unwrapCaptures(root);
+    }
+
     @Override
     protected NodeAnalysis postVisit(
         Regexp node, NodeAnalysis parentArg, NodeAnalysis preArg, List<NodeAnalysis> childArgs) {
-      return switch (node.op) {
-        case CAPTURE, NON_CAPTURE ->
-            childArgs.isEmpty() ? NodeAnalysis.EMPTY : childArgs.getFirst();
-        case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY, BEGIN_TEXT, END_TEXT, END_LINE ->
-            NodeAnalysis.EMPTY;
-        case BEGIN_LINE ->
-            new NodeAnalysis(
-                AsciiWidthRange.ZERO,
-                new StartFacets(
-                    PrefixResult.NO_PREFIX,
-                    null,
-                    null,
-                    new Pattern.StartAcceleration(true, false, null),
-                    PrefixResult.NO_PREFIX,
-                    null,
-                    null),
-                RejectFacets.EMPTY);
-        case LITERAL -> visitLiteral(node);
-        case LITERAL_STRING -> visitLiteralString(node);
-        case CHAR_CLASS -> visitCharClass(node);
-        case CONCAT -> visitConcat(node, childArgs);
-        case ALTERNATE -> visitAlternate(node, childArgs);
-        case QUEST -> visitQuest(childArgs);
-        case STAR -> visitStar();
-        case PLUS -> visitPlus(childArgs);
-        case REPEAT -> visitRepeat(node, childArgs);
-        default -> NodeAnalysis.EMPTY;
-      };
+      NodeAnalysis analysis =
+          switch (node.op) {
+            case CAPTURE, NON_CAPTURE ->
+                childArgs.isEmpty() ? NodeAnalysis.EMPTY : childArgs.getFirst();
+            case EMPTY_MATCH, WORD_BOUNDARY, NO_WORD_BOUNDARY, BEGIN_TEXT, END_TEXT, END_LINE ->
+                NodeAnalysis.EMPTY;
+            case BEGIN_LINE ->
+                new NodeAnalysis(
+                    AsciiWidthRange.ZERO,
+                    new StartFacets(
+                        PrefixResult.NO_PREFIX,
+                        null,
+                        null,
+                        new Pattern.StartAcceleration(true, false, null),
+                        PrefixResult.NO_PREFIX,
+                        null,
+                        null),
+                    RejectFacets.EMPTY,
+                    null);
+            case LITERAL -> visitLiteral(node);
+            case LITERAL_STRING -> visitLiteralString(node);
+            case CHAR_CLASS -> visitCharClass(node);
+            case CONCAT -> visitConcat(node, childArgs, node == fullAnalysisRoot);
+            case ALTERNATE -> visitAlternate(node, childArgs);
+            case QUEST -> visitQuest(childArgs);
+            case STAR -> visitStar();
+            case PLUS -> visitPlus(childArgs);
+            case REPEAT -> visitRepeat(node, childArgs);
+            default -> NodeAnalysis.EMPTY;
+          };
+      return node == fullAnalysisRoot ? withRootCharClassPrefix(node, analysis) : analysis;
     }
 
     @Override
@@ -466,7 +486,14 @@ final class MultiAnchorCompiler {
       return new NodeAnalysis(
           width,
           new StartFacets(prefix, ccPrefix, null, null, prefix, ccPrefix, null),
-          new RejectFacets(reqLit, reqClass, null, null, null));
+          new RejectFacets(
+              reqLit,
+              reqLit != null ? RarityOracle.literalSelectivityScore(reqLit) : 0,
+              reqClass,
+              null,
+              null,
+              null),
+          reqClass);
     }
 
     private static NodeAnalysis visitLiteralString(Regexp node) {
@@ -489,7 +516,14 @@ final class MultiAnchorCompiler {
       return new NodeAnalysis(
           width,
           new StartFacets(prefix, ccPrefix, null, null, prefix, ccPrefix, null),
-          new RejectFacets(reqLit, reqClass, null, null, null));
+          new RejectFacets(
+              reqLit,
+              reqLit != null ? RarityOracle.literalSelectivityScore(reqLit) : 0,
+              reqClass,
+              null,
+              null,
+              null),
+          reqClass);
     }
 
     private static NodeAnalysis visitCharClass(Regexp node) {
@@ -507,10 +541,12 @@ final class MultiAnchorCompiler {
       return new NodeAnalysis(
           width,
           new StartFacets(prefix, ccPrefix, null, null, prefix, ccPrefix, null),
-          new RejectFacets(null, (cc != null && !cc.isEmpty()) ? cc : null, null, null, null));
+          new RejectFacets(null, 0, (cc != null && !cc.isEmpty()) ? cc : null, null, null, null),
+          cc != null && !cc.isEmpty() ? cc : null);
     }
 
-    private static NodeAnalysis visitConcat(Regexp node, List<NodeAnalysis> children) {
+    private NodeAnalysis visitConcat(
+        Regexp node, List<NodeAnalysis> children, boolean fullAnalysis) {
       if (children.isEmpty()) {
         return NodeAnalysis.EMPTY;
       }
@@ -520,14 +556,15 @@ final class MultiAnchorCompiler {
       }
       AsciiWidthRange width = concatenateWidths(widths);
 
+      if (!fullAnalysis) {
+        return visitNestedConcat(node, children, width);
+      }
+
       // Prefix
       PrefixResult prefix = extractPrefix(node);
 
       // Fixed-offset literal
       FixedOffsetLiteral fol = extractFixedOffsetLiteral(node);
-
-      // CharClass prefix
-      CharClassScanInfo ccPrefix = extractCharClassPrefix(node);
 
       // Best required literal across concat
       String exactLit = extractExactAsciiLiteral(node);
@@ -536,7 +573,7 @@ final class MultiAnchorCompiler {
       for (NodeAnalysis c : children) {
         String childReq = c.reject().bestRequiredLiteral();
         if (childReq != null && childReq.length() >= 2) {
-          int score = RarityOracle.literalSelectivityScore(childReq);
+          int score = c.reject().bestRequiredLiteralScore();
           if (bestReqLit == null || score > bestReqScore) {
             bestReqLit = childReq;
             bestReqScore = score;
@@ -570,8 +607,8 @@ final class MultiAnchorCompiler {
       }
 
       // End-anchored suffix & char class
-      Pattern.SuffixInfo endSuffix = extractEndAnchoredSuffix(node, 0);
-      Pattern.EndAnchoredCharClassInfo endClass = extractEndAnchoredCharClass(node, 0);
+      Pattern.SuffixInfo endSuffix = extractEndAnchoredSuffix(node, flags);
+      Pattern.EndAnchoredCharClassInfo endClass = extractEndAnchoredCharClass(node, flags);
 
       // Start acceleration
       Pattern.StartAcceleration startAcc = extractStartAcceleration(node);
@@ -586,11 +623,66 @@ final class MultiAnchorCompiler {
           anchoredCandidate != null ? extractCharClassPrefix(anchoredCandidate) : null;
 
       StartFacets start =
-          new StartFacets(prefix, ccPrefix, fol, startAcc, anchoredPrefix, anchoredCc, null);
+          new StartFacets(prefix, null, fol, startAcc, anchoredPrefix, anchoredCc, null);
       RejectFacets reject =
-          new RejectFacets(bestReqLit, bestReqClass, disjoint, endSuffix, endClass);
+          new RejectFacets(bestReqLit, bestReqScore, bestReqClass, disjoint, endSuffix, endClass);
 
-      return new NodeAnalysis(width, start, reject);
+      return new NodeAnalysis(width, start, reject, null);
+    }
+
+    private static NodeAnalysis visitNestedConcat(
+        Regexp node, List<NodeAnalysis> children, AsciiWidthRange width) {
+      StartFacets leading = StartFacets.EMPTY;
+      for (int index = 0; index < children.size(); index++) {
+        if (isLeadingZeroWidth(node.subs.get(index))) {
+          continue;
+        }
+        leading = children.get(index).start();
+        break;
+      }
+
+      String bestRequiredLiteral = null;
+      int bestRequiredScore = 0;
+      CharClass bestRequiredClass = null;
+      String[] disjointRequiredLiterals = null;
+      for (NodeAnalysis child : children) {
+        String candidateLiteral = child.reject().bestRequiredLiteral();
+        if (candidateLiteral != null && candidateLiteral.length() >= 2) {
+          int candidateScore = child.reject().bestRequiredLiteralScore();
+          if (bestRequiredLiteral == null || candidateScore > bestRequiredScore) {
+            bestRequiredLiteral = candidateLiteral;
+            bestRequiredScore = candidateScore;
+          }
+        }
+        CharClass candidateClass = child.reject().bestRequiredClass();
+        if (candidateClass != null
+            && (bestRequiredClass == null
+                || candidateClass.numRunes() < bestRequiredClass.numRunes())) {
+          bestRequiredClass = candidateClass;
+        }
+        if (disjointRequiredLiterals == null && child.reject().disjointRequiredLiterals() != null) {
+          disjointRequiredLiterals = child.reject().disjointRequiredLiterals();
+        }
+      }
+
+      StartFacets start =
+          new StartFacets(
+              leading.prefix(),
+              leading.charClassPrefix(),
+              null,
+              leading.startAcceleration(),
+              leading.anchoredPrefix(),
+              leading.anchoredCharClassPrefix(),
+              null);
+      RejectFacets reject =
+          new RejectFacets(
+              bestRequiredLiteral,
+              bestRequiredScore,
+              bestRequiredClass,
+              disjointRequiredLiterals,
+              null,
+              null);
+      return new NodeAnalysis(width, start, reject, null);
     }
 
     private static NodeAnalysis visitAlternate(Regexp node, List<NodeAnalysis> children) {
@@ -606,21 +698,46 @@ final class MultiAnchorCompiler {
       // Literal alternation
       String[] litAlt = extractLiteralAlternation(node);
 
-      // Char class prefix
-      CharClassScanInfo ccPrefix = extractCharClassPrefix(node);
-
       // Required match class across branches
-      CharClass reqClass = requiredCharClass(node, true);
+      CharClass reqClass = unionRequiredCharClasses(children);
 
       // Disjoint required literals from branches
       String[] disjoint = combineDisjointRequiredLiterals(children);
 
       StartFacets start =
           new StartFacets(
-              PrefixResult.NO_PREFIX, ccPrefix, null, null, PrefixResult.NO_PREFIX, null, litAlt);
-      RejectFacets reject = new RejectFacets(null, reqClass, disjoint, null, null);
+              PrefixResult.NO_PREFIX, null, null, null, PrefixResult.NO_PREFIX, null, litAlt);
+      RejectFacets reject = new RejectFacets(null, 0, reqClass, disjoint, null, null);
 
-      return new NodeAnalysis(width, start, reject);
+      return new NodeAnalysis(width, start, reject, null);
+    }
+
+    private static NodeAnalysis withRootCharClassPrefix(Regexp node, NodeAnalysis analysis) {
+      StartFacets start = analysis.start();
+      StartFacets completed =
+          new StartFacets(
+              start.prefix(),
+              extractCharClassPrefix(node),
+              start.fixedOffsetLiteral(),
+              start.startAcceleration(),
+              start.anchoredPrefix(),
+              start.anchoredCharClassPrefix(),
+              start.literalAlternation());
+      return new NodeAnalysis(
+          analysis.width(), completed, analysis.reject(), analysis.atomicRequiredClass());
+    }
+
+    private static CharClass unionRequiredCharClasses(List<NodeAnalysis> children) {
+      CharClassBuilder union = new CharClassBuilder();
+      for (NodeAnalysis child : children) {
+        CharClass required = child.atomicRequiredClass();
+        if (required == null) {
+          return null;
+        }
+        union.addCharClass(required);
+      }
+      CharClass result = union.build();
+      return result.isEmpty() ? null : result;
     }
 
     private static NodeAnalysis visitQuest(List<NodeAnalysis> children) {
@@ -629,11 +746,11 @@ final class MultiAnchorCompiler {
       }
       AsciiWidthRange width =
           AsciiWidthRangeWalker.optionalWidth(List.of(children.getFirst().width()));
-      return new NodeAnalysis(width, StartFacets.EMPTY, RejectFacets.EMPTY);
+      return new NodeAnalysis(width, StartFacets.EMPTY, RejectFacets.EMPTY, null);
     }
 
     private static NodeAnalysis visitStar() {
-      return new NodeAnalysis(AsciiWidthRange.INVALID, StartFacets.EMPTY, RejectFacets.EMPTY);
+      return new NodeAnalysis(AsciiWidthRange.INVALID, StartFacets.EMPTY, RejectFacets.EMPTY, null);
     }
 
     private static NodeAnalysis visitPlus(List<NodeAnalysis> children) {
@@ -654,11 +771,12 @@ final class MultiAnchorCompiler {
       RejectFacets reject =
           new RejectFacets(
               child.reject().bestRequiredLiteral(),
+              child.reject().bestRequiredLiteralScore(),
               child.reject().bestRequiredClass(),
               null,
               null,
               null);
-      return new NodeAnalysis(width, start, reject);
+      return new NodeAnalysis(width, start, reject, child.atomicRequiredClass());
     }
 
     private static NodeAnalysis visitRepeat(Regexp node, List<NodeAnalysis> children) {
@@ -682,12 +800,14 @@ final class MultiAnchorCompiler {
           node.min > 0
               ? new RejectFacets(
                   child.reject().bestRequiredLiteral(),
+                  child.reject().bestRequiredLiteralScore(),
                   child.reject().bestRequiredClass(),
                   null,
                   null,
                   null)
               : RejectFacets.EMPTY;
-      return new NodeAnalysis(width, start, reject);
+      return new NodeAnalysis(
+          width, start, reject, node.min > 0 ? child.atomicRequiredClass() : null);
     }
   }
 
@@ -949,25 +1069,6 @@ final class MultiAnchorCompiler {
         segments, gaps.get(numAnchors), checkOrder, minTotalLength, anchorStart, anchorEnd);
   }
 
-  private static MultiAnchorDescriptor.Anchor extractTailAnchor(Regexp tail, int flags) {
-    if (tail == null) {
-      return null;
-    }
-    PrefixResult prefix = extractPrefix(tail);
-    if (prefix.prefix() != null) {
-      return MultiAnchorDescriptor.Anchor.Single.create(prefix.prefix(), prefix.foldCase());
-    }
-    MultiAnchorDescriptor.Anchor.Alternation alt = extractAlternationAnchor(tail, flags);
-    if (alt != null) {
-      return alt;
-    }
-    CharClassScanInfo ccPrefix = extractCharClassPrefix(tail);
-    if (ccPrefix != null) {
-      return MultiAnchorDescriptor.Anchor.CharClass.create(ccPrefix);
-    }
-    return extractLiteralAnchor(tail, flags);
-  }
-
   static MultiAnchorDescriptor extractLeadingExpansion(Regexp re) {
     MultiAnchorDescriptor.StartPlan.LeadingExpansion exp = extractStartLeadingExpansion(re);
     if (exp == null) {
@@ -1118,48 +1219,43 @@ final class MultiAnchorCompiler {
 
     int bestScore = 0;
     MultiAnchorDescriptor.Anchor bestAnchor = null;
-    int bestMinLength = 0;
+    int bestAnchorIdx = -1;
+    boolean prefixConsumes = AstAnalysis.analyze(re.subs.get(startIdx)).minMatchLength() > 0;
+    boolean prefixHasWildcard = containsWildcardOrZeroWidth(re.subs.get(startIdx));
 
-    for (int anchorIdx = startIdx + 1; anchorIdx < re.nsub(); anchorIdx++) {
-      List<Regexp> tailSubs = re.subs.subList(anchorIdx, re.nsub());
-      Regexp tail = tailSubs.size() == 1 ? tailSubs.getFirst() : Regexp.concat(tailSubs, 0);
-
-      MultiAnchorDescriptor.Anchor anchorDesc = extractTailAnchor(tail, flags);
-      if (anchorDesc == null) {
-        continue;
-      }
-      int score = reverseAnchorSelectivityScore(anchorDesc);
-      if (score <= bestScore) {
-        continue;
-      }
-
-      List<Regexp> prefixSubs = re.subs.subList(startIdx, anchorIdx);
-      Regexp prefix = prefixSubs.size() == 1 ? prefixSubs.getFirst() : Regexp.concat(prefixSubs, 0);
-
-      int minPrefixLen = AstAnalysis.analyze(prefix).minMatchLength();
-      if (minPrefixLen < 1) {
-        continue;
-      }
-      if (containsWildcardOrZeroWidth(prefix)) {
-        continue;
+    int anchorIdx = startIdx + 1;
+    while (anchorIdx < re.nsub()) {
+      ConsumedAnchor consumed = extractConsecutiveLiteralAnchor(re.subs, anchorIdx, flags);
+      int consumedCount = consumed != null ? consumed.consumedCount() : 1;
+      if (consumed != null && prefixConsumes && !prefixHasWildcard) {
+        int score = reverseAnchorSelectivityScore(consumed.anchor());
+        if (score > bestScore) {
+          bestScore = score;
+          bestAnchor = consumed.anchor();
+          bestAnchorIdx = anchorIdx;
+        }
       }
 
-      Prog reverseProg = Compiler.compileForDfa(prefix, true);
-      if (reverseProg == null) {
-        continue;
+      int nextAnchorIdx = Math.min(anchorIdx + consumedCount, re.nsub());
+      for (int index = anchorIdx; index < nextAnchorIdx; index++) {
+        Regexp child = re.subs.get(index);
+        prefixConsumes |= AstAnalysis.analyze(child).minMatchLength() > 0;
+        prefixHasWildcard |= containsWildcardOrZeroWidth(child);
       }
-
-      int minTailLen = AstAnalysis.analyze(tail).minMatchLength();
-      int minLength = minPrefixLen + minTailLen;
-
-      bestScore = score;
-      bestAnchor = anchorDesc;
-      bestMinLength = minLength;
+      anchorIdx = nextAnchorIdx;
     }
 
     if (bestAnchor == null) {
       return null;
     }
+
+    List<Regexp> prefixSubs = re.subs.subList(startIdx, bestAnchorIdx);
+    Regexp prefix = prefixSubs.size() == 1 ? prefixSubs.getFirst() : Regexp.concat(prefixSubs, 0);
+    Prog reverseProg = Compiler.compileForDfa(prefix, true);
+    if (reverseProg == null) {
+      return null;
+    }
+    int bestMinLength = AstAnalysis.analyze(re).minMatchLength();
 
     MultiAnchorDescriptor.Gap gap =
         new MultiAnchorDescriptor.Gap(
@@ -1181,30 +1277,31 @@ final class MultiAnchorCompiler {
     if (re == null) {
       return false;
     }
-    return switch (re.op) {
-      case ANY_CHAR,
-          ANY_BYTE,
-          BEGIN_LINE,
-          END_LINE,
-          BEGIN_TEXT,
-          END_TEXT,
-          WORD_BOUNDARY,
-          NO_WORD_BOUNDARY ->
-          true;
-      case STAR, PLUS, QUEST, REPEAT -> containsWildcardOrZeroWidth(re.sub());
-      case CONCAT, ALTERNATE -> {
-        if (re.subs != null) {
-          for (Regexp sub : re.subs) {
-            if (containsWildcardOrZeroWidth(sub)) {
-              yield true;
-            }
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    while (!pending.isEmpty()) {
+      Regexp current = pending.removeLast();
+      switch (current.op) {
+        case ANY_CHAR,
+            ANY_BYTE,
+            BEGIN_LINE,
+            END_LINE,
+            BEGIN_TEXT,
+            END_TEXT,
+            WORD_BOUNDARY,
+            NO_WORD_BOUNDARY -> {
+          return true;
+        }
+        case STAR, PLUS, QUEST, REPEAT, CAPTURE, NON_CAPTURE -> pending.addLast(current.sub());
+        case CONCAT, ALTERNATE -> {
+          if (current.subs != null) {
+            pending.addAll(current.subs);
           }
         }
-        yield false;
+        default -> {}
       }
-      case CAPTURE, NON_CAPTURE -> containsWildcardOrZeroWidth(re.sub());
-      default -> false;
-    };
+    }
+    return false;
   }
 
   private static AsciiBitmap buildAsciiBitmapFromCharClass(CharClass cc) {
@@ -2248,75 +2345,6 @@ final class MultiAnchorCompiler {
       return new Pattern.EndAnchoredCharClassInfo(builder.build(), wasDollar, unixLines);
     }
     return null;
-  }
-
-  private static CharClass requiredCharClass(Regexp re, boolean inspectAlternation) {
-    Regexp node = unwrapRequiredNode(re);
-    if (node == null) {
-      return null;
-    }
-    if (node.op == RegexpOp.LITERAL) {
-      return literalCharClass(node.rune, node.flags);
-    }
-    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
-      return literalCharClass(node.runes[0], node.flags);
-    }
-    if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null) {
-      return node.charClass.isEmpty() ? null : node.charClass;
-    }
-    if (inspectAlternation
-        && node.op == RegexpOp.ALTERNATE
-        && node.subs != null
-        && !node.subs.isEmpty()) {
-      CharClassBuilder union = new CharClassBuilder();
-      for (Regexp branch : node.subs) {
-        CharClass branchClass = requiredAtomicCharClass(branch);
-        if (branchClass == null) {
-          return null;
-        }
-        union.addCharClass(branchClass);
-      }
-      CharClass result = union.build();
-      return result.isEmpty() ? null : result;
-    }
-    return null;
-  }
-
-  private static CharClass requiredAtomicCharClass(Regexp re) {
-    Regexp node = unwrapRequiredNode(re);
-    if (node == null) {
-      return null;
-    }
-    if (node.op == RegexpOp.LITERAL) {
-      return literalCharClass(node.rune, node.flags);
-    }
-    if (node.op == RegexpOp.LITERAL_STRING && node.runes != null && node.runes.length > 0) {
-      return literalCharClass(node.runes[0], node.flags);
-    }
-    if (node.op == RegexpOp.CHAR_CLASS && node.charClass != null && !node.charClass.isEmpty()) {
-      return node.charClass;
-    }
-    return null;
-  }
-
-  private static Regexp unwrapRequiredNode(Regexp re) {
-    Regexp node = re;
-    while (true) {
-      if (node.op == RegexpOp.CAPTURE
-          || node.op == RegexpOp.NON_CAPTURE
-          || node.op == RegexpOp.PLUS) {
-        node = node.sub();
-        continue;
-      }
-      if (node.op == RegexpOp.REPEAT) {
-        if (node.min == 0) {
-          return null;
-        }
-        node = node.sub();
-        continue;
-      }
-      return node;
-    }
   }
 
   private static String extractRequiredLiteral(

@@ -7,7 +7,12 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.safere.MultiAnchorDescriptor.Anchor;
 import org.safere.MultiAnchorDescriptor.Gap;
 import org.safere.MultiAnchorDescriptor.GapKind;
@@ -15,6 +20,7 @@ import org.safere.MultiAnchorDescriptor.RejectPlan;
 import org.safere.MultiAnchorDescriptor.StartPlan;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
+@Isolated
 class MultiAnchorCompilerTest {
 
   @Test
@@ -230,5 +236,185 @@ class MultiAnchorCompilerTest {
     MultiAnchorDescriptor.RejectPlan.DisjointLiterals d =
         (MultiAnchorDescriptor.RejectPlan.DisjointLiterals) reject;
     assertThat(d.literals()).containsExactly("apple", "banana", "cherry");
+  }
+
+  @Test
+  void nestedConcatenationAnalysisScalesLinearly() {
+    Regexp smaller = nestedConcatenation(1_000);
+    Regexp larger = nestedConcatenation(2_000);
+    MultiAnchorCompiler.analyze(smaller);
+    MultiAnchorCompiler.analyze(larger);
+
+    long smallerNanos = medianAnalysisNanos(smaller);
+    long largerNanos = medianAnalysisNanos(larger);
+
+    assertThat(largerNanos)
+        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
+        .isLessThan(smallerNanos * 3);
+  }
+
+  @Test
+  void nestedAlternationAnalysisScalesLinearly() {
+    Regexp smaller = nestedAlternation(1_000);
+    Regexp larger = nestedAlternation(2_000);
+    MultiAnchorCompiler.analyze(smaller);
+    MultiAnchorCompiler.analyze(larger);
+
+    long smallerNanos = medianAnalysisNanos(smaller);
+    long largerNanos = medianAnalysisNanos(larger);
+
+    assertThat(largerNanos)
+        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
+        .isLessThan(smallerNanos * 3);
+  }
+
+  @Test
+  void nestedRequiredLiteralAnalysisScalesLinearly() {
+    Regexp smaller = nestedRequiredLiteral(8_000);
+    Regexp larger = nestedRequiredLiteral(16_000);
+    MultiAnchorCompiler.analyze(smaller);
+    MultiAnchorCompiler.analyze(larger);
+
+    long smallerNanos = medianAnalysisNanos(smaller);
+    long largerNanos = medianAnalysisNanos(larger);
+
+    assertThat(largerNanos)
+        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
+        .isLessThan(smallerNanos * 3);
+  }
+
+  @Test
+  void reverseAnchorAnalysisScalesLinearlyForLongConcatenations() {
+    Regexp smaller = repeatedCharacterClassConcat(4_000);
+    Regexp larger = repeatedCharacterClassConcat(8_000);
+    MultiAnchorCompiler.extractReverseMultiAnchor(smaller, 0, false);
+    MultiAnchorCompiler.extractReverseMultiAnchor(larger, 0, false);
+
+    long smallerNanos = medianReverseAnalysisNanos(smaller);
+    long largerNanos = medianReverseAnalysisNanos(larger);
+
+    assertThat(largerNanos)
+        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
+        .isLessThan(smallerNanos * 3);
+  }
+
+  @Test
+  void reverseAnchorAnalysisIsStackSafeForDeepPrefixes() {
+    Regexp prefix = Regexp.literal('a', 0);
+    for (int index = 0; index < 20_000; index++) {
+      prefix = Regexp.capture(prefix, 0, index + 1, null);
+    }
+    Regexp regexp =
+        Regexp.concat(List.of(prefix, Regexp.literalString(new int[] {'z', 'z'}, 0)), 0);
+
+    MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false);
+  }
+
+  @Test
+  void endRejectPlansRetainUnixLinesMode() {
+    MultiAnchorDescriptor.RejectPlan suffix =
+        Pattern.compile(".*needle$", Pattern.UNIX_LINES).rejectPlan();
+    MultiAnchorDescriptor.RejectPlan characterClass =
+        Pattern.compile(".*[0-9]$", Pattern.UNIX_LINES).rejectPlan();
+
+    assertThat(endAnchoredSuffixes(suffix))
+        .singleElement()
+        .extracting(Pattern.SuffixInfo::unixLines)
+        .isEqualTo(true);
+    assertThat(endAnchoredCharacterClasses(characterClass))
+        .singleElement()
+        .extracting(Pattern.EndAnchoredCharClassInfo::unixLines)
+        .isEqualTo(true);
+  }
+
+  private static List<Pattern.SuffixInfo> endAnchoredSuffixes(
+      MultiAnchorDescriptor.RejectPlan plan) {
+    return rejectPlans(plan)
+        .filter(MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix.class::isInstance)
+        .map(MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix.class::cast)
+        .map(MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix::suffix)
+        .toList();
+  }
+
+  private static List<Pattern.EndAnchoredCharClassInfo> endAnchoredCharacterClasses(
+      MultiAnchorDescriptor.RejectPlan plan) {
+    return rejectPlans(plan)
+        .filter(MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass.class::isInstance)
+        .map(MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass.class::cast)
+        .map(MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass::charClass)
+        .toList();
+  }
+
+  private static Stream<MultiAnchorDescriptor.RejectPlan> rejectPlans(
+      MultiAnchorDescriptor.RejectPlan plan) {
+    if (plan instanceof MultiAnchorDescriptor.RejectPlan.Composite composite) {
+      return Arrays.stream(composite.plans());
+    }
+    return Stream.of(plan);
+  }
+
+  private static Regexp nestedConcatenation(int depth) {
+    Regexp nested = Regexp.literal('z', 0);
+    for (int index = 0; index < depth; index++) {
+      nested =
+          Regexp.concat(
+              List.of(Regexp.literal('a', 0), Regexp.capture(nested, 0, index + 1, null)), 0);
+    }
+    return nested;
+  }
+
+  private static Regexp nestedAlternation(int depth) {
+    Regexp nested = Regexp.literal(0x100, 0);
+    for (int index = 0; index < depth; index++) {
+      nested =
+          Regexp.alternate(
+              List.of(
+                  Regexp.literal(0x102 + index * 2, 0), Regexp.capture(nested, 0, index + 1, null)),
+              0);
+    }
+    return nested;
+  }
+
+  private static Regexp nestedRequiredLiteral(int size) {
+    Regexp nested = Regexp.literalString("q".repeat(size).codePoints().toArray(), 0);
+    for (int index = 0; index < size; index++) {
+      nested =
+          Regexp.concat(
+              List.of(
+                  Regexp.capture(nested, 0, index + 1, null),
+                  Regexp.quest(Regexp.literal('x', 0), 0)),
+              0);
+    }
+    return nested;
+  }
+
+  private static Regexp repeatedCharacterClassConcat(int size) {
+    List<Regexp> children = new ArrayList<>(size);
+    for (int index = 0; index < size; index++) {
+      children.add(Parser.parse("[ab]", Pattern.toParseFlags(0)));
+    }
+    return Regexp.concat(children, 0);
+  }
+
+  private static long medianAnalysisNanos(Regexp regexp) {
+    long[] timings = new long[5];
+    for (int index = 0; index < timings.length; index++) {
+      long start = System.nanoTime();
+      MultiAnchorCompiler.analyze(regexp);
+      timings[index] = System.nanoTime() - start;
+    }
+    Arrays.sort(timings);
+    return timings[timings.length / 2];
+  }
+
+  private static long medianReverseAnalysisNanos(Regexp regexp) {
+    long[] timings = new long[5];
+    for (int index = 0; index < timings.length; index++) {
+      long start = System.nanoTime();
+      MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false);
+      timings[index] = System.nanoTime() - start;
+    }
+    Arrays.sort(timings);
+    return timings[timings.length / 2];
   }
 }

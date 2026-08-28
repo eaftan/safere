@@ -60,7 +60,7 @@ sealed interface Utf8StartAccelerator {
             yield new Teddy(model);
           }
         }
-        if (ml.fallbackClass() != null) {
+        if (ml.fallbackClass() != null && ml.fallbackClass().isSelective()) {
           yield new CharClass(ml.fallbackClass());
         }
         yield null;

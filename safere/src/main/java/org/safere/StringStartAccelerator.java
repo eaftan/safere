@@ -41,7 +41,7 @@ sealed interface StringStartAccelerator {
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
           new FixedOffset(fo.fol(), fo.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml ->
-          hasWordBoundary || ml.fallbackClass() == null
+          hasWordBoundary || ml.fallbackClass() == null || !ml.fallbackClass().isSelective()
               ? null
               : CharClass.create(ml.fallbackClass());
       case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {

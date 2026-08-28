@@ -30,6 +30,25 @@ class StartAcceleratorTest {
   }
 
   @Test
+  void stringMultiLiteralPlanRetainsSelectiveCharacterClassFallback() {
+    MultiAnchorDescriptor.StartPlan plan = Pattern.compile("apple|banana|cherry").startPlan();
+
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
+    assertThat(StringStartAccelerator.create(plan, false))
+        .isInstanceOf(StringStartAccelerator.CharClass.class);
+  }
+
+  @Test
+  void utf8MultiLiteralPlanRejectsNonselectiveCharacterClassFallback() {
+    MultiAnchorDescriptor.StartPlan plan = Pattern.compile("afoo|bfoo|cfoo|dfoo").startPlan();
+
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
+    assertThat(VectorScanProviders.multiLiteralProviderAvailable()).isFalse();
+    assertThat(VectorScanProviders.teddyProviderAvailable()).isFalse();
+    assertThat(Utf8StartAccelerator.create(plan, false)).isNull();
+  }
+
+  @Test
   void literalPrefixAcceleratesStringAndUtf8() {
     MultiAnchorDescriptor.StartPlan plan = plan("needle", false, null, null);
 
