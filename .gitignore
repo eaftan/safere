@@ -37,6 +37,7 @@ Thumbs.db
 # Python cache files
 __pycache__/
 *.py[cod]
+.venv/
 
 # Maven shade plugin artifact
 dependency-reduced-pom.xml

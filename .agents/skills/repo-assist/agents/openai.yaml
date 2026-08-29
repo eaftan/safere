@@ -1,0 +1,4 @@
+interface:
+  display_name: "SafeRE Repo Assist"
+  short_description: "Review trusted PRs and triage issues"
+  default_prompt: "Use $repo-assist to run one serialized SafeRE PR-and-issue sweep and write one durable report without pushing or commenting."

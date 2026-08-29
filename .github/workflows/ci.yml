@@ -6,6 +6,25 @@ on:
   pull_request:
 
 jobs:
+  repo-assist-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Test repo-assist trust boundary and state handling
+        run: >
+          uv run --project .agents/skills/repo-assist --locked pytest
+          .agents/skills/repo-assist/tests
+
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -459,6 +478,7 @@ jobs:
   ci-gate:
     if: ${{ always() }}
     needs:
+      - repo-assist-tests
       - changes
       - build
       - build-vector-runtime-artifacts
