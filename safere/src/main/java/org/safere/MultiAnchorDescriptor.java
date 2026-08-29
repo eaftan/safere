@@ -14,10 +14,19 @@ import java.util.Objects;
  * fast SIMD anchors and verifying intermediate gaps.
  */
 @SuppressWarnings("ArrayRecordComponent")
-record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan rejectPlan) {
+record MultiAnchorDescriptor(
+    Chain chain,
+    StartPlan startPlan,
+    RejectPlan rejectPlan,
+    String anchoredPrefix,
+    CharClassScanInfo anchoredCharClassPrefix) {
 
   public static final MultiAnchorDescriptor NONE =
       new MultiAnchorDescriptor(Chain.EMPTY, StartPlan.None.INSTANCE, RejectPlan.None.INSTANCE);
+
+  MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan rejectPlan) {
+    this(chain, startPlan, rejectPlan, null, null);
+  }
 
   public MultiAnchorDescriptor {
     Objects.requireNonNull(chain, "chain");
@@ -243,27 +252,6 @@ record MultiAnchorDescriptor(Chain chain, StartPlan startPlan, RejectPlan reject
 
   boolean prefixFoldCase() {
     return startPlan instanceof StartPlan.Literal lit && lit.foldCase();
-  }
-
-  String anchoredPrefix() {
-    if (chain.isStartAnchored() && chain.segments().length > 0) {
-      if (chain.segments()[0].gap().kind() == GapKind.EMPTY
-          && chain.segments()[0].anchor() instanceof Anchor.Single single
-          && !single.foldCase()) {
-        return single.literal();
-      }
-    }
-    return null;
-  }
-
-  CharClassScanInfo anchoredCharClassPrefix() {
-    if (chain.isStartAnchored() && chain.segments().length > 0) {
-      if (chain.segments()[0].gap().kind() == GapKind.EMPTY
-          && chain.segments()[0].anchor() instanceof Anchor.CharClass cc) {
-        return cc.scanInfo();
-      }
-    }
-    return null;
   }
 
   CharClassScanInfo charClassPrefix() {

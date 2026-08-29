@@ -20,6 +20,17 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void multiAnchorCompilationDoesNotRepeatAstAnalysis() {
+    Regexp regexp = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
+
+    long work = WorkCounter.countForTesting(() -> MultiAnchorCompiler.compile(regexp, 0));
+
+    assertThat(work)
+        .as("Compilation work includes descriptor assembly but not a second full AST analysis")
+        .isLessThan(countAstNodes(regexp) * 4L);
+  }
+
+  @Test
   void shiftDfaTransitionsAreCountedForStringInput() {
     Pattern pattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
     String input = "a".repeat(10_000);
@@ -1133,5 +1144,15 @@ class SearchScalingRegressionTest {
                     Utf8Input.trusted("  \u00e9\u00e9:target ".repeat(size).getBytes(UTF_8)))
                 ::find,
         "UTF-8");
+  }
+
+  private static int countAstNodes(Regexp regexp) {
+    int count = 1;
+    if (regexp.subs != null) {
+      for (Regexp child : regexp.subs) {
+        count += countAstNodes(child);
+      }
+    }
+    return count;
   }
 }

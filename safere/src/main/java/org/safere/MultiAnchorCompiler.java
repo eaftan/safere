@@ -140,11 +140,16 @@ final class MultiAnchorCompiler {
                 anchorStart,
                 anchorEnd);
 
-    MultiAnchorDescriptor.StartPlan startPlan = extractStartPlan(re);
+    NodeAnalysis analysis = analyze(re, flags);
+    MultiAnchorDescriptor.StartPlan startPlan = extractStartPlan(re, true, analysis);
     MultiAnchorDescriptor.RejectPlan rejectPlan =
-        extractRejectPlan(re, flags, startPlan, anchorStart, chain);
+        extractRejectPlan(re, startPlan, anchorStart, analysis);
 
-    return new MultiAnchorDescriptor(chain, startPlan, rejectPlan);
+    PrefixResult anchoredPrefix = analysis.start().anchoredPrefix();
+    String anchoredLiteral = anchoredPrefix.foldCase() ? null : anchoredPrefix.prefix();
+
+    return new MultiAnchorDescriptor(
+        chain, startPlan, rejectPlan, anchoredLiteral, analysis.start().anchoredCharClassPrefix());
   }
 
   private static MultiAnchorDescriptor extractBaseDescriptor(
@@ -285,7 +290,11 @@ final class MultiAnchorCompiler {
     if (metadataAst == null) {
       return MultiAnchorDescriptor.StartPlan.None.INSTANCE;
     }
-    NodeAnalysis analysis = analyze(metadataAst);
+    return extractStartPlan(metadataAst, allowLeadingExpansion, analyze(metadataAst));
+  }
+
+  private static MultiAnchorDescriptor.StartPlan extractStartPlan(
+      Regexp metadataAst, boolean allowLeadingExpansion, NodeAnalysis analysis) {
     StartFacets start = analysis.start();
 
     String prefix = start.prefix().prefix();
@@ -337,7 +346,14 @@ final class MultiAnchorCompiler {
     if (metadataAst == null) {
       return MultiAnchorDescriptor.RejectPlan.None.INSTANCE;
     }
-    NodeAnalysis analysis = analyze(metadataAst, flags);
+    return extractRejectPlan(metadataAst, startPlan, anchorStart, analyze(metadataAst, flags));
+  }
+
+  private static MultiAnchorDescriptor.RejectPlan extractRejectPlan(
+      Regexp metadataAst,
+      MultiAnchorDescriptor.StartPlan startPlan,
+      boolean anchorStart,
+      NodeAnalysis analysis) {
     RejectFacets reject = analysis.reject();
 
     List<MultiAnchorDescriptor.RejectPlan> plans = new ArrayList<>();

@@ -68,12 +68,22 @@ class PatternInternalTest {
   void textStartAnchorsPreservePrefixAccelerators() {
     assertThat(Pattern.compile("^https://.*").anchoredPrefix()).isEqualTo("https://");
     assertThat(Pattern.compile("\\Ahttps://.*").anchoredPrefix()).isEqualTo("https://");
+    assertThat(Pattern.compile("\\A\\bhttps://.*").anchoredPrefix()).isEqualTo("https://");
+    assertThat(Pattern.compile("(\\A)https://.*").anchoredPrefix()).isEqualTo("https://");
 
     CharClassScanInfo prefix = Pattern.compile("^[0-9]+").anchoredCharClassPrefix();
     assertThat(prefix).isNotNull();
     assertThat(prefix.contains('0')).isTrue();
     assertThat(prefix.contains('9')).isTrue();
     assertThat(prefix.contains('a')).isFalse();
+
+    for (String regex : new String[] {"\\A\\b[0-9]+", "(\\A)[0-9]+"}) {
+      CharClassScanInfo separatedPrefix = Pattern.compile(regex).anchoredCharClassPrefix();
+      assertThat(separatedPrefix).as(regex).isNotNull();
+      assertThat(separatedPrefix.contains('0')).as(regex).isTrue();
+      assertThat(separatedPrefix.contains('9')).as(regex).isTrue();
+      assertThat(separatedPrefix.contains('a')).as(regex).isFalse();
+    }
   }
 
   @Test
