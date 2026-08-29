@@ -40,7 +40,10 @@ sealed interface StringStartAccelerator {
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : CharClass.create(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
           new FixedOffset(fo.fol(), fo.leadingClass());
-      case MultiAnchorDescriptor.StartPlan.MultiLiteral unusedMl -> null;
+      case MultiAnchorDescriptor.StartPlan.MultiLiteral ml ->
+          hasWordBoundary || ml.fallbackClass() == null
+              ? null
+              : CharClass.create(ml.fallbackClass());
       case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {
         StringStartAccelerator inner = create(le.innerPlan(), hasWordBoundary);
         yield inner != null

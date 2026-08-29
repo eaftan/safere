@@ -320,6 +320,16 @@ class StartAcceleratorTest {
   }
 
   @Test
+  void literalAlternationRetainsStringCharacterClassFallback() {
+    Pattern pattern = Pattern.compile("apple|banana|cherry");
+
+    assertThat(pattern.startPlan())
+        .isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
+    assertThat(pattern.stringStartAccelerator())
+        .isInstanceOf(StringStartAccelerator.CharClass.class);
+  }
+
+  @Test
   void multiLiteralScanReturnsUnsupportedWhenWorkLimitExhaustedOnNoise() {
     if (!isVectorApiAvailable()) {
       return;
