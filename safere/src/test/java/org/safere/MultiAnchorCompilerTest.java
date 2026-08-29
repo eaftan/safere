@@ -122,6 +122,9 @@ class MultiAnchorCompilerTest {
             .startPlan(StartPlan.None.INSTANCE)
             .rejectPlan(
                 new RejectPlan.EndAnchoredSuffix(new Pattern.SuffixInfo("bar", true, false, false)))
+            .anchoredPrefix("foo")
+            .anchoredCharClassPrefix(
+                CharClassScanInfo.fromCharClass(new CharClassBuilder().addRune('f').build()))
             .build();
 
     assertThat(actualText).usingRecursiveComparison().isEqualTo(expectedText);

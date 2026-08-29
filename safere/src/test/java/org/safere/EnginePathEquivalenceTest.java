@@ -179,6 +179,28 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  @DisplayName("start-anchored fixed-offset plans preserve UTF-8 anchoring")
+  void startAnchoredFixedOffsetPlansPreserveUtf8Anchoring() {
+    String lateCandidate = "x".repeat(300) + "1c";
+    for (String regex : List.of("\\A\\dc", "(?m:\\A\\d(?m:c))", "(\\A)[0-9]c")) {
+      Pattern accelerated = Pattern.compile(regex);
+      Pattern control =
+          Pattern.compile(regex, 0, EnginePathOptions.builder().startAcceleration(false).build());
+
+      assertThat(
+              accelerated.find(Utf8Input.validated(lateCandidate.getBytes(StandardCharsets.UTF_8))))
+          .as("accelerated search for %s", regex)
+          .isFalse();
+      assertThat(control.find(Utf8Input.validated(lateCandidate.getBytes(StandardCharsets.UTF_8))))
+          .as("control search for %s", regex)
+          .isFalse();
+      assertThat(accelerated.find(Utf8Input.validated("1c".getBytes(StandardCharsets.UTF_8))))
+          .as("anchored match for %s", regex)
+          .isTrue();
+    }
+  }
+
+  @Test
   @DisplayName("disabled start acceleration is not installed in forward DFAs")
   void disabledStartAccelerationIsNotInstalledInForwardDfas() {
     Pattern pattern =

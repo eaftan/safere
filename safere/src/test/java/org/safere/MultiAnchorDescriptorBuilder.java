@@ -30,6 +30,8 @@ final class MultiAnchorDescriptorBuilder {
   private boolean isEndAnchored = false;
   private StartPlan startPlan = StartPlan.None.INSTANCE;
   private RejectPlan rejectPlan = RejectPlan.None.INSTANCE;
+  private String anchoredPrefix = null;
+  private CharClassScanInfo anchoredCharClassPrefix = null;
 
   static MultiAnchorDescriptorBuilder create() {
     return new MultiAnchorDescriptorBuilder();
@@ -118,6 +120,16 @@ final class MultiAnchorDescriptorBuilder {
     return this;
   }
 
+  MultiAnchorDescriptorBuilder anchoredPrefix(String anchoredPrefix) {
+    this.anchoredPrefix = anchoredPrefix;
+    return this;
+  }
+
+  MultiAnchorDescriptorBuilder anchoredCharClassPrefix(CharClassScanInfo anchoredCharClassPrefix) {
+    this.anchoredCharClassPrefix = anchoredCharClassPrefix;
+    return this;
+  }
+
   MultiAnchorDescriptor build() {
     Segment[] segs = segments.toArray(new Segment[0]);
     int[] order = this.checkOrder != null ? this.checkOrder : defaultOrder(segs.length);
@@ -127,7 +139,9 @@ final class MultiAnchorDescriptorBuilder {
     return new MultiAnchorDescriptor(
         new Chain(segs, trailingGap, order, minLen, isStartAnchored, isEndAnchored),
         startPlan,
-        rejectPlan);
+        rejectPlan,
+        anchoredPrefix,
+        anchoredCharClassPrefix);
   }
 
   private static int[] defaultOrder(int n) {
