@@ -170,26 +170,30 @@ sealed interface StringStartAccelerator {
         if (literalStart < 0) {
           return -1;
         }
-        if (discreteOffsets != null && discreteOffsets.length == 1 && firstCharClass != null) {
-          boolean matchFound = false;
-          int earliestValid = -1;
-          for (int offset : discreteOffsets) {
-            int candidateStart = literalStart - offset;
+        if (firstCharClass != null) {
+          if (discreteOffsets != null && discreteOffsets.length == 1) {
+            int candidateStart = literalStart - discreteOffsets[0];
             if (candidateStart >= fromIndex) {
-              int first = candidateStart < text.length() ? text.charAt(candidateStart) : -1;
+              int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
               if (first >= 0 && firstCharClass.contains(first)) {
-                matchFound = true;
-                if (earliestValid < 0 || candidateStart < earliestValid) {
-                  earliestValid = candidateStart;
-                }
+                return candidateStart;
               }
             }
+            literalFrom = literalStart + 1;
+            continue;
+          } else if (discreteOffsets == null
+              && fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
+            int candidateStart =
+                retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex);
+            if (candidateStart >= fromIndex) {
+              int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
+              if (first >= 0 && firstCharClass.contains(first)) {
+                return candidateStart;
+              }
+            }
+            literalFrom = literalStart + 1;
+            continue;
           }
-          if (matchFound) {
-            return earliestValid;
-          }
-          literalFrom = literalStart + 1;
-          continue;
         }
         return Math.max(
             fromIndex,

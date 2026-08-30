@@ -50,6 +50,12 @@ final class IncubatorVectorScanProvider implements VectorScanProvider {
   }
 
   @Override
+  public int lastIndexOfByte(
+      byte[] bytes, int offset, int length, byte target, int fromIndex, int toIndex) {
+    return ByteVectorScan.lastIndexOfByte(bytes, offset, length, target, fromIndex, toIndex);
+  }
+
+  @Override
   public int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start) {
     return ByteVectorScan.indexOfAsciiClass(bytes, offset, length, ranges, start);
   }

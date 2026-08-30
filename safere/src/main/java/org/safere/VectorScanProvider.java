@@ -26,6 +26,12 @@ interface VectorScanProvider {
   }
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
+  default int lastIndexOfByte(
+      byte[] bytes, int offset, int length, byte target, int fromIndex, int toIndex) {
+    return UNSUPPORTED;
+  }
+
+  /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
   int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start);
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
