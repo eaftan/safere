@@ -120,6 +120,7 @@
                         <exclude name="IntArrayListTest.java"/>
                         <exclude name="InputScannerTest.java"/>
                         <exclude name="MatcherDeferredCaptureStateTest.java"/>
+                        <exclude name="MatcherLinearTimeTest.java"/>
                         <exclude name="MatcherTransitionInventoryTest.java"/>
                         <exclude name="MatchDescriptorTest.java"/>
                         <exclude name="MultiAnchorCompilerTest.java"/>
