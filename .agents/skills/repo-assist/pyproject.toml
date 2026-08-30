@@ -8,7 +8,7 @@ dependencies = []
 repo-assist = "repo_assist.cli:main"
 
 [dependency-groups]
-dev = ["pytest==8.4.2"]
+dev = ["pytest==9.0.3"]
 
 [build-system]
 requires = ["hatchling"]
