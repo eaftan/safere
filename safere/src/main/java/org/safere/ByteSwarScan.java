@@ -74,6 +74,34 @@ abstract class ByteSwarScan {
     return -1;
   }
 
+  static int lastIndexOfByte(
+      byte[] bytes, int offset, int length, byte target, int fromIndex, int toIndex) {
+    int pos = Math.min(fromIndex, length - 1);
+    int minLimit = Math.max(0, toIndex);
+    if (pos < minLimit || minLimit >= length) {
+      return -1;
+    }
+    long repeatedTarget = (target & 0xFFL) * BYTE_ONES;
+    while (pos >= minLimit + Long.BYTES - 1) {
+      int wordStart = pos - Long.BYTES + 1;
+      long difference = (long) LONG_VIEW.get(bytes, offset + wordStart) ^ repeatedTarget;
+      if (((difference - BYTE_ONES) & ~difference & BYTE_HIGH_BITS) != 0) {
+        for (int index = Long.BYTES - 1; index >= 0; index--) {
+          if (bytes[offset + wordStart + index] == target) {
+            return wordStart + index;
+          }
+        }
+      }
+      pos -= Long.BYTES;
+    }
+    for (; pos >= minLimit; pos--) {
+      if (bytes[offset + pos] == target) {
+        return pos;
+      }
+    }
+    return -1;
+  }
+
   static int indexOfByteOrNonAscii(byte[] bytes, int offset, int length, byte target, int start) {
     return indexOfBytesOrNonAscii(bytes, offset, length, target, target, target, start, 1);
   }

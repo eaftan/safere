@@ -345,4 +345,29 @@ class MultiAnchorCompilerTest {
     Arrays.sort(timings);
     return timings[timings.length / 2];
   }
+
+  @Test
+  void driverSelectionSelectsRarestAnchor() {
+    Pattern p = Pattern.compile(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash");
+    MultiAnchorDescriptor desc = p.multiAnchor();
+    assertThat(desc).isNotNull();
+    assertThat(desc.checkOrder()).isNotEmpty();
+    assertThat(desc.checkOrder()[0]).isNotEqualTo(0); // Rarest anchor is downstream
+    // Rarest anchor is selected as driver for reverse candidate evaluation
+    assertThat(desc.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true))
+        .isEqualTo(desc.checkOrder()[0]);
+    assertThat(desc.selectDriver(MultiAnchorDescriptor.InputDomain.UTF8, true))
+        .isEqualTo(desc.checkOrder()[0]);
+  }
+
+  @Test
+  void driverSelectionWithBoundedUpstreamSelectsRarest() {
+    Pattern p = Pattern.compile("foo[a-z]{1,5}bar[0-9]{1,3}baz");
+    MultiAnchorDescriptor desc = p.multiAnchor();
+    assertThat(desc).isNotNull();
+    assertThat(desc.checkOrder()).isNotEmpty();
+    // Bounded upstream allows driver selection of rarest anchor
+    int driver = desc.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true);
+    assertThat(desc.isUpstreamBoundedFor(driver)).isTrue();
+  }
 }

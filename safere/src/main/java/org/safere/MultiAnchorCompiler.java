@@ -157,12 +157,7 @@ final class MultiAnchorCompiler {
       Regexp node, int flags, boolean anchorStart, boolean anchorEnd) {
     // 1. Multi-anchor sequence or anchored chain
     MultiAnchorDescriptor multiChain = extractMultiAnchorChain(node, flags, anchorStart, anchorEnd);
-    if (multiChain != null
-        && (multiChain.numSegments() >= 2
-            || multiChain.leadingGap().kind() != MultiAnchorDescriptor.GapKind.EMPTY
-            || multiChain.trailingGap().kind() != MultiAnchorDescriptor.GapKind.EMPTY
-            || multiChain.firstSegment().anchor()
-                instanceof MultiAnchorDescriptor.Anchor.Alternation)) {
+    if (multiChain != null) {
       return multiChain;
     }
 
@@ -176,93 +171,6 @@ final class MultiAnchorCompiler {
           MultiAnchorDescriptor.Gap.EMPTY,
           new int[] {0},
           directAnchor.minLength(),
-          anchorStart,
-          anchorEnd);
-    }
-
-    if (node.op != RegexpOp.CONCAT || node.subs == null || node.subs.isEmpty()) {
-      CharClassScanInfo ccPrefix = extractCharClassPrefix(node);
-      if (ccPrefix != null) {
-        MultiAnchorDescriptor.Anchor.CharClass ccAnchor =
-            MultiAnchorDescriptor.Anchor.CharClass.create(ccPrefix);
-        return new MultiAnchorDescriptor(
-            new MultiAnchorDescriptor.Segment[] {
-              new MultiAnchorDescriptor.Segment(MultiAnchorDescriptor.Gap.EMPTY, ccAnchor)
-            },
-            MultiAnchorDescriptor.Gap.EMPTY,
-            new int[] {0},
-            1,
-            anchorStart,
-            anchorEnd);
-      }
-      return null;
-    }
-
-    // 3. Literal prefix on the concat
-    PrefixResult prefixResult = extractPrefix(node);
-    if (prefixResult.prefix() == null && anchorStart) {
-      Regexp candidate = firstPrefixCandidateAfterTextAnchor(node);
-      if (candidate != null) {
-        prefixResult = extractPrefix(candidate);
-      }
-    }
-    if (prefixResult.prefix() != null) {
-      MultiAnchorDescriptor.Anchor.Single prefixAnchor =
-          MultiAnchorDescriptor.Anchor.Single.create(
-              prefixResult.prefix(), prefixResult.foldCase());
-      return new MultiAnchorDescriptor(
-          new MultiAnchorDescriptor.Segment[] {
-            new MultiAnchorDescriptor.Segment(MultiAnchorDescriptor.Gap.EMPTY, prefixAnchor)
-          },
-          MultiAnchorDescriptor.Gap.EMPTY,
-          new int[] {0},
-          prefixResult.prefix().length(),
-          anchorStart,
-          anchorEnd);
-    }
-
-    // 4. Fixed offset literal
-    FixedOffsetLiteral fol = extractFixedOffsetLiteral(node);
-    if (fol != null) {
-      CharClassScanInfo ccPrefix = extractCharClassPrefix(node);
-      MultiAnchorDescriptor.Gap gap =
-          new MultiAnchorDescriptor.Gap(
-              MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-              fol.minOffset(),
-              fol.maxOffset(),
-              fol.discreteOffsets(),
-              null,
-              ccPrefix,
-              true);
-      MultiAnchorDescriptor.Anchor.Single anchor =
-          MultiAnchorDescriptor.Anchor.Single.create(fol.literal(), false);
-      return new MultiAnchorDescriptor(
-          new MultiAnchorDescriptor.Segment[] {new MultiAnchorDescriptor.Segment(gap, anchor)},
-          MultiAnchorDescriptor.Gap.EMPTY,
-          new int[] {0},
-          fol.minOffset() + fol.literal().length(),
-          anchorStart,
-          anchorEnd);
-    }
-
-    // 5. Character class prefix
-    CharClassScanInfo ccPrefix = extractCharClassPrefix(node);
-    if (ccPrefix == null && anchorStart) {
-      Regexp candidate = firstPrefixCandidateAfterTextAnchor(node);
-      if (candidate != null) {
-        ccPrefix = extractCharClassPrefix(candidate);
-      }
-    }
-    if (ccPrefix != null) {
-      MultiAnchorDescriptor.Anchor.CharClass ccAnchor =
-          MultiAnchorDescriptor.Anchor.CharClass.create(ccPrefix);
-      return new MultiAnchorDescriptor(
-          new MultiAnchorDescriptor.Segment[] {
-            new MultiAnchorDescriptor.Segment(MultiAnchorDescriptor.Gap.EMPTY, ccAnchor)
-          },
-          MultiAnchorDescriptor.Gap.EMPTY,
-          new int[] {0},
-          1,
           anchorStart,
           anchorEnd);
     }
@@ -627,8 +535,9 @@ final class MultiAnchorCompiler {
       CharClassScanInfo anchoredCc =
           anchoredCandidate != null ? extractCharClassPrefix(anchoredCandidate) : null;
 
+      CharClassScanInfo ccPrefix = extractCharClassPrefix(node);
       StartFacets start =
-          new StartFacets(prefix, null, fol, startAcc, anchoredPrefix, anchoredCc, null);
+          new StartFacets(prefix, ccPrefix, fol, startAcc, anchoredPrefix, anchoredCc, null);
       RejectFacets reject =
           new RejectFacets(bestReqLit, bestReqScore, bestReqClass, disjoint, endSuffix, endClass);
 
@@ -835,21 +744,7 @@ final class MultiAnchorCompiler {
       if (alt != null) {
         return new ConsumedAnchor(alt, 1);
       }
-      CharClassScanInfo scanInfo = extractCharClassPrefix(first);
-      if (scanInfo != null) {
-        return new ConsumedAnchor(MultiAnchorDescriptor.Anchor.CharClass.create(scanInfo), 1);
-      }
       return null;
-    }
-
-    if (first.op == RegexpOp.CHAR_CLASS && first.charClass != null) {
-      AsciiBitmap bm = buildAsciiBitmapFromCharClass(first.charClass);
-      if (bm != null && !bm.isEmpty() && bm.cardinality() <= 32) {
-        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(first.charClass);
-        if (scanInfo != null) {
-          return new ConsumedAnchor(MultiAnchorDescriptor.Anchor.CharClass.create(scanInfo), 1);
-        }
-      }
     }
 
     boolean globalFold =
@@ -910,7 +805,7 @@ final class MultiAnchorCompiler {
       Regexp sub = node.subs.get(idx);
       if (isLeadingZeroWidth(sub)) {
         MultiAnchorDescriptor.Gap zwGap = classifyGap(sub, flags);
-        if (zwGap != null) {
+        if (zwGap != null && leadingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
           leadingGap = zwGap;
         }
         idx++;
@@ -920,32 +815,15 @@ final class MultiAnchorCompiler {
         break;
       }
       MultiAnchorDescriptor.Gap gapCandidate = classifyGap(sub, flags);
-      if (gapCandidate != null
-          && gapCandidate.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-          && gapCandidate.maxLength() < Integer.MAX_VALUE) {
-        if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
-          leadingGap = gapCandidate;
-        } else if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-            && leadingGap.maxLength() < Integer.MAX_VALUE) {
-          leadingGap =
-              new MultiAnchorDescriptor.Gap(
-                  MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-                  leadingGap.minLength() + gapCandidate.minLength(),
-                  leadingGap.maxLength() + gapCandidate.maxLength(),
-                  null,
-                  true);
-        }
-        idx++;
-        continue;
+      if (gapCandidate == null) {
+        break;
       }
-      if (gapCandidate != null
-          && gapCandidate.kind() != MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-          && leadingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
-        leadingGap = gapCandidate;
-        idx++;
-        continue;
+      MultiAnchorDescriptor.Gap merged = coalesceGaps(leadingGap, gapCandidate);
+      if (merged == null) {
+        break;
       }
-      break;
+      leadingGap = merged;
+      idx++;
     }
 
     if (idx < n) {
@@ -980,35 +858,12 @@ final class MultiAnchorCompiler {
             if (nextGap == null) {
               break;
             }
-            if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-                && nextGap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-                && Objects.equals(gap.charClass(), nextGap.charClass())) {
-              int min = gap.minLength() + nextGap.minLength();
-              int max =
-                  (gap.maxLength() == Integer.MAX_VALUE || nextGap.maxLength() == Integer.MAX_VALUE)
-                      ? Integer.MAX_VALUE
-                      : gap.maxLength() + nextGap.maxLength();
-              gap =
-                  new MultiAnchorDescriptor.Gap(
-                      MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-                      min,
-                      max,
-                      gap.charClass(),
-                      gap.isGreedy());
-              idx++;
-            } else if (gap.kind() == nextGap.kind()
-                && (gap.kind() == MultiAnchorDescriptor.GapKind.ANY_STAR
-                    || gap.kind() == MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR)) {
-              int min = gap.minLength() + nextGap.minLength();
-              int max =
-                  (gap.maxLength() == Integer.MAX_VALUE || nextGap.maxLength() == Integer.MAX_VALUE)
-                      ? Integer.MAX_VALUE
-                      : gap.maxLength() + nextGap.maxLength();
-              gap = new MultiAnchorDescriptor.Gap(gap.kind(), min, max, null, gap.isGreedy());
-              idx++;
-            } else {
+            MultiAnchorDescriptor.Gap merged = coalesceGaps(gap, nextGap);
+            if (merged == null) {
               break;
             }
+            gap = merged;
+            idx++;
           }
 
           if (idx >= n) {
@@ -1096,6 +951,44 @@ final class MultiAnchorCompiler {
 
     return new MultiAnchorDescriptor(
         segments, gaps.get(numAnchors), checkOrder, minTotalLength, anchorStart, anchorEnd);
+  }
+
+  private static MultiAnchorDescriptor.Gap coalesceGaps(
+      MultiAnchorDescriptor.Gap first, MultiAnchorDescriptor.Gap second) {
+    if (first == null || first.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
+      return second;
+    }
+    if (second == null || second.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
+      return first;
+    }
+    if (first.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+        && second.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+        && Objects.equals(first.charClass(), second.charClass())
+        && Objects.equals(first.scanInfo(), second.scanInfo())) {
+      int min = first.minLength() + second.minLength();
+      int max =
+          (first.maxLength() == Integer.MAX_VALUE || second.maxLength() == Integer.MAX_VALUE)
+              ? Integer.MAX_VALUE
+              : first.maxLength() + second.maxLength();
+      return new MultiAnchorDescriptor.Gap(
+          MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
+          min,
+          max,
+          first.charClass(),
+          first.scanInfo(),
+          first.isGreedy());
+    }
+    if (first.kind() == second.kind()
+        && (first.kind() == MultiAnchorDescriptor.GapKind.ANY_STAR
+            || first.kind() == MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR)) {
+      int min = first.minLength() + second.minLength();
+      int max =
+          (first.maxLength() == Integer.MAX_VALUE || second.maxLength() == Integer.MAX_VALUE)
+              ? Integer.MAX_VALUE
+              : first.maxLength() + second.maxLength();
+      return new MultiAnchorDescriptor.Gap(first.kind(), min, max, null, first.isGreedy());
+    }
+    return null;
   }
 
   private static MultiAnchorDescriptor.StartPlan.LeadingExpansion extractStartLeadingExpansion(
@@ -1665,7 +1558,8 @@ final class MultiAnchorCompiler {
               : MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_LAZY;
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        if (bitmap == null) {
+        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
+        if (bitmap == null && scanInfo == null) {
           return null;
         }
         return new MultiAnchorDescriptor.Gap(
@@ -1673,6 +1567,7 @@ final class MultiAnchorCompiler {
             0,
             Integer.MAX_VALUE,
             bitmap,
+            scanInfo,
             greedy);
       }
     } else if (re.op == RegexpOp.PLUS) {
@@ -1702,7 +1597,8 @@ final class MultiAnchorCompiler {
               greedy);
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        if (bitmap == null) {
+        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
+        if (bitmap == null && scanInfo == null) {
           return null;
         }
         return new MultiAnchorDescriptor.Gap(
@@ -1710,6 +1606,7 @@ final class MultiAnchorCompiler {
             1,
             Integer.MAX_VALUE,
             bitmap,
+            scanInfo,
             greedy);
       }
     } else if (re.op == RegexpOp.REPEAT) {
@@ -1732,11 +1629,17 @@ final class MultiAnchorCompiler {
               MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, re.min, max, null, greedy);
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        if (bitmap == null) {
+        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
+        if (bitmap == null && scanInfo == null) {
           return null;
         }
         return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, re.min, max, bitmap, greedy);
+            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
+            re.min,
+            max,
+            bitmap,
+            scanInfo,
+            greedy);
       }
     } else if (re.op == RegexpOp.QUEST) {
       Regexp sub = unwrapCaptures(re.sub());
@@ -1757,31 +1660,32 @@ final class MultiAnchorCompiler {
               MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 0, 1, null, greedy);
         }
         AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        if (bitmap == null) {
+        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
+        if (bitmap == null && scanInfo == null) {
           return null;
         }
         return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 0, 1, bitmap, greedy);
+            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 0, 1, bitmap, scanInfo, greedy);
       }
     } else if (re.op == RegexpOp.CHAR_CLASS) {
-      if (isDotCharClass(re.charClass)) {
-        return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 1, 1, null, true);
-      }
       AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(re.charClass);
-      if (bitmap == null) {
+      CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(re.charClass);
+      if (bitmap == null && scanInfo == null) {
         return null;
       }
       return new MultiAnchorDescriptor.Gap(
-          MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 1, 1, bitmap, true);
+          MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 1, 1, bitmap, scanInfo, true);
     }
     if (re.op == RegexpOp.ANY_CHAR) {
+      boolean dotAll =
+          (flags & Pattern.DOTALL) != 0
+              || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
       return new MultiAnchorDescriptor.Gap(
-          MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
+          dotAll
+              ? MultiAnchorDescriptor.GapKind.ANY_STAR
+              : MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR,
           1,
           1,
-          new int[] {1},
-          null,
           null,
           true);
     }

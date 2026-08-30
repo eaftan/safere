@@ -260,9 +260,26 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void variableInternalGapsAreOutsideTheAuthoritativeSubset() {
+  void subthresholdAnchorsFallBackToGeneralEngine() {
     assertThat(Pattern.compile("A.*B.*C").multiAnchor().isExecutableChain()).isFalse();
     assertThat(Pattern.compile("A[0-9]{3}B").multiAnchor().isExecutableChain()).isFalse();
+  }
+
+  @Test
+  void unboundedInteriorGapsFallBackToGeneralEngine() {
+    assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isFalse();
+  }
+
+  @Test
+  void boundedInteriorGapsRemainExecutable() {
+    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile("AAA[0-9]BBB").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain()).isTrue();
+  }
+
+  @Test
+  void ambiguousInteriorWildcardMatchesCorrectlyViaGeneralEngine() {
+    assertFirstMatchEqualsJdk("AAA.*BBB.*CCC", "AAA xxx BBB yyy CCC zzz BBB www");
   }
 
   @Test
@@ -319,6 +336,135 @@ class MultiAnchorGapEngineTest {
 
     Utf8Matcher matcher = pattern.matcher(Utf8Input.validated("😀A1BB".getBytes(UTF_8)));
     assertThat(matcher.find()).isTrue();
+  }
+
+  @Test
+  void rarestAnchorBidirectionalExecution() {
+    // "security_alert_code" is rarest anchor at index 2
+    String regex = "user:([a-z]+)\\s+action:([a-z]+)\\s+security_alert_code:(\\d+)";
+    Pattern saferePattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    String text =
+        "user:alice action:read status:200 user:bob action:write security_alert_code:999 trailing";
+    Matcher safereMatcher = saferePattern.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+    assertThat(safereMatcher.find()).isTrue();
+    assertThat(jdkMatcher.find()).isTrue();
+    assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safereMatcher.group(0)).isEqualTo(jdkMatcher.group(0));
+    assertThat(safereMatcher.group(1)).isEqualTo("bob");
+    assertThat(safereMatcher.group(2)).isEqualTo("write");
+    assertThat(safereMatcher.group(3)).isEqualTo("999");
+  }
+
+  @Test
+  void rarestAnchorBoundedUpstreamVerification() {
+    String regex = "PREFIX[0-9]MIDDLE[0-9]RAREST_TOKEN_XYZ[0-9]SUFFIX";
+    Pattern pattern = Pattern.compile(regex);
+
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    String text = "noise PREFIX1MIDDLE2RAREST_TOKEN_XYZ3SUFFIX trailing";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("PREFIX1MIDDLE2RAREST_TOKEN_XYZ3SUFFIX");
+
+    // Absent rarest token -> instant mismatch
+    String absent = "noise PREFIX1MIDDLE2OTHER_TOKEN_1233SUFFIX trailing";
+    Matcher m2 = pattern.matcher(absent);
+    assertThat(m2.find()).isFalse();
+  }
+
+  @Test
+  void rarestAnchorUnboundedUpstreamVerification() {
+    String regex = "START.*RAREST_ANCHOR_12345.*END";
+    Pattern saferePattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    String text = "START noise intermediate RAREST_ANCHOR_12345 more noise END";
+    Matcher safereMatcher = saferePattern.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+    assertThat(safereMatcher.find()).isTrue();
+    assertThat(jdkMatcher.find()).isTrue();
+    assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safereMatcher.group(0)).isEqualTo(jdkMatcher.group(0));
+  }
+
+  @Test
+  void rarestAnchorMultipleOccurrencesLeftmost() {
+    String regex = "HEAD[0-9]{2}RAREST[0-9]{2}TAIL";
+    Pattern saferePattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    String text = "HEAD11RAREST22TAIL noise HEAD33RAREST44TAIL";
+    Matcher safereMatcher = saferePattern.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+    assertThat(safereMatcher.find()).isTrue();
+    assertThat(jdkMatcher.find()).isTrue();
+    assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safereMatcher.group(0)).isEqualTo("HEAD11RAREST22TAIL");
+
+    assertThat(safereMatcher.find()).isTrue();
+    assertThat(jdkMatcher.find()).isTrue();
+    assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safereMatcher.group(0)).isEqualTo("HEAD33RAREST44TAIL");
+  }
+
+  @Test
+  void rarestAnchorUtf8Equivalence() {
+    String regex = "tag:([a-z]+)\\s+RAREST_KEY_TOKEN=(\\d+)";
+    Pattern pattern = Pattern.compile(regex);
+
+    byte[] bytes = "noise tag:alpha RAREST_KEY_TOKEN=42 trailing".getBytes(UTF_8);
+    Utf8Input input = Utf8Input.validated(bytes);
+
+    Utf8Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(6);
+    assertThat(matcher.end()).isEqualTo(35);
+    assertThat(matcher.start(1)).isEqualTo(10);
+    assertThat(matcher.end(1)).isEqualTo(15);
+    assertThat(matcher.start(2)).isEqualTo(33);
+    assertThat(matcher.end(2)).isEqualTo(35);
+  }
+
+  @Test
+  void multipleLeadingWildcardsCoalesce() {
+    Pattern pattern = Pattern.compile(".*.*AAA.*.*");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk(".*.*AAA.*.*", "hello world AAA foo bar\nnext line");
+  }
+
+  @Test
+  void singleAnchorWithLeadingAndTrailingGapsExecutes() {
+    Pattern pattern = Pattern.compile(".*AAA.*");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk(".*AAA.*", "noise AAA trailing\nsecond line");
+
+    Pattern patternBounded = Pattern.compile("\\s+AAA\\s+");
+    assertThat(patternBounded.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk("\\s+AAA\\s+", "hello   AAA   world");
+  }
+
+  @Test
+  void singleAnchorWithLeadingWildcardExecutesInUtf8() {
+    Pattern pattern = Pattern.compile(".*TARGET_KEY");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    byte[] bytes = "prefix data TARGET_KEY trailing".getBytes(UTF_8);
+    Utf8Input input = Utf8Input.validated(bytes);
+    Utf8Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(22);
   }
 
   private static void assertFirstMatchEqualsJdk(String regex, String text) {

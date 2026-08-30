@@ -25,6 +25,8 @@ final class MultiAnchorDescriptorBuilder {
   private final List<Segment> segments = new ArrayList<>();
   private Gap trailingGap = Gap.EMPTY;
   private int[] checkOrder = null;
+  private Integer driverIndex = null;
+  private Boolean isUpstreamBounded = null;
   private Integer minTotalLength = null;
   private boolean isStartAnchored = false;
   private boolean isEndAnchored = false;
@@ -70,6 +72,16 @@ final class MultiAnchorDescriptorBuilder {
     return this;
   }
 
+  MultiAnchorDescriptorBuilder driverIndex(int driverIndex) {
+    this.driverIndex = driverIndex;
+    return this;
+  }
+
+  MultiAnchorDescriptorBuilder isUpstreamBounded(boolean isUpstreamBounded) {
+    this.isUpstreamBounded = isUpstreamBounded;
+    return this;
+  }
+
   MultiAnchorDescriptorBuilder minTotalLength(int minTotalLength) {
     this.minTotalLength = minTotalLength;
     return this;
@@ -108,11 +120,24 @@ final class MultiAnchorDescriptorBuilder {
   MultiAnchorDescriptor build() {
     Segment[] segs = segments.toArray(new Segment[0]);
     int[] order = this.checkOrder != null ? this.checkOrder : defaultOrder(segs.length);
+    int driver = this.driverIndex != null ? this.driverIndex : (order.length > 0 ? order[0] : 0);
     int minLen =
         this.minTotalLength != null ? this.minTotalLength : computeMinLength(segs, trailingGap);
+    boolean upstreamBounded =
+        this.isUpstreamBounded != null
+            ? this.isUpstreamBounded
+            : computeUpstreamBounded(segs, driver);
 
     return new MultiAnchorDescriptor(
-        new Chain(segs, trailingGap, order, minLen, isStartAnchored, isEndAnchored),
+        new Chain(
+            segs,
+            trailingGap,
+            order,
+            driver,
+            upstreamBounded,
+            minLen,
+            isStartAnchored,
+            isEndAnchored),
         startPlan,
         rejectPlan,
         anchoredPrefix,
@@ -153,5 +178,14 @@ final class MultiAnchorDescriptorBuilder {
       len += trailingGap.minLength();
     }
     return len;
+  }
+
+  private static boolean computeUpstreamBounded(Segment[] segs, int driverIdx) {
+    for (int i = 0; i <= driverIdx && i < segs.length; i++) {
+      if (segs[i].gap().maxLength() == Integer.MAX_VALUE) {
+        return false;
+      }
+    }
+    return true;
   }
 }

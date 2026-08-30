@@ -69,6 +69,45 @@ final class ByteVectorScan {
     return -1;
   }
 
+  static int lastIndexOfByte(
+      byte[] bytes, int offset, int length, byte target, int fromIndex, int toIndex) {
+    return lastIndexOfByte(SPECIES, bytes, offset, length, target, fromIndex, toIndex);
+  }
+
+  static int lastIndexOfByte(
+      VectorSpecies<Byte> species,
+      byte[] bytes,
+      int offset,
+      int length,
+      byte target,
+      int fromIndex,
+      int toIndex) {
+    int pos = Math.min(fromIndex, length - 1);
+    int minLimit = Math.max(0, toIndex);
+    if (pos < minLimit || minLimit >= length) {
+      return -1;
+    }
+    int speciesLen = species.length();
+    ByteVector targetVec = ByteVector.broadcast(species, target);
+    while (pos >= minLimit + speciesLen - 1) {
+      int chunkStart = pos - speciesLen + 1;
+      ByteVector values = ByteVector.fromArray(species, bytes, offset + chunkStart);
+      VectorMask<Byte> matches = values.compare(EQ, targetVec);
+      if (matches.anyTrue()) {
+        long activeLanes = matches.toLong();
+        int highestBit = Long.numberOfTrailingZeros(Long.highestOneBit(activeLanes));
+        return chunkStart + highestBit;
+      }
+      pos -= speciesLen;
+    }
+    for (; pos >= minLimit; pos--) {
+      if (bytes[offset + pos] == target) {
+        return pos;
+      }
+    }
+    return -1;
+  }
+
   static int indexOfAsciiPair(byte[] bytes, int offset, int length, byte b0, byte b1, int start) {
     int position = Math.max(0, start);
     int limit = position + SPECIES.loopBound(length - position);

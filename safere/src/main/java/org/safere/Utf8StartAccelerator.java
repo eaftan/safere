@@ -183,25 +183,32 @@ sealed interface Utf8StartAccelerator {
         if (literalStart < 0) {
           return -1;
         }
-        if (discreteOffsets != null && discreteOffsets.length == 1 && charClassPrefix != null) {
-          int earliestValid = -1;
-          for (int offset : discreteOffsets) {
-            int candidateStart = literalStart - offset;
+        if (charClassPrefix != null) {
+          if (discreteOffsets != null && discreteOffsets.length == 1) {
+            int candidateStart = literalStart - discreteOffsets[0];
             if (candidateStart >= searchFrom) {
               int first =
                   candidateStart < scanner.length() ? scanner.codePointAt(candidateStart) : -1;
-              if (first >= 0
-                  && charClassPrefix.contains(first)
-                  && (earliestValid < 0 || candidateStart < earliestValid)) {
-                earliestValid = candidateStart;
+              if (first >= 0 && charClassPrefix.contains(first)) {
+                return candidateStart;
               }
             }
+            literalFrom = literalStart + 1;
+            continue;
+          } else if (discreteOffsets == null
+              && fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
+            int candidateStart =
+                scanner.retreatByCodePoints(literalStart, fixedOffsetLiteral.maxOffset());
+            if (candidateStart >= searchFrom) {
+              int first =
+                  candidateStart < scanner.length() ? scanner.codePointAt(candidateStart) : -1;
+              if (first >= 0 && charClassPrefix.contains(first)) {
+                return candidateStart;
+              }
+            }
+            literalFrom = literalStart + 1;
+            continue;
           }
-          if (earliestValid >= 0) {
-            return earliestValid;
-          }
-          literalFrom = literalStart + 1;
-          continue;
         }
         return Math.max(
             searchFrom, scanner.retreatByCodePoints(literalStart, fixedOffsetLiteral.maxOffset()));
