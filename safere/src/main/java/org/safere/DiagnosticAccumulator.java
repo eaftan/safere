@@ -19,6 +19,7 @@ final class DiagnosticAccumulator {
     MatchStrategy.KEYWORD,
     MatchStrategy.SHIFT_DFA,
     MatchStrategy.ONE_PASS,
+    MatchStrategy.MULTI_ANCHOR,
     MatchStrategy.DFA,
     MatchStrategy.BIT_STATE,
     MatchStrategy.NFA
@@ -172,9 +173,10 @@ final class DiagnosticAccumulator {
       case KEYWORD -> 3;
       case SHIFT_DFA -> 4;
       case ONE_PASS -> 5;
-      case DFA -> 6;
-      case BIT_STATE -> 7;
-      case NFA -> 8;
+      case MULTI_ANCHOR -> 6;
+      case DFA -> 7;
+      case BIT_STATE -> 8;
+      case NFA -> 9;
     };
   }
 

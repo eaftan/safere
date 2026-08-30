@@ -1671,6 +1671,45 @@ public final class Matcher implements MatchResult {
       }
     }
 
+    // Multi-anchor execution for deterministic unanchored chains with fixed, validated gaps.
+    if (options.multiAnchorGapEngine()
+        && !prog.anchorStart()
+        && parentPattern.multiAnchor().isExecutableChain()) {
+      if (scanner instanceof Utf8InputScanner utf8Scanner) {
+        MultiAnchorExecutor.Result res =
+            MultiAnchorExecutor.find(parentPattern.multiAnchor(), utf8Scanner, searchFrom);
+        if (res.isMatched()) {
+          diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
+          diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
+          if (prog.numCaptures() <= 1) {
+            return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
+        }
+        if (res.isDefiniteMismatch()) {
+          diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
+          diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
+          return applyFailedMatchResult();
+        }
+      } else if (text != null) {
+        MultiAnchorExecutor.Result res =
+            MultiAnchorExecutor.find(parentPattern.multiAnchor(), text, searchFrom);
+        if (res.isMatched()) {
+          diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
+          diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
+          if (prog.numCaptures() <= 1) {
+            return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
+        }
+        if (res.isDefiniteMismatch()) {
+          diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
+          diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
+          return applyFailedMatchResult();
+        }
+      }
+    }
+
     // Prefix acceleration: if the pattern has a start accelerator (literal, fixed-offset,
     // character-class, or line-anchor), skip ahead to candidate match positions.
     int effectiveStart = searchFrom;

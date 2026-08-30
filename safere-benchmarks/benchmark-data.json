@@ -1213,6 +1213,41 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.fixedAnchorLog.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-08-27 12:00:00 error:[N] code:200 msg:ok\n",
+        "suffix": "2026-08-27 12:00:00 error:[C] code:500 msg:crash\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fixedAnchorLog.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "2026-08-27 12:00:00 error:[N] code:200 msg:ok",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.blockedTags1.match.{size}",
       "axes": {
         "size": [
@@ -4049,6 +4084,35 @@
       ],
       "inputs": [
         "realWorldRegex.emojiSearch.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.fixedAnchorLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "error:\\[[A-Z]\\] code:500"
+      ],
+      "inputs": [
+        "realWorldRegex.fixedAnchorLog.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {

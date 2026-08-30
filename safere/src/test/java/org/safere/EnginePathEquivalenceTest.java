@@ -60,6 +60,21 @@ class EnginePathEquivalenceTest {
   }
 
   @Test
+  @DisplayName("multi-anchor contract declares deferred capture authority")
+  void multiAnchorContractDeclaresDeferredCaptureAuthority() {
+    EnginePathContract contract =
+        EnginePathContract.all().stream()
+            .filter(candidate -> candidate.path() == EnginePath.MULTI_ANCHOR_GAP_ENGINE)
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(contract.authorities()).contains(ResultAuthority.DEFERRED_CAPTURES);
+    assertThat(contract.guards())
+        .contains(SemanticGuard.CAPTURE_DEFERABLE)
+        .doesNotContain(SemanticGuard.NO_USER_CAPTURES);
+  }
+
+  @Test
   @DisplayName("engine path options disable only their declared path")
   void enginePathOptionsDisableDeclaredPath() {
     EnginePathOptions allEnabled = EnginePathOptions.allEnabled();

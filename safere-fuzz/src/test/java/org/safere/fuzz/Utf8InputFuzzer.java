@@ -27,6 +27,7 @@ final class Utf8InputFuzzer {
   void arbitraryWindow(FuzzedDataProvider data) {
     assertLiteralSearchMatchesString("XXXXXX", "..XXXXXX");
     assertLiteralSearchMatchesString(data.consumeBoolean() ? "^XXXXXX" : "\\AXXXXXX", "..XXXXXX");
+    assertStartAnchoredAccelerationMatchesJdk(data);
     assertBoundarySensitiveRegionCaptures();
     assertKeywordAlternationMatchesString(data);
     assertFixedOffsetAccelerationMatchesString(data);
@@ -122,6 +123,27 @@ final class Utf8InputFuzzer {
             || utf8Matcher.start() < 0
             || utf8Matcher.end() > bytes.length)) {
       throw new AssertionError("UTF-8 literal search bounds differ from String search");
+    }
+  }
+
+  private static void assertStartAnchoredAccelerationMatchesJdk(FuzzedDataProvider data) {
+    String regex =
+        data.pickValue(
+            List.of("\\Ahttps://.*", "\\A\\bhttps://.*", "(\\A)https://.*", "\\A[0-9]+"));
+    String input =
+        data.pickValue(
+            List.of(
+                "https://example.com",
+                "http://example.com",
+                "prefix https://example.com",
+                "123abc",
+                "abc123"));
+    boolean expected = java.util.regex.Pattern.compile(regex).matcher(input).find();
+    Pattern pattern = Pattern.compile(regex);
+    boolean stringFound = pattern.matcher(input).find();
+    boolean utf8Found = pattern.find(Utf8Input.validated(input.getBytes(StandardCharsets.UTF_8)));
+    if (stringFound != expected || utf8Found != expected) {
+      throw new AssertionError("start-anchored acceleration differs from JDK anchor semantics");
     }
   }
 

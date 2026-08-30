@@ -25,7 +25,8 @@ record EnginePathOptions(
     boolean dfa,
     boolean reverseDfa,
     boolean bitState,
-    boolean lazyCaptureExtraction) {
+    boolean lazyCaptureExtraction,
+    boolean multiAnchorGapEngine) {
 
   private static final EnginePathOptions ALL_ENABLED = builder().build();
   private static final Map<EnginePath, OptionAccessor> ACCESSORS = buildAccessors();
@@ -59,6 +60,7 @@ record EnginePathOptions(
     accessors.put(EnginePath.REVERSE_DFA, EnginePathOptions::reverseDfa);
     accessors.put(EnginePath.BIT_STATE, EnginePathOptions::bitState);
     accessors.put(EnginePath.LAZY_CAPTURE_EXTRACTION, EnginePathOptions::lazyCaptureExtraction);
+    accessors.put(EnginePath.MULTI_ANCHOR_GAP_ENGINE, EnginePathOptions::multiAnchorGapEngine);
     return Map.copyOf(accessors);
   }
 
@@ -78,6 +80,7 @@ record EnginePathOptions(
     private boolean reverseDfa = true;
     private boolean bitState = true;
     private boolean lazyCaptureExtraction = true;
+    private boolean multiAnchorGapEngine = true;
 
     Builder literalFastPaths(boolean enabled) {
       literalFastPaths = enabled;
@@ -134,6 +137,11 @@ record EnginePathOptions(
       return this;
     }
 
+    Builder multiAnchorGapEngine(boolean enabled) {
+      multiAnchorGapEngine = enabled;
+      return this;
+    }
+
     EnginePathOptions build() {
       return new EnginePathOptions(
           literalFastPaths,
@@ -146,7 +154,8 @@ record EnginePathOptions(
           dfa,
           reverseDfa,
           bitState,
-          lazyCaptureExtraction);
+          lazyCaptureExtraction,
+          multiAnchorGapEngine);
     }
   }
 }

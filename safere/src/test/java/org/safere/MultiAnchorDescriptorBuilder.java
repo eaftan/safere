@@ -42,20 +42,7 @@ final class MultiAnchorDescriptorBuilder {
   }
 
   MultiAnchorDescriptorBuilder segment(GapKind gapKind, String literal) {
-    Gap gap =
-        switch (gapKind) {
-          case EMPTY -> Gap.EMPTY;
-          case WORD_BOUNDARY -> Gap.WORD_BOUNDARY;
-          case NO_WORD_BOUNDARY -> Gap.NO_WORD_BOUNDARY;
-          case LINE_START -> Gap.LINE_START;
-          case LINE_END -> Gap.LINE_END;
-          case ANY_STAR -> Gap.ANY_STAR_GREEDY;
-          case SINGLE_LINE_ANY_STAR -> Gap.SINGLE_LINE_ANY_STAR_GREEDY;
-          case BOUNDED_CLASS_REPEAT ->
-              new Gap(
-                  GapKind.BOUNDED_CLASS_REPEAT, 0, Integer.MAX_VALUE, null, null, null, null, true);
-        };
-    return segment(gap, Anchor.create(literal));
+    return segment(gapOf(gapKind), Anchor.create(literal));
   }
 
   MultiAnchorDescriptorBuilder segment(Gap gap, String literal) {
@@ -74,19 +61,7 @@ final class MultiAnchorDescriptorBuilder {
   }
 
   MultiAnchorDescriptorBuilder trailingGap(GapKind gapKind) {
-    this.trailingGap =
-        switch (gapKind) {
-          case EMPTY -> Gap.EMPTY;
-          case WORD_BOUNDARY -> Gap.WORD_BOUNDARY;
-          case NO_WORD_BOUNDARY -> Gap.NO_WORD_BOUNDARY;
-          case LINE_START -> Gap.LINE_START;
-          case LINE_END -> Gap.LINE_END;
-          case ANY_STAR -> Gap.ANY_STAR_GREEDY;
-          case SINGLE_LINE_ANY_STAR -> Gap.SINGLE_LINE_ANY_STAR_GREEDY;
-          case BOUNDED_CLASS_REPEAT ->
-              new Gap(
-                  GapKind.BOUNDED_CLASS_REPEAT, 0, Integer.MAX_VALUE, null, null, null, null, true);
-        };
+    this.trailingGap = gapOf(gapKind);
     return this;
   }
 
@@ -142,6 +117,22 @@ final class MultiAnchorDescriptorBuilder {
         rejectPlan,
         anchoredPrefix,
         anchoredCharClassPrefix);
+  }
+
+  private static Gap gapOf(GapKind gapKind) {
+    return switch (gapKind) {
+      case EMPTY -> Gap.EMPTY;
+      case TEXT_START -> Gap.TEXT_START;
+      case TEXT_END -> Gap.TEXT_END;
+      case WORD_BOUNDARY -> Gap.WORD_BOUNDARY;
+      case NO_WORD_BOUNDARY -> Gap.NO_WORD_BOUNDARY;
+      case LINE_START -> Gap.LINE_START;
+      case LINE_END -> Gap.LINE_END;
+      case ANY_STAR -> Gap.ANY_STAR_GREEDY;
+      case SINGLE_LINE_ANY_STAR -> Gap.SINGLE_LINE_ANY_STAR_GREEDY;
+      case BOUNDED_CLASS_REPEAT ->
+          new Gap(GapKind.BOUNDED_CLASS_REPEAT, 0, Integer.MAX_VALUE, null, null, null, null, true);
+    };
   }
 
   private static int[] defaultOrder(int n) {

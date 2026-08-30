@@ -92,7 +92,18 @@ record EnginePathContract(
               EnginePath.LAZY_CAPTURE_EXTRACTION,
               EnginePathRole.PARTIAL_PRODUCER,
               EnumSet.of(ResultAuthority.GROUP_ZERO, ResultAuthority.DEFERRED_CAPTURES),
-              EnumSet.of(SemanticGuard.CAPTURE_DEFERABLE)));
+              EnumSet.of(SemanticGuard.CAPTURE_DEFERABLE)),
+          new EnginePathContract(
+              EnginePath.MULTI_ANCHOR_GAP_ENGINE,
+              EnginePathRole.GUARDED_OPTIMIZATION,
+              EnumSet.of(
+                  ResultAuthority.NO_MATCH,
+                  ResultAuthority.GROUP_ZERO,
+                  ResultAuthority.DEFERRED_CAPTURES),
+              EnumSet.of(
+                  SemanticGuard.WHOLE_PATTERN_SHAPE,
+                  SemanticGuard.LEFTMOST_FIRST_EQUIVALENT,
+                  SemanticGuard.CAPTURE_DEFERABLE)));
 
   static List<EnginePathContract> all() {
     return ALL;

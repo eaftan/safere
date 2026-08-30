@@ -10,6 +10,7 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import org.junit.jupiter.api.Tag;
@@ -28,6 +29,20 @@ class SearchScalingRegressionTest {
     assertThat(work)
         .as("Compilation work includes descriptor assembly but not a second full AST analysis")
         .isLessThan(countAstNodes(regexp) * 4L);
+  }
+
+  @Test
+  void nestedRequiredLiteralAnalysisDoesNotRepeatSelectivityScoring() {
+    Regexp smaller = nestedRequiredLiteral(8_000);
+    Regexp larger = nestedRequiredLiteral(16_000);
+
+    long smallerWork = WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(smaller));
+    long largerWork = WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(larger));
+
+    assertThat(smallerWork).as("Required-literal scoring must be observed").isPositive();
+    assertThat(largerWork)
+        .as("Required-literal selectivity scoring should scale linearly")
+        .isLessThanOrEqualTo(smallerWork * 3);
   }
 
   @Test
@@ -1154,5 +1169,18 @@ class SearchScalingRegressionTest {
       }
     }
     return count;
+  }
+
+  private static Regexp nestedRequiredLiteral(int size) {
+    Regexp nested = Regexp.literalString("q".repeat(size).codePoints().toArray(), 0);
+    for (int index = 0; index < size; index++) {
+      nested =
+          Regexp.concat(
+              List.of(
+                  Regexp.capture(nested, 0, index + 1, null),
+                  Regexp.quest(Regexp.literal('x', 0), 0)),
+              0);
+    }
+    return nested;
   }
 }

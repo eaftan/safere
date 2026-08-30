@@ -1,0 +1,336 @@
+// This file is part of a Java port of RE2 (https://github.com/google/re2).
+// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
+// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
+// Licensed under the BSD 3-Clause License (see LICENSE file).
+
+package org.safere;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.safere.MultiAnchorDescriptor.GapKind;
+import org.safere.MultiAnchorDescriptor.RejectPlan;
+import org.safere.MultiAnchorDescriptor.StartPlan;
+
+@DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
+class MultiAnchorGapEngineTest {
+
+  @Test
+  void patternMultiAnchorIntegrationStructure() {
+    Pattern pattern = Pattern.compile("header:.*body:.*footer");
+    MultiAnchorDescriptor actual = pattern.multiAnchor();
+
+    MultiAnchorDescriptor expected =
+        MultiAnchorDescriptorBuilder.create()
+            .segment("header:")
+            .segment(GapKind.SINGLE_LINE_ANY_STAR, "body:")
+            .segment(GapKind.SINGLE_LINE_ANY_STAR, "footer")
+            .checkOrder(1, 0, 2)
+            .startPlan(new StartPlan.Literal("header:", false, null))
+            .rejectPlan(new RejectPlan.RequiredLiteral("body:"))
+            .build();
+
+    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
+  }
+
+  @Test
+  void boundaryGapsRuntimeBehavior() {
+    Pattern anchoredPattern = Pattern.compile("^START.*END$");
+    assertThat(anchoredPattern.matcher("START between END").find()).isTrue();
+    assertThat(anchoredPattern.matcher("prefix START between END").find()).isFalse();
+    assertThat(anchoredPattern.matcher("START between END suffix").find()).isFalse();
+
+    Pattern wordPattern = Pattern.compile("\\bWORD.*TAIL");
+    assertThat(wordPattern.matcher("a WORD with TAIL").find()).isTrue();
+    assertThat(wordPattern.matcher("NO_WORD with TAIL").find()).isFalse();
+  }
+
+  @Test
+  void emptyGapsAndAdjacentAnchors() {
+    Pattern pattern = Pattern.compile("ABC.*DEF");
+    String text = "ABCDEF";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("ABCDEF");
+  }
+
+  @Test
+  void deferredCaptureExtractionParity() {
+    String regex = "A(?<grp1>\\d+)B(?<grp2>[a-z]+)C";
+    Pattern saferePattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    String text = "noise A12345BqwertyC trailing";
+    Matcher safereMatcher = saferePattern.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+    assertThat(safereMatcher.find()).isTrue();
+    assertThat(jdkMatcher.find()).isTrue();
+    assertThat(safereMatcher.group("grp1")).isEqualTo(jdkMatcher.group("grp1"));
+    assertThat(safereMatcher.group("grp2")).isEqualTo(jdkMatcher.group("grp2"));
+    assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+  }
+
+  @Test
+  void multiInfixBasicMatch() {
+    String regex = ".*foo.*bar.*baz.*";
+    Pattern pattern = Pattern.compile(regex);
+
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+
+    String text = "prefix foo intermediate bar trailing baz suffix";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(text.length());
+  }
+
+  @Test
+  void multiInfixPartialMatchNegativeRejection() {
+    String regex = ".*foo.*bar.*baz.*";
+    Pattern pattern = Pattern.compile(regex);
+
+    // "foo" and "bar" present, but "baz" is absent -> instant rejection in Phase 1
+    String text = "prefix foo intermediate bar trailing qux suffix";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isFalse();
+  }
+
+  @Test
+  void multiInfixUtf8Input() {
+    String regex = ".*foo.*bar.*baz.*";
+    Pattern pattern = Pattern.compile(regex);
+
+    byte[] bytes = "prefix foo intermediate bar trailing baz suffix".getBytes(UTF_8);
+    Utf8Input input = Utf8Input.validated(bytes);
+
+    Utf8Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(bytes.length);
+  }
+
+  @Test
+  void structuredMultiClauseLog() {
+    String regex = "error:\\[(\\w+)\\]\\s+code:(\\d+)\\s+msg:([^\n]+)";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "2026-08-27 12:00:00 error:[CRITICAL] code:500 msg:Internal Server Error\n";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("error:[CRITICAL] code:500 msg:Internal Server Error");
+    assertThat(matcher.group(1)).isEqualTo("CRITICAL");
+    assertThat(matcher.group(2)).isEqualTo("500");
+    assertThat(matcher.group(3)).isEqualTo("Internal Server Error");
+  }
+
+  @Test
+  void singleLineGapNewlineBoundary() {
+    String regex = "START[^\n]*MIDDLE[^\n]*END";
+    Pattern pattern = Pattern.compile(regex);
+
+    // Fails when a newline is present between START and MIDDLE
+    String multilineFail = "START some text\nMIDDLE some text END";
+    Matcher m1 = pattern.matcher(multilineFail);
+    assertThat(m1.find()).isFalse();
+
+    // Succeeds when all tokens are on the same line
+    String singleLineSuccess = "START some text MIDDLE some text END";
+    Matcher m2 = pattern.matcher(singleLineSuccess);
+    assertThat(m2.find()).isTrue();
+    assertThat(m2.group(0)).isEqualTo("START some text MIDDLE some text END");
+  }
+
+  @Test
+  void dotallMultiLineSuccess() {
+    String regex = "(?s)START.*MIDDLE.*END";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "START line 1\nMIDDLE line 2\nEND";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo(text);
+  }
+
+  @Test
+  void adversarialDenseNoiseWorkLimitFallback() {
+    // Pattern looking for A followed by B with bounded noise
+    String regex = "A[0-9]{3}B";
+    Pattern pattern = Pattern.compile(regex);
+
+    // Dense stream of 5,000 'A's without digits, ending with valid match
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < 5000; i++) {
+      sb.append("Axx");
+    }
+    sb.append("A123B");
+
+    String haystack = sb.toString();
+    Matcher matcher = pattern.matcher(haystack);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("A123B");
+    assertThat(matcher.start()).isEqualTo(haystack.length() - 5);
+  }
+
+  @Test
+  void alternationAnchors() {
+    String regex = ".*(GET|POST|PUT)\\s+/api/v1/(users|orders).*";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "Incoming request: POST /api/v1/orders HTTP/1.1";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(text.length());
+  }
+
+  @Test
+  void jdkEquivalenceAcrossOffsets() {
+    String regex = "id:([a-z]+)\\s+count:(\\d+)";
+    Pattern saferePattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    String text = "noise id:first count:100 intermediate id:second count:200 trailing";
+    Matcher safereMatcher = saferePattern.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+    while (jdkMatcher.find()) {
+      assertThat(safereMatcher.find()).isTrue();
+      assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+      assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+      assertThat(safereMatcher.group(0)).isEqualTo(jdkMatcher.group(0));
+      assertThat(safereMatcher.group(1)).isEqualTo(jdkMatcher.group(1));
+      assertThat(safereMatcher.group(2)).isEqualTo(jdkMatcher.group(2));
+    }
+    assertThat(safereMatcher.find()).isFalse();
+  }
+
+  @Test
+  void multiAnchorLogCaptureExtraction() {
+    String regex = "error:\\[([A-Z]+)\\]\\s+code:(\\d+)\\s+msg:([a-z]+)";
+    Pattern saferePattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    String text = "noise error:[CRITICAL] code:500 msg:crash trailing";
+    Matcher safereMatcher = saferePattern.matcher(text);
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(text);
+
+    assertThat(safereMatcher.find()).isTrue();
+    assertThat(jdkMatcher.find()).isTrue();
+    assertThat(safereMatcher.start()).isEqualTo(jdkMatcher.start());
+    assertThat(safereMatcher.end()).isEqualTo(jdkMatcher.end());
+    assertThat(safereMatcher.group(0)).isEqualTo(jdkMatcher.group(0));
+    assertThat(safereMatcher.group(1)).isEqualTo("CRITICAL");
+    assertThat(safereMatcher.group(2)).isEqualTo("500");
+    assertThat(safereMatcher.group(3)).isEqualTo("crash");
+  }
+
+  @Test
+  void endAnchoredChainDoesNotAcceptAnEarlierAnchor() {
+    assertFirstMatchEqualsJdk("AAA.*BB$", "AAABBxBB");
+  }
+
+  @Test
+  void greedyInternalGapChoosesTheLastCompatibleAnchor() {
+    assertFirstMatchEqualsJdk("AAA.*BB", "AAABBxBB");
+  }
+
+  @Test
+  void lazyInternalGapRetriesAnAnchorThatCanCompleteTheChain() {
+    assertFirstMatchEqualsJdk("AAA.*?BB.CC", "AAAxBBxxBBzCC");
+  }
+
+  @Test
+  void quantifiedInternalGapCountsUnicodeCodePoints() {
+    assertFirstMatchEqualsJdk("AAA.BB", "AAA😀BB");
+
+    Pattern pattern = Pattern.compile("AAA.BB");
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.validated("AAA😀BB".getBytes(UTF_8)));
+    assertThat(matcher.find()).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\r", "", " ", " "})
+  void defaultDotRejectsEveryJdkLineTerminator(String lineTerminator) {
+    assertFirstMatchEqualsJdk("AAA.*BB", "AAA" + lineTerminator + "BB");
+  }
+
+  @Test
+  void variableInternalGapsAreOutsideTheAuthoritativeSubset() {
+    assertThat(Pattern.compile("A.*B.*C").multiAnchor().isExecutableChain()).isFalse();
+    assertThat(Pattern.compile("A[0-9]{3}B").multiAnchor().isExecutableChain()).isFalse();
+  }
+
+  @Test
+  void fixedAnchorChainRemainsExecutable() {
+    Pattern pattern = Pattern.compile("AAA[0-9]BB");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    Matcher matcher = pattern.matcher("noise AAA1BB trailing");
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group()).isEqualTo("AAA1BB");
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(Utf8Input.validated("noise AAA1BB trailing".getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+  }
+
+  @Test
+  void fixedCompoundGapWithoutCharacterMetadataFallsBack() {
+    Pattern pattern = Pattern.compile("AAA(?:[0-9]x){2}BB");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+    assertFirstMatchEqualsJdk("AAA(?:[0-9]x){2}BB", "AAAaxaxBB");
+  }
+
+  @Test
+  void multipleTrailingConstraintsFallBackWhenTheyCannotShareOneGap() {
+    for (String regex : new String[] {"AAA[0-9]BB[0-9]\\b", "AAA[0-9]BB[0-9][A-Za-z0-9_]"}) {
+      Pattern pattern = Pattern.compile(regex);
+
+      assertThat(pattern.multiAnchor().isExecutableChain()).as(regex).isFalse();
+    }
+
+    assertFirstMatchEqualsJdk("AAA[0-9]BB[0-9]\\b", "AAA1BB2x");
+    assertFirstMatchEqualsJdk("AAA[0-9]BB[0-9][A-Za-z0-9_]", "x AAA1BB2!");
+  }
+
+  @Test
+  void variableLengthAlternationAnchorFallsBack() {
+    Pattern pattern = Pattern.compile("(foo|foobar)[0-9]ZZ");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+    assertFirstMatchEqualsJdk("(foo|foobar)[0-9]ZZ", "foobar1ZZ");
+  }
+
+  @Test
+  void equalWidthAlternationAnchorFallsBackToAvoidSuffixRescans() {
+    Pattern pattern = Pattern.compile("(AAA|ZZZ)[0-9]BB");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+  }
+
+  @Test
+  void foldedSupplementaryLiteralFallsBackForUtf8() {
+    Pattern pattern = Pattern.compile("😀A[0-9]BB", Pattern.CASE_INSENSITIVE);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().isExecutableUtf8Chain()).isFalse();
+
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.validated("😀A1BB".getBytes(UTF_8)));
+    assertThat(matcher.find()).isTrue();
+  }
+
+  private static void assertFirstMatchEqualsJdk(String regex, String text) {
+    Matcher safere = Pattern.compile(regex).matcher(text);
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(text);
+
+    boolean expected = jdk.find();
+    assertThat(safere.find()).isEqualTo(expected);
+    if (expected) {
+      assertThat(safere.start()).isEqualTo(jdk.start());
+      assertThat(safere.end()).isEqualTo(jdk.end());
+      assertThat(safere.group()).isEqualTo(jdk.group());
+    }
+  }
+}
