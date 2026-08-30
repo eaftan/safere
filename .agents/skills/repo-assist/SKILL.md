@@ -3,7 +3,7 @@ name: repo-assist
 description: "Prepare one self-contained SafeRE maintainer report over trusted open PRs and issues: preserve the PR scout's review, fix-loop, benchmark, and ordering behavior; triage issue state and linked PR coverage; and enforce a fail-closed content trust boundary before text reaches the model."
 ---
 
-# SafeRE Repo Assist
+# Repo Assist
 
 ## Goal
 
@@ -82,7 +82,7 @@ interrupted or blocked, list unprocessed PRs, and release the lock.
 At the start, run:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist begin-run
+uv run --project .agents/skills/repo-assist --locked repo-assist begin-run
 ```
 
 The helper prints a `run_id`, `report_path`, and lock token. Save the output. If it reports an
@@ -91,7 +91,7 @@ active lock, stop and report that another sweep is already running.
 At the end, always run `end-run` with the printed token:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist end-run --token <token>
+uv run --project .agents/skills/repo-assist --locked repo-assist end-run --token <token>
 ```
 
 If the run crashes, the stale lock directory under `$HOME/.codex/safere-pr-review/locks` may need
@@ -113,7 +113,7 @@ needed. Discovering every direct base is necessary for GitHub stacked PRs, whose
 the branch immediately below them rather than `main`:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist discover pr --limit 1000
+uv run --project .agents/skills/repo-assist --locked repo-assist discover pr --limit 1000
 ```
 
 Use only the `trusted` array from this helper output as the candidate PR set. Ignore the `drafts`
@@ -132,13 +132,13 @@ consider adding to the allowlist.
 Read state from:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist state-path
+uv run --project .agents/skills/repo-assist --locked repo-assist state-path
 ```
 
 For PRs that may need review, request the sanitized snapshot before code review:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist \
+uv run --project .agents/skills/repo-assist --locked repo-assist \
   snapshot pr <number> --previous-fingerprint <fingerprint>
 ```
 
@@ -196,7 +196,7 @@ an earlier scout report.
 Discover all open issues through the same fail-closed trust boundary:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist discover issue --limit 1000
+uv run --project .agents/skills/repo-assist --locked repo-assist discover issue --limit 1000
 ```
 
 Every trusted open issue appears in every report. On the first run, review every one. On later runs,
@@ -207,7 +207,7 @@ draft, head, or merge state changed; or the user forces review. Movement of `mai
 invalidate issue triage. Request content with:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist \
+uv run --project .agents/skills/repo-assist --locked repo-assist \
   snapshot issue <number> --previous-fingerprint <fingerprint>
 ```
 
@@ -301,7 +301,7 @@ declaredBaseSha="$(git rev-parse origin/<baseRefName>)"
 2. Create a durable worktree path:
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist \
+uv run --project .agents/skills/repo-assist --locked repo-assist \
   worktree-path <number> <head-sha>
 ```
 
@@ -369,7 +369,7 @@ uv run --project .agents/skills/repo-assist --locked safere-repo-assist \
      main changes and any merge conflict resolutions.
 
 ```bash
-uv run --project .agents/skills/repo-assist --locked safere-repo-assist \
+uv run --project .agents/skills/repo-assist --locked repo-assist \
   artifact-dir pr <number> <head-sha>
 git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
 ```

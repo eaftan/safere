@@ -64,7 +64,7 @@ wheels = [
 ]
 
 [[package]]
-name = "safere-repo-assist"
+name = "repo-assist"
 version = "0.1.0"
 source = { editable = "." }
 

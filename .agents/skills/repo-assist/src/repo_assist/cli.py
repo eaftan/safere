@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Eddie Aftandilian.
 # Licensed under the BSD 3-Clause License (see LICENSE file).
 
-"""Command-line support for the SafeRE repo-assist skill."""
+"""Command-line support for the repo-assist skill."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def begin(args: argparse.Namespace) -> int:
               "pid": os.getpid(), "reportPath": str(args.root / "reports" / f"{run_id}.md")}
   (lock / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
   report = Path(metadata["reportPath"])
-  report.write_text(f"# SafeRE Repo Assist {run_id}\n\nStarted: {iso(started)}\n\nStatus: running\n",
+  report.write_text(f"# Repo Assist {run_id}\n\nStarted: {iso(started)}\n\nStatus: running\n",
                     encoding="utf-8")
   (args.root / "LATEST.md").write_text(f"Latest run report: {report}\n", encoding="utf-8")
   state_path = args.root / "state.json"
