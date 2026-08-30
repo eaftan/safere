@@ -878,6 +878,9 @@ final class Nfa {
     int cachedFlags = -1;
 
     while (!stack.isEmpty()) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       stack.pop();
       if (stack.restoreIndex >= 0) {
         t0[stack.restoreIndex] = stack.restoreValue;
@@ -1127,6 +1130,9 @@ final class Nfa {
     nq.clear();
 
     for (int threadIndex = 0; threadIndex < rq.size; threadIndex++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       NfaThread t = rq.threads[threadIndex];
       int id = t.id;
       int[] capture = t.capture;

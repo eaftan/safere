@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.regex.PatternSyntaxException;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -24,10 +25,6 @@ class ParserTest {
 
   /** Perl-compatible flags, used as the default for most tests. */
   private static final int PERL = ParseFlags.LIKE_PERL;
-
-  // Used as a sink to prevent JVM dead-code elimination in microbenchmarks.
-  @SuppressWarnings("unused")
-  private static Regexp parseTimingSink;
 
   /**
    * Flags matching the RE2 C++ test suite's default ({@code MatchNL | PerlX | PerlClasses |
@@ -57,15 +54,8 @@ class ParserTest {
     return result != null;
   }
 
-  private static long bestParseTimeNanos(String pattern) {
-    long best = Long.MAX_VALUE;
-    for (int i = 0; i < 3; i++) {
-      long start = System.nanoTime();
-      parseTimingSink = parse(pattern);
-      long elapsed = System.nanoTime() - start;
-      best = Math.min(best, elapsed);
-    }
-    return best;
+  private static long parseWork(String pattern) {
+    return WorkCounter.countForTesting(() -> parse(pattern));
   }
 
   private static String nestedCharacterClass(int depth) {
@@ -352,18 +342,20 @@ class ParserTest {
     }
 
     @Test
+    @Tag("work-counter")
     void manyPlainCharacterClassesParseWithLinearScaling() {
       String smaller = repeatedPlainCharacterClasses(8_000);
       String larger = repeatedPlainCharacterClasses(32_000);
 
-      long smallerNanos = bestParseTimeNanos(smaller);
-      long largerNanos = bestParseTimeNanos(larger);
+      long smallerWork = parseWork(smaller);
+      long largerWork = parseWork(larger);
 
-      assertThat(largerNanos)
+      assertThat(smallerWork).isPositive();
+      assertThat(largerWork)
           .as(
-              "4x input should stay near linear, smaller=%dns larger=%dns",
-              smallerNanos, largerNanos)
-          .isLessThan(smallerNanos * 10);
+              "4x input should stay near linear, smallerWork=%d largerWork=%d",
+              smallerWork, largerWork)
+          .isLessThan(smallerWork * 5);
     }
 
     @Test

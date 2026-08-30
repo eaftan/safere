@@ -206,6 +206,9 @@ final class Parser {
       // Special parse loop for literal string.
       int i = 0;
       while (i < pattern.length()) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         int r = pattern.codePointAt(i);
         i += Character.charCount(r);
         pushLiteral(r);
@@ -218,6 +221,9 @@ final class Parser {
     boolean lastTokenNonRepeatable = false;
     boolean lastTokenWasEmptyQuotedLiteral = false;
     while (pos < pattern.length()) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       // In comments mode, skip whitespace and #-comments before each token.
       if ((flags & ParseFlags.COMMENTS) != 0) {
         skipCommentsAndWhitespace();
@@ -1038,8 +1044,14 @@ final class Parser {
     for (int i = start; i < end; i++) {
       Regexp re = source.get(i);
       if (re.op == RegexpOp.LITERAL) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         runes[out++] = re.rune;
       } else {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(re.runes.length);
+        }
         System.arraycopy(re.runes, 0, runes, out, re.runes.length);
         out += re.runes.length;
       }

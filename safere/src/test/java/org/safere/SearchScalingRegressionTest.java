@@ -23,11 +23,17 @@ class SearchScalingRegressionTest {
   void multiAnchorCompilationDoesNotRepeatAstAnalysis() {
     Regexp regexp = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
 
-    long work = WorkCounter.countForTesting(() -> MultiAnchorCompiler.compile(regexp, 0));
+    long analysisWork = WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(regexp));
+    long compilationWork =
+        WorkCounter.countForTesting(() -> MultiAnchorCompiler.compile(regexp, 0));
 
-    assertThat(work)
-        .as("Compilation work includes descriptor assembly but not a second full AST analysis")
-        .isLessThan(countAstNodes(regexp) * 4L);
+    assertThat(analysisWork).isPositive();
+    assertThat(compilationWork)
+        .as(
+            "Compilation work includes one analysis and descriptor assembly, "
+                + "analysisWork=%d compilationWork=%d",
+            analysisWork, compilationWork)
+        .isLessThan(analysisWork * 3);
   }
 
   @Test
@@ -1144,15 +1150,5 @@ class SearchScalingRegressionTest {
                     Utf8Input.trusted("  \u00e9\u00e9:target ".repeat(size).getBytes(UTF_8)))
                 ::find,
         "UTF-8");
-  }
-
-  private static int countAstNodes(Regexp regexp) {
-    int count = 1;
-    if (regexp.subs != null) {
-      for (Regexp child : regexp.subs) {
-        count += countAstNodes(child);
-      }
-    }
-    return count;
   }
 }

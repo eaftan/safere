@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.safere.MultiAnchorDescriptor.Anchor;
@@ -242,63 +243,71 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  @Tag("work-counter")
   void nestedConcatenationAnalysisScalesLinearly() {
     Regexp smaller = nestedConcatenation(1_000);
     Regexp larger = nestedConcatenation(2_000);
     MultiAnchorCompiler.analyze(smaller);
     MultiAnchorCompiler.analyze(larger);
 
-    long smallerNanos = medianAnalysisNanos(smaller);
-    long largerNanos = medianAnalysisNanos(larger);
+    long smallerWork = analysisWork(smaller);
+    long largerWork = analysisWork(larger);
 
-    assertThat(largerNanos)
-        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 3);
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
   }
 
   @Test
+  @Tag("work-counter")
   void nestedAlternationAnalysisScalesLinearly() {
     Regexp smaller = nestedAlternation(1_000);
     Regexp larger = nestedAlternation(2_000);
     MultiAnchorCompiler.analyze(smaller);
     MultiAnchorCompiler.analyze(larger);
 
-    long smallerNanos = medianAnalysisNanos(smaller);
-    long largerNanos = medianAnalysisNanos(larger);
+    long smallerWork = analysisWork(smaller);
+    long largerWork = analysisWork(larger);
 
-    assertThat(largerNanos)
-        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 3);
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
   }
 
   @Test
+  @Tag("work-counter")
   void nestedRequiredLiteralAnalysisScalesLinearly() {
     Regexp smaller = nestedRequiredLiteral(8_000);
     Regexp larger = nestedRequiredLiteral(16_000);
     MultiAnchorCompiler.analyze(smaller);
     MultiAnchorCompiler.analyze(larger);
 
-    long smallerNanos = medianAnalysisNanos(smaller);
-    long largerNanos = medianAnalysisNanos(larger);
+    long smallerWork = analysisWork(smaller);
+    long largerWork = analysisWork(larger);
 
-    assertThat(largerNanos)
-        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 3);
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
   }
 
   @Test
+  @Tag("work-counter")
   void reverseAnchorAnalysisScalesLinearlyForLongConcatenations() {
     Regexp smaller = repeatedCharacterClassConcat(4_000);
     Regexp larger = repeatedCharacterClassConcat(8_000);
     MultiAnchorCompiler.extractReverseMultiAnchor(smaller, 0, false);
     MultiAnchorCompiler.extractReverseMultiAnchor(larger, 0, false);
 
-    long smallerNanos = medianReverseAnalysisNanos(smaller);
-    long largerNanos = medianReverseAnalysisNanos(larger);
+    long smallerWork = reverseAnalysisWork(smaller);
+    long largerWork = reverseAnalysisWork(larger);
 
-    assertThat(largerNanos)
-        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 3);
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
   }
 
   @Test
@@ -399,25 +408,12 @@ class MultiAnchorCompilerTest {
     return Regexp.concat(children, 0);
   }
 
-  private static long medianAnalysisNanos(Regexp regexp) {
-    long[] timings = new long[5];
-    for (int index = 0; index < timings.length; index++) {
-      long start = System.nanoTime();
-      MultiAnchorCompiler.analyze(regexp);
-      timings[index] = System.nanoTime() - start;
-    }
-    Arrays.sort(timings);
-    return timings[timings.length / 2];
+  private static long analysisWork(Regexp regexp) {
+    return WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(regexp));
   }
 
-  private static long medianReverseAnalysisNanos(Regexp regexp) {
-    long[] timings = new long[5];
-    for (int index = 0; index < timings.length; index++) {
-      long start = System.nanoTime();
-      MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false);
-      timings[index] = System.nanoTime() - start;
-    }
-    Arrays.sort(timings);
-    return timings[timings.length / 2];
+  private static long reverseAnalysisWork(Regexp regexp) {
+    return WorkCounter.countForTesting(
+        () -> MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false));
   }
 }

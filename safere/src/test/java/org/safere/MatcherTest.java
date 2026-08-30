@@ -14,12 +14,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.regex.MatchResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -243,12 +243,13 @@ class MatcherTest {
     }
 
     @Test
+    @Tag("work-counter")
     @DisabledForCrosscheck("java.util.regex backtracking makes this a SafeRE linear-time check")
     @DisplayName("group access stays linear for ambiguous repeated captures")
     void groupAccessWithAmbiguousRepeatedCapturesStaysLinear() {
       Pattern p = Pattern.compile("((a|aa))*");
 
-      assertNoPerformanceCliff(
+      assertNoWorkCliff(
           "matches()+group(1)",
           "a".repeat(100),
           "a".repeat(5_000),
@@ -301,12 +302,13 @@ class MatcherTest {
     }
 
     @Test
+    @Tag("work-counter")
     @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("matches() stays linear for repeated dot-star with bounded captures")
     void matchesWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
 
-      assertNoPerformanceCliff(
+      assertNoWorkCliff(
           "matches()",
           blocks -> {
             String input = repeatedDotStarSqlUnionInput(blocks);
@@ -319,12 +321,13 @@ class MatcherTest {
     }
 
     @Test
+    @Tag("work-counter")
     @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("lookingAt() stays linear for repeated dot-star with bounded captures")
     void lookingAtWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
 
-      assertNoPerformanceCliff(
+      assertNoWorkCliff(
           "lookingAt()",
           blocks -> {
             Matcher m = p.matcher(repeatedDotStarSqlUnionInput(blocks));
@@ -373,12 +376,13 @@ class MatcherTest {
   class FindTests {
 
     @Test
+    @Tag("work-counter")
     @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("group access after find() stays linear for repeated dot-star captures")
     void findGroupWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
 
-      assertNoPerformanceCliff(
+      assertNoWorkCliff(
           "find()+group(1)",
           blocks -> {
             Matcher m = p.matcher(repeatedDotStarSqlUnionInput(blocks));
@@ -2452,12 +2456,13 @@ class MatcherTest {
   class RegionTests {
 
     @Test
+    @Tag("work-counter")
     @DisabledForCrosscheck("java.util.regex backtracks on this SafeRE linear-time stress case")
     @DisplayName("region find stays linear for repeated dot-star captures")
     void regionFindWithRepeatedDotStarAndBoundedCaptures() {
       Pattern p = repeatedDotStarSqlUnionPattern();
 
-      assertNoPerformanceCliff(
+      assertNoWorkCliff(
           "region().find()",
           blocks -> {
             String input = "prefix\n" + repeatedDotStarSqlUnionInput(blocks) + "suffix\n";
@@ -3286,50 +3291,38 @@ class MatcherTest {
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
   }
 
-  private static void assertNoPerformanceCliff(String api, IntConsumer scenario) {
-    long largerPositiveNanos = medianRuntimeNanos(() -> scenario.accept(16));
-    long nearMinimumNanos = medianRuntimeNanos(() -> scenario.accept(5));
+  private static void assertNoWorkCliff(String api, IntConsumer scenario) {
+    long largerPositiveWork = countedWork(() -> scenario.accept(16));
+    long nearMinimumWork = countedWork(() -> scenario.accept(5));
 
-    assertThat(nearMinimumNanos)
+    assertThat(largerPositiveWork).as("%s should use matcher work", api).isPositive();
+    assertThat(nearMinimumWork)
         .as(
             "%s near-minimum input should not be dramatically slower than a larger "
-                + "positive input; near=%d ns, larger=%d ns",
-            api, nearMinimumNanos, largerPositiveNanos)
-        .isLessThan(largerPositiveNanos * 50);
+                + "positive input; nearWork=%d largerWork=%d",
+            api, nearMinimumWork, largerPositiveWork)
+        .isLessThan(largerPositiveWork * 50);
   }
 
-  private static void assertNoPerformanceCliff(
+  private static void assertNoWorkCliff(
       String api, String nearMinimumInput, String largerPositiveInput, Consumer<String> scenario) {
     scenario.accept(nearMinimumInput);
     scenario.accept(largerPositiveInput);
-    long largerPositiveNanos = medianRuntimeNanos(() -> scenario.accept(largerPositiveInput));
-    long nearMinimumNanos = medianRuntimeNanos(() -> scenario.accept(nearMinimumInput));
+    long largerPositiveWork = countedWork(() -> scenario.accept(largerPositiveInput));
+    long nearMinimumWork = countedWork(() -> scenario.accept(nearMinimumInput));
 
-    assertThat(nearMinimumNanos)
+    assertThat(largerPositiveWork).as("%s should use matcher work", api).isPositive();
+    assertThat(nearMinimumWork)
         .as(
             "%s near-minimum input should not be dramatically slower than a larger "
-                + "positive input; near=%d ns, larger=%d ns",
-            api, nearMinimumNanos, largerPositiveNanos)
-        .isLessThan(largerPositiveNanos * 50);
+                + "positive input; nearWork=%d largerWork=%d",
+            api, nearMinimumWork, largerPositiveWork)
+        .isLessThan(largerPositiveWork * 50);
   }
 
-  private static long medianRuntimeNanos(Runnable task) {
-    long[] samples = new long[5];
-    for (int i = 0; i < samples.length; i++) {
-      samples[i] = runtimeNanos(task);
-    }
-    Arrays.sort(samples);
-    return samples[samples.length / 2];
-  }
-
-  private static long runtimeNanos(Runnable task) {
+  private static long countedWork(Runnable task) {
     return assertTimeoutPreemptively(
-        PERFORMANCE_SCENARIO_TIMEOUT,
-        () -> {
-          long start = System.nanoTime();
-          task.run();
-          return System.nanoTime() - start;
-        });
+        PERFORMANCE_SCENARIO_TIMEOUT, () -> WorkCounter.countForTesting(task));
   }
 
   private static void assertZeroCountGroupBehavior(String regex, String input) {

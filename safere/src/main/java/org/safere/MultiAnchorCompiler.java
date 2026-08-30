@@ -446,6 +446,9 @@ final class MultiAnchorCompiler {
     @Override
     protected NodeAnalysis postVisit(
         Regexp node, NodeAnalysis parentArg, NodeAnalysis preArg, List<NodeAnalysis> childArgs) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       NodeAnalysis analysis =
           switch (node.op) {
             case CAPTURE, NON_CAPTURE ->
