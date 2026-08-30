@@ -95,7 +95,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$FILTER" ]; then
-  FILTER='(SingleCharClassBenchmark\.findDigitAbsent|RealWorldRegexBenchmark\.runBenchmark\.(bracketCitation\.noMatch|mapFieldPath\.(noMatch|match)|caseInsensitiveKeyword\.noMatch|customProtocolLink\.noMatch|metadataBlock\.(noMatch|match)|jsonBlock\.match|templateTagMatch\.match|fixedAnchorLog\.(noMatch|match))|RegexBenchmark\.(literalMatch|charClassMatch|captureGroups|emailFind)|ApplicationBenchmark\.(uuidValidation|secretRedaction)).*@safere-string'
+  FILTER='(SingleCharClassBenchmark\.findDigitAbsent|RealWorldRegexBenchmark\.runBenchmark\.(bracketCitation\.noMatch|mapFieldPath\.(noMatch|match)|caseInsensitiveKeyword\.noMatch|customProtocolLink\.noMatch|metadataBlock\.(noMatch|match)|jsonBlock\.match|templateTagMatch\.match|fixedAnchorLog\.(noMatch|match)|multiInfixLog\.(noMatch|match)|multiInfixLogCaptures\.(noMatch|match)|unanchoredLogCaptures\.(noMatch|match)|multiClauseSequence\.(noMatch|match)|structuredJsonPath\.(noMatch|match)|uuidExtraction\.(noMatch|match)|isoTimestampLog\.(noMatch|match)|factoredAlternation\.(noMatch|match)|factoredProtocol\.(noMatch|match))|RegexBenchmark\.(literalMatch|charClassMatch|captureGroups|emailFind)|ApplicationBenchmark\.(uuidValidation|secretRedaction)).*@safere-string'
 fi
 
 # Resolve relative refs while HEAD still identifies the caller's revision.

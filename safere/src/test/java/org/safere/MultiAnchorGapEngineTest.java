@@ -479,4 +479,88 @@ class MultiAnchorGapEngineTest {
       assertThat(safere.group()).isEqualTo(jdk.group());
     }
   }
+
+  @Test
+  void alternationPrefixFactoring() {
+    String regex = "(?:application/json|application/xml|application/pdf)";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "Content-Type: application/json; charset=utf-8";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("application/json");
+
+    String xmlText = "Accept: application/xml";
+    Matcher mXml = pattern.matcher(xmlText);
+    assertThat(mXml.find()).isTrue();
+    assertThat(mXml.group(0)).isEqualTo("application/xml");
+
+    String absentText = "Content-Type: text/plain";
+    Matcher mAbsent = pattern.matcher(absentText);
+    assertThat(mAbsent.find()).isFalse();
+  }
+
+  @Test
+  void alternationSuffixFactoring() {
+    String regex = "(?:https?://|ftp://|sftp://)api/v1/[a-z]+";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "Endpoint: https://api/v1/users and ftp://api/v1/files";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("https://api/v1/users");
+
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("ftp://api/v1/files");
+
+    String absentText = "Endpoint: gopher://other/path";
+    Matcher mAbsent = pattern.matcher(absentText);
+    assertThat(mAbsent.find()).isFalse();
+  }
+
+  @Test
+  void fixedWidthRepetitionDateGap() {
+    String regex = "\\d{4}-\\d{2}-\\d{2}";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "Event logged at 2026-08-29 in system";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("2026-08-29");
+
+    // Invalid format (e.g. 3 digits instead of 4) -> mismatch
+    String invalid = "Event logged at 202-08-29 in system";
+    Matcher mInv = pattern.matcher(invalid);
+    assertThat(mInv.find()).isFalse();
+  }
+
+  @Test
+  void fixedWidthRepetitionUuidGap() {
+    String regex = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "Request ID: 12345678-abcd-ef01-2345-6789abcdef01 processed";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("12345678-abcd-ef01-2345-6789abcdef01");
+
+    String text2 = "Malformed ID: 1234567-abcd-ef01-2345-6789abcdef01";
+    Matcher m2 = pattern.matcher(text2);
+    assertThat(m2.find()).isFalse();
+  }
+
+  @Test
+  void dynamicCoalescedWeakAnchorChain() {
+    String regex = "PREFIX_START_[a-z0-9]{2}_MID_[a-z0-9]{2}_RAREST_FINAL_TOKEN";
+    Pattern pattern = Pattern.compile(regex);
+
+    String text = "noise PREFIX_START_ab_MID_cd_RAREST_FINAL_TOKEN trailing";
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.group(0)).isEqualTo("PREFIX_START_ab_MID_cd_RAREST_FINAL_TOKEN");
+
+    String absent = "noise PREFIX_START_ab_MID_cd_OTHER_FINAL_TOKEN trailing";
+    Matcher mAbsent = pattern.matcher(absent);
+    assertThat(mAbsent.find()).isFalse();
+  }
 }

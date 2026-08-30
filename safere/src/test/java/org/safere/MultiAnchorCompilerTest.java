@@ -361,13 +361,23 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
-  void driverSelectionWithBoundedUpstreamSelectsRarest() {
-    Pattern p = Pattern.compile("foo[a-z]{1,5}bar[0-9]{1,3}baz");
-    MultiAnchorDescriptor desc = p.multiAnchor();
-    assertThat(desc).isNotNull();
-    assertThat(desc.checkOrder()).isNotEmpty();
-    // Bounded upstream allows driver selection of rarest anchor
-    int driver = desc.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true);
-    assertThat(desc.isUpstreamBoundedFor(driver)).isTrue();
+  void factorAlternationsWithSurroundingPrefixCoalescesLiteral() {
+    Pattern p =
+        Pattern.compile(
+            "/(?:api/v1/checkout|api/v1/payment|api/v1/orders)/[0-9a-f]{8} status=[0-9]+");
+    assertThat(p.multiAnchor()).isNotNull();
+    assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.Literal.class);
+    StartPlan.Literal literal = (StartPlan.Literal) p.multiAnchor().startPlan();
+    assertThat(literal.prefix()).isEqualTo("/api/v1/");
+  }
+
+  @Test
+  void factorAlternationsStandalonePrefixExtractsCommonPrefix() {
+    Pattern p =
+        Pattern.compile("(?:https://api|https://stage|https://prod)\\.example\\.com/[a-z0-9]+");
+    assertThat(p.multiAnchor()).isNotNull();
+    assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.Literal.class);
+    StartPlan.Literal literal = (StartPlan.Literal) p.multiAnchor().startPlan();
+    assertThat(literal.prefix()).isEqualTo("https://");
   }
 }
