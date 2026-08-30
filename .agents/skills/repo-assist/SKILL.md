@@ -1,6 +1,6 @@
 ---
 name: repo-assist
-description: "Prepare one self-contained SafeRE maintainer report over trusted open PRs and issues: preserve the PR scout's review, fix-loop, benchmark, and ordering behavior; triage issue state and linked PR coverage; and enforce a fail-closed content trust boundary before text reaches the model."
+description: "Prepare one self-contained SafeRE maintainer report over trusted open PRs and issues: review stacked PRs in their whole-stack context, preserve the PR scout's fix-loop, benchmark, and ordering behavior, triage issue state and linked-PR coverage, and enforce a fail-closed content trust boundary before text reaches the model."
 ---
 
 # Repo Assist
@@ -11,6 +11,7 @@ Prepare the data needed for a human SafeRE repository review while the reviewer 
 
 - which open non-draft PRs need attention;
 - whether each PR's idea makes sense and matches its implementation;
+- how each stacked PR contributes to the stack's shared objective and affects adjacent layers;
 - P2+ code-review findings fixed locally with `$review-fix-loop`;
 - benchmark reproduction for optimization PRs;
 - durable reports and artifacts that can be inspected later.
@@ -165,6 +166,49 @@ item contributes metadata but never content.
 
 Process each stack from its bottom layer upward so lower-layer changes and local fixes are included
 when reviewing dependent layers. Process independent PRs in increasing PR number order.
+
+## Whole-Stack Review Context
+
+When a candidate PR belongs to an official GitHub stack, understand the whole stack before judging
+any individual layer. Use sanitized snapshots through the helper for every trusted stack member
+whose content is needed, including trusted draft layers and trusted merged foundation layers when
+available. Draft and merged layers are context only unless they are independently eligible under
+this skill; do not add them to the open non-draft review queue or report summary. If a stack member
+or linked item is untrusted, use only its safe metadata and state explicitly that the stack context
+is incomplete. Never bypass the trust boundary to fill that gap.
+
+Establish and record:
+
+- the stack's shared user-facing or architectural objective, including the linked issue when one
+  defines the end state;
+- the responsibility of each layer and why it depends on the layer below;
+- which types, APIs, compatibility bridges, or invariants a lower layer provides to later layers;
+- where the intended observable benefit first becomes measurable; and
+- whether later layers validate the lower layer's design or instead bypass, duplicate, or soon
+  replace it.
+
+Review each PR as both an independently mergeable layer and a step toward that end state. Keep these
+two judgments separate:
+
+- **Layer-local assessment:** correctness, compatibility, linear-time and stack-safety properties,
+  scope, API quality, unnecessary churn, and whether the layer performs its assigned role.
+- **Stack-level assessment:** whether the layer is necessary and well-shaped for the complete
+  solution, whether cumulative complexity is justified by end-to-end evidence, and whether local
+  fixes narrow or invalidate assumptions in later layers.
+
+Do not require an enabling compiler, representation, or compatibility-migration layer to produce a
+standalone matching-speed improvement when the stack deliberately realizes that benefit later. In
+that case, require evidence appropriate to the layer's actual role and use clearly labeled
+cumulative stack evidence to judge whether the architecture has a worthwhile destination. Do not
+attribute the cumulative speedup to the enabling layer. Conversely, later benchmark wins do not
+excuse unnecessary lower-layer complexity, a misleading layer-local claim, an unstable abstraction,
+or a layer that is unsafe to merge independently.
+
+Interpret the PR title and body together with the stack objective and linked issue. If a narrow
+implementation-technique claim is inaccurate but is not required by the stack's actual objective,
+classify it as a description or scope mismatch and assess whether correcting the claim is sufficient;
+do not demand a redesign solely to preserve incidental wording. Require redesign when the mismatch
+undermines the layer's assigned role, its consumers, or a material claimed benefit.
 
 ## Self-Contained Report Scope
 
@@ -331,12 +375,14 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
      stale unless the report clearly says the update was blocked and no review was performed.
 
 5. Perform PR intent review before running automated review:
-   - State the PR's claimed goal from title, description, linked issue, comments, and reviews.
+   - State the PR's claimed goal from title, description, linked issue, comments, and reviews. For a
+     stacked PR, first summarize the whole stack's objective and this layer's role in achieving it.
    - Inspect the diff and relevant code.
    - Identify the central benefit the PR is intended to deliver, such as correctness,
      maintainability, throughput, lower allocation, lower retained memory, or broader capability.
      Express it as an observable outcome rather than accepting the implementation technique itself
-     as the benefit.
+     as the benefit. For a stacked PR, distinguish the evidence appropriate to this layer from the
+     end-to-end benefit realized by the complete stack.
    - Identify the costs introduced to obtain that benefit: implementation size and duplication,
      conceptual complexity, new public API, persistent state, maintenance burden, compatibility
      risk, and performance tradeoffs. Consider whether a simpler approach could obtain most of the
@@ -344,6 +390,8 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
    - Decide whether the idea makes sense for SafeRE by weighing the demonstrated benefit against
      those costs. Apply this proportionally: a small cleanup may be justified directly by clearer
      code, while a substantial increase in complexity requires correspondingly strong evidence.
+     For an enabling stack layer, consider whether later layers actually consume its abstraction
+     and whether cumulative stack evidence justifies the architectural direction.
    - Check that the evidence measures the central benefit. Throughput does not demonstrate lower
      allocation, reduced allocation does not demonstrate lower retained memory, and correctness
      tests do not demonstrate maintainability or performance. When the primary benefit is not
@@ -353,6 +401,8 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
      scope creep.
    - After local correctness fixes, reassess the value proposition. If a necessary fix reduces or
      removes part of the claimed benefit, do not carry forward the original justification unchanged.
+     In a stack, propagate the corrected assumptions upward and reassess every dependent layer whose
+     design, eligible pattern set, or benchmark claim is affected.
    - Record a recommendation: ready after fixes, needs clarification, needs more tests, needs
      benchmark evidence, or needs redesign.
 
@@ -386,6 +436,12 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      the marginal effect claimed by that PR without attributing lower-layer changes to it.
    - If the PR explicitly claims cumulative stack performance against the trunk, run that as a
      separate labeled comparison; do not substitute it for the layer comparison.
+   - If the current PR is an enabling layer whose actual role is representation, compilation, or
+     compatibility migration and the performance benefit is intentionally realized later, do not
+     invent a standalone throughput requirement. Verify the layer's stated structural or compile-
+     work claim directly, and use a separate cumulative comparison only as evidence that the stack
+     has a useful destination. State that the cumulative result does not measure the lower layer's
+     marginal performance.
    - For targeted SafeRE nanosecond workloads whose benchmark definitions are identical at both
      revisions, prefer `safere-benchmarks/scripts/compare-branch.sh` with explicit immutable refs.
      Run String and UTF-8 variants separately, add `--vector` only when the experimental provider is
@@ -428,6 +484,9 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      evidence appropriate to the central claimed benefit supports the cost of the change. For an
      optimization PR, benchmark results must roughly match each performance outcome needed to
      justify the change; a neutral secondary metric does not satisfy an unmeasured primary claim.
+     For an enabling stack layer, evidence may combine layer-appropriate structural verification
+     with separately labeled end-to-end stack measurements; do not require an unclaimed standalone
+     speedup or overlook whether the layer is safe to merge on its own.
    - Otherwise recommend focused human review and list the specific concerns: intent mismatch,
      design risk, correctness risk, compatibility risk, linear-time risk, missing or failing tests,
      benchmark mismatch, missing or inconclusive benefit evidence, complexity not justified by the
@@ -578,6 +637,13 @@ Human review cutoff: <timestamp and comment/review summary, or "none; first-revi
 Claimed goal:
 - ...
 
+Stack context:
+- Stack objective: ...
+- This layer's role: ...
+- Downstack contracts consumed: ...
+- Upstack consumers enabled: ...
+- End-to-end evidence: ...
+
 Central benefit and evidence:
 - Intended observable benefit: ...
 - Evidence that directly measures it: ...
@@ -587,6 +653,7 @@ Central benefit and evidence:
 
 Assessment:
 - Makes sense for SafeRE: yes | partial | no
+- Performs its stack role: yes | partial | no | not applicable
 - Benefit justifies complexity: yes | partial | no | evidence needed
 - Implementation matches stated goal: yes | partial | no
 - Linear-time/design concerns: ...
@@ -747,12 +814,17 @@ layers replay only that layer onto the prepared lower layer, including any local
 Keep stack preparation local and linear; do not push a stack rebase. Resolve straightforward
 conflicts. If conflicts require product/design judgment, mark that PR blocked and continue with the
 next PR. Read the PR description, comments, reviews, and linked issue context needed to understand
-intent. Assess whether the PR idea makes sense for SafeRE and whether the implementation matches
-that intent. Identify the central observable benefit, the evidence that directly measures it, and
-the material complexity or tradeoffs introduced to obtain it. Require evidence proportional to the
-cost: do not recommend a substantial increase in implementation or maintenance complexity when its
-central benefit is unmeasured. Reassess that tradeoff after local fixes, especially when a fix
-narrows the claimed benefit.
+intent. Before judging a stacked PR, inspect sanitized context for the entire trusted stack,
+including trusted draft or merged layers when needed, and its shared linked issue. Record the
+stack's end goal, every layer's responsibility, the contracts between adjacent layers, and where
+the end-to-end benefit becomes measurable. Assess the current PR both as an independently mergeable
+layer and as part of that complete design. Identify the layer-local observable benefit, the
+stack-level benefit, the evidence for each, and the material complexity or tradeoffs introduced.
+Do not require an enabling representation or migration layer to produce a standalone speedup when
+the stack intentionally realizes it later, but do not attribute cumulative gains to that layer or
+allow later gains to excuse unnecessary lower-layer complexity. Reassess the whole dependent stack
+after local fixes, especially when a fix narrows eligible behavior or invalidates an upper layer's
+benchmark claim.
 
 Make the resulting report self-contained. Include a summary row and detailed section for every open
 trusted non-draft PR, including PRs skipped because their prior review is still fresh. For each
