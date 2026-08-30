@@ -39,13 +39,18 @@ class StartAcceleratorTest {
   }
 
   @Test
-  void utf8MultiLiteralPlanRejectsNonselectiveCharacterClassFallback() {
+  void utf8MultiLiteralPlanDoesNotUseNonselectiveCharacterClassFallback() {
     MultiAnchorDescriptor.StartPlan plan = Pattern.compile("afoo|bfoo|cfoo|dfoo").startPlan();
 
     assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
-    assertThat(VectorScanProviders.multiLiteralProviderAvailable()).isFalse();
-    assertThat(VectorScanProviders.teddyProviderAvailable()).isFalse();
-    assertThat(Utf8StartAccelerator.create(plan, false)).isNull();
+    Utf8StartAccelerator accelerator = Utf8StartAccelerator.create(plan, false);
+    if (VectorScanProviders.multiLiteralProviderAvailable()) {
+      assertThat(accelerator).isInstanceOf(Utf8StartAccelerator.MultiLiteral.class);
+    } else if (VectorScanProviders.teddyProviderAvailable()) {
+      assertThat(accelerator).isInstanceOf(Utf8StartAccelerator.Teddy.class);
+    } else {
+      assertThat(accelerator).isNull();
+    }
   }
 
   @Test
