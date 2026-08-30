@@ -531,6 +531,17 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      criteria. Do not ask the author to apply a local scout commit or refer to a machine-local
      branch/path in the copy/paste text. Keep unresolved concerns explicit and do not say "LGTM"
      when they remain.
+   - Match the maintainer's established voice in the copy/paste review: direct, concise,
+     conversational, candid, and collaborative. Write as a person discussing the change with its
+     author, not as a report generator announcing findings. Prefer ordinary phrasing such as "The
+     results are pretty mixed" or "I'm concerned about the added complexity here" when that is what
+     the evidence supports. Avoid stiff transitions, abstract recommendation language, repeated
+     qualifications, and prose that merely restates a table. Do not imitate typos or casualness that
+     would make the technical point less clear.
+   - Describe complexity in terms the author can act on, such as generated variants that must stay
+     synchronized or an extra abstraction without a demonstrated benefit. Do not quote changed line
+     counts merely to make a change sound large; include a size measurement only when it is material
+     to the technical decision or the maintainer asks for it.
    - When the evidence does not yet justify a material tradeoff, make the missing decision explicit
      in the copy/paste review. Explain the cost and the unmeasured benefit, ask focused questions
      about evidence or simpler alternatives, and offer concrete measurements that would resolve the
