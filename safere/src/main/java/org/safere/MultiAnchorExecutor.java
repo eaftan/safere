@@ -202,7 +202,7 @@ final class MultiAnchorExecutor {
     int[] checkOrder = descriptor.checkOrder();
     if (checkOrder != null && checkOrder.length > 0 && checkOrder[0] != 0) {
       MultiAnchorDescriptor.Anchor rarestAnchor = segments[checkOrder[0]].anchor();
-      if (rarestAnchor.findNext(text, 0) < 0) {
+      if (findNextCountingWork(rarestAnchor, text, 0) < 0) {
         return Result.MISMATCH;
       }
     }
@@ -225,7 +225,7 @@ final class MultiAnchorExecutor {
 
     while (candidatePos <= textLen - minTotalLength) {
       // Phase 1: Locate candidate for Anchor 0
-      int p0 = firstAnchor.findNext(text, candidatePos + leadingGap.minLength());
+      int p0 = findNextCountingWork(firstAnchor, text, candidatePos + leadingGap.minLength());
       if (p0 < 0) {
         // First anchor not found anywhere downstream -> document-level mismatch
         return Result.MISMATCH;
@@ -289,5 +289,15 @@ final class MultiAnchorExecutor {
     }
 
     return Result.MISMATCH;
+  }
+
+  private static int findNextCountingWork(
+      MultiAnchorDescriptor.Anchor anchor, String text, int fromIndex) {
+    int result = anchor.findNext(text, fromIndex);
+    if (WorkCounterConfig.ENABLED) {
+      int examinedEnd = result < 0 ? text.length() : result + anchor.minLength();
+      WorkCounter.record(Math.max(0, examinedEnd - fromIndex));
+    }
+    return result;
   }
 }

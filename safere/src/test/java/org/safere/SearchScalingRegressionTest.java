@@ -20,6 +20,31 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void stringMultiAnchorExecutionWorkIsCountedAndLinear() {
+    MultiAnchorDescriptor descriptor = Pattern.compile("AAA[0-9]BB").multiAnchor();
+
+    long smallerWork =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(
+                        MultiAnchorExecutor.find(descriptor, "AAA0BC".repeat(2_000), 0)
+                            .isDefiniteMismatch())
+                    .isTrue());
+    long largerWork =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(
+                        MultiAnchorExecutor.find(descriptor, "AAA0BC".repeat(10_000), 0)
+                            .isDefiniteMismatch())
+                    .isTrue());
+
+    assertThat(smallerWork).as("String multi-anchor execution work must be observed").isPositive();
+    assertThat(largerWork)
+        .as("String multi-anchor execution should scale linearly")
+        .isLessThan(smallerWork * 6);
+  }
+
+  @Test
   void multiAnchorCompilationDoesNotRepeatAstAnalysis() {
     Regexp regexp = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
 
