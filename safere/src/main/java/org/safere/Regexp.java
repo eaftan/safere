@@ -80,7 +80,7 @@ final class Regexp {
   /** Match ID for multi-pattern matching. Used by HAVE_MATCH. */
   public int matchId;
 
-  private Regexp(RegexpOp op, int flags) {
+  Regexp(RegexpOp op, int flags) {
     this.op = op;
     this.flags = flags;
   }

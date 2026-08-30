@@ -1424,7 +1424,7 @@
       "shared": true
     },
     {
-      "id": "realWorldRegex.factoredAlternation.match.{size}",
+      "id": "realWorldRegex.wideFactoredApiRoute.match.{size}",
       "axes": {
         "size": [
           1000,
@@ -1434,14 +1434,14 @@
       },
       "recipe": {
         "kind": "suffixToLength",
-        "prefixUnit": "service_heartbeat ping_time=12ms region=us-east status=OK\n",
-        "suffix": "auth_token_refresh session=0123456789abcdef status=OK\n",
+        "prefixUnit": "192.168.1.42 - - [30/Aug/2026:12:00:01 +0000] \"GET /static/bundle.min.js HTTP/1.1\" 200 4821 \"https://app.corp.net\"\n192.168.1.43 - - [30/Aug/2026:12:00:02 +0000] \"GET /api/v1/health HTTP/1.1\" 200 128 \"https://app.corp.net\"\n192.168.1.44 - - [30/Aug/2026:12:00:03 +0000] \"POST /assets/styles.css HTTP/1.1\" 200 954 \"https://app.corp.net\"\n",
+        "suffix": "192.168.1.99 - - [30/Aug/2026:12:00:04 +0000] \"POST /api/v2/checkout/98765432 HTTP/1.1\" 200 1024 \"https://app.corp.net\"\n",
         "length": "{size}"
       },
       "shared": true
     },
     {
-      "id": "realWorldRegex.factoredAlternation.noMatch.{size}",
+      "id": "realWorldRegex.wideFactoredApiRoute.noMatch.{size}",
       "axes": {
         "size": [
           1000,
@@ -1451,77 +1451,7 @@
       },
       "recipe": {
         "kind": "delimitedRepeatToLength",
-        "value": "service_heartbeat ping_time=12ms region=us-east status=OK",
-        "delimiterAlphabet": "\n",
-        "seed": 42,
-        "length": "{size}"
-      },
-      "shared": true
-    },
-    {
-      "id": "realWorldRegex.factoredProtocol.match.{size}",
-      "axes": {
-        "size": [
-          1000,
-          10000,
-          100000
-        ]
-      },
-      "recipe": {
-        "kind": "suffixToLength",
-        "prefixUnit": "http_status=200 host=internal.cache proto=http/1.1 path=/api/v1/health\n",
-        "suffix": "http_status=200 host=example.com proto=https https://stage.example.com/item12345\n",
-        "length": "{size}"
-      },
-      "shared": true
-    },
-    {
-      "id": "realWorldRegex.factoredProtocol.noMatch.{size}",
-      "axes": {
-        "size": [
-          1000,
-          10000,
-          100000
-        ]
-      },
-      "recipe": {
-        "kind": "delimitedRepeatToLength",
-        "value": "http_status=200 host=internal.cache proto=http/1.1 path=/api/v1/health",
-        "delimiterAlphabet": "\n",
-        "seed": 42,
-        "length": "{size}"
-      },
-      "shared": true
-    },
-    {
-      "id": "realWorldRegex.factoredApiRoute.match.{size}",
-      "axes": {
-        "size": [
-          1000,
-          10000,
-          100000
-        ]
-      },
-      "recipe": {
-        "kind": "suffixToLength",
-        "prefixUnit": "192.168.1.42 - - [30/Aug/2026:12:00:01 +0000] \"GET /static/bundle.min.js HTTP/1.1\" 200 4821 \"https://app.corp.net\"\n192.168.1.43 - - [30/Aug/2026:12:00:02 +0000] \"GET /api/v2/health HTTP/1.1\" 200 128 \"https://app.corp.net\"\n192.168.1.44 - - [30/Aug/2026:12:00:03 +0000] \"POST /assets/styles.css HTTP/1.1\" 200 954 \"https://app.corp.net\"\n",
-        "suffix": "192.168.1.99 - - [30/Aug/2026:12:00:04 +0000] \"POST /api/v1/checkout/a1b2c3d4 status=200\" 200 1024 \"https://app.corp.net\"\n",
-        "length": "{size}"
-      },
-      "shared": true
-    },
-    {
-      "id": "realWorldRegex.factoredApiRoute.noMatch.{size}",
-      "axes": {
-        "size": [
-          1000,
-          10000,
-          100000
-        ]
-      },
-      "recipe": {
-        "kind": "delimitedRepeatToLength",
-        "value": "192.168.1.42 - - [30/Aug/2026:12:00:01 +0000] \"GET /static/bundle.min.js HTTP/1.1\" 200 4821 \"https://app.corp.net\"\n192.168.1.43 - - [30/Aug/2026:12:00:02 +0000] \"GET /api/v2/health HTTP/1.1\" 200 128 \"https://app.corp.net\"\n192.168.1.44 - - [30/Aug/2026:12:00:03 +0000] \"POST /assets/styles.css HTTP/1.1\" 200 954 \"https://app.corp.net\"",
+        "value": "192.168.1.42 - - [30/Aug/2026:12:00:01 +0000] \"GET /static/bundle.min.js HTTP/1.1\" 200 4821 \"https://app.corp.net\"\n192.168.1.43 - - [30/Aug/2026:12:00:02 +0000] \"GET /api/v1/health HTTP/1.1\" 200 128 \"https://app.corp.net\"\n192.168.1.44 - - [30/Aug/2026:12:00:03 +0000] \"POST /assets/styles.css HTTP/1.1\" 200 954 \"https://app.corp.net\"",
         "delimiterAlphabet": "\n",
         "seed": 42,
         "length": "{size}"
@@ -4625,71 +4555,13 @@
       }
     },
     {
-      "id": "RealWorldRegexBenchmark.runBenchmark.factoredAlternation.{matchLabel}.{size}",
+      "id": "RealWorldRegexBenchmark.runBenchmark.wideFactoredApiRoute.{matchLabel}.{size}",
       "operation": "find",
       "patterns": [
-        "(auth_token_refresh|auth_token_revoke|auth_token_verify) session=[0-9a-z]{16} status=OK"
+        "/(?:api/v2/users|api/v2/orders|api/v2/payments|api/v2/checkout|api/v2/inventory|api/v2/catalog|api/v2/shipping|api/v2/customers|api/v2/discounts|api/v2/invoices|api/v2/refunds|api/v2/analytics|api/v2/notifications|api/v2/webhooks|api/v2/subscriptions|api/v2/transactions)/[0-9]+"
       ],
       "inputs": [
-        "realWorldRegex.factoredAlternation.{matchLabel}.{size}"
-      ],
-      "resultConsumption": "boolean",
-      "measurement": {
-        "mode": "averageTime",
-        "timingUnit": "nanoseconds",
-        "constraints": [
-          "prematerializedInput"
-        ]
-      },
-      "axes": {
-        "matchLabel": [
-          "match",
-          "noMatch"
-        ],
-        "size": [
-          1000,
-          10000,
-          100000
-        ]
-      }
-    },
-    {
-      "id": "RealWorldRegexBenchmark.runBenchmark.factoredProtocol.{matchLabel}.{size}",
-      "operation": "find",
-      "patterns": [
-        "(https://api|https://stage|https://prod)\\.example\\.com/[a-z0-9]+"
-      ],
-      "inputs": [
-        "realWorldRegex.factoredProtocol.{matchLabel}.{size}"
-      ],
-      "resultConsumption": "boolean",
-      "measurement": {
-        "mode": "averageTime",
-        "timingUnit": "nanoseconds",
-        "constraints": [
-          "prematerializedInput"
-        ]
-      },
-      "axes": {
-        "matchLabel": [
-          "match",
-          "noMatch"
-        ],
-        "size": [
-          1000,
-          10000,
-          100000
-        ]
-      }
-    },
-    {
-      "id": "RealWorldRegexBenchmark.runBenchmark.factoredApiRoute.{matchLabel}.{size}",
-      "operation": "find",
-      "patterns": [
-        "/(api/v1/checkout|api/v1/payment|api/v1/orders)/[0-9a-f]{8} status=[0-9]+"
-      ],
-      "inputs": [
-        "realWorldRegex.factoredApiRoute.{matchLabel}.{size}"
+        "realWorldRegex.wideFactoredApiRoute.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {
