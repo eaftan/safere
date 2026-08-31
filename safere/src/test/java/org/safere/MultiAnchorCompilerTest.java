@@ -6,6 +6,7 @@
 package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.util.Arrays;
 import java.util.List;
@@ -407,5 +408,17 @@ class MultiAnchorCompilerTest {
     assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.Literal.class);
     StartPlan.Literal literal = (StartPlan.Literal) p.multiAnchor().startPlan();
     assertThat(literal.prefix()).isEqualTo("https://");
+  }
+
+  @Test
+  void alternationFactoringIsStackSafeForDeepQuantifiers() {
+    Regexp nested = Regexp.literal('a', 0);
+    for (int index = 0; index < 100_000; index++) {
+      RegexpOp op = index % 2 == 0 ? RegexpOp.QUEST : RegexpOp.PLUS;
+      nested = Regexp.rawQuantifier(op, nested, 0);
+    }
+
+    Regexp input = nested;
+    assertThatCode(() -> MultiAnchorCompiler.factorAlternations(input)).doesNotThrowAnyException();
   }
 }

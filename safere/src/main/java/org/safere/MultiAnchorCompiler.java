@@ -1262,13 +1262,18 @@ final class MultiAnchorCompiler {
     if (re == null) {
       return false;
     }
-    if (re.op == RegexpOp.CAPTURE || re.cap != 0) {
-      return true;
-    }
-    if (re.subs != null) {
-      for (Regexp sub : re.subs) {
-        if (hasCaptures(sub)) {
-          return true;
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    while (!pending.isEmpty()) {
+      Regexp current = pending.removeLast();
+      if (current.op == RegexpOp.CAPTURE || current.cap != 0) {
+        return true;
+      }
+      if (current.subs != null) {
+        for (Regexp sub : current.subs) {
+          if (sub != null) {
+            pending.addLast(sub);
+          }
         }
       }
     }
@@ -1279,19 +1284,26 @@ final class MultiAnchorCompiler {
     if (re == null) {
       return false;
     }
-    return switch (re.op) {
-      case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY -> true;
-      default -> {
-        if (re.subs != null) {
-          for (Regexp sub : re.subs) {
-            if (hasZeroWidthAssertions(sub)) {
-              yield true;
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    while (!pending.isEmpty()) {
+      Regexp current = pending.removeLast();
+      switch (current.op) {
+        case BEGIN_LINE, END_LINE, BEGIN_TEXT, END_TEXT, WORD_BOUNDARY, NO_WORD_BOUNDARY -> {
+          return true;
+        }
+        default -> {
+          if (current.subs != null) {
+            for (Regexp sub : current.subs) {
+              if (sub != null) {
+                pending.addLast(sub);
+              }
             }
           }
         }
-        yield false;
       }
-    };
+    }
+    return false;
   }
 
   private static int[] extractLeadingRunes(Regexp sub) {
