@@ -51,8 +51,32 @@ jobs:
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build:
+  prepare-maven-cache:
     needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5.6.0
+        with:
+          java-version-file: .sdkmanrc
+          cache: maven
+
+      - name: Resolve Maven dependencies and plugins
+        # Save one shared cache before the Ubuntu jobs fan out. Without this dependency,
+        # every job downloads independently when a POM change rotates setup-java's cache key.
+        run: >
+          mvn dependency:go-offline dependency:resolve-plugins
+          -Pcrosscheck-public-api-tests,work-counters,vector-tests,release
+          -DskipTests
+          --batch-mode --no-transfer-progress
+
+  build:
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -83,7 +107,7 @@ jobs:
           --batch-mode --no-transfer-progress
 
   build-vector-runtime-artifacts:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -205,7 +229,7 @@ jobs:
             --batch-mode --no-transfer-progress
 
   fuzz-regression:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -246,7 +270,7 @@ jobs:
         run: python -m unittest safere-benchmarks/scripts/test_compare_benchmarks.py
 
   benchmark-smoke-test-java:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -285,7 +309,7 @@ jobs:
             org.safere.benchmark.MemoryBenchmark
 
   vector-benchmark-smoke:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -326,7 +350,7 @@ jobs:
             'pair/first/absent/1024/0,range/first/absent/1024/0'
 
   benchmark-smoke-test-cpp:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     strategy:
       matrix:
@@ -380,7 +404,7 @@ jobs:
             --list-exclusions ReplaceBenchmark
 
   benchmark-smoke-test-go:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -418,7 +442,7 @@ jobs:
             --list-exclusions UnicodeCompileBenchmark
 
   benchmark-smoke-test-rust:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -451,7 +475,7 @@ jobs:
         run: ./run-rust-benchmarks.sh --smoke RegexBenchmark.literalMatch
 
   benchmark-smoke-test-dotnet:
-    needs: changes
+    needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
@@ -480,6 +504,7 @@ jobs:
     needs:
       - repo-assist-tests
       - changes
+      - prepare-maven-cache
       - build
       - build-vector-runtime-artifacts
       - build-vector

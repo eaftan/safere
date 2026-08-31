@@ -10,7 +10,6 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
 import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import org.junit.jupiter.api.Tag;
@@ -24,25 +23,17 @@ class SearchScalingRegressionTest {
   void multiAnchorCompilationDoesNotRepeatAstAnalysis() {
     Regexp regexp = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
 
-    long work = WorkCounter.countForTesting(() -> MultiAnchorCompiler.compile(regexp, 0));
+    long analysisWork = WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(regexp));
+    long compilationWork =
+        WorkCounter.countForTesting(() -> MultiAnchorCompiler.compile(regexp, 0));
 
-    assertThat(work)
-        .as("Compilation work includes descriptor assembly but not a second full AST analysis")
-        .isLessThan(countAstNodes(regexp) * 4L);
-  }
-
-  @Test
-  void nestedRequiredLiteralAnalysisDoesNotRepeatSelectivityScoring() {
-    Regexp smaller = nestedRequiredLiteral(8_000);
-    Regexp larger = nestedRequiredLiteral(16_000);
-
-    long smallerWork = WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(smaller));
-    long largerWork = WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(larger));
-
-    assertThat(smallerWork).as("Required-literal scoring must be observed").isPositive();
-    assertThat(largerWork)
-        .as("Required-literal selectivity scoring should scale linearly")
-        .isLessThanOrEqualTo(smallerWork * 3);
+    assertThat(analysisWork).isPositive();
+    assertThat(compilationWork)
+        .as(
+            "Compilation work includes one analysis and descriptor assembly, "
+                + "analysisWork=%d compilationWork=%d",
+            analysisWork, compilationWork)
+        .isLessThan(analysisWork * 3);
   }
 
   @Test
@@ -1159,28 +1150,5 @@ class SearchScalingRegressionTest {
                     Utf8Input.trusted("  \u00e9\u00e9:target ".repeat(size).getBytes(UTF_8)))
                 ::find,
         "UTF-8");
-  }
-
-  private static int countAstNodes(Regexp regexp) {
-    int count = 1;
-    if (regexp.subs != null) {
-      for (Regexp child : regexp.subs) {
-        count += countAstNodes(child);
-      }
-    }
-    return count;
-  }
-
-  private static Regexp nestedRequiredLiteral(int size) {
-    Regexp nested = Regexp.literalString("q".repeat(size).codePoints().toArray(), 0);
-    for (int index = 0; index < size; index++) {
-      nested =
-          Regexp.concat(
-              List.of(
-                  Regexp.capture(nested, 0, index + 1, null),
-                  Regexp.quest(Regexp.literal('x', 0), 0)),
-              0);
-    }
-    return nested;
   }
 }

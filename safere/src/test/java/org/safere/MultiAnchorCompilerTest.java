@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.safere.MultiAnchorDescriptor.Anchor;
@@ -241,33 +242,83 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  @Tag("work-counter")
   void nestedConcatenationAnalysisScalesLinearly() {
     Regexp smaller = nestedConcatenation(1_000);
     Regexp larger = nestedConcatenation(2_000);
     MultiAnchorCompiler.analyze(smaller);
     MultiAnchorCompiler.analyze(larger);
 
-    long smallerNanos = medianAnalysisNanos(smaller);
-    long largerNanos = medianAnalysisNanos(larger);
+    long smallerWork = analysisWork(smaller);
+    long largerWork = analysisWork(larger);
 
-    assertThat(largerNanos)
-        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 3);
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
   }
 
   @Test
+  @Tag("work-counter")
   void nestedAlternationAnalysisScalesLinearly() {
     Regexp smaller = nestedAlternation(1_000);
     Regexp larger = nestedAlternation(2_000);
     MultiAnchorCompiler.analyze(smaller);
     MultiAnchorCompiler.analyze(larger);
 
-    long smallerNanos = medianAnalysisNanos(smaller);
-    long largerNanos = medianAnalysisNanos(larger);
+    long smallerWork = analysisWork(smaller);
+    long largerWork = analysisWork(larger);
 
-    assertThat(largerNanos)
-        .withFailMessage("smaller=%s larger=%s", smallerNanos, largerNanos)
-        .isLessThan(smallerNanos * 3);
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
+  }
+
+  @Test
+  @Tag("work-counter")
+  void nestedRequiredLiteralAnalysisScalesLinearly() {
+    Regexp smaller = nestedRequiredLiteral(8_000);
+    Regexp larger = nestedRequiredLiteral(16_000);
+    MultiAnchorCompiler.analyze(smaller);
+    MultiAnchorCompiler.analyze(larger);
+
+    long smallerWork = analysisWork(smaller);
+    long largerWork = analysisWork(larger);
+
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
+  }
+
+  @Test
+  @Tag("work-counter")
+  void reverseAnchorAnalysisScalesLinearlyForLongConcatenations() {
+    Regexp smaller = repeatedCharacterClassConcat(4_000);
+    Regexp larger = repeatedCharacterClassConcat(8_000);
+    MultiAnchorCompiler.extractReverseMultiAnchor(smaller, 0, false);
+    MultiAnchorCompiler.extractReverseMultiAnchor(larger, 0, false);
+
+    long smallerWork = reverseAnalysisWork(smaller);
+    long largerWork = reverseAnalysisWork(larger);
+
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
+        .isLessThan(smallerWork * 3);
+  }
+
+  @Test
+  void reverseAnchorAnalysisIsStackSafeForDeepPrefixes() {
+    Regexp prefix = Regexp.literal('a', 0);
+    for (int index = 0; index < 20_000; index++) {
+      prefix = Regexp.capture(prefix, 0, index + 1, null);
+    }
+    Regexp regexp =
+        Regexp.concat(List.of(prefix, Regexp.literalString(new int[] {'z', 'z'}, 0)), 0);
+
+    MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false);
   }
 
   @Test
@@ -335,14 +386,33 @@ class MultiAnchorCompilerTest {
     return nested;
   }
 
-  private static long medianAnalysisNanos(Regexp regexp) {
-    long[] timings = new long[5];
-    for (int index = 0; index < timings.length; index++) {
-      long start = System.nanoTime();
-      MultiAnchorCompiler.analyze(regexp);
-      timings[index] = System.nanoTime() - start;
+  private static Regexp nestedRequiredLiteral(int size) {
+    Regexp nested = Regexp.literalString("q".repeat(size).codePoints().toArray(), 0);
+    for (int index = 0; index < size; index++) {
+      nested =
+          Regexp.concat(
+              List.of(
+                  Regexp.capture(nested, 0, index + 1, null),
+                  Regexp.quest(Regexp.literal('x', 0), 0)),
+              0);
     }
-    Arrays.sort(timings);
-    return timings[timings.length / 2];
+    return nested;
+  }
+
+  private static Regexp repeatedCharacterClassConcat(int size) {
+    List<Regexp> children = new ArrayList<>(size);
+    for (int index = 0; index < size; index++) {
+      children.add(Parser.parse("[ab]", Pattern.toParseFlags(0)));
+    }
+    return Regexp.concat(children, 0);
+  }
+
+  private static long analysisWork(Regexp regexp) {
+    return WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(regexp));
+  }
+
+  private static long reverseAnalysisWork(Regexp regexp) {
+    return WorkCounter.countForTesting(
+        () -> MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false));
   }
 }

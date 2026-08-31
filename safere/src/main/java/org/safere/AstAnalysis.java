@@ -64,6 +64,9 @@ record AstAnalysis(
     @Override
     protected AnalysisNode postVisit(
         Regexp re, AnalysisNode parentArg, AnalysisNode preArg, List<AnalysisNode> childArgs) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (re.op == RegexpOp.CAPTURE && re.name != null && !re.name.isEmpty()) {
         named.put(re.name, re.cap);
       }

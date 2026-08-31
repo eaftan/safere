@@ -71,8 +71,10 @@ class MatcherUsePatternTest {
   }
 
   @Test
-  @DisplayName("usePattern preserves match state and groupCount")
-  void usePatternPreservesMatchState() {
+  @DisabledForCrosscheck(
+      "SafeRE keeps group-zero access coherent after usePattern; JDK clears indexed group zero")
+  @DisplayName("usePattern preserves coherent group zero and clears inner groups")
+  void usePatternPreservesCoherentGroupZeroAndClearsInnerGroups() {
     Pattern p1 = Pattern.compile("(a)(b)");
     Pattern p2 = Pattern.compile("(x)(y)(z)");
     Matcher m = p1.matcher("ab");
@@ -87,5 +89,20 @@ class MatcherUsePatternTest {
     m.usePattern(p2);
     assertThat(m.hasMatch()).isTrue();
     assertThat(m.groupCount()).isEqualTo(3);
+    assertThat(m.start()).isZero();
+    assertThat(m.start(0)).isEqualTo(m.start());
+    assertThat(m.end()).isEqualTo(2);
+    assertThat(m.end(0)).isEqualTo(m.end());
+    assertThat(m.group()).isEqualTo("ab");
+    assertThat(m.group(0)).isEqualTo(m.group());
+    assertThat(m.start(1)).isEqualTo(-1);
+    assertThat(m.end(1)).isEqualTo(-1);
+    assertThat(m.group(1)).isNull();
+    assertThat(m.start(2)).isEqualTo(-1);
+    assertThat(m.end(2)).isEqualTo(-1);
+    assertThat(m.group(2)).isNull();
+    assertThat(m.start(3)).isEqualTo(-1);
+    assertThat(m.end(3)).isEqualTo(-1);
+    assertThat(m.group(3)).isNull();
   }
 }
