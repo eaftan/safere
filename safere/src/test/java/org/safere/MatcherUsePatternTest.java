@@ -71,6 +71,8 @@ class MatcherUsePatternTest {
   }
 
   @Test
+  @DisabledForCrosscheck(
+      "SafeRE keeps group-zero access coherent after usePattern; JDK clears indexed group zero")
   @DisplayName("usePattern preserves coherent group zero and clears inner groups")
   void usePatternPreservesCoherentGroupZeroAndClearsInnerGroups() {
     Pattern p1 = Pattern.compile("(a)(b)");
