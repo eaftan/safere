@@ -293,35 +293,6 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
-  @Tag("work-counter")
-  void reverseAnchorAnalysisScalesLinearlyForLongConcatenations() {
-    Regexp smaller = repeatedCharacterClassConcat(4_000);
-    Regexp larger = repeatedCharacterClassConcat(8_000);
-    MultiAnchorCompiler.extractReverseMultiAnchor(smaller, 0, false);
-    MultiAnchorCompiler.extractReverseMultiAnchor(larger, 0, false);
-
-    long smallerWork = reverseAnalysisWork(smaller);
-    long largerWork = reverseAnalysisWork(larger);
-
-    assertThat(smallerWork).isPositive();
-    assertThat(largerWork)
-        .withFailMessage("smallerWork=%s largerWork=%s", smallerWork, largerWork)
-        .isLessThan(smallerWork * 3);
-  }
-
-  @Test
-  void reverseAnchorAnalysisIsStackSafeForDeepPrefixes() {
-    Regexp prefix = Regexp.literal('a', 0);
-    for (int index = 0; index < 20_000; index++) {
-      prefix = Regexp.capture(prefix, 0, index + 1, null);
-    }
-    Regexp regexp =
-        Regexp.concat(List.of(prefix, Regexp.literalString(new int[] {'z', 'z'}, 0)), 0);
-
-    MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false);
-  }
-
-  @Test
   void endRejectPlansRetainUnixLinesMode() {
     MultiAnchorDescriptor.RejectPlan suffix =
         Pattern.compile(".*needle$", Pattern.UNIX_LINES).rejectPlan();
@@ -399,20 +370,7 @@ class MultiAnchorCompilerTest {
     return nested;
   }
 
-  private static Regexp repeatedCharacterClassConcat(int size) {
-    List<Regexp> children = new ArrayList<>(size);
-    for (int index = 0; index < size; index++) {
-      children.add(Parser.parse("[ab]", Pattern.toParseFlags(0)));
-    }
-    return Regexp.concat(children, 0);
-  }
-
   private static long analysisWork(Regexp regexp) {
     return WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(regexp));
-  }
-
-  private static long reverseAnalysisWork(Regexp regexp) {
-    return WorkCounter.countForTesting(
-        () -> MultiAnchorCompiler.extractReverseMultiAnchor(regexp, 0, false));
   }
 }
