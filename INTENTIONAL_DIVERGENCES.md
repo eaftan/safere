@@ -19,6 +19,25 @@ unbounded rescans. When observed JDK behavior appears to expose implementation
 details rather than a stable regex rule, SafeRE keeps the simpler documented
 model and records the difference here.
 
+## Match State after `Matcher.usePattern()`
+
+Issue reference: #715.
+
+After a successful match, SafeRE's `Matcher.usePattern()` preserves the valid
+overall match reported by `hasMatch()`, including the group-zero bounds and
+text. It clears the inner captures associated with the old pattern and reports
+the capturing-group count of the new pattern. As documented for group zero,
+`start()` remains equivalent to `start(0)`, `end()` remains equivalent to
+`end(0)`, and `group()` remains equivalent to `group(0)`.
+
+Observed JDK 26 behavior preserves `hasMatch()`, `start()`, and `end()`, but
+clears group zero along with the inner groups. Consequently, `start(0)` and
+`end(0)` return `-1`, while `group()` and `group(0)` return `null`. This breaks
+the documented group-zero equivalences and can make `toMatchResult()` fail.
+SafeRE preserves a coherent overall match instead of reproducing that
+implementation behavior. The JDK inconsistency is tracked upstream as
+[JDK-8390449](https://bugs.openjdk.org/browse/JDK-8390449).
+
 ## Unsupported Backtracking Features
 
 Sweep names:
