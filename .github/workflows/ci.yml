@@ -13,12 +13,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Test repo-assist trust boundary and state handling
         run: >
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -115,7 +115,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up production JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -175,14 +175,14 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up runtime JDK ${{ matrix.java }}
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: maven
 
       - name: Download runtime-test artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: vector-runtime-tests
           path: ci-artifacts
@@ -237,7 +237,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -278,7 +278,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -317,7 +317,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up production JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -361,7 +361,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up production JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -412,7 +412,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up production JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -450,7 +450,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up production JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -458,7 +458,7 @@ jobs:
       - name: Set up Rust
         # Pin the master ancestor behind the synthetic 1.85.0 ref. Synthetic commits may
         # eventually be garbage-collected because they are outside master history.
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: 1.85.0
           components: clippy, rustfmt
@@ -483,7 +483,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5.6.0
+        uses: actions/setup-java@v6.0.0
         with:
           java-version-file: .sdkmanrc
           cache: maven
@@ -521,7 +521,7 @@ jobs:
 
     steps:
       - name: Require successful CI jobs
-        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           allowed-skips: >-
             ${{ needs.changes.outputs.code == 'false' && toJSON(needs) || '' }}
