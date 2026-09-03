@@ -109,6 +109,10 @@ final class MultiAnchorCompiler {
   }
 
   static MultiAnchorDescriptor compile(Regexp re, int flags) {
+    return compile(re, flags, re);
+  }
+
+  static MultiAnchorDescriptor compile(Regexp re, int flags, Regexp sourceAst) {
     if (re == null) {
       return null;
     }
@@ -131,7 +135,7 @@ final class MultiAnchorCompiler {
 
     MultiAnchorDescriptor base = extractBaseDescriptor(node, flags, anchorStart, anchorEnd);
     MultiAnchorDescriptor.Chain chain =
-        base != null
+        base != null && !hasCaseSensitiveLiteralOverride(sourceAst, flags)
             ? base.chain()
             : new MultiAnchorDescriptor.Chain(
                 new MultiAnchorDescriptor.Segment[0],
@@ -151,6 +155,40 @@ final class MultiAnchorCompiler {
 
     return new MultiAnchorDescriptor(
         chain, startPlan, rejectPlan, anchoredLiteral, analysis.start().anchoredCharClassPrefix());
+  }
+
+  private static boolean hasCaseSensitiveLiteralOverride(Regexp sourceAst, int flags) {
+    if (sourceAst == null || (flags & Pattern.CASE_INSENSITIVE) == 0) {
+      return false;
+    }
+    boolean unicodeCase = (flags & Pattern.UNICODE_CASE) != 0;
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(sourceAst);
+    while (!pending.isEmpty()) {
+      Regexp node = pending.removeLast();
+      if ((node.flags & ParseFlags.FOLD_CASE) == 0) {
+        if (node.op == RegexpOp.LITERAL && hasCaseVariant(node.rune, unicodeCase)) {
+          return true;
+        }
+        if (node.op == RegexpOp.LITERAL_STRING && node.runes != null) {
+          for (int rune : node.runes) {
+            if (hasCaseVariant(rune, unicodeCase)) {
+              return true;
+            }
+          }
+        }
+      }
+      if (node.subs != null) {
+        pending.addAll(node.subs);
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasCaseVariant(int rune, boolean unicodeCase) {
+    return unicodeCase
+        ? Inst.simpleFold(rune) != rune
+        : (rune >= 'A' && rune <= 'Z') || (rune >= 'a' && rune <= 'z');
   }
 
   private static MultiAnchorDescriptor extractBaseDescriptor(

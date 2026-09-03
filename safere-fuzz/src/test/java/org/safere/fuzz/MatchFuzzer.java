@@ -8,6 +8,7 @@ package org.safere.fuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import java.util.Locale;
 import org.safere.Pattern;
 
 final class MatchFuzzer {
@@ -54,6 +55,7 @@ final class MatchFuzzer {
     assertZeroWidthPossessiveCaptureRetentionJdk();
     assertDfaSandwichLeftmostStartCasesMatchJdk();
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
+    assertScopedCaseFoldingMatchesJdk(data);
     assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(data);
 
     String regex;
@@ -222,6 +224,32 @@ final class MatchFuzzer {
     if (pattern != null) {
       pattern.matcher(input).find();
     }
+  }
+
+  private static void assertScopedCaseFoldingMatchesJdk(FuzzedDataProvider data) {
+    String exact = distinctAsciiLiteral(data.consumeInt(3, 12));
+    String folded = distinctAsciiLiteral(data.consumeInt(3, 12));
+    String regex =
+        data.consumeBoolean()
+            ? "(?-i:" + exact + ")[0-9]" + folded
+            : folded + "[0-9](?-i:" + exact + ")";
+    String input =
+        regex.startsWith("(?-i")
+            ? exact.toLowerCase(Locale.ROOT) + "1" + folded.toLowerCase(Locale.ROOT)
+            : folded.toLowerCase(Locale.ROOT) + "1" + exact.toLowerCase(Locale.ROOT);
+
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, CI);
+    if (pattern != null) {
+      pattern.matcher(input).find();
+    }
+  }
+
+  private static String distinctAsciiLiteral(int count) {
+    StringBuilder literal = new StringBuilder(count);
+    for (int i = 0; i < count; i++) {
+      literal.append((char) ('A' + i % 26));
+    }
+    return literal.toString();
   }
 
   private static void assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(

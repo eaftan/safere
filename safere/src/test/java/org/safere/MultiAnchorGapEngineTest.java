@@ -321,9 +321,21 @@ class MultiAnchorGapEngineTest {
     assertThat(matcher.find()).isTrue();
   }
 
+  @Test
+  void apiCaseInsensitiveFlagRespectsScopedDisabling() {
+    for (String regex :
+        new String[] {"(?-i:AAA)[0-9]BB", "AAA[0-9](?-i:BB)", "(?-i:AAA)([0-9])BB"}) {
+      assertFirstMatchEqualsJdk(regex, Pattern.CASE_INSENSITIVE, "aaa1bb");
+    }
+  }
+
   private static void assertFirstMatchEqualsJdk(String regex, String text) {
-    Matcher safere = Pattern.compile(regex).matcher(text);
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(text);
+    assertFirstMatchEqualsJdk(regex, 0, text);
+  }
+
+  private static void assertFirstMatchEqualsJdk(String regex, int flags, String text) {
+    Matcher safere = Pattern.compile(regex, flags).matcher(text);
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex, flags).matcher(text);
 
     boolean expected = jdk.find();
     assertThat(safere.find()).isEqualTo(expected);
