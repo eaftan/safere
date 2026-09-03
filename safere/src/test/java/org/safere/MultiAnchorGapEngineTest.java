@@ -8,6 +8,8 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -562,5 +564,111 @@ class MultiAnchorGapEngineTest {
     String absent = "noise PREFIX_START_ab_MID_cd_OTHER_FINAL_TOKEN trailing";
     Matcher mAbsent = pattern.matcher(absent);
     assertThat(mAbsent.find()).isFalse();
+  }
+
+  @Test
+  void guardBytesExtractionAndPureComplement() {
+    Pattern p1 = Pattern.compile("header:[^\\r\\n;]*val");
+    MultiAnchorDescriptor d1 = p1.multiAnchor();
+    assertThat(d1.segments()).hasSize(2);
+    MultiAnchorDescriptor.Gap g1 = d1.segments()[1].gap();
+    assertThat(g1.guardBytes()).containsExactly((byte) '\n', (byte) '\r', (byte) ';');
+    assertThat(g1.isPureComplement()).isTrue();
+
+    Pattern p2 = Pattern.compile("START\"[^\"]*\"END");
+    MultiAnchorDescriptor d2 = p2.multiAnchor();
+    assertThat(d2.segments()).hasSize(2);
+    MultiAnchorDescriptor.Gap g2 = d2.segments()[1].gap();
+    assertThat(g2.guardBytes()).containsExactly((byte) '"');
+    assertThat(g2.isPureComplement()).isTrue();
+
+    Pattern p3 = Pattern.compile("START[^\\n]*END");
+    MultiAnchorDescriptor d3 = p3.multiAnchor();
+    assertThat(d3.segments()).hasSize(2);
+    MultiAnchorDescriptor.Gap g3 = d3.segments()[1].gap();
+    assertThat(g3.guardBytes()).containsExactly((byte) '\n', (byte) '\r');
+    assertThat(g3.isPureComplement()).isTrue();
+
+    Pattern p5 = Pattern.compile("START[^;]*END");
+    MultiAnchorDescriptor d5 = p5.multiAnchor();
+    assertThat(d5.segments()).hasSize(2);
+    MultiAnchorDescriptor.Gap g5 = d5.segments()[1].gap();
+    assertThat(g5.guardBytes()).containsExactly((byte) ';');
+    assertThat(g5.isPureComplement()).isTrue();
+
+    Pattern p4 = Pattern.compile("START[a-z]*END");
+    MultiAnchorDescriptor d4 = p4.multiAnchor();
+    assertThat(d4.segments()).hasSize(2);
+    MultiAnchorDescriptor.Gap g4 = d4.segments()[1].gap();
+    assertThat(g4.guardBytes()).isNull();
+    assertThat(g4.isPureComplement()).isFalse();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void structuredHeaderGuardByteRejection(boolean useUtf8) {
+    Pattern pattern = Pattern.compile("header:[^\\r\\n;]*val");
+
+    String valid = "prefix header:custom-content-12345val suffix";
+    assertThat(findMatches(pattern, valid, useUtf8))
+        .containsExactly("header:custom-content-12345val");
+
+    // Newline in gap -> rejected
+    String withNl = "prefix header:custom\ncontentval suffix";
+    assertThat(findMatches(pattern, withNl, useUtf8)).isEmpty();
+
+    // Semicolon in gap -> rejected
+    String withSemi = "prefix header:custom;contentval suffix";
+    assertThat(findMatches(pattern, withSemi, useUtf8)).isEmpty();
+
+    // Carriage return in gap -> rejected
+    String withCr = "prefix header:custom\rcontentval suffix";
+    assertThat(findMatches(pattern, withCr, useUtf8)).isEmpty();
+
+    // Multiline runaway where false anchor "val" is on subsequent line
+    String multiline = "header:some_header_text\nother_text_without_start val";
+    assertThat(findMatches(pattern, multiline, useUtf8)).isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void quotedStringDelimiterGuardByteRejection(boolean useUtf8) {
+    Pattern pattern = Pattern.compile("\"[^\"]*\"");
+
+    String simple = "leading \"hello world\" trailing";
+    assertThat(findMatches(pattern, simple, useUtf8)).containsExactly("\"hello world\"");
+
+    // Multiple quoted strings on one line: engine must stop at the first quote delimiter
+    String multi = "first \"foo\" and second \"bar\" end";
+    assertThat(findMatches(pattern, multi, useUtf8)).containsExactly("\"foo\"", "\"bar\"");
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void singleLineDelimiterReverseRejection(boolean useUtf8) {
+    Pattern pattern = Pattern.compile("START[^\\n]*END");
+
+    String sameLine = "noise START some content END trailing";
+    assertThat(findMatches(pattern, sameLine, useUtf8)).containsExactly("START some content END");
+
+    // START on line 1, END on line 2 -> reverse driver must reject across newline
+    String acrossLines = "START line one\nline two with END";
+    assertThat(findMatches(pattern, acrossLines, useUtf8)).isEmpty();
+  }
+
+  private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
+    List<String> matches = new ArrayList<>();
+    if (useUtf8) {
+      Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+      while (matcher.find()) {
+        matches.add(text.substring(matcher.start(), matcher.end()));
+      }
+    } else {
+      Matcher matcher = pattern.matcher(text);
+      while (matcher.find()) {
+        matches.add(matcher.group(0));
+      }
+    }
+    return matches;
   }
 }

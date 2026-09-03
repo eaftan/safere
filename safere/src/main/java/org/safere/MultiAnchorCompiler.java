@@ -1877,15 +1877,15 @@ final class MultiAnchorCompiler {
   }
 
   private static boolean isDotCharClass(CharClass cc) {
-    if (cc == null) {
+    if (cc == null || cc.contains('\n')) {
       return false;
     }
-    return !cc.contains('\n')
-        && cc.contains('a')
-        && cc.contains(' ')
-        && cc.contains('0')
-        && cc.numRanges() <= 6
-        && cc.numRunes() > 1000;
+    for (int i = 0; i < 128; i++) {
+      if (i != '\n' && i != '\r' && !cc.contains(i)) {
+        return false;
+      }
+    }
+    return cc.numRanges() <= 6 && cc.numRunes() > 1000;
   }
 
   static MultiAnchorDescriptor.Gap classifyGap(Regexp re, int flags) {
