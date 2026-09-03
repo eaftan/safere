@@ -45,6 +45,33 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void stringMultiAnchorFixedGapValidationWorkIsCounted() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromAsciiBitmap(new AsciiBitmap.Builder().addRange('A', 'Z').build());
+    MultiAnchorDescriptor.Gap fixedGap =
+        new MultiAnchorDescriptor.Gap(
+            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
+            1_000,
+            1_000,
+            null,
+            null,
+            null,
+            scanInfo,
+            true);
+    String text = "A".repeat(1_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(fixedGap.matchExecutorFixedForward(text, 0, text.length()))
+                    .isEqualTo(1_000));
+
+    assertThat(work)
+        .as("every code point examined while validating a String fixed gap must be observed")
+        .isGreaterThanOrEqualTo(1_000);
+  }
+
+  @Test
   void multiAnchorCompilationDoesNotRepeatAstAnalysis() {
     Regexp regexp = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
 

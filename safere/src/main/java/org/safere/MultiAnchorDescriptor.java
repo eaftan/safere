@@ -410,6 +410,9 @@ record MultiAnchorDescriptor(
         if (cur >= maxPos) {
           return -1;
         }
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         int cp = text.codePointAt(cur);
         if (scanInfo != null && !scanInfo.contains(cp)) {
           return -1;
