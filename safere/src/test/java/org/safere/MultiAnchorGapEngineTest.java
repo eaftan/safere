@@ -472,6 +472,19 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
+  void overlappingReverseDriverCandidatesRetainUpstreamSearchRange() {
+    String regex = "aaaaaaaaaa[zZ]zzzz";
+    String text = "Xaaaaaaaaaazzzzz";
+    assertFirstMatchEqualsJdk(regex, text);
+
+    Pattern pattern = Pattern.compile(regex);
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(1);
+    assertThat(matcher.end()).isEqualTo(16);
+  }
+
+  @Test
   void finiteDotallWildcardGapsHonorTheirCodePointBounds() {
     assertFirstMatchEqualsJdk("(?s)TARGET.", "TARGETabc");
     assertFirstMatchEqualsJdk("(?s).TARGET", "abcTARGET");

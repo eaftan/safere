@@ -217,7 +217,6 @@ final class MultiAnchorExecutor {
         }
 
         if (!upstreamMatched) {
-          minReverseWatermark = Math.max(minReverseWatermark, pDriver);
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           verificationWork++;
           if (WorkLimit.isExhausted(verificationWork, workLimit)) {
@@ -235,7 +234,6 @@ final class MultiAnchorExecutor {
         } else {
           resolvedStart = leadingGap.expandLeading(scanner, p0, minReverseWatermark);
           if (resolvedStart < 0) {
-            minReverseWatermark = Math.max(minReverseWatermark, pDriver);
             candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
             continue;
           }
@@ -493,7 +491,6 @@ final class MultiAnchorExecutor {
         }
 
         if (!upstreamMatched) {
-          minReverseWatermark = Math.max(minReverseWatermark, pDriver);
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           verificationWork++;
           if (WorkLimit.isExhausted(verificationWork, workLimit)) {
@@ -511,7 +508,6 @@ final class MultiAnchorExecutor {
         } else {
           resolvedStart = leadingGap.expandLeading(text, p0, minReverseWatermark);
           if (resolvedStart < 0) {
-            minReverseWatermark = Math.max(minReverseWatermark, pDriver);
             candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
             continue;
           }

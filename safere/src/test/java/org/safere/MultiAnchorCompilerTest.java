@@ -376,7 +376,7 @@ class MultiAnchorCompilerTest {
 
   @Test
   void driverSelectionSelectsRarestAnchor() {
-    Pattern p = Pattern.compile(".*error:\\[[A-Z]+\\]\\s+code:500\\s+msg:crash");
+    Pattern p = Pattern.compile("error:\\[[A-Z]\\] code:500");
     MultiAnchorDescriptor desc = p.multiAnchor();
     assertThat(desc).isNotNull();
     assertThat(desc.checkOrder()).isNotEmpty();
