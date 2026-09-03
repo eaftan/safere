@@ -445,6 +445,45 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
+  void reverseDriverPreservesLeftmostStartAcrossVariableGap() {
+    assertFirstMatchEqualsJdk("111[0-9]+RAREST_TOKEN", "1111112RAREST_TOKEN");
+  }
+
+  @Test
+  void variableUpstreamGapsStayOnForwardExecution() {
+    MultiAnchorDescriptor descriptor = Pattern.compile("AAA[A-Z]+RAREST_TOKEN").multiAnchor();
+
+    assertThat(descriptor.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true)).isZero();
+    assertThat(descriptor.selectDriver(MultiAnchorDescriptor.InputDomain.UTF8, true)).isZero();
+  }
+
+  @Test
+  void utf8ReverseWindowAllowsMultibyteUpstreamLiteral() {
+    String regex = "é".repeat(10) + "[0-9]" + "z".repeat(30);
+    String text = regex.replace("[0-9]", "7");
+    Pattern pattern = Pattern.compile(regex);
+
+    assertThat(pattern.matcher(text).find()).isTrue();
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isZero();
+    assertThat(matcher.end()).isEqualTo(text.getBytes(UTF_8).length);
+  }
+
+  @Test
+  void finiteDotallWildcardGapsHonorTheirCodePointBounds() {
+    assertFirstMatchEqualsJdk("(?s)TARGET.", "TARGETabc");
+    assertFirstMatchEqualsJdk("(?s).TARGET", "abcTARGET");
+    assertFirstMatchEqualsJdk("(?s)TARGET.{1,2}", "TARGETabc");
+
+    Pattern pattern = Pattern.compile("(?s)TARGET.");
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.validated("TARGET😀x".getBytes(UTF_8)));
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isZero();
+    assertThat(matcher.end()).isEqualTo("TARGET😀".getBytes(UTF_8).length);
+  }
+
+  @Test
   void multipleLeadingWildcardsCoalesce() {
     Pattern pattern = Pattern.compile(".*.*AAA.*.*");
     assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();

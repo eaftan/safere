@@ -169,7 +169,7 @@ final class MultiAnchorExecutor {
                   ? (curAnchorStart - minReverseWatermark)
                   : (int)
                       Math.min(
-                          (long) gap.maxLength() * 4 + upstreamAnchor.maxLength(),
+                          ((long) gap.maxLength() + upstreamAnchor.maxLength()) * 4,
                           curAnchorStart - minReverseWatermark);
           int minHop = gap.minLength() + upstreamAnchor.minLength();
 

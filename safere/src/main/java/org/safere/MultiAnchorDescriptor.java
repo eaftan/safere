@@ -96,7 +96,7 @@ record MultiAnchorDescriptor(
       }
       for (int candidate : checkOrder) {
         if (candidate >= 0 && candidate < segments.length) {
-          if (candidate > 0 && hasUpstreamGreedyUnboundedGap(segments, candidate)) {
+          if (candidate > 0 && !hasOnlyFixedUpstreamGaps(segments, candidate)) {
             continue;
           }
           Anchor a = segments[candidate].anchor();
@@ -115,15 +115,13 @@ record MultiAnchorDescriptor(
       return 0;
     }
 
-    private static boolean hasUpstreamGreedyUnboundedGap(Segment[] segments, int driverIdx) {
+    private static boolean hasOnlyFixedUpstreamGaps(Segment[] segments, int driverIdx) {
       for (int i = 1; i <= driverIdx; i++) {
-        Gap g = segments[i].gap();
-        if (g.isGreedy()
-            && (g.kind() == GapKind.ANY_STAR || g.kind() == GapKind.SINGLE_LINE_ANY_STAR)) {
-          return true;
+        if (!segments[i].gap().isExecutorFixedGap()) {
+          return false;
         }
       }
-      return false;
+      return true;
     }
 
     public boolean isUpstreamBoundedFor(int driverIdx) {
@@ -938,26 +936,8 @@ record MultiAnchorDescriptor(
           }
           yield isGreedy ? cur : minMatchPos;
         }
-        case SINGLE_LINE_ANY_STAR -> {
-          if (!isGreedy) {
-            yield anchorPos - minLength >= minPos ? anchorPos - minLength : -1;
-          }
-          int cur = anchorPos;
-          while (cur > minPos) {
-            int cp = text.codePointBefore(cur);
-            if (Nfa.isLineTerminator(cp)) {
-              break;
-            }
-            cur -= Character.charCount(cp);
-          }
-          yield (anchorPos - cur >= minLength) ? cur : -1;
-        }
-        case ANY_STAR -> {
-          if (!isGreedy) {
-            yield anchorPos - minLength >= minPos ? anchorPos - minLength : -1;
-          }
-          yield (anchorPos - minPos >= minLength) ? minPos : -1;
-        }
+        case SINGLE_LINE_ANY_STAR -> expandLeadingWildcard(text, anchorPos, minPos, true);
+        case ANY_STAR -> expandLeadingWildcard(text, anchorPos, minPos, false);
       };
     }
 
@@ -1004,27 +984,8 @@ record MultiAnchorDescriptor(
           }
           yield isGreedy ? cur : minMatchPos;
         }
-        case SINGLE_LINE_ANY_STAR -> {
-          if (!isGreedy) {
-            yield anchorPos - minLength >= minPos ? anchorPos - minLength : -1;
-          }
-          int cur = anchorPos;
-          while (cur > minPos) {
-            long decoded = scanner.decodeBackward(cur);
-            int cp = InputScanner.codePoint(decoded);
-            if (Nfa.isLineTerminator(cp)) {
-              break;
-            }
-            cur = InputScanner.position(decoded);
-          }
-          yield (anchorPos - cur >= minLength) ? cur : -1;
-        }
-        case ANY_STAR -> {
-          if (!isGreedy) {
-            yield anchorPos - minLength >= minPos ? anchorPos - minLength : -1;
-          }
-          yield (anchorPos - minPos >= minLength) ? minPos : -1;
-        }
+        case SINGLE_LINE_ANY_STAR -> expandLeadingWildcard(scanner, anchorPos, minPos, true);
+        case ANY_STAR -> expandLeadingWildcard(scanner, anchorPos, minPos, false);
       };
     }
 
@@ -1066,20 +1027,8 @@ record MultiAnchorDescriptor(
           }
           yield isGreedy ? cur : minMatchPos;
         }
-        case SINGLE_LINE_ANY_STAR -> {
-          if (!isGreedy) {
-            yield fromPos + minLength <= maxPos ? fromPos + minLength : -1;
-          }
-          int nl = text.indexOf('\n', fromPos);
-          int end = (nl >= fromPos && nl <= maxPos) ? nl : maxPos;
-          yield (end - fromPos >= minLength) ? end : -1;
-        }
-        case ANY_STAR -> {
-          if (!isGreedy) {
-            yield fromPos + minLength <= maxPos ? fromPos + minLength : -1;
-          }
-          yield (maxPos - fromPos >= minLength) ? maxPos : -1;
-        }
+        case SINGLE_LINE_ANY_STAR -> expandTrailingWildcard(text, fromPos, maxPos, true);
+        case ANY_STAR -> expandTrailingWildcard(text, fromPos, maxPos, false);
       };
     }
 
@@ -1123,21 +1072,99 @@ record MultiAnchorDescriptor(
           }
           yield isGreedy ? cur : minMatchPos;
         }
-        case SINGLE_LINE_ANY_STAR -> {
-          if (!isGreedy) {
-            yield fromPos + minLength <= maxPos ? fromPos + minLength : -1;
-          }
-          int nl = scanner.indexOfAscii('\n', fromPos, maxPos);
-          int end = (nl >= fromPos && nl <= maxPos) ? nl : maxPos;
-          yield (end - fromPos >= minLength) ? end : -1;
-        }
-        case ANY_STAR -> {
-          if (!isGreedy) {
-            yield fromPos + minLength <= maxPos ? fromPos + minLength : -1;
-          }
-          yield (maxPos - fromPos >= minLength) ? maxPos : -1;
-        }
+        case SINGLE_LINE_ANY_STAR -> expandTrailingWildcard(scanner, fromPos, maxPos, true);
+        case ANY_STAR -> expandTrailingWildcard(scanner, fromPos, maxPos, false);
       };
+    }
+
+    private int expandLeadingWildcard(
+        String text, int anchorPos, int minPos, boolean stopAtLineTerminator) {
+      int count = 0;
+      int cur = anchorPos;
+      int minMatchPos = minLength == 0 ? cur : -1;
+      while (count < maxLength && cur > minPos) {
+        int cp = text.codePointBefore(cur);
+        if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+          break;
+        }
+        cur -= Character.charCount(cp);
+        count++;
+        if (count == minLength) {
+          minMatchPos = cur;
+        }
+      }
+      if (count < minLength) {
+        return -1;
+      }
+      return isGreedy ? cur : minMatchPos;
+    }
+
+    private int expandLeadingWildcard(
+        Utf8InputScanner scanner, int anchorPos, int minPos, boolean stopAtLineTerminator) {
+      int count = 0;
+      int cur = anchorPos;
+      int minMatchPos = minLength == 0 ? cur : -1;
+      while (count < maxLength && cur > minPos) {
+        long decoded = scanner.decodeBackward(cur);
+        int cp = InputScanner.codePoint(decoded);
+        if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+          break;
+        }
+        cur = InputScanner.position(decoded);
+        count++;
+        if (count == minLength) {
+          minMatchPos = cur;
+        }
+      }
+      if (count < minLength) {
+        return -1;
+      }
+      return isGreedy ? cur : minMatchPos;
+    }
+
+    private int expandTrailingWildcard(
+        String text, int fromPos, int maxPos, boolean stopAtLineTerminator) {
+      int count = 0;
+      int cur = fromPos;
+      int minMatchPos = minLength == 0 ? cur : -1;
+      while (count < maxLength && cur < maxPos) {
+        int cp = text.codePointAt(cur);
+        if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+          break;
+        }
+        cur += Character.charCount(cp);
+        count++;
+        if (count == minLength) {
+          minMatchPos = cur;
+        }
+      }
+      if (count < minLength) {
+        return -1;
+      }
+      return isGreedy ? cur : minMatchPos;
+    }
+
+    private int expandTrailingWildcard(
+        Utf8InputScanner scanner, int fromPos, int maxPos, boolean stopAtLineTerminator) {
+      int count = 0;
+      int cur = fromPos;
+      int minMatchPos = minLength == 0 ? cur : -1;
+      while (count < maxLength && cur < maxPos) {
+        long decoded = scanner.decodeForward(cur);
+        int cp = InputScanner.codePoint(decoded);
+        if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+          break;
+        }
+        cur = InputScanner.position(decoded);
+        count++;
+        if (count == minLength) {
+          minMatchPos = cur;
+        }
+      }
+      if (count < minLength) {
+        return -1;
+      }
+      return isGreedy ? cur : minMatchPos;
     }
   }
 

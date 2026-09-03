@@ -56,6 +56,7 @@ final class MatchFuzzer {
     assertDfaSandwichLeftmostStartCasesMatchJdk();
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
     assertScopedCaseFoldingMatchesJdk(data);
+    assertMultiAnchorGapBoundsMatchJdk(data);
     assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(data);
 
     String regex;
@@ -250,6 +251,26 @@ final class MatchFuzzer {
       literal.append((char) ('A' + i % 26));
     }
     return literal.toString();
+  }
+
+  private static void assertMultiAnchorGapBoundsMatchJdk(FuzzedDataProvider data) {
+    int repeatedDigits = data.consumeInt(3, 12);
+    String driver = distinctAsciiLiteral(data.consumeInt(8, 16));
+    String regex;
+    String input;
+    if (data.consumeBoolean()) {
+      regex = "111[0-9]+" + driver;
+      input = "1".repeat(repeatedDigits) + "2" + driver;
+    } else {
+      int maximum = data.consumeInt(1, 4);
+      regex = "(?s)TARGET.{1," + maximum + "}";
+      input = "TARGET" + "😀".repeat(maximum + 1);
+    }
+
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      pattern.matcher(input).find();
+    }
   }
 
   private static void assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(

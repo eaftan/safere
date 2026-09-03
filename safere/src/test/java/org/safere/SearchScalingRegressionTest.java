@@ -72,6 +72,27 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void variableGapCandidateFailuresRemainLinear() {
+    Pattern pattern = Pattern.compile("AAA[A-Z]+RAREST_TOKEN");
+
+    long smallerWork =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(pattern.matcher("AAA".repeat(2_000) + "xRAREST_TOKEN").find())
+                    .isFalse());
+    long largerWork =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(pattern.matcher("AAA".repeat(10_000) + "xRAREST_TOKEN").find())
+                    .isFalse());
+
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .as("variable-gap candidate failures must not rescan overlapping suffixes")
+        .isLessThan(smallerWork * 6);
+  }
+
+  @Test
   void multiAnchorCompilationDoesNotRepeatAstAnalysis() {
     Regexp regexp = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
 
