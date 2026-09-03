@@ -454,19 +454,10 @@ record MultiAnchorDescriptor(
 
   private static boolean isExecutableLeadingGap(Gap gap) {
     return switch (gap.kind()) {
-      case EMPTY, TEXT_START, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
-      case BOUNDED_CLASS_REPEAT -> gap.scanInfo() != null || gap.charClass() != null;
-      case TEXT_END, LINE_START, LINE_END, WORD_BOUNDARY, NO_WORD_BOUNDARY -> false;
-    };
-  }
-
-  private static boolean isExecutableInteriorGap(Gap gap) {
-    return switch (gap.kind()) {
-      case EMPTY -> true;
-      case BOUNDED_CLASS_REPEAT -> gap.scanInfo() != null || gap.charClass() != null;
+      case EMPTY, TEXT_START -> true;
+      case BOUNDED_CLASS_REPEAT -> gap.isExecutorFixedGap();
       case ANY_STAR,
           SINGLE_LINE_ANY_STAR,
-          TEXT_START,
           TEXT_END,
           LINE_START,
           LINE_END,
@@ -476,14 +467,22 @@ record MultiAnchorDescriptor(
     };
   }
 
+  private static boolean isExecutableInteriorGap(Gap gap) {
+    return gap.isExecutorFixedGap();
+  }
+
   private static boolean isExecutableTrailingGap(Gap gap) {
-    if (gap.minLength() == 0 && !gap.isGreedy()) {
-      return true;
-    }
     return switch (gap.kind()) {
-      case EMPTY, TEXT_END, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
-      case BOUNDED_CLASS_REPEAT -> gap.scanInfo() != null || gap.charClass() != null;
-      case TEXT_START, LINE_START, LINE_END, WORD_BOUNDARY, NO_WORD_BOUNDARY -> false;
+      case EMPTY, TEXT_END -> true;
+      case BOUNDED_CLASS_REPEAT -> gap.isExecutorFixedGap();
+      case ANY_STAR,
+          SINGLE_LINE_ANY_STAR,
+          TEXT_START,
+          LINE_START,
+          LINE_END,
+          WORD_BOUNDARY,
+          NO_WORD_BOUNDARY ->
+          false;
     };
   }
 

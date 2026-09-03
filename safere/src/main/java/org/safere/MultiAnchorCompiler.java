@@ -1004,6 +1004,7 @@ final class MultiAnchorCompiler {
     }
     if (first.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
         && second.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+        && first.isGreedy() == second.isGreedy()
         && Objects.equals(first.charClass(), second.charClass())
         && Objects.equals(first.scanInfo(), second.scanInfo())) {
       int min = first.minLength() + second.minLength();
@@ -1020,6 +1021,7 @@ final class MultiAnchorCompiler {
           first.isGreedy());
     }
     if (first.kind() == second.kind()
+        && first.isGreedy() == second.isGreedy()
         && (first.kind() == MultiAnchorDescriptor.GapKind.ANY_STAR
             || first.kind() == MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR)) {
       int min = first.minLength() + second.minLength();

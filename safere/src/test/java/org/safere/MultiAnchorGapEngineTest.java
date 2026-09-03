@@ -271,10 +271,11 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void boundedInteriorGapsRemainExecutable() {
-    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isTrue();
+  void onlyFixedInteriorGapsRemainExecutable() {
+    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isFalse();
     assertThat(Pattern.compile("AAA[0-9]BBB").multiAnchor().isExecutableChain()).isTrue();
-    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain())
+        .isFalse();
   }
 
   @Test
@@ -484,27 +485,59 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
+  void variableLeadingAndInteriorGapsPreserveQuantifierPriority() {
+    assertFirstMatchEqualsJdk(".*AAA", "AAA x AAA");
+    assertFirstMatchEqualsJdk(".*?AAA", "xAAA");
+    assertFirstMatchEqualsJdk("AAA[A-Z]+BBB", "AAAXBBB1BBB");
+  }
+
+  @Test
+  void boundedUnicodeClassGapsCountCodePoints() {
+    String regex = "AAA[éê]{1,10}BBB";
+    String text = "AAA" + "éê".repeat(5) + "BBB";
+    assertFirstMatchEqualsJdk(regex, text);
+
+    Pattern pattern = Pattern.compile(regex);
+    Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isZero();
+    assertThat(matcher.end()).isEqualTo(text.getBytes(UTF_8).length);
+  }
+
+  @Test
+  void adjacentMixedFlavorGapsPreservePriority() {
+    assertFirstMatchEqualsJdk("AAA.*?.*", "AAAxyz");
+    assertFirstMatchEqualsJdk("AAA.*.*?", "AAAxyz");
+  }
+
+  @Test
+  void broadCharacterClassesRetainTheirExactMembership() {
+    assertFirstMatchEqualsJdk("AAA[^\\nX]*", "AAAabXcd");
+    assertFirstMatchEqualsJdk("AAA.*", Pattern.UNIX_LINES, "AAAa\rnext");
+  }
+
+  @Test
   void multipleLeadingWildcardsCoalesce() {
     Pattern pattern = Pattern.compile(".*.*AAA.*.*");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
     assertFirstMatchEqualsJdk(".*.*AAA.*.*", "hello world AAA foo bar\nnext line");
   }
 
   @Test
-  void singleAnchorWithLeadingAndTrailingGapsExecutes() {
+  void singleAnchorWithVariableLeadingAndTrailingGapsFallsBack() {
     Pattern pattern = Pattern.compile(".*AAA.*");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
     assertFirstMatchEqualsJdk(".*AAA.*", "noise AAA trailing\nsecond line");
 
     Pattern patternBounded = Pattern.compile("\\s+AAA\\s+");
-    assertThat(patternBounded.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(patternBounded.multiAnchor().isExecutableChain()).isFalse();
     assertFirstMatchEqualsJdk("\\s+AAA\\s+", "hello   AAA   world");
   }
 
   @Test
-  void singleAnchorWithLeadingWildcardExecutesInUtf8() {
+  void singleAnchorWithLeadingWildcardFallsBackInUtf8() {
     Pattern pattern = Pattern.compile(".*TARGET_KEY");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
 
     byte[] bytes = "prefix data TARGET_KEY trailing".getBytes(UTF_8);
     Utf8Input input = Utf8Input.validated(bytes);
