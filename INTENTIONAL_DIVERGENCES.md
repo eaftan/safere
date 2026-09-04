@@ -38,6 +38,38 @@ SafeRE preserves a coherent overall match instead of reproducing that
 implementation behavior. The JDK inconsistency is tracked upstream as
 [JDK-8390449](https://bugs.openjdk.org/browse/JDK-8390449).
 
+## Comments-Mode Trivia in Character Classes
+
+Issue reference: #796.
+
+In `Pattern.COMMENTS` (`(?x)`) mode, unescaped whitespace and `#` comments through
+the end of the line are ignored both outside and inside character classes.
+
+In OpenJDK `Pattern.java`, comments-mode whitespace and comments inside character
+classes break internal parser lookahead and `unread()`. When whitespace or
+comments appear around character class operators—such as after ampersand runs
+(`&&&`) and before nested bracketed character classes—the JDK parser's `unread()`
+fails to restore the correct parser position. This causes character classes to
+close prematurely or produce corrupted parse states. For example:
+
+- `(?x)[a&&& [b])]` fails compilation in the JDK with
+  `PatternSyntaxException: Unmatched closing ')'` because the space before `[b]`
+  causes the outer class to close at the `]` of `[b]`, leaving `)]` outside the
+  class.
+- `(?x)[a&&& [b]]` compiles in the JDK but matches nothing, whereas non-comments
+  `[a&&&[b]]` matches `a`, `b`, and `&`.
+- In odd-ampersand runs followed by whitespace or comments (such as
+  `(?x)[a&&& b]`), the JDK drops the literal `&` from the right-hand operand,
+  whereas without whitespace `[a&&&b]` includes `&`.
+
+SafeRE treats comments-mode whitespace and comments uniformly as ignored trivia
+everywhere within character classes, including around ampersand runs, operators,
+and nested brackets. SafeRE compiles `(?x)[a&&& [b])]` cleanly and evaluates it
+with identical semantics to `(?x)[a&&&[b])]` (matching `a`, `b`, `&`, and `)`).
+
+This OpenJDK parser corruption is tracked upstream as
+[JDK-8391732](https://bugs.openjdk.org/browse/JDK-8391732).
+
 ## Unsupported Backtracking Features
 
 Sweep names:

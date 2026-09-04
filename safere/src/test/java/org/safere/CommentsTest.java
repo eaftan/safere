@@ -7,6 +7,7 @@ package org.safere;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -215,6 +216,62 @@ class CommentsTest {
       Pattern p = Pattern.compile("[^ a - z ]", Pattern.COMMENTS);
       assertThat(p.matcher("A").matches()).isTrue();
       assertThat(p.matcher("m").matches()).isFalse();
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "JDK-8391732: comments-mode whitespace after ampersands breaks unread() in java.util.regex")
+    @DisplayName("character class with ampersands, whitespace, and nested class (issue #796)")
+    void characterClassAmpersandsWhitespaceAndNestedClass() {
+      // In OpenJDK (JDK-8391732), comments-mode whitespace after ampersands breaks unread(),
+      // causing premature termination of nested character classes or unmatched bracket errors
+      // like "(?x)[a&&& [b])]". SafeRE treats comments and whitespace uniformly as ignored trivia.
+      Pattern withSpace = Pattern.compile("(?x)[a&&& [b])]");
+      Pattern withoutSpace = Pattern.compile("(?x)[a&&&[b])]");
+
+      for (String input : List.of("a", "b", "&", ")")) {
+        assertThat(withSpace.matcher(input).matches())
+            .as("matches() for /(?x)[a&&& [b])]/ on \"%s\"", input)
+            .isTrue();
+        assertThat(withSpace.matcher(input).matches())
+            .isEqualTo(withoutSpace.matcher(input).matches());
+      }
+      for (String input : List.of("c", " ", "-", "0")) {
+        assertThat(withSpace.matcher(input).matches())
+            .as("matches() for /(?x)[a&&& [b])]/ on \"%s\"", input)
+            .isFalse();
+      }
+    }
+
+    @Test
+    @DisabledForCrosscheck(
+        "JDK-8391732: comments-mode whitespace after ampersands breaks unread() in java.util.regex")
+    @DisplayName("comments and whitespace around ampersands and nested classes compile and match")
+    void commentsAndWhitespaceAroundAmpersandsAndNestedClasses() {
+      Pattern withComment = Pattern.compile("(?x)[a&&& # comment\n [b])]");
+      assertThat(withComment.matcher("a").matches()).isTrue();
+      assertThat(withComment.matcher("b").matches()).isTrue();
+      assertThat(withComment.matcher("&").matches()).isTrue();
+      assertThat(withComment.matcher(")").matches()).isTrue();
+      assertThat(withComment.matcher("c").matches()).isFalse();
+
+      Pattern nestedIntersection = Pattern.compile("(?x)[a&&& [b]]");
+      assertThat(nestedIntersection.matcher("a").matches()).isTrue();
+      assertThat(nestedIntersection.matcher("b").matches()).isTrue();
+      assertThat(nestedIntersection.matcher("&").matches()).isTrue();
+      assertThat(nestedIntersection.matcher("c").matches()).isFalse();
+
+      Pattern bracketsBothSides = Pattern.compile("(?x)[[a]&&& [b]]");
+      assertThat(bracketsBothSides.matcher("a").matches()).isTrue();
+      assertThat(bracketsBothSides.matcher("b").matches()).isTrue();
+      assertThat(bracketsBothSides.matcher("&").matches()).isTrue();
+      assertThat(bracketsBothSides.matcher("c").matches()).isFalse();
+
+      Pattern trailingTrivia = Pattern.compile("(?x)[a&&&-a& ]");
+      assertThat(trailingTrivia.matcher("a").matches()).isTrue();
+      assertThat(trailingTrivia.matcher("-").matches()).isTrue();
+      assertThat(trailingTrivia.matcher("&").matches()).isTrue();
+      assertThat(trailingTrivia.matcher(" ").matches()).isFalse();
     }
   }
 

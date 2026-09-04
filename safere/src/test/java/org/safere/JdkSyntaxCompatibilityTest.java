@@ -424,21 +424,6 @@ class JdkSyntaxCompatibilityTest {
                   "comments-mode leading intersection followed by zero-width syntax "
                       + "and repeated marker",
                   "(?x)[&& \\Q\\E&&a]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode raw ampersand separator before class close",
-                  "(?x)[a& &&&& -a& ]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode range tail raw ampersand before class close", "(?x)[a&&&-a& ]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode escaped ampersand range tail raw ampersand before class close",
-                  "(?x)[\\&&&&-a& ]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode zero-width range tail raw ampersand before class close",
-                  "(?x)[a&&&-a\\Q\\E& ]")),
           Arguments.of(new DialectRejection("range ending at nested class opener", "[a-[]")),
           Arguments.of(
               new DialectRejection(
@@ -487,28 +472,6 @@ class JdkSyntaxCompatibilityTest {
               new DialectRejection(
                   "negated raw ampersand separator before immediate malformed range",
                   "[^[^b]&\\Q\\E&&-\\D]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode hyphen before spaced intersection after raw ampersand separator",
-                  "(?x)[a& &&&& -& &]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode hyphen before quoted-empty intersection after raw ampersand"
-                      + " separator",
-                  "(?x)[a& &&&& -&\\Q\\E&]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode hyphen before commented intersection after raw ampersand"
-                      + " separator",
-                  "(?x)[a& &&&& -& #x\n&]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode hyphen tail before dangling raw ampersand separator",
-                  "(?x)[a& &&&& -a& ]")),
-          Arguments.of(
-              new DialectRejection(
-                  "comments-mode quoted-empty hyphen tail before dangling raw ampersand separator",
-                  "(?x)[a& &&&& -a\\Q\\E& ]")),
           Arguments.of(
               new DialectRejection(
                   "ordinary literal before trailing class intersection after nested class",
@@ -1235,51 +1198,6 @@ class JdkSyntaxCompatibilityTest {
           .isEqualTo(jdk);
     }
 
-    static Stream<Arguments> normalizedCommentsModeClassOperatorCases() {
-      List<String> inputs =
-          List.of("", "a", "b", "&", "-", "]", "a]", "&]", "]]", "z", "0", "A", " ");
-      return Stream.of(
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& \\Q\\E-\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& #x\n-\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -z]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& --z]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a& ]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -a\\Q\\E& ]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & &]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & &\\Q\\E]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & & ]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& & ]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& & ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& ]]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & & ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[& [^b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& [^b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[& & [^b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& & [^b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& &]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -&\\Q\\E&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -& #x\n&]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("normalizedCommentsModeClassOperatorCases")
-    @DisplayName("normalized comments-mode class operator adjacency matches JDK")
-    void normalizedCommentsModeClassOperatorAdjacencyMatchesJdk(
-        CharacterClassMembershipCase membershipCase) {
-      CharacterClassMatrixOutcome jdk = jdkCharacterClassOutcome(membershipCase.regex());
-      CharacterClassMatrixOutcome safere = safeReCharacterClassOutcome(membershipCase.regex());
-      assertThat(safere)
-          .as("character-class outcome for /%s/", membershipCase.regex())
-          .isEqualTo(jdk);
-    }
-
     static Stream<Arguments> deferredCharacterClassExpressionParserCases() {
       List<String> inputs =
           List.of("", "&", "[", "]", "-", "a", "b", "x", "z", "0", "1", " ", "\t", "Ā");
@@ -1314,8 +1232,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[&\\Q\\E &&\\d]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[b&&[a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^b&&[a]&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& -\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& #x\n -\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ab\\Q\\E\\Q\\E&&&&&\\Q\\E&\\&]", inputs)),
           Arguments.of(
               new CharacterClassMembershipCase("[\\&\\Q\\E&&&&&\\Q\\E\\Q\\E&-\\D]", inputs)),
@@ -1327,9 +1243,6 @@ class JdkSyntaxCompatibilityTest {
               new CharacterClassMembershipCase("[[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
           Arguments.of(
               new CharacterClassMembershipCase("[^[^b]&\\Q\\E\\Q\\E&&&&\\Q\\E&-\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& -z]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&& [0]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a[b]&& [a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E\\d &&\\Q\\E &-&]", inputs)),
@@ -1375,12 +1288,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[[a]&&&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]&&&[b]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&&[b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&& [a]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&& [b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& [b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qa\\E&&& [b]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\d&&& [0]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\d&&& [a]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]a-b&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[[a]Ā&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\d&&]", inputs)),
@@ -1406,14 +1313,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("[ &&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ &&&a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[ && \\D&\\Q\\E&&]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase(
-                  "(?x)[a& &&&& -z]", List.of("", "a", "&", "-", "z", "0", "A", " "))),
-          Arguments.of(
-              new CharacterClassMembershipCase(
-                  "(?x)[a& &&&& -a&]", List.of("", "a", "&", "-", "z", "0", "A", " "))),
-          Arguments.of(
-              new CharacterClassMembershipCase("(?x)[\\Qab\\E& &&&&&& \\Q\\E\\Q\\E-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&& &&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&\\Q\\E &&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a && &-&]", inputs)),
@@ -1428,7 +1327,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[a0-1&&& &&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\&&&&\\Q\\E&&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[\\&&&&&&\\Q\\E&&-a]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[0&\\Q\\E\\Q\\E&& -&&a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&&&\\Q\\E&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a\\d&&&&[a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ab\\d&&&[a]&&&]", inputs)),
@@ -1452,7 +1350,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& &]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& &-a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& &&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[ && [a] &&& [b]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a && [b] &&& &]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[ab && [b] &&& &]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a]&&&\\Q\\E&]", inputs)),
@@ -1466,8 +1363,6 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&[b] &&& &&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a &&& & && b]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a &&& #x\n& && b]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& a-b]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& [a]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&&&[b]&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q\\E&\\Q\\E&&\\w]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q\\E&\\Q\\E&&[a]]", inputs)),
@@ -1475,22 +1370,11 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& &&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& [b]&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& &-a]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&& #x\n\\Q\\E-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&\\Q\\E&&&\\Q\\E[b]&]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase(
-                  "(?x)[a&\\Q\\E&& \\Q\\E]]", List.of("", "a", "&", "]"))),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&& #x\n]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\&&&& ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[[a]&&& #x\n]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\E\\d &&\\Q\\E &-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-b&\\Q\\E&&[a]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-b&\\Q\\E\\Q\\E&&[b]-a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a-b& &&[a]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& & & ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a& &&&& && ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[-[ab]&&& && ]]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a]&&& && ]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&\\Q\\E[a]&&&]", inputs)),
           Arguments.of(
               new CharacterClassMembershipCase("[0&\\Q\\E\\Q\\E&&\\Q\\E[a][b]&&&]", inputs)),
@@ -1502,19 +1386,14 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(
               new CharacterClassMembershipCase("(?x)[[0]&\\Q\\E\\Q\\E&&[a] && &-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\w&\\Q\\E&&[a] && &]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\Ā]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\Ā&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\d]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\d&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&& #x\n\\d-a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&&& #x\n&-a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Qab\\EĀ&&\\Q\\E&-&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[&&[a] && &]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[&&[b] && &-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[^[a]a-b&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[^[a]& &&]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase("(?x)[^a&&\\&\\Q\\E\\Q\\E&&& #x\n]]", inputs)),
           Arguments.of(
               new CharacterClassMembershipCase("(?x)[b&&\\Q\\E& &&&\\Q\\E\\Q\\E[a]&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[b&&&& & &&&[a]&]", inputs)),
@@ -1527,19 +1406,11 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[[^b]&&& #x\n\\Q\\E&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[&a-b &&&&& &\\&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[0&&& &&&\\Q\\E-a]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[[^b][a]&&&\\Q\\E b]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[\\D[a]&&& -a]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase("(?x)[[^b][a]\\Q\\E\\Q\\E&&& \\Q\\E]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[^0&&& & #x\n&& \\Q\\E]]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&[a]&&& #x\nb]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&[a]&&& #x\n\\Qa\\E]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&[b]&&&\\Q\\E b]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&&&&[b]&&& #x\nb]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& [a]\\Q\\E-\\D]", inputs)),
-          Arguments.of(
-              new CharacterClassMembershipCase("(?x)[a&&\\Q&\\E&&& [b]\\Q\\E-\\D]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[^a&&\\&&&& [ab]\\Q\\E-\\D]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a&&&-&&-a]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[&&[a]&-&&-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("[a-b&&&-&\\Q\\E\\Q\\E&-&]", inputs)),
@@ -1548,9 +1419,7 @@ class JdkSyntaxCompatibilityTest {
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\d&&[a]-&\\Q\\E -a]", inputs)),
           Arguments.of(
               new CharacterClassMembershipCase("(?x)[a&&[b]&-& \\Q\\E\\P{Lower}]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\&&&& [a]-&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[a&&\\Q&\\E&&& [b]-&]", inputs)),
-          Arguments.of(new CharacterClassMembershipCase("(?x)[a #x\n&&&& \\&&&& [a]-&&]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[&&\\d-&\\Q\\E]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[\\Q&\\E&&\\d-&\\Q\\E]", inputs)),
           Arguments.of(new CharacterClassMembershipCase("(?x)[&&[ab]-&\\Q\\E]", inputs)),
@@ -1569,39 +1438,9 @@ class JdkSyntaxCompatibilityTest {
     }
 
     @ParameterizedTest
-    @ValueSource(
-        strings = {"(?x)[0&\\Q\\E\\Q\\E&&&& #x\n-&&]", "(?x)[0&\\Q\\E\\Q\\E&&&&&& #x\n-&&]"})
-    @DisplayName("character-class ampersand runs with empty quotes reject malformed syntax")
-    void characterClassAmpersandRunsWithEmptyQuotesRejectMalformedSyntax(String regex) {
-      assertRejectedByJdkAndSafeRe(regex);
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-        strings = {
-          "[&&\\Q\\E&&&]",
-          "[[a]a&&\\Q\\E&&&]",
-          "(?x)[&&[a]&&& ]",
-          "(?x)[&&[a]&&&#x\n]",
-          "(?x)[&&[a]\\Q\\E&&& ]",
-          "(?x)[&&[a][b]&&& ]"
-        })
+    @ValueSource(strings = {"[&&\\Q\\E&&&]", "[[a]a&&\\Q\\E&&&]"})
     @DisplayName("empty character-class intersection RHS rejects without parser crash")
     void emptyCharacterClassIntersectionRhsRejectsWithoutParserCrash(String regex) {
-      assertRejectedByJdkAndSafeRe(regex);
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-        strings = {
-          "(?x)[a& &&&& & & ]",
-          "(?x)[a& &&&& && ]",
-          "(?x)[-[ab]&&& && ]",
-          "(?x)[a&&&\\Q\\E&& -&&]",
-          "(?x)[a&&&\\Q\\E&&&a-b-&&]"
-        })
-    @DisplayName("comments-mode split ampersand runs reject before class close")
-    void commentsModeSplitAmpersandRunsRejectBeforeClassClose(String regex) {
       assertRejectedByJdkAndSafeRe(regex);
     }
 
