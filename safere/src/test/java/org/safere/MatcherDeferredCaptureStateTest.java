@@ -141,6 +141,23 @@ class MatcherDeferredCaptureStateTest {
   }
 
   @Test
+  @DisplayName("capture demand bypasses later multi-anchor pre-scans")
+  void captureDemandBypassesLaterMultiAnchorPrescans() throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile("(AAA)[0-9](BB)");
+    Matcher first = pattern.matcher("prefix AAA1BB suffix");
+
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(first.find()).isTrue();
+    assertThat(booleanField(first, "capturesResolved")).isFalse();
+    assertThat(first.group(1)).isEqualTo("AAA");
+
+    Matcher second = pattern.matcher("prefix AAA2BB suffix");
+    assertThat(second.find()).isTrue();
+    assertThat(booleanField(second, "capturesResolved")).isTrue();
+    assertThat(second.group(2)).isEqualTo("BB");
+  }
+
+  @Test
   @DisplayName("capture-demand adaptation remains bounded to small inputs")
   void captureDemandAdaptationRemainsBoundedToSmallInputs() throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile("a\\s+(.+)");
