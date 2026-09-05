@@ -560,6 +560,30 @@ class MultiAnchorGapEngineTest {
     assertThat(matcher.end()).isEqualTo(22);
   }
 
+  @Test
+  void assertionsAfterLeadingCharacterClassFallBackToGeneralEngine() {
+    for (String[] testCase :
+        new String[][] {
+          {"[a-z]\\bAAA", "xAAA"},
+          {"[ ]\\BAAA", " AAA"},
+          {"(?m)[a-z]^AAA", "xAAA"},
+          {"(?m)[a-z]$AAA", "xAAA"},
+          {"[a-z]\\bAAA[0-9]RAREST_TOKEN", "xAAA1RAREST_TOKEN"}
+        }) {
+      String regex = testCase[0];
+      String text = testCase[1];
+      Pattern pattern = Pattern.compile(regex);
+
+      assertThat(pattern.multiAnchor().isExecutableChain()).as(regex).isFalse();
+      assertFirstMatchEqualsJdk(regex, text);
+
+      Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+      assertThat(utf8Matcher.find())
+          .as("UTF-8 membership for %s", regex)
+          .isEqualTo(java.util.regex.Pattern.compile(regex).matcher(text).find());
+    }
+  }
+
   private static void assertFirstMatchEqualsJdk(String regex, String text) {
     assertFirstMatchEqualsJdk(regex, 0, text);
   }

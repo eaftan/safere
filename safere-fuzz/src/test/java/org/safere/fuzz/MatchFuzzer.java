@@ -57,6 +57,7 @@ final class MatchFuzzer {
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
     assertScopedCaseFoldingMatchesJdk(data);
     assertMultiAnchorGapBoundsMatchJdk(data);
+    assertLeadingClassAssertionsMatchJdk(data);
     assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(data);
 
     String regex;
@@ -109,6 +110,17 @@ final class MatchFuzzer {
     FuzzSupport.MatcherPair matcher = pattern.matcher(boundary);
     matcher.region(1, boundary.length()).lookingAt();
     matcher.reset(nonBoundary).region(1, nonBoundary.length()).lookingAt();
+  }
+
+  private static void assertLeadingClassAssertionsMatchJdk(FuzzedDataProvider data) {
+    String leadingClass = data.pickValue(List.of("[a-z]", "[ ]", "[0-9]", "[^A-Z]"));
+    String assertion = data.consumeBoolean() ? "\\b" : "\\B";
+    String suffix = data.consumeBoolean() ? "AAA" : "AAA[0-9]RAREST_TOKEN";
+    String regex = leadingClass + assertion + suffix;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      pattern.matcher(data.pickValue(List.of("xAAA", " AAA", "11AAA", "xAAA1RAREST_TOKEN"))).find();
+    }
   }
 
   private static void assertTrailingLineTerminatorEndAnchorFindsMatchJdk() {

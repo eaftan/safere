@@ -1377,16 +1377,15 @@ record MultiAnchorDescriptor(
         if (fromIndex > maxStart) {
           return -1;
         }
-        if (foldCase) {
-          for (int i = maxStart; i >= fromIndex; i--) {
-            if (startsWith(text, i)) {
-              return i;
-            }
+        for (int i = maxStart; i >= fromIndex; i--) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
           }
-          return -1;
+          if (startsWith(text, i)) {
+            return i;
+          }
         }
-        int idx = text.lastIndexOf(literal, maxStart);
-        return idx >= fromIndex ? idx : -1;
+        return -1;
       }
 
       @Override

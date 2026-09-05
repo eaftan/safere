@@ -846,7 +846,14 @@ final class MultiAnchorCompiler {
       Regexp sub = node.subs.get(idx);
       if (isLeadingZeroWidth(sub)) {
         MultiAnchorDescriptor.Gap zwGap = classifyGap(sub, flags);
-        if (zwGap != null && leadingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
+        if (zwGap == null) {
+          return null;
+        }
+        if (!zwGap.equals(MultiAnchorDescriptor.Gap.EMPTY)
+            && !leadingGap.equals(MultiAnchorDescriptor.Gap.EMPTY)) {
+          return null;
+        }
+        if (!zwGap.equals(MultiAnchorDescriptor.Gap.EMPTY)) {
           leadingGap = zwGap;
         }
         idx++;

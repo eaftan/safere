@@ -72,6 +72,19 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void reverseLiteralSearchExaminesOnlyTheRequestedWindow() {
+    MultiAnchorDescriptor.Anchor anchor = MultiAnchorDescriptor.Anchor.Single.create("AAA");
+    String text = "x".repeat(10_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(anchor.lastIndexOf(text, 9_900, 9_999)).isEqualTo(-1));
+
+    assertThat(work).as("bounded reverse search work must be observed").isPositive();
+    assertThat(work).as("reverse search must stay within its requested window").isLessThan(200);
+  }
+
+  @Test
   void variableGapCandidateFailuresRemainLinear() {
     Pattern pattern = Pattern.compile("AAA[A-Z]+RAREST_TOKEN");
 
