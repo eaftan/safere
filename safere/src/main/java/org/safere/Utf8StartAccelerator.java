@@ -44,7 +44,8 @@ sealed interface Utf8StartAccelerator {
         if (hasWordBoundary) {
           yield null;
         }
-        if (VectorScanProviders.multiLiteralProviderAvailable()) {
+        int k = ml.literals().length;
+        if (k <= 4 && VectorScanProviders.multiLiteralProviderAvailable()) {
           MultiLiteralInfo info = MultiLiteralInfo.create(ml.literals());
           if (info != null) {
             TeddyModel teddy =
@@ -54,10 +55,17 @@ sealed interface Utf8StartAccelerator {
             yield new MultiLiteral(info, teddy);
           }
         }
-        if (VectorScanProviders.teddyProviderAvailable()) {
+        if (VectorScanProviders.teddyProviderAvailable() && k <= 32) {
           TeddyModel model = TeddyModel.compileForSelectedProvider(ml.literals());
           if (model != null) {
             yield new Teddy(model);
+          }
+        }
+        int uniqueStartChars = countUniqueFirstBytes(ml.literals());
+        if (k >= 128 || uniqueStartChars <= 8) {
+          AhoCorasickSearcher ac = AhoCorasickSearcher.create(ml.literals(), false);
+          if (ac != null) {
+            yield new AhoCorasick(ac);
           }
         }
         if (ml.fallbackClass() != null && ml.fallbackClass().isSelective()) {
@@ -93,6 +101,7 @@ sealed interface Utf8StartAccelerator {
       case CharClass cc -> cc.findCandidate(scanner, pos);
       case Teddy t -> t.findCandidate(scanner, pos);
       case MultiLiteral ml -> ml.findCandidate(scanner, pos);
+      case AhoCorasick ac -> ac.findCandidate(scanner, pos);
       case LeadingExpansion le -> le.findCandidate(scanner, pos);
     };
   }
@@ -267,19 +276,18 @@ sealed interface Utf8StartAccelerator {
       if (idx != VectorScanProvider.UNSUPPORTED) {
         return idx;
       }
-      int len = scanner.length();
-      int minLen = model.minLength();
-      byte[] bytes = scanner.bytes();
-      int offset = scanner.offset();
-      for (int i = fromIndex; i <= len - minLen; i++) {
-        for (String lit : model.literals()) {
-          if (i + lit.length() <= len
-              && Ascii.regionMatches(bytes, offset + i, lit, lit.length())) {
-            return i;
-          }
-        }
-      }
-      return -1;
+      return fromIndex;
+    }
+  }
+
+  record AhoCorasick(AhoCorasickSearcher searcher) implements Utf8StartAccelerator {
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.VECTOR_MULTI_LITERAL;
+    }
+
+    int findCandidate(Utf8InputScanner scanner, int fromIndex) {
+      return searcher.findNext(scanner.bytes(), scanner.offset(), scanner.length(), fromIndex);
     }
   }
 
@@ -398,5 +406,25 @@ sealed interface Utf8StartAccelerator {
       }
       return -1;
     }
+  }
+
+  private static int countUniqueFirstBytes(String[] literals) {
+    long lo = 0;
+    long hi = 0;
+    int nonAsciiCount = 0;
+    for (String lit : literals) {
+      if (lit.isEmpty()) {
+        continue;
+      }
+      char c = lit.charAt(0);
+      if (c < 64) {
+        lo |= (1L << c);
+      } else if (c < 128) {
+        hi |= (1L << (c - 64));
+      } else {
+        nonAsciiCount++;
+      }
+    }
+    return Long.bitCount(lo) + Long.bitCount(hi) + nonAsciiCount;
   }
 }
