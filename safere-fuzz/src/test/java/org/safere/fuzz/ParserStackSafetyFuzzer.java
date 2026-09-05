@@ -21,6 +21,9 @@ final class ParserStackSafetyFuzzer {
       FuzzSupport.assertFullMatchesJdk(quantifiedNestedCaptures(depth), 0, INPUTS);
       FuzzSupport.assertFullMatchesJdk(nestedCountedRepeat(depth, "{0,2}"), 0, INPUTS);
       FuzzSupport.assertFullMatchesJdk(nestedQuantifiers(Math.min(depth, 64)), 0, INPUTS);
+      FuzzSupport.assertFullMatchesJdk(
+          homogeneousGapNesting(Math.min(depth, 64), "[ab]"), 0, INPUTS);
+      FuzzSupport.assertFullMatchesJdk(homogeneousGapNesting(Math.min(depth, 64), "."), 0, INPUTS);
     }
 
     int depth = data.consumeInt(0, 512);
@@ -61,5 +64,9 @@ final class ParserStackSafetyFuzzer {
       regex.append(index % 2 == 0 ? ")?" : ")+");
     }
     return regex.toString();
+  }
+
+  private static String homogeneousGapNesting(int depth, String atom) {
+    return "foo" + "(?:".repeat(depth) + atom + (")?" + atom).repeat(depth) + "bar";
   }
 }

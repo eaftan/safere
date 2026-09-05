@@ -421,4 +421,16 @@ class MultiAnchorCompilerTest {
     Regexp input = nested;
     assertThatCode(() -> MultiAnchorCompiler.factorAlternations(input)).doesNotThrowAnyException();
   }
+
+  @Test
+  void homogeneousGapExtractionIsStackSafeForDeepQuantifiers() {
+    assertThatCode(() -> Pattern.compile(deepHomogeneousGap("[ab]", 5_000)))
+        .doesNotThrowAnyException();
+    assertThatCode(() -> Pattern.compile(deepHomogeneousGap(".", 5_000)))
+        .doesNotThrowAnyException();
+  }
+
+  private static String deepHomogeneousGap(String atom, int depth) {
+    return "foo" + "(?:".repeat(depth) + atom + (")?" + atom).repeat(depth) + "bar";
+  }
 }

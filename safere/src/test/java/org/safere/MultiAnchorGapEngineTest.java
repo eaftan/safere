@@ -584,6 +584,20 @@ class MultiAnchorGapEngineTest {
     }
   }
 
+  @Test
+  void factoredAlternationPrefixesPreserveScopedCaseFlags() {
+    for (String[] testCase :
+        new String[][] {
+          {"(?:(?i:abc)X|abcY)", "ABCX"},
+          {"(?:abcX|(?i:abc)Y)", "ABCY"},
+          {"(?i:(?-i:abc)X|abcY)", "ABCY"},
+          {"(?i:(?-i:abc)X|abcY)", "ABCX"},
+          {"(?:(?i:abc)X|abcY)[0-9]RAREST_TOKEN", "ABCX1RAREST_TOKEN"}
+        }) {
+      assertFirstMatchEqualsJdk(testCase[0], testCase[1]);
+    }
+  }
+
   private static void assertFirstMatchEqualsJdk(String regex, String text) {
     assertFirstMatchEqualsJdk(regex, 0, text);
   }

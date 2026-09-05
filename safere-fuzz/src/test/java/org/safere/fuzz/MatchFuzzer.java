@@ -58,6 +58,7 @@ final class MatchFuzzer {
     assertScopedCaseFoldingMatchesJdk(data);
     assertMultiAnchorGapBoundsMatchJdk(data);
     assertLeadingClassAssertionsMatchJdk(data);
+    assertFactoredPrefixCaseFlagsMatchJdk(data);
     assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(data);
 
     String regex;
@@ -120,6 +121,21 @@ final class MatchFuzzer {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
     if (pattern != null) {
       pattern.matcher(data.pickValue(List.of("xAAA", " AAA", "11AAA", "xAAA1RAREST_TOKEN"))).find();
+    }
+  }
+
+  private static void assertFactoredPrefixCaseFlagsMatchJdk(FuzzedDataProvider data) {
+    String exactSuffix = data.pickValue(List.of("X", "Y", "Z"));
+    String foldedSuffix = data.pickValue(List.of("M", "N", "P"));
+    String foldedBranch = "(?i:abc)" + foldedSuffix;
+    String exactBranch = "abc" + exactSuffix;
+    String regex =
+        data.consumeBoolean()
+            ? "(?:" + foldedBranch + "|" + exactBranch + ")"
+            : "(?:" + exactBranch + "|" + foldedBranch + ")";
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      pattern.matcher(data.consumeBoolean() ? "ABC" + foldedSuffix : "abc" + exactSuffix).find();
     }
   }
 

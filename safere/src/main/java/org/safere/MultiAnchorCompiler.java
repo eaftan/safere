@@ -1241,6 +1241,10 @@ final class MultiAnchorCompiler {
     if (allHaveLeading) {
       int lcp = commonPrefixLength(leadingRunesList);
       if (lcp >= 2) {
+        Integer prefixFlags = commonLeadingLiteralFlags(re.subs, lcp);
+        if (prefixFlags == null) {
+          return re;
+        }
         int[] prefixRunes = Arrays.copyOf(leadingRunesList.get(0), lcp);
         List<Regexp> remainders = new ArrayList<>(re.subs.size());
         for (Regexp sub : re.subs) {
@@ -1248,14 +1252,52 @@ final class MultiAnchorCompiler {
         }
         Regexp prefixNode =
             prefixRunes.length == 1
-                ? Regexp.literal(prefixRunes[0], re.flags)
-                : Regexp.literalString(prefixRunes, re.flags);
+                ? Regexp.literal(prefixRunes[0], prefixFlags)
+                : Regexp.literalString(prefixRunes, prefixFlags);
         Regexp alternateNode = Regexp.alternate(remainders, re.flags);
         return Regexp.concat(List.of(prefixNode, alternateNode), re.flags);
       }
     }
 
     return re;
+  }
+
+  private static Integer commonLeadingLiteralFlags(List<Regexp> alternatives, int runeCount) {
+    Integer commonFlags = null;
+    for (Regexp alternative : alternatives) {
+      Integer flags = homogeneousLeadingLiteralFlags(alternative, runeCount);
+      if (flags == null) {
+        return null;
+      }
+      if (commonFlags == null) {
+        commonFlags = flags;
+      } else if (((commonFlags ^ flags) & ParseFlags.FOLD_CASE) != 0) {
+        return null;
+      }
+    }
+    return commonFlags;
+  }
+
+  private static Integer homogeneousLeadingLiteralFlags(Regexp re, int runeCount) {
+    List<Regexp> leading = re.op == RegexpOp.CONCAT && re.subs != null ? re.subs : List.of(re);
+    Integer commonFlags = null;
+    int remaining = runeCount;
+    for (Regexp node : leading) {
+      int nodeLength = literalRunesLength(node);
+      if (nodeLength == 0) {
+        break;
+      }
+      if (commonFlags == null) {
+        commonFlags = node.flags;
+      } else if (((commonFlags ^ node.flags) & ParseFlags.FOLD_CASE) != 0) {
+        return null;
+      }
+      remaining -= Math.min(remaining, nodeLength);
+      if (remaining == 0) {
+        return commonFlags;
+      }
+    }
+    return null;
   }
 
   private static boolean hasCaptures(Regexp re) {
@@ -2141,7 +2183,7 @@ final class MultiAnchorCompiler {
             greedy);
       }
     }
-    if (isHomogeneousAnyChar(re, flags)) {
+    if (isHomogeneousAnyChar(re)) {
       boolean dotAll =
           (flags & Pattern.DOTALL) != 0
               || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
@@ -2164,53 +2206,89 @@ final class MultiAnchorCompiler {
     if (re == null) {
       return null;
     }
-    return switch (re.op) {
-      case CHAR_CLASS ->
-          isDotCharClass(re.charClass) ? null : buildAsciiBitmapFromCharClass(re.charClass);
-      case QUEST, STAR, PLUS, REPEAT, CAPTURE -> extractHomogeneousCharClass(re.sub());
-      case CONCAT, ALTERNATE -> {
-        if (re.subs == null || re.subs.isEmpty()) {
-          yield null;
-        }
-        AsciiBitmap first = null;
-        for (Regexp sub : re.subs) {
-          AsciiBitmap bm = extractHomogeneousCharClass(sub);
-          if (bm == null) {
-            yield null;
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    AsciiBitmap homogeneous = null;
+    while (!pending.isEmpty()) {
+      Regexp node = pending.removeLast();
+      switch (node.op) {
+        case CHAR_CLASS -> {
+          if (isDotCharClass(node.charClass)) {
+            return null;
           }
-          if (first == null) {
-            first = bm;
-          } else if (!Objects.equals(first, bm)) {
-            yield null;
+          AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(node.charClass);
+          if (bitmap == null) {
+            return null;
+          }
+          if (homogeneous == null) {
+            homogeneous = bitmap;
+          } else if (!Objects.equals(homogeneous, bitmap)) {
+            return null;
           }
         }
-        yield first;
+        case QUEST, STAR, PLUS, REPEAT, CAPTURE -> {
+          if (node.sub() == null) {
+            return null;
+          }
+          pending.addLast(node.sub());
+        }
+        case CONCAT, ALTERNATE -> {
+          if (node.subs == null || node.subs.isEmpty()) {
+            return null;
+          }
+          for (Regexp sub : node.subs) {
+            if (sub == null) {
+              return null;
+            }
+            pending.addLast(sub);
+          }
+        }
+        default -> {
+          return null;
+        }
       }
-      default -> null;
-    };
+    }
+    return homogeneous;
   }
 
-  private static boolean isHomogeneousAnyChar(Regexp re, int flags) {
+  private static boolean isHomogeneousAnyChar(Regexp re) {
     if (re == null) {
       return false;
     }
-    return switch (re.op) {
-      case ANY_CHAR -> true;
-      case CHAR_CLASS -> isDotCharClass(re.charClass);
-      case QUEST, STAR, PLUS, REPEAT, CAPTURE -> isHomogeneousAnyChar(re.sub(), flags);
-      case CONCAT, ALTERNATE -> {
-        if (re.subs == null || re.subs.isEmpty()) {
-          yield false;
-        }
-        for (Regexp sub : re.subs) {
-          if (!isHomogeneousAnyChar(sub, flags)) {
-            yield false;
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    while (!pending.isEmpty()) {
+      Regexp node = pending.removeLast();
+      switch (node.op) {
+        case ANY_CHAR -> {}
+        case CHAR_CLASS -> {
+          if (!isDotCharClass(node.charClass)) {
+            return false;
           }
         }
-        yield true;
+        case QUEST, STAR, PLUS, REPEAT, CAPTURE -> {
+          if (node.sub() == null) {
+            return false;
+          }
+          pending.addLast(node.sub());
+        }
+        case CONCAT, ALTERNATE -> {
+          if (node.subs == null || node.subs.isEmpty()) {
+            return false;
+          }
+          for (Regexp sub : node.subs) {
+            if (sub == null) {
+              return false;
+            }
+            pending.addLast(sub);
+          }
+        }
+        default -> {
+          return false;
+        }
       }
-      default -> false;
-    };
+    }
+    return true;
   }
 
   static FixedOffsetLiteral extractFixedOffsetLiteral(Regexp re) {
