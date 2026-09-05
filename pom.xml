@@ -58,8 +58,8 @@
     <error-prone.checks>-XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/generated-sources/.* -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
     <error-prone.extra-checks></error-prone.extra-checks>
     <google-java-format.version>1.35.0</google-java-format.version>
-    <pmd.version>7.26.0</pmd.version>
-    <spotless.version>3.10.0</spotless.version>
+    <pmd.version>7.27.0</pmd.version>
+    <spotless.version>3.10.1</spotless.version>
   </properties>
 
   <build>
@@ -67,7 +67,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.15.0</version>
+        <version>3.16.0</version>
         <configuration>
           <compilerArgs>
             <arg>-Xlint</arg>
