@@ -402,8 +402,7 @@ final class MultiAnchorExecutor {
 
     while (candidatePos <= textLen - minTotalLength) {
       // Phase 1: Locate candidate for Driver Anchor
-      int pDriver =
-          findNextCountingWork(driverAnchor, text, candidatePos + minUpstreamLen);
+      int pDriver = findNextCountingWork(driverAnchor, text, candidatePos + minUpstreamLen);
       if (pDriver < 0) {
         return Result.MISMATCH;
       }
