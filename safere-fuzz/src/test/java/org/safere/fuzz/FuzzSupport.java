@@ -110,6 +110,15 @@ final class FuzzSupport {
         .available();
   }
 
+  static boolean jdkOracleStackOverflowIsAvailableForTesting() {
+    return runJdkOracle(
+            "stack overflow",
+            () -> {
+              throw new StackOverflowError();
+            })
+        .available();
+  }
+
   static int consumeFlags(FuzzedDataProvider data) {
     int flags = 0;
     for (int flag : FLAGS) {
@@ -693,6 +702,9 @@ final class FuzzSupport {
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       if (cause instanceof JdkOracleInterruptedException) {
+        return unavailableJdkOracle();
+      }
+      if (cause instanceof StackOverflowError) {
         return unavailableJdkOracle();
       }
       if (cause instanceof RuntimeException runtimeException) {

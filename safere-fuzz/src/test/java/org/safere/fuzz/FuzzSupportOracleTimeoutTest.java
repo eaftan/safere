@@ -35,4 +35,10 @@ final class FuzzSupportOracleTimeoutTest {
       }
     }
   }
+
+  @Test
+  @DisplayName("JDK oracle stack overflow marks recursive matching unavailable")
+  void jdkOracleStackOverflowMarksRecursiveMatchingUnavailable() {
+    assertFalse(FuzzSupport.jdkOracleStackOverflowIsAvailableForTesting());
+  }
 }
