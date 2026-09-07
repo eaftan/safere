@@ -97,10 +97,11 @@ final class MultiAnchorExecutor {
     long verificationWork = 0;
 
     int minReverseWatermark = Math.max(0, searchFrom);
-    int[] downstreamWatermarks = new int[numSegments];
-    Arrays.fill(downstreamWatermarks, searchFrom);
     int[] downstreamGuardEnds = new int[numSegments];
     Arrays.fill(downstreamGuardEnds, -1);
+    int watermark1 = searchFrom;
+    int watermark2 = searchFrom;
+    int[] downstreamWatermarks = null;
     int candidatePos = Math.max(0, searchFrom);
     MultiAnchorDescriptor.Segment driverSeg = segments[driverIdx];
     MultiAnchorDescriptor.Anchor driverAnchor = driverSeg.anchor();
@@ -292,7 +293,13 @@ final class MultiAnchorExecutor {
             maxHop = gap.scanClassEnd(scanner, currentPos, textLen);
           }
 
-          int searchStart = Math.max(minHop, downstreamWatermarks[i]);
+          int watermark =
+              (i == 1)
+                  ? watermark1
+                  : (i == 2
+                      ? watermark2
+                      : (downstreamWatermarks != null ? downstreamWatermarks[i] : searchFrom));
+          int searchStart = Math.max(minHop, watermark);
           if (searchStart > maxHop) {
             chainMatched = false;
             break;
@@ -304,12 +311,32 @@ final class MultiAnchorExecutor {
             p = anchor.findNextWithin(scanner, searchStart, maxHop);
           }
           if (p < 0) {
-            downstreamWatermarks[i] = maxHop;
+            if (i == 1) {
+              watermark1 = maxHop;
+            } else if (i == 2) {
+              watermark2 = maxHop;
+            } else {
+              if (downstreamWatermarks == null) {
+                downstreamWatermarks = new int[numSegments];
+                Arrays.fill(downstreamWatermarks, searchFrom);
+              }
+              downstreamWatermarks[i] = maxHop;
+            }
             chainMatched = false;
             break;
           }
           if (!gap.isGreedy()) {
-            downstreamWatermarks[i] = p;
+            if (i == 1) {
+              watermark1 = p;
+            } else if (i == 2) {
+              watermark2 = p;
+            } else {
+              if (downstreamWatermarks == null) {
+                downstreamWatermarks = new int[numSegments];
+                Arrays.fill(downstreamWatermarks, searchFrom);
+              }
+              downstreamWatermarks[i] = p;
+            }
           }
 
           if (reluctantGuardedGap) {
@@ -400,10 +427,11 @@ final class MultiAnchorExecutor {
     long verificationWork = 0;
 
     int minReverseWatermark = Math.max(0, searchFrom);
-    int[] downstreamWatermarks = new int[numSegments];
-    Arrays.fill(downstreamWatermarks, searchFrom);
     int[] downstreamGuardEnds = new int[numSegments];
     Arrays.fill(downstreamGuardEnds, -1);
+    int watermark1 = searchFrom;
+    int watermark2 = searchFrom;
+    int[] downstreamWatermarks = null;
     int candidatePos = Math.max(0, searchFrom);
     MultiAnchorDescriptor.Segment driverSeg = segments[driverIdx];
     MultiAnchorDescriptor.Anchor driverAnchor = driverSeg.anchor();
@@ -595,7 +623,13 @@ final class MultiAnchorExecutor {
             maxHop = gap.scanClassEnd(text, currentPos, textLen);
           }
 
-          int searchStart = Math.max(minHop, downstreamWatermarks[i]);
+          int watermark =
+              (i == 1)
+                  ? watermark1
+                  : (i == 2
+                      ? watermark2
+                      : (downstreamWatermarks != null ? downstreamWatermarks[i] : searchFrom));
+          int searchStart = Math.max(minHop, watermark);
           if (searchStart > maxHop) {
             chainMatched = false;
             break;
@@ -607,12 +641,32 @@ final class MultiAnchorExecutor {
             p = anchor.findNextWithin(text, searchStart, maxHop);
           }
           if (p < 0) {
-            downstreamWatermarks[i] = maxHop;
+            if (i == 1) {
+              watermark1 = maxHop;
+            } else if (i == 2) {
+              watermark2 = maxHop;
+            } else {
+              if (downstreamWatermarks == null) {
+                downstreamWatermarks = new int[numSegments];
+                Arrays.fill(downstreamWatermarks, searchFrom);
+              }
+              downstreamWatermarks[i] = maxHop;
+            }
             chainMatched = false;
             break;
           }
           if (!gap.isGreedy()) {
-            downstreamWatermarks[i] = p;
+            if (i == 1) {
+              watermark1 = p;
+            } else if (i == 2) {
+              watermark2 = p;
+            } else {
+              if (downstreamWatermarks == null) {
+                downstreamWatermarks = new int[numSegments];
+                Arrays.fill(downstreamWatermarks, searchFrom);
+              }
+              downstreamWatermarks[i] = p;
+            }
           }
 
           if (!gap.endsAtCodePointBoundary(text, p)) {
