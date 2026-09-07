@@ -465,6 +465,50 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("failed anchored attempts preserve the end of an earlier successful find")
+    void failedAnchoredAttemptsPreservePreviousFindEnd() {
+      // JDK 26 Matcher.find(): an intervening failed attempt does not reset the matcher.
+      for (boolean lookingAt : new boolean[] {false, true}) {
+        Matcher matcher = Pattern.compile("a").matcher("ba a");
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(1);
+        assertThat(lookingAt ? matcher.lookingAt() : matcher.matches()).isFalse();
+        assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(3);
+        assertThat(matcher.end()).isEqualTo(4);
+        assertThat(matcher.find()).isFalse();
+      }
+    }
+
+    @Test
+    @DisplayName("failed matches preserves find continuation after lookingAt")
+    void failedMatchesPreservesLookingAtEnd() {
+      Matcher matcher = Pattern.compile("a*").matcher("a!");
+      assertThat(matcher.lookingAt()).isTrue();
+      assertThat(matcher.matches()).isFalse();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(1);
+      assertThat(matcher.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("failed anchored attempts cancel advancement past an earlier empty match")
+    void failedAnchoredAttemptsPreserveEmptyMatchEnd() {
+      Matcher matcher = Pattern.compile("a*").matcher("!a");
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+      assertThat(matcher.matches()).isFalse();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(1);
+      assertThat(matcher.end()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("find() at end of input returns false")
     void findAtEnd() {
       Pattern p = Pattern.compile("\\d+");
