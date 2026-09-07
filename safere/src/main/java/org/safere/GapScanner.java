@@ -243,7 +243,7 @@ final class GapScanner {
       return cur;
     }
     if (gap.maxLength() != Integer.MAX_VALUE) {
-      return (int) Math.min(maxPos, (long) fromPos + (long) gap.maxLength() * 2);
+      return (int) Math.min(maxPos, fromPos + (long) gap.maxLength() * 2);
     }
     return maxPos;
   }
@@ -303,7 +303,7 @@ final class GapScanner {
       return cur;
     }
     if (gap.maxLength() != Integer.MAX_VALUE) {
-      return (int) Math.min(maxPos, (long) fromPos + (long) gap.maxLength() * 4);
+      return (int) Math.min(maxPos, fromPos + (long) gap.maxLength() * 4);
     }
     return maxPos;
   }
