@@ -438,8 +438,12 @@ For a detailed architecture walkthrough, see [DESIGN.md](DESIGN.md).
 
 ## Building
 
-Requires [OpenJDK 21 or newer](https://openjdk.org/install/) and
+Building from source requires [OpenJDK 26](https://openjdk.org/install/) and
 [Apache Maven 3.9 or newer](https://maven.apache.org/install.html).
+
+The core library targets Java 21 bytecode with `--release 21` and supports
+JDK 21 through 26 at runtime. CI verifies runtime compatibility using artifacts
+built with JDK 26. Building from source on older JDKs is not supported.
 
 ```bash
 # Build and install (library + benchmarks)
