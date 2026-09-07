@@ -2252,6 +2252,10 @@ final class MultiAnchorCompiler {
             greedy);
       }
     }
+    CharClassScanInfo[] fixedSeq = extractFixedCharClassSequence(re, flags);
+    if (fixedSeq != null) {
+      return MultiAnchorDescriptor.Gap.compoundSequence(fixedSeq);
+    }
     return null;
   }
 
@@ -3007,5 +3011,147 @@ final class MultiAnchorCompiler {
       node = node.sub();
     }
     return node;
+  }
+
+  private static final int MAX_COMPOUND_GAP_LENGTH = 128;
+
+  private static final CharClassScanInfo STANDARD_DOT_SCAN_INFO;
+  private static final CharClassScanInfo UNIX_DOT_SCAN_INFO;
+  private static final CharClassScanInfo DOTALL_SCAN_INFO;
+
+  static {
+    CharClassBuilder standardBuilder = new CharClassBuilder();
+    standardBuilder.addRange('\n', '\n');
+    standardBuilder.addRange('\r', '\r');
+    standardBuilder.addRange(0x85, 0x85);
+    standardBuilder.addRange(0x2028, 0x2029);
+    standardBuilder.negate();
+    STANDARD_DOT_SCAN_INFO = CharClassScanInfo.fromCharClass(standardBuilder.build());
+
+    CharClassBuilder unixBuilder = new CharClassBuilder();
+    unixBuilder.addRange('\n', '\n');
+    unixBuilder.negate();
+    UNIX_DOT_SCAN_INFO = CharClassScanInfo.fromCharClass(unixBuilder.build());
+
+    CharClassBuilder dotallBuilder = new CharClassBuilder();
+    dotallBuilder.addRange(0, Character.MAX_CODE_POINT);
+    DOTALL_SCAN_INFO = CharClassScanInfo.fromCharClass(dotallBuilder.build());
+  }
+
+  static CharClassScanInfo[] extractFixedCharClassSequence(Regexp re, int flags) {
+    if (re == null || re.op == RegexpOp.LITERAL || re.op == RegexpOp.LITERAL_STRING) {
+      return null;
+    }
+    List<CharClassScanInfo> list = new ArrayList<>();
+    if (collectFixedCharClassSequence(re, flags, list)) {
+      if (list.size() >= 2 && list.size() <= MAX_COMPOUND_GAP_LENGTH) {
+        return list.toArray(new CharClassScanInfo[0]);
+      }
+    }
+    return null;
+  }
+
+  private static boolean collectFixedCharClassSequence(
+      Regexp re, int flags, List<CharClassScanInfo> list) {
+    if (re == null || list.size() > MAX_COMPOUND_GAP_LENGTH) {
+      return false;
+    }
+    re = unwrapCaptures(re);
+    if (re == null || AstAnalysis.analyze(re).hasUserCaptures()) {
+      return false;
+    }
+    return switch (re.op) {
+      case LITERAL -> {
+        int effectiveParseFlags = 0;
+        if ((flags & Pattern.CASE_INSENSITIVE) != 0 || (re.flags & ParseFlags.FOLD_CASE) != 0) {
+          effectiveParseFlags |= ParseFlags.FOLD_CASE;
+          if ((flags & Pattern.UNICODE_CASE) != 0 || (re.flags & ParseFlags.UNICODE_CASE) != 0) {
+            effectiveParseFlags |= ParseFlags.UNICODE_CASE;
+          }
+        }
+        CharClass cc = literalCharClass(re.rune, effectiveParseFlags);
+        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(cc);
+        if (scanInfo == null) {
+          yield false;
+        }
+        list.add(scanInfo);
+        yield true;
+      }
+      case LITERAL_STRING -> {
+        if (re.runes == null || re.runes.length == 0) {
+          yield false;
+        }
+        int effectiveParseFlags = 0;
+        if ((flags & Pattern.CASE_INSENSITIVE) != 0 || (re.flags & ParseFlags.FOLD_CASE) != 0) {
+          effectiveParseFlags |= ParseFlags.FOLD_CASE;
+          if ((flags & Pattern.UNICODE_CASE) != 0 || (re.flags & ParseFlags.UNICODE_CASE) != 0) {
+            effectiveParseFlags |= ParseFlags.UNICODE_CASE;
+          }
+        }
+        for (int rune : re.runes) {
+          CharClass cc = literalCharClass(rune, effectiveParseFlags);
+          CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(cc);
+          if (scanInfo == null) {
+            yield false;
+          }
+          list.add(scanInfo);
+        }
+        yield true;
+      }
+      case CHAR_CLASS -> {
+        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(re.charClass);
+        if (scanInfo == null) {
+          yield false;
+        }
+        list.add(scanInfo);
+        yield true;
+      }
+      case ANY_CHAR -> {
+        boolean dotAll =
+            (flags & Pattern.DOTALL) != 0
+                || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
+        if (dotAll) {
+          list.add(DOTALL_SCAN_INFO);
+          yield true;
+        }
+        boolean unixLines =
+            (flags & Pattern.UNIX_LINES) != 0 || (re.flags & ParseFlags.UNIX_LINES) != 0;
+        list.add(unixLines ? UNIX_DOT_SCAN_INFO : STANDARD_DOT_SCAN_INFO);
+        yield true;
+      }
+      case CONCAT -> {
+        if (re.subs == null || re.subs.isEmpty()) {
+          yield false;
+        }
+        for (Regexp sub : re.subs) {
+          if (!collectFixedCharClassSequence(sub, flags, list)) {
+            yield false;
+          }
+          if (list.size() > MAX_COMPOUND_GAP_LENGTH) {
+            yield false;
+          }
+        }
+        yield true;
+      }
+      case REPEAT -> {
+        if (re.min != re.max || re.min <= 0 || re.sub() == null) {
+          yield false;
+        }
+        List<CharClassScanInfo> subList = new ArrayList<>();
+        if (!collectFixedCharClassSequence(re.sub(), flags, subList)) {
+          yield false;
+        }
+        long total = list.size() + (long) subList.size() * re.min;
+        if (total > MAX_COMPOUND_GAP_LENGTH) {
+          yield false;
+        }
+        for (int r = 0; r < re.min; r++) {
+          list.addAll(subList);
+        }
+        yield true;
+      }
+      case CAPTURE, NON_CAPTURE -> collectFixedCharClassSequence(re.sub(), flags, list);
+      default -> false;
+    };
   }
 }

@@ -344,6 +344,14 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
+  void delimitedHtmlTagsMatchCorrectly() {
+    String regex = "<div[^>]*>.*?</div>";
+    assertFirstMatchEqualsJdk(regex, "<div class=\"foo\">hello world</div>");
+    assertFirstMatchEqualsJdk(
+        regex, "prefix <div id=\"1\">content 1</div> middle <div id=\"2\">content 2</div> suffix");
+  }
+
+  @Test
   void fixedAnchorChainRemainsExecutable() {
     Pattern pattern = Pattern.compile("AAA[0-9]BB");
     assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
@@ -358,10 +366,70 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void fixedCompoundGapWithoutCharacterMetadataFallsBack() {
-    Pattern pattern = Pattern.compile("AAA(?:[0-9]x){2}BB");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
-    assertFirstMatchEqualsJdk("AAA(?:[0-9]x){2}BB", "AAAaxaxBB");
+  void fixedCompoundGapExecutesViaMultiAnchor() {
+    String regex = "AAA(?:[0-9]x){2}BB";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk(regex, "AAA1x2xBB");
+    assertFirstMatchEqualsJdk(regex, "noise AAA9x0xBB trailing");
+    assertFirstMatchEqualsJdk(regex, "AAAaxaxBB");
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(Utf8Input.validated("noise AAA1x2xBB trailing".getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(6);
+    assertThat(utf8Matcher.end()).isEqualTo(15);
+  }
+
+  @Test
+  void fixedCompoundDateSequenceExecutesViaMultiAnchor() {
+    String regex = "DATE_(?:\\d{4}-\\d{2}-\\d{2})_LOG";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk(regex, "DATE_2026-09-07_LOG");
+    assertFirstMatchEqualsJdk(regex, "prefix DATE_2026-09-07_LOG suffix");
+    assertFirstMatchEqualsJdk(regex, "DATE_2026-99-99_LOG");
+    assertFirstMatchEqualsJdk(regex, "DATE_2026-xx-yy_LOG");
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(Utf8Input.validated("noise DATE_2026-09-07_LOG trailing".getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(6);
+    assertThat(utf8Matcher.end()).isEqualTo(25);
+  }
+
+  @Test
+  void compoundGapWithRarestDownstreamDriver() {
+    String regex = "AA(?:[0-9]x){2}RARE_ANCHOR";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk(regex, "AA1x2xRARE_ANCHOR");
+    assertFirstMatchEqualsJdk(regex, "noise AA1x2xRARE_ANCHOR trailing");
+    assertFirstMatchEqualsJdk(regex, "AAaxbxRARE_ANCHOR");
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(Utf8Input.validated("noise AA1x2xRARE_ANCHOR trailing".getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(6);
+    assertThat(utf8Matcher.end()).isEqualTo(23);
+  }
+
+  @Test
+  void hybridCompoundDateAndWildcardGapExecutesViaMultiAnchor() {
+    String regex = "DATE_(?:\\d{4}-\\d{2}-\\d{2})_LOG.*?msg:crash";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertFirstMatchEqualsJdk(regex, "prefix DATE_2026-09-07_LOG noise text msg:crash suffix");
+    assertFirstMatchEqualsJdk(
+        regex, "DATE_2026-01-01_INFO line 1\nDATE_2026-09-07_LOG event msg:crash end");
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(
+            Utf8Input.validated(
+                "noise DATE_2026-09-07_LOG extra msg:crash trailing".getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(6);
+    assertThat(utf8Matcher.end()).isEqualTo(41);
   }
 
   @Test
