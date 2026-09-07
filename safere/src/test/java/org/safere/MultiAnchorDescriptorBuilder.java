@@ -25,8 +25,6 @@ final class MultiAnchorDescriptorBuilder {
   private final List<Segment> segments = new ArrayList<>();
   private Gap trailingGap = Gap.EMPTY;
   private int[] checkOrder = null;
-  private Integer driverIndex = null;
-  private Boolean isUpstreamBounded = null;
   private Integer minTotalLength = null;
   private boolean isStartAnchored = false;
   private boolean isEndAnchored = false;
@@ -62,23 +60,8 @@ final class MultiAnchorDescriptorBuilder {
     return this;
   }
 
-  MultiAnchorDescriptorBuilder trailingGap(GapKind gapKind) {
-    this.trailingGap = gapOf(gapKind);
-    return this;
-  }
-
   MultiAnchorDescriptorBuilder checkOrder(int... checkOrder) {
     this.checkOrder = checkOrder;
-    return this;
-  }
-
-  MultiAnchorDescriptorBuilder driverIndex(int driverIndex) {
-    this.driverIndex = driverIndex;
-    return this;
-  }
-
-  MultiAnchorDescriptorBuilder isUpstreamBounded(boolean isUpstreamBounded) {
-    this.isUpstreamBounded = isUpstreamBounded;
     return this;
   }
 
@@ -120,13 +103,10 @@ final class MultiAnchorDescriptorBuilder {
   MultiAnchorDescriptor build() {
     Segment[] segs = segments.toArray(new Segment[0]);
     int[] order = this.checkOrder != null ? this.checkOrder : defaultOrder(segs.length);
-    int driver = this.driverIndex != null ? this.driverIndex : (order.length > 0 ? order[0] : 0);
+    int driver = order.length > 0 ? order[0] : 0;
     int minLen =
         this.minTotalLength != null ? this.minTotalLength : computeMinLength(segs, trailingGap);
-    boolean upstreamBounded =
-        this.isUpstreamBounded != null
-            ? this.isUpstreamBounded
-            : computeUpstreamBounded(segs, driver);
+    boolean upstreamBounded = computeUpstreamBounded(segs, driver);
 
     return new MultiAnchorDescriptor(
         new Chain(
