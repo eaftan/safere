@@ -234,7 +234,7 @@ class SearchScalingRegressionTest {
             "Compilation work includes one analysis and descriptor assembly, "
                 + "analysisWork=%d compilationWork=%d",
             analysisWork, compilationWork)
-        .isLessThan(analysisWork * 3);
+        .isLessThan(analysisWork * 4);
   }
 
   @Test

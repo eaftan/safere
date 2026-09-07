@@ -146,7 +146,7 @@ class MultiAnchorGapEngineTest {
     String regex = ".*foo.*bar.*baz.*";
     Pattern pattern = Pattern.compile(regex);
 
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
 
     String text = "prefix foo intermediate bar trailing baz suffix";
     Matcher matcher = pattern.matcher(text);
@@ -332,20 +332,14 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void unboundedInteriorGapsFallBackToGeneralEngine() {
-    assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isFalse();
+  void variableInternalGapsRemainExecutable() {
+    assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain()).isTrue();
   }
 
   @Test
-  void onlyFixedInteriorGapsRemainExecutable() {
-    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isFalse();
-    assertThat(Pattern.compile("AAA[0-9]BBB").multiAnchor().isExecutableChain()).isTrue();
-    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain())
-        .isFalse();
-  }
-
-  @Test
-  void ambiguousInteriorWildcardMatchesCorrectlyViaGeneralEngine() {
+  void ambiguousInteriorWildcardMatchesCorrectly() {
     assertFirstMatchEqualsJdk("AAA.*BBB.*CCC", "AAA xxx BBB yyy CCC zzz BBB www");
   }
 
