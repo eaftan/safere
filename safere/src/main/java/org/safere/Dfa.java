@@ -175,8 +175,13 @@ final class Dfa {
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
 
-  /** Total number of equivalence classes (intervals between boundaries + 1 for end-of-text). */
+  /**
+   * Total transition classes, including any Unicode word split and a separate end-of-text class.
+   */
   private final int numClasses;
+
+  /** Whether each interval is split by Unicode word-character membership. */
+  private final boolean splitUnicodeWordClasses;
 
   /**
    * Fast ASCII-to-class lookup table. For code points 0–127, {@code asciiClassMap[cp]} gives the
@@ -253,7 +258,8 @@ final class Dfa {
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  record Setup(int[] boundaries, int numClasses, int[] asciiClassMap) {}
+  record Setup(
+      int[] boundaries, int numClasses, int[] asciiClassMap, boolean splitUnicodeWordClasses) {}
 
   /**
    * Builds a reusable {@link Setup} from a compiled program. The result is immutable and can be
@@ -261,9 +267,27 @@ final class Dfa {
    */
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
-    int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
+    boolean splitUnicodeWordClasses = false;
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.opCode == InstOp.OP_EMPTY_WIDTH
+          && (inst.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY))
+              != 0) {
+        splitUnicodeWordClasses = true;
+        break;
+      }
+    }
+    // Unicode word membership is a separate discriminator, avoiding a transition column for
+    // every Unicode word range. Each original interval needs at most two columns, and EOF
+    // retains its own column. Classification must agree with computeNext's word predicate.
+    int numClasses = (boundaries.length + 1) * (splitUnicodeWordClasses ? 2 : 1) + 1;
     int[] asciiClassMap = buildAsciiClassMap(boundaries);
-    return new Setup(boundaries, numClasses, asciiClassMap);
+    if (splitUnicodeWordClasses) {
+      for (int cp = 0; cp < asciiClassMap.length; cp++) {
+        asciiClassMap[cp] = asciiClassMap[cp] * 2 + (Nfa.isWordChar(cp) ? 1 : 0);
+      }
+    }
+    return new Setup(boundaries, numClasses, asciiClassMap, splitUnicodeWordClasses);
   }
 
   Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
@@ -299,6 +323,7 @@ final class Dfa {
     this.startStateByContext = new State[anchoredCacheBit << 1];
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
+    this.splitUnicodeWordClasses = setup.splitUnicodeWordClasses;
     this.asciiClassMap = setup.asciiClassMap;
     Arrays.fill(this.cacheCps, -1);
     this.expandVisitedGen = new int[prog.size()];
@@ -341,13 +366,14 @@ final class Dfa {
   /**
    * Collects all code point range boundaries from the program's CHAR_RANGE instructions. The
    * boundaries define equivalence classes: code points within the same interval between consecutive
-   * boundaries are indistinguishable to the DFA.
+   * boundaries have identical consuming-instruction behavior. Unicode word-boundary programs
+   * additionally split these intervals by word membership in {@link #buildSetup}.
    *
    * <p>When the program contains word-boundary assertions ({@code \b} or {@code \B}), additional
    * boundaries are added at the edges of the word-character ranges ({@code [A-Za-z0-9_]}) so that
-   * no equivalence class straddles the word/non-word boundary. This is necessary because the DFA
-   * caches transitions per (state, class) and the word-boundary computation depends on whether the
-   * current character is a word character.
+   * no equivalence class straddles the ASCII word/non-word boundary. This is necessary because the
+   * DFA caches transitions per (state, class) and the word-boundary computation depends on whether
+   * the current character is a word character.
    */
   private static int[] buildBoundaries(Prog prog) {
     IntArrayList bounds = new IntArrayList();
@@ -460,6 +486,9 @@ final class Dfa {
     }
     int idx = Arrays.binarySearch(boundaries, cp);
     int cls = (idx >= 0) ? idx : (-idx - 1) - 1;
+    if (splitUnicodeWordClasses) {
+      cls = cls * 2 + (Nfa.isUnicodeWordChar(cp) ? 1 : 0);
+    }
     cacheCps[cacheIdx] = cp;
     cacheClasses[cacheIdx] = cls;
     return cls;

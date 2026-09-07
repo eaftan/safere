@@ -32,6 +32,14 @@ final class FindSequenceFuzzer {
   }
 
   @Test
+  void unicodeBoundaryTransitionClassesRegression() {
+    for (String word : List.of("α", "中", "\u0301", "\u0660", "\u200c")) {
+      assertFindSequence("(?U).\\B", " " + word + "`\u180e");
+      assertFindSequence("(?U)\\b.", "x".repeat(300) + " " + word + "`\u180e");
+    }
+  }
+
+  @Test
   void leadingExpansionDoesNotCrossSplitSurrogateFindStart() {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip("[\\x{1F600}]+b", 0);
 
@@ -44,7 +52,7 @@ final class FindSequenceFuzzer {
     int flags;
     String input;
     boolean splitSurrogateFindStart = false;
-    switch (data.consumeInt(0, 7)) {
+    switch (data.consumeInt(0, 8)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -89,6 +97,15 @@ final class FindSequenceFuzzer {
         flags = 0;
         input = "😀b" + data.consumeString(16) + "😀b";
         splitSurrogateFindStart = true;
+      }
+      case 8 -> {
+        String boundary = data.pickValue(List.of("\\b", "\\B"));
+        String atom = data.pickValue(List.of(".", "(.)", "[\\s\\S]"));
+        regex = "(?U)" + (data.consumeBoolean() ? atom + boundary : boundary + atom);
+        flags = 0;
+        String word = data.pickValue(List.of("α", "中", "\u0301", "\u0660", "\u200c"));
+        String nonWord = data.pickValue(List.of("`", "\u180e", "!"));
+        input = "x".repeat(data.consumeInt(0, 512)) + " " + word + nonWord + nonWord;
       }
       default -> throw new AssertionError();
     }
