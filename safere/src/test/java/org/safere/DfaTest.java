@@ -8,6 +8,9 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +28,46 @@ class DfaTest {
 
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
+
+  @Test
+  void startCacheAllocationIsBoundedIndependentlyOfAssertionBits() throws Exception {
+    Field cache = Dfa.class.getDeclaredField("startStateByContext");
+    cache.setAccessible(true);
+    for (String regex : List.of("a+b", "(?m)^a+$", "(?-d:(?m:$))(?dm:$)", "\\b{g}a")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (Prog prog : List.of(pattern.prog(), pattern.reverseProg())) {
+        Dfa dfa = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+        assertThat(Array.getLength(cache.get(dfa))).as(regex).isLessThanOrEqualTo(256);
+      }
+    }
+  }
+
+  @Test
+  void startCacheRetainsCompleteContextAcrossReplacements() {
+    for (String regex : List.of("a+b", "(?m)^a+$", "(?-d:(?m:$))(?dm:$)", "\\b{g}a")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (Prog prog : List.of(pattern.prog(), pattern.reverseProg())) {
+        Dfa cached = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+        List<String> inputs = List.of("a\r\na\na", "a\ra", "é a\u0301\na", "", "a\u2028b");
+        for (int pass = 0; pass < 2; pass++) {
+          for (String text : pass == 0 ? inputs : inputs.reversed()) {
+            InputScanner scanner = new StringInputScanner(text);
+            for (int pos = 0; pos <= text.length(); pos++) {
+              for (boolean anchored : new boolean[] {false, true}) {
+                for (boolean reverse : new boolean[] {false, true}) {
+                  Dfa fresh = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+                  Dfa.State expected = fresh.startState(scanner, pos, anchored, reverse);
+                  Dfa.State actual = cached.startState(scanner, pos, anchored, reverse);
+                  assertThat(actual.flags).as(regex).isEqualTo(expected.flags);
+                  assertThat(actual.insts).as(regex).containsExactly(expected.insts);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   /** Compiles a pattern and searches with the DFA (unanchored, first match). */
   private static Dfa.SearchResult search(String pattern, String text) {

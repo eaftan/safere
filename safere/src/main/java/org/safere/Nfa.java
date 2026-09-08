@@ -947,7 +947,6 @@ final class Nfa {
                 emptyFlags(
                     text,
                     pos,
-                    prog.unixLines(),
                     prog.hasGraphemeSemantics(),
                     context.graphemeContext(),
                     t0[0],
@@ -1208,7 +1207,8 @@ final class Nfa {
       return true;
     }
     return prog.dollarAnchorEnd()
-        && isAtTrailingLineTerminator(text, matchPos, prog.unixLines(), context.anchorEndPos());
+        && isAtTrailingLineTerminator(
+            text, matchPos, prog.dollarAnchorUnixLines(), context.anchorEndPos());
   }
 
   // ---------------------------------------------------------------------------
@@ -1244,45 +1244,32 @@ final class Nfa {
    *
    * @param text the input text
    * @param pos the position (char index) to check
-   * @param unixLines if true, only {@code '\n'} is recognized as a line terminator; otherwise all
-   *     JDK line terminators are recognized
    * @return a bitmask of {@link EmptyOp} flags
    */
-  static int emptyFlags(String text, int pos, boolean unixLines) {
-    return emptyFlags(new StringInputScanner(text), pos, unixLines);
+  static int emptyFlags(String text, int pos) {
+    return emptyFlags(new StringInputScanner(text), pos);
   }
 
-  static int emptyFlags(InputScanner text, int pos, boolean unixLines) {
-    return emptyFlags(text, pos, unixLines, true);
+  static int emptyFlags(InputScanner text, int pos) {
+    return emptyFlags(text, pos, true);
   }
 
-  static int emptyFlags(
-      InputScanner text, int pos, boolean unixLines, boolean includeGraphemeClusterBoundary) {
+  static int emptyFlags(InputScanner text, int pos, boolean includeGraphemeClusterBoundary) {
     return emptyFlags(
-        text,
-        pos,
-        unixLines,
-        includeGraphemeClusterBoundary,
-        (GraphemeSupport.Context) null,
-        -1,
-        0,
-        false);
+        text, pos, includeGraphemeClusterBoundary, (GraphemeSupport.Context) null, -1, 0, false);
   }
 
   static int emptyFlags(
       InputScanner text,
       int pos,
-      boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext) {
-    return emptyFlags(
-        text, pos, unixLines, includeGraphemeClusterBoundary, graphemeContext, true, true);
+    return emptyFlags(text, pos, includeGraphemeClusterBoundary, graphemeContext, true, true);
   }
 
   static int emptyFlags(
       InputScanner text,
       int pos,
-      boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext,
       boolean hasWordBoundary,
@@ -1290,7 +1277,6 @@ final class Nfa {
     return emptyFlags(
         text,
         pos,
-        unixLines,
         includeGraphemeClusterBoundary,
         graphemeContext,
         -1,
@@ -1304,15 +1290,10 @@ final class Nfa {
   }
 
   static int emptyFlags(
-      InputScanner text,
-      int pos,
-      boolean unixLines,
-      boolean includeGraphemeClusterBoundary,
-      int matchStart) {
+      InputScanner text, int pos, boolean includeGraphemeClusterBoundary, int matchStart) {
     return emptyFlags(
         text,
         pos,
-        unixLines,
         includeGraphemeClusterBoundary,
         (GraphemeSupport.Context) null,
         matchStart,
@@ -1323,18 +1304,16 @@ final class Nfa {
   static int emptyFlags(
       InputScanner text,
       int pos,
-      boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       int matchStart,
       int regionStart) {
     return emptyFlags(
-        text, pos, unixLines, includeGraphemeClusterBoundary, null, matchStart, regionStart, false);
+        text, pos, includeGraphemeClusterBoundary, null, matchStart, regionStart, false);
   }
 
   private static int emptyFlags(
       InputScanner text,
       int pos,
-      boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext,
       int matchStart,
@@ -1343,7 +1322,6 @@ final class Nfa {
     return emptyFlags(
         text,
         pos,
-        unixLines,
         includeGraphemeClusterBoundary,
         graphemeContext,
         matchStart,
@@ -1359,7 +1337,6 @@ final class Nfa {
   static int emptyFlags(
       InputScanner text,
       int pos,
-      boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       int matchStart,
       int regionStart,
@@ -1372,7 +1349,6 @@ final class Nfa {
     return emptyFlags(
         text,
         pos,
-        unixLines,
         includeGraphemeClusterBoundary,
         (GraphemeSupport.Context) null,
         matchStart,
@@ -1388,7 +1364,6 @@ final class Nfa {
   static int emptyFlags(
       InputScanner text,
       int pos,
-      boolean unixLines,
       boolean includeGraphemeClusterBoundary,
       GraphemeSupport.Context graphemeContext,
       int matchStart,
@@ -1401,64 +1376,49 @@ final class Nfa {
       boolean hasTextAnchor) {
     int flags = 0;
 
-    // ^ and \A
-    // BEGIN_LINE is set at the start of text and after a line terminator, but NOT at
-    // end-of-text after a final line terminator. JDK's MULTILINE ^ does not match at the
-    // position past the last line terminator when that position is the end of the string.
-    // For example, "a\n" has BEGIN_LINE at pos 0 but NOT at pos 2.
-    // Also, JDK's MULTILINE ^ does not match at position 0 of an empty string — the empty
-    // string has no lines for ^ to match at. BEGIN_TEXT is still set (for \A). See #41.
+    // Line assertions carry their own mode. Compute both sets at each position so branches
+    // with different scoped flags can coexist in the same engine state.
     if (hasTextAnchor) {
       if (pos == anchorStartPos) {
         flags |= EmptyOp.BEGIN_TEXT;
         if (text.length() != 0 && pos != anchorEndPos) {
-          flags |= EmptyOp.BEGIN_LINE;
+          flags |= EmptyOp.BEGIN_LINE | EmptyOp.UNIX_BEGIN_LINE;
         }
       } else if (pos < text.length()) {
         int prev = text.codePointBefore(pos);
-        if (unixLines) {
-          if (prev == '\n') {
-            flags |= EmptyOp.BEGIN_LINE;
-          }
-        } else {
-          // After \n: always a new line (whether standalone or part of \r\n).
-          // After \r: new line only if NOT followed by \n (standalone \r).
-          // After \u0085, \u2028, \u2029: always a new line.
-          if (prev == '\n' || prev == '\u0085' || prev == '\u2028' || prev == '\u2029') {
-            flags |= EmptyOp.BEGIN_LINE;
-          } else if (prev == '\r' && text.asciiAt(pos) != '\n') {
-            flags |= EmptyOp.BEGIN_LINE;
-          }
+        if (prev == '\n') {
+          flags |= EmptyOp.BEGIN_LINE | EmptyOp.UNIX_BEGIN_LINE;
+        } else if (prev == '\u0085'
+            || prev == '\u2028'
+            || prev == '\u2029'
+            || (prev == '\r' && text.asciiAt(pos) != '\n')) {
+          flags |= EmptyOp.BEGIN_LINE;
         }
       }
 
-      // $ and \z
-      // END_LINE is set before any line terminator and at end of text (used by MULTILINE $).
-      // END_TEXT is set only at end of text (used by \z).
-      // DOLLAR_END is set at end of text and also before the trailing line terminator at end of
-      // text (used by $ without MULTILINE — JDK's default $ behavior).
       if (pos == anchorEndPos) {
-        flags |= EmptyOp.END_TEXT | EmptyOp.END_LINE | EmptyOp.DOLLAR_END;
-      } else if (pos < text.length()) {
-        int ch = text.codePointAt(pos);
-        if (unixLines) {
+        flags |=
+            EmptyOp.END_TEXT
+                | EmptyOp.END_LINE
+                | EmptyOp.UNIX_END_LINE
+                | EmptyOp.DOLLAR_END
+                | EmptyOp.UNIX_DOLLAR_END;
+      } else {
+        if (pos < text.length()) {
+          int ch = text.codePointAt(pos);
           if (ch == '\n') {
-            flags |= EmptyOp.END_LINE;
-            if (pos + 1 == anchorEndPos) {
-              flags |= EmptyOp.DOLLAR_END;
-            }
+            flags |= EmptyOp.UNIX_END_LINE;
           }
-        } else if (isLineTerminator(ch)) {
-          // Don't set END_LINE at the \n of an atomic \r\n pair — JDK treats \r\n as a single
-          // line terminator. END_LINE fires before the \r (the start of the pair), not between
-          // \r and \n.
-          boolean isAtomicLF = (ch == '\n' && pos > 0 && text.asciiAt(pos - 1) == '\r');
-          if (!isAtomicLF) {
+          // Standard line mode treats CRLF as one atomic terminator.
+          if (isLineTerminator(ch) && !(ch == '\n' && pos > 0 && text.asciiAt(pos - 1) == '\r')) {
             flags |= EmptyOp.END_LINE;
-            if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
-              flags |= EmptyOp.DOLLAR_END;
-            }
           }
+        }
+        if (isAtTrailingLineTerminator(text, pos, false, anchorEndPos)) {
+          flags |= EmptyOp.DOLLAR_END;
+        }
+        if (isAtTrailingLineTerminator(text, pos, true, anchorEndPos)) {
+          flags |= EmptyOp.UNIX_DOLLAR_END;
         }
       }
     }

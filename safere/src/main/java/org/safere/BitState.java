@@ -506,9 +506,7 @@ final class BitState {
         }
 
         case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags =
-              Nfa.emptyFlags(
-                  text, pos, prog.unixLines(), prog.hasGraphemeSemantics(), graphemeContext);
+          int curFlags = Nfa.emptyFlags(text, pos, prog.hasGraphemeSemantics(), graphemeContext);
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);
@@ -596,7 +594,7 @@ final class BitState {
             // text end. Use text.length() (not endPos) because dollarAnchorEnd is a property of
             // the text boundary, not the search range.
             if (!prog.dollarAnchorEnd()
-                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.unixLines())) {
+                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.dollarAnchorUnixLines())) {
               break; // must match at the end boundary
             }
           }

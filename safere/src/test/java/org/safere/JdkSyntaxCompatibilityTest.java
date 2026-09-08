@@ -37,6 +37,43 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @DisplayName("JDK syntax compatibility")
 class JdkSyntaxCompatibilityTest {
+  @Test
+  void scopedUnixLinesControlsEndAnchorTerminators() {
+    // JDK 26 Pattern specifies scoped flag restoration and the standard line terminator set.
+    // Refs #708.
+    for (String anchor : List.of("$", "\\Z")) {
+      for (String terminator : List.of("\r", "\r\n", "\u0085", "\u2028", "\u2029")) {
+        String input = "foo" + terminator;
+        assertThat(
+                Pattern.compile("foo(?-d:" + anchor + ")", Pattern.UNIX_LINES)
+                    .matcher(input)
+                    .find())
+            .isTrue();
+        assertThat(Pattern.compile("foo(?d:" + anchor + ")").matcher(input).find()).isFalse();
+        assertThat(
+                Pattern.compile("foo(?-d:" + anchor + ")" + anchor, Pattern.UNIX_LINES)
+                    .matcher(input)
+                    .find())
+            .isFalse();
+      }
+    }
+  }
+
+  @Test
+  void scopedLineEndsDoNotReuseCrLfContextForStandaloneLf() {
+    Pattern pattern = Pattern.compile("(?-d:(?m:$))(?dm:$)", Pattern.UNIX_LINES);
+    for (String input : List.of("\r\na\na", "\na\r\na", "\r\na\na")) {
+      Matcher matcher = pattern.matcher(input);
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(input.charAt(0) == '\r' ? 3 : 0);
+      assertThat(matcher.end()).isEqualTo(matcher.start());
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(5);
+      assertThat(matcher.end()).isEqualTo(5);
+      assertThat(matcher.find()).isFalse();
+    }
+  }
+
   // ---- Helpers ----
 
   /** Asserts SafeRE compiles the pattern without error. */

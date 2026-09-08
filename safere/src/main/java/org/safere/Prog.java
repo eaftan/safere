@@ -38,8 +38,11 @@ final class Prog {
    */
   private boolean dollarAnchorEnd;
 
+  private boolean dollarAnchorUnixLines;
+
   private boolean reversed;
   private boolean unixLines;
+  private boolean lineStartUnixLines;
   private int numLoopRegs;
   private boolean requiresPikeNfaCaptureSemantics;
   private boolean hasGraphemeSemantics;
@@ -62,8 +65,10 @@ final class Prog {
     this.anchorStart = other.anchorStart;
     this.anchorEnd = other.anchorEnd;
     this.dollarAnchorEnd = other.dollarAnchorEnd;
+    this.dollarAnchorUnixLines = other.dollarAnchorUnixLines;
     this.reversed = other.reversed;
     this.unixLines = other.unixLines;
+    this.lineStartUnixLines = other.lineStartUnixLines;
     this.numLoopRegs = other.numLoopRegs;
     this.requiresPikeNfaCaptureSemantics = other.requiresPikeNfaCaptureSemantics;
     this.hasGraphemeSemantics = other.hasGraphemeSemantics;
@@ -118,6 +123,13 @@ final class Prog {
     hasGraphemeClusterInstruction = computeHasGraphemeClusterInstruction();
     hasWordBoundary = computeHasWordBoundary();
     hasTextAnchor = computeHasTextAnchor();
+    lineStartUnixLines = true;
+    for (Inst inst : instArray) {
+      if (inst.op == InstOp.EMPTY_WIDTH && (inst.arg & EmptyOp.BEGIN_LINE) != 0) {
+        lineStartUnixLines = false;
+        break;
+      }
+    }
   }
 
   /** Returns the start instruction index for anchored matching. */
@@ -186,6 +198,16 @@ final class Prog {
     this.dollarAnchorEnd = dollarAnchorEnd;
   }
 
+  /** Returns the effective line mode of the stripped trailing end anchor. */
+  boolean dollarAnchorUnixLines() {
+    return dollarAnchorUnixLines;
+  }
+
+  /** Sets the effective line mode of the stripped trailing end anchor. */
+  void setDollarAnchorUnixLines(boolean unixLines) {
+    dollarAnchorUnixLines = unixLines;
+  }
+
   /** Returns true if this program runs in reverse (for finding match starts). */
   public boolean reversed() {
     return reversed;
@@ -220,6 +242,11 @@ final class Prog {
    */
   public boolean unixLines() {
     return unixLines;
+  }
+
+  /** Returns whether line-start acceleration can restrict candidates to LF boundaries. */
+  boolean lineStartUnixLines() {
+    return lineStartUnixLines;
   }
 
   /** Sets whether Unix lines mode is active. */
@@ -267,7 +294,10 @@ final class Prog {
             | EmptyOp.END_LINE
             | EmptyOp.BEGIN_TEXT
             | EmptyOp.END_TEXT
-            | EmptyOp.DOLLAR_END;
+            | EmptyOp.DOLLAR_END
+            | EmptyOp.UNIX_DOLLAR_END
+            | EmptyOp.UNIX_BEGIN_LINE
+            | EmptyOp.UNIX_END_LINE;
     int n = size();
     for (int i = 0; i < n; i++) {
       Inst ip = inst(i);
