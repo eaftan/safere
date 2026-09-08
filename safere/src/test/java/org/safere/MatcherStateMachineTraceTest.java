@@ -20,6 +20,49 @@ import org.junit.jupiter.api.Test;
 class MatcherStateMachineTraceTest {
 
   @Test
+  void failedExplicitFindStartRetainsResetContinuation() {
+    for (String regex : List.of("^[ab]*", "\\A(a?)", "a")) {
+      assertTrace(
+          regex,
+          "a!",
+          Step.findFrom(1),
+          Step.findWithBounds(),
+          Step.findWithBounds(),
+          Step.findWithBounds());
+    }
+  }
+
+  @Test
+  @DisplayName("failed find after an empty anchored match preserves continuation like the JDK")
+  void emptyAnchoredMatchContinuation() {
+    // JDK 26 does not specify empty-match advancement after failure precisely (issue #817).
+    for (String regex : List.of("^[ab]*", "\\A(a?)", "^(a|b)*", "^(?:a*)", "(?m)^[ab]*")) {
+      for (String input : List.of("", "!", "!a😀b!", "a!", "!".repeat(512), "!\na")) {
+        for (boolean region : List.of(false, true)) {
+          for (boolean anchoring : List.of(false, true)) {
+            for (Step initial : List.of(Step.find(), Step.lookingAt())) {
+              for (Step attempt : List.of(Step.find(), Step.lookingAt(), Step.matches())) {
+                String text = region ? "xx" + input + "yy" : input;
+                assertTrace(
+                    regex,
+                    text,
+                    Step.region(region ? 2 : 0, region ? input.length() + 2 : input.length()),
+                    Step.useAnchoringBounds(anchoring),
+                    initial,
+                    attempt,
+                    Step.findWithBounds(),
+                    Step.findWithBounds(),
+                    Step.findWithBounds(),
+                    Step.findWithBounds());
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   @DisplayName("anchored attempts preserve find continuation after earlier matches")
   void anchoredAttemptsPreserveFindContinuation() {
     // Covers issue #808, including empty matches and repeated failed attempts.

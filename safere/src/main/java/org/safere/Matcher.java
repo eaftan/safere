@@ -1306,10 +1306,11 @@ public final class Matcher implements MatchResult {
       applyFailedMatchResult();
       return false;
     }
+    int continuationAfterFailure = hasMatch ? previousMatchEnd : searchFrom;
     if (hasMatch && !advanceSearchPositionAfterPreviousMatch()) {
       return false;
     }
-    return doFind();
+    return findWithContinuation(continuationAfterFailure);
   }
 
   private boolean advanceSearchPositionAfterPreviousMatch() {
@@ -1410,7 +1411,7 @@ public final class Matcher implements MatchResult {
     modCount++;
     reset();
     searchFrom = start;
-    return doFind();
+    return findWithContinuation(previousMatchEnd);
   }
 
   /**
@@ -1440,6 +1441,18 @@ public final class Matcher implements MatchResult {
           }
         };
     return StreamSupport.stream(spliterator, false);
+  }
+
+  /** Restores the next search position when an engine search fails. */
+  private boolean findWithContinuation(int continuationAfterFailure) {
+    boolean matched = doFind();
+    if (!matched) {
+      // Advancement past an empty match belongs only to the immediately following attempt.
+      // After failure, restore the continuation before that advancement or explicit find(int)
+      // start. Keep positions established by bulk operations such as replaceAll intact.
+      searchFrom = continuationAfterFailure;
+    }
+    return matched;
   }
 
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
