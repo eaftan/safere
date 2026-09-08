@@ -51,7 +51,6 @@ class FailedFullMatchFindTest {
                 assertThat(matcher.start(1)).isEqualTo(offset);
                 assertThat(matcher.end(1)).isEqualTo(offset + expected.length());
                 assertThat(matcher.find()).isFalse();
-                assertThat(matcher.find()).isFalse();
               }
             }
           }
