@@ -55,7 +55,7 @@ def test_discovery_exposes_no_untrusted_body_or_title():
       "number": 1, "isDraft": False, "url": "u", "updatedAt": "t",
       "author": {"login": "stranger"}, "title": "CANARY", "body": "SECRET",
   }]])
-  result = GitHub("o/r", runner).discover("pr", frozenset({"writer"}))
+  result = GitHub("o/r", runner).discover(frozenset({"writer"}))
   rendered = json.dumps(result)
   assert "CANARY" not in rendered
   assert "SECRET" not in rendered
@@ -63,24 +63,24 @@ def test_discovery_exposes_no_untrusted_body_or_title():
 
 
 def test_untrusted_root_item_body_is_never_requested():
-  metadata = {"data": {"repository": {"issue": {
+  metadata = {"data": {"repository": {"pullRequest": {
       "id": "I", "number": 9, "updatedAt": "t", "author": {"login": "stranger"},
   }}}}
   runner = FakeRunner([metadata])
   with pytest.raises(PermissionError):
-    GitHub("o/r", runner).trusted_item("issue", 9, frozenset({"writer"}))
+    GitHub("o/r", runner).trusted_pr(9, frozenset({"writer"}))
   assert len(runner.commands) == 1
 
 
 def test_only_trusted_comment_bodies_are_requested_and_pages_are_combined():
-  core_metadata = {"data": {"repository": {"issue": {
+  core_metadata = {"data": {"repository": {"pullRequest": {
       "id": "I", "number": 7, "updatedAt": "t", "author": {"login": "writer"},
   }}}}
   comment_pages = [
-      {"data": {"repository": {"issue": {"comments": {"nodes": [
+      {"data": {"repository": {"pullRequest": {"comments": {"nodes": [
           {"id": "trusted-id", "updatedAt": "a", "author": {"login": "writer"}},
       ]}}}}},
-      {"data": {"repository": {"issue": {"comments": {"nodes": [
+      {"data": {"repository": {"pullRequest": {"comments": {"nodes": [
           {"id": "untrusted-id", "updatedAt": "b", "author": {"login": "stranger"},
            "body": "UNTRUSTED-CANARY"},
       ]}}}}},
@@ -90,9 +90,25 @@ def test_only_trusted_comment_bodies_are_requested_and_pages_are_combined():
       "labels": [], "milestone": None, "assignees": [],
   }
   trusted_body = {"data": {"node": {"body": "trusted words"}}}
-  linked_pages = [{"data": {"repository": {"issue": {"timelineItems": {"nodes": []}}}}}]
-  runner = FakeRunner([core_metadata, core_body, comment_pages, trusted_body, linked_pages])
-  item = GitHub("o/r", runner).trusted_item("issue", 7, frozenset({"writer"}))
+  linked_pages = [
+      {"data": {"repository": {"pullRequest": {"timelineItems": {"nodes": []}}}}}
+  ]
+  review_pages = [
+      {"data": {"repository": {"pullRequest": {"reviews": {"nodes": []}}}}}
+  ]
+  review_thread_pages = [
+      {"data": {"repository": {"pullRequest": {"reviewThreads": {"nodes": []}}}}}
+  ]
+  runner = FakeRunner([
+      core_metadata,
+      core_body,
+      comment_pages,
+      trusted_body,
+      linked_pages,
+      review_pages,
+      review_thread_pages,
+  ])
+  item = GitHub("o/r", runner).trusted_pr(7, frozenset({"writer"}))
   rendered = json.dumps(item)
   assert "trusted words" in rendered
   assert "untrusted-id" in rendered

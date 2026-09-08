@@ -38,9 +38,9 @@ def ensure_root(root: Path) -> None:
   if state_path.exists():
     state = json.loads(state_path.read_text(encoding="utf-8"))
     state.setdefault("prs", {})
-    state.setdefault("issues", {})
+    state.pop("issues", None)
   else:
-    state = {"prs": {}, "issues": {}}
+    state = {"prs": {}}
   state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
 
 
@@ -100,7 +100,7 @@ def trust(args: argparse.Namespace) -> int:
 def discover(args: argparse.Namespace) -> int:
   github = GitHub(args.repository)
   trusted = github.trusted_users()
-  result = github.discover(args.kind, trusted, args.limit)
+  result = github.discover(trusted, args.limit)
   print(json.dumps({"trustedAuthors": sorted(trusted), **result}, indent=2))
   return 0
 
@@ -108,11 +108,11 @@ def discover(args: argparse.Namespace) -> int:
 def snapshot(args: argparse.Namespace) -> int:
   github = GitHub(args.repository)
   trusted = github.trusted_users()
-  item = github.trusted_item(args.kind, args.number, trusted)
+  item = github.trusted_pr(args.number, trusted)
   changed = item["fingerprint"] != args.previous_fingerprint
   output = {"changed": changed, "fingerprint": item["fingerprint"]}
   if changed or args.force:
-    output[args.kind] = item
+    output["pr"] = item
   print(json.dumps(output, indent=2))
   return 0
 
@@ -122,7 +122,7 @@ def path_command(args: argparse.Namespace) -> int:
   if args.path_kind == "state":
     value = args.root / "state.json"
   elif args.path_kind == "artifact":
-    value = args.root / "artifacts" / f"{args.item_kind}-{args.number}" / args.identifier
+    value = args.root / "artifacts" / f"pr-{args.number}" / args.identifier
     value.mkdir(parents=True, exist_ok=True)
   else:
     value = args.root / "worktrees" / f"pr-{args.number}-{args.identifier[:12]}"
@@ -143,11 +143,9 @@ def parser() -> argparse.ArgumentParser:
   trusted = commands.add_parser("trusted-users")
   trusted.set_defaults(func=trust)
   listing = commands.add_parser("discover")
-  listing.add_argument("kind", choices=("pr", "issue"))
   listing.add_argument("--limit", type=int, default=1000)
   listing.set_defaults(func=discover)
   snap = commands.add_parser("snapshot")
-  snap.add_argument("kind", choices=("pr", "issue"))
   snap.add_argument("number", type=int)
   snap.add_argument("--previous-fingerprint")
   snap.add_argument("--force", action="store_true")
@@ -155,7 +153,6 @@ def parser() -> argparse.ArgumentParser:
   state = commands.add_parser("state-path")
   state.set_defaults(func=path_command, path_kind="state")
   artifact = commands.add_parser("artifact-dir")
-  artifact.add_argument("item_kind", choices=("pr", "issue"))
   artifact.add_argument("number", type=int)
   artifact.add_argument("identifier")
   artifact.set_defaults(func=path_command, path_kind="artifact")
