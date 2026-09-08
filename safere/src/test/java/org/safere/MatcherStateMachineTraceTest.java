@@ -20,6 +20,71 @@ import org.junit.jupiter.api.Test;
 class MatcherStateMachineTraceTest {
 
   @Test
+  @DisplayName("anchored attempts preserve find continuation after earlier matches")
+  void anchoredAttemptsPreserveFindContinuation() {
+    // Covers issue #808, including empty matches and repeated failed attempts.
+    for (String regex : List.of("a", "(a+)", "a*", "(a|b)+", "😀*", "^a", "^[ab]")) {
+      for (String input : List.of("a a", "ba a", "a!", "!a", "😀!😀", "a")) {
+        for (Step initial : List.of(Step.find(), Step.lookingAt())) {
+          for (Step attempt : List.of(Step.matches(), Step.lookingAt())) {
+            for (boolean region : List.of(false, true)) {
+              String text = region ? "xx" + input + "yy" : input;
+              assertTrace(
+                  regex,
+                  text,
+                  Step.region(region ? 2 : 0, region ? input.length() + 2 : input.length()),
+                  initial,
+                  attempt,
+                  Step.start(),
+                  attempt,
+                  Step.findWithBounds(),
+                  Step.findWithBounds(),
+                  Step.reset(),
+                  Step.find(),
+                  Step.start());
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("interleaved match attempts retain continuation through exhaustion and resets")
+  void interleavedAttemptsRetainContinuation() {
+    List<Step> operations = List.of(Step.findWithBounds(), Step.matches(), Step.lookingAt());
+    for (String regex : List.of("a", "a*", "(a|b)+", "^a", "^[ab]", "😀*")) {
+      for (String input : List.of("", "a", "a a", "!a", "😀!😀", "ba".repeat(300))) {
+        for (Step first : operations) {
+          for (Step second : operations) {
+            for (Step third : operations) {
+              for (Step fourth : operations) {
+                assertTrace(
+                    regex,
+                    input,
+                    first,
+                    second,
+                    third,
+                    fourth,
+                    Step.findWithBounds(),
+                    Step.usePattern("a*"),
+                    Step.matches(),
+                    Step.findWithBounds(),
+                    Step.region(0, input.length()),
+                    Step.matches(),
+                    Step.findWithBounds(),
+                    Step.findFrom(input.length()),
+                    Step.matches(),
+                    Step.findWithBounds());
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   @DisplayName("failed matches() leaves the next find() sequence JDK-compatible")
   void failedMatchesLeavesNextFindSequenceJdkCompatible() {
     assertTrace(
@@ -536,6 +601,12 @@ class MatcherStateMachineTraceTest {
       return value("find", subject -> subject.find());
     }
 
+    static Step findWithBounds() {
+      return value(
+          "findWithBounds",
+          subject -> subject.find() ? subject.start() + ":" + subject.end() : "false");
+    }
+
     static Step findFrom(int start) {
       return value("find(" + start + ")", subject -> subject.find(start));
     }
@@ -564,7 +635,6 @@ class MatcherStateMachineTraceTest {
       return value("end(" + group + ")", subject -> subject.end(group));
     }
 
-    @SuppressWarnings("UnusedMethod")
     static Step reset() {
       return effect("reset", TraceSubject::reset);
     }

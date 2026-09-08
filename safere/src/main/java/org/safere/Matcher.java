@@ -125,6 +125,8 @@ public final class Matcher implements MatchResult {
   private boolean hasMatch;
   private ResultStatus resultStatus = ResultStatus.RESET_NO_ATTEMPT;
   private int searchFrom;
+  // Retained across failed attempts; unlike searchFrom, excludes empty-match advancement.
+  private int previousMatchEnd;
   private int appendPos;
   private boolean transparentBounds;
   private boolean anchoringBounds = true;
@@ -462,10 +464,28 @@ public final class Matcher implements MatchResult {
 
   private void resetSearchStateForInputStart() {
     searchFrom = 0;
+    previousMatchEnd = 0;
   }
 
   private void resetSearchStateForRegionStart() {
     searchFrom = regionStart;
+    previousMatchEnd = regionStart;
+  }
+
+  private void rememberPreviousMatchEnd() {
+    if (hasMatch) {
+      if (!groupZeroResolved) {
+        resolveCaptures();
+      }
+      previousMatchEnd = groups[1];
+    }
+  }
+
+  private void prepareAnchoredAttempt() {
+    rememberPreviousMatchEnd();
+    findExhaustedAfterTerminalEmptyMatch = false;
+    // An anchored failure invalidates the result, but does not reset find's continuation.
+    searchFrom = previousMatchEnd;
   }
 
   private void resetStateForCurrentInput() {
@@ -903,8 +923,7 @@ public final class Matcher implements MatchResult {
 
   private boolean matchesImpl() {
     modCount++;
-    findExhaustedAfterTerminalEmptyMatch = false;
-    searchFrom = regionStart;
+    prepareAnchoredAttempt();
 
     if (cannotMatchLength(regionEnd - regionStart)) {
       return applyFailedMatchResult();
@@ -1152,8 +1171,7 @@ public final class Matcher implements MatchResult {
 
   private boolean lookingAtImpl() {
     modCount++;
-    findExhaustedAfterTerminalEmptyMatch = false;
-    searchFrom = regionStart;
+    prepareAnchoredAttempt();
 
     if (cannotMatchLength(regionEnd - regionStart)) {
       return applyFailedMatchResult();
@@ -1283,6 +1301,7 @@ public final class Matcher implements MatchResult {
 
   private boolean findImpl() {
     modCount++;
+    rememberPreviousMatchEnd();
     if (findExhaustedAfterTerminalEmptyMatch) {
       applyFailedMatchResult();
       return false;
@@ -4803,9 +4822,6 @@ public final class Matcher implements MatchResult {
     }
 
     private boolean matchLiteral(Matcher matcher, boolean fullMatch) {
-      if (isStartAnchored && matcher.searchFrom > 0) {
-        return matcher.applyFailedMatchResult();
-      }
       if (foldCase && matcher.text == null) {
         return fullMatch ? fallback.matches(matcher) : fallback.lookingAt(matcher);
       }
@@ -4894,9 +4910,6 @@ public final class Matcher implements MatchResult {
     }
 
     private boolean matchSingleCharClass(Matcher matcher, boolean fullMatch) {
-      if (isStartAnchored && matcher.searchFrom > 0) {
-        return matcher.applyFailedMatchResult();
-      }
       matcher.capturesResolved = true;
       if (charClassMatch != null && fullMatch && matcher.text != null) {
         matcher.diagnosticBoundary(MatchStrategy.CHARACTER_CLASS);

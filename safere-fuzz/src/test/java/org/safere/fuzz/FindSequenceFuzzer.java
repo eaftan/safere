@@ -13,6 +13,31 @@ import org.junit.jupiter.api.Test;
 final class FindSequenceFuzzer {
 
   @Test
+  void anchoredFailureAfterSuccessfulMatchRegression() {
+    assertAnchoredContinuation("a", "a a", false, false);
+    assertAnchoredContinuation("a*", "a!", true, false);
+    assertAnchoredContinuation("a", "ba a", false, true);
+    assertAnchoredContinuation("a*", "!a", false, false);
+  }
+
+  private static void assertAnchoredContinuation(
+      String regex, String input, boolean initialLookingAt, boolean attemptLookingAt) {
+    FuzzSupport.MatcherPair matcher = FuzzSupport.compileOrSkip(regex, 0).matcher(input);
+    if (initialLookingAt) {
+      matcher.lookingAt();
+    } else {
+      matcher.find();
+    }
+    if (attemptLookingAt) {
+      matcher.lookingAt();
+    } else {
+      matcher.matches();
+    }
+    matcher.find();
+    matcher.find();
+  }
+
+  @Test
   void delimitedPrefixBeforeRequiredSuffixRegression() {
     FuzzSupport.CompiledPattern pattern =
         FuzzSupport.compileOrSkip("[^{']*(?:'[^']*'[^{']*)*\\{([^}]*)\\}", 0);
@@ -80,7 +105,7 @@ final class FindSequenceFuzzer {
     String input;
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
-    switch (data.consumeInt(0, 9)) {
+    switch (data.consumeInt(0, 10)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -152,6 +177,15 @@ final class FindSequenceFuzzer {
         }
         input = mixedLines.toString();
         warmLineEndCache = true;
+      }
+      case 10 -> {
+        String atom = data.pickValue(List.of("a", "😀", "[ab]", "(a|b)"));
+        String anchor = data.consumeBoolean() ? "^" : "";
+        regex = anchor + atom + data.pickValue(List.of("", "*", "+", "{1,3}"));
+        flags = 0;
+        String prefix = data.consumeBoolean() ? "!" : "";
+        input = prefix + "a😀b".repeat(data.consumeInt(1, 200)) + "!";
+        assertAnchoredContinuation(regex, input, data.consumeBoolean(), data.consumeBoolean());
       }
       default -> throw new AssertionError();
     }
