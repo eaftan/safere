@@ -65,6 +65,26 @@ class AnchoredDfaCachingTest {
         });
   }
 
+  @Test
+  void multilineEndingAnchorKeepsStringLineFeedTransitionsCached() {
+    Pattern pattern = Pattern.compile("(?m)(?:x+$)y");
+    assertCachedTransitionWork(
+        size -> assertThat(pattern.matcher("xxx\n".repeat(size)).find()).isFalse());
+  }
+
+  @Test
+  void multilineEndingAnchorKeepsUtf8LineFeedTransitionsCached() {
+    Prog prog = Compiler.compile(Parser.parse("(?m)(?:x+$)y", FLAGS));
+    Dfa dfa = new Dfa(prog, 10_000, Dfa.buildSetup(prog), false);
+    assertCachedTransitionWork(
+        size -> {
+          byte[] input = "xxx\n".repeat(size).getBytes(UTF_8);
+          Dfa.SearchResult result = dfa.doSearch(new Utf8InputScanner(input), false, false);
+          assertThat(result).isNotNull();
+          assertThat(result.matched()).isFalse();
+        });
+  }
+
   private static void assertCachedTransitionWork(IntConsumer operation) {
     operation.accept(1_000);
     operation.accept(10_000);

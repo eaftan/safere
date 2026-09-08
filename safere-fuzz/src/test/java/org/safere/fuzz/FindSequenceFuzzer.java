@@ -11,6 +11,19 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 final class FindSequenceFuzzer {
+  private static final List<String> LINE_TERMINATORS =
+      List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
+
+  @Test
+  void reusedMultilineDollarKeepsCrLfAtomic() {
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip("\\W*(?m:$)", 0);
+    pattern.matcher(" \na").find();
+    FuzzSupport.MatcherPair matcher = pattern.matcher("xb\r\n" + "a".repeat(30));
+    while (matcher.find()) {
+      matcher.start();
+      matcher.end();
+    }
+  }
 
   @Test
   void anchoredFailureAfterSuccessfulMatchRegression() {
@@ -105,7 +118,8 @@ final class FindSequenceFuzzer {
     String input;
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
-    switch (data.consumeInt(0, 10)) {
+    String warmInput = null;
+    switch (data.consumeInt(0, 11)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -187,6 +201,14 @@ final class FindSequenceFuzzer {
         input = prefix + "a😀b".repeat(data.consumeInt(1, 200)) + "!";
         assertAnchoredContinuation(regex, input, data.consumeBoolean(), data.consumeBoolean());
       }
+      case 11 -> {
+        String atom = data.pickValue(List.of("\\W", "\\s", "[\\r\\n ]"));
+        String quantifier = data.pickValue(List.of("*", "+", "?", "*?", "{0,3}"));
+        regex = atom + quantifier + "(?m:$)";
+        flags = 0;
+        warmInput = " ".repeat(data.consumeInt(1, 8)) + data.pickValue(LINE_TERMINATORS) + "a";
+        input = "xb" + data.pickValue(LINE_TERMINATORS) + "a".repeat(data.consumeInt(1, 700));
+      }
       default -> throw new AssertionError();
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
@@ -199,6 +221,9 @@ final class FindSequenceFuzzer {
         warmup.start();
         warmup.end();
       }
+    }
+    if (warmInput != null) {
+      pattern.matcher(warmInput).find();
     }
     if (splitSurrogateFindStart) {
       pattern.matcher(input).find(1);
