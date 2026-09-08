@@ -38,6 +38,38 @@ SafeRE preserves a coherent overall match instead of reproducing that
 implementation behavior. The JDK inconsistency is tracked upstream as
 [JDK-8390449](https://bugs.openjdk.org/browse/JDK-8390449).
 
+## Initial `find()` after a Failed Full Match
+
+Issue reference: #818.
+
+If a newly created or region-reset matcher fails `matches()` before any
+successful match, SafeRE preserves the region beginning as the initial
+`find()` search position. Failed full-match attempts do not consume input for
+that search. This follows the
+[JDK 26 `Matcher.find()` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#find()),
+which starts searching at the region beginning unless a previous `find()`
+succeeded and the matcher has not since been reset.
+
+For example:
+
+```java
+var matcher = Pattern.compile("\\A(a?)").matcher("a!");
+matcher.matches(); // false: the pattern cannot consume the trailing '!'
+matcher.find();    // SafeRE: true, matching "a" at [0, 1); JDK 26.0.1: false
+```
+
+The JDK result contradicts the documented initial search position. SafeRE
+intentionally preserves its specification-based behavior rather than copying
+state left by the JDK's failed full-match attempt. Calling `reset()` before
+`find()` also produces the initial match on the JDK.
+
+`FailedFullMatchFindTest` covers repeated failed full matches, optional and
+repeated captures, greedy and reluctant quantifiers, empty matches,
+supplementary characters, and nonzero region starts. These expectations are
+disabled only in generated JDK crosscheck tests because the difference is
+intentional. This policy concerns the initial search; it does not redefine
+continuation after an earlier successful match.
+
 ## Unsupported Backtracking Features
 
 Sweep names:
