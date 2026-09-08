@@ -12,7 +12,8 @@ Prepare the data needed for a human SafeRE repository review while the reviewer 
 - which open non-draft PRs need attention;
 - whether each PR's idea makes sense and matches its implementation;
 - how each stacked PR contributes to the stack's shared objective and affects adjacent layers;
-- P2+ code-review findings fixed locally with `$review-fix-loop`;
+- P2+ code-review findings fixed locally with `$review-fix-loop` when the repair is bounded, or
+  reported to the author when correction requires a redesign;
 - benchmark reproduction for optimization PRs;
 - durable reports and artifacts that can be inspected later.
 - the current state, disposition, and linked-PR coverage of every trusted open issue.
@@ -64,8 +65,9 @@ eligible trusted PR queue in dependency order, then increasing PR number among i
 until every eligible PR has reached one of
 these durable terminal states for the run:
 
-- `reviewed`: intent review, review-fix-loop, required verification, and any required benchmark
-  reproduction are complete and recorded;
+- `reviewed`: intent review, defect review, proportionate local repair, required verification, and
+  any required benchmark reproduction are complete and recorded. Actionable findings may remain
+  when fixing them would turn the sweep into a redesign; record them for the author instead;
 - `blocked`: the PR cannot be reviewed because of a concrete blocker such as unresolved merge
   conflicts requiring product/design judgment, unavailable required tooling, repeated tool failure,
   or missing information that prevents meaningful progress;
@@ -76,6 +78,14 @@ or benchmarks are slow, or because completed PRs have already been checkpointed.
 after each PR is for crash recovery only; it is not permission to end a healthy run early. If new
 eligible trusted PRs appear during discovery at the start of the run, include them in the same
 number-ordered queue unless the user explicitly scoped the run to a fixed list.
+
+Preserve sweep breadth while running to completion. Repo-assist is maintainer decision support, not
+an obligation to rescue every PR locally. Make small, clearly bounded fixes that preserve the PR's
+design. Stop local repair and finish the review with author-facing findings when correctness would
+require redesigning eligibility or execution semantics, adding substantial new state, replacing a
+large fraction of the change, or repeatedly uncovering another design-class defect after earlier
+repairs. This is a reviewed PR with unresolved findings, not a blocked sweep. Continue to the next
+PR after recording the evidence and recommendation.
 
 Only end a run before the queue is complete when the user explicitly asks to stop, the whole sweep
 is blocked by an active lock or repeated infrastructure/tooling failure, or the current execution
@@ -424,6 +434,11 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
      allocation, reduced allocation does not demonstrate lower retained memory, and correctness
      tests do not demonstrate maintainability or performance. When the primary benefit is not
      measured, say so and ask what evidence would establish it.
+   - For an optimization, resolve the exact claimed benchmark IDs, workload data, metric, runner,
+     and comparable revisions before starting local repair or any benchmark run. If the named
+     benchmark or workload is absent, record the claim as unreproducible immediately. Do not spend
+     long-run time on approximate substitutes; use a small standard-config negative control only
+     when it can materially change the recommendation.
    - Decide whether the implementation matches the stated goal.
    - Check design fit, JDK compatibility, linear-time risk, test adequacy, benchmark evidence, and
      scope creep.
@@ -434,12 +449,16 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
    - Record a recommendation: ready after fixes, needs clarification, needs more tests, needs
      benchmark evidence, or needs redesign.
 
-6. Run `$review-fix-loop` in the PR worktree for P2+ findings against the recorded prepared
-   review-base SHA, not automatically against `main`.
-   - Follow that skill's instructions exactly.
-   - Tell `$review-fix-loop` to use the recorded review-base SHA. For an upper stack layer, this
-     ensures the review covers only that layer instead of reporting changes from lower PRs.
-   - The final state should be no remaining P2+ findings, or a documented blocker/false positive.
+6. Start with one complete read-only defect pass using `$review-fix-loop`'s reviewer instructions
+   against the recorded prepared review-base SHA, not automatically against `main`. For an upper
+   stack layer, this is the prepared lower-layer head.
+   - Assess the complete finding set before editing. If the repair is small and preserves the PR's
+     design, run `$review-fix-loop` and follow it exactly, using the same prepared review-base SHA.
+   - If the findings trigger the breadth-preserving repair rule, do not enter a fix loop that is
+     required to continue until clean. Preserve all reproductions and return the findings to the
+     author instead.
+   - The final state should be no remaining P2+ findings, a documented blocker/false positive, or
+     complete author-facing findings when the breadth-preserving repair rule above applies.
    - If fixes are made, make a local-only commit in the review branch so fixes are durable and
      benchmarkable. Do not push.
    - Save a patch file under the PR artifact directory by diffing from the post-update/pre-fix
@@ -451,6 +470,18 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
   artifact-dir pr <number> <head-sha>
 git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
 ```
+
+   Stage validation from cheap to expensive, and do not start the expensive suite while review or
+   code changes are still in progress:
+   - During diagnosis, run only focused tests or invariant checks that prove each finding and fix.
+   - Reach review convergence first: after the last semantic edit, obtain the required fresh
+     no-findings pass or decide that remaining findings belong with the author.
+   - After the last edit, run formatting and static-analysis preflights before any exhaustive or
+     generated compatibility suite. Re-run the preflights after every later source edit.
+   - Run the broad required test/crosscheck command once on the final semantic tree. If a completed
+     test phase is followed by a formatting-only or static-only failure, fix it and rerun the
+     failed check and any phases that did not execute; do not repeat already completed exhaustive
+     behavior tests when no semantic bytecode changed. Report the split verification accurately.
 
 7. For optimization PRs only, reproduce benchmarks:
    - Name the primary performance claim and its matching metric before selecting workloads. Use
@@ -473,7 +504,9 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - For targeted SafeRE nanosecond workloads whose benchmark definitions are identical at both
      revisions, prefer `safere-benchmarks/scripts/compare-branch.sh` with explicit immutable refs.
      Run String and UTF-8 variants separately, add `--vector` only when the experimental provider is
-     part of the claim, and use `--long` for close, surprising, or important confirmation results.
+     part of the claim. Start with the standard configuration. Use `--long` only to confirm an
+     exact claimed comparison whose standard result is close, surprising, or decision-critical;
+     never use long mode merely to make an approximate substitute more persuasive.
      The comparison script invokes `./run-java-benchmarks.sh`; otherwise use that wrapper directly.
    - If the comparison script rejects changed workload data, harness code, runner settings, or build
      definitions, do not bypass its comparability check. Build a controlled baseline with current
@@ -482,13 +515,18 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - Never run benchmarks in parallel.
    - Prefer benchmark filters claimed in the PR description or comments. If unclear, choose the
      smallest relevant benchmark set and state the inference.
+   - Compare the effective base directly with the final corrected tree first. Run a submitted-tree
+     versus corrected-tree ablation only when the final result misses the claim and a local fix
+     plausibly changed that exact path. Do not run a third redundant pair when the two comparisons
+     already isolate the effect.
    - Save raw benchmark output and extracted summary tables under the PR artifact directory.
    - Report ratios as experiment time divided by baseline time, where values below `1.0` mean the
      PR is faster.
    - If the repository lacks a suitable measurement for the primary benefit, do not treat a
      secondary neutral result as successful reproduction. Record the missing evidence, propose a
      concrete way to measure it, and recommend focused human review when the unmeasured benefit is
-     needed to justify material complexity or another tradeoff.
+     needed to justify material complexity or another tradeoff. Do not run a broad substitute
+     matrix after establishing that the primary claim cannot be reproduced from repository state.
    - If reproduced results do not roughly match the PR's claimed performance outcome, diagnose the
      mismatch before writing the final recommendation:
      - First check whether `$review-fix-loop` made local correctness fixes that could plausibly
@@ -719,7 +757,7 @@ Recommendation:
 
 ### Review Fix Loop
 
-Result: no P2+ findings | fixes committed locally | blocked | false positive documented
+Result: no P2+ findings | fixes committed locally | findings for author | blocked | false positive documented
 
 Fixed:
 - ...
@@ -892,16 +930,29 @@ and conflicts with current main. Distinguish required ordering from optional con
 ordering and genuinely independent PRs. Give a practical sequence when useful, explain every
 constraint, and do not infer a dependency from file overlap alone.
 
-Run $review-fix-loop for P2-or-higher findings in an isolated worktree. Do not push branches, post
-comments, close issues, or publish review text. Local worktrees, local branches, local commits,
-patch files, benchmark logs, and Markdown reports are allowed. Use the recorded prepared
-review-base SHA; for an upper stack layer this is the prepared lower-layer head, not `main`.
-Generate `review-fixes.patch` by diffing from the post-update/pre-fix HEAD to final HEAD so the
-patch contains only scout fixes, not base updates.
+Start with a complete read-only defect pass in an isolated worktree. Run $review-fix-loop only when
+the complete finding set can be repaired with bounded changes that preserve the submitted design.
+If correctness requires redesigning the PR, adding substantial new state, or replacing a large
+fraction of it, give the author complete actionable findings, mark the PR reviewed with unresolved
+findings, and continue the sweep. Do not push branches, post comments, close issues, or publish review text.
+Local worktrees, local branches, local commits, patch files, benchmark logs, and Markdown reports
+are allowed. Use the recorded prepared review-base SHA; for an upper stack layer this is the
+prepared lower-layer head, not `main`. Generate `review-fixes.patch` by diffing from the
+post-update/pre-fix HEAD to final HEAD so the patch contains only scout fixes, not base updates.
+
+Converge review before broad validation. Use focused tests during diagnosis, obtain the final fresh
+review pass after the last semantic edit, then run formatting and static-analysis preflights. Run
+the exhaustive or generated compatibility suite once on the final semantic tree. Do not repeat a
+completed exhaustive behavior phase for a later formatting-only correction.
 
 For optimization PRs, reproduce benchmark claims against the PR's effective base: the current
 declared base for standalone PRs, the trunk for a stack bottom, or the prepared lower-layer head for
 an upper stack layer. Treat a cumulative stack-to-trunk claim as a separate labeled comparison.
+Before benchmarking, verify that the exact named workload, metric, and runner exist at comparable
+revisions. If the primary workload is absent, record it as unreproducible and do not spend long-run
+time on substitutes. Start exact comparisons with the standard configuration and use long mode
+only for decision-critical confirmation. Compare base to the final corrected tree first; run one
+submitted-versus-fixed ablation only if a local fix plausibly explains a mismatch.
 Choose metrics that directly measure the primary claim: elapsed time for throughput, allocation per
 operation for allocation, and retained-object or heap evidence for footprint. Do not treat neutral
 throughput as reproduction of an allocation or retained-memory benefit. If no suitable measurement
@@ -929,6 +980,12 @@ Store state, reports, and artifacts under ~/.codex/safere-pr-review and update L
 
 ## Discipline
 
+- Preserve queue throughput: report design-level findings instead of turning one PR into a large
+  local rewrite.
+- Converge review and run cheap preflights before expensive tests; run broad validation once per
+  final semantic tree.
+- Verify exact benchmark availability before launching JMH, and do not use long substitute runs for
+  missing claims.
 - Do not use benchmark evidence from a dirty or ambiguous checkout.
 - Do not average unrelated benchmark ratios unless the report explicitly states the included
   benchmark set and uses geometric mean.
