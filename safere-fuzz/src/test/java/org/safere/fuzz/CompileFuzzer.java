@@ -8,10 +8,14 @@ package org.safere.fuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 
-final class CompileFuzzer {
+public final class CompileFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void compile(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     int flags = FuzzSupport.consumeFlags(data);
     String regex = data.consumeRemainingAsString();
     FuzzSupport.compileCompatibleOrSkip(regex, flags);

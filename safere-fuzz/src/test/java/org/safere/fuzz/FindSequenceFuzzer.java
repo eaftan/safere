@@ -10,7 +10,47 @@ import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-final class FindSequenceFuzzer {
+public final class FindSequenceFuzzer {
+  private static final List<String> LINE_TERMINATORS =
+      List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
+
+  @Test
+  void reusedMultilineDollarKeepsCrLfAtomic() {
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip("\\W*(?m:$)", 0);
+    pattern.matcher(" \na").find();
+    FuzzSupport.MatcherPair matcher = pattern.matcher("xb\r\n" + "a".repeat(30));
+    while (matcher.find()) {
+      matcher.start();
+      matcher.end();
+    }
+  }
+
+  @Test
+  void anchoredFailureAfterSuccessfulMatchRegression() {
+    assertAnchoredContinuation("a", "a a", false, false);
+    assertAnchoredContinuation("a*", "a!", true, false);
+    assertAnchoredContinuation("a", "ba a", false, true);
+    assertAnchoredContinuation("a*", "!a", false, false);
+    assertAnchoredContinuation("^[ab]*", "!a😀b!", false, true);
+    assertAnchoredContinuation("\\A(a?)", "!a", true, true);
+  }
+
+  private static void assertAnchoredContinuation(
+      String regex, String input, boolean initialLookingAt, boolean attemptLookingAt) {
+    FuzzSupport.MatcherPair matcher = FuzzSupport.compileOrSkip(regex, 0).matcher(input);
+    if (initialLookingAt) {
+      matcher.lookingAt();
+    } else {
+      matcher.find();
+    }
+    if (attemptLookingAt) {
+      matcher.lookingAt();
+    } else {
+      matcher.matches();
+    }
+    matcher.find();
+    matcher.find();
+  }
 
   @Test
   void delimitedPrefixBeforeRequiredSuffixRegression() {
@@ -32,19 +72,68 @@ final class FindSequenceFuzzer {
   }
 
   @Test
+  void unicodeBoundaryTransitionClassesRegression() {
+    for (String word : List.of("α", "中", "\u0301", "\u0660", "\u200c")) {
+      assertFindSequence("(?U).\\B", " " + word + "`\u180e");
+      assertFindSequence("(?U)\\b.", "x".repeat(300) + " " + word + "`\u180e");
+    }
+  }
+
+  @Test
   void leadingExpansionDoesNotCrossSplitSurrogateFindStart() {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip("[\\x{1F600}]+b", 0);
 
     pattern.matcher("😀bX😀b").find(1);
   }
 
+  @Test
+  void scopedEndAnchorLineModes() {
+    for (String anchor : List.of("$", "\\Z")) {
+      for (String terminator : List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029")) {
+        for (String mode : List.of("d", "-d")) {
+          for (int flags : new int[] {0, java.util.regex.Pattern.UNIX_LINES}) {
+            FuzzSupport.CompiledPattern pattern =
+                FuzzSupport.compileOrSkip("(?:foo|bar)(?" + mode + ":" + anchor + ")", flags);
+            FuzzSupport.MatcherPair matcher = pattern.matcher("foo" + terminator);
+            while (matcher.find()) {
+              matcher.start();
+              matcher.end();
+              matcher.group();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void mixedCrLfAndStandaloneLfCacheRegressions() {
+    for (String regex : List.of("(?-d:(?m:$))(?dm:$)", "(?dm:$)(?-d:(?m:$))")) {
+      FuzzSupport.CompiledPattern pattern =
+          FuzzSupport.compileOrSkip(regex, java.util.regex.Pattern.UNIX_LINES);
+      for (String input : List.of("\r\na\na", "\na\r\na", "a\na", "\r\na\na")) {
+        FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+        while (matcher.find()) {
+          matcher.start();
+          matcher.end();
+        }
+      }
+    }
+  }
+
   @FuzzTest(maxDuration = "30s")
   void sequence(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     String regex;
     int flags;
     String input;
     boolean splitSurrogateFindStart = false;
-    switch (data.consumeInt(0, 7)) {
+    boolean warmLineEndCache = false;
+    String warmInput = null;
+    switch (data.consumeInt(0, 13)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -90,11 +179,92 @@ final class FindSequenceFuzzer {
         input = "😀b" + data.consumeString(16) + "😀b";
         splitSurrogateFindStart = true;
       }
+      case 8 -> {
+        String anchor = data.pickValue(List.of("$", "\\Z", "(?m:$)"));
+        String localMode = data.consumeBoolean() ? "d" : "-d";
+        String scopedAnchor = "(?" + localMode + ":" + anchor + ")";
+        String body = data.pickValue(List.of("foo", "(?:foo|bar)", "(foo|bar)", "[a-z]+"));
+        regex = body + scopedAnchor + (data.consumeBoolean() ? anchor : "");
+        flags = data.consumeBoolean() ? java.util.regex.Pattern.UNIX_LINES : 0;
+        String terminator =
+            data.pickValue(List.of("", "\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029"));
+        input = "x".repeat(data.consumeInt(0, 2048)) + "foo" + terminator;
+      }
+      case 9 -> {
+        regex =
+            data.pickValue(
+                List.of(
+                    "(?-d:(?m:$))(?dm:$)",
+                    "(?dm:$)(?-d:(?m:$))",
+                    "((?-d:(?m:$)))(?dm:$)",
+                    "(?-d:(?m:^))(?dm:^)[ab]"));
+        flags = data.consumeBoolean() ? java.util.regex.Pattern.UNIX_LINES : 0;
+        StringBuilder mixedLines = new StringBuilder("x".repeat(data.consumeInt(0, 600)));
+        for (int i = data.consumeInt(1, 16); i > 0; i--) {
+          mixedLines.append(data.pickValue(List.of("\r\na", "\na", "\rb", "\u0085a", "b")));
+        }
+        input = mixedLines.toString();
+        warmLineEndCache = true;
+      }
+      case 10 -> {
+        String atom = data.pickValue(List.of("a", "😀", "[ab]", "(a|b)"));
+        String anchor = data.consumeBoolean() ? "^" : "";
+        regex = anchor + atom + data.pickValue(List.of("", "*", "+", "{1,3}"));
+        flags = 0;
+        String prefix = data.consumeBoolean() ? "!" : "";
+        input = prefix + "a😀b".repeat(data.consumeInt(1, 200)) + "!";
+        assertAnchoredContinuation(regex, input, data.consumeBoolean(), data.consumeBoolean());
+      }
+      case 12 -> {
+        String anchor = data.pickValue(List.of("^", "\\A", "(?m)^"));
+        String body = data.pickValue(List.of("[ab]*", "(a?)", "(a|b)*", "(?:😀)*"));
+        regex = anchor + body;
+        flags = 0;
+        input = "!" + data.consumeString(64);
+        FuzzSupport.MatcherPair matcher = FuzzSupport.compileOrSkip(regex, flags).matcher(input);
+        if (data.consumeBoolean()) {
+          matcher.find(data.consumeInt(0, input.length()));
+        } else if (data.consumeBoolean()) {
+          matcher.find();
+        } else {
+          matcher.lookingAt();
+        }
+        for (int i = 0, steps = data.consumeInt(3, 8); i < steps; i++) {
+          matcher.find();
+        }
+      }
+      case 11 -> {
+        String atom = data.pickValue(List.of("\\W", "\\s", "[\\r\\n ]"));
+        String quantifier = data.pickValue(List.of("*", "+", "?", "*?", "{0,3}"));
+        regex = atom + quantifier + "(?m:$)";
+        flags = 0;
+        warmInput = " ".repeat(data.consumeInt(1, 8)) + data.pickValue(LINE_TERMINATORS) + "a";
+        input = "xb" + data.pickValue(LINE_TERMINATORS) + "a".repeat(data.consumeInt(1, 700));
+      }
+      case 13 -> {
+        String boundary = data.pickValue(List.of("\\b", "\\B"));
+        String atom = data.pickValue(List.of(".", "(.)", "[\\s\\S]"));
+        regex = "(?U)" + (data.consumeBoolean() ? atom + boundary : boundary + atom);
+        flags = 0;
+        String word = data.pickValue(List.of("α", "中", "\u0301", "\u0660", "\u200c"));
+        String nonWord = data.pickValue(List.of("`", "\u180e", "!"));
+        input = "x".repeat(data.consumeInt(0, 512)) + " " + word + nonWord + nonWord;
+      }
       default -> throw new AssertionError();
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {
       return;
+    }
+    if (warmLineEndCache) {
+      FuzzSupport.MatcherPair warmup = pattern.matcher(data.consumeBoolean() ? "\r\na" : "a\na");
+      while (warmup.find()) {
+        warmup.start();
+        warmup.end();
+      }
+    }
+    if (warmInput != null) {
+      pattern.matcher(warmInput).find();
     }
     if (splitSurrogateFindStart) {
       pattern.matcher(input).find(1);

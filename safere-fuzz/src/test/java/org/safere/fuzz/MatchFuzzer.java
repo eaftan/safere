@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import org.safere.Pattern;
 
-final class MatchFuzzer {
+public final class MatchFuzzer {
   private static final int CI = Pattern.CASE_INSENSITIVE;
   private static final int CI_U = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
   private static final int CI_UCC = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS;
@@ -41,6 +41,10 @@ final class MatchFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void match(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     for (RegressionCase regression : CASE_FOLDING_REGRESSIONS) {
       FuzzSupport.assertFullMatchesJdk(regression.regex(), regression.flags(), regression.inputs());
     }

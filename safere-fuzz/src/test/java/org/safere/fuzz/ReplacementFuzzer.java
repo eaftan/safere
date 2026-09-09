@@ -9,10 +9,14 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 
-final class ReplacementFuzzer {
+public final class ReplacementFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void replacement(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     String regex;
     int flags;
     String input;

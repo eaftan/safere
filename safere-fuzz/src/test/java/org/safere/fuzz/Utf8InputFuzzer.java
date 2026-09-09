@@ -20,11 +20,15 @@ import org.safere.Utf8Input;
 import org.safere.Utf8Matcher;
 
 /** Exercises arbitrary UTF-8 storage, windows, and repeated matcher transitions. */
-final class Utf8InputFuzzer {
+public final class Utf8InputFuzzer {
   private record RegionCaptureCase(String regex, String input, int start, int end) {}
 
   @FuzzTest(maxDuration = "30s")
   void arbitraryWindow(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     assertLiteralSearchMatchesString("XXXXXX", "..XXXXXX");
     assertLiteralSearchMatchesString(data.consumeBoolean() ? "^XXXXXX" : "\\AXXXXXX", "..XXXXXX");
     assertStartAnchoredAccelerationMatchesJdk(data);

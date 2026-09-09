@@ -12,7 +12,7 @@ import java.util.List;
 import org.safere.Matcher;
 import org.safere.Pattern;
 
-final class RegionBoundsFuzzer {
+public final class RegionBoundsFuzzer {
   private record GraphemeRegion(String input, int start, int end) {}
 
   private record SafeReModelCase(
@@ -58,6 +58,10 @@ final class RegionBoundsFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void regionBounds(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     compareGraphemeRegions();
 
     String regex = data.consumeString(256);

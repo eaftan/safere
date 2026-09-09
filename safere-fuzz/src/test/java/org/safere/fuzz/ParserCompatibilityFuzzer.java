@@ -10,7 +10,7 @@ import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 import org.safere.Pattern;
 
-final class ParserCompatibilityFuzzer {
+public final class ParserCompatibilityFuzzer {
 
   private static final String[] ATOMS = {
     "",
@@ -144,6 +144,10 @@ final class ParserCompatibilityFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void parserCompatibility(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     int flags = FuzzSupport.consumeParserFlags(data);
     String regex;
     if (data.consumeBoolean()) {

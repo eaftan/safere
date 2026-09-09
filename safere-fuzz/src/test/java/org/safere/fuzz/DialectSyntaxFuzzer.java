@@ -12,7 +12,7 @@ import java.util.Objects;
 import org.safere.Matcher;
 import org.safere.Pattern;
 
-final class DialectSyntaxFuzzer {
+public final class DialectSyntaxFuzzer {
 
   private static final String[] CONTEXT_PREFIXES = {"", "^", "(?:", "a|", "[", "[^"};
   private static final String[] DIALECT_FRAGMENTS = {
@@ -60,6 +60,10 @@ final class DialectSyntaxFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void dialectSyntax(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     for (String regex : SAFE_RE_EXTENSION_REGEXES) {
       assertSafeRePythonNamedGroupExtension(regex);
     }

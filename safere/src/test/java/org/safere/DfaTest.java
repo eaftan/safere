@@ -8,6 +8,9 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Random;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +28,46 @@ class DfaTest {
 
   private static final int FLAGS =
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
+
+  @Test
+  void startCacheAllocationIsBoundedIndependentlyOfAssertionBits() throws Exception {
+    Field cache = Dfa.class.getDeclaredField("startStateByContext");
+    cache.setAccessible(true);
+    for (String regex : List.of("a+b", "(?m)^a+$", "(?-d:(?m:$))(?dm:$)", "\\b{g}a")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (Prog prog : List.of(pattern.prog(), pattern.reverseProg())) {
+        Dfa dfa = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+        assertThat(Array.getLength(cache.get(dfa))).as(regex).isLessThanOrEqualTo(256);
+      }
+    }
+  }
+
+  @Test
+  void startCacheRetainsCompleteContextAcrossReplacements() {
+    for (String regex : List.of("a+b", "(?m)^a+$", "(?-d:(?m:$))(?dm:$)", "\\b{g}a")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (Prog prog : List.of(pattern.prog(), pattern.reverseProg())) {
+        Dfa cached = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+        List<String> inputs = List.of("a\r\na\na", "a\ra", "é a\u0301\na", "", "a\u2028b");
+        for (int pass = 0; pass < 2; pass++) {
+          for (String text : pass == 0 ? inputs : inputs.reversed()) {
+            InputScanner scanner = new StringInputScanner(text);
+            for (int pos = 0; pos <= text.length(); pos++) {
+              for (boolean anchored : new boolean[] {false, true}) {
+                for (boolean reverse : new boolean[] {false, true}) {
+                  Dfa fresh = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+                  Dfa.State expected = fresh.startState(scanner, pos, anchored, reverse);
+                  Dfa.State actual = cached.startState(scanner, pos, anchored, reverse);
+                  assertThat(actual.flags).as(regex).isEqualTo(expected.flags);
+                  assertThat(actual.insts).as(regex).containsExactly(expected.insts);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   /** Compiles a pattern and searches with the DFA (unanchored, first match). */
   private static Dfa.SearchResult search(String pattern, String text) {
@@ -819,5 +862,121 @@ class DfaTest {
     assertThat(pattern.matcher(noMatch).matches()).isFalse();
     assertThat(pattern.matcher(Utf8Input.validated(noMatch.getBytes(UTF_8))).find()).isFalse();
     assertThat(pattern.matcher(Utf8Input.validated(noMatch.getBytes(UTF_8))).matches()).isFalse();
+  }
+
+  @Test
+  void adaptiveQuarantineOnAdversarialPeriodicNoise() {
+    String regex = "q[0-9]{4}z";
+    Pattern pattern = Pattern.compile(regex);
+
+    // 2,000 repetitions of "q1234a" (12,000 bytes). Distance between 'q' is 6 bytes.
+    // Downstream fails on 'a' instead of 'z'.
+    String adversarialNoise = "q1234a".repeat(2000);
+    assertThat(pattern.matcher(adversarialNoise).find()).isFalse();
+    assertThat(pattern.matcher(Utf8Input.validated(adversarialNoise.getBytes(UTF_8))).find())
+        .isFalse();
+
+    // Adversarial noise followed by an actual valid match at the end
+    String withMatch = adversarialNoise + "q1234z";
+    Matcher stringMatcher = pattern.matcher(withMatch);
+    assertThat(stringMatcher.find()).isTrue();
+    assertThat(stringMatcher.start()).isEqualTo(adversarialNoise.length());
+    assertThat(stringMatcher.end()).isEqualTo(withMatch.length());
+
+    var utf8Matcher = pattern.matcher(Utf8Input.validated(withMatch.getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(adversarialNoise.length());
+    assertThat(utf8Matcher.end()).isEqualTo(withMatch.length());
+  }
+
+  @Test
+  void burstyHeaderRecoversAccelerationInCleanBody() {
+    String regex = "q[0-9]{4}z";
+    Pattern pattern = Pattern.compile(regex);
+
+    // 100 repetitions of noise (600 bytes header) followed by 50 KB of clean text, ending in a
+    // match
+    String header = "q1234a".repeat(100);
+    String cleanBody = "the quick brown fox jumps over the lazy dog. ".repeat(1000);
+    String target = "q1234z";
+    String input = header + cleanBody + target;
+
+    Matcher stringMatcher = pattern.matcher(input);
+    assertThat(stringMatcher.find()).isTrue();
+    assertThat(stringMatcher.start()).isEqualTo(header.length() + cleanBody.length());
+    assertThat(stringMatcher.end()).isEqualTo(input.length());
+
+    var utf8Matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(header.length() + cleanBody.length());
+    assertThat(utf8Matcher.end()).isEqualTo(input.length());
+  }
+
+  @Test
+  void denseConsecutiveValidMatchesNotThrottled() {
+    String regex = "q[0-9]{4}z";
+    Pattern pattern = Pattern.compile(regex);
+
+    // 50 valid consecutive matches back-to-back
+    String denseMatches = "q1234z".repeat(50);
+    Matcher stringMatcher = pattern.matcher(denseMatches);
+    int matchCount = 0;
+    while (stringMatcher.find()) {
+      matchCount++;
+    }
+    assertThat(matchCount).isEqualTo(50);
+
+    var utf8Matcher = pattern.matcher(Utf8Input.validated(denseMatches.getBytes(UTF_8)));
+    matchCount = 0;
+    while (utf8Matcher.find()) {
+      matchCount++;
+    }
+    assertThat(matchCount).isEqualTo(50);
+  }
+
+  @Test
+  void dfaReacceleratesStartStateAfterFalseCandidate() {
+    Pattern pattern = Pattern.compile("fo[0-9]+");
+    String text = "foox" + "a".repeat(100000);
+    var utf8Input = Utf8Input.validated(text.getBytes(UTF_8));
+    assertThat(pattern.find(utf8Input)).isFalse();
+
+    Matcher stringMatcher = pattern.matcher(text);
+    assertThat(stringMatcher.find()).isFalse();
+  }
+
+  @Test
+  void dfaReacceleratesToNextMatchAfterFalseCandidate() {
+    Pattern pattern = Pattern.compile("fo[0-9]+");
+    String text = "foox" + "a".repeat(100000) + "fo123";
+    var utf8Input = Utf8Input.validated(text.getBytes(UTF_8));
+    assertThat(pattern.find(utf8Input)).isTrue();
+
+    Matcher stringMatcher = pattern.matcher(text);
+    assertThat(stringMatcher.find()).isTrue();
+    assertThat(stringMatcher.start()).isEqualTo(4 + 100000);
+    assertThat(stringMatcher.end()).isEqualTo(4 + 100000 + 5);
+  }
+
+  @Test
+  void dfaFastForwardAcceptingStartStateMatch() {
+    String regexp = "^(?:(?:b|(?:$)))";
+    String text = "#".repeat(260) + "\n\nbb";
+    byte[] utf8 = text.getBytes(UTF_8);
+
+    Pattern pat = Pattern.compile(regexp, Pattern.MULTILINE);
+    var utfM = pat.matcher(Utf8Input.validated(utf8));
+    assertThat(utfM.find()).isTrue();
+    assertThat(utfM.start()).isEqualTo(261);
+    assertThat(utfM.end()).isEqualTo(261);
+    assertThat(utfM.find()).isTrue();
+    assertThat(utfM.start()).isEqualTo(262);
+    assertThat(utfM.end()).isEqualTo(263);
+    assertThat(utfM.find()).isFalse();
+
+    var strM = pat.matcher(text);
+    assertThat(strM.find()).isTrue();
+    assertThat(strM.start()).isEqualTo(261);
+    assertThat(strM.end()).isEqualTo(261);
   }
 }

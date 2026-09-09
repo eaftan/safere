@@ -139,6 +139,7 @@
                         <exclude name="RegexpTest.java"/>
                         <exclude name="RejectPrefilterTest.java"/>
                         <exclude name="SafeReDiagnosticsTest.java"/>
+                        <exclude name="ScopedLineModeAnchorTest.java"/>
                         <exclude name="SearchScalingRegressionTest.java"/>
                         <exclude name="ShiftDfaTest.java"/>
                         <exclude name="ShortScanEquivalenceTest.java"/>

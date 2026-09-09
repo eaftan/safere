@@ -1564,6 +1564,42 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.candidateRecovery.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "foox",
+        "unit": "a",
+        "suffix": "fo123",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.candidateRecovery.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "foox",
+        "unit": "a",
+        "suffix": "x",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.wideFactoredApiRoute.match.{size}",
       "axes": {
         "size": [
@@ -4818,6 +4854,35 @@
       ],
       "inputs": [
         "realWorldRegex.isoTimestampLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.candidateRecovery.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "fo[0-9]+"
+      ],
+      "inputs": [
+        "realWorldRegex.candidateRecovery.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {

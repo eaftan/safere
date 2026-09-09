@@ -117,10 +117,12 @@ sealed interface RejectPrefilter
         return utf8Scanner.indexOf(utf8, failure, shifts, searchFrom) < 0;
       }
       if (text != null) {
+        int idx = text.indexOf(literal, searchFrom);
         if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record(Math.max(0, text.length() - searchFrom));
+          int scanned = idx >= 0 ? idx - searchFrom + literal.length() : text.length() - searchFrom;
+          WorkCounter.record(Math.max(0, scanned));
         }
-        return text.indexOf(literal, searchFrom) < 0;
+        return idx < 0;
       }
       return false;
     }
@@ -199,10 +201,12 @@ sealed interface RejectPrefilter
         return false;
       }
       for (String literal : literals) {
+        int idx = text.indexOf(literal, searchFrom);
         if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record(Math.max(0, text.length() - searchFrom));
+          int scanned = idx >= 0 ? idx - searchFrom + literal.length() : text.length() - searchFrom;
+          WorkCounter.record(Math.max(0, scanned));
         }
-        if (text.indexOf(literal, searchFrom) >= 0) {
+        if (idx >= 0) {
           return false;
         }
       }

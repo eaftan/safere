@@ -128,7 +128,21 @@ group `i`, register `2i+1` is the end.  Group 0 is the full match.
 **Empty-width flags** (`EmptyOp`): `BEGIN_LINE`, `END_LINE`, `BEGIN_TEXT`,
 `END_TEXT`, `WORD_BOUNDARY`, `NON_WORD_BOUNDARY`, `DOLLAR_END`.
 `DOLLAR_END` distinguishes JDK's `$` (which can match before a trailing
-line terminator) from `\z` (absolute end of text).
+line terminator) from `\z` (absolute end of text). Each line assertion has
+separate standard and `UNIX_LINES` variants, chosen from its scoped parse flags.
+Execution computes both sets of conditions at each position, so branches with
+different line modes can coexist without changing the program-wide mode. Stripped
+trailing anchors and suffix prefilters retain the anchor's own line mode too.
+DFA states also retain the adjacent scan character's CRLF role (CR when scanning
+forward, LF when scanning backward). Both start-state and transition cache keys
+include this context, so an atomic CRLF boundary cannot share a cached line
+assertion result with a standalone LF or CR. The context adds one bit only for
+programs containing standard line assertions; their character classes already
+distinguish CR and LF.
+The extra assertion bits add fixed-size context; they do not introduce matching
+retries or unbounded rescans. The start-state cache uses 256 direct-mapped slots
+with complete context-key checks. Collisions trigger recomputation rather than
+merging contexts, and adding assertion bits does not enlarge its allocation.
 
 ## Engine Selection
 
@@ -364,9 +378,14 @@ specification rather than this observed JDK implementation detail.
 ### OnePass Action Encoding
 
 OnePass actions are packed into 64-bit `long` values:
-- Bits 0–7: empty-width flags (8 bits)
-- Bits 8–39: capture mask (32 bits for 2 × 16 registers)
-- Bits 40–63: next state index (24 bits)
+
+- Bits 0–13: empty-width flags (14 bits)
+- Bits 14–45: capture mask (32 bits for 2 × 16 registers)
+- Bit 46: match priority
+- Bits 47–63: next state offset (17 bits)
+
+Compilation checks both the memory budget and the representable state-offset
+range before allocating action tables. Larger programs use another engine.
 
 This limits OnePass to 16 capture groups but avoids object allocation
 during matching.  A combined condition check (`action & CONDITION_MASK`)

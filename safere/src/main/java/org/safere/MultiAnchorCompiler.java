@@ -15,6 +15,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import org.safere.MultiAnchorDescriptor.RejectPlan;
+import org.safere.MultiAnchorDescriptor.StartPlan;
 
 /**
  * Compiles AST representations of regular expressions into {@link MultiAnchorDescriptor}, {@link
@@ -273,56 +275,66 @@ final class MultiAnchorCompiler {
     return MultiAnchorDescriptor.StartPlan.None.INSTANCE;
   }
 
-  static MultiAnchorDescriptor.RejectPlan extractRejectPlan(
+  static RejectPlan extractRejectPlan(
       Regexp metadataAst,
       int flags,
-      MultiAnchorDescriptor.StartPlan startPlan,
+      StartPlan startPlan,
       boolean anchorStart,
       MultiAnchorDescriptor.Chain chain) {
     if (metadataAst == null) {
-      return MultiAnchorDescriptor.RejectPlan.None.INSTANCE;
+      return RejectPlan.None.INSTANCE;
     }
     return extractRejectPlan(metadataAst, startPlan, anchorStart, analyze(metadataAst, flags));
   }
 
-  private static MultiAnchorDescriptor.RejectPlan extractRejectPlan(
-      Regexp metadataAst,
-      MultiAnchorDescriptor.StartPlan startPlan,
-      boolean anchorStart,
-      NodeAnalysis analysis) {
+  private static RejectPlan extractRejectPlan(
+      Regexp metadataAst, StartPlan startPlan, boolean anchorStart, NodeAnalysis analysis) {
     RejectFacets reject = analysis.reject();
 
-    List<MultiAnchorDescriptor.RejectPlan> plans = new ArrayList<>();
+    List<RejectPlan> plans = new ArrayList<>();
 
     Pattern.SuffixInfo endAnchoredSuffix = reject.endAnchoredSuffix();
     if (endAnchoredSuffix != null) {
-      plans.add(new MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix(endAnchoredSuffix));
+      plans.add(new RejectPlan.EndAnchoredSuffix(endAnchoredSuffix));
     }
 
     Pattern.EndAnchoredCharClassInfo endAnchoredCharClass =
         endAnchoredSuffix == null ? reject.endAnchoredCharClass() : null;
     if (endAnchoredCharClass != null) {
-      plans.add(new MultiAnchorDescriptor.RejectPlan.EndAnchoredCharClass(endAnchoredCharClass));
+      plans.add(new RejectPlan.EndAnchoredCharClass(endAnchoredCharClass));
     }
 
-    String prefix =
-        startPlan instanceof MultiAnchorDescriptor.StartPlan.Literal lit ? lit.prefix() : null;
-    CharClassScanInfo ccPrefix =
-        startPlan instanceof MultiAnchorDescriptor.StartPlan.CharClass cc ? cc.scanInfo() : null;
-    boolean hasLeadingExpansion =
-        startPlan instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion;
+    Set<String> excludeStartLiterals = new LinkedHashSet<>();
+    boolean skipRequiredCharClass = false;
+    CharClassScanInfo ccPrefix = null;
+    boolean hasLeadingExpansion = startPlan instanceof StartPlan.LeadingExpansion;
+
+    switch (startPlan) {
+      case StartPlan.Literal lit -> {
+        excludeStartLiterals.add(lit.prefix());
+        skipRequiredCharClass = true;
+      }
+      case StartPlan.FixedOffset fo -> {
+        excludeStartLiterals.add(fo.fol().literal());
+        excludeStartLiterals.addAll(extractFixedPrefixLiterals(metadataAst));
+        skipRequiredCharClass = true;
+      }
+      case StartPlan.CharClass cc -> ccPrefix = cc.scanInfo();
+      case null, default -> {}
+    }
+
     String suffixStr = endAnchoredSuffix != null ? endAnchoredSuffix.suffix() : null;
 
     String requiredLiteral =
         !anchorStart && !hasLeadingExpansion
-            ? extractRequiredLiteral(metadataAst, prefix, suffixStr)
+            ? extractRequiredLiteral(metadataAst, excludeStartLiterals, suffixStr)
             : null;
     if (requiredLiteral != null) {
-      plans.add(new MultiAnchorDescriptor.RejectPlan.RequiredLiteral(requiredLiteral));
+      plans.add(new RejectPlan.RequiredLiteral(requiredLiteral));
     }
 
     CharClassScanInfo requiredMatchClass = null;
-    if (!anchorStart && prefix == null && endAnchoredCharClass == null) {
+    if (!anchorStart && !skipRequiredCharClass && endAnchoredCharClass == null) {
       CharClass reqClass = reject.bestRequiredClass();
       if (reqClass != null) {
         if (ccPrefix == null) {
@@ -346,25 +358,24 @@ final class MultiAnchorCompiler {
       }
     }
     if (requiredMatchClass != null) {
-      plans.add(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(requiredMatchClass));
+      plans.add(new RejectPlan.RequiredCharClass(requiredMatchClass));
     }
 
     String[] disjointLiterals =
-        (!anchorStart && prefix == null && requiredLiteral == null)
+        (!anchorStart && !skipRequiredCharClass && requiredLiteral == null)
             ? reject.disjointRequiredLiterals()
             : null;
     if (disjointLiterals != null && disjointLiterals.length > 1) {
-      plans.add(new MultiAnchorDescriptor.RejectPlan.DisjointLiterals(disjointLiterals));
+      plans.add(new RejectPlan.DisjointLiterals(disjointLiterals));
     }
 
     if (plans.isEmpty()) {
-      return MultiAnchorDescriptor.RejectPlan.None.INSTANCE;
+      return RejectPlan.None.INSTANCE;
     }
     if (plans.size() == 1) {
       return plans.get(0);
     }
-    return new MultiAnchorDescriptor.RejectPlan.Composite(
-        plans.toArray(MultiAnchorDescriptor.RejectPlan[]::new));
+    return new RejectPlan.Composite(plans.toArray(RejectPlan[]::new));
   }
 
   // --- Bottom-up MultiAnchorWalker ---
@@ -2714,7 +2725,7 @@ final class MultiAnchorCompiler {
     StringBuilder suffix = new StringBuilder(suffixLength);
     suffixParts.forEach(suffix::append);
     return new Pattern.SuffixInfo(
-        suffix.toString(), wasDollar, (flags & Pattern.UNIX_LINES) != 0, foldCase);
+        suffix.toString(), wasDollar, (last.flags & ParseFlags.UNIX_LINES) != 0, foldCase);
   }
 
   private static boolean isAllAscii(int[] runes) {
@@ -2754,14 +2765,59 @@ final class MultiAnchorCompiler {
     }
     AsciiBitmap.Builder builder = new AsciiBitmap.Builder();
     if (sub.op == RegexpOp.CHAR_CLASS && addAsciiCharClass(sub.charClass, builder)) {
-      boolean unixLines = (flags & Pattern.UNIX_LINES) != 0;
+      boolean unixLines = (last.flags & ParseFlags.UNIX_LINES) != 0;
       return new Pattern.EndAnchoredCharClassInfo(builder.build(), wasDollar, unixLines);
     }
     return null;
   }
 
+  private static Set<String> extractFixedPrefixLiterals(Regexp re) {
+    Regexp node = unwrapCaptures(re);
+    if (node == null || node.op != RegexpOp.CONCAT || node.subs == null) {
+      return Set.of();
+    }
+    Set<String> literals = new LinkedHashSet<>();
+    AsciiWidthRange prefixWidth = AsciiWidthRange.ZERO;
+    for (int index = 0; index < node.subs.size(); index++) {
+      Regexp sub = node.subs.get(index);
+      prefixWidth = concatenateWidths(prefixWidth, computeAsciiWidthRange(sub));
+      if (!prefixWidth.isValid()) {
+        break;
+      }
+      collectAsciiLiterals(sub, literals);
+    }
+    return literals;
+  }
+
+  private static void collectAsciiLiterals(Regexp re, Set<String> literals) {
+    String exact = extractExactAsciiLiteral(re);
+    if (exact != null && exact.length() >= 2) {
+      literals.add(exact);
+    }
+
+    Deque<Regexp> pending = new ArrayDeque<>();
+    pending.addLast(re);
+    while (!pending.isEmpty()) {
+      Regexp node = unwrapCaptures(pending.removeLast());
+      if (node == null) {
+        continue;
+      }
+      if ((node.op == RegexpOp.LITERAL_STRING || node.op == RegexpOp.LITERAL)
+          && (node.flags & ParseFlags.FOLD_CASE) == 0
+          && node.runes != null
+          && node.runes.length >= 2) {
+        literals.add(new String(node.runes, 0, node.runes.length));
+      }
+      if (node.subs != null) {
+        for (Regexp child : node.subs) {
+          pending.addLast(child);
+        }
+      }
+    }
+  }
+
   private static String extractRequiredLiteral(
-      Regexp re, String excludePrefix, String excludeSuffix) {
+      Regexp re, Set<String> excludePrefixes, String excludeSuffix) {
     String best = null;
     int bestScore = 0;
     Deque<Regexp> pending = new ArrayDeque<>();
@@ -2779,8 +2835,7 @@ final class MultiAnchorCompiler {
           if (node.subs != null) {
             String exactAscii = extractExactAsciiLiteral(node);
             if (exactAscii != null && exactAscii.length() >= 2) {
-              if ((excludePrefix == null || !exactAscii.equals(excludePrefix))
-                  && (excludeSuffix == null || !exactAscii.equals(excludeSuffix))) {
+              if (!isLiteralSubsumed(exactAscii, excludePrefixes, excludeSuffix)) {
                 int score = RarityOracle.literalSelectivityScore(exactAscii);
                 if (best == null || score > bestScore) {
                   best = exactAscii;
@@ -2798,8 +2853,7 @@ final class MultiAnchorCompiler {
               && node.runes != null
               && node.runes.length >= 2) {
             String candidate = new String(node.runes, 0, node.runes.length);
-            if ((excludePrefix == null || !candidate.equals(excludePrefix))
-                && (excludeSuffix == null || !candidate.equals(excludeSuffix))) {
+            if (!isLiteralSubsumed(candidate, excludePrefixes, excludeSuffix)) {
               int candidateScore = RarityOracle.literalSelectivityScore(candidate);
               if (best == null || candidateScore > bestScore) {
                 best = candidate;
@@ -2812,6 +2866,25 @@ final class MultiAnchorCompiler {
       }
     }
     return best;
+  }
+
+  private static boolean isLiteralSubsumed(
+      String candidate, Set<String> excludedPrefixes, String excludedSuffix) {
+    if (candidate == null) {
+      return false;
+    }
+    if (excludedSuffix != null
+        && (candidate.equals(excludedSuffix) || excludedSuffix.contains(candidate))) {
+      return true;
+    }
+    if (excludedPrefixes != null) {
+      for (String excluded : excludedPrefixes) {
+        if (candidate.equals(excluded) || excluded.contains(candidate)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static String[] combineDisjointRequiredLiterals(List<NodeAnalysis> children) {

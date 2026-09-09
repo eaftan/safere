@@ -9,7 +9,7 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 
-final class CharacterClassExpressionFuzzer {
+public final class CharacterClassExpressionFuzzer {
 
   private static final String[] BASE_PIECES = {
     "",
@@ -107,6 +107,10 @@ final class CharacterClassExpressionFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void characterClassExpressions(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     for (String regex : REGRESSION_REGEXES) {
       FuzzSupport.assertFullMatchesJdk(regex, 0, INPUTS);
     }

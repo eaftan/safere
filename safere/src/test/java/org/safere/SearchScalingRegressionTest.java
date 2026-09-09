@@ -822,6 +822,50 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void dfaReacceleratesStartStateAfterFalseCandidateWorkIsLinear() {
+    Pattern pattern = Pattern.compile("fo[0-9]+");
+    String input2000 = "foox" + "a".repeat(2_000) + "fo123";
+    String input10000 = "foox" + "a".repeat(10_000) + "fo123";
+
+    long work2000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input2000).find()).isTrue());
+    long work10000 =
+        WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input10000).find()).isTrue());
+
+    assertThat(work10000)
+        .as("DFA start state re-acceleration work must scale linearly with non-matching span")
+        .isLessThan(work2000 * 6);
+  }
+
+  @Test
+  void dfaInteriorSelfLoopEscapeAccelerationIsLinearOnWarmDfa() {
+    Pattern pattern = Pattern.compile("\"[^\"]*\"");
+    String input2000 = "\"" + "a".repeat(2_000) + "\"";
+    String input10000 = "\"" + "a".repeat(10_000) + "\"";
+    Dfa dfa = pattern.forwardFirstMatchDfa();
+
+    // Warm up DFA transitions
+    dfa.doSearch(new StringInputScanner(input2000), 0, false, false);
+
+    long work2000 =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(
+                        dfa.doSearch(new StringInputScanner(input2000), 0, false, false).matched())
+                    .isTrue());
+    long work10000 =
+        WorkCounter.countForTesting(
+            () ->
+                assertThat(
+                        dfa.doSearch(new StringInputScanner(input10000), 0, false, false).matched())
+                    .isTrue());
+
+    assertThat(work10000)
+        .as("Warm DFA should scale linearly on interior self-loop escape")
+        .isLessThan(work2000 * 6);
+  }
+
+  @Test
   void singleCharClassFindFastPathIsLinearForStringInput() {
     Pattern pattern = Pattern.compile("\\d");
     String input2000 = "a".repeat(2_000);

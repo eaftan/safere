@@ -19,6 +19,19 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class Utf8MatcherStateMachineTest {
   @Test
+  void failedFindPreservesEmptyAnchoredMatchEnd() {
+    Utf8Matcher matcher = matcher("^[ab]*", "😀!a");
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.lookingAt()).isTrue();
+    for (int i = 0; i < 3; i++) {
+      assertThat(matcher.find()).isFalse();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+    }
+  }
+
+  @Test
   void stringSearchInitializationDoesNotCorruptExistingUtf8Matcher() {
     Pattern pattern = Pattern.compile("XXXXXX");
     Matcher stringMatcher = pattern.matcher("..XXXXXX");

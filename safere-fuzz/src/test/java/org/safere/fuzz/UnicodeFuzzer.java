@@ -9,7 +9,7 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 
-final class UnicodeFuzzer {
+public final class UnicodeFuzzer {
 
   private static final List<String> GRAPHEME_CLUSTER_REGEXES =
       List.of(
@@ -58,6 +58,10 @@ final class UnicodeFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void unicode(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     for (String regex : GRAPHEME_CLUSTER_REGEXES) {
       FuzzSupport.CompiledPattern graphemePattern = FuzzSupport.compileOrSkip(regex, 0);
       for (String input : GRAPHEME_CLUSTER_INPUTS) {

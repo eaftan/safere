@@ -9,7 +9,7 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 
-final class EscapeSyntaxFuzzer {
+public final class EscapeSyntaxFuzzer {
 
   private static final String[] PREFIXES = {"", "^", "(?i)", "(?x)", "[", "[^"};
   private static final String[] ESCAPES = {
@@ -93,6 +93,10 @@ final class EscapeSyntaxFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void escapeSyntax(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     for (String regex : REGRESSION_REGEXES) {
       FuzzSupport.assertFullMatchesJdk(regex, 0, INPUTS);
     }

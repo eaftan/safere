@@ -46,17 +46,17 @@ final class Dfa {
   record ManyMatchResult(boolean matched, int[] matchIds) {}
 
   /** Flag bit: this state contains a MATCH instruction. */
-  private static final int FLAG_MATCH = 1 << 10;
+  private static final int FLAG_MATCH = 1 << 14;
 
   /** Flag bit: last consumed character was a word character (for {@code \b}/\B}). */
-  private static final int FLAG_LAST_WORD = 1 << 11;
+  private static final int FLAG_LAST_WORD = 1 << 15;
 
   /**
    * Flag bit: match was triggered by a word-boundary assertion BEFORE consuming the transition
    * character. The match position should be recorded at the current position, not after the
    * character.
    */
-  private static final int FLAG_MATCH_BEFORE = 1 << 12;
+  private static final int FLAG_MATCH_BEFORE = 1 << 16;
 
   /**
    * Flag bit: when {@link #FLAG_MATCH_BEFORE} is set, indicates that an after-consume match ALSO
@@ -64,15 +64,30 @@ final class Dfa {
    * before-consume match first (earlier position) and fall back to the after-consume match if the
    * before-consume match is rejected (e.g., by {@code needEndMatch} requiring end-of-text).
    */
-  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 13;
+  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 17;
 
   /**
    * Flag bit: last consumed character was a Unicode word character (for Unicode {@code \b}/\B}).
    */
-  private static final int FLAG_LAST_UNICODE_WORD = 1 << 14;
+  private static final int FLAG_LAST_UNICODE_WORD = 1 << 18;
+
+  /** Previous scan character was CR forward or LF backward, for atomic CRLF assertions. */
+  private static final int FLAG_CRLF_CONTEXT = 1 << 19;
 
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
+
+  /** Initial quarantine window (in bytes/chars) when candidate density trips adaptive defeat. */
+  private static final int INITIAL_QUARANTINE_WINDOW = 2048;
+
+  /** Maximum quarantine window (in bytes/chars) under exponential backoff. */
+  private static final int MAX_QUARANTINE_WINDOW = 65536;
+
+  /** Number of candidate strikes tolerated before triggering a quarantine window. */
+  private static final int ADAPTIVE_STRIKE_LIMIT = 16;
+
+  /** Minimum candidate stride (in bytes/chars); candidates closer than this count as strikes. */
+  private static final int MIN_DENSITY_STRIDE = 64;
 
   // ---------------------------------------------------------------------------
   // State representation
@@ -171,12 +186,19 @@ final class Dfa {
   private final int startCacheEmptyFlagsMask;
   private final int anchoredCacheBit;
   private final int reverseCacheBit;
+  private final int crLfCacheBit;
+  private final boolean hasCrLfContext;
 
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
 
-  /** Total number of equivalence classes (intervals between boundaries + 1 for end-of-text). */
+  /**
+   * Total transition classes, including any Unicode word split and a separate end-of-text class.
+   */
   private final int numClasses;
+
+  /** Whether each interval is split by Unicode word-character membership. */
+  private final boolean splitUnicodeWordClasses;
 
   /**
    * Fast ASCII-to-class lookup table. For code points 0–127, {@code asciiClassMap[cp]} gives the
@@ -220,13 +242,13 @@ final class Dfa {
   private final int[] computeBuf;
 
   /**
-   * Cache of DFA start states indexed by position context. The start state depends on four factors:
-   * whether the search is anchored, whether it's a reverse context, the empty-width flags at the
-   * position, and whether the previous character was a word character. This gives at most 2 × 2 ×
-   * masked-empty-flag-count × 2 × 2 combinations. Caching avoids the expensive {@link #expand} call
-   * and its {@code Arrays.copyOf} allocation on every DFA search.
+   * Bounded direct-mapped start cache. Every hit checks the complete context key; collisions only
+   * evict an optimization and never merge semantic contexts. Its allocation is independent of the
+   * number or bit positions of assertion flags.
    */
-  private final State[] startStateByContext;
+  private final State[] startStateByContext = new State[256];
+
+  private final int[] startStateContextKeys = new int[256];
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -236,6 +258,8 @@ final class Dfa {
 
   private int[] transitions;
   private State[] offsetToState;
+  private boolean[] isAcceleratedStateOffset;
+  private boolean hasStateAccelerators;
   private int nextStateId;
 
   private final Utf8StartAccelerator utf8StartAccelerator;
@@ -253,7 +277,8 @@ final class Dfa {
    */
   // TODO(#98): Replace int[] with Guava ImmutableIntArray to get proper value semantics.
   @SuppressWarnings("ArrayRecordComponent")
-  record Setup(int[] boundaries, int numClasses, int[] asciiClassMap) {}
+  record Setup(
+      int[] boundaries, int numClasses, int[] asciiClassMap, boolean splitUnicodeWordClasses) {}
 
   /**
    * Builds a reusable {@link Setup} from a compiled program. The result is immutable and can be
@@ -261,9 +286,27 @@ final class Dfa {
    */
   static Setup buildSetup(Prog prog) {
     int[] boundaries = buildBoundaries(prog);
-    int numClasses = boundaries.length + 1 + 1; // intervals + end-of-text
+    boolean splitUnicodeWordClasses = false;
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.opCode == InstOp.OP_EMPTY_WIDTH
+          && (inst.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY))
+              != 0) {
+        splitUnicodeWordClasses = true;
+        break;
+      }
+    }
+    // Unicode word membership is a separate discriminator, avoiding a transition column for
+    // every Unicode word range. Each original interval needs at most two columns, and EOF
+    // retains its own column. Classification must agree with computeNext's word predicate.
+    int numClasses = (boundaries.length + 1) * (splitUnicodeWordClasses ? 2 : 1) + 1;
     int[] asciiClassMap = buildAsciiClassMap(boundaries);
-    return new Setup(boundaries, numClasses, asciiClassMap);
+    if (splitUnicodeWordClasses) {
+      for (int cp = 0; cp < asciiClassMap.length; cp++) {
+        asciiClassMap[cp] = asciiClassMap[cp] * 2 + (Nfa.isWordChar(cp) ? 1 : 0);
+      }
+    }
+    return new Setup(boundaries, numClasses, asciiClassMap, splitUnicodeWordClasses);
   }
 
   Dfa(Prog prog, int maxStates, Setup setup, boolean longest) {
@@ -284,6 +327,7 @@ final class Dfa {
     this.stringStartAccelerator = stringStartAccelerator;
     this.hasStartAcceleration = utf8StartAccelerator != null || stringStartAccelerator != null;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
+    this.hasCrLfContext = hasStandardLineBoundary(prog);
     this.hasPositionDependentTransitions = hasGraphemeSemantics || prog.hasTextAnchor();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
@@ -296,9 +340,10 @@ final class Dfa {
                 & ~(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
     this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
     this.anchoredCacheBit = reverseCacheBit << 1;
-    this.startStateByContext = new State[anchoredCacheBit << 1];
+    this.crLfCacheBit = hasCrLfContext ? anchoredCacheBit << 1 : 0;
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
+    this.splitUnicodeWordClasses = setup.splitUnicodeWordClasses;
     this.asciiClassMap = setup.asciiClassMap;
     Arrays.fill(this.cacheCps, -1);
     this.expandVisitedGen = new int[prog.size()];
@@ -309,6 +354,7 @@ final class Dfa {
     this.nextStateId = 1;
     this.transitions = new int[1024];
     this.offsetToState = new State[1024];
+    this.isAcceleratedStateOffset = new boolean[1024];
     addStateToFlatArrays(deadState);
   }
 
@@ -318,8 +364,13 @@ final class Dfa {
       int newLen = Math.max(transitions.length * 2, minTransLen);
       transitions = Arrays.copyOf(transitions, newLen);
       offsetToState = Arrays.copyOf(offsetToState, newLen);
+      isAcceleratedStateOffset = Arrays.copyOf(isAcceleratedStateOffset, newLen);
     }
     offsetToState[s.id * numClasses] = s;
+    isAcceleratedStateOffset[s.id * numClasses] = s.isStartState || s.accelerator != null;
+    if (s.accelerator != null) {
+      hasStateAccelerators = true;
+    }
   }
 
   private void setTransition(int fromId, int cls, int toId) {
@@ -341,13 +392,14 @@ final class Dfa {
   /**
    * Collects all code point range boundaries from the program's CHAR_RANGE instructions. The
    * boundaries define equivalence classes: code points within the same interval between consecutive
-   * boundaries are indistinguishable to the DFA.
+   * boundaries have identical consuming-instruction behavior. Unicode word-boundary programs
+   * additionally split these intervals by word membership in {@link #buildSetup}.
    *
    * <p>When the program contains word-boundary assertions ({@code \b} or {@code \B}), additional
    * boundaries are added at the edges of the word-character ranges ({@code [A-Za-z0-9_]}) so that
-   * no equivalence class straddles the word/non-word boundary. This is necessary because the DFA
-   * caches transitions per (state, class) and the word-boundary computation depends on whether the
-   * current character is a word character.
+   * no equivalence class straddles the ASCII word/non-word boundary. This is necessary because the
+   * DFA caches transitions per (state, class) and the word-boundary computation depends on whether
+   * the current character is a word character.
    */
   private static int[] buildBoundaries(Prog prog) {
     IntArrayList bounds = new IntArrayList();
@@ -376,7 +428,12 @@ final class Dfa {
         if ((inst.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY)) != 0) {
           hasWordBoundary = true;
         }
-        if ((inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
+        if ((inst.arg
+                & (EmptyOp.BEGIN_LINE
+                    | EmptyOp.END_LINE
+                    | EmptyOp.UNIX_BEGIN_LINE
+                    | EmptyOp.UNIX_END_LINE))
+            != 0) {
           hasLineBoundary = true;
         }
       }
@@ -407,6 +464,17 @@ final class Dfa {
       bounds.add(0x7B); // 'z' + 1
     }
     return bounds.toSortedUniqueArray();
+  }
+
+  private static boolean hasStandardLineBoundary(Prog prog) {
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.opCode == InstOp.OP_EMPTY_WIDTH
+          && (inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Adds boundaries for a [lo, hi] code point range. */
@@ -460,6 +528,9 @@ final class Dfa {
     }
     int idx = Arrays.binarySearch(boundaries, cp);
     int cls = (idx >= 0) ? idx : (-idx - 1) - 1;
+    if (splitUnicodeWordClasses) {
+      cls = cls * 2 + (Nfa.isUnicodeWordChar(cp) ? 1 : 0);
+    }
     cacheCps[cacheIdx] = cp;
     cacheClasses[cacheIdx] = cls;
     return cls;
@@ -833,7 +904,6 @@ final class Dfa {
         Nfa.emptyFlags(
             text,
             pos,
-            prog.unixLines(),
             hasGraphemeSemantics,
             graphemeContext,
             prog.hasWordBoundary(),
@@ -843,13 +913,14 @@ final class Dfa {
           flags
               & ~(EmptyOp.BEGIN_TEXT
                   | EmptyOp.END_TEXT
-                  | EmptyOp.DOLLAR_END
                   | EmptyOp.BEGIN_LINE
-                  | EmptyOp.END_LINE);
+                  | EmptyOp.END_LINE
+                  | EmptyOp.UNIX_BEGIN_LINE
+                  | EmptyOp.UNIX_END_LINE);
       if ((flags & EmptyOp.BEGIN_TEXT) != 0) {
         rev |= EmptyOp.END_TEXT;
       }
-      if ((flags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) {
+      if ((flags & EmptyOp.END_TEXT) != 0) {
         rev |= EmptyOp.BEGIN_TEXT;
       }
       if ((flags & EmptyOp.BEGIN_LINE) != 0) {
@@ -857,6 +928,12 @@ final class Dfa {
       }
       if ((flags & EmptyOp.END_LINE) != 0) {
         rev |= EmptyOp.BEGIN_LINE;
+      }
+      if ((flags & EmptyOp.UNIX_BEGIN_LINE) != 0) {
+        rev |= EmptyOp.UNIX_END_LINE;
+      }
+      if ((flags & EmptyOp.UNIX_END_LINE) != 0) {
+        rev |= EmptyOp.UNIX_BEGIN_LINE;
       }
       flags = rev;
     }
@@ -895,17 +972,25 @@ final class Dfa {
       }
     }
 
-    // Check the start state cache. The start state depends only on (anchored, reverseContext,
-    // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
-    // start state.
+    boolean crLfContext =
+        hasCrLfContext
+            && (prog.reversed()
+                ? pos < text.length() && text.asciiAt(pos) == '\n'
+                : pos > 0 && text.asciiAt(pos - 1) == '\r');
+
+    // Include the adjacent scan character: deferred line assertions distinguish CRLF from
+    // standalone CR/LF even when the frontier and all empty-width flags are identical.
     int cacheKey =
         (anchored ? anchoredCacheBit : 0)
             | (reverseContext ? reverseCacheBit : 0)
+            | (crLfContext ? crLfCacheBit : 0)
             | ((emptyFlags & startCacheEmptyFlagsMask) << 2)
             | (lastWord ? 2 : 0)
             | (lastUnicodeWord ? 1 : 0);
-    State cached = startStateByContext[cacheKey];
-    if (cached != null) {
+    // Mix high assertion/context bits into the index instead of indexing the full key space.
+    int cacheIndex = (cacheKey * 0x9E3779B9) >>> 24;
+    State cached = startStateByContext[cacheIndex];
+    if (cached != null && startStateContextKeys[cacheIndex] == cacheKey) {
       return cached;
     }
 
@@ -921,10 +1006,15 @@ final class Dfa {
     if (lastUnicodeWord) {
       flags |= FLAG_LAST_UNICODE_WORD;
     }
+    if (crLfContext) {
+      flags |= FLAG_CRLF_CONTEXT;
+    }
     State s = getOrCreate(insts, flags);
     if (s != null) {
       s.isStartState = true;
-      startStateByContext[cacheKey] = s;
+      isAcceleratedStateOffset[s.id * numClasses] = true;
+      startStateContextKeys[cacheIndex] = cacheKey;
+      startStateByContext[cacheIndex] = s;
     }
     return s;
   }
@@ -954,7 +1044,9 @@ final class Dfa {
     // consumed character. The only position-dependent transitions are therefore near text end:
     // END_TEXT/DOLLAR_END, plus the exception that a final line terminator must not create a
     // BEGIN_LINE assertion past the end of the input.
-    return trailingLineStart(text);
+    // Either scoped mode may occur in an instruction, even if the stripped anchor uses LF only.
+    int trailing = text.trailingLineTerminatorStart(false, text.length());
+    return trailing >= 0 ? trailing : text.length();
   }
 
   private int trailingLineStart(InputScanner text) {
@@ -962,7 +1054,7 @@ final class Dfa {
     if (len == 0) {
       return len;
     }
-    int trailing = text.trailingLineTerminatorStart(prog.unixLines(), len);
+    int trailing = text.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), len);
     return trailing >= 0 ? trailing : len;
   }
 
@@ -973,7 +1065,7 @@ final class Dfa {
     // In the default line-ending mode, BEGIN_LINE after a carriage return depends on whether the
     // following character is a line feed. A transition cached for CRLF therefore cannot be reused
     // for a standalone carriage return, or vice versa.
-    return position >= threshold || (!prog.unixLines() && cp == '\r');
+    return position >= threshold || cp == '\r';
   }
 
   /**
@@ -1057,22 +1149,22 @@ final class Dfa {
               ? EmptyOp.UNICODE_WORD_BOUNDARY
               : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     }
-    boolean endLineHere;
-    if (prog.unixLines()) {
-      endLineHere = (cp == '\n');
-    } else {
-      endLineHere = Nfa.isLineTerminator(cp);
-      // Don't fire END_LINE at the \n of an atomic \r\n pair. END_LINE fires before the \r
-      // (the start of the pair), not between \r and \n.
-      if (endLineHere && cp == '\n' && nextPos >= 2 && text.asciiAt(nextPos - 2) == '\r') {
-        endLineHere = false;
-      }
+    boolean endLineHere = Nfa.isLineTerminator(cp);
+    if ((s.flags & FLAG_CRLF_CONTEXT) != 0 && cp == (prog.reversed() ? '\r' : '\n')) {
+      endLineHere = false;
     }
 
+    // In reverse, END_LINE represents an original BEGIN_LINE assertion: after a CR is a
+    // line start only when the character to its right (already scanned) is not LF.
+    int nextCrLfFlags =
+        hasCrLfContext && cp == (prog.reversed() ? '\n' : '\r') ? FLAG_CRLF_CONTEXT : 0;
     int reExpandEmptyFlags =
         (s.flags & stateEmptyFlagsMask) | wordBeforeFlags | unicodeWordBeforeFlags;
     if (endLineHere) {
       reExpandEmptyFlags |= EmptyOp.END_LINE;
+    }
+    if (cp == '\n') {
+      reExpandEmptyFlags |= EmptyOp.UNIX_END_LINE;
     }
     int[] instsWithoutMatch = stripMatch(s.insts);
 
@@ -1164,6 +1256,7 @@ final class Dfa {
             EMPTY_INSTS,
             FLAG_MATCH
                 | FLAG_MATCH_BEFORE
+                | nextCrLfFlags
                 | (isWord ? FLAG_LAST_WORD : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
@@ -1181,7 +1274,8 @@ final class Dfa {
             | EmptyOp.NON_WORD_BOUNDARY
             | EmptyOp.UNICODE_WORD_BOUNDARY
             | EmptyOp.UNICODE_NON_WORD_BOUNDARY
-            | EmptyOp.END_LINE);
+            | EmptyOp.END_LINE
+            | EmptyOp.UNIX_END_LINE);
 
     int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
 
@@ -1191,6 +1285,7 @@ final class Dfa {
             EMPTY_INSTS,
             FLAG_MATCH
                 | FLAG_MATCH_BEFORE
+                | nextCrLfFlags
                 | (isWord ? FLAG_LAST_WORD : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
@@ -1198,7 +1293,7 @@ final class Dfa {
       return deadState;
     }
 
-    int flags = emptyFlags & stateEmptyFlagsMask;
+    int flags = (emptyFlags & stateEmptyFlagsMask) | nextCrLfFlags;
     if (hasMatchFromDeferred) {
       // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
       // character and reached a MATCH instruction.
@@ -1331,7 +1426,7 @@ final class Dfa {
     }
     if (text instanceof StringInputScanner stringScanner && stringStartAccelerator != null) {
       return StringStartAccelerator.findNextCandidate(
-          stringStartAccelerator, stringScanner.text(), pos, prog.unixLines());
+          stringStartAccelerator, stringScanner.text(), pos, prog.lineStartUnixLines());
     }
     return fastForwardStartState(text, pos, posDepThreshold, startState);
   }
@@ -1421,27 +1516,28 @@ final class Dfa {
     AcceleratorPolicy activePolicy = startAccelerationPolicy(text, s);
     boolean canAccelerate = activePolicy != null && !anchored;
     int minSkip = AcceleratorPolicy.DEFAULT.minProfitableSkip();
-    int maxStrikes = AcceleratorPolicy.DEFAULT.strikeBudget();
-    boolean isExact = false;
     if (canAccelerate) {
       minSkip = activePolicy.minProfitableSkip();
-      maxStrikes = activePolicy.strikeBudget();
-      isExact = activePolicy.isExactMatchCandidate();
     }
 
-    // Adaptive defeat detection: track consecutive sub-threshold skips to avoid repeatedly paying
-    // accelerator setup and candidate check overhead on dense matching inputs.
-    boolean accelerationDisabled = false;
-    int consecutiveShortSkips = 0;
+    // Adaptive defeat detection: track candidate progress density to avoid repeatedly paying
+    // accelerator setup and candidate check overhead on dense non-matching inputs.
+    // When candidates occur too frequently without sufficient progress, temporarily quarantine
+    // acceleration and fall back to the linear scalar DFA with exponential backoff.
+    int candidateStrikes = 0;
+    int lastCandidatePos = startPos;
+    int accelerationResumePos = startPos;
+    int quarantineWindow = INITIAL_QUARANTINE_WINDOW;
 
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
+    boolean[] isAcceleratedStateOffset = this.isAcceleratedStateOffset;
     int[] asciiClassMap = this.asciiClassMap;
     int pos = startPos;
     // Fast path: loop through ASCII characters (characters < 128)
     while (pos < textLen) {
       if (canAccelerate
-          && !accelerationDisabled
+          && pos >= accelerationResumePos
           && s.isStartState
           && (!startPositionPreselected || pos != startPos)
           && (textLen - pos >= minSkip)) {
@@ -1450,14 +1546,18 @@ final class Dfa {
           return new SearchResult(matched, matchEnd);
         }
         if (nextPos > pos) {
-          int skip = nextPos - pos;
-          if (!isExact) {
-            if (skip < minSkip) {
-              if (++consecutiveShortSkips >= maxStrikes) {
-                accelerationDisabled = true;
-              }
-            } else {
-              consecutiveShortSkips = 0;
+          int stride = nextPos - lastCandidatePos;
+          lastCandidatePos = nextPos;
+          if (stride < MIN_DENSITY_STRIDE) {
+            if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+              accelerationResumePos = nextPos + quarantineWindow;
+              quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
+              candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
+            }
+          } else if (stride >= 256 && candidateStrikes > 0) {
+            candidateStrikes = Math.max(0, candidateStrikes - (stride >>> 8));
+            if (candidateStrikes == 0) {
+              quarantineWindow = INITIAL_QUARANTINE_WINDOW;
             }
           }
           pos = nextPos;
@@ -1468,12 +1568,24 @@ final class Dfa {
           if (s == null) {
             return null;
           }
+          if (s.isMatch()) {
+            if (isRequiredEndMatch(pos, needEndMatch, textLen, trailingTermStart)) {
+              matched = true;
+              matchEnd = pos;
+              if (!longest && canStopAtFirstMatch(s, text, pos, needEndMatch)) {
+                return new SearchResult(true, pos);
+              }
+            }
+          }
           if (s == deadState) {
             return new SearchResult(matched, matchEnd);
           }
-        } else if (!isExact) {
-          if (++consecutiveShortSkips >= maxStrikes) {
-            accelerationDisabled = true;
+        } else {
+          lastCandidatePos = pos;
+          if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+            accelerationResumePos = pos + quarantineWindow;
+            quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
+            candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
           }
         }
       }
@@ -1490,40 +1602,82 @@ final class Dfa {
           }
         }
       }
+      boolean breakOnAcceleratedState =
+          (canAccelerate && pos >= accelerationResumePos) || hasStateAccelerators;
+      boolean hitAcceleratedState = false;
       int limit =
           hasPositionDependentTransitions ? Math.min(textLen, posDepThreshold - 1) : textLen;
       int sId = s.id * numClasses;
-      while (pos < limit) {
-        int ch = text.asciiAt(pos);
-        if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
-          break;
-        }
-        int cls = asciiClassMap[ch];
-        int nsId = transitions[sId + cls];
-        if (nsId == 0) {
-          break;
-        }
-        if (nsId < 0) {
-          nsId = -nsId;
-          State ns = offsetToState[nsId];
-          if (ns.isMatch() && !needEndMatch) {
-            boolean useBefore =
-                (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
-            int endPos = useBefore ? pos : pos + 1;
-            if (!longest && ns.isHighestPriorityMatch) {
-              return new SearchResult(true, endPos);
-            }
-            matched = true;
-            matchEnd = endPos;
+      if (breakOnAcceleratedState) {
+        while (pos < limit) {
+          int ch = text.asciiAt(pos);
+          if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
+            break;
           }
+          int cls = asciiClassMap[ch];
+          int nsId = transitions[sId + cls];
+          if (nsId == 0) {
+            break;
+          }
+          if (nsId < 0) {
+            nsId = -nsId;
+            State ns = offsetToState[nsId];
+            if (ns.isMatch() && !needEndMatch) {
+              boolean useBefore =
+                  (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+              int endPos = useBefore ? pos : pos + 1;
+              if (!longest && ns.isHighestPriorityMatch) {
+                return new SearchResult(true, endPos);
+              }
+              matched = true;
+              matchEnd = endPos;
+            }
+          }
+          if (nsId == sId && isAcceleratedStateOffset[sId]) {
+            sId = nsId;
+            pos++;
+            hitAcceleratedState = true;
+            break;
+          }
+          sId = nsId;
+          pos++;
         }
-        sId = nsId;
-        pos++;
+      } else {
+        while (pos < limit) {
+          int ch = text.asciiAt(pos);
+          if (ch < 0 || transitionDependsOnPosition(ch, pos + 1, posDepThreshold)) {
+            break;
+          }
+          int cls = asciiClassMap[ch];
+          int nsId = transitions[sId + cls];
+          if (nsId == 0) {
+            break;
+          }
+          if (nsId < 0) {
+            nsId = -nsId;
+            State ns = offsetToState[nsId];
+            if (ns.isMatch() && !needEndMatch) {
+              boolean useBefore =
+                  (ns.flags & (FLAG_MATCH_BEFORE | FLAG_MATCH_AFTER_DEFERRED)) == FLAG_MATCH_BEFORE;
+              int endPos = useBefore ? pos : pos + 1;
+              if (!longest && ns.isHighestPriorityMatch) {
+                return new SearchResult(true, endPos);
+              }
+              matched = true;
+              matchEnd = endPos;
+            }
+          }
+          sId = nsId;
+          pos++;
+        }
       }
       s = offsetToState[sId];
 
       if (pos >= textLen) {
         break;
+      }
+      if (hitAcceleratedState) {
+        continue;
       }
       if (hasPositionDependentTransitions && pos + 1 >= posDepThreshold) {
         break; // fall back to general loop for position-dependent flags
@@ -1544,6 +1698,7 @@ final class Dfa {
         addTransition(s, cls, ns);
         transitions = this.transitions;
         offsetToState = this.offsetToState;
+        isAcceleratedStateOffset = this.isAcceleratedStateOffset;
       }
       s = ns;
       if (s == deadState) {
@@ -1567,7 +1722,7 @@ final class Dfa {
     // General loop handles non-ASCII, position-dependent checks, and trailing end-of-text sentinel
     while (pos <= textLen) {
       if (canAccelerate
-          && !accelerationDisabled
+          && pos >= accelerationResumePos
           && s.isStartState
           && (!startPositionPreselected || pos != startPos)
           && (textLen - pos >= minSkip)) {
@@ -1576,14 +1731,18 @@ final class Dfa {
           return new SearchResult(matched, matchEnd);
         }
         if (nextPos > pos) {
-          int skip = nextPos - pos;
-          if (!isExact) {
-            if (skip < minSkip) {
-              if (++consecutiveShortSkips >= maxStrikes) {
-                accelerationDisabled = true;
-              }
-            } else {
-              consecutiveShortSkips = 0;
+          int stride = nextPos - lastCandidatePos;
+          lastCandidatePos = nextPos;
+          if (stride < MIN_DENSITY_STRIDE) {
+            if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+              accelerationResumePos = nextPos + quarantineWindow;
+              quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
+              candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
+            }
+          } else if (stride >= 256 && candidateStrikes > 0) {
+            candidateStrikes = Math.max(0, candidateStrikes - (stride >>> 8));
+            if (candidateStrikes == 0) {
+              quarantineWindow = INITIAL_QUARANTINE_WINDOW;
             }
           }
           pos = nextPos;
@@ -1594,12 +1753,24 @@ final class Dfa {
           if (s == null) {
             return null;
           }
+          if (s.isMatch()) {
+            if (isRequiredEndMatch(pos, needEndMatch, textLen, trailingTermStart)) {
+              matched = true;
+              matchEnd = pos;
+              if (!longest && canStopAtFirstMatch(s, text, pos, needEndMatch)) {
+                return new SearchResult(true, pos);
+              }
+            }
+          }
           if (s == deadState) {
             return new SearchResult(matched, matchEnd);
           }
-        } else if (!isExact) {
-          if (++consecutiveShortSkips >= maxStrikes) {
-            accelerationDisabled = true;
+        } else {
+          lastCandidatePos = pos;
+          if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+            accelerationResumePos = pos + quarantineWindow;
+            quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
+            candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
           }
         }
       }

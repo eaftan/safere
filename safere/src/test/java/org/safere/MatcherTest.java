@@ -465,6 +465,67 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("failed anchored attempts preserve the end of an earlier successful find")
+    void failedAnchoredAttemptsPreservePreviousFindEnd() {
+      // JDK 26 Matcher.find(): an intervening failed attempt does not reset the matcher.
+      for (boolean lookingAt : new boolean[] {false, true}) {
+        Matcher matcher = Pattern.compile("a").matcher("ba a");
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(1);
+        assertThat(lookingAt ? matcher.lookingAt() : matcher.matches()).isFalse();
+        assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isEqualTo(3);
+        assertThat(matcher.end()).isEqualTo(4);
+        assertThat(matcher.find()).isFalse();
+      }
+    }
+
+    @Test
+    @DisplayName("failed matches preserves find continuation after lookingAt")
+    void failedMatchesPreservesLookingAtEnd() {
+      Matcher matcher = Pattern.compile("a*").matcher("a!");
+      assertThat(matcher.lookingAt()).isTrue();
+      assertThat(matcher.matches()).isFalse();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(1);
+      assertThat(matcher.end()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("failed find cancels advancement past an empty start-anchored match")
+    void failedFindPreservesEmptyAnchoredMatchEnd() {
+      // Compatibility with JDK 26's continuation after failure; regression for issue #817.
+      Matcher matcher = Pattern.compile("^[ab]*").matcher("!a😀b!");
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.lookingAt()).isTrue();
+      for (int i = 0; i < 3; i++) {
+        assertThat(matcher.find()).isFalse();
+        assertThatThrownBy(matcher::group).isInstanceOf(IllegalStateException.class);
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isZero();
+        assertThat(matcher.end()).isZero();
+        assertThat(matcher.group()).isEmpty();
+      }
+    }
+
+    @Test
+    @DisplayName("failed anchored attempts cancel advancement past an earlier empty match")
+    void failedAnchoredAttemptsPreserveEmptyMatchEnd() {
+      Matcher matcher = Pattern.compile("a*").matcher("!a");
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+      assertThat(matcher.matches()).isFalse();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isZero();
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.start()).isEqualTo(1);
+      assertThat(matcher.end()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("find() at end of input returns false")
     void findAtEnd() {
       Pattern p = Pattern.compile("\\d+");
@@ -1541,6 +1602,17 @@ class MatcherTest {
       m.appendTail(sb);
 
       assertThat(sb).hasToString("\n");
+    }
+
+    @Test
+    void repeatedFindAfterReplaceAllRemainsExhausted() {
+      for (String regex : new String[] {"a", "[ab]+", "^([a-z]+)$"}) {
+        Matcher matcher = Pattern.compile(regex).matcher("aba\n");
+        matcher.replaceAll("X");
+        for (int i = 0; i < 3; i++) {
+          assertThat(matcher.find()).as("find after replaceAll for %s", regex).isFalse();
+        }
+      }
     }
 
     @Test

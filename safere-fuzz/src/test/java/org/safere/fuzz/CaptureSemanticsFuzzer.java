@@ -8,7 +8,7 @@ package org.safere.fuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 
-final class CaptureSemanticsFuzzer {
+public final class CaptureSemanticsFuzzer {
   private static final String[] ATOMS = {
     "()",
     "(a)",
@@ -39,6 +39,10 @@ final class CaptureSemanticsFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void quantifiedCaptures(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     boolean named = data.consumeBoolean();
     String regex = consumeRegex(data, named);
     String input = consumeCaptureInput(data);

@@ -9,12 +9,16 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 
-final class ParserStackSafetyFuzzer {
+public final class ParserStackSafetyFuzzer {
 
   private static final List<String> INPUTS = List.of("", "a", "b");
 
   @FuzzTest(maxDuration = "30s")
   void parserStackSafety(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     for (int depth : List.of(1, 8, 64, 512)) {
       FuzzSupport.assertFullMatchesJdk(nestedCharacterClass(depth), 0, INPUTS);
       FuzzSupport.assertFullMatchesJdk(nestedGroups(depth), 0, INPUTS);

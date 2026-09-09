@@ -9,7 +9,7 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 
-final class SplitFuzzer {
+public final class SplitFuzzer {
   private static final List<String> GRAPHEME_CRLF_DELIMITERS =
       List.of("\\r\\b{g}\\n", "(?:\\r)\\b{g}\\n", "\\r(?:\\b{g})\\n");
   private static final List<String> ADJACENT_CRLF_INPUTS =
@@ -20,6 +20,10 @@ final class SplitFuzzer {
 
   @FuzzTest(maxDuration = "30s")
   void split(FuzzedDataProvider data) {
+    fuzzerTestOneInput(data);
+  }
+
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
     String input = data.consumeString(2048);
