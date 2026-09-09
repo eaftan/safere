@@ -270,6 +270,18 @@ report.
   cutoff. Do not describe it as old, carried forward, or unchanged in the copy/paste comment unless
   that history is meaningful in the public discussion.
 
+Make unresolved findings after the two-batch repair limit impossible to miss when scanning the
+report. If any PR exhausts both semantic fix batches and still has an in-scope finding:
+
+- add a bold alert immediately below the PR summary table listing every affected PR number;
+- begin that PR's summary assessment with **OPEN REVIEW FINDINGS AFTER TWO FIX BATCHES**; and
+- add the same bold callout at the start of its detailed `Review Fix Loop` section, followed by a
+  concise statement of the remaining findings.
+
+Apply this treatment only when the two-batch limit was actually exhausted with unresolved in-scope
+findings. Do not use it for benchmark-evidence gaps, ordinary human-review focus, blocked reviews,
+or PRs returned to the author before two batches because the required change was already a redesign.
+
 The report may identify internally which sections were reviewed in this run and which reused valid
 evidence, but it must contain all information the human needs to decide and comment without opening
 an earlier scout report.
@@ -738,6 +750,8 @@ Recommendation:
 - ...
 
 ### Review Fix Loop
+
+**OPEN REVIEW FINDINGS AFTER TWO FIX BATCHES:** <remaining findings, only when applicable>
 
 Result: no P2+ findings | fixes committed locally | findings for author | blocked | false positive documented
 
