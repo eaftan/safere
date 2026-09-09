@@ -507,6 +507,14 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     return indexOfLinear(literal, failure, start);
   }
 
+  int indexOfWithin(byte[] literal, int[] failure, int start, int maxStart) {
+    if (literal.length == 0) {
+      return start <= maxStart ? start : -1;
+    }
+    int limit = Math.min(length, maxStart + literal.length);
+    return indexOfLinear(bytes, offset, limit, literal, failure, start);
+  }
+
   private int remaining(int start) {
     return length - start;
   }
@@ -568,6 +576,14 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
     }
     return indexOfLinearIgnoreCase(bytes, offset, length, prefix, failure, start);
+  }
+
+  int indexOfIgnoreCaseWithin(String prefix, int[] failure, int start, int maxStart) {
+    if (prefix.isEmpty()) {
+      return start <= maxStart ? start : -1;
+    }
+    int limit = Math.min(length, maxStart + prefix.length());
+    return indexOfLinearIgnoreCase(bytes, offset, limit, prefix, failure, start);
   }
 
   int indexOfPairIgnoreCase(

@@ -290,7 +290,7 @@ public final class MatchFuzzer {
     String driver = distinctAsciiLiteral(data.consumeInt(8, 16));
     String regex;
     String input;
-    switch (data.consumeInt(0, 7)) {
+    switch (data.consumeInt(0, 9)) {
       case 0 -> {
         regex = "111[0-9]+" + driver;
         input = "1".repeat(repeatedDigits) + "2" + driver;
@@ -323,9 +323,17 @@ public final class MatchFuzzer {
         regex = "TARGET[^;]*MID[^;]*" + driver;
         input = "TARGETMID" + driver + "MID;" + driver;
       }
-      default -> {
+      case 7 -> {
         regex = "TARGET[^;]*?MID[^:]*" + driver;
         input = "TARGETMID:MID" + driver;
+      }
+      case 8 -> {
+        regex = "TARGET[^;]*\\uDE00" + driver;
+        input = "TARGET" + (data.consumeBoolean() ? "😀" : "?") + driver;
+      }
+      default -> {
+        regex = "TARGET[^;]*?" + driver;
+        input = "TARGETx;".repeat(data.consumeInt(1, 32)) + driver;
       }
     }
 

@@ -842,6 +842,32 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
+  void guardedGapAnchorsStartOnlyAtCodePointBoundaries() {
+    String text = "xxAAA\ud83d\ude00BBBzz";
+
+    for (String regex : new String[] {"AAA[^;]*\\uDE00BBB", "AAA[^;]?\\uDE00BBB"}) {
+      assertThat(java.util.regex.Pattern.compile(regex).matcher(text).find()).isFalse();
+      assertThat(Pattern.compile(regex).matcher(text).find()).as(regex).isFalse();
+    }
+
+    String laterValidSuffix = "AAA\ud83d\ude00BBB\ude00BBB";
+    String regex = "AAA[^;]*\\uDE00BBB";
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(laterValidSuffix);
+    Matcher safeRe = Pattern.compile(regex).matcher(laterValidSuffix);
+    assertThat(jdk.find()).isTrue();
+    assertThat(safeRe.find()).isTrue();
+    assertThat(safeRe.group()).isEqualTo(jdk.group());
+
+    assertThat(Pattern.compile("AAA\\uD83D[^;]*").matcher("AAA\ud83d\ude00").find()).isFalse();
+    assertThat(Pattern.compile("AAA[^;]*BBB\\uD83D").matcher("AAABBB\ud83d\ude00").find())
+        .isFalse();
+
+    Utf8Matcher utf8 =
+        Pattern.compile(regex).matcher(Utf8Input.validated("AAA?BBB".getBytes(UTF_8)));
+    assertThat(utf8.find()).isFalse();
+  }
+
+  @Test
   void unixLinesDotMatchesCarriageReturnAndStopsAtNewline() {
     Pattern pattern = Pattern.compile("AAA.*BBB", Pattern.UNIX_LINES);
 

@@ -71,6 +71,58 @@ class SearchScalingRegressionTest {
         "UTF-8");
   }
 
+  @Test
+  void reluctantGuardedTrailingGapFindAllWorkIsLinear() {
+    Pattern pattern = Pattern.compile("AAA[^;]*?");
+
+    assertFindAllWorkIsLinear(
+        size -> {
+          Matcher matcher = pattern.matcher("AAA".repeat(size));
+          return matcher::find;
+        },
+        "String");
+    assertFindAllWorkIsLinear(
+        size -> {
+          Utf8Matcher matcher =
+              pattern.matcher(Utf8Input.trusted("AAA".repeat(size).getBytes(UTF_8)));
+          return matcher::find;
+        },
+        "UTF-8");
+  }
+
+  @Test
+  void reluctantGuardedAnchorSearchStopsAtDelimiter() {
+    Pattern pattern = Pattern.compile("AAA[^;]*?BBB");
+
+    assertGuardedGapRetryWorkIsLinear(
+        size -> pattern.matcher(("AAA" + "x".repeat(100) + ";").repeat(size) + "BBB")::find,
+        "String");
+    assertGuardedGapRetryWorkIsLinear(
+        size ->
+            pattern.matcher(
+                    Utf8Input.trusted(
+                        (("AAA" + "x".repeat(100) + ";").repeat(size) + "BBB").getBytes(UTF_8)))
+                ::find,
+        "UTF-8");
+  }
+
+  private static void assertFindAllWorkIsLinear(
+      IntFunction<FindIterator> matcher, String inputKind) {
+    long smallerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(200)));
+    long largerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(1_000)));
+
+    assertThat(smallerWork).as("%s reluctant-gap work must be observed", inputKind).isPositive();
+    assertThat(largerWork)
+        .as("%s reluctant-gap iteration should scale linearly", inputKind)
+        .isLessThan(smallerWork * 6);
+  }
+
+  private static void consumeMatches(FindIterator matcher) {
+    while (matcher.find()) {
+      // Consume every match so repeated find() work is included.
+    }
+  }
+
   private static void assertGuardedGapRetryWorkIsLinear(
       IntFunction<FindIterator> matcher, String inputKind) {
     long smallerWork =

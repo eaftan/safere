@@ -279,19 +279,25 @@ final class MultiAnchorExecutor {
             chainMatched = false;
             break;
           }
-          int maxScan;
-          if (gap.isExecutorGuardedGap() && gap.maxLength() == Integer.MAX_VALUE) {
+          boolean reluctantGuardedGap = gap.isExecutorGuardedGap() && !gap.isGreedy();
+          int maxHop;
+          if (reluctantGuardedGap) {
+            maxHop = gap.guardedSearchEnd(scanner, currentPos, textLen);
             int cachedGuardEnd = downstreamGuardEnds[i];
             if (cachedGuardEnd >= currentPos) {
-              maxScan = cachedGuardEnd;
+              maxHop = Math.min(maxHop, cachedGuardEnd);
+            }
+          } else if (gap.isExecutorGuardedGap() && gap.maxLength() == Integer.MAX_VALUE) {
+            int cachedGuardEnd = downstreamGuardEnds[i];
+            if (cachedGuardEnd >= currentPos) {
+              maxHop = cachedGuardEnd;
             } else {
-              maxScan = gap.scanClassEnd(scanner, currentPos, textLen);
-              downstreamGuardEnds[i] = maxScan;
+              maxHop = gap.scanClassEnd(scanner, currentPos, textLen);
+              downstreamGuardEnds[i] = maxHop;
             }
           } else {
-            maxScan = gap.scanClassEnd(scanner, currentPos, textLen);
+            maxHop = gap.scanClassEnd(scanner, currentPos, textLen);
           }
-          int maxHop = maxScan;
 
           int searchStart = Math.max(minHop, downstreamWatermarks[i]);
           if (searchStart > maxHop) {
@@ -313,7 +319,14 @@ final class MultiAnchorExecutor {
             downstreamWatermarks[i] = p;
           }
 
-          if (!gap.isExecutorGuardedGap() && !gap.matchesSlice(scanner, currentPos, p)) {
+          if (reluctantGuardedGap) {
+            int guard = gap.findFirstGuardByte(scanner, currentPos, p);
+            if (guard >= currentPos) {
+              downstreamGuardEnds[i] = guard;
+              chainMatched = false;
+              break;
+            }
+          } else if (!gap.isExecutorGuardedGap() && !gap.matchesSlice(scanner, currentPos, p)) {
             chainMatched = false;
             break;
           }
@@ -576,19 +589,25 @@ final class MultiAnchorExecutor {
             chainMatched = false;
             break;
           }
-          int maxScan;
-          if (gap.isExecutorGuardedGap() && gap.maxLength() == Integer.MAX_VALUE) {
+          boolean reluctantGuardedGap = gap.isExecutorGuardedGap() && !gap.isGreedy();
+          int maxHop;
+          if (reluctantGuardedGap) {
+            maxHop = gap.guardedSearchEnd(text, currentPos, textLen);
             int cachedGuardEnd = downstreamGuardEnds[i];
             if (cachedGuardEnd >= currentPos) {
-              maxScan = cachedGuardEnd;
+              maxHop = Math.min(maxHop, cachedGuardEnd);
+            }
+          } else if (gap.isExecutorGuardedGap() && gap.maxLength() == Integer.MAX_VALUE) {
+            int cachedGuardEnd = downstreamGuardEnds[i];
+            if (cachedGuardEnd >= currentPos) {
+              maxHop = cachedGuardEnd;
             } else {
-              maxScan = gap.scanClassEnd(text, currentPos, textLen);
-              downstreamGuardEnds[i] = maxScan;
+              maxHop = gap.scanClassEnd(text, currentPos, textLen);
+              downstreamGuardEnds[i] = maxHop;
             }
           } else {
-            maxScan = gap.scanClassEnd(text, currentPos, textLen);
+            maxHop = gap.scanClassEnd(text, currentPos, textLen);
           }
-          int maxHop = maxScan;
 
           int searchStart = Math.max(minHop, downstreamWatermarks[i]);
           if (searchStart > maxHop) {
@@ -610,7 +629,18 @@ final class MultiAnchorExecutor {
             downstreamWatermarks[i] = p;
           }
 
-          if (!gap.isExecutorGuardedGap() && !gap.matchesSlice(text, currentPos, p)) {
+          if (!gap.endsAtCodePointBoundary(text, p)) {
+            chainMatched = false;
+            break;
+          }
+          if (reluctantGuardedGap) {
+            int guard = gap.findFirstGuardByte(text, currentPos, p);
+            if (guard >= currentPos) {
+              downstreamGuardEnds[i] = guard;
+              chainMatched = false;
+              break;
+            }
+          } else if (!gap.isExecutorGuardedGap() && !gap.matchesSlice(text, currentPos, p)) {
             chainMatched = false;
             break;
           }

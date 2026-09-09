@@ -502,6 +502,9 @@ record MultiAnchorDescriptor(
     for (Segment segment : chain.segments()) {
       switch (segment.anchor()) {
         case Anchor.Single single -> {
+          if (hasUnpairedSurrogate(single.literal())) {
+            return false;
+          }
           if (single.foldCase() && !isAscii(single.literal())) {
             return false;
           }
@@ -519,6 +522,21 @@ record MultiAnchorDescriptor(
       }
     }
     return true;
+  }
+
+  private static boolean hasUnpairedSurrogate(String value) {
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (Character.isHighSurrogate(c)) {
+        if (i + 1 >= value.length() || !Character.isLowSurrogate(value.charAt(i + 1))) {
+          return true;
+        }
+        i++;
+      } else if (Character.isLowSurrogate(c)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean isAscii(String value) {
@@ -667,37 +685,43 @@ record MultiAnchorDescriptor(
       if (guardBytes == null || from >= to) {
         return -1;
       }
-      if (WorkCounterConfig.ENABLED) {
+      int len = guardBytes.length;
+      if (len == 1 && !WorkCounterConfig.ENABLED) {
+        return text.indexOf((char) guardBytes[0], from, to);
+      }
+      if (len == 2) {
+        char g0 = (char) guardBytes[0];
+        char g1 = (char) guardBytes[1];
         for (int i = from; i < to; i++) {
-          WorkCounter.record();
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
           char c = text.charAt(i);
-          for (byte guardByte : guardBytes) {
-            if (c == (char) guardByte) {
-              return i;
-            }
+          if (c == g0 || c == g1) {
+            return i;
           }
         }
         return -1;
       }
-      int len = guardBytes.length;
-      if (len == 1) {
-        return text.indexOf((char) guardBytes[0], from, to);
-      }
-      if (len == 2) {
-        int i0 = text.indexOf((char) guardBytes[0], from, to);
-        int bound = (i0 >= from) ? i0 : to;
-        int i1 = text.indexOf((char) guardBytes[1], from, bound);
-        return (i1 >= from) ? i1 : (i0 >= from ? i0 : -1);
-      }
       if (len == 3) {
-        int i0 = text.indexOf((char) guardBytes[0], from, to);
-        int bound = (i0 >= from) ? i0 : to;
-        int i1 = text.indexOf((char) guardBytes[1], from, bound);
-        bound = (i1 >= from) ? i1 : bound;
-        int i2 = text.indexOf((char) guardBytes[2], from, bound);
-        return (i2 >= from) ? i2 : (bound < to ? bound : -1);
+        char g0 = (char) guardBytes[0];
+        char g1 = (char) guardBytes[1];
+        char g2 = (char) guardBytes[2];
+        for (int i = from; i < to; i++) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          char c = text.charAt(i);
+          if (c == g0 || c == g1 || c == g2) {
+            return i;
+          }
+        }
+        return -1;
       }
       for (int i = from; i < to; i++) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         char c = text.charAt(i);
         for (byte b : guardBytes) {
           if (c == (char) b) {
@@ -813,6 +837,21 @@ record MultiAnchorDescriptor(
         cur += width;
       }
       return cur;
+    }
+
+    int guardedSearchEnd(String text, int fromPos, int maxPos) {
+      return boundedCodePointEnd(text, fromPos, maxPos);
+    }
+
+    int guardedSearchEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
+      return boundedCodePointEnd(scanner, fromPos, maxPos);
+    }
+
+    boolean endsAtCodePointBoundary(String text, int position) {
+      return position <= 0
+          || position >= text.length()
+          || !Character.isLowSurrogate(text.charAt(position))
+          || !Character.isHighSurrogate(text.charAt(position - 1));
     }
 
     private int boundedCodePointEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
@@ -1481,19 +1520,26 @@ record MultiAnchorDescriptor(
         case LINE_END -> isLineEnd(text, fromPos) ? fromPos : -1;
         case BOUNDED_CLASS_REPEAT -> {
           if (guardBytes != null && isPureComplement) {
+            if (!isGreedy) {
+              int cur = fromPos;
+              for (int count = 0; count < minLength; count++) {
+                if (cur >= maxPos) {
+                  yield -1;
+                }
+                int cp = text.codePointAt(cur);
+                if (scanInfo != null && !scanInfo.contains(cp)) {
+                  yield -1;
+                }
+                cur += Character.charCount(cp);
+              }
+              yield cur <= maxPos ? cur : -1;
+            }
             int limit = boundedCodePointEnd(text, fromPos, maxPos);
             int g = findFirstGuardByte(text, fromPos, limit);
             int end = (g >= fromPos && g < limit) ? g : limit;
             int count = Character.codePointCount(text, fromPos, end);
             if (count < minLength) {
               yield -1;
-            }
-            if (!isGreedy) {
-              int cur = fromPos;
-              for (int c = 0; c < minLength; c++) {
-                cur += Character.charCount(text.codePointAt(cur));
-              }
-              yield cur;
             }
             yield end;
           }
@@ -1541,6 +1587,21 @@ record MultiAnchorDescriptor(
         case LINE_END -> isLineEnd(scanner, fromPos) ? fromPos : -1;
         case BOUNDED_CLASS_REPEAT -> {
           if (guardBytes != null && isPureComplement) {
+            if (!isGreedy) {
+              int cur = fromPos;
+              for (int count = 0; count < minLength; count++) {
+                if (cur >= maxPos) {
+                  yield -1;
+                }
+                long decoded = scanner.decodeForward(cur);
+                int cp = InputScanner.codePoint(decoded);
+                if (scanInfo != null && !scanInfo.contains(cp)) {
+                  yield -1;
+                }
+                cur = InputScanner.position(decoded);
+              }
+              yield cur <= maxPos ? cur : -1;
+            }
             int limit = boundedCodePointEnd(scanner, fromPos, maxPos);
             int g = findFirstGuardByte(scanner, fromPos, limit);
             int end = (g >= fromPos && g < limit) ? g : limit;
@@ -1860,11 +1921,19 @@ record MultiAnchorDescriptor(
 
       @Override
       public int findNext(String text, int fromIndex) {
-        if (foldCase) {
-          return Matcher.indexOfIgnoreCase(
-              text, literal, anchorOffset, anchorLowChar, anchorHighChar, fromIndex);
+        int position = fromIndex;
+        while (position <= text.length() - literal.length()) {
+          int candidate =
+              foldCase
+                  ? Matcher.indexOfIgnoreCase(
+                      text, literal, anchorOffset, anchorLowChar, anchorHighChar, position)
+                  : text.indexOf(literal, position);
+          if (candidate < 0 || hasCodePointBoundaries(text, candidate)) {
+            return candidate;
+          }
+          position = candidate + 1;
         }
-        return text.indexOf(literal, fromIndex);
+        return -1;
       }
 
       @Override
@@ -1877,6 +1946,38 @@ record MultiAnchorDescriptor(
       }
 
       @Override
+      public int findNextWithin(String text, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex || fromIndex + literal.length() > text.length()) {
+          return -1;
+        }
+        int maxStart = Math.min(toIndex, text.length() - literal.length());
+        if (fromIndex > maxStart) {
+          return -1;
+        }
+        if (!foldCase) {
+          int endBound = Math.min(text.length(), maxStart + literal.length());
+          int position = fromIndex;
+          while (position <= maxStart) {
+            int candidate = text.indexOf(literal, position, endBound);
+            if (candidate < 0 || hasCodePointBoundaries(text, candidate)) {
+              return candidate;
+            }
+            position = candidate + 1;
+          }
+          return -1;
+        }
+        for (int i = fromIndex; i <= maxStart; i++) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          if (startsWith(text, i)) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      @Override
       public int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
         if (fromIndex > toIndex || fromIndex + literalUtf8.length > scanner.length()) {
           return -1;
@@ -1885,16 +1986,9 @@ record MultiAnchorDescriptor(
         if (fromIndex > maxStart) {
           return -1;
         }
-        if (maxStart - fromIndex <= 64) {
-          for (int i = fromIndex; i <= maxStart; i++) {
-            if (startsWith(scanner, i)) {
-              return i;
-            }
-          }
-          return -1;
-        }
-        int idx = findNext(scanner, fromIndex);
-        return idx >= 0 && idx <= maxStart ? idx : -1;
+        return foldCase
+            ? scanner.indexOfIgnoreCaseWithin(literal, failure, fromIndex, maxStart)
+            : scanner.indexOfWithin(literalUtf8, failure, fromIndex, maxStart);
       }
 
       @Override
@@ -1925,13 +2019,13 @@ record MultiAnchorDescriptor(
           }
           return -1;
         }
-        int last = first;
-        while (true) {
-          int next = text.indexOf(literal, last + 1, endBound);
-          if (next < 0) {
-            break;
+        int last = -1;
+        for (int candidate = first;
+            candidate >= 0;
+            candidate = text.indexOf(literal, candidate + 1, endBound)) {
+          if (hasCodePointBoundaries(text, candidate)) {
+            last = candidate;
           }
-          last = next;
         }
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record(Math.max(1, maxStart - last + 1));
@@ -1976,9 +2070,21 @@ record MultiAnchorDescriptor(
         if (pos < 0 || pos + literal.length() > text.length()) {
           return false;
         }
-        return foldCase
-            ? Ascii.regionMatchesIgnoreCase(text, pos, literal, literal.length())
-            : text.startsWith(literal, pos);
+        return hasCodePointBoundaries(text, pos)
+            && (foldCase
+                ? Ascii.regionMatchesIgnoreCase(text, pos, literal, literal.length())
+                : text.startsWith(literal, pos));
+      }
+
+      private boolean hasCodePointBoundaries(String text, int pos) {
+        return isCodePointBoundary(text, pos) && isCodePointBoundary(text, pos + literal.length());
+      }
+
+      private static boolean isCodePointBoundary(String text, int pos) {
+        return pos <= 0
+            || pos >= text.length()
+            || !Character.isLowSurrogate(text.charAt(pos))
+            || !Character.isHighSurrogate(text.charAt(pos - 1));
       }
 
       @Override
@@ -2345,6 +2451,20 @@ record MultiAnchorDescriptor(
       }
 
       @Override
+      public int findNextWithin(String text, int fromIndex, int toIndex) {
+        int limit = Math.min(text.length(), toIndex + 1);
+        for (int i = Math.max(0, fromIndex); i < limit; ) {
+          int cp = text.codePointAt(i);
+          if ((scanInfo != null && scanInfo.contains(cp))
+              || (scanInfo == null && cp < 128 && bitmap != null && bitmap.containsAscii(cp))) {
+            return i;
+          }
+          i += Character.charCount(cp);
+        }
+        return -1;
+      }
+
+      @Override
       public int findNext(Utf8InputScanner scanner, int fromIndex) {
         if (scanInfo != null) {
           return scanner.indexOfCodePointClass(
@@ -2356,6 +2476,26 @@ record MultiAnchorDescriptor(
         }
         int len = scanner.length();
         for (int i = Math.max(0, fromIndex); i < len; i++) {
+          int c = scanner.asciiAt(i);
+          if (c >= 0 && bitmap != null && bitmap.containsAscii(c)) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      @Override
+      public int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        if (scanInfo != null) {
+          return scanner.indexOfCodePointClass(
+              scanInfo.ranges(),
+              scanInfo.bitmap0(),
+              scanInfo.bitmap1(),
+              fromIndex,
+              Math.min(scanner.length(), toIndex + 1));
+        }
+        int limit = Math.min(scanner.length(), toIndex + 1);
+        for (int i = Math.max(0, fromIndex); i < limit; i++) {
           int c = scanner.asciiAt(i);
           if (c >= 0 && bitmap != null && bitmap.containsAscii(c)) {
             return i;
