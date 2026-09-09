@@ -1306,10 +1306,11 @@ public final class Matcher implements MatchResult {
       applyFailedMatchResult();
       return false;
     }
+    int continuationAfterFailure = hasMatch ? previousMatchEnd : searchFrom;
     if (hasMatch && !advanceSearchPositionAfterPreviousMatch()) {
       return false;
     }
-    return doFind();
+    return findWithContinuation(continuationAfterFailure);
   }
 
   private boolean advanceSearchPositionAfterPreviousMatch() {
@@ -1410,7 +1411,7 @@ public final class Matcher implements MatchResult {
     modCount++;
     reset();
     searchFrom = start;
-    return doFind();
+    return findWithContinuation(previousMatchEnd);
   }
 
   /**
@@ -1440,6 +1441,18 @@ public final class Matcher implements MatchResult {
           }
         };
     return StreamSupport.stream(spliterator, false);
+  }
+
+  /** Restores the next search position when an engine search fails. */
+  private boolean findWithContinuation(int continuationAfterFailure) {
+    boolean matched = doFind();
+    if (!matched) {
+      // Advancement past an empty match belongs only to the immediately following attempt.
+      // After failure, restore the continuation before that advancement or explicit find(int)
+      // start. Keep positions established by bulk operations such as replaceAll intact.
+      searchFrom = continuationAfterFailure;
+    }
+    return matched;
   }
 
   /** Runs the engine search from {@link #searchFrom} and stores the result. */
@@ -1545,7 +1558,8 @@ public final class Matcher implements MatchResult {
     if (!prog.dollarAnchorEnd()) {
       return false;
     }
-    int dollarEndPos = activeScanner().trailingLineTerminatorStart(prog.unixLines(), textLength);
+    int dollarEndPos =
+        activeScanner().trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), textLength);
     return dollarEndPos >= regionStart && dollarEndPos <= regionEnd;
   }
 
@@ -1766,7 +1780,7 @@ public final class Matcher implements MatchResult {
           }
           int idx =
               StringStartAccelerator.findNextCandidate(
-                  accelerator, text, searchFrom, prog.unixLines());
+                  accelerator, text, searchFrom, prog.lineStartUnixLines());
           if (idx < 0) {
             if (strategy != null) {
               diagnosticBoundary(strategy);
@@ -1848,42 +1862,18 @@ public final class Matcher implements MatchResult {
         // start may correspond to a match ending before the trailing terminator rather than
         // at textLen.
         if (!budgetExceeded && prog.dollarAnchorEnd()) {
-          boolean ul = prog.unixLines();
-          if (textLen > 0
-              && (ul
-                  ? scanner.codePointBefore(textLen) == '\n'
-                  : Nfa.isLineTerminator(scanner.codePointBefore(textLen)))) {
-            // For \r\n, the trailing terminator starts at textLen-2 (before \r), not
-            // textLen-1 (between \r and \n). Skip the textLen-1 check for \r\n.
-            boolean isAtomicCrLf =
-                !ul
-                    && textLen >= 2
-                    && scanner.asciiAt(textLen - 2) == '\r'
-                    && scanner.asciiAt(textLen - 1) == '\n';
-            if (!isAtomicCrLf) {
-              Dfa.SearchResult altRev =
-                  searchReverseDfa(revDfa, scanner, textLen - 1, effectiveStart, true, true);
-              if (altRev == null) {
-                budgetExceeded = true;
-              } else if (altRev.matched()
-                  && altRev.pos() >= effectiveStart
-                  && (matchStart < 0 || altRev.pos() < matchStart)) {
-                matchStart = altRev.pos();
-                matchStartAmbiguous = altRev.ambiguous();
-              }
-            }
-            // For \r\n, try position before \r.
-            if (!budgetExceeded && isAtomicCrLf) {
-              Dfa.SearchResult altRev2 =
-                  searchReverseDfa(revDfa, scanner, textLen - 2, effectiveStart, true, true);
-              if (altRev2 == null) {
-                budgetExceeded = true;
-              } else if (altRev2.matched()
-                  && altRev2.pos() >= effectiveStart
-                  && (matchStart < 0 || altRev2.pos() < matchStart)) {
-                matchStart = altRev2.pos();
-                matchStartAmbiguous = altRev2.ambiguous();
-              }
+          int trailingStart =
+              scanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), textLen);
+          if (trailingStart >= effectiveStart) {
+            Dfa.SearchResult altRev =
+                searchReverseDfa(revDfa, scanner, trailingStart, effectiveStart, true, true);
+            if (altRev == null) {
+              budgetExceeded = true;
+            } else if (altRev.matched()
+                && altRev.pos() >= effectiveStart
+                && (matchStart < 0 || altRev.pos() < matchStart)) {
+              matchStart = altRev.pos();
+              matchStartAmbiguous = altRev.ambiguous();
             }
           }
         }
@@ -2031,40 +2021,16 @@ public final class Matcher implements MatchResult {
               // matches ending AT textLen, potentially missing an earlier-starting match that
               // ends before the trailing line terminator. Check all dollar positions.
               if (prog.dollarAnchorEnd() && earlyEnd == scanner.length()) {
-                int len = scanner.length();
-                boolean ul = prog.unixLines();
-                // Try position before trailing line terminator.
-                if (len > 0
-                    && (ul
-                        ? scanner.codePointBefore(len) == '\n'
-                        : Nfa.isLineTerminator(scanner.codePointBefore(len)))) {
-                  // For \r\n, the trailing terminator starts at len-2 (before \r), not
-                  // len-1 (between \r and \n). Skip the earlyEnd-1 check for \r\n.
-                  boolean isAtomicCrLf =
-                      !ul
-                          && len >= 2
-                          && scanner.asciiAt(len - 2) == '\r'
-                          && scanner.asciiAt(len - 1) == '\n';
-                  if (!isAtomicCrLf) {
-                    Dfa.SearchResult altRevResult =
-                        searchReverseDfa(revDfa, scanner, earlyEnd - 1, effectiveStart, true, true);
-                    if (altRevResult != null
-                        && altRevResult.matched()
-                        && altRevResult.pos() < matchStart) {
-                      matchStart = altRevResult.pos();
-                      reliableStart = !altRevResult.ambiguous();
-                    }
-                  }
-                  // For \r\n, try position before \r.
-                  if (isAtomicCrLf && earlyEnd - 2 >= effectiveStart) {
-                    Dfa.SearchResult altRevResult2 =
-                        searchReverseDfa(revDfa, scanner, earlyEnd - 2, effectiveStart, true, true);
-                    if (altRevResult2 != null
-                        && altRevResult2.matched()
-                        && altRevResult2.pos() < matchStart) {
-                      matchStart = altRevResult2.pos();
-                      reliableStart = !altRevResult2.ambiguous();
-                    }
+                int trailingStart =
+                    scanner.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), earlyEnd);
+                if (trailingStart >= effectiveStart) {
+                  Dfa.SearchResult altRevResult =
+                      searchReverseDfa(revDfa, scanner, trailingStart, effectiveStart, true, true);
+                  if (altRevResult != null
+                      && altRevResult.matched()
+                      && altRevResult.pos() < matchStart) {
+                    matchStart = altRevResult.pos();
+                    reliableStart = !altRevResult.ambiguous();
                   }
                 }
               }
@@ -4644,7 +4610,7 @@ public final class Matcher implements MatchResult {
       if (accelerator != null) {
         int idx =
             StringStartAccelerator.findNextCandidate(
-                accelerator, text, fromIndex, prog.unixLines());
+                accelerator, text, fromIndex, prog.lineStartUnixLines());
         if (idx < 0) {
           return -1L;
         }

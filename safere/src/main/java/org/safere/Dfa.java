@@ -46,17 +46,17 @@ final class Dfa {
   record ManyMatchResult(boolean matched, int[] matchIds) {}
 
   /** Flag bit: this state contains a MATCH instruction. */
-  private static final int FLAG_MATCH = 1 << 10;
+  private static final int FLAG_MATCH = 1 << 14;
 
   /** Flag bit: last consumed character was a word character (for {@code \b}/\B}). */
-  private static final int FLAG_LAST_WORD = 1 << 11;
+  private static final int FLAG_LAST_WORD = 1 << 15;
 
   /**
    * Flag bit: match was triggered by a word-boundary assertion BEFORE consuming the transition
    * character. The match position should be recorded at the current position, not after the
    * character.
    */
-  private static final int FLAG_MATCH_BEFORE = 1 << 12;
+  private static final int FLAG_MATCH_BEFORE = 1 << 16;
 
   /**
    * Flag bit: when {@link #FLAG_MATCH_BEFORE} is set, indicates that an after-consume match ALSO
@@ -64,12 +64,15 @@ final class Dfa {
    * before-consume match first (earlier position) and fall back to the after-consume match if the
    * before-consume match is rejected (e.g., by {@code needEndMatch} requiring end-of-text).
    */
-  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 13;
+  private static final int FLAG_MATCH_AFTER_DEFERRED = 1 << 17;
 
   /**
    * Flag bit: last consumed character was a Unicode word character (for Unicode {@code \b}/\B}).
    */
-  private static final int FLAG_LAST_UNICODE_WORD = 1 << 14;
+  private static final int FLAG_LAST_UNICODE_WORD = 1 << 18;
+
+  /** Previous scan character was CR forward or LF backward, for atomic CRLF assertions. */
+  private static final int FLAG_CRLF_CONTEXT = 1 << 19;
 
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
@@ -171,6 +174,8 @@ final class Dfa {
   private final int startCacheEmptyFlagsMask;
   private final int anchoredCacheBit;
   private final int reverseCacheBit;
+  private final int crLfCacheBit;
+  private final boolean hasCrLfContext;
 
   /** Sorted code point boundaries defining equivalence classes. */
   private final int[] boundaries;
@@ -225,13 +230,13 @@ final class Dfa {
   private final int[] computeBuf;
 
   /**
-   * Cache of DFA start states indexed by position context. The start state depends on four factors:
-   * whether the search is anchored, whether it's a reverse context, the empty-width flags at the
-   * position, and whether the previous character was a word character. This gives at most 2 × 2 ×
-   * masked-empty-flag-count × 2 × 2 combinations. Caching avoids the expensive {@link #expand} call
-   * and its {@code Arrays.copyOf} allocation on every DFA search.
+   * Bounded direct-mapped start cache. Every hit checks the complete context key; collisions only
+   * evict an optimization and never merge semantic contexts. Its allocation is independent of the
+   * number or bit positions of assertion flags.
    */
-  private final State[] startStateByContext;
+  private final State[] startStateByContext = new State[256];
+
+  private final int[] startStateContextKeys = new int[256];
 
   /** Shared empty instruction array to avoid repeated zero-length allocations. */
   private static final int[] EMPTY_INSTS = new int[0];
@@ -308,6 +313,7 @@ final class Dfa {
     this.stringStartAccelerator = stringStartAccelerator;
     this.hasStartAcceleration = utf8StartAccelerator != null || stringStartAccelerator != null;
     this.hasGraphemeSemantics = prog.hasGraphemeSemantics();
+    this.hasCrLfContext = hasStandardLineBoundary(prog);
     this.hasPositionDependentTransitions = hasGraphemeSemantics || prog.hasTextAnchor();
     this.stateEmptyFlagsMask =
         hasGraphemeSemantics
@@ -320,7 +326,7 @@ final class Dfa {
                 & ~(EmptyOp.GRAPHEME_CLUSTER_BOUNDARY | EmptyOp.EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY);
     this.reverseCacheBit = (startCacheEmptyFlagsMask + 1) << 2;
     this.anchoredCacheBit = reverseCacheBit << 1;
-    this.startStateByContext = new State[anchoredCacheBit << 1];
+    this.crLfCacheBit = hasCrLfContext ? anchoredCacheBit << 1 : 0;
     this.boundaries = setup.boundaries;
     this.numClasses = setup.numClasses;
     this.splitUnicodeWordClasses = setup.splitUnicodeWordClasses;
@@ -402,7 +408,12 @@ final class Dfa {
         if ((inst.arg & (EmptyOp.UNICODE_WORD_BOUNDARY | EmptyOp.UNICODE_NON_WORD_BOUNDARY)) != 0) {
           hasWordBoundary = true;
         }
-        if ((inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
+        if ((inst.arg
+                & (EmptyOp.BEGIN_LINE
+                    | EmptyOp.END_LINE
+                    | EmptyOp.UNIX_BEGIN_LINE
+                    | EmptyOp.UNIX_END_LINE))
+            != 0) {
           hasLineBoundary = true;
         }
       }
@@ -433,6 +444,17 @@ final class Dfa {
       bounds.add(0x7B); // 'z' + 1
     }
     return bounds.toSortedUniqueArray();
+  }
+
+  private static boolean hasStandardLineBoundary(Prog prog) {
+    for (int i = 0; i < prog.size(); i++) {
+      Inst inst = prog.inst(i);
+      if (inst.opCode == InstOp.OP_EMPTY_WIDTH
+          && (inst.arg & (EmptyOp.BEGIN_LINE | EmptyOp.END_LINE)) != 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Adds boundaries for a [lo, hi] code point range. */
@@ -862,7 +884,6 @@ final class Dfa {
         Nfa.emptyFlags(
             text,
             pos,
-            prog.unixLines(),
             hasGraphemeSemantics,
             graphemeContext,
             prog.hasWordBoundary(),
@@ -872,13 +893,14 @@ final class Dfa {
           flags
               & ~(EmptyOp.BEGIN_TEXT
                   | EmptyOp.END_TEXT
-                  | EmptyOp.DOLLAR_END
                   | EmptyOp.BEGIN_LINE
-                  | EmptyOp.END_LINE);
+                  | EmptyOp.END_LINE
+                  | EmptyOp.UNIX_BEGIN_LINE
+                  | EmptyOp.UNIX_END_LINE);
       if ((flags & EmptyOp.BEGIN_TEXT) != 0) {
         rev |= EmptyOp.END_TEXT;
       }
-      if ((flags & (EmptyOp.END_TEXT | EmptyOp.DOLLAR_END)) != 0) {
+      if ((flags & EmptyOp.END_TEXT) != 0) {
         rev |= EmptyOp.BEGIN_TEXT;
       }
       if ((flags & EmptyOp.BEGIN_LINE) != 0) {
@@ -886,6 +908,12 @@ final class Dfa {
       }
       if ((flags & EmptyOp.END_LINE) != 0) {
         rev |= EmptyOp.BEGIN_LINE;
+      }
+      if ((flags & EmptyOp.UNIX_BEGIN_LINE) != 0) {
+        rev |= EmptyOp.UNIX_END_LINE;
+      }
+      if ((flags & EmptyOp.UNIX_END_LINE) != 0) {
+        rev |= EmptyOp.UNIX_BEGIN_LINE;
       }
       flags = rev;
     }
@@ -924,17 +952,25 @@ final class Dfa {
       }
     }
 
-    // Check the start state cache. The start state depends only on (anchored, reverseContext,
-    // emptyFlags, lastWord, lastUnicodeWord), so positions with identical context share the same
-    // start state.
+    boolean crLfContext =
+        hasCrLfContext
+            && (prog.reversed()
+                ? pos < text.length() && text.asciiAt(pos) == '\n'
+                : pos > 0 && text.asciiAt(pos - 1) == '\r');
+
+    // Include the adjacent scan character: deferred line assertions distinguish CRLF from
+    // standalone CR/LF even when the frontier and all empty-width flags are identical.
     int cacheKey =
         (anchored ? anchoredCacheBit : 0)
             | (reverseContext ? reverseCacheBit : 0)
+            | (crLfContext ? crLfCacheBit : 0)
             | ((emptyFlags & startCacheEmptyFlagsMask) << 2)
             | (lastWord ? 2 : 0)
             | (lastUnicodeWord ? 1 : 0);
-    State cached = startStateByContext[cacheKey];
-    if (cached != null) {
+    // Mix high assertion/context bits into the index instead of indexing the full key space.
+    int cacheIndex = (cacheKey * 0x9E3779B9) >>> 24;
+    State cached = startStateByContext[cacheIndex];
+    if (cached != null && startStateContextKeys[cacheIndex] == cacheKey) {
       return cached;
     }
 
@@ -950,10 +986,14 @@ final class Dfa {
     if (lastUnicodeWord) {
       flags |= FLAG_LAST_UNICODE_WORD;
     }
+    if (crLfContext) {
+      flags |= FLAG_CRLF_CONTEXT;
+    }
     State s = getOrCreate(insts, flags);
     if (s != null) {
       s.isStartState = true;
-      startStateByContext[cacheKey] = s;
+      startStateContextKeys[cacheIndex] = cacheKey;
+      startStateByContext[cacheIndex] = s;
     }
     return s;
   }
@@ -983,7 +1023,9 @@ final class Dfa {
     // consumed character. The only position-dependent transitions are therefore near text end:
     // END_TEXT/DOLLAR_END, plus the exception that a final line terminator must not create a
     // BEGIN_LINE assertion past the end of the input.
-    return trailingLineStart(text);
+    // Either scoped mode may occur in an instruction, even if the stripped anchor uses LF only.
+    int trailing = text.trailingLineTerminatorStart(false, text.length());
+    return trailing >= 0 ? trailing : text.length();
   }
 
   private int trailingLineStart(InputScanner text) {
@@ -991,7 +1033,7 @@ final class Dfa {
     if (len == 0) {
       return len;
     }
-    int trailing = text.trailingLineTerminatorStart(prog.unixLines(), len);
+    int trailing = text.trailingLineTerminatorStart(prog.dollarAnchorUnixLines(), len);
     return trailing >= 0 ? trailing : len;
   }
 
@@ -1002,7 +1044,7 @@ final class Dfa {
     // In the default line-ending mode, BEGIN_LINE after a carriage return depends on whether the
     // following character is a line feed. A transition cached for CRLF therefore cannot be reused
     // for a standalone carriage return, or vice versa.
-    return position >= threshold || (!prog.unixLines() && cp == '\r');
+    return position >= threshold || cp == '\r';
   }
 
   /**
@@ -1086,22 +1128,22 @@ final class Dfa {
               ? EmptyOp.UNICODE_WORD_BOUNDARY
               : EmptyOp.UNICODE_NON_WORD_BOUNDARY;
     }
-    boolean endLineHere;
-    if (prog.unixLines()) {
-      endLineHere = (cp == '\n');
-    } else {
-      endLineHere = Nfa.isLineTerminator(cp);
-      // Don't fire END_LINE at the \n of an atomic \r\n pair. END_LINE fires before the \r
-      // (the start of the pair), not between \r and \n.
-      if (endLineHere && cp == '\n' && nextPos >= 2 && text.asciiAt(nextPos - 2) == '\r') {
-        endLineHere = false;
-      }
+    boolean endLineHere = Nfa.isLineTerminator(cp);
+    if ((s.flags & FLAG_CRLF_CONTEXT) != 0 && cp == (prog.reversed() ? '\r' : '\n')) {
+      endLineHere = false;
     }
 
+    // In reverse, END_LINE represents an original BEGIN_LINE assertion: after a CR is a
+    // line start only when the character to its right (already scanned) is not LF.
+    int nextCrLfFlags =
+        hasCrLfContext && cp == (prog.reversed() ? '\n' : '\r') ? FLAG_CRLF_CONTEXT : 0;
     int reExpandEmptyFlags =
         (s.flags & stateEmptyFlagsMask) | wordBeforeFlags | unicodeWordBeforeFlags;
     if (endLineHere) {
       reExpandEmptyFlags |= EmptyOp.END_LINE;
+    }
+    if (cp == '\n') {
+      reExpandEmptyFlags |= EmptyOp.UNIX_END_LINE;
     }
     int[] instsWithoutMatch = stripMatch(s.insts);
 
@@ -1193,6 +1235,7 @@ final class Dfa {
             EMPTY_INSTS,
             FLAG_MATCH
                 | FLAG_MATCH_BEFORE
+                | nextCrLfFlags
                 | (isWord ? FLAG_LAST_WORD : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
@@ -1210,7 +1253,8 @@ final class Dfa {
             | EmptyOp.NON_WORD_BOUNDARY
             | EmptyOp.UNICODE_WORD_BOUNDARY
             | EmptyOp.UNICODE_NON_WORD_BOUNDARY
-            | EmptyOp.END_LINE);
+            | EmptyOp.END_LINE
+            | EmptyOp.UNIX_END_LINE);
 
     int[] nextInsts = expand(computeBuf, successorCount, emptyFlags);
 
@@ -1220,6 +1264,7 @@ final class Dfa {
             EMPTY_INSTS,
             FLAG_MATCH
                 | FLAG_MATCH_BEFORE
+                | nextCrLfFlags
                 | (isWord ? FLAG_LAST_WORD : 0)
                 | (isUnicodeWord ? FLAG_LAST_UNICODE_WORD : 0),
             deferredMatchIds);
@@ -1227,7 +1272,7 @@ final class Dfa {
       return deadState;
     }
 
-    int flags = emptyFlags & stateEmptyFlagsMask;
+    int flags = (emptyFlags & stateEmptyFlagsMask) | nextCrLfFlags;
     if (hasMatchFromDeferred) {
       // A deferred assertion (\b, \B, or multiline $) fired before consuming the current
       // character and reached a MATCH instruction.
@@ -1360,7 +1405,7 @@ final class Dfa {
     }
     if (text instanceof StringInputScanner stringScanner && stringStartAccelerator != null) {
       return StringStartAccelerator.findNextCandidate(
-          stringStartAccelerator, stringScanner.text(), pos, prog.unixLines());
+          stringStartAccelerator, stringScanner.text(), pos, prog.lineStartUnixLines());
     }
     return fastForwardStartState(text, pos, posDepThreshold, startState);
   }

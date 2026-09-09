@@ -493,6 +493,23 @@ class MatcherTest {
     }
 
     @Test
+    @DisplayName("failed find cancels advancement past an empty start-anchored match")
+    void failedFindPreservesEmptyAnchoredMatchEnd() {
+      // Compatibility with JDK 26's continuation after failure; regression for issue #817.
+      Matcher matcher = Pattern.compile("^[ab]*").matcher("!a😀b!");
+      assertThat(matcher.find()).isTrue();
+      assertThat(matcher.lookingAt()).isTrue();
+      for (int i = 0; i < 3; i++) {
+        assertThat(matcher.find()).isFalse();
+        assertThatThrownBy(matcher::group).isInstanceOf(IllegalStateException.class);
+        assertThat(matcher.find()).isTrue();
+        assertThat(matcher.start()).isZero();
+        assertThat(matcher.end()).isZero();
+        assertThat(matcher.group()).isEmpty();
+      }
+    }
+
+    @Test
     @DisplayName("failed anchored attempts cancel advancement past an earlier empty match")
     void failedAnchoredAttemptsPreserveEmptyMatchEnd() {
       Matcher matcher = Pattern.compile("a*").matcher("!a");
@@ -1585,6 +1602,17 @@ class MatcherTest {
       m.appendTail(sb);
 
       assertThat(sb).hasToString("\n");
+    }
+
+    @Test
+    void repeatedFindAfterReplaceAllRemainsExhausted() {
+      for (String regex : new String[] {"a", "[ab]+", "^([a-z]+)$"}) {
+        Matcher matcher = Pattern.compile(regex).matcher("aba\n");
+        matcher.replaceAll("X");
+        for (int i = 0; i < 3; i++) {
+          assertThat(matcher.find()).as("find after replaceAll for %s", regex).isFalse();
+        }
+      }
     }
 
     @Test

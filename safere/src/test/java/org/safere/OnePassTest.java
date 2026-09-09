@@ -207,6 +207,13 @@ class OnePassTest {
     }
 
     @Test
+    @DisplayName("action offsets must fit alongside assertion and capture bits")
+    void oversizedActionOffsetsUseFallback() {
+      // These tables fit the memory budget, but their offsets exceed the packed action field.
+      assertThat(build("(" + distinctLiteralRun(300) + ")")).isNull();
+    }
+
+    @Test
     @DisplayName("the memory budget includes both dense action tables")
     void memoryBudgetIncludesBothDenseActionTables() {
       // A distinct literal run has roughly N states and 2N equivalence classes. At this size each

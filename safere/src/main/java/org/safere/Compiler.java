@@ -104,6 +104,7 @@ final class Compiler extends Walker<Compiler.Frag> {
     Regexp stripped = stripAnchorStart(sre);
     boolean isAnchorEnd = isAnchorEnd(stripped);
     boolean isDollarEnd = isAnchorEnd && isDollarAnchorEnd(stripped);
+    boolean dollarUnixLines = isDollarEnd && isUnixDollarAnchorEnd(stripped);
     stripped = stripAnchorEnd(stripped);
 
     // Walk the AST to produce fragments.
@@ -127,6 +128,7 @@ final class Compiler extends Walker<Compiler.Frag> {
       c.prog.setAnchorStart(isAnchorStart);
       c.prog.setAnchorEnd(isAnchorEnd);
       c.prog.setDollarAnchorEnd(isDollarEnd);
+      c.prog.setDollarAnchorUnixLines(dollarUnixLines);
     }
 
     c.prog.setStart(all.begin);
@@ -587,6 +589,23 @@ final class Compiler extends Walker<Compiler.Frag> {
    */
   static boolean isDollarAnchorEnd(Regexp re) {
     return isDollarAnchorEndImpl(re, 0);
+  }
+
+  private static boolean isUnixDollarAnchorEnd(Regexp re) {
+    // Follow exactly the bounded path used by end-anchor detection and stripping.
+    for (int depth = 0; re != null && depth < 4; depth++) {
+      switch (re.op) {
+        case END_TEXT -> {
+          return (re.flags & ParseFlags.UNIX_LINES) != 0;
+        }
+        case CONCAT -> re = re.nsub() == 0 ? null : re.subs.getLast();
+        case NON_CAPTURE, CAPTURE -> re = re.sub();
+        default -> {
+          return false;
+        }
+      }
+    }
+    return false;
   }
 
   private static boolean isDollarAnchorEndImpl(Regexp re, int depth) {
@@ -1112,16 +1131,27 @@ final class Compiler extends Walker<Compiler.Frag> {
         yield capture(childArgs.get(0), re.cap);
       }
 
-      case BEGIN_LINE -> emptyWidth(reversed ? EmptyOp.END_LINE : EmptyOp.BEGIN_LINE);
+      case BEGIN_LINE ->
+          emptyWidth(
+              (re.flags & ParseFlags.UNIX_LINES) != 0
+                  ? (reversed ? EmptyOp.UNIX_END_LINE : EmptyOp.UNIX_BEGIN_LINE)
+                  : (reversed ? EmptyOp.END_LINE : EmptyOp.BEGIN_LINE));
 
-      case END_LINE -> emptyWidth(reversed ? EmptyOp.BEGIN_LINE : EmptyOp.END_LINE);
+      case END_LINE ->
+          emptyWidth(
+              (re.flags & ParseFlags.UNIX_LINES) != 0
+                  ? (reversed ? EmptyOp.UNIX_BEGIN_LINE : EmptyOp.UNIX_END_LINE)
+                  : (reversed ? EmptyOp.BEGIN_LINE : EmptyOp.END_LINE));
 
       case BEGIN_TEXT -> emptyWidth(reversed ? EmptyOp.END_TEXT : EmptyOp.BEGIN_TEXT);
 
       case END_TEXT -> {
-        if (!reversed && (re.flags & ParseFlags.WAS_DOLLAR) != 0) {
-          // $ (not \z): also matches before trailing \n, matching JDK behavior.
-          yield emptyWidth(EmptyOp.DOLLAR_END);
+        if ((re.flags & ParseFlags.WAS_DOLLAR) != 0) {
+          // Keep the assertion's line mode and position semantics in either scan direction.
+          yield emptyWidth(
+              (re.flags & ParseFlags.UNIX_LINES) != 0
+                  ? EmptyOp.UNIX_DOLLAR_END
+                  : EmptyOp.DOLLAR_END);
         }
         yield emptyWidth(reversed ? EmptyOp.BEGIN_TEXT : EmptyOp.END_TEXT);
       }

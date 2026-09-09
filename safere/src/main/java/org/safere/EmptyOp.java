@@ -13,10 +13,10 @@ package org.safere;
  */
 final class EmptyOp {
 
-  /** {@code ^} — beginning of line. */
+  /** {@code ^} — beginning of line with the standard line terminator set. */
   public static final int BEGIN_LINE = 1 << 0;
 
-  /** {@code $} — end of line. */
+  /** {@code $} — end of line with the standard line terminator set. */
   public static final int END_LINE = 1 << 1;
 
   /** {@code \A} — beginning of text. */
@@ -32,10 +32,10 @@ final class EmptyOp {
   public static final int NON_WORD_BOUNDARY = 1 << 5;
 
   /**
-   * {@code $} without {@code MULTILINE} — end of text or before a trailing {@code \n}. JDK's {@code
-   * $} matches at end-of-input and also just before a final newline at the end of input. This flag
-   * is set at both positions. Distinct from {@link #END_TEXT} ({@code \z}), which matches only at
-   * the absolute end.
+   * {@code $} without {@code MULTILINE} — end of text or before a trailing line terminator. JDK's
+   * {@code $} matches at end-of-input and also just before a final newline at the end of input.
+   * This flag is set at both positions. Distinct from {@link #END_TEXT} ({@code \z}), which matches
+   * only at the absolute end.
    */
   public static final int DOLLAR_END = 1 << 6;
 
@@ -45,14 +45,23 @@ final class EmptyOp {
   /** {@code \B} — Unicode not a word boundary (when UNICODE_CHARACTER_CLASS is set). */
   public static final int UNICODE_NON_WORD_BOUNDARY = 1 << 8;
 
+  /** {@code $} or {@code \Z} with UNIX_LINES: end of text or before a final LF. */
+  public static final int UNIX_DOLLAR_END = 1 << 9;
+
+  /** Multiline {@code ^} with UNIX_LINES. */
+  public static final int UNIX_BEGIN_LINE = 1 << 10;
+
+  /** Multiline {@code $} with UNIX_LINES. */
+  public static final int UNIX_END_LINE = 1 << 11;
+
   /** {@code \b{g}} — Unicode extended grapheme cluster boundary. */
-  public static final int GRAPHEME_CLUSTER_BOUNDARY = 1 << 9;
+  public static final int GRAPHEME_CLUSTER_BOUNDARY = 1 << 12;
 
   /** Explicit {@code \b{g}} boundary, including JDK consumed-prefix compatibility. */
-  public static final int EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY = 1 << 10;
+  public static final int EXPLICIT_GRAPHEME_CLUSTER_BOUNDARY = 1 << 13;
 
   /** All flags combined. */
-  public static final int ALL_FLAGS = (1 << 11) - 1;
+  public static final int ALL_FLAGS = (1 << 14) - 1;
 
   private EmptyOp() {} // Non-instantiable.
 }

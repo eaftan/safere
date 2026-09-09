@@ -45,14 +45,15 @@ final class OnePass {
   // -------------------------------------------------------------------------
   // Action encoding: each action is packed into a single long.
   //
-  //   bits  0-9 : empty-width flags required for this transition
-  //   bits 10-29: capture mask (which capture registers to set)
-  //   bits 30-63: next state index
+  //   bits  0-13: empty-width flags required for this transition
+  //   bits 14-45: capture mask (which capture registers to set)
+  //   bit     46: match priority
+  //   bits 47-63: next state index
   //
   // Special value: NO_ACTION (-1L) means no valid transition.
   // -------------------------------------------------------------------------
 
-  private static final int EMPTY_BITS = 10;
+  private static final int EMPTY_BITS = 14;
   private static final int CAP_SHIFT = EMPTY_BITS;
   private static final int INDEX_SHIFT = CAP_SHIFT + MAX_CAP_REGS + 1;
   private static final long EMPTY_MASK = (1L << EMPTY_BITS) - 1;
@@ -114,8 +115,7 @@ final class OnePass {
    */
   private final boolean dollarAnchorEnd;
 
-  /** When true, only {@code '\n'} is recognized as a line terminator. */
-  private final boolean unixLines;
+  private final boolean dollarAnchorUnixLines;
 
   /** Whether empty-width checks need the grapheme-cluster boundary flag. */
   private final boolean hasGraphemeSemantics;
@@ -126,7 +126,7 @@ final class OnePass {
       int[] boundaries,
       boolean anchorEnd,
       boolean dollarAnchorEnd,
-      boolean unixLines,
+      boolean dollarAnchorUnixLines,
       boolean hasGraphemeSemantics) {
     this.flatActions = flatActions;
     this.matchAction = matchAction;
@@ -134,7 +134,7 @@ final class OnePass {
     this.asciiClassMap = buildAsciiClassMap(boundaries);
     this.anchorEnd = anchorEnd;
     this.dollarAnchorEnd = dollarAnchorEnd;
-    this.unixLines = unixLines;
+    this.dollarAnchorUnixLines = dollarAnchorUnixLines;
     this.hasGraphemeSemantics = hasGraphemeSemantics;
   }
 
@@ -371,13 +371,15 @@ final class OnePass {
         boundaries,
         prog.anchorEnd(),
         prog.dollarAnchorEnd(),
-        prog.unixLines(),
+        prog.dollarAnchorUnixLines(),
         prog.hasGraphemeSemantics());
   }
 
   private static boolean exceedsActionBudget(int maxStates, int numClasses) {
-    // flatActions and matchActions have the same stateCount * numClasses layout.
-    return maxStates > MAX_ACTION_CELLS / 2 / numClasses;
+    // Both dense tables count toward the memory budget. Every offset must also fit in the
+    // action word after the assertion flags, capture mask, and priority bit.
+    long maxCells = Math.min(MAX_ACTION_CELLS / 2, 1L << (Long.SIZE - INDEX_SHIFT));
+    return maxStates > maxCells / numClasses;
   }
 
   private static int maxOnePassStates(Prog prog) {
@@ -590,9 +592,7 @@ final class OnePass {
         if (matchAct != NO_ACTION) {
           int reqEmpty = (int) (matchAct & EMPTY_MASK);
           if (reqEmpty == 0
-              || (reqEmpty
-                      & ~Nfa.emptyFlags(
-                          text, pos, unixLines, hasGraphemeSemantics, graphemeContext))
+              || (reqEmpty & ~Nfa.emptyFlags(text, pos, hasGraphemeSemantics, graphemeContext))
                   == 0) {
             int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
             if (capMask != 0) {
@@ -667,8 +667,7 @@ final class OnePass {
       if (conditions != 0) {
         int reqEmpty = (int) (conditions & EMPTY_MASK);
         if (reqEmpty != 0) {
-          int curEmpty =
-              Nfa.emptyFlags(text, pos, unixLines, hasGraphemeSemantics, graphemeContext);
+          int curEmpty = Nfa.emptyFlags(text, pos, hasGraphemeSemantics, graphemeContext);
           if ((reqEmpty & ~curEmpty) != 0) {
             break;
           }
@@ -688,8 +687,7 @@ final class OnePass {
       if (matchAct != NO_ACTION) {
         int reqEmpty = (int) (matchAct & EMPTY_MASK);
         if (reqEmpty == 0
-            || (reqEmpty
-                    & ~Nfa.emptyFlags(text, pos, unixLines, hasGraphemeSemantics, graphemeContext))
+            || (reqEmpty & ~Nfa.emptyFlags(text, pos, hasGraphemeSemantics, graphemeContext))
                 == 0) {
           int capMask = (int) ((matchAct >>> CAP_SHIFT) & CAP_REG_MASK);
           if (capMask != 0) {
@@ -712,7 +710,8 @@ final class OnePass {
     }
     if (anchorEnd && bestCap[1] != endPos) {
       // $ (dollarAnchorEnd) allows the match to end before a trailing line terminator.
-      if (!dollarAnchorEnd || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], unixLines)) {
+      if (!dollarAnchorEnd
+          || !Nfa.isAtTrailingLineTerminator(text, bestCap[1], dollarAnchorUnixLines)) {
         return null;
       }
     }

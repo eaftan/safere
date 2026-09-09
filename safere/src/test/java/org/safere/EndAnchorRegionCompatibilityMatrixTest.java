@@ -90,6 +90,11 @@ class EndAnchorRegionCompatibilityMatrixTest {
 
   private static List<RegexCase> regexCases() {
     return List.of(
+        regex("scoped standard dollar", "[\\s\\S][\\s\\S](?-d:$)", Pattern.UNIX_LINES),
+        regex("scoped unix dollar", "[\\s\\S][\\s\\S](?d:$)", 0),
+        regex("scoped standard Z", "[\\s\\S][\\s\\S](?-d:\\Z)", Pattern.UNIX_LINES),
+        regex("scoped unix Z", "[\\s\\S][\\s\\S](?d:\\Z)", 0),
+        regex("mixed end modes", "[\\s\\S][\\s\\S](?-d:$)(?d:$)", 0),
         regex("dollar only", "$", 0),
         regex("Z only", "\\Z", 0),
         regex("z only", "\\z", 0),

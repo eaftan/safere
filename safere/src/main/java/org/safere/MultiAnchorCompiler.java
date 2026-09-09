@@ -2695,7 +2695,7 @@ final class MultiAnchorCompiler {
     StringBuilder suffix = new StringBuilder(suffixLength);
     suffixParts.forEach(suffix::append);
     return new Pattern.SuffixInfo(
-        suffix.toString(), wasDollar, (flags & Pattern.UNIX_LINES) != 0, foldCase);
+        suffix.toString(), wasDollar, (last.flags & ParseFlags.UNIX_LINES) != 0, foldCase);
   }
 
   private static boolean isAllAscii(int[] runes) {
@@ -2735,7 +2735,7 @@ final class MultiAnchorCompiler {
     }
     AsciiBitmap.Builder builder = new AsciiBitmap.Builder();
     if (sub.op == RegexpOp.CHAR_CLASS && addAsciiCharClass(sub.charClass, builder)) {
-      boolean unixLines = (flags & Pattern.UNIX_LINES) != 0;
+      boolean unixLines = (last.flags & ParseFlags.UNIX_LINES) != 0;
       return new Pattern.EndAnchoredCharClassInfo(builder.build(), wasDollar, unixLines);
     }
     return null;
