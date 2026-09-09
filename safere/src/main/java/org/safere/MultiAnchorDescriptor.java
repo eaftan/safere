@@ -115,9 +115,31 @@ final class MultiAnchorDescriptor {
           minTotalLength,
           isStartAnchored,
           isEndAnchored,
-          computeDriverIndex(segments, checkOrder, InputDomain.STRING, false),
-          computeDriverIndex(segments, checkOrder, InputDomain.UTF8, true),
-          computeDriverIndex(segments, checkOrder, InputDomain.UTF8, false));
+          computeDriverIndices(segments, checkOrder));
+    }
+
+    private Chain(
+        Segment[] segments,
+        Gap trailingGap,
+        int[] checkOrder,
+        int driverIndex,
+        boolean isUpstreamBounded,
+        int minTotalLength,
+        boolean isStartAnchored,
+        boolean isEndAnchored,
+        DriverIndices drivers) {
+      this(
+          segments,
+          trailingGap,
+          checkOrder,
+          driverIndex,
+          isUpstreamBounded,
+          minTotalLength,
+          isStartAnchored,
+          isEndAnchored,
+          drivers.stringIndex(),
+          drivers.utf8VectorIndex(),
+          drivers.utf8ScalarIndex());
     }
 
     Chain(
@@ -145,8 +167,31 @@ final class MultiAnchorDescriptor {
       return vectorAvailable ? utf8VectorDriverIndex : utf8ScalarDriverIndex;
     }
 
+    private static DriverIndices computeDriverIndices(Segment[] segments, int[] checkOrder) {
+      int maxFixedDriver = 0;
+      if (segments != null) {
+        while (maxFixedDriver + 1 < segments.length) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          if (!segments[maxFixedDriver + 1].gap().isExecutorFixedGap()) {
+            break;
+          }
+          maxFixedDriver++;
+        }
+      }
+      return new DriverIndices(
+          computeDriverIndex(segments, checkOrder, maxFixedDriver, InputDomain.STRING, false),
+          computeDriverIndex(segments, checkOrder, maxFixedDriver, InputDomain.UTF8, true),
+          computeDriverIndex(segments, checkOrder, maxFixedDriver, InputDomain.UTF8, false));
+    }
+
     private static int computeDriverIndex(
-        Segment[] segments, int[] checkOrder, InputDomain domain, boolean vectorAvailable) {
+        Segment[] segments,
+        int[] checkOrder,
+        int maxFixedDriver,
+        InputDomain domain,
+        boolean vectorAvailable) {
       if (checkOrder == null
           || checkOrder.length == 0
           || segments == null
@@ -154,8 +199,11 @@ final class MultiAnchorDescriptor {
         return 0;
       }
       for (int candidate : checkOrder) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
         if (candidate >= 0 && candidate < segments.length) {
-          if (candidate > 0 && !hasOnlyFixedUpstreamGaps(segments, candidate)) {
+          if (candidate > maxFixedDriver) {
             continue;
           }
           Anchor a = segments[candidate].anchor();
@@ -174,14 +222,7 @@ final class MultiAnchorDescriptor {
       return 0;
     }
 
-    private static boolean hasOnlyFixedUpstreamGaps(Segment[] segments, int driverIdx) {
-      for (int i = 1; i <= driverIdx; i++) {
-        if (!segments[i].gap().isExecutorFixedGap()) {
-          return false;
-        }
-      }
-      return true;
-    }
+    private record DriverIndices(int stringIndex, int utf8VectorIndex, int utf8ScalarIndex) {}
 
     private static int computeDefaultDriverIndex(Segment[] segments, int[] checkOrder) {
       if (segments == null || segments.length == 0) {
@@ -635,6 +676,14 @@ final class MultiAnchorDescriptor {
           && isPureComplement;
     }
 
+    int findFirstGuardByte(String text, int from, int to) {
+      return GapScanner.findFirstGuardByte(guardBytes, text, from, to);
+    }
+
+    int findFirstGuardByte(Utf8InputScanner scanner, int from, int to) {
+      return GapScanner.findFirstGuardByte(guardBytes, scanner, from, to);
+    }
+
     int findLastGuardByte(String text, int minLimit, int fromIndex) {
       return GapScanner.findLastGuardByte(guardBytes, text, minLimit, fromIndex);
     }
@@ -948,6 +997,10 @@ final class MultiAnchorDescriptor {
 
     static Anchor create(String literal) {
       return Single.create(literal, false);
+    }
+
+    static Anchor create(String[] literals, boolean foldCase) {
+      return Alternation.create(literals, foldCase);
     }
 
     int minLength();

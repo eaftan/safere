@@ -20,39 +20,42 @@ final class GapScanner {
       return -1;
     }
     int len = guardBytes.length;
-    if (len == 1) {
-      int idx = text.indexOf((char) guardBytes[0], from);
-      return (idx >= from && idx < to) ? idx : -1;
+    if (len == 1 && !WorkCounterConfig.ENABLED) {
+      return text.indexOf((char) guardBytes[0], from, to);
     }
     if (len == 2) {
-      int i0 = text.indexOf((char) guardBytes[0], from);
-      int i1 = text.indexOf((char) guardBytes[1], from);
-      int min = -1;
-      if (i0 >= from && i0 < to) {
-        min = i0;
+      char g0 = (char) guardBytes[0];
+      char g1 = (char) guardBytes[1];
+      for (int i = from; i < to; i++) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        char c = text.charAt(i);
+        if (c == g0 || c == g1) {
+          return i;
+        }
       }
-      if (i1 >= from && i1 < to && (min < 0 || i1 < min)) {
-        min = i1;
-      }
-      return min;
+      return -1;
     }
     if (len == 3) {
-      int i0 = text.indexOf((char) guardBytes[0], from);
-      int i1 = text.indexOf((char) guardBytes[1], from);
-      int i2 = text.indexOf((char) guardBytes[2], from);
-      int min = -1;
-      if (i0 >= from && i0 < to) {
-        min = i0;
+      char g0 = (char) guardBytes[0];
+      char g1 = (char) guardBytes[1];
+      char g2 = (char) guardBytes[2];
+      for (int i = from; i < to; i++) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        char c = text.charAt(i);
+        if (c == g0 || c == g1 || c == g2) {
+          return i;
+        }
       }
-      if (i1 >= from && i1 < to && (min < 0 || i1 < min)) {
-        min = i1;
-      }
-      if (i2 >= from && i2 < to && (min < 0 || i2 < min)) {
-        min = i2;
-      }
-      return min;
+      return -1;
     }
     for (int i = from; i < to; i++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       char c = text.charAt(i);
       for (byte b : guardBytes) {
         if (c == (char) b) {
@@ -99,36 +102,36 @@ final class GapScanner {
     }
     int len = guardBytes.length;
     if (len == 1) {
-      int idx = text.lastIndexOf((char) guardBytes[0], fromIndex);
-      return (idx >= minLimit) ? idx : -1;
+      char g0 = (char) guardBytes[0];
+      for (int i = fromIndex; i >= minLimit; i--) {
+        if (text.charAt(i) == g0) {
+          return i;
+        }
+      }
+      return -1;
     }
     if (len == 2) {
-      int i0 = text.lastIndexOf((char) guardBytes[0], fromIndex);
-      int i1 = text.lastIndexOf((char) guardBytes[1], fromIndex);
-      int max = -1;
-      if (i0 >= minLimit) {
-        max = i0;
+      char g0 = (char) guardBytes[0];
+      char g1 = (char) guardBytes[1];
+      for (int i = fromIndex; i >= minLimit; i--) {
+        char c = text.charAt(i);
+        if (c == g0 || c == g1) {
+          return i;
+        }
       }
-      if (i1 >= minLimit && i1 > max) {
-        max = i1;
-      }
-      return max;
+      return -1;
     }
     if (len == 3) {
-      int i0 = text.lastIndexOf((char) guardBytes[0], fromIndex);
-      int i1 = text.lastIndexOf((char) guardBytes[1], fromIndex);
-      int i2 = text.lastIndexOf((char) guardBytes[2], fromIndex);
-      int max = -1;
-      if (i0 >= minLimit) {
-        max = i0;
+      char g0 = (char) guardBytes[0];
+      char g1 = (char) guardBytes[1];
+      char g2 = (char) guardBytes[2];
+      for (int i = fromIndex; i >= minLimit; i--) {
+        char c = text.charAt(i);
+        if (c == g0 || c == g1 || c == g2) {
+          return i;
+        }
       }
-      if (i1 >= minLimit && i1 > max) {
-        max = i1;
-      }
-      if (i2 >= minLimit && i2 > max) {
-        max = i2;
-      }
-      return max;
+      return -1;
     }
     for (int i = fromIndex; i >= minLimit; i--) {
       char c = text.charAt(i);
@@ -156,11 +159,41 @@ final class GapScanner {
     return max;
   }
 
+  private static int boundedCodePointEnd(Gap gap, String text, int fromPos, int maxPos) {
+    if (gap.maxLength() == Integer.MAX_VALUE) {
+      return maxPos;
+    }
+    int cur = fromPos;
+    for (int count = 0; count < gap.maxLength() && cur < maxPos; count++) {
+      int width = Character.charCount(text.codePointAt(cur));
+      if (cur + width > maxPos) {
+        break;
+      }
+      cur += width;
+    }
+    return cur;
+  }
+
+  private static int boundedCodePointEnd(
+      Gap gap, Utf8InputScanner scanner, int fromPos, int maxPos) {
+    if (gap.maxLength() == Integer.MAX_VALUE) {
+      return maxPos;
+    }
+    int cur = fromPos;
+    for (int count = 0; count < gap.maxLength() && cur < maxPos; count++) {
+      long decoded = scanner.decodeForward(cur);
+      int next = InputScanner.position(decoded);
+      if (next > maxPos) {
+        break;
+      }
+      cur = next;
+    }
+    return cur;
+  }
+
   static int scanClassEnd(Gap gap, String text, int fromPos, int maxPos) {
     if (gap.kind() == GapKind.BOUNDED_CLASS_REPEAT) {
-      int limit =
-          Math.min(
-              maxPos, gap.maxLength() == Integer.MAX_VALUE ? maxPos : fromPos + gap.maxLength());
+      int limit = boundedCodePointEnd(gap, text, fromPos, maxPos);
       if (gap.guardBytes() != null) {
         int g = findFirstGuardByte(gap.guardBytes(), text, fromPos, limit);
         if (g >= fromPos && g < limit) {
@@ -211,9 +244,7 @@ final class GapScanner {
 
   static int scanClassEnd(Gap gap, Utf8InputScanner scanner, int fromPos, int maxPos) {
     if (gap.kind() == GapKind.BOUNDED_CLASS_REPEAT) {
-      int limit =
-          Math.min(
-              maxPos, gap.maxLength() == Integer.MAX_VALUE ? maxPos : fromPos + gap.maxLength());
+      int limit = boundedCodePointEnd(gap, scanner, fromPos, maxPos);
       if (gap.guardBytes() != null) {
         int g = findFirstGuardByte(gap.guardBytes(), scanner, fromPos, limit);
         if (g >= fromPos && g < limit) {
@@ -602,22 +633,26 @@ final class GapScanner {
       case LINE_END -> isLineEnd(text, fromPos) ? fromPos : -1;
       case BOUNDED_CLASS_REPEAT -> {
         if (gap.guardBytes() != null && gap.isPureComplement()) {
-          int limit =
-              Math.min(
-                  maxPos,
-                  gap.maxLength() == Integer.MAX_VALUE ? maxPos : fromPos + gap.maxLength());
+          if (!gap.isGreedy()) {
+            int cur = fromPos;
+            for (int count = 0; count < gap.minLength(); count++) {
+              if (cur >= maxPos) {
+                yield -1;
+              }
+              int cp = text.codePointAt(cur);
+              if (gap.scanInfo() != null && !gap.scanInfo().contains(cp)) {
+                yield -1;
+              }
+              cur += Character.charCount(cp);
+            }
+            yield cur <= maxPos ? cur : -1;
+          }
+          int limit = boundedCodePointEnd(gap, text, fromPos, maxPos);
           int g = findFirstGuardByte(gap.guardBytes(), text, fromPos, limit);
           int end = (g >= fromPos && g < limit) ? g : limit;
           int count = Character.codePointCount(text, fromPos, end);
           if (count < gap.minLength()) {
             yield -1;
-          }
-          if (!gap.isGreedy()) {
-            int cur = fromPos;
-            for (int c = 0; c < gap.minLength(); c++) {
-              cur += Character.charCount(text.codePointAt(cur));
-            }
-            yield cur;
           }
           yield end;
         }
@@ -665,32 +700,34 @@ final class GapScanner {
       case LINE_END -> isLineEnd(scanner, fromPos) ? fromPos : -1;
       case BOUNDED_CLASS_REPEAT -> {
         if (gap.guardBytes() != null && gap.isPureComplement()) {
-          int limit =
-              Math.min(
-                  maxPos,
-                  gap.maxLength() == Integer.MAX_VALUE ? maxPos : fromPos + gap.maxLength());
+          if (!gap.isGreedy()) {
+            int cur = fromPos;
+            for (int count = 0; count < gap.minLength(); count++) {
+              if (cur >= maxPos) {
+                yield -1;
+              }
+              long decoded = scanner.decodeForward(cur);
+              int cp = InputScanner.codePoint(decoded);
+              if (gap.scanInfo() != null && !gap.scanInfo().contains(cp)) {
+                yield -1;
+              }
+              cur = InputScanner.position(decoded);
+            }
+            yield cur <= maxPos ? cur : -1;
+          }
+          int limit = boundedCodePointEnd(gap, scanner, fromPos, maxPos);
           int g = findFirstGuardByte(gap.guardBytes(), scanner, fromPos, limit);
           int end = (g >= fromPos && g < limit) ? g : limit;
           int count = 0;
-          int minMatchPos = -1;
-          if (gap.minLength() == 0) {
-            minMatchPos = fromPos;
-          }
           for (int p = fromPos; p < end; ) {
             long decoded = scanner.decodeForward(p);
             p = InputScanner.position(decoded);
             count++;
-            if (count == gap.minLength()) {
-              minMatchPos = p;
-              if (!gap.isGreedy()) {
-                break;
-              }
-            }
           }
           if (count < gap.minLength()) {
             yield -1;
           }
-          yield gap.isGreedy() ? end : minMatchPos;
+          yield end;
         }
         int count = 0;
         int cur = fromPos;

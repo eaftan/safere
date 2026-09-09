@@ -667,6 +667,18 @@ class SearchScalingRegressionTest {
         .isLessThanOrEqualTo(smallerWork * 6);
   }
 
+  @Test
+  void cachedDriverSelectionCompilationIsLinearInSegmentCount() {
+    long smallerWork =
+        WorkCounter.countForTesting(() -> Pattern.compile(driverSelectionPattern(50)));
+    long largerWork =
+        WorkCounter.countForTesting(() -> Pattern.compile(driverSelectionPattern(200)));
+
+    assertThat(largerWork)
+        .as("Cached driver selection should scale linearly with the number of segments")
+        .isLessThanOrEqualTo(smallerWork * 6);
+  }
+
   private static void assertConstantRejectionWork(IntPredicate find, String description) {
     long work2000 = WorkCounter.countForTesting(() -> assertThat(find.test(2_000)).isFalse());
     long work10000 = WorkCounter.countForTesting(() -> assertThat(find.test(10_000)).isFalse());
@@ -781,6 +793,10 @@ class SearchScalingRegressionTest {
       pattern.append("[0-9]aa");
     }
     return pattern.toString();
+  }
+
+  private static String driverSelectionPattern(int segments) {
+    return "(?:aa|bb)[0-9]".repeat(segments);
   }
 
   private static long countAllMatches(FindIterator matcher, int expectedMatches) {
