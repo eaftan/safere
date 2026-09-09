@@ -8,6 +8,7 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -17,6 +18,69 @@ import org.safere.MultiAnchorDescriptor.StartPlan;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class MultiAnchorGapEngineTest {
+
+  @ParameterizedTest
+  @Tag("work-counter")
+  @ValueSource(strings = {"AAA[0-9]BBB", "AAA[0-9]BBB[0-9]CCC[0-9]DDD"})
+  void eligibilityQueriesDoNotRevisitCompiledSegments(String regex) {
+    MultiAnchorDescriptor descriptor = Pattern.compile(regex).multiAnchor();
+    assertThat(descriptor.isExecutableChain()).isTrue();
+    assertThat(descriptor.isExecutableUtf8Chain()).isTrue();
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> {
+              for (int i = 0; i < 100; i++) {
+                assertThat(descriptor.isExecutableChain()).isTrue();
+                assertThat(descriptor.isExecutableUtf8Chain()).isTrue();
+              }
+            });
+
+    assertThat(work).isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z error",
+        "[0-9]{2}TOKEN",
+        "AAA[0-9]{2}TOKEN",
+        "AAA[0-9]{2}TOKEN[a-z]{2}",
+        "(?i)AAA[0-9]{2}TOKEN"
+      })
+  void fixedChainsReuseCompiledMetadataAcrossSearches(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+    String valid = regex.startsWith("[0-9]{4}") ? "2026-08-30T12:00:00Z error" : "AAA12TOKENab";
+    String noise = "2026/08/30 12:00:00 [worker-42] info: normal periodic heartbeat\n";
+    for (String input :
+        new String[] {
+          "",
+          noise.repeat(20),
+          valid,
+          noise + valid,
+          valid + noise + valid,
+          "Z error TOKEN AAAxxTOKEN " + noise + valid
+        }) {
+      Matcher matcher = pattern.matcher(input);
+      Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+      for (int repeat = 0; repeat < 2; repeat++) {
+        java.util.regex.Matcher expected = jdkPattern.matcher(input);
+        while (expected.find()) {
+          assertThat(matcher.find()).as(regex).isTrue();
+          assertThat(matcher.start()).isEqualTo(expected.start());
+          assertThat(matcher.end()).isEqualTo(expected.end());
+          assertThat(utf8Matcher.find()).as(regex).isTrue();
+          assertThat(utf8Matcher.start()).isEqualTo(expected.start());
+          assertThat(utf8Matcher.end()).isEqualTo(expected.end());
+        }
+        assertThat(matcher.find()).isFalse();
+        assertThat(utf8Matcher.find()).isFalse();
+        matcher.reset();
+        utf8Matcher.reset();
+      }
+    }
+  }
 
   @Test
   void patternMultiAnchorIntegrationStructure() {
