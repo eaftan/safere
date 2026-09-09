@@ -69,7 +69,7 @@ these durable terminal states for the run:
   any required benchmark reproduction are complete and recorded, or broad verification and
   benchmarks were explicitly skipped and recorded because unresolved in-scope findings make them
   non-decision-relevant. Actionable findings may remain when repair requires redesign or exhausts
-  the semantic fix-batch limit; record them for the author instead;
+  the semantic review/fix-cycle limit; record them for the author instead;
 - `blocked`: the PR cannot be reviewed because of a concrete blocker such as unresolved merge
   conflicts requiring product/design judgment, unavailable required tooling, repeated tool failure,
   or missing information that prevents meaningful progress;
@@ -86,9 +86,11 @@ an obligation to rescue every PR locally. Make small, clearly bounded fixes that
 design. Stop local repair and finish the review with author-facing findings when correctness would
 require redesigning eligibility or execution semantics, adding substantial new state, replacing a
 large fraction of the change, or repeatedly uncovering another design-class defect after earlier
-repairs. In all cases, allow at most two semantic fix batches after the initial read-only pass; if
-the next fresh pass still has an in-scope finding, return it to the author regardless of estimated
-fix size. Both paths produce the same unresolved-findings outcome. This is a reviewed PR with
+repairs. In all cases, allow at most four semantic review/fix cycles after the initial read-only
+pass. Each cycle applies at most one coherent semantic fix batch, runs focused verification, and
+obtains a fresh review pass. If the fresh pass after the fourth cycle still has an in-scope finding,
+return it to the author regardless of estimated fix size. Both paths produce the same
+unresolved-findings outcome. This is a reviewed PR with
 unresolved findings, not a blocked sweep. Continue to the next independent PR after recording the
 evidence and recommendation.
 
@@ -285,17 +287,17 @@ earlier scout report.
   cutoff. Do not describe it as old, carried forward, or unchanged in the copy/paste comment unless
   that history is meaningful in the public discussion.
 
-Make unresolved findings after the two-batch repair limit impossible to miss when scanning the
-report. If any PR exhausts both semantic fix batches and still has an in-scope finding:
+Make unresolved findings after the four-cycle repair limit impossible to miss when scanning the
+report. If any PR exhausts all four semantic review/fix cycles and still has an in-scope finding:
 
 - add a bold alert immediately below the PR summary table listing every affected PR number;
-- begin that PR's summary assessment with **OPEN REVIEW FINDINGS AFTER TWO FIX BATCHES**; and
+- begin that PR's summary assessment with **OPEN REVIEW FINDINGS AFTER FOUR REVIEW/FIX CYCLES**; and
 - add the same bold callout at the start of its detailed `Review Fix Loop` section, followed by a
   concise statement of the remaining findings.
 
-Apply this treatment only when the two-batch limit was actually exhausted with unresolved in-scope
+Apply this treatment only when the four-cycle limit was actually exhausted with unresolved in-scope
 findings. Do not use it for benchmark-evidence gaps, ordinary human-review focus, blocked reviews,
-or PRs returned to the author before two batches because the required change was already a redesign.
+or PRs returned to the author before four cycles because the required change was already a redesign.
 
 The report may identify internally which sections were reviewed in this run and which reused valid
 evidence, but it must contain all information the human needs to decide and comment without opening
@@ -464,9 +466,9 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
      design, run `$review-fix-loop` using the same prepared review-base SHA and otherwise follow it
      with two task-specific overrides: set per-fix verification to the focused tests or invariant
      checks relevant to the finding instead of a broad normal repository command, and stop after
-     two semantic fix batches even if another in-scope finding remains. Repo-assist performs
+     four semantic review/fix cycles even if another in-scope finding remains. Repo-assist performs
      proportionate broad verification after convergence.
-   - If the findings trigger the breadth-preserving repair rule or the fix-batch limit is exhausted,
+   - If the findings trigger the breadth-preserving repair rule or the four-cycle limit is exhausted,
      preserve all reproductions and return the remaining findings to the author instead.
    - The final state should be no remaining P2+ findings, a documented blocker/false positive, or
      complete author-facing findings when the breadth-preserving repair rule above applies.
@@ -500,10 +502,10 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      already completed exhaustive behavior tests when no semantic bytecode changed. Report the
      split verification accurately.
    - If a preflight or broad test exposes a problem that requires a semantic source edit, return to
-     focused verification and a fresh review pass, counting the edit as another semantic fix batch,
-     then repeat the preflights and affected broad validation on the new final semantic tree. If two
-     batches were already consumed, preserve the failing reproduction and use the unresolved-findings
-     outcome instead of editing. The formatting-only shortcut does not apply.
+     focused verification and a fresh review pass, counting the edit as another semantic review/fix
+     cycle, then repeat the preflights and affected broad validation on the new final semantic tree.
+     If four cycles were already consumed, preserve the failing reproduction and use the
+     unresolved-findings outcome instead of editing. The formatting-only shortcut does not apply.
 
 7. For optimization PRs only, reproduce benchmarks:
    - Skip benchmark execution when the PR ended with unresolved in-scope findings; focused
@@ -779,7 +781,7 @@ Recommendation:
 
 ### Review Fix Loop
 
-**OPEN REVIEW FINDINGS AFTER TWO FIX BATCHES:** <remaining findings, only when applicable>
+**OPEN REVIEW FINDINGS AFTER FOUR REVIEW/FIX CYCLES:** <remaining findings, only when applicable>
 
 Result: no P2+ findings | fixes committed locally | findings for author | blocked | false positive documented
 
@@ -949,13 +951,13 @@ constraint, and do not infer a dependency from file overlap alone.
 
 Start with a complete read-only defect pass in an isolated worktree. Run $review-fix-loop only when
 the complete finding set can be repaired with bounded changes that preserve the submitted design.
-Allow at most two semantic fix batches across review and validation; if the following fresh pass or
-a later validation step finds another semantic defect, return it to the author without editing.
-If correctness requires redesigning the PR, exhausts the fix-batch limit, or otherwise leaves an
-in-scope finding, give the author complete actionable findings, mark the PR reviewed with unresolved
-findings, run only the focused reproductions needed to prove them, and continue the sweep without
-broad validation or benchmarks. Recording those intentional skips satisfies the reviewed terminal
-state. Do not push branches, post comments, or publish review text.
+Allow at most four semantic review/fix cycles across review and validation; if the following fresh
+pass or a later validation step finds another semantic defect, return it to the author without
+editing. If correctness requires redesigning the PR, or the PR exhausts the four-cycle limit or
+otherwise leaves an in-scope finding, give the author complete actionable findings, mark the PR
+reviewed with unresolved findings, run only the focused reproductions needed to prove them, and
+continue the sweep without broad validation or benchmarks. Recording those intentional skips
+satisfies the reviewed terminal state. Do not push branches, post comments, or publish review text.
 Local worktrees, local branches, local commits, patch files, benchmark logs, and Markdown reports
 are allowed. Use the recorded prepared review-base SHA; for an upper stack layer this is the
 prepared lower-layer head, not `main`. Generate `review-fixes.patch` by diffing from the
@@ -968,7 +970,7 @@ AGENTS.md, CI, and applicable specialized skills; run exhaustive or generated co
 when the affected behavior requires it. Run that broad verification once on the final semantic
 tree. Do not repeat a completed exhaustive behavior phase for a later formatting-only correction.
 Any semantic edit prompted by validation returns to focused verification, a fresh review pass, and
-preflights before the affected broad validation is rerun, and counts against the same two-batch
+preflights before the affected broad validation is rerun, and counts against the same four-cycle
 limit. When the limit is exhausted, preserve the failing reproduction and return the defect to the
 author without another edit.
 
