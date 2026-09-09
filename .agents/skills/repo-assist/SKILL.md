@@ -640,14 +640,26 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
      or "refreshed against main" unless the public discussion makes that history meaningful to the
      author. When the author has not been told about a finding, introduce it directly: "I noticed
      that ... I've pushed a commit that fixes it."
-   - Perform the standalone-read check from `Author-Facing Copy/Paste Review` after writing the
-     entire report. Read only the fenced copy/paste content. If any material conclusion, request,
-     evidence, or rationale requires another section, copy the necessary author-relevant content
-     into the review and check it again.
-
 9. Update the durable report and state after each PR, not only at the end. Update that PR's row in
    the report's PR Summary table at the same checkpoint while preserving its reviewer-owned `Done`
    value. If the sweep is interrupted, completed PRs should still be discoverable.
+
+10. After writing the complete report, perform a final author-copy audit before marking the report
+    completed or updating `LATEST.md`. Extract every fenced `Copy/Paste PR Review` and read each one
+    without its surrounding report section. Rewrite any review that fails any of these checks:
+    - It must contain every author-relevant finding, impact, fix, benchmark conclusion, tradeoff,
+      request, rationale, and recommendation needed to act without reading the report.
+    - It must exclude local validation bookkeeping, commands, test counts, worktree or artifact
+      paths, local-only commit language, and references to agents or automated review passes.
+    - When a resolved fix will be pushed before the comment is posted, it must say that a fixing
+      commit was pushed, explain the material change, and end with `LGTM` when merge criteria are
+      satisfied. It must not ask the author to apply a scout-local commit.
+    - Every numeric benchmark claim must appear in a self-contained Markdown table with the ratio
+      direction or an unambiguous speedup column; prose alone is insufficient.
+    - The voice, chronology, terminology, line wrapping, and tone must satisfy the author-facing
+      rules above, and the recommendation must match the detailed assessment.
+    After any rewrite, read the fenced review alone again. If its conclusion changes, update the
+    detailed assessment and summary row before completing the report.
 
 ## Report Format
 
