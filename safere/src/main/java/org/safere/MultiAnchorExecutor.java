@@ -171,9 +171,8 @@ final class MultiAnchorExecutor {
             upstreamMatched = false;
             break;
           }
-          long maxAnchorBytes = (long) upstreamAnchor.maxLength() * 4L;
-          int firstOverlappingAnchorStart =
-              (int) Math.max(0L, (long) earliestGapStart - maxAnchorBytes);
+          long maxAnchorBytes = upstreamAnchor.maxLength() * 4L;
+          int firstOverlappingAnchorStart = (int) Math.max(0L, earliestGapStart - maxAnchorBytes);
           searchLowerBound = Math.max(searchLowerBound, firstOverlappingAnchorStart);
 
           if (searchUpperBound < searchLowerBound) {
