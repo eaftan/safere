@@ -168,58 +168,56 @@ final class MultiAnchorDescriptor {
     }
 
     private static DriverIndices computeDriverIndices(Segment[] segments, int[] checkOrder) {
-      int maxFixedDriver = 0;
-      if (segments != null) {
-        while (maxFixedDriver + 1 < segments.length) {
-          if (WorkCounterConfig.ENABLED) {
-            WorkCounter.record();
-          }
-          if (!segments[maxFixedDriver + 1].gap().isExecutorFixedGap()) {
-            break;
-          }
-          maxFixedDriver++;
-        }
-      }
-      return new DriverIndices(
-          computeDriverIndex(segments, checkOrder, maxFixedDriver, InputDomain.STRING, false),
-          computeDriverIndex(segments, checkOrder, maxFixedDriver, InputDomain.UTF8, true),
-          computeDriverIndex(segments, checkOrder, maxFixedDriver, InputDomain.UTF8, false));
-    }
-
-    private static int computeDriverIndex(
-        Segment[] segments,
-        int[] checkOrder,
-        int maxFixedDriver,
-        InputDomain domain,
-        boolean vectorAvailable) {
       if (checkOrder == null
           || checkOrder.length == 0
           || segments == null
           || segments.length == 0) {
-        return 0;
+        return new DriverIndices(0, 0, 0);
       }
+
+      int maxFixedDriver = 0;
+      while (maxFixedDriver + 1 < segments.length) {
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        if (!segments[maxFixedDriver + 1].gap().isExecutorFixedGap()) {
+          break;
+        }
+        maxFixedDriver++;
+      }
+
+      int stringDriver = 0;
+      int utf8VectorDriver = 0;
+      int utf8ScalarDriver = 0;
+      boolean foundString = false;
+      boolean foundUtf8Vector = false;
+      boolean foundUtf8Scalar = false;
       for (int candidate : checkOrder) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
         }
-        if (candidate >= 0 && candidate < segments.length) {
-          if (candidate > maxFixedDriver) {
-            continue;
-          }
-          Anchor a = segments[candidate].anchor();
-          if (domain == InputDomain.UTF8) {
-            if (a.isHardwareAccelerated(InputDomain.UTF8)
-                || (vectorAvailable && a.minLength() >= 1)) {
-              return candidate;
-            }
-          } else if (domain == InputDomain.STRING) {
-            if (a.isHardwareAccelerated(InputDomain.STRING)) {
-              return candidate;
-            }
-          }
+        if (candidate < 0 || candidate >= segments.length || candidate > maxFixedDriver) {
+          continue;
+        }
+        Anchor anchor = segments[candidate].anchor();
+        if (!foundString && anchor.isHardwareAccelerated(InputDomain.STRING)) {
+          stringDriver = candidate;
+          foundString = true;
+        }
+        if (!foundUtf8Vector
+            && (anchor.isHardwareAccelerated(InputDomain.UTF8) || anchor.minLength() >= 1)) {
+          utf8VectorDriver = candidate;
+          foundUtf8Vector = true;
+        }
+        if (!foundUtf8Scalar && anchor.isHardwareAccelerated(InputDomain.UTF8)) {
+          utf8ScalarDriver = candidate;
+          foundUtf8Scalar = true;
+        }
+        if (foundString && foundUtf8Vector && foundUtf8Scalar) {
+          break;
         }
       }
-      return 0;
+      return new DriverIndices(stringDriver, utf8VectorDriver, utf8ScalarDriver);
     }
 
     private record DriverIndices(int stringIndex, int utf8VectorIndex, int utf8ScalarIndex) {}
