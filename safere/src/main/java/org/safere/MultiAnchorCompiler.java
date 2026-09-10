@@ -126,17 +126,29 @@ final class MultiAnchorCompiler {
 
     boolean anchorStart = false;
     boolean anchorEnd = false;
+    boolean endAnchorWasDollar = false;
+    boolean endAnchorUnixLines = false;
     if (node.op == RegexpOp.CONCAT && node.subs != null && !node.subs.isEmpty()) {
       int n = node.subs.size();
       if (node.subs.get(0).op == RegexpOp.BEGIN_TEXT) {
         anchorStart = true;
       }
-      if (n > 0 && node.subs.get(n - 1).op == RegexpOp.END_TEXT) {
-        anchorEnd = true;
+      if (n > 0) {
+        Regexp last = unwrapCaptures(node.subs.get(n - 1));
+        if (last != null && last.op == RegexpOp.END_TEXT) {
+          if ((flags & Pattern.MULTILINE) == 0 || (last.flags & ParseFlags.WAS_DOLLAR) == 0) {
+            anchorEnd = true;
+            endAnchorWasDollar = (last.flags & ParseFlags.WAS_DOLLAR) != 0;
+            endAnchorUnixLines =
+                (flags & Pattern.UNIX_LINES) != 0 || (last.flags & ParseFlags.UNIX_LINES) != 0;
+          }
+        }
       }
     }
 
-    MultiAnchorDescriptor base = extractBaseDescriptor(node, flags, anchorStart, anchorEnd);
+    MultiAnchorDescriptor base =
+        extractBaseDescriptor(
+            node, flags, anchorStart, anchorEnd, endAnchorWasDollar, endAnchorUnixLines);
     MultiAnchorDescriptor.Chain chain =
         base != null && !hasCaseSensitiveLiteralOverride(sourceAst, flags)
             ? base.chain()
@@ -146,7 +158,9 @@ final class MultiAnchorCompiler {
                 new int[0],
                 0,
                 anchorStart,
-                anchorEnd);
+                anchorEnd,
+                endAnchorWasDollar,
+                endAnchorUnixLines);
 
     NodeAnalysis analysis = analyze(factored, flags);
     MultiAnchorDescriptor.StartPlan startPlan = extractStartPlan(factored, true, analysis);
@@ -195,9 +209,16 @@ final class MultiAnchorCompiler {
   }
 
   private static MultiAnchorDescriptor extractBaseDescriptor(
-      Regexp node, int flags, boolean anchorStart, boolean anchorEnd) {
+      Regexp node,
+      int flags,
+      boolean anchorStart,
+      boolean anchorEnd,
+      boolean endAnchorWasDollar,
+      boolean endAnchorUnixLines) {
     // 1. Multi-anchor sequence or anchored chain
-    MultiAnchorDescriptor multiChain = extractMultiAnchorChain(node, flags, anchorStart, anchorEnd);
+    MultiAnchorDescriptor multiChain =
+        extractMultiAnchorChain(
+            node, flags, anchorStart, anchorEnd, endAnchorWasDollar, endAnchorUnixLines);
     if (multiChain != null) {
       return multiChain;
     }
@@ -213,7 +234,9 @@ final class MultiAnchorCompiler {
           new int[] {0},
           directAnchor.minLength(),
           anchorStart,
-          anchorEnd);
+          anchorEnd,
+          endAnchorWasDollar,
+          endAnchorUnixLines);
     }
 
     return null;
@@ -876,7 +899,12 @@ final class MultiAnchorCompiler {
   }
 
   private static MultiAnchorDescriptor extractMultiAnchorChain(
-      Regexp node, int flags, boolean anchorStart, boolean anchorEnd) {
+      Regexp node,
+      int flags,
+      boolean anchorStart,
+      boolean anchorEnd,
+      boolean endAnchorWasDollar,
+      boolean endAnchorUnixLines) {
     if (node == null || node.op != RegexpOp.CONCAT || node.subs == null) {
       return null;
     }
@@ -928,7 +956,7 @@ final class MultiAnchorCompiler {
 
         while (idx < n) {
           Regexp gapSub = node.subs.get(idx);
-          if (idx == n - 1 && gapSub.op == RegexpOp.END_TEXT) {
+          if (idx == n - 1 && gapSub.op == RegexpOp.END_TEXT && anchorEnd) {
             idx++;
             break;
           }
@@ -970,7 +998,7 @@ final class MultiAnchorCompiler {
             boolean validTrailing = true;
             while (idx < n) {
               Regexp rem = node.subs.get(idx);
-              if (idx == n - 1 && rem.op == RegexpOp.END_TEXT) {
+              if (idx == n - 1 && rem.op == RegexpOp.END_TEXT && anchorEnd) {
                 idx++;
                 break;
               }
@@ -1057,7 +1085,14 @@ final class MultiAnchorCompiler {
     }
 
     return new MultiAnchorDescriptor(
-        segments, gaps.get(numAnchors), checkOrder, minTotalLength, anchorStart, anchorEnd);
+        segments,
+        gaps.get(numAnchors),
+        checkOrder,
+        minTotalLength,
+        anchorStart,
+        anchorEnd,
+        endAnchorWasDollar,
+        endAnchorUnixLines);
   }
 
   private static MultiAnchorDescriptor.Gap coalesceGaps(

@@ -1577,6 +1577,41 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.endAnchoredGapLog.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-08-27 12:00:00.123 [worker-42] user:normal-host:backend-status:200\n",
+        "suffix": "2026-08-27 12:00:00.123 [worker-42] user:alice-host:prod-status:500\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.endAnchoredGapLog.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "2026-08-27 12:00:00.123 [worker-42] user:normal-host:backend-status:200",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.multiClauseSequence.match.{size}",
       "axes": {
         "size": [
@@ -4989,6 +5024,35 @@
       ],
       "inputs": [
         "realWorldRegex.multiInfixLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.endAnchoredGapLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "user:[a-z]+-host:[a-z]+-status:[0-9]+$"
+      ],
+      "inputs": [
+        "realWorldRegex.endAnchoredGapLog.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {

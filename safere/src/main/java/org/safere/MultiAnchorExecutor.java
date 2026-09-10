@@ -109,6 +109,10 @@ final class MultiAnchorExecutor {
       return Result.MISMATCH;
     }
 
+    if (descriptor.chain().isEndAnchored()) {
+      return findEndAnchored(descriptor, scanner, searchFrom);
+    }
+
     // Matcher already applies the compiled reject prefilter. Search the driver directly here;
     // execution verifies every anchor without a redundant full-input rejection pass.
     int driverIdx =
@@ -190,104 +194,8 @@ final class MultiAnchorExecutor {
         currentPos = pDriver + len0;
       } else {
         // Upstream reverse verification for A_{driverIdx-1} down to A_0
-        boolean upstreamMatched = true;
-        int curAnchorStart = pDriver;
-        int p0 = -1;
-
-        for (int k = driverIdx - 1; k >= 0; k--) {
-          MultiAnchorDescriptor.Segment nextSeg = segments[k + 1];
-          MultiAnchorDescriptor.Gap gap = nextSeg.gap();
-          MultiAnchorDescriptor.Anchor upstreamAnchor = segments[k].anchor();
-
-          int maxHop =
-              (gap.maxLength() == Integer.MAX_VALUE)
-                  ? (curAnchorStart - minReverseWatermark)
-                  : (int)
-                      Math.min(
-                          ((long) gap.maxLength() + upstreamAnchor.maxLength()) * 4,
-                          curAnchorStart - minReverseWatermark);
-          int minHop = gap.minLength() + upstreamAnchor.minLength();
-
-          int searchUpperBound = curAnchorStart - minHop;
-          int searchLowerBound = Math.max(minReverseWatermark, curAnchorStart - maxHop);
-          int earliestGapStart = gap.scanClassStart(scanner, searchLowerBound, curAnchorStart);
-          if (curAnchorStart - earliestGapStart < gap.minLength()) {
-            upstreamMatched = false;
-            break;
-          }
-          long maxAnchorBytes = upstreamAnchor.maxLength() * 4L;
-          int firstOverlappingAnchorStart = (int) Math.max(0L, earliestGapStart - maxAnchorBytes);
-          searchLowerBound = Math.max(searchLowerBound, firstOverlappingAnchorStart);
-
-          if (searchUpperBound < searchLowerBound) {
-            upstreamMatched = false;
-            break;
-          }
-
-          int pUpstream = upstreamAnchor.lastIndexOf(scanner, searchLowerBound, searchUpperBound);
-          if (pUpstream < 0) {
-            upstreamMatched = false;
-            break;
-          }
-
-          int uLen = upstreamAnchor.lengthAt(scanner, pUpstream);
-          boolean sliceValid =
-              uLen > 0
-                  && pUpstream + uLen >= earliestGapStart
-                  && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
-                  && ((gap.maxLength() == Integer.MAX_VALUE
-                          && isUnboundedGapSatisfiedUtf8(gap, curAnchorStart - (pUpstream + uLen)))
-                      || gap.matchesSlice(scanner, pUpstream + uLen, curAnchorStart));
-          if (!sliceValid) {
-            if (pUpstream + uLen < earliestGapStart) {
-              upstreamMatched = false;
-              break;
-            }
-            if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-                && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
-              upstreamMatched = false;
-              break;
-            }
-            // Gap check failed: retry reverse search for earlier candidate
-            boolean retryMatched = false;
-            int nextUpper = pUpstream - 1;
-            while (nextUpper >= searchLowerBound) {
-              pUpstream = upstreamAnchor.lastIndexOf(scanner, searchLowerBound, nextUpper);
-              if (pUpstream < 0) {
-                break;
-              }
-              uLen = upstreamAnchor.lengthAt(scanner, pUpstream);
-              if (uLen > 0
-                  && pUpstream + uLen >= earliestGapStart
-                  && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
-                  && ((gap.maxLength() == Integer.MAX_VALUE
-                          && isUnboundedGapSatisfiedUtf8(gap, curAnchorStart - (pUpstream + uLen)))
-                      || gap.matchesSlice(scanner, pUpstream + uLen, curAnchorStart))) {
-                retryMatched = true;
-                break;
-              }
-              if (pUpstream + uLen < earliestGapStart) {
-                break;
-              }
-              if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-                  && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
-                break;
-              }
-              nextUpper = pUpstream - 1;
-            }
-            if (!retryMatched) {
-              upstreamMatched = false;
-              break;
-            }
-          }
-
-          curAnchorStart = pUpstream;
-          if (k == 0) {
-            p0 = pUpstream;
-          }
-        }
-
-        if (!upstreamMatched) {
+        int p0 = verifyUpstream(scanner, segments, driverIdx - 1, pDriver, minReverseWatermark);
+        if (p0 < 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           workHolder[0]++;
           if (WorkLimit.isExhausted(workHolder[0], workLimit)) {
@@ -459,6 +367,10 @@ final class MultiAnchorExecutor {
       return Result.MISMATCH;
     }
 
+    if (descriptor.chain().isEndAnchored()) {
+      return findEndAnchored(descriptor, text, searchFrom);
+    }
+
     // Matcher already applies the compiled reject prefilter. Search the driver directly here;
     // execution verifies every anchor without a redundant full-input rejection pass.
     int driverIdx = descriptor.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true);
@@ -538,106 +450,8 @@ final class MultiAnchorExecutor {
         currentPos = pDriver + len0;
       } else {
         // Upstream reverse verification for A_{driverIdx-1} down to A_0
-        boolean upstreamMatched = true;
-        int curAnchorStart = pDriver;
-        int p0 = -1;
-
-        for (int k = driverIdx - 1; k >= 0; k--) {
-          MultiAnchorDescriptor.Segment nextSeg = segments[k + 1];
-          MultiAnchorDescriptor.Gap gap = nextSeg.gap();
-          MultiAnchorDescriptor.Anchor upstreamAnchor = segments[k].anchor();
-
-          int maxHop =
-              (gap.maxLength() == Integer.MAX_VALUE)
-                  ? (curAnchorStart - minReverseWatermark)
-                  : (int)
-                      Math.min(
-                          (long) gap.maxLength() * 2 + upstreamAnchor.maxLength(),
-                          curAnchorStart - minReverseWatermark);
-          int minHop = gap.minLength() + upstreamAnchor.minLength();
-
-          int searchUpperBound = curAnchorStart - minHop;
-          int searchLowerBound = Math.max(minReverseWatermark, curAnchorStart - maxHop);
-          int earliestGapStart = gap.scanClassStart(text, searchLowerBound, curAnchorStart);
-          if (curAnchorStart - earliestGapStart < gap.minLength()) {
-            upstreamMatched = false;
-            break;
-          }
-          int firstOverlappingAnchorStart =
-              (int) Math.max(0L, (long) earliestGapStart - upstreamAnchor.maxLength());
-          searchLowerBound = Math.max(searchLowerBound, firstOverlappingAnchorStart);
-
-          if (searchUpperBound < searchLowerBound) {
-            upstreamMatched = false;
-            break;
-          }
-
-          int pUpstream = upstreamAnchor.lastIndexOf(text, searchLowerBound, searchUpperBound);
-          if (pUpstream < 0) {
-            upstreamMatched = false;
-            break;
-          }
-
-          int uLen = upstreamAnchor.lengthAt(text, pUpstream);
-          boolean sliceValid =
-              uLen > 0
-                  && pUpstream + uLen >= earliestGapStart
-                  && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
-                  && ((gap.maxLength() == Integer.MAX_VALUE
-                          && isUnboundedGapSatisfied(gap, curAnchorStart - (pUpstream + uLen)))
-                      ? gap.endsAtCodePointBoundary(text, pUpstream + uLen)
-                      : gap.matchesSlice(text, pUpstream + uLen, curAnchorStart));
-          if (!sliceValid) {
-            if (pUpstream + uLen < earliestGapStart) {
-              upstreamMatched = false;
-              break;
-            }
-            if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-                && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
-              upstreamMatched = false;
-              break;
-            }
-            // Gap check failed: retry reverse search for earlier candidate
-            boolean retryMatched = false;
-            int nextUpper = pUpstream - 1;
-            while (nextUpper >= searchLowerBound) {
-              pUpstream = upstreamAnchor.lastIndexOf(text, searchLowerBound, nextUpper);
-              if (pUpstream < 0) {
-                break;
-              }
-              uLen = upstreamAnchor.lengthAt(text, pUpstream);
-              if (uLen > 0
-                  && pUpstream + uLen >= earliestGapStart
-                  && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
-                  && ((gap.maxLength() == Integer.MAX_VALUE
-                          && isUnboundedGapSatisfied(gap, curAnchorStart - (pUpstream + uLen)))
-                      ? gap.endsAtCodePointBoundary(text, pUpstream + uLen)
-                      : gap.matchesSlice(text, pUpstream + uLen, curAnchorStart))) {
-                retryMatched = true;
-                break;
-              }
-              if (pUpstream + uLen < earliestGapStart) {
-                break;
-              }
-              if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
-                  && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
-                break;
-              }
-              nextUpper = pUpstream - 1;
-            }
-            if (!retryMatched) {
-              upstreamMatched = false;
-              break;
-            }
-          }
-
-          curAnchorStart = pUpstream;
-          if (k == 0) {
-            p0 = pUpstream;
-          }
-        }
-
-        if (!upstreamMatched) {
+        int p0 = verifyUpstream(text, segments, driverIdx - 1, pDriver, minReverseWatermark);
+        if (p0 < 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           workHolder[0]++;
           if (WorkLimit.isExhausted(workHolder[0], workLimit)) {
@@ -1323,7 +1137,6 @@ final class MultiAnchorExecutor {
     }
     return len >= gap.minLength() * 2;
   }
-
   private static boolean isUnboundedGapSatisfiedUtf8(MultiAnchorDescriptor.Gap gap, int len) {
     if (gap.minLength() <= 1) {
       return len >= gap.minLength();
@@ -1337,5 +1150,487 @@ final class MultiAnchorExecutor {
     }
     return gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
         || gap.kind() == MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR;
+  }
+
+  private static Result findEndAnchored(
+      MultiAnchorDescriptor descriptor, Utf8InputScanner scanner, int searchFrom) {
+    int textLen = scanner.length();
+    boolean wasDollar = descriptor.chain().endAnchorWasDollar();
+    boolean unixLines = descriptor.chain().endAnchorUnixLines();
+    int trailingTerm = wasDollar ? scanner.trailingLineTerminatorStart(unixLines, textLen) : -1;
+
+    Result best = null;
+    if (trailingTerm >= 0 && trailingTerm >= searchFrom) {
+      best = matchAtTargetEnd(scanner, descriptor, trailingTerm, searchFrom);
+    }
+    if (textLen >= searchFrom) {
+      Result atEnd = matchAtTargetEnd(scanner, descriptor, textLen, searchFrom);
+      if (atEnd != null) {
+        if (best == null || atEnd.start() < best.start()) {
+          best = atEnd;
+        }
+      }
+    }
+    return best != null ? best : Result.MISMATCH;
+  }
+
+  private static Result matchAtTargetEnd(
+      Utf8InputScanner scanner, MultiAnchorDescriptor descriptor, int targetEnd, int searchFrom) {
+    MultiAnchorDescriptor.Segment[] segments = descriptor.chain().segments();
+    int numSegments = segments.length;
+    MultiAnchorDescriptor.Segment lastSeg = segments[numSegments - 1];
+    MultiAnchorDescriptor.Anchor lastAnchor = lastSeg.anchor();
+    MultiAnchorDescriptor.Gap trailingGap = descriptor.chain().trailingGap();
+
+    if (trailingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY
+        || trailingGap.kind() == MultiAnchorDescriptor.GapKind.TEXT_END
+        || trailingGap.isExecutorFixedGap()) {
+      int gapLen = trailingGap.isExecutorFixedGap() ? trailingGap.minLength() : 0;
+      int gapStart = targetEnd - gapLen;
+      if (gapStart < 0) {
+        return null;
+      }
+      if (trailingGap.isExecutorFixedGap()
+          && !trailingGap.matchesSlice(scanner, gapStart, targetEnd)) {
+        return null;
+      }
+
+      int pLast = -1;
+      if (lastAnchor instanceof MultiAnchorDescriptor.Anchor.Single single) {
+        int anchorLen = single.literalUtf8().length;
+        int cand = gapStart - anchorLen;
+        if (cand >= 0 && lastAnchor.startsWith(scanner, cand)) {
+          pLast = cand;
+        }
+      } else {
+        int cand =
+            lastAnchor.lastIndexOf(
+                scanner,
+                Math.max(0, gapStart - lastAnchor.maxLength()),
+                Math.max(0, gapStart - lastAnchor.minLength()));
+        if (cand >= 0 && cand + lastAnchor.lengthAt(scanner, cand) == gapStart) {
+          pLast = cand;
+        }
+      }
+      if (pLast < 0) {
+        return null;
+      }
+      int p0 = verifyUpstream(scanner, segments, numSegments - 2, pLast, 0);
+      if (p0 < 0) {
+        return null;
+      }
+      int matchStart = resolveLeadingStart(scanner, segments[0].gap(), p0, searchFrom);
+      if (matchStart < 0 || matchStart < searchFrom) {
+        return null;
+      }
+      return Result.matched(matchStart, targetEnd);
+    }
+
+    if (trailingGap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT) {
+      int minGap = trailingGap.minLength();
+      int maxGap = trailingGap.maxLength();
+      if (targetEnd - minGap < 0) {
+        return null;
+      }
+      int searchLowerBound =
+          Math.max(0, targetEnd - (maxGap == Integer.MAX_VALUE ? targetEnd : maxGap * 4));
+      int earliestGapStart = trailingGap.scanClassStart(scanner, searchLowerBound, targetEnd);
+      if (targetEnd - earliestGapStart < minGap) {
+        return null;
+      }
+      int maxAnchorStart = targetEnd - minGap - lastAnchor.minLength();
+      int maxAnchorBytes = lastAnchor.maxLength() * 4;
+      int minAnchorStart = Math.max(0, earliestGapStart - maxAnchorBytes);
+      if (maxGap != Integer.MAX_VALUE) {
+        minAnchorStart =
+            Math.max(minAnchorStart, (int) Math.max(0L, targetEnd - maxGap * 4L - maxAnchorBytes));
+      }
+      if (maxAnchorStart < minAnchorStart) {
+        return null;
+      }
+      int nextUpper = maxAnchorStart;
+      while (nextUpper >= minAnchorStart) {
+        int pLast = lastAnchor.lastIndexOf(scanner, minAnchorStart, nextUpper);
+        if (pLast < 0) {
+          break;
+        }
+        int uLen = lastAnchor.lengthAt(scanner, pLast);
+        if (uLen > 0
+            && pLast + uLen >= earliestGapStart
+            && targetEnd - (pLast + uLen) >= minGap
+            && (maxGap == Integer.MAX_VALUE || targetEnd - (pLast + uLen) <= maxGap)
+            && trailingGap.matchesSlice(scanner, pLast + uLen, targetEnd)) {
+          int p0 = verifyUpstream(scanner, segments, numSegments - 2, pLast, 0);
+          if (p0 >= 0) {
+            int matchStart = resolveLeadingStart(scanner, segments[0].gap(), p0, searchFrom);
+            if (matchStart >= 0 && matchStart >= searchFrom) {
+              return Result.matched(matchStart, targetEnd);
+            }
+          }
+        }
+        nextUpper = pLast - 1;
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  private static int resolveLeadingStart(
+      Utf8InputScanner scanner, MultiAnchorDescriptor.Gap leadingGap, int p0, int searchFrom) {
+    if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.ANY_STAR) {
+      return Math.max(0, searchFrom);
+    }
+    if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
+      return p0;
+    }
+    if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.TEXT_START) {
+      return p0 == 0 ? 0 : -1;
+    }
+    return leadingGap.expandLeading(scanner, p0, Math.max(0, searchFrom));
+  }
+
+  private static int verifyUpstream(
+      Utf8InputScanner scanner,
+      MultiAnchorDescriptor.Segment[] segments,
+      int fromIndex,
+      int anchorStart,
+      int minReverseWatermark) {
+    if (fromIndex < 0) {
+      return anchorStart;
+    }
+    int curAnchorStart = anchorStart;
+    int p0 = -1;
+
+    for (int k = fromIndex; k >= 0; k--) {
+      MultiAnchorDescriptor.Segment nextSeg = segments[k + 1];
+      MultiAnchorDescriptor.Gap gap = nextSeg.gap();
+      MultiAnchorDescriptor.Anchor upstreamAnchor = segments[k].anchor();
+
+      int maxHop =
+          (gap.maxLength() == Integer.MAX_VALUE)
+              ? (curAnchorStart - minReverseWatermark)
+              : (int)
+                  Math.min(
+                      ((long) gap.maxLength() + upstreamAnchor.maxLength()) * 4,
+                      curAnchorStart - minReverseWatermark);
+      int minHop = gap.minLength() + upstreamAnchor.minLength();
+
+      int searchUpperBound = curAnchorStart - minHop;
+      int searchLowerBound = Math.max(minReverseWatermark, curAnchorStart - maxHop);
+      int earliestGapStart = gap.scanClassStart(scanner, searchLowerBound, curAnchorStart);
+      if (curAnchorStart - earliestGapStart < gap.minLength()) {
+        return -1;
+      }
+      long maxAnchorBytes = upstreamAnchor.maxLength() * 4L;
+      int firstOverlappingAnchorStart = (int) Math.max(0L, earliestGapStart - maxAnchorBytes);
+      searchLowerBound = Math.max(searchLowerBound, firstOverlappingAnchorStart);
+
+      if (searchUpperBound < searchLowerBound) {
+        return -1;
+      }
+
+      int pUpstream = upstreamAnchor.lastIndexOf(scanner, searchLowerBound, searchUpperBound);
+      if (pUpstream < 0) {
+        return -1;
+      }
+
+      int uLen = upstreamAnchor.lengthAt(scanner, pUpstream);
+      boolean sliceValid =
+          uLen > 0
+              && pUpstream + uLen >= earliestGapStart
+              && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
+              && ((gap.maxLength() == Integer.MAX_VALUE
+                      && isUnboundedGapSatisfiedUtf8(gap, curAnchorStart - (pUpstream + uLen)))
+                  || gap.matchesSlice(scanner, pUpstream + uLen, curAnchorStart));
+      if (!sliceValid) {
+        if (pUpstream + uLen < earliestGapStart) {
+          return -1;
+        }
+        if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+            && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
+          return -1;
+        }
+        // Gap check failed: retry reverse search for earlier candidate
+        boolean retryMatched = false;
+        int nextUpper = pUpstream - 1;
+        while (nextUpper >= searchLowerBound) {
+          pUpstream = upstreamAnchor.lastIndexOf(scanner, searchLowerBound, nextUpper);
+          if (pUpstream < 0) {
+            break;
+          }
+          uLen = upstreamAnchor.lengthAt(scanner, pUpstream);
+          if (uLen > 0
+              && pUpstream + uLen >= earliestGapStart
+              && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
+              && ((gap.maxLength() == Integer.MAX_VALUE
+                      && isUnboundedGapSatisfiedUtf8(gap, curAnchorStart - (pUpstream + uLen)))
+                  || gap.matchesSlice(scanner, pUpstream + uLen, curAnchorStart))) {
+            retryMatched = true;
+            break;
+          }
+          if (pUpstream + uLen < earliestGapStart) {
+            break;
+          }
+          if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+              && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
+            break;
+          }
+          nextUpper = pUpstream - 1;
+        }
+        if (!retryMatched) {
+          return -1;
+        }
+      }
+
+      curAnchorStart = pUpstream;
+      if (k == 0) {
+        p0 = pUpstream;
+      }
+    }
+    return p0;
+  }
+
+  private static Result findEndAnchored(
+      MultiAnchorDescriptor descriptor, String text, int searchFrom) {
+    int textLen = text.length();
+    boolean wasDollar = descriptor.chain().endAnchorWasDollar();
+    boolean unixLines = descriptor.chain().endAnchorUnixLines();
+    int trailingTerm =
+        wasDollar ? StringInputScanner.trailingLineTerminatorStart(text, unixLines, textLen) : -1;
+
+    Result best = null;
+    if (trailingTerm >= 0 && trailingTerm >= searchFrom) {
+      best = matchAtTargetEnd(text, descriptor, trailingTerm, searchFrom);
+    }
+    if (textLen >= searchFrom) {
+      Result atEnd = matchAtTargetEnd(text, descriptor, textLen, searchFrom);
+      if (atEnd != null) {
+        if (best == null || atEnd.start() < best.start()) {
+          best = atEnd;
+        }
+      }
+    }
+    return best != null ? best : Result.MISMATCH;
+  }
+
+  private static Result matchAtTargetEnd(
+      String text, MultiAnchorDescriptor descriptor, int targetEnd, int searchFrom) {
+    MultiAnchorDescriptor.Segment[] segments = descriptor.chain().segments();
+    int numSegments = segments.length;
+    MultiAnchorDescriptor.Segment lastSeg = segments[numSegments - 1];
+    MultiAnchorDescriptor.Anchor lastAnchor = lastSeg.anchor();
+    MultiAnchorDescriptor.Gap trailingGap = descriptor.chain().trailingGap();
+
+    if (trailingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY
+        || trailingGap.kind() == MultiAnchorDescriptor.GapKind.TEXT_END
+        || trailingGap.isExecutorFixedGap()) {
+      int gapLen = trailingGap.isExecutorFixedGap() ? trailingGap.minLength() : 0;
+      int gapStart = targetEnd - gapLen;
+      if (gapStart < 0) {
+        return null;
+      }
+      if (trailingGap.isExecutorFixedGap()
+          && !trailingGap.matchesSlice(text, gapStart, targetEnd)) {
+        return null;
+      }
+
+      int pLast = -1;
+      if (lastAnchor instanceof MultiAnchorDescriptor.Anchor.Single single) {
+        int anchorLen = single.literal().length();
+        int cand = gapStart - anchorLen;
+        if (cand >= 0 && lastAnchor.startsWith(text, cand)) {
+          pLast = cand;
+        }
+      } else {
+        int cand =
+            lastAnchor.lastIndexOf(
+                text,
+                Math.max(0, gapStart - lastAnchor.maxLength()),
+                Math.max(0, gapStart - lastAnchor.minLength()));
+        if (cand >= 0 && cand + lastAnchor.lengthAt(text, cand) == gapStart) {
+          pLast = cand;
+        }
+      }
+      if (pLast < 0) {
+        return null;
+      }
+      int p0 = verifyUpstream(text, segments, numSegments - 2, pLast, 0);
+      if (p0 < 0) {
+        return null;
+      }
+      int matchStart = resolveLeadingStart(text, segments[0].gap(), p0, searchFrom);
+      if (matchStart < 0 || matchStart < searchFrom) {
+        return null;
+      }
+      return Result.matched(matchStart, targetEnd);
+    }
+
+    if (trailingGap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT) {
+      int minGap = trailingGap.minLength();
+      int maxGap = trailingGap.maxLength();
+      if (targetEnd - minGap < 0) {
+        return null;
+      }
+      int searchLowerBound =
+          Math.max(0, targetEnd - (maxGap == Integer.MAX_VALUE ? targetEnd : maxGap * 2));
+      int earliestGapStart = trailingGap.scanClassStart(text, searchLowerBound, targetEnd);
+      if (targetEnd - earliestGapStart < minGap) {
+        return null;
+      }
+      int maxAnchorStart = targetEnd - minGap - lastAnchor.minLength();
+      int minAnchorStart = Math.max(0, earliestGapStart - lastAnchor.maxLength());
+      if (maxGap != Integer.MAX_VALUE) {
+        minAnchorStart =
+            Math.max(
+                minAnchorStart,
+                (int) Math.max(0L, targetEnd - maxGap * 2L - lastAnchor.maxLength()));
+      }
+      if (maxAnchorStart < minAnchorStart) {
+        return null;
+      }
+      int nextUpper = maxAnchorStart;
+      while (nextUpper >= minAnchorStart) {
+        int pLast = lastAnchor.lastIndexOf(text, minAnchorStart, nextUpper);
+        if (pLast < 0) {
+          break;
+        }
+        int uLen = lastAnchor.lengthAt(text, pLast);
+        if (uLen > 0
+            && pLast + uLen >= earliestGapStart
+            && targetEnd - (pLast + uLen) >= minGap
+            && (maxGap == Integer.MAX_VALUE || targetEnd - (pLast + uLen) <= maxGap)
+            && trailingGap.matchesSlice(text, pLast + uLen, targetEnd)) {
+          int p0 = verifyUpstream(text, segments, numSegments - 2, pLast, 0);
+          if (p0 >= 0) {
+            int matchStart = resolveLeadingStart(text, segments[0].gap(), p0, searchFrom);
+            if (matchStart >= 0 && matchStart >= searchFrom) {
+              return Result.matched(matchStart, targetEnd);
+            }
+          }
+        }
+        nextUpper = pLast - 1;
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  private static int resolveLeadingStart(
+      String text, MultiAnchorDescriptor.Gap leadingGap, int p0, int searchFrom) {
+    if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.ANY_STAR) {
+      return Math.max(0, searchFrom);
+    }
+    if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.EMPTY) {
+      return p0;
+    }
+    if (leadingGap.kind() == MultiAnchorDescriptor.GapKind.TEXT_START) {
+      return p0 == 0 ? 0 : -1;
+    }
+    return leadingGap.expandLeading(text, p0, Math.max(0, searchFrom));
+  }
+
+  private static int verifyUpstream(
+      String text,
+      MultiAnchorDescriptor.Segment[] segments,
+      int fromIndex,
+      int anchorStart,
+      int minReverseWatermark) {
+    if (fromIndex < 0) {
+      return anchorStart;
+    }
+    int curAnchorStart = anchorStart;
+    int p0 = -1;
+
+    for (int k = fromIndex; k >= 0; k--) {
+      MultiAnchorDescriptor.Segment nextSeg = segments[k + 1];
+      MultiAnchorDescriptor.Gap gap = nextSeg.gap();
+      MultiAnchorDescriptor.Anchor upstreamAnchor = segments[k].anchor();
+
+      int maxHop =
+          (gap.maxLength() == Integer.MAX_VALUE)
+              ? (curAnchorStart - minReverseWatermark)
+              : (int)
+                  Math.min(
+                      (long) gap.maxLength() * 2 + upstreamAnchor.maxLength(),
+                      curAnchorStart - minReverseWatermark);
+      int minHop = gap.minLength() + upstreamAnchor.minLength();
+
+      int searchUpperBound = curAnchorStart - minHop;
+      int searchLowerBound = Math.max(minReverseWatermark, curAnchorStart - maxHop);
+      int earliestGapStart = gap.scanClassStart(text, searchLowerBound, curAnchorStart);
+      if (curAnchorStart - earliestGapStart < gap.minLength()) {
+        return -1;
+      }
+      int firstOverlappingAnchorStart =
+          (int) Math.max(0L, (long) earliestGapStart - upstreamAnchor.maxLength());
+      searchLowerBound = Math.max(searchLowerBound, firstOverlappingAnchorStart);
+
+      if (searchUpperBound < searchLowerBound) {
+        return -1;
+      }
+
+      int pUpstream = upstreamAnchor.lastIndexOf(text, searchLowerBound, searchUpperBound);
+      if (pUpstream < 0) {
+        return -1;
+      }
+
+      int uLen = upstreamAnchor.lengthAt(text, pUpstream);
+      boolean sliceValid =
+          uLen > 0
+              && pUpstream + uLen >= earliestGapStart
+              && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
+              && ((gap.maxLength() == Integer.MAX_VALUE
+                      && isUnboundedGapSatisfied(gap, curAnchorStart - (pUpstream + uLen)))
+                  ? gap.endsAtCodePointBoundary(text, pUpstream + uLen)
+                  : gap.matchesSlice(text, pUpstream + uLen, curAnchorStart));
+      if (!sliceValid) {
+        if (pUpstream + uLen < earliestGapStart) {
+          return -1;
+        }
+        if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+            && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
+          return -1;
+        }
+        // Gap check failed: retry reverse search for earlier candidate
+        boolean retryMatched = false;
+        int nextUpper = pUpstream - 1;
+        while (nextUpper >= searchLowerBound) {
+          pUpstream = upstreamAnchor.lastIndexOf(text, searchLowerBound, nextUpper);
+          if (pUpstream < 0) {
+            break;
+          }
+          uLen = upstreamAnchor.lengthAt(text, pUpstream);
+          if (uLen > 0
+              && pUpstream + uLen >= earliestGapStart
+              && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
+              && ((gap.maxLength() == Integer.MAX_VALUE
+                      && isUnboundedGapSatisfied(gap, curAnchorStart - (pUpstream + uLen)))
+                  ? gap.endsAtCodePointBoundary(text, pUpstream + uLen)
+                  : gap.matchesSlice(text, pUpstream + uLen, curAnchorStart))) {
+            retryMatched = true;
+            break;
+          }
+          if (pUpstream + uLen < earliestGapStart) {
+            break;
+          }
+          if (gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
+              && curAnchorStart - (pUpstream + uLen) >= gap.minLength()) {
+            break;
+          }
+          nextUpper = pUpstream - 1;
+        }
+        if (!retryMatched) {
+          return -1;
+        }
+      }
+
+      curAnchorStart = pUpstream;
+      if (k == 0) {
+        p0 = pUpstream;
+      }
+    }
+    return p0;
   }
 }

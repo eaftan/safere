@@ -120,6 +120,7 @@ class MultiAnchorCompilerTest {
             .checkOrder(1, 0)
             .isStartAnchored(true)
             .isEndAnchored(true)
+            .endAnchorWasDollar(true)
             .startPlan(new StartPlan.Literal("foo", false, null))
             .rejectPlan(
                 new RejectPlan.EndAnchoredSuffix(new Pattern.SuffixInfo("bar", true, false, false)))
