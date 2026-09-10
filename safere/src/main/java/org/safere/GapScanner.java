@@ -539,6 +539,12 @@ final class GapScanner {
             yield false;
           }
           if (gap.guardBytes().length == 1 && gap.isPureComplement()) {
+            if (len < gap.minLength()) {
+              yield false;
+            }
+            if (gap.maxLength() == Integer.MAX_VALUE && gap.minLength() == 0) {
+              yield true;
+            }
             int count = Character.codePointCount(text, from, to);
             yield count >= gap.minLength() && count <= gap.maxLength();
           }
@@ -612,6 +618,12 @@ final class GapScanner {
             yield false;
           }
           if (gap.guardBytes().length == 1 && gap.isPureComplement()) {
+            if (len < gap.minLength()) {
+              yield false;
+            }
+            if (gap.maxLength() == Integer.MAX_VALUE && gap.minLength() == 0) {
+              yield true;
+            }
             int count = 0;
             for (int i = from; i < to; ) {
               long decoded = scanner.decodeForward(i);
@@ -799,9 +811,11 @@ final class GapScanner {
           int limit = boundedCodePointEnd(gap, text, fromPos, maxPos);
           int g = findFirstGuardByte(gap.guardBytes(), text, fromPos, limit);
           int end = (g >= fromPos && g < limit) ? g : limit;
-          int count = Character.codePointCount(text, fromPos, end);
-          if (count < gap.minLength()) {
-            yield -1;
+          if (gap.minLength() > 0) {
+            int count = Character.codePointCount(text, fromPos, end);
+            if (count < gap.minLength()) {
+              yield -1;
+            }
           }
           yield end;
         }
@@ -867,14 +881,16 @@ final class GapScanner {
           int limit = boundedCodePointEnd(gap, scanner, fromPos, maxPos);
           int g = findFirstGuardByte(gap.guardBytes(), scanner, fromPos, limit);
           int end = (g >= fromPos && g < limit) ? g : limit;
-          int count = 0;
-          for (int p = fromPos; p < end; ) {
-            long decoded = scanner.decodeForward(p);
-            p = InputScanner.position(decoded);
-            count++;
-          }
-          if (count < gap.minLength()) {
-            yield -1;
+          if (gap.minLength() > 0) {
+            int count = 0;
+            for (int p = fromPos; p < end; ) {
+              long decoded = scanner.decodeForward(p);
+              p = InputScanner.position(decoded);
+              count++;
+            }
+            if (count < gap.minLength()) {
+              yield -1;
+            }
           }
           yield end;
         }
