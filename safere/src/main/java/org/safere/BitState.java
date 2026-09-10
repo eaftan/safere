@@ -270,12 +270,16 @@ final class BitState {
     matchResult =
         resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
+    pruneAcrossStarts = !anchored;
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
         return bestMatch;
       }
       if (budgetExceeded) {
         return null;
+      }
+      if (pruneAcrossStarts) {
+        foldVisitedIntoDead();
       }
       if (searchStart < textLen) {
         searchStart = InputScanner.position(text.decodeForward(searchStart)) - 1;
@@ -298,16 +302,56 @@ final class BitState {
   private GraphemeSupport.Context graphemeContext;
 
   /**
-   * Visited bitmap: bit {@code (instId * textSlots + pos)} tracks whether the given (instruction,
-   * position) pair has been explored. Sized for the full text so the instance can be reused across
-   * searches with different start/end bounds.
+   * Per-start visited bitmap: bit {@code ((pos - basePos) * progSize + instId)} tracks which (ALT,
+   * position) pairs the current start position's search has reached. Position-major layout keeps
+   * one start's marks contiguous, so folding them into {@link #dead} costs no more than the search
+   * that produced them. Sized for the full text so the instance can be reused across searches with
+   * different start/end bounds.
    */
   private final long[] visited;
 
-  private int textSlots;
+  /**
+   * Cross-start pruning bitmap, same layout as {@link #visited}: set for every ALT reached by an
+   * earlier start position whose search failed. Whether a match is reachable from an (ALT,
+   * position) pair does not depend on capture values, so a pair that led nowhere from one start
+   * leads nowhere from any later start either. Checking it makes unanchored search linear (RE2 gets
+   * the same effect by never clearing its visited bitmap between starts) while still letting
+   * non-cycle ALTs be revisited within a single start, which capture priority requires.
+   *
+   * <p>PROGRESS_CHECK loop registers do not break this. They only guard nullable loop bodies, so a
+   * first visit's body-only branch still reaches the exit through a zero-width iteration, and a
+   * path that arrives with the register equal to the current position (exit-only) exists only
+   * because the same start already took the body from that position. Either way the failed start
+   * explored every future a later start could have through the pruned pair.
+   *
+   * <p>Allocated unconditionally alongside {@link #visited}, even though anchored-only instances
+   * never use it: lazily allocating it on first unanchored use was tried and measured 40-60% slower
+   * on unanchored searches (the case that actually prunes), for a memory saving that only applies
+   * to anchored-only instances. Not a good trade.
+   */
+  private final long[] dead;
 
-  /** Which ALT instructions are part of epsilon cycles and need the visited bitmap. */
-  private final boolean[] cycleAlts;
+  /** Dirty word ranges of {@link #visited} and {@link #dead}; clears touch only these words. */
+  private int visitedLo;
+
+  private int visitedHi;
+  private int deadLo;
+  private int deadHi;
+
+  private int textSlots;
+  private final int progSize;
+
+  /** Whether the current {@link #doSearch} prunes later starts with {@link #dead}. */
+  private boolean pruneAcrossStarts;
+
+  /**
+   * Per-instruction kind for {@link #shouldVisit}: 0 = not an ALT, 1 = ALT, 2 = epsilon-cycle ALT.
+   */
+  private final byte[] altKind;
+
+  private static final byte NOT_ALT = 0;
+  private static final byte ALT = 1;
+  private static final byte CYCLE_ALT = 2;
 
   /** Current capture registers. */
   private final int[] cap;
@@ -351,12 +395,30 @@ final class BitState {
     this.endMatch = endMatch || prog.anchorEnd();
     this.ncap = ncap;
     this.textSlots = (endPos - basePos) + 2;
-    this.cycleAlts = prog.epsilonCycleAlts();
+    this.progSize = prog.size();
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
 
-    int totalBits = prog.size() * textSlots;
+    boolean[] cycleAlts = prog.epsilonCycleAlts();
+    this.altKind = new byte[progSize];
+    for (int i = 0; i < progSize; i++) {
+      if (cycleAlts[i]) {
+        altKind[i] = CYCLE_ALT;
+      } else {
+        int op = prog.inst(i).opCode;
+        if (op == InstOp.OP_ALT || op == InstOp.OP_ALT_MATCH) {
+          altKind[i] = ALT;
+        }
+      }
+    }
+
+    int totalBits = progSize * textSlots;
     int visitedLen = (totalBits + 63) / 64;
     this.visited = new long[visitedLen];
+    this.dead = new long[visitedLen];
+    this.visitedLo = Integer.MAX_VALUE;
+    this.visitedHi = -1;
+    this.deadLo = Integer.MAX_VALUE;
+    this.deadHi = -1;
 
     this.cap = new int[ncap];
     Arrays.fill(cap, -1);
@@ -376,9 +438,10 @@ final class BitState {
   }
 
   /**
-   * Returns true if (instId, pos) should be explored; marks epsilon-cycle ALTs as visited.
+   * Returns true if (instId, pos) should be explored. Records every ALT reached so a failed start
+   * can prune later ones via {@link #dead}; within one start, only epsilon-cycle ALTs are blocked.
    *
-   * <p>Only ALT/ALT_MATCH instructions that participate in epsilon cycles use the visited bitmap.
+   * <p>Only ALT/ALT_MATCH instructions that participate in epsilon cycles are blocked on revisit.
    * An epsilon cycle is a path from an ALT back to itself through only epsilon transitions (ALT,
    * NOP, CAPTURE, EMPTY_WIDTH) — without any CHAR_RANGE to consume input. Only these can cause
    * infinite loops.
@@ -398,19 +461,52 @@ final class BitState {
    * </ul>
    */
   private boolean shouldVisit(int instId, int pos) {
-    if (!cycleAlts[instId]) {
-      return true; // non-cycle or non-ALT instruction: safe to revisit
+    int kind = altKind[instId];
+    if (kind == NOT_ALT) {
+      return true;
     }
-    // Cycle ALT: use visited bitmap to prevent infinite epsilon loops.
-    int bit = instId * textSlots + (pos - basePos);
-    int word = bit / 64;
-    long mask = 1L << (bit % 64);
-    if ((visited[word] & mask) != 0) {
-      return false; // already visited
+    int bit = (pos - basePos) * progSize + instId;
+    int word = bit >>> 6;
+    long mask = 1L << (bit & 63);
+    if (pruneAcrossStarts) {
+      if ((dead[word] & mask) != 0) {
+        return false; // an earlier start already exhausted this pair without matching
+      }
+    } else if (kind == ALT) {
+      return true; // non-cycle ALT: safe to revisit
     }
-    visited[word] |= mask;
-
+    long w = visited[word];
+    if ((w & mask) != 0) {
+      // Cycle ALT: block the epsilon loop. Non-cycle ALT: revisitable, and already recorded.
+      return kind == ALT;
+    }
+    visited[word] = w | mask;
+    if (word < visitedLo) {
+      visitedLo = word;
+    }
+    if (word > visitedHi) {
+      visitedHi = word;
+    }
     return true;
+  }
+
+  /** Moves the failed start's marks into {@link #dead} and clears them for the next start. */
+  private void foldVisitedIntoDead() {
+    if (visitedHi < visitedLo) {
+      return;
+    }
+    for (int w = visitedLo; w <= visitedHi; w++) {
+      dead[w] |= visited[w];
+      visited[w] = 0L;
+    }
+    if (visitedLo < deadLo) {
+      deadLo = visitedLo;
+    }
+    if (visitedHi > deadHi) {
+      deadHi = visitedHi;
+    }
+    visitedLo = Integer.MAX_VALUE;
+    visitedHi = -1;
   }
 
   /** Pushes a job onto the stack, growing if needed. */
@@ -669,9 +765,16 @@ final class BitState {
     this.graphemeContext = GraphemeSupport.Context.create(text, prog.hasGraphemeSemantics());
     this.bestMatch = null;
     this.jobCount = 0;
-    int totalBits = prog.size() * textSlots;
-    int usedLen = (totalBits + 63) / 64;
-    Arrays.fill(visited, 0, usedLen, 0L);
+    if (visitedHi >= visitedLo) {
+      Arrays.fill(visited, visitedLo, visitedHi + 1, 0L);
+      visitedLo = Integer.MAX_VALUE;
+      visitedHi = -1;
+    }
+    if (deadHi >= deadLo) {
+      Arrays.fill(dead, deadLo, deadHi + 1, 0L);
+      deadLo = Integer.MAX_VALUE;
+      deadHi = -1;
+    }
     Arrays.fill(cap, 0, ncap, -1);
     if (loopRegs.length > 0) {
       Arrays.fill(loopRegs, -1);
