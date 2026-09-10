@@ -113,6 +113,7 @@
                         <exclude name="DfaTest.java"/>
                         <exclude name="DiagnosticsTest.java"/>
                         <exclude name="EmptyOpTest.java"/>
+                        <exclude name="EndAnchoredGapChainTest.java"/>
                         <exclude name="EnginePathEquivalenceTest.java"/>
                         <exclude name="GraphemeLinearTimeTest.java"/>
                         <exclude name="ClassHashChainTest.java"/>

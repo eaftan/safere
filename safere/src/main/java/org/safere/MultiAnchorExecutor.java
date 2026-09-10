@@ -1137,6 +1137,7 @@ final class MultiAnchorExecutor {
     }
     return len >= gap.minLength() * 2;
   }
+
   private static boolean isUnboundedGapSatisfiedUtf8(MultiAnchorDescriptor.Gap gap, int len) {
     if (gap.minLength() <= 1) {
       return len >= gap.minLength();
