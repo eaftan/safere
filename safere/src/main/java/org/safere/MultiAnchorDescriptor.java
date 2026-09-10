@@ -44,8 +44,8 @@ final class MultiAnchorDescriptor {
     // Eligibility depends only on the compiled chain, whose segments are never mutated after
     // construction. Cache both input domains so dispatch and execution can check it in constant
     // time.
-    this.executableChain = computeExecutableChain();
-    this.executableUtf8Chain = computeExecutableUtf8Chain();
+    this.executableChain = computeExecutableChain(chain);
+    this.executableUtf8Chain = computeExecutableUtf8Chain(chain, executableChain);
   }
 
   Chain chain() {
@@ -464,7 +464,7 @@ final class MultiAnchorDescriptor {
     return executableChain;
   }
 
-  private boolean computeExecutableChain() {
+  private static boolean computeExecutableChain(Chain chain) {
     int n = chain.segments().length;
     if (n < 1 || chain.isEndAnchored() || !isExecutableLeadingGap(chain.segments()[0].gap())) {
       return false;
@@ -531,8 +531,8 @@ final class MultiAnchorDescriptor {
     return executableUtf8Chain;
   }
 
-  private boolean computeExecutableUtf8Chain() {
-    if (!isExecutableChain()) {
+  private static boolean computeExecutableUtf8Chain(Chain chain, boolean executableChain) {
+    if (!executableChain) {
       return false;
     }
     for (Segment segment : chain.segments()) {
@@ -640,7 +640,7 @@ final class MultiAnchorDescriptor {
     }
 
     boolean isExecutorFixedGap() {
-      return equals(EMPTY)
+      return kind == GapKind.EMPTY
           || (kind == GapKind.BOUNDED_CLASS_REPEAT && isFixed() && scanInfo != null);
     }
 
