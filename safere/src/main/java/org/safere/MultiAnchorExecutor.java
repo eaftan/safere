@@ -70,26 +70,41 @@ final class MultiAnchorExecutor {
    * @return the execution result
    */
   static Result find(MultiAnchorDescriptor descriptor, Utf8InputScanner scanner, int searchFrom) {
-    return find(descriptor, scanner, searchFrom, null, null);
+    return find(descriptor, scanner, searchFrom, null, null, null, null);
   }
 
-  /**
-   * Executes multi-anchor matching on UTF-8 byte input with caller-provided scratch and work
-   * buffers.
-   *
-   * @param descriptor the multi-anchor descriptor containing the chain
-   * @param scanner the UTF-8 input scanner
-   * @param searchFrom the starting offset in the input
-   * @param scratch reusable state buffer of length at least {@code numSegments * STATE_STRIDE}
-   * @param workHolder single-element array tracking cumulative verification work
-   * @return the execution result
-   */
+  static Result find(
+      MultiAnchorDescriptor descriptor, Utf8InputScanner scanner, int searchFrom, int[] groups) {
+    return find(descriptor, scanner, searchFrom, null, null, groups, null);
+  }
+
   static Result find(
       MultiAnchorDescriptor descriptor,
       Utf8InputScanner scanner,
       int searchFrom,
       int[] scratch,
       long[] workHolder) {
+    return find(descriptor, scanner, searchFrom, scratch, workHolder, null, null);
+  }
+
+  static Result find(
+      MultiAnchorDescriptor descriptor,
+      Utf8InputScanner scanner,
+      int searchFrom,
+      int[] scratch,
+      long[] workHolder,
+      int[] groups) {
+    return find(descriptor, scanner, searchFrom, scratch, workHolder, groups, null);
+  }
+
+  static Result find(
+      MultiAnchorDescriptor descriptor,
+      Utf8InputScanner scanner,
+      int searchFrom,
+      int[] scratch,
+      long[] workHolder,
+      int[] groups,
+      int[] anchorPositions) {
     Objects.requireNonNull(descriptor, "descriptor");
     Objects.requireNonNull(scanner, "scanner");
 
@@ -109,8 +124,15 @@ final class MultiAnchorExecutor {
       return Result.MISMATCH;
     }
 
+    boolean trackCaptures = groups != null && descriptor.canExtractAllCaptures();
+    if (!trackCaptures) {
+      anchorPositions = null;
+    } else if (anchorPositions == null || anchorPositions.length < numSegments * 2) {
+      anchorPositions = new int[numSegments * 2];
+    }
+
     if (descriptor.chain().isEndAnchored()) {
-      return findEndAnchored(descriptor, scanner, searchFrom);
+      return findEndAnchored(descriptor, scanner, searchFrom, groups, anchorPositions);
     }
 
     // Matcher already applies the compiled reject prefilter. Search the driver directly here;
@@ -186,15 +208,21 @@ final class MultiAnchorExecutor {
           continue;
         }
 
-        int len0 = driverAnchor.lengthAt(scanner, pDriver);
-        if (len0 <= 0) {
+        int dLen = driverAnchor.lengthAt(scanner, pDriver);
+        if (dLen <= 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           continue;
         }
-        currentPos = pDriver + len0;
+        if (anchorPositions != null) {
+          anchorPositions[0] = pDriver;
+          anchorPositions[1] = dLen;
+        }
+        currentPos = pDriver + dLen;
       } else {
         // Upstream reverse verification for A_{driverIdx-1} down to A_0
-        int p0 = verifyUpstream(scanner, segments, driverIdx - 1, pDriver, minReverseWatermark);
+        int p0 =
+            verifyUpstream(
+                scanner, segments, driverIdx - 1, pDriver, minReverseWatermark, anchorPositions);
         if (p0 < 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           workHolder[0]++;
@@ -222,6 +250,10 @@ final class MultiAnchorExecutor {
         if (driverLen <= 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           continue;
+        }
+        if (anchorPositions != null) {
+          anchorPositions[driverIdx * 2] = pDriver;
+          anchorPositions[driverIdx * 2 + 1] = driverLen;
         }
 
         matchStart = resolvedStart;
@@ -313,6 +345,14 @@ final class MultiAnchorExecutor {
         continue;
       }
 
+      if (anchorPositions != null) {
+        for (int i = driverIdx + 1; i < numSegments; i++) {
+          int base = i * STATE_STRIDE;
+          anchorPositions[i * 2] = scratch[base + OFFSET_P];
+          anchorPositions[i * 2 + 1] = scratch[base + OFFSET_ANCHOR_LEN];
+        }
+        extractCaptures(descriptor, groups, matchStart, matchEnd, anchorPositions);
+      }
       return Result.matched(matchStart, matchEnd);
     }
 
@@ -328,26 +368,40 @@ final class MultiAnchorExecutor {
    * @return the execution result
    */
   static Result find(MultiAnchorDescriptor descriptor, String text, int searchFrom) {
-    return find(descriptor, text, searchFrom, null, null);
+    return find(descriptor, text, searchFrom, null, null, null, null);
   }
 
-  /**
-   * Executes multi-anchor matching on Java String input with caller-provided scratch and work
-   * buffers.
-   *
-   * @param descriptor the multi-anchor descriptor containing the chain
-   * @param text the input string
-   * @param searchFrom the starting character index
-   * @param scratch reusable state buffer of length at least {@code numSegments * STATE_STRIDE}
-   * @param workHolder single-element array tracking cumulative verification work
-   * @return the execution result
-   */
+  static Result find(MultiAnchorDescriptor descriptor, String text, int searchFrom, int[] groups) {
+    return find(descriptor, text, searchFrom, null, null, groups, null);
+  }
+
   static Result find(
       MultiAnchorDescriptor descriptor,
       String text,
       int searchFrom,
       int[] scratch,
       long[] workHolder) {
+    return find(descriptor, text, searchFrom, scratch, workHolder, null, null);
+  }
+
+  static Result find(
+      MultiAnchorDescriptor descriptor,
+      String text,
+      int searchFrom,
+      int[] scratch,
+      long[] workHolder,
+      int[] groups) {
+    return find(descriptor, text, searchFrom, scratch, workHolder, groups, null);
+  }
+
+  static Result find(
+      MultiAnchorDescriptor descriptor,
+      String text,
+      int searchFrom,
+      int[] scratch,
+      long[] workHolder,
+      int[] groups,
+      int[] anchorPositions) {
     Objects.requireNonNull(descriptor, "descriptor");
     Objects.requireNonNull(text, "text");
 
@@ -367,8 +421,15 @@ final class MultiAnchorExecutor {
       return Result.MISMATCH;
     }
 
+    boolean trackCaptures = groups != null && descriptor.canExtractAllCaptures();
+    if (!trackCaptures) {
+      anchorPositions = null;
+    } else if (anchorPositions == null || anchorPositions.length < numSegments * 2) {
+      anchorPositions = new int[numSegments * 2];
+    }
+
     if (descriptor.chain().isEndAnchored()) {
-      return findEndAnchored(descriptor, text, searchFrom);
+      return findEndAnchored(descriptor, text, searchFrom, groups, anchorPositions);
     }
 
     // Matcher already applies the compiled reject prefilter. Search the driver directly here;
@@ -442,15 +503,21 @@ final class MultiAnchorExecutor {
           continue;
         }
 
-        int len0 = driverAnchor.lengthAt(text, pDriver);
-        if (len0 <= 0) {
+        int dLen = driverAnchor.lengthAt(text, pDriver);
+        if (dLen <= 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           continue;
         }
-        currentPos = pDriver + len0;
+        if (anchorPositions != null) {
+          anchorPositions[0] = pDriver;
+          anchorPositions[1] = dLen;
+        }
+        currentPos = pDriver + dLen;
       } else {
         // Upstream reverse verification for A_{driverIdx-1} down to A_0
-        int p0 = verifyUpstream(text, segments, driverIdx - 1, pDriver, minReverseWatermark);
+        int p0 =
+            verifyUpstream(
+                text, segments, driverIdx - 1, pDriver, minReverseWatermark, anchorPositions);
         if (p0 < 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           workHolder[0]++;
@@ -478,6 +545,10 @@ final class MultiAnchorExecutor {
         if (driverLen <= 0) {
           candidatePos = advanceCandidatePos(candidatePos, pDriver, minUpstreamLen);
           continue;
+        }
+        if (anchorPositions != null) {
+          anchorPositions[driverIdx * 2] = pDriver;
+          anchorPositions[driverIdx * 2 + 1] = driverLen;
         }
 
         matchStart = resolvedStart;
@@ -569,6 +640,14 @@ final class MultiAnchorExecutor {
         continue;
       }
 
+      if (anchorPositions != null) {
+        for (int i = driverIdx + 1; i < numSegments; i++) {
+          int base = i * STATE_STRIDE;
+          anchorPositions[i * 2] = scratch[base + OFFSET_P];
+          anchorPositions[i * 2 + 1] = scratch[base + OFFSET_ANCHOR_LEN];
+        }
+        extractCaptures(descriptor, groups, matchStart, matchEnd, anchorPositions);
+      }
       return Result.matched(matchStart, matchEnd);
     }
 
@@ -1154,29 +1233,49 @@ final class MultiAnchorExecutor {
   }
 
   private static Result findEndAnchored(
-      MultiAnchorDescriptor descriptor, Utf8InputScanner scanner, int searchFrom) {
+      MultiAnchorDescriptor descriptor,
+      Utf8InputScanner scanner,
+      int searchFrom,
+      int[] groups,
+      int[] anchorPositions) {
     int textLen = scanner.length();
     boolean wasDollar = descriptor.chain().endAnchorWasDollar();
     boolean unixLines = descriptor.chain().endAnchorUnixLines();
     int trailingTerm = wasDollar ? scanner.trailingLineTerminatorStart(unixLines, textLen) : -1;
 
     Result best = null;
+    int[] bestAnchors = null;
     if (trailingTerm >= 0 && trailingTerm >= searchFrom) {
-      best = matchAtTargetEnd(scanner, descriptor, trailingTerm, searchFrom);
+      best = matchAtTargetEnd(scanner, descriptor, trailingTerm, searchFrom, anchorPositions);
+      if (best != null && anchorPositions != null) {
+        bestAnchors = anchorPositions.clone();
+      }
     }
     if (textLen >= searchFrom) {
-      Result atEnd = matchAtTargetEnd(scanner, descriptor, textLen, searchFrom);
+      Result atEnd = matchAtTargetEnd(scanner, descriptor, textLen, searchFrom, anchorPositions);
       if (atEnd != null) {
         if (best == null || atEnd.start() < best.start()) {
           best = atEnd;
+          bestAnchors = null;
         }
       }
     }
-    return best != null ? best : Result.MISMATCH;
+    if (best == null) {
+      return Result.MISMATCH;
+    }
+    if (anchorPositions != null) {
+      int[] chosenAnchors = bestAnchors != null ? bestAnchors : anchorPositions;
+      extractCaptures(descriptor, groups, best.start(), best.end(), chosenAnchors);
+    }
+    return best;
   }
 
   private static Result matchAtTargetEnd(
-      Utf8InputScanner scanner, MultiAnchorDescriptor descriptor, int targetEnd, int searchFrom) {
+      Utf8InputScanner scanner,
+      MultiAnchorDescriptor descriptor,
+      int targetEnd,
+      int searchFrom,
+      int[] anchorPositions) {
     MultiAnchorDescriptor.Segment[] segments = descriptor.chain().segments();
     int numSegments = segments.length;
     MultiAnchorDescriptor.Segment lastSeg = segments[numSegments - 1];
@@ -1197,11 +1296,13 @@ final class MultiAnchorExecutor {
       }
 
       int pLast = -1;
+      int lastAnchorLen = -1;
       if (lastAnchor instanceof MultiAnchorDescriptor.Anchor.Single single) {
         int anchorLen = single.literalUtf8().length;
         int cand = gapStart - anchorLen;
         if (cand >= 0 && lastAnchor.startsWith(scanner, cand)) {
           pLast = cand;
+          lastAnchorLen = anchorLen;
         }
       } else {
         int cand =
@@ -1209,14 +1310,22 @@ final class MultiAnchorExecutor {
                 scanner,
                 Math.max(0, gapStart - lastAnchor.maxLength()),
                 Math.max(0, gapStart - lastAnchor.minLength()));
-        if (cand >= 0 && cand + lastAnchor.lengthAt(scanner, cand) == gapStart) {
-          pLast = cand;
+        if (cand >= 0) {
+          int cLen = lastAnchor.lengthAt(scanner, cand);
+          if (cand + cLen == gapStart) {
+            pLast = cand;
+            lastAnchorLen = cLen;
+          }
         }
       }
       if (pLast < 0) {
         return null;
       }
-      int p0 = verifyUpstream(scanner, segments, numSegments - 2, pLast, 0);
+      if (anchorPositions != null) {
+        anchorPositions[(numSegments - 1) * 2] = pLast;
+        anchorPositions[(numSegments - 1) * 2 + 1] = lastAnchorLen;
+      }
+      int p0 = verifyUpstream(scanner, segments, numSegments - 2, pLast, 0, anchorPositions);
       if (p0 < 0) {
         return null;
       }
@@ -1261,7 +1370,11 @@ final class MultiAnchorExecutor {
             && targetEnd - (pLast + uLen) >= minGap
             && (maxGap == Integer.MAX_VALUE || targetEnd - (pLast + uLen) <= maxGap)
             && trailingGap.matchesSlice(scanner, pLast + uLen, targetEnd)) {
-          int p0 = verifyUpstream(scanner, segments, numSegments - 2, pLast, 0);
+          if (anchorPositions != null) {
+            anchorPositions[(numSegments - 1) * 2] = pLast;
+            anchorPositions[(numSegments - 1) * 2 + 1] = uLen;
+          }
+          int p0 = verifyUpstream(scanner, segments, numSegments - 2, pLast, 0, anchorPositions);
           if (p0 >= 0) {
             int matchStart = resolveLeadingStart(scanner, segments[0].gap(), p0, searchFrom);
             if (matchStart >= 0 && matchStart >= searchFrom) {
@@ -1296,7 +1409,8 @@ final class MultiAnchorExecutor {
       MultiAnchorDescriptor.Segment[] segments,
       int fromIndex,
       int anchorStart,
-      int minReverseWatermark) {
+      int minReverseWatermark,
+      int[] anchorPositions) {
     if (fromIndex < 0) {
       return anchorStart;
     }
@@ -1385,6 +1499,10 @@ final class MultiAnchorExecutor {
       }
 
       curAnchorStart = pUpstream;
+      if (anchorPositions != null) {
+        anchorPositions[k * 2] = pUpstream;
+        anchorPositions[k * 2 + 1] = uLen;
+      }
       if (k == 0) {
         p0 = pUpstream;
       }
@@ -1393,7 +1511,11 @@ final class MultiAnchorExecutor {
   }
 
   private static Result findEndAnchored(
-      MultiAnchorDescriptor descriptor, String text, int searchFrom) {
+      MultiAnchorDescriptor descriptor,
+      String text,
+      int searchFrom,
+      int[] groups,
+      int[] anchorPositions) {
     int textLen = text.length();
     boolean wasDollar = descriptor.chain().endAnchorWasDollar();
     boolean unixLines = descriptor.chain().endAnchorUnixLines();
@@ -1401,22 +1523,38 @@ final class MultiAnchorExecutor {
         wasDollar ? StringInputScanner.trailingLineTerminatorStart(text, unixLines, textLen) : -1;
 
     Result best = null;
+    int[] bestAnchors = null;
     if (trailingTerm >= 0 && trailingTerm >= searchFrom) {
-      best = matchAtTargetEnd(text, descriptor, trailingTerm, searchFrom);
+      best = matchAtTargetEnd(text, descriptor, trailingTerm, searchFrom, anchorPositions);
+      if (best != null && anchorPositions != null) {
+        bestAnchors = anchorPositions.clone();
+      }
     }
     if (textLen >= searchFrom) {
-      Result atEnd = matchAtTargetEnd(text, descriptor, textLen, searchFrom);
+      Result atEnd = matchAtTargetEnd(text, descriptor, textLen, searchFrom, anchorPositions);
       if (atEnd != null) {
         if (best == null || atEnd.start() < best.start()) {
           best = atEnd;
+          bestAnchors = null;
         }
       }
     }
-    return best != null ? best : Result.MISMATCH;
+    if (best == null) {
+      return Result.MISMATCH;
+    }
+    if (anchorPositions != null) {
+      int[] chosenAnchors = bestAnchors != null ? bestAnchors : anchorPositions;
+      extractCaptures(descriptor, groups, best.start(), best.end(), chosenAnchors);
+    }
+    return best;
   }
 
   private static Result matchAtTargetEnd(
-      String text, MultiAnchorDescriptor descriptor, int targetEnd, int searchFrom) {
+      String text,
+      MultiAnchorDescriptor descriptor,
+      int targetEnd,
+      int searchFrom,
+      int[] anchorPositions) {
     MultiAnchorDescriptor.Segment[] segments = descriptor.chain().segments();
     int numSegments = segments.length;
     MultiAnchorDescriptor.Segment lastSeg = segments[numSegments - 1];
@@ -1437,11 +1575,13 @@ final class MultiAnchorExecutor {
       }
 
       int pLast = -1;
+      int lastAnchorLen = -1;
       if (lastAnchor instanceof MultiAnchorDescriptor.Anchor.Single single) {
         int anchorLen = single.literal().length();
         int cand = gapStart - anchorLen;
         if (cand >= 0 && lastAnchor.startsWith(text, cand)) {
           pLast = cand;
+          lastAnchorLen = anchorLen;
         }
       } else {
         int cand =
@@ -1449,14 +1589,22 @@ final class MultiAnchorExecutor {
                 text,
                 Math.max(0, gapStart - lastAnchor.maxLength()),
                 Math.max(0, gapStart - lastAnchor.minLength()));
-        if (cand >= 0 && cand + lastAnchor.lengthAt(text, cand) == gapStart) {
-          pLast = cand;
+        if (cand >= 0) {
+          int cLen = lastAnchor.lengthAt(text, cand);
+          if (cand + cLen == gapStart) {
+            pLast = cand;
+            lastAnchorLen = cLen;
+          }
         }
       }
       if (pLast < 0) {
         return null;
       }
-      int p0 = verifyUpstream(text, segments, numSegments - 2, pLast, 0);
+      if (anchorPositions != null) {
+        anchorPositions[(numSegments - 1) * 2] = pLast;
+        anchorPositions[(numSegments - 1) * 2 + 1] = lastAnchorLen;
+      }
+      int p0 = verifyUpstream(text, segments, numSegments - 2, pLast, 0, anchorPositions);
       if (p0 < 0) {
         return null;
       }
@@ -1502,7 +1650,11 @@ final class MultiAnchorExecutor {
             && targetEnd - (pLast + uLen) >= minGap
             && (maxGap == Integer.MAX_VALUE || targetEnd - (pLast + uLen) <= maxGap)
             && trailingGap.matchesSlice(text, pLast + uLen, targetEnd)) {
-          int p0 = verifyUpstream(text, segments, numSegments - 2, pLast, 0);
+          if (anchorPositions != null) {
+            anchorPositions[(numSegments - 1) * 2] = pLast;
+            anchorPositions[(numSegments - 1) * 2 + 1] = uLen;
+          }
+          int p0 = verifyUpstream(text, segments, numSegments - 2, pLast, 0, anchorPositions);
           if (p0 >= 0) {
             int matchStart = resolveLeadingStart(text, segments[0].gap(), p0, searchFrom);
             if (matchStart >= 0 && matchStart >= searchFrom) {
@@ -1537,7 +1689,8 @@ final class MultiAnchorExecutor {
       MultiAnchorDescriptor.Segment[] segments,
       int fromIndex,
       int anchorStart,
-      int minReverseWatermark) {
+      int minReverseWatermark,
+      int[] anchorPositions) {
     if (fromIndex < 0) {
       return anchorStart;
     }
@@ -1628,10 +1781,49 @@ final class MultiAnchorExecutor {
       }
 
       curAnchorStart = pUpstream;
+      if (anchorPositions != null) {
+        anchorPositions[k * 2] = pUpstream;
+        anchorPositions[k * 2 + 1] = uLen;
+      }
       if (k == 0) {
         p0 = pUpstream;
       }
     }
     return p0;
+  }
+
+  private static int getBoundaryPoint(int pt, int matchStart, int matchEnd, int[] anchorPositions) {
+    if (pt == 0) {
+      return matchStart;
+    }
+    int numSegments = anchorPositions.length / 2;
+    if (pt == 2 * numSegments + 1) {
+      return matchEnd;
+    }
+    int k = (pt - 1) / 2;
+    int start = anchorPositions[k * 2];
+    int len = anchorPositions[k * 2 + 1];
+    return (pt & 1) == 1 ? start : start + len;
+  }
+
+  private static void extractCaptures(
+      MultiAnchorDescriptor descriptor,
+      int[] groups,
+      int matchStart,
+      int matchEnd,
+      int[] anchorPositions) {
+    int[] spans = descriptor.captureGroupSpans();
+    if (spans == null || groups == null || anchorPositions == null) {
+      return;
+    }
+    int ncap = (spans.length / 2) - 1;
+    for (int g = 1; g <= ncap; g++) {
+      int sPt = spans[2 * g];
+      int ePt = spans[2 * g + 1];
+      if (sPt >= 0 && ePt >= 0 && 2 * g + 1 < groups.length) {
+        groups[2 * g] = getBoundaryPoint(sPt, matchStart, matchEnd, anchorPositions);
+        groups[2 * g + 1] = getBoundaryPoint(ePt, matchStart, matchEnd, anchorPositions);
+      }
+    }
   }
 }

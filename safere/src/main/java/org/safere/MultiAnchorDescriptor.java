@@ -88,7 +88,8 @@ final class MultiAnchorDescriptor {
       boolean endAnchorUnixLines,
       int stringDriverIndex,
       int utf8VectorDriverIndex,
-      int utf8ScalarDriverIndex) {
+      int utf8ScalarDriverIndex,
+      int[] captureGroupSpans) {
 
     public static final Chain EMPTY =
         new Chain(
@@ -104,7 +105,8 @@ final class MultiAnchorDescriptor {
             false,
             0,
             0,
-            0);
+            0,
+            null);
 
     public Chain {
       Objects.requireNonNull(segments, "segments");
@@ -122,6 +124,33 @@ final class MultiAnchorDescriptor {
         boolean isStartAnchored,
         boolean isEndAnchored,
         boolean endAnchorWasDollar,
+        boolean endAnchorUnixLines,
+        int[] captureGroupSpans) {
+      this(
+          segments,
+          trailingGap,
+          checkOrder,
+          driverIndex,
+          isUpstreamBounded,
+          minTotalLength,
+          isStartAnchored,
+          isEndAnchored,
+          endAnchorWasDollar,
+          endAnchorUnixLines,
+          computeDriverIndices(segments, checkOrder),
+          captureGroupSpans);
+    }
+
+    Chain(
+        Segment[] segments,
+        Gap trailingGap,
+        int[] checkOrder,
+        int driverIndex,
+        boolean isUpstreamBounded,
+        int minTotalLength,
+        boolean isStartAnchored,
+        boolean isEndAnchored,
+        boolean endAnchorWasDollar,
         boolean endAnchorUnixLines) {
       this(
           segments,
@@ -134,7 +163,7 @@ final class MultiAnchorDescriptor {
           isEndAnchored,
           endAnchorWasDollar,
           endAnchorUnixLines,
-          computeDriverIndices(segments, checkOrder));
+          null);
     }
 
     Chain(
@@ -156,7 +185,8 @@ final class MultiAnchorDescriptor {
           isStartAnchored,
           isEndAnchored,
           false,
-          false);
+          false,
+          null);
     }
 
     private Chain(
@@ -170,7 +200,8 @@ final class MultiAnchorDescriptor {
         boolean isEndAnchored,
         boolean endAnchorWasDollar,
         boolean endAnchorUnixLines,
-        DriverIndices drivers) {
+        DriverIndices drivers,
+        int[] captureGroupSpans) {
       this(
           segments,
           trailingGap,
@@ -184,7 +215,32 @@ final class MultiAnchorDescriptor {
           endAnchorUnixLines,
           drivers.stringIndex(),
           drivers.utf8VectorIndex(),
-          drivers.utf8ScalarIndex());
+          drivers.utf8ScalarIndex(),
+          captureGroupSpans);
+    }
+
+    Chain(
+        Segment[] segments,
+        Gap trailingGap,
+        int[] checkOrder,
+        int minTotalLength,
+        boolean isStartAnchored,
+        boolean isEndAnchored,
+        boolean endAnchorWasDollar,
+        boolean endAnchorUnixLines,
+        int[] captureGroupSpans) {
+      this(
+          segments,
+          trailingGap,
+          checkOrder,
+          computeDefaultDriverIndex(segments, checkOrder),
+          computeIsUpstreamBounded(segments, computeDefaultDriverIndex(segments, checkOrder)),
+          minTotalLength,
+          isStartAnchored,
+          isEndAnchored,
+          endAnchorWasDollar,
+          endAnchorUnixLines,
+          captureGroupSpans);
     }
 
     Chain(
@@ -200,13 +256,32 @@ final class MultiAnchorDescriptor {
           segments,
           trailingGap,
           checkOrder,
-          computeDefaultDriverIndex(segments, checkOrder),
-          computeIsUpstreamBounded(segments, computeDefaultDriverIndex(segments, checkOrder)),
           minTotalLength,
           isStartAnchored,
           isEndAnchored,
           endAnchorWasDollar,
-          endAnchorUnixLines);
+          endAnchorUnixLines,
+          null);
+    }
+
+    Chain(
+        Segment[] segments,
+        Gap trailingGap,
+        int[] checkOrder,
+        int minTotalLength,
+        boolean isStartAnchored,
+        boolean isEndAnchored,
+        int[] captureGroupSpans) {
+      this(
+          segments,
+          trailingGap,
+          checkOrder,
+          minTotalLength,
+          isStartAnchored,
+          isEndAnchored,
+          false,
+          false,
+          captureGroupSpans);
     }
 
     Chain(
@@ -224,7 +299,12 @@ final class MultiAnchorDescriptor {
           isStartAnchored,
           isEndAnchored,
           false,
-          false);
+          false,
+          null);
+    }
+
+    public boolean canExtractAllCaptures() {
+      return captureGroupSpans != null && captureGroupSpans.length > 0;
     }
 
     public int selectDriver(InputDomain domain, boolean vectorAvailable) {
@@ -423,7 +503,8 @@ final class MultiAnchorDescriptor {
       boolean isStartAnchored,
       boolean isEndAnchored,
       boolean endAnchorWasDollar,
-      boolean endAnchorUnixLines) {
+      boolean endAnchorUnixLines,
+      int[] captureGroupSpans) {
     this(
         new Chain(
             segments,
@@ -433,9 +514,51 @@ final class MultiAnchorDescriptor {
             isStartAnchored,
             isEndAnchored,
             endAnchorWasDollar,
-            endAnchorUnixLines),
+            endAnchorUnixLines,
+            captureGroupSpans),
         StartPlan.None.INSTANCE,
         RejectPlan.None.INSTANCE);
+  }
+
+  MultiAnchorDescriptor(
+      Segment[] segments,
+      Gap trailingGap,
+      int[] checkOrder,
+      int minTotalLength,
+      boolean isStartAnchored,
+      boolean isEndAnchored,
+      boolean endAnchorWasDollar,
+      boolean endAnchorUnixLines) {
+    this(
+        segments,
+        trailingGap,
+        checkOrder,
+        minTotalLength,
+        isStartAnchored,
+        isEndAnchored,
+        endAnchorWasDollar,
+        endAnchorUnixLines,
+        null);
+  }
+
+  MultiAnchorDescriptor(
+      Segment[] segments,
+      Gap trailingGap,
+      int[] checkOrder,
+      int minTotalLength,
+      boolean isStartAnchored,
+      boolean isEndAnchored,
+      int[] captureGroupSpans) {
+    this(
+        segments,
+        trailingGap,
+        checkOrder,
+        minTotalLength,
+        isStartAnchored,
+        isEndAnchored,
+        false,
+        false,
+        captureGroupSpans);
   }
 
   MultiAnchorDescriptor(
@@ -453,7 +576,8 @@ final class MultiAnchorDescriptor {
         isStartAnchored,
         isEndAnchored,
         false,
-        false);
+        false,
+        null);
   }
 
   Segment[] segments() {
@@ -466,6 +590,14 @@ final class MultiAnchorDescriptor {
 
   int[] checkOrder() {
     return chain.checkOrder();
+  }
+
+  boolean canExtractAllCaptures() {
+    return chain.canExtractAllCaptures();
+  }
+
+  int[] captureGroupSpans() {
+    return chain.captureGroupSpans();
   }
 
   int selectDriver(InputDomain domain, boolean vectorAvailable) {

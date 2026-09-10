@@ -429,6 +429,20 @@ public final class Matcher implements MatchResult {
     return true;
   }
 
+  private boolean applyDirectCaptureMatchResult(int start, int end) {
+    findExhaustedAfterTerminalEmptyMatch = false;
+    groups[0] = start;
+    groups[1] = end;
+    deferredMatchStart = start;
+    deferredMatchEnd = end;
+    deferredEndMatch = false;
+    capturesResolved = true;
+    groupZeroResolved = true;
+    hasMatch = true;
+    resultStatus = ResultStatus.MATCHED;
+    return true;
+  }
+
   private boolean applyDeferredMatchResult(
       int start, int end, int ncap, boolean groupZeroResolved, boolean endMatch) {
     findExhaustedAfterTerminalEmptyMatch = false;
@@ -1723,12 +1737,16 @@ public final class Matcher implements MatchResult {
                 utf8Scanner,
                 searchFrom,
                 multiAnchorScratch,
-                multiAnchorWork);
+                multiAnchorWork,
+                groups);
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
           if (prog.numCaptures() <= 1) {
             return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          if (parentPattern.multiAnchor().canExtractAllCaptures()) {
+            return applyDirectCaptureMatchResult(res.start(), res.end());
           }
           return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
         }
@@ -1740,12 +1758,20 @@ public final class Matcher implements MatchResult {
       } else if (text != null) {
         MultiAnchorExecutor.Result res =
             MultiAnchorExecutor.find(
-                parentPattern.multiAnchor(), text, searchFrom, multiAnchorScratch, multiAnchorWork);
+                parentPattern.multiAnchor(),
+                text,
+                searchFrom,
+                multiAnchorScratch,
+                multiAnchorWork,
+                groups);
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
           if (prog.numCaptures() <= 1) {
             return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          if (parentPattern.multiAnchor().canExtractAllCaptures()) {
+            return applyDirectCaptureMatchResult(res.start(), res.end());
           }
           return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
         }

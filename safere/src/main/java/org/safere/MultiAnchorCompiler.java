@@ -148,7 +148,14 @@ final class MultiAnchorCompiler {
 
     MultiAnchorDescriptor base =
         extractBaseDescriptor(
-            node, flags, anchorStart, anchorEnd, endAnchorWasDollar, endAnchorUnixLines);
+            node,
+            flags,
+            anchorStart,
+            anchorEnd,
+            endAnchorWasDollar,
+            endAnchorUnixLines,
+            factored,
+            sourceAst);
     MultiAnchorDescriptor.Chain chain =
         base != null && !hasCaseSensitiveLiteralOverride(sourceAst, flags)
             ? base.chain()
@@ -214,11 +221,20 @@ final class MultiAnchorCompiler {
       boolean anchorStart,
       boolean anchorEnd,
       boolean endAnchorWasDollar,
-      boolean endAnchorUnixLines) {
+      boolean endAnchorUnixLines,
+      Regexp factored,
+      Regexp sourceAst) {
     // 1. Multi-anchor sequence or anchored chain
     MultiAnchorDescriptor multiChain =
         extractMultiAnchorChain(
-            node, flags, anchorStart, anchorEnd, endAnchorWasDollar, endAnchorUnixLines);
+            node,
+            flags,
+            anchorStart,
+            anchorEnd,
+            endAnchorWasDollar,
+            endAnchorUnixLines,
+            factored,
+            sourceAst);
     if (multiChain != null) {
       return multiChain;
     }
@@ -904,16 +920,21 @@ final class MultiAnchorCompiler {
       boolean anchorStart,
       boolean anchorEnd,
       boolean endAnchorWasDollar,
-      boolean endAnchorUnixLines) {
+      boolean endAnchorUnixLines,
+      Regexp factored,
+      Regexp sourceAst) {
     if (node == null || node.op != RegexpOp.CONCAT || node.subs == null) {
       return null;
     }
     List<MultiAnchorDescriptor.Anchor> anchors = new ArrayList<>();
     List<MultiAnchorDescriptor.Gap> gaps = new ArrayList<>();
+    List<int[]> gapSubRanges = new ArrayList<>();
+    List<int[]> anchorSubRanges = new ArrayList<>();
 
     int idx = 0;
     int n = node.subs.size();
 
+    int g0Start = 0;
     MultiAnchorDescriptor.Gap leadingGap = MultiAnchorDescriptor.Gap.EMPTY;
     while (idx < n) {
       Regexp sub = node.subs.get(idx);
@@ -946,15 +967,20 @@ final class MultiAnchorCompiler {
       leadingGap = merged;
       idx++;
     }
+    int g0End = idx;
 
     if (idx < n) {
       ConsumedAnchor firstConsumed = extractConsecutiveLiteralAnchor(node.subs, idx, flags);
       if (firstConsumed != null) {
         anchors.add(firstConsumed.anchor());
         gaps.add(leadingGap);
+        gapSubRanges.add(new int[] {g0Start, g0End});
+        int a0Start = idx;
         idx += firstConsumed.consumedCount();
+        anchorSubRanges.add(new int[] {a0Start, idx});
 
         while (idx < n) {
+          int gkStart = idx;
           Regexp gapSub = node.subs.get(idx);
           if (idx == n - 1 && gapSub.op == RegexpOp.END_TEXT && anchorEnd) {
             idx++;
@@ -966,8 +992,11 @@ final class MultiAnchorCompiler {
             ConsumedAnchor nextConsumed = extractConsecutiveLiteralAnchor(node.subs, idx, flags);
             if (nextConsumed != null) {
               gaps.add(MultiAnchorDescriptor.Gap.EMPTY);
+              gapSubRanges.add(new int[] {gkStart, gkStart});
               anchors.add(nextConsumed.anchor());
+              int akStart = idx;
               idx += nextConsumed.consumedCount();
+              anchorSubRanges.add(new int[] {akStart, idx});
               continue;
             }
             break;
@@ -989,12 +1018,14 @@ final class MultiAnchorCompiler {
 
           if (idx >= n) {
             gaps.add(gap);
+            gapSubRanges.add(new int[] {gkStart, idx});
             break;
           }
 
           ConsumedAnchor nextConsumed = extractConsecutiveLiteralAnchor(node.subs, idx, flags);
           if (nextConsumed == null) {
             MultiAnchorDescriptor.Gap trailing = gap;
+            int gapEnd = idx;
             boolean validTrailing = true;
             while (idx < n) {
               Regexp rem = node.subs.get(idx);
@@ -1007,13 +1038,17 @@ final class MultiAnchorCompiler {
             }
             if (validTrailing) {
               gaps.add(trailing);
+              gapSubRanges.add(new int[] {gkStart, gapEnd});
               break;
             }
             break;
           }
           gaps.add(gap);
+          gapSubRanges.add(new int[] {gkStart, idx});
           anchors.add(nextConsumed.anchor());
+          int akStart = idx;
           idx += nextConsumed.consumedCount();
+          anchorSubRanges.add(new int[] {akStart, idx});
         }
       }
     }
@@ -1022,10 +1057,13 @@ final class MultiAnchorCompiler {
       return null;
     }
 
+    int originalAnchorCount = anchors.size();
     coalesceWeakIntermediateAnchors(anchors, gaps);
+    boolean weakAnchorsCoalesced = anchors.size() != originalAnchorCount;
 
     if (gaps.size() == anchors.size()) {
       gaps.add(MultiAnchorDescriptor.Gap.EMPTY);
+      gapSubRanges.add(new int[] {idx, idx});
     }
 
     if (anchors.isEmpty() || gaps.size() != anchors.size() + 1) {
@@ -1084,6 +1122,17 @@ final class MultiAnchorCompiler {
       segments[i] = new MultiAnchorDescriptor.Segment(gaps.get(i), anchors.get(i));
     }
 
+    int[] captureGroupSpans =
+        weakAnchorsCoalesced
+            ? null
+            : computeCaptureGroupSpans(
+                sourceAst != null ? sourceAst : node,
+                factored,
+                node.subs,
+                gapSubRanges,
+                anchorSubRanges,
+                numAnchors);
+
     return new MultiAnchorDescriptor(
         segments,
         gaps.get(numAnchors),
@@ -1092,7 +1141,135 @@ final class MultiAnchorCompiler {
         anchorStart,
         anchorEnd,
         endAnchorWasDollar,
-        endAnchorUnixLines);
+        endAnchorUnixLines,
+        captureGroupSpans);
+  }
+
+  private static int[] computeCaptureGroupSpans(
+      Regexp root,
+      Regexp factored,
+      List<Regexp> subs,
+      List<int[]> gapSubRanges,
+      List<int[]> anchorSubRanges,
+      int numSegments) {
+    if (gapSubRanges.size() != numSegments + 1 || anchorSubRanges.size() != numSegments) {
+      return null;
+    }
+    int maxCaptures = countMaxCaptures(root);
+    if (maxCaptures <= 0) {
+      return null;
+    }
+
+    int[] spans = new int[2 * (maxCaptures + 1)];
+    Arrays.fill(spans, -1);
+    spans[0] = 0;
+    spans[1] = 2 * numSegments + 1;
+
+    // Outer captures wrapping the entire factored expression
+    Regexp curr = factored;
+    while (curr != null && (curr.op == RegexpOp.CAPTURE || curr.op == RegexpOp.NON_CAPTURE)) {
+      if (curr.op == RegexpOp.CAPTURE && curr.cap > 0 && curr.cap <= maxCaptures) {
+        spans[2 * curr.cap] = 0;
+        spans[2 * curr.cap + 1] = 2 * numSegments + 1;
+      }
+      curr = curr.sub();
+    }
+
+    // Inspect each anchor k:
+    for (int k = 0; k < numSegments; k++) {
+      int[] range = anchorSubRanges.get(k);
+      int startIdx = range[0];
+      int endIdx = range[1];
+      if (endIdx - startIdx != 1) {
+        for (int i = startIdx; i < endIdx; i++) {
+          if (AstAnalysis.analyze(subs.get(i)).hasUserCaptures()) {
+            return null;
+          }
+        }
+        continue;
+      }
+      Regexp sub = subs.get(startIdx);
+      List<Integer> caps = extractOuterCaptures(sub);
+      Regexp unwrapped = unwrapCaptures(sub);
+      if (AstAnalysis.analyze(unwrapped).hasUserCaptures()) {
+        return null;
+      }
+      for (int cap : caps) {
+        if (cap > 0 && cap <= maxCaptures) {
+          spans[2 * cap] = 2 * k + 1;
+          spans[2 * cap + 1] = 2 * k + 2;
+        }
+      }
+    }
+
+    // Inspect each gap k:
+    for (int k = 0; k <= numSegments; k++) {
+      int[] range = gapSubRanges.get(k);
+      int startIdx = range[0];
+      int endIdx = range[1];
+      if (endIdx - startIdx != 1) {
+        for (int i = startIdx; i < endIdx; i++) {
+          if (AstAnalysis.analyze(subs.get(i)).hasUserCaptures()) {
+            return null;
+          }
+        }
+        continue;
+      }
+      Regexp sub = subs.get(startIdx);
+      List<Integer> caps = extractOuterCaptures(sub);
+      Regexp unwrapped = unwrapCaptures(sub);
+      if (AstAnalysis.analyze(unwrapped).hasUserCaptures()) {
+        return null;
+      }
+      for (int cap : caps) {
+        if (cap > 0 && cap <= maxCaptures) {
+          spans[2 * cap] = 2 * k;
+          spans[2 * cap + 1] = 2 * k + 1;
+        }
+      }
+    }
+
+    // Verify all user captures 1..maxCaptures are mapped
+    for (int g = 1; g <= maxCaptures; g++) {
+      if (spans[2 * g] < 0 || spans[2 * g + 1] < 0) {
+        return null;
+      }
+    }
+
+    return spans;
+  }
+
+  private static List<Integer> extractOuterCaptures(Regexp re) {
+    List<Integer> caps = new ArrayList<>();
+    Regexp curr = re;
+    while (curr != null && (curr.op == RegexpOp.CAPTURE || curr.op == RegexpOp.NON_CAPTURE)) {
+      if (curr.op == RegexpOp.CAPTURE && curr.cap > 0) {
+        caps.add(curr.cap);
+      }
+      curr = curr.sub();
+    }
+    return caps;
+  }
+
+  private static int countMaxCaptures(Regexp root) {
+    if (root == null) {
+      return 0;
+    }
+    int max = 0;
+    Deque<Regexp> stack = new ArrayDeque<>();
+    stack.push(root);
+    while (!stack.isEmpty()) {
+      Regexp curr = stack.pop();
+      if (curr.op == RegexpOp.CAPTURE && curr.cap > max) {
+        max = curr.cap;
+      }
+      if (curr.subs != null) {
+        for (Regexp sub : curr.subs) {
+          stack.push(sub);
+        }
+      }
+    }
+    return max;
   }
 
   private static MultiAnchorDescriptor.Gap coalesceGaps(
@@ -2062,13 +2239,14 @@ final class MultiAnchorCompiler {
   }
 
   static MultiAnchorDescriptor.Gap classifyGap(Regexp re, int flags) {
-    if (re == null || AstAnalysis.analyze(re).hasUserCaptures()) {
-      return null;
-    }
-    re = unwrapCaptures(re);
     if (re == null) {
       return null;
     }
+    Regexp unwrapped = unwrapCaptures(re);
+    if (unwrapped == null || AstAnalysis.analyze(unwrapped).hasUserCaptures()) {
+      return null;
+    }
+    re = unwrapped;
     if (re.op == RegexpOp.BEGIN_TEXT) {
       return MultiAnchorDescriptor.Gap.TEXT_START;
     }
