@@ -20,6 +20,29 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void sparseDriverSearchDoesNotPrescanDownstreamAnchors() {
+    for (String regex : new String[] {"start:[^;]*ZZZ", "start:[^;]*?ZZZ", "start:[0-9]ZZZ"}) {
+      MultiAnchorDescriptor descriptor = Pattern.compile(regex).multiAnchor();
+      assertThat(descriptor.isExecutableChain()).isTrue();
+      for (int size : new int[] {1_000, 10_000}) {
+        String suffix = regex.contains("[0-9]") ? "start:1ZZZ" : "start:payloadZZZ";
+        String text = "x".repeat(size) + suffix;
+        long work =
+            WorkCounter.countForTesting(
+                () -> {
+                  MultiAnchorExecutor.Result result = MultiAnchorExecutor.find(descriptor, text, 0);
+                  assertThat(result.isMatched()).isTrue();
+                  assertThat(result.start()).isEqualTo(size);
+                  assertThat(result.end()).isEqualTo(text.length());
+                });
+        assertThat(work)
+            .as("one search across the unrelated prefix for %s", regex)
+            .isLessThanOrEqualTo(text.length() + 128L);
+      }
+    }
+  }
+
+  @Test
   void stringMultiAnchorExecutionWorkIsCountedAndLinear() {
     MultiAnchorDescriptor descriptor = Pattern.compile("AAA[0-9]BB").multiAnchor();
 

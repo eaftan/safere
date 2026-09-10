@@ -78,15 +78,8 @@ final class MultiAnchorExecutor {
       return Result.MISMATCH;
     }
 
-    // Phase 0: Negative short-circuit on rarest anchor if not at segment 0
-    int[] checkOrder = descriptor.checkOrder();
-    if (checkOrder != null && checkOrder.length > 0 && checkOrder[0] != 0) {
-      MultiAnchorDescriptor.Anchor rarestAnchor = segments[checkOrder[0]].anchor();
-      if (rarestAnchor.findNext(scanner, 0) < 0) {
-        return Result.MISMATCH;
-      }
-    }
-
+    // Matcher already applies the compiled reject prefilter. Search the driver directly here;
+    // execution verifies every anchor without a redundant full-input rejection pass.
     int driverIdx =
         descriptor.selectDriver(
             MultiAnchorDescriptor.InputDomain.UTF8, VectorScanProviders.teddyProviderAvailable());
@@ -390,15 +383,8 @@ final class MultiAnchorExecutor {
       return Result.MISMATCH;
     }
 
-    // Phase 0: Negative short-circuit on rarest anchor if not at segment 0
-    int[] checkOrder = descriptor.checkOrder();
-    if (checkOrder != null && checkOrder.length > 0 && checkOrder[0] != 0) {
-      MultiAnchorDescriptor.Anchor rarestAnchor = segments[checkOrder[0]].anchor();
-      if (findNextCountingWork(rarestAnchor, text, 0) < 0) {
-        return Result.MISMATCH;
-      }
-    }
-
+    // Matcher already applies the compiled reject prefilter. Search the driver directly here;
+    // execution verifies every anchor without a redundant full-input rejection pass.
     int driverIdx = descriptor.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true);
     if (driverIdx < 0 || driverIdx >= numSegments) {
       driverIdx = 0;
