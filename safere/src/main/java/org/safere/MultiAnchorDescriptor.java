@@ -84,12 +84,27 @@ final class MultiAnchorDescriptor {
       int minTotalLength,
       boolean isStartAnchored,
       boolean isEndAnchored,
+      boolean endAnchorWasDollar,
+      boolean endAnchorUnixLines,
       int stringDriverIndex,
       int utf8VectorDriverIndex,
       int utf8ScalarDriverIndex) {
 
     public static final Chain EMPTY =
-        new Chain(new Segment[0], Gap.EMPTY, new int[0], 0, false, 0, false, false, 0, 0, 0);
+        new Chain(
+            new Segment[0],
+            Gap.EMPTY,
+            new int[0],
+            0,
+            false,
+            0,
+            false,
+            false,
+            false,
+            false,
+            0,
+            0,
+            0);
 
     public Chain {
       Objects.requireNonNull(segments, "segments");
@@ -105,6 +120,31 @@ final class MultiAnchorDescriptor {
         boolean isUpstreamBounded,
         int minTotalLength,
         boolean isStartAnchored,
+        boolean isEndAnchored,
+        boolean endAnchorWasDollar,
+        boolean endAnchorUnixLines) {
+      this(
+          segments,
+          trailingGap,
+          checkOrder,
+          driverIndex,
+          isUpstreamBounded,
+          minTotalLength,
+          isStartAnchored,
+          isEndAnchored,
+          endAnchorWasDollar,
+          endAnchorUnixLines,
+          computeDriverIndices(segments, checkOrder));
+    }
+
+    Chain(
+        Segment[] segments,
+        Gap trailingGap,
+        int[] checkOrder,
+        int driverIndex,
+        boolean isUpstreamBounded,
+        int minTotalLength,
+        boolean isStartAnchored,
         boolean isEndAnchored) {
       this(
           segments,
@@ -115,7 +155,8 @@ final class MultiAnchorDescriptor {
           minTotalLength,
           isStartAnchored,
           isEndAnchored,
-          computeDriverIndices(segments, checkOrder));
+          false,
+          false);
     }
 
     private Chain(
@@ -127,6 +168,8 @@ final class MultiAnchorDescriptor {
         int minTotalLength,
         boolean isStartAnchored,
         boolean isEndAnchored,
+        boolean endAnchorWasDollar,
+        boolean endAnchorUnixLines,
         DriverIndices drivers) {
       this(
           segments,
@@ -137,9 +180,33 @@ final class MultiAnchorDescriptor {
           minTotalLength,
           isStartAnchored,
           isEndAnchored,
+          endAnchorWasDollar,
+          endAnchorUnixLines,
           drivers.stringIndex(),
           drivers.utf8VectorIndex(),
           drivers.utf8ScalarIndex());
+    }
+
+    Chain(
+        Segment[] segments,
+        Gap trailingGap,
+        int[] checkOrder,
+        int minTotalLength,
+        boolean isStartAnchored,
+        boolean isEndAnchored,
+        boolean endAnchorWasDollar,
+        boolean endAnchorUnixLines) {
+      this(
+          segments,
+          trailingGap,
+          checkOrder,
+          computeDefaultDriverIndex(segments, checkOrder),
+          computeIsUpstreamBounded(segments, computeDefaultDriverIndex(segments, checkOrder)),
+          minTotalLength,
+          isStartAnchored,
+          isEndAnchored,
+          endAnchorWasDollar,
+          endAnchorUnixLines);
     }
 
     Chain(
@@ -153,11 +220,11 @@ final class MultiAnchorDescriptor {
           segments,
           trailingGap,
           checkOrder,
-          computeDefaultDriverIndex(segments, checkOrder),
-          computeIsUpstreamBounded(segments, computeDefaultDriverIndex(segments, checkOrder)),
           minTotalLength,
           isStartAnchored,
-          isEndAnchored);
+          isEndAnchored,
+          false,
+          false);
     }
 
     public int selectDriver(InputDomain domain, boolean vectorAvailable) {
@@ -354,12 +421,39 @@ final class MultiAnchorDescriptor {
       int[] checkOrder,
       int minTotalLength,
       boolean isStartAnchored,
-      boolean isEndAnchored) {
+      boolean isEndAnchored,
+      boolean endAnchorWasDollar,
+      boolean endAnchorUnixLines) {
     this(
         new Chain(
-            segments, trailingGap, checkOrder, minTotalLength, isStartAnchored, isEndAnchored),
+            segments,
+            trailingGap,
+            checkOrder,
+            minTotalLength,
+            isStartAnchored,
+            isEndAnchored,
+            endAnchorWasDollar,
+            endAnchorUnixLines),
         StartPlan.None.INSTANCE,
         RejectPlan.None.INSTANCE);
+  }
+
+  MultiAnchorDescriptor(
+      Segment[] segments,
+      Gap trailingGap,
+      int[] checkOrder,
+      int minTotalLength,
+      boolean isStartAnchored,
+      boolean isEndAnchored) {
+    this(
+        segments,
+        trailingGap,
+        checkOrder,
+        minTotalLength,
+        isStartAnchored,
+        isEndAnchored,
+        false,
+        false);
   }
 
   Segment[] segments() {
@@ -380,6 +474,18 @@ final class MultiAnchorDescriptor {
 
   int minTotalLength() {
     return chain.minTotalLength();
+  }
+
+  boolean isEndAnchored() {
+    return chain.isEndAnchored();
+  }
+
+  boolean endAnchorWasDollar() {
+    return chain.endAnchorWasDollar();
+  }
+
+  boolean endAnchorUnixLines() {
+    return chain.endAnchorUnixLines();
   }
 
   boolean hasRejectionFilter() {
@@ -427,7 +533,7 @@ final class MultiAnchorDescriptor {
 
   private static boolean computeExecutableChain(Chain chain) {
     int n = chain.segments().length;
-    if (n < 2 || chain.isEndAnchored() || !isExecutableLeadingGap(chain.segments()[0].gap())) {
+    if (n < 2 || !isExecutableLeadingGap(chain.segments()[0].gap())) {
       return false;
     }
     for (int i = 0; i < n; i++) {
@@ -438,7 +544,7 @@ final class MultiAnchorDescriptor {
       if (!isExecutableAnchor(segment.anchor())) {
         return false;
       }
-      if (i > 0 && !isExecutableInteriorGap(segment.gap())) {
+      if (i > 0 && !isExecutableInteriorGap(segment.gap(), chain.isEndAnchored())) {
         return false;
       }
       if (segment.gap().isExecutorGuardedGap()
@@ -446,7 +552,9 @@ final class MultiAnchorDescriptor {
         return false;
       }
     }
-    return isExecutableTrailingGap(chain.trailingGap());
+    return chain.isEndAnchored()
+        ? isExecutableEndAnchoredTrailingGap(chain.trailingGap())
+        : isExecutableTrailingGap(chain.trailingGap());
   }
 
   private static boolean isExecutableAnchor(Anchor anchor) {
@@ -463,6 +571,14 @@ final class MultiAnchorDescriptor {
     };
   }
 
+  private static boolean isExecutableInteriorGap(Gap gap, boolean isEndAnchored) {
+    if (isEndAnchored
+        && (gap.kind() == GapKind.ANY_STAR || gap.kind() == GapKind.SINGLE_LINE_ANY_STAR)) {
+      return false;
+    }
+    return isExecutableInteriorGap(gap);
+  }
+
   private static boolean isExecutableInteriorGap(Gap gap) {
     return switch (gap.kind()) {
       case EMPTY, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
@@ -470,6 +586,23 @@ final class MultiAnchorDescriptor {
           gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
       case COMPOUND_SEQUENCE -> gap.isExecutorFixedGap();
       case TEXT_START, TEXT_END, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
+    };
+  }
+
+  private static boolean isExecutableEndAnchoredTrailingGap(Gap gap) {
+    return switch (gap.kind()) {
+      case EMPTY, TEXT_END -> true;
+      case BOUNDED_CLASS_REPEAT ->
+          gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case COMPOUND_SEQUENCE -> gap.isExecutorFixedGap();
+      case ANY_STAR,
+          SINGLE_LINE_ANY_STAR,
+          TEXT_START,
+          WORD_BOUNDARY,
+          NO_WORD_BOUNDARY,
+          LINE_START,
+          LINE_END ->
+          false;
     };
   }
 
