@@ -141,8 +141,8 @@ class MatcherDeferredCaptureStateTest {
   }
 
   @Test
-  @DisplayName("capture demand bypasses later multi-anchor pre-scans")
-  void captureDemandBypassesLaterMultiAnchorPrescans() throws ReflectiveOperationException {
+  @DisplayName("capture demand does not bypass multi-anchor gap execution")
+  void captureDemandDoesNotBypassMultiAnchorGapExecution() throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile("(AAA)[0-9](BB)");
     Matcher first = pattern.matcher("prefix AAA1BB suffix");
 
@@ -153,8 +153,9 @@ class MatcherDeferredCaptureStateTest {
 
     Matcher second = pattern.matcher("prefix AAA2BB suffix");
     assertThat(second.find()).isTrue();
-    assertThat(booleanField(second, "capturesResolved")).isTrue();
+    assertThat(booleanField(second, "capturesResolved")).isFalse();
     assertThat(second.group(2)).isEqualTo("BB");
+    assertThat(booleanField(second, "capturesResolved")).isTrue();
   }
 
   @Test
