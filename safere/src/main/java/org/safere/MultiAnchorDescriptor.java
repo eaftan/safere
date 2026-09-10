@@ -14,13 +14,15 @@ import java.util.Objects;
  * regular expression AST. Enables divide-and-conquer execution by pinning match positions around
  * fast SIMD anchors and verifying intermediate gaps.
  */
-@SuppressWarnings("ArrayRecordComponent")
-record MultiAnchorDescriptor(
-    Chain chain,
-    StartPlan startPlan,
-    RejectPlan rejectPlan,
-    String anchoredPrefix,
-    CharClassScanInfo anchoredCharClassPrefix) {
+final class MultiAnchorDescriptor {
+
+  private final Chain chain;
+  private final StartPlan startPlan;
+  private final RejectPlan rejectPlan;
+  private final String anchoredPrefix;
+  private final CharClassScanInfo anchoredCharClassPrefix;
+  private final boolean executableChain;
+  private final boolean executableUtf8Chain;
 
   public static final MultiAnchorDescriptor NONE =
       new MultiAnchorDescriptor(Chain.EMPTY, StartPlan.None.INSTANCE, RejectPlan.None.INSTANCE);
@@ -29,10 +31,42 @@ record MultiAnchorDescriptor(
     this(chain, startPlan, rejectPlan, null, null);
   }
 
-  public MultiAnchorDescriptor {
-    Objects.requireNonNull(chain, "chain");
-    Objects.requireNonNull(startPlan, "startPlan");
-    Objects.requireNonNull(rejectPlan, "rejectPlan");
+  MultiAnchorDescriptor(
+      Chain chain,
+      StartPlan startPlan,
+      RejectPlan rejectPlan,
+      String anchoredPrefix,
+      CharClassScanInfo anchoredCharClassPrefix) {
+    this.chain = Objects.requireNonNull(chain, "chain");
+    this.startPlan = Objects.requireNonNull(startPlan, "startPlan");
+    this.rejectPlan = Objects.requireNonNull(rejectPlan, "rejectPlan");
+    this.anchoredPrefix = anchoredPrefix;
+    this.anchoredCharClassPrefix = anchoredCharClassPrefix;
+    // Eligibility depends only on the compiled chain, whose segments are never mutated after
+    // construction. Cache both input domains so dispatch and execution can check it in constant
+    // time.
+    this.executableChain = computeExecutableChain(chain);
+    this.executableUtf8Chain = computeExecutableUtf8Chain(chain, executableChain);
+  }
+
+  Chain chain() {
+    return chain;
+  }
+
+  StartPlan startPlan() {
+    return startPlan;
+  }
+
+  RejectPlan rejectPlan() {
+    return rejectPlan;
+  }
+
+  String anchoredPrefix() {
+    return anchoredPrefix;
+  }
+
+  CharClassScanInfo anchoredCharClassPrefix() {
+    return anchoredCharClassPrefix;
   }
 
   enum InputDomain {
@@ -428,6 +462,10 @@ record MultiAnchorDescriptor(
   }
 
   boolean isExecutableChain() {
+    return executableChain;
+  }
+
+  private static boolean computeExecutableChain(Chain chain) {
     int n = chain.segments().length;
     if (n < 1 || chain.isEndAnchored() || !isExecutableLeadingGap(chain.segments()[0].gap())) {
       return false;
@@ -438,6 +476,9 @@ record MultiAnchorDescriptor(
       return false;
     }
     for (int i = 0; i < n; i++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       Segment segment = chain.segments()[i];
       if (!isExecutableAnchor(segment.anchor())) {
         return false;
@@ -496,10 +537,17 @@ record MultiAnchorDescriptor(
   }
 
   boolean isExecutableUtf8Chain() {
-    if (!isExecutableChain()) {
+    return executableUtf8Chain;
+  }
+
+  private static boolean computeExecutableUtf8Chain(Chain chain, boolean executableChain) {
+    if (!executableChain) {
       return false;
     }
     for (Segment segment : chain.segments()) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       switch (segment.anchor()) {
         case Anchor.Single single -> {
           if (hasUnpairedSurrogate(single.literal())) {
@@ -670,7 +718,7 @@ record MultiAnchorDescriptor(
     }
 
     boolean isExecutorFixedGap() {
-      return equals(EMPTY)
+      return kind == GapKind.EMPTY
           || (kind == GapKind.BOUNDED_CLASS_REPEAT && isFixed() && scanInfo != null);
     }
 
@@ -2371,6 +2419,8 @@ record MultiAnchorDescriptor(
       }
     }
 
+    // Ranges share compiled class metadata; array value equality is not used.
+    @SuppressWarnings("ArrayRecordComponent")
     record CharClass(AsciiBitmap bitmap, int[] ranges, CharClassScanInfo scanInfo)
         implements Anchor {
       static CharClass create(AsciiBitmap bitmap) {

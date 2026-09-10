@@ -78,6 +78,20 @@ class RarityOracleTest {
   }
 
   @Test
+  void poisonousAnchorDetection() {
+    assertThat(RarityOracle.isPoisonousAnchor(" ", false)).isTrue();
+    assertThat(RarityOracle.isPoisonousAnchor("e", false)).isTrue();
+    assertThat(RarityOracle.isPoisonousAnchor("E", false)).isFalse();
+    assertThat(RarityOracle.isPoisonousAnchor("E", true)).isTrue();
+    assertThat(RarityOracle.isPoisonousAnchor("z", false)).isFalse();
+    assertThat(RarityOracle.isPoisonousAnchor("q", true)).isFalse();
+    assertThat(RarityOracle.isPoisonousAnchor("404", false)).isFalse();
+    assertThat(RarityOracle.isPoisonousAnchor("  ", false)).isFalse();
+    assertThat(RarityOracle.isPoisonousAnchor(null, false)).isFalse();
+    assertThat(RarityOracle.isPoisonousAnchor("", false)).isFalse();
+  }
+
+  @Test
   void literalSelectivityDistinguishesExactAndFoldedScores() {
     int exactUpperScore = RarityOracle.literalSelectivityScore("ERROR", false);
     int exactLowerScore = RarityOracle.literalSelectivityScore("error", false);

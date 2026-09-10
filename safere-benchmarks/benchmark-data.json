@@ -1388,6 +1388,76 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.competitiveFixedOffset.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-09-07 12:00:00 [INFO] worker process event status:200 payload:ok\n",
+        "suffix": "2026-09-07 12:00:00 [ERROR] worker process failed: 42404_NOT_FOUND internal fault\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.competitiveFixedOffset.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "2026-09-07 12:00:00 [INFO] worker process event status:200 payload:ok",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.poisonousSpacePrefix.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "the quick brown fox jumps over the lazy dog repeatedly without digits\n",
+        "suffix": "the quick brown fox jumps over the lazy dog 2026 transaction\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.poisonousSpacePrefix.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "the quick brown fox jumps over the lazy dog repeatedly without digits",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.multiInfixLog.match.{size}",
       "axes": {
         "size": [
@@ -4645,6 +4715,64 @@
       ],
       "inputs": [
         "realWorldRegex.metadataBlock.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.competitiveFixedOffset.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{2}404_NOT_FOUND"
+      ],
+      "inputs": [
+        "realWorldRegex.competitiveFixedOffset.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.poisonousSpacePrefix.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "realWorldRegex.poisonousSpacePrefix.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {
