@@ -1080,7 +1080,8 @@ final class MultiAnchorDescriptor {
         char anchorLowChar,
         char anchorHighChar,
         byte anchorLowByte,
-        byte anchorHighByte)
+        byte anchorHighByte,
+        ClassHashChain classHashChain)
         implements Anchor {
 
       static Single create(String literal) {
@@ -1094,13 +1095,15 @@ final class MultiAnchorDescriptor {
           int[] failure = Pattern.literalFailure(utf8);
           int[] shifts = Pattern.literalShifts(utf8);
           return new Single(
-              literal, false, utf8, failure, shifts, 0, '\0', '\0', (byte) 0, (byte) 0);
+              literal, false, utf8, failure, shifts, 0, '\0', '\0', (byte) 0, (byte) 0, null);
         }
         int[] failure = Ascii.ignoreCaseFailure(literal);
         int anchorOffset = RarityOracle.rarestAsciiOffset(literal, literal.length(), true);
         char anchor = literal.charAt(anchorOffset);
         char anchorLow = Ascii.toLowerCase(anchor);
         char anchorHigh = Ascii.toUpperCase(anchor);
+        ClassHashChain classHashChain =
+            literal.length() >= 4 ? ClassHashChain.compileCaseInsensitive(literal) : null;
         return new Single(
             literal,
             true,
@@ -1111,7 +1114,8 @@ final class MultiAnchorDescriptor {
             anchorLow,
             anchorHigh,
             (byte) anchorLow,
-            (byte) anchorHigh);
+            (byte) anchorHigh,
+            classHashChain);
       }
 
       @Override
@@ -1146,7 +1150,13 @@ final class MultiAnchorDescriptor {
           int candidate =
               foldCase
                   ? Matcher.indexOfIgnoreCase(
-                      text, literal, anchorOffset, anchorLowChar, anchorHighChar, position)
+                      text,
+                      literal,
+                      anchorOffset,
+                      anchorLowChar,
+                      anchorHighChar,
+                      classHashChain,
+                      position)
                   : text.indexOf(literal, position);
           if (candidate < 0 || hasCodePointBoundaries(text, candidate)) {
             return candidate;
