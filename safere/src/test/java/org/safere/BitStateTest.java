@@ -331,6 +331,71 @@ class BitStateTest {
 
       assertThat(shifted.stepBudgetForTesting()).isEqualTo(nearStart.stepBudgetForTesting());
     }
+
+    @Test
+    void failedStartsPruneLaterStartsSoGreedyRunsStayLinear() {
+      // Without cross-start pruning every start position re-walks the whole run of 'a's, which is
+      // quadratic and exhausts the work budget long before the last start is tried.
+      Regexp re = Parser.parse("(a*)b", FLAGS);
+      Prog prog = Compiler.compile(re);
+      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+      String text = "a".repeat(20_000);
+      assertThat(text.length()).isLessThanOrEqualTo(BitState.maxTextSize(prog));
+
+      BitState bs = BitState.getOrCreate(null, prog, text, 0, text.length(), ncap, false, false);
+
+      assertThat(bs.doSearch(0, text.length(), false)).isNull();
+      assertThat(bs.budgetExceeded()).isFalse();
+    }
+
+    @Test
+    void reusedInstanceStaysCorrectAcrossAnchoredAndUnanchoredSearches() {
+      // The dead-pruning bitmap is allocated lazily on the first unanchored search. Exercise a
+      // single cached instance through anchored, then unanchored, then anchored again to make sure
+      // that lazy allocation and the reset() bookkeeping around it don't corrupt reused state.
+      Regexp re = Parser.parse("(a*)b", FLAGS);
+      Prog prog = Compiler.compile(re);
+      int ncap = 2 * Math.max(prog.numCaptures(), 1);
+      String text = "xxxaaab";
+
+      BitState bs = BitState.getOrCreate(null, prog, text, 3, text.length(), ncap, false, false);
+      assertThat(bs.doSearch(3, text.length(), true)).containsExactly(3, 7, 3, 6);
+
+      bs = BitState.getOrCreate(bs, prog, text, 0, text.length(), ncap, false, false);
+      assertThat(bs.doSearch(0, text.length(), false)).containsExactly(3, 7, 3, 6);
+
+      bs = BitState.getOrCreate(bs, prog, text, 3, text.length(), ncap, false, false);
+      assertThat(bs.doSearch(3, text.length(), true)).containsExactly(3, 7, 3, 6);
+    }
+
+    @Test
+    void prunedStartsDoNotHideALaterLeftmostMatch() {
+      Regexp re = Parser.parse("(a*)c", FLAGS);
+      Prog prog = Compiler.compile(re);
+      // Start 0 walks "aaa", fails at 'b', and marks those positions dead; the match begins at 5.
+      int[] result = BitState.search(prog, "aaabbaac", false, false, false, prog.numCaptures());
+
+      assertThat(result).containsExactly(5, 8, 5, 7);
+    }
+
+    @Test
+    void pruningStaysExactAcrossProgressCheckLoops() {
+      // Nullable loop bodies compile to PROGRESS_CHECK, whose behavior depends on a loop register.
+      // Failed starts must still be safe to prune; compare against the NFA on inputs where the
+      // leftmost match begins after several pruned starts.
+      String[] patterns = {
+        "(a*)+c", "(?:a?)+b(c|d)", "(a*)*b", "(?:(a*)+x)*y", "((a*)+b)+c", "(a|b*)+c", "(x*)+(a*)*b"
+      };
+      String[] texts = {
+        "aaabbaac", "aabaad", "aaaxaaab", "aaxaayxy", "aabaabc", "abbaaccab", "xxaaxbxb", "aaaa"
+      };
+      for (String pattern : patterns) {
+        for (String text : texts) {
+          assertConsistentUnanchored(pattern, text);
+          assertConsistentUnanchored(pattern, text.repeat(40));
+        }
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------

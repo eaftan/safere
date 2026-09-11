@@ -298,10 +298,21 @@ at most once.
 
 - **When used:** Text length ≤ `MAX_BITMAP_BITS / prog.size()` (roughly
   256 KB / program size).
-- **Epsilon-cycle optimization:** Only ALT instructions involved in
-  epsilon cycles are visit-tracked.  Non-cycle ALTs can be revisited,
-  which is essential for nested quantifiers where an outer repetition must
-  re-enter a shared ALT entry point.
+- **Epsilon-cycle optimization:** Within one start position, only ALT
+  instructions involved in epsilon cycles are blocked on revisit.
+  Non-cycle ALTs can be revisited, which is essential for nested
+  quantifiers where an outer repetition must re-enter a shared ALT entry
+  point.
+- **Cross-start pruning:** Every ALT reached by an unanchored start
+  position whose search fails is folded into a second bitmap, and later
+  start positions skip those `(ALT, position)` pairs.  Whether a match is
+  reachable from such a pair does not depend on capture values, so this is
+  exact.  It keeps unanchored search linear instead of re-walking the same
+  greedy run from every start until the work budget trips and forces an
+  NFA fallback.  PROGRESS_CHECK loop registers only guard nullable bodies,
+  so a failed start still explores every future a later start could reach
+  through a pruned pair.  Off for anchored searches, which have a single
+  start.
 
 ### NFA / Pike VM (`Nfa`)
 
