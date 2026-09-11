@@ -938,6 +938,13 @@ final class MultiAnchorDescriptor {
       return GapScanner.boundedCodePointEnd(this, scanner, fromPos, maxPos);
     }
 
+    /**
+     * Returns whether {@code position} is a UTF-16 code point boundary, i.e. does not fall between
+     * a high and low surrogate.
+     *
+     * <p>There is deliberately no {@code Utf8InputScanner} overload: UTF-8 is self-synchronizing,
+     * so a well-formed needle can never match starting inside a multi-byte sequence.
+     */
     boolean endsAtCodePointBoundary(String text, int position) {
       return position <= 0
           || position >= text.length()

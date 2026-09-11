@@ -87,8 +87,9 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       return -1;
     }
-    if (scanProvider != null) {
-      int res = scanProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
+    VectorScanProvider byteProvider = VectorScanProviders.providerForByteLength(start - limit + 1);
+    if (byteProvider != null) {
+      int res = byteProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
       if (res != VectorScanProvider.UNSUPPORTED) {
         return res;
       }
