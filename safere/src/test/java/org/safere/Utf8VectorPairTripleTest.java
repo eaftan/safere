@@ -9,6 +9,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.util.Arrays;
 import java.util.Random;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -198,6 +199,45 @@ class Utf8VectorPairTripleTest {
     assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 35, 11)).isEqualTo(-1);
     assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 35, 10)).isEqualTo(10);
     assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 9, 0)).isEqualTo(-1);
+  }
+
+  @Test
+  void testScannerReverseByteHonorsWindowCrossover() {
+    // A long input selects a vector provider, but individual reverse scans may span a window far
+    // below the vector crossover; dispatch must be sized by the window, not by the input.
+    int length = 4096;
+    byte[] bytes = new byte[length];
+    Random rnd = new Random(4242);
+    for (int i = 0; i < length; i++) {
+      bytes[i] = (byte) ('a' + rnd.nextInt(20)); // 'a'..'t' (no 'x')
+    }
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes);
+
+    for (int window : new int[] {1, 2, 7, 8, 15, 16, 31, 32, 63, 64, 65, 127, 128, 1024}) {
+      for (int trial = 0; trial < 20; trial++) {
+        int limit = rnd.nextInt(length - window);
+        int fromIndex = limit + window - 1;
+        bytes[limit + rnd.nextInt(window)] = 'x';
+
+        assertThat(scanner.lastIndexOfAscii('x', fromIndex, limit))
+            .as("window %d trial %d", window, trial)
+            .isEqualTo(lastIndexOfReference(bytes, (byte) 'x', fromIndex, limit));
+
+        Arrays.fill(bytes, limit, limit + window, (byte) 'a');
+        assertThat(scanner.lastIndexOfAscii('x', fromIndex, limit))
+            .as("absent window %d trial %d", window, trial)
+            .isEqualTo(-1);
+      }
+    }
+  }
+
+  private static int lastIndexOfReference(byte[] bytes, byte needle, int fromIndex, int limit) {
+    for (int i = fromIndex; i >= limit; i--) {
+      if (bytes[i] == needle) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   @Test

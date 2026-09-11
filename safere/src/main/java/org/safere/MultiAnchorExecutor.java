@@ -884,6 +884,12 @@ final class MultiAnchorExecutor {
           state[base + OFFSET_WATERMARK] = curWatermark;
 
           boolean matches;
+          // No endsAtCodePointBoundary check here, unlike the String path: that check exists only
+          // to reject candidates that land between a UTF-16 surrogate pair. UTF-8 is
+          // self-synchronizing (lead bytes are 0x00-0x7F and 0xC2-0xF4, continuations are
+          // 0x80-0xBF), so a well-formed needle can never match starting inside a multi-byte
+          // sequence, and malformed input is decoded as one-byte U+FFFD replacements that are
+          // themselves boundaries.
           if (gap.maxLength() == Integer.MAX_VALUE
               && isUnboundedGapSatisfiedUtf8(gap, p - currentPos)) {
             matches = true;
