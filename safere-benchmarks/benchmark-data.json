@@ -5169,6 +5169,35 @@
       }
     },
     {
+      "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveGreedyGapLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?i)user:.*status:[0-9]+"
+      ],
+      "inputs": [
+        "realWorldRegex.caseInsensitiveVariableGapLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
       "id": "RealWorldRegexBenchmark.runBenchmark.multiInfixLogCaptures.{matchLabel}.{size}",
       "operation": "findGroup",
       "patterns": [
