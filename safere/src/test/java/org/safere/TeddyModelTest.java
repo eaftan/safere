@@ -16,15 +16,15 @@ class TeddyModelTest {
   void compilationFollowsVectorProviderAvailability() {
     TeddyModel model = TeddyModel.compileForSelectedProvider(new String[] {"INFO", "WARN"});
 
-    if (!VectorScanProviders.teddyProviderAvailable()) {
+    if (!VectorScanProviders.vectorProviderAvailable()) {
       assertThat(model).isNull();
     } else {
       assertThat(model).isNotNull();
-      assertThat(VectorScanProviders.providerForLength(64)).isNull();
-      assertThat(VectorScanProviders.providerForTeddyLength(64)).isNull();
-      assertThat(VectorScanProviders.providerForTeddyLength(256)).isNull();
-      assertThat(VectorScanProviders.providerForLength(1024)).isNotNull();
-      assertThat(VectorScanProviders.providerForTeddyLength(1024)).isNotNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.CLASS, 64)).isNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.TEDDY, 64)).isNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.TEDDY, 256)).isNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.CLASS, 1024)).isNotNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.TEDDY, 1024)).isNotNull();
     }
   }
 }

@@ -7,41 +7,33 @@ package org.safere;
 
 /** Experimental scan operations implemented with the incubating Vector API. */
 final class IncubatorVectorScanProvider implements VectorScanProvider {
-  private static final int MINIMUM_INPUT_LENGTH = 1024;
-  private static final int MINIMUM_TEDDY_INPUT_LENGTH = 1024;
-  private static final int MINIMUM_MULTI_LITERAL_INPUT_LENGTH = 64;
-  private static final int MINIMUM_PAIR_INPUT_LENGTH = 64;
-  private static final int MINIMUM_TRIPLE_INPUT_LENGTH = 64;
-  private static final int MAXIMUM_TRIPLE_INPUT_LENGTH = 10_240;
+  private static final int MINIMUM_BYTE_WINDOW_LENGTH = 64;
+  private static final int MINIMUM_PAIR_WINDOW_LENGTH = 64;
+  private static final int MINIMUM_TRIPLE_WINDOW_LENGTH = 64;
+  private static final int MAXIMUM_TRIPLE_WINDOW_LENGTH = 10_240;
+  private static final int MINIMUM_CLASS_WINDOW_LENGTH = 1024;
+  private static final int MINIMUM_IGNORE_CASE_WINDOW_LENGTH = 1024;
+  private static final int MINIMUM_TEDDY_WINDOW_LENGTH = 1024;
+  private static final int MINIMUM_MULTI_LITERAL_WINDOW_LENGTH = 64;
 
   @Override
-  public int minimumInputLength() {
-    return MINIMUM_INPUT_LENGTH;
+  public int minimumWindowLength(ScanKind kind) {
+    return switch (kind) {
+      case BYTE -> MINIMUM_BYTE_WINDOW_LENGTH;
+      case PAIR -> MINIMUM_PAIR_WINDOW_LENGTH;
+      case TRIPLE -> MINIMUM_TRIPLE_WINDOW_LENGTH;
+      case CLASS -> MINIMUM_CLASS_WINDOW_LENGTH;
+      case IGNORE_CASE -> MINIMUM_IGNORE_CASE_WINDOW_LENGTH;
+      case TEDDY -> MINIMUM_TEDDY_WINDOW_LENGTH;
+      case MULTI_LITERAL -> MINIMUM_MULTI_LITERAL_WINDOW_LENGTH;
+    };
   }
 
   @Override
-  public int minimumTeddyInputLength() {
-    return MINIMUM_TEDDY_INPUT_LENGTH;
-  }
-
-  @Override
-  public int minimumMultiLiteralInputLength() {
-    return MINIMUM_MULTI_LITERAL_INPUT_LENGTH;
-  }
-
-  @Override
-  public int minimumPairInputLength() {
-    return MINIMUM_PAIR_INPUT_LENGTH;
-  }
-
-  @Override
-  public int minimumTripleInputLength() {
-    return MINIMUM_TRIPLE_INPUT_LENGTH;
-  }
-
-  @Override
-  public int maximumTripleInputLength() {
-    return MAXIMUM_TRIPLE_INPUT_LENGTH;
+  public int maximumWindowLength(ScanKind kind) {
+    // TRIPLE is the only kind with a measured upper crossover: past this window the SWAR triple
+    // scan wins again. Every other kernel stays profitable for arbitrarily long windows.
+    return kind == ScanKind.TRIPLE ? MAXIMUM_TRIPLE_WINDOW_LENGTH : Integer.MAX_VALUE;
   }
 
   @Override

@@ -21,15 +21,12 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
 
   private static final VarHandle LONG_VIEW = byteArrayViewVarHandle(long[].class, nativeOrder());
 
-  private final VectorScanProvider scanProvider;
-
   Utf8InputScanner(byte[] bytes) {
     this(bytes, 0, bytes.length);
   }
 
   Utf8InputScanner(byte[] bytes, int offset, int length) {
     super(bytes, offset, length);
-    this.scanProvider = VectorScanProviders.providerForLength(length);
   }
 
   static void validate(byte[] bytes, int offset, int length) {
@@ -87,8 +84,10 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       return -1;
     }
-    if (scanProvider != null) {
-      int res = scanProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
+    VectorScanProvider byteProvider =
+        VectorScanProviders.providerFor(ScanKind.BYTE, start - limit + 1);
+    if (byteProvider != null) {
+      int res = byteProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
       if (res != VectorScanProvider.UNSUPPORTED) {
         return res;
       }
@@ -117,7 +116,8 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
   }
 
   private int scanByte(int scanLen, byte b0, int start) {
-    VectorScanProvider byteProvider = VectorScanProviders.providerForByteLength(scanLen - start);
+    VectorScanProvider byteProvider =
+        VectorScanProviders.providerFor(ScanKind.BYTE, scanLen - start);
     if (byteProvider != null) {
       int idx = byteProvider.indexOfByte(bytes, offset, scanLen, b0, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
@@ -212,7 +212,8 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
   }
 
   private int scanBytePair(int scanLen, byte b0, byte b1, int start) {
-    VectorScanProvider pairProvider = VectorScanProviders.providerForPairLength(scanLen - start);
+    VectorScanProvider pairProvider =
+        VectorScanProviders.providerFor(ScanKind.PAIR, scanLen - start);
     if (pairProvider != null) {
       int idx = pairProvider.indexOfAsciiPair(bytes, offset, scanLen, b0, b1, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
@@ -224,7 +225,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
 
   private int scanByteTriple(int scanLen, byte b0, byte b1, byte b2, int start) {
     VectorScanProvider tripleProvider =
-        VectorScanProviders.providerForTripleLength(scanLen - start);
+        VectorScanProviders.providerFor(ScanKind.TRIPLE, scanLen - start);
     if (tripleProvider != null) {
       int idx = tripleProvider.indexOfAsciiTriple(bytes, offset, scanLen, b0, b1, b2, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
@@ -329,7 +330,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       return -1;
     }
     if (!WorkCounterConfig.ENABLED) {
-      if (scanProvider == null
+      if (VectorScanProviders.providerFor(ScanKind.CLASS, scanLen - position) == null
           && ranges.length >= 4
           && ranges.length <= 8
           && ranges[0] >= 0
@@ -415,7 +416,9 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       default -> {}
     }
-    if (scanProvider != null && scanLen - start >= scanProvider.minimumInputLength()) {
+    VectorScanProvider classProvider =
+        VectorScanProviders.providerFor(ScanKind.CLASS, scanLen - start);
+    if (classProvider != null) {
       int position = start;
       int scalarLimit = Math.min(scanLen, position + VECTOR_SCALAR_PROLOGUE_LENGTH);
       for (; position < scalarLimit; position++) {
@@ -423,7 +426,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
           return position;
         }
       }
-      int result = scanProvider.indexOfAsciiClass(bytes, offset, scanLen, ranges, position);
+      int result = classProvider.indexOfAsciiClass(bytes, offset, scanLen, ranges, position);
       if (result != VectorScanProvider.UNSUPPORTED) {
         return result;
       }
@@ -441,10 +444,15 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
         && ranges[4] == ranges[5];
   }
 
+  /**
+   * Returns whether the specialized ASCII triple scan should handle {@code ranges} over a window of
+   * {@code remaining} bytes: either the triple kernel is available, or the general class kernel the
+   * caller would otherwise reach is not.
+   */
   static boolean useSpecializedAsciiTriple(int[] ranges, int remaining) {
     return isAsciiTriple(ranges)
-        && (VectorScanProviders.providerForTripleLength(remaining) != null
-            || VectorScanProviders.providerForLength(remaining) == null);
+        && (VectorScanProviders.providerFor(ScanKind.TRIPLE, remaining) != null
+            || VectorScanProviders.providerFor(ScanKind.CLASS, remaining) == null);
   }
 
   private int indexOfNonAsciiCodePointClass(int[] ranges, int start, int scanLen) {
@@ -552,7 +560,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       return start;
     }
     if (!WorkCounterConfig.ENABLED) {
-      if (scanProvider != null && length - start >= scanProvider.minimumInputLength()) {
+      if (VectorScanProviders.providerFor(ScanKind.IGNORE_CASE, length - start) != null) {
         int result =
             ByteVectorScan.indexOfIgnoreCase(
                 bytes,
@@ -601,7 +609,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       return start;
     }
     if (!WorkCounterConfig.ENABLED) {
-      if (scanProvider != null && length - start >= scanProvider.minimumInputLength()) {
+      if (VectorScanProviders.providerFor(ScanKind.IGNORE_CASE, length - start) != null) {
         int result =
             ByteVectorScan.indexOfPairIgnoreCase(
                 bytes, offset, length, prefix, prefixLen, offset1, low1, high1, offset2, low2,

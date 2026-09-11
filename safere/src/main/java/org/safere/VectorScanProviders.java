@@ -12,42 +12,33 @@ final class VectorScanProviders {
 
   private VectorScanProviders() {}
 
-  static VectorScanProvider providerForLength(int length) {
-    return SELECTED != null && length >= SELECTED.minimumInputLength() ? SELECTED : null;
-  }
-
-  static VectorScanProvider providerForTeddyLength(int length) {
-    return SELECTED != null && length >= SELECTED.minimumTeddyInputLength() ? SELECTED : null;
-  }
-
-  static boolean teddyProviderAvailable() {
-    return SELECTED != null;
-  }
-
-  static VectorScanProvider providerForByteLength(int length) {
-    return SELECTED != null && length >= SELECTED.minimumPairInputLength() ? SELECTED : null;
-  }
-
-  static VectorScanProvider providerForMultiLiteralLength(int length) {
-    return SELECTED != null && length >= SELECTED.minimumMultiLiteralInputLength()
-        ? SELECTED
+  /**
+   * Returns the installed Vector provider when its crossover thresholds admit a {@code kind} scan
+   * over a window of {@code windowLength} bytes, and {@code null} otherwise.
+   *
+   * <p>{@code windowLength} must be the length of the region the caller is about to scan, not the
+   * length of the whole input. The thresholds describe the work of a single kernel invocation, so
+   * sizing them by the input defeats them: one long input selects a provider that then serves every
+   * scan against it, including the narrow probes a candidate verification loop issues thousands of
+   * times, each paying vector setup for a window far below break-even.
+   */
+  static VectorScanProvider providerFor(ScanKind kind, int windowLength) {
+    VectorScanProvider selected = SELECTED;
+    if (selected == null) {
+      return null;
+    }
+    return windowLength >= selected.minimumWindowLength(kind)
+            && windowLength <= selected.maximumWindowLength(kind)
+        ? selected
         : null;
   }
 
-  static boolean multiLiteralProviderAvailable() {
+  /**
+   * Returns whether a Vector provider is installed at all, ignoring crossover thresholds. Use this
+   * only for compile-time decisions, where no search window exists yet.
+   */
+  static boolean vectorProviderAvailable() {
     return SELECTED != null;
-  }
-
-  static VectorScanProvider providerForPairLength(int length) {
-    return SELECTED != null && length >= SELECTED.minimumPairInputLength() ? SELECTED : null;
-  }
-
-  static VectorScanProvider providerForTripleLength(int length) {
-    return SELECTED != null
-            && length >= SELECTED.minimumTripleInputLength()
-            && length <= SELECTED.maximumTripleInputLength()
-        ? SELECTED
-        : null;
   }
 
   private static VectorScanProvider loadSelected() {

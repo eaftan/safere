@@ -1519,9 +1519,9 @@ final class MultiAnchorDescriptor {
       @Override
       public int findNext(Utf8InputScanner scanner, int fromIndex) {
         if (!foldCase) {
-          if (teddyModel != null && VectorScanProviders.teddyProviderAvailable()) {
+          if (teddyModel != null) {
             VectorScanProvider provider =
-                VectorScanProviders.providerForTeddyLength(scanner.length());
+                VectorScanProviders.providerFor(ScanKind.TEDDY, scanner.length() - fromIndex);
             if (provider != null) {
               int idx =
                   provider.indexOfTeddy(
@@ -1533,7 +1533,8 @@ final class MultiAnchorDescriptor {
           }
           if (multiLiteral != null) {
             VectorScanProvider provider =
-                VectorScanProviders.providerForMultiLiteralLength(scanner.length());
+                VectorScanProviders.providerFor(
+                    ScanKind.MULTI_LITERAL, scanner.length() - fromIndex);
             if (provider != null) {
               int idx =
                   provider.indexOfMultiLiteral(

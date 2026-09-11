@@ -8,17 +8,24 @@ package org.safere;
 interface VectorScanProvider {
   int UNSUPPORTED = -2;
 
-  int minimumInputLength();
+  /**
+   * Returns the shortest search window, in bytes, for which the {@code kind} kernel is expected to
+   * beat the SWAR and scalar fallbacks.
+   *
+   * <p>The quantity is a <em>window</em> length, not an input length: it is measured over the
+   * region the caller is about to scan, so that a narrow search inside a large input is costed as a
+   * narrow search.
+   */
+  int minimumWindowLength(ScanKind kind);
 
-  int minimumTeddyInputLength();
-
-  int minimumMultiLiteralInputLength();
-
-  int minimumPairInputLength();
-
-  int minimumTripleInputLength();
-
-  int maximumTripleInputLength();
+  /**
+   * Returns the longest search window, in bytes, for which the {@code kind} kernel is expected to
+   * beat the SWAR and scalar fallbacks. Kernels that remain profitable on arbitrarily long windows
+   * return {@link Integer#MAX_VALUE}.
+   */
+  default int maximumWindowLength(ScanKind kind) {
+    return Integer.MAX_VALUE;
+  }
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
   default int indexOfByte(byte[] bytes, int offset, int length, byte target, int start) {
