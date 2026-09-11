@@ -310,6 +310,8 @@ public final class Matcher implements MatchResult {
   private boolean bitStateBorrowed;
   private int[] bitStateResult;
   private int[] onePassScratchCap;
+  private int[] multiAnchorScratch;
+  private final long[] multiAnchorWork = new long[1];
 
   /** Cached Nfa instance borrowed from the parent Pattern's thread-local cache. */
   private Nfa cachedNfa;
@@ -1708,9 +1710,20 @@ public final class Matcher implements MatchResult {
     if (options.multiAnchorGapEngine()
         && !prog.anchorStart()
         && parentPattern.multiAnchor().isExecutableChain()) {
+      int numSegments = parentPattern.multiAnchor().segments().length;
+      int requiredScratch = numSegments * MultiAnchorExecutor.STATE_STRIDE;
+      if (multiAnchorScratch == null || multiAnchorScratch.length < requiredScratch) {
+        multiAnchorScratch = new int[Math.max(requiredScratch, 64)];
+      }
+      multiAnchorWork[0] = 0;
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         MultiAnchorExecutor.Result res =
-            MultiAnchorExecutor.find(parentPattern.multiAnchor(), utf8Scanner, searchFrom);
+            MultiAnchorExecutor.find(
+                parentPattern.multiAnchor(),
+                utf8Scanner,
+                searchFrom,
+                multiAnchorScratch,
+                multiAnchorWork);
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
@@ -1726,7 +1739,8 @@ public final class Matcher implements MatchResult {
         }
       } else if (text != null) {
         MultiAnchorExecutor.Result res =
-            MultiAnchorExecutor.find(parentPattern.multiAnchor(), text, searchFrom);
+            MultiAnchorExecutor.find(
+                parentPattern.multiAnchor(), text, searchFrom, multiAnchorScratch, multiAnchorWork);
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
