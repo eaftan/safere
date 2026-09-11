@@ -1336,6 +1336,153 @@ class MultiAnchorGapEngineTest {
     assertThat(utf8Matcher.find()).isFalse();
   }
 
+  @Test
+  void caseInsensitiveAnchorSingleFindNextWithin() {
+    MultiAnchorDescriptor.Anchor.Single anchor =
+        MultiAnchorDescriptor.Anchor.Single.create("TARGET", true);
+    String text = "abc target 123 TARGET 456 Target xyz";
+
+    // Unbounded / full range finds first
+    assertThat(anchor.findNextWithin(text, 0, text.length())).isEqualTo(4);
+
+    // Bounded search before first occurrence
+    assertThat(anchor.findNextWithin(text, 0, 3)).isEqualTo(-1);
+
+    // Bounded search starting after first occurrence
+    assertThat(anchor.findNextWithin(text, 5, 20)).isEqualTo(15);
+
+    // Bounded search exactly at occurrence
+    assertThat(anchor.findNextWithin(text, 4, 4)).isEqualTo(4);
+
+    // Negative fromIndex handled defensively
+    assertThat(anchor.findNextWithin(text, -5, 10)).isEqualTo(4);
+  }
+
+  @Test
+  void caseInsensitiveAnchorSingleLastIndexOf() {
+    MultiAnchorDescriptor.Anchor.Single anchor =
+        MultiAnchorDescriptor.Anchor.Single.create("TARGET", true);
+    String text = "abc target 123 TARGET 456 Target xyz";
+    // Occurrences at 4 ("target"), 15 ("TARGET"), 26 ("Target")
+
+    // Full range returns last occurrence
+    assertThat(anchor.lastIndexOf(text, 0, text.length())).isEqualTo(26);
+
+    // Bounded to exclude last occurrence
+    assertThat(anchor.lastIndexOf(text, 0, 25)).isEqualTo(15);
+
+    // Bounded to single occurrence in middle
+    assertThat(anchor.lastIndexOf(text, 10, 20)).isEqualTo(15);
+
+    // Bounded range where no occurrence falls within [fromIndex, toIndex]
+    assertThat(anchor.lastIndexOf(text, 11, 14)).isEqualTo(-1);
+
+    // Bounded range before all occurrences
+    assertThat(anchor.lastIndexOf(text, 0, 3)).isEqualTo(-1);
+
+    // Bounded range after all occurrences
+    assertThat(anchor.lastIndexOf(text, 33, text.length())).isEqualTo(-1);
+
+    // Repeated dense characters
+    MultiAnchorDescriptor.Anchor.Single denseAnchor =
+        MultiAnchorDescriptor.Anchor.Single.create("ab", true);
+    String denseText = "aBaBaBab";
+    assertThat(denseAnchor.lastIndexOf(denseText, 0, 7)).isEqualTo(6);
+    assertThat(denseAnchor.lastIndexOf(denseText, 0, 5)).isEqualTo(4);
+    assertThat(denseAnchor.lastIndexOf(denseText, 0, 3)).isEqualTo(2);
+    assertThat(denseAnchor.lastIndexOf(denseText, 0, 1)).isEqualTo(0);
+  }
+
+  @Test
+  void gapScannerFindLastGuardByteString() {
+    byte[] singleGuard = new byte[] {(byte) ';'};
+    String text1 = "abc;def;ghi";
+    assertThat(GapScanner.findLastGuardByte(singleGuard, text1, 0, text1.length() - 1))
+        .isEqualTo(7);
+    assertThat(GapScanner.findLastGuardByte(singleGuard, text1, 0, 6)).isEqualTo(3);
+    assertThat(GapScanner.findLastGuardByte(singleGuard, text1, 0, 2)).isEqualTo(-1);
+    assertThat(GapScanner.findLastGuardByte(singleGuard, text1, 4, 6)).isEqualTo(-1);
+
+    byte[] doubleGuard = new byte[] {(byte) '\r', (byte) '\n'};
+    String text2 = "line1\r\nline2\nline3\rline4";
+    // indices: \r at 5, \n at 6, \n at 12, \r at 18
+    assertThat(GapScanner.findLastGuardByte(doubleGuard, text2, 0, text2.length() - 1))
+        .isEqualTo(18);
+    assertThat(GapScanner.findLastGuardByte(doubleGuard, text2, 0, 17)).isEqualTo(12);
+    assertThat(GapScanner.findLastGuardByte(doubleGuard, text2, 0, 11)).isEqualTo(6);
+    assertThat(GapScanner.findLastGuardByte(doubleGuard, text2, 0, 4)).isEqualTo(-1);
+
+    byte[] tripleGuard = new byte[] {(byte) 'x', (byte) 'y', (byte) 'z'};
+    String text3 = "a-x-b-y-c-z-d";
+    // x at 2, y at 6, z at 10
+    assertThat(GapScanner.findLastGuardByte(tripleGuard, text3, 0, text3.length() - 1))
+        .isEqualTo(10);
+    assertThat(GapScanner.findLastGuardByte(tripleGuard, text3, 0, 9)).isEqualTo(6);
+    assertThat(GapScanner.findLastGuardByte(tripleGuard, text3, 0, 5)).isEqualTo(2);
+    assertThat(GapScanner.findLastGuardByte(tripleGuard, text3, 0, 1)).isEqualTo(-1);
+  }
+
+  @Test
+  void caseInsensitiveEndAnchoredGapMatching() {
+    String regex = "(?i)user:[a-z]+-host:[a-z]+-status:[0-9]+$";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    String input = "noise\n2026-09-11 USER:Alice-Host:PROD-Status:200\n";
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher stringMatcher = pattern.matcher(input);
+
+    assertThat(jdk.find()).isTrue();
+    assertThat(stringMatcher.find()).isTrue();
+    assertThat(stringMatcher.start()).isEqualTo(jdk.start());
+    assertThat(stringMatcher.end()).isEqualTo(jdk.end());
+    assertThat(stringMatcher.group()).isEqualTo(jdk.group());
+    assertThat(stringMatcher.find()).isFalse();
+  }
+
+  @Test
+  void caseInsensitiveVariableGapMatchingAndBacktracking() {
+    String regex = "(?i)START.*?MIDDLE.*?FINAL";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(
+            Pattern.compile("(?i)user:.*?host:.*?status:[0-9]+").multiAnchor().isExecutableChain())
+        .isTrue();
+    assertThat(
+            Pattern.compile("(?i)user:.{0,100}?host:.{0,100}?status:[0-9]+")
+                .multiAnchor()
+                .isExecutableChain())
+        .isTrue();
+
+    String input = "prefix start_foo_middle_bar_middle_baz_final suffix";
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher stringMatcher = pattern.matcher(input);
+
+    assertThat(jdk.find()).isTrue();
+    assertThat(stringMatcher.find()).isTrue();
+    assertThat(stringMatcher.start()).isEqualTo(jdk.start());
+    assertThat(stringMatcher.end()).isEqualTo(jdk.end());
+    assertThat(stringMatcher.group()).isEqualTo(jdk.group());
+
+    String logRegex = "(?i)user:.*?host:.*?status:[0-9]+";
+    Pattern logPattern = Pattern.compile(logRegex);
+    String logInput =
+        """
+        2026-08-27 12:00:00 [system] status:500 healthcheck
+        2026-08-27 12:00:01 user:alice trace=abc-123 host:prod dc=iad outcome=ok
+        2026-08-27 12:00:02 user:alice trace=xyz-987 host:prod dc=iad status:200
+        """;
+    Matcher logMatcher = logPattern.matcher(logInput);
+    java.util.regex.Matcher jdkLogMatcher =
+        java.util.regex.Pattern.compile(logRegex).matcher(logInput);
+    assertThat(jdkLogMatcher.find()).isTrue();
+    assertThat(logMatcher.find()).isTrue();
+    assertThat(logMatcher.start()).isEqualTo(jdkLogMatcher.start());
+    assertThat(logMatcher.end()).isEqualTo(jdkLogMatcher.end());
+    assertThat(logMatcher.group()).isEqualTo(jdkLogMatcher.group());
+    assertThat(logMatcher.find()).isFalse();
+  }
+
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
     List<String> matches = new ArrayList<>();
     if (useUtf8) {

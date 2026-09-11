@@ -208,6 +208,57 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void reverseCaseInsensitiveLiteralSearchExaminesOnlyTheRequestedWindow() {
+    MultiAnchorDescriptor.Anchor anchor = MultiAnchorDescriptor.Anchor.Single.create("AAA", true);
+    String text = "x".repeat(10_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(anchor.lastIndexOf(text, 9_900, 9_999)).isEqualTo(-1));
+
+    assertThat(work).as("bounded reverse search work must be observed").isPositive();
+    assertThat(work).as("reverse search must stay within its requested window").isLessThan(200);
+  }
+
+  @Test
+  void reverseCaseInsensitiveLiteralSearchDenseBacktrackScalesLinearly() {
+    MultiAnchorDescriptor.Anchor anchor = MultiAnchorDescriptor.Anchor.Single.create("aaa", true);
+    String text = "a".repeat(10_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> {
+              int p = 9_997;
+              for (int i = 0; i < 100; i++) {
+                p = anchor.lastIndexOf(text, 0, p);
+                assertThat(p).isGreaterThanOrEqualTo(0);
+                p--;
+              }
+            });
+
+    assertThat(work).as("dense reverse search work must be observed").isPositive();
+    assertThat(work)
+        .as("repeated reverse search backtracks must scale linearly without quadratic rescan")
+        .isLessThan(300);
+  }
+
+  @Test
+  void forwardCaseInsensitiveBoundedSearchScalesLinearly() {
+    MultiAnchorDescriptor.Anchor anchor =
+        MultiAnchorDescriptor.Anchor.Single.create("TARGET", true);
+    String text = "x".repeat(10_000) + "target";
+
+    long boundedWork =
+        WorkCounter.countForTesting(
+            () -> assertThat(anchor.findNextWithin(text, 0, 2_000)).isEqualTo(-1));
+
+    assertThat(boundedWork).as("bounded forward search work must be observed").isPositive();
+    assertThat(boundedWork)
+        .as("bounded forward search must not examine text beyond window")
+        .isLessThan(5_000);
+  }
+
+  @Test
   void variableGapCandidateFailuresRemainLinear() {
     Pattern pattern = Pattern.compile("AAA[A-Z]+RAREST_TOKEN");
 
