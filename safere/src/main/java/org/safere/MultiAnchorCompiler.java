@@ -2443,7 +2443,6 @@ final class MultiAnchorCompiler {
             MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
             width.minWidth,
             width.maxWidth,
-            width.discreteWidths,
             homogeneousBm,
             CharClassScanInfo.fromAsciiBitmap(homogeneousBm),
             greedy);

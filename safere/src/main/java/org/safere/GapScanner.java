@@ -159,7 +159,7 @@ final class GapScanner {
     return max;
   }
 
-  private static int boundedCodePointEnd(Gap gap, String text, int fromPos, int maxPos) {
+  static int boundedCodePointEnd(Gap gap, String text, int fromPos, int maxPos) {
     if (gap.maxLength() == Integer.MAX_VALUE) {
       return maxPos;
     }
@@ -174,8 +174,7 @@ final class GapScanner {
     return cur;
   }
 
-  private static int boundedCodePointEnd(
-      Gap gap, Utf8InputScanner scanner, int fromPos, int maxPos) {
+  static int boundedCodePointEnd(Gap gap, Utf8InputScanner scanner, int fromPos, int maxPos) {
     if (gap.maxLength() == Integer.MAX_VALUE) {
       return maxPos;
     }
