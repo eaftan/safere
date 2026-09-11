@@ -1264,6 +1264,39 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.fixedAnchorLogCaptures.match.{size}",
+      "axes": {
+        "size": [
+          256,
+          1000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-08-27 12:00:00 error:[N] code:200 msg:ok\n",
+        "suffix": "2026-08-27 12:00:00 error:[C] code:500 msg:crash\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fixedAnchorLogCaptures.noMatch.{size}",
+      "axes": {
+        "size": [
+          256,
+          1000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "2026-08-27 12:00:00 error:[N] code:200 msg:ok",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.compoundDateLog.match.{size}",
       "axes": {
         "size": [
@@ -4614,6 +4647,37 @@
           1000,
           10000,
           100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.fixedAnchorLogCaptures.{matchLabel}.{size}",
+      "operation": "findGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "realWorldRegex.fixedAnchorLogCaptures.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          256,
+          1000
         ]
       }
     },

@@ -1704,10 +1704,8 @@ public final class Matcher implements MatchResult {
       }
     }
 
-    boolean preferCaptureEngine = shouldPreferCaptureEngine(prog, scanner);
     // Multi-anchor execution for deterministic unanchored chains with fixed, validated gaps.
-    if (!preferCaptureEngine
-        && options.multiAnchorGapEngine()
+    if (options.multiAnchorGapEngine()
         && !prog.anchorStart()
         && parentPattern.multiAnchor().isExecutableChain()) {
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
@@ -1802,6 +1800,7 @@ public final class Matcher implements MatchResult {
     // Once callers have demonstrated that they consume inner captures, use the capture-aware
     // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
     // replaying the same range through BitState on every successful find().
+    boolean preferCaptureEngine = shouldPreferCaptureEngine(prog, scanner);
     if (preferCaptureEngine) {
       int[] result =
           searchWithBitStateOrNfa(
