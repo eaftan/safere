@@ -40,6 +40,12 @@ interface VectorScanProvider {
   }
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
+  default int lastIndexOfAsciiPair(
+      byte[] bytes, int offset, int length, byte b0, byte b1, int fromIndex, int toIndex) {
+    return UNSUPPORTED;
+  }
+
+  /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
   default int indexOfAsciiTriple(
       byte[] bytes, int offset, int length, byte b0, byte b1, byte b2, int start) {
     return UNSUPPORTED;

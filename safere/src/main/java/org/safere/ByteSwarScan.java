@@ -102,6 +102,45 @@ abstract class ByteSwarScan {
     return -1;
   }
 
+  static int lastIndexOfBytePair(
+      byte[] bytes, int offset, int length, byte first, byte second, int fromIndex, int toIndex) {
+    int pos = Math.min(fromIndex, length - 1);
+    int minLimit = Math.max(0, toIndex);
+    if (pos < minLimit || minLimit >= length) {
+      return -1;
+    }
+    if (first == second) {
+      return lastIndexOfByte(bytes, offset, length, first, fromIndex, toIndex);
+    }
+    long repeatedFirst = (first & 0xFFL) * BYTE_ONES;
+    long repeatedSecond = (second & 0xFFL) * BYTE_ONES;
+    while (pos >= minLimit + Long.BYTES - 1) {
+      int wordStart = pos - Long.BYTES + 1;
+      long word = (long) LONG_VIEW.get(bytes, offset + wordStart);
+      long firstDifference = word ^ repeatedFirst;
+      long secondDifference = word ^ repeatedSecond;
+      if (((((firstDifference - BYTE_ONES) & ~firstDifference)
+                  | ((secondDifference - BYTE_ONES) & ~secondDifference))
+              & BYTE_HIGH_BITS)
+          != 0) {
+        for (int index = Long.BYTES - 1; index >= 0; index--) {
+          byte value = bytes[offset + wordStart + index];
+          if (value == first || value == second) {
+            return wordStart + index;
+          }
+        }
+      }
+      pos -= Long.BYTES;
+    }
+    for (; pos >= minLimit; pos--) {
+      byte value = bytes[offset + pos];
+      if (value == first || value == second) {
+        return pos;
+      }
+    }
+    return -1;
+  }
+
   static int indexOfByteOrNonAscii(byte[] bytes, int offset, int length, byte target, int start) {
     return indexOfBytesOrNonAscii(bytes, offset, length, target, target, target, start, 1);
   }
