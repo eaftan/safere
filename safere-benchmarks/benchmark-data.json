@@ -3190,6 +3190,16 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "alternationFindNext.shortGapPool",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 327680,
+        "seed": 20260910
+      },
+      "shared": false
     }
   ],
   "workloads": [
@@ -13108,6 +13118,34 @@
       "expected": {
         "type": "boolean",
         "value": true
+      }
+    },
+    {
+      "id": "AlternationFindNextBenchmark.foldedShortGapNoMatch",
+      "operation": "alternationFindNext",
+      "patterns": [
+        "NETWORK",
+        "STORAGE",
+        "DATABASE",
+        "SECURITY"
+      ],
+      "inputs": [
+        "alternationFindNext.shortGapPool"
+      ],
+      "arguments": {
+        "inputLength": 40
+      },
+      "resultConsumption": "integer",
+      "expected": {
+        "type": "integer",
+        "value": -1
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     }
   ]

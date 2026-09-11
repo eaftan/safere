@@ -1623,7 +1623,8 @@ final class DeclarativeBenchmarkPlan {
     CACHED_ANALYSIS("cachedAnalysis", false, false, Feature.DIAGNOSTICS),
     COMPILE_AND_ANALYZE("compileAndAnalyze", false, false, Feature.DIAGNOSTICS),
     DFA_CACHE_GROWTH("dfaCacheGrowth", false, true, Feature.DFA_CACHE),
-    DIAGNOSTICS_FIND("diagnosticsFind", false, true, Feature.FIND, Feature.DIAGNOSTICS);
+    DIAGNOSTICS_FIND("diagnosticsFind", false, true, Feature.FIND, Feature.DIAGNOSTICS),
+    ALTERNATION_FIND_NEXT("alternationFindNext", false, true, Feature.DIAGNOSTICS);
 
     private final String jsonName;
     private final boolean lifecycleRequired;
@@ -1750,7 +1751,7 @@ final class DeclarativeBenchmarkPlan {
         case COMPILE, PATTERN_SET_COMPILE -> consumption == ResultConsumption.COMPILED_OBJECT;
         case MATCHER_CONSTRUCTION, ANALYZE_PATTERN, CACHED_ANALYSIS, COMPILE_AND_ANALYZE ->
             consumption == ResultConsumption.BLACKHOLE_OBJECT;
-        case DFA_CACHE_GROWTH -> consumption == ResultConsumption.INTEGER;
+        case DFA_CACHE_GROWTH, ALTERNATION_FIND_NEXT -> consumption == ResultConsumption.INTEGER;
       };
     }
 
@@ -1782,6 +1783,7 @@ final class DeclarativeBenchmarkPlan {
                 "action", RecipeValueType.STRING,
                 "listener", RecipeValueType.STRING,
                 "replacement", RecipeValueType.STRING);
+        case ALTERNATION_FIND_NEXT -> Map.of("inputLength", RecipeValueType.INTEGER);
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
             Map.of(
                 "anchor", RecipeValueType.STRING,
@@ -1807,6 +1809,7 @@ final class DeclarativeBenchmarkPlan {
             Set.of("replacement");
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES -> Set.of("anchor");
         case FIND_ROTATING_UTF16, COMPILE_AND_FIND_ROTATING_UTF16 -> Set.of("seed", "count");
+        case ALTERNATION_FIND_NEXT -> Set.of("inputLength");
         default -> Set.of();
       };
     }
