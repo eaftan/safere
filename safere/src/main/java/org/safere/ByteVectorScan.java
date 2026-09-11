@@ -129,6 +129,51 @@ final class ByteVectorScan {
     return -1;
   }
 
+  static int lastIndexOfAsciiPair(
+      byte[] bytes, int offset, int length, byte b0, byte b1, int fromIndex, int toIndex) {
+    return lastIndexOfAsciiPair(SPECIES, bytes, offset, length, b0, b1, fromIndex, toIndex);
+  }
+
+  static int lastIndexOfAsciiPair(
+      VectorSpecies<Byte> species,
+      byte[] bytes,
+      int offset,
+      int length,
+      byte b0,
+      byte b1,
+      int fromIndex,
+      int toIndex) {
+    int pos = Math.min(fromIndex, length - 1);
+    int minLimit = Math.max(0, toIndex);
+    if (pos < minLimit || minLimit >= length) {
+      return -1;
+    }
+    if (b0 == b1) {
+      return lastIndexOfByte(species, bytes, offset, length, b0, fromIndex, toIndex);
+    }
+    int speciesLen = species.length();
+    ByteVector v0 = ByteVector.broadcast(species, b0);
+    ByteVector v1 = ByteVector.broadcast(species, b1);
+    while (pos >= minLimit + speciesLen - 1) {
+      int chunkStart = pos - speciesLen + 1;
+      ByteVector values = ByteVector.fromArray(species, bytes, offset + chunkStart);
+      VectorMask<Byte> matches = values.compare(EQ, v0).or(values.compare(EQ, v1));
+      if (matches.anyTrue()) {
+        long activeLanes = matches.toLong();
+        int highestBit = Long.numberOfTrailingZeros(Long.highestOneBit(activeLanes));
+        return chunkStart + highestBit;
+      }
+      pos -= speciesLen;
+    }
+    for (; pos >= minLimit; pos--) {
+      byte val = bytes[offset + pos];
+      if (val == b0 || val == b1) {
+        return pos;
+      }
+    }
+    return -1;
+  }
+
   static int indexOfAsciiTriple(
       byte[] bytes, int offset, int length, byte b0, byte b1, byte b2, int start) {
     int position = Math.max(0, start);

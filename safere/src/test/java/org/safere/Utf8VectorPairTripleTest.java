@@ -96,6 +96,44 @@ class Utf8VectorPairTripleTest {
 
   @ParameterizedTest
   @ValueSource(ints = {0, 1, 15, 16, 31, 32, 63, 64, 100, 128, 256, 500})
+  void testReversePairEquivalenceWithSwar(int length) {
+    assumeTrue(isVectorApiAvailable(), "Vector API not available on module path");
+
+    byte b0 = 'x';
+    byte b1 = 'y';
+    Random rnd = new Random(3000 + length);
+
+    for (int trial = 0; trial < 50; trial++) {
+      byte[] bytes = new byte[length];
+      for (int i = 0; i < length; i++) {
+        bytes[i] = (byte) ('a' + rnd.nextInt(20)); // 'a'..'t' (no 'x' or 'y')
+      }
+      int fromIndex = length == 0 ? 0 : rnd.nextInt(length);
+      int toIndex = length == 0 ? 0 : rnd.nextInt(fromIndex + 1);
+
+      // Absent check
+      int swarAbsent =
+          ByteSwarScan.lastIndexOfBytePair(bytes, 0, length, b0, b1, fromIndex, toIndex);
+      int vectorAbsent =
+          ByteVectorScan.lastIndexOfAsciiPair(bytes, 0, length, b0, b1, fromIndex, toIndex);
+      assertThat(vectorAbsent).as("absent trial %d len %d", trial, length).isEqualTo(swarAbsent);
+
+      // Present check
+      if (length > 0 && fromIndex >= toIndex) {
+        int pos = toIndex + rnd.nextInt(fromIndex - toIndex + 1);
+        bytes[pos] = rnd.nextBoolean() ? b0 : b1;
+
+        int swarHit =
+            ByteSwarScan.lastIndexOfBytePair(bytes, 0, length, b0, b1, fromIndex, toIndex);
+        int vectorHit =
+            ByteVectorScan.lastIndexOfAsciiPair(bytes, 0, length, b0, b1, fromIndex, toIndex);
+        assertThat(vectorHit).as("hit trial %d len %d", trial, length).isEqualTo(swarHit);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1, 15, 16, 31, 32, 63, 64, 100, 128, 256, 500})
   void testTripleEquivalenceWithSwar(int length) {
     assumeTrue(isVectorApiAvailable(), "Vector API not available on module path");
 
@@ -147,6 +185,19 @@ class Utf8VectorPairTripleTest {
     assertThat(scanner.indexOfAsciiTriple('b', 'm', 'Z', 12, 23)).isEqualTo(22);
     assertThat(scanner.indexOfAsciiTriple('b', 'm', 'Z', 23, 61)).isEqualTo(-1);
     assertThat(scanner.indexOfAsciiTriple('b', 'm', 'Z', 23, 62)).isEqualTo(61);
+  }
+
+  @Test
+  void testScannerReversePairWithLimit() {
+    byte[] bytes = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes);
+
+    // 'a' is at 10, 'A' is at 36
+    assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 61, 37)).isEqualTo(-1);
+    assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 61, 36)).isEqualTo(36);
+    assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 35, 11)).isEqualTo(-1);
+    assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 35, 10)).isEqualTo(10);
+    assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 9, 0)).isEqualTo(-1);
   }
 
   @Test

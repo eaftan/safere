@@ -1561,6 +1561,45 @@ class MultiAnchorGapEngineTest {
     assertThat(lowSurrogate.lastIndexOf(text, 0, text.length())).isEqualTo(-1);
   }
 
+  @Test
+  void caseInsensitiveUtf8EndAnchoredGapMatching() {
+    String regex = "(?i)user:[a-z]+-host:[a-z]+-status:[0-9]+$";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    String input = "noise\n2026-09-11 USER:Alice-Host:PROD-Status:200\n";
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    assertThat(jdk.find()).isTrue();
+
+    byte[] bytes = input.getBytes(UTF_8);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(bytes));
+
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(jdk.start());
+    assertThat(utf8Matcher.end()).isEqualTo(jdk.end());
+    assertThat(
+            new String(bytes, utf8Matcher.start(), utf8Matcher.end() - utf8Matcher.start(), UTF_8))
+        .isEqualTo(jdk.group());
+    assertThat(utf8Matcher.find()).isFalse();
+  }
+
+  @Test
+  void caseInsensitiveUtf8GreedyGapMatching() {
+    String regex = "(?i)user:.*status:[0-9]+";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    String input = "noise USER:Alice intermediate HOST:prod extra details STATUS:200 trailing";
+    byte[] bytes = input.getBytes(UTF_8);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(bytes));
+
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(
+            new String(bytes, utf8Matcher.start(), utf8Matcher.end() - utf8Matcher.start(), UTF_8))
+        .isEqualTo("USER:Alice intermediate HOST:prod extra details STATUS:200");
+    assertThat(utf8Matcher.find()).isFalse();
+  }
+
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
     List<String> matches = new ArrayList<>();
     if (useUtf8) {

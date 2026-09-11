@@ -96,6 +96,32 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     return ByteSwarScan.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
   }
 
+  public int lastIndexOfAsciiPair(byte b0, byte b1, int fromIndex, int minLimit) {
+    int start = Math.min(length - 1, fromIndex);
+    int limit = Math.max(0, minLimit);
+    if (start < limit || limit >= length) {
+      return -1;
+    }
+    if (WorkCounterConfig.ENABLED) {
+      for (int i = start; i >= limit; i--) {
+        WorkCounter.record();
+        int val = unsignedByteAt(i);
+        if (val == (b0 & 0xFF) || val == (b1 & 0xFF)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+    VectorScanProvider pairProvider = VectorScanProviders.providerForPairLength(start - limit + 1);
+    if (pairProvider != null) {
+      int res = pairProvider.lastIndexOfAsciiPair(bytes, offset, length, b0, b1, start, limit);
+      if (res != VectorScanProvider.UNSUPPORTED) {
+        return res;
+      }
+    }
+    return ByteSwarScan.lastIndexOfBytePair(bytes, offset, length, b0, b1, start, limit);
+  }
+
   @Override
   public int indexOfAsciiOrNonAscii(int ascii, int fromIndex, int limit) {
     int start = Math.max(0, fromIndex);
