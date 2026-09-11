@@ -1612,6 +1612,42 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.caseInsensitiveVariableGapLog.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-08-27 12:00:00.123 [worker-42] event=heartbeat component=orchestrator latency=5ms\n",
+        "suffix": "2026-08-27 12:00:00.123 [worker-42] user:alice session_token=9f8e7d6c5b4a3a2b1c0d tenant_org=engineering host:prod cluster_region=us-central1 datacenter_zone=zone-b status:200\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.caseInsensitiveVariableGapLog.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "prefixedRepeatToLength",
+        "prefix": "2026-08-27 12:00:00 [system] status:500 healthcheck\n",
+        "value": "2026-08-27 12:00:01 [worker-42] user:alice session_token=9f8e7d6c5b4a3a2b1c0d tenant_org=engineering host:prod cluster_region=us-central1 datacenter_zone=zone-b outcome=success",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.multiClauseSequence.match.{size}",
       "axes": {
         "size": [
@@ -5053,6 +5089,64 @@
       ],
       "inputs": [
         "realWorldRegex.endAnchoredGapLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveEndAnchoredGapLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?i)user:[a-z]+-host:[a-z]+-status:[0-9]+$"
+      ],
+      "inputs": [
+        "realWorldRegex.endAnchoredGapLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveVariableGapLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "(?i)user:.*?host:.*?status:[0-9]+"
+      ],
+      "inputs": [
+        "realWorldRegex.caseInsensitiveVariableGapLog.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {

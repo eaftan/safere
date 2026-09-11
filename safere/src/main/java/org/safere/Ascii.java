@@ -183,10 +183,19 @@ final class Ascii {
    * Returns the first index of character matching {@code low} or {@code high}, or -1 if not found.
    */
   static int indexOfIgnoreCase(String text, char low, char high, int fromIndex) {
+    return indexOfIgnoreCase(text, low, high, fromIndex, text.length());
+  }
+
+  /**
+   * Returns the first index of character matching {@code low} or {@code high} within {@code
+   * [fromIndex, toIndex)}, or -1 if not found.
+   */
+  static int indexOfIgnoreCase(String text, char low, char high, int fromIndex, int toIndex) {
     if (low == high) {
-      return text.indexOf(low, fromIndex);
+      return text.indexOf(low, fromIndex, Math.min(text.length(), toIndex));
     }
-    for (int i = Math.max(0, fromIndex); i < text.length(); i++) {
+    int end = Math.min(text.length(), toIndex);
+    for (int i = Math.max(0, fromIndex); i < end; i++) {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }

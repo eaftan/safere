@@ -1375,6 +1375,9 @@ final class MultiAnchorDescriptor {
 
       @Override
       public int findNextWithin(String text, int fromIndex, int toIndex) {
+        if (fromIndex < 0) {
+          fromIndex = 0;
+        }
         if (fromIndex > toIndex || fromIndex + literal.length() > text.length()) {
           return -1;
         }
@@ -1394,13 +1397,25 @@ final class MultiAnchorDescriptor {
           }
           return -1;
         }
-        for (int i = fromIndex; i <= maxStart; i++) {
-          if (WorkCounterConfig.ENABLED) {
-            WorkCounter.record();
+        int position = fromIndex;
+        while (position <= maxStart) {
+          int candidate =
+              Matcher.indexOfIgnoreCase(
+                  text,
+                  literal,
+                  anchorOffset,
+                  anchorLowChar,
+                  anchorHighChar,
+                  classHashChain,
+                  position,
+                  maxStart);
+          if (candidate < 0) {
+            return -1;
           }
-          if (startsWith(text, i)) {
-            return i;
+          if (hasCodePointBoundaries(text, candidate)) {
+            return candidate;
           }
+          position = candidate + 1;
         }
         return -1;
       }
@@ -1421,6 +1436,9 @@ final class MultiAnchorDescriptor {
 
       @Override
       public int lastIndexOf(String text, int fromIndex, int toIndex) {
+        if (fromIndex < 0) {
+          fromIndex = 0;
+        }
         if (fromIndex > toIndex || fromIndex + literal.length() > text.length()) {
           return -1;
         }
