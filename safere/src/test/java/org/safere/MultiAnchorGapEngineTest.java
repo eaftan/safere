@@ -972,6 +972,35 @@ class MultiAnchorGapEngineTest {
     assertThat(singleExact.findNext("prefix_abcdef_suffix", 0)).isEqualTo(7);
   }
 
+  @Test
+  void deepDownstreamChainDoesNotOverflowStack() {
+    int depth = 2_000;
+    StringBuilder regex = new StringBuilder("AAA");
+    StringBuilder input = new StringBuilder("AAA");
+    for (int i = 0; i < depth; i++) {
+      regex.append(".*?BBB");
+      input.append("BBB");
+    }
+    regex.append(".*?CCC");
+    input.append("CCC");
+
+    Pattern pattern = Pattern.compile(regex.toString(), Pattern.DOTALL);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    Matcher matcher = pattern.matcher(input.toString());
+    assertThat(MultiAnchorExecutor.find(pattern.multiAnchor(), input.toString(), 0).isMatched())
+        .isTrue();
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(input.length());
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(Utf8Input.validated(input.toString().getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(0);
+    assertThat(utf8Matcher.end()).isEqualTo(input.toString().getBytes(UTF_8).length);
+  }
+
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
     List<String> matches = new ArrayList<>();
     if (useUtf8) {
