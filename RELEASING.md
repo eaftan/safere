@@ -163,6 +163,25 @@ git switch main
 git pull --ff-only
 git switch -c bump-to-NEXT-SNAPSHOT
 mvn versions:set -DnewVersion=NEXT-SNAPSHOT -DgenerateBackupPoms=false
+```
+
+The `safere-vector-benchmarks` project is intentionally outside the default
+Maven reactor, so `versions:set` does not update its inherited parent version.
+Before committing, manually update the `<parent>` version in
+`safere-vector-benchmarks/pom.xml` to the same `NEXT-SNAPSHOT` value. Then
+confirm that every project POM uses the new development version and that none
+retains the previous SNAPSHOT version:
+
+```bash
+rg -n '<version>[^<]+-SNAPSHOT</version>' --glob 'pom.xml' --glob '*/pom.xml'
+mvn validate -DskipTests --batch-mode --no-transfer-progress
+mvn -f safere-vector-benchmarks/pom.xml validate \
+  -DskipTests --batch-mode --no-transfer-progress
+```
+
+Commit and push the complete version change:
+
+```bash
 git add -A
 git commit -m "Bump version to NEXT-SNAPSHOT"
 git push -u origin bump-to-NEXT-SNAPSHOT

@@ -9,6 +9,11 @@ updates:
         applies-to: "version-updates"
         patterns:
           - "*"
+    ignore:
+      # Surefire 3.6+ prevents Jazzer 0.30.0 from dynamically attaching its
+      # instrumentation agent. Revisit when Jazzer supports this configuration.
+      - dependency-name: "org.apache.maven.plugins:maven-surefire-plugin"
+        versions: ["[3.6.0,)"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

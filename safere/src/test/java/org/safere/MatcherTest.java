@@ -3624,5 +3624,33 @@ class MatcherTest {
       assertThat(m2.find()).isTrue();
       assertThat(m2.start()).isEqualTo(3);
     }
+
+    @Test
+    @DisplayName("split with case-insensitive literals reusing precomputed search state")
+    void splitWithCaseInsensitiveLiteralsReusingPrecomputedSearchState() {
+      // Length >= 4 without groups -> LiteralPreparedRunner path
+      Pattern p1 = Pattern.compile("(?i)DELIM");
+      String[] parts1 = p1.split("one delim two DELIM three DeLiM four");
+      assertThat(parts1).containsExactly("one ", " two ", " three ", " four");
+
+      // Length >= 4 with groups -> MatchDescriptor.classHashChain() path
+      Pattern p2 = Pattern.compile("(?i)(DELIM)");
+      String[] parts2 = p2.split("one delim two DELIM three DeLiM four");
+      assertThat(parts2).containsExactly("one ", " two ", " three ", " four");
+
+      // splitAsStream length >= 4 with and without groups
+      assertThat(p1.splitAsStream("alphaDELIMbeta").toList()).containsExactly("alpha", "beta");
+      assertThat(p2.splitAsStream("alphaDELIMbeta").toList()).containsExactly("alpha", "beta");
+
+      // Short literal (< 4 chars) case-insensitive
+      Pattern p3 = Pattern.compile("(?i)XYZ");
+      String[] parts3 = p3.split("1xyz2XYZ3xYz4");
+      assertThat(parts3).containsExactly("1", "2", "3", "4");
+
+      // Single char case-insensitive
+      Pattern p4 = Pattern.compile("(?i)X");
+      String[] parts4 = p4.split("1x2X3");
+      assertThat(parts4).containsExactly("1", "2", "3");
+    }
   }
 }

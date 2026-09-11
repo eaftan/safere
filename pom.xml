@@ -7,7 +7,7 @@
 
   <groupId>org.safere</groupId>
   <artifactId>safere-parent</artifactId>
-  <version>0.11.0-SNAPSHOT</version>
+  <version>0.12.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>SafeRE Parent</name>
@@ -59,7 +59,7 @@
     <error-prone.extra-checks></error-prone.extra-checks>
     <google-java-format.version>1.35.0</google-java-format.version>
     <pmd.version>7.27.0</pmd.version>
-    <spotless.version>3.10.1</spotless.version>
+    <spotless.version>3.10.2</spotless.version>
   </properties>
 
   <build>

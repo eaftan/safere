@@ -946,6 +946,32 @@ class MultiAnchorGapEngineTest {
     assertThat(utf8m1.end() - utf8m1.start()).isEqualTo(withCr.getBytes(UTF_8).length);
   }
 
+  @Test
+  void anchorSingleCaseInsensitivePrecomputedState() {
+    // Length >= 4 case-insensitive: ClassHashChain precomputed
+    MultiAnchorDescriptor.Anchor.Single singleLong =
+        MultiAnchorDescriptor.Anchor.Single.create("abcdef", true);
+    assertThat(singleLong.classHashChain()).isNotNull();
+    assertThat(singleLong.findNext("prefix_ABCDEF_suffix", 0)).isEqualTo(7);
+    assertThat(singleLong.findNext("prefix_aBcDeF_suffix", 0)).isEqualTo(7);
+    assertThat(singleLong.findNext("prefix_abcdef_suffix", 8)).isEqualTo(-1);
+
+    // Length < 4 case-insensitive: ClassHashChain is null
+    MultiAnchorDescriptor.Anchor.Single singleShort =
+        MultiAnchorDescriptor.Anchor.Single.create("abc", true);
+    assertThat(singleShort.classHashChain()).isNull();
+    assertThat(singleShort.findNext("xyz_ABC_123", 0)).isEqualTo(4);
+    assertThat(singleShort.findNext("xyz_aBc_123", 0)).isEqualTo(4);
+    assertThat(singleShort.findNext("xyz_abc_123", 5)).isEqualTo(-1);
+
+    // Case-sensitive: ClassHashChain is null
+    MultiAnchorDescriptor.Anchor.Single singleExact =
+        MultiAnchorDescriptor.Anchor.Single.create("abcdef", false);
+    assertThat(singleExact.classHashChain()).isNull();
+    assertThat(singleExact.findNext("prefix_ABCDEF_suffix", 0)).isEqualTo(-1);
+    assertThat(singleExact.findNext("prefix_abcdef_suffix", 0)).isEqualTo(7);
+  }
+
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
     List<String> matches = new ArrayList<>();
     if (useUtf8) {

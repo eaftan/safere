@@ -1213,6 +1213,22 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.caseInsensitiveSplit.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "event payload record item with status pending and metadata\n----delimiter----\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.fixedAnchorLog.match.{size}",
       "axes": {
         "size": [
@@ -1236,6 +1252,39 @@
           1000,
           10000,
           100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "2026-08-27 12:00:00 error:[N] code:200 msg:ok",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fixedAnchorLogCaptures.match.{size}",
+      "axes": {
+        "size": [
+          256,
+          1000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "2026-08-27 12:00:00 error:[N] code:200 msg:ok\n",
+        "suffix": "2026-08-27 12:00:00 error:[C] code:500 msg:crash\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.fixedAnchorLogCaptures.noMatch.{size}",
+      "axes": {
+        "size": [
+          256,
+          1000
         ]
       },
       "recipe": {
@@ -3174,6 +3223,16 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "alternationFindNext.shortGapPool",
+      "recipe": {
+        "kind": "randomChars",
+        "alphabet": "abcdefghijklmnopqrstuvwxyz",
+        "length": 327680,
+        "seed": 20260910
+      },
+      "shared": false
     }
   ],
   "workloads": [
@@ -4584,6 +4643,70 @@
           "match",
           "noMatch"
         ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.fixedAnchorLogCaptures.{matchLabel}.{size}",
+      "operation": "findGroup",
+      "patterns": [
+        "(error:\\[)[A-Z](\\] code:500)"
+      ],
+      "inputs": [
+        "realWorldRegex.fixedAnchorLogCaptures.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "group": 1
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          256,
+          1000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveLiteralSplit.{size}",
+      "operation": "splitLengthSum",
+      "patterns": [
+        {
+          "java": "(?i)----DELIMITER----",
+          "alternates": {
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET non-backtracking mode cannot express Java's ASCII-only case-insensitive semantics"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "realWorldRegex.caseInsensitiveSplit.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
         "size": [
           1000,
           10000,
@@ -13059,6 +13182,34 @@
       "expected": {
         "type": "boolean",
         "value": true
+      }
+    },
+    {
+      "id": "AlternationFindNextBenchmark.foldedShortGapNoMatch",
+      "operation": "alternationFindNext",
+      "patterns": [
+        "NETWORK",
+        "STORAGE",
+        "DATABASE",
+        "SECURITY"
+      ],
+      "inputs": [
+        "alternationFindNext.shortGapPool"
+      ],
+      "arguments": {
+        "inputLength": 40
+      },
+      "resultConsumption": "integer",
+      "expected": {
+        "type": "integer",
+        "value": -1
+      },
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     }
   ]

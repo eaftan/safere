@@ -1079,7 +1079,8 @@ final class MultiAnchorDescriptor {
         char anchorLowChar,
         char anchorHighChar,
         byte anchorLowByte,
-        byte anchorHighByte)
+        byte anchorHighByte,
+        ClassHashChain classHashChain)
         implements Anchor {
 
       static Single create(String literal) {
@@ -1093,13 +1094,15 @@ final class MultiAnchorDescriptor {
           int[] failure = Pattern.literalFailure(utf8);
           int[] shifts = Pattern.literalShifts(utf8);
           return new Single(
-              literal, false, utf8, failure, shifts, 0, '\0', '\0', (byte) 0, (byte) 0);
+              literal, false, utf8, failure, shifts, 0, '\0', '\0', (byte) 0, (byte) 0, null);
         }
         int[] failure = Ascii.ignoreCaseFailure(literal);
         int anchorOffset = RarityOracle.rarestAsciiOffset(literal, literal.length(), true);
         char anchor = literal.charAt(anchorOffset);
         char anchorLow = Ascii.toLowerCase(anchor);
         char anchorHigh = Ascii.toUpperCase(anchor);
+        ClassHashChain classHashChain =
+            literal.length() >= 4 ? ClassHashChain.compileCaseInsensitive(literal) : null;
         return new Single(
             literal,
             true,
@@ -1110,7 +1113,8 @@ final class MultiAnchorDescriptor {
             anchorLow,
             anchorHigh,
             (byte) anchorLow,
-            (byte) anchorHigh);
+            (byte) anchorHigh,
+            classHashChain);
       }
 
       @Override
@@ -1145,7 +1149,13 @@ final class MultiAnchorDescriptor {
           int candidate =
               foldCase
                   ? Matcher.indexOfIgnoreCase(
-                      text, literal, anchorOffset, anchorLowChar, anchorHighChar, position)
+                      text,
+                      literal,
+                      anchorOffset,
+                      anchorLowChar,
+                      anchorHighChar,
+                      classHashChain,
+                      position)
                   : text.indexOf(literal, position);
           if (candidate < 0 || hasCodePointBoundaries(text, candidate)) {
             return candidate;
@@ -1330,7 +1340,15 @@ final class MultiAnchorDescriptor {
         int minLength,
         int maxLength,
         MultiLiteralInfo multiLiteral,
-        TeddyModel teddyModel)
+        TeddyModel teddyModel,
+        // Per-literal case-insensitive search state, precomputed once here instead of on every
+        // findNext() probe: Matcher.indexOfIgnoreCase's 3-arg convenience overload otherwise
+        // recomputes the rarest-ASCII-char anchor and rebuilds the ClassHashChain (a ~1KB table
+        // plus Unicode fold expansion) from scratch on every call. Null when !foldCase.
+        int[] anchorOffsets,
+        char[] anchorLows,
+        char[] anchorHighs,
+        ClassHashChain[] classHashChains)
         implements Anchor {
 
       static Alternation create(String[] literals, boolean foldCase) {
@@ -1351,7 +1369,42 @@ final class MultiAnchorDescriptor {
         MultiLiteralInfo multiLit = !foldCase ? MultiLiteralInfo.create(literals) : null;
         TeddyModel teddy = !foldCase ? TeddyModel.compileForSelectedProvider(literals) : null;
 
-        return new Alternation(literals.clone(), utf8, foldCase, min, max, multiLit, teddy);
+        int[] anchorOffsets = null;
+        char[] anchorLows = null;
+        char[] anchorHighs = null;
+        ClassHashChain[] classHashChains = null;
+        if (foldCase) {
+          anchorOffsets = new int[literals.length];
+          anchorLows = new char[literals.length];
+          anchorHighs = new char[literals.length];
+          classHashChains = new ClassHashChain[literals.length];
+          for (int i = 0; i < literals.length; i++) {
+            String lit = literals[i];
+            int len = lit.length();
+            if (len == 0) {
+              continue; // indexOfIgnoreCase short-circuits on empty prefixes; anchor unused.
+            }
+            int anchorOffset = len == 1 ? 0 : RarityOracle.rarestAsciiOffset(lit, len, true);
+            char anchor = lit.charAt(anchorOffset);
+            anchorOffsets[i] = anchorOffset;
+            anchorLows[i] = Ascii.toLowerCase(anchor);
+            anchorHighs[i] = Ascii.toUpperCase(anchor);
+            classHashChains[i] = ClassHashChain.compileCaseInsensitive(lit);
+          }
+        }
+
+        return new Alternation(
+            literals.clone(),
+            utf8,
+            foldCase,
+            min,
+            max,
+            multiLit,
+            teddy,
+            anchorOffsets,
+            anchorLows,
+            anchorHighs,
+            classHashChains);
       }
 
       @Override
@@ -1379,22 +1432,27 @@ final class MultiAnchorDescriptor {
         return literals[0];
       }
 
+      private int indexOfLiteral(String text, int i, int fromIndex) {
+        return foldCase
+            ? Matcher.indexOfIgnoreCase(
+                text,
+                literals[i],
+                anchorOffsets[i],
+                anchorLows[i],
+                anchorHighs[i],
+                classHashChains[i],
+                fromIndex)
+            : text.indexOf(literals[i], fromIndex);
+      }
+
       @Override
       public int findNext(String text, int fromIndex) {
         if (literals.length == 2) {
-          String lit0 = literals[0];
-          String lit1 = literals[1];
-          int p0 =
-              foldCase
-                  ? Matcher.indexOfIgnoreCase(text, lit0, fromIndex)
-                  : text.indexOf(lit0, fromIndex);
+          int p0 = indexOfLiteral(text, 0, fromIndex);
           if (p0 == fromIndex) {
             return p0;
           }
-          int p1 =
-              foldCase
-                  ? Matcher.indexOfIgnoreCase(text, lit1, fromIndex)
-                  : text.indexOf(lit1, fromIndex);
+          int p1 = indexOfLiteral(text, 1, fromIndex);
           if (p0 < 0) {
             return p1;
           }
@@ -1404,11 +1462,8 @@ final class MultiAnchorDescriptor {
           return Math.min(p0, p1);
         }
         int bestPos = Integer.MAX_VALUE;
-        for (String lit : literals) {
-          int pos =
-              foldCase
-                  ? Matcher.indexOfIgnoreCase(text, lit, fromIndex)
-                  : text.indexOf(lit, fromIndex);
+        for (int i = 0; i < literals.length; i++) {
+          int pos = indexOfLiteral(text, i, fromIndex);
           if (pos >= 0 && pos < bestPos) {
             bestPos = pos;
             if (bestPos == fromIndex) {
