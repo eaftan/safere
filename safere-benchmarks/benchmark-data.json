@@ -1213,6 +1213,22 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.caseInsensitiveSplit.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "event payload record item with status pending and metadata\n----delimiter----\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.fixedAnchorLog.match.{size}",
       "axes": {
         "size": [
@@ -4652,6 +4668,39 @@
         "size": [
           256,
           1000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.caseInsensitiveLiteralSplit.{size}",
+      "operation": "splitLengthSum",
+      "patterns": [
+        {
+          "java": "(?i)----DELIMITER----",
+          "alternates": {
+            "dotnet": {
+              "unsupported": true,
+              "reason": ".NET non-backtracking mode cannot express Java's ASCII-only case-insensitive semantics"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "realWorldRegex.caseInsensitiveSplit.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
         ]
       }
     },

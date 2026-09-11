@@ -3533,14 +3533,14 @@ public final class Matcher implements MatchResult {
           char anchor = literal.charAt(0);
           anchorLow = Ascii.toLowerCase(anchor);
           anchorHigh = Ascii.toUpperCase(anchor);
-        } else {
+        } else if (literalLen > 1) {
           anchorOffset = RarityOracle.rarestAsciiOffset(literal, literalLen, true);
           char anchor = literal.charAt(anchorOffset);
           anchorLow = Ascii.toLowerCase(anchor);
           anchorHigh = Ascii.toUpperCase(anchor);
         }
         MatchDescriptor descriptor = parentPattern.matchDescriptor();
-        classHashChain = descriptor.classHashChain();
+        classHashChain = descriptor != null ? descriptor.classHashChain() : null;
       }
     }
 
@@ -4553,11 +4553,37 @@ public final class Matcher implements MatchResult {
         } else {
           idx = text.startsWith(literal) ? 0 : -1;
         }
-      } else {
+      } else if (parentPattern.literalFoldCase()) {
+        int anchorOffset = 0;
+        char anchorLow = 0;
+        char anchorHigh = 0;
+        ClassHashChain classHashChain;
+        PreparedMatchRunner runner = parentPattern.preparedMatchRunner(false);
+        if (runner instanceof LiteralPreparedRunner literalRunner) {
+          anchorOffset = literalRunner.anchorOffset();
+          anchorLow = literalRunner.anchorLow();
+          anchorHigh = literalRunner.anchorHigh();
+          classHashChain = literalRunner.classHashChain();
+        } else {
+          int literalLen = literal.length();
+          if (literalLen == 1) {
+            char anchor = literal.charAt(0);
+            anchorLow = Ascii.toLowerCase(anchor);
+            anchorHigh = Ascii.toUpperCase(anchor);
+          } else if (literalLen > 1) {
+            anchorOffset = RarityOracle.rarestAsciiOffset(literal, literalLen, true);
+            char anchor = literal.charAt(anchorOffset);
+            anchorLow = Ascii.toLowerCase(anchor);
+            anchorHigh = Ascii.toUpperCase(anchor);
+          }
+          MatchDescriptor descriptor = parentPattern.matchDescriptor();
+          classHashChain = descriptor != null ? descriptor.classHashChain() : null;
+        }
         idx =
-            parentPattern.literalFoldCase()
-                ? indexOfIgnoreCase(text, literal, fromIndex)
-                : text.indexOf(literal, fromIndex);
+            indexOfIgnoreCase(
+                text, literal, anchorOffset, anchorLow, anchorHigh, classHashChain, fromIndex);
+      } else {
+        idx = text.indexOf(literal, fromIndex);
       }
       if (idx < 0) {
         return -1L;
