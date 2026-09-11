@@ -44,17 +44,17 @@ sealed interface Utf8StartAccelerator {
         if (hasWordBoundary) {
           yield null;
         }
-        if (VectorScanProviders.multiLiteralProviderAvailable()) {
+        if (VectorScanProviders.vectorProviderAvailable()) {
           MultiLiteralInfo info = MultiLiteralInfo.create(ml.literals());
           if (info != null) {
             TeddyModel teddy =
-                VectorScanProviders.teddyProviderAvailable()
+                VectorScanProviders.vectorProviderAvailable()
                     ? TeddyModel.compileForSelectedProvider(ml.literals())
                     : null;
             yield new MultiLiteral(info, teddy);
           }
         }
-        if (VectorScanProviders.teddyProviderAvailable()) {
+        if (VectorScanProviders.vectorProviderAvailable()) {
           TeddyModel model = TeddyModel.compileForSelectedProvider(ml.literals());
           if (model != null) {
             yield new Teddy(model);
@@ -298,7 +298,8 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
-      VectorScanProvider provider = VectorScanProviders.providerForTeddyLength(scanner.length());
+      VectorScanProvider provider =
+          VectorScanProviders.providerFor(ScanKind.TEDDY, scanner.length() - fromIndex);
       if (provider == null) {
         return fromIndex;
       }
@@ -383,7 +384,7 @@ sealed interface Utf8StartAccelerator {
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
       VectorScanProvider provider =
-          VectorScanProviders.providerForMultiLiteralLength(scanner.length());
+          VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, scanner.length() - fromIndex);
       if (provider != null) {
         int idx =
             provider.indexOfMultiLiteral(

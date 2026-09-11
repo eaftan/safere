@@ -148,7 +148,7 @@ final class MultiAnchorExecutor {
     // execution verifies every anchor without a redundant full-input rejection pass.
     int driverIdx =
         descriptor.selectDriver(
-            MultiAnchorDescriptor.InputDomain.UTF8, VectorScanProviders.teddyProviderAvailable());
+            MultiAnchorDescriptor.InputDomain.UTF8, VectorScanProviders.vectorProviderAvailable());
     if (driverIdx < 0 || driverIdx >= numSegments) {
       driverIdx = 0;
     }
