@@ -82,6 +82,15 @@ final class MultiAnchorExecutor {
       MultiAnchorDescriptor descriptor,
       Utf8InputScanner scanner,
       int searchFrom,
+      int[] groups,
+      int[] anchorPositions) {
+    return find(descriptor, scanner, searchFrom, null, null, groups, anchorPositions);
+  }
+
+  static Result find(
+      MultiAnchorDescriptor descriptor,
+      Utf8InputScanner scanner,
+      int searchFrom,
       int[] scratch,
       long[] workHolder) {
     return find(descriptor, scanner, searchFrom, scratch, workHolder, null, null);
@@ -373,6 +382,15 @@ final class MultiAnchorExecutor {
 
   static Result find(MultiAnchorDescriptor descriptor, String text, int searchFrom, int[] groups) {
     return find(descriptor, text, searchFrom, null, null, groups, null);
+  }
+
+  static Result find(
+      MultiAnchorDescriptor descriptor,
+      String text,
+      int searchFrom,
+      int[] groups,
+      int[] anchorPositions) {
+    return find(descriptor, text, searchFrom, null, null, groups, anchorPositions);
   }
 
   static Result find(
