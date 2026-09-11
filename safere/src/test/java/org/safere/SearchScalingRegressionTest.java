@@ -243,6 +243,73 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void reverseCaseSensitiveLiteralSearchDenseBacktrackScalesLinearly() {
+    MultiAnchorDescriptor.Anchor anchor = MultiAnchorDescriptor.Anchor.Single.create("aaa");
+    String text = "a".repeat(10_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> {
+              int p = 9_997;
+              for (int i = 0; i < 100; i++) {
+                p = anchor.lastIndexOf(text, 0, p);
+                assertThat(p).isGreaterThanOrEqualTo(0);
+                p--;
+              }
+            });
+
+    assertThat(work).as("dense reverse search work must be observed").isPositive();
+    assertThat(work)
+        .as("repeated case-sensitive reverse backtracks must not rescan the window")
+        .isLessThan(300);
+  }
+
+  @Test
+  void reverseAlternationSearchStaysWithinWindowAndIsObserved() {
+    MultiAnchorDescriptor.Anchor anchor =
+        MultiAnchorDescriptor.Anchor.create(new String[] {"ZZZ", "YYY"}, false);
+    String text = "x".repeat(10_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(anchor.lastIndexOf(text, 9_900, 9_999)).isEqualTo(-1));
+
+    assertThat(work).as("alternation reverse search work must be observed").isPositive();
+    assertThat(work).as("alternation reverse search must stay within its window").isLessThan(200);
+  }
+
+  @Test
+  void reverseCharClassSearchStaysWithinWindowAndIsObserved() {
+    AsciiBitmap digits = new AsciiBitmap.Builder().addRange('0', '9').build();
+    MultiAnchorDescriptor.Anchor charClass =
+        MultiAnchorDescriptor.Anchor.CharClass.create(CharClassScanInfo.fromAsciiBitmap(digits));
+    String text = "x".repeat(10_000);
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(charClass.lastIndexOf(text, 9_900, 9_999)).isEqualTo(-1));
+
+    assertThat(work).as("char class reverse search work must be observed").isPositive();
+    assertThat(work).as("char class reverse search must stay within its window").isLessThan(200);
+  }
+
+  @Test
+  void forwardAlternationBoundedSearchDoesNotScanPastWindow() {
+    MultiAnchorDescriptor.Anchor anchor =
+        MultiAnchorDescriptor.Anchor.create(new String[] {"TARGET", "OTHER"}, true);
+    String text = "x".repeat(10_000) + "target";
+
+    long work =
+        WorkCounter.countForTesting(
+            () -> assertThat(anchor.findNextWithin(text, 0, 1_000)).isEqualTo(-1));
+
+    assertThat(work).as("bounded alternation forward search work must be observed").isPositive();
+    assertThat(work)
+        .as("bounded alternation forward search must not examine text beyond the window")
+        .isLessThan(5_000);
+  }
+
+  @Test
   void forwardCaseInsensitiveBoundedSearchScalesLinearly() {
     MultiAnchorDescriptor.Anchor anchor =
         MultiAnchorDescriptor.Anchor.Single.create("TARGET", true);

@@ -1483,6 +1483,84 @@ class MultiAnchorGapEngineTest {
     assertThat(logMatcher.find()).isFalse();
   }
 
+  @Test
+  void alternationAnchorInGapMatchesJdk() {
+    String[] regexes = {
+      "start:.*(foo|bar)",
+      "start:.*?(foo|bar)",
+      "(?i)start:.*(foo|bar)",
+      "start:.*(foo|bar)zz",
+      "start:[^;]*(foo|bar)",
+    };
+    String[] inputs = {
+      "start:xxxfooyyy",
+      "start:xxxbaryyy",
+      "start:xxx",
+      "start:barxxxfoo",
+      "start:fooxxxbarzz",
+      "START:xxxFOOyyy",
+      "start:foo",
+      "prefix start:zzzbar",
+      "start:" + "q".repeat(200) + "bar",
+    };
+    for (String regex : regexes) {
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+      Pattern pattern = Pattern.compile(regex);
+      for (String input : inputs) {
+        boolean jdkFound = jdkPattern.matcher(input).find();
+        assertThat(pattern.matcher(input).find())
+            .as("string %s / %s", regex, input)
+            .isEqualTo(jdkFound);
+        Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+        assertThat(utf8Matcher.find()).as("utf8 %s / %s", regex, input).isEqualTo(jdkFound);
+      }
+    }
+  }
+
+  @Test
+  void reverseLiteralSearchReturnsRightmostCandidateInWindow() {
+    // "user:" repeats, so the greedy reverse search has many candidates to reject.
+    String text = "user:a user:b user:c user:d";
+    for (boolean foldCase : new boolean[] {false, true}) {
+      MultiAnchorDescriptor.Anchor anchor =
+          MultiAnchorDescriptor.Anchor.Single.create("user:", foldCase);
+
+      assertThat(anchor.lastIndexOf(text, 0, text.length())).isEqualTo(21);
+      assertThat(anchor.lastIndexOf(text, 0, 20)).isEqualTo(14);
+      assertThat(anchor.lastIndexOf(text, 0, 13)).isEqualTo(7);
+      assertThat(anchor.lastIndexOf(text, 0, 6)).isEqualTo(0);
+      assertThat(anchor.lastIndexOf(text, 1, 6)).isEqualTo(-1);
+      assertThat(anchor.lastIndexOf(text, -5, 6)).isEqualTo(0);
+      assertThat(anchor.lastIndexOf(text, 8, 13)).isEqualTo(-1);
+    }
+  }
+
+  @Test
+  void reverseLiteralSearchIsCaseSensitiveWhenNotFolding() {
+    String text = "USER:a user:b USER:c";
+    MultiAnchorDescriptor.Anchor exact = MultiAnchorDescriptor.Anchor.Single.create("user:");
+    MultiAnchorDescriptor.Anchor folded = MultiAnchorDescriptor.Anchor.Single.create("user:", true);
+
+    assertThat(exact.lastIndexOf(text, 0, text.length())).isEqualTo(7);
+    assertThat(folded.lastIndexOf(text, 0, text.length())).isEqualTo(14);
+  }
+
+  @Test
+  void reverseLiteralSearchRespectsSurrogatePairs() {
+    // Indices: 0='a', 1=high surrogate, 2=low surrogate, 3='b', 4='c', 5='b', 6='c'.
+    String text = "a\uD83D\uDE00bcbc";
+    MultiAnchorDescriptor.Anchor bc = MultiAnchorDescriptor.Anchor.Single.create("bc");
+
+    assertThat(bc.lastIndexOf(text, 0, text.length())).isEqualTo(5);
+    assertThat(bc.lastIndexOf(text, 0, 4)).isEqualTo(3);
+
+    // The only occurrence of the lone low surrogate splits a surrogate pair, so it is not a
+    // candidate even though the raw characters match.
+    MultiAnchorDescriptor.Anchor lowSurrogate =
+        MultiAnchorDescriptor.Anchor.Single.create("\uDE00");
+    assertThat(lowSurrogate.lastIndexOf(text, 0, text.length())).isEqualTo(-1);
+  }
+
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
     List<String> matches = new ArrayList<>();
     if (useUtf8) {
