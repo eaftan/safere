@@ -155,6 +155,11 @@ final class WorkCounterConfig {
         <configuration>
           <groups>${test.groups}</groups>
           <excludedGroups>${test.excludedGroups}</excludedGroups>
+          <systemPropertyVariables>
+            <!-- ScanAudit.ENABLED is read once in <clinit> so that C2 can fold it away in a
+                 normal run, which means it has to be set on the test JVM rather than by a test. -->
+            <org.safere.testing.scanAudit>true</org.safere.testing.scanAudit>
+          </systemPropertyVariables>
           <properties>
             <configurationParameters>
               junit.jupiter.execution.parallel.enabled = true
