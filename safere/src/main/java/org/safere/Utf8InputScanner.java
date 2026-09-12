@@ -84,14 +84,16 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       return -1;
     }
-    VectorScanProvider byteProvider =
-        VectorScanProviders.providerFor(ScanKind.BYTE, start - limit + 1);
+    int window = start - limit + 1;
+    VectorScanProvider byteProvider = VectorScanProviders.providerFor(ScanKind.BYTE, window);
     if (byteProvider != null) {
       int res = byteProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
       if (res != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.BYTE, ScanDirection.REVERSE, window, ScanPath.VECTOR);
         return res;
       }
     }
+    ScanAudit.record(ScanKind.BYTE, ScanDirection.REVERSE, window, ScanPath.SWAR);
     return ByteSwarScan.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
   }
 
@@ -111,14 +113,16 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       return -1;
     }
-    VectorScanProvider pairProvider =
-        VectorScanProviders.providerFor(ScanKind.PAIR, start - limit + 1);
+    int window = start - limit + 1;
+    VectorScanProvider pairProvider = VectorScanProviders.providerFor(ScanKind.PAIR, window);
     if (pairProvider != null) {
       int res = pairProvider.lastIndexOfAsciiPair(bytes, offset, length, b0, b1, start, limit);
       if (res != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.PAIR, ScanDirection.REVERSE, window, ScanPath.VECTOR);
         return res;
       }
     }
+    ScanAudit.record(ScanKind.PAIR, ScanDirection.REVERSE, window, ScanPath.SWAR);
     return ByteSwarScan.lastIndexOfBytePair(bytes, offset, length, b0, b1, start, limit);
   }
 
@@ -138,15 +142,17 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       return -1;
     }
-    VectorScanProvider tripleProvider =
-        VectorScanProviders.providerFor(ScanKind.TRIPLE, start - limit + 1);
+    int window = start - limit + 1;
+    VectorScanProvider tripleProvider = VectorScanProviders.providerFor(ScanKind.TRIPLE, window);
     if (tripleProvider != null) {
       int res =
           tripleProvider.lastIndexOfAsciiTriple(bytes, offset, length, b0, b1, b2, start, limit);
       if (res != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.TRIPLE, ScanDirection.REVERSE, window, ScanPath.VECTOR);
         return res;
       }
     }
+    ScanAudit.record(ScanKind.TRIPLE, ScanDirection.REVERSE, window, ScanPath.SWAR);
     return ByteSwarScan.lastIndexOfByteTriple(bytes, offset, length, b0, b1, b2, start, limit);
   }
 
@@ -171,14 +177,16 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
   }
 
   private int scanByte(int scanLen, byte b0, int start) {
-    VectorScanProvider byteProvider =
-        VectorScanProviders.providerFor(ScanKind.BYTE, scanLen - start);
+    int window = scanLen - start;
+    VectorScanProvider byteProvider = VectorScanProviders.providerFor(ScanKind.BYTE, window);
     if (byteProvider != null) {
       int idx = byteProvider.indexOfByte(bytes, offset, scanLen, b0, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.BYTE, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
       }
     }
+    ScanAudit.record(ScanKind.BYTE, ScanDirection.FORWARD, window, ScanPath.SWAR);
     return ByteSwarScan.indexOfByte(bytes, offset, scanLen, b0, start);
   }
 
@@ -267,26 +275,30 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
   }
 
   private int scanBytePair(int scanLen, byte b0, byte b1, int start) {
-    VectorScanProvider pairProvider =
-        VectorScanProviders.providerFor(ScanKind.PAIR, scanLen - start);
+    int window = scanLen - start;
+    VectorScanProvider pairProvider = VectorScanProviders.providerFor(ScanKind.PAIR, window);
     if (pairProvider != null) {
       int idx = pairProvider.indexOfAsciiPair(bytes, offset, scanLen, b0, b1, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.PAIR, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
       }
     }
+    ScanAudit.record(ScanKind.PAIR, ScanDirection.FORWARD, window, ScanPath.SWAR);
     return ByteSwarScan.indexOfBytePair(bytes, offset, scanLen, b0, b1, start);
   }
 
   private int scanByteTriple(int scanLen, byte b0, byte b1, byte b2, int start) {
-    VectorScanProvider tripleProvider =
-        VectorScanProviders.providerFor(ScanKind.TRIPLE, scanLen - start);
+    int window = scanLen - start;
+    VectorScanProvider tripleProvider = VectorScanProviders.providerFor(ScanKind.TRIPLE, window);
     if (tripleProvider != null) {
       int idx = tripleProvider.indexOfAsciiTriple(bytes, offset, scanLen, b0, b1, b2, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.TRIPLE, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
       }
     }
+    ScanAudit.record(ScanKind.TRIPLE, ScanDirection.FORWARD, window, ScanPath.SWAR);
     return ByteSwarScan.indexOfByteTriple(bytes, offset, scanLen, b0, b1, b2, start);
   }
 
@@ -385,13 +397,17 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       return -1;
     }
     if (!WorkCounterConfig.ENABLED) {
-      if (VectorScanProviders.providerFor(ScanKind.CLASS, scanLen - position) == null
+      int window = scanLen - position;
+      if (VectorScanProviders.providerFor(ScanKind.CLASS, window) == null
           && ranges.length >= 4
           && ranges.length <= 8
           && ranges[0] >= 0
           && ranges[ranges.length - 1] < 0x80
-          && scanLen - position >= MULTI_RANGE_SWAR_MINIMUM_LENGTH
+          && window >= MULTI_RANGE_SWAR_MINIMUM_LENGTH
           && (ranges.length != 4 || ranges[0] != ranges[1] || ranges[2] != ranges[3])) {
+        // No Vector kernel for this window, but SWAR still beats decoding code points one at a
+        // time. Declining the Vector tier is not a reason to fall all the way back to scalar.
+        ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.SWAR);
         int scalarLimit = Math.min(scanLen, position + MULTI_RANGE_SWAR_SCALAR_PROLOGUE_LENGTH);
         for (; position < scalarLimit; position++) {
           int value = unsignedByteAt(position);
@@ -471,24 +487,28 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       default -> {}
     }
-    VectorScanProvider classProvider =
-        VectorScanProviders.providerFor(ScanKind.CLASS, scanLen - start);
+    int window = scanLen - start;
+    VectorScanProvider classProvider = VectorScanProviders.providerFor(ScanKind.CLASS, window);
     if (classProvider != null) {
       int position = start;
       int scalarLimit = Math.min(scanLen, position + VECTOR_SCALAR_PROLOGUE_LENGTH);
       for (; position < scalarLimit; position++) {
         if (InputScanner.classContains(ranges, bitmap0, bitmap1, unsignedByteAt(position))) {
+          ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.VECTOR);
           return position;
         }
       }
       int result = classProvider.indexOfAsciiClass(bytes, offset, scanLen, ranges, position);
       if (result != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return result;
       }
     }
     if (ranges.length == 2) {
+      ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.SWAR);
       return ByteSwarScan.indexOfByteRange(bytes, offset, scanLen, ranges[0], ranges[1], start);
     }
+    ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.DECLINED);
     return -2;
   }
 
@@ -615,7 +635,8 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       return start;
     }
     if (!WorkCounterConfig.ENABLED) {
-      if (VectorScanProviders.providerFor(ScanKind.IGNORE_CASE, length - start) != null) {
+      int window = length - start;
+      if (VectorScanProviders.providerFor(ScanKind.IGNORE_CASE, window) != null) {
         int result =
             ByteVectorScan.indexOfIgnoreCase(
                 bytes,
@@ -628,6 +649,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
                 anchorHigh,
                 start);
         if (result != VectorScanProvider.UNSUPPORTED) {
+          ScanAudit.record(ScanKind.IGNORE_CASE, ScanDirection.FORWARD, window, ScanPath.VECTOR);
           return result;
         }
       }
@@ -635,8 +657,10 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
           ByteSwarScan.indexOfIgnoreCase(
               bytes, offset, length, prefix, prefixLen, anchorOffset, anchorLow, anchorHigh, start);
       if (swarResult != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.IGNORE_CASE, ScanDirection.FORWARD, window, ScanPath.SWAR);
         return swarResult;
       }
+      ScanAudit.record(ScanKind.IGNORE_CASE, ScanDirection.FORWARD, window, ScanPath.SCALAR);
     }
     return indexOfLinearIgnoreCase(bytes, offset, length, prefix, failure, start);
   }
@@ -664,12 +688,14 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       return start;
     }
     if (!WorkCounterConfig.ENABLED) {
-      if (VectorScanProviders.providerFor(ScanKind.IGNORE_CASE, length - start) != null) {
+      int window = length - start;
+      if (VectorScanProviders.providerFor(ScanKind.IGNORE_CASE, window) != null) {
         int result =
             ByteVectorScan.indexOfPairIgnoreCase(
                 bytes, offset, length, prefix, prefixLen, offset1, low1, high1, offset2, low2,
                 high2, start);
         if (result != VectorScanProvider.UNSUPPORTED) {
+          ScanAudit.record(ScanKind.IGNORE_CASE, ScanDirection.FORWARD, window, ScanPath.VECTOR);
           return result;
         }
       }
@@ -678,8 +704,10 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
               bytes, offset, length, prefix, prefixLen, offset1, low1, high1, offset2, low2, high2,
               start);
       if (swarResult != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.IGNORE_CASE, ScanDirection.FORWARD, window, ScanPath.SWAR);
         return swarResult;
       }
+      ScanAudit.record(ScanKind.IGNORE_CASE, ScanDirection.FORWARD, window, ScanPath.SCALAR);
     }
     return indexOfLinearIgnoreCase(bytes, offset, length, prefix, failure, start);
   }
