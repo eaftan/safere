@@ -146,7 +146,7 @@ class MultiAnchorGapEngineTest {
     String regex = ".*foo.*bar.*baz.*";
     Pattern pattern = Pattern.compile(regex);
 
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
 
     String text = "prefix foo intermediate bar trailing baz suffix";
     Matcher matcher = pattern.matcher(text);
@@ -332,20 +332,14 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void unboundedInteriorGapsFallBackToGeneralEngine() {
-    assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isFalse();
+  void variableInternalGapsRemainExecutable() {
+    assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain()).isTrue();
   }
 
   @Test
-  void onlyFixedInteriorGapsRemainExecutable() {
-    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isFalse();
-    assertThat(Pattern.compile("AAA[0-9]BBB").multiAnchor().isExecutableChain()).isTrue();
-    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain())
-        .isFalse();
-  }
-
-  @Test
-  void ambiguousInteriorWildcardMatchesCorrectlyViaGeneralEngine() {
+  void ambiguousInteriorWildcardMatchesCorrectly() {
     assertFirstMatchEqualsJdk("AAA.*BBB.*CCC", "AAA xxx BBB yyy CCC zzz BBB www");
   }
 
@@ -976,6 +970,35 @@ class MultiAnchorGapEngineTest {
     assertThat(singleExact.classHashChain()).isNull();
     assertThat(singleExact.findNext("prefix_ABCDEF_suffix", 0)).isEqualTo(-1);
     assertThat(singleExact.findNext("prefix_abcdef_suffix", 0)).isEqualTo(7);
+  }
+
+  @Test
+  void deepDownstreamChainDoesNotOverflowStack() {
+    int depth = 2_000;
+    StringBuilder regex = new StringBuilder("AAA");
+    StringBuilder input = new StringBuilder("AAA");
+    for (int i = 0; i < depth; i++) {
+      regex.append(".*?BBB");
+      input.append("BBB");
+    }
+    regex.append(".*?CCC");
+    input.append("CCC");
+
+    Pattern pattern = Pattern.compile(regex.toString(), Pattern.DOTALL);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+
+    Matcher matcher = pattern.matcher(input.toString());
+    assertThat(MultiAnchorExecutor.find(pattern.multiAnchor(), input.toString(), 0).isMatched())
+        .isTrue();
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(0);
+    assertThat(matcher.end()).isEqualTo(input.length());
+
+    Utf8Matcher utf8Matcher =
+        pattern.matcher(Utf8Input.validated(input.toString().getBytes(UTF_8)));
+    assertThat(utf8Matcher.find()).isTrue();
+    assertThat(utf8Matcher.start()).isEqualTo(0);
+    assertThat(utf8Matcher.end()).isEqualTo(input.toString().getBytes(UTF_8).length);
   }
 
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {

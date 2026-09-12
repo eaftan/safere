@@ -204,40 +204,46 @@ final class GapScanner {
         }
       }
       int cur = fromPos;
-      while (cur < limit) {
+      int count = 0;
+      while (cur < limit && count < gap.maxLength()) {
         int cp = text.codePointAt(cur);
         if (gap.scanInfo() != null && !gap.scanInfo().contains(cp)) {
           break;
         }
+        count++;
         cur += Character.charCount(cp);
       }
       return cur;
     }
     if (gap.kind() == GapKind.SINGLE_LINE_ANY_STAR) {
-      int limit =
-          Math.min(
-              maxPos, gap.maxLength() == Integer.MAX_VALUE ? maxPos : fromPos + gap.maxLength());
+      int maxCharDistance =
+          gap.maxLength() == Integer.MAX_VALUE
+              ? maxPos - fromPos
+              : (int) Math.min(maxPos - fromPos, (long) gap.maxLength() * 2);
+      int limit = fromPos + maxCharDistance;
       if (gap.guardBytes() != null) {
         int g = findFirstGuardByte(gap.guardBytes(), text, fromPos, limit);
         if (g >= fromPos && g < limit) {
-          return g;
+          limit = g;
         }
-        if (gap.isPureComplement()) {
+        if (gap.guardBytes().length == 1 && gap.isPureComplement()) {
           return limit;
         }
       }
       int cur = fromPos;
-      while (cur < limit) {
+      int count = 0;
+      while (cur < limit && count < gap.maxLength()) {
         int cp = text.codePointAt(cur);
-        if (Nfa.isLineTerminator(cp)) {
+        if (isTerminator(gap, cp)) {
           break;
         }
+        count++;
         cur += Character.charCount(cp);
       }
       return cur;
     }
     if (gap.maxLength() != Integer.MAX_VALUE) {
-      return Math.min(maxPos, fromPos + gap.maxLength());
+      return (int) Math.min(maxPos, fromPos + (long) gap.maxLength() * 2);
     }
     return maxPos;
   }
@@ -255,45 +261,175 @@ final class GapScanner {
         }
       }
       int cur = fromPos;
-      while (cur < limit) {
+      int count = 0;
+      while (cur < limit && count < gap.maxLength()) {
         long decoded = scanner.decodeForward(cur);
         int cp = InputScanner.codePoint(decoded);
         int nextPos = InputScanner.position(decoded);
         if (gap.scanInfo() != null && !gap.scanInfo().contains(cp)) {
           break;
         }
+        count++;
         cur = nextPos;
       }
       return cur;
     }
     if (gap.kind() == GapKind.SINGLE_LINE_ANY_STAR) {
-      int limit =
-          Math.min(
-              maxPos, gap.maxLength() == Integer.MAX_VALUE ? maxPos : fromPos + gap.maxLength());
+      int maxByteDistance =
+          gap.maxLength() == Integer.MAX_VALUE
+              ? maxPos - fromPos
+              : (int) Math.min(maxPos - fromPos, (long) gap.maxLength() * 4);
+      int limit = fromPos + maxByteDistance;
       if (gap.guardBytes() != null) {
         int g = findFirstGuardByte(gap.guardBytes(), scanner, fromPos, limit);
         if (g >= fromPos && g < limit) {
-          return g;
+          limit = g;
         }
-        if (gap.isPureComplement()) {
+        if (gap.guardBytes().length == 1 && gap.isPureComplement()) {
           return limit;
         }
       }
       int cur = fromPos;
-      while (cur < limit) {
+      int count = 0;
+      while (cur < limit && count < gap.maxLength()) {
         long decoded = scanner.decodeForward(cur);
         int cp = InputScanner.codePoint(decoded);
-        if (Nfa.isLineTerminator(cp)) {
+        if (isTerminator(gap, cp)) {
           break;
         }
+        count++;
         cur = InputScanner.position(decoded);
       }
       return cur;
     }
     if (gap.maxLength() != Integer.MAX_VALUE) {
-      return Math.min(maxPos, fromPos + gap.maxLength());
+      return (int) Math.min(maxPos, fromPos + (long) gap.maxLength() * 4);
     }
     return maxPos;
+  }
+
+  static int scanClassStart(Gap gap, String text, int minLimit, int curAnchorStart) {
+    if (curAnchorStart <= minLimit) {
+      return curAnchorStart;
+    }
+    int maxCharDistance =
+        gap.maxLength() == Integer.MAX_VALUE
+            ? curAnchorStart - minLimit
+            : (int) Math.min(curAnchorStart - minLimit, (long) gap.maxLength() * 2);
+    int minPossible = curAnchorStart - maxCharDistance;
+    if (gap.guardBytes() != null) {
+      int lastGuard = findLastGuardByte(gap.guardBytes(), text, minPossible, curAnchorStart - 1);
+      if (lastGuard >= 0) {
+        minPossible = Math.max(minPossible, lastGuard + 1);
+      }
+      if (gap.isPureComplement()) {
+        return minPossible;
+      }
+    }
+    if (gap.kind() == GapKind.BOUNDED_CLASS_REPEAT) {
+      int cur = curAnchorStart;
+      int count = 0;
+      while (cur > minPossible && count < gap.maxLength()) {
+        int cp = text.codePointBefore(cur);
+        int prev = cur - Character.charCount(cp);
+        if (prev < minPossible) {
+          break;
+        }
+        if (gap.scanInfo() != null) {
+          if (!gap.scanInfo().contains(cp)) {
+            return cur;
+          }
+        } else if (gap.charClass() != null) {
+          if (!gap.charClass().contains(cp)) {
+            return cur;
+          }
+        }
+        count++;
+        cur = prev;
+      }
+      return cur;
+    }
+    if (gap.kind() == GapKind.SINGLE_LINE_ANY_STAR) {
+      int cur = curAnchorStart;
+      int count = 0;
+      while (cur > minPossible && count < gap.maxLength()) {
+        int cp = text.codePointBefore(cur);
+        int prev = cur - Character.charCount(cp);
+        if (prev < minPossible) {
+          break;
+        }
+        if (isTerminator(gap, cp)) {
+          return cur;
+        }
+        count++;
+        cur = prev;
+      }
+      return cur;
+    }
+    return minPossible;
+  }
+
+  static int scanClassStart(Gap gap, Utf8InputScanner scanner, int minLimit, int curAnchorStart) {
+    if (curAnchorStart <= minLimit) {
+      return curAnchorStart;
+    }
+    int maxByteDistance =
+        gap.maxLength() == Integer.MAX_VALUE
+            ? curAnchorStart - minLimit
+            : (int) Math.min(curAnchorStart - minLimit, (long) gap.maxLength() * 4);
+    int minPossible = curAnchorStart - maxByteDistance;
+    if (gap.guardBytes() != null) {
+      int lastGuard = findLastGuardByte(gap.guardBytes(), scanner, minPossible, curAnchorStart - 1);
+      if (lastGuard >= 0) {
+        minPossible = Math.max(minPossible, lastGuard + 1);
+      }
+      if (gap.isPureComplement()) {
+        return minPossible;
+      }
+    }
+    if (gap.kind() == GapKind.BOUNDED_CLASS_REPEAT) {
+      int cur = curAnchorStart;
+      int count = 0;
+      while (cur > minPossible && count < gap.maxLength()) {
+        long decoded = scanner.decodeBackward(cur);
+        int cp = InputScanner.codePoint(decoded);
+        int prev = InputScanner.position(decoded);
+        if (prev < minPossible) {
+          break;
+        }
+        if (gap.scanInfo() != null) {
+          if (!gap.scanInfo().contains(cp)) {
+            return cur;
+          }
+        } else if (gap.charClass() != null) {
+          if (!gap.charClass().contains(cp)) {
+            return cur;
+          }
+        }
+        count++;
+        cur = prev;
+      }
+      return cur;
+    }
+    if (gap.kind() == GapKind.SINGLE_LINE_ANY_STAR) {
+      int cur = curAnchorStart;
+      int count = 0;
+      while (cur > minPossible && count < gap.maxLength()) {
+        long decoded = scanner.decodeBackward(cur);
+        int cp = InputScanner.codePoint(decoded);
+        int prev = InputScanner.position(decoded);
+        if (prev < minPossible) {
+          break;
+        }
+        if (isTerminator(gap, cp)) {
+          return cur;
+        }
+        count++;
+        cur = prev;
+      }
+      return cur;
+    }
+    return minPossible;
   }
 
   static int matchExecutorFixedForward(Gap gap, String text, int fromPos, int maxPos) {
@@ -402,11 +538,21 @@ final class GapScanner {
           if (g >= from && g < to) {
             yield false;
           }
+          if (gap.guardBytes().length == 1 && gap.isPureComplement()) {
+            if (len < gap.minLength()) {
+              yield false;
+            }
+            if (gap.maxLength() == Integer.MAX_VALUE && gap.minLength() == 0) {
+              yield true;
+            }
+            int count = Character.codePointCount(text, from, to);
+            yield count >= gap.minLength() && count <= gap.maxLength();
+          }
         }
         int count = 0;
         for (int i = from; i < to; ) {
           int cp = text.codePointAt(i);
-          if (Nfa.isLineTerminator(cp)) {
+          if (isTerminator(gap, cp)) {
             yield false;
           }
           count++;
@@ -471,12 +617,27 @@ final class GapScanner {
           if (g >= from && g < to) {
             yield false;
           }
+          if (gap.guardBytes().length == 1 && gap.isPureComplement()) {
+            if (len < gap.minLength()) {
+              yield false;
+            }
+            if (gap.maxLength() == Integer.MAX_VALUE && gap.minLength() == 0) {
+              yield true;
+            }
+            int count = 0;
+            for (int i = from; i < to; ) {
+              long decoded = scanner.decodeForward(i);
+              count++;
+              i = InputScanner.position(decoded);
+            }
+            yield count >= gap.minLength() && count <= gap.maxLength();
+          }
         }
         int count = 0;
         for (int i = from; i < to; ) {
           long decoded = scanner.decodeForward(i);
           int cp = InputScanner.codePoint(decoded);
-          if (Nfa.isLineTerminator(cp)) {
+          if (isTerminator(gap, cp)) {
             yield false;
           }
           count++;
@@ -650,9 +811,11 @@ final class GapScanner {
           int limit = boundedCodePointEnd(gap, text, fromPos, maxPos);
           int g = findFirstGuardByte(gap.guardBytes(), text, fromPos, limit);
           int end = (g >= fromPos && g < limit) ? g : limit;
-          int count = Character.codePointCount(text, fromPos, end);
-          if (count < gap.minLength()) {
-            yield -1;
+          if (gap.minLength() > 0) {
+            int count = Character.codePointCount(text, fromPos, end);
+            if (count < gap.minLength()) {
+              yield -1;
+            }
           }
           yield end;
         }
@@ -718,14 +881,16 @@ final class GapScanner {
           int limit = boundedCodePointEnd(gap, scanner, fromPos, maxPos);
           int g = findFirstGuardByte(gap.guardBytes(), scanner, fromPos, limit);
           int end = (g >= fromPos && g < limit) ? g : limit;
-          int count = 0;
-          for (int p = fromPos; p < end; ) {
-            long decoded = scanner.decodeForward(p);
-            p = InputScanner.position(decoded);
-            count++;
-          }
-          if (count < gap.minLength()) {
-            yield -1;
+          if (gap.minLength() > 0) {
+            int count = 0;
+            for (int p = fromPos; p < end; ) {
+              long decoded = scanner.decodeForward(p);
+              p = InputScanner.position(decoded);
+              count++;
+            }
+            if (count < gap.minLength()) {
+              yield -1;
+            }
           }
           yield end;
         }
@@ -771,7 +936,7 @@ final class GapScanner {
     int minMatchPos = gap.minLength() == 0 ? cur : -1;
     while (count < gap.maxLength() && cur > minPos) {
       int cp = text.codePointBefore(cur);
-      if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+      if (stopAtLineTerminator && isTerminator(gap, cp)) {
         break;
       }
       cur -= Character.charCount(cp);
@@ -794,7 +959,7 @@ final class GapScanner {
     while (count < gap.maxLength() && cur > minPos) {
       long decoded = scanner.decodeBackward(cur);
       int cp = InputScanner.codePoint(decoded);
-      if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+      if (stopAtLineTerminator && isTerminator(gap, cp)) {
         break;
       }
       cur = InputScanner.position(decoded);
@@ -816,7 +981,7 @@ final class GapScanner {
     int minMatchPos = gap.minLength() == 0 ? cur : -1;
     while (count < gap.maxLength() && cur < maxPos) {
       int cp = text.codePointAt(cur);
-      if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+      if (stopAtLineTerminator && isTerminator(gap, cp)) {
         break;
       }
       cur += Character.charCount(cp);
@@ -839,7 +1004,7 @@ final class GapScanner {
     while (count < gap.maxLength() && cur < maxPos) {
       long decoded = scanner.decodeForward(cur);
       int cp = InputScanner.codePoint(decoded);
-      if (stopAtLineTerminator && Nfa.isLineTerminator(cp)) {
+      if (stopAtLineTerminator && isTerminator(gap, cp)) {
         break;
       }
       cur = InputScanner.position(decoded);
@@ -852,5 +1017,11 @@ final class GapScanner {
       return -1;
     }
     return gap.isGreedy() ? cur : minMatchPos;
+  }
+
+  private static boolean isTerminator(Gap gap, int cp) {
+    return (gap.guardBytes() != null && gap.guardBytes().length == 1 && gap.isPureComplement())
+        ? (cp == '\n')
+        : Nfa.isLineTerminator(cp);
   }
 }

@@ -427,12 +427,7 @@ final class MultiAnchorDescriptor {
 
   private static boolean computeExecutableChain(Chain chain) {
     int n = chain.segments().length;
-    if (n < 1 || chain.isEndAnchored() || !isExecutableLeadingGap(chain.segments()[0].gap())) {
-      return false;
-    }
-    if (n == 1
-        && chain.segments()[0].gap().kind() == GapKind.EMPTY
-        && chain.trailingGap().kind() == GapKind.EMPTY) {
+    if (n < 2 || chain.isEndAnchored() || !isExecutableLeadingGap(chain.segments()[0].gap())) {
       return false;
     }
     for (int i = 0; i < n; i++) {
@@ -460,35 +455,31 @@ final class MultiAnchorDescriptor {
 
   private static boolean isExecutableLeadingGap(Gap gap) {
     return switch (gap.kind()) {
-      case EMPTY, TEXT_START -> true;
-      case BOUNDED_CLASS_REPEAT -> gap.isExecutorFixedGap();
-      case ANY_STAR,
-          SINGLE_LINE_ANY_STAR,
-          TEXT_END,
-          LINE_START,
-          LINE_END,
-          WORD_BOUNDARY,
-          NO_WORD_BOUNDARY ->
-          false;
+      case EMPTY, TEXT_START, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
+      case BOUNDED_CLASS_REPEAT ->
+          gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case TEXT_END, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
     };
   }
 
   private static boolean isExecutableInteriorGap(Gap gap) {
-    return gap.isExecutorFixedGap() || gap.isExecutorGuardedGap();
+    return switch (gap.kind()) {
+      case EMPTY, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
+      case BOUNDED_CLASS_REPEAT ->
+          gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case TEXT_START, TEXT_END, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
+    };
   }
 
   private static boolean isExecutableTrailingGap(Gap gap) {
+    if (gap.minLength() == 0 && !gap.isGreedy()) {
+      return true;
+    }
     return switch (gap.kind()) {
-      case EMPTY, TEXT_END -> true;
-      case BOUNDED_CLASS_REPEAT -> gap.isExecutorFixedGap() || gap.isExecutorGuardedGap();
-      case ANY_STAR,
-          SINGLE_LINE_ANY_STAR,
-          TEXT_START,
-          LINE_START,
-          LINE_END,
-          WORD_BOUNDARY,
-          NO_WORD_BOUNDARY ->
-          false;
+      case EMPTY, TEXT_END, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
+      case BOUNDED_CLASS_REPEAT ->
+          gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case TEXT_START, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
     };
   }
 
@@ -742,6 +733,14 @@ final class MultiAnchorDescriptor {
 
     int scanClassEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
       return GapScanner.scanClassEnd(this, scanner, fromPos, maxPos);
+    }
+
+    int scanClassStart(String text, int minLimit, int curAnchorStart) {
+      return GapScanner.scanClassStart(this, text, minLimit, curAnchorStart);
+    }
+
+    int scanClassStart(Utf8InputScanner scanner, int minLimit, int curAnchorStart) {
+      return GapScanner.scanClassStart(this, scanner, minLimit, curAnchorStart);
     }
 
     int matchExecutorFixedForward(String text, int fromPos, int maxPos) {

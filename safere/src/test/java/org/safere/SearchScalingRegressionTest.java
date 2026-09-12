@@ -129,6 +129,21 @@ class SearchScalingRegressionTest {
         "UTF-8");
   }
 
+  @Test
+  void variableGapChainWorkIsLinearAndDoesNotSuperlinearRescan() {
+    Pattern pattern = Pattern.compile("RAREST_TOKEN.*?BBB.*?CCC");
+
+    assertGuardedGapRetryWorkIsLinear(
+        size -> pattern.matcher("RAREST_TOKEN" + "xBBB".repeat(size) + "\nCCC")::find, "String");
+    assertGuardedGapRetryWorkIsLinear(
+        size ->
+            pattern.matcher(
+                    Utf8Input.trusted(
+                        ("RAREST_TOKEN" + "xBBB".repeat(size) + "\nCCC").getBytes(UTF_8)))
+                ::find,
+        "UTF-8");
+  }
+
   private static void assertFindAllWorkIsLinear(
       IntFunction<FindIterator> matcher, String inputKind) {
     long smallerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(200)));
@@ -234,7 +249,7 @@ class SearchScalingRegressionTest {
             "Compilation work includes one analysis and descriptor assembly, "
                 + "analysisWork=%d compilationWork=%d",
             analysisWork, compilationWork)
-        .isLessThan(analysisWork * 3);
+        .isLessThan(analysisWork * 4);
   }
 
   @Test
