@@ -458,6 +458,7 @@ final class MultiAnchorDescriptor {
       case EMPTY, TEXT_START, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
       case BOUNDED_CLASS_REPEAT ->
           gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case COMPOUND_SEQUENCE -> gap.isExecutorFixedGap();
       case TEXT_END, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
     };
   }
@@ -467,6 +468,7 @@ final class MultiAnchorDescriptor {
       case EMPTY, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
       case BOUNDED_CLASS_REPEAT ->
           gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case COMPOUND_SEQUENCE -> gap.isExecutorFixedGap();
       case TEXT_START, TEXT_END, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
     };
   }
@@ -479,6 +481,7 @@ final class MultiAnchorDescriptor {
       case EMPTY, TEXT_END, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
       case BOUNDED_CLASS_REPEAT ->
           gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case COMPOUND_SEQUENCE -> gap.isExecutorFixedGap();
       case TEXT_START, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
     };
   }
@@ -567,7 +570,9 @@ final class MultiAnchorDescriptor {
     /** Unbounded single-line characters ({@code .*} in non-DOTALL mode or {@code [^\n]*}). */
     SINGLE_LINE_ANY_STAR,
     /** Bounded or unbounded character class repetition (e.g. {@code \s+}, {@code \d{1,4}}). */
-    BOUNDED_CLASS_REPEAT
+    BOUNDED_CLASS_REPEAT,
+    /** Heterogeneous fixed-width sequence of character class constraints. */
+    COMPOUND_SEQUENCE
   }
 
   @SuppressWarnings("ArrayRecordComponent")
@@ -581,7 +586,8 @@ final class MultiAnchorDescriptor {
       CharClassScanInfo scanInfo,
       boolean isGreedy,
       byte[] guardBytes,
-      boolean isPureComplement) {
+      boolean isPureComplement,
+      CharClassScanInfo[] classSequence) {
     static final Gap EMPTY =
         new Gap(GapKind.EMPTY, 0, 0, null, null, null, null, true, null, false);
     static final Gap TEXT_START =
@@ -655,7 +661,8 @@ final class MultiAnchorDescriptor {
 
     boolean isExecutorFixedGap() {
       return kind == GapKind.EMPTY
-          || (kind == GapKind.BOUNDED_CLASS_REPEAT && isFixed() && scanInfo != null);
+          || (kind == GapKind.BOUNDED_CLASS_REPEAT && isFixed() && scanInfo != null)
+          || (kind == GapKind.COMPOUND_SEQUENCE && isFixed() && classSequence != null);
     }
 
     boolean isExecutorGuardedGap() {
@@ -821,6 +828,46 @@ final class MultiAnchorDescriptor {
           charClass != null ? charClass.toRanges() : (scanInfo != null ? scanInfo.ranges() : null),
           scanInfo,
           isGreedy);
+    }
+
+    Gap(
+        GapKind kind,
+        int minLength,
+        int maxLength,
+        int[] discreteOffsets,
+        AsciiBitmap charClass,
+        int[] charClassRanges,
+        CharClassScanInfo scanInfo,
+        boolean isGreedy,
+        byte[] guardBytes,
+        boolean isPureComplement) {
+      this(
+          kind,
+          minLength,
+          maxLength,
+          discreteOffsets,
+          charClass,
+          charClassRanges,
+          scanInfo,
+          isGreedy,
+          guardBytes,
+          isPureComplement,
+          null);
+    }
+
+    static Gap compoundSequence(CharClassScanInfo[] seq) {
+      return new Gap(
+          GapKind.COMPOUND_SEQUENCE,
+          seq.length,
+          seq.length,
+          null,
+          null,
+          null,
+          null,
+          true,
+          null,
+          false,
+          seq);
     }
 
     static byte[] extractGuardBytes(

@@ -1332,6 +1332,41 @@
       "shared": true
     },
     {
+      "id": "realWorldRegex.compoundHybridLog.match.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "DATE_2026-01-01_INFO standard payload without crash msg\n",
+        "suffix": "DATE_2026-09-07_LOG audit record with msg:crash\n",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "realWorldRegex.compoundHybridLog.noMatch.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      },
+      "recipe": {
+        "kind": "delimitedRepeatToLength",
+        "value": "DATE_2026-01-01_INFO standard payload without crash msg",
+        "delimiterAlphabet": "\n",
+        "seed": 42,
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "realWorldRegex.pairedDelimitersHtml.match.{size}",
       "axes": {
         "size": [
@@ -4722,6 +4757,35 @@
       ],
       "inputs": [
         "realWorldRegex.compoundDateLog.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          1000,
+          10000,
+          100000
+        ]
+      }
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.compoundHybridLog.{matchLabel}.{size}",
+      "operation": "find",
+      "patterns": [
+        "DATE_(?:\\d{4}-\\d{2}-\\d{2})_LOG.*?msg:crash"
+      ],
+      "inputs": [
+        "realWorldRegex.compoundHybridLog.{matchLabel}.{size}"
       ],
       "resultConsumption": "boolean",
       "measurement": {

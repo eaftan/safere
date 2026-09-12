@@ -137,6 +137,7 @@ final class MultiAnchorDescriptorBuilder {
       case SINGLE_LINE_ANY_STAR -> Gap.SINGLE_LINE_ANY_STAR_GREEDY;
       case BOUNDED_CLASS_REPEAT ->
           new Gap(GapKind.BOUNDED_CLASS_REPEAT, 0, Integer.MAX_VALUE, null, null, null, null, true);
+      case COMPOUND_SEQUENCE -> Gap.compoundSequence(new CharClassScanInfo[0]);
     };
   }
 
