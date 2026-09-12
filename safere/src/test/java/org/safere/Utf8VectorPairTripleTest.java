@@ -201,6 +201,141 @@ class Utf8VectorPairTripleTest {
     assertThat(scanner.lastIndexOfAsciiPair((byte) 'a', (byte) 'A', 9, 0)).isEqualTo(-1);
   }
 
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1, 15, 16, 31, 32, 63, 64, 100, 128, 256, 500})
+  void testReverseTripleEquivalenceWithSwar(int length) {
+    assumeTrue(isVectorApiAvailable(), "Vector API not available on module path");
+
+    byte b0 = 'x';
+    byte b1 = 'y';
+    byte b2 = 'z';
+    Random rnd = new Random(5000 + length);
+
+    for (int trial = 0; trial < 50; trial++) {
+      byte[] bytes = new byte[length];
+      for (int i = 0; i < length; i++) {
+        bytes[i] = (byte) ('a' + rnd.nextInt(20)); // 'a'..'t' (no 'x', 'y', 'z')
+      }
+      int fromIndex = length == 0 ? 0 : rnd.nextInt(length);
+      int toIndex = length == 0 ? 0 : rnd.nextInt(fromIndex + 1);
+
+      // Absent check
+      int swarAbsent =
+          ByteSwarScan.lastIndexOfByteTriple(bytes, 0, length, b0, b1, b2, fromIndex, toIndex);
+      int vectorAbsent =
+          ByteVectorScan.lastIndexOfAsciiTriple(bytes, 0, length, b0, b1, b2, fromIndex, toIndex);
+      assertThat(vectorAbsent).as("absent trial %d len %d", trial, length).isEqualTo(swarAbsent);
+
+      // Present check
+      if (length > 0 && fromIndex >= toIndex) {
+        int pos = toIndex + rnd.nextInt(fromIndex - toIndex + 1);
+        int choice = rnd.nextInt(3);
+        bytes[pos] = choice == 0 ? b0 : choice == 1 ? b1 : b2;
+
+        int swarHit =
+            ByteSwarScan.lastIndexOfByteTriple(bytes, 0, length, b0, b1, b2, fromIndex, toIndex);
+        int vectorHit =
+            ByteVectorScan.lastIndexOfAsciiTriple(bytes, 0, length, b0, b1, b2, fromIndex, toIndex);
+        assertThat(vectorHit).as("hit trial %d len %d", trial, length).isEqualTo(swarHit);
+      }
+    }
+  }
+
+  @Test
+  void testReverseTripleCollapsesDuplicateNeedles() {
+    // Guard byte sets come from case-fold expansion and routinely repeat a byte. Every duplicate
+    // arrangement must agree with the distinct-needle reference.
+    byte[] bytes = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".getBytes(UTF_8);
+    int length = bytes.length;
+    byte x = 'x'; // index 33
+    byte m = 'm'; // index 22
+
+    for (byte[] needles :
+        new byte[][] {{x, x, x}, {x, x, m}, {x, m, x}, {m, x, x}, {x, m, m}, {m, m, x}}) {
+      int expected = -1;
+      for (int i = length - 1; i >= 0; i--) {
+        if (bytes[i] == needles[0] || bytes[i] == needles[1] || bytes[i] == needles[2]) {
+          expected = i;
+          break;
+        }
+      }
+      assertThat(
+              ByteSwarScan.lastIndexOfByteTriple(
+                  bytes, 0, length, needles[0], needles[1], needles[2], length - 1, 0))
+          .as("swar %s", Arrays.toString(needles))
+          .isEqualTo(expected);
+      if (isVectorApiAvailable()) {
+        assertThat(
+                ByteVectorScan.lastIndexOfAsciiTriple(
+                    bytes, 0, length, needles[0], needles[1], needles[2], length - 1, 0))
+            .as("vector %s", Arrays.toString(needles))
+            .isEqualTo(expected);
+      }
+    }
+  }
+
+  @Test
+  void testScannerReverseTripleWithLimit() {
+    byte[] bytes = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".getBytes(UTF_8);
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes);
+
+    // 'b' at 11, 'm' at 22, 'Z' at 61
+    assertThat(scanner.lastIndexOfAsciiTriple((byte) 'b', (byte) 'm', (byte) 'Z', 61, 23))
+        .isEqualTo(61);
+    assertThat(scanner.lastIndexOfAsciiTriple((byte) 'b', (byte) 'm', (byte) 'Z', 60, 23))
+        .isEqualTo(-1);
+    assertThat(scanner.lastIndexOfAsciiTriple((byte) 'b', (byte) 'm', (byte) 'Z', 60, 22))
+        .isEqualTo(22);
+    assertThat(scanner.lastIndexOfAsciiTriple((byte) 'b', (byte) 'm', (byte) 'Z', 21, 12))
+        .isEqualTo(-1);
+    assertThat(scanner.lastIndexOfAsciiTriple((byte) 'b', (byte) 'm', (byte) 'Z', 21, 11))
+        .isEqualTo(11);
+  }
+
+  @Test
+  void testScannerReverseTripleHonorsWindowCrossover() {
+    // Same obligation as the reverse byte scan: a long input must not push a narrow reverse window
+    // onto a vector kernel.
+    int length = 4096;
+    byte[] bytes = new byte[length];
+    Random rnd = new Random(4243);
+    for (int i = 0; i < length; i++) {
+      bytes[i] = (byte) ('a' + rnd.nextInt(20)); // 'a'..'t' (no 'x', 'y', 'z')
+    }
+    Utf8InputScanner scanner = new Utf8InputScanner(bytes);
+
+    for (int window : new int[] {1, 2, 7, 8, 15, 16, 31, 32, 63, 64, 65, 127, 128, 1024}) {
+      for (int trial = 0; trial < 20; trial++) {
+        int limit = rnd.nextInt(length - window);
+        int fromIndex = limit + window - 1;
+        int pos = limit + rnd.nextInt(window);
+        bytes[pos] = (byte) "xyz".charAt(rnd.nextInt(3));
+
+        assertThat(
+                scanner.lastIndexOfAsciiTriple(
+                    (byte) 'x', (byte) 'y', (byte) 'z', fromIndex, limit))
+            .as("window %d trial %d", window, trial)
+            .isEqualTo(lastIndexOfTripleReference(bytes, fromIndex, limit));
+
+        Arrays.fill(bytes, limit, limit + window, (byte) 'a');
+        assertThat(
+                scanner.lastIndexOfAsciiTriple(
+                    (byte) 'x', (byte) 'y', (byte) 'z', fromIndex, limit))
+            .as("absent window %d trial %d", window, trial)
+            .isEqualTo(-1);
+      }
+    }
+  }
+
+  private static int lastIndexOfTripleReference(byte[] bytes, int fromIndex, int limit) {
+    for (int i = fromIndex; i >= limit; i--) {
+      if (bytes[i] == 'x' || bytes[i] == 'y' || bytes[i] == 'z') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
   @Test
   void testScannerReverseByteHonorsWindowCrossover() {
     // A long input selects a vector provider, but individual reverse scans may span a window far

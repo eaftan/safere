@@ -52,6 +52,12 @@ interface VectorScanProvider {
   }
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
+  default int lastIndexOfAsciiTriple(
+      byte[] bytes, int offset, int length, byte b0, byte b1, byte b2, int fromIndex, int toIndex) {
+    return UNSUPPORTED;
+  }
+
+  /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
   int indexOfTeddy(byte[] bytes, int offset, int length, TeddyModel model, int start);
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
