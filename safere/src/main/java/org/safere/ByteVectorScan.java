@@ -153,7 +153,7 @@ final class ByteVectorScan {
     return -1;
   }
 
-  private static VectorMask<Byte> matches(ByteVector values, int[] ranges) {
+  static VectorMask<Byte> matches(ByteVector values, int[] ranges) {
     VectorMask<Byte> matches = matches(values, ranges[0], ranges[1]);
     if (ranges.length >= 4) {
       matches = matches.or(matches(values, ranges[2], ranges[3]));
@@ -179,7 +179,7 @@ final class ByteVectorScan {
     return values.compare(GE, low).and(values.compare(LE, high));
   }
 
-  private static boolean matches(byte value, int[] ranges) {
+  static boolean matches(byte value, int[] ranges) {
     for (int index = 0; index < ranges.length; index += 2) {
       if (value >= (byte) ranges[index] && value <= (byte) ranges[index + 1]) {
         return true;
