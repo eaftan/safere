@@ -378,6 +378,10 @@ Choose the smallest review that can validate the current decision:
 - For metadata-only changes, a patch-equivalent rebase, or an unrelated trunk/base change, verify
   that the prior assessment still applies, carry its review and evidence forward, and update state.
   Do not recreate worktrees, rerun a defect pass, tests, or benchmarks solely because a SHA changed.
+  If the earlier review produced local fix commits, a changed PR head or effective base requires
+  refreshing the prepared review tree and replaying those fixes. Verify that the fixes still apply
+  and pass focused checks; regenerate fix artifacts and references for the current head. If this
+  cannot be done, report the fixes as stale and do not present the PR as ready after fixes.
 - For a limited layer change, review the changed code and its affected invariants, including nearby
   call sites and tests. Run focused verification when behavior changed. Reuse earlier broad tests
   and benchmark results only if the tested production path, workload, harness, runner, and relevant
@@ -948,10 +952,12 @@ contributor PRs with a changed head, discussion, declared base, or stack trunk, 
 delta with the last assessed state. Use layer patch comparison for rebased stacks so inherited
 changes are not mistaken for changes in an upper PR. Reuse still-valid earlier findings, tests, and
 benchmarks when the delta cannot affect them; do focused review and validation for limited semantic
-changes, and a full review for new PRs, changed central contracts, or uncertain effects. Process
-stacks from bottom to top and independent PRs in increasing PR number order. Create an isolated
-worktree and prepare the current effective base when new code review, tests, fixes, or benchmarks
-are needed.
+changes, and a full review for new PRs, changed central contracts, or uncertain effects.
+When a changed head or effective base makes earlier local fix commits stale, replay and verify them
+on the current prepared review tree before carrying their artifacts or readiness claim forward.
+Process stacks from bottom to top and independent PRs in increasing PR number order. Create an
+isolated worktree and prepare the current effective base when new code review, tests, fixes, or
+benchmarks are needed.
 For standalone PRs use the declared target branch; for stack bottoms use the trunk; for upper stack
 layers replay only that layer onto the prepared lower layer, including any local lower-layer fixes.
 Keep stack preparation local and linear; do not push a stack rebase. Resolve straightforward
