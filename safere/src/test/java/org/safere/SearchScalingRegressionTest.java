@@ -180,14 +180,7 @@ class SearchScalingRegressionTest {
         CharClassScanInfo.fromAsciiBitmap(new AsciiBitmap.Builder().addRange('A', 'Z').build());
     MultiAnchorDescriptor.Gap fixedGap =
         new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-            1_000,
-            1_000,
-            null,
-            null,
-            null,
-            scanInfo,
-            true);
+            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 1_000, 1_000, null, scanInfo, true);
     String text = "A".repeat(1_000);
 
     long work =

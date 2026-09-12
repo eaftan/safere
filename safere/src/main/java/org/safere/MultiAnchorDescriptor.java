@@ -845,39 +845,30 @@ final class MultiAnchorDescriptor {
       GapKind kind,
       int minLength,
       int maxLength,
-      int[] discreteOffsets,
       AsciiBitmap charClass,
-      int[] charClassRanges,
       CharClassScanInfo scanInfo,
       boolean isGreedy,
       byte[] guardBytes,
       boolean isPureComplement,
       CharClassScanInfo[] classSequence) {
-    static final Gap EMPTY =
-        new Gap(GapKind.EMPTY, 0, 0, null, null, null, null, true, null, false);
-    static final Gap TEXT_START =
-        new Gap(GapKind.TEXT_START, 0, 0, null, null, null, null, true, null, false);
-    static final Gap TEXT_END =
-        new Gap(GapKind.TEXT_END, 0, 0, null, null, null, null, true, null, false);
+    static final Gap EMPTY = new Gap(GapKind.EMPTY, 0, 0, null, null, true, null, false);
+    static final Gap TEXT_START = new Gap(GapKind.TEXT_START, 0, 0, null, null, true, null, false);
+    static final Gap TEXT_END = new Gap(GapKind.TEXT_END, 0, 0, null, null, true, null, false);
     static final Gap WORD_BOUNDARY =
-        new Gap(GapKind.WORD_BOUNDARY, 0, 0, null, null, null, null, true, null, false);
+        new Gap(GapKind.WORD_BOUNDARY, 0, 0, null, null, true, null, false);
     static final Gap NO_WORD_BOUNDARY =
-        new Gap(GapKind.NO_WORD_BOUNDARY, 0, 0, null, null, null, null, true, null, false);
-    static final Gap LINE_START =
-        new Gap(GapKind.LINE_START, 0, 0, null, null, null, null, true, null, false);
-    static final Gap LINE_END =
-        new Gap(GapKind.LINE_END, 0, 0, null, null, null, null, true, null, false);
+        new Gap(GapKind.NO_WORD_BOUNDARY, 0, 0, null, null, true, null, false);
+    static final Gap LINE_START = new Gap(GapKind.LINE_START, 0, 0, null, null, true, null, false);
+    static final Gap LINE_END = new Gap(GapKind.LINE_END, 0, 0, null, null, true, null, false);
     static final Gap ANY_STAR_GREEDY =
-        new Gap(GapKind.ANY_STAR, 0, Integer.MAX_VALUE, null, null, null, null, true, null, false);
+        new Gap(GapKind.ANY_STAR, 0, Integer.MAX_VALUE, null, null, true, null, false);
     static final Gap ANY_STAR_LAZY =
-        new Gap(GapKind.ANY_STAR, 0, Integer.MAX_VALUE, null, null, null, null, false, null, false);
+        new Gap(GapKind.ANY_STAR, 0, Integer.MAX_VALUE, null, null, false, null, false);
     static final Gap SINGLE_LINE_ANY_STAR_GREEDY =
         new Gap(
             GapKind.SINGLE_LINE_ANY_STAR,
             0,
             Integer.MAX_VALUE,
-            null,
-            null,
             null,
             null,
             true,
@@ -890,8 +881,6 @@ final class MultiAnchorDescriptor {
             Integer.MAX_VALUE,
             null,
             null,
-            null,
-            null,
             false,
             new byte[] {'\n', '\r'},
             true);
@@ -902,8 +891,6 @@ final class MultiAnchorDescriptor {
             Integer.MAX_VALUE,
             null,
             null,
-            null,
-            null,
             true,
             new byte[] {'\n'},
             true);
@@ -912,8 +899,6 @@ final class MultiAnchorDescriptor {
             GapKind.SINGLE_LINE_ANY_STAR,
             0,
             Integer.MAX_VALUE,
-            null,
-            null,
             null,
             null,
             false,
@@ -945,35 +930,12 @@ final class MultiAnchorDescriptor {
       return GapScanner.findFirstGuardByte(guardBytes, scanner, from, to);
     }
 
-    int findLastGuardByte(String text, int minLimit, int fromIndex) {
-      return GapScanner.findLastGuardByte(guardBytes, text, minLimit, fromIndex);
-    }
-
-    int findLastGuardByte(Utf8InputScanner scanner, int minLimit, int fromIndex) {
-      return GapScanner.findLastGuardByte(guardBytes, scanner, minLimit, fromIndex);
-    }
-
-    private int boundedCodePointEnd(String text, int fromPos, int maxPos) {
-      if (maxLength == Integer.MAX_VALUE) {
-        return maxPos;
-      }
-      int cur = fromPos;
-      for (int count = 0; count < maxLength && cur < maxPos; count++) {
-        int width = Character.charCount(text.codePointAt(cur));
-        if (cur + width > maxPos) {
-          break;
-        }
-        cur += width;
-      }
-      return cur;
-    }
-
     int guardedSearchEnd(String text, int fromPos, int maxPos) {
-      return boundedCodePointEnd(text, fromPos, maxPos);
+      return GapScanner.boundedCodePointEnd(this, text, fromPos, maxPos);
     }
 
     int guardedSearchEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
-      return boundedCodePointEnd(scanner, fromPos, maxPos);
+      return GapScanner.boundedCodePointEnd(this, scanner, fromPos, maxPos);
     }
 
     boolean endsAtCodePointBoundary(String text, int position) {
@@ -981,22 +943,6 @@ final class MultiAnchorDescriptor {
           || position >= text.length()
           || !Character.isLowSurrogate(text.charAt(position))
           || !Character.isHighSurrogate(text.charAt(position - 1));
-    }
-
-    private int boundedCodePointEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
-      if (maxLength == Integer.MAX_VALUE) {
-        return maxPos;
-      }
-      int cur = fromPos;
-      for (int count = 0; count < maxLength && cur < maxPos; count++) {
-        long decoded = scanner.decodeForward(cur);
-        int next = InputScanner.position(decoded);
-        if (next > maxPos) {
-          break;
-        }
-        cur = next;
-      }
-      return cur;
     }
 
     int scanClassEnd(String text, int fromPos, int maxPos) {
@@ -1028,9 +974,7 @@ final class MultiAnchorDescriptor {
           kind,
           minLength,
           maxLength,
-          null,
           charClass,
-          charClass != null ? charClass.toRanges() : null,
           charClass != null ? CharClassScanInfo.fromAsciiBitmap(charClass) : null,
           isGreedy);
     }
@@ -1046,29 +990,7 @@ final class MultiAnchorDescriptor {
           kind,
           minLength,
           maxLength,
-          null,
           charClass,
-          charClass != null ? charClass.toRanges() : (scanInfo != null ? scanInfo.ranges() : null),
-          scanInfo,
-          isGreedy);
-    }
-
-    Gap(
-        GapKind kind,
-        int minLength,
-        int maxLength,
-        int[] discreteOffsets,
-        AsciiBitmap charClass,
-        int[] charClassRanges,
-        CharClassScanInfo scanInfo,
-        boolean isGreedy) {
-      this(
-          kind,
-          minLength,
-          maxLength,
-          discreteOffsets,
-          charClass,
-          charClassRanges,
           scanInfo,
           isGreedy,
           extractGuardBytes(kind, charClass, scanInfo),
@@ -1080,28 +1002,7 @@ final class MultiAnchorDescriptor {
         GapKind kind,
         int minLength,
         int maxLength,
-        int[] discreteOffsets,
         AsciiBitmap charClass,
-        CharClassScanInfo scanInfo,
-        boolean isGreedy) {
-      this(
-          kind,
-          minLength,
-          maxLength,
-          discreteOffsets,
-          charClass,
-          charClass != null ? charClass.toRanges() : (scanInfo != null ? scanInfo.ranges() : null),
-          scanInfo,
-          isGreedy);
-    }
-
-    Gap(
-        GapKind kind,
-        int minLength,
-        int maxLength,
-        int[] discreteOffsets,
-        AsciiBitmap charClass,
-        int[] charClassRanges,
         CharClassScanInfo scanInfo,
         boolean isGreedy,
         byte[] guardBytes,
@@ -1110,9 +1011,7 @@ final class MultiAnchorDescriptor {
           kind,
           minLength,
           maxLength,
-          discreteOffsets,
           charClass,
-          charClassRanges,
           scanInfo,
           isGreedy,
           guardBytes,
@@ -1122,17 +1021,7 @@ final class MultiAnchorDescriptor {
 
     static Gap compoundSequence(CharClassScanInfo[] seq) {
       return new Gap(
-          GapKind.COMPOUND_SEQUENCE,
-          seq.length,
-          seq.length,
-          null,
-          null,
-          null,
-          null,
-          true,
-          null,
-          false,
-          seq);
+          GapKind.COMPOUND_SEQUENCE, seq.length, seq.length, null, null, true, null, false, seq);
     }
 
     static byte[] extractGuardBytes(
@@ -1257,20 +1146,18 @@ final class MultiAnchorDescriptor {
           && maxLength == other.maxLength
           && isGreedy == other.isGreedy
           && isPureComplement == other.isPureComplement
-          && Arrays.equals(discreteOffsets, other.discreteOffsets)
           && Objects.equals(charClass, other.charClass)
-          && Arrays.equals(charClassRanges, other.charClassRanges)
           && Objects.equals(scanInfo, other.scanInfo)
-          && Arrays.equals(guardBytes, other.guardBytes);
+          && Arrays.equals(guardBytes, other.guardBytes)
+          && Arrays.equals(classSequence, other.classSequence);
     }
 
     @Override
     public int hashCode() {
       int result =
           Objects.hash(kind, minLength, maxLength, charClass, scanInfo, isGreedy, isPureComplement);
-      result = 31 * result + Arrays.hashCode(discreteOffsets);
-      result = 31 * result + Arrays.hashCode(charClassRanges);
       result = 31 * result + Arrays.hashCode(guardBytes);
+      result = 31 * result + Arrays.hashCode(classSequence);
       return result;
     }
 
