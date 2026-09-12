@@ -568,6 +568,17 @@ public final class Pattern implements Serializable {
     if (rejectPrefilter != null && rejectPrefilter.canReject(scanner, 0, enginePathOptions)) {
       return false;
     }
+    if (enginePathOptions.multiAnchorGapEngine()
+        && !prog.anchorStart()
+        && multiAnchor.isExecutableUtf8Chain()) {
+      MultiAnchorExecutor.Result res = MultiAnchorExecutor.find(multiAnchor, scanner, 0);
+      if (res.isMatched()) {
+        return true;
+      }
+      if (res.isDefiniteMismatch()) {
+        return false;
+      }
+    }
     int searchStart = 0;
     boolean startPositionPreselected = false;
     if (enginePathOptions.startAcceleration()
@@ -641,6 +652,21 @@ public final class Pattern implements Serializable {
     if (rejectPrefilter != null
         && rejectPrefilter.canRejectWithDiagnostics(scanner, 0, enginePathOptions, diagnostics)) {
       return false;
+    }
+    if (enginePathOptions.multiAnchorGapEngine()
+        && !prog.anchorStart()
+        && multiAnchor.isExecutableUtf8Chain()) {
+      MultiAnchorExecutor.Result res = MultiAnchorExecutor.find(multiAnchor, scanner, 0);
+      if (res.isMatched()) {
+        diagnostics.participate(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
+        diagnostics.boundary(MatchStrategy.MULTI_ANCHOR);
+        return true;
+      }
+      if (res.isDefiniteMismatch()) {
+        diagnostics.participate(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
+        diagnostics.boundary(MatchStrategy.MULTI_ANCHOR);
+        return false;
+      }
     }
     int searchStart = 0;
     boolean startPositionPreselected = false;

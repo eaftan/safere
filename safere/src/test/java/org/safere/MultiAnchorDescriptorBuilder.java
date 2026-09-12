@@ -28,6 +28,8 @@ final class MultiAnchorDescriptorBuilder {
   private Integer minTotalLength = null;
   private boolean isStartAnchored = false;
   private boolean isEndAnchored = false;
+  private boolean endAnchorWasDollar = false;
+  private boolean endAnchorUnixLines = false;
   private StartPlan startPlan = StartPlan.None.INSTANCE;
   private RejectPlan rejectPlan = RejectPlan.None.INSTANCE;
   private String anchoredPrefix = null;
@@ -80,6 +82,16 @@ final class MultiAnchorDescriptorBuilder {
     return this;
   }
 
+  MultiAnchorDescriptorBuilder endAnchorWasDollar(boolean endAnchorWasDollar) {
+    this.endAnchorWasDollar = endAnchorWasDollar;
+    return this;
+  }
+
+  MultiAnchorDescriptorBuilder endAnchorUnixLines(boolean endAnchorUnixLines) {
+    this.endAnchorUnixLines = endAnchorUnixLines;
+    return this;
+  }
+
   MultiAnchorDescriptorBuilder startPlan(StartPlan startPlan) {
     this.startPlan = Objects.requireNonNull(startPlan, "startPlan");
     return this;
@@ -117,7 +129,9 @@ final class MultiAnchorDescriptorBuilder {
             upstreamBounded,
             minLen,
             isStartAnchored,
-            isEndAnchored),
+            isEndAnchored,
+            endAnchorWasDollar,
+            endAnchorUnixLines),
         startPlan,
         rejectPlan,
         anchoredPrefix,
