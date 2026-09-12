@@ -938,6 +938,13 @@ final class MultiAnchorDescriptor {
       return GapScanner.boundedCodePointEnd(this, scanner, fromPos, maxPos);
     }
 
+    /**
+     * Returns whether {@code position} is a UTF-16 code point boundary, i.e. does not fall between
+     * a high and low surrogate.
+     *
+     * <p>There is deliberately no {@code Utf8InputScanner} overload: UTF-8 is self-synchronizing,
+     * so a well-formed needle can never match starting inside a multi-byte sequence.
+     */
     boolean endsAtCodePointBoundary(String text, int position) {
       return position <= 0
           || position >= text.length()
@@ -1501,6 +1508,9 @@ final class MultiAnchorDescriptor {
 
       @Override
       public int lastIndexOf(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        if (fromIndex < 0) {
+          fromIndex = 0;
+        }
         if (fromIndex > toIndex || fromIndex + literalUtf8.length > scanner.length()) {
           return -1;
         }
@@ -1509,10 +1519,30 @@ final class MultiAnchorDescriptor {
           return -1;
         }
         if (foldCase) {
-          for (int i = maxStart; i >= fromIndex; i--) {
-            if (startsWith(scanner, i)) {
-              return i;
+          if (!Ascii.isAscii(literal)) {
+            for (int i = maxStart; i >= fromIndex; i--) {
+              if (WorkCounterConfig.ENABLED) {
+                WorkCounter.record();
+              }
+              if (startsWith(scanner, i)) {
+                return i;
+              }
             }
+            return -1;
+          }
+          int p = maxStart + anchorOffset;
+          int minLimit = fromIndex + anchorOffset;
+          while (p >= minLimit) {
+            int nextAnchor =
+                scanner.lastIndexOfAsciiPair(anchorLowByte, anchorHighByte, p, minLimit);
+            if (nextAnchor < minLimit) {
+              return -1;
+            }
+            int cand = nextAnchor - anchorOffset;
+            if (startsWith(scanner, cand)) {
+              return cand;
+            }
+            p = nextAnchor - 1;
           }
           return -1;
         }

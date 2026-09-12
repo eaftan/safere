@@ -87,13 +87,68 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
       }
       return -1;
     }
-    if (scanProvider != null) {
-      int res = scanProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
+    VectorScanProvider byteProvider = VectorScanProviders.providerForByteLength(start - limit + 1);
+    if (byteProvider != null) {
+      int res = byteProvider.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
       if (res != VectorScanProvider.UNSUPPORTED) {
         return res;
       }
     }
     return ByteSwarScan.lastIndexOfByte(bytes, offset, length, (byte) ascii, start, limit);
+  }
+
+  public int lastIndexOfAsciiPair(byte b0, byte b1, int fromIndex, int minLimit) {
+    int start = Math.min(length - 1, fromIndex);
+    int limit = Math.max(0, minLimit);
+    if (start < limit || limit >= length) {
+      return -1;
+    }
+    if (WorkCounterConfig.ENABLED) {
+      for (int i = start; i >= limit; i--) {
+        WorkCounter.record();
+        int val = unsignedByteAt(i);
+        if (val == (b0 & 0xFF) || val == (b1 & 0xFF)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+    VectorScanProvider pairProvider = VectorScanProviders.providerForPairLength(start - limit + 1);
+    if (pairProvider != null) {
+      int res = pairProvider.lastIndexOfAsciiPair(bytes, offset, length, b0, b1, start, limit);
+      if (res != VectorScanProvider.UNSUPPORTED) {
+        return res;
+      }
+    }
+    return ByteSwarScan.lastIndexOfBytePair(bytes, offset, length, b0, b1, start, limit);
+  }
+
+  public int lastIndexOfAsciiTriple(byte b0, byte b1, byte b2, int fromIndex, int minLimit) {
+    int start = Math.min(length - 1, fromIndex);
+    int limit = Math.max(0, minLimit);
+    if (start < limit || limit >= length) {
+      return -1;
+    }
+    if (WorkCounterConfig.ENABLED) {
+      for (int i = start; i >= limit; i--) {
+        WorkCounter.record();
+        int val = unsignedByteAt(i);
+        if (val == (b0 & 0xFF) || val == (b1 & 0xFF) || val == (b2 & 0xFF)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+    VectorScanProvider tripleProvider =
+        VectorScanProviders.providerForTripleLength(start - limit + 1);
+    if (tripleProvider != null) {
+      int res =
+          tripleProvider.lastIndexOfAsciiTriple(bytes, offset, length, b0, b1, b2, start, limit);
+      if (res != VectorScanProvider.UNSUPPORTED) {
+        return res;
+      }
+    }
+    return ByteSwarScan.lastIndexOfByteTriple(bytes, offset, length, b0, b1, b2, start, limit);
   }
 
   @Override
