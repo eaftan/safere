@@ -1820,21 +1820,23 @@ final class MultiAnchorDescriptor {
        */
       private int findUtf8(Utf8InputScanner scanner, int fromIndex, int scanLen, int maxStart) {
         if (!foldCase) {
+          int window = scanLen - fromIndex;
           if (teddyModel != null) {
-            VectorScanProvider provider =
-                VectorScanProviders.providerFor(ScanKind.TEDDY, scanLen - fromIndex);
+            VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.TEDDY, window);
             if (provider != null) {
               int idx =
                   provider.indexOfTeddy(
                       scanner.bytes(), scanner.offset(), scanLen, teddyModel, fromIndex);
               if (idx != VectorScanProvider.UNSUPPORTED) {
+                ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.VECTOR);
                 return idx > maxStart ? -1 : idx;
               }
             }
+            ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED);
           }
           if (multiLiteral != null) {
             VectorScanProvider provider =
-                VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, scanLen - fromIndex);
+                VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, window);
             if (provider != null) {
               int idx =
                   provider.indexOfMultiLiteral(
@@ -1849,9 +1851,13 @@ final class MultiAnchorDescriptor {
                       teddyModel,
                       fromIndex);
               if (idx != VectorScanProvider.UNSUPPORTED) {
+                ScanAudit.record(
+                    ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.VECTOR);
                 return idx > maxStart ? -1 : idx;
               }
             }
+            ScanAudit.record(
+                ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.DECLINED);
           }
         }
 
