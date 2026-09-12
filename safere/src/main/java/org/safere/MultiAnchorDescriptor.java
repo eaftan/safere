@@ -1217,47 +1217,36 @@ final class MultiAnchorDescriptor {
 
     int findNext(Utf8InputScanner scanner, int fromIndex);
 
-    default int findNextWithin(String text, int fromIndex, int toIndex) {
-      if (fromIndex > toIndex) {
-        return -1;
-      }
-      int idx = findNext(text, fromIndex);
-      return idx >= 0 && idx <= toIndex ? idx : -1;
-    }
+    /**
+     * Returns the leftmost position in {@code [fromIndex, toIndex]} at which this anchor matches,
+     * or -1 if there is none.
+     *
+     * <p>Implementations must confine scanning to the window. Searching past {@code toIndex} and
+     * post-filtering the result is prohibited even though it yields the same answer (Invariants
+     * 4.31 and 4.39), and work proportional to the region examined must be charged to {@link
+     * WorkCounter} when {@link WorkCounterConfig#ENABLED}.
+     *
+     * <p>Deliberately abstract rather than defaulted: a defaulted window search is invisible to
+     * reviewers and lets a new {@code Anchor} inherit an unbounded or uncounted scan.
+     */
+    int findNextWithin(String text, int fromIndex, int toIndex);
 
-    default int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
-      if (fromIndex > toIndex) {
-        return -1;
-      }
-      int idx = findNext(scanner, fromIndex);
-      return idx >= 0 && idx <= toIndex ? idx : -1;
-    }
+    /** UTF-8 counterpart of {@link #findNextWithin(String, int, int)}; same obligations. */
+    int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex);
 
-    default int lastIndexOf(String text, int fromIndex, int toIndex) {
-      int upper = Math.min(toIndex, text.length() - minLength());
-      if (fromIndex > upper || fromIndex < 0) {
-        return -1;
-      }
-      for (int i = upper; i >= fromIndex; i--) {
-        if (startsWith(text, i)) {
-          return i;
-        }
-      }
-      return -1;
-    }
+    /**
+     * Returns the rightmost position in {@code [fromIndex, toIndex]} at which this anchor matches,
+     * or -1 if there is none.
+     *
+     * <p>Carries the same window and work-accounting obligations as {@link #findNextWithin(String,
+     * int, int)}. Reverse search is the more dangerous direction: it is driven by greedy
+     * backtracking, so an implementation that rescans a region it has already examined turns a
+     * retry loop quadratic.
+     */
+    int lastIndexOf(String text, int fromIndex, int toIndex);
 
-    default int lastIndexOf(Utf8InputScanner scanner, int fromIndex, int toIndex) {
-      int upper = Math.min(toIndex, scanner.length() - minLength());
-      if (fromIndex > upper || fromIndex < 0) {
-        return -1;
-      }
-      for (int i = upper; i >= fromIndex; i--) {
-        if (startsWith(scanner, i)) {
-          return i;
-        }
-      }
-      return -1;
-    }
+    /** UTF-8 counterpart of {@link #lastIndexOf(String, int, int)}; same obligations. */
+    int lastIndexOf(Utf8InputScanner scanner, int fromIndex, int toIndex);
 
     boolean startsWith(String text, int pos);
 
@@ -1292,8 +1281,23 @@ final class MultiAnchorDescriptor {
         if (!foldCase) {
           int[] failure = Pattern.literalFailure(utf8);
           int[] shifts = Pattern.literalShifts(utf8);
+          // The reverse search leaps on this character; see lastIndexOf. A case-sensitive anchor
+          // compares exactly, so the low and high forms are the same character.
+          int anchorOffset =
+              literal.isEmpty() ? 0 : RarityOracle.rarestAsciiOffset(literal, literal.length());
+          char anchor = literal.isEmpty() ? '\0' : literal.charAt(anchorOffset);
           return new Single(
-              literal, false, utf8, failure, shifts, 0, '\0', '\0', (byte) 0, (byte) 0, null);
+              literal,
+              false,
+              utf8,
+              failure,
+              shifts,
+              anchorOffset,
+              anchor,
+              anchor,
+              (byte) anchor,
+              (byte) anchor,
+              null);
         }
         int[] failure = Ascii.ignoreCaseFailure(literal);
         int anchorOffset = RarityOracle.rarestAsciiOffset(literal, literal.length(), true);
@@ -1375,6 +1379,9 @@ final class MultiAnchorDescriptor {
 
       @Override
       public int findNextWithin(String text, int fromIndex, int toIndex) {
+        if (fromIndex < 0) {
+          fromIndex = 0;
+        }
         if (fromIndex > toIndex || fromIndex + literal.length() > text.length()) {
           return -1;
         }
@@ -1394,13 +1401,25 @@ final class MultiAnchorDescriptor {
           }
           return -1;
         }
-        for (int i = fromIndex; i <= maxStart; i++) {
-          if (WorkCounterConfig.ENABLED) {
-            WorkCounter.record();
+        int position = fromIndex;
+        while (position <= maxStart) {
+          int candidate =
+              Matcher.indexOfIgnoreCase(
+                  text,
+                  literal,
+                  anchorOffset,
+                  anchorLowChar,
+                  anchorHighChar,
+                  classHashChain,
+                  position,
+                  maxStart);
+          if (candidate < 0) {
+            return -1;
           }
-          if (startsWith(text, i)) {
-            return i;
+          if (hasCodePointBoundaries(text, candidate)) {
+            return candidate;
           }
+          position = candidate + 1;
         }
         return -1;
       }
@@ -1421,6 +1440,9 @@ final class MultiAnchorDescriptor {
 
       @Override
       public int lastIndexOf(String text, int fromIndex, int toIndex) {
+        if (fromIndex < 0) {
+          fromIndex = 0;
+        }
         if (fromIndex > toIndex || fromIndex + literal.length() > text.length()) {
           return -1;
         }
@@ -1428,7 +1450,7 @@ final class MultiAnchorDescriptor {
         if (fromIndex > maxStart) {
           return -1;
         }
-        if (foldCase) {
+        if (literal.isEmpty() || (foldCase && !Ascii.isAscii(literal))) {
           for (int i = maxStart; i >= fromIndex; i--) {
             if (WorkCounterConfig.ENABLED) {
               WorkCounter.record();
@@ -1439,26 +1461,42 @@ final class MultiAnchorDescriptor {
           }
           return -1;
         }
-        int endBound = Math.min(text.length(), maxStart + literal.length());
-        int first = text.indexOf(literal, fromIndex, endBound);
-        if (first < 0) {
+        // Leap backwards on the rarest character of the literal, mirroring the UTF-8 path above.
+        // Successive probes examine disjoint intervals because each one resumes strictly below the
+        // anchor it just rejected, so a sequence of greedy backtracks stays linear in total. String
+        // offers no bounded lastIndexOf (Invariant 4.25), so the leap is an explicit scalar loop.
+        int p = maxStart + anchorOffset;
+        int minLimit = fromIndex + anchorOffset;
+        while (p >= minLimit) {
+          int nextAnchor = lastIndexOfAnchorChar(text, p, minLimit);
+          if (nextAnchor < minLimit) {
+            return -1;
+          }
+          int candidate = nextAnchor - anchorOffset;
+          if (startsWith(text, candidate)) {
+            return candidate;
+          }
+          p = nextAnchor - 1;
+        }
+        return -1;
+      }
+
+      /**
+       * Returns the highest index in {@code [minLimit, fromIndex]} holding either case form of the
+       * anchor character, or {@code minLimit - 1} if there is none. Case-sensitive anchors carry
+       * the same character in both fields, so one loop serves both modes.
+       */
+      private int lastIndexOfAnchorChar(String text, int fromIndex, int minLimit) {
+        for (int i = fromIndex; i >= minLimit; i--) {
           if (WorkCounterConfig.ENABLED) {
-            WorkCounter.record(Math.max(1, maxStart - fromIndex + 1));
+            WorkCounter.record();
           }
-          return -1;
-        }
-        int last = -1;
-        for (int candidate = first;
-            candidate >= 0;
-            candidate = text.indexOf(literal, candidate + 1, endBound)) {
-          if (hasCodePointBoundaries(text, candidate)) {
-            last = candidate;
+          char c = text.charAt(i);
+          if (c == anchorLowChar || c == anchorHighChar) {
+            return i;
           }
         }
-        if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record(Math.max(1, maxStart - last + 1));
-        }
-        return last;
+        return minLimit - 1;
       }
 
       @Override
@@ -1549,6 +1587,9 @@ final class MultiAnchorDescriptor {
         char[] anchorHighs,
         ClassHashChain[] classHashChains)
         implements Anchor {
+
+      // A UTF-16 char encodes to at most 3 UTF-8 bytes; a surrogate pair is 4 bytes for 2 chars.
+      private static final int MAX_UTF8_BYTES_PER_CHAR = 3;
 
       static Alternation create(String[] literals, boolean foldCase) {
         Objects.requireNonNull(literals);
@@ -1644,6 +1685,56 @@ final class MultiAnchorDescriptor {
             : text.indexOf(literals[i], fromIndex);
       }
 
+      /**
+       * Searches for literal {@code i} within {@code [fromIndex, maxStart]}, never examining text
+       * beyond the window. Invariant 4.39 prohibits the "scan to EOF, then post-filter" shape.
+       */
+      private int indexOfLiteralWithin(String text, int i, int fromIndex, int maxStart) {
+        String lit = literals[i];
+        int litMaxStart = Math.min(maxStart, text.length() - lit.length());
+        if (fromIndex > litMaxStart) {
+          return -1;
+        }
+        if (foldCase) {
+          return Matcher.indexOfIgnoreCase(
+              text,
+              lit,
+              anchorOffsets[i],
+              anchorLows[i],
+              anchorHighs[i],
+              classHashChains[i],
+              fromIndex,
+              litMaxStart);
+        }
+        return text.indexOf(lit, fromIndex, Math.min(text.length(), litMaxStart + lit.length()));
+      }
+
+      @Override
+      public int findNextWithin(String text, int fromIndex, int toIndex) {
+        int start = Math.max(0, fromIndex);
+        int maxStart = Math.min(toIndex, text.length() - minLength);
+        if (start > maxStart) {
+          return -1;
+        }
+        int best = -1;
+        for (int i = 0; i < literals.length; i++) {
+          // Each hit narrows the window for the remaining literals: nothing at or after the best
+          // candidate so far can improve a leftmost result.
+          int limit = best < 0 ? maxStart : best - 1;
+          if (start > limit) {
+            break;
+          }
+          int candidate = indexOfLiteralWithin(text, i, start, limit);
+          if (candidate >= 0) {
+            best = candidate;
+            if (best == start) {
+              return best;
+            }
+          }
+        }
+        return best;
+      }
+
       @Override
       public int findNext(String text, int fromIndex) {
         if (literals.length == 2) {
@@ -1675,28 +1766,50 @@ final class MultiAnchorDescriptor {
 
       @Override
       public int findNext(Utf8InputScanner scanner, int fromIndex) {
+        return findUtf8(scanner, Math.max(0, fromIndex), scanner.length(), Integer.MAX_VALUE);
+      }
+
+      @Override
+      public int findNextWithin(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        int start = Math.max(0, fromIndex);
+        int maxStart = Math.min(toIndex, scanner.length() - minLength);
+        if (start > maxStart) {
+          return -1;
+        }
+        // A match starting at or before maxStart cannot extend beyond maxStart plus the longest
+        // literal, so truncating the scan length confines every kernel below to the window.
+        long bound = maxStart + (long) maxLength * MAX_UTF8_BYTES_PER_CHAR;
+        int scanLen = (int) Math.min(scanner.length(), bound);
+        return findUtf8(scanner, start, scanLen, maxStart);
+      }
+
+      /**
+       * Finds the leftmost literal occurrence at a position in {@code [fromIndex, maxStart]},
+       * examining only {@code [0, scanLen)} of the input. Callers bound the search by shrinking
+       * {@code scanLen}; {@code maxStart} is {@link Integer#MAX_VALUE} for an unbounded search.
+       */
+      private int findUtf8(Utf8InputScanner scanner, int fromIndex, int scanLen, int maxStart) {
         if (!foldCase) {
           if (teddyModel != null && VectorScanProviders.teddyProviderAvailable()) {
-            VectorScanProvider provider =
-                VectorScanProviders.providerForTeddyLength(scanner.length());
+            VectorScanProvider provider = VectorScanProviders.providerForTeddyLength(scanLen);
             if (provider != null) {
               int idx =
                   provider.indexOfTeddy(
-                      scanner.bytes(), scanner.offset(), scanner.length(), teddyModel, fromIndex);
+                      scanner.bytes(), scanner.offset(), scanLen, teddyModel, fromIndex);
               if (idx != VectorScanProvider.UNSUPPORTED) {
-                return idx;
+                return idx > maxStart ? -1 : idx;
               }
             }
           }
           if (multiLiteral != null) {
             VectorScanProvider provider =
-                VectorScanProviders.providerForMultiLiteralLength(scanner.length());
+                VectorScanProviders.providerForMultiLiteralLength(scanLen);
             if (provider != null) {
               int idx =
                   provider.indexOfMultiLiteral(
                       scanner.bytes(),
                       scanner.offset(),
-                      scanner.length(),
+                      scanLen,
                       multiLiteral.literals(),
                       multiLiteral.anchorChars(),
                       multiLiteral.anchorOffsets(),
@@ -1705,18 +1818,48 @@ final class MultiAnchorDescriptor {
                       teddyModel,
                       fromIndex);
               if (idx != VectorScanProvider.UNSUPPORTED) {
-                return idx;
+                return idx > maxStart ? -1 : idx;
               }
             }
           }
         }
 
-        int len = scanner.length();
-        for (int pos = fromIndex; pos <= len - minLength; pos++) {
+        int limit = Math.min(scanLen - minLength, maxStart);
+        for (int pos = fromIndex; pos <= limit; pos++) {
           for (int i = 0; i < literalsUtf8.length; i++) {
             if (scanner.startsWith(literalsUtf8[i], pos, foldCase)) {
               return pos;
             }
+          }
+        }
+        return -1;
+      }
+
+      @Override
+      public int lastIndexOf(String text, int fromIndex, int toIndex) {
+        int start = Math.max(0, fromIndex);
+        int upper = Math.min(toIndex, text.length() - minLength);
+        for (int i = upper; i >= start; i--) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          if (startsWith(text, i)) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      @Override
+      public int lastIndexOf(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        int start = Math.max(0, fromIndex);
+        int upper = Math.min(toIndex, scanner.length() - minLength);
+        for (int i = upper; i >= start; i--) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          if (startsWith(scanner, i)) {
+            return i;
           }
         }
         return -1;
@@ -1910,6 +2053,36 @@ final class MultiAnchorDescriptor {
         for (int i = Math.max(0, fromIndex); i < limit; i++) {
           int c = scanner.asciiAt(i);
           if (c >= 0 && bitmap != null && bitmap.containsAscii(c)) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      @Override
+      public int lastIndexOf(String text, int fromIndex, int toIndex) {
+        int start = Math.max(0, fromIndex);
+        int upper = Math.min(toIndex, text.length() - 1);
+        for (int i = upper; i >= start; i--) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          if (startsWith(text, i)) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      @Override
+      public int lastIndexOf(Utf8InputScanner scanner, int fromIndex, int toIndex) {
+        int start = Math.max(0, fromIndex);
+        int upper = Math.min(toIndex, scanner.length() - 1);
+        for (int i = upper; i >= start; i--) {
+          if (WorkCounterConfig.ENABLED) {
+            WorkCounter.record();
+          }
+          if (startsWith(scanner, i)) {
             return i;
           }
         }

@@ -2368,28 +2368,56 @@ public final class Matcher implements MatchResult {
       char high,
       ClassHashChain classHashChain,
       int fromIndex) {
+    return indexOfIgnoreCase(
+        text,
+        prefix,
+        anchorOffset,
+        low,
+        high,
+        classHashChain,
+        fromIndex,
+        text.length() - prefix.length());
+  }
+
+  static int indexOfIgnoreCase(
+      String text,
+      String prefix,
+      int anchorOffset,
+      char low,
+      char high,
+      ClassHashChain classHashChain,
+      int fromIndex,
+      int maxStart) {
     int prefixLen = prefix.length();
+    int length = text.length();
+    int maxPos = Math.min(length - prefixLen, maxStart);
+    int pos = Math.max(0, fromIndex);
+    if (pos > maxPos) {
+      return -1;
+    }
     switch (prefixLen) {
       case 0 -> {
-        return Math.min(Math.max(0, fromIndex), text.length());
+        return pos;
       }
       case 1 -> {
-        return Ascii.isAscii(prefix)
-            ? Ascii.indexOfIgnoreCase(text, low, high, fromIndex)
-            : Utf16.indexOfUnicodeIgnoreCase(text, prefix, fromIndex);
+        if (Ascii.isAscii(prefix)) {
+          return Ascii.indexOfIgnoreCase(text, low, high, pos, maxPos + 1);
+        }
+        int idx = Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos);
+        return idx <= maxPos ? idx : -1;
       }
       default -> {}
     }
-    int length = text.length();
-    int pos = Math.max(0, fromIndex);
     boolean isAsciiPrefix = Ascii.isAscii(prefix);
     if (!isAsciiPrefix) {
       if (classHashChain != null) {
         long limit = WorkLimit.forRemaining(length - pos);
         int result = classHashChain.search(text, pos, limit);
-        return result == -2 ? Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos) : result;
+        int res = result == -2 ? Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos) : result;
+        return res <= maxPos ? res : -1;
       }
-      return Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos);
+      int idx = Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos);
+      return idx <= maxPos ? idx : -1;
     }
     long verificationWork = 0;
     long workLimit = -1;
@@ -2399,10 +2427,10 @@ public final class Matcher implements MatchResult {
     int nextHigh = -1;
     int startFrom = anchorOffset == 0 ? 1 : 0;
 
-    while (pos <= length - prefixLen) {
+    while (pos <= maxPos) {
       // Short scalar search for nearby anchor (handles whitespace / short delimiters without
       // indexOf overhead)
-      int scalarLimit = Math.min(length - prefixLen + 1, pos + 32);
+      int scalarLimit = Math.min(maxPos + 1, pos + 32);
       for (; pos < scalarLimit; pos++) {
         if (WorkCounterConfig.ENABLED) {
           WorkCounter.record();
@@ -2429,14 +2457,17 @@ public final class Matcher implements MatchResult {
           if (WorkLimit.isExhausted(verificationWork, workLimit)) {
             if (classHashChain != null) {
               int result = classHashChain.search(text, pos + 1, workLimit);
-              return result == -2 ? Ascii.indexOfLinearIgnoreCase(text, prefix, pos + 1) : result;
+              int res =
+                  result == -2 ? Ascii.indexOfLinearIgnoreCase(text, prefix, pos + 1) : result;
+              return res <= maxPos ? res : -1;
             }
-            return Ascii.indexOfLinearIgnoreCase(text, prefix, pos + 1);
+            int res = Ascii.indexOfLinearIgnoreCase(text, prefix, pos + 1);
+            return res <= maxPos ? res : -1;
           }
         }
       }
 
-      if (pos > length - prefixLen) {
+      if (pos > maxPos) {
         return -1;
       }
 
@@ -2451,10 +2482,11 @@ public final class Matcher implements MatchResult {
       if (nextHigh >= 0 && nextHigh < searchFrom) {
         nextHigh = -1;
       }
+      int anchorEndBound = Math.min(length, maxPos + anchorOffset + 1);
       if (hasLow && nextLow < 0) {
-        nextLow = text.indexOf(low, searchFrom);
+        nextLow = text.indexOf(low, searchFrom, anchorEndBound);
         if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record(nextLow < 0 ? length - searchFrom : nextLow - searchFrom + 1);
+          WorkCounter.record(nextLow < 0 ? anchorEndBound - searchFrom : nextLow - searchFrom + 1);
         }
         if (nextLow < 0) {
           hasLow = false;
@@ -2462,9 +2494,10 @@ public final class Matcher implements MatchResult {
       }
 
       if (hasHigh && nextHigh < 0 && nextLow != searchFrom) {
-        nextHigh = text.indexOf(high, searchFrom);
+        nextHigh = text.indexOf(high, searchFrom, anchorEndBound);
         if (WorkCounterConfig.ENABLED) {
-          WorkCounter.record(nextHigh < 0 ? length - searchFrom : nextHigh - searchFrom + 1);
+          WorkCounter.record(
+              nextHigh < 0 ? anchorEndBound - searchFrom : nextHigh - searchFrom + 1);
         }
         if (nextHigh < 0) {
           hasHigh = false;
@@ -2482,6 +2515,9 @@ public final class Matcher implements MatchResult {
         nextHigh = -1;
       }
       int candidatePos = nextAnchor - anchorOffset;
+      if (candidatePos > maxPos) {
+        return -1;
+      }
       if (WorkLimit.candidateInBounds(candidatePos, pos, length, prefixLen)) {
         if (classHashChain != null) {
           int shift = classHashChain.shiftAt(text, candidatePos);
@@ -2504,9 +2540,11 @@ public final class Matcher implements MatchResult {
         if (WorkLimit.isExhausted(verificationWork, workLimit)) {
           if (classHashChain != null) {
             int result = classHashChain.search(text, pos, workLimit);
-            return result == -2 ? Ascii.indexOfLinearIgnoreCase(text, prefix, pos) : result;
+            int res = result == -2 ? Ascii.indexOfLinearIgnoreCase(text, prefix, pos) : result;
+            return res <= maxPos ? res : -1;
           }
-          return Ascii.indexOfLinearIgnoreCase(text, prefix, pos);
+          int res = Ascii.indexOfLinearIgnoreCase(text, prefix, pos);
+          return res <= maxPos ? res : -1;
         }
       } else {
         pos = candidatePos + 1;
