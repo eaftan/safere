@@ -23,6 +23,7 @@ final class VectorScanProviders {
    * times, each paying vector setup for a window far below break-even.
    */
   static VectorScanProvider providerFor(ScanKind kind, int windowLength) {
+    ScanAudit.recordConsultation(kind, windowLength);
     VectorScanProvider selected = SELECTED;
     if (selected == null) {
       return null;

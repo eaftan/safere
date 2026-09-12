@@ -298,17 +298,20 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
-      VectorScanProvider provider =
-          VectorScanProviders.providerFor(ScanKind.TEDDY, scanner.length() - fromIndex);
+      int window = scanner.length() - fromIndex;
+      VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.TEDDY, window);
       if (provider == null) {
+        ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED);
         return fromIndex;
       }
       int idx =
           provider.indexOfTeddy(
               scanner.bytes(), scanner.offset(), scanner.length(), model, fromIndex);
       if (idx != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
       }
+      ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.SCALAR);
       int len = scanner.length();
       int minLen = model.minLength();
       byte[] bytes = scanner.bytes();
@@ -383,8 +386,8 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
-      VectorScanProvider provider =
-          VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, scanner.length() - fromIndex);
+      int window = scanner.length() - fromIndex;
+      VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, window);
       if (provider != null) {
         int idx =
             provider.indexOfMultiLiteral(
@@ -399,10 +402,13 @@ sealed interface Utf8StartAccelerator {
                 teddyModel,
                 fromIndex);
         if (idx != VectorScanProvider.UNSUPPORTED) {
+          ScanAudit.record(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.VECTOR);
           return idx;
         }
+        ScanAudit.record(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.DECLINED);
         return fromIndex;
       }
+      ScanAudit.record(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.SCALAR);
       return findScalar(scanner, fromIndex);
     }
 

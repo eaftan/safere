@@ -1519,22 +1519,23 @@ final class MultiAnchorDescriptor {
       @Override
       public int findNext(Utf8InputScanner scanner, int fromIndex) {
         if (!foldCase) {
+          int window = scanner.length() - fromIndex;
           if (teddyModel != null) {
-            VectorScanProvider provider =
-                VectorScanProviders.providerFor(ScanKind.TEDDY, scanner.length() - fromIndex);
+            VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.TEDDY, window);
             if (provider != null) {
               int idx =
                   provider.indexOfTeddy(
                       scanner.bytes(), scanner.offset(), scanner.length(), teddyModel, fromIndex);
               if (idx != VectorScanProvider.UNSUPPORTED) {
+                ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.VECTOR);
                 return idx;
               }
             }
+            ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED);
           }
           if (multiLiteral != null) {
             VectorScanProvider provider =
-                VectorScanProviders.providerFor(
-                    ScanKind.MULTI_LITERAL, scanner.length() - fromIndex);
+                VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, window);
             if (provider != null) {
               int idx =
                   provider.indexOfMultiLiteral(
@@ -1549,9 +1550,13 @@ final class MultiAnchorDescriptor {
                       teddyModel,
                       fromIndex);
               if (idx != VectorScanProvider.UNSUPPORTED) {
+                ScanAudit.record(
+                    ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.VECTOR);
                 return idx;
               }
             }
+            ScanAudit.record(
+                ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.DECLINED);
           }
         }
 
