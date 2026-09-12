@@ -122,6 +122,7 @@ public final class Matcher implements MatchResult {
   private InputScanner textScanner;
   private int[] groups;
   private int[] matchOffsets;
+  private int[] gapCaptureScratch;
   private boolean hasMatch;
   private ResultStatus resultStatus = ResultStatus.RESET_NO_ATTEMPT;
   private int searchFrom;
@@ -427,6 +428,27 @@ public final class Matcher implements MatchResult {
     hasMatch = true;
     resultStatus = ResultStatus.MATCHED;
     return true;
+  }
+
+  private boolean applyDirectCaptureMatchResult(int start, int end) {
+    findExhaustedAfterTerminalEmptyMatch = false;
+    groups[0] = start;
+    groups[1] = end;
+    deferredMatchStart = start;
+    deferredMatchEnd = end;
+    deferredEndMatch = false;
+    capturesResolved = true;
+    groupZeroResolved = true;
+    hasMatch = true;
+    resultStatus = ResultStatus.MATCHED;
+    return true;
+  }
+
+  private int[] gapCaptureScratch(int requiredLen) {
+    if (gapCaptureScratch == null || gapCaptureScratch.length < requiredLen) {
+      gapCaptureScratch = new int[requiredLen];
+    }
+    return gapCaptureScratch;
   }
 
   private boolean applyDeferredMatchResult(
@@ -1710,25 +1732,35 @@ public final class Matcher implements MatchResult {
     if (options.multiAnchorGapEngine()
         && !prog.anchorStart()
         && parentPattern.multiAnchor().isExecutableChain()) {
-      int numSegments = parentPattern.multiAnchor().segments().length;
+      MultiAnchorDescriptor multiAnchor = parentPattern.multiAnchor();
+      int numSegments = multiAnchor.segments().length;
       int requiredScratch = numSegments * MultiAnchorExecutor.STATE_STRIDE;
       if (multiAnchorScratch == null || multiAnchorScratch.length < requiredScratch) {
         multiAnchorScratch = new int[Math.max(requiredScratch, 64)];
       }
       multiAnchorWork[0] = 0;
+      int[] captureScratch =
+          (groups != null && multiAnchor.canExtractAllCaptures())
+              ? gapCaptureScratch(numSegments * 2)
+              : null;
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         MultiAnchorExecutor.Result res =
             MultiAnchorExecutor.find(
-                parentPattern.multiAnchor(),
+                multiAnchor,
                 utf8Scanner,
                 searchFrom,
                 multiAnchorScratch,
-                multiAnchorWork);
+                multiAnchorWork,
+                groups,
+                captureScratch);
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
           if (prog.numCaptures() <= 1) {
             return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          if (multiAnchor.canExtractAllCaptures()) {
+            return applyDirectCaptureMatchResult(res.start(), res.end());
           }
           return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
         }
@@ -1740,12 +1772,21 @@ public final class Matcher implements MatchResult {
       } else if (text != null) {
         MultiAnchorExecutor.Result res =
             MultiAnchorExecutor.find(
-                parentPattern.multiAnchor(), text, searchFrom, multiAnchorScratch, multiAnchorWork);
+                multiAnchor,
+                text,
+                searchFrom,
+                multiAnchorScratch,
+                multiAnchorWork,
+                groups,
+                captureScratch);
         if (res.isMatched()) {
           diagnosticParticipation(MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION);
           diagnosticBoundary(MatchStrategy.MULTI_ANCHOR);
           if (prog.numCaptures() <= 1) {
             return applyGroupZeroMatchResult(res.start(), res.end());
+          }
+          if (multiAnchor.canExtractAllCaptures()) {
+            return applyDirectCaptureMatchResult(res.start(), res.end());
           }
           return applyDeferredMatchResult(res.start(), res.end(), prog.numCaptures(), true, false);
         }

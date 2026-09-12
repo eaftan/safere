@@ -141,20 +141,41 @@ class MatcherDeferredCaptureStateTest {
   }
 
   @Test
-  @DisplayName("capture demand does not bypass multi-anchor gap execution")
-  void captureDemandDoesNotBypassMultiAnchorGapExecution() throws ReflectiveOperationException {
+  @DisplayName("multi-anchor directly extracts all captures without deferred replay")
+  void multiAnchorDirectlyExtractsAllCaptures() throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile("(AAA)[0-9](BB)");
     Matcher first = pattern.matcher("prefix AAA1BB suffix");
 
     assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().canExtractAllCaptures()).isTrue();
+    assertThat(first.find()).isTrue();
+    assertThat(booleanField(first, "capturesResolved")).isTrue();
+    assertThat(first.group(1)).isEqualTo("AAA");
+    assertThat(first.group(2)).isEqualTo("BB");
+
+    Matcher second = pattern.matcher("prefix AAA2BB suffix");
+    assertThat(second.find()).isTrue();
+    assertThat(booleanField(second, "capturesResolved")).isTrue();
+    assertThat(second.group(2)).isEqualTo("BB");
+  }
+
+  @Test
+  @DisplayName("capture demand does not bypass multi-anchor gap execution on unmappable captures")
+  void captureDemandDoesNotBypassMultiAnchorGapExecution() throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile("(A)AA[0-9](B)B");
+    Matcher first = pattern.matcher("prefix AAA1BB suffix");
+
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().canExtractAllCaptures()).isFalse();
     assertThat(first.find()).isTrue();
     assertThat(booleanField(first, "capturesResolved")).isFalse();
-    assertThat(first.group(1)).isEqualTo("AAA");
+    assertThat(first.group(1)).isEqualTo("A");
+    assertThat(booleanField(first, "capturesResolved")).isTrue();
 
     Matcher second = pattern.matcher("prefix AAA2BB suffix");
     assertThat(second.find()).isTrue();
     assertThat(booleanField(second, "capturesResolved")).isFalse();
-    assertThat(second.group(2)).isEqualTo("BB");
+    assertThat(second.group(2)).isEqualTo("B");
     assertThat(booleanField(second, "capturesResolved")).isTrue();
   }
 

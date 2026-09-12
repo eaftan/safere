@@ -1069,6 +1069,273 @@ class MultiAnchorGapEngineTest {
     assertThat(utf8Matcher.end()).isEqualTo(input.toString().getBytes(UTF_8).length);
   }
 
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "(error:\\[)[A-Z](\\] code:500)",
+        "(error:\\[)([A-Z])(\\] code:500)",
+        "error:\\[([A-Z])\\] code:500",
+        "((error:\\[)[A-Z](\\] code:500))",
+        "(?<err>error:\\[)(?<sev>[A-Z])(?<msg>\\] code:500)",
+        "(AAA)[0-9]{2}(BBB)",
+        "(AAA)([0-9]{2})(BBB)",
+        "AAA([0-9]{2})BBB",
+        "(AAA)[0-9]{2}(BBB)([a-z]{2})",
+        "(東京)[0-9]{2}(京都)",
+        "(東京)([0-9]{2})(京都)",
+        "((東京)[0-9]{2}(京都))",
+        "(αβγ)[0-9]{2}(δεζ)",
+      })
+  void directGapCaptureExtractionMatchesJdk(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().canExtractAllCaptures()).isTrue();
+
+    String[] testInputs = {
+      "error:[A] code:500",
+      "prefix error:[E] code:500 suffix",
+      "no match here",
+      "prefix error:[W] code:500 and another error:[C] code:500 at the end",
+      "AAA42BBB",
+      "noise AAA99BBB extra AAA01BBB trailing",
+      "noise AAA99BBBextra",
+      // Multibyte UTF-8 tests (2-byte Greek/Latin, 3-byte CJK, 4-byte emoji)
+      "αβγ error:[A] code:500 δεζ",
+      "日本語 prefix error:[E] code:500 suffix 測試",
+      "🎉🚀 error:[W] code:500 ✨ and another error:[C] code:500 🌟",
+      "こんにちは AAA42BBB 世界",
+      "🔥 AAA99BBB 💡 AAA01BBB 🎯",
+      "Élégant error:[S] code:500 café error:[X] code:500 résumé",
+      "東京42京都",
+      "前奏 東京99京都 後記",
+      "noise 東京12京都 extra 東京88京都 trailing",
+      "🎉 東京77京都 🚀",
+      "αβγ99δεζ",
+      "pre αβγ12δεζ mid αβγ34δεζ post"
+    };
+
+    for (String input : testInputs) {
+      java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(input);
+      Matcher matcher = pattern.matcher(input);
+      Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+
+      while (jdkMatcher.find()) {
+        assertThat(matcher.find()).isTrue();
+        assertThat(utf8Matcher.find()).isTrue();
+
+        assertThat(matcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
+        assertThat(utf8Matcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
+
+        for (int g = 0; g <= jdkMatcher.groupCount(); g++) {
+          assertThat(matcher.start(g)).as("group %d start", g).isEqualTo(jdkMatcher.start(g));
+          assertThat(matcher.end(g)).as("group %d end", g).isEqualTo(jdkMatcher.end(g));
+          assertThat(matcher.group(g)).as("group %d content", g).isEqualTo(jdkMatcher.group(g));
+
+          int byteStart =
+              jdkMatcher.start(g) >= 0
+                  ? input.substring(0, jdkMatcher.start(g)).getBytes(UTF_8).length
+                  : -1;
+          int byteEnd =
+              jdkMatcher.end(g) >= 0
+                  ? input.substring(0, jdkMatcher.end(g)).getBytes(UTF_8).length
+                  : -1;
+          assertThat(utf8Matcher.start(g)).as("utf8 group %d start", g).isEqualTo(byteStart);
+          assertThat(utf8Matcher.end(g)).as("utf8 group %d end", g).isEqualTo(byteEnd);
+        }
+      }
+      assertThat(matcher.find()).isFalse();
+      assertThat(utf8Matcher.find()).isFalse();
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "TAG_([0-9]{4})-([0-9]{2})$",
+        "(TAG_)([0-9]{4})-([0-9]{2})$",
+        "TAG_([0-9]{4})-([0-9]{2})\\z",
+        "(TAG_)([0-9]{4})-([0-9]{2})\\z",
+        "(TAG_)([0-9]{4})(-)([0-9]{2})$",
+        "((TAG_)([0-9]{4})-([0-9]{2})$)"
+      })
+  void endAnchoredDirectCaptures(String regex) {
+    Pattern pattern = Pattern.compile(regex);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
+
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().canExtractAllCaptures()).isTrue();
+
+    String[] testInputs = {
+      "TAG_2026-09",
+      "prefix_TAG_2026-09",
+      "TAG_2026-09\n",
+      "prefix_TAG_2026-09\n",
+      "ABC-1234-TAG",
+      "ABC-1234-TAG\n",
+      "prefix ABC-1234-TAG",
+      "TAG_2026-09_extra",
+      "no match"
+    };
+
+    for (String input : testInputs) {
+      java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(input);
+      Matcher matcher = pattern.matcher(input);
+      Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+
+      boolean jdkFound = jdkMatcher.find();
+      boolean found = matcher.find();
+      boolean utf8Found = utf8Matcher.find();
+
+      assertThat(found).as("match presence for input %s", input).isEqualTo(jdkFound);
+      assertThat(utf8Found).as("utf8 match presence for input %s", input).isEqualTo(jdkFound);
+
+      if (jdkFound) {
+        assertThat(matcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
+        assertThat(utf8Matcher.groupCount()).isEqualTo(jdkMatcher.groupCount());
+
+        for (int g = 0; g <= jdkMatcher.groupCount(); g++) {
+          assertThat(matcher.start(g)).as("group %d start", g).isEqualTo(jdkMatcher.start(g));
+          assertThat(matcher.end(g)).as("group %d end", g).isEqualTo(jdkMatcher.end(g));
+          assertThat(matcher.group(g)).as("group %d content", g).isEqualTo(jdkMatcher.group(g));
+
+          int byteStart =
+              jdkMatcher.start(g) >= 0
+                  ? input.substring(0, jdkMatcher.start(g)).getBytes(UTF_8).length
+                  : -1;
+          int byteEnd =
+              jdkMatcher.end(g) >= 0
+                  ? input.substring(0, jdkMatcher.end(g)).getBytes(UTF_8).length
+                  : -1;
+          assertThat(utf8Matcher.start(g)).as("utf8 group %d start", g).isEqualTo(byteStart);
+          assertThat(utf8Matcher.end(g)).as("utf8 group %d end", g).isEqualTo(byteEnd);
+        }
+      }
+    }
+  }
+
+  @Test
+  void directGapCaptureExtractionMultibyteUtf8ByteOffsets() {
+    String regex = "(AAA)([0-9]{2})(BBB)";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().canExtractAllCaptures()).isTrue();
+
+    // 2-byte, 3-byte, and 4-byte sequences before, between, and after matches
+    String input = "🎉 日本語 αβγ AAA42BBB 🚀 世界 δεζ AAA99BBB ✨";
+    byte[] utf8Bytes = input.getBytes(UTF_8);
+
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher stringMatcher = pattern.matcher(input);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(utf8Bytes));
+
+    int matchCount = 0;
+    while (jdk.find()) {
+      matchCount++;
+      assertThat(stringMatcher.find()).isTrue();
+      assertThat(utf8Matcher.find()).isTrue();
+
+      // String matcher matches character indices
+      assertThat(stringMatcher.start()).isEqualTo(jdk.start());
+      assertThat(stringMatcher.end()).isEqualTo(jdk.end());
+      assertThat(stringMatcher.start(1)).isEqualTo(jdk.start(1));
+      assertThat(stringMatcher.end(1)).isEqualTo(jdk.end(1));
+      assertThat(stringMatcher.start(2)).isEqualTo(jdk.start(2));
+      assertThat(stringMatcher.end(2)).isEqualTo(jdk.end(2));
+      assertThat(stringMatcher.start(3)).isEqualTo(jdk.start(3));
+      assertThat(stringMatcher.end(3)).isEqualTo(jdk.end(3));
+
+      // Utf8Matcher matches byte offsets, which differ from character indices
+      int expectedByteStart = input.substring(0, jdk.start()).getBytes(UTF_8).length;
+      int expectedByteEnd = input.substring(0, jdk.end()).getBytes(UTF_8).length;
+      int expectedByteG1Start = input.substring(0, jdk.start(1)).getBytes(UTF_8).length;
+      int expectedByteG1End = input.substring(0, jdk.end(1)).getBytes(UTF_8).length;
+      int expectedByteG2Start = input.substring(0, jdk.start(2)).getBytes(UTF_8).length;
+      int expectedByteG2End = input.substring(0, jdk.end(2)).getBytes(UTF_8).length;
+      int expectedByteG3Start = input.substring(0, jdk.start(3)).getBytes(UTF_8).length;
+      int expectedByteG3End = input.substring(0, jdk.end(3)).getBytes(UTF_8).length;
+
+      assertThat(utf8Matcher.start()).isEqualTo(expectedByteStart);
+      assertThat(utf8Matcher.end()).isEqualTo(expectedByteEnd);
+      assertThat(utf8Matcher.start(1)).isEqualTo(expectedByteG1Start);
+      assertThat(utf8Matcher.end(1)).isEqualTo(expectedByteG1End);
+      assertThat(utf8Matcher.start(2)).isEqualTo(expectedByteG2Start);
+      assertThat(utf8Matcher.end(2)).isEqualTo(expectedByteG2End);
+      assertThat(utf8Matcher.start(3)).isEqualTo(expectedByteG3Start);
+      assertThat(utf8Matcher.end(3)).isEqualTo(expectedByteG3End);
+
+      // Slicing the raw byte array with utf8Matcher coordinates reproduces the exact text
+      assertThat(
+              new String(
+                  utf8Bytes, utf8Matcher.start(0), utf8Matcher.end() - utf8Matcher.start(0), UTF_8))
+          .isEqualTo(jdk.group(0));
+      assertThat(
+              new String(
+                  utf8Bytes,
+                  utf8Matcher.start(1),
+                  utf8Matcher.end(1) - utf8Matcher.start(1),
+                  UTF_8))
+          .isEqualTo(jdk.group(1));
+      assertThat(
+              new String(
+                  utf8Bytes,
+                  utf8Matcher.start(2),
+                  utf8Matcher.end(2) - utf8Matcher.start(2),
+                  UTF_8))
+          .isEqualTo(jdk.group(2));
+      assertThat(
+              new String(
+                  utf8Bytes,
+                  utf8Matcher.start(3),
+                  utf8Matcher.end(3) - utf8Matcher.start(3),
+                  UTF_8))
+          .isEqualTo(jdk.group(3));
+    }
+    assertThat(matchCount).isEqualTo(2);
+    assertThat(stringMatcher.find()).isFalse();
+    assertThat(utf8Matcher.find()).isFalse();
+  }
+
+  @Test
+  void directGapCaptureExtractionMultibyteAnchorsInCapturedIntervals() {
+    String regex = "((東京)[0-9]{2}(京都))";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().canExtractAllCaptures()).isTrue();
+
+    String input = "前奏 (( 東京42京都 )) 中間 (( 東京99京都 )) 後記";
+    byte[] utf8Bytes = input.getBytes(UTF_8);
+
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+    Matcher stringMatcher = pattern.matcher(input);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(utf8Bytes));
+
+    while (jdk.find()) {
+      assertThat(stringMatcher.find()).isTrue();
+      assertThat(utf8Matcher.find()).isTrue();
+
+      for (int g = 0; g <= jdk.groupCount(); g++) {
+        assertThat(stringMatcher.group(g)).isEqualTo(jdk.group(g));
+        int expectedByteStart = input.substring(0, jdk.start(g)).getBytes(UTF_8).length;
+        int expectedByteEnd = input.substring(0, jdk.end(g)).getBytes(UTF_8).length;
+        assertThat(utf8Matcher.start(g)).as("group %d start", g).isEqualTo(expectedByteStart);
+        assertThat(utf8Matcher.end(g)).as("group %d end", g).isEqualTo(expectedByteEnd);
+
+        assertThat(
+                new String(
+                    utf8Bytes,
+                    utf8Matcher.start(g),
+                    utf8Matcher.end(g) - utf8Matcher.start(g),
+                    UTF_8))
+            .as("group %d content", g)
+            .isEqualTo(jdk.group(g));
+      }
+    }
+    assertThat(stringMatcher.find()).isFalse();
+    assertThat(utf8Matcher.find()).isFalse();
+  }
+
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {
     List<String> matches = new ArrayList<>();
     if (useUtf8) {
