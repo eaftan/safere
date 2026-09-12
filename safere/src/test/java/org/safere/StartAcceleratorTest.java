@@ -44,9 +44,9 @@ class StartAcceleratorTest {
 
     assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
     Utf8StartAccelerator accelerator = Utf8StartAccelerator.create(plan, false);
-    if (VectorScanProviders.multiLiteralProviderAvailable()) {
+    if (VectorScanProviders.vectorProviderAvailable()) {
       assertThat(accelerator).isInstanceOf(Utf8StartAccelerator.MultiLiteral.class);
-    } else if (VectorScanProviders.teddyProviderAvailable()) {
+    } else if (VectorScanProviders.vectorProviderAvailable()) {
       assertThat(accelerator).isInstanceOf(Utf8StartAccelerator.Teddy.class);
     } else {
       assertThat(accelerator).isNull();
