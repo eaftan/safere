@@ -1423,6 +1423,35 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
+  void gapScannerFindLastGuardByteUtf8MatchesString() {
+    // The UTF-8 reverse guard scan fuses K <= 3 into a single alternation kernel where the String
+    // twin uses unrolled scalar loops. Both must agree, including on the K >= 4 fallback.
+    // Guard sets are written as strings purely for legibility; each character is one guard byte.
+    String[][] cases = {
+      {";", "abc;def;ghi"},
+      {"\r\n", "line1\r\nline2\nline3\rline4"},
+      {"xyz", "a-x-b-y-c-z-d"},
+      {"wxyz", "a-w-b-x-c-y-d-z-e"},
+      {"xxy", "a-x-b-y-c"},
+      {"q", "no needle here"},
+    };
+
+    for (String[] testCase : cases) {
+      byte[] guards = testCase[0].getBytes(UTF_8);
+      String text = testCase[1];
+      Utf8InputScanner scanner = new Utf8InputScanner(text.getBytes(UTF_8));
+      for (int fromIndex = -1; fromIndex < text.length(); fromIndex++) {
+        for (int minLimit = 0; minLimit <= Math.max(0, fromIndex); minLimit++) {
+          int expected = GapScanner.findLastGuardByte(guards, text, minLimit, fromIndex);
+          assertThat(GapScanner.findLastGuardByte(guards, scanner, minLimit, fromIndex))
+              .as("text %s guards %s from %d limit %d", text, testCase[0], fromIndex, minLimit)
+              .isEqualTo(expected);
+        }
+      }
+    }
+  }
+
+  @Test
   void caseInsensitiveEndAnchoredGapMatching() {
     String regex = "(?i)user:[a-z]+-host:[a-z]+-status:[0-9]+$";
     Pattern pattern = Pattern.compile(regex);

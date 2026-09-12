@@ -102,7 +102,7 @@ final class GapScanner {
     }
     int len = guardBytes.length;
     if (len == 1) {
-      char g0 = (char) guardBytes[0];
+      char g0 = (char) (guardBytes[0] & 0xFF);
       for (int i = fromIndex; i >= minLimit; i--) {
         if (text.charAt(i) == g0) {
           return i;
@@ -111,8 +111,8 @@ final class GapScanner {
       return -1;
     }
     if (len == 2) {
-      char g0 = (char) guardBytes[0];
-      char g1 = (char) guardBytes[1];
+      char g0 = (char) (guardBytes[0] & 0xFF);
+      char g1 = (char) (guardBytes[1] & 0xFF);
       for (int i = fromIndex; i >= minLimit; i--) {
         char c = text.charAt(i);
         if (c == g0 || c == g1) {
@@ -122,9 +122,9 @@ final class GapScanner {
       return -1;
     }
     if (len == 3) {
-      char g0 = (char) guardBytes[0];
-      char g1 = (char) guardBytes[1];
-      char g2 = (char) guardBytes[2];
+      char g0 = (char) (guardBytes[0] & 0xFF);
+      char g1 = (char) (guardBytes[1] & 0xFF);
+      char g2 = (char) (guardBytes[2] & 0xFF);
       for (int i = fromIndex; i >= minLimit; i--) {
         char c = text.charAt(i);
         if (c == g0 || c == g1 || c == g2) {
@@ -136,7 +136,7 @@ final class GapScanner {
     for (int i = fromIndex; i >= minLimit; i--) {
       char c = text.charAt(i);
       for (byte b : guardBytes) {
-        if (c == (char) b) {
+        if (c == (char) (b & 0xFF)) {
           return i;
         }
       }
@@ -149,10 +149,21 @@ final class GapScanner {
     if (guardBytes == null || fromIndex < minLimit) {
       return -1;
     }
+    int len = guardBytes.length;
+    if (len == 1) {
+      return scanner.lastIndexOfAscii(guardBytes[0] & 0xFF, fromIndex, minLimit);
+    }
+    if (len == 2) {
+      return scanner.lastIndexOfAsciiPair(guardBytes[0], guardBytes[1], fromIndex, minLimit);
+    }
+    if (len == 3) {
+      return scanner.lastIndexOfAsciiTriple(
+          guardBytes[0], guardBytes[1], guardBytes[2], fromIndex, minLimit);
+    }
     int max = -1;
     for (byte gb : guardBytes) {
       int idx = scanner.lastIndexOfAscii(gb & 0xFF, fromIndex, minLimit);
-      if (idx >= minLimit && idx > max) {
+      if (idx > max) {
         max = idx;
       }
     }
