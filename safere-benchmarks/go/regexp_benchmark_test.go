@@ -5,6 +5,7 @@ package main
 
 import (
 	"regexp"
+	"slices"
 	"testing"
 )
 
@@ -26,5 +27,17 @@ func TestJavaZeroSplitLimitMeansUnlimitedAndDropsTrailingEmptyParts(t *testing.T
 	re := regexp.MustCompile(",")
 	if actual := splitLengthSum(re, "a,b,", 0); actual != 4 {
 		t.Fatalf("split length sum %d, want %d", actual, 4)
+	}
+}
+
+func TestCaptureBoundsAdvanceAcrossMultibyteEmptyMatches(t *testing.T) {
+	re := regexp.MustCompile("")
+	var bounds []int
+	if actual := captureBounds(re, "a有", []int{0}, false, &bounds); actual != 5 {
+		t.Fatalf("start sum %d, want 5", actual)
+	}
+	want := []int{0, 0, 1, 1, 4, 4}
+	if !slices.Equal(bounds, want) {
+		t.Fatalf("bounds %v, want %v", bounds, want)
 	}
 }

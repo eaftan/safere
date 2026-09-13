@@ -1762,7 +1762,8 @@ final class DeclarativeBenchmarkPlan {
         case UTF8_CAPTURE_BOUNDS ->
             Map.of(
                 "groups", RecipeValueType.INTEGER_LIST,
-                "bounds", RecipeValueType.STRING);
+                "bounds", RecipeValueType.STRING,
+                "expectedBounds", RecipeValueType.INTEGER_LIST);
         case FIND_GROUP_PRESENT, FIND_GROUP -> Map.of("group", RecipeValueType.INTEGER);
         case REPLACE_FIRST,
             REPLACE_ALL,
@@ -1794,11 +1795,9 @@ final class DeclarativeBenchmarkPlan {
 
     Set<String> requiredArguments() {
       return switch (this) {
-        case FIND_ALL_GROUP_LENGTH_SUM,
-            MATCHES_GROUP_LENGTH_SUM,
-            CAPTURE_GROUPS,
-            UTF8_CAPTURE_BOUNDS ->
+        case FIND_ALL_GROUP_LENGTH_SUM, MATCHES_GROUP_LENGTH_SUM, CAPTURE_GROUPS ->
             Set.of("groups");
+        case UTF8_CAPTURE_BOUNDS -> Set.of("groups", "expectedBounds");
         case FIND_GROUP_PRESENT, FIND_GROUP -> Set.of("group");
         case REPLACE_FIRST,
             REPLACE_ALL,

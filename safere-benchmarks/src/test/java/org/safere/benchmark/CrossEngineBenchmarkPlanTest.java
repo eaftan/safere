@@ -602,7 +602,12 @@ class CrossEngineBenchmarkPlanTest {
     List<String> trials =
         List.of(
             "PatternSetBenchmark.unanchoredMatch.4@safere-string",
+            "Utf8MatchingBenchmark.repeatedFind.ascii@safere-utf8",
+            "Utf8MatchingBenchmark.repeatedFind.multibyte@safere-utf8",
             "Utf8MatchingBenchmark.captureBounds.numbered@safere-utf8",
+            "Utf8MatchingBenchmark.captureBounds.named@safere-utf8",
+            "Utf8MatchingBenchmark.captureBounds.nonparticipating@safere-utf8",
+            "Utf8MatchingBenchmark.emptyMatchIteration@safere-utf8",
             "Utf8MatchingBenchmark.captureFreeDecode.asciiEarly@safere-utf8",
             "ByteReplacementBenchmark.numbered@safere-utf8",
             "Utf8MatchingBenchmark.window@safere-utf8",

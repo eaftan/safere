@@ -112,6 +112,55 @@ class ResolvedBenchmarkPlanTest {
   }
 
   @Test
+  void nativeUtf8CaptureBoundsRowsHaveExactProfilesAndExclusions() throws Exception {
+    Path source =
+        Files.exists(Path.of("benchmark-data.json"))
+            ? Path.of("benchmark-data.json")
+            : Path.of("safere-benchmarks", "benchmark-data.json");
+    JsonObject data =
+        PatternProfiles.normalizeInline(
+            JsonParser.parseString(Files.readString(source)).getAsJsonObject());
+    JsonObject plan = ResolvedBenchmarkPlan.create(data);
+    List<String> rows =
+        List.of(
+            "Utf8MatchingBenchmark.repeatedFind.ascii",
+            "Utf8MatchingBenchmark.repeatedFind.multibyte",
+            "Utf8MatchingBenchmark.captureBounds.numbered",
+            "Utf8MatchingBenchmark.captureBounds.named",
+            "Utf8MatchingBenchmark.captureBounds.nonparticipating",
+            "Utf8MatchingBenchmark.emptyMatchIteration");
+    for (String row : rows) {
+      assertThat(entry(plan, row + "@safere-utf8").get("status").getAsString())
+          .isEqualTo("runnable");
+      for (String engine : List.of("re2_cpp", "pcre2_jit", "go_regexp", "rust_regex")) {
+        JsonObject runnable = entry(plan, row + "@" + engine);
+        assertThat(runnable.get("status").getAsString()).isEqualTo("runnable");
+        assertThat(runnable.getAsJsonObject("arguments").getAsJsonArray("expectedBounds"))
+            .isNotEmpty();
+        assertThat(runnable.getAsJsonObject("expected").get("type").getAsString())
+            .isEqualTo("integer");
+      }
+      JsonObject excluded = entry(plan, row + "@dotnet_nonbacktracking");
+      assertThat(excluded.get("status").getAsString()).isEqualTo("excluded");
+      assertThat(excluded.getAsJsonObject("exclusion").get("kind").getAsString())
+          .isEqualTo("unsupportedOperation");
+      for (String engine :
+          List.of("safere-string", "jdk-string", "re2j-string", "re2-ffm-string-conversion")) {
+        JsonObject stringEntry = entry(plan, row + "@" + engine);
+        assertThat(stringEntry.get("status").getAsString()).isEqualTo("excluded");
+        assertThat(stringEntry.getAsJsonObject("exclusion").get("kind").getAsString())
+            .isEqualTo("unsupportedFeature");
+      }
+    }
+    assertThat(
+            entry(plan, "Utf8MatchingBenchmark.captureBounds.named@re2_cpp")
+                .getAsJsonArray("patterns")
+                .get(0)
+                .getAsString())
+        .isEqualTo("(?P<key>[A-Za-z]+)=(?P<value>[^&]+)");
+  }
+
+  @Test
   void materializationAccountsForCompleteSyntheticWorkloadAndEngineJoin() {
     JsonObject plan =
         ResolvedBenchmarkPlan.create(

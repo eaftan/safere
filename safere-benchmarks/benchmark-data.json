@@ -10004,7 +10004,8 @@
       "arguments": {
         "groups": [
           0
-        ]
+        ],
+        "expectedBounds": [0, 3, 4, 7, 8, 13, 14, 18, 19, 23]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -10013,6 +10014,10 @@
         "constraints": [
           "prematerializedInput"
         ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 109
       }
     },
     {
@@ -10027,7 +10032,8 @@
       "arguments": {
         "groups": [
           0
-        ]
+        ],
+        "expectedBounds": [0, 3, 4, 9, 10, 16, 17, 23]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -10036,6 +10042,10 @@
         "constraints": [
           "prematerializedInput"
         ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 82
       }
     },
     {
@@ -10052,7 +10062,8 @@
           0,
           1,
           2
-        ]
+        ],
+        "expectedBounds": [0, 12, 0, 4, 5, 12, 13, 25, 13, 18, 19, 25]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -10061,13 +10072,29 @@
         "constraints": [
           "prematerializedInput"
         ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 146
       }
     },
     {
       "id": "Utf8MatchingBenchmark.captureBounds.named",
       "operation": "utf8CaptureBounds",
       "patterns": [
-        "(?<key>[A-Za-z]+)=(?<value>[^&]+)"
+        {
+          "java": "(?<key>[A-Za-z]+)=(?<value>[^&]+)",
+          "alternates": {
+            "re2": {
+              "pattern": "(?P<key>[A-Za-z]+)=(?P<value>[^&]+)",
+              "reason": "RE2 and Go use Python-style named groups"
+            },
+            "rust-regex": {
+              "pattern": "(?P<key>[A-Za-z]+)=(?P<value>[^&]+)",
+              "reason": "Rust regex uses Python-style named groups"
+            }
+          }
+        }
       ],
       "inputs": [
         "utf8.captureBounds.named"
@@ -10077,7 +10104,8 @@
           0,
           1,
           2
-        ]
+        ],
+        "expectedBounds": [0, 11, 0, 4, 5, 11, 12, 23, 12, 16, 17, 23]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -10086,6 +10114,10 @@
         "constraints": [
           "prematerializedInput"
         ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 134
       }
     },
     {
@@ -10102,7 +10134,8 @@
           0,
           1,
           2
-        ]
+        ],
+        "expectedBounds": [0, 3, -1, -1, 0, 3]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -10111,6 +10144,10 @@
         "constraints": [
           "prematerializedInput"
         ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 4
       }
     },
     {
@@ -10126,7 +10163,8 @@
         "groups": [
           0
         ],
-        "bounds": "start"
+        "bounds": "start",
+        "expectedBounds": [0, 0, 1, 1, 5, 5, 8, 8]
       },
       "resultConsumption": "integer",
       "measurement": {
@@ -10135,6 +10173,10 @@
         "constraints": [
           "prematerializedInput"
         ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 14
       }
     },
     {

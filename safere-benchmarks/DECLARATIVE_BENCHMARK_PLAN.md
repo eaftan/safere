@@ -355,7 +355,7 @@ The schema uses generic concepts for every current family:
 | Matcher API | Looking-at/region/reset operations with declared lifecycle |
 | Pathological | Generated pattern/text recipes and `noFork` |
 | PatternSet | Pattern collections and `patternSet` requirement |
-| UTF-8 matching/replacement | UTF-8 operations and explicit representations |
+| UTF-8 matching/replacement | UTF-8 operations, explicit representations, and byte-offset oracles for capture-bound rows |
 | Diagnostics and analysis | Diagnostics/analysis operations and requirements |
 | Memory and cold start | Retained-memory, subprocess-memory, and cold-start modes |
 
