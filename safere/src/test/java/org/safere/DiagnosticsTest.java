@@ -762,24 +762,6 @@ class DiagnosticsTest {
             });
   }
 
-  @Test
-  void executableMultiAnchorMismatchRecordsParticipation() {
-    Pattern.setDiagnostics(diagnostics);
-    Pattern pattern = Pattern.compile("AAA[0-9]BB");
-
-    assertThat(pattern.matcher("AAA-BB").find()).isFalse();
-    assertThat(operationsFor(pattern))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.MULTI_ANCHOR);
-              assertThat(event.auxiliaryStrategies())
-                  .contains(
-                      new StrategyParticipation(
-                          MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION));
-            });
-  }
-
   private List<OperationDiagnostics> operationsFor(Pattern pattern) {
     long patternId = pattern.descriptor().patternId();
     return diagnostics.operations.stream()

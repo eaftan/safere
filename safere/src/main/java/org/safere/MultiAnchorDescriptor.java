@@ -712,22 +712,6 @@ final class MultiAnchorDescriptor {
           && isPureComplement;
     }
 
-    int findFirstGuardByte(String text, int from, int to) {
-      return GapScanner.findFirstGuardByte(guardBytes, text, from, to);
-    }
-
-    int findFirstGuardByte(Utf8InputScanner scanner, int from, int to) {
-      return GapScanner.findFirstGuardByte(guardBytes, scanner, from, to);
-    }
-
-    int findLastGuardByte(String text, int minLimit, int fromIndex) {
-      return GapScanner.findLastGuardByte(guardBytes, text, minLimit, fromIndex);
-    }
-
-    int findLastGuardByte(Utf8InputScanner scanner, int minLimit, int fromIndex) {
-      return GapScanner.findLastGuardByte(guardBytes, scanner, minLimit, fromIndex);
-    }
-
     private int boundedCodePointEnd(String text, int fromPos, int maxPos) {
       if (maxLength == Integer.MAX_VALUE) {
         return maxPos;
@@ -772,22 +756,6 @@ final class MultiAnchorDescriptor {
         cur = next;
       }
       return cur;
-    }
-
-    int scanClassEnd(String text, int fromPos, int maxPos) {
-      return GapScanner.scanClassEnd(this, text, fromPos, maxPos);
-    }
-
-    int scanClassEnd(Utf8InputScanner scanner, int fromPos, int maxPos) {
-      return GapScanner.scanClassEnd(this, scanner, fromPos, maxPos);
-    }
-
-    int matchExecutorFixedForward(String text, int fromPos, int maxPos) {
-      return GapScanner.matchExecutorFixedForward(this, text, fromPos, maxPos);
-    }
-
-    int matchExecutorFixedForward(Utf8InputScanner scanner, int fromPos, int maxPos) {
-      return GapScanner.matchExecutorFixedForward(this, scanner, fromPos, maxPos);
     }
 
     Gap(GapKind kind, int minLength, int maxLength, AsciiBitmap charClass, boolean isGreedy) {
@@ -1002,30 +970,6 @@ final class MultiAnchorDescriptor {
       result = 31 * result + Arrays.hashCode(charClassRanges);
       result = 31 * result + Arrays.hashCode(guardBytes);
       return result;
-    }
-
-    boolean matchesSlice(String text, int from, int to) {
-      return GapScanner.matchesSlice(this, text, from, to);
-    }
-
-    boolean matchesSlice(Utf8InputScanner scanner, int from, int to) {
-      return GapScanner.matchesSlice(this, scanner, from, to);
-    }
-
-    int expandLeading(String text, int anchorPos, int minPos) {
-      return GapScanner.expandLeading(this, text, anchorPos, minPos);
-    }
-
-    int expandLeading(Utf8InputScanner scanner, int anchorPos, int minPos) {
-      return GapScanner.expandLeading(this, scanner, anchorPos, minPos);
-    }
-
-    int expandTrailing(String text, int fromPos, int maxPos) {
-      return GapScanner.expandTrailing(this, text, fromPos, maxPos);
-    }
-
-    int expandTrailing(Utf8InputScanner scanner, int fromPos, int maxPos) {
-      return GapScanner.expandTrailing(this, scanner, fromPos, maxPos);
     }
   }
 

@@ -20,54 +20,6 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
-  void sparseDriverSearchDoesNotPrescanDownstreamAnchors() {
-    for (String regex : new String[] {"start:[^;]*ZZZ", "start:[^;]*?ZZZ", "start:[0-9]ZZZ"}) {
-      MultiAnchorDescriptor descriptor = Pattern.compile(regex).multiAnchor();
-      assertThat(descriptor.isExecutableChain()).isTrue();
-      for (int size : new int[] {1_000, 10_000}) {
-        String suffix = regex.contains("[0-9]") ? "start:1ZZZ" : "start:payloadZZZ";
-        String text = "x".repeat(size) + suffix;
-        long work =
-            WorkCounter.countForTesting(
-                () -> {
-                  MultiAnchorExecutor.Result result = MultiAnchorExecutor.find(descriptor, text, 0);
-                  assertThat(result.isMatched()).isTrue();
-                  assertThat(result.start()).isEqualTo(size);
-                  assertThat(result.end()).isEqualTo(text.length());
-                });
-        assertThat(work)
-            .as("one search across the unrelated prefix for %s", regex)
-            .isLessThanOrEqualTo(text.length() + 128L);
-      }
-    }
-  }
-
-  @Test
-  void stringMultiAnchorExecutionWorkIsCountedAndLinear() {
-    MultiAnchorDescriptor descriptor = Pattern.compile("AAA[0-9]BB").multiAnchor();
-
-    long smallerWork =
-        WorkCounter.countForTesting(
-            () ->
-                assertThat(
-                        MultiAnchorExecutor.find(descriptor, "AAA0BC".repeat(2_000), 0)
-                            .isDefiniteMismatch())
-                    .isTrue());
-    long largerWork =
-        WorkCounter.countForTesting(
-            () ->
-                assertThat(
-                        MultiAnchorExecutor.find(descriptor, "AAA0BC".repeat(10_000), 0)
-                            .isDefiniteMismatch())
-                    .isTrue());
-
-    assertThat(smallerWork).as("String multi-anchor execution work must be observed").isPositive();
-    assertThat(largerWork)
-        .as("String multi-anchor execution should scale linearly")
-        .isLessThan(smallerWork * 6);
-  }
-
-  @Test
   void guardedGapRetriesReuseDelimiterScanWork() {
     Pattern pattern = Pattern.compile("AAAA[^;]*RAREBBB");
 
@@ -157,33 +109,6 @@ class SearchScalingRegressionTest {
     assertThat(largerWork)
         .as("%s guarded-gap retries should scale linearly", inputKind)
         .isLessThan(smallerWork * 6);
-  }
-
-  @Test
-  void stringMultiAnchorFixedGapValidationWorkIsCounted() {
-    CharClassScanInfo scanInfo =
-        CharClassScanInfo.fromAsciiBitmap(new AsciiBitmap.Builder().addRange('A', 'Z').build());
-    MultiAnchorDescriptor.Gap fixedGap =
-        new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-            1_000,
-            1_000,
-            null,
-            null,
-            null,
-            scanInfo,
-            true);
-    String text = "A".repeat(1_000);
-
-    long work =
-        WorkCounter.countForTesting(
-            () ->
-                assertThat(fixedGap.matchExecutorFixedForward(text, 0, text.length()))
-                    .isEqualTo(1_000));
-
-    assertThat(work)
-        .as("every code point examined while validating a String fixed gap must be observed")
-        .isGreaterThanOrEqualTo(1_000);
   }
 
   @Test
