@@ -288,17 +288,18 @@ earlier scout report.
   cutoff. Do not describe it as old, carried forward, or unchanged in the copy/paste comment unless
   that history is meaningful in the public discussion.
 
-Make unresolved findings after the four-cycle repair limit impossible to miss when scanning the
-report. If any PR exhausts all four semantic review/fix cycles and still has an in-scope finding:
+Make an unfinished review-fix loop impossible to miss when scanning the report. If review or
+validation began for a PR but did not reach a clean no-P2+ finding result, including an early
+return for redesign, unresolved findings after any number of cycles, or an incomplete final pass:
 
 - add a bold alert immediately below the PR summary table listing every affected PR number;
-- begin that PR's summary assessment with **OPEN REVIEW FINDINGS AFTER FOUR REVIEW/FIX CYCLES**; and
+- begin that PR's summary assessment with **REVIEW-FIX LOOP INCOMPLETE**; and
 - add the same bold callout at the start of its detailed `Review Fix Loop` section, followed by a
-  concise statement of the remaining findings.
+  concise statement of why it stopped and any remaining findings.
 
-Apply this treatment only when the four-cycle limit was actually exhausted with unresolved in-scope
-findings. Do not use it for benchmark-evidence gaps, ordinary human-review focus, blocked reviews,
-or PRs returned to the author before four cycles because the required change was already a redesign.
+Do not use this alert for benchmark-evidence gaps or ordinary human-review focus after a completed
+clean loop. A dependent PR blocked before its own review begins is `blocked`, not an unfinished
+review-fix loop; state its blocker clearly in the summary.
 
 The report may identify internally which sections were reviewed in this run and which reused valid
 evidence, but it must contain all information the human needs to decide and comment without opening
@@ -822,7 +823,7 @@ Recommendation:
 
 ### Review Fix Loop
 
-**OPEN REVIEW FINDINGS AFTER FOUR REVIEW/FIX CYCLES:** <remaining findings, only when applicable>
+**REVIEW-FIX LOOP INCOMPLETE:** <why it stopped and any remaining findings, only when applicable>
 
 Result: no P2+ findings | fixes committed locally | findings for author | blocked | false positive documented
 
@@ -1009,6 +1010,11 @@ otherwise leaves an in-scope finding, give the author complete actionable findin
 reviewed with unresolved findings, run only the focused reproductions needed to prove them, and
 continue the sweep without broad validation or benchmarks. Recording those intentional skips
 satisfies the reviewed terminal state. Do not push branches, post comments, or publish review text.
+For every PR whose review-fix loop started but did not reach a clean no-P2+ result, put a bold
+**REVIEW-FIX LOOP INCOMPLETE** alert below the summary table, at the start of its summary assessment,
+and in its detailed Review Fix Loop section, regardless of how many repair cycles ran. Name the
+remaining findings and why the loop stopped. Do not label a dependent PR blocked before its own
+review began as an unfinished loop.
 Local worktrees, local branches, local commits, patch files, benchmark logs, and Markdown reports
 are allowed. Use the recorded prepared review-base SHA; for an upper stack layer this is the
 prepared lower-layer head, not `main`. Generate `review-fixes.patch` by diffing from the
