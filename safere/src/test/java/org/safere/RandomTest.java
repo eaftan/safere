@@ -54,13 +54,29 @@ class RandomTest {
   @Test
   void complicated() {
     String[] atoms = {
-      ".", "\\d", "\\D", "\\s", "\\S", "\\w", "\\W", "a", "(a)", "b", "c", "-", "\\\\"
+      ".",
+      "\\d",
+      "\\D",
+      "\\s",
+      "\\S",
+      "\\w",
+      "\\W",
+      "[^\\n]",
+      "[^\\n\\r]",
+      "a",
+      "(a)",
+      "b",
+      "c",
+      "-",
+      "\\\\"
     };
     String[] ops = {
       "%s%s", "%s|%s", "%s*", "%s*?", "%s+", "%s+?", "%s?", "%s??", "%s{0}", "%s{0,}", "%s{1}",
       "%s{1,}", "%s{0,1}", "%s{0,2}", "%s{1,2}", "%s{2}", "%s{2,}", "%s{3,4}"
     };
-    randomTest(8, atoms, ops, 20, "abc123\t\n");
+    // Every Java line terminator appears, so that a gap which wrongly treats one as a barrier
+    // diverges from java.util.regex: \n, \r, \u0085 (NEL) and \u2028 (LS).
+    randomTest(8, atoms, ops, 20, "abc123\t\n\r\u0085\u2028");
   }
 
   // -----------------------------------------------------------------------

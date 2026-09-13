@@ -2026,6 +2026,47 @@ final class MultiAnchorCompiler {
     return cc.numRanges() <= 6 && cc.numRunes() > 1000;
   }
 
+  /**
+   * Returns the gap for {@code sub} repeated between {@code min} and {@code max} times, shared by
+   * {@code *}, {@code +}, {@code ?} and {@code \{n,m\}} so that all four agree on guard bytes.
+   */
+  private static MultiAnchorDescriptor.Gap repeatedGap(
+      Regexp re, Regexp sub, int min, int max, int flags, boolean greedy) {
+    if (sub.op == RegexpOp.ANY_CHAR) {
+      if (isDotAll(re, sub, flags)) {
+        return MultiAnchorDescriptor.Gap.anyStar(min, max, greedy);
+      }
+      return MultiAnchorDescriptor.Gap.singleLineAnyStar(
+          min, max, greedy, isUnixLines(re, sub, flags));
+    }
+    if (isDotCharClass(sub.charClass)) {
+      // A dot-equivalent class states its own terminators, so UNIX_LINES cannot override it:
+      // isDotCharClass accepts [^\n], which matches \r, as well as [^\n\r], which does not.
+      return MultiAnchorDescriptor.Gap.singleLineAnyStar(
+          min, max, greedy, sub.charClass.contains('\r'));
+    }
+    AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
+    CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
+    if (bitmap == null && scanInfo == null) {
+      return null;
+    }
+    return new MultiAnchorDescriptor.Gap(
+        MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, min, max, bitmap, scanInfo, greedy);
+  }
+
+  /** Returns whether a dot at {@code re}/{@code sub} matches line terminators. */
+  private static boolean isDotAll(Regexp re, Regexp sub, int flags) {
+    int nodeFlags = re.flags | (sub == null ? 0 : sub.flags);
+    return (flags & Pattern.DOTALL) != 0
+        || (nodeFlags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
+  }
+
+  /** Returns whether {@code \n} is the only line terminator at {@code re}/{@code sub}. */
+  private static boolean isUnixLines(Regexp re, Regexp sub, int flags) {
+    int nodeFlags = re.flags | (sub == null ? 0 : sub.flags);
+    return (flags & Pattern.UNIX_LINES) != 0 || (nodeFlags & ParseFlags.UNIX_LINES) != 0;
+  }
+
   static MultiAnchorDescriptor.Gap classifyGap(Regexp re, int flags) {
     if (re == null || AstAnalysis.analyze(re).hasUserCaptures()) {
       return null;
@@ -2053,155 +2094,25 @@ final class MultiAnchorCompiler {
       return MultiAnchorDescriptor.Gap.LINE_END;
     }
     boolean greedy = (re.flags & ParseFlags.NON_GREEDY) == 0;
-    if (re.op == RegexpOp.STAR) {
+    if (re.op == RegexpOp.STAR
+        || re.op == RegexpOp.PLUS
+        || re.op == RegexpOp.QUEST
+        || re.op == RegexpOp.REPEAT) {
       Regexp sub = unwrapCaptures(re.sub());
-      if (sub != null && sub.op == RegexpOp.ANY_CHAR) {
-        boolean dotAll =
-            (flags & Pattern.DOTALL) != 0
-                || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0
-                || (sub.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
-        if (dotAll) {
-          return greedy
-              ? MultiAnchorDescriptor.Gap.ANY_STAR_GREEDY
-              : MultiAnchorDescriptor.Gap.ANY_STAR_LAZY;
-        }
-        boolean unixLines =
-            (flags & Pattern.UNIX_LINES) != 0
-                || (re.flags & ParseFlags.UNIX_LINES) != 0
-                || (sub.flags & ParseFlags.UNIX_LINES) != 0;
-        if (unixLines) {
-          return greedy
-              ? MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_UNIX_GREEDY
-              : MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_UNIX_LAZY;
-        }
-        return greedy
-            ? MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_GREEDY
-            : MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_LAZY;
-      }
-      if (sub != null && sub.op == RegexpOp.CHAR_CLASS) {
-        if (isDotCharClass(sub.charClass)) {
-          boolean unixLines =
-              (flags & Pattern.UNIX_LINES) != 0
-                  || (re.flags & ParseFlags.UNIX_LINES) != 0
-                  || (sub.flags & ParseFlags.UNIX_LINES) != 0;
-          if (unixLines) {
-            return greedy
-                ? MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_UNIX_GREEDY
-                : MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_UNIX_LAZY;
-          }
-          return greedy
-              ? MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_GREEDY
-              : MultiAnchorDescriptor.Gap.SINGLE_LINE_ANY_STAR_LAZY;
-        }
-        AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
-        if (bitmap == null && scanInfo == null) {
-          return null;
-        }
-        return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-            0,
-            Integer.MAX_VALUE,
-            bitmap,
-            scanInfo,
-            greedy);
-      }
-    } else if (re.op == RegexpOp.PLUS) {
-      Regexp sub = unwrapCaptures(re.sub());
-      if (sub != null && sub.op == RegexpOp.ANY_CHAR) {
-        boolean dotAll =
-            (flags & Pattern.DOTALL) != 0
-                || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0
-                || (sub.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
-        return dotAll
-            ? new MultiAnchorDescriptor.Gap(
-                MultiAnchorDescriptor.GapKind.ANY_STAR, 1, Integer.MAX_VALUE, null, greedy)
-            : new MultiAnchorDescriptor.Gap(
-                MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR,
-                1,
-                Integer.MAX_VALUE,
-                null,
-                greedy);
-      }
-      if (sub != null && sub.op == RegexpOp.CHAR_CLASS) {
-        if (isDotCharClass(sub.charClass)) {
-          return new MultiAnchorDescriptor.Gap(
-              MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR,
-              1,
-              Integer.MAX_VALUE,
-              null,
-              greedy);
-        }
-        AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
-        if (bitmap == null && scanInfo == null) {
-          return null;
-        }
-        return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-            1,
-            Integer.MAX_VALUE,
-            bitmap,
-            scanInfo,
-            greedy);
-      }
-    } else if (re.op == RegexpOp.REPEAT) {
-      Regexp sub = unwrapCaptures(re.sub());
-      int max = re.max == -1 ? Integer.MAX_VALUE : re.max;
-      if (sub != null && sub.op == RegexpOp.ANY_CHAR) {
-        boolean dotAll =
-            (flags & Pattern.DOTALL) != 0
-                || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0
-                || (sub.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
-        return dotAll
-            ? new MultiAnchorDescriptor.Gap(
-                MultiAnchorDescriptor.GapKind.ANY_STAR, re.min, max, null, greedy)
-            : new MultiAnchorDescriptor.Gap(
-                MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, re.min, max, null, greedy);
-      }
-      if (sub != null && sub.op == RegexpOp.CHAR_CLASS) {
-        if (isDotCharClass(sub.charClass)) {
-          return new MultiAnchorDescriptor.Gap(
-              MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, re.min, max, null, greedy);
-        }
-        AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
-        if (bitmap == null && scanInfo == null) {
-          return null;
-        }
-        return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-            re.min,
-            max,
-            bitmap,
-            scanInfo,
-            greedy);
-      }
-    } else if (re.op == RegexpOp.QUEST) {
-      Regexp sub = unwrapCaptures(re.sub());
-      if (sub != null && sub.op == RegexpOp.ANY_CHAR) {
-        boolean dotAll =
-            (flags & Pattern.DOTALL) != 0
-                || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0
-                || (sub.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
-        return dotAll
-            ? new MultiAnchorDescriptor.Gap(
-                MultiAnchorDescriptor.GapKind.ANY_STAR, 0, 1, null, greedy)
-            : new MultiAnchorDescriptor.Gap(
-                MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 0, 1, null, greedy);
-      }
-      if (sub != null && sub.op == RegexpOp.CHAR_CLASS) {
-        if (isDotCharClass(sub.charClass)) {
-          return new MultiAnchorDescriptor.Gap(
-              MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 0, 1, null, greedy);
-        }
-        AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(sub.charClass);
-        CharClassScanInfo scanInfo = CharClassScanInfo.fromCharClass(sub.charClass);
-        if (bitmap == null && scanInfo == null) {
-          return null;
-        }
-        return new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 0, 1, bitmap, scanInfo, greedy);
+      if (sub != null && (sub.op == RegexpOp.ANY_CHAR || sub.op == RegexpOp.CHAR_CLASS)) {
+        int min =
+            switch (re.op) {
+              case PLUS -> 1;
+              case REPEAT -> re.min;
+              default -> 0;
+            };
+        int max =
+            switch (re.op) {
+              case QUEST -> 1;
+              case REPEAT -> re.max == -1 ? Integer.MAX_VALUE : re.max;
+              default -> Integer.MAX_VALUE;
+            };
+        return repeatedGap(re, sub, min, max, flags, greedy);
       }
     } else if (re.op == RegexpOp.CHAR_CLASS) {
       AsciiBitmap bitmap = buildAsciiBitmapFromCharClass(re.charClass);
@@ -2213,14 +2124,11 @@ final class MultiAnchorCompiler {
           MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT, 1, 1, bitmap, scanInfo, true);
     }
     if (re.op == RegexpOp.ANY_CHAR) {
-      boolean dotAll =
-          (flags & Pattern.DOTALL) != 0
-              || (re.flags & (ParseFlags.DOT_NL | ParseFlags.MATCH_NL)) != 0;
-      return dotAll
-          ? new MultiAnchorDescriptor.Gap(
-              MultiAnchorDescriptor.GapKind.ANY_STAR, 1, 1, null, greedy)
-          : new MultiAnchorDescriptor.Gap(
-              MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR, 1, 1, null, greedy);
+      if (isDotAll(re, null, flags)) {
+        return MultiAnchorDescriptor.Gap.anyStar(1, 1, greedy);
+      }
+      return MultiAnchorDescriptor.Gap.singleLineAnyStar(
+          1, 1, greedy, isUnixLines(re, null, flags));
     }
     AsciiBitmap homogeneousBm = extractHomogeneousCharClass(re);
     if (homogeneousBm != null) {

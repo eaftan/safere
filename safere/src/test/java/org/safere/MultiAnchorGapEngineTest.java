@@ -781,11 +781,13 @@ class MultiAnchorGapEngineTest {
     assertThat(g2.guardBytes()).containsExactly((byte) '"');
     assertThat(g2.isPureComplement()).isTrue();
 
+    // Unlike its neighbours this classifies as SINGLE_LINE_ANY_STAR, and [^\n] matches \r, so \r
+    // must not be a guard: guarding it would stop the scan at a character the gap can cross.
     Pattern p3 = Pattern.compile("START[^\\n]*END");
     MultiAnchorDescriptor d3 = p3.multiAnchor();
     assertThat(d3.segments()).hasSize(2);
     MultiAnchorDescriptor.Gap g3 = d3.segments()[1].gap();
-    assertThat(g3.guardBytes()).containsExactly((byte) '\n', (byte) '\r');
+    assertThat(g3.guardBytes()).containsExactly((byte) '\n');
     assertThat(g3.isPureComplement()).isTrue();
 
     Pattern p5 = Pattern.compile("START[^;]*END");

@@ -162,6 +162,58 @@ class MultiAnchorCompilerTest {
     assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
   }
 
+  /**
+   * A dot-equivalent character class takes its guard bytes from the class, not from {@code
+   * UNIX_LINES}: {@code [^\n]} matches {@code \r} and must not be given a {@code \r} guard, while
+   * {@code [^\n\r]} must.
+   */
+  @Test
+  void dotCharClassGapGuardsFollowTheClass() {
+    // Every quantifier agrees, and UNIX_LINES can neither widen a class that excludes \r nor
+    // narrow one that admits it.
+    for (String q : new String[] {"*", "+", "?", "{2,5}"}) {
+      for (int f : new int[] {0, Pattern.UNIX_LINES}) {
+        assertThat(guardsOf("foo[^\\n]" + q + "bar", f))
+            .as("[^\\n]%s unix=%s", q, f != 0)
+            .containsExactly((byte) '\n');
+        assertThat(guardsOf("foo[^\\n\\r]" + q + "bar", f))
+            .as("[^\\n\\r]%s unix=%s", q, f != 0)
+            .containsExactly((byte) '\n', (byte) '\r');
+      }
+    }
+
+    // A real dot has no class to inspect, so it follows the flag -- for every quantifier, and
+    // for a bare dot used as the whole gap.
+    for (String q : new String[] {"*", "+", "?", "{2,5}", ""}) {
+      assertThat(guardsOf("foo." + q + "bar", 0))
+          .as(".%s", q)
+          .containsExactly((byte) '\n', (byte) '\r');
+      assertThat(guardsOf("foo." + q + "bar", Pattern.UNIX_LINES))
+          .as(".%s unix", q)
+          .containsExactly((byte) '\n');
+    }
+
+    // Greediness is carried through alongside the corrected guards.
+    assertThat(gapOf("foo[^\\n]*bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_UNIX_GREEDY);
+    assertThat(gapOf("foo[^\\n]*?bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_UNIX_LAZY);
+    assertThat(gapOf("foo[^\\n\\r]*bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_GREEDY);
+    assertThat(gapOf("foo[^\\n\\r]*?bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_LAZY);
+  }
+
+  /** Returns the guard bytes of the gap joining the two anchors of a two-anchor pattern. */
+  private static byte[] guardsOf(String pattern, int flags) {
+    return gapOf(pattern, flags).guardBytes();
+  }
+
+  /** Returns the gap joining the two anchors of a two-anchor pattern. */
+  private static Gap gapOf(String pattern, int flags) {
+    Regexp ast = Parser.parse(pattern, Pattern.toParseFlags(flags));
+    MultiAnchorDescriptor descriptor = MultiAnchorCompiler.compile(ast, flags);
+    assertThat(descriptor).isNotNull();
+    assertThat(descriptor.segments()).hasSize(2);
+    return descriptor.segments()[1].gap();
+  }
+
   @Test
   void fixedOffsetLiteralExtracted() {
     Regexp ast = Parser.parse("[0-9]{4}-[0-9]{2}-target", Pattern.toParseFlags(0));

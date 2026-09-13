@@ -658,6 +658,44 @@ final class MultiAnchorDescriptor {
             new byte[] {'\n'},
             true);
 
+    /** Returns a gap matching any character, repeated between {@code min} and {@code max} times. */
+    static Gap anyStar(int minLength, int maxLength, boolean isGreedy) {
+      if (minLength == 0 && maxLength == Integer.MAX_VALUE) {
+        return isGreedy ? ANY_STAR_GREEDY : ANY_STAR_LAZY;
+      }
+      return new Gap(GapKind.ANY_STAR, minLength, maxLength, null, isGreedy);
+    }
+
+    /**
+     * Returns a gap matching any character except a line terminator, repeated between {@code min}
+     * and {@code max} times.
+     *
+     * <p>{@code crossesCarriageReturn} distinguishes gaps that match {@code \r} — a dot under
+     * {@code UNIX_LINES}, or {@code [^\n]} — from those that do not. It selects the guard bytes,
+     * which {@link #isPureComplement} reports as the exact set the gap cannot cross, so naming
+     * {@code \r} for a gap that can cross it would stop a scan at a character it should pass.
+     */
+    static Gap singleLineAnyStar(
+        int minLength, int maxLength, boolean isGreedy, boolean crossesCarriageReturn) {
+      if (minLength == 0 && maxLength == Integer.MAX_VALUE) {
+        if (crossesCarriageReturn) {
+          return isGreedy ? SINGLE_LINE_ANY_STAR_UNIX_GREEDY : SINGLE_LINE_ANY_STAR_UNIX_LAZY;
+        }
+        return isGreedy ? SINGLE_LINE_ANY_STAR_GREEDY : SINGLE_LINE_ANY_STAR_LAZY;
+      }
+      return new Gap(
+          GapKind.SINGLE_LINE_ANY_STAR,
+          minLength,
+          maxLength,
+          null,
+          null,
+          null,
+          null,
+          isGreedy,
+          crossesCarriageReturn ? new byte[] {'\n'} : new byte[] {'\n', '\r'},
+          true);
+    }
+
     boolean isFixed() {
       return minLength == maxLength;
     }
@@ -827,7 +865,10 @@ final class MultiAnchorDescriptor {
     static byte[] extractGuardBytes(
         GapKind kind, AsciiBitmap charClass, CharClassScanInfo scanInfo) {
       if (kind == GapKind.SINGLE_LINE_ANY_STAR) {
-        return new byte[] {'\n', '\r'};
+        // Guards cannot be derived here: whether \r is a barrier depends on UNIX_LINES for a dot
+        // and on the class itself for [^\n]. Producers that know call singleLineAnyStar; the rest
+        // get no guards, which costs acceleration but cannot cause a false negative.
+        return null;
       }
       if (kind != GapKind.BOUNDED_CLASS_REPEAT) {
         return null;
