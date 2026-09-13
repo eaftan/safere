@@ -47,7 +47,8 @@ final class ResolvedBenchmarkPlan {
           DeclarativeBenchmarkPlan.Operation.COMPILE,
           DeclarativeBenchmarkPlan.Operation.COMPILE_AND_FIND,
           DeclarativeBenchmarkPlan.Operation.FIND_GROUP_PRESENT,
-          DeclarativeBenchmarkPlan.Operation.FIND_GROUP);
+          DeclarativeBenchmarkPlan.Operation.FIND_GROUP,
+          DeclarativeBenchmarkPlan.Operation.UTF8_CAPTURE_BOUNDS);
 
   private static final EnumSet<DeclarativeBenchmarkPlan.MeasurementMode> PORTABLE_MODES =
       EnumSet.of(
@@ -187,10 +188,12 @@ final class ResolvedBenchmarkPlan {
             PORTABLE_MODES));
 
     EnumSet<DeclarativeBenchmarkPlan.Feature> dotnetFeatures = portableFeatures(false, true, false);
+    dotnetFeatures.remove(DeclarativeBenchmarkPlan.Feature.UTF8_INPUT);
     dotnetFeatures.add(DeclarativeBenchmarkPlan.Feature.FLAGGED_COMPILE);
     dotnetFeatures.add(DeclarativeBenchmarkPlan.Feature.JAVA_CHARACTER_CLASS);
     EnumSet<DeclarativeBenchmarkPlan.Operation> dotnetOperations =
         EnumSet.copyOf(PORTABLE_OPERATIONS);
+    dotnetOperations.remove(DeclarativeBenchmarkPlan.Operation.UTF8_CAPTURE_BOUNDS);
     dotnetOperations.add(DeclarativeBenchmarkPlan.Operation.FIND_ROTATING_UTF16);
     dotnetOperations.add(DeclarativeBenchmarkPlan.Operation.COMPILE_AND_FIND_ROTATING_UTF16);
     result.add(
@@ -257,7 +260,8 @@ final class ResolvedBenchmarkPlan {
             DeclarativeBenchmarkPlan.Feature.CAPTURE_PARTICIPATION,
             DeclarativeBenchmarkPlan.Feature.CAPTURE_TEXT,
             DeclarativeBenchmarkPlan.Feature.NAMED_GROUPS,
-            DeclarativeBenchmarkPlan.Feature.SPLIT);
+            DeclarativeBenchmarkPlan.Feature.SPLIT,
+            DeclarativeBenchmarkPlan.Feature.UTF8_INPUT);
     if (linearTime) {
       features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
     }

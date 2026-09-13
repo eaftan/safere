@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 )
@@ -151,6 +152,23 @@ func groupLengthSum(indices []int, groups []int) int {
 	return total
 }
 
+func captureBounds(re *regexp.Regexp, text string, groups []int, includeEnd bool, observed *[]int) int {
+	total := 0
+	for _, indices := range re.FindAllStringSubmatchIndex(text, -1) {
+		for _, group := range groups {
+			start, end := indices[2*group], indices[2*group+1]
+			total += start
+			if includeEnd {
+				total += end
+			}
+			if observed != nil {
+				*observed = append(*observed, start, end)
+			}
+		}
+	}
+	return total
+}
+
 func capturedText(text string, indices []int, groups []int) string {
 	var result strings.Builder
 	for _, group := range groups {
@@ -217,6 +235,9 @@ func prepare(entry planEntry) func() any {
 		return func() any { return full.MatchString(text) }
 	case "find":
 		return func() any { return re.MatchString(text) }
+	case "utf8CaptureBounds":
+		includeEnd := stringArgument(entry.Arguments, "bounds") != "start"
+		return func() any { return captureBounds(re, text, groups, includeEnd, nil) }
 	case "findAllCount":
 		return func() any { return len(re.FindAllStringIndex(text, -1)) }
 	case "matchesCorpus":
@@ -446,6 +467,17 @@ func main() {
 			continue
 		}
 		operation := prepare(entry)
+		if entry.Operation == "utf8CaptureBounds" {
+			var observed []int
+			captureBounds(regexp.MustCompile(entry.Patterns[0]), loadBenchmarkInput(entry.Inputs[0]),
+				stringsArgument(entry.Arguments, "groups"),
+				stringArgument(entry.Arguments, "bounds") != "start", &observed)
+			expected := stringsArgument(entry.Arguments, "expectedBounds")
+			if !slices.Equal(observed, expected) {
+				panic(fmt.Sprintf("%s capture bounds mismatch: expected %v, got %v",
+					entry.WorkloadID, expected, observed))
+			}
+		}
 		validate(entry, operation)
 		printJSON(measure(entry, operation, smoke))
 	}

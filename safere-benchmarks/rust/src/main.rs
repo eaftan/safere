@@ -192,6 +192,33 @@ fn group_length_sum(captures: &regex::Captures<'_>, groups: &[usize]) -> usize {
         .sum()
 }
 
+fn capture_bounds(
+    regex: &Regex,
+    text: &str,
+    groups: &[usize],
+    include_end: bool,
+    mut observed: Option<&mut Vec<i64>>,
+) -> i64 {
+    let mut total = 0;
+    for captures in regex.captures_iter(text) {
+        for &group in groups {
+            let (start, end) = captures
+                .get(group)
+                .map(|found| (found.start() as i64, found.end() as i64))
+                .unwrap_or((-1, -1));
+            total += start;
+            if include_end {
+                total += end;
+            }
+            if let Some(bounds) = observed.as_mut() {
+                bounds.push(start);
+                bounds.push(end);
+            }
+        }
+    }
+    total
+}
+
 fn captured_text(regex: &Regex, text: &str, groups: &[usize]) -> String {
     let Some(captures) = regex.captures(text) else {
         return String::new();
@@ -212,6 +239,7 @@ struct Prepared {
     inputs: Vec<String>,
     groups: Vec<usize>,
     group: usize,
+    include_end: bool,
     replacement: String,
     limit: usize,
 }
@@ -229,6 +257,7 @@ fn prepare(entry: &Value, corpus: &Corpus) -> Prepared {
             .collect(),
         groups: int_list(arguments, "groups"),
         group: optional_usize(arguments, "group"),
+        include_end: optional_string(arguments, "bounds") != "start",
         replacement: optional_string(arguments, "replacement"),
         limit: optional_usize(arguments, "limit"),
         entry: entry.clone(),
@@ -250,6 +279,13 @@ fn execute(prepared: &Prepared) -> Value {
         }
         "matches" => json!(prepared.full_regex.as_ref().unwrap().is_match(text)),
         "find" => json!(regex.unwrap().is_match(text)),
+        "utf8CaptureBounds" => json!(capture_bounds(
+            regex.unwrap(),
+            text,
+            &prepared.groups,
+            prepared.include_end,
+            None,
+        )),
         "findAllCount" => json!(regex.unwrap().find_iter(text).count()),
         "matchesCorpus" => {
             let full = prepared.full_regex.as_ref().unwrap();
@@ -503,6 +539,22 @@ fn main() {
                 continue;
             }
             let prepared = prepare(entry, &corpus);
+            if prepared.operation == "utf8CaptureBounds" {
+                let mut observed = Vec::new();
+                capture_bounds(
+                    &prepared.regexes[0],
+                    &prepared.inputs[0],
+                    &prepared.groups,
+                    prepared.include_end,
+                    Some(&mut observed),
+                );
+                assert_eq!(
+                    json!(observed),
+                    prepared.entry["arguments"]["expectedBounds"],
+                    "{} capture bounds mismatch",
+                    required_string(entry, "workloadId")
+                );
+            }
             let actual = execute(&prepared);
             validate(entry, &actual);
             println!("{}", measure(&prepared, smoke));
@@ -530,5 +582,16 @@ mod tests {
         assert!(!matches_build_mode(&timing, true));
         assert!(!matches_build_mode(&memory, false));
         assert!(matches_build_mode(&memory, true));
+    }
+
+    #[test]
+    fn capture_bounds_advance_across_multibyte_empty_matches() {
+        let regex = compile("");
+        let mut bounds = Vec::new();
+        assert_eq!(
+            capture_bounds(&regex, "a有", &[0], false, Some(&mut bounds)),
+            5
+        );
+        assert_eq!(bounds, [0, 0, 1, 1, 4, 4]);
     }
 }

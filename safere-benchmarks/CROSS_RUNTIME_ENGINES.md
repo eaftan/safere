@@ -27,6 +27,15 @@ These measurements are cross-runtime context rather than controlled same-JVM
 comparisons. C++, Go, and Rust consume the materialized UTF-8 bytes directly;
 .NET decodes them to strings before measurement.
 
+The six `Utf8MatchingBenchmark` repeated-find and capture-bound rows measure
+pre-existing UTF-8 input on SafeRE UTF-8, C++ RE2, PCRE2 JIT, Go `regexp`, and
+Rust `regex`. Their capture coordinates are byte offsets. Each runner checks
+the complete sequence of selected group starts and ends, including absent
+groups and empty matches across multibyte characters, before measuring the
+integer sum of the requested bounds. These rows are a direct byte-coordinate
+category; Java String capture-text workloads answer a different question.
+The .NET runner remains excluded because its matching input is UTF-16.
+
 ## Shared prerequisites
 
 Every native runner first invokes the Java benchmark-input materializer.

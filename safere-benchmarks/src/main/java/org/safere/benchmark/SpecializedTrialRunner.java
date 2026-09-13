@@ -6,6 +6,8 @@
 package org.safere.benchmark;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.LongAdder;
 import org.openjdk.jmh.infra.Blackhole;
 import org.safere.AlternationFindNextBenchmarkRunner;
@@ -76,6 +78,20 @@ final class SpecializedTrialRunner implements AutoCloseable {
         ((DeclarativeBenchmarkPlan.RecipeIntegerList) workload.arguments().get("groups"))
             .values().stream().mapToInt(Integer::intValue).toArray();
     boolean includeEnd = stringArgument(workload, "bounds", "startEnd").equals("startEnd");
+    List<Integer> expectedBounds =
+        ((DeclarativeBenchmarkPlan.RecipeIntegerList) workload.arguments().get("expectedBounds"))
+            .values();
+    List<Integer> observed = new ArrayList<>();
+    Utf8Matcher verification = pattern.matcher(input);
+    while (verification.find()) {
+      for (int group : groups) {
+        observed.add(verification.start(group));
+        observed.add(verification.end(group));
+      }
+    }
+    if (!observed.equals(expectedBounds)) {
+      throw new IllegalStateException(workload.id() + " capture bounds mismatch: " + observed);
+    }
     return blackhole -> {
       Utf8Matcher matcher = pattern.matcher(input);
       int sum = 0;

@@ -361,6 +361,33 @@ size_t piece_start(
   return static_cast<size_t>(piece.data() - text.data());
 }
 
+int capture_bounds(
+    const RE2& regex, const std::string& text, const std::vector<int>& groups,
+    bool include_end, std::vector<int>* observed) {
+  int capture_count = 1;
+  for (int group : groups) capture_count = std::max(capture_count, group + 1);
+  int total = 0;
+  size_t start = 0;
+  while (start <= text.size()) {
+    auto matches = next_match(regex, text, start, capture_count);
+    if (matches.empty()) break;
+    for (int group : groups) {
+      const auto& piece = matches[group];
+      int begin = piece.data() == nullptr ? -1 : static_cast<int>(piece_start(text, piece));
+      int end = begin < 0 ? -1 : begin + static_cast<int>(piece.size());
+      total += begin;
+      if (include_end) total += end;
+      if (observed != nullptr) {
+        observed->push_back(begin);
+        observed->push_back(end);
+      }
+    }
+    size_t end = piece_start(text, matches[0]) + matches[0].size();
+    start = matches[0].empty() ? advance_utf8(text, end) : end;
+  }
+  return total;
+}
+
 json execute_workload(
     const json& entry, const std::vector<std::unique_ptr<RE2>>& regexes,
     const std::vector<std::string>& texts) {
@@ -390,6 +417,11 @@ json execute_workload(
   if (operation == "find") {
     return regex.Match(
         text, 0, text.size(), RE2::UNANCHORED, nullptr, 0);
+  }
+  if (operation == "utf8CaptureBounds") {
+    return capture_bounds(
+        regex, text, groups, arguments.value("bounds", "startEnd") == "startEnd",
+        nullptr);
   }
   if (operation == "matchesCorpus") {
     int count = 0;
@@ -480,7 +512,7 @@ json execute_workload(
       split_parts.push_back(text.substr(previous, match_start - previous));
       previous = match_end;
     }
-    start = match_end > start ? match_end : advance_utf8(text, start);
+    start = matches[0].empty() ? advance_utf8(text, match_end) : match_end;
   }
   if (operation == "findAllCount") return count;
   if (operation == "findAllLengthSum" ||
@@ -548,6 +580,17 @@ void run_execution_plan(
       texts.push_back(load_benchmark_input(input.get<std::string>()));
     }
     json expected = entry.value("expected", json());
+    if (entry.at("operation") == "utf8CaptureBounds") {
+      std::vector<int> observed;
+      const auto& arguments = entry.at("arguments");
+      capture_bounds(
+          *regexes.front(), texts.front(), arguments.at("groups").get<std::vector<int>>(),
+          arguments.value("bounds", "startEnd") == "startEnd", &observed);
+      if (observed != arguments.at("expectedBounds").get<std::vector<int>>()) {
+        fprintf(stderr, "ERROR: capture bounds mismatch for %s\n", id.c_str());
+        exit(1);
+      }
+    }
     if (!expected.is_null()) {
       json actual = execute_workload(entry, regexes, texts);
       if (actual != expected.at("value")) {
@@ -616,6 +659,28 @@ int main(int argc, char* argv[]) {
     if (!RE2::FullMatch("ab", alternative)) {
       fprintf(stderr, "%s self-test failed to end-anchor alternatives\n",
               kEngineId);
+      return 1;
+    }
+    RE2 empty("");
+    std::vector<int> bounds;
+    if (capture_bounds(empty, "a\xE6\x9C\x89", {0}, false, &bounds) != 5 ||
+        bounds != std::vector<int>({0, 0, 1, 1, 4, 4})) {
+      fprintf(stderr, "%s self-test failed UTF-8 empty-match bounds\n", kEngineId);
+      return 1;
+    }
+    RE2 boundary("\\b");
+    bounds.clear();
+    if (capture_bounds(boundary, " a", {0}, false, &bounds) != 3 ||
+        bounds != std::vector<int>({1, 1, 2, 2})) {
+      fprintf(stderr, "%s self-test repeated a skipped empty match\n", kEngineId);
+      return 1;
+    }
+    std::vector<std::unique_ptr<RE2>> boundary_regexes;
+    boundary_regexes.push_back(std::make_unique<RE2>("\\b"));
+    if (execute_workload(
+            {{"operation", "findAllCount"}, {"arguments", json::object()}},
+            boundary_regexes, {" a"}) != 2) {
+      fprintf(stderr, "%s self-test counted a skipped empty match twice\n", kEngineId);
       return 1;
     }
     std::string replaced = "aaa-bb a-b";
