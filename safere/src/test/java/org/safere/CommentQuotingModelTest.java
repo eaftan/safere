@@ -31,29 +31,37 @@ class CommentQuotingModelTest {
       String description, String prefix, String suffix, int flags, String newline) {
     String comment = prefix + "#\\Q" + newline;
 
+    // Unicode comment terminators are not COMMENTS whitespace and remain literal atoms.
+    String retained =
+        newline.equals("\u0085") || newline.equals("\u2028") || newline.equals("\u2029")
+            ? newline
+            : "";
     Pattern wildcard = Pattern.compile(comment + "." + suffix, flags);
-    assertThat(wildcard.matcher("x").matches()).isTrue();
-    assertThat(wildcard.matcher(".").matches()).isTrue();
+    assertThat(wildcard.matcher(retained + "x").matches()).isTrue();
+    assertThat(wildcard.matcher(retained + ".").matches()).isTrue();
 
-    Matcher capture = Pattern.compile(comment + "(a+)" + suffix, flags).matcher("aaa");
+    Matcher capture = Pattern.compile(comment + "(a+)" + suffix, flags).matcher(retained + "aaa");
     assertThat(capture.matches()).isTrue();
     assertThat(capture.groupCount()).isEqualTo(1);
     assertThat(capture.group(1)).isEqualTo("aaa");
 
-    Pattern range = Pattern.compile(prefix + "[a#\\Q" + newline + "-z]" + suffix, flags);
+    Pattern range = Pattern.compile(prefix + "[#\\Q" + newline + "a-z]" + suffix, flags);
     assertThat(range.matcher("m").matches()).isTrue();
     assertThat(range.matcher("-").matches()).isFalse();
+    if (!retained.isEmpty()) {
+      assertThat(range.matcher(retained).matches()).isTrue();
+    }
 
     Pattern quote = Pattern.compile(comment + "\\Q(\\E" + suffix, flags);
-    assertThat(quote.matcher("(").matches()).isTrue();
-    assertThat(quote.matcher("Q(").matches()).isFalse();
+    assertThat(quote.matcher(retained + "(").matches()).isTrue();
+    assertThat(quote.matcher(retained + "Q(").matches()).isFalse();
   }
 
   @ParameterizedTest(name = "[{index}] {0}")
   @MethodSource("commentContexts")
   void commentQuotesDoNotHideSyntaxErrors(
       String description, String prefix, String suffix, int flags, String newline) {
-    for (String invalid : new String[] {"(", "*", ".\\E"}) {
+    for (String invalid : new String[] {"(", "(*)", ".\\E"}) {
       String regex = prefix + "#\\Q" + newline + invalid + suffix;
       assertThatThrownBy(() -> Pattern.compile(regex, flags))
           .as("%s: syntax after ignored comment: %s", description, invalid)
@@ -62,10 +70,16 @@ class CommentQuotingModelTest {
   }
 
   private static Stream<Arguments> commentContexts() {
-    return Stream.of("\n", "\r", "\r\n")
+    return Stream.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029")
         .flatMap(
             newline -> {
-              String label = newline.replace("\r", "CR").replace("\n", "LF");
+              String label =
+                  newline
+                      .replace("\r", "CR")
+                      .replace("\n", "LF")
+                      .replace("\u0085", "NEL")
+                      .replace("\u2028", "LS")
+                      .replace("\u2029", "PS");
               return Stream.of(
                   Arguments.of("compile flag / " + label, "", "", Pattern.COMMENTS, newline),
                   Arguments.of("inline flag / " + label, "(?x)", "", 0, newline),

@@ -117,7 +117,8 @@ public final class ParserCompatibilityFuzzer {
     "({01,03})"
   };
   private static final String[] COMMENT_TERMINATED_PREFIXES = {
-    "a#\0", "a#\n", "a#\r", "a#\u0085", "a#\u2028", "a#\u2029"
+    "a#\0", "a#\n", "a#\r", "a#\u0085", "a#\u2028", "a#\u2029",
+    "a#\\Q\n", "a#\\Q\r", "a#\\Q\r\n", "a#\\Q\u0085", "a#\\Q\u2028", "a#\\Q\u2029"
   };
   private static final String[] MALFORMED_GROUP_SUFFIXES = {"(", "|(", "b|(", "(?:b)|("};
   private static final List<String> INPUTS =
