@@ -1070,8 +1070,6 @@ Store state, reports, and artifacts under ~/.codex/safere-pr-review and update L
 
 ## Discipline
 
-- Preserve queue throughput: report design-level findings instead of turning one PR into a large
-  local rewrite.
 - Converge review and run cheap preflights before expensive tests; run broad validation once per
   final semantic tree.
 - Verify that an exact benchmark exists in the PR or can be transplanted unchanged before launching
