@@ -1203,8 +1203,10 @@ final class Dfa {
               isMatchValid = true;
             }
           }
-          if (isMatchValid && !prog.reversed()) {
-            break; // Prune all lower-priority branches!
+          if (!longest && isMatchValid && !prog.reversed()) {
+            // Only first-match search can discard lower-priority consuming branches.
+            // Longest-match search must retain them because they may extend this match.
+            break;
           }
         } else {
           for (int x : expanded) {

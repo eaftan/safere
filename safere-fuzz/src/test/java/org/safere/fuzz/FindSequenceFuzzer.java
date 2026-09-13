@@ -15,6 +15,17 @@ public final class FindSequenceFuzzer {
       List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
 
   @Test
+  void deferredAssertionsPreserveFullMatchAlternatives() {
+    for (String assertion : List.of("\\b", "\\B", "(?m:$)")) {
+      for (String atom : List.of("a", "!", "\n", "α", "😀")) {
+        String literal = java.util.regex.Pattern.quote(atom);
+        String regex = "(?U)" + literal + "*(?:" + literal + literal + "|" + assertion + ")";
+        FuzzSupport.compileOrSkip(regex, 0).matcher(atom.repeat(2)).matches();
+      }
+    }
+  }
+
+  @Test
   void reusedMultilineDollarKeepsCrLfAtomic() {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip("\\W*(?m:$)", 0);
     pattern.matcher(" \na").find();
@@ -133,7 +144,7 @@ public final class FindSequenceFuzzer {
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
     String warmInput = null;
-    switch (data.consumeInt(0, 13)) {
+    switch (data.consumeInt(0, 14)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -249,6 +260,25 @@ public final class FindSequenceFuzzer {
         String word = data.pickValue(List.of("α", "中", "\u0301", "\u0660", "\u200c"));
         String nonWord = data.pickValue(List.of("`", "\u180e", "!"));
         input = "x".repeat(data.consumeInt(0, 512)) + " " + word + nonWord + nonWord;
+      }
+      case 14 -> {
+        String atom = data.pickValue(List.of("a", "!", "α", "😀", "\n", "\r\n"));
+        String literal = java.util.regex.Pattern.quote(atom);
+        String assertion = data.pickValue(List.of("\\b", "\\B", "(?m:$)"));
+        String consuming = literal.repeat(data.consumeInt(1, 4));
+        String alternatives =
+            data.consumeBoolean() ? assertion + "|" + consuming : consuming + "|" + assertion;
+        regex =
+            "(?:"
+                + literal
+                + ")"
+                + data.pickValue(List.of("*", "*?", "+", "{0,3}"))
+                + "(?:"
+                + alternatives
+                + ")";
+        flags = data.consumeBoolean() ? java.util.regex.Pattern.UNICODE_CHARACTER_CLASS : 0;
+        input = atom.repeat(data.consumeInt(0, 600)) + (data.consumeBoolean() ? "x" : "");
+        FuzzSupport.compileOrSkip(regex, flags).matcher(input).matches();
       }
       default -> throw new AssertionError();
     }

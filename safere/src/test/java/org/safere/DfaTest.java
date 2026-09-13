@@ -30,6 +30,33 @@ class DfaTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void longestDeferredMatchRetainsEveryConsumingBranch() {
+    // Issue #857: each assertion succeeds before the consuming alternative finishes.
+    for (String assertion : List.of("\\b", "\\B", "(?m:$)")) {
+      String text =
+          switch (assertion) {
+            case "\\b" -> "a!a";
+            case "\\B" -> "aaa";
+            default -> "a\na";
+          };
+      for (boolean assertionFirst : new boolean[] {false, true}) {
+        String suffix = Pattern.quote(text.substring(1));
+        String alternatives = assertionFirst ? assertion + "|" + suffix : suffix + "|" + assertion;
+        Pattern pattern = Pattern.compile("a(?:" + alternatives + ")");
+        Dfa longest = new Dfa(pattern.prog(), 10000, Dfa.buildSetup(pattern.prog()), true);
+        for (int pass = 0; pass < 2; pass++) {
+          for (boolean anchored : new boolean[] {true, false}) {
+            Dfa.SearchResult result = longest.doSearch(text, anchored, true);
+            assertThat(result).as(assertion).isNotNull();
+            assertThat(result.matched()).as(assertion).isTrue();
+            assertThat(result.pos()).as(assertion).isEqualTo(text.length());
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void startCacheAllocationIsBoundedIndependentlyOfAssertionBits() throws Exception {
     Field cache = Dfa.class.getDeclaredField("startStateByContext");
     cache.setAccessible(true);
