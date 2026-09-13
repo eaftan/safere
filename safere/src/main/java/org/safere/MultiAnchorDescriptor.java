@@ -455,9 +455,9 @@ final class MultiAnchorDescriptor {
 
   private static boolean isExecutableLeadingGap(Gap gap) {
     return switch (gap.kind()) {
-      case EMPTY, TEXT_START, ANY_STAR, SINGLE_LINE_ANY_STAR -> true;
-      case BOUNDED_CLASS_REPEAT ->
-          gap.scanInfo() != null || gap.charClass() != null || gap.isExecutorGuardedGap();
+      case EMPTY, TEXT_START -> true;
+      case BOUNDED_CLASS_REPEAT -> gap.isExecutorFixedGap();
+      case ANY_STAR, SINGLE_LINE_ANY_STAR -> false;
       case TEXT_END, WORD_BOUNDARY, NO_WORD_BOUNDARY, LINE_START, LINE_END -> false;
     };
   }
