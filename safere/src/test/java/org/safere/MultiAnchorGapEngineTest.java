@@ -22,6 +22,145 @@ import org.safere.MultiAnchorDescriptor.StartPlan;
 class MultiAnchorGapEngineTest {
 
   @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void upstreamBacktrackingRevalidatesDescendantSearchState(boolean useUtf8) {
+    for (String upstream : List.of(".*", ".*?", ".{0,30}", ".{0,30}?")) {
+      for (String downstream : List.of("[^;]*", "[^;]*?", "[^;]+", "[^;]+?")) {
+        String regex = "AAA" + upstream + "BBB" + downstream + "CCC";
+        Pattern pattern = Pattern.compile(regex);
+        for (String body :
+            List.of(
+                "AAABBB;CCCBBB",
+                "AAABBBCCCBBB\n",
+                "AAABBBxCCCBBB;CCC",
+                "AAABBB;BBBCCC",
+                "AAABBBCCCBBBCCC")) {
+          for (int padding : new int[] {0, 50, 300}) {
+            String input = "z".repeat(padding) + body + "z".repeat(100);
+            List<String> expected =
+                java.util.regex.Pattern.compile(regex)
+                    .matcher(input)
+                    .results()
+                    .map(result -> result.group())
+                    .toList();
+            assertThat(findMatches(pattern, input, useUtf8))
+                .as("%s on %s", regex, input)
+                .containsExactlyElementsOf(expected);
+          }
+        }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void boundedDotsCountCodePointsInEveryGapPosition(boolean useUtf8) {
+    // Pattern's dot and quantifier rules count characters, independently of their encoding.
+    for (int flags : new int[] {0, Pattern.DOTALL, Pattern.UNIX_LINES}) {
+      for (String unit : List.of("x", "é", "\ud83d\ude00", "x\ud83d\ude00")) {
+        for (String bounds : List.of("{0,2}", "{1,2}", "{2,3}", "{3,4}", "{2,}")) {
+          for (String priority : List.of("", "?")) {
+            String gap = "." + bounds + priority;
+            for (int n = 0; n <= 5; n++) {
+              String run = unit.repeat(n);
+              for (int position = 0; position < 3; position++) {
+                String regex =
+                    switch (position) {
+                      case 0 -> gap + "AAA.*?BBB";
+                      case 1 -> "AAA" + gap + "BBB";
+                      default -> "AAA.*?BBB" + gap;
+                    };
+                String input =
+                    switch (position) {
+                      case 0 -> run + "AAABBB";
+                      case 1 -> "AAA" + run + "BBB";
+                      default -> "AAABBB" + run;
+                    };
+                List<String> expected =
+                    java.util.regex.Pattern.compile(regex, flags)
+                        .matcher(input)
+                        .results()
+                        .map(result -> result.group())
+                        .toList();
+                assertThat(findMatches(Pattern.compile(regex, flags), input, useUtf8))
+                    .as("%s flags=%d on %s", regex, flags, input)
+                    .containsExactlyElementsOf(expected);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @Tag("work-counter")
+  @ValueSource(booleans = {false, true})
+  void upstreamBacktrackingWithGuardedDescendantsHasLinearWork(boolean useUtf8) {
+    Pattern pattern = Pattern.compile("AAA.*BBB[^;]*?CCC");
+    long smaller = guardedBacktrackingWork(pattern, 1_000, useUtf8);
+    long larger = guardedBacktrackingWork(pattern, 5_000, useUtf8);
+    assertThat(larger).as("work for five times as many guarded retries").isLessThan(smaller * 6);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void repeatedFixedGapChecksExhaustExecutorBudget(boolean useUtf8) {
+    int length = 64;
+    Pattern pattern = Pattern.compile("AAA.*?BBB[AB]{" + length + "}CCC");
+    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    String input = "CCC AAA" + "B".repeat(length) + "A".repeat(length) + ";";
+    MultiAnchorExecutor.Result result =
+        useUtf8
+            ? MultiAnchorExecutor.find(
+                pattern.multiAnchor(), new Utf8InputScanner(input.getBytes(UTF_8)), 0)
+            : MultiAnchorExecutor.find(pattern.multiAnchor(), input, 0);
+    assertThat(result.isFallback()).isTrue();
+    assertThat(findMatches(pattern, input, useUtf8)).isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void repeatedReverseTrailingAndLeadingScansExhaustExecutorBudget(boolean useUtf8) {
+    int length = 64;
+    List<String> regexes =
+        List.of(
+            "AAA[AB]{" + length + "}BBB",
+            "AAA.*?BBB[AB]{" + (length * 2) + "}",
+            "[AB]{" + length + "}AAA.{0,1}?BBB");
+    List<String> inputs =
+        List.of(
+            "AAA" + "X" + "B".repeat(length * 2),
+            "CCC AAA" + "B".repeat(length) + "A".repeat(length) + ";",
+            "BBB" + "A".repeat(length * 2));
+    for (int i = 0; i < regexes.size(); i++) {
+      Pattern pattern = Pattern.compile(regexes.get(i));
+      String input = inputs.get(i);
+      assertThat(pattern.multiAnchor().isExecutableChain()).as(regexes.get(i)).isTrue();
+      MultiAnchorExecutor.Result result =
+          useUtf8
+              ? MultiAnchorExecutor.find(
+                  pattern.multiAnchor(), new Utf8InputScanner(input.getBytes(UTF_8)), 0)
+              : MultiAnchorExecutor.find(pattern.multiAnchor(), input, 0);
+      assertThat(result.isFallback()).as(regexes.get(i)).isTrue();
+      assertThat(findMatches(pattern, input, useUtf8)).as(regexes.get(i)).isEmpty();
+    }
+  }
+
+  private static long guardedBacktrackingWork(Pattern pattern, int repeats, boolean useUtf8) {
+    String input = "AAABBB;CCCBBB".repeat(repeats);
+    return WorkCounter.countForTesting(
+        () -> {
+          if (useUtf8) {
+            assertThat(pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8))).find())
+                .isFalse();
+          } else {
+            assertThat(pattern.matcher(input).find()).isFalse();
+          }
+        });
+  }
+
+  @ParameterizedTest
   @Tag("work-counter")
   @ValueSource(strings = {"AAA[0-9]BBB", "AAA[0-9]BBB[0-9]CCC[0-9]DDD"})
   void eligibilityQueriesDoNotRevisitCompiledSegments(String regex) {
@@ -142,11 +281,11 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void multiInfixBasicMatch() {
+  void multiInfixWithLeadingWildcardUsesFallback() {
     String regex = ".*foo.*bar.*baz.*";
     Pattern pattern = Pattern.compile(regex);
 
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
+    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
 
     String text = "prefix foo intermediate bar trailing baz suffix";
     Matcher matcher = pattern.matcher(text);
@@ -335,7 +474,33 @@ class MultiAnchorGapEngineTest {
   void variableInternalGapsRemainExecutable() {
     assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isTrue();
     assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isTrue();
-    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain()).isTrue();
+    assertThat(Pattern.compile("AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain()).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void variableLeadingGapsUseGeneralEngineForLeftmostPriority(boolean useUtf8) {
+    for (String regex :
+        List.of(
+            ".*AAA.*?BBB",
+            "(?s).*AAA.*?BBB",
+            ".{0,10}AAA.*?BBB",
+            ".*?AAA[^;]*BBB",
+            "(?s).*?AAA[^;]*BBB")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.multiAnchor().isExecutableChain()).as(regex).isFalse();
+      for (String input : List.of("AAABBB AAABBB", "AAA;AAAxxBBB", "xAAABBB")) {
+        List<String> expected =
+            java.util.regex.Pattern.compile(regex)
+                .matcher(input)
+                .results()
+                .map(result -> result.group())
+                .toList();
+        assertThat(findMatches(pattern, input, useUtf8))
+            .as("%s on %s", regex, input)
+            .containsExactlyElementsOf(expected);
+      }
+    }
   }
 
   @Test

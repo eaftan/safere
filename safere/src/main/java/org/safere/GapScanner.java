@@ -531,7 +531,16 @@ final class GapScanner {
       case NO_WORD_BOUNDARY -> len == 0 && !isWordBoundary(text, from);
       case LINE_START -> len == 0 && isLineStart(text, from);
       case LINE_END -> len == 0 && isLineEnd(text, from);
-      case ANY_STAR -> len >= gap.minLength() && len <= gap.maxLength();
+      case ANY_STAR -> {
+        if (len < gap.minLength()) {
+          yield false;
+        }
+        if (gap.minLength() == 0 && gap.maxLength() == Integer.MAX_VALUE) {
+          yield true;
+        }
+        int count = Character.codePointCount(text, from, to);
+        yield count >= gap.minLength() && count <= gap.maxLength();
+      }
       case SINGLE_LINE_ANY_STAR -> {
         if (gap.guardBytes() != null) {
           int g = findFirstGuardByte(gap.guardBytes(), text, from, to);
@@ -610,7 +619,21 @@ final class GapScanner {
       case NO_WORD_BOUNDARY -> len == 0 && !isWordBoundary(scanner, from);
       case LINE_START -> len == 0 && isLineStart(scanner, from);
       case LINE_END -> len == 0 && isLineEnd(scanner, from);
-      case ANY_STAR -> len >= gap.minLength() && len <= gap.maxLength();
+      case ANY_STAR -> {
+        if (len < gap.minLength()) {
+          yield false;
+        }
+        if (gap.minLength() == 0 && gap.maxLength() == Integer.MAX_VALUE) {
+          yield true;
+        }
+        int count = 0;
+        for (int i = from; i < to; ) {
+          long decoded = scanner.decodeForward(i);
+          count++;
+          i = InputScanner.position(decoded);
+        }
+        yield count >= gap.minLength() && count <= gap.maxLength();
+      }
       case SINGLE_LINE_ANY_STAR -> {
         if (gap.guardBytes() != null) {
           int g = findFirstGuardByte(gap.guardBytes(), scanner, from, to);
@@ -700,10 +723,7 @@ final class GapScanner {
       case BOUNDED_CLASS_REPEAT -> {
         int count = 0;
         int cur = anchorPos;
-        int minMatchPos = -1;
-        if (gap.minLength() == 0) {
-          minMatchPos = cur;
-        }
+        int minMatchPos = gap.minLength() == 0 ? cur : -1;
         while (count < gap.maxLength() && cur > minPos) {
           int cp = text.codePointBefore(cur);
           int prevPos = cur - Character.charCount(cp);
@@ -747,10 +767,7 @@ final class GapScanner {
       case BOUNDED_CLASS_REPEAT -> {
         int count = 0;
         int cur = anchorPos;
-        int minMatchPos = -1;
-        if (gap.minLength() == 0) {
-          minMatchPos = cur;
-        }
+        int minMatchPos = gap.minLength() == 0 ? cur : -1;
         while (count < gap.maxLength() && cur > minPos) {
           long decoded = scanner.decodeBackward(cur);
           int cp = InputScanner.codePoint(decoded);

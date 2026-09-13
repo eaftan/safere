@@ -171,6 +171,11 @@ final class MultiAnchorExecutor {
           && leadingGap.kind() == MultiAnchorDescriptor.GapKind.TEXT_START) {
         return Result.MISMATCH;
       }
+      if (leadingGap.isExecutorFixedGap()
+          && leadingGap.minLength() > 0
+          && chargeWork(workHolder, leadingGap.minLength(), workLimit)) {
+        return Result.FALLBACK;
+      }
 
       int matchStart;
       int currentPos;
@@ -210,6 +215,10 @@ final class MultiAnchorExecutor {
 
           int searchUpperBound = curAnchorStart - minHop;
           int searchLowerBound = Math.max(minReverseWatermark, curAnchorStart - maxHop);
+          // The reverse class scan and anchor search can revisit this window for each driver.
+          if (chargeWork(workHolder, Math.max(1, curAnchorStart - searchLowerBound), workLimit)) {
+            return Result.FALLBACK;
+          }
           int earliestGapStart = gap.scanClassStart(scanner, searchLowerBound, curAnchorStart);
           if (curAnchorStart - earliestGapStart < gap.minLength()) {
             upstreamMatched = false;
@@ -231,6 +240,10 @@ final class MultiAnchorExecutor {
           }
 
           int uLen = upstreamAnchor.lengthAt(scanner, pUpstream);
+          if (chargeWork(
+              workHolder, Math.max(1L, (long) curAnchorStart - pUpstream - uLen), workLimit)) {
+            return Result.FALLBACK;
+          }
           boolean sliceValid =
               uLen > 0
                   && pUpstream + uLen >= earliestGapStart
@@ -257,6 +270,10 @@ final class MultiAnchorExecutor {
                 break;
               }
               uLen = upstreamAnchor.lengthAt(scanner, pUpstream);
+              if (chargeWork(
+                  workHolder, Math.max(1L, (long) curAnchorStart - pUpstream - uLen), workLimit)) {
+                return Result.FALLBACK;
+              }
               if (uLen > 0
                   && pUpstream + uLen >= earliestGapStart
                   && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
@@ -324,6 +341,7 @@ final class MultiAnchorExecutor {
       // gap
       if (driverIdx < numSegments - 1) {
         int seg1Base = (driverIdx + 1) * STATE_STRIDE;
+        setSegmentStart(scratch, driverIdx + 1, currentPos);
         MultiAnchorDescriptor.Segment seg1 = segments[driverIdx + 1];
         MultiAnchorDescriptor.Gap gap1 = seg1.gap();
         boolean reluctantGuarded = gap1.isExecutorGuardedGap() && !gap1.isGreedy();
@@ -519,6 +537,11 @@ final class MultiAnchorExecutor {
           && leadingGap.kind() == MultiAnchorDescriptor.GapKind.TEXT_START) {
         return Result.MISMATCH;
       }
+      if (leadingGap.isExecutorFixedGap()
+          && leadingGap.minLength() > 0
+          && chargeWork(workHolder, leadingGap.minLength(), workLimit)) {
+        return Result.FALLBACK;
+      }
 
       int matchStart;
       int currentPos;
@@ -558,6 +581,9 @@ final class MultiAnchorExecutor {
 
           int searchUpperBound = curAnchorStart - minHop;
           int searchLowerBound = Math.max(minReverseWatermark, curAnchorStart - maxHop);
+          if (chargeWork(workHolder, Math.max(1, curAnchorStart - searchLowerBound), workLimit)) {
+            return Result.FALLBACK;
+          }
           int earliestGapStart = gap.scanClassStart(text, searchLowerBound, curAnchorStart);
           if (curAnchorStart - earliestGapStart < gap.minLength()) {
             upstreamMatched = false;
@@ -579,6 +605,10 @@ final class MultiAnchorExecutor {
           }
 
           int uLen = upstreamAnchor.lengthAt(text, pUpstream);
+          if (chargeWork(
+              workHolder, Math.max(1L, (long) curAnchorStart - pUpstream - uLen), workLimit)) {
+            return Result.FALLBACK;
+          }
           boolean sliceValid =
               uLen > 0
                   && pUpstream + uLen >= earliestGapStart
@@ -606,6 +636,10 @@ final class MultiAnchorExecutor {
                 break;
               }
               uLen = upstreamAnchor.lengthAt(text, pUpstream);
+              if (chargeWork(
+                  workHolder, Math.max(1L, (long) curAnchorStart - pUpstream - uLen), workLimit)) {
+                return Result.FALLBACK;
+              }
               if (uLen > 0
                   && pUpstream + uLen >= earliestGapStart
                   && curAnchorStart - (pUpstream + uLen) >= gap.minLength()
@@ -674,6 +708,7 @@ final class MultiAnchorExecutor {
       // gap
       if (driverIdx < numSegments - 1) {
         int seg1Base = (driverIdx + 1) * STATE_STRIDE;
+        setSegmentStart(scratch, driverIdx + 1, currentPos);
         MultiAnchorDescriptor.Segment seg1 = segments[driverIdx + 1];
         MultiAnchorDescriptor.Gap gap1 = seg1.gap();
         boolean reluctantGuarded = gap1.isExecutorGuardedGap() && !gap1.isGreedy();
@@ -772,6 +807,9 @@ final class MultiAnchorExecutor {
       long[] workHolder,
       long workLimit) {
     if (startSeg == segments.length) {
+      if (chargeTrailingWork(trailingGap, startPos, textLen, workHolder, workLimit)) {
+        return WORK_LIMIT_EXHAUSTED;
+      }
       return trailingGap.isExecutorFixedGap()
           ? trailingGap.matchExecutorFixedForward(scanner, startPos, textLen)
           : trailingGap.expandTrailing(scanner, startPos, textLen);
@@ -793,6 +831,15 @@ final class MultiAnchorExecutor {
           s--;
           continue;
         }
+        // A failed fixed gap can be retried at many upstream anchor placements.
+        long fixedWork = (long) gap.minLength() + anchor.maxLength();
+        workHolder[0] += fixedWork;
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(fixedWork);
+        }
+        if (WorkLimit.isExhausted(workHolder[0], workLimit)) {
+          return WORK_LIMIT_EXHAUSTED;
+        }
         int p = gap.matchExecutorFixedForward(scanner, currentPos, textLen);
         if (p < 0 || !anchor.startsWith(scanner, p)) {
           backtrack = true;
@@ -809,6 +856,9 @@ final class MultiAnchorExecutor {
         state[base + OFFSET_ANCHOR_LEN] = anchorLen;
 
         if (s == segments.length - 1) {
+          if (chargeTrailingWork(trailingGap, p + anchorLen, textLen, workHolder, workLimit)) {
+            return WORK_LIMIT_EXHAUSTED;
+          }
           int matchEnd =
               trailingGap.isExecutorFixedGap()
                   ? trailingGap.matchExecutorFixedForward(scanner, p + anchorLen, textLen)
@@ -822,7 +872,7 @@ final class MultiAnchorExecutor {
         }
 
         s++;
-        state[s * STATE_STRIDE + OFFSET_CUR_POS] = p + anchorLen;
+        setSegmentStart(state, s, p + anchorLen);
         backtrack = false;
         continue;
       }
@@ -1011,6 +1061,9 @@ final class MultiAnchorExecutor {
       int anchorLen = state[base + OFFSET_ANCHOR_LEN];
 
       if (s == segments.length - 1) {
+        if (chargeTrailingWork(trailingGap, p + anchorLen, textLen, workHolder, workLimit)) {
+          return WORK_LIMIT_EXHAUSTED;
+        }
         int matchEnd =
             trailingGap.isExecutorFixedGap()
                 ? trailingGap.matchExecutorFixedForward(scanner, p + anchorLen, textLen)
@@ -1023,7 +1076,7 @@ final class MultiAnchorExecutor {
       }
 
       s++;
-      state[s * STATE_STRIDE + OFFSET_CUR_POS] = p + anchorLen;
+      setSegmentStart(state, s, p + anchorLen);
       backtrack = false;
     }
 
@@ -1041,6 +1094,9 @@ final class MultiAnchorExecutor {
       long[] workHolder,
       long workLimit) {
     if (startSeg == segments.length) {
+      if (chargeTrailingWork(trailingGap, startPos, textLen, workHolder, workLimit)) {
+        return WORK_LIMIT_EXHAUSTED;
+      }
       return trailingGap.isExecutorFixedGap()
           ? trailingGap.matchExecutorFixedForward(text, startPos, textLen)
           : trailingGap.expandTrailing(text, startPos, textLen);
@@ -1062,6 +1118,14 @@ final class MultiAnchorExecutor {
           s--;
           continue;
         }
+        long fixedWork = (long) gap.minLength() + anchor.maxLength();
+        workHolder[0] += fixedWork;
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(fixedWork);
+        }
+        if (WorkLimit.isExhausted(workHolder[0], workLimit)) {
+          return WORK_LIMIT_EXHAUSTED;
+        }
         int p = gap.matchExecutorFixedForward(text, currentPos, textLen);
         if (p < 0 || !anchor.startsWith(text, p)) {
           backtrack = true;
@@ -1078,6 +1142,9 @@ final class MultiAnchorExecutor {
         state[base + OFFSET_ANCHOR_LEN] = anchorLen;
 
         if (s == segments.length - 1) {
+          if (chargeTrailingWork(trailingGap, p + anchorLen, textLen, workHolder, workLimit)) {
+            return WORK_LIMIT_EXHAUSTED;
+          }
           int matchEnd =
               trailingGap.isExecutorFixedGap()
                   ? trailingGap.matchExecutorFixedForward(text, p + anchorLen, textLen)
@@ -1091,7 +1158,7 @@ final class MultiAnchorExecutor {
         }
 
         s++;
-        state[s * STATE_STRIDE + OFFSET_CUR_POS] = p + anchorLen;
+        setSegmentStart(state, s, p + anchorLen);
         backtrack = false;
         continue;
       }
@@ -1284,6 +1351,9 @@ final class MultiAnchorExecutor {
       int anchorLen = state[base + OFFSET_ANCHOR_LEN];
 
       if (s == segments.length - 1) {
+        if (chargeTrailingWork(trailingGap, p + anchorLen, textLen, workHolder, workLimit)) {
+          return WORK_LIMIT_EXHAUSTED;
+        }
         int matchEnd =
             trailingGap.isExecutorFixedGap()
                 ? trailingGap.matchExecutorFixedForward(text, p + anchorLen, textLen)
@@ -1296,7 +1366,7 @@ final class MultiAnchorExecutor {
       }
 
       s++;
-      state[s * STATE_STRIDE + OFFSET_CUR_POS] = p + anchorLen;
+      setSegmentStart(state, s, p + anchorLen);
       backtrack = false;
     }
 
@@ -1311,6 +1381,38 @@ final class MultiAnchorExecutor {
       WorkCounter.record(Math.max(0, examinedEnd - fromIndex));
     }
     return result;
+  }
+
+  private static void setSegmentStart(int[] state, int segment, int currentPos) {
+    int base = segment * STATE_STRIDE;
+    if (state[base + OFFSET_CUR_POS] != currentPos) {
+      // A descendant's guard scan and failed-anchor watermark only describe the gap starting
+      // at the position that established them. Upstream backtracking can move that start either
+      // direction; the existing work budget bounds any scanning repeated after invalidation.
+      state[base + OFFSET_WATERMARK] = -1;
+      state[base + OFFSET_GUARD_END] = -1;
+      state[base + OFFSET_CUR_POS] = currentPos;
+    }
+  }
+
+  private static boolean chargeWork(long[] workHolder, long units, long workLimit) {
+    workHolder[0] += units;
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record(units);
+    }
+    return WorkLimit.isExhausted(workHolder[0], workLimit);
+  }
+
+  private static boolean chargeTrailingWork(
+      MultiAnchorDescriptor.Gap gap, int fromPos, int textLen, long[] workHolder, long workLimit) {
+    long units =
+        gap.isExecutorFixedGap()
+            ? gap.minLength()
+            : switch (gap.kind()) {
+              case ANY_STAR, SINGLE_LINE_ANY_STAR, BOUNDED_CLASS_REPEAT -> textLen - fromPos;
+              default -> 0;
+            };
+    return units > 0 && chargeWork(workHolder, units, workLimit);
   }
 
   private static int advanceCandidatePos(int currentCandidatePos, int pDriver, int minUpstreamLen) {
@@ -1333,7 +1435,7 @@ final class MultiAnchorExecutor {
 
   private static boolean gapScansText(MultiAnchorDescriptor.Gap gap, boolean reluctantGuarded) {
     if (reluctantGuarded) {
-      return gap.maxLength() != Integer.MAX_VALUE;
+      return true;
     }
     return gap.kind() == MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT
         || gap.kind() == MultiAnchorDescriptor.GapKind.SINGLE_LINE_ANY_STAR;

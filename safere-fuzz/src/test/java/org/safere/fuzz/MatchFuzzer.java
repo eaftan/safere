@@ -5,11 +5,15 @@
 
 package org.safere.fuzz;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 import java.util.Locale;
 import org.safere.Pattern;
+import org.safere.Utf8Input;
+import org.safere.Utf8Matcher;
 
 public final class MatchFuzzer {
   private static final int CI = Pattern.CASE_INSENSITIVE;
@@ -61,6 +65,7 @@ public final class MatchFuzzer {
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
     assertScopedCaseFoldingMatchesJdk(data);
     assertMultiAnchorGapBoundsMatchJdk(data);
+    assertVariableGapStateMatchesJdk(data);
     assertLeadingClassAssertionsMatchJdk(data);
     assertFactoredPrefixCaseFlagsMatchJdk(data);
     assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(data);
@@ -100,6 +105,64 @@ public final class MatchFuzzer {
       pattern.appendCodePoint(0x1000 + i * 2);
     }
     return pattern.toString();
+  }
+
+  private static void assertVariableGapStateMatchesJdk(FuzzedDataProvider data) {
+    String regex;
+    String input;
+    if (data.consumeBoolean()) {
+      String upstream = data.pickValue(List.of(".*", ".*?", ".{0,30}", ".{0,30}?"));
+      String descendant = data.pickValue(List.of("[^;]*", "[^;]*?", "[^;]+", "[^;]+?"));
+      regex = "AAA" + upstream + "BBB" + descendant + "CCC";
+      String body =
+          data.pickValue(
+              List.of(
+                  "AAABBB;CCCBBB",
+                  "AAABBBCCCBBB\n",
+                  "AAABBBxCCCBBB;CCC",
+                  "AAABBB;BBBCCC",
+                  "AAABBBCCCBBBCCC"));
+      input = "z".repeat(data.consumeInt(0, 300)) + body + "z".repeat(data.consumeInt(0, 300));
+    } else {
+      int minimum = data.consumeInt(0, 4);
+      int maximum = data.consumeInt(minimum + 1, 6);
+      String gap = ".{" + minimum + "," + maximum + "}" + (data.consumeBoolean() ? "?" : "");
+      String run = data.pickValue(List.of("x", "é", "😀", "x😀")).repeat(data.consumeInt(0, 7));
+      String flags = data.pickValue(List.of("", "(?s)", "(?d)"));
+      switch (data.consumeInt(0, 2)) {
+        case 0 -> {
+          regex = flags + gap + "AAA.*?BBB";
+          input = run + "AAABBB";
+        }
+        case 1 -> {
+          regex = flags + "AAA" + gap + "BBB";
+          input = "AAA" + run + "BBB";
+        }
+        default -> {
+          regex = flags + "AAA.*?BBB" + gap;
+          input = "AAABBB" + run;
+        }
+      }
+    }
+    FuzzSupport.CompiledPattern compiled = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (compiled != null) {
+      FuzzSupport.MatcherPair matcher = compiled.matcher(input);
+      while (matcher.find()) {}
+    }
+    java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(input);
+    Utf8Matcher actual = Pattern.compile(regex).matcher(Utf8Input.validated(input.getBytes(UTF_8)));
+    while (true) {
+      boolean found = expected.find();
+      if (actual.find() != found
+          || (found
+              && (actual.start() != input.substring(0, expected.start()).getBytes(UTF_8).length
+                  || actual.end() != input.substring(0, expected.end()).getBytes(UTF_8).length))) {
+        throw new AssertionError("Variable-gap UTF-8 mismatch: " + regex + " on " + input);
+      }
+      if (!found) {
+        break;
+      }
+    }
   }
 
   private static void assertUnicodeBoundaryStartCacheMatchesJdk() {
