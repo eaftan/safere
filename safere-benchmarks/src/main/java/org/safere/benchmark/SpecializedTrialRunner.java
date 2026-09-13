@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.LongAdder;
 import org.openjdk.jmh.infra.Blackhole;
-import org.safere.AlternationFindNextBenchmarkRunner;
 import org.safere.OperationDiagnostics;
 import org.safere.Pattern;
 import org.safere.PatternSet;
@@ -49,8 +48,6 @@ final class SpecializedTrialRunner implements AutoCloseable {
       case CACHED_ANALYSIS -> new SpecializedTrialRunner(cachedAnalysis(workload), false);
       case COMPILE_AND_ANALYZE -> new SpecializedTrialRunner(compileAndAnalyze(workload), false);
       case DIAGNOSTICS_FIND -> new SpecializedTrialRunner(diagnostics(workload), true);
-      case ALTERNATION_FIND_NEXT ->
-          new SpecializedTrialRunner(alternationFindNext(workload), false);
       default ->
           throw new IllegalArgumentException(
               "Unsupported specialized operation: " + workload.operation());
@@ -188,15 +185,6 @@ final class SpecializedTrialRunner implements AutoCloseable {
           blackhole -> blackhole.consume(pattern.matcher(input).replaceAll(replacement));
       default -> throw new IllegalArgumentException("Unknown diagnostics action: " + action);
     };
-  }
-
-  private static Task alternationFindNext(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {
-    AlternationFindNextBenchmarkRunner runner =
-        new AlternationFindNextBenchmarkRunner(
-            workload.patterns(),
-            inputString(workload),
-            integerArgument(workload, "inputLength", 0));
-    return blackhole -> blackhole.consume(runner.findNext());
   }
 
   private static String inputString(DeclarativeBenchmarkPlan.ExpandedWorkload workload) {

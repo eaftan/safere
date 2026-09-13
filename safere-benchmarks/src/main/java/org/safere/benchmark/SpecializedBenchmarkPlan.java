@@ -57,8 +57,7 @@ final class SpecializedBenchmarkPlan {
               ANALYZE_PATTERN,
               CACHED_ANALYSIS,
               COMPILE_AND_ANALYZE,
-              DIAGNOSTICS_FIND,
-              ALTERNATION_FIND_NEXT ->
+              DIAGNOSTICS_FIND ->
               true;
           default -> false;
         }
