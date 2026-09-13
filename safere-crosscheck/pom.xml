@@ -100,7 +100,6 @@
                         <include name="ExhaustiveUtils.java"/>
                         <!-- Compile-time structural excludes. Each excluded test class is also
                              annotated with @DisabledForCrosscheck in the original source. -->
-                        <exclude name="AlternationFindNextTest.java"/>
                         <exclude name="AnchorOptTest.java"/>
                         <exclude name="AnchoredDfaCachingTest.java"/>
                         <exclude name="AsciiBitmapTest.java"/>
@@ -114,6 +113,7 @@
                         <exclude name="DiagnosticsTest.java"/>
                         <exclude name="EmptyOpTest.java"/>
                         <exclude name="EnginePathEquivalenceTest.java"/>
+                        <exclude name="GapPatternMatchingTest.java"/>
                         <exclude name="GraphemeLinearTimeTest.java"/>
                         <exclude name="ClassHashChainTest.java"/>
                         <exclude name="InstOpTest.java"/>
@@ -125,7 +125,6 @@
                         <exclude name="MatcherTransitionInventoryTest.java"/>
                         <exclude name="MatchDescriptorTest.java"/>
                         <exclude name="MultiAnchorCompilerTest.java"/>
-                        <exclude name="MultiAnchorGapEngineTest.java"/>
                         <exclude name="MultiLiteralTest.java"/>
                         <exclude name="NfaTest.java"/>
                         <exclude name="OnePassTest.java"/>

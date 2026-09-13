@@ -186,17 +186,6 @@ class ScanDispatchAuditTest {
         .containsExactly(
             consulted(ScanKind.BYTE, minimum),
             new ScanEvent(ScanKind.BYTE, ScanDirection.FORWARD, minimum, ScanPath.VECTOR));
-
-    // The reverse ladder computes its window as start - limit + 1, so the same two windows sit at
-    // fromIndex minimum - 2 and minimum - 1.
-    assertThat(captureScan(() -> scanner.lastIndexOfAscii('z', minimum - 2, 0)))
-        .containsExactly(
-            consulted(ScanKind.BYTE, minimum - 1),
-            new ScanEvent(ScanKind.BYTE, ScanDirection.REVERSE, minimum - 1, ScanPath.SWAR));
-    assertThat(captureScan(() -> scanner.lastIndexOfAscii('z', minimum - 1, 0)))
-        .containsExactly(
-            consulted(ScanKind.BYTE, minimum),
-            new ScanEvent(ScanKind.BYTE, ScanDirection.REVERSE, minimum, ScanPath.VECTOR));
   }
 
   /**

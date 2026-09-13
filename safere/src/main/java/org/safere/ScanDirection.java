@@ -8,17 +8,15 @@ package org.safere;
 /**
  * The direction a dispatch site scanned in.
  *
- * <p>A {@link ScanKind} deliberately covers both directions, because a forward and a reverse kernel
- * over the same needle shape share a crossover threshold. Direction is therefore known only at the
- * call site, and exists here so that an audited event identifies the ladder it came from.
+ * <p>A {@link ScanKind} covers every direction a needle shape is scanned in, because those kernels
+ * share a crossover threshold. Direction is therefore known only at the call site, and exists here
+ * so that an audited event identifies the ladder it came from.
  *
  * @see ScanAudit
  */
 enum ScanDirection {
   /** Increasing positions, as in {@code indexOf}. */
   FORWARD,
-  /** Decreasing positions, as in {@code lastIndexOf}. */
-  REVERSE,
   /**
    * Not known. Carried by the automatic {@link ScanPath#CONSULTED} event, which is recorded inside
    * {@code providerFor} where only the kind and the window are in scope.
