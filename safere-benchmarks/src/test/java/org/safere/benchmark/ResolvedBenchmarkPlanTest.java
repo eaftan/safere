@@ -10,12 +10,106 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ResolvedBenchmarkPlanTest {
+
+  @Test
+  void nativeColdUnicodeRowsKeepExactSyntaxAndExcludeUnsupportedOptions() throws IOException {
+    Path benchmarkDirectory =
+        Files.exists(Path.of("benchmark-data.json")) ? Path.of(".") : Path.of("safere-benchmarks");
+    JsonObject data =
+        JsonParser.parseString(Files.readString(benchmarkDirectory.resolve("benchmark-data.json")))
+            .getAsJsonObject();
+    JsonObject plan = ResolvedBenchmarkPlan.create(PatternProfiles.normalizeInline(data));
+    for (String engine : List.of("re2_cpp", "pcre2_jit", "go_regexp", "rust_regex")) {
+      List<JsonObject> rows =
+          plan.getAsJsonArray("entries").asList().stream()
+              .map(JsonObject.class::cast)
+              .filter(row -> row.get("engineId").getAsString().equals(engine))
+              .filter(
+                  row ->
+                      row.get("workloadId")
+                          .getAsString()
+                          .startsWith("UnicodeFirstCompileBenchmark.firstCompile."))
+              .toList();
+      assertThat(rows).hasSize(36);
+      assertThat(rows.stream().filter(row -> row.get("status").getAsString().equals("runnable")))
+          .hasSize(engine.equals("pcre2_jit") || engine.equals("rust_regex") ? 12 : 9)
+          .allSatisfy(
+              row -> {
+                assertThat(row.getAsJsonObject("measurement").get("mode").getAsString())
+                    .isEqualTo("singleShotColdStart");
+                assertThat(row.getAsJsonObject("measurement").get("timingUnit").getAsString())
+                    .isEqualTo("milliseconds");
+                assertThat(row.getAsJsonArray("options")).isEmpty();
+              });
+      assertThat(
+              entry(
+                      plan,
+                      "UnicodeFirstCompileBenchmark.firstCompile.letter."
+                          + "CASE_INSENSITIVE_UNICODE_CASE@"
+                          + engine)
+                  .getAsJsonObject("exclusion")
+                  .get("kind")
+                  .getAsString())
+          .isEqualTo("unsupportedOptions");
+      assertThat(
+              entry(
+                      plan,
+                      "UnicodeFirstCompileBenchmark.firstCompile.word.UNICODE_CHARACTER_CLASS@"
+                          + engine)
+                  .getAsJsonObject("exclusion")
+                  .get("kind")
+                  .getAsString())
+          .isEqualTo("unsupportedOptions");
+      assertThat(
+              entry(plan, "UnicodeCompileBenchmark.compile.letter.0@" + engine)
+                  .getAsJsonObject("exclusion")
+                  .get("kind")
+                  .getAsString())
+          .isEqualTo("unsupportedFeature");
+      if (engine.equals("re2_cpp") || engine.equals("go_regexp")) {
+        assertThat(
+                entry(plan, "UnicodeFirstCompileBenchmark.firstCompile.alphabetic.0@" + engine)
+                    .getAsJsonObject("exclusion")
+                    .get("kind")
+                    .getAsString())
+            .isEqualTo("unsupportedSyntax");
+      } else {
+        assertThat(
+                entry(plan, "UnicodeFirstCompileBenchmark.firstCompile.alphabetic.0@" + engine)
+                    .getAsJsonArray("patterns")
+                    .get(0)
+                    .getAsString())
+            .isEqualTo("\\p{Alphabetic}+");
+      }
+    }
+    assertThat(
+            entry(plan, "UnicodeFirstCompileBenchmark.firstCompile.scriptLatin.0@re2_cpp")
+                .getAsJsonArray("patterns")
+                .get(0)
+                .getAsString())
+        .isEqualTo("\\p{Latin}+");
+    assertThat(
+            entry(plan, "UnicodeFirstCompileBenchmark.firstCompile.scriptLatin.0@pcre2_jit")
+                .getAsJsonArray("patterns")
+                .get(0)
+                .getAsString())
+        .isEqualTo("\\p{sc=Latin}+");
+    assertThat(
+            entry(plan, "UnicodeFirstCompileBenchmark.firstCompile.word.0@rust_regex")
+                .getAsJsonArray("patterns")
+                .get(0)
+                .getAsString())
+        .isEqualTo("[A-Za-z0-9_]+");
+  }
 
   @Test
   void materializationAccountsForCompleteSyntheticWorkloadAndEngineJoin() {

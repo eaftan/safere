@@ -8,7 +8,7 @@ measurement boundary requires different JMH or process machinery.
 | --- | --- | --- |
 | `averageTime` | `CrossEngineBenchmark`, `CrossEngineScalingBenchmark` | Normal forked JMH execution |
 | `noFork` | `CrossEngineNoForkBenchmark` | In-process JMH execution (`-f 0`) |
-| `singleShotColdStart` | `CrossEngineColdStartBenchmark` | One invocation in each fresh fork |
+| `singleShotColdStart` | `CrossEngineColdStartBenchmark`; native C++, Go, and Rust runners | One invocation in each fresh process |
 | SafeRE-specific `averageTime` operation | `SpecializedBenchmark` | One operation adapter selected from the plan |
 | `retainedMemory` | `MemoryBenchmark` | Standalone heap-delta process with retained objects |
 
@@ -16,6 +16,18 @@ measurement boundary requires different JMH or process machinery.
 scheduling therefore depends on the `noFork` constraint, not on a benchmark family or class-name
 substring. Cold-start setup resolves a declaration but does not compile its pattern before the
 single measured invocation.
+
+The C++, Go, and Rust runners execute native `singleShotColdStart` rows in a fresh child for
+each sample (one for smoke, five for a normal trial). The parent selects the exact pattern from
+the materialized plan, requires an empty option list, and passes the pattern to the child. The
+child starts its timer immediately before compilation and sends the elapsed time back after
+compilation. Process launch, executable loading, manifest parsing, corpus materialization, and
+result transport are outside the timed interval. PCRE2 JIT's interval includes both
+`pcre2_compile` and `pcre2_jit_compile` with `PCRE2_JIT_COMPLETE`; the child checks that JIT code
+was generated.
+Unsupported flag sets and properties remain durable plan exclusions. These cold measurements
+are cross-runtime startup context and must stay separate from steady-state compile and match
+aggregates.
 
 The schema also validates `subprocessMemory`. The current suite has no RSS or other
 subprocess-memory workload, so there is no active runner invocation for that mode. Process launch,

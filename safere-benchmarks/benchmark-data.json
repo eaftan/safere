@@ -8844,15 +8844,36 @@
           },
           {
             "id": "alphabetic",
-            "value": "\\p{IsAlphabetic}+"
+            "value": {
+              "java": "\\p{IsAlphabetic}+",
+              "alternates": {
+                "re2": {"unsupported": true, "reason": "RE2 and Go regexp do not expose Java's IsAlphabetic property"},
+                "pcre2": {"pattern": "\\p{Alphabetic}+", "reason": "PCRE2 omits Java's Is prefix"},
+                "rust-regex": {"pattern": "\\p{Alphabetic}+", "reason": "Rust regex omits Java's Is prefix"}
+              }
+            }
           },
           {
             "id": "emoji",
-            "value": "\\p{IsEmoji}+"
+            "value": {
+              "java": "\\p{IsEmoji}+",
+              "alternates": {
+                "re2": {"unsupported": true, "reason": "RE2 and Go regexp do not expose Java's IsEmoji property"},
+                "pcre2": {"pattern": "\\p{Emoji}+", "reason": "PCRE2 omits Java's Is prefix"},
+                "rust-regex": {"pattern": "\\p{Emoji}+", "reason": "Rust regex omits Java's Is prefix"}
+              }
+            }
           },
           {
             "id": "extendedPictographic",
-            "value": "\\p{IsExtended_Pictographic}+"
+            "value": {
+              "java": "\\p{IsExtended_Pictographic}+",
+              "alternates": {
+                "re2": {"unsupported": true, "reason": "RE2 and Go regexp do not expose Java's Extended_Pictographic property"},
+                "pcre2": {"pattern": "\\p{Extended_Pictographic}+", "reason": "PCRE2 omits Java's Is prefix"},
+                "rust-regex": {"pattern": "\\p{Extended_Pictographic}+", "reason": "Rust regex omits Java's Is prefix"}
+              }
+            }
           },
           {
             "id": "scriptLatin",
@@ -8862,6 +8883,10 @@
                 "re2": {
                   "pattern": "\\p{Latin}+",
                   "reason": "RE2 uses bare Unicode script names"
+                },
+                "pcre2": {
+                  "pattern": "\\p{sc=Latin}+",
+                  "reason": "PCRE2 uses sc for Unicode scripts"
                 }
               }
             }
@@ -8874,6 +8899,10 @@
                 "re2": {
                   "pattern": "\\p{Han}+",
                   "reason": "RE2 uses bare Unicode script names"
+                },
+                "pcre2": {
+                  "pattern": "\\p{sc=Han}+",
+                  "reason": "PCRE2 uses sc for Unicode scripts"
                 }
               }
             }
@@ -8891,20 +8920,29 @@
                   "pattern": "[\\x{0}-\\x{7F}]+",
                   "reason": "Rust regex does not expose Java Unicode block names"
                 },
-                "dotnet": {
-                  "pattern": "[\\u0000-\\u007F]+",
-                  "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
-                },
                 "pcre2": {
                   "pattern": "[\\x{0}-\\x{7F}]+",
                   "reason": "PCRE2 does not expose Java Unicode block names"
+                },
+                "dotnet": {
+                  "pattern": "[\\u0000-\\u007F]+",
+                  "reason": ".NET uses UTF-16 escapes rather than Java Unicode block names"
                 }
               }
             }
           },
           {
             "id": "word",
-            "value": "\\w+"
+            "value": {
+              "java": "\\w+",
+              "alternates": {
+                "rust-regex": {
+                  "pattern": "[A-Za-z0-9_]+",
+                  "reason": "Rust regex gives Unicode semantics to \\w by default",
+                  "flagSets": ["0"]
+                }
+              }
+            }
           },
           {
             "id": "asciiLower",

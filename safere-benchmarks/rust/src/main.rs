@@ -13,6 +13,7 @@ use std::env;
 use std::fs;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 #[cfg(feature = "memory-tracking")]
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
@@ -417,6 +418,71 @@ fn round(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0
 }
 
+fn cold_child(pattern: &str) {
+    let start = Instant::now();
+    let compiled = compile(pattern);
+    let nanoseconds = start.elapsed().as_nanos();
+    black_box(compiled);
+    println!("{} {nanoseconds}", std::process::id());
+}
+
+fn cold_sample(pattern: &str) -> (u32, f64) {
+    let executable = env::current_exe().expect("cannot find cold compilation executable");
+    let output = Command::new(executable)
+        .arg("--cold-child")
+        .arg(pattern)
+        .output()
+        .expect("cannot start cold compilation child");
+    assert!(
+        output.status.success(),
+        "cold compilation child failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let response = String::from_utf8(output.stdout).expect("cold child output is not UTF-8");
+    let mut fields = response.split_whitespace();
+    let pid = fields
+        .next()
+        .expect("cold child omitted PID")
+        .parse()
+        .expect("invalid PID");
+    let nanoseconds: u128 = fields
+        .next()
+        .expect("cold child omitted time")
+        .parse()
+        .expect("invalid time");
+    assert!(
+        fields.next().is_none() && nanoseconds > 0,
+        "invalid cold child response"
+    );
+    (pid, nanoseconds as f64 / 1_000_000.0)
+}
+
+fn measure_cold(entry: &Value, smoke: bool) -> Value {
+    assert_eq!(required_string(entry, "operation"), "compile");
+    assert_eq!(
+        required_string(entry, "measurement.timingUnit"),
+        "milliseconds"
+    );
+    assert!(string_list(entry, "options").is_empty());
+    let patterns = string_list(entry, "patterns");
+    assert_eq!(patterns.len(), 1);
+    let count = if smoke { 1 } else { 5 };
+    let samples: Vec<f64> = (0..count).map(|_| cold_sample(&patterns[0]).1).collect();
+    let mean = samples.iter().sum::<f64>() / count as f64;
+    let error = if count == 1 {
+        0.0
+    } else {
+        let variance = samples
+            .iter()
+            .map(|sample| (sample - mean).powi(2))
+            .sum::<f64>()
+            / (count - 1) as f64;
+        8.610 * variance.sqrt() / (count as f64).sqrt()
+    };
+    json!({"engine": ENGINE_ID, "benchmark": required_string(entry, "workloadId"),
+        "score": round(mean), "error": round(error), "unit": "ms/op"})
+}
+
 #[cfg(feature = "memory-tracking")]
 fn compiled_retained_bytes(pattern: &str) -> usize {
     let _ = compile(pattern);
@@ -439,6 +505,17 @@ fn matches_build_mode(entry: &Value, memory_tracking: bool) -> bool {
 }
 
 fn main() {
+    let arguments: Vec<String> = env::args().collect();
+    if arguments.len() == 3 && arguments[1] == "--cold-child" {
+        cold_child(&arguments[2]);
+        return;
+    }
+    if arguments.len() == 2 && arguments[1] == "--cold-self-test" {
+        let first = cold_sample(r"\p{L}+");
+        let second = cold_sample(r"\p{L}+");
+        assert_ne!(first.0, second.0, "cold samples shared a process");
+        return;
+    }
     let mut manifest_path = PathBuf::from("../../target/benchmark-corpus/manifest.json");
     let mut filters = Vec::new();
     let mut smoke = false;
@@ -486,6 +563,10 @@ fn main() {
         if list {
             println!("{id}");
         } else if !list_exclusions {
+            if entry["measurement"]["mode"].as_str() == Some("singleShotColdStart") {
+                println!("{}", measure_cold(entry, smoke));
+                continue;
+            }
             #[cfg(feature = "memory-tracking")]
             if matches_build_mode(entry, true) {
                 println!(

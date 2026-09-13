@@ -21,6 +21,7 @@ echo "=== Materializing shared benchmark inputs ==="
 
 echo "=== Building Go regexp benchmarks ==="
 (cd "$GO_DIR" && go build -o regexp_benchmark .)
+"$GO_DIR/regexp_benchmark" --cold-self-test
 
 echo "=== Running Go regexp benchmarks ==="
 "$GO_DIR/regexp_benchmark" --manifest "$MANIFEST_FILE" "$@"

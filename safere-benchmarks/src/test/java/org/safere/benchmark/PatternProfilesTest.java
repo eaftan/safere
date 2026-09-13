@@ -223,8 +223,9 @@ class PatternProfilesTest {
     assertThat(patterns.select("pcre2", "[\\p{L}&&[^\\p{Lu}]]+"))
         .isEqualTo("[\\p{Ll}\\p{Lt}\\p{Lm}\\p{Lo}]+");
     assertThat(patterns.select("pcre2", "\\p{javaLetter}")).isEqualTo("\\p{L}");
-    assertThat(patterns.select("pcre2", "\\p{script=Latin}+")).isEqualTo("\\p{script=Latin}+");
-    assertThat(patterns.select("re2", "\\p{IsAlphabetic}+")).isEqualTo("\\p{IsAlphabetic}+");
+    assertThat(patterns.select("pcre2", "\\p{script=Latin}+")).isEqualTo("\\p{sc=Latin}+");
+    assertThat(patterns.resolve("re2", "\\p{IsAlphabetic}+", "0").unsupportedReason())
+        .contains("IsAlphabetic");
     assertThat(patterns.select("re2", "\\p{IsIdeographic}+")).isEqualTo("\\p{IsIdeographic}+");
     assertThat(patterns.select("rust-regex", "^\\s*<(\\QApple\\E|\\QBanana\\E|\\QCherry\\E)>\\s*$"))
         .isEqualTo("^[[:space:]]*<(Apple|Banana|Cherry)>[[:space:]]*$");

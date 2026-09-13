@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -379,6 +380,67 @@ func measureCompiledSize(pattern string) int64 {
 
 func round(value float64) float64 { return math.Round(value*1000) / 1000 }
 
+type coldSample struct {
+	PID         int
+	Nanoseconds int64
+}
+
+func coldChild(pattern string) {
+	start := time.Now()
+	compiled, err := regexp.Compile(pattern)
+	use := time.Since(start).Nanoseconds()
+	if err != nil {
+		panic(err)
+	}
+	sink = compiled
+	fmt.Printf("%d %d\n", os.Getpid(), use)
+}
+
+func runColdSample(pattern string) coldSample {
+	executable, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	output, err := exec.Command(executable, "--cold-child", pattern).CombinedOutput()
+	if err != nil {
+		panic(fmt.Sprintf("cold compilation child failed: %v: %s", err, output))
+	}
+	var sample coldSample
+	if _, err := fmt.Sscanf(string(output), "%d %d", &sample.PID, &sample.Nanoseconds); err != nil || sample.Nanoseconds <= 0 {
+		panic(fmt.Sprintf("invalid cold compilation sample: %q", output))
+	}
+	return sample
+}
+
+func measureCold(entry planEntry, smoke bool) benchResult {
+	if entry.Operation != "compile" || entry.Measurement.TimingUnit != "milliseconds" ||
+		len(entry.Patterns) != 1 || len(entry.Options) != 0 {
+		panic("invalid cold compilation plan entry: " + entry.WorkloadID)
+	}
+	count := 5
+	if smoke {
+		count = 1
+	}
+	samples := make([]float64, count)
+	for i := range samples {
+		samples[i] = float64(runColdSample(entry.Patterns[0]).Nanoseconds) / 1_000_000
+	}
+	mean := 0.0
+	for _, sample := range samples {
+		mean += sample
+	}
+	mean /= float64(count)
+	error := 0.0
+	if count > 1 {
+		variance := 0.0
+		for _, sample := range samples {
+			variance += (sample - mean) * (sample - mean)
+		}
+		error = 8.610 * math.Sqrt(variance/float64(count-1)) / math.Sqrt(float64(count))
+	}
+	return benchResult{engineID, entry.WorkloadID, round(mean), round(error), "ms/op"}
+}
+
 func matchesFilter(name string, filters []string) bool {
 	if len(filters) == 0 {
 		return true
@@ -397,6 +459,18 @@ func printJSON(value any) {
 }
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "--cold-child" {
+		coldChild(os.Args[2])
+		return
+	}
+	if len(os.Args) == 2 && os.Args[1] == "--cold-self-test" {
+		first := runColdSample(`\p{L}+`)
+		second := runColdSample(`\p{L}+`)
+		if first.PID == second.PID {
+			panic("cold samples shared a process")
+		}
+		return
+	}
 	manifestPath := "../../target/benchmark-corpus/manifest.json"
 	smoke, list, listExclusions := false, false, false
 	var filters []string
@@ -443,6 +517,10 @@ func main() {
 				engineID, entry.WorkloadID, float64(measureCompiledSize(entry.Patterns[0])),
 				0, "bytes",
 			})
+			continue
+		}
+		if entry.Measurement.Mode == "singleShotColdStart" {
+			printJSON(measureCold(entry, smoke))
 			continue
 		}
 		operation := prepare(entry)

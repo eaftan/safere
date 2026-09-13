@@ -45,6 +45,13 @@ cmake -S "$CPP_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -Wno-dev 2>&1 | t
 cmake --build "$BUILD_DIR" -j8 2>&1 | tail -3
 
 if [ "$ENGINE" = "all" ] || [ "$ENGINE" = "re2" ]; then
+  "$BUILD_DIR/re2_benchmark" --cold-self-test
+fi
+if [ "$ENGINE" = "all" ] || [ "$ENGINE" = "pcre2-jit" ]; then
+  "$BUILD_DIR/pcre2_jit_benchmark" --cold-self-test
+fi
+
+if [ "$ENGINE" = "all" ] || [ "$ENGINE" = "re2" ]; then
   echo "=== Running C++ RE2 benchmarks ==="
   "$BUILD_DIR/re2_benchmark" --manifest "$MANIFEST_FILE" "$@"
 fi

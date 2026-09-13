@@ -53,7 +53,8 @@ final class ResolvedBenchmarkPlan {
       EnumSet.of(
           DeclarativeBenchmarkPlan.MeasurementMode.AVERAGE_TIME,
           DeclarativeBenchmarkPlan.MeasurementMode.COMPILE_ONLY,
-          DeclarativeBenchmarkPlan.MeasurementMode.RETAINED_MEMORY);
+          DeclarativeBenchmarkPlan.MeasurementMode.RETAINED_MEMORY,
+          DeclarativeBenchmarkPlan.MeasurementMode.SINGLE_SHOT_COLD_START);
 
   private ResolvedBenchmarkPlan() {}
 
@@ -394,6 +395,13 @@ final class ResolvedBenchmarkPlan {
     }
     EnumSet<DeclarativeBenchmarkPlan.Feature> missing = workload.requirements();
     missing.removeAll(engine.declaration().features());
+    // A cold, unflagged compile needs no engine-specific flag adapter. The native
+    // runners implement this case without claiming support for other compile modes.
+    if (workload.measurement().mode()
+            == DeclarativeBenchmarkPlan.MeasurementMode.SINGLE_SHOT_COLD_START
+        && flagSet.equals("0")) {
+      missing.remove(DeclarativeBenchmarkPlan.Feature.FLAGGED_COMPILE);
+    }
     if (!missing.isEmpty()) {
       return new Exclusion("unsupportedFeature", "engine lacks " + featureNames(missing));
     }

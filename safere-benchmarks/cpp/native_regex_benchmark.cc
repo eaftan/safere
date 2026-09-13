@@ -28,8 +28,11 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <sys/wait.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
+#include <unistd.h>
 
 #ifdef SAFERE_HAVE_MALLINFO2
 #include <malloc.h>
@@ -53,6 +56,7 @@ constexpr const char* kEngineId = "re2_cpp";
 json benchmark_input_manifest;
 json benchmark_execution_plan;
 std::filesystem::path benchmark_input_directory;
+std::string benchmark_executable;
 
 std::string sha256_hex(std::string_view input) {
   static constexpr std::array<uint32_t, 64> kRoundConstants = {
@@ -240,6 +244,102 @@ void print_json(const BenchResult& r) {
          "\"score\":%.3f,\"error\":%.3f,\"unit\":\"%s\"}\n",
          kEngineId, r.name.c_str(), r.ns_per_op, r.error, r.unit.c_str());
   fflush(stdout);
+}
+
+void cold_compile_child(const std::string& pattern) {
+  auto start = std::chrono::steady_clock::now();
+#ifdef SAFERE_PCRE2_JIT
+  int error_code = 0;
+  PCRE2_SIZE error_offset = 0;
+  pcre2_code* code = pcre2_compile(
+      reinterpret_cast<PCRE2_SPTR>(pattern.data()), pattern.size(),
+      PCRE2_UTF, &error_code, &error_offset, nullptr);
+  if (code == nullptr) {
+    fprintf(stderr, "ERROR: cold PCRE2 compile failed: %d\n", error_code);
+    exit(1);
+  }
+  int jit_result = pcre2_jit_compile(code, PCRE2_JIT_COMPLETE);
+  if (jit_result != 0) {
+    fprintf(stderr, "ERROR: cold PCRE2 JIT generation failed: %d\n", jit_result);
+    exit(1);
+  }
+#else
+  RE2 compiled(pattern);
+  if (!compiled.ok()) {
+    fprintf(stderr, "ERROR: cold RE2 compile failed\n");
+    exit(1);
+  }
+#endif
+  auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::steady_clock::now() - start).count();
+#ifdef SAFERE_PCRE2_JIT
+  PCRE2_SIZE jit_size = 0;
+  if (pcre2_pattern_info(code, PCRE2_INFO_JITSIZE, &jit_size) != 0 || jit_size == 0) {
+    fprintf(stderr, "ERROR: cold PCRE2 compile generated no JIT code\n");
+    exit(1);
+  }
+  pcre2_code_free(code);
+#endif
+  printf("%ld %lld\n", static_cast<long>(getpid()),
+         static_cast<long long>(nanoseconds));
+}
+
+std::pair<long, double> cold_sample(const std::string& pattern) {
+  int descriptors[2];
+  if (pipe(descriptors) != 0) {
+    perror("cold sample pipe");
+    exit(1);
+  }
+  pid_t child = fork();
+  if (child < 0) {
+    perror("cold sample fork");
+    exit(1);
+  }
+  if (child == 0) {
+    close(descriptors[0]);
+    if (dup2(descriptors[1], STDOUT_FILENO) < 0) _exit(1);
+    close(descriptors[1]);
+    execl(benchmark_executable.c_str(), benchmark_executable.c_str(),
+          "--cold-child", pattern.c_str(), static_cast<char*>(nullptr));
+    _exit(1);
+  }
+  close(descriptors[1]);
+  FILE* response = fdopen(descriptors[0], "r");
+  long pid = 0;
+  long long nanoseconds = 0;
+  int parsed = response == nullptr ? 0 : fscanf(response, "%ld %lld", &pid, &nanoseconds);
+  if (response != nullptr) fclose(response);
+  int status = 0;
+  if (waitpid(child, &status, 0) != child || !WIFEXITED(status) ||
+      WEXITSTATUS(status) != 0 || parsed != 2 || pid != child || nanoseconds <= 0) {
+    fprintf(stderr, "ERROR: invalid cold compilation child result\n");
+    exit(1);
+  }
+  return {pid, nanoseconds / 1000000.0};
+}
+
+BenchResult measure_cold(const json& entry, bool smoke) {
+  const std::string id = entry.at("workloadId");
+  if (entry.at("operation") != "compile" ||
+      entry.at("measurement").at("timingUnit") != "milliseconds" ||
+      !entry.at("options").empty() || entry.at("patterns").size() != 1) {
+    fprintf(stderr, "ERROR: invalid cold compilation plan entry: %s\n", id.c_str());
+    exit(1);
+  }
+  const std::string pattern = entry.at("patterns").at(0);
+  int count = smoke ? 1 : 5;
+  std::vector<double> samples;
+  for (int i = 0; i < count; ++i) samples.push_back(cold_sample(pattern).second);
+  double mean = 0;
+  for (double sample : samples) mean += sample;
+  mean /= count;
+  double error = 0;
+  if (count > 1) {
+    double variance = 0;
+    for (double sample : samples) variance += (sample - mean) * (sample - mean);
+    error = 8.610 * std::sqrt(variance / (count - 1)) / std::sqrt(count);
+  }
+  return {id, mean, error, "ms/op"};
 }
 
 // Print a memory measurement result as JSON.
@@ -533,6 +633,11 @@ void run_execution_plan(
     }
     if (list_exclusions) continue;
 
+    if (entry.at("measurement").at("mode") == "singleShotColdStart") {
+      print_json(measure_cold(entry, smoke));
+      continue;
+    }
+
     std::vector<std::unique_ptr<RE2>> regexes;
     for (const auto& pattern : entry.at("patterns")) {
       regexes.push_back(
@@ -590,6 +695,20 @@ void run_execution_plan(
 // ---------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
+  benchmark_executable = std::filesystem::absolute(argv[0]).string();
+  if (argc == 3 && std::string_view(argv[1]) == "--cold-child") {
+    cold_compile_child(argv[2]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "--cold-self-test") {
+    auto first = cold_sample("\\p{L}+");
+    auto second = cold_sample("\\p{L}+");
+    if (first.first == second.first) {
+      fprintf(stderr, "ERROR: cold samples shared a process\n");
+      return 1;
+    }
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "--sha256-self-test") {
     return run_sha256_self_test() ? 0 : 1;
   }
