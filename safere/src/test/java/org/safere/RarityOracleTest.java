@@ -99,20 +99,11 @@ class RarityOracleTest {
   }
 
   @Test
-  void foldedMultiAnchorSelectionIsInvariantToPatternCapitalization() {
-    MultiAnchorDescriptor.Anchor.Single upper =
-        MultiAnchorDescriptor.Anchor.Single.create("Xq", true);
-    MultiAnchorDescriptor.Anchor.Single lower =
-        MultiAnchorDescriptor.Anchor.Single.create("xq", true);
-
-    assertThat(upper.anchorOffset()).isEqualTo(lower.anchorOffset()).isEqualTo(1);
-    assertThat(upper.selectivityScore()).isEqualTo(lower.selectivityScore());
-
-    MultiAnchorDescriptor.Anchor upperAlternation =
-        MultiAnchorDescriptor.Anchor.create(new String[] {"Xq", "Za"}, true);
-    MultiAnchorDescriptor.Anchor lowerAlternation =
-        MultiAnchorDescriptor.Anchor.create(new String[] {"xq", "za"}, true);
-    assertThat(upperAlternation.selectivityScore()).isEqualTo(lowerAlternation.selectivityScore());
+  void foldedSelectivityIsInvariantToPatternCapitalization() {
+    assertThat(RarityOracle.literalSelectivityScore("Xq", true))
+        .isEqualTo(RarityOracle.literalSelectivityScore("xq", true));
+    assertThat(RarityOracle.literalSelectivityScore("Za", true))
+        .isEqualTo(RarityOracle.literalSelectivityScore("za", true));
   }
 
   @Test

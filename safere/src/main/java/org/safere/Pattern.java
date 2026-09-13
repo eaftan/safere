@@ -412,8 +412,7 @@ public final class Pattern implements Serializable {
       throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
     }
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
-    MultiAnchorDescriptor multiAnchor =
-        MultiAnchorCompiler.compile(metadataAst, effectiveFlags, re);
+    MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
     MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, re, flags, compiled);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);

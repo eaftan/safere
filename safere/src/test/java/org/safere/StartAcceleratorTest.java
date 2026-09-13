@@ -26,7 +26,6 @@ class StartAcceleratorTest {
     assertThat(Utf8StartAccelerator.create((MultiAnchorDescriptor.StartPlan) null, false)).isNull();
     assertThat(Utf8StartAccelerator.create(MultiAnchorDescriptor.StartPlan.None.INSTANCE, false))
         .isNull();
-    assertThat(MultiAnchorDescriptor.NONE.hasStartAcceleration()).isFalse();
   }
 
   @Test

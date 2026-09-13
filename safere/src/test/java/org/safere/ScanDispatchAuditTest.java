@@ -170,34 +170,6 @@ class ScanDispatchAuditTest {
   }
 
   @Test
-  void alternationRecordsScalarFallbackAfterWideKernelsDecline() {
-    VectorScanProvider provider = installedProvider();
-    if (provider == null) {
-      return;
-    }
-    MultiAnchorDescriptor.Anchor.Alternation alternation =
-        MultiAnchorDescriptor.Anchor.Alternation.create(LITERALS, false);
-    assertThat(alternation.teddyModel()).isNotNull();
-    assertThat(alternation.multiLiteral()).isNotNull();
-    int window =
-        Math.min(
-                provider.minimumWindowLength(ScanKind.TEDDY),
-                provider.minimumWindowLength(ScanKind.MULTI_LITERAL))
-            - 1;
-    int fromIndex = LONG_INPUT.length - window;
-    Utf8InputScanner scanner = new Utf8InputScanner(LONG_INPUT);
-
-    List<ScanEvent> events = captureScan(() -> alternation.findNext(scanner, fromIndex));
-
-    assertThat(events)
-        .containsExactly(
-            consulted(ScanKind.TEDDY, window),
-            new ScanEvent(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED),
-            consulted(ScanKind.MULTI_LITERAL, window),
-            new ScanEvent(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.SCALAR));
-  }
-
-  @Test
   void thresholdBoundaryRecordsExpectedPath() {
     VectorScanProvider provider = installedProvider();
     if (provider == null) {

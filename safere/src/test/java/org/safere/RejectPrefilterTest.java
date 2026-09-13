@@ -18,7 +18,6 @@ class RejectPrefilterTest {
     assertThat(RejectPrefilter.create((MultiAnchorDescriptor) null)).isNull();
     assertThat(RejectPrefilter.create((MultiAnchorDescriptor.RejectPlan) null)).isNull();
     assertThat(RejectPrefilter.create(MultiAnchorDescriptor.RejectPlan.None.INSTANCE)).isNull();
-    assertThat(MultiAnchorDescriptor.NONE.hasRejectionFilter()).isFalse();
   }
 
   @Test

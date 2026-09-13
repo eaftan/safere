@@ -10,36 +10,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.safere.MultiAnchorDescriptor.GapKind;
 import org.safere.MultiAnchorDescriptor.RejectPlan;
 import org.safere.MultiAnchorDescriptor.StartPlan;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
-class MultiAnchorGapEngineTest {
-
-  @ParameterizedTest
-  @Tag("work-counter")
-  @ValueSource(strings = {"AAA[0-9]BBB", "AAA[0-9]BBB[0-9]CCC[0-9]DDD"})
-  void eligibilityQueriesDoNotRevisitCompiledSegments(String regex) {
-    MultiAnchorDescriptor descriptor = Pattern.compile(regex).multiAnchor();
-    assertThat(descriptor.isExecutableChain()).isTrue();
-    assertThat(descriptor.isExecutableUtf8Chain()).isTrue();
-
-    long work =
-        WorkCounter.countForTesting(
-            () -> {
-              for (int i = 0; i < 100; i++) {
-                assertThat(descriptor.isExecutableChain()).isTrue();
-                assertThat(descriptor.isExecutableUtf8Chain()).isTrue();
-              }
-            });
-
-    assertThat(work).isZero();
-  }
+class GapPatternMatchingTest {
 
   @ParameterizedTest
   @ValueSource(
@@ -89,17 +67,12 @@ class MultiAnchorGapEngineTest {
     Pattern pattern = Pattern.compile("header:.*body:.*footer");
     MultiAnchorDescriptor actual = pattern.multiAnchor();
 
-    MultiAnchorDescriptor expected =
-        MultiAnchorDescriptorBuilder.create()
-            .segment("header:")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "body:")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "footer")
-            .checkOrder(1, 0, 2)
-            .startPlan(new StartPlan.Literal("header:", false, null))
-            .rejectPlan(new RejectPlan.RequiredLiteral("body:"))
-            .build();
-
-    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
+    assertThat(actual.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("header:", false, null));
+    assertThat(actual.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new RejectPlan.RequiredLiteral("body:"));
   }
 
   @Test
@@ -145,8 +118,6 @@ class MultiAnchorGapEngineTest {
   void multiInfixBasicMatch() {
     String regex = ".*foo.*bar.*baz.*";
     Pattern pattern = Pattern.compile(regex);
-
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
 
     String text = "prefix foo intermediate bar trailing baz suffix";
     Matcher matcher = pattern.matcher(text);
@@ -223,7 +194,7 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void adversarialDenseNoiseWorkLimitFallback() {
+  void adversarialDenseNoiseStillFindsTheMatch() {
     // Pattern looking for A followed by B with bounded noise
     String regex = "A[0-9]{3}B";
     Pattern pattern = Pattern.compile(regex);
@@ -326,34 +297,13 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void subthresholdAnchorsFallBackToGeneralEngine() {
-    assertThat(Pattern.compile("A.*B.*C").multiAnchor().isExecutableChain()).isFalse();
-    assertThat(Pattern.compile("A[0-9]{3}B").multiAnchor().isExecutableChain()).isFalse();
-  }
-
-  @Test
-  void unboundedInteriorGapsFallBackToGeneralEngine() {
-    assertThat(Pattern.compile("AAA.*BBB.*CCC").multiAnchor().isExecutableChain()).isFalse();
-  }
-
-  @Test
-  void onlyFixedInteriorGapsRemainExecutable() {
-    assertThat(Pattern.compile("AAA[0-9]+BBB").multiAnchor().isExecutableChain()).isFalse();
-    assertThat(Pattern.compile("AAA[0-9]BBB").multiAnchor().isExecutableChain()).isTrue();
-    assertThat(Pattern.compile(".*AAA\\s+BBB\\s+CCC.*").multiAnchor().isExecutableChain())
-        .isFalse();
-  }
-
-  @Test
-  void ambiguousInteriorWildcardMatchesCorrectlyViaGeneralEngine() {
+  void ambiguousInteriorWildcardMatchesCorrectly() {
     assertFirstMatchEqualsJdk("AAA.*BBB.*CCC", "AAA xxx BBB yyy CCC zzz BBB www");
   }
 
   @Test
-  void fixedAnchorChainRemainsExecutable() {
+  void fixedAnchorChainMatches() {
     Pattern pattern = Pattern.compile("AAA[0-9]BB");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
-
     Matcher matcher = pattern.matcher("noise AAA1BB trailing");
     assertThat(matcher.find()).isTrue();
     assertThat(matcher.group()).isEqualTo("AAA1BB");
@@ -364,42 +314,24 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void fixedCompoundGapWithoutCharacterMetadataFallsBack() {
-    Pattern pattern = Pattern.compile("AAA(?:[0-9]x){2}BB");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+  void fixedCompoundGapMatchesTheJdk() {
     assertFirstMatchEqualsJdk("AAA(?:[0-9]x){2}BB", "AAAaxaxBB");
   }
 
   @Test
-  void multipleTrailingConstraintsFallBackWhenTheyCannotShareOneGap() {
-    for (String regex : new String[] {"AAA[0-9]BB[0-9]\\b", "AAA[0-9]BB[0-9][A-Za-z0-9_]"}) {
-      Pattern pattern = Pattern.compile(regex);
-
-      assertThat(pattern.multiAnchor().isExecutableChain()).as(regex).isFalse();
-    }
-
+  void multipleTrailingConstraintsMatchTheJdk() {
     assertFirstMatchEqualsJdk("AAA[0-9]BB[0-9]\\b", "AAA1BB2x");
     assertFirstMatchEqualsJdk("AAA[0-9]BB[0-9][A-Za-z0-9_]", "x AAA1BB2!");
   }
 
   @Test
-  void variableLengthAlternationAnchorFallsBack() {
-    Pattern pattern = Pattern.compile("(foo|foobar)[0-9]ZZ");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+  void variableLengthAlternationAnchorMatchesTheJdk() {
     assertFirstMatchEqualsJdk("(foo|foobar)[0-9]ZZ", "foobar1ZZ");
   }
 
   @Test
-  void equalWidthAlternationAnchorFallsBackToAvoidSuffixRescans() {
-    Pattern pattern = Pattern.compile("(AAA|ZZZ)[0-9]BB");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
-  }
-
-  @Test
-  void foldedSupplementaryLiteralFallsBackForUtf8() {
+  void foldedSupplementaryLiteralMatchesUtf8() {
     Pattern pattern = Pattern.compile("😀A[0-9]BB", Pattern.CASE_INSENSITIVE);
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
-    assertThat(pattern.multiAnchor().isExecutableUtf8Chain()).isFalse();
 
     Utf8Matcher matcher = pattern.matcher(Utf8Input.validated("😀A1BB".getBytes(UTF_8)));
     assertThat(matcher.find()).isTrue();
@@ -439,8 +371,6 @@ class MultiAnchorGapEngineTest {
   void rarestAnchorBoundedUpstreamVerification() {
     String regex = "PREFIX[0-9]MIDDLE[0-9]RAREST_TOKEN_XYZ[0-9]SUFFIX";
     Pattern pattern = Pattern.compile(regex);
-
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
 
     String text = "noise PREFIX1MIDDLE2RAREST_TOKEN_XYZ3SUFFIX trailing";
     Matcher matcher = pattern.matcher(text);
@@ -517,14 +447,6 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void variableUpstreamGapsStayOnForwardExecution() {
-    MultiAnchorDescriptor descriptor = Pattern.compile("AAA[A-Z]+RAREST_TOKEN").multiAnchor();
-
-    assertThat(descriptor.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true)).isZero();
-    assertThat(descriptor.selectDriver(MultiAnchorDescriptor.InputDomain.UTF8, true)).isZero();
-  }
-
-  @Test
   void utf8ReverseWindowAllowsMultibyteUpstreamLiteral() {
     String regex = "é".repeat(10) + "[0-9]" + "z".repeat(30);
     String text = regex.replace("[0-9]", "7");
@@ -597,27 +519,18 @@ class MultiAnchorGapEngineTest {
 
   @Test
   void multipleLeadingWildcardsCoalesce() {
-    Pattern pattern = Pattern.compile(".*.*AAA.*.*");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
     assertFirstMatchEqualsJdk(".*.*AAA.*.*", "hello world AAA foo bar\nnext line");
   }
 
   @Test
-  void singleAnchorWithVariableLeadingAndTrailingGapsFallsBack() {
-    Pattern pattern = Pattern.compile(".*AAA.*");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
+  void singleAnchorWithVariableLeadingAndTrailingGaps() {
     assertFirstMatchEqualsJdk(".*AAA.*", "noise AAA trailing\nsecond line");
-
-    Pattern patternBounded = Pattern.compile("\\s+AAA\\s+");
-    assertThat(patternBounded.multiAnchor().isExecutableChain()).isFalse();
     assertFirstMatchEqualsJdk("\\s+AAA\\s+", "hello   AAA   world");
   }
 
   @Test
-  void singleAnchorWithLeadingWildcardFallsBackInUtf8() {
+  void singleAnchorWithLeadingWildcardInUtf8() {
     Pattern pattern = Pattern.compile(".*TARGET_KEY");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isFalse();
-
     byte[] bytes = "prefix data TARGET_KEY trailing".getBytes(UTF_8);
     Utf8Input input = Utf8Input.validated(bytes);
     Utf8Matcher matcher = pattern.matcher(input);
@@ -627,7 +540,7 @@ class MultiAnchorGapEngineTest {
   }
 
   @Test
-  void assertionsAfterLeadingCharacterClassFallBackToGeneralEngine() {
+  void assertionsAfterLeadingCharacterClassMatchTheJdk() {
     for (String[] testCase :
         new String[][] {
           {"[a-z]\\bAAA", "xAAA"},
@@ -640,7 +553,6 @@ class MultiAnchorGapEngineTest {
       String text = testCase[1];
       Pattern pattern = Pattern.compile(regex);
 
-      assertThat(pattern.multiAnchor().isExecutableChain()).as(regex).isFalse();
       assertFirstMatchEqualsJdk(regex, text);
 
       Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
@@ -765,51 +677,10 @@ class MultiAnchorGapEngineTest {
     assertThat(mAbsent.find()).isFalse();
   }
 
-  @Test
-  void guardBytesExtractionAndPureComplement() {
-    Pattern p1 = Pattern.compile("header:[^\\r\\n;]*val");
-    MultiAnchorDescriptor d1 = p1.multiAnchor();
-    assertThat(d1.segments()).hasSize(2);
-    MultiAnchorDescriptor.Gap g1 = d1.segments()[1].gap();
-    assertThat(g1.guardBytes()).containsExactly((byte) '\n', (byte) '\r', (byte) ';');
-    assertThat(g1.isPureComplement()).isTrue();
-
-    Pattern p2 = Pattern.compile("START\"[^\"]*\"END");
-    MultiAnchorDescriptor d2 = p2.multiAnchor();
-    assertThat(d2.segments()).hasSize(2);
-    MultiAnchorDescriptor.Gap g2 = d2.segments()[1].gap();
-    assertThat(g2.guardBytes()).containsExactly((byte) '"');
-    assertThat(g2.isPureComplement()).isTrue();
-
-    // Unlike its neighbours this classifies as SINGLE_LINE_ANY_STAR, and [^\n] matches \r, so \r
-    // must not be a guard: guarding it would stop the scan at a character the gap can cross.
-    Pattern p3 = Pattern.compile("START[^\\n]*END");
-    MultiAnchorDescriptor d3 = p3.multiAnchor();
-    assertThat(d3.segments()).hasSize(2);
-    MultiAnchorDescriptor.Gap g3 = d3.segments()[1].gap();
-    assertThat(g3.guardBytes()).containsExactly((byte) '\n');
-    assertThat(g3.isPureComplement()).isTrue();
-
-    Pattern p5 = Pattern.compile("START[^;]*END");
-    MultiAnchorDescriptor d5 = p5.multiAnchor();
-    assertThat(d5.segments()).hasSize(2);
-    MultiAnchorDescriptor.Gap g5 = d5.segments()[1].gap();
-    assertThat(g5.guardBytes()).containsExactly((byte) ';');
-    assertThat(g5.isPureComplement()).isTrue();
-
-    Pattern p4 = Pattern.compile("START[a-z]*END");
-    MultiAnchorDescriptor d4 = p4.multiAnchor();
-    assertThat(d4.segments()).hasSize(2);
-    MultiAnchorDescriptor.Gap g4 = d4.segments()[1].gap();
-    assertThat(g4.guardBytes()).isNull();
-    assertThat(g4.isPureComplement()).isFalse();
-  }
-
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void structuredHeaderGuardByteRejection(boolean useUtf8) {
     Pattern pattern = Pattern.compile("header:[^\\r\\n;]*val");
-    assertThat(pattern.multiAnchor().isExecutableChain()).isTrue();
 
     String valid = "prefix header:custom-content-12345val suffix";
     assertThat(findMatches(pattern, valid, useUtf8))
@@ -881,12 +752,10 @@ class MultiAnchorGapEngineTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void guardedGapWithFallibleContinuationUsesGeneralEngine(boolean useUtf8) {
+  void guardedGapWithFallibleContinuationMatches(boolean useUtf8) {
     Pattern greedy = Pattern.compile("AAA[^;]*BBB[^;]*CCC");
     Pattern reluctant = Pattern.compile("AAA[^;]*?BBB[^:]*CCC");
 
-    assertThat(greedy.multiAnchor().isExecutableChain()).isFalse();
-    assertThat(reluctant.multiAnchor().isExecutableChain()).isFalse();
     assertThat(findMatches(greedy, "AAABBBCCCBBB;CCC", useUtf8)).containsExactly("AAABBBCCC");
     assertThat(findMatches(reluctant, "AAABBB:BBBCCC", useUtf8)).containsExactly("AAABBB:BBBCCC");
   }
@@ -952,32 +821,6 @@ class MultiAnchorGapEngineTest {
     Utf8Matcher utf8m1 = pattern.matcher(Utf8Input.validated(withCr.getBytes(UTF_8)));
     assertThat(utf8m1.find()).isTrue();
     assertThat(utf8m1.end() - utf8m1.start()).isEqualTo(withCr.getBytes(UTF_8).length);
-  }
-
-  @Test
-  void anchorSingleCaseInsensitivePrecomputedState() {
-    // Length >= 4 case-insensitive: ClassHashChain precomputed
-    MultiAnchorDescriptor.Anchor.Single singleLong =
-        MultiAnchorDescriptor.Anchor.Single.create("abcdef", true);
-    assertThat(singleLong.classHashChain()).isNotNull();
-    assertThat(singleLong.findNext("prefix_ABCDEF_suffix", 0)).isEqualTo(7);
-    assertThat(singleLong.findNext("prefix_aBcDeF_suffix", 0)).isEqualTo(7);
-    assertThat(singleLong.findNext("prefix_abcdef_suffix", 8)).isEqualTo(-1);
-
-    // Length < 4 case-insensitive: ClassHashChain is null
-    MultiAnchorDescriptor.Anchor.Single singleShort =
-        MultiAnchorDescriptor.Anchor.Single.create("abc", true);
-    assertThat(singleShort.classHashChain()).isNull();
-    assertThat(singleShort.findNext("xyz_ABC_123", 0)).isEqualTo(4);
-    assertThat(singleShort.findNext("xyz_aBc_123", 0)).isEqualTo(4);
-    assertThat(singleShort.findNext("xyz_abc_123", 5)).isEqualTo(-1);
-
-    // Case-sensitive: ClassHashChain is null
-    MultiAnchorDescriptor.Anchor.Single singleExact =
-        MultiAnchorDescriptor.Anchor.Single.create("abcdef", false);
-    assertThat(singleExact.classHashChain()).isNull();
-    assertThat(singleExact.findNext("prefix_ABCDEF_suffix", 0)).isEqualTo(-1);
-    assertThat(singleExact.findNext("prefix_abcdef_suffix", 0)).isEqualTo(7);
   }
 
   private static List<String> findMatches(Pattern pattern, String text, boolean useUtf8) {

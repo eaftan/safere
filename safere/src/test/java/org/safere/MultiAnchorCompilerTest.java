@@ -14,9 +14,6 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
-import org.safere.MultiAnchorDescriptor.Anchor;
-import org.safere.MultiAnchorDescriptor.Gap;
-import org.safere.MultiAnchorDescriptor.GapKind;
 import org.safere.MultiAnchorDescriptor.RejectPlan;
 import org.safere.MultiAnchorDescriptor.StartPlan;
 
@@ -29,7 +26,7 @@ class MultiAnchorCompilerTest {
     assertThat(MultiAnchorCompiler.compile(null, 0)).isNull();
     assertThat(MultiAnchorCompiler.extractStartPlan(null))
         .isInstanceOf(MultiAnchorDescriptor.StartPlan.None.class);
-    assertThat(MultiAnchorCompiler.extractRejectPlan(null, 0, null, false, null))
+    assertThat(MultiAnchorCompiler.extractRejectPlan(null, 0, null, false))
         .isInstanceOf(MultiAnchorDescriptor.RejectPlan.None.class);
   }
 
@@ -38,73 +35,38 @@ class MultiAnchorCompilerTest {
     Regexp ast = Parser.parse("hello.*world", Pattern.toParseFlags(0));
     MultiAnchorDescriptor actual = MultiAnchorCompiler.compile(ast, 0);
 
-    MultiAnchorDescriptor expected =
-        MultiAnchorDescriptorBuilder.create()
-            .segment("hello")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "world")
-            .checkOrder(1, 0)
-            .startPlan(new StartPlan.Literal("hello", false, null))
-            .rejectPlan(new RejectPlan.RequiredLiteral("world"))
-            .build();
-
-    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
+    assertThat(actual.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("hello", false, null));
+    assertThat(actual.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new RejectPlan.RequiredLiteral("world"));
   }
 
   @Test
-  void multiAnchorChainExtracted() {
+  void multiAnchorPatternPrefersTheRarestRequiredLiteral() {
     Regexp ast = Parser.parse("foo.*bar.*baz", Pattern.toParseFlags(0));
     MultiAnchorDescriptor actual = MultiAnchorCompiler.compile(ast, 0);
 
-    MultiAnchorDescriptor expected =
-        MultiAnchorDescriptorBuilder.create()
-            .segment("foo")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "bar")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "baz")
-            .checkOrder(2, 1, 0)
-            .startPlan(new StartPlan.Literal("foo", false, null))
-            .rejectPlan(new RejectPlan.RequiredLiteral("baz"))
-            .build();
-
-    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
+    assertThat(actual.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("foo", false, null));
+    assertThat(actual.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new RejectPlan.RequiredLiteral("baz"));
   }
 
   @Test
-  void dotallMultiAnchorChainExtracted() {
+  void dotallDoesNotChangeTheExtractedPlans() {
     Regexp ast = Parser.parse("(?s)foo.*bar.*baz", Pattern.toParseFlags(0));
     MultiAnchorDescriptor actual = MultiAnchorCompiler.compile(ast, 0);
 
-    MultiAnchorDescriptor expected =
-        MultiAnchorDescriptorBuilder.create()
-            .segment("foo")
-            .segment(GapKind.ANY_STAR, "bar")
-            .segment(GapKind.ANY_STAR, "baz")
-            .checkOrder(2, 1, 0)
-            .startPlan(new StartPlan.Literal("foo", false, null))
-            .rejectPlan(new RejectPlan.RequiredLiteral("baz"))
-            .build();
-
-    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
-  }
-
-  @Test
-  void boundedCharacterClassRepeatGapStructure() {
-    Regexp ast = Parser.parse("AAA\\s{1,4}BBB\\d+CCC", Pattern.toParseFlags(0));
-    MultiAnchorDescriptor actual = MultiAnchorCompiler.compile(ast, 0);
-
-    assertThat(actual).isNotNull();
-    assertThat(actual.segments()).hasSize(3);
-    assertThat(actual.segments()[0].gap().kind()).isEqualTo(GapKind.EMPTY);
-    assertThat(actual.segments()[0].anchor().literal()).isEqualTo("AAA");
-
-    assertThat(actual.segments()[1].gap().kind()).isEqualTo(GapKind.BOUNDED_CLASS_REPEAT);
-    assertThat(actual.segments()[1].gap().minLength()).isEqualTo(1);
-    assertThat(actual.segments()[1].gap().maxLength()).isEqualTo(4);
-    assertThat(actual.segments()[1].anchor().literal()).isEqualTo("BBB");
-
-    assertThat(actual.segments()[2].gap().kind()).isEqualTo(GapKind.BOUNDED_CLASS_REPEAT);
-    assertThat(actual.segments()[2].gap().minLength()).isEqualTo(1);
-    assertThat(actual.segments()[2].gap().maxLength()).isEqualTo(Integer.MAX_VALUE);
-    assertThat(actual.segments()[2].anchor().literal()).isEqualTo("CCC");
+    assertThat(actual.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("foo", false, null));
+    assertThat(actual.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new RejectPlan.RequiredLiteral("baz"));
   }
 
   @Test
@@ -112,37 +74,28 @@ class MultiAnchorCompilerTest {
     Regexp textBoundaryAst = Parser.parse("^foo.*bar$", Pattern.toParseFlags(0));
     MultiAnchorDescriptor actualText = MultiAnchorCompiler.compile(textBoundaryAst, 0);
 
-    MultiAnchorDescriptor expectedText =
-        MultiAnchorDescriptorBuilder.create()
-            .segment(Gap.TEXT_START, "foo")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "bar")
-            .trailingGap(Gap.EMPTY)
-            .checkOrder(1, 0)
-            .isStartAnchored(true)
-            .isEndAnchored(true)
-            .startPlan(new StartPlan.Literal("foo", false, null))
-            .rejectPlan(
-                new RejectPlan.EndAnchoredSuffix(new Pattern.SuffixInfo("bar", true, false, false)))
-            .anchoredPrefix("foo")
-            .anchoredCharClassPrefix(
-                CharClassScanInfo.fromCharClass(new CharClassBuilder().addRune('f').build()))
-            .build();
-
-    assertThat(actualText).usingRecursiveComparison().isEqualTo(expectedText);
+    assertThat(actualText.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("foo", false, null));
+    assertThat(actualText.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(
+            new RejectPlan.EndAnchoredSuffix(new Pattern.SuffixInfo("bar", true, false, false)));
+    assertThat(actualText.anchoredPrefix()).isEqualTo("foo");
+    assertThat(actualText.anchoredCharClassPrefix())
+        .usingRecursiveComparison()
+        .isEqualTo(CharClassScanInfo.fromCharClass(new CharClassBuilder().addRune('f').build()));
 
     Regexp wordBoundaryAst = Parser.parse("\\bfoo.*bar", Pattern.toParseFlags(0));
     MultiAnchorDescriptor actualWord = MultiAnchorCompiler.compile(wordBoundaryAst, 0);
 
-    MultiAnchorDescriptor expectedWord =
-        MultiAnchorDescriptorBuilder.create()
-            .segment(Gap.WORD_BOUNDARY, "foo")
-            .segment(GapKind.SINGLE_LINE_ANY_STAR, "bar")
-            .checkOrder(1, 0)
-            .startPlan(new StartPlan.Literal("foo", false, null))
-            .rejectPlan(new RejectPlan.RequiredLiteral("bar"))
-            .build();
-
-    assertThat(actualWord).usingRecursiveComparison().isEqualTo(expectedWord);
+    assertThat(actualWord.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("foo", false, null));
+    assertThat(actualWord.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new RejectPlan.RequiredLiteral("bar"));
+    assertThat(actualWord.anchoredPrefix()).isNull();
   }
 
   @Test
@@ -150,68 +103,12 @@ class MultiAnchorCompilerTest {
     Regexp ast = Parser.parse("(?i)foo.*bar", Pattern.toParseFlags(0));
     MultiAnchorDescriptor actual = MultiAnchorCompiler.compile(ast, 0);
 
-    MultiAnchorDescriptor expected =
-        MultiAnchorDescriptorBuilder.create()
-            .segment(Gap.EMPTY, Anchor.Single.create("foo", true))
-            .segment(Gap.SINGLE_LINE_ANY_STAR_GREEDY, Anchor.Single.create("bar", true))
-            .checkOrder(1, 0)
-            .startPlan(new StartPlan.Literal("foo", true, null))
-            .rejectPlan(new RejectPlan.RequiredLiteral("bar"))
-            .build();
-
-    assertThat(actual).usingRecursiveComparison().isEqualTo(expected);
-  }
-
-  /**
-   * A dot-equivalent character class takes its guard bytes from the class, not from {@code
-   * UNIX_LINES}: {@code [^\n]} matches {@code \r} and must not be given a {@code \r} guard, while
-   * {@code [^\n\r]} must.
-   */
-  @Test
-  void dotCharClassGapGuardsFollowTheClass() {
-    // Every quantifier agrees, and UNIX_LINES can neither widen a class that excludes \r nor
-    // narrow one that admits it.
-    for (String q : new String[] {"*", "+", "?", "{2,5}"}) {
-      for (int f : new int[] {0, Pattern.UNIX_LINES}) {
-        assertThat(guardsOf("foo[^\\n]" + q + "bar", f))
-            .as("[^\\n]%s unix=%s", q, f != 0)
-            .containsExactly((byte) '\n');
-        assertThat(guardsOf("foo[^\\n\\r]" + q + "bar", f))
-            .as("[^\\n\\r]%s unix=%s", q, f != 0)
-            .containsExactly((byte) '\n', (byte) '\r');
-      }
-    }
-
-    // A real dot has no class to inspect, so it follows the flag -- for every quantifier, and
-    // for a bare dot used as the whole gap.
-    for (String q : new String[] {"*", "+", "?", "{2,5}", ""}) {
-      assertThat(guardsOf("foo." + q + "bar", 0))
-          .as(".%s", q)
-          .containsExactly((byte) '\n', (byte) '\r');
-      assertThat(guardsOf("foo." + q + "bar", Pattern.UNIX_LINES))
-          .as(".%s unix", q)
-          .containsExactly((byte) '\n');
-    }
-
-    // Greediness is carried through alongside the corrected guards.
-    assertThat(gapOf("foo[^\\n]*bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_UNIX_GREEDY);
-    assertThat(gapOf("foo[^\\n]*?bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_UNIX_LAZY);
-    assertThat(gapOf("foo[^\\n\\r]*bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_GREEDY);
-    assertThat(gapOf("foo[^\\n\\r]*?bar", 0)).isSameAs(Gap.SINGLE_LINE_ANY_STAR_LAZY);
-  }
-
-  /** Returns the guard bytes of the gap joining the two anchors of a two-anchor pattern. */
-  private static byte[] guardsOf(String pattern, int flags) {
-    return gapOf(pattern, flags).guardBytes();
-  }
-
-  /** Returns the gap joining the two anchors of a two-anchor pattern. */
-  private static Gap gapOf(String pattern, int flags) {
-    Regexp ast = Parser.parse(pattern, Pattern.toParseFlags(flags));
-    MultiAnchorDescriptor descriptor = MultiAnchorCompiler.compile(ast, flags);
-    assertThat(descriptor).isNotNull();
-    assertThat(descriptor.segments()).hasSize(2);
-    return descriptor.segments()[1].gap();
+    assertThat(actual.startPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new StartPlan.Literal("foo", true, null));
+    assertThat(actual.rejectPlan())
+        .usingRecursiveComparison()
+        .isEqualTo(new RejectPlan.RequiredLiteral("bar"));
   }
 
   @Test
@@ -232,7 +129,7 @@ class MultiAnchorCompilerTest {
   void rejectDescriptorRequiredLiteral() {
     Regexp ast = Parser.parse(".*(important_keyword).*", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.RejectPlan reject =
-        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false, null);
+        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false);
 
     assertThat(reject).isNotNull();
     MultiAnchorDescriptor.RejectPlan.RequiredLiteral lit = null;
@@ -254,7 +151,7 @@ class MultiAnchorCompilerTest {
   void rejectDescriptorEndAnchoredSuffix() {
     Regexp ast = Parser.parse(".*\\.json$", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.RejectPlan reject =
-        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false, null);
+        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false);
 
     assertThat(reject).isNotNull();
     MultiAnchorDescriptor.RejectPlan.EndAnchoredSuffix s = null;
@@ -277,7 +174,7 @@ class MultiAnchorCompilerTest {
   void rejectDescriptorRequiredCharClass() {
     Regexp ast = Parser.parse(".*\\d+.*", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.RejectPlan reject =
-        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false, null);
+        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false);
 
     assertThat(reject).isInstanceOf(MultiAnchorDescriptor.RejectPlan.RequiredCharClass.class);
   }
@@ -286,7 +183,7 @@ class MultiAnchorCompilerTest {
   void rejectDescriptorDisjointRequiredLiterals() {
     Regexp ast = Parser.parse("(apple.*|banana.*|cherry.*)", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.RejectPlan reject =
-        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false, null);
+        MultiAnchorCompiler.extractRejectPlan(ast, 0, null, false);
 
     assertThat(reject).isInstanceOf(MultiAnchorDescriptor.RejectPlan.DisjointLiterals.class);
     MultiAnchorDescriptor.RejectPlan.DisjointLiterals d =
@@ -425,20 +322,6 @@ class MultiAnchorCompilerTest {
 
   private static long analysisWork(Regexp regexp) {
     return WorkCounter.countForTesting(() -> MultiAnchorCompiler.analyze(regexp));
-  }
-
-  @Test
-  void driverSelectionSelectsRarestAnchor() {
-    Pattern p = Pattern.compile("error:\\[[A-Z]\\] code:500");
-    MultiAnchorDescriptor desc = p.multiAnchor();
-    assertThat(desc).isNotNull();
-    assertThat(desc.checkOrder()).isNotEmpty();
-    assertThat(desc.checkOrder()[0]).isNotEqualTo(0); // Rarest anchor is downstream
-    // Rarest anchor is selected as driver for reverse candidate evaluation
-    assertThat(desc.selectDriver(MultiAnchorDescriptor.InputDomain.STRING, true))
-        .isEqualTo(desc.checkOrder()[0]);
-    assertThat(desc.selectDriver(MultiAnchorDescriptor.InputDomain.UTF8, true))
-        .isEqualTo(desc.checkOrder()[0]);
   }
 
   @Test
