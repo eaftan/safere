@@ -184,6 +184,53 @@ leak (so `[\u0100&&[a]&]` fails to match `\u0100`). SafeRE treats all Unicode co
 points uniformly according to boolean set algebra rather than reproducing JDK parser
 bugs and implementation accidents.
 
+## Quoting Constructs inside Comments
+
+Issue reference: #858.
+
+Compatibility rationale:
+[discussion of both interpretations](https://github.com/eaftan/safere/issues/858#issuecomment-5654689232).
+
+SafeRE treats all text from an unescaped `#` to the end of the line as
+comment trivia when comments mode is enabled. A `\Q` inside that comment
+does not start quoting, and syntax on subsequent lines is parsed normally.
+This follows SafeRE's reading of the
+[JDK 26 `COMMENTS` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#COMMENTS),
+which says embedded comments are ignored until the end of a line.
+
+Observed JDK 26.0.2 behavior allows `\Q` inside a comment to activate quoting
+on subsequent lines. For example, `Pattern.compile("(?x)#\\Q\n.")`
+matches only a literal dot on the JDK, while SafeRE treats the dot as a
+wildcard. Likewise, SafeRE rejects `"(?x)#\\Q\n("` as an unclosed group,
+and rejects a subsequent `\E` without a quote opened outside the comment.
+The JDK accepts these forms by carrying quoting state out of ignored text.
+
+The JDK documentation also describes `\Q` as quoting subsequent characters
+until `\E`, without specifying precedence between quoting and comment removal.
+Processing quoting first is a possible alternative interpretation. SafeRE's
+choice is therefore a deliberate interpretation of the documented comment rule,
+not a claim that the JDK unambiguously violates its specification or that
+matching the JDK behavior would violate linear time.
+
+Probes using PCRE2 10.45 support SafeRE's interpretation: the unclosed
+group is rejected, and the dot variant remains a wildcard. PCRE2 supports both
+comments mode and `\Q…\E`, making it a directly comparable precedent.
+Rust `regex` 1.13.1 (tested directly), Python `re`, and .NET 10.0.12 give the
+same results, although those comparisons are weaker because they do not support
+`\Q…\E` outside comments.
+
+Perl 5.38.2 provides qualified support for the JDK result: a regex literal
+accepts the parenthesis as literal text, while supplying the same raw pattern
+through a variable produces an unclosed-group error. Perl documents a
+[quoting/interpolation stage before regex interpretation](https://perldoc.perl.org/perlop#Quote-and-Quote-like-Operators).
+SafeRE preserves the rule that ignored comment text cannot change subsequent
+syntax, consistent with PCRE2's behavior.
+
+`CommentQuotingModelTest` asserts the intended SafeRE behavior directly,
+including flags, line endings, captures, character classes, and syntax errors.
+Its expectations run in SafeRE tests and are disabled only in generated JDK
+crosscheck tests with `@DisabledForCrosscheck`.
+
 ## Unicode Case-Insensitive Range Closure
 
 Issue reference: #452.
