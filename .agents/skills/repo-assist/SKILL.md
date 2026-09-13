@@ -12,8 +12,8 @@ Prepare the data needed for a human SafeRE repository review while the reviewer 
 - which open non-draft contributor PRs need attention;
 - whether each PR's idea makes sense and matches its implementation;
 - how each stacked PR contributes to the stack's shared objective and affects adjacent layers;
-- P2+ code-review findings fixed locally with `$review-fix-loop` when the repair is bounded, or
-  reported to the author when correction requires a redesign;
+- P2+ code-review findings fixed locally with `$review-fix-loop` within the cycle limit, or
+  reported to the author when that limit is exhausted;
 - benchmark reproduction for optimization PRs;
 - durable reports and artifacts that can be inspected later.
 - one paste-ready, self-contained PR review containing everything the PR author needs to understand
@@ -65,11 +65,11 @@ independent PRs,
 until every eligible PR has reached one of
 these durable terminal states for the run:
 
-- `reviewed`: intent review, defect review, proportionate local repair, required verification, and
+- `reviewed`: intent review, local repair within the cycle limit, required verification, and
   any required benchmark reproduction are complete and recorded, or broad verification and
   benchmarks were explicitly skipped and recorded because unresolved in-scope findings make them
-  non-decision-relevant. Actionable findings may remain when repair requires redesign or exhausts
-  the semantic review/fix-cycle limit; record them for the author instead;
+  non-decision-relevant. Actionable findings may remain when the semantic review/fix-cycle limit
+  is exhausted; record them for the author instead;
 - `blocked`: the PR cannot be reviewed because of a concrete blocker such as unresolved merge
   conflicts requiring product/design judgment, unavailable required tooling, repeated tool failure,
   or missing information that prevents meaningful progress;
@@ -81,18 +81,13 @@ after each PR is for crash recovery only; it is not permission to end a healthy 
 eligible trusted contributor PRs appear during discovery at the start of the run, include them in the same
 number-ordered queue unless the user explicitly scoped the run to a fixed list.
 
-Preserve sweep breadth while running to completion. Repo-assist is maintainer decision support, not
-an obligation to rescue every PR locally. Make small, clearly bounded fixes that preserve the PR's
-design. Stop local repair and finish the review with author-facing findings when correctness would
-require redesigning eligibility or execution semantics, adding substantial new state, replacing a
-large fraction of the change, or repeatedly uncovering another design-class defect after earlier
-repairs. In all cases, allow at most four semantic review/fix cycles after the initial read-only
-pass. Each cycle applies at most one coherent semantic fix batch, runs focused verification, and
-obtains a fresh review pass. If the fresh pass after the fourth cycle still has an in-scope finding,
-return it to the author regardless of estimated fix size. Both paths produce the same
-unresolved-findings outcome. This is a reviewed PR with
-unresolved findings, not a blocked sweep. Continue to the next independent PR after recording the
-evidence and recommendation.
+Work through in-scope findings even when a principled correction changes substantial code or the
+PR's design. Do not stop local repair because a fix is broad or another design-class defect appears.
+Allow at most five semantic review/fix cycles after the initial read-only pass. Each cycle applies
+at most one coherent semantic fix batch, runs focused verification, and obtains a fresh review pass.
+If the fresh pass after the fifth cycle still has an in-scope finding, preserve the reproduction and
+return the remaining findings to the author. This is a reviewed PR with unresolved findings, not a
+blocked sweep. Continue to the next independent PR after recording the evidence and recommendation.
 
 Only end a run before the queue is complete when the user explicitly asks to stop, the whole sweep
 is blocked by an active lock or repeated infrastructure/tooling failure, or the current execution
@@ -289,8 +284,8 @@ earlier scout report.
   that history is meaningful in the public discussion.
 
 Make an unfinished review-fix loop impossible to miss when scanning the report. If review or
-validation began for a PR but did not reach a clean no-P2+ finding result, including an early
-return for redesign, unresolved findings after any number of cycles, or an incomplete final pass:
+validation began for a PR but did not reach a clean no-P2+ finding result, including unresolved
+findings at the cycle limit or an incomplete final pass:
 
 - add a bold alert immediately below the PR summary table listing every affected PR number;
 - begin that PR's summary assessment with **REVIEW-FIX LOOP INCOMPLETE**; and
@@ -501,16 +496,15 @@ uv run --project .agents/skills/repo-assist --locked repo-assist \
    `main`. For an upper stack layer, this is the prepared lower-layer head. For a limited semantic
    delta, use those reviewer standards on the changed code and affected invariants; preserve the
    still-valid earlier complete pass instead of repeating it.
-   - Assess the complete finding set before editing. If the repair is small and preserves the PR's
-     design, run `$review-fix-loop` using the same prepared review-base SHA and otherwise follow it
-     with two task-specific overrides: set per-fix verification to the focused tests or invariant
-     checks relevant to the finding instead of a broad normal repository command, and stop after
-     four semantic review/fix cycles even if another in-scope finding remains. Repo-assist performs
-     proportionate broad verification after convergence.
-   - If the findings trigger the breadth-preserving repair rule or the four-cycle limit is exhausted,
-     preserve all reproductions and return the remaining findings to the author instead.
+   - Assess the complete finding set before editing. Run `$review-fix-loop` using the same prepared
+     review-base SHA with two task-specific overrides: set per-fix verification to the focused tests
+     or invariant checks relevant to the finding instead of a broad normal repository command, and
+     stop after five semantic review/fix cycles even if another in-scope finding remains.
+     Repo-assist performs proportionate broad verification after convergence.
+   - If the five-cycle limit is exhausted, preserve all reproductions and return the remaining
+     findings to the author instead.
    - The final state should be no remaining P2+ findings, a documented blocker/false positive, or
-     complete author-facing findings when the breadth-preserving repair rule above applies.
+     complete author-facing findings when the five-cycle limit is exhausted.
    - If fixes are made, make a local-only commit in the review branch so fixes are durable and
      benchmarkable. Do not push.
    - Save a patch file under the PR artifact directory by diffing from the post-update/pre-fix
@@ -543,7 +537,7 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
    - If a preflight or broad test exposes a problem that requires a semantic source edit, return to
      focused verification and a fresh review pass, counting the edit as another semantic review/fix
      cycle, then repeat the preflights and affected broad validation on the new final semantic tree.
-     If four cycles were already consumed, preserve the failing reproduction and use the
+     If five cycles were already consumed, preserve the failing reproduction and use the
      unresolved-findings outcome instead of editing. The formatting-only shortcut does not apply.
 
 7. For optimization PRs only, reproduce benchmarks when first reviewed or when delta triage shows
@@ -1001,13 +995,12 @@ constraint, and do not infer a dependency from file overlap alone.
 
 For a new or substantially changed PR, start with a complete read-only defect pass in an isolated
 worktree. For a limited semantic delta, review the changed code and affected invariants while
-retaining the still-valid earlier complete pass. Run $review-fix-loop only when the finding set can
-be repaired with bounded changes that preserve the submitted design.
-Allow at most four semantic review/fix cycles across review and validation; if the following fresh
-pass or a later validation step finds another semantic defect, return it to the author without
-editing. If correctness requires redesigning the PR, or the PR exhausts the four-cycle limit or
-otherwise leaves an in-scope finding, give the author complete actionable findings, mark the PR
-reviewed with unresolved findings, run only the focused reproductions needed to prove them, and
+retaining the still-valid earlier complete pass. Run $review-fix-loop for in-scope findings,
+including fixes that require substantial code or design changes.
+Allow at most five semantic review/fix cycles across review and validation; if the following fresh
+pass or a later validation step finds another semantic defect after the fifth cycle, return it to
+the author without another edit. Give the author complete actionable findings, mark the PR reviewed
+with unresolved findings, run only the focused reproductions needed to prove them, and
 continue the sweep without broad validation or benchmarks. Recording those intentional skips
 satisfies the reviewed terminal state. Do not push branches, post comments, or publish review text.
 For every PR whose review-fix loop started but did not reach a clean no-P2+ result, put a bold
@@ -1027,7 +1020,7 @@ AGENTS.md, CI, and applicable specialized skills; run exhaustive or generated co
 when the affected behavior requires it. Run that broad verification once on the final semantic
 tree. Do not repeat a completed exhaustive behavior phase for a later formatting-only correction.
 Any semantic edit prompted by validation returns to focused verification, a fresh review pass, and
-preflights before the affected broad validation is rerun, and counts against the same four-cycle
+preflights before the affected broad validation is rerun, and counts against the same five-cycle
 limit. When the limit is exhausted, preserve the failing reproduction and return the defect to the
 author without another edit.
 
