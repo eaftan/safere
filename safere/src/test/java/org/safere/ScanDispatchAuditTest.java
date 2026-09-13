@@ -131,6 +131,73 @@ class ScanDispatchAuditTest {
   }
 
   @Test
+  void singleByteClassDoesNotRecordRoutingProbeAsDispatch() {
+    VectorScanProvider provider = installedProvider();
+    if (provider == null) {
+      return;
+    }
+    int window = provider.minimumWindowLength(ScanKind.CLASS);
+    Utf8InputScanner scanner = new Utf8InputScanner(LONG_INPUT);
+
+    List<ScanEvent> events =
+        captureScan(
+            () ->
+                scanner.indexOfCodePointClass(
+                    new int[] {'z', 'z'}, 0, 1L << ('z' - Long.SIZE), 0, window));
+
+    assertThat(events).isEmpty();
+  }
+
+  @Test
+  void tripleClassRecordsOnlyItsActualTripleScan() {
+    VectorScanProvider provider = installedProvider();
+    if (provider == null) {
+      return;
+    }
+    int window = provider.minimumWindowLength(ScanKind.CLASS);
+    Utf8InputScanner scanner = new Utf8InputScanner(LONG_INPUT);
+
+    List<ScanEvent> events =
+        captureScan(
+            () ->
+                scanner.indexOfCodePointClass(
+                    new int[] {'a', 'a', 'b', 'b', 'c', 'c'}, 0, 0, 0, window));
+
+    assertThat(events)
+        .containsExactly(
+            consulted(ScanKind.TRIPLE, window),
+            new ScanEvent(ScanKind.TRIPLE, ScanDirection.FORWARD, window, ScanPath.VECTOR));
+  }
+
+  @Test
+  void alternationRecordsScalarFallbackAfterWideKernelsDecline() {
+    VectorScanProvider provider = installedProvider();
+    if (provider == null) {
+      return;
+    }
+    MultiAnchorDescriptor.Anchor.Alternation alternation =
+        MultiAnchorDescriptor.Anchor.Alternation.create(LITERALS, false);
+    assertThat(alternation.teddyModel()).isNotNull();
+    assertThat(alternation.multiLiteral()).isNotNull();
+    int window =
+        Math.min(
+                provider.minimumWindowLength(ScanKind.TEDDY),
+                provider.minimumWindowLength(ScanKind.MULTI_LITERAL))
+            - 1;
+    int fromIndex = LONG_INPUT.length - window;
+    Utf8InputScanner scanner = new Utf8InputScanner(LONG_INPUT);
+
+    List<ScanEvent> events = captureScan(() -> alternation.findNext(scanner, fromIndex));
+
+    assertThat(events)
+        .containsExactly(
+            consulted(ScanKind.TEDDY, window),
+            new ScanEvent(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED),
+            consulted(ScanKind.MULTI_LITERAL, window),
+            new ScanEvent(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.SCALAR));
+  }
+
+  @Test
   void thresholdBoundaryRecordsExpectedPath() {
     VectorScanProvider provider = installedProvider();
     if (provider == null) {

@@ -1531,7 +1531,11 @@ final class MultiAnchorDescriptor {
                 return idx;
               }
             }
-            ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED);
+            ScanAudit.record(
+                ScanKind.TEDDY,
+                ScanDirection.FORWARD,
+                window,
+                multiLiteral != null ? ScanPath.DECLINED : ScanPath.SCALAR);
           }
           if (multiLiteral != null) {
             VectorScanProvider provider =
@@ -1556,7 +1560,7 @@ final class MultiAnchorDescriptor {
               }
             }
             ScanAudit.record(
-                ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.DECLINED);
+                ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.SCALAR);
           }
         }
 

@@ -339,7 +339,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     }
     if (!WorkCounterConfig.ENABLED) {
       int window = scanLen - position;
-      if (VectorScanProviders.providerFor(ScanKind.CLASS, window) == null
+      if (VectorScanProviders.providerForPolicy(ScanKind.CLASS, window) == null
           && ranges.length >= 4
           && ranges.length <= 8
           && ranges[0] >= 0
@@ -348,6 +348,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
           && (ranges.length != 4 || ranges[0] != ranges[1] || ranges[2] != ranges[3])) {
         // No Vector kernel for this window, but SWAR still beats decoding code points one at a
         // time. Declining the Vector tier is not a reason to fall all the way back to scalar.
+        ScanAudit.recordConsultation(ScanKind.CLASS, window);
         ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.SWAR);
         int scalarLimit = Math.min(scanLen, position + MULTI_RANGE_SWAR_SCALAR_PROLOGUE_LENGTH);
         for (; position < scalarLimit; position++) {
@@ -467,8 +468,8 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
    */
   static boolean useSpecializedAsciiTriple(int[] ranges, int remaining) {
     return isAsciiTriple(ranges)
-        && (VectorScanProviders.providerFor(ScanKind.TRIPLE, remaining) != null
-            || VectorScanProviders.providerFor(ScanKind.CLASS, remaining) == null);
+        && (VectorScanProviders.providerForPolicy(ScanKind.TRIPLE, remaining) != null
+            || VectorScanProviders.providerForPolicy(ScanKind.CLASS, remaining) == null);
   }
 
   private int indexOfNonAsciiCodePointClass(int[] ranges, int start, int scanLen) {

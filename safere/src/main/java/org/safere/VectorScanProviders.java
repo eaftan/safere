@@ -24,6 +24,11 @@ final class VectorScanProviders {
    */
   static VectorScanProvider providerFor(ScanKind kind, int windowLength) {
     ScanAudit.recordConsultation(kind, windowLength);
+    return providerForPolicy(kind, windowLength);
+  }
+
+  /** Checks admission when choosing a route, before any scan dispatch site is entered. */
+  static VectorScanProvider providerForPolicy(ScanKind kind, int windowLength) {
     VectorScanProvider selected = SELECTED;
     if (selected == null) {
       return null;
