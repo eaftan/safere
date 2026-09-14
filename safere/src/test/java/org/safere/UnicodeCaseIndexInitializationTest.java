@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 @DisabledForCrosscheck("checks SafeRE's internal Unicode index initialization")
 class UnicodeCaseIndexInitializationTest {
   private static final String INDEX_NAME = "org/safere/UnicodeCaseFolding$UnicodeCaseClosureIndex";
+  // Generated crosscheck tests copy this disabled test without its SafeRE-only probe class.
+  private static final String PROBE_CLASS_NAME = "org.safere.UnicodeCaseIndexInitializationProbe";
 
   @Test
   void ordinaryCharacterClassesDoNotBuildUnicodeCaseIndex()
@@ -47,13 +49,7 @@ class UnicodeCaseIndexInitializationTest {
                     .getLocation()
                     .toURI());
     Process process =
-        new ProcessBuilder(
-                java,
-                "-Xlog:class+init=info",
-                "-cp",
-                classPath,
-                UnicodeCaseIndexInitializationProbe.class.getName(),
-                regex)
+        new ProcessBuilder(java, "-Xlog:class+init=info", "-cp", classPath, PROBE_CLASS_NAME, regex)
             .redirectErrorStream(true)
             .start();
     String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
