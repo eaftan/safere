@@ -230,6 +230,35 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void observedCaptureDemandDoesNotMakeFindWalkTheInputWithTheCaptureEngine() {
+    String regex = "(error:\\[)[A-Z](\\] code:500)";
+    String input =
+        "2026-08-27 12:00:00 error:[N] code:200 msg:ok\n".repeat(9)
+            + "2026-08-27 12:00:00 error:[C] code:500 msg:crash\n";
+
+    Pattern withoutDemand = Pattern.compile(regex);
+    long deferredWork =
+        WorkCounter.countForTesting(() -> assertThat(withoutDemand.matcher(input).find()).isTrue());
+
+    Pattern withDemand = Pattern.compile(regex);
+    Matcher priming = withDemand.matcher(input);
+    assertThat(priming.find()).isTrue();
+    assertThat(priming.group(1)).isEqualTo("error:[");
+    assertThat(withDemand.innerCapturesObserved()).isTrue();
+
+    long eagerWork =
+        WorkCounter.countForTesting(() -> assertThat(withDemand.matcher(input).find()).isTrue());
+
+    assertThat(deferredWork).isPositive();
+    assertThat(eagerWork)
+        .as(
+            "Preferring the capture engine must not cost more than a bounded speculation on the"
+                + " accelerated start, deferredWork=%d eagerWork=%d",
+            deferredWork, eagerWork)
+        .isLessThan(deferredWork * 2);
+  }
+
+  @Test
   void literalReplaceWithGroupZeroReferenceUsesFastPathWithLinearWork() {
     Pattern pattern = Pattern.compile("(abc)");
     String input = "abc ".repeat(1_000);

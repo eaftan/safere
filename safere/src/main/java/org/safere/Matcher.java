@@ -216,6 +216,17 @@ public final class Matcher implements MatchResult {
     }
   }
 
+  /**
+   * Withdraws a boundary attribution recorded by an engine attempt that was abandoned before it
+   * could decide the match, so that the engine which does decide it is attributed instead.
+   */
+  private void diagnosticDiscardBoundary(MatchStrategy strategy) {
+    DiagnosticAccumulator accumulator = diagnosticsAccumulator();
+    if (accumulator != null) {
+      accumulator.discardBoundary(strategy);
+    }
+  }
+
   private void diagnosticCapture(MatchStrategy strategy) {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
     if (accumulator != null) {
@@ -1761,14 +1772,21 @@ public final class Matcher implements MatchResult {
     // Once callers have demonstrated that they consume inner captures, use the capture-aware
     // engine directly for bounded small inputs. This avoids finding group 0 with the DFA and then
     // replaying the same range through BitState on every successful find().
-    boolean preferCaptureEngine = shouldPreferCaptureEngine(prog, scanner);
-    if (preferCaptureEngine) {
+    //
+    // When a start accelerator preselected a candidate, the attempt is limited to that one start.
+    // BitState walks candidate starts one code point at a time with no literal acceleration of
+    // its own, so letting it cover the rest of the input costs O(text x prog) scalar work where
+    // the forward DFA path costs O(text) with in-loop start-state acceleration. Speculating on a
+    // single accelerated start keeps the win on inputs where the accelerated start is the match,
+    // and caps the loss elsewhere at one failed start before the DFA path below takes over.
+    if (shouldPreferCaptureEngine(prog, scanner)) {
+      int captureSearchLimit = startPositionPreselected ? effectiveStart : scanner.length();
       int[] result =
           searchWithBitStateOrNfa(
               prog,
               scanner,
               effectiveStart,
-              scanner.length(),
+              captureSearchLimit,
               scanner.length(),
               scanner.length(),
               false,
@@ -1777,7 +1795,14 @@ public final class Matcher implements MatchResult {
               prog.numCaptures(),
               false,
               this.groups);
-      return applyFullMatchResult(result);
+      if (result != null || captureSearchLimit >= scanner.length()) {
+        return applyFullMatchResult(result);
+      }
+      // Only starts up to the accelerated candidate were tried, so this is not a decision that no
+      // match exists. Drop the abandoned engine's boundary attribution and let the DFA path below
+      // perform the complete search.
+      diagnosticDiscardBoundary(MatchStrategy.BIT_STATE);
+      diagnosticDiscardBoundary(MatchStrategy.NFA);
     }
 
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
