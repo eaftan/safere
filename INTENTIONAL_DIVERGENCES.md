@@ -352,32 +352,37 @@ is correct because transparent bounds should make the surrounding context
 visible, and once that context is visible the Unicode grapheme rules should be
 applied normally.
 
-## Quantified Scalar Atoms at Split Surrogate Region Ends
+## Region-Local Scalar Consumption at Split Surrogate Region Ends
 
 Sweep names:
 
-- `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION`
+- `REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END`
 - `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION`
 
 When a matcher region ends immediately after the high surrogate of a valid
-surrogate pair, SafeRE treats ordinary scalar-consuming atoms compositionally:
-if the unquantified atom cannot consume a Unicode scalar at that boundary, then
-greedy quantified forms such as `.*`, `.+`, `[\\s\\S]*`, and `[\\s\\S]+` do not
-consume that split high surrogate either.
+surrogate pair, SafeRE decodes ordinary consuming atoms within the region. The
+exposed high surrogate is therefore an unpaired character, just as it would be
+in the corresponding substring. A complete pair inside the region remains one
+code point. This rule applies to unquantified and quantified atoms, and to
+positive and negated categories: `\\p{Cs}` accepts the exposed high surrogate,
+while `\\P{Cs}` rejects it. Transparent bounds can affect assertions, but do
+not change the decoding limit for consuming atoms.
 
-Observed JDK behavior is non-compositional for this edge. Selected unquantified
-scalar atoms reject the split high surrogate, while greedy quantified wrappers
-can still consume it as a one-code-unit match. SafeRE keeps the compositional
-model because it is a coherent scalar-consumption rule and avoids quantifier-
-specific special cases that expose java.util.regex implementation mechanics.
+The JDK 26 Matcher Javadoc defines the region as the searched range but does
+not specify surrogate decoding at its edges. Observed JDK behavior rejects a
+split high surrogate for selected unquantified atoms, while greedy quantified
+wrappers such as `.*` can consume it. SafeRE deliberately uses the region-local
+rule for both forms so ordinary consumption does not depend on text outside
+the searched region or on quantifier spelling. This is a compatibility choice
+where the Javadoc is silent, and preserves linear-time matching.
 
-The zero-width region sweep also reports
-`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` for a narrower JDK
-implementation detail: under transparent bounds at a split surrogate boundary,
-observed JDK behavior can allow `.` after `\B` while rejecting an equivalent
-explicit any-character class such as `[\s\S]`. SafeRE keeps explicit any
-classes compositional with ordinary scalar-consuming atoms rather than making
-their region behavior depend on this spelling distinction.
+The zero-width region sweep still reports
+`BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` for a separate JDK
+implementation detail. In a transparent region `[1,4)` over `x` followed by a
+surrogate pair and `y`, observed JDK behavior finds `\B.` at the position
+between the pair's halves while rejecting `\B[\s\S]` there. SafeRE rejects
+both at that interior position: transparent bounds supply assertion context,
+but ordinary consuming atoms do not start inside a complete code point.
 
 ## Opaque Region CRLF Pair Context
 
@@ -412,6 +417,6 @@ pre-region text when opaque bounds are active.
 | `GRAPHEME_BOUNDARY_CAPTURE_GRAPHEME_MODEL` | Intentional | Grapheme Boundary Alternatives and find Cursor State |
 | `REGION_LOCAL_CONTINUATION_CLUSTER` | Intentional | Region-Local Grapheme Continuation Clusters |
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
-| `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
-| `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
+| `REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
+| `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
 | `OPAQUE_REGION_CRLF_PAIR_CONTEXT` | Intentional | Opaque Region CRLF Pair Context |

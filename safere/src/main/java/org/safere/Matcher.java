@@ -1531,7 +1531,6 @@ public final class Matcher implements MatchResult {
     return regionActive
         && ((!anchoringBounds && prog.hasTextAnchor())
             || transparentBounds
-            || regionEndsInsideSurrogatePair()
             || prog.hasGraphemeSemantics());
   }
 

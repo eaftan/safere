@@ -38,6 +38,21 @@ public final class RegionBoundsFuzzer {
   private static final List<String> SPLIT_REGIONAL_GRAPHEME_REGEXES =
       List.of("\\X", "\\b{g}", "\\X\\b{g}");
 
+  private static final List<String> REGION_LOCAL_SCALAR_ATOMS =
+      List.of(
+          ".",
+          ".*",
+          ".+",
+          "[^a]",
+          "[\\s\\S]",
+          "[\\s\\S]*",
+          "\\D",
+          "\\p{Cs}",
+          "\\P{Cs}",
+          "[^\\p{Cs}]");
+
+  private static final List<String> SCALAR_CONTEXTS = List.of("", "x", "\uD83D", "\uDC4D");
+
   private static final List<GraphemeRegion> TRANSPARENT_GRAPHEME_CONTEXT_REGIONS =
       List.of(new GraphemeRegion("\uD83D\uDC4D\uD83C\uDFFB", 1, 3));
 
@@ -63,6 +78,7 @@ public final class RegionBoundsFuzzer {
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     compareGraphemeRegions();
+    compareRegionLocalScalarModel(data);
 
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
@@ -88,6 +104,33 @@ public final class RegionBoundsFuzzer {
     matcher.reset();
     matcher.region(region[0], region[1]);
     matcher.lookingAt();
+  }
+
+  private static void compareRegionLocalScalarModel(FuzzedDataProvider data) {
+    String regex =
+        REGION_LOCAL_SCALAR_ATOMS.get(data.consumeInt(0, REGION_LOCAL_SCALAR_ATOMS.size() - 1));
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String exposedSurrogate = data.consumeBoolean() ? "\uD83D" : "\uDC4D";
+    String input = prefix + exposedSurrogate + suffix;
+    int start = prefix.length();
+    int end = start + 1;
+    boolean expected = !regex.equals("\\P{Cs}") && !regex.equals("[^\\p{Cs}]");
+    Matcher matcher =
+        Pattern.compile(regex)
+            .matcher(input)
+            .region(start, end)
+            .useTransparentBounds(data.consumeBoolean());
+    if (matcher.matches() != expected) {
+      throw new AssertionError("Region-local scalar matches mismatch: " + regex);
+    }
+    matcher.reset(input).region(start, end);
+    if (matcher.find() != expected) {
+      throw new AssertionError("Region-local scalar find mismatch: " + regex);
+    }
+    if (expected && (matcher.start() != start || matcher.end() != end)) {
+      throw new AssertionError("Region-local scalar match crossed the region: " + regex);
+    }
   }
 
   private static void compareGraphemeRegions() {

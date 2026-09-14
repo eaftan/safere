@@ -848,11 +848,7 @@ final class Nfa {
     if (pos < 0 || pos >= context.engineEndPos()) {
       return InputScanner.decoded(-1, nextBoundaryPosition(pos, context.engineEndPos()));
     }
-    long decoded = text.decodeForward(pos);
-    if (InputScanner.position(decoded) <= context.engineEndPos()) {
-      return decoded;
-    }
-    return InputScanner.decoded(-1, nextBoundaryPosition(pos, context.engineEndPos()));
+    return text.decodeForward(pos, context.engineEndPos());
   }
 
   private static int nextBoundaryPosition(int pos, int endPos) {

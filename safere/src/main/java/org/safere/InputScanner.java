@@ -71,6 +71,12 @@ sealed interface InputScanner permits StringInputScanner, Utf8InputScanner {
   /** Decodes the scalar at {@code pos} and packs it with the following logical position. */
   long decodeForward(int pos);
 
+  /** Decodes within {@code limit}, treating a split encoding at the limit as unavailable. */
+  default long decodeForward(int pos, int limit) {
+    long decoded = decodeForward(pos);
+    return position(decoded) <= limit ? decoded : decoded(END_OF_INPUT, limit);
+  }
+
   /** Decodes the scalar ending at {@code pos} and packs it with its starting logical position. */
   long decodeBackward(int pos);
 
