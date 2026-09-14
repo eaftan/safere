@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -72,6 +73,51 @@ class SurrogateRegionConsumptionTest {
         assertThat(find.start()).isEqualTo(c.start());
         assertThat(find.end()).isEqualTo(c.end());
       }
+    }
+  }
+
+  @Test
+  @DisabledForCrosscheck("Opaque region decoding intentionally differs from JDK")
+  void unicodeWordBoundariesUseTheExposedSurrogateCategory() {
+    String pair = "\uD801\uDC00"; // A supplementary letter in the full input.
+    for (String input : new String[] {pair, "x" + pair}) {
+      int start = input.length() - 2;
+      assertThat(Pattern.compile("(?U)\\b.").matcher(input).region(start, start + 1).matches())
+          .isFalse();
+      assertThat(Pattern.compile("(?U)\\B.").matcher(input).region(start, start + 1).matches())
+          .isTrue();
+      assertThat(Pattern.compile("(?U)\\b.").matcher("\uD801").matches()).isFalse();
+      assertThat(Pattern.compile("(?U)\\B.").matcher("\uD801").matches()).isTrue();
+    }
+  }
+
+  @Test
+  @DisabledForCrosscheck("Region-local ordinary atoms intentionally differ from JDK")
+  void ordinaryAlternativesRemainRegionLocalWithGraphemeConstructs() {
+    String pair = "\uD83D\uDC4D";
+    for (String regex :
+        new String[] {"(?:\\X|.)", "(?:.|\\X)", "(?:\\X|[\\s\\S])", "(?:\\b{g}|.)"}) {
+      assertThat(Pattern.compile(regex).matcher(pair).region(0, 1).matches())
+          .as("%s on the split region", regex)
+          .isTrue();
+      assertThat(Pattern.compile(regex).matcher("\uD83D").matches())
+          .as("%s on the corresponding substring", regex)
+          .isTrue();
+    }
+  }
+
+  @Test
+  @DisabledForCrosscheck("Region-local ordinary atoms intentionally differ from JDK")
+  void firstOrdinaryAlternativePrecedesCompletedGraphemeMatch() {
+    Pattern pattern = Pattern.compile("(.|(\\X))");
+    String pair = "\uD83D\uDC4D";
+    for (boolean find : new boolean[] {false, true}) {
+      Matcher matcher = pattern.matcher(pair).region(0, 1);
+      assertThat(find ? matcher.find() : matcher.lookingAt()).isTrue();
+      assertThat(matcher.start()).isZero();
+      assertThat(matcher.end()).isEqualTo(1);
+      assertThat(matcher.group(1)).isEqualTo("\uD83D");
+      assertThat(matcher.group(2)).isNull();
     }
   }
 }

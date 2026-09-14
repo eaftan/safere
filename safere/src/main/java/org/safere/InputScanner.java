@@ -80,6 +80,12 @@ sealed interface InputScanner permits StringInputScanner, Utf8InputScanner {
   /** Decodes the scalar ending at {@code pos} and packs it with its starting logical position. */
   long decodeBackward(int pos);
 
+  /** Decodes backward within {@code start}, treating a split encoding as unavailable. */
+  default long decodeBackward(int pos, int start) {
+    long decoded = decodeBackward(pos);
+    return position(decoded) >= start ? decoded : decoded(END_OF_INPUT, start);
+  }
+
   /** Returns whether {@code pos} is a code-point boundary in this representation. */
   boolean isCodePointBoundary(int pos);
 

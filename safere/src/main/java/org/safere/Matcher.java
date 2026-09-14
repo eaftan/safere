@@ -1528,9 +1528,11 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean needsFullTextRegionContext(boolean regionActive, Prog prog) {
+    // A split-end substring would copy the whole region; the bounded NFA decodes it locally.
     return regionActive
         && ((!anchoringBounds && prog.hasTextAnchor())
             || transparentBounds
+            || regionEndsInsideSurrogatePair()
             || prog.hasGraphemeSemantics());
   }
 
