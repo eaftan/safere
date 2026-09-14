@@ -337,12 +337,26 @@ class MultiAnchorCompilerTest {
 
   @Test
   void factorAlternationsStandalonePrefixExtractsCommonPrefix() {
-    Pattern p =
-        Pattern.compile("(?:https://api|https://stage|https://prod)\\.example\\.com/[a-z0-9]+");
+    // No literal follows the alternation, so the factored prefix is the only candidate and
+    // this asserts the factoring itself rather than the outcome of a later comparison.
+    Pattern p = Pattern.compile("(?:https://api|https://stage|https://prod)[a-z0-9.]+");
     assertThat(p.multiAnchor()).isNotNull();
     assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.Literal.class);
     StartPlan.Literal literal = (StartPlan.Literal) p.multiAnchor().startPlan();
     assertThat(literal.prefix()).isEqualTo("https://");
+  }
+
+  @Test
+  void factoredPrefixLosesToAMoreSelectiveFixedOffsetLiteral() {
+    // The factored prefix is `https://`, but `.example.com/` is the rarer literal and wins.
+    // Before the prefix-length gate was removed the comparison never ran, because the gate
+    // only admitted leading prefixes of two characters or fewer.
+    Pattern p =
+        Pattern.compile("(?:https://api|https://stage|https://prod)\\.example\\.com/[a-z0-9]+");
+    assertThat(p.multiAnchor()).isNotNull();
+    assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.FixedOffset.class);
+    StartPlan.FixedOffset fixedOffset = (StartPlan.FixedOffset) p.multiAnchor().startPlan();
+    assertThat(fixedOffset.fol().literal()).isEqualTo(".example.com/");
   }
 
   @Test

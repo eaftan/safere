@@ -172,9 +172,15 @@ final class MultiAnchorCompiler {
     // When a fixed-offset literal is available and not poisonous:
     //  (a) If the leading prefix is poisonous (e.g. single space or high-frequency letter),
     //      suppress it and prioritize the non-poisonous fixed-offset literal.
-    //  (b) If the leading prefix is short/weak (length <= 2) and the fixed-offset literal
-    //      is significantly more selective (score > 2x prefix score), prioritize the
-    //      more distinctive fixed-offset anchor over the weak leading prefix.
+    //  (b) Otherwise prefer whichever of the two is more selective. Ties go to the leading
+    //      prefix, which needs no offset arithmetic to verify.
+    //
+    // There is deliberately no length gate and no margin here. Both were tried and both cost
+    // more than they saved: requiring `prefix.length() <= 2` meant the two candidates were
+    // never even compared unless the leading prefix was a single character or a pair, which
+    // is the minority case, and a 2x margin then suppressed most of what survived. Together
+    // they pinned `error:\[[A-Z]\] code:500` to the leading `error:[` -- a literal that occurs
+    // on every line of a log -- in preference to the far rarer `] code:500`.
     if (fol != null && !folPoisonous) {
       if (prefix == null || prefixPoisonous) {
         return new MultiAnchorDescriptor.StartPlan.FixedOffset(
@@ -182,15 +188,13 @@ final class MultiAnchorCompiler {
                 fol.literal(), fol.minOffset(), fol.maxOffset(), fol.discreteOffsets()),
             start.charClassPrefix());
       }
-      if (prefix.length() <= 2) {
-        int prefixScore = RarityOracle.literalSelectivityScore(prefix, prefixFoldCase);
-        int folScore = RarityOracle.literalSelectivityScore(fol.literal());
-        if (folScore > prefixScore * 2) {
-          return new MultiAnchorDescriptor.StartPlan.FixedOffset(
-              new Pattern.FixedOffsetLiteral(
-                  fol.literal(), fol.minOffset(), fol.maxOffset(), fol.discreteOffsets()),
-              start.charClassPrefix());
-        }
+      int prefixScore = RarityOracle.literalSelectivityScore(prefix, prefixFoldCase);
+      int folScore = RarityOracle.literalSelectivityScore(fol.literal());
+      if (folScore > prefixScore) {
+        return new MultiAnchorDescriptor.StartPlan.FixedOffset(
+            new Pattern.FixedOffsetLiteral(
+                fol.literal(), fol.minOffset(), fol.maxOffset(), fol.discreteOffsets()),
+            start.charClassPrefix());
       }
     }
 
