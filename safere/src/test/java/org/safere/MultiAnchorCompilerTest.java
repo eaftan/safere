@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
@@ -357,6 +358,30 @@ class MultiAnchorCompilerTest {
     assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.FixedOffset.class);
     StartPlan.FixedOffset fixedOffset = (StartPlan.FixedOffset) p.multiAnchor().startPlan();
     assertThat(fixedOffset.fol().literal()).isEqualTo(".example.com/");
+  }
+
+  @Test
+  void selectedFixedOffsetLiteralPreservesStringAndUtf8FindBounds() {
+    String regex = "(?:https://api|https://stage|https://prod)\\.example\\.com/[a-z0-9]+";
+    String text = "é https://api.example.com/x! https://prod.example.com/y";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().startPlan()).isInstanceOf(StartPlan.FixedOffset.class);
+
+    java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(text);
+    Matcher stringMatcher = pattern.matcher(text);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+    while (expected.find()) {
+      assertThat(stringMatcher.find()).isTrue();
+      assertThat(stringMatcher.start()).isEqualTo(expected.start());
+      assertThat(stringMatcher.end()).isEqualTo(expected.end());
+      assertThat(utf8Matcher.find()).isTrue();
+      assertThat(utf8Matcher.start())
+          .isEqualTo(text.substring(0, expected.start()).getBytes(UTF_8).length);
+      assertThat(utf8Matcher.end())
+          .isEqualTo(text.substring(0, expected.end()).getBytes(UTF_8).length);
+    }
+    assertThat(stringMatcher.find()).isFalse();
+    assertThat(utf8Matcher.find()).isFalse();
   }
 
   @Test
