@@ -235,28 +235,25 @@ crosscheck tests with `@DisabledForCrosscheck`.
 
 Issue reference: #452.
 
-The current case-folding character-class sweep records unclassified divergence
-labels only. Issue #452 is the project record for the intentional range-closure
-family found by that sweep and by targeted probes.
+Issue #866 refines this rule. SafeRE builds one equivalence relation from Unicode
+**default simple case-fold** links and Java's single-code-point upper, lower,
+and title casing links. Each link is bidirectional, and transitive connections
+belong to the same family. For example, Java casing joins U+0130 and U+0131
+to the Unicode simple-fold family containing `I` and `i`. The rule is fixed
+when the Unicode closure index is initialized, outside matching.
 
-SafeRE treats Unicode case-insensitive character classes as sets closed under
-Unicode case folding and casing equivalence. Under
-`CASE_INSENSITIVE | UNICODE_CASE`, a singleton class and an equivalent singleton
-range denote the same pre-folding set, so they should have the same membership
-after folding. For example, `[K]` and `[K-K]` should both match U+212A KELVIN
-SIGN, and ranges containing `I` should include U+0130 LATIN CAPITAL LETTER I
-WITH DOT ABOVE.
+Under `CASE_INSENSITIVE | UNICODE_CASE`, literals, singleton classes, and
+ranges match every member of each included family. A negated class complements
+the expanded set. This preserves the set interpretation from #452: `[K]` and
+`[K-K]` both match U+212A KELVIN SIGN; `[I]` and `[I-I]` both match U+0130;
+`I`, `i`, U+0130, and U+0131 match one another reciprocally. The
+`UNICODE_CHARACTER_CLASS` flag implies `UNICODE_CASE` as documented by the JDK.
 
-Observed JDK behavior is syntax-sensitive for some ranges: selected singleton
-classes and lowercase ranges include compatibility code points, while equivalent
-singleton ranges or uppercase ranges miss them, and negated ranges can include
-the same code point as a consequence. SafeRE's behavior is correct because
-character classes should be interpreted as sets. Two spellings that denote the
-same set before Unicode case closure should not diverge after closure.
-
-The case-folding character-class sweep and targeted tests cover this family.
-Known examples include Kelvin sign, Turkish dotted I, ohm sign, and angstrom
-sign range cases.
+The observed JDK 26.0.2 behavior differs for some range spellings and some
+isolated literal pairs. SafeRE keeps the stated set rule, rather than varying
+case expansion with range syntax. The [case-equivalence audit](audits/unicode-case-equivalence/README.md)
+records the complete observed differences over case-mapping participants,
+including the baseline and the rule after #866.
 
 ## Grapheme Cluster Composition
 

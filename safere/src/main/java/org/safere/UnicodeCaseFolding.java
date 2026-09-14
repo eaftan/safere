@@ -122,43 +122,59 @@ final class UnicodeCaseFolding {
     }
 
     private static long[] buildTargetToSourcePairs() {
-      LongArrayBuilder pairs = new LongArrayBuilder();
-      for (int source = 0; source <= Utils.MAX_RUNE; source++) {
-        addPair(pairs, source, Character.toUpperCase(source));
-        addPair(pairs, source, Character.toLowerCase(source));
-        addPair(pairs, source, Character.toTitleCase(source));
-        addPair(pairs, source, Character.toLowerCase(Character.toUpperCase(source)));
-        addPair(pairs, source, Character.toUpperCase(Character.toLowerCase(source)));
-
-        int folded = cycleFoldRune(source);
-        while (folded != source) {
-          addPair(pairs, source, folded);
-          folded = cycleFoldRune(folded);
+      // Build connected components of single-code-point casing and simple-fold links.
+      // These temporary arrays are bounded by the Unicode universe, not the input length.
+      int[] parent = new int[Utils.MAX_RUNE + 1];
+      int[] next = new int[parent.length];
+      Arrays.fill(next, -1);
+      for (int cp = 0; cp < parent.length; cp++) {
+        parent[cp] = cp;
+      }
+      for (int cp = 0; cp < parent.length; cp++) {
+        union(parent, cp, Character.toUpperCase(cp));
+        union(parent, cp, Character.toLowerCase(cp));
+        union(parent, cp, Character.toTitleCase(cp));
+        union(parent, cp, cycleFoldRune(cp));
+      }
+      // Each component is a linked list starting at its least code point.
+      for (int cp = 0; cp < parent.length; cp++) {
+        int root = find(parent, cp);
+        if (root != cp) {
+          next[cp] = next[root];
+          next[root] = cp;
         }
       }
-
+      LongArrayBuilder pairs = new LongArrayBuilder();
+      for (int target = 0; target < parent.length; target++) {
+        int root = find(parent, target);
+        if (next[root] == -1) {
+          continue;
+        }
+        for (int source = root; source != -1; source = next[source]) {
+          if (source != target) {
+            pairs.add(pack(target, source));
+          }
+        }
+      }
+      // Every member indexes every other member exactly once. One range lookup therefore
+      // gives the complete symmetric/transitive closure, with no iterative parser expansion.
       long[] sorted = pairs.toArray();
       Arrays.sort(sorted);
-      return deduplicate(sorted);
+      return sorted;
     }
 
-    private static void addPair(LongArrayBuilder pairs, int source, int target) {
-      if (source != target) {
-        pairs.add(pack(target, source));
+    private static int find(int[] parent, int cp) {
+      while (parent[cp] != cp) {
+        parent[cp] = parent[parent[cp]];
+        cp = parent[cp];
       }
+      return cp;
     }
 
-    private static long[] deduplicate(long[] sorted) {
-      if (sorted.length == 0) {
-        return sorted;
-      }
-      int size = 1;
-      for (int i = 1; i < sorted.length; i++) {
-        if (sorted[i] != sorted[size - 1]) {
-          sorted[size++] = sorted[i];
-        }
-      }
-      return Arrays.copyOf(sorted, size);
+    private static void union(int[] parent, int a, int b) {
+      int first = find(parent, a);
+      int second = find(parent, b);
+      parent[Math.max(first, second)] = Math.min(first, second);
     }
 
     private static long pack(int target, int source) {

@@ -37,7 +37,12 @@ public final class MatchFuzzer {
       List.of(
           new RegressionCase("[A-Z]", CI_U, List.of("\u0130", "\u212A")),
           new RegressionCase("[I-I]", CI_U, List.of("\u0130")),
-          new RegressionCase("[K-K]", CI_U, List.of("\u212A")));
+          new RegressionCase("[K-K]", CI_U, List.of("\u212A")),
+          new RegressionCase("[İ-İ]", CI_U, List.of("I", "i", "ı")),
+          new RegressionCase("[ı-ı]", CI_U, List.of("I", "i", "İ")),
+          new RegressionCase("İ", CI_U, List.of("I", "i", "ı")),
+          new RegressionCase("ı", CI_U, List.of("I", "i", "İ")),
+          new RegressionCase("\uFB05", CI_U, List.of("\uFB06")));
 
   @FuzzTest(maxDuration = "30s")
   void match(FuzzedDataProvider data) {
@@ -51,6 +56,7 @@ public final class MatchFuzzer {
     for (RegressionCase regression : CASE_FOLDING_MODEL_REGRESSIONS) {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
+    assertCaseFamilyClosureSafeRe(data);
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
     assertUnicodeLineStartAnchorsMatchJdk();
@@ -355,6 +361,28 @@ public final class MatchFuzzer {
         FuzzSupport.compileCompatibleOrSkip(regression.regex(), regression.flags());
     if (pattern != null) {
       pattern.matcher(data.pickValue(regression.inputs())).lookingAt();
+    }
+  }
+
+  private static void assertCaseFamilyClosureSafeRe(FuzzedDataProvider data) {
+    String family = data.pickValue(List.of("Iiİı", "KkK", "Σσς", "ÅåÅ", "ΩωΩ", "ßẞ", "Θθϑϴ", "ﬅﬆ"));
+    int[] members = family.codePoints().toArray();
+    int source = members[data.consumeInt(0, members.length - 1)];
+    int target = members[data.consumeInt(0, members.length - 1)];
+    String literal = "\\x{" + Integer.toHexString(source) + "}";
+    String regex =
+        switch (data.consumeInt(0, 4)) {
+          case 0 -> literal;
+          case 1 -> "[" + literal + "]";
+          case 2 -> "[" + literal + "-" + literal + "]";
+          case 3 -> "[^" + literal + "]";
+          default -> "[^" + literal + "-" + literal + "]";
+        };
+    boolean actual =
+        Pattern.compile(regex, CI_U).matcher(new String(Character.toChars(target))).matches();
+    if (actual == regex.startsWith("[^")) {
+      throw new AssertionError(
+          "SafeRE case family closure: " + regex + " U+" + Integer.toHexString(target));
     }
   }
 
