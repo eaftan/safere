@@ -122,37 +122,59 @@ final class UnicodeCaseFolding {
     }
 
     private static long[] buildTargetToSourcePairs() {
-      // Build connected components of single-code-point casing and simple-fold links.
-      // These temporary arrays are bounded by the Unicode universe, not the input length.
-      int[] parent = new int[Utils.MAX_RUNE + 1];
-      int[] next = new int[parent.length];
-      Arrays.fill(next, -1);
-      for (int cp = 0; cp < parent.length; cp++) {
-        parent[cp] = cp;
+      // Gather only nontrivial single-code-point casing and simple-fold links. Most Unicode
+      // code points have no links and need no entry in the component arrays.
+      LongArrayBuilder links = new LongArrayBuilder();
+      for (int cp = 0; cp <= Utils.MAX_RUNE; cp++) {
+        addLink(links, cp, Character.toUpperCase(cp));
+        addLink(links, cp, Character.toLowerCase(cp));
+        addLink(links, cp, Character.toTitleCase(cp));
+        addLink(links, cp, cycleFoldRune(cp));
       }
-      for (int cp = 0; cp < parent.length; cp++) {
-        union(parent, cp, Character.toUpperCase(cp));
-        union(parent, cp, Character.toLowerCase(cp));
-        union(parent, cp, Character.toTitleCase(cp));
-        union(parent, cp, cycleFoldRune(cp));
+      long[] edges = links.toArray();
+      int[] codePoints = new int[edges.length * 2];
+      for (int i = 0; i < edges.length; i++) {
+        codePoints[2 * i] = target(edges[i]);
+        codePoints[2 * i + 1] = source(edges[i]);
+      }
+      Arrays.sort(codePoints);
+      int count = 0;
+      for (int cp : codePoints) {
+        if (count == 0 || codePoints[count - 1] != cp) {
+          codePoints[count++] = cp;
+        }
+      }
+
+      // Sorted code points give each participant a compact index; the least index in a
+      // component also represents its least code point.
+      int[] parent = new int[count];
+      int[] next = new int[count];
+      Arrays.fill(next, -1);
+      for (int i = 0; i < count; i++) {
+        parent[i] = i;
+      }
+      for (long edge : edges) {
+        int first = Arrays.binarySearch(codePoints, 0, count, target(edge));
+        int second = Arrays.binarySearch(codePoints, 0, count, source(edge));
+        union(parent, first, second);
       }
       // Each component is a linked list starting at its least code point.
-      for (int cp = 0; cp < parent.length; cp++) {
-        int root = find(parent, cp);
-        if (root != cp) {
-          next[cp] = next[root];
-          next[root] = cp;
+      for (int i = 0; i < count; i++) {
+        int root = find(parent, i);
+        if (root != i) {
+          next[i] = next[root];
+          next[root] = i;
         }
       }
       LongArrayBuilder pairs = new LongArrayBuilder();
-      for (int target = 0; target < parent.length; target++) {
-        int root = find(parent, target);
+      for (int targetIndex = 0; targetIndex < count; targetIndex++) {
+        int root = find(parent, targetIndex);
         if (next[root] == -1) {
           continue;
         }
-        for (int source = root; source != -1; source = next[source]) {
-          if (source != target) {
-            pairs.add(pack(target, source));
+        for (int sourceIndex = root; sourceIndex != -1; sourceIndex = next[sourceIndex]) {
+          if (sourceIndex != targetIndex) {
+            pairs.add(pack(codePoints[targetIndex], codePoints[sourceIndex]));
           }
         }
       }
@@ -161,6 +183,12 @@ final class UnicodeCaseFolding {
       long[] sorted = pairs.toArray();
       Arrays.sort(sorted);
       return sorted;
+    }
+
+    private static void addLink(LongArrayBuilder links, int first, int second) {
+      if (first != second) {
+        links.add(pack(first, second));
+      }
     }
 
     private static int find(int[] parent, int cp) {

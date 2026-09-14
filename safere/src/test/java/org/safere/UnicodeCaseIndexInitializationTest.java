@@ -30,7 +30,7 @@ class UnicodeCaseIndexInitializationTest {
   }
 
   @Test
-  void unicodeCaseClassBuildsIndexWhenNeeded()
+  void unicodeCaseClassBuildsIndexWithinSmallHeap()
       throws IOException, InterruptedException, URISyntaxException {
     assertThat(runFreshProcess("(?iu)[K-K]")).contains(INDEX_NAME);
   }
@@ -49,7 +49,8 @@ class UnicodeCaseIndexInitializationTest {
                     .getLocation()
                     .toURI());
     Process process =
-        new ProcessBuilder(java, "-Xlog:class+init=info", "-cp", classPath, PROBE_CLASS_NAME, regex)
+        new ProcessBuilder(
+                java, "-Xmx12m", "-Xlog:class+init=info", "-cp", classPath, PROBE_CLASS_NAME, regex)
             .redirectErrorStream(true)
             .start();
     String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
