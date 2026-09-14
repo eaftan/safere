@@ -260,6 +260,16 @@ class RandomTest {
   // String versus UTF-8 domain comparison
   // -----------------------------------------------------------------------
 
+  @Test
+  void domainComparisonDetectsDifferentFullMatchBounds() {
+    Pattern pattern = Pattern.compile("(a|ab)");
+    Matcher chars = pattern.matcher("ab");
+    Utf8Matcher bytes = pattern.matcher(Utf8Input.validated("a".getBytes(UTF_8)));
+    assertThat(chars.matches()).isTrue();
+    assertThat(bytes.matches()).isTrue();
+    assertThat(compareMatchedGroups(0, byteOffsets("ab"), chars, bytes)).isNotNull();
+  }
+
   /**
    * Runs {@code pattern} over {@code text} in both the String and UTF-8 domains and returns a
    * description of the first disagreement, or {@code null} if they agree.
@@ -272,15 +282,33 @@ class RandomTest {
     int[] byteOffsets = byteOffsets(text);
     byte[] encoded = text.getBytes(UTF_8);
 
-    // Fresh matchers: matches() leaves a matcher positioned at the end of the match, so reusing
-    // one for the find() loop below would silently skip the first match.
-    if (pattern.matcher(text).matches()
-        != pattern.matcher(Utf8Input.validated(encoded)).matches()) {
+    // Each operation needs fresh matchers because it may select different bounds and captures.
+    Matcher fullChars = pattern.matcher(text);
+    Utf8Matcher fullBytes = pattern.matcher(Utf8Input.validated(encoded));
+    boolean charsMatch = fullChars.matches();
+    boolean bytesMatch = fullBytes.matches();
+    if (charsMatch != bytesMatch) {
       return "matches() differs";
     }
-    if (pattern.matcher(text).lookingAt()
-        != pattern.matcher(Utf8Input.validated(encoded)).lookingAt()) {
+    if (charsMatch) {
+      String mismatch = compareMatchedGroups(0, byteOffsets, fullChars, fullBytes);
+      if (mismatch != null) {
+        return "matches() " + mismatch;
+      }
+    }
+
+    Matcher prefixChars = pattern.matcher(text);
+    Utf8Matcher prefixBytes = pattern.matcher(Utf8Input.validated(encoded));
+    boolean charsLookingAt = prefixChars.lookingAt();
+    boolean bytesLookingAt = prefixBytes.lookingAt();
+    if (charsLookingAt != bytesLookingAt) {
       return "lookingAt() differs";
+    }
+    if (charsLookingAt) {
+      String mismatch = compareMatchedGroups(0, byteOffsets, prefixChars, prefixBytes);
+      if (mismatch != null) {
+        return "lookingAt() " + mismatch;
+      }
     }
 
     Matcher chars = pattern.matcher(text);
@@ -295,25 +323,34 @@ class RandomTest {
       if (!charsFound) {
         return null;
       }
-      if (chars.groupCount() != bytes.groupCount()) {
-        return String.format(
-            "groupCount() #%d: string=%d utf8=%d", n, chars.groupCount(), bytes.groupCount());
-      }
-      for (int group = 0; group <= chars.groupCount(); group++) {
-        String mismatch =
-            compareBounds(
-                n,
-                group,
-                byteOffsets,
-                chars.start(group),
-                chars.end(group),
-                bytes.start(group),
-                bytes.end(group));
-        if (mismatch != null) {
-          return mismatch;
-        }
+      String mismatch = compareMatchedGroups(n, byteOffsets, chars, bytes);
+      if (mismatch != null) {
+        return mismatch;
       }
     }
+  }
+
+  private static String compareMatchedGroups(
+      int match, int[] byteOffsets, Matcher chars, Utf8Matcher bytes) {
+    if (chars.groupCount() != bytes.groupCount()) {
+      return String.format(
+          "groupCount() #%d: string=%d utf8=%d", match, chars.groupCount(), bytes.groupCount());
+    }
+    for (int group = 0; group <= chars.groupCount(); group++) {
+      String mismatch =
+          compareBounds(
+              match,
+              group,
+              byteOffsets,
+              chars.start(group),
+              chars.end(group),
+              bytes.start(group),
+              bytes.end(group));
+      if (mismatch != null) {
+        return mismatch;
+      }
+    }
+    return null;
   }
 
   private static String compareBounds(
