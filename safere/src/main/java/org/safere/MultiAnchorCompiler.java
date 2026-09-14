@@ -1764,6 +1764,19 @@ final class MultiAnchorCompiler {
       return -1;
     }
     int representative = charClass.lo(0);
+    int utf8Width = utf8Width(representative);
+    int folded = Inst.simpleFold(representative);
+    if (folded == representative) {
+      return -1;
+    }
+    // A folded class must contain the whole simple-fold cycle. Reject ordinary classes before
+    // asking for the full Unicode closure, whose index is expensive to initialize.
+    while (folded != representative) {
+      if (!charClass.contains(folded) || utf8Width(folded) != utf8Width) {
+        return -1;
+      }
+      folded = Inst.simpleFold(folded);
+    }
     CharClass expected =
         literalCharClass(representative, ParseFlags.FOLD_CASE | ParseFlags.UNICODE_CASE);
     if (expected.numRanges() != charClass.numRanges()) {
@@ -1773,14 +1786,6 @@ final class MultiAnchorCompiler {
       if (expected.lo(i) != charClass.lo(i) || expected.hi(i) != charClass.hi(i)) {
         return -1;
       }
-    }
-    int utf8Width = utf8Width(representative);
-    int folded = Inst.simpleFold(representative);
-    while (folded != representative) {
-      if (utf8Width(folded) != utf8Width) {
-        return -1;
-      }
-      folded = Inst.simpleFold(folded);
     }
     return representative;
   }
