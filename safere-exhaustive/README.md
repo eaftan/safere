@@ -180,8 +180,8 @@ regions that start, end, or become empty inside surrogate pairs.
 Use this sweep before review when changing region handling, Unicode decoding,
 single-character fast paths, DFA/NFA scalar consumption, predefined character
 classes, or matcher bounds behavior. The sweep classifies
-`QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` as a known intentional
-implementation-detail divergence; other generated divergences are reported as
+`REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END` as a known intentional
+region-decoding divergence; other generated divergences are reported as
 `UNKNOWN` until they are fixed or deliberately classified elsewhere.
 
 ## Region Zero-Width Sweep

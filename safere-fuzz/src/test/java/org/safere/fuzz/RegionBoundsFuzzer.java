@@ -18,6 +18,8 @@ public final class RegionBoundsFuzzer {
   private record SafeReModelCase(
       String regex, String input, int start, int end, List<String> expectedFinds) {}
 
+  private record MixedGraphemeScalarPattern(String regex, int firstMatchEndOffset) {}
+
   private static final List<GraphemeRegion> GRAPHEME_REGIONS =
       List.of(
           new GraphemeRegion("\uD83C\uDDE6".repeat(3), 2, 6),
@@ -37,6 +39,31 @@ public final class RegionBoundsFuzzer {
 
   private static final List<String> SPLIT_REGIONAL_GRAPHEME_REGEXES =
       List.of("\\X", "\\b{g}", "\\X\\b{g}");
+
+  private static final List<String> REGION_LOCAL_SCALAR_ATOMS =
+      List.of(
+          ".",
+          ".*",
+          ".+",
+          "(.)",
+          "(.+)",
+          "([^a]+)",
+          "[^a]",
+          "[\\s\\S]",
+          "[\\s\\S]*",
+          "\\D",
+          "\\p{Cs}",
+          "\\P{Cs}",
+          "[^\\p{Cs}]");
+
+  private static final List<MixedGraphemeScalarPattern> MIXED_GRAPHEME_SCALAR_ATOMS =
+      List.of(
+          new MixedGraphemeScalarPattern("(?:\\X|.)", 2),
+          new MixedGraphemeScalarPattern("(?:.|\\X)", 1),
+          new MixedGraphemeScalarPattern("(?:\\X|[\\s\\S])", 2),
+          new MixedGraphemeScalarPattern("(?:\\b{g}|.)", 0));
+
+  private static final List<String> SCALAR_CONTEXTS = List.of("", "x", "\uD83D", "\uDC4D");
 
   private static final List<GraphemeRegion> TRANSPARENT_GRAPHEME_CONTEXT_REGIONS =
       List.of(new GraphemeRegion("\uD83D\uDC4D\uD83C\uDFFB", 1, 3));
@@ -63,6 +90,9 @@ public final class RegionBoundsFuzzer {
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     compareGraphemeRegions();
+    compareRegionLocalScalarModel(data);
+    compareSplitSurrogateBoundaryModel(data);
+    compareMixedGraphemeScalarModel(data);
 
     String regex = data.consumeString(256);
     int flags = FuzzSupport.consumeFlags(data);
@@ -88,6 +118,76 @@ public final class RegionBoundsFuzzer {
     matcher.reset();
     matcher.region(region[0], region[1]);
     matcher.lookingAt();
+  }
+
+  private static void compareRegionLocalScalarModel(FuzzedDataProvider data) {
+    String regex =
+        REGION_LOCAL_SCALAR_ATOMS.get(data.consumeInt(0, REGION_LOCAL_SCALAR_ATOMS.size() - 1));
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String exposedSurrogate = data.consumeBoolean() ? "\uD83D" : "\uDC4D";
+    String input = prefix + exposedSurrogate + suffix;
+    int start = prefix.length();
+    int end = start + 1;
+    boolean expected = !regex.equals("\\P{Cs}") && !regex.equals("[^\\p{Cs}]");
+    Matcher matcher =
+        Pattern.compile(regex)
+            .matcher(input)
+            .region(start, end)
+            .useTransparentBounds(data.consumeBoolean());
+    if (matcher.matches() != expected) {
+      throw new AssertionError("Region-local scalar matches mismatch: " + regex);
+    }
+    matcher.reset(input).region(start, end);
+    if (matcher.find() != expected) {
+      throw new AssertionError("Region-local scalar find mismatch: " + regex);
+    }
+    if (expected && (matcher.start() != start || matcher.end() != end)) {
+      throw new AssertionError("Region-local scalar match crossed the region: " + regex);
+    }
+    if (expected) {
+      for (int group = 1; group <= matcher.groupCount(); group++) {
+        if (matcher.start(group) != start
+            || matcher.end(group) != end
+            || !exposedSurrogate.equals(matcher.group(group))) {
+          throw new AssertionError("Region-local scalar capture mismatch: " + regex);
+        }
+      }
+    }
+  }
+
+  private static void compareSplitSurrogateBoundaryModel(FuzzedDataProvider data) {
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String input = prefix + "\uD801\uDC00" + suffix;
+    int start = prefix.length();
+    String regex = data.consumeBoolean() ? "(?U)\\b." : "(?U)\\B.";
+    boolean expected = regex.equals("(?U)\\B.");
+    if (Pattern.compile(regex).matcher(input).region(start, start + 1).matches() != expected) {
+      throw new AssertionError("Region-local Unicode word boundary mismatch: " + regex);
+    }
+  }
+
+  private static void compareMixedGraphemeScalarModel(FuzzedDataProvider data) {
+    MixedGraphemeScalarPattern pattern =
+        MIXED_GRAPHEME_SCALAR_ATOMS.get(data.consumeInt(0, MIXED_GRAPHEME_SCALAR_ATOMS.size() - 1));
+    String prefix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String suffix = SCALAR_CONTEXTS.get(data.consumeInt(0, SCALAR_CONTEXTS.size() - 1));
+    String input = prefix + "\uD83D\uDC4D" + suffix;
+    int start = prefix.length();
+    Pattern compiled = Pattern.compile(pattern.regex());
+    if (!compiled.matcher(input).region(start, start + 1).matches()) {
+      throw new AssertionError(
+          "Mixed grapheme/scalar full match crossed region: " + pattern.regex());
+    }
+    for (boolean find : new boolean[] {false, true}) {
+      Matcher matcher = compiled.matcher(input).region(start, start + 1);
+      if (!(find ? matcher.find() : matcher.lookingAt())
+          || matcher.start() != start
+          || matcher.end() != start + pattern.firstMatchEndOffset()) {
+        throw new AssertionError("Mixed grapheme/scalar priority mismatch: " + pattern.regex());
+      }
+    }
   }
 
   private static void compareGraphemeRegions() {
