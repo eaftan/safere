@@ -304,6 +304,25 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void sparseLongLiteralFalseCandidatesAreLinearAcrossString() {
+    long smallerWork = sparseLongLiteralFalseCandidateWork(64);
+    long largerWork = sparseLongLiteralFalseCandidateWork(256);
+
+    assertThat(largerWork)
+        .as("Sparse long-literal false-candidate work should scale linearly")
+        .isLessThanOrEqualTo(smallerWork * 6);
+  }
+
+  private static long sparseLongLiteralFalseCandidateWork(int blocks) {
+    String block = "q" + "a".repeat(63);
+    StringBuilder literal = new StringBuilder(block.repeat(blocks / 2));
+    literal.setCharAt(literal.length() - 2, 'e');
+    Pattern pattern = Pattern.compile("[xy]" + literal);
+    String input = block.repeat(blocks);
+    return WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input).find()).isFalse());
+  }
+
+  @Test
   void caseInsensitivePrefixRepeatedFindIsLinearAcrossUtf8() {
     Pattern pattern = Pattern.compile("(?i)keyword_to_find");
     assertRepeatedFindWorkIsLinear(

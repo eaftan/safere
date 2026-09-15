@@ -29,6 +29,8 @@ package org.safere;
  *   <li>A false candidate is rejected on the literal's last character before {@link
  *       String#startsWith} is called at all, which is what makes a false positive cheap enough to
  *       tolerate. The first character is left to {@code startsWith}, which compares it first.
+ *   <li>Literals are anchored only while their bounded verification cost remains a constant factor
+ *       of the candidate-spacing model.
  *   <li>Candidates arriving closer together than {@link AcceleratorPolicy#minDensityStride} are
  *       counted as strikes, and once the budget is spent the search reverts to {@code
  *       indexOf(String)} — the behaviour that predates anchoring — for the rest of the scan.
@@ -55,6 +57,9 @@ final class StringLiteralSearch {
 
   private static final int MIN_DENSITY_STRIDE = AcceleratorPolicy.LITERAL.minDensityStride();
 
+  /** Keeps the anchored loop's per-candidate verification cost bounded by a constant. */
+  private static final int MAX_ANCHORED_LITERAL_LENGTH = MIN_DENSITY_STRIDE * 2;
+
   /**
    * Shortest remaining window worth anchoring, which is the shortest window over which the strike
    * counter below can reach a sparse verdict at all: spending the whole budget at exactly the
@@ -76,12 +81,13 @@ final class StringLiteralSearch {
    * Chooses the offset within {@code literal} to anchor the scan on, or {@link #NO_ANCHOR} if this
    * literal is better served by {@link String#indexOf(String, int)} directly.
    *
-   * <p>Declines in three cases:
+   * <p>Declines in four cases:
    *
    * <ul>
    *   <li>Literals shorter than two characters, where the anchor would be the literal itself, so
-   *       verification could never reject a candidate. {@link #indexOfDirect} puts these on the
-   *       single-character kernel instead, which is where the speed the anchor was after lives.
+   *       verification could never reject a candidate.
+   *   <li>Literals longer than {@link #MAX_ANCHORED_LITERAL_LENGTH}, so repeated full verification
+   *       cannot make the added anchored work grow with both input and literal length.
    *   <li>Literals containing no ASCII character, where the rarity model has nothing to say.
    *   <li>Literals whose rarest character is still common enough to be a poisonous anchor, where
    *       verification would dominate the scan.
@@ -92,7 +98,7 @@ final class StringLiteralSearch {
    * in {@link #indexOf} is what bounds the cost of getting it wrong.
    */
   static int anchorOffset(String literal) {
-    if (literal == null || literal.length() < 2) {
+    if (literal == null || literal.length() < 2 || literal.length() > MAX_ANCHORED_LITERAL_LENGTH) {
       return NO_ANCHOR;
     }
     int offset = RarityOracle.rarestAsciiOffset(literal, literal.length());
