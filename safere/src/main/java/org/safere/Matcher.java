@@ -1528,7 +1528,7 @@ public final class Matcher implements MatchResult {
   }
 
   private boolean needsFullTextRegionContext(boolean regionActive, Prog prog) {
-    // A split-end substring would copy the whole region; the bounded NFA decodes it locally.
+    // A split-end substring would copy the whole region; the bounded engines decode it locally.
     return regionActive
         && ((!anchoringBounds && prog.hasTextAnchor())
             || transparentBounds
@@ -2549,11 +2549,7 @@ public final class Matcher implements MatchResult {
     // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
     // Pike NFA below.
     int maxBitStateLen = BitState.maxTextSize(prog);
-    boolean canUseBitState =
-        enginePathOptions().bitState()
-            && !fullTextRegionContext
-            && !(prog.hasGraphemeSemantics() && !anchored)
-            && !prog.hasGraphemeSemantics();
+    boolean canUseBitState = enginePathOptions().bitState() && !prog.hasGraphemeSemantics();
     int searchRange = endPos - startPos;
     if (canUseBitState && maxBitStateLen >= 0 && searchRange <= maxBitStateLen) {
       boolean anchoredEffective = anchored || prog.anchorStart();
@@ -2564,9 +2560,23 @@ public final class Matcher implements MatchResult {
         cachedBitState = parentPattern.borrowBitState();
         bitStateBorrowed = true;
       }
-      BitState bs =
-          BitState.getOrCreate(
-              cachedBitState, prog, text, startPos, endPos, ncap, longest, endMatchEffective);
+      BitState bs;
+      if (fullTextRegionContext) {
+        EngineContext context =
+            engineContext(
+                prog,
+                text,
+                startPos,
+                searchLimit,
+                endPos,
+                graphemeConsumeEndPos,
+                preserveOuterEmptyContext);
+        bs = BitState.getOrCreate(cachedBitState, prog, context, ncap, longest, endMatch);
+      } else {
+        bs =
+            BitState.getOrCreate(
+                cachedBitState, prog, text, startPos, endPos, ncap, longest, endMatchEffective);
+      }
       int[] destBuf =
           reuseGroups != null && reuseGroups.length >= ncap ? reuseGroups : bitStateResult;
       if (destBuf == null || destBuf.length < ncap) {
@@ -2649,6 +2659,38 @@ public final class Matcher implements MatchResult {
     // We always need at least capture[0..1] to track the match boundaries.
     int ncapture = 2 * Math.max(nsubmatch, 1);
 
+    EngineContext context =
+        engineContext(
+            prog,
+            scanner,
+            startPos,
+            searchLimit,
+            endPos,
+            graphemeConsumeEndPos,
+            preserveOuterEmptyContext);
+
+    if (cachedNfa == null && !nfaBorrowed) {
+      cachedNfa = parentPattern.borrowNfa();
+      nfaBorrowed = true;
+    }
+
+    Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
+    int[] result = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
+    cachedNfa = nfa;
+    parentPattern.returnNfa(nfa);
+
+    return result;
+  }
+
+  /** Builds the same consumption and assertion bounds for either exact region engine. */
+  private EngineContext engineContext(
+      Prog prog,
+      InputScanner scanner,
+      int startPos,
+      int searchLimit,
+      int endPos,
+      int graphemeConsumeEndPos,
+      boolean preserveOuterEmptyContext) {
     boolean graphemeRegionContext = fullTextRegionContext && prog.hasGraphemeSemantics();
     int consumeRegionStart = graphemeRegionContext && !transparentBounds ? regionStart : 0;
 
@@ -2665,33 +2707,20 @@ public final class Matcher implements MatchResult {
     int emptyAnchorEndPos =
         useOuterEmptyContext && !anchoringBounds ? scanner.length() : emptyContextEnd;
 
-    EngineContext context =
-        EngineContext.create(
-            prog,
-            scanner,
-            startPos,
-            searchLimit,
-            endPos,
-            graphemeConsumeEndPos,
-            consumeRegionStart,
-            boundaryRegionStart,
-            boundaryEndPos,
-            anchorEndPos,
-            emptyAnchorStartPos,
-            emptyAnchorEndPos,
-            graphemeContextFor(prog));
-
-    if (cachedNfa == null && !nfaBorrowed) {
-      cachedNfa = parentPattern.borrowNfa();
-      nfaBorrowed = true;
-    }
-
-    Nfa nfa = Nfa.getOrCreate(cachedNfa, prog, context, ncapture, longestMode, endmatch);
-    int[] result = nfa.runSearch(anchored, nfaKind, nsubmatch, endPos, reuseGroups);
-    cachedNfa = nfa;
-    parentPattern.returnNfa(nfa);
-
-    return result;
+    return EngineContext.create(
+        prog,
+        scanner,
+        startPos,
+        searchLimit,
+        endPos,
+        graphemeConsumeEndPos,
+        consumeRegionStart,
+        boundaryRegionStart,
+        boundaryEndPos,
+        anchorEndPos,
+        emptyAnchorStartPos,
+        emptyAnchorEndPos,
+        graphemeContextFor(prog));
   }
 
   // ---------------------------------------------------------------------------

@@ -45,6 +45,9 @@ public final class RegionBoundsFuzzer {
           ".",
           ".*",
           ".+",
+          "(.)",
+          "(.+)",
+          "([^a]+)",
           "[^a]",
           "[\\s\\S]",
           "[\\s\\S]*",
@@ -141,6 +144,15 @@ public final class RegionBoundsFuzzer {
     }
     if (expected && (matcher.start() != start || matcher.end() != end)) {
       throw new AssertionError("Region-local scalar match crossed the region: " + regex);
+    }
+    if (expected) {
+      for (int group = 1; group <= matcher.groupCount(); group++) {
+        if (matcher.start(group) != start
+            || matcher.end(group) != end
+            || !exposedSurrogate.equals(matcher.group(group))) {
+          throw new AssertionError("Region-local scalar capture mismatch: " + regex);
+        }
+      }
     }
   }
 

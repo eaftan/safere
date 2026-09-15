@@ -136,6 +136,28 @@ class DiagnosticsTest {
   }
 
   @Test
+  void boundedScalarRegionsCanUseBitState() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile(".*");
+    Matcher matcher = pattern.matcher("a\uD83D\uDC4D").region(0, 2);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.end()).isEqualTo(2);
+    assertThat(operationsFor(pattern).getLast().boundaryStrategy())
+        .isEqualTo(MatchStrategy.BIT_STATE);
+
+    String outside = "x".repeat(100_000);
+    Matcher tinyRegion =
+        pattern
+            .matcher(outside + "\uD83D\uDC4D" + outside)
+            .region(outside.length(), outside.length() + 1);
+    assertThat(tinyRegion.find()).isTrue();
+    assertThat(tinyRegion.start()).isEqualTo(outside.length());
+    assertThat(tinyRegion.end()).isEqualTo(outside.length() + 1);
+    assertThat(operationsFor(pattern).getLast().boundaryStrategy())
+        .isEqualTo(MatchStrategy.BIT_STATE);
+  }
+
+  @Test
   void forcedBitStateAndNfaReportTheExactEngine() {
     Pattern.setDiagnostics(diagnostics);
     EnginePathOptions bitStateOnly =
