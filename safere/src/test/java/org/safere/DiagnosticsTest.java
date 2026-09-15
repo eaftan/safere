@@ -280,6 +280,28 @@ class DiagnosticsTest {
   }
 
   @Test
+  void abandonedCaptureSpeculationPreservesEarlierReplacementBoundary() {
+    Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
+    Matcher priming = pattern.matcher("error:[C] code:500");
+    assertThat(priming.find()).isTrue();
+    assertThat(priming.group(1)).isEqualTo("error:[");
+
+    Pattern.setDiagnostics(diagnostics);
+    assertThat(
+            pattern.matcher("error:[C] code:500 xxx error:[x] code:500").replaceAll(result -> "ok"))
+        .isEqualTo("ok xxx error:[x] code:500");
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.matchCount()).isEqualTo(1);
+            });
+  }
+
+  @Test
   void nullableDfaReplacementCountsTerminalEmptyMatch() {
     Pattern.setDiagnostics(diagnostics);
 

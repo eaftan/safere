@@ -72,14 +72,8 @@ final class DiagnosticAccumulator {
     boundaryStrategy = strategy;
   }
 
-  /**
-   * Clears the boundary attribution if it is still held by {@code strategy}. Used when an engine
-   * attempt is abandoned without deciding the match, so that a later engine can claim it.
-   */
-  void discardBoundary(MatchStrategy strategy) {
-    if (boundaryStrategy == strategy) {
-      boundaryStrategy = MatchStrategy.NONE;
-    }
+  MatchStrategy boundaryStrategy() {
+    return boundaryStrategy;
   }
 
   void capture(MatchStrategy strategy) {

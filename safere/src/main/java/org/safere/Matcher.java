@@ -216,15 +216,9 @@ public final class Matcher implements MatchResult {
     }
   }
 
-  /**
-   * Withdraws a boundary attribution recorded by an engine attempt that was abandoned before it
-   * could decide the match, so that the engine which does decide it is attributed instead.
-   */
-  private void diagnosticDiscardBoundary(MatchStrategy strategy) {
+  private MatchStrategy diagnosticBoundaryStrategy() {
     DiagnosticAccumulator accumulator = diagnosticsAccumulator();
-    if (accumulator != null) {
-      accumulator.discardBoundary(strategy);
-    }
+    return accumulator == null ? MatchStrategy.NONE : accumulator.boundaryStrategy();
   }
 
   private void diagnosticCapture(MatchStrategy strategy) {
@@ -1781,6 +1775,7 @@ public final class Matcher implements MatchResult {
     // and caps the loss elsewhere at one failed start before the DFA path below takes over.
     if (shouldPreferCaptureEngine(prog, scanner)) {
       int captureSearchLimit = startPositionPreselected ? effectiveStart : scanner.length();
+      MatchStrategy boundaryBeforeCaptureSearch = diagnosticBoundaryStrategy();
       int[] result =
           searchWithBitStateOrNfa(
               prog,
@@ -1799,10 +1794,9 @@ public final class Matcher implements MatchResult {
         return applyFullMatchResult(result);
       }
       // Only starts up to the accelerated candidate were tried, so this is not a decision that no
-      // match exists. Drop the abandoned engine's boundary attribution and let the DFA path below
-      // perform the complete search.
-      diagnosticDiscardBoundary(MatchStrategy.BIT_STATE);
-      diagnosticDiscardBoundary(MatchStrategy.NFA);
+      // match exists. Restore the attribution from before the abandoned attempt, then let the DFA
+      // path below perform the complete search.
+      diagnosticBoundaryOverride(boundaryBeforeCaptureSearch);
     }
 
     // Reverse-first optimization for end-anchored patterns: for patterns ending with $ or \z
