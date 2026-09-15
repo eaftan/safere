@@ -69,7 +69,7 @@ final class ByteVectorScan {
     return -1;
   }
 
-  static int indexOfAsciiPair(byte[] bytes, int offset, int length, byte b0, byte b1, int start) {
+  static int indexOfBytePair(byte[] bytes, int offset, int length, byte b0, byte b1, int start) {
     int position = Math.max(0, start);
     int limit = position + SPECIES.loopBound(length - position);
     ByteVector v0 = ByteVector.broadcast(SPECIES, b0);
@@ -90,7 +90,7 @@ final class ByteVectorScan {
     return -1;
   }
 
-  static int indexOfAsciiTriple(
+  static int indexOfByteTriple(
       byte[] bytes, int offset, int length, byte b0, byte b1, byte b2, int start) {
     int position = Math.max(0, start);
     int limit = position + SPECIES.loopBound(length - position);

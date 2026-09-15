@@ -5,6 +5,17 @@
 
 package org.safere;
 
+/**
+ * SIMD scan kernels over a UTF-8 byte array.
+ *
+ * <p><strong>Naming.</strong> A kernel is named {@code Byte} when it compares for equality, which
+ * is exact for all 256 byte values, and {@code Ascii} when it compares for <em>order</em>, which is
+ * only correct below {@code 0x80} because {@code byte} is signed. So {@link #indexOfBytePair} and
+ * {@link #indexOfByteTriple} accept any bytes even though today's only caller passes ASCII, while
+ * {@link #indexOfAsciiClass} takes ranges and genuinely requires them.
+ *
+ * <p>Match the name to the comparison, not to the caller.
+ */
 interface VectorScanProvider {
   int UNSUPPORTED = -2;
 
@@ -36,12 +47,12 @@ interface VectorScanProvider {
   int indexOfAsciiClass(byte[] bytes, int offset, int length, int[] ranges, int start);
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
-  default int indexOfAsciiPair(byte[] bytes, int offset, int length, byte b0, byte b1, int start) {
+  default int indexOfBytePair(byte[] bytes, int offset, int length, byte b0, byte b1, int start) {
     return UNSUPPORTED;
   }
 
   /** Returns a match position, {@code -1} when absent, or {@link #UNSUPPORTED}. */
-  default int indexOfAsciiTriple(
+  default int indexOfByteTriple(
       byte[] bytes, int offset, int length, byte b0, byte b1, byte b2, int start) {
     return UNSUPPORTED;
   }

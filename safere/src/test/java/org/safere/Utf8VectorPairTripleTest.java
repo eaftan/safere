@@ -99,7 +99,7 @@ class Utf8VectorPairTripleTest {
 
       // Absent check
       int swarAbsent = ByteSwarScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
-      int vectorAbsent = ByteVectorScan.indexOfAsciiPair(bytes, 0, length, b0, b1, start);
+      int vectorAbsent = ByteVectorScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
       assertThat(vectorAbsent).as("absent trial %d len %d", trial, length).isEqualTo(swarAbsent);
 
       // Present check
@@ -108,7 +108,7 @@ class Utf8VectorPairTripleTest {
         bytes[pos] = rnd.nextBoolean() ? b0 : b1;
 
         int swarHit = ByteSwarScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
-        int vectorHit = ByteVectorScan.indexOfAsciiPair(bytes, 0, length, b0, b1, start);
+        int vectorHit = ByteVectorScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
         assertThat(vectorHit).as("hit trial %d len %d", trial, length).isEqualTo(swarHit);
       }
     }
@@ -133,7 +133,7 @@ class Utf8VectorPairTripleTest {
 
       // Absent check
       int swarAbsent = ByteSwarScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
-      int vectorAbsent = ByteVectorScan.indexOfAsciiTriple(bytes, 0, length, b0, b1, b2, start);
+      int vectorAbsent = ByteVectorScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
       assertThat(vectorAbsent).as("absent trial %d len %d", trial, length).isEqualTo(swarAbsent);
 
       // Present check
@@ -143,7 +143,7 @@ class Utf8VectorPairTripleTest {
         bytes[pos] = choice == 0 ? b0 : choice == 1 ? b1 : b2;
 
         int swarHit = ByteSwarScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
-        int vectorHit = ByteVectorScan.indexOfAsciiTriple(bytes, 0, length, b0, b1, b2, start);
+        int vectorHit = ByteVectorScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
         assertThat(vectorHit).as("hit trial %d len %d", trial, length).isEqualTo(swarHit);
       }
     }

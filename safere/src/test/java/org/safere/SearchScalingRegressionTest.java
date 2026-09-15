@@ -973,11 +973,11 @@ class SearchScalingRegressionTest {
         assertThat(ByteVectorScan.indexOfAsciiClass(matchAtEnd, 0, len, ranges, 0))
             .as("vector end match for length %d", len)
             .isEqualTo(len - 1);
-        assertThat(ByteVectorScan.indexOfAsciiPair(absent, 0, len, (byte) 'y', (byte) 'z', 0))
+        assertThat(ByteVectorScan.indexOfBytePair(absent, 0, len, (byte) 'y', (byte) 'z', 0))
             .as("vector pair absent result for length %d", len)
             .isEqualTo(-1);
         assertThat(
-                ByteVectorScan.indexOfAsciiTriple(
+                ByteVectorScan.indexOfByteTriple(
                     absent, 0, len, (byte) 'x', (byte) 'y', (byte) 'z', 0))
             .as("vector triple absent result for length %d", len)
             .isEqualTo(-1);

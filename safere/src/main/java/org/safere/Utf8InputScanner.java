@@ -191,7 +191,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     int window = scanLen - start;
     VectorScanProvider pairProvider = VectorScanProviders.providerFor(ScanKind.PAIR, window);
     if (pairProvider != null) {
-      int idx = pairProvider.indexOfAsciiPair(bytes, offset, scanLen, b0, b1, start);
+      int idx = pairProvider.indexOfBytePair(bytes, offset, scanLen, b0, b1, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
         ScanAudit.record(ScanKind.PAIR, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
@@ -205,7 +205,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     int window = scanLen - start;
     VectorScanProvider tripleProvider = VectorScanProviders.providerFor(ScanKind.TRIPLE, window);
     if (tripleProvider != null) {
-      int idx = tripleProvider.indexOfAsciiTriple(bytes, offset, scanLen, b0, b1, b2, start);
+      int idx = tripleProvider.indexOfByteTriple(bytes, offset, scanLen, b0, b1, b2, start);
       if (idx != VectorScanProvider.UNSUPPORTED) {
         ScanAudit.record(ScanKind.TRIPLE, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
