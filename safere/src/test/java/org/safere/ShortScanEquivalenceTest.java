@@ -5,6 +5,8 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -289,6 +291,20 @@ class ShortScanEquivalenceTest {
   @DisplayName("Ignore-case prefix scans use a linear failure function")
   void ignoreCasePrefixFailureFunction() {
     assertThat(Ascii.ignoreCaseFailure("aaaaab")).containsExactly(0, 1, 2, 3, 4, 0);
+  }
+
+  @Test
+  @DisplayName("StringSupport reflects coder and array when java.base is accessible")
+  void stringSupportAccess() {
+    if (StringSupport.hasAccess()) {
+      String latin1 = "hello world";
+      String utf16 = "hello \u0410\u0411\u0412 world";
+
+      assertThat(StringSupport.compatibleWith(latin1, ISO_8859_1)).isTrue();
+      assertThat(StringSupport.compatibleWith(latin1, UTF_16)).isFalse();
+      assertThat(StringSupport.compatibleWith(utf16, ISO_8859_1)).isFalse();
+      assertThat(StringSupport.compatibleWith(utf16, UTF_16)).isTrue();
+    }
   }
 
   private static int scalarIndexOfAsciiClass(byte[] input, int[] ranges, int start) {
