@@ -77,18 +77,6 @@ final class Dfa {
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
-  /** Initial quarantine window (in bytes/chars) when candidate density trips adaptive defeat. */
-  private static final int INITIAL_QUARANTINE_WINDOW = 2048;
-
-  /** Maximum quarantine window (in bytes/chars) under exponential backoff. */
-  private static final int MAX_QUARANTINE_WINDOW = 65536;
-
-  /** Number of candidate strikes tolerated before triggering a quarantine window. */
-  private static final int ADAPTIVE_STRIKE_LIMIT = 16;
-
-  /** Minimum candidate stride (in bytes/chars); candidates closer than this count as strikes. */
-  private static final int MIN_DENSITY_STRIDE = 64;
-
   // ---------------------------------------------------------------------------
   // State representation
   // ---------------------------------------------------------------------------
@@ -1517,10 +1505,12 @@ final class Dfa {
 
     AcceleratorPolicy activePolicy = startAccelerationPolicy(text, s);
     boolean canAccelerate = activePolicy != null && !anchored;
-    int minSkip = AcceleratorPolicy.DEFAULT.minProfitableSkip();
-    if (canAccelerate) {
-      minSkip = activePolicy.minProfitableSkip();
-    }
+    AcceleratorPolicy tuning = canAccelerate ? activePolicy : AcceleratorPolicy.DEFAULT;
+    int minSkip = tuning.minProfitableSkip();
+    int strikeLimit = tuning.strikeBudget();
+    int minDensityStride = tuning.minDensityStride();
+    int initialQuarantineWindow = tuning.initialQuarantineWindow();
+    int maxQuarantineWindow = tuning.maxQuarantineWindow();
 
     // Adaptive defeat detection: track candidate progress density to avoid repeatedly paying
     // accelerator setup and candidate check overhead on dense non-matching inputs.
@@ -1529,7 +1519,7 @@ final class Dfa {
     int candidateStrikes = 0;
     int lastCandidatePos = startPos;
     int accelerationResumePos = startPos;
-    int quarantineWindow = INITIAL_QUARANTINE_WINDOW;
+    int quarantineWindow = initialQuarantineWindow;
 
     int[] transitions = this.transitions;
     State[] offsetToState = this.offsetToState;
@@ -1550,16 +1540,16 @@ final class Dfa {
         if (nextPos > pos) {
           int stride = nextPos - lastCandidatePos;
           lastCandidatePos = nextPos;
-          if (stride < MIN_DENSITY_STRIDE) {
-            if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+          if (stride < minDensityStride) {
+            if (++candidateStrikes >= strikeLimit) {
               accelerationResumePos = nextPos + quarantineWindow;
-              quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
-              candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
+              quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
+              candidateStrikes = strikeLimit >>> 1;
             }
           } else if (stride >= 256 && candidateStrikes > 0) {
             candidateStrikes = Math.max(0, candidateStrikes - (stride >>> 8));
             if (candidateStrikes == 0) {
-              quarantineWindow = INITIAL_QUARANTINE_WINDOW;
+              quarantineWindow = initialQuarantineWindow;
             }
           }
           pos = nextPos;
@@ -1584,10 +1574,10 @@ final class Dfa {
           }
         } else {
           lastCandidatePos = pos;
-          if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+          if (++candidateStrikes >= strikeLimit) {
             accelerationResumePos = pos + quarantineWindow;
-            quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
-            candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
+            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
+            candidateStrikes = strikeLimit >>> 1;
           }
         }
       }
@@ -1735,16 +1725,16 @@ final class Dfa {
         if (nextPos > pos) {
           int stride = nextPos - lastCandidatePos;
           lastCandidatePos = nextPos;
-          if (stride < MIN_DENSITY_STRIDE) {
-            if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+          if (stride < minDensityStride) {
+            if (++candidateStrikes >= strikeLimit) {
               accelerationResumePos = nextPos + quarantineWindow;
-              quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
-              candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
+              quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
+              candidateStrikes = strikeLimit >>> 1;
             }
           } else if (stride >= 256 && candidateStrikes > 0) {
             candidateStrikes = Math.max(0, candidateStrikes - (stride >>> 8));
             if (candidateStrikes == 0) {
-              quarantineWindow = INITIAL_QUARANTINE_WINDOW;
+              quarantineWindow = initialQuarantineWindow;
             }
           }
           pos = nextPos;
@@ -1769,10 +1759,10 @@ final class Dfa {
           }
         } else {
           lastCandidatePos = pos;
-          if (++candidateStrikes >= ADAPTIVE_STRIKE_LIMIT) {
+          if (++candidateStrikes >= strikeLimit) {
             accelerationResumePos = pos + quarantineWindow;
-            quarantineWindow = Math.min(quarantineWindow << 1, MAX_QUARANTINE_WINDOW);
-            candidateStrikes = ADAPTIVE_STRIKE_LIMIT >>> 1;
+            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
+            candidateStrikes = strikeLimit >>> 1;
           }
         }
       }

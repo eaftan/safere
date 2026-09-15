@@ -39,7 +39,7 @@ sealed interface StringStartAccelerator {
       case MultiAnchorDescriptor.StartPlan.CharClass cc ->
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : CharClass.create(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
-          new FixedOffset(fo.fol(), fo.leadingClass());
+          FixedOffset.create(fo.fol(), fo.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml ->
           hasWordBoundary || ml.fallbackClass() == null || !ml.fallbackClass().isSelective()
               ? null
@@ -81,10 +81,11 @@ sealed interface StringStartAccelerator {
     return AcceleratorPolicy.DEFAULT;
   }
 
-  record Literal(String prefix) implements StringStartAccelerator {
+  record Literal(String prefix, int anchorOffset, char anchor) implements StringStartAccelerator {
 
     static Literal create(String prefix) {
-      return new Literal(prefix);
+      int anchorOffset = StringLiteralSearch.anchorOffset(prefix);
+      return new Literal(prefix, anchorOffset, StringLiteralSearch.anchorAt(prefix, anchorOffset));
     }
 
     @Override
@@ -93,12 +94,7 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
-      int idx = text.indexOf(prefix, fromIndex);
-      if (WorkCounterConfig.ENABLED) {
-        int scanned = idx >= 0 ? idx - fromIndex + prefix.length() : text.length() - fromIndex;
-        WorkCounter.record(Math.max(0, scanned));
-      }
-      return idx;
+      return StringLiteralSearch.indexOf(text, prefix, anchorOffset, anchor, fromIndex);
     }
   }
 
@@ -134,8 +130,22 @@ sealed interface StringStartAccelerator {
     }
   }
 
-  record FixedOffset(FixedOffsetLiteral fixedOffset, CharClassScanInfo firstCharClass)
+  record FixedOffset(
+      FixedOffsetLiteral fixedOffset,
+      CharClassScanInfo firstCharClass,
+      int anchorOffset,
+      char anchor)
       implements StringStartAccelerator {
+
+    static FixedOffset create(FixedOffsetLiteral fixedOffset, CharClassScanInfo firstCharClass) {
+      String literal = fixedOffset.literal();
+      int anchorOffset = StringLiteralSearch.anchorOffset(literal);
+      return new FixedOffset(
+          fixedOffset,
+          firstCharClass,
+          anchorOffset,
+          StringLiteralSearch.anchorAt(literal, anchorOffset));
+    }
 
     @Override
     public AcceleratorPolicy policy() {
@@ -143,13 +153,16 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
-      return nextFixedOffsetCandidate(text, fixedOffset, firstCharClass, fromIndex);
+      return nextFixedOffsetCandidate(
+          text, fixedOffset, firstCharClass, anchorOffset, anchor, fromIndex);
     }
 
     private static int nextFixedOffsetCandidate(
         String text,
         FixedOffsetLiteral fixedOffsetLiteral,
         CharClassScanInfo firstCharClass,
+        int anchorOffset,
+        char anchor,
         int fromIndex) {
       int minOffset = fixedOffsetLiteral.minOffset();
       if (minOffset > text.length() - fromIndex) {
@@ -159,14 +172,9 @@ sealed interface StringStartAccelerator {
       int[] discreteOffsets = fixedOffsetLiteral.discreteOffsets();
 
       while (literalFrom <= text.length()) {
-        int literalStart = text.indexOf(fixedOffsetLiteral.literal(), literalFrom);
-        if (WorkCounterConfig.ENABLED) {
-          int scanned =
-              literalStart >= 0
-                  ? literalStart - literalFrom + fixedOffsetLiteral.literal().length()
-                  : text.length() - literalFrom;
-          WorkCounter.record(Math.max(0, scanned));
-        }
+        int literalStart =
+            StringLiteralSearch.indexOf(
+                text, fixedOffsetLiteral.literal(), anchorOffset, anchor, literalFrom);
         if (literalStart < 0) {
           return -1;
         }
@@ -366,7 +374,7 @@ sealed interface StringStartAccelerator {
 
     @Override
     public AcceleratorPolicy policy() {
-      return new AcceleratorPolicy(16, 4, false, inner.policy().strategy());
+      return AcceleratorPolicy.LEADING_EXPANSION.withStrategy(inner.policy().strategy());
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {

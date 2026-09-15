@@ -97,14 +97,22 @@ sealed interface RejectPrefilter
   }
 
   @SuppressWarnings("ArrayRecordComponent")
-  record Literal(String literal, byte[] utf8, int[] failure, int[] shifts)
+  record Literal(
+      String literal, byte[] utf8, int[] failure, int[] shifts, int anchorOffset, char anchor)
       implements RejectPrefilter {
 
     static Literal create(String literal) {
       byte[] utf8 = literal.getBytes(StandardCharsets.UTF_8);
       int[] failure = Pattern.literalFailure(utf8);
       int[] shifts = Pattern.literalShifts(utf8);
-      return new Literal(literal, utf8, failure, shifts);
+      int anchorOffset = StringLiteralSearch.anchorOffset(literal);
+      return new Literal(
+          literal,
+          utf8,
+          failure,
+          shifts,
+          anchorOffset,
+          StringLiteralSearch.anchorAt(literal, anchorOffset));
     }
 
     @Override
@@ -117,12 +125,7 @@ sealed interface RejectPrefilter
         return utf8Scanner.indexOf(utf8, failure, shifts, searchFrom) < 0;
       }
       if (text != null) {
-        int idx = text.indexOf(literal, searchFrom);
-        if (WorkCounterConfig.ENABLED) {
-          int scanned = idx >= 0 ? idx - searchFrom + literal.length() : text.length() - searchFrom;
-          WorkCounter.record(Math.max(0, scanned));
-        }
-        return idx < 0;
+        return StringLiteralSearch.indexOf(text, literal, anchorOffset, anchor, searchFrom) < 0;
       }
       return false;
     }
