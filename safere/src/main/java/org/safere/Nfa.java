@@ -185,6 +185,7 @@ final class Nfa {
   private NfaThread[] threadPool = new NfaThread[16];
   private int threadPoolSize = 0;
   private NfaThread priorityTail;
+  private boolean trackPriority;
 
   // QueueState pool
   private final List<QueueState> queueStatePool = new ArrayList<>();
@@ -206,7 +207,7 @@ final class Nfa {
       Arrays.fill(t.capture, -1);
     }
     t.graphemeStart = graphemeStart;
-    if (prog.hasGraphemeSemantics() && !longest) {
+    if (trackPriority) {
       insertPriorityThread(t, priorityAnchor);
     }
     return t;
@@ -340,6 +341,17 @@ final class Nfa {
 
   int[] runSearch(boolean anchored, MatchKind kind, int nsubmatch, int endPos, int[] reuseGroups) {
     fullMatchEndPos = kind == MatchKind.FULL_MATCH ? endPos : -1;
+    // Ordinary and grapheme instructions both advance one scalar per step. With equal consume
+    // limits at scalar boundaries, queue order preserves priority: pending work comes from an
+    // earlier
+    // candidate or a higher-priority thread. Different limits can send alternatives from the same
+    // position to different queues (a region-local surrogate versus a completed scalar). Only
+    // then do we need explicit priority links to invalidate lower-priority delayed completions.
+    // Matcher extends the grapheme limit when a region end splits a scalar consumed by \X.
+    this.trackPriority =
+        prog.hasGraphemeSemantics()
+            && !longest
+            && context.endPos() != context.graphemeConsumeEndPos();
     if (prog.hasGraphemeSemantics()) {
       doSearchEveryCharPosition(anchored);
     } else {
@@ -827,7 +839,7 @@ final class Nfa {
     InputScanner text = context.text();
     for (int i = 0; i < source.size; i++) {
       NfaThread t = source.threads[i];
-      if (prog.hasGraphemeSemantics() && !longest && !t.priorityActive) {
+      if (trackPriority && !t.priorityActive) {
         freeThread(t);
         source.threads[i] = null;
         continue;
@@ -1070,7 +1082,7 @@ final class Nfa {
         WorkCounter.record();
       }
       NfaThread t = rq.threads[threadIndex];
-      if (prog.hasGraphemeSemantics() && !longest && !t.priorityActive) {
+      if (trackPriority && !t.priorityActive) {
         continue;
       }
       int id = t.id;
@@ -1160,7 +1172,9 @@ final class Nfa {
             } else {
               // A later completion can only replace this match if its thread had higher priority.
               // Remove all lower-priority delayed threads, regardless of their destination.
-              discardLowerPriorityThreads(t);
+              if (trackPriority) {
+                discardLowerPriorityThreads(t);
+              }
               System.arraycopy(capture, 0, bestMatch, 0, ncapture);
               bestMatch[1] = matchPos;
               matched = true;
@@ -1174,7 +1188,7 @@ final class Nfa {
         case ALT_MATCH -> {
           // Optimization: if this is the first thread and we want the match, take it.
           if (longest || threadIndex == 0) {
-            if (!longest) {
+            if (trackPriority) {
               discardLowerPriorityThreads(t);
             }
             System.arraycopy(capture, 0, bestMatch, 0, ncapture);
