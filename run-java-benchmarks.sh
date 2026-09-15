@@ -256,49 +256,37 @@ fi
 
 # JMH discovers benchmark methods statically, while the supported cross-engine
 # workload/variant matrix comes from benchmark-data.json and the centralized
-# engine registry. Supply the planned trial IDs as one parameter dimension so
-# unsupported combinations never enter JMH's Cartesian parameter expansion.
-CROSS_ENGINE_TRIALS="$(
+# engine registry. Supply only the planned parameters for runners selected by
+# each JMH filter. Store generated parameters in a Java argument file because a
+# complete trial list can exceed the operating system's per-argument limit.
+GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-jmh-args.XXXXXX")"
+trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
+
+write_generated_jmh_arguments() {
+  local bench="$1"
+  local overridden_parameters=()
+  local index=0
+  while [ "$index" -lt "${#JMH_EXTRA_ARGS[@]}" ]; do
+    if [ "${JMH_EXTRA_ARGS[$index]}" = "-p" ] \
+      && [ "$((index + 1))" -lt "${#JMH_EXTRA_ARGS[@]}" ]; then
+      overridden_parameters+=("${JMH_EXTRA_ARGS[$((index + 1))]%%=*}")
+      index=$((index + 2))
+    else
+      index=$((index + 1))
+    fi
+  done
   java $JVM_ARGS \
     -cp "$BENCHMARK_JAR" \
-    org.safere.benchmark.CrossEngineBenchmarkPlan nanoseconds
-)"
-CROSS_ENGINE_SCALING_TRIALS="$(
-  java $JVM_ARGS \
-    -cp "$BENCHMARK_JAR" \
-    org.safere.benchmark.CrossEngineBenchmarkPlan microseconds
-)"
-CROSS_ENGINE_NO_FORK_TRIALS="$(
-  java $JVM_ARGS \
-    -cp "$BENCHMARK_JAR" \
-    org.safere.benchmark.CrossEngineBenchmarkPlan no-fork-microseconds
-)"
+    org.safere.benchmark.BenchmarkCollectionPlan \
+    runner-arguments "$bench" "$BENCHMARK_JAR" "${overridden_parameters[@]}" \
+    > "$GENERATED_JMH_ARGUMENT_FILE"
+}
+
 CROSS_ENGINE_COLD_START_TRIALS="$(
   java $JVM_ARGS \
     -cp "$BENCHMARK_JAR" \
     org.safere.benchmark.CrossEngineBenchmarkPlan cold-start
 )"
-SPECIALIZED_TRIALS="$(
-  java $JVM_ARGS \
-    -cp "$BENCHMARK_JAR" \
-    org.safere.benchmark.SpecializedBenchmarkPlan average-time
-)"
-CROSS_ENGINE_PARAM_ARGS=()
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineTrial=$CROSS_ENGINE_TRIALS")
-fi
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineScalingTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineScalingTrial=$CROSS_ENGINE_SCALING_TRIALS")
-fi
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineNoForkTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineNoForkTrial=$CROSS_ENGINE_NO_FORK_TRIALS")
-fi
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineColdStartTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineColdStartTrial=$CROSS_ENGINE_COLD_START_TRIALS")
-fi
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]specializedTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "specializedTrial=$SPECIALIZED_TRIALS")
-fi
 
 run_benchmark() {
   local bench="$1"
@@ -345,46 +333,44 @@ run_benchmark() {
       return
       ;;
   esac
+  write_generated_jmh_arguments "$bench"
   if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
     echo "=== Running $bench ($opts ${JMH_EXTRA_ARGS[*]}) ==="
     java \
       $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
+      "@$GENERATED_JMH_ARGUMENT_FILE" \
       -jvmArgs "$JVM_ARGS" \
       $opts \
-      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "${JMH_EXTRA_ARGS[@]}" \
       "$bench"
   else
     echo "=== Running $bench ($opts) ==="
     java \
       $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
+      "@$GENERATED_JMH_ARGUMENT_FILE" \
       -jvmArgs "$JVM_ARGS" \
       $opts \
-      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "$bench"
   fi
 }
 
 if [ ${#BENCHMARKS[@]} -eq 0 ]; then
   echo "=== Running standard benchmarks ($DEFAULT_BENCHMARK_REGEX) ==="
+  write_generated_jmh_arguments "$DEFAULT_BENCHMARK_REGEX"
   if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
     java \
       $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
+      "@$GENERATED_JMH_ARGUMENT_FILE" \
       -jvmArgs "$JVM_ARGS" \
       $JMH_OPTS \
-      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "${JMH_EXTRA_ARGS[@]}" \
       "$DEFAULT_BENCHMARK_REGEX"
   else
     java \
       $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
+      "@$GENERATED_JMH_ARGUMENT_FILE" \
       -jvmArgs "$JVM_ARGS" \
       $JMH_OPTS \
-      "${CROSS_ENGINE_PARAM_ARGS[@]}" \
       "$DEFAULT_BENCHMARK_REGEX"
   fi
 else
