@@ -147,6 +147,7 @@
                         <exclude name="SimplifierTest.java"/>
                         <exclude name="StartAcceleratorDifferentialTest.java"/>
                         <exclude name="StartAcceleratorTest.java"/>
+                        <exclude name="StringLiteralSearchTest.java"/>
                         <exclude name="TeddyModelTest.java"/>
                         <exclude name="UnicodeJdkConsistencyTest.java"/>
                         <exclude name="UnicodeTablesTest.java"/>
