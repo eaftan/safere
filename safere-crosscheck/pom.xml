@@ -106,6 +106,7 @@
                         <exclude name="AsciiTest.java"/>
                         <exclude name="AstAnalysisTest.java"/>
                         <exclude name="BitStateTest.java"/>
+                        <exclude name="ByteSwarScanTest.java"/>
                         <exclude name="CharClassTest.java"/>
                         <exclude name="CompilerTest.java"/>
                         <exclude name="DfaNfaTest.java"/>
