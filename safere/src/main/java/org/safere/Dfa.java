@@ -1560,6 +1560,10 @@ final class Dfa {
           if (s == null) {
             return null;
           }
+          // Creating a start state can grow the flat arrays, just like computeNext below.
+          transitions = this.transitions;
+          offsetToState = this.offsetToState;
+          isAcceleratedStateOffset = this.isAcceleratedStateOffset;
           if (s.isMatch()) {
             if (isRequiredEndMatch(pos, needEndMatch, textLen, trailingTermStart)) {
               matched = true;

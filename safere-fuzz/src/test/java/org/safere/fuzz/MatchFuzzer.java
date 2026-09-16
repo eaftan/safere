@@ -56,6 +56,7 @@ public final class MatchFuzzer {
     for (RegressionCase regression : CASE_FOLDING_MODEL_REGRESSIONS) {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
+    assertAcceleratedRestartArrayGrowthMatchesJdk(data);
     assertCaseFamilyClosureSafeRe(data);
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
@@ -98,6 +99,27 @@ public final class MatchFuzzer {
     matcher.find();
     matcher.reset();
     matcher.find(FuzzSupport.consumeIndex(data, input));
+  }
+
+  private static void assertAcceleratedRestartArrayGrowthMatchesJdk(FuzzedDataProvider data) {
+    // Vary both dimensions of the flat DFA arrays and restart after a context change (#882).
+    int prefixLength = data.consumeInt(4, 32);
+    int alphabetSize = data.consumeInt(32, 160);
+    StringBuilder tail = new StringBuilder();
+    for (int i = 0; i < alphabetSize; i++) {
+      tail.appendCodePoint(0x400 + i);
+    }
+    String prefix = "\0".repeat(prefixLength);
+    String regex = "xbw|" + prefix + tail + "$";
+    String separator = data.pickValue(List.of("\n", "\r", "\r\n", "!", "a", "😀"));
+    String suffix = data.pickValue(List.of("", "xbw", "XBW", prefix + tail));
+    String input = "!" + prefix + "!" + separator + "\0" + "!".repeat(40) + suffix;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, CI_U);
+    if (pattern != null) {
+      for (int pass = 0; pass < 2; pass++) {
+        pattern.matcher(input).find();
+      }
+    }
   }
 
   private static String distinctLiteralRun(int count) {
