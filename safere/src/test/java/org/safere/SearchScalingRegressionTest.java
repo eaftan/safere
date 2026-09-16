@@ -233,7 +233,7 @@ class SearchScalingRegressionTest {
   void observedCaptureDemandDoesNotMakeFindWalkTheInputWithTheCaptureEngine() {
     String regex = "(error:\\[)[A-Z](\\] code:500)";
     String input =
-        "2026-08-27 12:00:00 error:[N] code:200 msg:ok\n".repeat(9)
+        "2026-08-27 12:00:00 error:[x] code:500 msg:ok\n".repeat(9)
             + "2026-08-27 12:00:00 error:[C] code:500 msg:crash\n";
 
     Pattern withoutDemand = Pattern.compile(regex);
