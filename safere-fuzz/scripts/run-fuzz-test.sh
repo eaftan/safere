@@ -13,7 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-FUZZ_TARGET_DIR="$REPO_ROOT/safere-fuzz/src/test/java/org/safere/fuzz"
+FUZZ_TARGET_DIR="$REPO_ROOT/safere-fuzz/src/test/java/org/safere"
 MAX_DURATION="30m"
 KEEP_GOING="10"
 TESTS=()
@@ -37,7 +37,7 @@ EOF
 }
 
 valid_fuzz_targets() {
-  find "$FUZZ_TARGET_DIR" -maxdepth 1 -type f -name '*Fuzzer.java' -printf '%f\n' \
+  find "$FUZZ_TARGET_DIR" -type f -name '*Fuzzer.java' -printf '%f\n' \
     | sed 's/\.java$//' \
     | sort
 }

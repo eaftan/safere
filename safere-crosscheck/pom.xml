@@ -108,6 +108,7 @@
                         <exclude name="BitStateTest.java"/>
                         <exclude name="CharClassTest.java"/>
                         <exclude name="CompilerTest.java"/>
+                        <exclude name="DeferredRegionCaptureTest.java"/>
                         <exclude name="DfaNfaTest.java"/>
                         <exclude name="DfaTest.java"/>
                         <exclude name="DiagnosticsTest.java"/>

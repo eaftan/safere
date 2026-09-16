@@ -18,13 +18,15 @@ dual-engine oracles: each operation runs against both SafeRE and
 - `ReplacementFuzzer` fuzzes replacement APIs.
 - `SplitFuzzer` fuzzes `split` and `splitWithDelimiters`.
 - `RegionBoundsFuzzer` fuzzes regions and anchoring/transparent bounds.
+- `DeferredRegionCaptureFuzzer` forces deferred NFA captures across region bounds and matcher reuse.
 - `UnicodeFuzzer` biases input strings toward Unicode boundary cases.
 
 ## Regression Mode
 
 Without `JAZZER_FUZZ`, Jazzer runs each target as a JUnit parameterized test
 over the empty input and the checked-in seed corpus. Seed inputs live under
-`src/test/resources/org/safere/fuzz/<FuzzerClass>Inputs/<methodName>/`.
+`src/test/resources/<package-path>/<FuzzerClass>Inputs/<methodName>/`.
+Most targets use `org/safere/fuzz`; targets needing package-private engine controls use `org/safere`.
 
 ```bash
 mvn -pl safere-fuzz -am test

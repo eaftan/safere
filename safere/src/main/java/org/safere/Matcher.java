@@ -4170,9 +4170,19 @@ public final class Matcher implements MatchResult {
   private void resolveCapturesBeforeRestoringRegion() {
     // Deferred captures must be replayed against the same opaque region view that produced the
     // match. Restoring the full input first would change empty-width assertion semantics at the
-    // region boundaries.
+    // region boundaries. The replay also reads regionStart/regionEnd when building its assertion
+    // context, so those bounds must use the substituted input's coordinates until replay finishes.
     if (hasMatch && !capturesResolved) {
-      resolveCaptures();
+      int savedRegionStart = regionStart;
+      int savedRegionEnd = regionEnd;
+      regionStart = 0;
+      regionEnd = activeScanner().length();
+      try {
+        resolveCaptures();
+      } finally {
+        regionStart = savedRegionStart;
+        regionEnd = savedRegionEnd;
+      }
     }
   }
 
