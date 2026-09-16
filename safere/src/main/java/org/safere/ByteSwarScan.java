@@ -201,7 +201,8 @@ abstract class ByteSwarScan {
     long workLimit = WorkLimit.forRemaining(length - pos);
 
     int maxAnchorOffset = Math.max(offset1, offset2);
-    int wordEnd = length - maxAnchorOffset - Long.BYTES;
+    // Both anchor word loads and the immediate full-prefix check must fit in the slice.
+    int wordEnd = Math.min(length - maxAnchorOffset - Long.BYTES, length - prefixLen);
     long repeatedLow1 = (low1 & 0xFFL) * BYTE_ONES;
     long repeatedHigh1 = (high1 & 0xFFL) * BYTE_ONES;
     long repeatedLow2 = (low2 & 0xFFL) * BYTE_ONES;

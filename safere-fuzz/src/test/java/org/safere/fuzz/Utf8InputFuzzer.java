@@ -40,6 +40,7 @@ public final class Utf8InputFuzzer {
     assertPositionDependentStartAccelerationMatchesJdk(data);
     assertGraphemeSearchMatchesString(data);
     assertMultibyteMultiAnchorReverseWindowMatchesString(data);
+    assertCaseInsensitivePrefixSliceBounds(data);
     String repeatedLiteral =
         String.valueOf((char) data.consumeInt('A', 'Z')).repeat(data.consumeInt(2, 32));
     String suffix = new String(data.consumeBytes(data.consumeInt(0, 64)), StandardCharsets.UTF_8);
@@ -69,6 +70,30 @@ public final class Utf8InputFuzzer {
       if (valid) {
         throw new AssertionError("strict validation rejected valid UTF-8", e);
       }
+    }
+  }
+
+  private static void assertCaseInsensitivePrefixSliceBounds(FuzzedDataProvider data) {
+    // Rare anchors near the start leave a long suffix to verify at the slice end (#881).
+    String literal = data.pickValue(List.of("qz", "jq", "xz")) + "a".repeat(data.consumeInt(8, 40));
+    String candidate = data.consumeBoolean() ? literal.toUpperCase(Locale.ROOT) : literal;
+    String input = ".".repeat(data.consumeInt(0, 32)) + candidate;
+    int length = input.length() - data.consumeInt(0, literal.length());
+    String padding = ".".repeat(data.consumeInt(0, 7));
+    boolean padded = data.consumeBoolean();
+    byte[] bytes =
+        (padding + (padded ? input : input.substring(0, length))).getBytes(StandardCharsets.UTF_8);
+    Pattern pattern = Pattern.compile(literal, Pattern.CASE_INSENSITIVE);
+    java.util.regex.Matcher expected =
+        java.util.regex.Pattern.compile(literal, java.util.regex.Pattern.CASE_INSENSITIVE)
+            .matcher(input.substring(0, length));
+    Utf8Input utf8 = Utf8Input.validated(bytes, padding.length(), length);
+    Utf8Matcher actual = pattern.matcher(utf8);
+    boolean found = expected.find();
+    if (actual.find() != found
+        || pattern.find(utf8) != found
+        || (found && (actual.start() != expected.start() || actual.end() != expected.end()))) {
+      throw new AssertionError("case-insensitive prefix search crossed UTF-8 slice bounds");
     }
   }
 
