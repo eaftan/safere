@@ -30,6 +30,25 @@ class DfaTest {
       ParseFlags.PERL_X | ParseFlags.PERL_CLASSES | ParseFlags.PERL_B | ParseFlags.UNICODE_GROUPS;
 
   @Test
+  void anchoredStartCachingDoesNotDiscardAnUnanchoredMatch() {
+    Prog prog = Compiler.compile(Parser.parse("[0-9]*0", FLAGS));
+    String text = "011" + "~".repeat(512) + "0";
+    for (InputScanner scanner :
+        List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+      for (boolean reverseContext : new boolean[] {false, true}) {
+        Dfa dfa = new Dfa(prog, 10000, Dfa.buildSetup(prog), false);
+        dfa.startState(scanner, 0, true, reverseContext);
+        for (int reuse = 0; reuse < 2; reuse++) {
+          Dfa.SearchResult result = dfa.doSearch(scanner, false, false);
+          assertThat(result).isNotNull();
+          assertThat(result.matched()).isTrue();
+          assertThat(result.pos()).isEqualTo(1);
+        }
+      }
+    }
+  }
+
+  @Test
   void longestDeferredMatchRetainsEveryConsumingBranch() {
     // Issue #857: each assertion succeeds before the consuming alternative finishes.
     for (String assertion : List.of("\\b", "\\B", "(?m:$)")) {

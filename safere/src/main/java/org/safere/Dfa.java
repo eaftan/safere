@@ -92,6 +92,7 @@ final class Dfa {
     final int flags;
     final boolean isHighestPriorityMatch;
     final StateAccelerator accelerator;
+    // Only forward unanchored starts may use start-position acceleration.
     boolean isStartState;
 
     /**
@@ -999,8 +1000,12 @@ final class Dfa {
     }
     State s = getOrCreate(insts, flags);
     if (s != null) {
-      s.isStartState = true;
-      isAcceleratedStateOffset[s.id * numClasses] = true;
+      // An anchored start can also be an in-progress unanchored frontier. Marking it as
+      // idle would allow start acceleration to skip characters belonging to that match.
+      if (!anchored && !reverseContext) {
+        s.isStartState = true;
+        isAcceleratedStateOffset[s.id * numClasses] = true;
+      }
       startStateContextKeys[cacheIndex] = cacheKey;
       startStateByContext[cacheIndex] = s;
     }
