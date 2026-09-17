@@ -1507,17 +1507,17 @@ final class Dfa {
     boolean canAccelerate = activePolicy != null && !anchored;
     AcceleratorPolicy tuning = canAccelerate ? activePolicy : AcceleratorPolicy.DEFAULT;
     int minSkip = tuning.minProfitableSkip();
-    int strikeLimit = tuning.strikeBudget();
-    int minDensityStride = tuning.minDensityStride();
+    int lossLimit = tuning.strikeBudget() * minSkip;
     int initialQuarantineWindow = tuning.initialQuarantineWindow();
     int maxQuarantineWindow = tuning.maxQuarantineWindow();
 
-    // Adaptive defeat detection: track candidate progress density to avoid repeatedly paying
-    // accelerator setup and candidate check overhead on dense non-matching inputs.
-    // When candidates occur too frequently without sufficient progress, temporarily quarantine
-    // acceleration and fall back to the linear scalar DFA with exponential backoff.
-    int candidateStrikes = 0;
-    int lastCandidatePos = startPos;
+    // Compare each scan's saved DFA work with that accelerator's minimum profitable skip.
+    // Candidate spacing includes work already done by the DFA, especially during quarantine;
+    // crediting that work would restore an accelerator that is still unprofitable. Only actual
+    // skips in excess of the estimated call cost can repay the deficit and reset quarantine.
+    // One strike's allowance is one call's cost: a break-even call cannot erase another call's
+    // loss. The deficit stays bounded by the allowance, regardless of the size of the input.
+    int skippedWorkDeficit = 0;
     int accelerationResumePos = startPos;
     int quarantineWindow = initialQuarantineWindow;
 
@@ -1534,24 +1534,30 @@ final class Dfa {
           && (!startPositionPreselected || pos != startPos)
           && (textLen - pos >= minSkip)) {
         int nextPos = fastForward(text, pos, posDepThreshold, s);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.recordStartScan(nextPos < 0 ? textLen - pos : nextPos - pos);
+        }
         if (nextPos == -1) {
           return new SearchResult(matched, matchEnd);
         }
-        if (nextPos > pos) {
-          int stride = nextPos - lastCandidatePos;
-          lastCandidatePos = nextPos;
-          if (stride < minDensityStride) {
-            if (++candidateStrikes >= strikeLimit) {
-              accelerationResumePos = nextPos + quarantineWindow;
-              quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
-              candidateStrikes = strikeLimit >>> 1;
+        int skipped = nextPos - pos;
+        if (skipped < minSkip) {
+          skippedWorkDeficit += minSkip - skipped;
+          if (skippedWorkDeficit >= lossLimit) {
+            if (WorkCounterConfig.ENABLED) {
+              WorkCounter.recordStartQuarantine(quarantineWindow);
             }
-          } else if (stride >= 256 && candidateStrikes > 0) {
-            candidateStrikes = Math.max(0, candidateStrikes - (stride >>> 8));
-            if (candidateStrikes == 0) {
-              quarantineWindow = initialQuarantineWindow;
-            }
+            accelerationResumePos = nextPos + Math.min(quarantineWindow, textLen - nextPos);
+            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
+            skippedWorkDeficit = lossLimit >>> 1;
           }
+        } else if (skippedWorkDeficit > 0) {
+          skippedWorkDeficit = Math.max(0, skippedWorkDeficit + minSkip - skipped);
+          if (skippedWorkDeficit == 0) {
+            quarantineWindow = initialQuarantineWindow;
+          }
+        }
+        if (nextPos > pos) {
           pos = nextPos;
           if (pos >= textLen) {
             break;
@@ -1575,13 +1581,6 @@ final class Dfa {
           }
           if (s == deadState) {
             return new SearchResult(matched, matchEnd);
-          }
-        } else {
-          lastCandidatePos = pos;
-          if (++candidateStrikes >= strikeLimit) {
-            accelerationResumePos = pos + quarantineWindow;
-            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
-            candidateStrikes = strikeLimit >>> 1;
           }
         }
       }
@@ -1723,24 +1722,30 @@ final class Dfa {
           && (!startPositionPreselected || pos != startPos)
           && (textLen - pos >= minSkip)) {
         int nextPos = fastForward(text, pos, posDepThreshold, s);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.recordStartScan(nextPos < 0 ? textLen - pos : nextPos - pos);
+        }
         if (nextPos == -1) {
           return new SearchResult(matched, matchEnd);
         }
-        if (nextPos > pos) {
-          int stride = nextPos - lastCandidatePos;
-          lastCandidatePos = nextPos;
-          if (stride < minDensityStride) {
-            if (++candidateStrikes >= strikeLimit) {
-              accelerationResumePos = nextPos + quarantineWindow;
-              quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
-              candidateStrikes = strikeLimit >>> 1;
+        int skipped = nextPos - pos;
+        if (skipped < minSkip) {
+          skippedWorkDeficit += minSkip - skipped;
+          if (skippedWorkDeficit >= lossLimit) {
+            if (WorkCounterConfig.ENABLED) {
+              WorkCounter.recordStartQuarantine(quarantineWindow);
             }
-          } else if (stride >= 256 && candidateStrikes > 0) {
-            candidateStrikes = Math.max(0, candidateStrikes - (stride >>> 8));
-            if (candidateStrikes == 0) {
-              quarantineWindow = initialQuarantineWindow;
-            }
+            accelerationResumePos = nextPos + Math.min(quarantineWindow, textLen - nextPos);
+            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
+            skippedWorkDeficit = lossLimit >>> 1;
           }
+        } else if (skippedWorkDeficit > 0) {
+          skippedWorkDeficit = Math.max(0, skippedWorkDeficit + minSkip - skipped);
+          if (skippedWorkDeficit == 0) {
+            quarantineWindow = initialQuarantineWindow;
+          }
+        }
+        if (nextPos > pos) {
           pos = nextPos;
           if (pos > textLen) {
             break;
@@ -1760,13 +1765,6 @@ final class Dfa {
           }
           if (s == deadState) {
             return new SearchResult(matched, matchEnd);
-          }
-        } else {
-          lastCandidatePos = pos;
-          if (++candidateStrikes >= strikeLimit) {
-            accelerationResumePos = pos + quarantineWindow;
-            quarantineWindow = Math.min(quarantineWindow << 1, maxQuarantineWindow);
-            candidateStrikes = strikeLimit >>> 1;
           }
         }
       }

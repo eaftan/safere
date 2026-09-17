@@ -13,9 +13,29 @@ final class WorkCounter {
 
   private static final class Counter {
     private long units;
+    private long startScanCalls;
+    private long startSkippedUnits;
+    private long quarantineCount;
+    private int largestQuarantine;
   }
 
+  record StartAccelerationWork(
+      long calls, long skippedUnits, long quarantines, int largestQuarantine) {}
+
   static long countForTesting(Runnable task) {
+    return count(task).units;
+  }
+
+  static StartAccelerationWork countStartAccelerationForTesting(Runnable task) {
+    Counter counter = count(task);
+    return new StartAccelerationWork(
+        counter.startScanCalls,
+        counter.startSkippedUnits,
+        counter.quarantineCount,
+        counter.largestQuarantine);
+  }
+
+  private static Counter count(Runnable task) {
     if (!WorkCounterConfig.ENABLED) {
       throw new IllegalStateException("WorkCounter is disabled; run tests with -Pwork-counters");
     }
@@ -24,7 +44,7 @@ final class WorkCounter {
     COUNTER.set(current);
     try {
       task.run();
-      return current.units;
+      return current;
     } finally {
       if (previous == null) {
         COUNTER.remove();
@@ -42,6 +62,22 @@ final class WorkCounter {
     Counter counter = COUNTER.get();
     if (counter != null) {
       counter.units += units;
+    }
+  }
+
+  static void recordStartScan(int skippedUnits) {
+    Counter counter = COUNTER.get();
+    if (counter != null) {
+      counter.startScanCalls++;
+      counter.startSkippedUnits += skippedUnits;
+    }
+  }
+
+  static void recordStartQuarantine(int window) {
+    Counter counter = COUNTER.get();
+    if (counter != null) {
+      counter.quarantineCount++;
+      counter.largestQuarantine = Math.max(counter.largestQuarantine, window);
     }
   }
 }
