@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.TypeElement;
@@ -17,13 +18,10 @@ import javax.tools.Diagnostic;
 import javax.tools.StandardLocation;
 
 /** Collects top-level crosscheck exclusions during an explicit processing pass. */
+// Run even when no exclusion annotations remain, so we write an empty manifest.
+@SupportedAnnotationTypes("*")
 public final class ExclusionProcessor extends AbstractProcessor {
   private final Set<String> excluded = new TreeSet<>();
-
-  @Override
-  public Set<String> getSupportedAnnotationTypes() {
-    return Set.of("*");
-  }
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
