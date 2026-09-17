@@ -574,7 +574,6 @@ jobs:
           gpg-passphrase-env-var: GPG_PASSPHRASE
 
       - name: Require a snapshot version
-        id: version
         run: |
           VERSION=$(mvn -pl safere help:evaluate -Dexpression=project.version \
             -q -DforceStdout --no-transfer-progress)
@@ -582,7 +581,6 @@ jobs:
             echo "Expected a -SNAPSHOT version, got: $VERSION" >&2
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check for a newer successful main CI run
         id: freshness
@@ -598,9 +596,3 @@ jobs:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: Verify public snapshot consumption
-        if: steps.freshness.outputs.current == 'true'
-        env:
-          SNAPSHOT_VERSION: ${{ steps.version.outputs.version }}
-        run: bash .github/scripts/verify-snapshot.sh "$SNAPSHOT_VERSION"

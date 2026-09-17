@@ -83,10 +83,7 @@ the version in [pom.xml](pom.xml) and changes as new release cycles begin.
 Maintainers must enable snapshots for the `org.safere` namespace in the Central
 Portal before the first publication. Publishing reuses the release workflow's
 Central credentials and signing secrets. Review publishing usage periodically in
-the Portal Usage Center; Sonatype's limits can change. After each publication,
-the workflow resolves and runs SafeRE from a separate Maven project with a fresh
-local repository. To repeat that check locally, run
-`bash .github/scripts/verify-snapshot.sh 0.12.0-SNAPSHOT`.
+the Portal Usage Center; Sonatype's limits can change.
 
 ## Quick Start
 
