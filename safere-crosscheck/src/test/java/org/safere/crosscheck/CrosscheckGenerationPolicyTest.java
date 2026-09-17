@@ -8,7 +8,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -16,6 +15,7 @@ import java.util.regex.MatchResult;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.w3c.dom.Element;
 
 /** Policy checks for generated public API crosscheck coverage. */
@@ -49,20 +49,39 @@ class CrosscheckGenerationPolicyTest {
   }
 
   @Test
-  @DisplayName("structural crosscheck excludes carry class-level annotations")
-  void structuralExcludesCarryClassLevelAnnotations() throws IOException {
-    Set<String> violations = new TreeSet<>();
-    for (String excluded : structuralExcludes()) {
-      Path source = SAFERE_TEST_DIR.resolve(excluded);
-      assertThat(Files.isRegularFile(source))
-          .as("source file for structural exclude %s", excluded)
-          .isTrue();
-      if (!hasClassLevelDisabledAnnotation(Files.readString(source))) {
-        violations.add(excluded);
-      }
-    }
+  @DisplayName("crosscheck generation has no manual filename exclusions")
+  void noManualFilenameExclusions() {
+    var nodes = pomDocument().getElementsByTagName("exclude");
+    assertThat(nodes.getLength()).isZero();
+  }
 
-    assertThat(violations).isEmpty();
+  @Test
+  @EnabledIfSystemProperty(named = "org.safere.crosscheck.generatedTests", matches = "true")
+  void generatedSourcesFollowAnnotationExclusions() throws IOException {
+    Path generated =
+        Path.of(
+            "target",
+            "generated-test-sources",
+            "crosscheck",
+            "org",
+            "safere",
+            "crosscheck",
+            "generated");
+    Set<String> excluded =
+        Set.copyOf(
+            Files.readAllLines(
+                Path.of("target", "crosscheck-selection", "crosscheck-excludes.txt")));
+    for (Path source : testSources()) {
+      String filename = source.getFileName().toString();
+      assertThat(Files.isRegularFile(generated.resolve(filename)))
+          .as("generation of %s", filename)
+          .isEqualTo(!excluded.contains(filename));
+    }
+    assertThat(excluded)
+        .contains("DisabledForCrosscheckConditionTest.java", "ParserTest.java")
+        .doesNotContain("PatternTest.java", "BoundaryMatcherTest.java");
+    assertThat(Files.isRegularFile(generated.resolve("DisabledForCrosscheck.java"))).isTrue();
+    assertThat(Files.isRegularFile(generated.resolve("ExhaustiveUtils.java"))).isTrue();
   }
 
   private static List<Path> testSources() throws IOException {
@@ -72,20 +91,6 @@ class CrosscheckGenerationPolicyTest {
           .sorted()
           .toList();
     }
-  }
-
-  private static Set<String> structuralExcludes() {
-    Set<String> excludes = new HashSet<>();
-    Element pom = pomDocument();
-    var nodes = pom.getElementsByTagName("exclude");
-    for (int i = 0; i < nodes.getLength(); i++) {
-      Element exclude = (Element) nodes.item(i);
-      String name = exclude.getAttribute("name");
-      if (name.endsWith("Test.java")) {
-        excludes.add(name);
-      }
-    }
-    return excludes;
   }
 
   private static Element pomDocument() {
@@ -108,14 +113,5 @@ class CrosscheckGenerationPolicyTest {
         .map(MatchResult::group)
         .map(literal -> literal.substring(1, literal.length() - 1))
         .reduce("", String::concat);
-  }
-
-  private static boolean hasClassLevelDisabledAnnotation(String source) {
-    int classDeclaration = source.indexOf("class ");
-    if (classDeclaration < 0) {
-      return false;
-    }
-    int annotation = source.indexOf("@DisabledForCrosscheck");
-    return annotation >= 0 && annotation < classDeclaration;
   }
 }
