@@ -230,6 +230,11 @@ syntax, consistent with PCRE2's behavior.
 including flags, line endings, captures, character classes, and syntax errors.
 Its expectations run in SafeRE tests and are disabled only in generated JDK
 crosscheck tests with `@DisabledForCrosscheck`.
+Differential fuzzing excludes patterns with a quote opener in active comment text
+through `FuzzSupport.compileCompatibleOrSkip()`, for both compilation and matching
+comparisons. This conservatively includes quotes closed within the same comment.
+Literal patterns, escaped hashes, ordinary quoting, and disabled comments remain
+eligible for comparison.
 
 ## Unicode Case-Insensitive Range Closure
 

@@ -80,6 +80,10 @@ final class FuzzSupport {
       jdkException = e;
     }
 
+    // Apply to both compile and match divergences, after compiling so unexpected failures surface.
+    if (CommentQuotingDivergence.contains(regex, flags)) {
+      return null;
+    }
     if (safeRePattern != null && jdkPattern != null) {
       return new CompiledPattern(regex, flags, safeRePattern, jdkPattern);
     }
