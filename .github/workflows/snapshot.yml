@@ -7,7 +7,14 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: read
+
+# Keep metadata updates and the independent consumer check in one serialized job.
+concurrency:
+  group: central-snapshot-publication
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   publish:
@@ -48,7 +55,15 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Check for a newer successful main CI run
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+        run: bash .github/scripts/check-snapshot-freshness.sh
+
       - name: Publish to Central Portal snapshots
+        if: steps.freshness.outputs.current == 'true'
         run: mvn -pl safere deploy -Prelease -DskipTests --batch-mode --no-transfer-progress
         env:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -56,6 +71,7 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Verify public snapshot consumption
+        if: steps.freshness.outputs.current == 'true'
         env:
           SNAPSHOT_VERSION: ${{ steps.version.outputs.version }}
         run: bash .github/scripts/verify-snapshot.sh "$SNAPSHOT_VERSION"

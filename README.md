@@ -51,6 +51,8 @@ implementation 'org.safere:safere:0.11.0'
 Successful pushes to `main` publish the current development version to the
 [Central Portal snapshot repository](https://central.sonatype.com/repository/maven-snapshots/)
 after CI passes, including documentation-only pushes. Pull requests do not publish snapshots.
+Publications run sequentially; an older CI run is skipped when a newer main push
+has already passed CI, so delayed runs cannot replace newer snapshots.
 Snapshots are for testing: they may change and may expire (Sonatype currently removes
 them after about 90 days). Use a numbered release for stable dependencies.
 

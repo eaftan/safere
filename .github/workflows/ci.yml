@@ -20,6 +20,9 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
+      - name: Test snapshot publication ordering
+        run: python .github/scripts/test_snapshot_freshness.py
+
       - name: Test repo-assist trust boundary and state handling
         run: >
           uv run --project .agents/skills/repo-assist --locked pytest
