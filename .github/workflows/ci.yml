@@ -106,6 +106,15 @@ jobs:
           -Dtest.parallelism=4
           --batch-mode --no-transfer-progress
 
+      - name: Verify vector-test packaging lifecycle
+        # Run through package to catch duplicate main-JAR attachment after the tests.
+        run: >
+          mvn clean verify -pl safere
+          -Pvector-tests
+          -Dtest=ByteScanTest,Utf8InputScannerTest,Utf8VectorPairTripleTest,VectorSpeciesSimulationTest,StringLiteralSearchTest,MultiLiteralTest
+          -Dtest.parallelism=4
+          --batch-mode --no-transfer-progress
+
   build-vector-runtime-artifacts:
     needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'

@@ -288,7 +288,9 @@ final class WorkCounterConfig {
             <artifactId>maven-jar-plugin</artifactId>
             <executions>
               <execution>
-                <id>package-vector-test-jar</id>
+                <!-- Move the standard JAR execution before tests instead of attaching
+                     the main artifact again when the lifecycle reaches package. -->
+                <id>default-jar</id>
                 <phase>process-test-classes</phase>
                 <goals>
                   <goal>jar</goal>
