@@ -3225,6 +3225,26 @@
         "length": "{size}"
       },
       "shared": true
+    },
+    {
+      "id": "startLiteralSelection.error.input",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "error:A?? ",
+        "suffix": "error:A!!",
+        "length": 10000
+      },
+      "shared": true
+    },
+    {
+      "id": "startLiteralSelection.support.input",
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "support0normal ",
+        "suffix": "support0google",
+        "length": 10000
+      },
+      "shared": true
     }
   ],
   "workloads": [
@@ -13255,6 +13275,42 @@
       "expected": {
         "type": "boolean",
         "value": true
+      }
+    },
+    {
+      "id": "StartLiteralSelectionBenchmark.error",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "error:[A-Z]!!"
+      ],
+      "inputs": [
+        "startLiteralSelection.error.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "StartLiteralSelectionBenchmark.support",
+      "operation": "findAllLengthSum",
+      "patterns": [
+        "support[0-9]google"
+      ],
+      "inputs": [
+        "startLiteralSelection.support.input"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
       }
     }
   ]
