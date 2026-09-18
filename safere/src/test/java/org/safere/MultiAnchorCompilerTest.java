@@ -361,6 +361,59 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void aShorterFixedOffsetLiteralLosesDespiteOutscoringTheLeadingPrefix() {
+    // `://` outscores `http` because `:` and `/` are rarer characters than `h`, `t` and `p`.
+    // That is true and irrelevant: the two literals co-occur one-for-one in a URL, so taking
+    // the shorter one hands back three filtering characters and buys nothing.
+    Pattern p = Pattern.compile("https?://[a-z0-9.-]+");
+    assertThat(p.multiAnchor()).isNotNull();
+    assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.Literal.class);
+    StartPlan.Literal literal = (StartPlan.Literal) p.multiAnchor().startPlan();
+    assertThat(literal.prefix()).isEqualTo("http");
+    // The rejected candidate is not wasted: with the start plan back on the leading prefix,
+    // the whole-input reject prefilter is free to take the rarer literal.
+    assertThat(p.multiAnchor().rejectPlan()).isInstanceOf(RejectPlan.RequiredLiteral.class);
+    RejectPlan.RequiredLiteral required = (RejectPlan.RequiredLiteral) p.multiAnchor().rejectPlan();
+    assertThat(required.literal()).isEqualTo("://");
+  }
+
+  @Test
+  void aShorterFixedOffsetLiteralStillWinsWhenItIsASingleCharacter() {
+    // Shorter is not the same as worse. A one-character needle changes scan kernel to
+    // `String.indexOf(char)`, which is several times faster per byte on x86_64, so it wins
+    // outright even though `id:` filters more.
+    Pattern p = Pattern.compile("id:[0-9a-f]{8}-[0-9a-f]{4}");
+    assertThat(p.multiAnchor()).isNotNull();
+    assertThat(p.multiAnchor().startPlan()).isInstanceOf(StartPlan.FixedOffset.class);
+    StartPlan.FixedOffset fixedOffset = (StartPlan.FixedOffset) p.multiAnchor().startPlan();
+    assertThat(fixedOffset.fol().literal()).isEqualTo("-");
+  }
+
+  @Test
+  void revertedStartPlanPreservesStringAndUtf8FindBounds() {
+    String regex = "https?://[a-z0-9.-]+";
+    String text = "é http://a.example! see https://b.example too";
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.multiAnchor().startPlan()).isInstanceOf(StartPlan.Literal.class);
+
+    java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(text);
+    Matcher stringMatcher = pattern.matcher(text);
+    Utf8Matcher utf8Matcher = pattern.matcher(Utf8Input.validated(text.getBytes(UTF_8)));
+    while (expected.find()) {
+      assertThat(stringMatcher.find()).isTrue();
+      assertThat(stringMatcher.start()).isEqualTo(expected.start());
+      assertThat(stringMatcher.end()).isEqualTo(expected.end());
+      assertThat(utf8Matcher.find()).isTrue();
+      assertThat(utf8Matcher.start())
+          .isEqualTo(text.substring(0, expected.start()).getBytes(UTF_8).length);
+      assertThat(utf8Matcher.end())
+          .isEqualTo(text.substring(0, expected.end()).getBytes(UTF_8).length);
+    }
+    assertThat(stringMatcher.find()).isFalse();
+    assertThat(utf8Matcher.find()).isFalse();
+  }
+
+  @Test
   void selectedFixedOffsetLiteralPreservesStringAndUtf8FindBounds() {
     String regex = "(?:https://api|https://stage|https://prod)\\.example\\.com/[a-z0-9]+";
     String text = "é https://api.example.com/x! https://prod.example.com/y";

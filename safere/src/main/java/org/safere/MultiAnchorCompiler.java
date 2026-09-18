@@ -172,8 +172,10 @@ final class MultiAnchorCompiler {
     // When a fixed-offset literal is available and not poisonous:
     //  (a) If the leading prefix is poisonous (e.g. single space or high-frequency letter),
     //      suppress it and prioritize the non-poisonous fixed-offset literal.
-    //  (b) Otherwise prefer whichever of the two is more selective. Ties go to the leading
-    //      prefix, which needs no offset arithmetic to verify.
+    //  (b) Otherwise prefer whichever of the two is more selective, unless taking the more
+    //      selective one would hand back more filtering than it can make up for in scan speed
+    //      -- see `losesFilteringWithoutGainingSpeed`. Ties go to the leading prefix, which
+    //      needs no offset arithmetic to verify.
     //
     // There is deliberately no length gate and no margin here. Both were tried and both cost
     // more than they saved: requiring `prefix.length() <= 2` meant the two candidates were
@@ -190,7 +192,7 @@ final class MultiAnchorCompiler {
       }
       int prefixScore = RarityOracle.literalSelectivityScore(prefix, prefixFoldCase);
       int folScore = RarityOracle.literalSelectivityScore(fol.literal());
-      if (folScore > prefixScore) {
+      if (folScore > prefixScore && !losesFilteringWithoutGainingSpeed(prefix, fol.literal())) {
         return new MultiAnchorDescriptor.StartPlan.FixedOffset(
             new Pattern.FixedOffsetLiteral(
                 fol.literal(), fol.minOffset(), fol.maxOffset(), fol.discreteOffsets()),
@@ -222,6 +224,30 @@ final class MultiAnchorCompiler {
     }
 
     return MultiAnchorDescriptor.StartPlan.None.INSTANCE;
+  }
+
+  /**
+   * Returns whether preferring {@code folLiteral} over {@code prefix} would give back more
+   * filtering than it can make up for in scan speed.
+   *
+   * <p>A shorter multi-character literal changes nothing about how the scan runs. It is the same
+   * {@link String#indexOf(String, int)} — a fused filter-and-verify that emits no false positives —
+   * with strictly fewer characters doing the filtering, plus a back-check at every candidate
+   * offset. Taking {@code ://} over {@code http} on {@code https?://...} costs 4.5% on {@code
+   * urlExtraction}, and a corpus sweep puts 130 patterns on that exact shape.
+   *
+   * <p>Shorter is not the same as worse, though, which is why this is narrower than a length gate.
+   * A one-character needle declines anchoring in {@link StringLiteralSearch#anchorOffset} and takes
+   * the single-character path of the {@code indexOf} intrinsic, which scans measurably faster per
+   * byte than the multi-character one. It can therefore win outright despite filtering less: {@code
+   * id:[0-9a-f]{8}-...} taking {@code -} over {@code id:} measures 1.19x.
+   *
+   * <p>The selectivity score cannot see any of this. It ranks {@code ://} above {@code http}
+   * because {@code :} and {@code /} are rarer characters than {@code h}, {@code t} and {@code p} —
+   * which is true, and irrelevant, because the two literals co-occur one-for-one in any URL.
+   */
+  private static boolean losesFilteringWithoutGainingSpeed(String prefix, String folLiteral) {
+    return folLiteral.length() > 1 && folLiteral.length() < prefix.length();
   }
 
   static RejectPlan extractRejectPlan(
