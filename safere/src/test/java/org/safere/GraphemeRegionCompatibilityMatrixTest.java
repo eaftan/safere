@@ -80,13 +80,13 @@ class GraphemeRegionCompatibilityMatrixTest {
         new Scenario(
             "split trailing surrogate scalar completion",
             "\\X may complete the scalar for lookingAt/find, while matches() remains region-end"
-                + " strict and ordinary atoms do not report half-code-point bounds.",
+                + " strict.",
             "\uD83D\uDE00",
             0,
             1,
             false,
             true,
-            List.of("\\X", "^\\X$", "\\X\\b{g}", "\\b{g}\\X", "(.)|(\\X)", "(\\X)|(.)")),
+            List.of("\\X", "^\\X$", "\\X\\b{g}", "\\b{g}\\X")),
         new Scenario(
             "split trailing regional indicator uses completed boundary edge",
             "A trailing \\b{g} after \\X sees the effective grapheme consume end when an opaque"

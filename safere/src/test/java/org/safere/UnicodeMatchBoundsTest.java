@@ -57,42 +57,6 @@ class UnicodeMatchBoundsTest {
   static Stream<RegionCase> scalarRegionBoundsMatchJdk() {
     return Stream.of(
         new RegionCase(
-            "dot-region-ends-after-high-surrogate",
-            ".",
-            Pattern.DOTALL,
-            "\ud83d\ude00",
-            0,
-            1,
-            false,
-            true),
-        new RegionCase(
-            "negated-class-region-ends-after-high-surrogate",
-            "[^a]",
-            0,
-            "\ud83d\ude00",
-            0,
-            1,
-            false,
-            true),
-        new RegionCase(
-            "any-class-region-ends-after-high-surrogate",
-            "[\\s\\S]",
-            0,
-            "\ud83d\ude00",
-            0,
-            1,
-            true,
-            true),
-        new RegionCase(
-            "non-digit-region-ends-after-high-surrogate",
-            "\\D",
-            0,
-            "\ud83d\ude00",
-            0,
-            1,
-            false,
-            false),
-        new RegionCase(
             "surrogate-category-region-starts-at-low-surrogate",
             "\\p{Cs}",
             0,
@@ -108,15 +72,6 @@ class UnicodeMatchBoundsTest {
             "\ud83d",
             0,
             1,
-            false,
-            true),
-        new RegionCase(
-            "find-does-not-continue-at-high-surrogate-after-low-surrogate",
-            ".",
-            Pattern.DOTALL,
-            "\ud83d\udc4d\ud83c\udffd",
-            1,
-            3,
             false,
             true),
         new RegionCase(
@@ -181,24 +136,6 @@ class UnicodeMatchBoundsTest {
             2,
             2,
             true,
-            true),
-        new RegionCase(
-            "non-word-boundary-dot-does-not-consume-past-split-surrogate-region-end",
-            "\\B.",
-            Pattern.DOTALL,
-            "\ud83d\ude00",
-            0,
-            1,
-            false,
-            true),
-        new RegionCase(
-            "non-word-boundary-any-class-does-not-consume-past-split-surrogate-region-end",
-            "\\B[\\s\\S]",
-            0,
-            "\ud83d\ude00",
-            0,
-            1,
-            true,
             true));
   }
 
@@ -229,6 +166,83 @@ class UnicodeMatchBoundsTest {
 
   static Stream<DivergentRegionCase> scalarRegionBoundsIntentionallyDivergeFromJdk() {
     return Stream.of(
+        new DivergentRegionCase(
+            new RegionCase(
+                "dot-consumes-region-local-high-surrogate",
+                ".",
+                Pattern.DOTALL,
+                "\ud83d\ude00",
+                0,
+                1,
+                false,
+                true),
+            "matches=true@0-1,lookingAt=true@0-1,find0=true@0-1,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "negated-class-consumes-region-local-high-surrogate",
+                "[^a]",
+                0,
+                "\ud83d\ude00",
+                0,
+                1,
+                false,
+                true),
+            "matches=true@0-1,lookingAt=true@0-1,find0=true@0-1,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "any-class-consumes-region-local-high-surrogate",
+                "[\\s\\S]",
+                0,
+                "\ud83d\ude00",
+                0,
+                1,
+                true,
+                true),
+            "matches=true@0-1,lookingAt=true@0-1,find0=true@0-1,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-digit-consumes-region-local-high-surrogate",
+                "\\D",
+                0,
+                "\ud83d\ude00",
+                0,
+                1,
+                false,
+                false),
+            "matches=true@0-1,lookingAt=true@0-1,find0=true@0-1,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "find-continues-at-region-local-high-surrogate-after-low-surrogate",
+                ".",
+                Pattern.DOTALL,
+                "\ud83d\udc4d\ud83c\udffd",
+                1,
+                3,
+                false,
+                true),
+            "matches=false,lookingAt=true@1-2,find0=true@1-2,find1=true@2-3,find2=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-word-boundary-dot-consumes-region-local-high-surrogate",
+                "\\B.",
+                Pattern.DOTALL,
+                "\ud83d\ude00",
+                0,
+                1,
+                false,
+                true),
+            "matches=true@0-1,lookingAt=true@0-1,find0=true@0-1,find1=false"),
+        new DivergentRegionCase(
+            new RegionCase(
+                "non-word-boundary-class-consumes-region-local-high-surrogate",
+                "\\B[\\s\\S]",
+                0,
+                "\ud83d\ude00",
+                0,
+                1,
+                true,
+                true),
+            "matches=true@0-1,lookingAt=true@0-1,find0=true@0-1,find1=false"),
         new DivergentRegionCase(
             new RegionCase(
                 "non-word-boundary-finds-utf16-offset-inside-supplementary-scalar",
@@ -288,7 +302,7 @@ class UnicodeMatchBoundsTest {
 
   @ParameterizedTest
   @MethodSource
-  @DisabledForCrosscheck("SafeRE intentionally prevents matching bounds inside surrogate pairs")
+  @DisabledForCrosscheck("Region-local scalar decoding and boundary positions differ from JDK")
   @DisplayName("scalar region bounds intentionally diverge from java.util.regex")
   void scalarRegionBoundsIntentionallyDivergeFromJdk(DivergentRegionCase dc) {
     Pattern safePattern = Pattern.compile(dc.c.regex(), dc.c.flags());

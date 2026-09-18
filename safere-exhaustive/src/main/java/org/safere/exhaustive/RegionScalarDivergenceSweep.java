@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.PatternSyntaxException;
 
 /** Offline differential sweep for ordinary scalar-consuming atoms under matcher regions. */
@@ -19,7 +20,24 @@ public final class RegionScalarDivergenceSweep {
   private static final int FIND_LIMIT = 8;
   private static final List<DivergenceClass> DIVERGENCE_CLASSES =
       List.of(
-          DivergenceClass.QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION, DivergenceClass.UNKNOWN);
+          DivergenceClass.REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END,
+          DivergenceClass.UNKNOWN);
+
+  // Wrappers that only group or quantify the scalar atom. Other wrappers can introduce
+  // independent anchor, alternation, or multi-atom effects and remain subject to review.
+  private static final Set<String> REGION_LOCAL_SCALAR_WRAPPERS =
+      Set.of(
+          "bare",
+          "captured",
+          "nonCapturing",
+          "optionalGreedy",
+          "optionalReluctant",
+          "starGreedy",
+          "plusGreedy",
+          "countOne",
+          "countOptional",
+          "capturedOptional",
+          "capturedPlus");
 
   private static final List<AtomCase> ATOMS =
       List.of(
@@ -282,16 +300,11 @@ public final class RegionScalarDivergenceSweep {
   }
 
   private static DivergenceClass classifyDivergence(CaseSpec spec) {
-    if (isQuantifiedSplitSurrogateScalarComposition(spec)) {
-      return DivergenceClass.QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION;
+    if (REGION_LOCAL_SCALAR_WRAPPERS.contains(spec.wrapperCase().label())
+        && regionEndsInsideSurrogatePair(spec.textRegion())) {
+      return DivergenceClass.REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END;
     }
     return DivergenceClass.UNKNOWN;
-  }
-
-  private static boolean isQuantifiedSplitSurrogateScalarComposition(CaseSpec spec) {
-    return (spec.wrapperCase().label().equals("starGreedy")
-            || spec.wrapperCase().label().equals("plusGreedy"))
-        && regionEndsInsideSurrogatePair(spec.textRegion());
   }
 
   private static boolean regionEndsInsideSurrogatePair(TextRegion region) {
@@ -729,12 +742,11 @@ public final class RegionScalarDivergenceSweep {
   }
 
   private enum DivergenceClass {
-    QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION(
+    REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END(
         DivergenceStatus.KNOWN_INTENTIONAL,
-        "Observed JDK traces allow greedy quantified scalar atoms to consume a high surrogate at"
-            + " a region end that splits a valid surrogate pair. SafeRE keeps scalar consumption"
-            + " compositional, so a quantified atom cannot consume a scalar that its unquantified"
-            + " form cannot consume at the same region boundary."),
+        "SafeRE decodes ordinary consuming atoms within the matcher region, so a high surrogate"
+            + " at a split region end is unpaired. JDK scalar atom behavior at this boundary"
+            + " depends on atom and quantifier spelling."),
     UNKNOWN(DivergenceStatus.UNKNOWN, "Unclassified SafeRE/JDK region scalar divergence.");
 
     private final DivergenceStatus status;
@@ -757,7 +769,7 @@ public final class RegionScalarDivergenceSweep {
 
   private static int classificationId(DivergenceClass classification) {
     return switch (classification) {
-      case QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION -> 0;
+      case REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END -> 0;
       case UNKNOWN -> 1;
     };
   }

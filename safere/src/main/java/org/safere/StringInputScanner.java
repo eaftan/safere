@@ -184,11 +184,41 @@ final class StringInputScanner implements InputScanner {
   }
 
   @Override
+  public long decodeForward(int pos, int limit) {
+    if (pos >= limit) {
+      return InputScanner.decoded(END_OF_INPUT, limit);
+    }
+    char first = text.charAt(pos);
+    int codePoint =
+        Character.isHighSurrogate(first)
+                && pos + 1 < limit
+                && Character.isLowSurrogate(text.charAt(pos + 1))
+            ? Character.toCodePoint(first, text.charAt(pos + 1))
+            : first;
+    return InputScanner.decoded(codePoint, pos + Character.charCount(codePoint));
+  }
+
+  @Override
   public long decodeBackward(int pos) {
     if (pos <= 0) {
       return InputScanner.decoded(END_OF_INPUT, 0);
     }
     int codePoint = text.codePointBefore(pos);
+    return InputScanner.decoded(codePoint, pos - Character.charCount(codePoint));
+  }
+
+  @Override
+  public long decodeBackward(int pos, int start) {
+    if (pos <= start) {
+      return InputScanner.decoded(END_OF_INPUT, start);
+    }
+    char last = text.charAt(pos - 1);
+    int codePoint =
+        Character.isLowSurrogate(last)
+                && pos - 2 >= start
+                && Character.isHighSurrogate(text.charAt(pos - 2))
+            ? Character.toCodePoint(text.charAt(pos - 2), last)
+            : last;
     return InputScanner.decoded(codePoint, pos - Character.charCount(codePoint));
   }
 

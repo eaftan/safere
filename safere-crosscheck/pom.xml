@@ -139,6 +139,7 @@
                         <exclude name="RarityOracleTest.java"/>
                         <exclude name="RegexpOpTest.java"/>
                         <exclude name="RegexpTest.java"/>
+                        <exclude name="RegionEngineEquivalenceTest.java"/>
                         <exclude name="RejectPrefilterTest.java"/>
                         <exclude name="SafeReDiagnosticsTest.java"/>
                         <exclude name="ScanDispatchAuditTest.java"/>
