@@ -8,17 +8,18 @@ package org.safere;
 /**
  * Immutable tuning policy and diagnostic metadata for start-position and DFA accelerators.
  *
- * <p>The adaptive-defeat parameters ({@code strikeBudget}, {@code minDensityStride}, and the
- * quarantine windows) describe a single policy shared by every accelerator that can be defeated by
- * a hostile input: scan, observe how much input each candidate actually skipped, and stop
- * accelerating when candidates arrive too densely to pay for the per-candidate check. Callers
- * differ only in what they fall back to.
+ * <p>Callers compare the work an accelerator saves with the cost of the path it replaces. DFA start
+ * acceleration uses {@code minProfitableSkip} to credit only positions bypassed by each scan,
+ * excluding positions already consumed by the DFA. Literal-search anchor verification instead uses
+ * {@code minDensityStride} to compare candidate density with a direct substring search. Repeated
+ * unprofitable calls consume the strike budget and trigger bounded quarantine windows.
  *
  * @param minProfitableSkip Minimum skip distance (in chars or bytes) required for this accelerator
  *     to be profitable over direct scalar DFA execution.
- * @param strikeBudget Number of candidate strikes tolerated before declaring adaptive defeat.
- * @param minDensityStride Minimum candidate stride (in chars or bytes); candidates closer together
- *     than this did not skip enough input to pay for their own verification and count as strikes.
+ * @param strikeBudget Unsuccessful-call allowance before declaring adaptive defeat. DFA callers
+ *     scale this by {@code minProfitableSkip} and account for partial losses in input units.
+ * @param minDensityStride Minimum candidate stride (in chars or bytes) for literal-search anchor
+ *     verification to be profitable over direct substring search.
  * @param initialQuarantineWindow Span of input to skip acceleration over on the first defeat.
  * @param maxQuarantineWindow Ceiling on the quarantine window under exponential backoff.
  * @param isExactMatchCandidate Whether this accelerator identifies an exact candidate match start
@@ -41,10 +42,9 @@ record AcceleratorPolicy(
   /**
    * Candidate strikes tolerated before quarantining an accelerator.
    *
-   * <p>Deliberately small. Backing off early is nearly free because every consumer of this policy
-   * falls back to a kernel that was already fast (the scalar DFA, or {@link String#indexOf(String,
-   * int)}); backing off late costs a verification storm. The threshold therefore does not need to
-   * be tuned precisely, which matters because the break-even point is machine dependent.
+   * <p>Allow a short run of unprofitable calls before falling back to scalar DFA execution or
+   * direct substring search. Profitable calls can repay strikes, so brief changes in input density
+   * do not immediately disable an otherwise useful accelerator.
    */
   private static final int DEFAULT_STRIKE_BUDGET = 16;
 
@@ -57,7 +57,7 @@ record AcceleratorPolicy(
    */
   private static final int DEFAULT_MIN_DENSITY_STRIDE = 64;
 
-  /** Initial quarantine window (in bytes/chars) when candidate density trips adaptive defeat. */
+  /** Initial quarantine window (in bytes/chars) after repeated unprofitable calls. */
   private static final int DEFAULT_INITIAL_QUARANTINE_WINDOW = 2048;
 
   /** Maximum quarantine window (in bytes/chars) under exponential backoff. */
