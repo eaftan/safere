@@ -657,6 +657,24 @@
       "shared": true
     },
     {
+      "id": "multiOffsetStart.colonNoise.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "note 42: see ticket owner: nobody state: open ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "multiOffsetStart.equalsNoise.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "timeout_ms=2500 retries=3 max_size=4096 shard=7 region=us-central1 ",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "charClassSearch.singleCharAbsent.{size}",
       "axes": {
         "size": [
@@ -10751,6 +10769,54 @@
       "inputRepresentationReason": "Provides Java-string and UTF-8 dense synthetic controls where neither digit nor slash filtering is selective.",
       "requirements": [],
       "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findMultiOffsetColonNoise",
+      "operation": "find",
+      "patterns": [
+        "(?:requisition|req):(\\S*)"
+      ],
+      "inputs": [
+        "multiOffsetStart.colonNoise.text"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Compares Java-string and UTF-8 candidate filtering where the fixed-offset literal can sit at either of two widely separated offsets and the text is dense in that literal but not in the leading class.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "FixedOffsetAccelerationBenchmark.findMultiOffsetEqualsNoise",
+      "operation": "find",
+      "patterns": [
+        "\\b(?:(?:BUG)|(?:FIXED))=\\s*(\\d+,?)+"
+      ],
+      "inputs": [
+        "multiOffsetStart.equalsNoise.text"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Compares Java-string and UTF-8 candidate filtering for an alternation whose branches put the fixed-offset literal at adjacent offsets, over configuration-shaped text dense in that literal.",
+      "requirements": [],
+      "resultConsumption": "boolean",
       "measurement": {
         "mode": "averageTime",
         "timingUnit": "nanoseconds",

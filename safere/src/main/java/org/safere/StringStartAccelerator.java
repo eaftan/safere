@@ -189,15 +189,26 @@ sealed interface StringStartAccelerator {
             }
             literalFrom = literalStart + 1;
             continue;
-          } else if (discreteOffsets == null
-              && fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
+          } else if (discreteOffsets != null) {
+            int resolved =
+                resolveMultiOffsetStart(
+                    text,
+                    fixedOffsetLiteral,
+                    discreteOffsets,
+                    firstCharClass,
+                    literalStart,
+                    fromIndex);
+            if (resolved >= 0) {
+              return resolved;
+            }
+            literalFrom = literalStart + 1;
+            continue;
+          } else if (fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
             int candidateStart =
-                retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex);
-            if (candidateStart >= fromIndex) {
-              int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
-              if (first >= 0 && firstCharClass.contains(first)) {
-                return candidateStart;
-              }
+                retreatedStartInClass(
+                    text, fixedOffsetLiteral, firstCharClass, literalStart, fromIndex);
+            if (candidateStart >= 0) {
+              return candidateStart;
             }
             literalFrom = literalStart + 1;
             continue;
@@ -206,6 +217,59 @@ sealed interface StringStartAccelerator {
         return Math.max(
             fromIndex,
             retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex));
+      }
+      return -1;
+    }
+
+    /**
+     * Resolves a literal occurrence at {@code literalStart} to a match start when the literal can
+     * sit at more than one offset, or returns -1 when the leading class admits none of them and the
+     * occurrence can be skipped.
+     *
+     * <p>The offsets are ascending, so the largest yields the earliest start; they are walked from
+     * the back to find the leftmost start this occurrence admits. The result is then clamped to the
+     * earliest start a <em>later</em> occurrence could imply, because the caller treats it as a
+     * floor and will not look before it, and the next occurrence is at {@code literalStart + 1} at
+     * the earliest. Without the clamp a wide offset span loses the leftmost match: on {@code
+     * (aq|b[a-z]{9})z} the {@code z} at index 5 admits only the start at 3, while the {@code z} at
+     * index 10 starts the match at 0.
+     */
+    private static int resolveMultiOffsetStart(
+        String text,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        int[] discreteOffsets,
+        CharClassScanInfo firstCharClass,
+        int literalStart,
+        int fromIndex) {
+      for (int i = discreteOffsets.length - 1; i >= 0; i--) {
+        int start = literalStart - discreteOffsets[i];
+        if (start >= fromIndex
+            && start < text.length()
+            && firstCharClass.contains(text.codePointAt(start))) {
+          return Math.max(
+              fromIndex, Math.min(start, literalStart + 1 - fixedOffsetLiteral.maxOffset()));
+        }
+      }
+      return -1;
+    }
+
+    /**
+     * Returns the start reached by retreating from {@code literalStart} over a fixed number of code
+     * points when the leading class admits it, or -1 when the occurrence can be skipped.
+     */
+    private static int retreatedStartInClass(
+        String text,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo firstCharClass,
+        int literalStart,
+        int fromIndex) {
+      int candidateStart =
+          retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex);
+      if (candidateStart >= fromIndex) {
+        int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
+        if (first >= 0 && firstCharClass.contains(first)) {
+          return candidateStart;
+        }
       }
       return -1;
     }

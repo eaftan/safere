@@ -419,6 +419,47 @@ class StartAcceleratorTest {
     assertThat(result).isEqualTo(prefix.length());
   }
 
+  @Test
+  void discreteOffsetsResolveTheExactStartAgainstTheLeadingClass() {
+    MultiAnchorDescriptor.StartPlan plan = Pattern.compile("https?://\\S*").startPlan();
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.FixedOffset.class);
+
+    // `://` sits four characters after `h` in `http://` and five in `https://`. Retreating by the
+    // larger offset alone lands on the space before `http://` and wakes the engine at a position
+    // the leading class already excludes.
+    String text = "see http://a and https://b";
+
+    StringStartAccelerator strAcc = StringStartAccelerator.create(plan, false);
+    assertThat(StringStartAccelerator.findNextCandidate(strAcc, text, 0, false)).isEqualTo(4);
+    assertThat(StringStartAccelerator.findNextCandidate(strAcc, text, 5, false)).isEqualTo(17);
+
+    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(plan, false);
+    assertThat(Utf8StartAccelerator.findNextCandidate(utf8Acc, utf8Scanner(text), 0)).isEqualTo(4);
+    assertThat(Utf8StartAccelerator.findNextCandidate(utf8Acc, utf8Scanner(text), 5)).isEqualTo(17);
+  }
+
+  @Test
+  void discreteOffsetResolutionStaysBelowStartsBelongingToLaterLiterals() {
+    MultiAnchorDescriptor.StartPlan plan = Pattern.compile("(aq|b[a-z]{9})z").startPlan();
+    assertThat(plan).isInstanceOf(MultiAnchorDescriptor.StartPlan.FixedOffset.class);
+
+    // Offsets 2 and 10 are far apart, so the starts a literal occurrence implies are not ordered by
+    // the occurrence itself: the `z` at index 5 admits only the start at 3, while the `z` at index
+    // 10 starts the match at 0. The caller treats the result as a floor, so it has to report 0.
+    String text = "bxxaxzxxxxz";
+
+    StringStartAccelerator strAcc = StringStartAccelerator.create(plan, false);
+    assertThat(StringStartAccelerator.findNextCandidate(strAcc, text, 0, false)).isZero();
+
+    Utf8StartAccelerator utf8Acc = Utf8StartAccelerator.create(plan, false);
+    assertThat(Utf8StartAccelerator.findNextCandidate(utf8Acc, utf8Scanner(text), 0)).isZero();
+
+    // Past that start nothing can match, and the leading class is enough to prove it without
+    // handing the engine a candidate.
+    assertThat(StringStartAccelerator.findNextCandidate(strAcc, text, 5, false)).isEqualTo(-1);
+    assertThat(Utf8StartAccelerator.findNextCandidate(utf8Acc, utf8Scanner(text), 5)).isEqualTo(-1);
+  }
+
   private static Utf8InputScanner utf8Scanner(String text) {
     byte[] bytes = text.getBytes(UTF_8);
     return new Utf8InputScanner(bytes, 0, bytes.length);
