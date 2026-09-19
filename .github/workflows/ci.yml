@@ -68,6 +68,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Resolve Maven dependencies and plugins
         # Save one shared cache before the Ubuntu jobs fan out. Without this dependency,
@@ -76,6 +79,14 @@ jobs:
           mvn dependency:go-offline dependency:resolve-plugins
           -Pcrosscheck-public-api-tests,work-counters,vector-tests,release
           -DskipTests
+          --batch-mode --no-transfer-progress
+
+      - name: Seed Surefire test provider
+        # Surefire selects surefire-junit-platform when tests run; go-offline misses it.
+        # Run one focused test here so the provider is cached before the JDK matrix fans out.
+        run: >
+          mvn test -pl safere
+          -Dtest=StringLiteralSearchTest
           --batch-mode --no-transfer-progress
 
   build:
@@ -91,6 +102,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Check Java formatting
         run: mvn spotless:check --batch-mode --no-transfer-progress
@@ -131,6 +145,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Compile production and runtime-test artifacts
         run: |
@@ -173,7 +190,7 @@ jobs:
           name: vector-runtime-tests
           path: ci-artifacts/*.tar.gz
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   build-vector:
     needs: build-vector-runtime-artifacts
@@ -193,6 +210,9 @@ jobs:
           distribution: 'temurin'
           check-latest: ${{ endsWith(matrix.java, '-ea') }}
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Download runtime-test artifacts
         uses: actions/download-artifact@v8
@@ -254,6 +274,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Build SafeRE for fuzz tests
         run: >
@@ -295,6 +318,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Smoke test Java benchmarks
         run: |
@@ -334,6 +360,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Check Vector source formatting
         run: |
@@ -378,6 +407,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Materialize shared benchmark inputs
         run: ./materialize-benchmark-inputs.sh
@@ -429,6 +461,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -467,6 +502,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Set up Rust
         # Pin the master ancestor behind the synthetic 1.85.0 ref. Synthetic commits may
@@ -500,6 +538,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -567,6 +608,9 @@ jobs:
         with:
           java-version-file: .sdkmanrc
           cache: maven
+          cache-dependency-path: |
+            **/pom.xml
+            .github/maven-cache-seed-version
           server-id: central
           server-username-env-var: MAVEN_CENTRAL_USERNAME
           server-password-env-var: MAVEN_CENTRAL_PASSWORD
