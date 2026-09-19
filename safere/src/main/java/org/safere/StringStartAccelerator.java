@@ -81,11 +81,23 @@ sealed interface StringStartAccelerator {
     return AcceleratorPolicy.DEFAULT;
   }
 
-  record Literal(String prefix, int anchorOffset, char anchor) implements StringStartAccelerator {
+  /**
+   * Scans for a case-sensitive literal prefix.
+   *
+   * @param singleAsciiChar the one ASCII character {@code prefix} consists of, or {@link
+   *     StringLiteralSearch#NOT_SINGLE_ASCII}. Deciding this at plan time rather than per call is
+   *     the whole point; see {@link StringLiteralSearch#singleAsciiChar}.
+   */
+  record Literal(String prefix, int anchorOffset, char anchor, int singleAsciiChar)
+      implements StringStartAccelerator {
 
     static Literal create(String prefix) {
       int anchorOffset = StringLiteralSearch.anchorOffset(prefix);
-      return new Literal(prefix, anchorOffset, StringLiteralSearch.anchorAt(prefix, anchorOffset));
+      return new Literal(
+          prefix,
+          anchorOffset,
+          StringLiteralSearch.anchorAt(prefix, anchorOffset),
+          StringLiteralSearch.singleAsciiChar(prefix));
     }
 
     @Override
@@ -94,7 +106,8 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
-      return StringLiteralSearch.indexOf(text, prefix, anchorOffset, anchor, fromIndex);
+      return StringLiteralSearch.indexOfPlanned(
+          text, prefix, anchorOffset, anchor, singleAsciiChar, fromIndex);
     }
   }
 
@@ -130,11 +143,19 @@ sealed interface StringStartAccelerator {
     }
   }
 
+  /**
+   * Scans for a literal that sits a bounded distance into the match, then walks back to the start.
+   *
+   * @param singleAsciiChar see {@link Literal#singleAsciiChar()}. This plan gains more from the
+   *     choice than {@code Literal} does, because the loop below re-searches for the literal once
+   *     per rejected candidate rather than once per call.
+   */
   record FixedOffset(
       FixedOffsetLiteral fixedOffset,
       CharClassScanInfo firstCharClass,
       int anchorOffset,
-      char anchor)
+      char anchor,
+      int singleAsciiChar)
       implements StringStartAccelerator {
 
     static FixedOffset create(FixedOffsetLiteral fixedOffset, CharClassScanInfo firstCharClass) {
@@ -144,7 +165,8 @@ sealed interface StringStartAccelerator {
           fixedOffset,
           firstCharClass,
           anchorOffset,
-          StringLiteralSearch.anchorAt(literal, anchorOffset));
+          StringLiteralSearch.anchorAt(literal, anchorOffset),
+          StringLiteralSearch.singleAsciiChar(literal));
     }
 
     @Override
@@ -154,7 +176,7 @@ sealed interface StringStartAccelerator {
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
       return nextFixedOffsetCandidate(
-          text, fixedOffset, firstCharClass, anchorOffset, anchor, fromIndex);
+          text, fixedOffset, firstCharClass, anchorOffset, anchor, singleAsciiChar, fromIndex);
     }
 
     private static int nextFixedOffsetCandidate(
@@ -163,6 +185,7 @@ sealed interface StringStartAccelerator {
         CharClassScanInfo firstCharClass,
         int anchorOffset,
         char anchor,
+        int singleAsciiChar,
         int fromIndex) {
       int minOffset = fixedOffsetLiteral.minOffset();
       if (minOffset > text.length() - fromIndex) {
@@ -173,8 +196,13 @@ sealed interface StringStartAccelerator {
 
       while (literalFrom <= text.length()) {
         int literalStart =
-            StringLiteralSearch.indexOf(
-                text, fixedOffsetLiteral.literal(), anchorOffset, anchor, literalFrom);
+            StringLiteralSearch.indexOfPlanned(
+                text,
+                fixedOffsetLiteral.literal(),
+                anchorOffset,
+                anchor,
+                singleAsciiChar,
+                literalFrom);
         if (literalStart < 0) {
           return -1;
         }

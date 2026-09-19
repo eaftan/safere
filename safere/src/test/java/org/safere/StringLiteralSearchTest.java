@@ -8,6 +8,7 @@ package org.safere;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Random;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -214,5 +215,114 @@ final class StringLiteralSearchTest {
     assertAgreesAtEveryStart("hello world", "o");
     assertAgreesAtEveryStart("a b  c   d", "  ");
     assertAgreesAtEveryStart("日本語テキスト", "テキ");
+  }
+
+  @Test
+  void routesOnlyOneCharacterAsciiLiteralsToTheCharacterKernel() {
+    assertThat(StringLiteralSearch.singleAsciiChar("-")).isEqualTo('-');
+    assertThat(StringLiteralSearch.singleAsciiChar("\n")).isEqualTo('\n');
+    assertThat(StringLiteralSearch.singleAsciiChar("\0")).isEqualTo(0);
+    // 0x7f is the last character the two kernels agree on.
+    assertThat(StringLiteralSearch.singleAsciiChar("\u007f")).isEqualTo(0x7f);
+
+    assertThat(StringLiteralSearch.singleAsciiChar(null))
+        .isEqualTo(StringLiteralSearch.NOT_SINGLE_ASCII);
+    assertThat(StringLiteralSearch.singleAsciiChar(""))
+        .isEqualTo(StringLiteralSearch.NOT_SINGLE_ASCII);
+    assertThat(StringLiteralSearch.singleAsciiChar("ab"))
+        .isEqualTo(StringLiteralSearch.NOT_SINGLE_ASCII);
+    // Above ASCII String.indexOf(int, int) matches by code point, so it is a different search.
+    assertThat(StringLiteralSearch.singleAsciiChar("\u0080"))
+        .isEqualTo(StringLiteralSearch.NOT_SINGLE_ASCII);
+    assertThat(StringLiteralSearch.singleAsciiChar("é"))
+        .isEqualTo(StringLiteralSearch.NOT_SINGLE_ASCII);
+    // One code point, but two chars, so not one character by the length test either.
+    assertThat(StringLiteralSearch.singleAsciiChar("\uD83D\uDE00"))
+        .isEqualTo(StringLiteralSearch.NOT_SINGLE_ASCII);
+  }
+
+  @Test
+  void plannedSearchAgreesWithJdk() {
+    // Single characters, which is what the dispatch is for.
+    assertPlannedAgreesAtEveryStart("hello world", "o");
+    assertPlannedAgreesAtEveryStart("---a---", "-");
+    assertPlannedAgreesAtEveryStart("no hit here", "q");
+    assertPlannedAgreesAtEveryStart("", "q");
+    assertPlannedAgreesAtEveryStart("line\nbreak", "\n");
+    // A haystack the JDK stores as UTF16, where the two kernels index differently internally.
+    assertPlannedAgreesAtEveryStart("日本語-日本語", "-");
+    // Characters the dispatch declines, which must still reach the anchored path unchanged.
+    assertPlannedAgreesAtEveryStart("ünïcödé", "é");
+    assertPlannedAgreesAtEveryStart("a q: b q: c", "q:");
+    assertPlannedAgreesAtEveryStart("日本語テキスト", "テキ");
+  }
+
+  @Test
+  void plannedSearchAgreesWithJdkOnOutOfRangeStarts() {
+    String text = "a-b-c";
+    for (String literal : new String[] {"-", "q", "-b"}) {
+      for (int from : new int[] {Integer.MIN_VALUE, -7, -1, 6, 99, Integer.MAX_VALUE}) {
+        assertThat(planned(text, literal, from))
+            .as("literal=%s fromIndex=%s", literal, from)
+            .isEqualTo(text.indexOf(literal, from));
+      }
+    }
+  }
+
+  @Test
+  void plannedSearchAgreesWithJdkOnRandomInputs() {
+    Random random = new Random(20260918L);
+    String alphabet = "abcq:-/x";
+    for (int trial = 0; trial < 3000; trial++) {
+      StringBuilder text = new StringBuilder();
+      for (int i = random.nextInt(40); i > 0; i--) {
+        text.append(alphabet.charAt(random.nextInt(alphabet.length())));
+      }
+      String literal = String.valueOf(alphabet.charAt(random.nextInt(alphabet.length())));
+      assertPlannedAgreesAtEveryStart(text.toString(), literal);
+    }
+  }
+
+  /**
+   * The dispatched and undispatched kernels have to record identical work. {@code
+   * ScanDispatchAudit} compares recorded work against the path taken, so a search that charges
+   * differently depending on which kernel its plan picked would show up there as a bug somewhere
+   * else entirely.
+   */
+  @Test
+  @Tag("work-counter")
+  void chargesTheSameWorkWhicheverKernelThePlanChose() {
+    String text = "abc-def-ghi" + FILLER + "-tail";
+    for (String literal : new String[] {"-", "a", "z", "\n"}) {
+      for (int from :
+          new int[] {-3, 0, 1, 5, text.length() - 1, text.length(), text.length() + 4}) {
+        long dispatched = WorkCounter.countForTesting(() -> planned(text, literal, from));
+        long undispatched = WorkCounter.countForTesting(() -> anchored(text, literal, from));
+        assertThat(dispatched).as("literal=%s fromIndex=%s", literal, from).isEqualTo(undispatched);
+      }
+    }
+  }
+
+  private static int planned(String text, String literal, int fromIndex) {
+    int offset = StringLiteralSearch.anchorOffset(literal);
+    return StringLiteralSearch.indexOfPlanned(
+        text,
+        literal,
+        offset,
+        StringLiteralSearch.anchorAt(literal, offset),
+        StringLiteralSearch.singleAsciiChar(literal),
+        fromIndex);
+  }
+
+  private static void assertPlannedAgreesAtEveryStart(String text, String literal) {
+    String padded = text + FILLER;
+    for (int from = 0; from <= text.length() + 1; from++) {
+      assertThat(planned(text, literal, from))
+          .as("literal=%s text=%s fromIndex=%s", literal, text, from)
+          .isEqualTo(text.indexOf(literal, from));
+      assertThat(planned(padded, literal, from))
+          .as("literal=%s paddedText=%s fromIndex=%s", literal, padded, from)
+          .isEqualTo(padded.indexOf(literal, from));
+    }
   }
 }

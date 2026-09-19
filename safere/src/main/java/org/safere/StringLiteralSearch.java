@@ -49,6 +49,11 @@ final class StringLiteralSearch {
   static final int NO_ANCHOR = -1;
 
   /**
+   * Sentinel {@link #singleAsciiChar} result meaning "this is not a one-character ASCII literal".
+   */
+  static final int NOT_SINGLE_ASCII = -1;
+
+  /**
    * Adaptive-defeat tuning, read into {@code static final} slots so that the scan loop below sees
    * compile-time constants. Reading these through an object instead costs about four times the
    * runtime of the whole search on a candidate-dense input, for no change in behaviour.
@@ -228,6 +233,74 @@ final class StringLiteralSearch {
       WorkCounter.record(Math.max(0, scanned));
     }
     return idx;
+  }
+
+  /**
+   * Returns the single ASCII character {@code literal} consists of, or {@link #NOT_SINGLE_ASCII}.
+   *
+   * <p>Callers hold the result in the compiled plan and branch on it, rather than asking here on
+   * every call. {@link String#indexOf(String, int)} with a one-character needle is not the same
+   * kernel as {@link String#indexOf(int, int)}: measured over the same 100,000-byte input on
+   * x86_64, the string form runs at 0.098 ns/byte and the character form at 0.0155, a factor of
+   * 6.3. Nothing between the accelerator and the intrinsic looks at the needle's length, so a
+   * one-character needle does not reach the faster kernel by itself.
+   *
+   * <p>The test lives here, at plan time, because putting it in {@link #indexOfDirect} was measured
+   * and rejected: it took that method from 8 bytecodes to 40 and charged every caller for a branch
+   * only 8% of literals can take, including the anchored path that calls it as a fallback. On
+   * aarch64, where the two kernels are the same speed to four digits and there is no win to offset
+   * it, that cost alone moved two unrelated trials by 5–6%.
+   *
+   * <p>Declines on non-ASCII, where {@link String#indexOf(int, int)} matches by code point and so
+   * is a different search, and — via the callers, which only hold this for case-sensitive literals
+   * — on anything folded.
+   */
+  static int singleAsciiChar(String literal) {
+    return literal != null && literal.length() == 1 && literal.charAt(0) < 128
+        ? literal.charAt(0)
+        : NOT_SINGLE_ASCII;
+  }
+
+  /**
+   * Searches for a single character, charging the same work a one-character {@link #indexOfDirect}
+   * would. The accounting has to agree: a search must not record different work depending on which
+   * kernel the plan chose for it.
+   *
+   * <p>That is also why {@code fromIndex} is clamped here. A one-character literal never has an
+   * anchor, so the path this replaces is {@link #indexOf} clamping and then delegating to {@link
+   * #indexOfDirect}; charging against an unclamped {@code fromIndex} would overcount by exactly the
+   * amount it was negative by.
+   */
+  static int indexOfChar(String text, int ch, int fromIndex) {
+    int pos = Math.max(0, fromIndex);
+    int idx = text.indexOf(ch, pos);
+    if (WorkCounterConfig.ENABLED) {
+      int scanned = idx >= 0 ? idx - pos + 1 : text.length() - pos;
+      WorkCounter.record(Math.max(0, scanned));
+    }
+    return idx;
+  }
+
+  /**
+   * Searches with whichever kernel the plan chose, given a {@code singleAsciiChar} from {@link
+   * #singleAsciiChar}.
+   *
+   * <p>One method rather than the same conditional at both plan sites, and small enough that it
+   * costs a caller nothing beyond the call it replaces. There are only two: the third caller of
+   * {@link #indexOf}, {@code RejectPrefilter.Literal}, cannot reach this at all, because {@code
+   * MultiAnchorCompiler.extractRequiredLiteral} will not return a literal shorter than two
+   * characters.
+   */
+  static int indexOfPlanned(
+      String text,
+      String literal,
+      int anchorOffset,
+      char anchor,
+      int singleAsciiChar,
+      int fromIndex) {
+    return singleAsciiChar == NOT_SINGLE_ASCII
+        ? indexOf(text, literal, anchorOffset, anchor, fromIndex)
+        : indexOfChar(text, singleAsciiChar, fromIndex);
   }
 
   private StringLiteralSearch() {}
