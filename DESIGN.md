@@ -252,9 +252,12 @@ Key design elements:
 - **ASCII fast path:** A 128-entry lookup table maps ASCII code points
   directly to their equivalence class, avoiding binary search for the
   most common characters.
-- **State budget:** A configurable maximum (default 10,000).  When
-  exceeded, `computeNext` returns `null` and the caller falls back to NFA.
-  No eviction — states are cached permanently once created.
+- **State budget:** A configurable maximum (default 10,000).  When the cache
+  fills, if the current cache generation has covered at least 10 input
+  positions per state (matching RE2's `DFA::ResetCache` break-even policy),
+  the cache is flushed and rebuilt on demand starting from the active state;
+  otherwise `resetCache` backs off exponentially and `computeNext` returns
+  `null` so the caller falls back to the NFA.
 - **Word boundary support (`FLAG_LAST_WORD`):** Each state carries a flag
   indicating whether the last consumed character was a word character.
   Before consuming the next character, unsatisfied `\b`/`\B` instructions

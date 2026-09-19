@@ -505,6 +505,113 @@ class DfaTest {
         assertThat(r.matched()).isTrue();
       }
     }
+
+    /**
+     * A budget too small to hold the working set, over an input long enough that rebuilding the
+     * cache is cheaper than finishing on the NFA. Every one of these searches returned null before
+     * the DFA could discard its cache and carry on.
+     */
+    @Test
+    void discardingTheStateCacheAgreesWithABudgetLargeEnoughToAvoidIt() {
+      String text = sourceShapedText(100_000, /* withTrailingMatch= */ true);
+      for (String pattern :
+          List.of(
+              "[A-Za-z]{10}\\s+[\\s\\S]{0,100}Result[\\s\\S]{0,100}\\s+[A-Za-z]{10}",
+              "[A-Za-z]{10}\\s+[\\s\\S]{0,100}Result[\\s\\S]{0,100}\\s+[A-Za-z]{10}#")) {
+        Prog prog = Compiler.compile(Parser.parse(pattern, FLAGS));
+        for (boolean longest : new boolean[] {false, true}) {
+          Dfa.SearchResult ample = Dfa.search(prog, text, false, longest, 4_000_000);
+          assertThat(ample).isNotNull();
+          Dfa.SearchResult resetting = Dfa.search(prog, text, false, longest, 500);
+          assertThat(resetting).isNotNull();
+          assertThat(resetting.matched()).isEqualTo(ample.matched());
+          assertThat(resetting.pos()).isEqualTo(ample.pos());
+        }
+      }
+    }
+
+    /**
+     * Discarding the cache renumbers every state and rebuilds the arrays the search loops index by
+     * state id, so a missed invalidation shows up as a wrong answer rather than a crash. This walks
+     * a whole find loop against {@code java.util.regex} to catch that.
+     */
+    @Test
+    void repeatedFindsOverAResettingDfaMatchTheJdk() {
+      String text = sourceShapedText(400_000, /* withTrailingMatch= */ true);
+      String regex = "[A-Za-z]{10}\\s+[\\s\\S]{0,100}Result[\\s\\S]{0,100}\\s+[A-Za-z]{10}";
+      Matcher actual = Pattern.compile(regex).matcher(text);
+      java.util.regex.Matcher expected = java.util.regex.Pattern.compile(regex).matcher(text);
+      while (expected.find()) {
+        assertThat(actual.find()).isTrue();
+        assertThat(actual.start()).isEqualTo(expected.start());
+        assertThat(actual.end()).isEqualTo(expected.end());
+      }
+      assertThat(actual.find()).isFalse();
+    }
+
+    /**
+     * A {@link Dfa} instance lives in a per-{@link Pattern} {@link ThreadLocal}, so an input that
+     * fills the cache faster than {@code MIN_PROGRESS_PER_CACHED_STATE} positions per state must
+     * back off rather than permanently bricking the {@link Dfa} for later searches on the same
+     * thread.
+     */
+    @Test
+    void unproductiveCacheExhaustionBacksOffAndThenRecovers() {
+      String pattern = "[A-Za-z]{10}\\s+[\\s\\S]{0,100}Result[\\s\\S]{0,100}\\s+[A-Za-z]{10}";
+      Prog prog = Compiler.compile(Parser.parse(pattern, FLAGS));
+      Dfa dfa = new Dfa(prog, 500, Dfa.buildSetup(prog), false);
+
+      // Irregular 10..14-character words vary the spacing between [A-Za-z]{10}\s+ starts so the
+      // active subset of {0..100} offsets is distinct at almost every position, filling the
+      // 500-state budget in ~600 characters (well under the 5,000-character threshold).
+      Random rng = new Random(1);
+      StringBuilder denseBuilder = new StringBuilder();
+      while (denseBuilder.length() < 3_000) {
+        denseBuilder.append("abcdefghijklmno", 0, 10 + rng.nextInt(5)).append(' ');
+      }
+      String dense = denseBuilder.toString();
+      assertThat(dfa.doSearch(dense, 0, false, false)).isNull();
+      // Within the 2x backoff window (10,000 positions), the full cache refuses to flush again.
+      assertThat(dfa.doSearch(dense, 1_000, false, false)).isNull();
+
+      // Once enough input has elapsed to clear the backoff window, the same Dfa instance flushes
+      // the stale states and completes a productive search.
+      String productive = sourceShapedText(100_000, /* withTrailingMatch= */ true);
+      Dfa.SearchResult ample =
+          new Dfa(prog, 4_000_000, Dfa.buildSetup(prog), false)
+              .doSearch(productive, 12_000, false, false);
+      assertThat(ample).isNotNull();
+      Dfa.SearchResult recovered = dfa.doSearch(productive, 12_000, false, false);
+      assertThat(recovered).isNotNull();
+      assertThat(recovered.matched()).isEqualTo(ample.matched());
+      assertThat(recovered.pos()).isEqualTo(ample.pos());
+    }
+
+    /**
+     * Text shaped like source code: mostly short words, an occasional long one, and a marker
+     * literal every so often. The pattern above only has live state within a hundred characters of
+     * a long word or a marker, so states accumulate slowly enough for rebuilding the cache to be
+     * worth it -- uniformly random text of any alphabet either needs a new state on every character
+     * or never fills the cache at all.
+     */
+    private static String sourceShapedText(int size, boolean withTrailingMatch) {
+      String alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+      Random random = new Random(7);
+      StringBuilder text = new StringBuilder(size + 64);
+      for (int word = 0; text.length() < size; word++) {
+        if (word % 120 == 119) {
+          text.append("Result");
+        } else {
+          int length = word % 20 == 19 ? 10 + random.nextInt(5) : 2 + random.nextInt(7);
+          for (int i = 0; i < length; i++) {
+            text.append(alphabet.charAt(random.nextInt(alphabet.length())));
+          }
+        }
+        text.append(word % 11 == 10 ? '\n' : ' ');
+      }
+      text.setLength(size);
+      return withTrailingMatch ? text + " abcdefghij Result klmnopqrst " : text.toString();
+    }
   }
 
   @Test

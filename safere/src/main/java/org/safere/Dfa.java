@@ -77,6 +77,21 @@ final class Dfa {
   /** Maximum number of DFA states before bailing out to NFA. */
   private static final int DEFAULT_MAX_STATES = 10_000;
 
+  /**
+   * Input positions of progress per cached state that this DFA must have covered before the state
+   * cache may be discarded again.
+   *
+   * <p>RE2 has the same guard and supplies the cost model: recomputing a DFA state on every input
+   * byte runs at roughly 0.2 MB/s where the NFA runs at roughly 2 MB/s, so ten input positions per
+   * state computation is where a DFA that is rebuilding its cache stops accelerating anything.
+   *
+   * <p>Measurement on {@code [A-Za-z]{10}\s+[\s\S]{0,100}Result[\s\S]{0,100}\s+[A-Za-z]{10}} puts
+   * SafeRE's break-even in the same place. Over 7.4 MB of source text the DFA sustains 22 to 64
+   * positions per state computation and beats the NFA by 3.0x, and over a 1 MB haystack that holds
+   * it to one position per state, discarding and rebuilding is 2.0x slower than the NFA.
+   */
+  private static final int MIN_PROGRESS_PER_CACHED_STATE = 10;
+
   // ---------------------------------------------------------------------------
   // State representation
   // ---------------------------------------------------------------------------
@@ -244,6 +259,47 @@ final class Dfa {
 
   /** Per-search grapheme context. Set only while a search method is active. */
   private GraphemeSupport.Context graphemeContext;
+
+  /**
+   * Input positions this DFA has stepped through itself since the state cache was last emptied.
+   *
+   * <p>A cache generation that covers at least {@link #MIN_PROGRESS_PER_CACHED_STATE} positions per
+   * state before filling the budget has paid for the cost of building those states, and may discard
+   * the cache immediately when it fills. Spans covered by the caller's NFA fallback after a DFA
+   * bailout are excluded so NFA work is never mistaken for DFA cache productivity.
+   */
+  private long dfaStepsSinceReset;
+
+  /**
+   * Input positions covered (by either this DFA or the caller between searches) since the state
+   * cache was last emptied, used to wait out the exponential backoff after an unproductive cache
+   * generation.
+   */
+  private long backoffProgress;
+
+  /** Position from which the active search (or post-bailout span) is measured. */
+  private int progressAnchor;
+
+  /** Whether the most recent search on this DFA exited because {@link #resetCache} refused. */
+  private boolean lastSearchBailed;
+
+  /**
+   * Whether the current cache generation has already been penalized for exhausting its state budget
+   * before covering {@link #MIN_PROGRESS_PER_CACHED_STATE} positions per state, so repeated hits on
+   * the same full cache do not increment {@link #unproductiveResets} more than once per generation.
+   */
+  private boolean currentGenerationPenalized;
+
+  /**
+   * Consecutive cache generations that filled the state budget without covering {@link
+   * #MIN_PROGRESS_PER_CACHED_STATE} positions per state. Each such generation doubles the input
+   * span required before the next cache reset is permitted ({@code (10 << unproductiveResets) *
+   * cache.size()}), bounding total rebuild work on adversarial inputs to a geometric series while
+   * allowing long-lived {@code ThreadLocal<Dfa>} instances to recover on later inputs.
+   */
+  private int unproductiveResets;
+
+  private static final int MAX_RESET_BACKOFF_SHIFT = 20;
 
   private int[] transitions;
   private State[] offsetToState;
@@ -772,6 +828,137 @@ final class Dfa {
     addStateToFlatArrays(s);
     cache.put(lookupKey.copy(), s);
     return s;
+  }
+
+  /**
+   * Folds the previous search's extent into {@link #dfaStepsSinceReset} (when the DFA completed it)
+   * or {@link #backoffProgress} (when the previous search bailed out and the caller finished it on
+   * the NFA or started a new input), and anchors measurement for the search about to run.
+   */
+  private void beginSearch(int anchorPos) {
+    if (lastSearchBailed) {
+      int span = anchorPos > progressAnchor ? anchorPos - progressAnchor : 64;
+      backoffProgress += span;
+      lastSearchBailed = false;
+    } else if (anchorPos > progressAnchor) {
+      int delta = anchorPos - progressAnchor;
+      dfaStepsSinceReset += delta;
+      backoffProgress += delta;
+    }
+    progressAnchor = anchorPos;
+  }
+
+  /**
+   * Discards every cached state, freeing the whole state budget for the rest of the search.
+   *
+   * <p>Returns false if the current cache generation did not cover {@link
+   * #MIN_PROGRESS_PER_CACHED_STATE} DFA positions per state before filling the budget and the
+   * exponential backoff window ({@code (10 << unproductiveResets) * cache.size()}) has not yet
+   * elapsed. The caller must then abandon the DFA for the active search and let the NFA finish it.
+   *
+   * <p>A reset invalidates every {@link State} the caller holds. State ids restart from zero and
+   * the flat arrays indexed by {@code state.id * numClasses} are rebuilt from scratch, so any
+   * {@code State} reference, state offset, or local copy of the flat arrays held across the call is
+   * stale.
+   */
+  private boolean resetCache(int pos) {
+    long delta = Math.abs((long) pos - progressAnchor);
+    dfaStepsSinceReset += delta;
+    backoffProgress += delta;
+    progressAnchor = pos;
+
+    long baseThreshold = (long) MIN_PROGRESS_PER_CACHED_STATE * cache.size();
+    if (dfaStepsSinceReset >= baseThreshold) {
+      unproductiveResets = 0;
+    } else {
+      int shifts =
+          currentGenerationPenalized
+              ? unproductiveResets
+              : Math.min(unproductiveResets + 1, MAX_RESET_BACKOFF_SHIFT);
+      unproductiveResets = shifts;
+      if (backoffProgress < (baseThreshold << shifts)) {
+        currentGenerationPenalized = true;
+        lastSearchBailed = true;
+        return false;
+      }
+    }
+
+    dfaStepsSinceReset = 0;
+    backoffProgress = 0;
+    lastSearchBailed = false;
+    currentGenerationPenalized = false;
+    int used = Math.min(nextStateId * numClasses, transitions.length);
+    Arrays.fill(transitions, 0, used, 0);
+    Arrays.fill(offsetToState, 0, used, null);
+    Arrays.fill(isAcceleratedStateOffset, 0, used, false);
+    // The dead state outlives the reset, so clear the transitions recorded on it by hand.
+    Arrays.fill(deadState.next, null);
+    // A surviving start-cache entry would hand back a state the flat arrays no longer describe.
+    Arrays.fill(startStateByContext, null);
+    cache.clear();
+    hasStateAccelerators = false;
+    nextStateId = 1;
+    addStateToFlatArrays(deadState);
+    return true;
+  }
+
+  /**
+   * Re-creates {@code s} in a freshly reset cache. The result is a distinct object with a different
+   * id, so callers must adopt it in place of {@code s}.
+   */
+  private State recreateAfterReset(State s) {
+    State recreated = getOrCreate(s.insts, s.flags, s.wordBoundaryMatchIds);
+    if (recreated != null && s.isStartState) {
+      recreated.isStartState = true;
+      isAcceleratedStateOffset[recreated.id * numClasses] = true;
+    }
+    return recreated;
+  }
+
+  /**
+   * Computes the transition out of {@code s} on {@code cp}, resetting the state cache and retrying
+   * once if the state budget is exhausted. The transition is not recorded on {@code s}, for callers
+   * whose destination position makes it unsafe to cache.
+   *
+   * <p>Returns null if the DFA must give up and let the NFA finish the search. Otherwise callers
+   * must replace {@code s} with the returned state and must not reuse anything else derived from
+   * it; see {@link #resetCache}.
+   */
+  private State computeNextOrReset(State s, int cp, InputScanner text, int nextPos, int pos) {
+    State ns = computeNext(s, cp, text, nextPos);
+    if (ns != null) {
+      return ns;
+    }
+    if (!resetCache(pos)) {
+      return null;
+    }
+    State recreated = recreateAfterReset(s);
+    return recreated == null ? null : computeNext(recreated, cp, text, nextPos);
+  }
+
+  /**
+   * As {@link #computeNextOrReset}, additionally recording the transition under {@code cls} so
+   * later visits take it straight from the cache. The transition is recorded on whichever state is
+   * live after a reset, not on the now-discarded {@code s}.
+   */
+  private State transitionOrReset(
+      State s, int cls, int cp, InputScanner text, int nextPos, int pos) {
+    State ns = computeNext(s, cp, text, nextPos);
+    if (ns == null) {
+      if (!resetCache(pos)) {
+        return null;
+      }
+      s = recreateAfterReset(s);
+      if (s == null) {
+        return null;
+      }
+      ns = computeNext(s, cp, text, nextPos);
+      if (ns == null) {
+        return null;
+      }
+    }
+    addTransition(s, cls, ns);
+    return ns;
   }
 
   private StateAccelerator analyzeStateAcceleration(
@@ -1470,6 +1657,7 @@ final class Dfa {
       boolean longest,
       boolean startPositionPreselected) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    beginSearch(startPos);
     int textLen = text.length();
     // If the compiled program requires end-of-text matching (stripped $ or \z), enforce it.
     boolean needEndMatch = prog.anchorEnd();
@@ -1562,10 +1750,14 @@ final class Dfa {
             break;
           }
           s = startState(text, pos, anchored, false);
+          if (s == null && resetCache(pos)) {
+            s = startState(text, pos, anchored, false);
+          }
           if (s == null) {
             return null;
           }
-          // Creating a start state can grow the flat arrays, just like computeNext below.
+          // Creating a start state, or resetting the cache, can grow or replace the contents of
+          // the flat arrays, just like computeNext below.
           transitions = this.transitions;
           offsetToState = this.offsetToState;
           isAcceleratedStateOffset = this.isAcceleratedStateOffset;
@@ -1692,11 +1884,12 @@ final class Dfa {
       State ns = s.next[cls];
       if (ns == null) {
         int effectiveNextPos = pos + 1;
-        ns = computeNext(s, ch, text, effectiveNextPos);
+        ns = transitionOrReset(s, cls, ch, text, effectiveNextPos, pos);
         if (ns == null) {
           return null; // budget exceeded
         }
-        addTransition(s, cls, ns);
+        // computeNext can grow the flat arrays and a cache reset replaces their contents. Either
+        // way s is no longer usable, but the loop reloads sId from ns on the next iteration.
         transitions = this.transitions;
         offsetToState = this.offsetToState;
         isAcceleratedStateOffset = this.isAcceleratedStateOffset;
@@ -1751,6 +1944,9 @@ final class Dfa {
             break;
           }
           s = startState(text, pos, anchored, false);
+          if (s == null && resetCache(pos)) {
+            s = startState(text, pos, anchored, false);
+          }
           if (s == null) {
             return null;
           }
@@ -1821,18 +2017,17 @@ final class Dfa {
       int effectiveNextPos = Math.min(nextPos, textLen);
       State ns;
       if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
-        ns = computeNext(s, cp, text, effectiveNextPos);
+        ns = computeNextOrReset(s, cp, text, effectiveNextPos, pos);
         if (ns == null) {
           return null; // budget exceeded
         }
       } else {
         ns = s.next[cls];
         if (ns == null) {
-          ns = computeNext(s, cp, text, effectiveNextPos);
+          ns = transitionOrReset(s, cls, cp, text, effectiveNextPos, pos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          addTransition(s, cls, ns);
         }
       }
 
@@ -1910,6 +2105,7 @@ final class Dfa {
   SearchResult doSearchReverse(
       InputScanner text, int endPos, int startLimit, boolean anchored, boolean longest) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    beginSearch(endPos);
     // The reversed program's "start of text" corresponds to endPos (the right edge of the match
     // region), and its "end of text" corresponds to startLimit (the left edge). We scan from
     // endPos backward to startLimit, feeding characters in reverse order.
@@ -2016,11 +2212,10 @@ final class Dfa {
       State ns = s.next[cls];
       if (ns == null) {
         int effectivePrevPos = pos - 1;
-        ns = computeNext(s, ch, text, effectivePrevPos);
+        ns = transitionOrReset(s, cls, ch, text, effectivePrevPos, pos);
         if (ns == null) {
           return null; // budget exceeded
         }
-        addTransition(s, cls, ns);
         transitions = this.transitions;
         offsetToState = this.offsetToState;
       }
@@ -2093,18 +2288,17 @@ final class Dfa {
       int effectivePrevPos = Math.max(prevPos, startLimit);
       State ns;
       if (transitionDependsOnPosition(cp, effectivePrevPos, posDepThreshold)) {
-        ns = computeNext(s, cp, text, effectivePrevPos);
+        ns = computeNextOrReset(s, cp, text, effectivePrevPos, pos);
         if (ns == null) {
           return null; // budget exceeded
         }
       } else {
         ns = s.next[cls];
         if (ns == null) {
-          ns = computeNext(s, cp, text, effectivePrevPos);
+          ns = transitionOrReset(s, cls, cp, text, effectivePrevPos, pos);
           if (ns == null) {
             return null; // budget exceeded
           }
-          addTransition(s, cls, ns);
         }
       }
       s = ns;
@@ -2184,6 +2378,7 @@ final class Dfa {
 
   ManyMatchResult doSearchMany(InputScanner text, boolean anchored) {
     graphemeContext = GraphemeSupport.Context.create(text, hasGraphemeSemantics);
+    beginSearch(0);
     int textLen = text.length();
     boolean needEndMatch = prog.anchorEnd();
     boolean dollarEnd = prog.dollarAnchorEnd();
@@ -2233,7 +2428,20 @@ final class Dfa {
           int effectiveNextPos = pos + 1;
           State ns = computeNext(s, ch, text, effectiveNextPos);
           if (ns == null) {
-            return null; // budget exceeded
+            // This loop is the only one that carries a state offset across iterations, and a
+            // reset renumbers every state, so re-derive sId from the re-created state.
+            if (!resetCache(pos)) {
+              return null; // budget exceeded
+            }
+            s = recreateAfterReset(s);
+            if (s == null) {
+              return null; // budget exceeded
+            }
+            sId = s.id * numClasses;
+            ns = computeNext(s, ch, text, effectiveNextPos);
+            if (ns == null) {
+              return null; // budget exceeded
+            }
           }
           addTransition(s, cls, ns);
           transitions = this.transitions;
@@ -2303,18 +2511,17 @@ final class Dfa {
         int effectiveNextPos = Math.min(nextPos, textLen);
         State ns;
         if (transitionDependsOnPosition(cp, effectiveNextPos, posDepThreshold)) {
-          ns = computeNext(s, cp, text, effectiveNextPos);
+          ns = computeNextOrReset(s, cp, text, effectiveNextPos, pos);
           if (ns == null) {
             return null; // budget exceeded
           }
         } else {
           ns = s.next[cls];
           if (ns == null) {
-            ns = computeNext(s, cp, text, effectiveNextPos);
+            ns = transitionOrReset(s, cls, cp, text, effectiveNextPos, pos);
             if (ns == null) {
               return null; // budget exceeded
             }
-            addTransition(s, cls, ns);
           }
         }
         s = ns;
