@@ -78,6 +78,14 @@ jobs:
           -DskipTests
           --batch-mode --no-transfer-progress
 
+      - name: Seed Surefire test provider
+        # Surefire selects surefire-junit-platform when tests run; go-offline misses it.
+        # Run one focused test here so the provider is cached before the JDK matrix fans out.
+        run: >
+          mvn test -pl safere
+          -Dtest=StringLiteralSearchTest
+          --batch-mode --no-transfer-progress
+
   build:
     needs: [changes, prepare-maven-cache]
     if: needs.changes.outputs.code == 'true'
@@ -173,7 +181,7 @@ jobs:
           name: vector-runtime-tests
           path: ci-artifacts/*.tar.gz
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   build-vector:
     needs: build-vector-runtime-artifacts
