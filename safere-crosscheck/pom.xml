@@ -130,7 +130,6 @@
                         destdir="${project.build.directory}/crosscheck-selection"
                         release="21" includeantruntime="false" fork="true">
                       <classpath>
-                        <pathelement location="${project.basedir}/../safere/target/test-classes"/>
                         <path refid="maven.test.classpath"/>
                       </classpath>
                       <compilerarg value="-proc:only"/>
