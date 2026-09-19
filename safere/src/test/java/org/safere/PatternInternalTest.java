@@ -274,9 +274,9 @@ class PatternInternalTest {
 
   @ParameterizedTest
   @CsvSource({
-    "'\\d+/\\d+/\\d+',    /, 0",
-    "'[A-Z]+:[0-9]+',     :, A",
-    "'\\w+#[a-f0-9]{8}',  #, a"
+    "'.*\\d+/\\d+/\\d+',    /, 0",
+    "'.*[A-Z]+:[0-9]+',     :, A",
+    "'.*\\w+#[a-f0-9]{8}',  #, a"
   })
   void requiredCharacterClassPrefersTheMostSelectiveMandatoryAtom(
       String regex, char expectedMember, char expectedNonMember) {

@@ -536,6 +536,41 @@ class MultiAnchorCompilerTest {
         .contains("zzRARE");
   }
 
+  @Test
+  void leadingExpansionWithInnerLiteralSkipsRequiredCharClass() {
+    Pattern p =
+        Pattern.compile("(\\s*)((?:# [Nn][Oo][Qq][Aa])(?::\\s?(([A-Z]+[0-9]+(?:[,\\s]+)?)+))?)");
+    assertThat(p.startPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
+    MultiAnchorDescriptor.StartPlan.LeadingExpansion le =
+        (MultiAnchorDescriptor.StartPlan.LeadingExpansion) p.startPlan();
+    assertThat(le.innerPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.Literal.class);
+    assertThat(p.rejectPlan()).isInstanceOf(MultiAnchorDescriptor.RejectPlan.None.class);
+  }
+
+  @Test
+  void leadingExpansionWithInnerFixedOffsetSkipsRequiredCharClass() {
+    Pattern p = Pattern.compile("\\s+[0-9]{2}404_NOT_FOUND");
+    assertThat(p.startPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
+    MultiAnchorDescriptor.StartPlan.LeadingExpansion le =
+        (MultiAnchorDescriptor.StartPlan.LeadingExpansion) p.startPlan();
+    assertThat(le.innerPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.FixedOffset.class);
+    assertThat(p.rejectPlan()).isInstanceOf(MultiAnchorDescriptor.RejectPlan.None.class);
+  }
+
+  @Test
+  void leadingExpansionWithDownstreamRequiredLiteralPreservesRequiredLiteral() {
+    Pattern p = Pattern.compile("\\s*foo.*RARE_KEYWORD");
+    assertThat(p.startPlan()).isInstanceOf(MultiAnchorDescriptor.StartPlan.LeadingExpansion.class);
+    MultiAnchorDescriptor.StartPlan.LeadingExpansion le =
+        (MultiAnchorDescriptor.StartPlan.LeadingExpansion) p.startPlan();
+    assertThat(((MultiAnchorDescriptor.StartPlan.Literal) le.innerPlan()).prefix())
+        .isEqualTo("foo");
+    assertThat(p.rejectPlan()).isInstanceOf(MultiAnchorDescriptor.RejectPlan.RequiredLiteral.class);
+    MultiAnchorDescriptor.RejectPlan.RequiredLiteral req =
+        (MultiAnchorDescriptor.RejectPlan.RequiredLiteral) p.rejectPlan();
+    assertThat(req.literal()).isEqualTo("RARE_KEYWORD");
+  }
+
   private static String deepHomogeneousGap(String atom, int depth) {
     return "foo" + "(?:".repeat(depth) + atom + (")?" + atom).repeat(depth) + "bar";
   }

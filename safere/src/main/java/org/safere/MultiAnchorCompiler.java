@@ -250,33 +250,27 @@ final class MultiAnchorCompiler {
     }
 
     Set<String> excludeStartLiterals = new LinkedHashSet<>();
-    boolean skipRequiredCharClass = false;
-    CharClassScanInfo ccPrefix = null;
-    boolean hasLeadingExpansion = startPlan instanceof StartPlan.LeadingExpansion;
-
-    switch (startPlan) {
-      case StartPlan.Literal lit -> {
-        excludeStartLiterals.add(lit.prefix());
-        skipRequiredCharClass = true;
-      }
-      case StartPlan.FixedOffset fo -> {
-        excludeStartLiterals.add(fo.fol().literal());
+    String drivingLiteral = drivingLiteral(startPlan);
+    if (drivingLiteral != null) {
+      excludeStartLiterals.add(drivingLiteral);
+      if (hasFixedOffset(startPlan)) {
         excludeStartLiterals.addAll(extractFixedPrefixLiterals(metadataAst));
-        skipRequiredCharClass = true;
       }
-      case StartPlan.CharClass cc -> ccPrefix = cc.scanInfo();
-      case null, default -> {}
     }
+    CharClassScanInfo ccPrefix = drivingCharClass(startPlan);
 
     String suffixStr = endAnchoredSuffix != null ? endAnchoredSuffix.suffix() : null;
 
     String requiredLiteral =
-        !anchorStart && !hasLeadingExpansion
-            ? extractRequiredLiteral(metadataAst, excludeStartLiterals, suffixStr)
-            : null;
+        !anchorStart ? extractRequiredLiteral(metadataAst, excludeStartLiterals, suffixStr) : null;
     if (requiredLiteral != null) {
       plans.add(new RejectPlan.RequiredLiteral(requiredLiteral));
     }
+
+    // When the start plan already possesses an accelerated driving literal (prefix, fixed-offset,
+    // or leading expansion), its SIMD/SWAR StartAccelerator will scan for that literal on every
+    // find attempt. A redundant scalar character-class reject scan is therefore unnecessary.
+    boolean skipRequiredCharClass = drivingLiteral != null;
 
     CharClassScanInfo requiredMatchClass = null;
     if (!anchorStart && !skipRequiredCharClass && endAnchoredCharClass == null) {
@@ -321,6 +315,51 @@ final class MultiAnchorCompiler {
       return plans.get(0);
     }
     return new RejectPlan.Composite(plans.toArray(RejectPlan[]::new));
+  }
+
+  private static String drivingLiteral(StartPlan plan) {
+    if (plan == null) {
+      return null;
+    }
+    return switch (plan) {
+      case StartPlan.Literal lit -> lit.prefix();
+      case StartPlan.FixedOffset fo -> fo.fol().literal();
+      case StartPlan.LeadingExpansion le -> drivingLiteral(le.innerPlan());
+      case StartPlan.CharClass unusedCc -> null;
+      case StartPlan.MultiLiteral unusedMl -> null;
+      case StartPlan.LineAnchor unusedLa -> null;
+      case StartPlan.None unusedNone -> null;
+    };
+  }
+
+  private static CharClassScanInfo drivingCharClass(StartPlan plan) {
+    if (plan == null) {
+      return null;
+    }
+    return switch (plan) {
+      case StartPlan.CharClass cc -> cc.scanInfo();
+      case StartPlan.FixedOffset fo -> fo.leadingClass();
+      case StartPlan.MultiLiteral ml -> ml.fallbackClass();
+      case StartPlan.LeadingExpansion le -> drivingCharClass(le.innerPlan());
+      case StartPlan.Literal unusedLit -> null;
+      case StartPlan.LineAnchor unusedLa -> null;
+      case StartPlan.None unusedNone -> null;
+    };
+  }
+
+  private static boolean hasFixedOffset(StartPlan plan) {
+    if (plan == null) {
+      return false;
+    }
+    return switch (plan) {
+      case StartPlan.FixedOffset unusedFo -> true;
+      case StartPlan.LeadingExpansion le -> hasFixedOffset(le.innerPlan());
+      case StartPlan.Literal unusedLit -> false;
+      case StartPlan.CharClass unusedCc -> false;
+      case StartPlan.MultiLiteral unusedMl -> false;
+      case StartPlan.LineAnchor unusedLa -> false;
+      case StartPlan.None unusedNone -> false;
+    };
   }
 
   // --- Bottom-up MultiAnchorWalker ---
