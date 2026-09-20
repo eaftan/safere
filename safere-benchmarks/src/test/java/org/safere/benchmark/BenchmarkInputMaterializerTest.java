@@ -65,35 +65,35 @@ class BenchmarkInputMaterializerTest {
   @Test
   void fileRecipePreservesExactUtf8Bytes() throws IOException, NoSuchAlgorithmException {
     byte[] source = "fn main() {value}\nπ\n".getBytes(StandardCharsets.UTF_8);
-    Files.createDirectories(tempDirectory.resolve("third_party"));
-    Files.write(tempDirectory.resolve("third_party/source.txt"), source);
+    Files.createDirectories(tempDirectory.resolve("data"));
+    Files.write(tempDirectory.resolve("data/source.txt"), source);
     String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source));
 
     Map<String, byte[]> materialized =
         BenchmarkInputMaterializer.materialize(
-            fileInput("third_party/source.txt", checksum), tempDirectory);
+            fileInput("data/source.txt", checksum), tempDirectory);
 
     assertThat(materialized.get("source.code")).containsExactly(source);
   }
 
   @Test
   void fileRecipeRejectsChecksumMismatchAndPathTraversal() throws IOException {
-    Files.createDirectories(tempDirectory.resolve("third_party"));
-    Files.writeString(tempDirectory.resolve("third_party/source.txt"), "fixture");
+    Files.createDirectories(tempDirectory.resolve("data"));
+    Files.writeString(tempDirectory.resolve("data/source.txt"), "fixture");
 
     assertThatThrownBy(
             () ->
                 BenchmarkInputMaterializer.materialize(
-                    fileInput("third_party/source.txt", "0".repeat(64)), tempDirectory))
+                    fileInput("data/source.txt", "0".repeat(64)), tempDirectory))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("File recipe SHA-256 mismatch: third_party/source.txt");
+        .hasMessage("File recipe SHA-256 mismatch: data/source.txt");
 
     assertThatThrownBy(
             () ->
                 BenchmarkInputMaterializer.materialize(
-                    fileInput("third_party/../source.txt", "0".repeat(64)), tempDirectory))
+                    fileInput("data/../source.txt", "0".repeat(64)), tempDirectory))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("File recipe path must stay within third_party: third_party/../source.txt");
+        .hasMessage("File recipe path must stay within data: data/../source.txt");
   }
 
   @Test

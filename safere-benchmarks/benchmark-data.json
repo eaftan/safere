@@ -3280,7 +3280,7 @@
       "id": "rebar.boundedRepeatContext.rustSource",
       "recipe": {
         "kind": "file",
-        "path": "third_party/rust-src-tools-3b0d4813.txt",
+        "path": "data/rust-src-tools-3b0d4813.txt",
         "sha256": "7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36"
       },
       "shared": true

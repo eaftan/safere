@@ -4,7 +4,7 @@ The `rebar.boundedRepeatContext.rustSource` input in `benchmark-data.json` is th
 exact 7,384,531-byte UTF-8 haystack used by rebar's
 `curated/10-bounded-repeat/context` benchmark. Its SHA-256 is
 `7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36`.
-The haystack is checked in at `third_party/rust-src-tools-3b0d4813.txt`.
+The haystack is checked in at `data/rust-src-tools-3b0d4813.txt`.
 Its `file` recipe in `benchmark-data.json` pins the SHA-256 above, and the
 materializer copies its exact bytes to the generated benchmark corpus.
 

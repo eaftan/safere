@@ -1,6 +1,6 @@
 # Published benchmark artifacts preserve raw harness bytes and generated views.
-# Large third-party benchmark fixtures are reviewed through their provenance and hash.
-safere-benchmarks/third_party/*.txt -diff
+# This large imported fixture is reviewed through its provenance and hash.
+safere-benchmarks/data/rust-src-tools-3b0d4813.txt -diff
 benchmark-results/published/**/*-raw.txt -diff
 benchmark-results/published/**/java-*.txt -diff
 benchmark-results/published/**/jmh-output.txt -diff

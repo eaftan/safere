@@ -205,7 +205,7 @@ classes, scripts, or workload-family code. Version 2 defines:
 | Recipe | Purpose |
 |---|---|
 | `literal` | Exact text |
-| `file` | Exact UTF-8 bytes from a pinned third-party fixture |
+| `file` | Exact UTF-8 bytes from a pinned fixture |
 | `repeat` | Repeat text a fixed count |
 | `repeatToLength` | Repeat and truncate to a target UTF-16 length |
 | `repeatAtLeastLength` | Repeat through the first unit boundary at or beyond a minimum length |
@@ -229,11 +229,11 @@ evaluates these recipes and rejects unknown dependencies and dependency
 cycles.
 
 The `file` recipe has a `path` relative to `safere-benchmarks/` and a lowercase
-`sha256` digest. Paths must remain under `third_party/`, including after symlink
+`sha256` digest. Paths must remain under `data/`, including after symlink
 resolution. The materializer rejects missing, invalid UTF-8, or modified files
 and copies the original bytes into the generated corpus. This keeps large
-externally sourced inputs out of `benchmark-data.json` without letting runners
-read source fixtures directly.
+input texts out of `benchmark-data.json` without letting runners
+read source data directly.
 
 ## Workload requirements
 

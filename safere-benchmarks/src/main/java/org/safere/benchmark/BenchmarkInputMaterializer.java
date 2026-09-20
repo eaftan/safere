@@ -268,23 +268,22 @@ public final class BenchmarkInputMaterializer {
     String declaredPath = string(arguments, "path");
     Path relativePath = Path.of(declaredPath);
     if (relativePath.isAbsolute()
-        || !relativePath.startsWith("third_party")
+        || !relativePath.startsWith("data")
         || relativePath.getNameCount() < 2
         || !relativePath.equals(relativePath.normalize())) {
-      throw new IllegalArgumentException(
-          "File recipe path must stay within third_party: " + declaredPath);
+      throw new IllegalArgumentException("File recipe path must stay within data: " + declaredPath);
     }
 
     byte[] bytes;
     try {
       Path root = benchmarkDirectory.toRealPath();
-      Path thirdParty = root.resolve("third_party").toRealPath();
+      Path dataDirectory = root.resolve("data").toRealPath();
       Path source = root.resolve(relativePath).toRealPath();
-      if (!thirdParty.startsWith(root)
-          || !source.startsWith(thirdParty)
+      if (!dataDirectory.startsWith(root)
+          || !source.startsWith(dataDirectory)
           || !Files.isRegularFile(source)) {
         throw new IllegalArgumentException(
-            "File recipe path must stay within third_party: " + declaredPath);
+            "File recipe path must stay within data: " + declaredPath);
       }
       bytes = Files.readAllBytes(source);
     } catch (IOException exception) {
