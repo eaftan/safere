@@ -313,6 +313,13 @@ jobs:
             -p \
             'crossEngineTrial=RegexBenchmark.emailFind@safere-string,RegexBenchmark.emailFind@safere-utf8,RegexBenchmark.emailFind@jdk-string,RegexBenchmark.emailFind@re2j-string,RegexBenchmark.emailFind@re2-ffm-string-conversion'
 
+      - name: Test Java benchmark declarations and inputs
+        # The benchmark runner builds with -DskipTests; its install provides
+        # the reactor dependencies for this module-only test invocation.
+        run: >
+          mvn test -pl safere-benchmarks
+          --batch-mode --no-transfer-progress
+
       - name: Smoke test Java memory benchmarks (GC profiler)
         run: |
           ./run-java-memory-benchmarks.sh \
