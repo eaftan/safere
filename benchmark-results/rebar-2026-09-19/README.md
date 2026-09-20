@@ -2,12 +2,11 @@
 
 This is an archive of one exploratory [Rebar](https://github.com/eaftan/rebar)
 run comparing SafeRE's String and UTF-8 paths with seven other engines. The
-complete retained results are in [`measurements.csv`](measurements.csv). The
+complete retained results are in [`measurements.csv`](measurements.csv). My
 best guess for the SafeRE commit is
 [`4e079bf8a9f168e77f965337c61f13d56a4c5729`](https://github.com/eaftan/safere/commit/4e079bf8a9f168e77f965337c61f13d56a4c5729).
-The exact JAR used by this run cannot be established, so these numbers are
-separate from the commit-attributed results in
-[`BENCHMARKS.md`](../../BENCHMARKS.md).
+I didn't record the info on which SNAPSHOT I used and have tried to recover 
+it from other info.
 
 ## What was run
 
