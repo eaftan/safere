@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +35,8 @@ class BenchmarkInputMaterializerTest {
   @TempDir Path tempDirectory;
 
   @Test
-  void declaredBenchmarkCorpusMaterializesDeterministically() throws IOException {
+  void declaredBenchmarkCorpusMaterializesDeterministically()
+      throws IOException, NoSuchAlgorithmException {
     JsonObject benchmarkData =
         JsonParser.parseString(Files.readString(Path.of("benchmark-data.json"))).getAsJsonObject();
 
@@ -52,6 +56,29 @@ class BenchmarkInputMaterializerTest {
         .hasSize(1050)
         .endsWith("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     assertThat(text(first, "fanout.unicode.1024")).hasSize(1024);
+    byte[] rustSource = first.get("rebar.boundedRepeatContext.rustSource");
+    assertThat(rustSource).hasSize(7_384_531);
+    assertThat(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(rustSource)))
+        .isEqualTo("7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36");
+  }
+
+  @Test
+  void axislessLiteralPreservesSourceCodeBraces() {
+    JsonObject benchmarkData =
+        JsonParser.parseString(
+                """
+                {
+                  "schemaVersion": 1,
+                  "inputs": [{
+                    "id": "source.code",
+                    "recipe": {"kind": "literal", "text": "fn main() {value}\\n"}
+                  }]
+                }
+                """)
+            .getAsJsonObject();
+
+    assertThat(text(BenchmarkInputMaterializer.materialize(benchmarkData), "source.code"))
+        .isEqualTo("fn main() {value}\n");
   }
 
   @Test

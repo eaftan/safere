@@ -795,6 +795,10 @@ final class DeclarativeBenchmarkPlan {
     }
 
     void validatePlaceholders(String inputId, Set<String> axes) {
+      // Axisless literal inputs may contain source-code braces that are not placeholders.
+      if (kind == RecipeKind.LITERAL && axes.isEmpty()) {
+        return;
+      }
       for (Map.Entry<String, RecipeValue> argument : arguments.entrySet()) {
         Set<String> unknown = new LinkedHashSet<>(argument.getValue().placeholders());
         unknown.removeAll(axes);
@@ -810,6 +814,9 @@ final class DeclarativeBenchmarkPlan {
     }
 
     InputRecipe substitute(Map<String, ParameterValue> parameters, String inputId) {
+      if (kind == RecipeKind.LITERAL && parameters.isEmpty()) {
+        return this;
+      }
       Map<String, RecipeValue> resolved = new LinkedHashMap<>();
       for (Map.Entry<String, RecipeValue> argument : arguments.entrySet()) {
         resolved.put(
