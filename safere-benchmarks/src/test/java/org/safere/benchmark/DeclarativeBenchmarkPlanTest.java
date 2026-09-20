@@ -21,7 +21,7 @@ class DeclarativeBenchmarkPlanTest {
         parse(
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "inputs": [{
                 "id": "generated.input.{size}",
                 "axes": {"size": [8, 16]},
@@ -125,7 +125,7 @@ class DeclarativeBenchmarkPlanTest {
         parse(
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "inputs": [],
               "workloads": [{
                   "id": "Synthetic.unicode.{regex}",
@@ -160,7 +160,7 @@ class DeclarativeBenchmarkPlanTest {
         parse(
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "inputs": [{
                 "id": "generated.{text}",
                 "axes": {
@@ -922,20 +922,33 @@ class DeclarativeBenchmarkPlanTest {
                 parse(
                     """
                     {
-                      "schemaVersion": 2,
+                      "schemaVersion": 1,
                       "inputs": [],
                       "workloads": []
                     }
                     """))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("Unsupported benchmark plan schema version: 2");
+        .hasMessage("Unsupported benchmark plan schema version: 1");
 
     assertThatThrownBy(
             () ->
                 parse(
                     """
                     {
-                      "schemaVersion": 1,
+                      "schemaVersion": 3,
+                      "inputs": [],
+                      "workloads": []
+                    }
+                    """))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Unsupported benchmark plan schema version: 3");
+
+    assertThatThrownBy(
+            () ->
+                parse(
+                    """
+                    {
+                      "schemaVersion": 2,
                       "inputs": [],
                       "workloads": [],
                       "family": "Regex"
@@ -969,7 +982,7 @@ class DeclarativeBenchmarkPlanTest {
                 parse(
                     """
                     {
-                      "schemaVersion": 1,
+                      "schemaVersion": 2,
                       "inputs": [
                         {"id": "same", "recipe": {"kind": "literal", "text": "a"}},
                         {"id": "same", "recipe": {"kind": "literal", "text": "b"}}
@@ -1028,7 +1041,7 @@ class DeclarativeBenchmarkPlanTest {
                 parse(
                     """
                     {
-                      "schemaVersion": 1,
+                      "schemaVersion": 2,
                       "inputs": [{
                         "id": "orphaned.input",
                         "recipe": {"kind": "literal", "text": "x"}
@@ -1163,7 +1176,7 @@ class DeclarativeBenchmarkPlanTest {
                 parse(
                     """
                     {
-                      "schemaVersion": 1,
+                      "schemaVersion": 2,
                       "inputs": [{
                         "id": "bad.input",
                         "recipe": {"kind": "executeJava", "class": "FamilyGenerator"}
@@ -1186,7 +1199,7 @@ class DeclarativeBenchmarkPlanTest {
                 parse(
                     """
                     {
-                      "schemaVersion": 1,
+                      "schemaVersion": 2,
                       "inputs": [{
                         "id": "bad.input",
                         "recipe": {
@@ -1213,7 +1226,7 @@ class DeclarativeBenchmarkPlanTest {
                 parse(
                     """
                     {
-                      "schemaVersion": 1,
+                      "schemaVersion": 2,
                       "inputs": [{
                         "id": "bad.input",
                         "recipe": {
@@ -1267,7 +1280,7 @@ class DeclarativeBenchmarkPlanTest {
   private static String planJson(String workloads) {
     return """
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "inputs": [{
         "id": "literal.input",
         "recipe": {"kind": "literal", "text": "x"}

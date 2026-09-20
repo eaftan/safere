@@ -5,7 +5,11 @@ described in
 [DECLARATIVE_BENCHMARK_PLAN.md](DECLARATIVE_BENCHMARK_PLAN.md).
 
 `benchmark-data.json` is the only checked-in source for benchmark patterns,
-parameters, expected results, and deterministic input recipes.
+parameters, expected results, and input recipes. Large UTF-8 fixtures may live
+under `third_party/` and be referenced by a `file` recipe whose SHA-256 is
+pinned in the JSON. The materializer checks the digest and copies the exact
+bytes into the generated corpus. Keep provenance and license notices alongside
+third-party fixtures.
 
 Before execution, each benchmark runner invokes the central materializer. It
 writes a resolved manifest and exact UTF-8 inputs under
@@ -42,8 +46,9 @@ replaced on every materialization, so there is no second checked-in
 representation to update.
 
 Every benchmark input is an explicit declaration in `benchmark-data.json`.
-The materializer evaluates only the schema's bounded, generic recipe kinds; it
-contains no workload-family dispatch or hidden input defaults. These
+The materializer evaluates only the schema's bounded, generic recipe kinds and
+reads pinned `third_party/` fixtures; it contains no workload-family dispatch
+or hidden input defaults. These
 declarations preserve the Java harness's previous generator behavior, so the
 Java workloads are unchanged. C++ and Go previously
 implemented their own random and Unicode generators, which differed in PRNG

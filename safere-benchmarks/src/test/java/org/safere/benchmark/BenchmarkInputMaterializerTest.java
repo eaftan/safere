@@ -63,22 +63,37 @@ class BenchmarkInputMaterializerTest {
   }
 
   @Test
-  void axislessLiteralPreservesSourceCodeBraces() {
-    JsonObject benchmarkData =
-        JsonParser.parseString(
-                """
-                {
-                  "schemaVersion": 1,
-                  "inputs": [{
-                    "id": "source.code",
-                    "recipe": {"kind": "literal", "text": "fn main() {value}\\n"}
-                  }]
-                }
-                """)
-            .getAsJsonObject();
+  void fileRecipePreservesExactUtf8Bytes() throws IOException, NoSuchAlgorithmException {
+    byte[] source = "fn main() {value}\nπ\n".getBytes(StandardCharsets.UTF_8);
+    Files.createDirectories(tempDirectory.resolve("third_party"));
+    Files.write(tempDirectory.resolve("third_party/source.txt"), source);
+    String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source));
 
-    assertThat(text(BenchmarkInputMaterializer.materialize(benchmarkData), "source.code"))
-        .isEqualTo("fn main() {value}\n");
+    Map<String, byte[]> materialized =
+        BenchmarkInputMaterializer.materialize(
+            fileInput("third_party/source.txt", checksum), tempDirectory);
+
+    assertThat(materialized.get("source.code")).containsExactly(source);
+  }
+
+  @Test
+  void fileRecipeRejectsChecksumMismatchAndPathTraversal() throws IOException {
+    Files.createDirectories(tempDirectory.resolve("third_party"));
+    Files.writeString(tempDirectory.resolve("third_party/source.txt"), "fixture");
+
+    assertThatThrownBy(
+            () ->
+                BenchmarkInputMaterializer.materialize(
+                    fileInput("third_party/source.txt", "0".repeat(64)), tempDirectory))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("File recipe SHA-256 mismatch: third_party/source.txt");
+
+    assertThatThrownBy(
+            () ->
+                BenchmarkInputMaterializer.materialize(
+                    fileInput("third_party/../source.txt", "0".repeat(64)), tempDirectory))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("File recipe path must stay within third_party: third_party/../source.txt");
   }
 
   @Test
@@ -87,7 +102,7 @@ class BenchmarkInputMaterializerTest {
         JsonParser.parseString(
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "inputs": [{
                     "id": "derived",
                     "recipe": {"kind": "appendInput", "input": "missing", "suffix": "!"},
@@ -108,7 +123,7 @@ class BenchmarkInputMaterializerTest {
         JsonParser.parseString(
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "inputs": [
                     {
                       "id": "first",
@@ -134,7 +149,7 @@ class BenchmarkInputMaterializerTest {
   void deeplyChainedAppendRecipesMaterializeWithoutUsingTheCallStack() {
     int dependencyCount = 5_000;
     JsonObject benchmarkData = new JsonObject();
-    benchmarkData.addProperty("schemaVersion", 1);
+    benchmarkData.addProperty("schemaVersion", 2);
     JsonArray inputs = new JsonArray();
     for (int index = dependencyCount; index >= 1; index--) {
       JsonObject declaration = new JsonObject();
@@ -362,6 +377,26 @@ class BenchmarkInputMaterializerTest {
   @Test
   void emptyRepeatUnitCanProduceEmptyOutput() {
     assertThat(BenchmarkInputMaterializer.repeatToSize("", 0)).isEmpty();
+  }
+
+  private static JsonObject fileInput(String path, String sha256) {
+    JsonObject data =
+        JsonParser.parseString(
+                """
+                {
+                  "schemaVersion": 2,
+                  "inputs": [{
+                    "id": "source.code",
+                    "recipe": {"kind": "file"}
+                  }]
+                }
+                """)
+            .getAsJsonObject();
+    JsonObject recipe =
+        data.getAsJsonArray("inputs").get(0).getAsJsonObject().getAsJsonObject("recipe");
+    recipe.addProperty("path", path);
+    recipe.addProperty("sha256", sha256);
+    return data;
   }
 
   private static String text(Map<String, byte[]> inputs, String id) {

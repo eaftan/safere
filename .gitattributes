@@ -1,4 +1,6 @@
 # Published benchmark artifacts preserve raw harness bytes and generated views.
+# Large third-party benchmark fixtures are reviewed through their provenance and hash.
+safere-benchmarks/third_party/*.txt -diff
 benchmark-results/published/**/*-raw.txt -diff
 benchmark-results/published/**/java-*.txt -diff
 benchmark-results/published/**/jmh-output.txt -diff
