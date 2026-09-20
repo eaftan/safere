@@ -8,6 +8,8 @@ package org.safere;
 import static jdk.incubator.vector.VectorOperators.EQ;
 import static jdk.incubator.vector.VectorOperators.GE;
 import static jdk.incubator.vector.VectorOperators.LE;
+import static org.safere.ByteScanBounds.lastLoadStart;
+import static org.safere.ByteScanBounds.lastMatchStart;
 
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorMask;
@@ -182,7 +184,7 @@ final class ByteVectorScan {
     long workLimit = WorkLimit.forRemaining(length - pos);
 
     // Fast scalar prologue to catch immediate matches without SIMD setup
-    int scalarPrologueLimit = Math.min(length - prefixLen + 1, pos + Integer.BYTES);
+    int scalarPrologueLimit = Math.min(lastMatchStart(length, prefixLen) + 1, pos + Integer.BYTES);
     for (; pos < scalarPrologueLimit; pos++) {
       int b = bytes[offset + pos + anchorOffset] & 0xFF;
       if ((b == (low & 0xFF) || b == (high & 0xFF))
@@ -198,9 +200,9 @@ final class ByteVectorScan {
     }
 
     int vectorLen = species.length();
-    int limit = length - vectorLen;
+    int limit = lastLoadStart(length, 0, vectorLen);
     if (pos > limit) {
-      int limitScalar = length - prefixLen;
+      int limitScalar = lastMatchStart(length, prefixLen);
       for (int p = Math.max(start, pos - anchorOffset); p <= limitScalar; p++) {
         int b = bytes[offset + p + anchorOffset] & 0xFF;
         if (b != (low & 0xFF) && b != (high & 0xFF)) {
@@ -244,7 +246,7 @@ final class ByteVectorScan {
       }
     }
 
-    int limitScalar = length - prefixLen;
+    int limitScalar = lastMatchStart(length, prefixLen);
     for (int p = Math.max(start, pos - anchorOffset); p <= limitScalar; p++) {
       int b = bytes[offset + p + anchorOffset] & 0xFF;
       if (b != (low & 0xFF) && b != (high & 0xFF)) {
@@ -282,7 +284,7 @@ final class ByteVectorScan {
     long workLimit = WorkLimit.forRemaining(length - pos);
 
     int maxAnchorOffset = Math.max(offset1, offset2);
-    int scalarPrologueLimit = Math.min(length - prefixLen + 1, pos + Integer.BYTES);
+    int scalarPrologueLimit = Math.min(lastMatchStart(length, prefixLen) + 1, pos + Integer.BYTES);
     for (; pos < scalarPrologueLimit; pos++) {
       int b1 = bytes[offset + pos + offset1] & 0xFF;
       if ((b1 == (low1 & 0xFF) || b1 == (high1 & 0xFF))) {
@@ -300,9 +302,9 @@ final class ByteVectorScan {
     }
 
     int vectorLen = SPECIES.length();
-    int limit = length - vectorLen - maxAnchorOffset;
+    int limit = lastLoadStart(length, maxAnchorOffset, vectorLen);
     if (pos > limit) {
-      int limitScalar = length - prefixLen;
+      int limitScalar = lastMatchStart(length, prefixLen);
       for (int p = pos; p <= limitScalar; p++) {
         int b1 = bytes[offset + p + offset1] & 0xFF;
         if (b1 == (low1 & 0xFF) || b1 == (high1 & 0xFF)) {
@@ -346,7 +348,7 @@ final class ByteVectorScan {
           while (activeLanes != 0) {
             int bit = Long.numberOfTrailingZeros(activeLanes);
             int candidatePos = pos + bit;
-            if (candidatePos <= length - prefixLen) {
+            if (candidatePos <= lastMatchStart(length, prefixLen)) {
               if (Ascii.regionMatchesIgnoreCase(bytes, offset + candidatePos, prefix, prefixLen)) {
                 return candidatePos;
               }
@@ -381,7 +383,7 @@ final class ByteVectorScan {
           while (activeLanes != 0) {
             int bit = Long.numberOfTrailingZeros(activeLanes);
             int candidatePos = pos + bit;
-            if (candidatePos <= length - prefixLen) {
+            if (candidatePos <= lastMatchStart(length, prefixLen)) {
               if (Ascii.regionMatchesIgnoreCase(bytes, offset + candidatePos, prefix, prefixLen)) {
                 return candidatePos;
               }
@@ -396,7 +398,7 @@ final class ByteVectorScan {
       }
     }
 
-    int limitScalar = length - prefixLen;
+    int limitScalar = lastMatchStart(length, prefixLen);
     for (int p = pos; p <= limitScalar; p++) {
       int b1 = bytes[offset + p + offset1] & 0xFF;
       if (b1 == (low1 & 0xFF) || b1 == (high1 & 0xFF)) {
@@ -459,7 +461,7 @@ final class ByteVectorScan {
     int observedBytes = 0;
     long estimatedVerificationBytes = 0;
     int vectorLen = SPECIES.length();
-    int limit = length - vectorLen;
+    int limit = lastLoadStart(length, 0, vectorLen);
 
     for (; pos <= limit; pos += vectorLen) {
       ByteVector inputVec = ByteVector.fromArray(SPECIES, bytes, offset + pos);
@@ -501,7 +503,7 @@ final class ByteVectorScan {
       }
     }
 
-    int scalarLimit = length - minLength;
+    int scalarLimit = lastMatchStart(length, minLength);
     for (; pos <= scalarLimit; pos++) {
       int value = bytes[offset + pos] & 0xFF;
       for (int i = 0; i < numLits; i++) {

@@ -46,6 +46,45 @@ implementation("org.safere:safere:0.11.0")
 implementation 'org.safere:safere:0.11.0'
 ```
 
+### Development snapshots
+
+Successful pushes to `main` publish the current development version to the
+[Central Portal snapshot repository](https://central.sonatype.com/repository/maven-snapshots/)
+after CI passes, including documentation-only pushes. Pull requests do not publish snapshots.
+Publications run sequentially; an older CI run is skipped when a newer main push
+has already passed CI, so delayed runs cannot replace newer snapshots.
+Snapshots are for testing: they may change and may expire (Sonatype currently removes
+them after about 90 days). Use a numbered release for stable dependencies.
+
+To try `org.safere:safere:0.12.0-SNAPSHOT`, add this repository and dependency to your Maven POM:
+
+```xml
+<repositories>
+  <repository>
+    <id>central-portal-snapshots</id>
+    <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    <releases><enabled>false</enabled></releases>
+    <snapshots><enabled>true</enabled></snapshots>
+  </repository>
+</repositories>
+
+<dependencies>
+  <dependency>
+    <groupId>org.safere</groupId>
+    <artifactId>safere</artifactId>
+    <version>0.12.0-SNAPSHOT</version>
+  </dependency>
+</dependencies>
+```
+
+Run Maven with `-U` to refresh a cached snapshot. The development version follows
+the version in [pom.xml](pom.xml) and changes as new release cycles begin.
+
+Maintainers must enable snapshots for the `org.safere` namespace in the Central
+Portal before the first publication. Publishing reuses the release workflow's
+Central credentials and signing secrets. Review publishing usage periodically in
+the Portal Usage Center; Sonatype's limits can change.
+
 ## Quick Start
 
 ```java

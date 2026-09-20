@@ -38,7 +38,7 @@ public final class ReplacementFuzzer {
       regex = data.consumeString(256);
       flags = FuzzSupport.consumeFlags(data);
       input = data.consumeString(2048);
-      replacement = data.consumeRemainingAsString();
+      replacement = data.consumeString(1024);
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {

@@ -17,7 +17,7 @@ public final class CompileFuzzer {
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
     int flags = FuzzSupport.consumeFlags(data);
-    String regex = data.consumeRemainingAsString();
+    String regex = data.consumeString(2048);
     FuzzSupport.compileCompatibleOrSkip(regex, flags);
   }
 }

@@ -87,8 +87,8 @@ class ScanDispatchAuditTest {
             () -> assertThat(multiLiteral.findCandidate(scanner, fromIndex)).isNegative());
 
     assertThat(events)
-        .startsWith(consulted(ScanKind.MULTI_LITERAL, window))
-        .contains(
+        .containsExactly(
+            consulted(ScanKind.MULTI_LITERAL, window),
             new ScanEvent(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.SCALAR));
   }
 
@@ -186,6 +186,223 @@ class ScanDispatchAuditTest {
         .containsExactly(
             consulted(ScanKind.BYTE, minimum),
             new ScanEvent(ScanKind.BYTE, ScanDirection.FORWARD, minimum, ScanPath.VECTOR));
+  }
+
+  @Test
+  void allDispatchLaddersSatisfyPairingAcrossNarrowAndWideWindows() {
+    VectorScanProvider provider = installedProvider();
+    if (provider == null) {
+      return;
+    }
+    Utf8InputScanner scanner = new Utf8InputScanner(LONG_INPUT);
+
+    // 1. BYTE
+    int byteMin = provider.minimumWindowLength(ScanKind.BYTE);
+    assertThat(captureScan(() -> scanner.indexOfAscii('z', 0, byteMin - 1)))
+        .containsExactly(
+            consulted(ScanKind.BYTE, byteMin - 1),
+            new ScanEvent(ScanKind.BYTE, ScanDirection.FORWARD, byteMin - 1, ScanPath.SWAR));
+    assertThat(captureScan(() -> scanner.indexOfAscii('z', 0, byteMin)))
+        .containsExactly(
+            consulted(ScanKind.BYTE, byteMin),
+            new ScanEvent(ScanKind.BYTE, ScanDirection.FORWARD, byteMin, ScanPath.VECTOR));
+
+    // 2. PAIR
+    int pairMin = provider.minimumWindowLength(ScanKind.PAIR);
+    assertThat(captureScan(() -> scanner.indexOfAsciiPair('y', 'z', 0, pairMin - 1)))
+        .containsExactly(
+            consulted(ScanKind.PAIR, pairMin - 1),
+            new ScanEvent(ScanKind.PAIR, ScanDirection.FORWARD, pairMin - 1, ScanPath.SWAR));
+    assertThat(captureScan(() -> scanner.indexOfAsciiPair('y', 'z', 0, pairMin)))
+        .containsExactly(
+            consulted(ScanKind.PAIR, pairMin),
+            new ScanEvent(ScanKind.PAIR, ScanDirection.FORWARD, pairMin, ScanPath.VECTOR));
+
+    // 3. TRIPLE
+    int tripleMin = provider.minimumWindowLength(ScanKind.TRIPLE);
+    assertThat(captureScan(() -> scanner.indexOfAsciiTriple('u', 'v', 'w', 0, tripleMin - 1)))
+        .containsExactly(
+            consulted(ScanKind.TRIPLE, tripleMin - 1),
+            new ScanEvent(ScanKind.TRIPLE, ScanDirection.FORWARD, tripleMin - 1, ScanPath.SWAR));
+    assertThat(captureScan(() -> scanner.indexOfAsciiTriple('u', 'v', 'w', 0, tripleMin)))
+        .containsExactly(
+            consulted(ScanKind.TRIPLE, tripleMin),
+            new ScanEvent(ScanKind.TRIPLE, ScanDirection.FORWARD, tripleMin, ScanPath.VECTOR));
+
+    // 4. CLASS
+    int classMin = provider.minimumWindowLength(ScanKind.CLASS);
+    int[] ranges = {'0', '9'};
+    long bitmap0 = 0x03FF000000000000L;
+    assertThat(
+            captureScan(() -> scanner.indexOfCodePointClass(ranges, bitmap0, 0, 0, classMin - 1)))
+        .containsExactly(
+            consulted(ScanKind.CLASS, classMin - 1),
+            new ScanEvent(ScanKind.CLASS, ScanDirection.FORWARD, classMin - 1, ScanPath.SWAR));
+    assertThat(captureScan(() -> scanner.indexOfCodePointClass(ranges, bitmap0, 0, 0, classMin)))
+        .containsExactly(
+            consulted(ScanKind.CLASS, classMin),
+            new ScanEvent(ScanKind.CLASS, ScanDirection.FORWARD, classMin, ScanPath.VECTOR));
+
+    // 5. IGNORE_CASE (single-anchor and pair-anchor ladders)
+    int ignoreCaseMin = provider.minimumWindowLength(ScanKind.IGNORE_CASE);
+    int[] failure = {0, 0, 0};
+    int fromNarrow = LONG_INPUT.length - (ignoreCaseMin - 1);
+    assertThat(
+            captureScan(
+                () ->
+                    scanner.indexOfIgnoreCase(
+                        "abc", failure, 0, (byte) 'a', (byte) 'A', fromNarrow)))
+        .containsExactly(
+            consulted(ScanKind.IGNORE_CASE, ignoreCaseMin - 1),
+            new ScanEvent(
+                ScanKind.IGNORE_CASE, ScanDirection.FORWARD, ignoreCaseMin - 1, ScanPath.SWAR));
+    assertThat(
+            captureScan(
+                () ->
+                    scanner.indexOfPairIgnoreCase(
+                        "abc",
+                        failure,
+                        0,
+                        (byte) 'a',
+                        (byte) 'A',
+                        1,
+                        (byte) 'b',
+                        (byte) 'B',
+                        fromNarrow)))
+        .containsExactly(
+            consulted(ScanKind.IGNORE_CASE, ignoreCaseMin - 1),
+            new ScanEvent(
+                ScanKind.IGNORE_CASE, ScanDirection.FORWARD, ignoreCaseMin - 1, ScanPath.SWAR));
+    int fromWide = LONG_INPUT.length - ignoreCaseMin;
+    assertThat(
+            captureScan(
+                () ->
+                    scanner.indexOfIgnoreCase("abc", failure, 0, (byte) 'a', (byte) 'A', fromWide)))
+        .containsExactly(
+            consulted(ScanKind.IGNORE_CASE, ignoreCaseMin),
+            new ScanEvent(
+                ScanKind.IGNORE_CASE, ScanDirection.FORWARD, ignoreCaseMin, ScanPath.VECTOR));
+    assertThat(
+            captureScan(
+                () ->
+                    scanner.indexOfPairIgnoreCase(
+                        "abc",
+                        failure,
+                        0,
+                        (byte) 'a',
+                        (byte) 'A',
+                        1,
+                        (byte) 'b',
+                        (byte) 'B',
+                        fromWide)))
+        .containsExactly(
+            consulted(ScanKind.IGNORE_CASE, ignoreCaseMin),
+            new ScanEvent(
+                ScanKind.IGNORE_CASE, ScanDirection.FORWARD, ignoreCaseMin, ScanPath.VECTOR));
+
+    // 6. TEDDY
+    TeddyModel teddyModel = TeddyModel.compileForSelectedProvider(LITERALS);
+    assertThat(teddyModel).isNotNull();
+    Utf8StartAccelerator.Teddy teddy = new Utf8StartAccelerator.Teddy(teddyModel);
+    int teddyMin = provider.minimumWindowLength(ScanKind.TEDDY);
+    int teddyFromNarrow = LONG_INPUT.length - (teddyMin - 1);
+    List<ScanEvent> teddyNarrowEvents =
+        ScanAudit.captureForTesting(
+            () ->
+                assertThat(teddy.findCandidate(scanner, teddyFromNarrow))
+                    .isEqualTo(teddyFromNarrow));
+    assertThat(teddyNarrowEvents)
+        .containsExactly(
+            consulted(ScanKind.TEDDY, teddyMin - 1),
+            new ScanEvent(ScanKind.TEDDY, ScanDirection.FORWARD, teddyMin - 1, ScanPath.DECLINED));
+    int teddyFromWide = LONG_INPUT.length - teddyMin;
+    assertThat(captureScan(() -> teddy.findCandidate(scanner, teddyFromWide)))
+        .containsExactly(
+            consulted(ScanKind.TEDDY, teddyMin),
+            new ScanEvent(ScanKind.TEDDY, ScanDirection.FORWARD, teddyMin, ScanPath.VECTOR));
+
+    // 7. MULTI_LITERAL
+    MultiLiteralInfo multiLiteralInfo = MultiLiteralInfo.create(LITERALS);
+    assertThat(multiLiteralInfo).isNotNull();
+    Utf8StartAccelerator.MultiLiteral multiLiteral =
+        new Utf8StartAccelerator.MultiLiteral(multiLiteralInfo, teddyModel);
+    int multiLiteralMin = provider.minimumWindowLength(ScanKind.MULTI_LITERAL);
+    int mlFromNarrow = LONG_INPUT.length - (multiLiteralMin - 1);
+    assertThat(captureScan(() -> multiLiteral.findCandidate(scanner, mlFromNarrow)))
+        .containsExactly(
+            consulted(ScanKind.MULTI_LITERAL, multiLiteralMin - 1),
+            new ScanEvent(
+                ScanKind.MULTI_LITERAL,
+                ScanDirection.FORWARD,
+                multiLiteralMin - 1,
+                ScanPath.SCALAR));
+    int mlFromWide = LONG_INPUT.length - multiLiteralMin;
+    assertThat(captureScan(() -> multiLiteral.findCandidate(scanner, mlFromWide)))
+        .containsExactly(
+            consulted(ScanKind.MULTI_LITERAL, multiLiteralMin),
+            new ScanEvent(
+                ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, multiLiteralMin, ScanPath.VECTOR));
+  }
+
+  @Test
+  void captureRejectsUnpairedConsultation() {
+    assertThatThrownBy(
+            () ->
+                ScanAudit.captureForTesting(() -> ScanAudit.recordConsultation(ScanKind.BYTE, 64)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("odd number of events");
+  }
+
+  @Test
+  void captureRejectsPathWithoutConsultation() {
+    assertThatThrownBy(
+            () ->
+                ScanAudit.captureForTesting(
+                    () -> {
+                      ScanAudit.record(ScanKind.BYTE, ScanDirection.FORWARD, 64, ScanPath.SWAR);
+                      ScanAudit.record(ScanKind.BYTE, ScanDirection.FORWARD, 64, ScanPath.SWAR);
+                    }))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("expected ScanPath.CONSULTED");
+  }
+
+  @Test
+  void captureRejectsConsecutiveConsultations() {
+    assertThatThrownBy(
+            () ->
+                ScanAudit.captureForTesting(
+                    () -> {
+                      ScanAudit.recordConsultation(ScanKind.BYTE, 64);
+                      ScanAudit.recordConsultation(ScanKind.BYTE, 64);
+                    }))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("consecutive CONSULTED event");
+  }
+
+  @Test
+  void captureRejectsKindMismatchBetweenConsultationAndPath() {
+    assertThatThrownBy(
+            () ->
+                ScanAudit.captureForTesting(
+                    () -> {
+                      ScanAudit.recordConsultation(ScanKind.BYTE, 64);
+                      ScanAudit.record(ScanKind.PAIR, ScanDirection.FORWARD, 64, ScanPath.SWAR);
+                    }))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("does not match path");
+  }
+
+  @Test
+  void captureRejectsWindowLengthMismatchBetweenConsultationAndPath() {
+    assertThatThrownBy(
+            () ->
+                ScanAudit.captureForTesting(
+                    () -> {
+                      ScanAudit.recordConsultation(ScanKind.BYTE, 64);
+                      ScanAudit.record(ScanKind.BYTE, ScanDirection.FORWARD, 128, ScanPath.SWAR);
+                    }))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("does not match path");
   }
 
   /**

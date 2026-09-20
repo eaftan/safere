@@ -18,6 +18,37 @@ public final class SplitFuzzer {
   private static final List<Integer> LARGE_POSITIVE_LIMITS =
       List.of(Integer.MAX_VALUE, Integer.MAX_VALUE / 2 + 1);
 
+  // Exercise cache reuse where a delimiter is also a member of the preceding repeated class.
+  @FuzzTest(maxDuration = "30s")
+  void repeatedClassSplits(FuzzedDataProvider data) {
+    String alphabet = data.pickValue(List.of("01", "ab", "\0x", "😀😁"));
+    int firstWidth = Character.charCount(alphabet.codePointAt(0));
+    String delimiter = alphabet.substring(0, firstWidth);
+    String continuation = alphabet.substring(firstWidth);
+    String quantifier = data.pickValue(List.of("*", "+", "*?", "{0,3}"));
+    String regex = "[" + alphabet + "]" + quantifier + delimiter;
+    if (data.consumeBoolean()) {
+      regex = "(" + regex + ")";
+    }
+    String input =
+        delimiter
+            + "~".repeat(data.consumeInt(1, 8))
+            + delimiter
+            + continuation.repeat(data.consumeInt(1, 32))
+            + "~".repeat(data.consumeInt(16, 600))
+            + delimiter;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
+    if (pattern == null) {
+      return;
+    }
+    int limit = data.consumeInt(-1, 8);
+    for (int reuse = 0; reuse < 2; reuse++) {
+      pattern.split(input);
+      pattern.split(input, limit);
+      pattern.splitWithDelimiters(input, limit);
+    }
+  }
+
   @FuzzTest(maxDuration = "30s")
   void split(FuzzedDataProvider data) {
     fuzzerTestOneInput(data);

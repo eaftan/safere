@@ -84,7 +84,7 @@ public final class MatchFuzzer {
     } else {
       regex = data.consumeString(256);
       flags = FuzzSupport.consumeFlags(data);
-      input = data.consumeRemainingAsString();
+      input = data.consumeString(2048);
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {

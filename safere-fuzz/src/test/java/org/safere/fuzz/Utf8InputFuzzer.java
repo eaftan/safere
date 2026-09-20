@@ -40,6 +40,7 @@ public final class Utf8InputFuzzer {
     assertPositionDependentStartAccelerationMatchesJdk(data);
     assertGraphemeSearchMatchesString(data);
     assertMultibyteMultiAnchorReverseWindowMatchesString(data);
+    assertCaseInsensitivePrefixSliceBounds(data);
     String repeatedLiteral =
         String.valueOf((char) data.consumeInt('A', 'Z')).repeat(data.consumeInt(2, 32));
     String suffix = new String(data.consumeBytes(data.consumeInt(0, 64)), StandardCharsets.UTF_8);
@@ -69,6 +70,30 @@ public final class Utf8InputFuzzer {
       if (valid) {
         throw new AssertionError("strict validation rejected valid UTF-8", e);
       }
+    }
+  }
+
+  private static void assertCaseInsensitivePrefixSliceBounds(FuzzedDataProvider data) {
+    // Rare anchors near the start leave a long suffix to verify at the slice end (#881).
+    String literal = data.pickValue(List.of("qz", "jq", "xz")) + "a".repeat(data.consumeInt(8, 40));
+    String candidate = data.consumeBoolean() ? literal.toUpperCase(Locale.ROOT) : literal;
+    String input = ".".repeat(data.consumeInt(0, 32)) + candidate;
+    int length = input.length() - data.consumeInt(0, literal.length());
+    String padding = ".".repeat(data.consumeInt(0, 7));
+    boolean padded = data.consumeBoolean();
+    byte[] bytes =
+        (padding + (padded ? input : input.substring(0, length))).getBytes(StandardCharsets.UTF_8);
+    Pattern pattern = Pattern.compile(literal, Pattern.CASE_INSENSITIVE);
+    java.util.regex.Matcher expected =
+        java.util.regex.Pattern.compile(literal, java.util.regex.Pattern.CASE_INSENSITIVE)
+            .matcher(input.substring(0, length));
+    Utf8Input utf8 = Utf8Input.validated(bytes, padding.length(), length);
+    Utf8Matcher actual = pattern.matcher(utf8);
+    boolean found = expected.find();
+    if (actual.find() != found
+        || pattern.find(utf8) != found
+        || (found && (actual.start() != expected.start() || actual.end() != expected.end()))) {
+      throw new AssertionError("case-insensitive prefix search crossed UTF-8 slice bounds");
     }
   }
 
@@ -299,16 +324,42 @@ public final class Utf8InputFuzzer {
     String literal = data.pickValue(List.of("z", "tag"));
     String regex = "(aq|b[a-z]{" + longWidth + "})" + literal;
     String body = "xax" + literal + "x".repeat(longWidth - literal.length() - 3);
-    String input = "b" + body + literal;
+    // The branches place the literal at two widely separated offsets, so the starts an
+    // occurrence implies are not ordered by the occurrence: an earlier occurrence can imply
+    // only a later start while a later one begins the leftmost match. A multibyte prefix keeps
+    // the byte offsets distinct from the UTF-16 offsets, so the comparison below exercises the
+    // accelerator's code-point retreat instead of comparing an index against itself.
+    String prefix =
+        data.pickValue(List.of("", "é", "軖", "😀", "é😀")).repeat(data.consumeInt(0, 3));
+    String input = prefix + "b" + body + literal;
     Pattern pattern = Pattern.compile(regex);
     org.safere.Matcher stringMatcher = pattern.matcher(input);
     byte[] bytes = input.getBytes(StandardCharsets.UTF_8);
     Utf8Input utf8Input = Utf8Input.validated(bytes);
     Utf8Matcher utf8Matcher = pattern.matcher(utf8Input);
+    java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex);
 
-    boolean stringFound = stringMatcher.find();
-    if (utf8Matcher.find() != stringFound || pattern.find(utf8Input) != stringFound) {
-      throw new AssertionError("UTF-8 multi-offset search result differs from String search");
+    if (pattern.find(utf8Input) != jdkPattern.matcher(input).find()) {
+      throw new AssertionError("UTF-8 one-shot multi-offset find differs from JDK");
+    }
+
+    // Both accelerators are edited together, so comparing them only against each other cannot
+    // see an error that moves the reported start the same way in both. The JDK is the oracle.
+    java.util.regex.Matcher jdkMatcher = jdkPattern.matcher(input);
+    while (true) {
+      boolean expected = jdkMatcher.find();
+      if (stringMatcher.find() != expected || utf8Matcher.find() != expected) {
+        throw new AssertionError("UTF-8 multi-offset search result differs from JDK");
+      }
+      if (!expected) {
+        return;
+      }
+      if (stringMatcher.start() != jdkMatcher.start()
+          || stringMatcher.end() != jdkMatcher.end()
+          || utf8Matcher.start() != utf8Offset(input, jdkMatcher.start())
+          || utf8Matcher.end() != utf8Offset(input, jdkMatcher.end())) {
+        throw new AssertionError("UTF-8 multi-offset search bounds differ from JDK");
+      }
     }
   }
 

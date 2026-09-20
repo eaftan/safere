@@ -145,21 +145,17 @@ also build required reactor dependencies, including the local `safere` module.
 Without it, Maven can resolve `safere` from the local repository and
 accidentally test against a stale installed artifact.
 
-Use `@DisabledForCrosscheck("reason")` in the original SafeRE test source for
-test methods or classes that should be disabled only in generated crosscheck
-coverage. The annotation is backed by a JUnit execution condition and is active
-only when the generated crosscheck profile sets
-`org.safere.crosscheck.generatedTests=true`, so the gap is visible in test
-reports. Use issue references in the reason for fixable SafeRE/JDK divergences,
-and plain reasons for tests that are intentionally not relevant to crosscheck,
-such as SafeRE-only syntax or JDK stack-overflow stress cases.
+Use `@DisabledForCrosscheck("reason")` in the original SafeRE test source. On a
+top-level test class, it excludes the entire source file from generation; these
+classes do not appear as skipped in generated reports. On a method or nested
+class, it disables only that element during generated crosscheck execution.
+Original SafeRE tests remain enabled. There is no separate filename exclusion list.
 
-The profile still has compile-time structural excludes for source files that
-cannot be generated into the crosscheck package, such as SafeRE internals,
-SafeRE-only APIs, or tests requiring crosscheck facade methods that are not
-implemented yet. Those source files should still be annotated with
-`@DisabledForCrosscheck` so the reason remains discoverable in the original
-test source.
+Generation runs a complete, explicit annotation-processing-only pass over the
+original test sources. The processor uses standard Java annotation processing
+APIs and writes a fresh exclusion manifest on every generation run. It does not
+run during normal SafeRE test compilation. SafeRE implementation classes and test
+helpers must be available on the processing classpath; use the reactor command above.
 
 ### Not Covered (yet)
 

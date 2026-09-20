@@ -65,12 +65,65 @@ final class ScanAudit {
     LOG.set(current);
     try {
       task.run();
+      validateDispatchPairs(current);
       return List.copyOf(current);
     } finally {
       if (previous == null) {
         LOG.remove();
       } else {
         LOG.set(previous);
+      }
+    }
+  }
+
+  /**
+   * Validates that {@code events} strictly alternates between {@link ScanPath#CONSULTED} and an
+   * execution path of matching kind and window length.
+   *
+   * @throws IllegalStateException if an event is unpaired, consecutive consultations occur, or the
+   *     kind or window length of a pair diverges
+   */
+  static void validateDispatchPairs(List<ScanEvent> events) {
+    int size = events.size();
+    if ((size & 1) != 0) {
+      throw new IllegalStateException(
+          "ScanAudit captured an odd number of events ("
+              + size
+              + "), violating the 1-to-1 (CONSULTED, path) pairing invariant: "
+              + events);
+    }
+    for (int i = 0; i < size; i += 2) {
+      ScanEvent consultation = events.get(i);
+      ScanEvent path = events.get(i + 1);
+      if (consultation.path() != ScanPath.CONSULTED) {
+        throw new IllegalStateException(
+            "ScanAudit expected ScanPath.CONSULTED at index "
+                + i
+                + " but found "
+                + consultation
+                + " in "
+                + events);
+      }
+      if (path.path() == ScanPath.CONSULTED) {
+        throw new IllegalStateException(
+            "ScanAudit expected execution path at index "
+                + (i + 1)
+                + " but found consecutive CONSULTED event "
+                + path
+                + " in "
+                + events);
+      }
+      if (consultation.kind() != path.kind()
+          || consultation.windowLength() != path.windowLength()) {
+        throw new IllegalStateException(
+            "ScanAudit dispatch pair mismatch at index "
+                + i
+                + ": consultation "
+                + consultation
+                + " does not match path "
+                + path
+                + " in "
+                + events);
       }
     }
   }

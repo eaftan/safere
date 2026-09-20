@@ -81,11 +81,23 @@ sealed interface StringStartAccelerator {
     return AcceleratorPolicy.DEFAULT;
   }
 
-  record Literal(String prefix, int anchorOffset, char anchor) implements StringStartAccelerator {
+  /**
+   * Scans for a case-sensitive literal prefix.
+   *
+   * @param singleAsciiChar the one ASCII character {@code prefix} consists of, or {@link
+   *     StringLiteralSearch#NOT_SINGLE_ASCII}. Deciding this at plan time rather than per call is
+   *     the whole point; see {@link StringLiteralSearch#singleAsciiChar}.
+   */
+  record Literal(String prefix, int anchorOffset, char anchor, int singleAsciiChar)
+      implements StringStartAccelerator {
 
     static Literal create(String prefix) {
       int anchorOffset = StringLiteralSearch.anchorOffset(prefix);
-      return new Literal(prefix, anchorOffset, StringLiteralSearch.anchorAt(prefix, anchorOffset));
+      return new Literal(
+          prefix,
+          anchorOffset,
+          StringLiteralSearch.anchorAt(prefix, anchorOffset),
+          StringLiteralSearch.singleAsciiChar(prefix));
     }
 
     @Override
@@ -94,7 +106,8 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
-      return StringLiteralSearch.indexOf(text, prefix, anchorOffset, anchor, fromIndex);
+      return StringLiteralSearch.indexOfPlanned(
+          text, prefix, anchorOffset, anchor, singleAsciiChar, fromIndex);
     }
   }
 
@@ -130,11 +143,19 @@ sealed interface StringStartAccelerator {
     }
   }
 
+  /**
+   * Scans for a literal that sits a bounded distance into the match, then walks back to the start.
+   *
+   * @param singleAsciiChar see {@link Literal#singleAsciiChar()}. This plan gains more from the
+   *     choice than {@code Literal} does, because the loop below re-searches for the literal once
+   *     per rejected candidate rather than once per call.
+   */
   record FixedOffset(
       FixedOffsetLiteral fixedOffset,
       CharClassScanInfo firstCharClass,
       int anchorOffset,
-      char anchor)
+      char anchor,
+      int singleAsciiChar)
       implements StringStartAccelerator {
 
     static FixedOffset create(FixedOffsetLiteral fixedOffset, CharClassScanInfo firstCharClass) {
@@ -144,7 +165,8 @@ sealed interface StringStartAccelerator {
           fixedOffset,
           firstCharClass,
           anchorOffset,
-          StringLiteralSearch.anchorAt(literal, anchorOffset));
+          StringLiteralSearch.anchorAt(literal, anchorOffset),
+          StringLiteralSearch.singleAsciiChar(literal));
     }
 
     @Override
@@ -154,7 +176,7 @@ sealed interface StringStartAccelerator {
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
       return nextFixedOffsetCandidate(
-          text, fixedOffset, firstCharClass, anchorOffset, anchor, fromIndex);
+          text, fixedOffset, firstCharClass, anchorOffset, anchor, singleAsciiChar, fromIndex);
     }
 
     private static int nextFixedOffsetCandidate(
@@ -163,6 +185,7 @@ sealed interface StringStartAccelerator {
         CharClassScanInfo firstCharClass,
         int anchorOffset,
         char anchor,
+        int singleAsciiChar,
         int fromIndex) {
       int minOffset = fixedOffsetLiteral.minOffset();
       if (minOffset > text.length() - fromIndex) {
@@ -173,8 +196,13 @@ sealed interface StringStartAccelerator {
 
       while (literalFrom <= text.length()) {
         int literalStart =
-            StringLiteralSearch.indexOf(
-                text, fixedOffsetLiteral.literal(), anchorOffset, anchor, literalFrom);
+            StringLiteralSearch.indexOfPlanned(
+                text,
+                fixedOffsetLiteral.literal(),
+                anchorOffset,
+                anchor,
+                singleAsciiChar,
+                literalFrom);
         if (literalStart < 0) {
           return -1;
         }
@@ -189,15 +217,26 @@ sealed interface StringStartAccelerator {
             }
             literalFrom = literalStart + 1;
             continue;
-          } else if (discreteOffsets == null
-              && fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
+          } else if (discreteOffsets != null) {
+            int resolved =
+                resolveMultiOffsetStart(
+                    text,
+                    fixedOffsetLiteral,
+                    discreteOffsets,
+                    firstCharClass,
+                    literalStart,
+                    fromIndex);
+            if (resolved >= 0) {
+              return resolved;
+            }
+            literalFrom = literalStart + 1;
+            continue;
+          } else if (fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
             int candidateStart =
-                retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex);
-            if (candidateStart >= fromIndex) {
-              int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
-              if (first >= 0 && firstCharClass.contains(first)) {
-                return candidateStart;
-              }
+                retreatedStartInClass(
+                    text, fixedOffsetLiteral, firstCharClass, literalStart, fromIndex);
+            if (candidateStart >= 0) {
+              return candidateStart;
             }
             literalFrom = literalStart + 1;
             continue;
@@ -206,6 +245,59 @@ sealed interface StringStartAccelerator {
         return Math.max(
             fromIndex,
             retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex));
+      }
+      return -1;
+    }
+
+    /**
+     * Resolves a literal occurrence at {@code literalStart} to a match start when the literal can
+     * sit at more than one offset, or returns -1 when the leading class admits none of them and the
+     * occurrence can be skipped.
+     *
+     * <p>The offsets are ascending, so the largest yields the earliest start; they are walked from
+     * the back to find the leftmost start this occurrence admits. The result is then clamped to the
+     * earliest start a <em>later</em> occurrence could imply, because the caller treats it as a
+     * floor and will not look before it, and the next occurrence is at {@code literalStart + 1} at
+     * the earliest. Without the clamp a wide offset span loses the leftmost match: on {@code
+     * (aq|b[a-z]{9})z} the {@code z} at index 5 admits only the start at 3, while the {@code z} at
+     * index 10 starts the match at 0.
+     */
+    private static int resolveMultiOffsetStart(
+        String text,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        int[] discreteOffsets,
+        CharClassScanInfo firstCharClass,
+        int literalStart,
+        int fromIndex) {
+      for (int i = discreteOffsets.length - 1; i >= 0; i--) {
+        int start = literalStart - discreteOffsets[i];
+        if (start >= fromIndex
+            && start < text.length()
+            && firstCharClass.contains(text.codePointAt(start))) {
+          return Math.max(
+              fromIndex, Math.min(start, literalStart + 1 - fixedOffsetLiteral.maxOffset()));
+        }
+      }
+      return -1;
+    }
+
+    /**
+     * Returns the start reached by retreating from {@code literalStart} over a fixed number of code
+     * points when the leading class admits it, or -1 when the occurrence can be skipped.
+     */
+    private static int retreatedStartInClass(
+        String text,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo firstCharClass,
+        int literalStart,
+        int fromIndex) {
+      int candidateStart =
+          retreatByCodePoints(text, literalStart, fixedOffsetLiteral.maxOffset(), fromIndex);
+      if (candidateStart >= fromIndex) {
+        int first = candidateStart < text.length() ? text.codePointAt(candidateStart) : -1;
+        if (first >= 0 && firstCharClass.contains(first)) {
+          return candidateStart;
+        }
       }
       return -1;
     }

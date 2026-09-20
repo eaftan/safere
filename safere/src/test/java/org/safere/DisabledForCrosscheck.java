@@ -15,7 +15,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 /**
- * Marks a SafeRE test or test class that should be disabled only in generated crosscheck tests.
+ * Controls inclusion and execution of generated crosscheck tests.
+ *
+ * <p>On a top-level test class, the annotation excludes the entire source file from generation. On
+ * a method or nested class, it disables only that element in generated crosscheck runs. Original
+ * SafeRE tests remain enabled.
  *
  * <p>The annotation is active only when the generated crosscheck test profile sets the {@code
  * org.safere.crosscheck.generatedTests} system property. Use an issue reference in the reason for

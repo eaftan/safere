@@ -52,6 +52,34 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <configuration>
+          <java>
+            <includes>
+              <include>src/main/java/**/*.java</include>
+              <include>src/test/java/**/*.java</include>
+              <include>src/build/java/**/*.java</include>
+            </includes>
+          </java>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>test-crosscheck-build-tools</id>
+            <phase>generate-test-sources</phase>
+            <goals><goal>add-test-source</goal></goals>
+            <configuration>
+              <sources><source>${project.basedir}/src/build/java</source></sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.6</version>
@@ -90,6 +118,26 @@
                         quiet="true"/>
                     <mkdir
                         dir="${project.build.directory}/generated-test-sources/crosscheck/org/safere/crosscheck/generated"/>
+                    <mkdir dir="${project.build.directory}/crosscheck-build-tools"/>
+                    <javac srcdir="${project.basedir}/src/build/java"
+                        destdir="${project.build.directory}/crosscheck-build-tools"
+                        release="21" includeantruntime="false">
+                      <compilerarg value="-proc:none"/>
+                    </javac>
+                    <delete dir="${project.build.directory}/crosscheck-selection"/>
+                    <mkdir dir="${project.build.directory}/crosscheck-selection"/>
+                    <javac srcdir="${project.basedir}/../safere/src/test/java"
+                        destdir="${project.build.directory}/crosscheck-selection"
+                        release="21" includeantruntime="false" fork="true">
+                      <classpath>
+                        <path refid="maven.test.classpath"/>
+                      </classpath>
+                      <compilerarg value="-proc:only"/>
+                      <compilerarg value="-processorpath"/>
+                      <compilerarg value="${project.build.directory}/crosscheck-build-tools"/>
+                      <compilerarg value="-processor"/>
+                      <compilerarg value="org.safere.crosscheck.build.ExclusionProcessor"/>
+                    </javac>
                     <copy
                         todir="${project.build.directory}/generated-test-sources/crosscheck/org/safere/crosscheck/generated"
                         flatten="true"
@@ -98,73 +146,7 @@
                         <include name="*Test.java"/>
                         <include name="DisabledForCrosscheck.java"/>
                         <include name="ExhaustiveUtils.java"/>
-                        <!-- Compile-time structural excludes. Each excluded test class is also
-                             annotated with @DisabledForCrosscheck in the original source. -->
-                        <exclude name="AnchorOptTest.java"/>
-                        <exclude name="AnchoredDfaCachingTest.java"/>
-                        <exclude name="AsciiBitmapTest.java"/>
-                        <exclude name="AsciiTest.java"/>
-                        <exclude name="AstAnalysisTest.java"/>
-                        <exclude name="BitStateTest.java"/>
-                        <exclude name="CharClassTest.java"/>
-                        <exclude name="CompilerTest.java"/>
-                        <exclude name="DeferredRegionCaptureTest.java"/>
-                        <exclude name="DfaNfaTest.java"/>
-                        <exclude name="DfaStartAccelerationWorkTest.java"/>
-                        <exclude name="DfaTest.java"/>
-                        <exclude name="DiagnosticsTest.java"/>
-                        <exclude name="EmptyOpTest.java"/>
-                        <exclude name="EnginePathEquivalenceTest.java"/>
-                        <exclude name="GapPatternMatchingTest.java"/>
-                        <exclude name="GraphemeLinearTimeTest.java"/>
-                        <exclude name="ClassHashChainTest.java"/>
-                        <exclude name="InstOpTest.java"/>
-                        <exclude name="InstTest.java"/>
-                        <exclude name="IntArrayListTest.java"/>
-                        <exclude name="InputScannerTest.java"/>
-                        <exclude name="MatcherDeferredCaptureStateTest.java"/>
-                        <exclude name="MatcherLinearTimeTest.java"/>
-                        <exclude name="MatcherTransitionInventoryTest.java"/>
-                        <exclude name="MatchDescriptorTest.java"/>
-                        <exclude name="MultiAnchorCompilerTest.java"/>
-                        <exclude name="MultiLiteralTest.java"/>
-                        <exclude name="NfaTest.java"/>
-                        <exclude name="OnePassTest.java"/>
-                        <exclude name="OnePassThresholdTest.java"/>
-                        <exclude name="ParseFlagsTest.java"/>
-                        <exclude name="ParserTest.java"/>
-                        <exclude name="PatternInternalTest.java"/>
-                        <exclude name="PatternSetTest.java"/>
-                        <exclude name="ProgTest.java"/>
-                        <exclude name="RarityOracleTest.java"/>
-                        <exclude name="RegexpOpTest.java"/>
-                        <exclude name="RegexpTest.java"/>
-                        <exclude name="RejectPrefilterTest.java"/>
-                        <exclude name="SafeReDiagnosticsTest.java"/>
-                        <exclude name="ScanDispatchAuditTest.java"/>
-                        <exclude name="ScopedLineModeAnchorTest.java"/>
-                        <exclude name="SearchScalingRegressionTest.java"/>
-                        <exclude name="ShiftDfaTest.java"/>
-                        <exclude name="ShortScanEquivalenceTest.java"/>
-                        <exclude name="SimplifierTest.java"/>
-                        <exclude name="StartAcceleratorDifferentialTest.java"/>
-                        <exclude name="StartAcceleratorTest.java"/>
-                        <exclude name="StringLiteralSearchTest.java"/>
-                        <exclude name="TeddyModelTest.java"/>
-                        <exclude name="UnicodeJdkConsistencyTest.java"/>
-                        <exclude name="UnicodeTablesTest.java"/>
-                        <exclude name="Utf8AllocationScalingTest.java"/>
-                        <exclude name="Utf8DiagnosticsTest.java"/>
-                        <exclude name="Utf8EnginePathEquivalenceTest.java"/>
-                        <exclude name="Utf8InputScannerTest.java"/>
-                        <exclude name="Utf8InputTest.java"/>
-                        <exclude name="Utf8LinearTimeTest.java"/>
-                        <exclude name="Utf8VectorPairTripleTest.java"/>
-                        <exclude name="UtilsTest.java"/>
-                        <exclude name="VectorSpeciesSimulationTest.java"/>
-                        <exclude name="WalkerTest.java"/>
-                        <exclude name="WorkCounterTest.java"/>
-                        <exclude name="WorkLimitTest.java"/>
+                        <excludesfile name="${project.build.directory}/crosscheck-selection/crosscheck-excludes.txt"/>
                       </fileset>
                       <filterchain>
                         <replaceregex
@@ -180,7 +162,7 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>build-helper-maven-plugin</artifactId>
-            <version>3.6.1</version>
+            <version>3.6.2</version>
             <executions>
               <execution>
                 <id>add-crosscheck-public-api-tests</id>
