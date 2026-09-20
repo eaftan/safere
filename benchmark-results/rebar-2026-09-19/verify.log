@@ -1,0 +1,418 @@
+curated/01-literal/sherlock-en,count,hyperscan,5.4.2 2024-04-19,OK
+curated/01-literal/sherlock-en,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-en,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-en,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/01-literal/sherlock-en,count,javascript/v8,24.13.1,OK
+curated/01-literal/sherlock-en,count,pcre2,10.47 2025-10-21,OK
+curated/01-literal/sherlock-en,count,pcre2/jit,10.47 2025-10-21,OK
+curated/01-literal/sherlock-en,count,re2,2025-11-05,OK
+curated/01-literal/sherlock-en,count,rust/regex,1.12.4,OK
+curated/01-literal/sherlock-casei-en,count,hyperscan,5.4.2 2024-04-19,OK
+curated/01-literal/sherlock-casei-en,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-casei-en,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-casei-en,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/01-literal/sherlock-casei-en,count,javascript/v8,24.13.1,OK
+curated/01-literal/sherlock-casei-en,count,pcre2,10.47 2025-10-21,OK
+curated/01-literal/sherlock-casei-en,count,pcre2/jit,10.47 2025-10-21,OK
+curated/01-literal/sherlock-casei-en,count,re2,2025-11-05,OK
+curated/01-literal/sherlock-casei-en,count,rust/regex,1.12.4,OK
+curated/01-literal/sherlock-ru,count,hyperscan,5.4.2 2024-04-19,OK
+curated/01-literal/sherlock-ru,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-ru,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-ru,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/01-literal/sherlock-ru,count,javascript/v8,24.13.1,OK
+curated/01-literal/sherlock-ru,count,pcre2,10.47 2025-10-21,OK
+curated/01-literal/sherlock-ru,count,pcre2/jit,10.47 2025-10-21,OK
+curated/01-literal/sherlock-ru,count,re2,2025-11-05,OK
+curated/01-literal/sherlock-ru,count,rust/regex,1.12.4,OK
+curated/01-literal/sherlock-casei-ru,count,hyperscan,5.4.2 2024-04-19,OK
+curated/01-literal/sherlock-casei-ru,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-casei-ru,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-casei-ru,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/01-literal/sherlock-casei-ru,count,javascript/v8,24.13.1,OK
+curated/01-literal/sherlock-casei-ru,count,pcre2,10.47 2025-10-21,OK
+curated/01-literal/sherlock-casei-ru,count,pcre2/jit,10.47 2025-10-21,OK
+curated/01-literal/sherlock-casei-ru,count,re2,2025-11-05,OK
+curated/01-literal/sherlock-casei-ru,count,rust/regex,1.12.4,OK
+curated/01-literal/sherlock-zh,count,hyperscan,5.4.2 2024-04-19,OK
+curated/01-literal/sherlock-zh,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-zh,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/01-literal/sherlock-zh,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/01-literal/sherlock-zh,count,javascript/v8,24.13.1,OK
+curated/01-literal/sherlock-zh,count,pcre2,10.47 2025-10-21,OK
+curated/01-literal/sherlock-zh,count,pcre2/jit,10.47 2025-10-21,OK
+curated/01-literal/sherlock-zh,count,re2,2025-11-05,OK
+curated/01-literal/sherlock-zh,count,rust/regex,1.12.4,OK
+curated/02-literal-alternate/sherlock-en,count,hyperscan,5.4.2 2024-04-19,OK
+curated/02-literal-alternate/sherlock-en,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-en,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-en,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/02-literal-alternate/sherlock-en,count,javascript/v8,24.13.1,OK
+curated/02-literal-alternate/sherlock-en,count,pcre2,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-en,count,pcre2/jit,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-en,count,re2,2025-11-05,OK
+curated/02-literal-alternate/sherlock-en,count,rust/regex,1.12.4,OK
+curated/02-literal-alternate/sherlock-casei-en,count,hyperscan,5.4.2 2024-04-19,OK
+curated/02-literal-alternate/sherlock-casei-en,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-casei-en,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-casei-en,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/02-literal-alternate/sherlock-casei-en,count,javascript/v8,24.13.1,OK
+curated/02-literal-alternate/sherlock-casei-en,count,pcre2,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-casei-en,count,pcre2/jit,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-casei-en,count,re2,2025-11-05,OK
+curated/02-literal-alternate/sherlock-casei-en,count,rust/regex,1.12.4,OK
+curated/02-literal-alternate/sherlock-ru,count,hyperscan,5.4.2 2024-04-19,OK
+curated/02-literal-alternate/sherlock-ru,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-ru,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-ru,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/02-literal-alternate/sherlock-ru,count,javascript/v8,24.13.1,OK
+curated/02-literal-alternate/sherlock-ru,count,pcre2,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-ru,count,pcre2/jit,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-ru,count,re2,2025-11-05,OK
+curated/02-literal-alternate/sherlock-ru,count,rust/regex,1.12.4,OK
+curated/02-literal-alternate/sherlock-casei-ru,count,hyperscan,5.4.2 2024-04-19,OK
+curated/02-literal-alternate/sherlock-casei-ru,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-casei-ru,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-casei-ru,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/02-literal-alternate/sherlock-casei-ru,count,javascript/v8,24.13.1,OK
+curated/02-literal-alternate/sherlock-casei-ru,count,pcre2,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-casei-ru,count,pcre2/jit,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-casei-ru,count,re2,2025-11-05,OK
+curated/02-literal-alternate/sherlock-casei-ru,count,rust/regex,1.12.4,OK
+curated/02-literal-alternate/sherlock-zh,count,hyperscan,5.4.2 2024-04-19,OK
+curated/02-literal-alternate/sherlock-zh,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-zh,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/02-literal-alternate/sherlock-zh,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/02-literal-alternate/sherlock-zh,count,javascript/v8,24.13.1,OK
+curated/02-literal-alternate/sherlock-zh,count,pcre2,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-zh,count,pcre2/jit,10.47 2025-10-21,OK
+curated/02-literal-alternate/sherlock-zh,count,re2,2025-11-05,OK
+curated/02-literal-alternate/sherlock-zh,count,rust/regex,1.12.4,OK
+curated/03-date/ascii,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/03-date/ascii,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/03-date/ascii,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/03-date/ascii,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/03-date/ascii,count-spans,javascript/v8,24.13.1,OK
+curated/03-date/ascii,count-spans,pcre2,10.47 2025-10-21,OK
+curated/03-date/ascii,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/03-date/ascii,count-spans,re2,2025-11-05,OK
+curated/03-date/ascii,count-spans,rust/regex,1.12.4,OK
+curated/03-date/unicode,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/03-date/unicode,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/03-date/unicode,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/03-date/unicode,count-spans,javascript/v8,24.13.1,OK
+curated/03-date/unicode,count-spans,pcre2,10.47 2025-10-21,OK
+curated/03-date/unicode,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/03-date/unicode,count-spans,rust/regex,1.12.4,OK
+curated/03-date/compile-ascii,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/03-date/compile-ascii,compile,pcre2,10.47 2025-10-21,OK
+curated/03-date/compile-ascii,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/03-date/compile-ascii,compile,re2,2025-11-05,OK
+curated/03-date/compile-ascii,compile,rust/regex,1.12.4,OK
+curated/03-date/compile-unicode,compile,pcre2,10.47 2025-10-21,OK
+curated/03-date/compile-unicode,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/03-date/compile-unicode,compile,rust/regex,1.12.4,OK
+curated/04-ruff-noqa/real,grep-captures,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/04-ruff-noqa/real,grep-captures,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/04-ruff-noqa/real,grep-captures,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/04-ruff-noqa/real,grep-captures,javascript/v8,24.13.1,OK
+curated/04-ruff-noqa/real,grep-captures,pcre2,10.47 2025-10-21,OK
+curated/04-ruff-noqa/real,grep-captures,pcre2/jit,10.47 2025-10-21,OK
+curated/04-ruff-noqa/real,grep-captures,re2,2025-11-05,OK
+curated/04-ruff-noqa/real,grep-captures,rust/regex,1.12.4,OK
+curated/04-ruff-noqa/tweaked,grep-captures,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/04-ruff-noqa/tweaked,grep-captures,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/04-ruff-noqa/tweaked,grep-captures,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/04-ruff-noqa/tweaked,grep-captures,javascript/v8,24.13.1,OK
+curated/04-ruff-noqa/tweaked,grep-captures,pcre2,10.47 2025-10-21,OK
+curated/04-ruff-noqa/tweaked,grep-captures,pcre2/jit,10.47 2025-10-21,OK
+curated/04-ruff-noqa/tweaked,grep-captures,re2,2025-11-05,OK
+curated/04-ruff-noqa/tweaked,grep-captures,rust/regex,1.12.4,OK
+curated/04-ruff-noqa/compile-real,compile,pcre2,10.47 2025-10-21,OK
+curated/04-ruff-noqa/compile-real,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/04-ruff-noqa/compile-real,compile,re2,2025-11-05,OK
+curated/04-ruff-noqa/compile-real,compile,rust/regex,1.12.4,OK
+curated/05-lexer-veryl/single,count-captures,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/05-lexer-veryl/single,count-captures,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/05-lexer-veryl/single,count-captures,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/05-lexer-veryl/single,count-captures,javascript/v8,24.13.1,OK
+curated/05-lexer-veryl/single,count-captures,pcre2,10.47 2025-10-21,OK
+curated/05-lexer-veryl/single,count-captures,pcre2/jit,10.47 2025-10-21,OK
+curated/05-lexer-veryl/single,count-captures,re2,2025-11-05,OK
+curated/05-lexer-veryl/single,count-captures,rust/regex,1.12.4,OK
+curated/05-lexer-veryl/compile-single,compile,pcre2,10.47 2025-10-21,OK
+curated/05-lexer-veryl/compile-single,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/05-lexer-veryl/compile-single,compile,re2,2025-11-05,OK
+curated/05-lexer-veryl/compile-single,compile,rust/regex,1.12.4,OK
+curated/05-lexer-veryl/multi,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/05-lexer-veryl/multi,count-spans,rust/regex,1.12.4,OK
+curated/06-cloud-flare-redos/original,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/06-cloud-flare-redos/original,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/06-cloud-flare-redos/original,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/06-cloud-flare-redos/original,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/06-cloud-flare-redos/original,count-spans,javascript/v8,24.13.1,OK
+curated/06-cloud-flare-redos/original,count-spans,pcre2,10.47 2025-10-21,OK
+curated/06-cloud-flare-redos/original,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/06-cloud-flare-redos/original,count-spans,re2,2025-11-05,OK
+curated/06-cloud-flare-redos/original,count-spans,rust/regex,1.12.4,OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/06-cloud-flare-redos/simplified-short,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/06-cloud-flare-redos/simplified-short,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,javascript/v8,24.13.1,OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,pcre2,10.47 2025-10-21,OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,re2,2025-11-05,OK
+curated/06-cloud-flare-redos/simplified-short,count-spans,rust/regex,1.12.4,OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/06-cloud-flare-redos/simplified-long,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/06-cloud-flare-redos/simplified-long,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,javascript/v8,24.13.1,OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,pcre2,10.47 2025-10-21,OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,re2,2025-11-05,OK
+curated/06-cloud-flare-redos/simplified-long,count-spans,rust/regex,1.12.4,OK
+curated/07-unicode-character-data/parse-line,grep-captures,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/07-unicode-character-data/parse-line,grep-captures,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/07-unicode-character-data/parse-line,grep-captures,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/07-unicode-character-data/parse-line,grep-captures,javascript/v8,24.13.1,OK
+curated/07-unicode-character-data/parse-line,grep-captures,pcre2,10.47 2025-10-21,OK
+curated/07-unicode-character-data/parse-line,grep-captures,pcre2/jit,10.47 2025-10-21,OK
+curated/07-unicode-character-data/parse-line,grep-captures,re2,2025-11-05,OK
+curated/07-unicode-character-data/parse-line,grep-captures,rust/regex,1.12.4,OK
+curated/07-unicode-character-data/compile,compile,pcre2,10.47 2025-10-21,OK
+curated/07-unicode-character-data/compile,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/07-unicode-character-data/compile,compile,re2,2025-11-05,OK
+curated/07-unicode-character-data/compile,compile,rust/regex,1.12.4,OK
+curated/08-words/all-english,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/08-words/all-english,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/all-english,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/all-english,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/08-words/all-english,count-spans,javascript/v8,24.13.1,OK
+curated/08-words/all-english,count-spans,pcre2,10.47 2025-10-21,OK
+curated/08-words/all-english,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/08-words/all-english,count-spans,re2,2025-11-05,OK
+curated/08-words/all-english,count-spans,rust/regex,1.12.4,OK
+curated/08-words/all-russian,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/all-russian,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/all-russian,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/08-words/all-russian,count-spans,pcre2,10.47 2025-10-21,OK
+curated/08-words/all-russian,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/08-words/all-russian,count-spans,rust/regex,1.12.4,OK
+curated/08-words/long-english,count-spans,hyperscan,5.4.2 2024-04-19,OK
+curated/08-words/long-english,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/long-english,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/long-english,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/08-words/long-english,count-spans,javascript/v8,24.13.1,OK
+curated/08-words/long-english,count-spans,pcre2,10.47 2025-10-21,OK
+curated/08-words/long-english,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/08-words/long-english,count-spans,re2,2025-11-05,OK
+curated/08-words/long-english,count-spans,rust/regex,1.12.4,OK
+curated/08-words/long-russian,count-spans,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/long-russian,count-spans,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/08-words/long-russian,count-spans,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/08-words/long-russian,count-spans,pcre2,10.47 2025-10-21,OK
+curated/08-words/long-russian,count-spans,pcre2/jit,10.47 2025-10-21,OK
+curated/08-words/long-russian,count-spans,rust/regex,1.12.4,OK
+curated/09-aws-keys/full,grep-captures,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/09-aws-keys/full,grep-captures,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/09-aws-keys/full,grep-captures,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/09-aws-keys/full,grep-captures,javascript/v8,24.13.1,OK
+curated/09-aws-keys/full,grep-captures,pcre2,10.47 2025-10-21,OK
+curated/09-aws-keys/full,grep-captures,pcre2/jit,10.47 2025-10-21,OK
+curated/09-aws-keys/full,grep-captures,re2,2025-11-05,OK
+curated/09-aws-keys/full,grep-captures,rust/regex,1.12.4,OK
+curated/09-aws-keys/quick,grep,hyperscan,5.4.2 2024-04-19,OK
+curated/09-aws-keys/quick,grep,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/09-aws-keys/quick,grep,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/09-aws-keys/quick,grep,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/09-aws-keys/quick,grep,javascript/v8,24.13.1,OK
+curated/09-aws-keys/quick,grep,pcre2,10.47 2025-10-21,OK
+curated/09-aws-keys/quick,grep,pcre2/jit,10.47 2025-10-21,OK
+curated/09-aws-keys/quick,grep,re2,2025-11-05,OK
+curated/09-aws-keys/quick,grep,rust/regex,1.12.4,OK
+curated/09-aws-keys/compile-full,compile,pcre2,10.47 2025-10-21,OK
+curated/09-aws-keys/compile-full,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/09-aws-keys/compile-full,compile,re2,2025-11-05,OK
+curated/09-aws-keys/compile-full,compile,rust/regex,1.12.4,OK
+curated/09-aws-keys/compile-quick,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/09-aws-keys/compile-quick,compile,pcre2,10.47 2025-10-21,OK
+curated/09-aws-keys/compile-quick,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/09-aws-keys/compile-quick,compile,re2,2025-11-05,OK
+curated/09-aws-keys/compile-quick,compile,rust/regex,1.12.4,OK
+curated/10-bounded-repeat/letters-en,count,hyperscan,5.4.2 2024-04-19,OK
+curated/10-bounded-repeat/letters-en,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/letters-en,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/letters-en,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/10-bounded-repeat/letters-en,count,javascript/v8,24.13.1,OK
+curated/10-bounded-repeat/letters-en,count,pcre2,10.47 2025-10-21,OK
+curated/10-bounded-repeat/letters-en,count,pcre2/jit,10.47 2025-10-21,OK
+curated/10-bounded-repeat/letters-en,count,re2,2025-11-05,OK
+curated/10-bounded-repeat/letters-en,count,rust/regex,1.12.4,OK
+curated/10-bounded-repeat/letters-ru,count,hyperscan,5.4.2 2024-04-19,OK
+curated/10-bounded-repeat/letters-ru,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/letters-ru,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/letters-ru,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/10-bounded-repeat/letters-ru,count,javascript/v8,24.13.1,OK
+curated/10-bounded-repeat/letters-ru,count,pcre2,10.47 2025-10-21,OK
+curated/10-bounded-repeat/letters-ru,count,pcre2/jit,10.47 2025-10-21,OK
+curated/10-bounded-repeat/letters-ru,count,re2,2025-11-05,OK
+curated/10-bounded-repeat/letters-ru,count,rust/regex,1.12.4,OK
+curated/10-bounded-repeat/context,count,hyperscan,5.4.2 2024-04-19,OK
+curated/10-bounded-repeat/context,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/context,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/context,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/10-bounded-repeat/context,count,javascript/v8,24.13.1,OK
+curated/10-bounded-repeat/context,count,pcre2,10.47 2025-10-21,OK
+curated/10-bounded-repeat/context,count,pcre2/jit,10.47 2025-10-21,OK
+curated/10-bounded-repeat/context,count,re2,2025-11-05,OK
+curated/10-bounded-repeat/context,count,rust/regex,1.12.4,OK
+curated/10-bounded-repeat/capitals,count,hyperscan,5.4.2 2024-04-19,OK
+curated/10-bounded-repeat/capitals,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/capitals,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/10-bounded-repeat/capitals,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/10-bounded-repeat/capitals,count,javascript/v8,24.13.1,OK
+curated/10-bounded-repeat/capitals,count,pcre2,10.47 2025-10-21,OK
+curated/10-bounded-repeat/capitals,count,pcre2/jit,10.47 2025-10-21,OK
+curated/10-bounded-repeat/capitals,count,re2,2025-11-05,OK
+curated/10-bounded-repeat/capitals,count,rust/regex,1.12.4,OK
+curated/10-bounded-repeat/compile-context,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/10-bounded-repeat/compile-context,compile,pcre2,10.47 2025-10-21,OK
+curated/10-bounded-repeat/compile-context,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/10-bounded-repeat/compile-context,compile,re2,2025-11-05,OK
+curated/10-bounded-repeat/compile-context,compile,rust/regex,1.12.4,OK
+curated/10-bounded-repeat/compile-capitals,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/10-bounded-repeat/compile-capitals,compile,pcre2,10.47 2025-10-21,OK
+curated/10-bounded-repeat/compile-capitals,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/10-bounded-repeat/compile-capitals,compile,re2,2025-11-05,OK
+curated/10-bounded-repeat/compile-capitals,compile,rust/regex,1.12.4,OK
+curated/11-unstructured-to-json/extract,grep-captures,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/11-unstructured-to-json/extract,grep-captures,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/11-unstructured-to-json/extract,grep-captures,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/11-unstructured-to-json/extract,grep-captures,javascript/v8,24.13.1,OK
+curated/11-unstructured-to-json/extract,grep-captures,pcre2,10.47 2025-10-21,OK
+curated/11-unstructured-to-json/extract,grep-captures,pcre2/jit,10.47 2025-10-21,OK
+curated/11-unstructured-to-json/extract,grep-captures,re2,2025-11-05,OK
+curated/11-unstructured-to-json/extract,grep-captures,rust/regex,1.12.4,OK
+curated/11-unstructured-to-json/compile,compile,pcre2,10.47 2025-10-21,OK
+curated/11-unstructured-to-json/compile,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/11-unstructured-to-json/compile,compile,re2,2025-11-05,OK
+curated/11-unstructured-to-json/compile,compile,rust/regex,1.12.4,OK
+curated/12-dictionary/single,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/12-dictionary/single,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/12-dictionary/single,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/12-dictionary/single,count,javascript/v8,24.13.1,OK
+curated/12-dictionary/single,count,re2,2025-11-05,OK
+curated/12-dictionary/single,count,rust/regex,1.12.4,OK
+curated/12-dictionary/multi,count,hyperscan,5.4.2 2024-04-19,OK
+curated/12-dictionary/multi,count,rust/regex,1.12.4,OK
+curated/12-dictionary/compile-single,compile,re2,2025-11-05,OK
+curated/12-dictionary/compile-single,compile,rust/regex,1.12.4,OK
+curated/12-dictionary/compile-multi,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/12-dictionary/compile-multi,compile,rust/regex,1.12.4,OK
+curated/13-noseyparker/single,count,hyperscan,5.4.2 2024-04-19,OK
+curated/13-noseyparker/single,count,pcre2/jit,10.47 2025-10-21,OK
+curated/13-noseyparker/single,count,rust/regex,1.12.4,OK
+curated/13-noseyparker/multi,count,hyperscan,5.4.2 2024-04-19,OK
+curated/13-noseyparker/multi,count,rust/regex,1.12.4,OK
+curated/13-noseyparker/compile-single,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/13-noseyparker/compile-single,compile,pcre2/jit,10.47 2025-10-21,OK
+curated/13-noseyparker/compile-single,compile,rust/regex,1.12.4,OK
+curated/13-noseyparker/compile-multi,compile,hyperscan,5.4.2 2024-04-19,OK
+curated/13-noseyparker/compile-multi,compile,rust/regex,1.12.4,OK
+curated/14-quadratic/1x,count,hyperscan,5.4.2 2024-04-19,OK
+curated/14-quadratic/1x,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/14-quadratic/1x,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/14-quadratic/1x,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/14-quadratic/1x,count,javascript/v8,24.13.1,OK
+curated/14-quadratic/1x,count,pcre2,10.47 2025-10-21,OK
+curated/14-quadratic/1x,count,pcre2/jit,10.47 2025-10-21,OK
+curated/14-quadratic/1x,count,re2,2025-11-05,OK
+curated/14-quadratic/1x,count,rust/regex,1.12.4,OK
+curated/14-quadratic/2x,count,hyperscan,5.4.2 2024-04-19,OK
+curated/14-quadratic/2x,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/14-quadratic/2x,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/14-quadratic/2x,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/14-quadratic/2x,count,javascript/v8,24.13.1,OK
+curated/14-quadratic/2x,count,pcre2,10.47 2025-10-21,OK
+curated/14-quadratic/2x,count,pcre2/jit,10.47 2025-10-21,OK
+curated/14-quadratic/2x,count,re2,2025-11-05,OK
+curated/14-quadratic/2x,count,rust/regex,1.12.4,OK
+curated/14-quadratic/10x,count,hyperscan,5.4.2 2024-04-19,OK
+curated/14-quadratic/10x,count,java/hotspot,26.0.2+10-55,OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/14-quadratic/10x,count,safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+WARNING: Using incubator modules: jdk.incubator.vector
+curated/14-quadratic/10x,count,safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),OK
+curated/14-quadratic/10x,count,javascript/v8,24.13.1,OK
+curated/14-quadratic/10x,count,pcre2,10.47 2025-10-21,OK
+curated/14-quadratic/10x,count,pcre2/jit,10.47 2025-10-21,OK
+curated/14-quadratic/10x,count,re2,2025-11-05,OK
+curated/14-quadratic/10x,count,rust/regex,1.12.4,OK

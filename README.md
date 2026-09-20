@@ -515,6 +515,14 @@ See
 [`safere-benchmarks/BENCHMARK_INPUTS.md`](safere-benchmarks/BENCHMARK_INPUTS.md)
 for details.
 
+An [archived Rebar comparison](benchmark-results/rebar-2026-09-19/README.md)
+contains the full results from a September 2026 run of Rebar's curated
+workloads with SafeRE String and UTF-8, plus seven other engines. The likely
+SafeRE commit is identified in the archive, although the exact SNAPSHOT JAR
+cannot be confirmed from the retained artifacts. This run is documented
+separately from the commit-attributed results in
+[`BENCHMARKS.md`](BENCHMARKS.md).
+
 Java workload additions are data-only: declarations select generic operations,
 engine capabilities, inputs, timing modes, and result consumption. See
 [`safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md`](safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md)

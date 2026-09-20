@@ -1,0 +1,351 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,899232,109132,4.61s,26.43us,1.03us,27.43us,6.53us,23.36us,725.41us
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,899232,6342,4.77s,473.83us,11.31us,472.26us,38.44us,407.48us,1.26ms
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,19499,5.27s,150.02us,512.00ns,153.44us,16.94us,146.43us,1.14ms
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,16179,5.22s,179.97us,512.00ns,184.99us,24.08us,178.18us,1.40ms
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,899232,18100,4.57s,161.40us,1.33us,165.45us,18.14us,155.94us,898.24us
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,899232,21638,4.52s,134.97us,1.55us,138.57us,16.82us,131.41us,1.04ms
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,899232,63233,4.59s,46.25us,324.00ns,47.38us,8.22us,44.85us,822.79us
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,899232,32040,4.58s,91.19us,1.68us,93.57us,14.76us,85.05us,878.97us
+curated/01-literal/sherlock-en,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,899232,101121,4.61s,28.45us,186.00ns,29.61us,6.71us,28.16us,734.96us
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,899232,102791,4.60s,28.04us,757.00ns,29.12us,6.51us,24.80us,836.68us
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,899232,656,4.66s,4.51ms,86.84us,4.57ms,267.02us,4.30ms,8.30ms
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,5306,5.27s,555.01us,7.17us,564.42us,43.79us,533.50us,2.08ms
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,12126,5.42s,240.90us,2.82us,246.94us,44.75us,226.82us,2.22ms
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,899232,7426,4.58s,396.12us,3.89us,403.54us,27.79us,391.46us,1.15ms
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,899232,2800,4.51s,1.06ms,19.31us,1.07ms,62.79us,1.01ms,1.91ms
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,899232,45029,4.58s,64.78us,842.00ns,66.55us,11.13us,62.33us,817.48us
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,899232,7197,4.52s,411.56us,7.09us,416.76us,33.41us,385.95us,1.78ms
+curated/01-literal/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,899232,31510,4.58s,93.11us,253.00ns,95.14us,11.68us,90.67us,807.60us
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,1570556,8326,4.52s,354.04us,3.16us,360.23us,25.52us,344.21us,1.13ms
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,1570556,5774,4.72s,518.67us,9.79us,518.72us,42.34us,445.57us,1.30ms
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,19567,5.27s,146.69us,256.00ns,152.91us,18.97us,146.18us,899.07us
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,4728,5.22s,622.59us,7.17us,633.46us,41.96us,604.16us,1.39ms
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,1570556,62402,4.64s,46.33us,1.09us,47.86us,8.62us,44.57us,764.94us
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,1570556,4,5.06s,844.97ms,3.66ms,843.33ms,5.87ms,834.47ms,848.91ms
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,1570556,43572,4.62s,66.45us,370.00ns,68.79us,12.47us,65.37us,1.45ms
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,1570556,1365,4.51s,2.17ms,25.71us,2.20ms,101.92us,2.11ms,3.54ms
+curated/01-literal/sherlock-ru,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,1570556,57713,4.59s,50.39us,727.00ns,51.92us,9.99us,48.95us,0.96ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,1570556,11798,4.57s,248.05us,5.78us,254.20us,24.89us,236.93us,1.06ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,1570556,337,4.66s,8.79ms,91.33us,8.81ms,168.13us,8.54ms,9.77ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,1926,5.37s,1.53ms,12.29us,1.56ms,98.31us,1.50ms,3.56ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,548,5.37s,5.45ms,49.15us,5.48ms,186.31us,5.28ms,8.00ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,1570556,5968,4.57s,490.99us,7.16us,502.13us,41.97us,477.19us,2.00ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,1570556,4,5.32s,869.23ms,6.47ms,870.36ms,8.28ms,860.81ms,882.17ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,1570556,26848,4.58s,108.55us,854.00ns,111.66us,17.62us,104.55us,1.54ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,1570556,1737,4.51s,1.71ms,28.66us,1.73ms,83.52us,1.66ms,2.67ms
+curated/01-literal/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,1570556,14645,4.52s,198.80us,747.00ns,204.80us,23.09us,193.65us,0.98ms
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,813478,204658,4.69s,13.78us,336.00ns,14.60us,5.14us,13.15us,845.80us
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,813478,17405,4.77s,167.43us,3.13us,171.84us,18.99us,163.43us,930.15us
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,813478,47663,5.33s,61.50us,64.00ns,62.81us,15.68us,51.71us,2.53ms
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,813478,19339,5.22s,150.78us,1.28us,154.67us,18.14us,146.69us,906.24us
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,813478,36115,4.65s,80.08us,713.00ns,82.75us,13.80us,77.23us,873.21us
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,813478,197,4.57s,15.17ms,104.85us,15.25ms,286.36us,14.93ms,17.04ms
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,813478,103933,4.60s,28.10us,50.00ns,28.80us,6.58us,27.37us,766.78us
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,813478,9401,4.52s,311.16us,453.00ns,319.04us,28.94us,306.98us,1.09ms
+curated/01-literal/sherlock-zh,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,813478,132005,4.62s,22.17us,171.00ns,22.66us,6.87us,21.36us,934.47us
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,899232,50879,4.62s,57.18us,0.98us,58.89us,10.21us,53.61us,882.50us
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,899232,135,4.71s,21.89ms,397.70us,22.23ms,674.67us,21.39ms,24.13ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,1275,5.27s,2.31ms,20.48us,2.35ms,117.96us,2.28ms,3.48ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,15281,5.53s,189.18us,3.07us,195.84us,41.30us,177.92us,1.75ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,899232,2147,4.56s,1.37ms,9.58us,1.40ms,66.08us,1.35ms,2.17ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,899232,2637,4.51s,1.13ms,12.63us,1.14ms,54.17us,1.08ms,2.04ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,899232,4871,4.51s,609.61us,6.39us,615.86us,36.54us,585.73us,1.39ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,899232,2919,4.52s,1.01ms,7.06us,1.03ms,71.45us,0.99ms,2.67ms
+curated/02-literal-alternate/sherlock-en,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,899232,37043,4.58s,78.35us,292.00ns,80.91us,12.29us,77.61us,817.32us
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,899232,49559,4.59s,58.83us,802.00ns,60.46us,9.95us,55.29us,775.83us
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,899232,128,4.66s,24.44ms,394.02us,23.55ms,2.06ms,20.11ms,30.66ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,1295,5.27s,2.27ms,24.58us,2.31ms,134.37us,2.20ms,4.37ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,899232,1110,5.27s,2.67ms,28.67us,2.70ms,121.23us,2.57ms,4.33ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,899232,2070,4.56s,1.43ms,22.75us,1.45ms,63.47us,1.37ms,2.19ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,899232,509,4.51s,5.86ms,62.21us,5.90ms,156.68us,5.64ms,6.74ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,899232,2170,4.51s,1.37ms,12.00us,1.38ms,67.10us,1.32ms,2.93ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,899232,2935,4.51s,1.00ms,13.43us,1.02ms,69.20us,0.98ms,2.40ms
+curated/02-literal-alternate/sherlock-casei-en,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,899232,9128,4.52s,320.17us,2.07us,328.58us,28.78us,316.16us,1.10ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,1570556,10609,4.58s,275.90us,3.38us,282.70us,25.82us,269.52us,1.04ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,1570556,135,4.71s,22.30ms,359.85us,22.31ms,709.26us,21.46ms,28.78ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,434,5.27s,6.88ms,73.73us,6.92ms,206.44us,6.63ms,8.44ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,403,5.27s,7.43ms,98.30us,7.45ms,303.65us,7.17ms,11.47ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,1570556,1699,4.56s,1.74ms,24.94us,1.77ms,119.45us,1.67ms,5.19ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,1570556,3,5.22s,1.01s,1.18ms,1.02s,6.43ms,1.01s,1.03s
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,1570556,2179,4.51s,1.36ms,12.06us,1.38ms,58.69us,1.32ms,2.82ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,1570556,1690,4.51s,1.74ms,11.79us,1.78ms,76.00us,1.72ms,2.53ms
+curated/02-literal-alternate/sherlock-ru,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,1570556,12067,4.52s,242.88us,4.76us,248.54us,26.62us,235.52us,1.00ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,1570556,6517,4.57s,451.93us,9.06us,460.29us,35.43us,436.96us,1.35ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,1570556,82,4.66s,36.45ms,378.24us,36.58ms,591.07us,35.45ms,38.22ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,430,5.47s,6.92ms,73.73us,6.98ms,245.10us,6.70ms,9.21ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1570556,409,5.42s,7.29ms,98.30us,7.34ms,288.88us,7.01ms,11.44ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,1570556,1067,4.56s,2.78ms,33.42us,2.81ms,97.71us,2.69ms,3.74ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,1570556,3,5.62s,1.12s,21.62ms,1.12s,22.19ms,1.09s,1.15s
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,1570556,471,4.51s,6.32ms,51.03us,6.38ms,242.50us,6.19ms,9.07ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,1570556,1680,4.51s,1.76ms,10.28us,1.79ms,98.39us,1.70ms,3.75ms
+curated/02-literal-alternate/sherlock-casei-ru,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,1570556,2864,4.51s,1.04ms,14.79us,1.05ms,86.92us,0.99ms,3.93ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,813478,64952,4.59s,45.03us,701.00ns,46.12us,8.73us,42.27us,848.31us
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,813478,423,4.66s,6.72ms,293.28us,7.10ms,635.83us,6.30ms,9.67ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,813478,1314,5.27s,2.24ms,40.96us,2.28ms,116.84us,2.15ms,3.54ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,813478,897,5.16s,3.31ms,36.86us,3.34ms,145.46us,3.21ms,6.05ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,813478,22610,4.57s,128.95us,1.14us,132.41us,15.38us,124.62us,869.44us
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,813478,29,4.61s,102.82ms,1.03ms,104.19ms,2.63ms,101.73ms,110.28ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,813478,8993,4.52s,324.19us,3.01us,333.52us,28.13us,320.12us,1.09ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,813478,3412,4.51s,868.47us,8.91us,879.24us,46.69us,856.13us,1.81ms
+curated/02-literal-alternate/sherlock-zh,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,813478,45976,4.58s,63.60us,117.00ns,65.18us,10.00us,63.21us,776.22us
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,268796,917,5.12s,3.25ms,28.60us,3.27ms,106.63us,3.18ms,4.60ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,268796,18,4.66s,167.31ms,809.23us,167.62ms,1.33ms,166.05ms,170.43ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,268796,820,5.62s,3.59ms,77.82us,3.66ms,284.85us,3.37ms,6.78ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,268796,829,5.52s,3.57ms,65.54us,3.62ms,277.69us,3.26ms,6.12ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,268796,255,4.56s,11.77ms,91.79us,11.81ms,242.01us,11.29ms,13.76ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,268796,10,4.66s,308.53ms,136.41us,309.14ms,1.17ms,308.33ms,311.90ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,268796,184,4.56s,16.32ms,115.49us,16.36ms,309.78us,15.86ms,18.72ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,268796,752,4.51s,3.96ms,47.03us,3.99ms,120.55us,3.81ms,4.98ms
+curated/03-date/ascii,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,268796,1437,4.51s,2.07ms,18.49us,2.09ms,78.35us,1.98ms,2.88ms
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,268796,15,4.81s,200.27ms,253.26us,200.61ms,861.16us,199.80ms,203.08ms
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,268796,796,5.77s,3.70ms,71.68us,3.77ms,351.02us,3.46ms,9.93ms
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,268796,801,5.77s,3.69ms,61.44us,3.74ms,422.93us,3.48ms,13.63ms
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,268796,251,4.56s,11.85ms,185.83us,11.97ms,581.79us,11.44ms,17.78ms
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,268796,2,6.47s,2.14s,3.39ms,2.14s,3.39ms,2.14s,2.14s
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,268796,116,4.56s,25.86ms,175.66us,26.08ms,906.77us,25.42ms,33.55ms
+curated/03-date/unicode,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,268796,1428,4.57s,2.08ms,33.22us,2.10ms,101.70us,1.99ms,3.15ms
+curated/03-date/compile-ascii,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,3,5.52s,1.09s,2.07ms,1.08s,4.25ms,1.08s,1.09s
+curated/03-date/compile-ascii,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,18663,4.52s,147.60us,2.69us,151.06us,18.43us,139.40us,0.96ms
+curated/03-date/compile-ascii,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,2629,4.51s,1.08ms,15.89us,1.12ms,98.21us,1.04ms,2.00ms
+curated/03-date/compile-ascii,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,1359,4.51s,1.38ms,13.95us,1.39ms,63.83us,1.32ms,2.26ms
+curated/03-date/compile-ascii,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,1659,4.51s,1.65ms,20.42us,1.66ms,72.80us,1.57ms,2.45ms
+curated/03-date/compile-unicode,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,14106,4.52s,198.92us,1.76us,203.23us,20.44us,193.95us,949.69us
+curated/03-date/compile-unicode,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,1791,4.51s,1.59ms,27.47us,1.65ms,136.78us,1.54ms,4.26ms
+curated/03-date/compile-unicode,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,434,4.51s,6.47ms,149.23us,6.54ms,301.64us,6.21ms,8.24ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,32514634,3,6.52s,1.13s,2.22us,1.12s,2.20ms,1.12s,1.13s
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,18,6.57s,169.35ms,1.05ms,169.53ms,1.91ms,166.72ms,173.80ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,24,6.32s,125.70ms,1.11ms,126.26ms,2.21ms,122.68ms,131.99ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,32514634,12,5.02s,264.33ms,4.02ms,268.24ms,9.67ms,258.81ms,289.07ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,32514634,11,5.16s,293.56ms,669.09us,299.14ms,10.82ms,291.47ms,322.76ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,32514634,47,4.71s,64.69ms,313.63us,65.03ms,781.41us,64.00ms,66.48ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,32514634,43,4.61s,70.03ms,289.33us,70.09ms,696.95us,68.88ms,73.10ms
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,32514634,126,4.62s,23.72ms,137.93us,23.82ms,392.68us,23.08ms,25.24ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,32514634,16,5.53s,183.11ms,9.11ms,194.82ms,22.55ms,173.47ms,237.14ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,54,6.07s,55.51ms,786.43us,56.10ms,1.57ms,54.59ms,63.37ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,26,6.27s,112.07ms,1.05ms,116.31ms,15.81ms,108.92ms,178.26ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,32514634,34,4.82s,84.22ms,1.70ms,89.81ms,9.82ms,81.29ms,118.83ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,32514634,101,4.61s,29.45ms,169.64us,29.90ms,1.20ms,29.11ms,34.39ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,32514634,108,4.61s,27.74ms,227.01us,27.86ms,475.70us,27.20ms,31.15ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,32514634,70,4.66s,43.27ms,183.46us,43.35ms,421.68us,42.42ms,45.26ms
+curated/04-ruff-noqa/tweaked,grep-captures,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,32514634,122,4.61s,24.58ms,110.23us,24.64ms,286.18us,24.34ms,26.80ms
+curated/04-ruff-noqa/compile-real,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,1000000,4.30s,1.59us,14.00ns,1.65us,1.44us,1.53us,697.44us
+curated/04-ruff-noqa/compile-real,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,155338,4.68s,10.89us,96.00ns,11.44us,6.14us,9.95us,723.46us
+curated/04-ruff-noqa/compile-real,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,142856,4.69s,8.91us,179.00ns,9.33us,3.76us,8.15us,721.80us
+curated/04-ruff-noqa/compile-real,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,38376,4.58s,70.03us,1.87us,72.36us,11.69us,63.17us,862.73us
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,150600,103,4.61s,29.08ms,321.24us,29.32ms,671.44us,28.50ms,31.89ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,150600,41,5.67s,74.58ms,786.43us,74.62ms,1.21ms,72.61ms,78.64ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,150600,40,5.67s,76.22ms,2.03ms,76.71ms,2.75ms,73.27ms,84.93ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,150600,122,4.57s,24.53ms,156.32us,24.62ms,481.74us,24.05ms,26.97ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,150600,37,4.56s,81.34ms,246.73us,81.50ms,492.48us,80.86ms,82.85ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,150600,202,4.56s,14.88ms,158.70us,14.90ms,251.95us,14.53ms,15.82ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,150600,19,4.76s,162.45ms,673.06us,162.93ms,1.59ms,160.89ms,167.36ms
+curated/05-lexer-veryl/single,count-captures,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,150600,155,4.56s,19.34ms,159.27us,19.41ms,392.27us,18.93ms,22.54ms
+curated/05-lexer-veryl/compile-single,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,81464,4.63s,31.46us,226.00ns,32.60us,7.23us,30.59us,818.68us
+curated/05-lexer-veryl/compile-single,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,15037,4.52s,177.69us,4.20us,188.89us,47.37us,170.90us,1.18ms
+curated/05-lexer-veryl/compile-single,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,8887,4.52s,179.48us,4.17us,183.31us,20.93us,166.64us,922.68us
+curated/05-lexer-veryl/compile-single,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,8885,4.52s,313.03us,7.53us,321.41us,32.41us,297.24us,1.10ms
+curated/05-lexer-veryl/multi,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,150600,267,4.56s,11.15ms,86.35us,11.24ms,298.24us,10.94ms,13.19ms
+curated/05-lexer-veryl/multi,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,150600,1246,4.51s,2.36ms,29.75us,2.41ms,136.50us,2.28ms,3.66ms
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,107,1000000,4.04s,1.55us,24.00ns,1.60us,1.63us,1.45us,716.99us
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,107,188390,5.24s,15.24us,173.00ns,15.88us,18.27us,14.56us,2.56ms
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,107,118247,5.56s,395.00ns,4.00ns,455.00ns,3.62us,376.00ns,1.17ms
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,107,99984,5.50s,455.00ns,14.00ns,534.00ns,4.09us,419.00ns,1.05ms
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,107,505118,5.16s,5.64us,73.00ns,5.82us,9.64us,5.50us,4.33ms
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,107,64153,4.59s,45.29us,409.00ns,46.70us,10.04us,43.86us,812.36us
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,107,1000000,4.76s,2.28us,17.00ns,2.34us,1.78us,2.18us,729.40us
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,107,1000000,1.64s,352.00ns,2.00ns,381.00ns,844.00ns,343.00ns,649.25us
+curated/06-cloud-flare-redos/original,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,107,1000000,1.29s,205.00ns,1.00ns,212.00ns,326.00ns,199.00ns,180.75us
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,102,1000000,3.96s,1.54us,21.00ns,1.58us,1.26us,1.44us,715.41us
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,102,137095,5.12s,21.18us,28.00ns,21.81us,16.55us,20.66us,2.57ms
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,102,111248,5.51s,412.00ns,3.00ns,481.00ns,4.14us,394.00ns,1.33ms
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,102,97256,5.50s,479.00ns,9.00ns,545.00ns,2.63us,438.00ns,688.13us
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,102,476655,5.15s,5.97us,24.00ns,6.18us,11.23us,5.79us,6.13ms
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,102,69619,4.59s,41.63us,396.00ns,43.03us,9.39us,39.19us,769.84us
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,102,1000000,4.83s,2.33us,29.00ns,2.40us,1.74us,2.19us,723.40us
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,102,1000000,1.58s,344.00ns,3.00ns,357.00ns,782.00ns,334.00ns,684.17us
+curated/06-cloud-flare-redos/simplified-short,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,102,1000000,1.02s,65.00ns,1.00ns,67.00ns,123.00ns,61.00ns,32.68us
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,10001,18571,4.52s,159.46us,3.39us,161.47us,17.72us,146.13us,0.97ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,10001,23,4.72s,133.65ms,534.15us,134.30ms,1.78ms,132.71ms,139.26ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,10001,43018,5.38s,30.98us,512.00ns,34.94us,18.83us,30.24us,2.45ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,10001,43294,5.41s,33.60us,64.00ns,34.67us,15.21us,32.35us,2.61ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,10001,72,4.61s,41.91ms,176.40us,42.09ms,731.38us,41.54ms,45.91ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,10001,8,4.66s,386.95ms,1.47ms,386.94ms,1.58ms,384.92ms,389.49ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,10001,190,4.56s,15.73ms,100.58us,15.82ms,286.91us,15.57ms,17.51ms
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,10001,129471,4.62s,22.67us,18.00ns,23.12us,5.62us,22.18us,790.00us
+curated/06-cloud-flare-redos/simplified-long,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,10001,1000000,1.15s,140.00ns,2.00ns,142.00ns,172.00ns,127.00ns,57.09us
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,1913704,276,4.72s,10.70ms,92.15us,10.87ms,507.04us,10.47ms,13.02ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1913704,270,5.37s,11.01ms,163.84us,11.13ms,584.88us,10.45ms,15.30ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1913704,279,5.32s,10.47ms,327.68us,10.78ms,641.64us,9.88ms,13.03ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,1913704,391,4.56s,7.40ms,196.26us,7.67ms,740.32us,7.10ms,13.68ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,1913704,249,4.56s,11.94ms,93.35us,12.05ms,514.60us,11.72ms,18.56ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,1913704,706,4.57s,4.20ms,56.73us,4.25ms,217.63us,4.07ms,7.37ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,1913704,138,4.56s,21.75ms,156.97us,21.85ms,406.03us,21.41ms,24.79ms
+curated/07-unicode-character-data/parse-line,grep-captures,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,1913704,503,4.56s,5.93ms,51.48us,5.97ms,184.47us,5.75ms,7.93ms
+curated/07-unicode-character-data/compile,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,848008,5.19s,2.88us,21.00ns,2.96us,2.03us,2.78us,747.51us
+curated/07-unicode-character-data/compile,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,118764,4.61s,16.47us,187.00ns,17.30us,6.96us,15.34us,731.50us
+curated/07-unicode-character-data/compile,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,106781,4.61s,18.34us,228.00ns,18.98us,5.33us,17.23us,762.56us
+curated/07-unicode-character-data/compile,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,70393,4.59s,32.29us,426.00ns,33.61us,8.13us,30.58us,784.30us
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,76401,5400,4.52s,546.63us,4.78us,555.50us,39.98us,520.44us,1.37ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,76401,2290,4.67s,1.29ms,11.52us,1.31ms,71.11us,1.24ms,2.23ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,76401,1953,5.27s,1.49ms,24.58us,1.53ms,163.66us,1.41ms,3.16ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,76401,1885,5.22s,1.52ms,22.53us,1.59ms,318.60us,1.46ms,6.47ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,76401,4584,4.57s,641.19us,21.64us,653.97us,67.62us,558.79us,2.32ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,76401,3281,4.51s,901.24us,12.43us,914.39us,62.50us,861.88us,1.90ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,76401,6045,4.52s,486.97us,11.39us,496.22us,42.16us,456.71us,1.26ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,76401,2133,4.51s,1.38ms,18.93us,1.41ms,81.26us,1.31ms,2.35ms
+curated/08-words/all-english,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,76401,3840,4.52s,770.26us,7.73us,781.33us,55.50us,740.13us,2.87ms
+curated/08-words/all-russian,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,123942,2725,4.66s,1.08ms,17.76us,1.10ms,72.86us,1.03ms,2.22ms
+curated/08-words/all-russian,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,123942,1934,5.27s,1.51ms,18.43us,1.55ms,142.87us,1.46ms,2.89ms
+curated/08-words/all-russian,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,123942,1369,5.32s,2.13ms,36.86us,2.19ms,203.34us,2.00ms,4.43ms
+curated/08-words/all-russian,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,123942,3,5.31s,1.04s,1.67ms,1.04s,5.82ms,1.04s,1.05s
+curated/08-words/all-russian,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,123942,4830,4.51s,611.90us,7.26us,621.08us,47.83us,584.11us,1.94ms
+curated/08-words/all-russian,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,123942,423,4.51s,7.04ms,92.37us,7.09ms,231.39us,6.84ms,8.53ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,76401,15785,4.52s,185.79us,613.00ns,189.98us,18.76us,183.45us,1.00ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,76401,2283,4.67s,1.30ms,19.24us,1.31ms,62.29us,1.24ms,2.26ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,76401,16021,5.22s,184.58us,6.66us,186.90us,38.92us,163.84us,2.21ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,76401,17878,5.22s,162.56us,2.56us,167.45us,40.17us,155.90us,3.10ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,76401,6077,4.57s,482.05us,6.12us,493.41us,43.16us,462.53us,1.97ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,76401,2557,4.51s,1.16ms,12.24us,1.17ms,58.70us,1.12ms,1.94ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,76401,8126,4.52s,361.85us,4.68us,369.11us,32.66us,349.40us,1.18ms
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,76401,34099,4.58s,86.09us,172.00ns,87.91us,12.39us,83.80us,851.43us
+curated/08-words/long-english,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,76401,30121,4.58s,97.30us,52.00ns,99.53us,12.91us,95.23us,843.89us
+curated/08-words/long-russian,count-spans,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,123942,2030,4.66s,1.46ms,11.96us,1.48ms,63.57us,1.40ms,2.33ms
+curated/08-words/long-russian,count-spans,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,123942,6724,5.37s,433.15us,6.66us,445.60us,49.79us,418.30us,1.86ms
+curated/08-words/long-russian,count-spans,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,123942,5534,5.37s,531.46us,5.12us,541.32us,49.99us,507.90us,1.74ms
+curated/08-words/long-russian,count-spans,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,123942,139,4.56s,21.33ms,310.03us,21.62ms,689.55us,20.89ms,23.98ms
+curated/08-words/long-russian,count-spans,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,123942,4425,4.51s,665.98us,9.66us,677.97us,53.31us,624.78us,2.20ms
+curated/08-words/long-russian,count-spans,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,123942,736,4.51s,4.03ms,43.78us,4.08ms,195.93us,3.88ms,5.96ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,32514634,3,6.67s,1.13s,3.20ms,1.15s,35.16ms,1.12s,1.20s
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,50,6.07s,59.24ms,917.50us,59.97ms,1.86ms,57.54ms,67.90ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,52,6.22s,58.33ms,1.44ms,58.59ms,1.77ms,55.77ms,64.23ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,32514634,35,4.72s,81.63ms,4.45ms,87.26ms,12.20ms,74.93ms,115.50ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,32514634,70,4.61s,42.14ms,457.25us,43.01ms,2.07ms,40.98ms,49.61ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,32514634,86,4.66s,34.19ms,675.00us,35.22ms,2.93ms,33.16ms,56.25ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,32514634,42,4.71s,71.62ms,1.17ms,72.27ms,2.45ms,69.74ms,79.51ms
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,32514634,138,4.62s,21.52ms,676.47us,21.76ms,1.47ms,19.87ms,29.33ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,32514634,110,4.61s,27.31ms,202.67us,27.49ms,711.34us,26.85ms,33.52ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,32514634,9,5.77s,368.29ms,8.17ms,371.97ms,13.68ms,359.54ms,402.68ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,52,5.92s,57.70ms,1.28ms,57.97ms,2.03ms,55.05ms,64.29ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,32514634,76,5.72s,38.96ms,589.82us,39.60ms,1.91ms,37.75ms,50.27ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,32514634,40,4.81s,71.05ms,1.98ms,76.70ms,9.71ms,68.97ms,100.02ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,32514634,108,4.61s,27.66ms,215.26us,27.92ms,781.44us,26.97ms,31.20ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,32514634,80,4.61s,37.42ms,334.21us,37.58ms,634.51us,36.79ms,40.80ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,32514634,73,4.61s,40.20ms,574.41us,41.56ms,4.02ms,39.35ms,71.29ms
+curated/09-aws-keys/quick,grep,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,32514634,148,4.62s,20.18ms,180.05us,20.33ms,427.71us,19.86ms,22.11ms
+curated/09-aws-keys/compile-full,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,551046,4.97s,4.62us,32.00ns,4.75us,2.70us,4.43us,704.22us
+curated/09-aws-keys/compile-full,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,77427,4.59s,28.64us,182.00ns,29.86us,8.74us,27.48us,805.81us
+curated/09-aws-keys/compile-full,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,12297,4.52s,88.96us,2.94us,91.39us,19.27us,78.70us,1.27ms
+curated/09-aws-keys/compile-full,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,22566,4.52s,100.27us,2.47us,103.64us,16.03us,94.96us,901.91us
+curated/09-aws-keys/compile-quick,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,375,4.51s,7.92ms,76.81us,8.00ms,248.11us,7.76ms,9.94ms
+curated/09-aws-keys/compile-quick,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,1000000,3.89s,1.16us,12.00ns,1.19us,1.40us,1.09us,741.23us
+curated/09-aws-keys/compile-quick,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,186138,4.68s,8.03us,98.00ns,8.49us,6.55us,7.52us,761.21us
+curated/09-aws-keys/compile-quick,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,90950,4.60s,11.17us,208.00ns,11.55us,2.40us,10.28us,200.69us
+curated/09-aws-keys/compile-quick,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,113124,4.61s,18.57us,312.00ns,19.21us,5.25us,17.14us,743.98us
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,151522,11934,4.52s,246.27us,2.27us,251.31us,23.03us,238.56us,1.03ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,151522,1121,4.61s,2.67ms,35.70us,2.67ms,109.24us,2.47ms,3.62ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,151522,7357,5.37s,398.85us,20.99us,407.17us,68.90us,340.48us,1.92ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,151522,7088,5.37s,413.70us,20.99us,422.65us,79.81us,351.23us,2.39ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,151522,2420,4.56s,1.21ms,16.21us,1.24ms,73.98us,1.17ms,2.15ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,151522,1307,4.51s,2.27ms,16.68us,2.30ms,83.06us,2.23ms,3.10ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,151522,5157,4.52s,569.75us,8.51us,581.68us,48.57us,555.92us,2.13ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,151522,8408,4.52s,352.96us,4.23us,356.73us,27.74us,328.32us,1.23ms
+curated/10-bounded-repeat/letters-en,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,151522,12507,4.52s,232.30us,2.06us,239.77us,32.23us,229.16us,2.24ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,248919,3012,4.87s,0.98ms,10.61us,1.00ms,73.23us,0.95ms,3.74ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,248919,1363,4.61s,2.17ms,25.26us,2.20ms,102.17us,2.09ms,3.31ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,248919,2647,5.57s,1.11ms,12.29us,1.13ms,138.59us,1.04ms,2.99ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,248919,2302,5.57s,1.26ms,24.58us,1.30ms,153.40us,1.20ms,3.26ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,248919,468,4.56s,6.38ms,58.05us,6.41ms,138.95us,6.25ms,7.32ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,248919,5,5.36s,670.30ms,13.68ms,669.18ms,12.58ms,655.46ms,689.72ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,248919,2957,4.51s,1.00ms,7.86us,1.01ms,57.47us,942.00us,1.96ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,248919,48,4.61s,56.22ms,8.20ms,62.54ms,12.22ms,47.07ms,81.45ms
+curated/10-bounded-repeat/letters-ru,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,248919,7144,4.52s,406.11us,4.14us,419.84us,43.30us,399.47us,1.28ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,7384531,166,4.61s,17.60ms,435.28us,18.18ms,1.48ms,16.71ms,27.39ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,7384531,21,4.86s,141.69ms,1.02ms,143.40ms,3.77ms,140.46ms,155.50ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,7384531,18,6.77s,167.38ms,917.50us,168.75ms,4.00ms,164.89ms,182.71ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,7384531,15,6.62s,199.49ms,1.84ms,200.12ms,5.29ms,191.37ms,212.34ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,7384531,44,4.66s,68.58ms,707.39us,69.14ms,1.87ms,66.62ms,73.64ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,7384531,29,4.61s,103.53ms,348.12us,104.01ms,1.65ms,102.14ms,109.53ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,7384531,128,4.57s,23.39ms,185.43us,23.53ms,658.70us,22.87ms,28.12ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,7384531,24,4.61s,126.25ms,1.31ms,126.11ms,1.44ms,123.47ms,128.70ms
+curated/10-bounded-repeat/context,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,7384531,36,4.67s,84.98ms,341.39us,85.00ms,550.98us,84.02ms,86.54ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,7384531,1068,4.56s,2.78ms,36.72us,2.81ms,117.25us,2.66ms,3.81ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,7384531,41,4.81s,72.95ms,378.69us,73.23ms,1.11ms,71.66ms,77.34ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,7384531,136,5.67s,21.86ms,131.07us,22.14ms,909.71us,21.63ms,29.43ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,7384531,105,5.52s,28.61ms,131.07us,28.72ms,585.49us,28.38ms,34.14ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,7384531,241,4.61s,12.45ms,90.83us,12.47ms,216.54us,12.04ms,13.37ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,7384531,208,4.56s,14.41ms,98.02us,14.46ms,224.98us,13.93ms,16.00ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,7384531,576,4.56s,5.18ms,45.16us,5.21ms,192.94us,5.08ms,8.45ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,7384531,389,4.56s,7.69ms,56.06us,7.71ms,158.60us,7.46ms,8.56ms
+curated/10-bounded-repeat/capitals,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,7384531,322,4.56s,9.24ms,83.46us,9.34ms,283.67us,8.95ms,11.92ms
+curated/10-bounded-repeat/compile-context,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,97,4.56s,30.74ms,330.94us,30.97ms,632.27us,30.09ms,33.22ms
+curated/10-bounded-repeat/compile-context,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,1000000,4.32s,1.30us,14.00ns,1.33us,1.36us,1.23us,701.53us
+curated/10-bounded-repeat/compile-context,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,330359,4.79s,6.33us,43.00ns,6.74us,7.63us,6.08us,719.46us
+curated/10-bounded-repeat/compile-context,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,7615,4.52s,114.30us,2.18us,117.49us,17.46us,106.24us,872.57us
+curated/10-bounded-repeat/compile-context,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,31732,4.61s,69.94us,1.10us,72.32us,9.39us,66.66us,783.12us
+curated/10-bounded-repeat/compile-capitals,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,3669,4.51s,804.28us,16.22us,814.80us,47.52us,753.16us,1.70ms
+curated/10-bounded-repeat/compile-capitals,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,93675,4.60s,30.78us,102.00ns,31.45us,6.95us,30.28us,761.59us
+curated/10-bounded-repeat/compile-capitals,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,58580,4.59s,41.36us,205.00ns,42.91us,9.35us,39.98us,792.51us
+curated/10-bounded-repeat/compile-capitals,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,4574,4.51s,153.05us,3.39us,156.20us,17.73us,139.67us,922.18us
+curated/10-bounded-repeat/compile-capitals,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,32784,4.58s,69.54us,1.07us,71.85us,11.97us,66.06us,844.32us
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,23952,19136,4.74s,151.27us,1.16us,156.41us,42.92us,145.63us,2.41ms
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,23952,6985,5.22s,416.77us,10.75us,428.95us,77.37us,395.78us,2.00ms
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,23952,6755,5.27s,432.64us,6.66us,443.48us,72.63us,420.86us,2.23ms
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,23952,107826,4.73s,25.83us,357.00ns,27.68us,19.58us,24.29us,4.27ms
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,23952,20875,4.52s,140.79us,1.84us,143.63us,22.22us,131.53us,2.35ms
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,23952,147394,4.71s,19.76us,265.00ns,20.30us,5.30us,17.35us,745.18us
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,23952,11767,4.52s,250.14us,3.88us,254.87us,29.98us,236.26us,1.83ms
+curated/11-unstructured-to-json/extract,grep-captures,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,23952,12501,4.52s,235.21us,1.31us,239.91us,22.65us,228.11us,1.00ms
+curated/11-unstructured-to-json/compile,compile,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,,1000000,5.23s,1.84us,15.00ns,1.91us,1.61us,1.76us,757.41us
+curated/11-unstructured-to-json/compile,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,149749,4.67s,11.13us,107.00ns,11.74us,8.39us,10.59us,822.10us
+curated/11-unstructured-to-json/compile,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,130707,4.61s,11.46us,209.00ns,12.09us,5.71us,10.61us,752.82us
+curated/11-unstructured-to-json/compile,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,86495,4.60s,23.70us,366.00ns,24.50us,6.62us,21.61us,727.57us
+curated/12-dictionary/single,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,61436,4,5.77s,835.13ms,3.93ms,828.85ms,15.48ms,802.57ms,842.58ms
+curated/12-dictionary/single,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,61436,35282,6.33s,81.02us,128.00ns,84.87us,14.05us,80.51us,0.99ms
+curated/12-dictionary/single,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,61436,34875,6.18s,83.33us,128.00ns,85.86us,13.20us,82.69us,845.82us
+curated/12-dictionary/single,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,61436,22,4.61s,138.06ms,793.73us,138.80ms,2.09ms,136.47ms,145.02ms
+curated/12-dictionary/single,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,61436,231,4.56s,12.97ms,154.08us,13.01ms,256.44us,12.61ms,14.37ms
+curated/12-dictionary/single,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,61436,34301,4.58s,84.93us,70.00ns,87.41us,13.88us,82.96us,844.56us
+curated/12-dictionary/multi,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,61436,318792,4.85s,9.07us,165.00ns,9.37us,4.15us,8.81us,744.76us
+curated/12-dictionary/multi,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,61436,8038,4.57s,366.99us,8.98us,373.21us,30.75us,343.33us,1.16ms
+curated/12-dictionary/compile-single,compile,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,,327,4.56s,5.41ms,51.01us,5.46ms,174.86us,5.23ms,6.48ms
+curated/12-dictionary/compile-single,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,308,4.56s,9.59ms,414.54us,9.63ms,578.89us,8.70ms,12.73ms
+curated/12-dictionary/compile-multi,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,115,4.56s,26.17ms,355.26us,26.18ms,608.35us,24.97ms,28.14ms
+curated/12-dictionary/compile-multi,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,183,4.56s,15.33ms,210.18us,15.39ms,368.44us,14.66ms,17.21ms
+curated/13-noseyparker/single,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,32514634,342,4.91s,8.74ms,65.13us,8.79ms,195.34us,8.45ms,10.62ms
+curated/13-noseyparker/single,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,32514634,1,7.02s,3.47s,0.00ns,3.47s,0.00ns,3.47s,3.47s
+curated/13-noseyparker/single,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,32514634,10,5.01s,330.60ms,7.20ms,328.13ms,8.58ms,317.73ms,344.51ms
+curated/13-noseyparker/multi,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,32514634,344,4.77s,8.70ms,120.79us,8.73ms,217.57us,8.42ms,9.81ms
+curated/13-noseyparker/multi,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,32514634,8,4.77s,393.33ms,5.73ms,390.48ms,8.16ms,377.79ms,400.27ms
+curated/13-noseyparker/compile-single,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,12,4.91s,271.99ms,1.25ms,272.19ms,1.97ms,268.07ms,275.30ms
+curated/13-noseyparker/compile-single,compile,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,,3132,4.52s,901.58us,16.49us,933.46us,167.12us,835.23us,4.10ms
+curated/13-noseyparker/compile-single,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,1068,4.51s,2.49ms,49.03us,2.52ms,134.66us,2.41ms,4.16ms
+curated/13-noseyparker/compile-multi,compile,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,,18,4.57s,166.11ms,835.96us,167.51ms,3.32ms,164.91ms,178.30ms
+curated/13-noseyparker/compile-multi,compile,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,,916,4.52s,2.94ms,47.10us,2.98ms,148.40us,2.84ms,4.53ms
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,100,1000000,2.29s,689.00ns,14.00ns,709.00ns,903.00ns,637.00ns,703.02us
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,100,252224,5.42s,11.47us,68.00ns,11.85us,15.35us,10.79us,3.40ms
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,100,73473,5.45s,9.86us,64.00ns,10.32us,15.46us,9.65us,1.93ms
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,100,52941,5.39s,13.15us,1.66us,14.39us,20.13us,11.34us,1.78ms
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,100,409426,5.15s,6.96us,54.00ns,7.16us,3.04us,6.67us,713.73us
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,100,52914,4.59s,55.01us,548.00ns,56.63us,9.56us,53.74us,844.89us
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,100,446335,4.89s,6.50us,30.00ns,6.68us,2.99us,6.35us,755.96us
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,100,248847,4.72s,11.64us,68.00ns,12.01us,4.41us,11.22us,735.05us
+curated/14-quadratic/1x,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,100,502488,4.91s,5.82us,69.00ns,5.93us,2.84us,5.67us,761.10us
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,200,1000000,3.70s,1.36us,24.00ns,1.39us,1.31us,1.26us,721.46us
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,200,67679,4.89s,43.11us,110.00ns,44.15us,13.61us,42.04us,1.89ms
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,200,45205,5.34s,32.03us,160.00ns,33.38us,25.92us,31.14us,2.05ms
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,200,33629,5.33s,43.07us,128.00ns,44.75us,27.93us,41.79us,1.89ms
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,200,130511,4.72s,22.23us,130.00ns,22.78us,5.48us,22.01us,745.00us
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,200,14326,4.52s,203.71us,1.40us,209.33us,23.91us,194.30us,1.00ms
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,200,143746,4.62s,20.36us,48.00ns,20.82us,5.51us,20.15us,727.45us
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,200,86814,4.60s,33.87us,346.00ns,34.50us,7.20us,32.41us,761.28us
+curated/14-quadratic/2x,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,200,123936,4.61s,23.62us,16.00ns,24.15us,7.06us,23.09us,1.40ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),hyperscan,5.4.2 2024-04-19,,1000,434757,4.89s,6.64us,131.00ns,6.86us,3.97us,6.12us,765.38us
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),java/hotspot,26.0.2+10-55,,1000,3298,4.67s,898.49us,6.28us,908.98us,51.32us,873.86us,1.71ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),safere/string,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1000,4475,5.22s,655.36us,5.12us,669.43us,94.50us,635.90us,2.58ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,1000,3277,5.22s,894.98us,9.22us,914.58us,103.36us,863.23us,2.62ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),javascript/v8,24.13.1,,1000,6618,4.57s,446.01us,2.53us,452.88us,31.09us,434.56us,1.24ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),pcre2,10.47 2025-10-21,,1000,628,4.51s,4.75ms,44.14us,4.78ms,140.05us,4.60ms,6.06ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),pcre2/jit,10.47 2025-10-21,,1000,7544,4.52s,389.19us,706.00ns,397.56us,28.98us,388.01us,1.18ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),re2,2025-11-05,,1000,5089,4.51s,582.22us,3.57us,589.43us,33.77us,574.55us,1.38ms
+curated/14-quadratic/10x,count,0.1.0 (rev cb3395d8a5),rust/regex,1.12.4,,1000,4843,4.52s,612.01us,4.10us,619.34us,33.63us,607.79us,1.35ms
