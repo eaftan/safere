@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  */
 final class DeclarativeBenchmarkPlan {
 
-  static final int SCHEMA_VERSION = 1;
+  static final int SCHEMA_VERSION = 2;
   private static final Pattern PLACEHOLDER = Pattern.compile("(?<!\\$)\\{([A-Za-z][A-Za-z0-9_]*)}");
 
   private final Map<String, InputDeclaration> inputs;
@@ -1319,6 +1319,7 @@ final class DeclarativeBenchmarkPlan {
 
   enum RecipeKind implements JsonNamed {
     LITERAL("literal", field("text", RecipeValueType.STRING)),
+    FILE("file", field("path", RecipeValueType.STRING), field("sha256", RecipeValueType.STRING)),
     REPEAT(
         "repeat", field("value", RecipeValueType.STRING), field("count", RecipeValueType.INTEGER)),
     REPEAT_TO_LENGTH(
@@ -1430,6 +1431,12 @@ final class DeclarativeBenchmarkPlan {
     void validate(Map<String, RecipeValue> arguments) {
       switch (this) {
         case LITERAL -> {}
+        case FILE -> {
+          requireNonEmpty(arguments, "path");
+          if (!string(arguments, "sha256").matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("file recipe requires a lowercase SHA-256 digest");
+          }
+        }
         case REPEAT -> requireNonNegative(arguments, "count");
         case REPEAT_TO_LENGTH -> {
           requireNonNegative(arguments, "length");

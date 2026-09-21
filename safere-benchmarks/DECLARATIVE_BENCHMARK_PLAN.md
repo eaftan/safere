@@ -1,7 +1,7 @@
 # Declarative Benchmark Plan
 
 SafeRE's normalized benchmark plan is a strict, versioned object within
-`benchmark-data.json`. The initial schema version is `1`. Normalized
+`benchmark-data.json`. The current schema version is `2`. Normalized
 declarations are authoritative for materialized inputs and ordinary/scaling
 cross-engine workloads, specialized modes, collection, and reporting. The
 schema preserves the established benchmark timing boundaries.
@@ -18,7 +18,7 @@ The normalized plan has this shape:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "inputs": [
     {
       "id": "search.random.{size}",
@@ -200,11 +200,12 @@ are omitted from runner trial lists.
 ## Bounded input recipes
 
 Recipes describe data and deterministic generation; they cannot invoke Java
-classes, scripts, or workload-family code. Version 1 defines:
+classes, scripts, or workload-family code. Version 2 defines:
 
 | Recipe | Purpose |
 |---|---|
 | `literal` | Exact text |
+| `file` | Exact UTF-8 bytes from a pinned fixture |
 | `repeat` | Repeat text a fixed count |
 | `repeatToLength` | Repeat and truncate to a target UTF-16 length |
 | `repeatAtLeastLength` | Repeat through the first unit boundary at or beyond a minimum length |
@@ -226,6 +227,13 @@ Recipe fields are fixed for each kind. A new shape requires one generic recipe
 kind and validation, not a family-specific branch. The central materializer
 evaluates these recipes and rejects unknown dependencies and dependency
 cycles.
+
+The `file` recipe has a `path` relative to `safere-benchmarks/` and a lowercase
+`sha256` digest. Paths must remain under `data/`, including after symlink
+resolution. The materializer rejects missing, invalid UTF-8, or modified files
+and copies the original bytes into the generated corpus. This keeps large
+input texts out of `benchmark-data.json` without letting runners
+read source data directly.
 
 ## Workload requirements
 
@@ -320,7 +328,7 @@ whether construction and mutation happen inside or outside the timed task.
 
 ## Measurement policy
 
-The version 1 modes are:
+The current modes are:
 
 | Mode | Purpose |
 |---|---|

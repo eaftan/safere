@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "configuration": {
     "collection": {
       "allocationWorkloadPrefixes": [
@@ -3273,6 +3273,15 @@
         "prefixUnit": "a",
         "suffix": "\"",
         "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "rebar.boundedRepeatContext.rustSource",
+      "recipe": {
+        "kind": "file",
+        "path": "data/rust-src-tools-3b0d4813.txt",
+        "sha256": "7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36"
       },
       "shared": true
     }
@@ -13381,6 +13390,34 @@
       "expected": {
         "type": "boolean",
         "value": true
+      }
+    },
+    {
+      "id": "RebarBenchmark.boundedRepeatContext",
+      "operation": "findAllCount",
+      "patterns": [
+        "[A-Za-z]{10}\\s+[\\s\\S]{0,100}Result[\\s\\S]{0,100}\\s+[A-Za-z]{10}"
+      ],
+      "inputs": [
+        "rebar.boundedRepeatContext.rustSource"
+      ],
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Reproduces the exact rebar count workload on Java String and preexisting UTF-8 bytes.",
+      "requirements": [],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "expected": {
+        "type": "integer",
+        "value": 53
       }
     }
   ]

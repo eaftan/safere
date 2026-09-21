@@ -318,7 +318,7 @@ public final class MatchFuzzer {
     String driver = distinctAsciiLiteral(data.consumeInt(8, 16));
     String regex;
     String input;
-    switch (data.consumeInt(0, 9)) {
+    switch (data.consumeInt(0, 11)) {
       case 0 -> {
         regex = "111[0-9]+" + driver;
         input = "1".repeat(repeatedDigits) + "2" + driver;
@@ -359,6 +359,29 @@ public final class MatchFuzzer {
         regex = "TARGET[^;]*\\uDE00" + driver;
         input = "TARGET" + (data.consumeBoolean() ? "😀" : "?") + driver;
       }
+      case 9 -> {
+        // A gap in leading position. Every other shape here opens with a literal the
+        // accelerator can lead with, so the match start is proposed rather than recovered.
+        int minimum = data.consumeInt(0, 4);
+        int maximum = data.consumeInt(minimum + 1, 6);
+        String lazy = data.consumeBoolean() ? "?" : "";
+        regex = "(?s).{" + minimum + "," + maximum + "}" + lazy + "TARGET[^;]*" + driver;
+        input =
+            data.pickValue(List.of("x", "é", "😀")).repeat(data.consumeInt(0, 7))
+                + "TARGET"
+                + driver;
+      }
+      case 10 -> {
+        // Inline scoped UNIX_LINES changes which characters a gap may span: CR, NEL and
+        // LINE SEPARATOR are line terminators by default but not under (?d).
+        int maximum = data.consumeInt(1, 4);
+        regex =
+            data.pickValue(List.of("", "(?d)", "(?d)(?s)")) + "TARGET.{1," + maximum + "}" + driver;
+        input =
+            "TARGET"
+                + data.pickValue(List.of("\r", "\n", "\r\n", "\u0085", "\u2028", "x"))
+                + driver;
+      }
       default -> {
         regex = "TARGET[^;]*?" + driver;
         input = "TARGETx;".repeat(data.consumeInt(1, 32)) + driver;
@@ -367,7 +390,8 @@ public final class MatchFuzzer {
 
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
     if (pattern != null) {
-      pattern.matcher(input).find();
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      while (matcher.find()) {}
     }
   }
 
