@@ -560,7 +560,7 @@ abstract class ByteSwarScan {
     return -1;
   }
 
-  private static boolean matchesAt(byte[] bytes, int offset, byte[] literal, int position) {
+  static boolean matchesAt(byte[] bytes, int offset, byte[] literal, int position) {
     for (int index = 0; index < literal.length; index++) {
       if (bytes[offset + position + index] != literal[index]) {
         return false;

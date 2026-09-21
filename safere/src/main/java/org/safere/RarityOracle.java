@@ -43,6 +43,8 @@ package org.safere;
  * </ul>
  */
 final class RarityOracle {
+  private static final int MIN_LITERAL_BYTE_RARITY = 128;
+  private static final int MIN_LITERAL_RARITY_ADVANTAGE = 32;
   private static final byte[] EXACT_BYTE_RARITY =
       new byte[] {
         (byte) 200, (byte) 203, (byte) 204, (byte) 205, (byte) 206, (byte) 207, (byte) 208,
@@ -165,6 +167,32 @@ final class RarityOracle {
   /** Returns the exact-case byte frequency rank for an ASCII or UTF-8 byte (higher = rarer). */
   static int byteRarity(int c) {
     return exactByteRarity(c);
+  }
+
+  /**
+   * Returns a selective interior byte offset for an exact UTF-8 literal, or {@code -1} when the
+   * existing endpoint filter is preferable. A substantial rank advantage avoids changing the search
+   * path for literals whose interior bytes are only marginally rarer than their endpoints.
+   */
+  static int rarestUtf8LiteralByteOffset(byte[] literal) {
+    if (literal == null || literal.length < 3) {
+      return -1;
+    }
+    int endpointRank =
+        Math.max(
+            exactByteRarity(literal[0] & 0xFF),
+            exactByteRarity(literal[literal.length - 1] & 0xFF));
+    int bestOffset = -1;
+    int bestRank =
+        Math.max(MIN_LITERAL_BYTE_RARITY - 1, endpointRank + MIN_LITERAL_RARITY_ADVANTAGE - 1);
+    for (int offset = 1; offset < literal.length - 1; offset++) {
+      int rank = exactByteRarity(literal[offset] & 0xFF);
+      if (rank > bestRank) {
+        bestRank = rank;
+        bestOffset = offset;
+      }
+    }
+    return bestOffset;
   }
 
   private static int characterRarity(int c, boolean caseFolded) {

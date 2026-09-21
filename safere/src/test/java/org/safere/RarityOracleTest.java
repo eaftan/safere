@@ -5,12 +5,22 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class RarityOracleTest {
+
+  @Test
+  void utf8LiteralAnchorAvoidsCommonLeadBytes() {
+    byte[] russian = "Шерлок Холмс".getBytes(UTF_8);
+
+    assertThat(RarityOracle.rarestUtf8LiteralByteOffset(russian)).isEqualTo(1);
+    assertThat(RarityOracle.rarestUtf8LiteralByteOffset("Sherlock Holmes".getBytes(UTF_8)))
+        .isEqualTo(-1);
+  }
 
   @Test
   void spaceIsMostCommonAndRareLettersHaveHighRank() {

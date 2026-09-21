@@ -4798,6 +4798,7 @@ public final class Matcher implements MatchResult {
     private final byte[] literalUtf8;
     private final int[] failure;
     private final int[] shifts;
+    private final int rareByteOffset;
     private final ClassHashChain classHashChain;
     private final int anchorOffset;
     private final char anchorLow;
@@ -4813,6 +4814,7 @@ public final class Matcher implements MatchResult {
         byte[] literalUtf8,
         int[] failure,
         int[] shifts,
+        int rareByteOffset,
         boolean isStartAnchored,
         PreparedMatchRunner fallback,
         ClassHashChain classHashChain) {
@@ -4821,6 +4823,7 @@ public final class Matcher implements MatchResult {
       this.literalUtf8 = literalUtf8;
       this.failure = failure;
       this.shifts = shifts;
+      this.rareByteOffset = rareByteOffset;
       this.classHashChain =
           classHashChain != null
               ? classHashChain
@@ -4893,7 +4896,11 @@ public final class Matcher implements MatchResult {
                 matcher.searchFrom);
         matchLength = matchLengthChars;
       } else if (matcher.activeScanner() instanceof Utf8InputScanner utf8Scanner) {
-        idx = utf8Scanner.indexOf(literalUtf8, failure, shifts, matcher.searchFrom);
+        idx =
+            rareByteOffset >= 0
+                ? utf8Scanner.indexOf(
+                    literalUtf8, failure, shifts, matcher.searchFrom, rareByteOffset)
+                : utf8Scanner.indexOf(literalUtf8, failure, shifts, matcher.searchFrom);
         matchLength = matchLengthBytes;
       } else if (matcher.text != null) {
         if (WorkCounterConfig.ENABLED) {

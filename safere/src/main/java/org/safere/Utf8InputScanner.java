@@ -504,6 +504,43 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     return indexOfLinear(literal, failure, start);
   }
 
+  int indexOf(byte[] literal, int[] failure, int[] shifts, int start, int rareByteOffset) {
+    if (rareByteOffset < 0
+        || WorkCounterConfig.ENABLED
+        || remaining(start) < ByteSwarScan.filterThreshold(literal.length)) {
+      return indexOf(literal, failure, shifts, start);
+    }
+    int result = indexOfRareByte(literal, rareByteOffset, start);
+    return result >= -1 ? result : indexOfLinear(literal, failure, start);
+  }
+
+  private int indexOfRareByte(byte[] literal, int anchorOffset, int start) {
+    int lastStart = length - literal.length;
+    if (start > lastStart) {
+      return -1;
+    }
+    int scanEnd = lastStart + anchorOffset + 1;
+    int searchFrom = start + anchorOffset;
+    long work = 0;
+    long workLimit = WorkLimit.forRemaining(remaining(start));
+    while (searchFrom < scanEnd) {
+      int hit = ByteSwarScan.indexOfByte(bytes, offset, scanEnd, literal[anchorOffset], searchFrom);
+      if (hit < 0) {
+        return -1;
+      }
+      int candidate = hit - anchorOffset;
+      if (ByteSwarScan.matchesAt(bytes, offset, literal, candidate)) {
+        return candidate;
+      }
+      work += literal.length;
+      if (WorkLimit.isExhausted(work, workLimit)) {
+        return -2;
+      }
+      searchFrom = hit + 1;
+    }
+    return -1;
+  }
+
   int indexOfWithin(byte[] literal, int[] failure, int start, int maxStart) {
     if (literal.length == 0) {
       return start <= maxStart ? start : -1;

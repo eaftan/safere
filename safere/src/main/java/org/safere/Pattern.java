@@ -120,6 +120,7 @@ public final class Pattern implements Serializable {
   private final transient byte[] literalMatchUtf8;
   private final transient int[] literalMatchFailure;
   private final transient int[] literalMatchShifts;
+  private final transient int literalMatchRareByteOffset;
   private final transient byte[] prefixUtf8;
   private final transient String anchoredPrefix;
   private final transient byte[] anchoredPrefixUtf8;
@@ -273,6 +274,10 @@ public final class Pattern implements Serializable {
         literalMatch == null ? null : literalMatch.getBytes(StandardCharsets.UTF_8);
     this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
     this.literalMatchShifts = literalMatchUtf8 == null ? null : literalShifts(literalMatchUtf8);
+    this.literalMatchRareByteOffset =
+        literalMatchUtf8 == null || this.matchDescriptor.literalFoldCase()
+            ? -1
+            : RarityOracle.rarestUtf8LiteralByteOffset(literalMatchUtf8);
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefix = this.multiAnchor.charClassPrefix();
@@ -543,7 +548,15 @@ public final class Pattern implements Serializable {
       if (prog.anchorStart()) {
         return scanner.startsWith(literalMatchUtf8, 0);
       }
-      return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0) >= 0;
+      return (literalMatchRareByteOffset >= 0
+              ? scanner.indexOf(
+                  literalMatchUtf8,
+                  literalMatchFailure,
+                  literalMatchShifts,
+                  0,
+                  literalMatchRareByteOffset)
+              : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0))
+          >= 0;
     }
     if (enginePathOptions.keywordAlternationFastPath()
         && matchDescriptor.keywordAlternation() != null) {
@@ -606,7 +619,16 @@ public final class Pattern implements Serializable {
       boolean matched =
           prog.anchorStart()
               ? scanner.startsWith(literalMatchUtf8, 0)
-              : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0) >= 0;
+              : (literalMatchRareByteOffset >= 0
+                  ? scanner.indexOf(
+                          literalMatchUtf8,
+                          literalMatchFailure,
+                          literalMatchShifts,
+                          0,
+                          literalMatchRareByteOffset)
+                      >= 0
+                  : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0)
+                      >= 0);
       diagnostics.boundary(MatchStrategy.LITERAL);
       return matched;
     }
@@ -938,6 +960,7 @@ public final class Pattern implements Serializable {
           literalMatchUtf8,
           literalMatchFailure,
           literalMatchShifts,
+          literalMatchRareByteOffset,
           prog.anchorStart(),
           matchDescriptor.literalFoldCase()
               ? createLiteralFallbackRunner(regionActive)
