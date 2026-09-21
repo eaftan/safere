@@ -1737,6 +1737,8 @@ final class Dfa {
     // skips in excess of the estimated call cost can repay the deficit and reset quarantine.
     // One strike's allowance is one call's cost: a break-even call cannot erase another call's
     // loss. The deficit stays bounded by the allowance, regardless of the size of the input.
+    // Backoff is local to this search. A later find may use a different input or region, and
+    // relearning starts with a bounded allowance rather than carrying density from that search.
     int skippedWorkDeficit = 0;
     int accelerationResumePos = startPos;
     int quarantineWindow = initialQuarantineWindow;

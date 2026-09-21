@@ -120,10 +120,66 @@ class DfaStartAccelerationWorkTest {
     assertThat(work.skippedUnits()).isGreaterThan(inputLength(sparse, utf8) * 3L / 4);
   }
 
+  @ParameterizedTest
+  @CsvSource({"false", "true"})
+  void repeatedModerateGapsEscalateBackoff(boolean utf8) {
+    String dense = "record:x;\n".repeat(200);
+    String input = (dense + "z".repeat(200)).repeat(128) + MATCH;
+
+    WorkCounter.StartAccelerationWork work = findWork(input, utf8);
+
+    assertThat(work.quarantines()).as("%s", work).isGreaterThan(16);
+    assertThat(work.calls()).as("%s", work).isGreaterThan(512);
+    assertThat(work.largestQuarantine())
+        .as("Repeated dense regions should escalate backoff before recovery: %s", work)
+        .isGreaterThan(AcceleratorPolicy.LITERAL.initialQuarantineWindow());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"false", "true"})
+  void profitableGapsRestoreAccelerationAfterQuarantine(boolean utf8) {
+    String dense = "record:x;\n".repeat(200);
+    String input = (dense + "z".repeat(500)).repeat(128) + MATCH;
+
+    WorkCounter.StartAccelerationWork work = findWork(input, utf8);
+
+    assertThat(work.quarantines()).isGreaterThan(64);
+    assertThat(work.largestQuarantine())
+        .as("Profitable gaps must repay quarantine debt: %s", work)
+        .isEqualTo(AcceleratorPolicy.LITERAL.initialQuarantineWindow());
+    assertThat(work.skippedUnits())
+        .isGreaterThan(work.calls() * AcceleratorPolicy.LITERAL.minProfitableSkip());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"false", "true"})
+  void characterClassStartPolicyAccountsForDenseAndSparseCandidates(boolean utf8) {
+    String regex = "[ab][^\\r\\n;]*val=200";
+    Pattern pattern = Pattern.compile(regex);
+    AcceleratorPolicy policy =
+        utf8 ? pattern.utf8StartAccelerator().policy() : pattern.stringStartAccelerator().policy();
+    assertThat(policy).isEqualTo(AcceleratorPolicy.CHAR_CLASS);
+
+    String dense = "a;\n".repeat(DENSE_RECORD_COUNT) + "atarget_val=200";
+    WorkCounter.StartAccelerationWork denseWork = findWork(regex, "atarget_val=200", dense, utf8);
+    assertThat(denseWork.largestQuarantine()).isEqualTo(policy.maxQuarantineWindow());
+
+    String sparse = ("a;" + "x".repeat(128) + "\n").repeat(1_024) + "atarget_val=200";
+    WorkCounter.StartAccelerationWork sparseWork = findWork(regex, "atarget_val=200", sparse, utf8);
+    assertThat(sparseWork.quarantines()).isZero();
+    assertThat(sparseWork.skippedUnits()).isGreaterThan(inputLength(sparse, utf8) / 2L);
+  }
+
   private static WorkCounter.StartAccelerationWork findWork(String input, boolean utf8) {
-    Pattern pattern = Pattern.compile(REGEX);
-    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(REGEX).matcher(input);
+    return findWork(REGEX, MATCH, input, utf8);
+  }
+
+  private static WorkCounter.StartAccelerationWork findWork(
+      String regex, String match, String input, boolean utf8) {
+    Pattern pattern = Pattern.compile(regex);
+    java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
     assertThat(jdk.find()).isTrue();
+    assertThat(jdk.group()).isEqualTo(match);
     if (utf8) {
       Utf8Matcher matcher = pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8)));
       assertThat(matcher.find()).isTrue();
