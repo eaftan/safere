@@ -539,24 +539,28 @@ public final class Pattern implements Serializable {
     return matched;
   }
 
+  private boolean findLiteralMatch(Utf8InputScanner scanner) {
+    if (prog.anchorStart()) {
+      return scanner.startsWith(literalMatchUtf8, 0);
+    }
+    return (literalMatchRareByteOffset >= 0
+            ? scanner.indexOf(
+                literalMatchUtf8,
+                literalMatchFailure,
+                literalMatchShifts,
+                0,
+                literalMatchRareByteOffset)
+            : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0))
+        >= 0;
+  }
+
   boolean findWithoutDiagnostics(Utf8InputScanner scanner) {
     int length = scanner.length();
     if (matchDescriptor.minMatchLength() > 0 && length < matchDescriptor.minMatchLength()) {
       return false;
     }
     if (literalMatchUtf8 != null && !literalFoldCase()) {
-      if (prog.anchorStart()) {
-        return scanner.startsWith(literalMatchUtf8, 0);
-      }
-      return (literalMatchRareByteOffset >= 0
-              ? scanner.indexOf(
-                  literalMatchUtf8,
-                  literalMatchFailure,
-                  literalMatchShifts,
-                  0,
-                  literalMatchRareByteOffset)
-              : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0))
-          >= 0;
+      return findLiteralMatch(scanner);
     }
     if (enginePathOptions.keywordAlternationFastPath()
         && matchDescriptor.keywordAlternation() != null) {
@@ -616,19 +620,7 @@ public final class Pattern implements Serializable {
   private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
     if (literalMatchUtf8 != null && !literalFoldCase()) {
-      boolean matched =
-          prog.anchorStart()
-              ? scanner.startsWith(literalMatchUtf8, 0)
-              : (literalMatchRareByteOffset >= 0
-                  ? scanner.indexOf(
-                          literalMatchUtf8,
-                          literalMatchFailure,
-                          literalMatchShifts,
-                          0,
-                          literalMatchRareByteOffset)
-                      >= 0
-                  : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0)
-                      >= 0);
+      boolean matched = findLiteralMatch(scanner);
       diagnostics.boundary(MatchStrategy.LITERAL);
       return matched;
     }
