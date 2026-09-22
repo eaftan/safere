@@ -5,7 +5,7 @@ run comparing SafeRE's String and UTF-8 paths with seven other engines. The
 complete retained results are in [`measurements.csv`](measurements.csv). My
 best guess for the SafeRE commit is
 [`4e079bf8a9f168e77f965337c61f13d56a4c5729`](https://github.com/eaftan/safere/commit/4e079bf8a9f168e77f965337c61f13d56a4c5729).
-I didn't record the info on which SNAPSHOT I used and have tried to recover 
+I didn't record the info on which SNAPSHOT I used and have tried to recover
 it from other info.
 
 ## What was run
