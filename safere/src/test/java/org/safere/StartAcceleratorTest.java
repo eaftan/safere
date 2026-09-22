@@ -81,6 +81,27 @@ class StartAcceleratorTest {
   }
 
   @Test
+  void utf8LiteralPrefixFindsCandidatesAfterRepeatedFalsePrefixes() {
+    String asciiPrefix = "aaaaQaaaa";
+    Utf8StartAccelerator.Literal ascii =
+        (Utf8StartAccelerator.Literal)
+            Utf8StartAccelerator.create(plan(asciiPrefix, false, null, null), false);
+    assertThat(ascii.rareByteOffset()).isEqualTo(4);
+    Utf8InputScanner asciiScanner = utf8Scanner("aaaaYaaaa".repeat(100) + asciiPrefix + "1");
+    assertThat(Utf8StartAccelerator.findNextCandidate(ascii, asciiScanner, 0)).isEqualTo(900);
+    assertThat(Utf8StartAccelerator.findNextCandidate(ascii, asciiScanner, 901)).isEqualTo(-1);
+
+    String unicodePrefix = "aaaaШaaaa";
+    Utf8StartAccelerator.Literal unicode =
+        (Utf8StartAccelerator.Literal)
+            Utf8StartAccelerator.create(plan(unicodePrefix, false, null, null), false);
+    assertThat(unicode.rareByteOffset()).isGreaterThan(0);
+    Utf8InputScanner unicodeScanner = utf8Scanner("aaaaЮaaaa".repeat(100) + unicodePrefix + "1");
+    assertThat(Utf8StartAccelerator.findNextCandidate(unicode, unicodeScanner, 0))
+        .isEqualTo("aaaaЮaaaa".repeat(100).getBytes(UTF_8).length);
+  }
+
+  @Test
   void caseInsensitiveLiteralAcceleratesStringAndUtf8() {
     MultiAnchorDescriptor.StartPlan plan = plan("needle", true, null, null);
 

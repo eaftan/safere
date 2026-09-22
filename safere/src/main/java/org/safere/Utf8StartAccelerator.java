@@ -127,13 +127,19 @@ sealed interface Utf8StartAccelerator {
     return AcceleratorPolicy.DEFAULT;
   }
 
+  // The arrays are immutable search metadata owned by this internal accelerator.
   @SuppressWarnings("ArrayRecordComponent")
-  record Literal(byte[] prefixUtf8, int[] prefixUtf8Failure, int[] prefixUtf8Shifts)
+  record Literal(
+      byte[] prefixUtf8, int[] prefixUtf8Failure, int[] prefixUtf8Shifts, int rareByteOffset)
       implements Utf8StartAccelerator {
 
     static Literal create(String prefix) {
       byte[] utf8 = prefix.getBytes(StandardCharsets.UTF_8);
-      return new Literal(utf8, Pattern.literalFailure(utf8), Pattern.literalShifts(utf8));
+      return new Literal(
+          utf8,
+          Pattern.literalFailure(utf8),
+          Pattern.literalShifts(utf8),
+          RarityOracle.rarestUtf8LiteralByteOffset(utf8));
     }
 
     @Override
@@ -143,7 +149,8 @@ sealed interface Utf8StartAccelerator {
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
       if (prefixUtf8 != null) {
-        return scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts, fromIndex);
+        return scanner.indexOf(
+            prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts, fromIndex, rareByteOffset);
       }
       return fromIndex;
     }

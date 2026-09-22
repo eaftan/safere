@@ -711,6 +711,24 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void utf8RareByteLiteralPrefixFindWorkIsLinearAcrossFalseCandidates() {
+    Pattern pattern = Pattern.compile("aaaaQaaaa[0-9]+");
+    byte[] smaller = "aaaaQaaaaX".repeat(500).getBytes(UTF_8);
+    byte[] larger = "aaaaQaaaaX".repeat(2_000).getBytes(UTF_8);
+
+    long smallerWork =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(smaller)).find()).isFalse());
+    long largerWork =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(larger)).find()).isFalse());
+
+    assertThat(largerWork)
+        .as("UTF-8 literal-prefix search must scale with repeated false candidates")
+        .isLessThanOrEqualTo(smallerWork * 5);
+  }
+
+  @Test
   void preselectedUtf8DfaCandidateSkipsRedundantStartScan() {
     Pattern pattern = Pattern.compile("\\d{3}/\\d{3}/\\d{4}");
     byte[] bytes = ("123/456/7890" + "x".repeat(100)).getBytes(UTF_8);

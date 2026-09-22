@@ -546,6 +546,24 @@
       "shared": true
     },
     {
+      "id": "utf8RarePrefix.asciiAbsent.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "aaaaYaaaa",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
+      "id": "utf8RarePrefix.unicodeAbsent.text",
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "aaaaЮaaaa",
+        "length": 32768
+      },
+      "shared": true
+    },
+    {
       "id": "utf8AsciiPrefix.shortFirst.text",
       "recipe": {
         "kind": "surroundToLength",
@@ -10424,6 +10442,52 @@
         "preexistingUtf8"
       ],
       "inputRepresentationReason": "Controls for SafeRE literal start acceleration over the same preexisting UTF-8 bytes.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8RarePrefixBenchmark.findAsciiAbsent",
+      "operation": "find",
+      "patterns": [
+        "aaaaQaaaa[0-9]+"
+      ],
+      "inputs": [
+        "utf8RarePrefix.asciiAbsent.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures selective interior-byte prefix scanning over repeated false prefixes.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "Utf8RarePrefixBenchmark.findUnicodeAbsent",
+      "operation": "find",
+      "patterns": [
+        "aaaaШaaaa[0-9]+"
+      ],
+      "inputs": [
+        "utf8RarePrefix.unicodeAbsent.text"
+      ],
+      "inputRepresentations": [
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures UTF-8 continuation-byte prefix scanning over repeated false prefixes.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {
