@@ -543,14 +543,12 @@ public final class Pattern implements Serializable {
     if (prog.anchorStart()) {
       return scanner.startsWith(literalMatchUtf8, 0);
     }
-    return (literalMatchRareByteOffset >= 0
-            ? scanner.indexOf(
-                literalMatchUtf8,
-                literalMatchFailure,
-                literalMatchShifts,
-                0,
-                literalMatchRareByteOffset)
-            : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0))
+    return scanner.indexOf(
+            literalMatchUtf8,
+            literalMatchFailure,
+            literalMatchShifts,
+            0,
+            literalMatchRareByteOffset)
         >= 0;
   }
 
