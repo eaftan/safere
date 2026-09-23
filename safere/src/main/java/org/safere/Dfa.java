@@ -2298,6 +2298,16 @@ final class Dfa {
           long decoded = text.decodeBackward(pos);
           cp = InputScanner.codePoint(decoded);
           prevPos = InputScanner.position(decoded);
+          if (prevPos < startLimit) {
+            // The forward search starts at startLimit, even when that position is inside an
+            // encoded character. Decode the first unit from the same boundary in both directions.
+            long forward = text.decodeForward(startLimit);
+            if (InputScanner.position(forward) != pos) {
+              return completeSearch(null, pos);
+            }
+            cp = InputScanner.codePoint(forward);
+            prevPos = startLimit;
+          }
           cls = classOf(cp);
         }
       } else {

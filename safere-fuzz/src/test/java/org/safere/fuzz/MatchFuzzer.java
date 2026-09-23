@@ -65,6 +65,7 @@ public final class MatchFuzzer {
     assertZeroWidthAlternationFindsLeftmostStartJdk();
     assertZeroWidthPossessiveCaptureRetentionJdk();
     assertDfaSandwichLeftmostStartCasesMatchJdk();
+    assertNullableFindInsideSurrogatePairMatchesJdk(data);
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
     assertScopedCaseFoldingMatchesJdk(data);
     assertMultiAnchorGapBoundsMatchJdk(data);
@@ -119,6 +120,18 @@ public final class MatchFuzzer {
       for (int pass = 0; pass < 2; pass++) {
         pattern.matcher(input).find();
       }
+    }
+  }
+
+  private static void assertNullableFindInsideSurrogatePairMatchesJdk(FuzzedDataProvider data) {
+    String regex = data.pickValue(List.of(".|", "a|", ".?", "(?:.|)A?"));
+    int codePoint = data.pickValue(List.of(0x1F600, 0x2F802, 0x8D43F));
+    String prefix = data.consumeBoolean() ? "x" : "";
+    String suffix = data.pickValue(List.of("", "A", "AB"));
+    String input = prefix + new String(Character.toChars(codePoint)) + suffix;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      pattern.matcher(input).find(prefix.length() + 1);
     }
   }
 
