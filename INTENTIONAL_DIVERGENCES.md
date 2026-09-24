@@ -77,6 +77,11 @@ state rather than reproducing this JDK behavior. This is similar to the
 `usePattern()` inconsistency above, but no upstream fix for this terminal
 `find()` path is claimed here.
 
+`MatcherTest` pins the exhausted state and the non-diverging non-nullable and
+`replaceFirst()` cases. Replacement fuzzing checks SafeRE's exhausted state
+after successful `replaceAll()` calls and excludes only the JDK state shape
+above from equivalence checks; replacement output remains compared.
+
 ## Initial `find()` after a Failed Full Match
 
 Issue reference: #818.

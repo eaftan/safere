@@ -1660,6 +1660,76 @@ class MatcherTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"x*", "y*", "a*", "x?", "(x)*", "(x*)", "", "(?<part>x*)", "$"})
+    @DisabledForCrosscheck(
+        "JDK retains inconsistent match state after terminal empty replacement; see #931")
+    void replaceAllTerminalEmptyMatchInvalidatesState(String regex) {
+      for (String input : new String[] {"", "x", "yxxy", "yyyy"}) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+        assertThat(matcher.replaceAll("-")).isEqualTo(jdk.replaceAll("-"));
+        assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
+        assertExhaustedReplacementState(matcher);
+        if (matcher.namedGroups().containsKey("part")) {
+          assertThatThrownBy(() -> matcher.group("part")).isInstanceOf(IllegalStateException.class);
+          assertThatThrownBy(() -> matcher.start("part")).isInstanceOf(IllegalStateException.class);
+          assertThatThrownBy(() -> matcher.end("part")).isInstanceOf(IllegalStateException.class);
+        }
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x+", "(x+)", "x", "[xy]"})
+    void replaceAllNonNullableMatchInvalidatesStateLikeJdk(String regex) {
+      for (String input : new String[] {"", "x", "yxxy", "yyyy"}) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+        assertThat(matcher.replaceAll("-")).isEqualTo(jdk.replaceAll("-"));
+        assertExhaustedReplacementState(matcher);
+        assertExhaustedReplacementState(jdk);
+        assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x*", "y*", "a*", "x?", "(x)*", "(x*)", "", "x+", "$"})
+    void replaceFirstPreservesMatchStateLikeJdk(String regex) {
+      for (String input : new String[] {"", "x", "yxxy", "yyyy"}) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+        assertThat(matcher.replaceFirst("-")).isEqualTo(jdk.replaceFirst("-"));
+        assertThat(matcher.hasMatch()).isEqualTo(jdk.hasMatch());
+        assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
+        if (jdk.hasMatch()) {
+          assertThat(matcher.group()).isEqualTo(jdk.group());
+          assertThat(matcher.start()).isEqualTo(jdk.start());
+          assertThat(matcher.end()).isEqualTo(jdk.end());
+          for (int group = 0; group <= jdk.groupCount(); group++) {
+            assertThat(matcher.group(group)).isEqualTo(jdk.group(group));
+            assertThat(matcher.start(group)).isEqualTo(jdk.start(group));
+            assertThat(matcher.end(group)).isEqualTo(jdk.end(group));
+          }
+        } else {
+          assertExhaustedReplacementState(matcher);
+          assertExhaustedReplacementState(jdk);
+        }
+      }
+    }
+
+    private static void assertExhaustedReplacementState(MatchResult matcher) {
+      assertThat(matcher.hasMatch()).isFalse();
+      assertThatThrownBy(matcher::group).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(matcher::end).isInstanceOf(IllegalStateException.class);
+      for (int group = 0; group <= matcher.groupCount(); group++) {
+        int index = group;
+        assertThatThrownBy(() -> matcher.group(index)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> matcher.start(index)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> matcher.end(index)).isInstanceOf(IllegalStateException.class);
+      }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", "b", "bbb"})
     @DisplayName("nullable DFA replaceAll() consumes its terminal empty match")
     void nullableDfaReplaceAllConsumesTerminalEmptyMatch(String input) {

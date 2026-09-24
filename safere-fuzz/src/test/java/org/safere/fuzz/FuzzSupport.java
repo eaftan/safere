@@ -5,6 +5,9 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -659,6 +662,9 @@ final class FuzzSupport {
         if (!waiveOutput) {
           assertSame(operation, replacement, safeRe.value(), jdk.value());
         }
+        if (operation.equals("replaceAll") || operation.equals("replaceAll(function)")) {
+          assertExhaustedReplacementState();
+        }
         return true;
       }
       if (safeRe.throwable() != null
@@ -668,6 +674,40 @@ final class FuzzSupport {
         return false;
       }
       throw divergence(operation, replacement, safeRe.describe(), jdk.describe());
+    }
+
+    private void assertExhaustedReplacementState() {
+      assertThat(safeReMatcher.hasMatch()).as("replaceAll exhausted state for %s", regex).isFalse();
+      assertThatThrownBy(safeReMatcher::group).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(safeReMatcher::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(safeReMatcher::end).isInstanceOf(IllegalStateException.class);
+      groupCount();
+      for (int group = 0; group <= safeReMatcher.groupCount(); group++) {
+        int index = group;
+        assertThatThrownBy(() -> safeReMatcher.group(index))
+            .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> safeReMatcher.start(index))
+            .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> safeReMatcher.end(index))
+            .isInstanceOf(IllegalStateException.class);
+      }
+      // #931: exclude only the JDK's half-cleared terminal-empty-match state, after a
+      // successful replaceAll. SafeRE must still satisfy every exhausted-state assertion.
+      // Do not waive replacement output, replaceFirst state, or other JDK state shapes.
+      if (jdkMatcher.hasMatch()) {
+        assertThat(jdkMatcher.start()).isEqualTo(input.length());
+        assertThat(jdkMatcher.end()).isEqualTo(input.length());
+        for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
+          assertThat(jdkMatcher.start(group)).isEqualTo(-1);
+          assertThat(jdkMatcher.end(group)).isEqualTo(-1);
+          assertThat(jdkMatcher.group(group)).isNull();
+        }
+        assertThat(jdkMatcher.group()).isNull();
+      } else {
+        assertThatThrownBy(jdkMatcher::group).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(jdkMatcher::start).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(jdkMatcher::end).isInstanceOf(IllegalStateException.class);
+      }
     }
 
     private boolean hasWaivedCapture() {
