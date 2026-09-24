@@ -335,6 +335,11 @@ final class FuzzSupport {
     boolean hasMatch() {
       boolean safeRe = safeReMatcher.hasMatch();
       boolean jdk = runJdkOracle("hasMatch", safeRe, () -> jdkMatcher.hasMatch());
+      // #931 also occurs after an explicit terminal find(), outside replacement loops.
+      if (!safeRe && jdk && hasJdkExhaustedEmptyMatchState()) {
+        assertSafeReExhaustedState();
+        return false;
+      }
       assertSame("hasMatch", safeRe, jdk);
       return safeRe;
     }
@@ -676,8 +681,8 @@ final class FuzzSupport {
       throw divergence(operation, replacement, safeRe.describe(), jdk.describe());
     }
 
-    private void assertExhaustedReplacementState() {
-      assertThat(safeReMatcher.hasMatch()).as("replaceAll exhausted state for %s", regex).isFalse();
+    private void assertSafeReExhaustedState() {
+      assertThat(safeReMatcher.hasMatch()).as("exhausted state for %s", regex).isFalse();
       assertThatThrownBy(safeReMatcher::group).isInstanceOf(IllegalStateException.class);
       assertThatThrownBy(safeReMatcher::start).isInstanceOf(IllegalStateException.class);
       assertThatThrownBy(safeReMatcher::end).isInstanceOf(IllegalStateException.class);
@@ -691,19 +696,32 @@ final class FuzzSupport {
         assertThatThrownBy(() -> safeReMatcher.end(index))
             .isInstanceOf(IllegalStateException.class);
       }
+    }
+
+    private boolean hasJdkExhaustedEmptyMatchState() {
+      if (!jdkMatcher.hasMatch()
+          || jdkMatcher.start() != jdkMatcher.regionEnd()
+          || jdkMatcher.end() != jdkMatcher.regionEnd()
+          || jdkMatcher.group() != null) {
+        return false;
+      }
+      for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
+        if (jdkMatcher.start(group) != -1
+            || jdkMatcher.end(group) != -1
+            || jdkMatcher.group(group) != null) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private void assertExhaustedReplacementState() {
+      assertSafeReExhaustedState();
       // #931: exclude only the JDK's half-cleared terminal-empty-match state, after a
       // successful replaceAll. SafeRE must still satisfy every exhausted-state assertion.
       // Do not waive replacement output, replaceFirst state, or other JDK state shapes.
-      if (jdkMatcher.hasMatch()) {
-        assertThat(jdkMatcher.start()).isEqualTo(input.length());
-        assertThat(jdkMatcher.end()).isEqualTo(input.length());
-        for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
-          assertThat(jdkMatcher.start(group)).isEqualTo(-1);
-          assertThat(jdkMatcher.end(group)).isEqualTo(-1);
-          assertThat(jdkMatcher.group(group)).isNull();
-        }
-        assertThat(jdkMatcher.group()).isNull();
-      } else {
+      if (!hasJdkExhaustedEmptyMatchState()) {
+        assertThat(jdkMatcher.hasMatch()).isFalse();
         assertThatThrownBy(jdkMatcher::group).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(jdkMatcher::start).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(jdkMatcher::end).isInstanceOf(IllegalStateException.class);

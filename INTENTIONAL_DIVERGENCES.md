@@ -80,7 +80,9 @@ state rather than reproducing this JDK behavior. This is similar to the
 `MatcherTest` pins the exhausted state and the non-diverging non-nullable and
 `replaceFirst()` cases. Replacement fuzzing checks SafeRE's exhausted state
 after successful `replaceAll()` calls and excludes only the JDK state shape
-above from equivalence checks; replacement output remains compared.
+above from equivalence checks; replacement output remains compared. Find-sequence
+fuzzing applies the same exclusion to `hasMatch()` after terminal failed searches,
+including searches within a restricted region.
 
 ## Initial `find()` after a Failed Full Match
 

@@ -5,6 +5,9 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
@@ -13,6 +16,33 @@ import org.junit.jupiter.api.Test;
 public final class FindSequenceFuzzer {
   private static final List<String> LINE_TERMINATORS =
       List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
+
+  @Test
+  void validTerminalEmptyMatchIsNotExcluded() {
+    var safeRe = org.safere.Pattern.compile("").matcher("");
+    var jdk = java.util.regex.Pattern.compile("").matcher("");
+    assertThat(jdk.find()).isTrue();
+    var pair = new FuzzSupport.MatcherPair("", 0, "", safeRe, jdk);
+    assertThatThrownBy(pair::hasMatch).isInstanceOf(AssertionError.class);
+  }
+
+  @Test
+  void terminalEmptyFindInvalidatesMatchState() {
+    for (String regex : List.of("x*", "(x?)", "", "$")) {
+      for (String input : List.of("", "x", "yxxy")) {
+        for (boolean useRegion : List.of(false, true)) {
+          FuzzSupport.MatcherPair matcher = FuzzSupport.compileOrSkip(regex, 0).matcher(input);
+          if (useRegion) {
+            matcher.region(0, input.length() / 2);
+          }
+          while (matcher.find()) {
+            assertThat(matcher.hasMatch()).isTrue();
+          }
+          assertThat(matcher.hasMatch()).isFalse();
+        }
+      }
+    }
+  }
 
   @Test
   void deferredAssertionsPreserveFullMatchAlternatives() {
