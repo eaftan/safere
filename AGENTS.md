@@ -1,169 +1,166 @@
 # SafeRE — Agent Guidelines
 
-## Project Overview
+SafeRE is a BSD 3-Clause-licensed Java port of RE2 with a linear-time matching
+contract and a `java.util.regex`-compatible API within that constraint. It is
+not a clean-room port. The RE2/J reference is in `re2j-reference/`.
 
-SafeRE is a linear-time regular expression matching library for Java, modeled on
-[RE2](https://github.com/google/re2).
-The RE2/J (Java) reference is in `re2j-reference/`.
+## Orientation
 
-- **Package**: `org.safere`
-- **Java version**: 21 (LTS) — built with OpenJDK 26 and tested on JDK 21 through 26
-- **Build**: Maven (`mvn`)
-- **Tests**: JUnit 6 (6.0.3), AssertJ
-- **Coverage**: JaCoCo
-- **Benchmarks**: JMH (Java Microbenchmark Harness)
+- `safere/src/main/java/org/safere/`: library implementation.
+- `safere/src/test/java/org/safere/`: unit and regression tests.
+- `safere-crosscheck/`: JDK differential facade and generated public API tests.
+- `safere-fuzz/`: Jazzer differential fuzz targets and regression corpus.
+- `safere-benchmarks/`: JMH suite, workload declarations, and collection tools.
+- Java 21 is the source baseline; builds use OpenJDK 26 and CI tests JDK 21–26.
+  Maven manages the build, JUnit, AssertJ, and JaCoCo versions.
 
-## License
+Read references when the task needs them:
 
-BSD 3-Clause License (same as RE2 and RE2/J). All source files must
-include a license header. Most files use this header:
+- [DESIGN.md](DESIGN.md): parser → AST simplification → compiler → execution
+  architecture, engine selection, and implementation rationale. Check current
+  code before relying on engine thresholds or fast-path ordering.
+- [DEVELOPMENT.md](DEVELOPMENT.md): build setup, optional modules, versioned
+  implementations, and external-project validation.
+- [TESTING.md](TESTING.md): test organization and verification commands;
+  [safere-fuzz/README.md](safere-fuzz/README.md) for fuzzing.
+- [INTENTIONAL_DIVERGENCES.md](INTENTIONAL_DIVERGENCES.md): accepted JDK
+  compatibility boundaries.
+- [Performance guide](safere-benchmarks/PERFORMANCE_GUIDE.md): required practices
+  for benchmarking, profiling, optimization, and publishing performance claims.
 
-```java
-// This file is part of a Java port of RE2 (https://github.com/google/re2).
-// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
-// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
-// Licensed under the BSD 3-Clause License (see LICENSE file).
-```
+Do not read every reference for each task. Keep durable project rules here and
+specialized procedures in their linked guides or skills. Update or replace
+existing guidance when correcting a recurring problem; remove stale or
+conflicting instructions instead of appending another exception.
 
-Files that incorporate code from RE2/J use this header instead:
+## Correctness Constraints
 
-```java
-// This file is part of a Java port of RE2 (https://github.com/google/re2).
-// Original RE2 code is Copyright (c) 2009 The RE2 Authors.
-// Portions derived from RE2/J (https://github.com/google/re2j),
-// Copyright (c) 2009 The Go Authors.
-// Modifications and Java port Copyright (c) 2026 Eddie Aftandilian.
-// Licensed under the BSD 3-Clause License (see LICENSE file).
-```
+- **Compatibility order:** preserve linear time first, then follow the official
+  JDK 26 specification. For ambiguous or unspecified behavior, match observed
+  JDK behavior when it preserves linear time. If observed behavior contradicts
+  the specification, explain the contradiction and obtain the project owner's
+  confirmation before adopting an intentional divergence. Existing approval for
+  the same decision does not need to be requested again. Record the decision in
+  `INTENTIONAL_DIVERGENCES.md`.
+- **Bounded compatibility work:** use engine-native state, bounded per-input
+  context, or a bounded number of linear passes. Do not repair results by
+  repeatedly invoking matchers, replaying prefixes, or rescanning unbounded
+  context inside position/retry loops. Find a linear formulation or document
+  the compatibility boundary.
+- **Supported dialect:** reject backreferences, lookahead/lookbehind, possessive
+  quantifiers, and `\C` at parse time with clear errors.
+- **Stack safety:** use explicit stacks/worklists or existing iterative Walker
+  helpers for AST/program walks, parsing, compilation, matching, Unicode/class
+  processing, and public API paths. Recursion is acceptable only in test helpers
+  or implementation details with a statically small bound. Deep patterns and
+  large inputs must not cause `StackOverflowError`.
+- **Unicode:** operate on code points, using `Character.codePointAt()` and
+  related APIs rather than treating UTF-16 code units as characters.
 
-## Build & Test
+## Fixing Bugs
+
+For SafeRE/JDK differences in parsing, matching, captures, matcher state, or
+replacement, use the
+[divergence-bug-fix skill](.agents/skills/divergence-bug-fix/SKILL.md). It owns
+specification assessment and divergence-specific test and fuzz coverage.
+
+For behavior-changing bug fixes:
+
+1. Add systematic regression tests for the behavioral class before investigating
+   engine internals. Run them to identify passing and failing cases.
+2. Root-cause the failures and fix the underlying design. Avoid pattern-string,
+   input-shape, or seed-specific guards unless they encode a documented rule.
+3. Verify and explain the general invariant, not just the original reproducer.
+   Prefer fewer moving parts and remove obsolete special cases.
+
+Each fixed bug needs a regression that fails without the fix and passes with it.
+For an approved intentional divergence with no implementation change, pin the
+existing behavior and document it; a failing SafeRE test is not required.
+
+When validating SafeRE in external projects, follow the
+[external-validation workflow](DEVELOPMENT.md#external-project-validation): fix
+found bugs and recheck the external failure before proceeding.
+
+## Build and Validation
 
 ```bash
-# Run tests (quiet output)
+# Focused library tests (replace MatcherTest with the affected class)
+mvn -pl safere -Dtest=MatcherTest test -q
+
+# Full library suite, when warranted
 mvn -pl safere test -q
 
-# Install to local repo (needed before benchmarks)
+# Build/install this project for dependent modules or external validation
 mvn install -DskipTests -q
-
-# Run benchmarks (see Benchmarking section below)
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 ```
 
-## Code Style
+- Run best-effort focused validation before creating or updating a PR. Select
+  checks for the changed behavior; use CI for standard broad coverage. A full
+  library suite plus generated public API crosschecks is not a routine local
+  prerequisite, including for divergence work. Broaden local validation for
+  changes spanning engines/shared invariants, failures, unresolved risks, or an
+  explicit request. For prose-only changes, check accuracy and links rather
+  than running Java suites unless requested.
+- For changed tests, run the relevant tests. For changed fuzz coverage, run the
+  affected targets in regression mode. For public API compatibility changes,
+  select affected generated crosschecks when practical; see `TESTING.md`.
+- Run Maven builds/tests sequentially within one checkout: compilation can
+  replace class files in use by another run. Use separate worktrees/build
+  outputs when concurrent independent builds are needed.
+- Once relevant checks pass, rerun or expand them only for new changes,
+  failures, or unresolved concerns. Distinguish an environment failure from a
+  code failure and do not describe an incomplete check as passed.
+- Work is complete when the requested scope is covered, relevant checks have
+  been assessed, and remaining limitations are communicated. Respect a request
+  to stop at local review rather than publishing.
 
-Follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html):
+## Source and Test Conventions
 
-- 2-space indentation, no tabs
-- 100-character line limit
-- Braces on same line (`if (...) {`)
-- One class per file (except private inner classes)
-- `static` imports grouped separately, sorted alphabetically
-- Non-static imports sorted alphabetically
-- No wildcard imports
-- Use `@Override` on all overriding methods
-- Write Javadoc for all public and protected members
-- Use `{@code ...}` in Javadoc for code fragments
-- Prefer `Objects.requireNonNull` over explicit comparisons to `null` for
-  validating required arguments and state, when appropriate.
-- Fields: `camelCase`; constants: `UPPER_SNAKE_CASE`; classes: `PascalCase`
+- Follow [Google Java Style](https://google.github.io/styleguide/javaguide.html):
+  2-space indentation, 100-character lines, same-line braces, sorted imports
+  with static imports separate, and no wildcard imports.
+  Match nearby code and use the configured formatter.
+- One class per file except private inner classes. Use `@Override` for overrides
+  and Javadoc for public/protected members, with `{@code ...}` for code fragments.
+- Use `Objects.requireNonNull` where appropriate. Prefer typed collections over
+  `Object[]`; primitive arrays are fine for performance.
+- Retain BSD license headers and add the established header to new source files.
+  Copy the appropriate existing variant: code derived from RE2/J must retain
+  its additional attribution, not just the RE2 attribution.
+- Do not add `@SuppressWarnings` without project-owner approval, except
+  `@SuppressWarnings("ArrayRecordComponent")` on non-public array-carrier
+  records when array value semantics are not used and an adjacent comment
+  explains ownership or performance. Public records still require approval.
+- Use JUnit Jupiter and AssertJ assertions. Name tests for behavior rather than
+  issue numbers; issue references belong in comments or display-name suffixes
+  when useful. Use `FooTest.java` for tests of `Foo` and appropriate parameterized
+  coverage. Port relevant RE2 test cases when useful.
+- Use `@DisabledForCrosscheck("reason")` on original tests for assertions that
+  should appear as disabled only in generated crosscheck coverage.
+- Test performance behavior through stable scaling or relative comparisons,
+  not fixed elapsed-time thresholds.
+- Do not include test counts or personal names in prose documentation. Refer
+  to projects such as RE2 and RE2/J; preserve required license attribution.
+- Do not install packages, libraries, or tools on the machine. Ask the project
+  owner to install missing prerequisites.
 
-## Project Structure
+## Performance Work
 
-```
-safere/src/main/java/org/safere/          # Library source
-safere/src/test/java/org/safere/          # Tests
-safere-benchmarks/                         # JMH benchmark suite
-```
+For optimization work, profile the workload before implementation. Before
+committing an optimization, demonstrate an improvement with before/after
+benchmarks. Use `./run-java-benchmarks.sh` for Java benchmarks, never
+`mvn exec:java`, and run benchmarks sequentially. The scripts own measurement
+settings; use standard mode for routine evidence and `--long` to confirm close,
+surprising, or important comparisons.
 
-## Architecture
-
-The processing pipeline mirrors RE2:
-
-```
-Pattern string → Parse → Simplify → Compile → Execute
-                  ↓         ↓          ↓          ↓
-               Regexp     Regexp      Prog     NFA/DFA
-               (AST)    (simpler)  (bytecode)   (match)
-```
-
-### Key Internal Classes
-
-- `Parser` — stack-based operator-precedence regex parser → `Regexp` AST
-- `Simplifier` — AST simplification (character class folding, etc.)
-- `Compiler` — Thompson NFA construction → `Prog` / `Inst` bytecode
-- `Regexp` — AST node (operator + children)
-- `CharClass` / `CharClassBuilder` — sorted Unicode code point ranges
-- `Prog` / `Inst` — compiled bytecode program
-
-### Execution Engines (in priority order)
-
-1. **Fast paths** — literal `String.indexOf()`, character-class bitmap scan
-2. **OnePass** — deterministic single-pass matcher for unambiguous patterns
-3. **DFA** — lazy DFA with cached states (forward, reverse, anchored)
-4. **BitState** — NFA with visited-state bitmap for small texts
-5. **NFA** — Pike VM for arbitrarily large texts
-
-Engine selection in `Matcher.doFind()`:
-1. Literal fast path → `String.indexOf()`
-2. Anchored OnePass → direct OnePass if `^` and OnePass-eligible
-3. Prefix acceleration → skip to first literal/charclass prefix match
-4. OnePass for small text → `searchUnanchored()` if text ≤ 256 chars
-5. DFA sandwich → forward DFA, reverse DFA, anchored DFA for match bounds
-6. BitState/NFA fallback → full search with capture extraction
-
-### Public API
-
-Drop-in replacements for `java.util.regex`:
-- `Pattern` — compiled regex (replaces `java.util.regex.Pattern`)
-- `Matcher` — match state (replaces `java.util.regex.Matcher`)
-- `PatternSet` — multi-pattern matching (SafeRE-only feature)
-
-## Testing
-
-- Use JUnit 6 (6.0.3) with `org.junit.jupiter.api.*` imports
-- Use AssertJ (`org.assertj.core.api.Assertions.*`) for all assertions
-- Test class naming: `FooTest.java` for `Foo.java`
-- Name regression test classes, nested classes, methods, and display names for
-  the behavior under test, not the issue number. Do not use names like
-  `Issue123RegressionTest`, `Issue123Regressions`, or
-  `original issue #123 test case`.
-- Keep issue references in comments, Javadocs, or display-name suffixes only
-  when they add traceability. The issue number should never be the primary
-  description of the test.
-- Use `@Test`, `@ParameterizedTest`, `@DisplayName` as appropriate
-- Aim for high coverage; JaCoCo is configured in the build
-- Port test cases from RE2's C++ test suite where applicable
-- For performance regressions, do not hardcode specific elapsed durations in
-  tests. Test the performance behavior directly in a way that is stable across
-  machines, such as relative ratios between related inputs or scaling behavior.
-- **Do not include test counts in documentation** (DESIGN.md, TESTING.md,
-  etc.) — counts change frequently as tests are added and will go stale.
-- When updating BENCHMARKS.md, include the full Git SHA that the benchmarks
-  were run against and that commit's date/time in UTC using `Z` notation
-  (for example, `2026-04-27T02:42:22Z`). Do not include a separate benchmark
-  results timestamp unless explicitly requested.
-
-## External Validation
-
-When swapping SafeRE into external projects for validation (#26), **fix every
-bug you find immediately**. Do not just report it and move on. The workflow is:
-
-1. Identify the failure and root-cause it.
-2. Write a regression test in SafeRE that reproduces the bug.
-3. Fix the bug in SafeRE.
-4. Run the SafeRE test suite to confirm the fix and no regressions.
-5. Re-install (`mvn install -DskipTests -q`) and re-run the external
-   project's failing tests to confirm they now pass.
-6. Commit the fix.
-7. Then continue with the rest of the validation.
+Read the [performance guide](safere-benchmarks/PERFORMANCE_GUIDE.md) for collection
+scope, workload syntax, profiling commands, statistics, and artifact requirements.
+Use the [write-benchmark-report skill](.agents/skills/write-benchmark-report/SKILL.md)
+for collections and published reports. Performance PRs must include measured
+before/after results and their improvement or regression.
 
 ## Pull Requests
 
-- Before creating a PR, run best-effort focused validation for the change, such
-  as tests likely to be affected by the touched code. Full SafeRE plus public
-  API crosscheck validation is not required.
-  Use `@DisabledForCrosscheck("reason")` on original SafeRE tests for cases
-  that should be visible as disabled only in generated crosscheck coverage.
 - **Keep PR descriptions focused on the change.** Explain the problem, the
   resulting behavior, and any design decision or compatibility tradeoff
   reviewers need to assess it.
@@ -186,376 +183,17 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 - **Update existing PRs — do not close and reopen.** Push commits (or
   force-push if rebasing) to the existing branch. Closing and reopening PRs
   loses review context and clutters the issue tracker.
-- When creating or editing PR descriptions with `gh`, write the body to a
-  temporary file first and pass it with `--body-file`. Do not inline
-  multi-line Markdown in the shell command, because quoting and escaping are
-  easy to get wrong.
-- Include the appropriate issue linkage in the PR description as well as in
-  commit messages: use `Fixes #N` only when the PR fully resolves the issue,
-  and use `Refs #N` or `Part of #N` for partial work. GitHub's Development
-  sidebar links open PRs to issues based on the PR description; commit-message
-  keywords may only close the issue after merge as a commit reference.
-- For performance optimization PRs, include before/after benchmark results in
-  the PR description and state the measured improvement or regression for the
-  specific change. Use the standard Java benchmark configuration by default;
-  use `--long` when confirming close, surprising, or especially important
-  comparisons.
-- Do not push directly to `main`. Always create a branch and open a PR.
-## GitHub Issues
+- Do not push directly to `main`. Publish changes on a branch through a PR.
 
-- Do not close an issue until **all** items in it are resolved. If only some
-  items are done, post a progress comment instead.
-- When referencing an issue in a commit message, use `Fixes #N` only if the
-  commit fully resolves the issue. Otherwise use `Refs #N` or `Part of #N`.
-- When creating or commenting on issues with `gh`, write the body to a
-  temporary file first and pass it with `--body-file`. Do not inline
-  multi-line Markdown in the shell command, because quoting and escaping are
-  easy to get wrong.
-- **File issues only for genuinely unrelated bugs found during other work.** If
-  you discover a bug that is caused by the PR you are working on or is related
-  to that PR's goal, do not open a separate issue; add regression coverage and
-  fix it as part of the PR work. If you discover a bug outside the cause and
-  intended scope of the current PR or task, you *must* file a GitHub issue for
-  it immediately. Do not silently work around it or leave it undocumented.
+## Issue Tracking and GitHub Text
 
-## Bug Fixing Philosophy
-
-- **SafeRE/JDK divergence bugs**: Use the `divergence-bug-fix` skill for bugs
-  where SafeRE behavior diverges from `java.util.regex`. It consolidates the
-  compatibility policy, JDK 26 `Pattern`/`Matcher` Javadoc assessment,
-  test-driven regression coverage, and fuzz coverage requirements.
-- **Make principled fixes.** Understand the root cause before changing code.
-  Do not add special cases, flags, or if-statements that paper over symptoms.
-  A correct fix addresses the underlying design flaw — if a DFA cache key is
-  missing a dimension, fix the cache key; don't add a post-hoc correction.
-- **Do not make point fixes.** A fix must generalize to the semantic class of
-  the bug, not just the specific repro, issue, fuzz seed, or benchmark case.
-  Avoid pattern-string checks, input-shape checks, and other one-off guards
-  unless they directly encode a documented regex/API rule.
-- **Verify the invariant, not just the test.** After a fix, articulate *why*
-  it is correct in general, not just why it makes a specific test pass.  If
-  you can construct a new input that would still break, the fix is wrong.
-- **Prefer fewer moving parts.** A fix that removes a special case is better
-  than one that adds a new special case.  Simpler code has fewer bugs.
-- **Test-driven bug fixing.** When fixing a bug, focus on test coverage
-  *first*, before investigating the underlying code.  Do not look at the
-  engine internals or try to understand why the code gets the wrong answer
-  until tests are in place.  The workflow is:
-  1. Ask: why isn't there test coverage for this *class* of things?
-  2. Write systematic tests for the entire class of related behavior — not
-     just the one failing case.
-  3. Run the tests.  See which pass and which fail.
-  4. *Then* investigate the code, root-cause the bug, and fix it.
-  This catches other latent bugs in the same area and prevents regressions.
-
-## Key Constraints
-
-- **JDK compatibility**: SafeRE aims to be a drop-in replacement for
-  `java.util.regex`, subject first to SafeRE's linear-time guarantee. Never
-  choose JDK specification compliance or observed JDK behavior compatibility
-  when doing so would violate the linear-time guarantee. Within that
-  constraint, comply with the official JDK Javadoc specification. If the
-  specification is ambiguous or unspecified, match observed JDK behavior when
-  doing so preserves linear time. If observed JDK behavior contradicts the
-  specification, stop and explain the contradiction to the project owner; if
-  they confirm proceeding, match the specification subject to linear time and
-  document the intentional divergence from observed JDK behavior.
-- **Compatibility must be engine-native or bounded.** JDK compatibility code
-  may add explicit dimensions to engine state, use bounded per-input context,
-  or perform a bounded number of linear passes over the relevant input range.
-  It must not repair engine results by repeatedly invoking matchers, replaying
-  prefixes, rescanning unbounded context from many positions, or otherwise
-  nesting input-position work inside retry loops. If matching observed JDK
-  behavior appears to require that shape, stop and treat it as a compatibility
-  boundary: either find an engine-native linear formulation, or document an
-  intentional divergence under the linear-time guarantee.
-- **Linear time**: No backreferences, no lookahead/lookbehind, no possessive
-  quantifiers. These features violate linear-time guarantees and must be
-  rejected at parse time with a clear error.
-- **Unicode**: Operate on Unicode code points (not UTF-16 code units). Use
-  `Character.codePointAt()` and related methods.
-- **Stack safety**: Avoid recursion in SafeRE implementation code. Regex AST
-  walks, program graph walks, parser logic, compiler logic, matcher execution,
-  Unicode/class processing, and public API paths must use explicit
-  stacks/worklists or existing iterative Walker helpers. Deeply nested regexes
-  and large inputs must not be able to cause `StackOverflowError`. Recursion is
-  acceptable only for test helpers or implementation details with a clearly
-  static, small bound.
-- **No `\C`**: RE2's "match any byte" is not applicable to Java strings.
-- **No `@SuppressWarnings` by default**: Do not add `@SuppressWarnings`
-  annotations without explicit approval from the project owner. Fix the
-  underlying issue instead.
-  `@SuppressWarnings("ArrayRecordComponent")` is pre-approved for non-public
-  records that intentionally hold arrays as internal data carriers, provided
-  array value semantics are not relied upon and an adjacent comment explains
-  the ownership or performance rationale. Public API records and records that
-  require value semantics still require explicit approval.
-- **Avoid `Object` arrays**: Use typed collections (`List<T>`, etc.) instead
-  of `Object[]` to maintain type safety. Primitive arrays (e.g., `int[]`)
-  are fine for performance reasons.
-- **No installing software**: Never install packages, libraries, or tools
-  on the machine. If something is missing, ask the project owner to install
-  it.
-- **Not a clean-room port**: SafeRE is a port of RE2, using the C++ RE2
-  source as a reference. Never describe it as a "clean-room" port.
-- **No personal names in documentation**: Refer to projects (RE2, RE2/J)
-  rather than individuals. Do not mention people's names in DESIGN.md,
-  README.md, TESTING.md, or other documentation.
-- **Regression tests for bugs**: Any time a bug is found, a regression test
-  must be added that fails without the fix and passes with it.
-
-## Benchmarking
-
-### Running Benchmarks
-
-**Always use `./run-java-benchmarks.sh`** to run benchmarks. This script
-runs `mvn install` to build a shaded (fat) JAR, then runs it with
-`java -jar`. This is required for JMH fork mode — forked JVMs need a
-self-contained classpath. Do NOT use `mvn exec:java`, which breaks fork
-mode because the forked child cannot find JMH classes.
-
-The script is the **single source of truth** for benchmark settings.
-Benchmark classes have no `@Fork`, `@Warmup`, or `@Measurement` annotations
-— all statistical rigor settings are controlled by the script.
-
-```bash
-# BENCHMARKS.md updates and routine benchmark evidence
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
-
-# Longer confirmation run for close, surprising, or important comparisons
-./run-java-benchmarks.sh --long '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
-
-# Separately licensed OpenJDK-derived suite (requires an external checkout)
-./run-openjdk-regex-benchmarks.sh
-
-# Full collection; includes the external OpenJDK-derived suite by default
-./collect-benchmark-results.sh
-
-# Longer confirmation collection
-./collect-benchmark-results.sh --long
-
-# Add cross-runtime engines
-./collect-benchmark-results.sh --cross-language
-```
-
-Arguments after the mode flag are passed directly to JMH as benchmark regex
-filters.
-
-**Run benchmarks sequentially.** Use the declarative collection plan to select
-generic runners and trials:
-
-```bash
-./run-java-benchmarks.sh --declared
-./run-java-benchmarks.sh --smoke --declared
-```
-
-**Extract summary tables from JMH output** using grep:
-
-```bash
-./run-java-benchmarks.sh '^org\.safere\.benchmark\.CrossEngineBenchmark\.' 2>&1 \
-  | grep -E '^(Benchmark|[A-Z][a-zA-Z]+Benchmark\.)'
-```
-
-### Key Rules
-
-- **The default run is the standard Java benchmark configuration.** Running the
-  script without mode flags uses 2 forks, 2 warmup × 500ms, and 5 measurement
-  × 500ms. This empirically selected configuration is the default for routine
-  benchmark evidence and BENCHMARKS.md updates.
-- **Use `--long` for confirmation.** Long mode uses 2 forks, 3 warmup × 1s,
-  and 5 measurement × 1s. Use it for close, surprising, or especially important
-  comparisons where the extra runtime is justified.
-- **Declared `noFork` workloads always use `-f 0`.** The generic collection
-  runner derives this setting from the measurement profile.
-- **Default benchmark collection includes both Java suites.**
-  `./collect-benchmark-results.sh` collects SafeRE, JDK, RE2/J, and RE2-FFM
-  results from SafeRE's suite, then SafeRE/JDK results from the external
-  OpenJDK-derived suite. Use `./collect-benchmark-results.sh --cross-language`
-  only when broader C++ RE2, PCRE2 JIT, Go `regexp`, Rust `regex`, and .NET
-  non-backtracking context is explicitly needed.
-- **OpenJDK-derived benchmarks stay external.** Their GPL-2.0-only repository
-  must be checked out separately and must not be vendored or added to SafeRE's
-  Maven modules. The collection script runs them as a separate result set
-  against the current SafeRE snapshot. A request to run "our benchmarks" or the
-  "full benchmarks" includes this external suite unless the user explicitly
-  narrows the requested scope. Use it when broad matching, search, compilation,
-  or rejection changes could affect its workloads.
-- **NEVER run benchmarks in parallel.** All benchmark runs must run
-  sequentially, one at a time. Parallel runs compete for CPU, cache, and memory
-  bandwidth, producing inaccurate results.
-- **A collection does not require continuous monitoring.** Launch long
-  collections in a durable session with captured output. Verify that
-  prerequisites and builds succeed and that the first actual benchmark starts,
-  then stop polling unless the user explicitly asks for continuous oversight.
-  Before analyzing the results, verify the final exit status and the expected
-  artifacts for every selected suite. Do not describe a successfully started
-  collection as completed.
-- **Do not commit optimizations that do not improve benchmark results.**
-  Every optimization must be validated with before/after benchmarks.
-- **`benchmark-data.json` is the only checked-in workload definition.** Large
-  UTF-8 input files may be checked in under `safere-benchmarks/data/`
-  and referenced by a `file` recipe with a pinned SHA-256 in the JSON. Keep
-  source and license attribution with data copied from other projects.
-  Benchmark scripts materialize the definitions and data into a resolved
-  manifest and exact UTF-8 input files before execution. Java, C++, Go, Rust,
-  and other harnesses read only those generated artifacts. Edit the JSON file
-  to change workload definitions; never hardcode values or generation logic in
-  a harness.
-- **Zero implicit benchmark syntax conversion.** Regex patterns and
-  replacement templates remain Java-canonical workload data. When an engine
-  needs different syntax, declare the engine's exact alternate beside the
-  canonical value in `benchmark-data.json`, with a reason, and have the adapter
-  select that profile or use the canonical value unchanged. Runners and
-  adapters must not parse, rewrite, translate, escape, or otherwise infer
-  engine-specific pattern or replacement syntax, including numbered or named
-  group references and quoting rules. If the schema cannot yet express the
-  required alternate, extend and validate the schema first; do not add a
-  conversion helper in a harness.
-
-### Summary Statistics
-
-The structure and workload groupings in `BENCHMARKS.md` must reflect the
-current benchmark suite and the questions the report is intended to answer.
-Do not preserve a fixed list of summary categories, benchmark methods, or
-competitors after the suite or reporting goals have changed.
-
-When reporting an aggregate comparison:
-
-- Define its workload membership, parameter coverage, and weighting clearly.
-- Include the benchmark families that materially affect the report's
-  conclusions; do not silently omit important or inconvenient results.
-- Keep semantically different groups separate when combining them would hide
-  useful behavior. Label cross-runtime comparisons as context rather than
-  controlled same-runtime comparisons.
-- Compute the **geometric mean of speed ratios** rather than an arithmetic mean
-  of ratios. Use `SafeRE time / competitor time`, so values below 1.0 mean
-  SafeRE is faster.
-- Compute each competitor aggregate over its actual pairwise shared membership
-  when engine coverage differs. Report the row count and material exclusions;
-  do not present a partial-coverage aggregate as an overall engine comparison.
-- Report the raw geomean and a readable interpretation. For ratios below 1.0,
-  use "N× faster." For ratios above 1.0, use a percentage such as "13% slower"
-  or the unambiguous "takes 2.03× as long," not "1.13× slower." Explain when a
-  small number of extreme cases materially influences the aggregate.
-
-**Why geometric mean:** It is the only mean consistent under inversion
-(geomean(A/B) = 1/geomean(B/A)), treats multiplicative improvements
-symmetrically, and is the standard in systems benchmarking (SPEC, DaCapo,
-Renaissance). Do not use arithmetic mean of ratios — it is biased by outliers
-and inconsistent under inversion.
-
-`BENCHMARKS.md` must be self-contained for checked-in benchmark claims. For a
-published benchmark report, check in the reviewed collection under
-`benchmark-results/published/<full-SafeRE-commit>/`, including complete raw
-outputs, normalized results, the resolved plan, a publication README, and
-SHA-256 checksums. Keep ordinary timestamped runs ignored. The report must link
-prominently to the published artifacts, and its claims must be reproducible
-from them; neither the report nor an ignored or machine-local artifact may be
-the sole inspectable evidence.
-
-When updating `BENCHMARKS.md`, update the external OpenJDK-derived benchmark
-section from the same collection. Keep its results and aggregates separate from
-SafeRE's native suite, and record the SafeRE commit, external benchmark
-repository commit, pinned OpenJDK source commit, SafeRE version, and JDK
-version. If the user explicitly narrows the collection to skip that suite,
-identify the report as incomplete and remove stale external results rather than
-retaining results from a different collection. Do not leave the previous
-external results in place after publishing a new full collection.
-
-### Writing About Benchmark Results
-
-- **Use professional, neutral language.** Do not use terms like "crushes",
-  "destroys", "demolishes", or other language that puts down other
-  implementations. Every engine makes deliberate design tradeoffs.
-- **State facts and ratios.** Write "SafeRE is 50× faster than RE2/J"
-  rather than "SafeRE crushes RE2/J."
-- **Explain supported causes.** Attribute performance gaps to specific design
-  decisions only when workload inspection, implementation tracing, or profiling
-  supports the explanation. Label inferences as such, and profile before
-  proposing an optimization. Do not present speculation as a measured cause or
-  imply that another implementation is poorly written.
-- **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
-  in return (e.g., linear-time guarantees). When it's faster, note what
-  the other engine optimizes for instead.
-
-## Profiling
-
-Use profiling to identify actual bottlenecks before implementing optimizations.
-**Do not guess** — profile first, optimize second.
-
-### async-profiler
-
-[async-profiler](https://github.com/jvm-profiling-tools/async-profiler) 4.3 is
-installed and on the PATH (`asprof`). It supports CPU, allocation, and lock
-profiling with minimal overhead and no safepoint bias.
-
-**CPU flame graph** — identifies where CPU time is spent:
-
-```bash
-# Attach to a running JVM by PID
-asprof collect -d 30 -e cpu -o flamegraph -f /tmp/cpu-flame.html <pid>
-
-# Or use the JVM agent to profile from start (no PID needed):
-java -agentpath:/home/eaftan/async-profiler-4.3-linux-x64/lib/libasyncProfiler.so=start,event=cpu,file=/tmp/cpu-flame.html \
-  -jar safere-benchmarks/target/benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
-```
-
-**Allocation profiling** — identifies where objects are allocated:
-
-```bash
-asprof collect -d 30 -e alloc -o flamegraph -f /tmp/alloc-flame.html <pid>
-```
-
-**Flat output** — top methods by sample count (quick text summary):
-
-```bash
-asprof collect -d 30 -e cpu -o flat -f /tmp/cpu-flat.txt <pid>
-```
-
-**Filtering to SafeRE code** — use `-I` to include only relevant frames:
-
-```bash
-asprof collect -d 30 -e cpu -o flat -I 'org.safere.*' -f /tmp/safere-cpu.txt <pid>
-```
-
-**Tips:**
-- Always pass `-XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints` to the
-  JVM for accurate line-level profiling. Without these flags, samples are biased
-  toward safepoints.
-- For profiling JMH benchmarks, use `-f 0` (no-fork mode) so async-profiler can
-  attach to the same JVM. Fork mode spawns child JVMs that need separate
-  attachment.
-- Profile for at least 10–30 seconds to get statistically meaningful samples.
-- Use `-t` (threads) to see per-thread breakdown.
-
-### Java Flight Recorder (JFR)
-
-JFR is built into OpenJDK 26 and always available. It's best for allocation
-profiling and event-based analysis.
-
-**Record to file:**
-
-```bash
-java -XX:StartFlightRecording=duration=30s,filename=/tmp/recording.jfr \
-  -jar safere-benchmarks/target/benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
-```
-
-**Attach to running JVM:**
-
-```bash
-jcmd <pid> JFR.start name=profile duration=30s filename=/tmp/recording.jfr
-```
-
-**Analyze JFR files** — use `jfr` CLI tool for text summaries:
-
-```bash
-jfr summary /tmp/recording.jfr
-jfr print --events jdk.ObjectAllocationInNewTLAB /tmp/recording.jfr | head -100
-jfr print --events jdk.ExecutionSample /tmp/recording.jfr | head -100
-```
-
-**Tips:**
-- JFR has lower overhead than async-profiler for allocation tracking.
-- async-profiler is preferred for CPU profiling (no safepoint bias).
-- JFR `.jfr` files can also be opened in JDK Mission Control for visual
-  analysis (not available on this machine, but files can be downloaded).
+- Use `Fixes #N` in PR descriptions and commit messages only when all issue
+  requirements are resolved; otherwise use `Refs #N` or `Part of #N`. Include
+  the linkage in the PR description so GitHub associates the PR with the issue.
+- Do not close an issue until all items are resolved. For partial work, post a
+  progress comment instead.
+- Fix bugs caused by or within the goal of the current task in that task; do
+  not split them into separate issues. File an issue immediately for a genuinely
+  unrelated bug discovered during other work; do not silently work around it.
+- For PR/issue descriptions and comments sent with `gh`, write the body to a
+  temporary file and pass `--body-file`. Avoid inline multiline Markdown.

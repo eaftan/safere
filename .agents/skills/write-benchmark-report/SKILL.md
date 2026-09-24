@@ -11,8 +11,9 @@ workflow.
 
 ## Establish Scope
 
-1. Read the repository `AGENTS.md` Benchmarking section, the current `BENCHMARKS.md`, the benchmark
-   collection documentation in `README.md`, and the collection scripts before acting.
+1. Read the [performance guide](../../../safere-benchmarks/PERFORMANCE_GUIDE.md) for project
+   benchmark rules. For collection work, inspect the relevant collection scripts and README
+   instructions; for report work, read the current `BENCHMARKS.md`.
 2. Inspect the current workload declarations and report plan. Do not preserve historical categories,
    methods, or competitors when the suite has changed.
 3. Resolve what "full" means before running:
