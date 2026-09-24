@@ -2,7 +2,7 @@
 
 SafeRE is a BSD 3-Clause-licensed Java port of RE2 with a linear-time matching
 contract and a `java.util.regex`-compatible API within that constraint. It is
-not a clean-room port. The RE2/J reference is in `re2j-reference/`.
+not a clean-room port.
 
 ## Orientation
 
