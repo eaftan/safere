@@ -693,6 +693,58 @@ class DfaTest {
   }
 
   @Test
+  void reverseDfaPreservesContextAtStartLimit() {
+    for (String prefix : List.of("xy", "é", "€", "😀", "\n")) {
+      String text = prefix + "a";
+      for (InputScanner scanner :
+          List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+        for (String regex : List.of("a", "\\ba|a", "\\Ba|a", "\\ba", "\\Ba", "^a|b", "(?m)^a")) {
+          boolean expected =
+              java.util.regex.Pattern.compile(regex).matcher(text).find(prefix.length());
+          Dfa reverse = Pattern.compile(regex).reverseDfa();
+          for (int pass = 0; pass < 2; pass++) {
+            Dfa.SearchResult result =
+                reverse.doSearchReverse(
+                    scanner, scanner.length(), scanner.length() - 1, true, true);
+            assertThat(result)
+                .as("%s after %s (%s)", regex, prefix, scanner.getClass())
+                .isNotNull();
+            assertThat(result.matched())
+                .as("%s after %s (%s)", regex, prefix, scanner.getClass())
+                .isEqualTo(expected);
+            if (expected) {
+              assertThat(result.pos()).isEqualTo(scanner.length() - 1);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  void reverseDfaDecodesFromInteriorStartLimit() {
+    for (String text : List.of("é", "€", "😀")) {
+      for (InputScanner scanner :
+          List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+        for (String regex : List.of(".", ".|", ".+")) {
+          Dfa reverse = Pattern.compile(regex).reverseDfa();
+          for (int start = 1; start < scanner.length(); start++) {
+            for (int pass = 0; pass < 2; pass++) {
+              Dfa.SearchResult result =
+                  reverse.doSearchReverse(scanner, scanner.length(), start, true, true);
+              assertThat(result)
+                  .as("%s on %s from %s (%s)", regex, text, start, scanner.getClass())
+                  .isNotNull();
+              assertThat(result.matched()).isTrue();
+              assertThat(result.pos()).isEqualTo(regex.equals(".+") ? start : scanner.length() - 1);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Test
   void reverseDfaPruningCorrectness() {
     Pattern p = Pattern.compile("\\B([^a])*[^a][^a]");
     Dfa revDfa = p.reverseDfa();

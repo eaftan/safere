@@ -2298,15 +2298,13 @@ final class Dfa {
           long decoded = text.decodeBackward(pos);
           cp = InputScanner.codePoint(decoded);
           prevPos = InputScanner.position(decoded);
-          if (prevPos < startLimit) {
-            // The forward search starts at startLimit, even when that position is inside an
-            // encoded character. Decode the first unit from the same boundary in both directions.
-            long forward = text.decodeForward(startLimit);
-            if (InputScanner.position(forward) != pos) {
-              return completeSearch(null, pos);
-            }
-            cp = InputScanner.codePoint(forward);
-            prevPos = startLimit;
+          if (pos > startLimit && prevPos < startLimit) {
+            // Starting inside an encoded character leaves a lone UTF-16 low surrogate or UTF-8
+            // continuation bytes. Forward decoding consumes each remaining unit separately, so
+            // reverse decoding must do the same. At pos == startLimit, preserve the preceding
+            // code point instead: it supplies context for leading assertions.
+            prevPos = pos - 1;
+            cp = text.codePointAt(prevPos);
           }
           cls = classOf(cp);
         }

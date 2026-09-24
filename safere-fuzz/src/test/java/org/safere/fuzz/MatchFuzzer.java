@@ -65,7 +65,6 @@ public final class MatchFuzzer {
     assertZeroWidthAlternationFindsLeftmostStartJdk();
     assertZeroWidthPossessiveCaptureRetentionJdk();
     assertDfaSandwichLeftmostStartCasesMatchJdk();
-    assertNullableFindInsideSurrogatePairMatchesJdk(data);
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
     assertScopedCaseFoldingMatchesJdk(data);
     assertMultiAnchorGapBoundsMatchJdk(data);
@@ -88,18 +87,18 @@ public final class MatchFuzzer {
       input = data.consumeString(2048);
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
-    if (pattern == null) {
-      return;
+    if (pattern != null) {
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      matcher.matches();
+      matcher.reset();
+      matcher.lookingAt();
+      matcher.reset();
+      matcher.find();
+      matcher.reset();
+      matcher.find(FuzzSupport.consumeIndex(data, input));
     }
-
-    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
-    matcher.matches();
-    matcher.reset();
-    matcher.lookingAt();
-    matcher.reset();
-    matcher.find();
-    matcher.reset();
-    matcher.find(FuzzSupport.consumeIndex(data, input));
+    // Append new consumers so existing corpus inputs retain their original interpretation.
+    assertNullableFindInsideSurrogatePairMatchesJdk(data);
   }
 
   private static void assertAcceleratedRestartArrayGrowthMatchesJdk(FuzzedDataProvider data) {
