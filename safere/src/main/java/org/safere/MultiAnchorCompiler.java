@@ -199,9 +199,7 @@ final class MultiAnchorCompiler {
     }
 
     if (prefix != null && !prefixPoisonous) {
-      ClassHashChain classHashChain =
-          prefixFoldCase ? ClassHashChain.compileCaseInsensitive(prefix) : null;
-      return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase, classHashChain);
+      return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase);
     }
 
     String[] altLiterals = start.literalAlternation();

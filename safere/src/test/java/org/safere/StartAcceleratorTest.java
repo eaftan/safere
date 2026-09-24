@@ -137,8 +137,15 @@ class StartAcceleratorTest {
     assertThat(Utf8StartAccelerator.findNextCandidate(singleUtf8, utf8Scanner("xxxa"), 0))
         .isEqualTo(3);
 
-    // Non-ASCII case-insensitive prefixes use Unicode-aware byte candidates.
+    // Non-ASCII case-insensitive prefixes use Unicode-aware accelerators for both inputs.
     MultiAnchorDescriptor.StartPlan nonAsciiDesc = plan("café", true, null, null);
+    StringStartAccelerator unicodeStr = StringStartAccelerator.create(nonAsciiDesc, false);
+    assertThat(unicodeStr).isInstanceOf(StringStartAccelerator.UnicodeCaseInsensitiveLiteral.class);
+    assertThat(StringStartAccelerator.findNextCandidate(unicodeStr, "prefix cafE CAFÉ", 0, false))
+        .isEqualTo(12);
+    assertThat(StringStartAccelerator.findNextCandidate(unicodeStr, "prefix CAFÉ", 0, false))
+        .isEqualTo(7);
+
     Utf8StartAccelerator unicodeUtf8 = Utf8StartAccelerator.create(nonAsciiDesc, false);
     assertThat(unicodeUtf8).isInstanceOf(Utf8StartAccelerator.UnicodeCaseInsensitiveLiteral.class);
     assertThat(
@@ -310,8 +317,7 @@ class StartAcceleratorTest {
       FixedOffsetLiteral fixedOffsetLiteral,
       CharClassScanInfo charClassPrefix) {
     if (prefix != null) {
-      ClassHashChain chain = prefixFoldCase ? ClassHashChain.compileCaseInsensitive(prefix) : null;
-      return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase, chain);
+      return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase);
     }
     if (fixedOffsetLiteral != null) {
       return new MultiAnchorDescriptor.StartPlan.FixedOffset(fixedOffsetLiteral, charClassPrefix);

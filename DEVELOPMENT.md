@@ -169,3 +169,14 @@ jar --validate --file safere/target/safere-<version>.jar
 Confirm that the module descriptor exports only intended public packages and that the binary JAR
 does not contain `.java` files. With `-Prelease`, also confirm that the source JAR contains the
 versioned sources under `META-INF/versions/22`.
+
+## External Project Validation
+
+When swapping SafeRE into external projects for validation (#26), fix each bug
+before continuing with the rest of the validation. Follow the bug-fixing and
+compatibility policy in [AGENTS.md](AGENTS.md): add regression coverage before
+investigating engine internals, root-cause and fix the bug, and run the SafeRE
+suite. Reinstall with `mvn install -DskipTests -q`, rerun the external project's
+failing tests to confirm the fix, and commit it before resuming validation.
+For a JDK/specification contradiction or a linear-time compatibility boundary,
+resolve the compatibility decision under that policy before proceeding.

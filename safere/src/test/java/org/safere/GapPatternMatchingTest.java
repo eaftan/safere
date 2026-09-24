@@ -69,7 +69,7 @@ class GapPatternMatchingTest {
 
     assertThat(actual.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("header:", false, null));
+        .isEqualTo(new StartPlan.Literal("header:", false));
     assertThat(actual.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(new RejectPlan.RequiredLiteral("body:"));

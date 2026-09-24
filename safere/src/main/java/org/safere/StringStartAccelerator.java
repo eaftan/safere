@@ -34,7 +34,9 @@ sealed interface StringStartAccelerator {
       case MultiAnchorDescriptor.StartPlan.None unusedNone -> null;
       case MultiAnchorDescriptor.StartPlan.Literal lit ->
           lit.foldCase()
-              ? CaseInsensitiveLiteral.create(lit.prefix(), lit.classHashChain())
+              ? (Ascii.isAscii(lit.prefix())
+                  ? CaseInsensitiveLiteral.create(lit.prefix())
+                  : UnicodeCaseInsensitiveLiteral.create(lit.prefix()))
               : Literal.create(lit.prefix());
       case MultiAnchorDescriptor.StartPlan.CharClass cc ->
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : CharClass.create(cc.scanInfo());
@@ -74,6 +76,7 @@ sealed interface StringStartAccelerator {
     return switch (accelerator) {
       case Literal lit -> lit.findCandidate(text, fromIndex, unixLines);
       case CaseInsensitiveLiteral cil -> cil.findCandidate(text, fromIndex, unixLines);
+      case UnicodeCaseInsensitiveLiteral ucil -> ucil.findCandidate(text, fromIndex, unixLines);
       case FixedOffset fo -> fo.findCandidate(text, fromIndex, unixLines);
       case CharClass cc -> cc.findCandidate(text, fromIndex, unixLines);
       case LineAnchor la -> la.findCandidate(text, fromIndex, unixLines);
@@ -124,7 +127,7 @@ sealed interface StringStartAccelerator {
       ClassHashChain classHashChain)
       implements StringStartAccelerator {
 
-    static CaseInsensitiveLiteral create(String prefix, ClassHashChain classHashChain) {
+    static CaseInsensitiveLiteral create(String prefix) {
       if (prefix == null || prefix.isEmpty()) {
         return new CaseInsensitiveLiteral(prefix, 0, '\0', '\0', null);
       }
@@ -133,7 +136,7 @@ sealed interface StringStartAccelerator {
       char anchorLow = Ascii.toLowerCase(anchor);
       char anchorHigh = Ascii.toUpperCase(anchor);
       ClassHashChain chain =
-          classHashChain != null ? classHashChain : ClassHashChain.compileCaseInsensitive(prefix);
+          prefix.length() >= 4 ? ClassHashChain.compileCaseInsensitive(prefix) : null;
       return new CaseInsensitiveLiteral(prefix, anchorOffset, anchorLow, anchorHigh, chain);
     }
 
@@ -145,6 +148,37 @@ sealed interface StringStartAccelerator {
     int findCandidate(String text, int fromIndex, boolean unixLines) {
       return Matcher.indexOfIgnoreCase(
           text, prefix, anchorOffset, anchorLow, anchorHigh, classHashChain, fromIndex);
+    }
+  }
+
+  record UnicodeCaseInsensitiveLiteral(String prefix, ClassHashChain classHashChain)
+      implements StringStartAccelerator {
+
+    static UnicodeCaseInsensitiveLiteral create(String prefix) {
+      if (prefix == null || prefix.isEmpty()) {
+        return new UnicodeCaseInsensitiveLiteral(prefix, null);
+      }
+      ClassHashChain chain =
+          prefix.length() >= 4 ? ClassHashChain.compileCaseInsensitive(prefix) : null;
+      return new UnicodeCaseInsensitiveLiteral(prefix, chain);
+    }
+
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.LITERAL;
+    }
+
+    int findCandidate(String text, int fromIndex, boolean unixLines) {
+      if (prefix == null || prefix.isEmpty()) {
+        return Math.min(Math.max(0, fromIndex), text.length());
+      }
+      int pos = Math.max(0, fromIndex);
+      if (classHashChain != null) {
+        long limit = WorkLimit.forRemaining(text.length() - pos);
+        int result = classHashChain.search(text, pos, limit);
+        return result == -2 ? Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos) : result;
+      }
+      return Utf16.indexOfUnicodeIgnoreCase(text, prefix, pos);
     }
   }
 

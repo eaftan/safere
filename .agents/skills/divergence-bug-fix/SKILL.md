@@ -128,10 +128,16 @@ add or preserve tests, docs, or fuzz coverage when useful.
    - If tests changed, run the focused JUnit tests again.
    - If fuzz coverage changed, run the relevant fuzz target in regression mode, for example:
      `mvn -pl safere-fuzz -am -Dtest=EscapeSyntaxFuzzer -Dsurefire.failIfNoSpecifiedTests=false test`
-   - If SafeRE behavior changed, run `mvn -pl safere test -q` before finishing a
-     behavior-changing divergence fix.
-   - If the change affects public API compatibility, run:
-     `mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests`
+   - Follow [AGENTS.md's validation policy](../../../AGENTS.md#build-and-validation).
+     Full library and generated crosscheck suites are not automatic local prerequisites.
+     Broaden checks for changes spanning engines/shared invariants, failures, unresolved risks,
+     or an explicit request; use CI for standard broad coverage.
+   - For public API compatibility changes, run affected generated crosschecks when practical.
+     For example, select the relevant test class with `-Dtest=MatcherTest` and
+     `-Dsurefire.failIfNoSpecifiedTests=false` on
+     `mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests`.
+     Mark intentionally divergent assertions with `@DisabledForCrosscheck("reason")`.
+   - If only documentation changed, check its accuracy and links rather than running Java suites.
 
 ## Regression Test Expectations
 

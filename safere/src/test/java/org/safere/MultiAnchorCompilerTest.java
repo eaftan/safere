@@ -38,7 +38,7 @@ class MultiAnchorCompilerTest {
 
     assertThat(actual.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("hello", false, null));
+        .isEqualTo(new StartPlan.Literal("hello", false));
     assertThat(actual.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(new RejectPlan.RequiredLiteral("world"));
@@ -51,7 +51,7 @@ class MultiAnchorCompilerTest {
 
     assertThat(actual.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("foo", false, null));
+        .isEqualTo(new StartPlan.Literal("foo", false));
     assertThat(actual.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(new RejectPlan.RequiredLiteral("baz"));
@@ -64,7 +64,7 @@ class MultiAnchorCompilerTest {
 
     assertThat(actual.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("foo", false, null));
+        .isEqualTo(new StartPlan.Literal("foo", false));
     assertThat(actual.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(new RejectPlan.RequiredLiteral("baz"));
@@ -77,7 +77,7 @@ class MultiAnchorCompilerTest {
 
     assertThat(actualText.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("foo", false, null));
+        .isEqualTo(new StartPlan.Literal("foo", false));
     assertThat(actualText.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(
@@ -92,7 +92,7 @@ class MultiAnchorCompilerTest {
 
     assertThat(actualWord.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("foo", false, null));
+        .isEqualTo(new StartPlan.Literal("foo", false));
     assertThat(actualWord.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(new RejectPlan.RequiredLiteral("bar"));
@@ -106,7 +106,7 @@ class MultiAnchorCompilerTest {
 
     assertThat(actual.startPlan())
         .usingRecursiveComparison()
-        .isEqualTo(new StartPlan.Literal("foo", true, null));
+        .isEqualTo(new StartPlan.Literal("foo", true));
     assertThat(actual.rejectPlan())
         .usingRecursiveComparison()
         .isEqualTo(new RejectPlan.RequiredLiteral("bar"));

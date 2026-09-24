@@ -82,8 +82,7 @@ final class MultiAnchorDescriptor {
       static final None INSTANCE = new None();
     }
 
-    record Literal(String prefix, boolean foldCase, ClassHashChain classHashChain)
-        implements StartPlan {
+    record Literal(String prefix, boolean foldCase) implements StartPlan {
       public Literal {
         Objects.requireNonNull(prefix, "prefix");
       }
