@@ -161,10 +161,24 @@ bug you find immediately**. Do not just report it and move on. The workflow is:
 
 - Before creating a PR, run best-effort focused validation for the change, such
   as tests likely to be affected by the touched code. Full SafeRE plus public
-  API crosscheck validation is not required. The PR description must say
-  exactly which verification has run and which verification has not run.
+  API crosscheck validation is not required.
   Use `@DisabledForCrosscheck("reason")` on original SafeRE tests for cases
   that should be visible as disabled only in generated crosscheck coverage.
+- **Keep PR descriptions focused on the change.** Explain the problem, the
+  resulting behavior, and any design decision or compatibility tradeoff
+  reviewers need to assess it.
+- **Do not include a routine Validation section.** Rely on GitHub CI for
+  standard checks. Mention validation only when it provides evidence CI does
+  not cover, such as required before/after benchmarks, or when a material
+  limitation affects review.
+- **Omit work history.** Do not recount investigation steps, tool commands,
+  intermediate failures, retries, or local environment problems unless they
+  reveal an unresolved risk relevant to the change.
+- **Describe the final scope.** Summarize meaningful test coverage when it
+  helps explain the behavior being protected. Include issue linkage and
+  identify any issue requirements left unresolved.
+- **Scale detail to the change.** Prefer one or two short paragraphs for
+  simple changes. Use bullets or headings only when they improve readability.
 - When creating PRs, use a normal descriptive title. Do not prefix titles with
   `[codex]` unless explicitly requested.
 - Create ready-for-review PRs by default. Use draft PRs only when explicitly
