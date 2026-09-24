@@ -38,6 +38,45 @@ SafeRE preserves a coherent overall match instead of reproducing that
 implementation behavior. The JDK inconsistency is tracked upstream as
 [JDK-8390449](https://bugs.openjdk.org/browse/JDK-8390449).
 
+## Match State after `Matcher.replaceAll()`
+
+Issue reference: #931.
+
+After `replaceAll(String)` exhausts the matches, SafeRE reports
+`hasMatch() == false`. Its `group()`, `group(0)`, `start()`, `start(0)`,
+`end()`, and `end(0)` accessors throw `IllegalStateException`, including when
+the last successful match was empty and at the end of the input. The
+replacement text agrees with the JDK; this divergence concerns only the
+residual matcher state.
+
+For example, `Pattern.compile("x*").matcher("yxxy").replaceAll("-")`
+returns `"-y--y-"` in both implementations. Issue #931 reports the following
+state immediately afterward on JDK 26.0.2.1:
+
+| Accessor | SafeRE | JDK |
+| --- | --- | --- |
+| `hasMatch()` | `false` | `true` |
+| `start()` / `end()` | `IllegalStateException` | `4` / `4` |
+| `start(0)` / `end(0)` | `IllegalStateException` | `-1` / `-1` |
+| `group()` / `group(0)` | `IllegalStateException` | `null` / `null` |
+
+The JDK's terminal `find()` returns `false` after advancing past a zero-width
+match at the region end, but clears the group boundaries without invalidating
+the overall match. Nullable patterns such as `x*`, `x?`, `(x*)`, and the empty
+pattern reach this path in `replaceAll()`. Non-nullable patterns such as `x+`
+invalidate the match normally. `replaceFirst()` does not perform the terminal
+failed search and therefore does not exhibit this discrepancy.
+
+The [JDK 26 matcher specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#start(int))
+requires `start()` and `start(0)` to be equivalent, as it does `end()` and
+`end(0)`. It also requires these accessors and `group()` to throw after a
+failed match operation. Although `replaceAll()` does not spell out every
+detail of its residual state, the contradictory group-zero bounds violate
+those accessor contracts. SafeRE intentionally retains its coherent exhausted
+state rather than reproducing this JDK behavior. This is similar to the
+`usePattern()` inconsistency above, but no upstream fix for this terminal
+`find()` path is claimed here.
+
 ## Initial `find()` after a Failed Full Match
 
 Issue reference: #818.
