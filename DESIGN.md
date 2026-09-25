@@ -28,9 +28,12 @@ SafeRE-owned Unicode regex data is versioned with SafeRE, not with the JDK
 that happens to run the library. This includes general categories
 (`\p{L}`, `\p{Lu}`, `\p{Nd}`), scripts, blocks, binary Unicode properties,
 Unicode case-folding support for `CASE_INSENSITIVE | UNICODE_CASE`, and
-grapheme-related data. These tables are generated from a maintainer-selected
-JDK's `Character` implementation and checked into the repository. For the
-initial generated-table workflow, the maintainer JDK is OpenJDK 26.0.1.
+grapheme-related data. These tables are checked into the repository. Most are
+generated from a maintainer-selected JDK's public `Character` API. The UAX #29
+`Grapheme_Cluster_Break`, `Indic_Conjunct_Break`, and `Extended_Pictographic`
+properties come directly from pinned Unicode 17.0.0 files under
+`safere-unicode/data/17.0.0/`, without consulting private JDK classifiers.
+The maintainer JDK for the other tables uses Unicode 17.0.
 
 This makes behavior reproducible for a given SafeRE release. SafeRE may
 therefore be ahead of or behind the runtime JDK's Unicode version. Differences
@@ -42,10 +45,11 @@ JDK-defined `java*` properties remain tied to the runtime JDK. Patterns such as
 `\p{javaMirrored}` are specified by the JDK in terms of `Character` methods, so
 SafeRE evaluates them against the running JVM's `Character` implementation.
 
-The generator lives in `tools/unicode/`. Unicode-version upgrades are
-intentional maintenance changes: run the generator with the selected JDK,
-review and commit the generated output, update the recorded Unicode version,
-and run focused Unicode compatibility tests.
+The generator lives in `safere-unicode/`. Unicode-version upgrades are
+intentional maintenance changes: update the pinned Unicode inputs and select a
+JDK with the same Unicode version for the remaining properties, regenerate,
+review and commit the output, and run focused Unicode compatibility tests.
+See the [generator instructions](safere-unicode/README.md).
 
 ### 1. Parse (`Parser`)
 

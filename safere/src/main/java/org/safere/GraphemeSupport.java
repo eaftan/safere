@@ -6,22 +6,26 @@
 package org.safere;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 /** Grapheme segmentation state and SafeRE's grapheme-boundary policy. */
 final class GraphemeSupport {
   private static final int[][] EXTENDED_PICTOGRAPHIC =
       UnicodeProperties.lookupBinaryProperty("Extended_Pictographic");
 
-  // Unassigned default-ignorable code points have Grapheme_Cluster_Break=Control, not Other.
-  // Unicode 17.0: https://www.unicode.org/Public/17.0.0/ucd/auxiliary/GraphemeBreakProperty.txt
-  private static final int[][] UNASSIGNED_GRAPHEME_CONTROLS = {
-    {0x2065, 0x2065},
-    {0xFFF0, 0xFFF8},
-    {0xE0000, 0xE0000},
-    {0xE0002, 0xE001F},
-    {0xE0080, 0xE00FF},
-    {0xE01F0, 0xE0FFF}
-  };
+  // UAX #29 properties generated directly from the pinned Unicode Character Database.
+  private static final int[][] GCB_CONTROL = graphemeTable("Control");
+  private static final int[][] GCB_EXTEND = graphemeTable("Extend");
+  private static final int[][] GCB_PREPEND = graphemeTable("Prepend");
+  private static final int[][] GCB_SPACING_MARK = graphemeTable("SpacingMark");
+  private static final int[][] GCB_L = graphemeTable("L");
+  private static final int[][] GCB_V = graphemeTable("V");
+  private static final int[][] GCB_T = graphemeTable("T");
+  private static final int[][] GCB_LV = graphemeTable("LV");
+  private static final int[][] GCB_LVT = graphemeTable("LVT");
+  private static final int[][] INCB_LINKER = graphemeTable("InCB_Linker");
+  private static final int[][] INCB_CONSONANT = graphemeTable("InCB_Consonant");
+  private static final int[][] INCB_EXTEND = graphemeTable("InCB_Extend");
 
   private static final int VISIT_KEY_VARIANT_BITS = 5;
   private static final int LOW_SURROGATE_PAIR_VISIBLE = 1;
@@ -811,8 +815,11 @@ final class GraphemeSupport {
             || !hasHighSurrogateBeforeLowSurrogateInRegion(text, matchStart - 1, regionStart));
   }
 
+  /** Returns whether {@code c} attaches to the preceding code point (GB9 and GB9a). */
   private static boolean isGraphemeExtend(int c) {
-    return isCombiningMark(c) || isEmojiModifier(c) || c == 0x200D;
+    return c == 0x200D
+        || containsCodePoint(GCB_EXTEND, c)
+        || containsCodePoint(GCB_SPACING_MARK, c);
   }
 
   private static boolean isUnpairedSurrogateAt(String text, int pos) {
@@ -825,32 +832,14 @@ final class GraphemeSupport {
   }
 
   private static boolean isGraphemeControl(int c) {
-    int type = Character.getType(c);
-    return type == Character.CONTROL
-        || type == Character.LINE_SEPARATOR
-        || type == Character.PARAGRAPH_SEPARATOR
-        || containsCodePoint(UNASSIGNED_GRAPHEME_CONTROLS, c);
-  }
-
-  private static boolean isCombiningMark(int c) {
-    int type = Character.getType(c);
-    return type == Character.NON_SPACING_MARK
-        || type == Character.ENCLOSING_MARK
-        || type == Character.COMBINING_SPACING_MARK;
-  }
-
-  private static boolean isEmojiModifier(int c) {
-    return 0x1F3FB <= c && c <= 0x1F3FF;
+    if (c < 0x7F) {
+      return c < 0x20;
+    }
+    return containsCodePoint(GCB_CONTROL, c);
   }
 
   private static boolean isGraphemePrepend(int c) {
-    return (0x0600 <= c && c <= 0x0605)
-        || c == 0x06DD
-        || c == 0x070F
-        || (0x0890 <= c && c <= 0x0891)
-        || c == 0x08E2
-        || c == 0x110BD
-        || c == 0x110CD;
+    return containsCodePoint(GCB_PREPEND, c);
   }
 
   private static boolean isHangulGraphemeContinuation(int prev, int next) {
@@ -861,23 +850,23 @@ final class GraphemeSupport {
   }
 
   private static boolean isHangulL(int c) {
-    return (0x1100 <= c && c <= 0x115F) || (0xA960 <= c && c <= 0xA97C);
+    return containsCodePoint(GCB_L, c);
   }
 
   private static boolean isHangulV(int c) {
-    return (0x1160 <= c && c <= 0x11A7) || (0xD7B0 <= c && c <= 0xD7C6);
+    return containsCodePoint(GCB_V, c);
   }
 
   private static boolean isHangulT(int c) {
-    return (0x11A8 <= c && c <= 0x11FF) || (0xD7CB <= c && c <= 0xD7FB);
+    return containsCodePoint(GCB_T, c);
   }
 
   private static boolean isHangulLv(int c) {
-    return 0xAC00 <= c && c <= 0xD7A3 && (c - 0xAC00) % 28 == 0;
+    return containsCodePoint(GCB_LV, c);
   }
 
   private static boolean isHangulLvt(int c) {
-    return 0xAC00 <= c && c <= 0xD7A3 && (c - 0xAC00) % 28 != 0;
+    return containsCodePoint(GCB_LVT, c);
   }
 
   private static boolean isRegionalIndicator(int c) {
@@ -885,45 +874,27 @@ final class GraphemeSupport {
   }
 
   private static boolean isIndicConjunctConsonant(int c) {
-    return (0x0915 <= c && c <= 0x0939)
-        || (0x0958 <= c && c <= 0x095F)
-        || (0x0978 <= c && c <= 0x097F)
-        || (0x0995 <= c && c <= 0x09A8)
-        || (0x09AA <= c && c <= 0x09B0)
-        || c == 0x09B2
-        || (0x09B6 <= c && c <= 0x09B9)
-        || (0x09DC <= c && c <= 0x09DD)
-        || c == 0x09DF
-        || (0x09F0 <= c && c <= 0x09F1)
-        || (0x0A95 <= c && c <= 0x0AA8)
-        || (0x0AAA <= c && c <= 0x0AB0)
-        || (0x0AB2 <= c && c <= 0x0AB3)
-        || (0x0AB5 <= c && c <= 0x0AB9)
-        || c == 0x0AF9
-        || (0x0B15 <= c && c <= 0x0B28)
-        || (0x0B2A <= c && c <= 0x0B30)
-        || (0x0B32 <= c && c <= 0x0B33)
-        || (0x0B35 <= c && c <= 0x0B39)
-        || (0x0B5C <= c && c <= 0x0B5D)
-        || c == 0x0B5F
-        || c == 0x0B71
-        || (0x0C15 <= c && c <= 0x0C28)
-        || (0x0C2A <= c && c <= 0x0C39)
-        || (0x0C58 <= c && c <= 0x0C5A)
-        || (0x0D15 <= c && c <= 0x0D3A);
+    return containsCodePoint(INCB_CONSONANT, c);
   }
 
   private static boolean isIndicConjunctLinker(int c) {
-    return c == 0x094D || c == 0x09CD || c == 0x0ACD || c == 0x0B4D || c == 0x0C4D || c == 0x0D4D;
+    return containsCodePoint(INCB_LINKER, c);
   }
 
   private static boolean isIndicConjunctExtend(int c) {
-    return isGraphemeExtend(c) || (0xE0020 <= c && c <= 0xE007F);
+    return containsCodePoint(INCB_EXTEND, c);
+  }
+
+  private static int[][] graphemeTable(String name) {
+    return Objects.requireNonNull(UnicodeGeneratedTables.GRAPHEME_PROPERTIES.get(name), name);
   }
 
   private static boolean containsCodePoint(int[][] ranges, int c) {
-    int lo = 0;
     int hi = ranges.length - 1;
+    if (hi < 0 || c < ranges[0][0] || c > ranges[hi][1]) {
+      return false;
+    }
+    int lo = 0;
     while (lo <= hi) {
       int mid = (lo + hi) >>> 1;
       int[] range = ranges[mid];

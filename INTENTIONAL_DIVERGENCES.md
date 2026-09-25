@@ -295,6 +295,22 @@ checks that actual grapheme controls, including an unassigned default-ignorable
 code point, still force a break. The intentional differences are disabled only
 in generated JDK crosscheck tests.
 
+## Ahom Vowel Signs and Grapheme Boundaries
+
+SafeRE pins its grapheme properties to Unicode 17.0. Unicode changed
+`Grapheme_Cluster_Break` for U+11720 and U+11721 (AHOM VOWEL SIGN A and AA)
+from `SpacingMark` to `Other` in Unicode 14. For example, `a` followed by
+either sign forms two `\X` clusters, while OpenJDK 26 forms one. The JDK's
+grapheme classifier still treats these signs as `SpacingMark`, despite its
+Unicode 17 support. SafeRE follows the [Unicode 17 grapheme property file](https://www.unicode.org/Public/17.0.0/ucd/auxiliary/GraphemeBreakProperty.txt)
+and the [Unicode committee's correction](https://www.unicode.org/L2/L2021/21126-utc168-properties-recs.pdf).
+
+This specification-based difference is independent of GB11 (tracked in #936).
+The upstream JDK report is tracked in [#940](https://github.com/eaftan/safere/issues/940).
+`GraphemeBreakConformanceTest` pins both Ahom signs and excludes only those two
+code points from its exhaustive JDK comparison. The segmentation code and its
+linear-time bound are unchanged.
+
 ## Grapheme Cluster Composition
 
 Sweep names:

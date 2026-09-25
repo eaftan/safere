@@ -8,6 +8,8 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+(cd safere-unicode/data/17.0.0 && sha256sum --check SHA256SUMS)
+
 mvn -pl safere-unicode compile exec:java \
   -Dexec.mainClass=org.safere.tools.unicode.UnicodeTableGenerator
 mvn -pl safere spotless:apply
