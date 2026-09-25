@@ -1669,7 +1669,7 @@ class MatcherTest {
         java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
         assertThat(matcher.replaceAll("-")).isEqualTo(jdk.replaceAll("-"));
         assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
-        assertExhaustedReplacementState(matcher);
+        assertExhaustedMatchState(matcher);
         if (matcher.namedGroups().containsKey("part")) {
           assertThatThrownBy(() -> matcher.group("part")).isInstanceOf(IllegalStateException.class);
           assertThatThrownBy(() -> matcher.start("part")).isInstanceOf(IllegalStateException.class);
@@ -1685,8 +1685,8 @@ class MatcherTest {
         Matcher matcher = Pattern.compile(regex).matcher(input);
         java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
         assertThat(matcher.replaceAll("-")).isEqualTo(jdk.replaceAll("-"));
-        assertExhaustedReplacementState(matcher);
-        assertExhaustedReplacementState(jdk);
+        assertExhaustedMatchState(matcher);
+        assertExhaustedMatchState(jdk);
         assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
       }
     }
@@ -1710,13 +1710,44 @@ class MatcherTest {
             assertThat(matcher.end(group)).isEqualTo(jdk.end(group));
           }
         } else {
-          assertExhaustedReplacementState(matcher);
-          assertExhaustedReplacementState(jdk);
+          assertExhaustedMatchState(matcher);
+          assertExhaustedMatchState(jdk);
         }
       }
     }
 
-    private static void assertExhaustedReplacementState(MatchResult matcher) {
+    @ParameterizedTest
+    @ValueSource(strings = {"x*", "(x*)", "", "$", "\\b"})
+    @DisabledForCrosscheck("JDK retains inconsistent state after a terminal empty find; see #931")
+    void terminalEmptyFindInvalidatesSnapshotsAndReplacement(String regex) {
+      for (String input : new String[] {"ab", "yxxy"}) {
+        for (boolean replaceAll : new boolean[] {false, true}) {
+          Matcher matcher = Pattern.compile(regex).matcher(input);
+          if (replaceAll) {
+            matcher.replaceAll("-");
+          } else {
+            while (matcher.find()) {
+              // Exhaust the matcher through the same terminal find as replaceAll().
+            }
+          }
+          assertExhaustedMatchState(matcher);
+          MatchResult snapshot = matcher.toMatchResult();
+          assertThat(snapshot.groupCount()).isEqualTo(matcher.groupCount());
+          assertExhaustedMatchState(snapshot);
+
+          StringBuilder builder = new StringBuilder("A");
+          assertThatThrownBy(() -> matcher.appendReplacement(builder, "[$0]"))
+              .isInstanceOf(IllegalStateException.class);
+          assertThat(builder).hasToString("A");
+          StringBuffer buffer = new StringBuffer("A");
+          assertThatThrownBy(() -> matcher.appendReplacement(buffer, "[$0]"))
+              .isInstanceOf(IllegalStateException.class);
+          assertThat(buffer).hasToString("A");
+        }
+      }
+    }
+
+    private static void assertExhaustedMatchState(MatchResult matcher) {
       assertThat(matcher.hasMatch()).isFalse();
       assertThatThrownBy(matcher::group).isInstanceOf(IllegalStateException.class);
       assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);

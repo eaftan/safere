@@ -16,7 +16,8 @@ public final class ReplacementFuzzer {
 
   @Test
   void terminalEmptyReplacementState() {
-    for (String regex : List.of("x*", "x?", "(x)*", "(?<part>x*)", "", "$", "x+")) {
+    // Exercise MatcherPair's state exclusion; MatcherTest pins the public API behavior.
+    for (String regex : List.of("x*", "x?", "(x)*", "(?<part>x*)", "", "$", "\\b", "x+")) {
       for (String input : List.of("", "x", "yxxy", "yyyy")) {
         FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
         assertThat(pattern.matcher(input).replaceAll("-")).isTrue();

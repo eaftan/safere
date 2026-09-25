@@ -28,7 +28,7 @@ public final class FindSequenceFuzzer {
 
   @Test
   void terminalEmptyFindInvalidatesMatchState() {
-    for (String regex : List.of("x*", "(x?)", "", "$")) {
+    for (String regex : List.of("x*", "(x?)", "", "$", "\\b")) {
       for (String input : List.of("", "x", "yxxy")) {
         for (boolean useRegion : List.of(false, true)) {
           FuzzSupport.MatcherPair matcher = FuzzSupport.compileOrSkip(regex, 0).matcher(input);
