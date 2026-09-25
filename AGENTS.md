@@ -56,6 +56,14 @@ conflicting instructions instead of appending another exception.
   large inputs must not cause `StackOverflowError`.
 - **Unicode:** operate on code points, using `Character.codePointAt()` and
   related APIs rather than treating UTF-16 code units as characters.
+- **JDK internals:** prefer supported public Java APIs and authoritative data
+  sources over JDK implementation details in library code, tests, generators,
+  and build tools. Avoid private JDK classes and members, reflective access to
+  them, and module-opening flags such as `--add-opens` when a supported
+  alternative exists. Check for such alternatives before introducing an
+  internal dependency. If one is unavoidable, document why and obtain the
+  project owner's approval first. Reviewers should flag new dependencies on
+  JDK internals and assess the available alternatives.
 
 ## Fixing Bugs
 
