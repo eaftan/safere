@@ -1,7 +1,5 @@
 <img src="assets/safere-logo-compact.png" alt="SafeRE logo" width="400">
 
-# SafeRE
-
 A linear-time regular expression matching library for Java.
 
 SafeRE is a port of [RE2](https://github.com/google/re2) to Java, with
