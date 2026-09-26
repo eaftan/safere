@@ -709,6 +709,51 @@
       "shared": true
     },
     {
+      "id": "citationScrub.digitsNoBrackets.{size}",
+      "axes": {
+        "size": [
+          128,
+          2048
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "The release 2.4.1 delivered 99.8% precision across 1,024 eval sets. See section 12.3.4 for 2026 Q3 results. Latency was 15.8ms. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "citationScrub.fullWidthCitations.{size}",
+      "axes": {
+        "size": [
+          2048,
+          65536
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "See \uff3b1.2.3\uff3d and \uff3b4.5.6, 7.8.9\uff3d for version 2.4.1 details. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "citationScrub.fullWidthBracketsNoMatch.{size}",
+      "axes": {
+        "size": [
+          2048,
+          65536
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "v1.0 \u8fd9\u662f\u4e00\u4e2a\uff3b\u6ce8\u91cb\uff3d\u6d4b\u8bd5\u53e5\u5b50\uff0c\u53c2\u89c1\uff3b\u9644\u5f55\uff3d\u3002 ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "utf8Matching.requiredClassNonmatch.text",
       "recipe": {
         "kind": "repeatToLength",
@@ -3062,6 +3107,21 @@
       "shared": true
     },
     {
+      "id": "unicodePrefix.cjkProseNoDigits.{size}",
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u8fd9\u662f\u4e00\u4e2a\u4e2d\u6587\u6d4b\u8bd5\u53e5\u5b50\uff0c\u4e0d\u5305\u542b\u4efb\u4f55\u963f\u62c9\u4f2f\u6570\u5b57\u3002 ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "crossEngine.ValidationBenchmark.ambiguousValid.input",
       "recipe": {
         "kind": "literal",
@@ -3793,6 +3853,126 @@
       },
       "arguments": {
         "replacement": ""
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.citationScrubber.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        {
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
+          "alternates": {
+            "rust-regex": {
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
+              "reason": "Rust regex gives \\d Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
+              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "citationScrub.digitsNoBrackets.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "size": [
+          128,
+          2048
+        ]
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.citationScrubberFullWidth.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        {
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
+          "alternates": {
+            "rust-regex": {
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
+              "reason": "Rust regex gives \\d Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
+              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "citationScrub.fullWidthCitations.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "size": [
+          2048,
+          65536
+        ]
+      },
+      "requirements": []
+    },
+    {
+      "id": "RealWorldRegexBenchmark.runBenchmark.citationScrubberFullWidthNoMatch.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        {
+          "java": " ?[\\[\uff3b](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uff3d]",
+          "alternates": {
+            "rust-regex": {
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
+              "reason": "Rust regex gives \\d Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": " ?[\\[\uff3b](?:(?:[0-9]+\\.){2,}[0-9]+(?:, )?)+[\\]\uff3d]",
+              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "citationScrub.fullWidthBracketsNoMatch.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "size": [
+          2048,
+          65536
+        ]
       },
       "requirements": []
     },
@@ -12998,6 +13178,56 @@
         "preexistingUtf8"
       ],
       "inputRepresentationReason": "Measures CJK prefix acceleration scanning to a late CJK match.",
+      "requirements": [],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "UnicodePrefixBenchmark.cjk.cjkNoDigits.{size}",
+      "operation": "find",
+      "patterns": [
+        {
+          "java": "[\\u4E00-\\u9FFF]+\\d+",
+          "alternates": {
+            "re2": {
+              "pattern": "[\\x{4E00}-\\x{9FFF}]+[0-9]+",
+              "reason": "RE2 and Go use braced hexadecimal code point escapes"
+            },
+            "rust-regex": {
+              "pattern": "[\\x{4E00}-\\x{9FFF}]+[0-9]+",
+              "reason": "Rust regex uses braced hexadecimal code point escapes and gives \\d Unicode semantics"
+            },
+            "pcre2": {
+              "pattern": "[\\x{4E00}-\\x{9FFF}]+[0-9]+",
+              "reason": "PCRE2 uses braced hexadecimal code point escapes"
+            },
+            "dotnet": {
+              "pattern": "[\\u4E00-\\u9FFF]+[0-9]+",
+              "reason": ".NET gives \\d Unicode semantics"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "unicodePrefix.cjkProseNoDigits.{size}"
+      ],
+      "axes": {
+        "size": [
+          1024,
+          32768
+        ]
+      },
+      "inputRepresentations": [
+        "javaString",
+        "preexistingUtf8"
+      ],
+      "inputRepresentationReason": "Measures required-digit rejection on CJK prose where the leading CJK class is present.",
       "requirements": [],
       "resultConsumption": "boolean",
       "measurement": {

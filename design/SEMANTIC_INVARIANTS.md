@@ -238,6 +238,15 @@ possible.  If a fast path cannot share the implementation, it must have
 cross-path tests that prove equivalence for anchors, empty matches, regions,
 capture access, replacement templates, and functional replacements.
 
+**Memoized small-set search (`memoized-small-set-search`):** Any per-`find()`
+or per-candidate accelerator/prefilter that searches a small character set via
+one `String.indexOf` call per member must memoize each member's `(from, next)`
+result on `StringInputScanner` (`memoizedIndexOf`) and reuse `next` whenever
+`from >= memoFrom && (memoNext < 0 || from <= memoNext)`. Without per-member
+memoization, an absent or late member is rescanned to the end of the input at
+every match or rejected candidate of another member, degrading $O(N)$ search to
+$O(N^2)$.
+
 ### 3. Matcher State-Machine Invariant
 
 `Matcher` state transitions must be explicit.  Each public operation should

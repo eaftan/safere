@@ -411,6 +411,30 @@ class CharClassTest {
     assertThat(bitmap.ranges()).isSameAs(bitmap.ranges());
   }
 
+  @Test
+  void unicodeSmallSetHoldsAtMostTwoNonSurrogateBmpChars() {
+    assertThat(scanInfo('[', 0xFF3B)).isInstanceOf(CharClassScanInfo.UnicodeSmallSet.class);
+    assertThat(((CharClassScanInfo.SmallSet) scanInfo('[', 0xFF3B)).chars())
+        .containsExactly('[', '\uFF3B');
+    assertThat(scanInfo(0xFF3B)).isInstanceOf(CharClassScanInfo.UnicodeSmallSet.class);
+
+    // Three members would need three indexOf passes.
+    assertThat(scanInfo('[', 0xFF3B, 0x3010)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+    // A char search for a lone surrogate would also stop inside valid surrogate pairs.
+    assertThat(scanInfo(0xD83D)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+    assertThat(scanInfo('[', 0xDC00)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+    // Supplementary code points are not single chars.
+    assertThat(scanInfo(0x1F600)).isInstanceOf(CharClassScanInfo.UnicodeGeneral.class);
+  }
+
+  private static CharClassScanInfo scanInfo(int... runes) {
+    CharClassBuilder builder = new CharClassBuilder();
+    for (int rune : runes) {
+      builder.addRune(rune);
+    }
+    return CharClassScanInfo.fromCharClass(builder.build());
+  }
+
   private static void assertRanges(CharClass cc, int... endpoints) {
     assertThat(endpoints.length).isEven();
     assertThat(cc.numRanges()).isEqualTo(endpoints.length / 2);

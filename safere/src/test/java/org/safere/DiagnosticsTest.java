@@ -230,6 +230,67 @@ class DiagnosticsTest {
   }
 
   @Test
+  void citationScrubberReplacementRejectsOnCharacterClassPrefilter() {
+    Pattern.setDiagnostics(diagnostics);
+
+    String regex = " ?[\\[\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uFF3D]";
+    Pattern pattern = Pattern.compile(regex);
+
+    for (String input :
+        List.of("digits 1.2.3.4 and dots but no brackets", "letters and spaces only")) {
+      for (MatchOperation operation :
+          List.of(MatchOperation.REPLACE_FIRST, MatchOperation.REPLACE_ALL)) {
+        diagnostics.operations.clear();
+        Matcher matcher = pattern.matcher(input);
+        String result =
+            operation == MatchOperation.REPLACE_FIRST
+                ? matcher.replaceFirst("replacement")
+                : matcher.replaceAll("replacement");
+
+        assertThat(result).isEqualTo(input);
+        assertThat(operationsFor(pattern))
+            .singleElement()
+            .satisfies(
+                event -> {
+                  assertThat(event.operation()).isEqualTo(operation);
+                  assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
+                  assertThat(event.auxiliaryStrategies())
+                      .contains(
+                          new StrategyParticipation(
+                              MatchStrategy.CHARACTER_CLASS, StrategyRole.REJECT_PREFILTER));
+                });
+      }
+    }
+
+    // Brackets present with no matching digits return the right result without false-positive
+    // match.
+    for (String input :
+        List.of(
+            "[brackets without digits]",
+            "prefix [1.2 incomplete] suffix",
+            "［full width brackets without digits］")) {
+      for (MatchOperation operation :
+          List.of(MatchOperation.REPLACE_FIRST, MatchOperation.REPLACE_ALL)) {
+        diagnostics.operations.clear();
+        Matcher matcher = pattern.matcher(input);
+        String result =
+            operation == MatchOperation.REPLACE_FIRST
+                ? matcher.replaceFirst("replacement")
+                : matcher.replaceAll("replacement");
+
+        assertThat(result).isEqualTo(input);
+        assertThat(operationsFor(pattern))
+            .singleElement()
+            .satisfies(
+                event -> {
+                  assertThat(event.operation()).isEqualTo(operation);
+                  assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+                });
+      }
+    }
+  }
+
+  @Test
   void startAnchoredReplacementRejectsOnTheAnchoredPrefix() {
     Pattern.setDiagnostics(diagnostics);
 

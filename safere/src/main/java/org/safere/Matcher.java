@@ -1759,6 +1759,10 @@ public final class Matcher implements MatchResult {
       } else if (text != null) {
         StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
         if (accelerator != null) {
+          // With text != null the active scanner is the Matcher's per-text StringInputScanner.
+          // Reuse
+          // it so the accelerator's memoized char searches carry over between find() calls.
+          StringInputScanner stringScanner = (StringInputScanner) scanner;
           AcceleratorPolicy policy = accelerator.policy();
           MatchStrategy strategy = policy.strategy();
           if (strategy != null) {
@@ -1767,7 +1771,8 @@ public final class Matcher implements MatchResult {
           if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
               && le.canVerifyAtInner()
               && canUseForwardDfa()) {
-            int innerMatch = le.findInnerCandidate(text, searchFrom, prog.lineStartUnixLines());
+            int innerMatch =
+                le.findInnerCandidate(stringScanner, searchFrom, prog.lineStartUnixLines());
             if (innerMatch < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -1787,7 +1792,7 @@ public final class Matcher implements MatchResult {
           } else {
             int idx =
                 StringStartAccelerator.findNextCandidate(
-                    accelerator, text, searchFrom, prog.lineStartUnixLines());
+                    accelerator, stringScanner, searchFrom, prog.lineStartUnixLines());
             if (idx < 0) {
               if (strategy != null) {
                 diagnosticBoundary(strategy);
@@ -4680,10 +4685,12 @@ public final class Matcher implements MatchResult {
     if (options.startAcceleration() && text != null && !prog.anchorStart()) {
       StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
       if (accelerator != null) {
+        StringInputScanner stringScanner = (StringInputScanner) scanner;
         if (accelerator instanceof StringStartAccelerator.LeadingExpansion le
             && le.canVerifyAtInner()
             && canUseForwardDfa()) {
-          int innerMatch = le.findInnerCandidate(text, fromIndex, prog.lineStartUnixLines());
+          int innerMatch =
+              le.findInnerCandidate(stringScanner, fromIndex, prog.lineStartUnixLines());
           if (innerMatch < 0) {
             return -1L;
           }
@@ -4696,7 +4703,7 @@ public final class Matcher implements MatchResult {
         } else {
           int idx =
               StringStartAccelerator.findNextCandidate(
-                  accelerator, text, fromIndex, prog.lineStartUnixLines());
+                  accelerator, stringScanner, fromIndex, prog.lineStartUnixLines());
           if (idx < 0) {
             return -1L;
           }

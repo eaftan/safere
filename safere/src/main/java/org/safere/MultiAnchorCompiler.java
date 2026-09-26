@@ -274,18 +274,14 @@ final class MultiAnchorCompiler {
           requiredMatchClass = CharClassScanInfo.fromCharClass(reqClass);
         } else {
           CharClassScanInfo candidate = CharClassScanInfo.fromCharClass(reqClass);
-          if (candidate != null && candidate.ranges() != null) {
-            int candidateRunes = 0;
-            for (int i = 0; i < candidate.ranges().length; i += 2) {
-              candidateRunes += (candidate.ranges()[i + 1] - candidate.ranges()[i] + 1);
-            }
-            int prefixRunes = 0;
-            for (int i = 0; i < ccPrefix.ranges().length; i += 2) {
-              prefixRunes += (ccPrefix.ranges()[i + 1] - ccPrefix.ranges()[i] + 1);
-            }
-            if (candidateRunes < prefixRunes) {
-              requiredMatchClass = candidate;
-            }
+          if (candidate != null
+              && candidate.ranges() != null
+              && moreSelective(
+                  RarityOracle.charClassFrequencyScore(reqClass),
+                  reqClass.numRunes(),
+                  RarityOracle.charClassFrequencyScore(ccPrefix),
+                  runeCount(ccPrefix.ranges()))) {
+            requiredMatchClass = candidate;
           }
         }
       }
@@ -312,6 +308,38 @@ final class MultiAnchorCompiler {
   }
 
   /**
+   * Returns whether a class with the given frequency score and rune count is a better reject
+   * candidate than the incumbent: rarer by {@link RarityOracle#charClassFrequencyScore} when both
+   * classes can be scored, or with fewer runes when the scores tie or either class scores {@code 0}
+   * (no ASCII members, or too many non-ASCII members to ignore). An empty class also scores {@code
+   * 0} and has no runes, so it wins, which is harmless: it rejects every input, as it should.
+   */
+  private static boolean moreSelective(
+      long candidateScore, int candidateRunes, long incumbentScore, int incumbentRunes) {
+    if (candidateScore == 0 || incumbentScore == 0) {
+      return candidateRunes < incumbentRunes;
+    }
+    return candidateScore < incumbentScore
+        || (candidateScore == incumbentScore && candidateRunes < incumbentRunes);
+  }
+
+  private static boolean moreSelective(CharClass candidate, CharClass incumbent) {
+    return moreSelective(
+        RarityOracle.charClassFrequencyScore(candidate),
+        candidate.numRunes(),
+        RarityOracle.charClassFrequencyScore(incumbent),
+        incumbent.numRunes());
+  }
+
+  private static int runeCount(int[] ranges) {
+    int runes = 0;
+    for (int i = 0; i < ranges.length; i += 2) {
+      runes += ranges[i + 1] - ranges[i] + 1;
+    }
+    return runes;
+  }
+
+  /**
    * Returns the literal the start accelerator will scan for, unwrapping a leading expansion, or
    * {@code null} if the start plan is not literal-driven.
    */
@@ -333,7 +361,8 @@ final class MultiAnchorCompiler {
   /**
    * Returns the character class the start accelerator will scan for, or {@code null} if the start
    * plan is not class-driven. A required class from reject analysis is only worth scanning for
-   * separately if it is narrower than this one.
+   * separately if it is narrower than this one. See {@link #leadingExpansionDrivingClass} for
+   * leading expansions.
    */
   private static CharClassScanInfo drivingCharClass(StartPlan plan) {
     if (plan == null) {
@@ -343,11 +372,40 @@ final class MultiAnchorCompiler {
       case StartPlan.CharClass cc -> cc.scanInfo();
       case StartPlan.FixedOffset fo -> fo.leadingClass();
       case StartPlan.MultiLiteral ml -> ml.fallbackClass();
-      case StartPlan.LeadingExpansion le -> drivingCharClass(le.innerPlan());
+      case StartPlan.LeadingExpansion le -> leadingExpansionDrivingClass(le);
       case StartPlan.Literal unusedLit -> null;
       case StartPlan.LineAnchor unusedLa -> null;
       case StartPlan.None unusedNone -> null;
     };
+  }
+
+  /**
+   * Returns the driving class of a leading expansion for reject-plan selection.
+   *
+   * <p>Usually {@code null}, so the expansion's required class is kept as a reject prefilter even
+   * when it is the class the inner accelerator scans for. The prefilter fails the whole call on
+   * input without the class before any per-call setup, including once up front in {@code
+   * replaceAll}, whereas the leading-expansion accelerator only gets there through its own
+   * candidate loop. On {@code UnicodePrefixBenchmark.cjk.absent}, {@code [\u4E00-\u9FFF]+\d+}
+   * measured 2.8x faster with the {@code [0-9]} prefilter than without it. When the input does
+   * contain a two-member small-set class, the scanner memo lets the accelerator reuse the
+   * prefilter's search.
+   *
+   * <p>The exception is an ASCII leading class in front of a non-selective inner class, such as
+   * {@code \d} in {@code [A-Za-z]+\d+}. Such a class occurs in almost any input, so the prefilter
+   * rarely rejects, and the accelerator already scans for it with an ASCII kernel; keeping the
+   * prefilter made {@code MatcherApiBenchmark.resetAndFind@safere-utf8} 1.09x slower on aarch64.
+   * Returning the inner class lets {@code extractRejectPlan} drop a required class that is no
+   * narrower. A non-ASCII leading class keeps the prefilter, because there the prefilter's ASCII
+   * scan is what makes non-matching input cheap.
+   */
+  private static CharClassScanInfo leadingExpansionDrivingClass(StartPlan.LeadingExpansion le) {
+    if (le.leadingClass().isAscii()
+        && le.innerPlan() instanceof StartPlan.CharClass inner
+        && !inner.scanInfo().isSelective()) {
+      return inner.scanInfo();
+    }
+    return null;
   }
 
   /** Returns whether the start plan scans for a literal at the match start. */
@@ -564,7 +622,7 @@ final class MultiAnchorCompiler {
       for (NodeAnalysis c : children) {
         CharClass childReqClass = c.reject().bestRequiredClass();
         if (childReqClass != null) {
-          if (bestReqClass == null || childReqClass.numRunes() < bestReqClass.numRunes()) {
+          if (bestReqClass == null || moreSelective(childReqClass, bestReqClass)) {
             bestReqClass = childReqClass;
           }
         }
@@ -635,8 +693,7 @@ final class MultiAnchorCompiler {
         }
         CharClass candidateClass = child.reject().bestRequiredClass();
         if (candidateClass != null
-            && (bestRequiredClass == null
-                || candidateClass.numRunes() < bestRequiredClass.numRunes())) {
+            && (bestRequiredClass == null || moreSelective(candidateClass, bestRequiredClass))) {
           bestRequiredClass = candidateClass;
         }
         if (disjointRequiredLiterals == null && child.reject().disjointRequiredLiterals() != null) {
@@ -1172,6 +1229,10 @@ final class MultiAnchorCompiler {
     } else if (first.op == RegexpOp.REPEAT) {
       minRepetition = first.min;
       maxRepetition = first.max == -1 ? Integer.MAX_VALUE : first.max;
+      repeated = unwrapCaptures(first.sub());
+    } else if (first.op == RegexpOp.QUEST) {
+      minRepetition = 0;
+      maxRepetition = 1;
       repeated = unwrapCaptures(first.sub());
     } else {
       return null;
