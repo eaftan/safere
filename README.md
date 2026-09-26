@@ -1,4 +1,4 @@
-<img src="assets/safere-logo.png" alt="SafeRE logo" width="600">
+<img src="assets/safere-logo.png" alt="SafeRE logo" width="320">
 
 # SafeRE
 
