@@ -1,6 +1,6 @@
 # SafeRE Unicode Table Generator
 
-This module generates SafeRE's checked-in Unicode tables:
+This module generates SafeRE's checked-in Unicode property tables:
 
 - General categories, scripts, blocks, and most binary properties come from
   the maintainer-selected JDK's public `java.lang.Character` API.

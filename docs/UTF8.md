@@ -6,8 +6,8 @@ network services, parsers, and data-processing systems whose native text
 representation is UTF-8.
 
 Patterns are still compiled from Java strings and use SafeRE's documented
-Java-oriented syntax and semantics. Only the input representation and match
-coordinates change.
+Java-oriented syntax. The byte API has its own coordinates, ownership rules,
+and empty-match progress, described below.
 
 ## Who This API Is For
 
@@ -16,10 +16,9 @@ stored as bytes and would otherwise be decoded solely to call a String-based
 regex API. The opportunity is largest when regex execution is repeated across
 many values or large inputs:
 
-- **SQL and stream-processing engines.** Systems such as Trino, Apache Spark,
-  Apache Flink, Apache Pinot, and Apache Druid commonly keep table values in
-  UTF-8-oriented containers but use String-based regex engines. Direct input
-  can remove per-value decoding on raw scans and high-cardinality columns.
+- **SQL and stream-processing engines.** When table values are stored in UTF-8
+  containers and a regex path decodes them to strings, direct input can remove
+  per-value decoding on raw scans and high-cardinality columns.
 - **Columnar and buffer-oriented systems.** Apache Arrow and similar formats
   describe UTF-8 values with byte buffers and offsets. Byte-relative match and
   capture bounds allow an engine to preserve its own slice representation
@@ -186,7 +185,60 @@ Input storage is currently adapted from byte arrays. `Utf8Input` is a separate
 abstraction so additional storage adapters can be added without changing
 matching semantics or the matcher API.
 
-Like every SafeRE engine path, direct UTF-8 matching retains the linear-time
-guarantee. See [UTF-8 Input Design](design/UTF8_BYTE_INPUT.md) for architecture
-and rationale, [Testing](TESTING.md) for validation strategy, and
-[Benchmarks](BENCHMARKS.md) for performance evidence.
+Like String matching, direct UTF-8 matching retains the linear-time guarantee.
+See [architecture](ARCHITECTURE.md), [testing](TESTING.md), and
+[benchmarks](../BENCHMARKS.md) for details.
+
+## Experimental Vector scanner
+
+SafeRE has an experimental Vector API provider for selected ASCII character-class scans
+over direct UTF-8 input. It currently accelerates the singleton, pair, triple, and range scans used by
+UTF-8 prefix searching on sufficiently long inputs. It does not affect matching against
+`String`.
+
+The provider uses the incubating Vector API included with every JDK version supported by SafeRE.
+No additional dependency or class-path configuration is required.
+
+Enable the provider when starting the application on JDK 21 or later:
+
+```text
+--add-modules=jdk.incubator.vector
+-Dorg.safere.experimental.vectorScanProvider=vector
+```
+
+Both flags are required. Without the system property, SafeRE continues to use its built-in SWAR
+scanner. Without the incubator module flag, requesting the Vector scanner fails with a
+configuration error.
+
+The activation property, supported scans, implementation, and tuning thresholds are experimental
+and may change incompatibly or be removed in any SafeRE release.
+
+## Integrating with a byte-oriented application
+
+An adapter can construct a trusted array window from storage that already
+guarantees valid UTF-8, use `Pattern.find(input)` for a boolean predicate, and
+use `Utf8Matcher` bounds to build capture or split views over the same storage.
+Keep the storage alive and unchanged while those views are used. Decode only
+values that the host API actually requires as Strings.
+
+Repeated empty matches advance by a Unicode scalar. For an empty pattern on a
+supplementary character, the byte API returns positions before and after the
+character, never inside its UTF-8 encoding. This differs from the String API's
+UTF-16 empty-match cursor and must be considered when comparing representations.
+
+Use SafeRE's supported pattern language and replacement syntax when replacing
+RE2/J or a fork. Preserve `-1` for nonparticipating captures and translate it to
+the host API's absent-value convention. Translate exceptions into host error
+categories at the adapter boundary. RE2/J-specific DFA limits and retry settings
+have no direct SafeRE equivalent and must not silently acquire new meanings.
+
+The approved Trino integration policy adopts SafeRE semantics. Any exception
+needs a concrete SQL contract, a principled linear-time implementation, and
+project-owner review under the compatibility policy. The
+[historical integration measurements](benchmarks/TRINO_UTF8.md) describe a local
+experiment; they do not establish upstream Trino support.
+
+Validate matching, extraction, repeated search, replacement, configuration, and
+error translation in the host application. Include nonzero-offset windows,
+multibyte input, empty matches, and nonparticipating groups. See the
+[external validation workflow](DEVELOPMENT.md#external-project-validation).

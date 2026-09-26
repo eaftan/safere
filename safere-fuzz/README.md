@@ -1,8 +1,9 @@
 # SafeRE Fuzz Tests
 
 This module contains Jazzer fuzz targets for SafeRE. The targets use local
-dual-engine oracles: each operation runs against both SafeRE and
-`java.util.regex`, and an `AssertionError` signals a semantic divergence.
+dual-engine oracles to compare SafeRE with `java.util.regex`, as well as
+SafeRE-specific checks for stack safety and UTF-8 behavior. An `AssertionError`
+signals a failed invariant or a semantic divergence.
 
 ## Targets
 
@@ -20,6 +21,7 @@ dual-engine oracles: each operation runs against both SafeRE and
 - `RegionBoundsFuzzer` fuzzes regions and anchoring/transparent bounds.
 - `DeferredRegionCaptureFuzzer` forces deferred NFA captures across region bounds and matcher reuse.
 - `UnicodeFuzzer` biases input strings toward Unicode boundary cases.
+- `Utf8InputFuzzer` checks direct UTF-8 matching, byte bounds, and input validation.
 
 ## Regression Mode
 
@@ -97,8 +99,9 @@ When Jazzer finds a valid divergence, crash, hang, or stack overflow:
 1. Minimize the reproducer.
 2. Add a normal JUnit regression test in `safere/src/test/java/org/safere`.
 3. Fix SafeRE.
-4. Re-run the focused regression test, `mvn -pl safere test`, and the relevant
-   fuzz target.
+4. Re-run the focused regression test and affected fuzz targets in regression
+   mode. Broaden validation for shared-engine changes or unresolved risks, as
+   described in [AGENTS.md](../AGENTS.md).
 
 Expected syntax errors and intentionally unsupported non-linear regex features
 are valid fuzzer inputs.

@@ -138,11 +138,9 @@ When reporting an aggregate comparison:
   or the unambiguous "takes 2.03× as long," not "1.13× slower." Explain when a
   small number of extreme cases materially influences the aggregate.
 
-**Why geometric mean:** It is the only mean consistent under inversion
-(geomean(A/B) = 1/geomean(B/A)), treats multiplicative improvements
-symmetrically, and is the standard in systems benchmarking (SPEC, DaCapo,
-Renaissance). Do not use arithmetic mean of ratios — it is biased by outliers
-and inconsistent under inversion.
+**Why geometric mean:** It is consistent under inversion
+(geomean(A/B) = 1/geomean(B/A)) and treats multiplicative improvements
+symmetrically. An arithmetic mean of ratios does not preserve that symmetry.
 
 `BENCHMARKS.md` must be self-contained for checked-in benchmark claims. For a
 published benchmark report, check in the reviewed collection under
@@ -174,9 +172,9 @@ external results in place after publishing a new full collection.
   supports the explanation. Label inferences as such, and profile before
   proposing an optimization. Do not present speculation as a measured cause or
   imply that another implementation is poorly written.
-- **Acknowledge tradeoffs.** When SafeRE is slower, explain what it gains
-  in return (e.g., linear-time guarantees). When it's faster, note what
-  the other engine optimizes for instead.
+- **Acknowledge tradeoffs.** Report slower workloads as well as faster ones.
+  Discuss guarantees or design tradeoffs when evidence connects them to the
+  result; do not assume that a performance gap follows from a particular guarantee.
 
 ## Profiling
 
@@ -236,7 +234,10 @@ runner first, and use the runner's standard modes for before/after evidence.
 
 ```bash
 java -XX:StartFlightRecording=duration=30s,filename=/tmp/recording.jfr \
-  -jar safere-benchmarks/target/benchmarks.jar <BenchmarkClass> -f 0 -wi 1 -i 3 -w 1 -r 1
+  -Dsafere.benchmark.corpus=safere-benchmarks/target/benchmark-corpus \
+  -jar safere-benchmarks/target/benchmarks.jar CrossEngineBenchmark.run \
+  -p crossEngineTrial=RegexBenchmark.emailFind@safere-string \
+  -f 0 -wi 1 -i 3 -w 1 -r 10
 ```
 
 **Attach to running JVM:**
@@ -257,4 +258,4 @@ jfr print --events jdk.ExecutionSample /tmp/recording.jfr | head -100
 
 - async-profiler is preferred for CPU profiling (no safepoint bias).
 - JFR `.jfr` files can also be opened in JDK Mission Control for visual
-  analysis (not available on this machine, but files can be downloaded).
+  analysis when that tool is available.

@@ -165,8 +165,8 @@ semantics.
 
 ## hitEnd and requireEnd
 
-SafeRE does not attempt exact JDK-compatible results for `Matcher.hitEnd()` or
-`Matcher.requireEnd()`. These methods expose observations about the JDK
+SafeRE does not expose `Matcher.hitEnd()` or `Matcher.requireEnd()`. These methods
+expose observations about the JDK
 backtracking engine's ordered search, including whether some attempted path
 reached input end and whether the accepted result depended on end-sensitive
 paths. SafeRE engines explore sets of states in lockstep, not one ordered
@@ -496,6 +496,11 @@ explicit any-character class such as `[\s\S]`. SafeRE keeps explicit any
 classes compositional with ordinary scalar-consuming atoms rather than making
 their region behavior depend on this spelling distinction.
 
+The same sweep classifies `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION`
+as intentional: observed JDK traces expose a `\B` match at the interior UTF-16
+position of a transparent split surrogate pair. SafeRE keeps word-boundary
+matching consistent with its scalar boundary model.
+
 ## Opaque Region CRLF Pair Context
 
 Sweep names:
@@ -531,4 +536,5 @@ pre-region text when opaque bounds are active.
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
 | `QUANTIFIED_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
 | `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
+| `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION` | Intentional | Quantified Scalar Atoms at Split Surrogate Region Ends |
 | `OPAQUE_REGION_CRLF_PAIR_CONTEXT` | Intentional | Opaque Region CRLF Pair Context |

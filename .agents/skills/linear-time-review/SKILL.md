@@ -48,8 +48,9 @@ reason each item may threaten linear time. Do not fix issues unless the user exp
      superlinearly.
    - Recursive regex-tree or program traversal that can overflow or revisit subtrees
      superlinearly; SafeRE should prefer iterative walkers for deep regexes.
-   - Parser acceptance of regex features that require backtracking or non-regular semantics:
-     backreferences, lookahead/lookbehind, possessive quantifiers, and unsupported constructs.
+   - Parser acceptance outside the supported dialect: backreferences, lookahead/lookbehind,
+     possessive quantifiers over consuming operands, and other unsupported constructs.
+     Statically zero-width possessive operands are an accepted exception.
    - Unicode and character-class operations that scan large tables per input character when a
      cheaper bounded or logarithmic structure is expected.
    - Capture extraction paths that rerun full searches, repeatedly replay prefixes, or perform
@@ -68,9 +69,9 @@ reason each item may threaten linear time. Do not fix issues unless the user exp
      indicator parity, emoji/ZWJ context, and other boundary state are computed incrementally or
      cached per input instead of scanning backward from each boundary check.
    - Region and bounds semantics: `region()`, transparent bounds, anchoring bounds, `^`, `$`,
-     `\A`, `\G`, word boundaries, `hitEnd()`, and `requireEnd()` depend on context around the
-     current search range. Verify that context is an explicit input to empty-width checks and
-     engine state rather than a post-hoc correction.
+     `\A`, and word boundaries depend on context around the current search range. Verify that
+     context is an explicit input to empty-width checks and engine state rather than a post-hoc
+     correction. `\G`, `hitEnd()`, and `requireEnd()` are unsupported; preserve that boundary.
    - Capture compatibility: JDK-compatible captures, especially quantified captures and
      alternations, must not be recovered by per-capture or per-position matcher reruns. A bounded
      extraction pass is acceptable; retry loops over captures or positions are not.

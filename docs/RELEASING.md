@@ -107,9 +107,8 @@ one physical line, including any parenthesized list of pull request links.
 GitHub Release rendering turns source newlines into hard line breaks, so source
 wrapping makes prose and pull request lists render one fragment per line.
 
-Local verification is not repeated here because every change merged into
-`main` has already passed CI. The release workflow verifies the tagged release
-build before publishing it.
+Release-preparation changes should pass CI before tagging. The release
+workflow also verifies the tagged release build before publishing it.
 
 ### 3. Tag the release
 
@@ -124,12 +123,13 @@ git push origin vX.Y.Z
 ```
 
 Pushing the tag triggers the
-[release workflow](.github/workflows/release.yml), which:
+[release workflow](../.github/workflows/release.yml), which:
 
 1. Sets the POM version from the tag
 2. Builds and verifies the `safere` module with `mvn -pl safere verify`
-3. Signs the `safere` release artifacts with GPG
-4. Publishes `org.safere:safere` to Maven Central via the Central Portal
+3. Runs the work-counter tests with the `work-counters` profile
+4. Signs the `safere` release artifacts with GPG
+5. Publishes `org.safere:safere` to Maven Central via the Central Portal
 
 ### 5. Verify the release
 
@@ -202,3 +202,16 @@ push the version bump directly to `main`. For example, after releasing
 - **Token expired**: Generate a new token at
   [central.sonatype.com/usertoken](https://central.sonatype.com/usertoken) and
   update the GitHub secrets.
+
+## Development snapshot publication
+
+Successful pushes to `main` publish the POM's development version after CI passes,
+including documentation-only pushes. Pull requests do not publish snapshots.
+The CI workflow serializes publication and skips an older run when a newer main
+push has already passed CI. See [ci.yml](../.github/workflows/ci.yml) for the gate.
+
+Enable snapshots for the `org.safere` namespace in the Central Portal before the
+first publication. Snapshot publishing uses the release workflow's Central
+credentials and signing secrets. Review publishing usage and retention policies
+in the Portal Usage Center. Consumer configuration is in the
+[installation guide](INSTALLATION.md#development-snapshots).

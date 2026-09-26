@@ -257,7 +257,7 @@ A workload describes behavior without naming engines:
 - `resultConsumption` controls how the result enters the blackhole.
 - `expected` is a typed optional correctness value.
 
-Version 1 operations are grouped below. Names are exact JSON values.
+Supported operations are grouped below. Names are exact JSON values.
 
 | Group | Operations |
 |---|---|
@@ -281,7 +281,7 @@ the exact flag set they support; an unsupported flag is distinct from an
 unsupported API feature.
 
 Engine-neutral requirements are `find`, `matches`, `lookingAt`,
-`captureText`, `namedGroups`, `replace`, `numberedReplacement`,
+`captureParticipation`, `captureText`, `namedGroups`, `replace`, `numberedReplacement`,
 `namedReplacement`, `appendReplacement`, `functionalReplacement`, `split`,
 `matcherState`, `regions`, `bounds`, `patternSet`, `utf8Input`,
 `utf8Replacement`, `diagnostics`, `dfaCache`, `flaggedCompile`,

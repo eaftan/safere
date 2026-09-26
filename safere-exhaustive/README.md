@@ -86,7 +86,9 @@ Use this workflow when running a full exhaustive sweep for review:
 
 1. Run the full sweep with a fresh `--output-dir`.
 2. Run the expander on that compact archive.
-3. Inspect `progress.json` and `expanded/class-counts.tsv`.
+3. Verify the sweep's successful exit and completion log, then inspect
+   `progress.json` and `expanded/class-counts.tsv`. Expansion also works on
+   interrupted archives, so these files alone do not prove completion.
 4. Fix any nonzero `EXPECTED_ZERO` classes. These are known bug classes that
    should disappear in a clean run.
 5. Review and classify any `UNKNOWN` examples. Fix real bugs, or add a narrow
@@ -119,8 +121,11 @@ For a smaller ad hoc local check, run a generated-case index range:
 Range bounds are optional: `--range=:1000000` starts at 0, and
 `--range=1000000:` runs from that index to the end.
 
-Without `--range`, the sweep runs the committed bounded matrix completely. Use
-that full run before review when character-class parser behavior changes.
+Without `--range`, the sweep runs the committed bounded matrix completely. Start
+with affected ranges or saved examples; run the complete matrix when shared
+parser changes or unresolved risks warrant broader validation. See the
+[testing guide](../docs/TESTING.md#exhaustive-differential-testing-with-safere-exhaustive)
+for how sweeps fit into project validation.
 
 The character-class sweep includes the original product matrix plus a bounded
 grammar-sequence matrix. The grammar-sequence matrix composes class atoms,
@@ -341,8 +346,8 @@ compile acceptance and full-match membership between SafeRE and
 `java.util.regex`.
 
 Use this sweep before review when changing control-escape parsing behavior. The
-full matrix is bounded and has roughly 36 million generated cases. Range bounds
-and replay files use the same conventions as the character-class sweep.
+full matrix is bounded. Range bounds and replay files use the same conventions
+as the character-class sweep.
 
 ## Case-Folding Character-Class Sweep
 
@@ -402,8 +407,8 @@ semantics that are too deep or too specific for the Cartesian grammar.
 Each case compares compile acceptance plus public matcher behavior:
 `matches()`, `lookingAt()`, bounded repeated `find()`, capture group
 start/end/text, and replacement APIs for each group. It intentionally does not
-compare `hitEnd()` or `requireEnd()` because SafeRE documents those APIs as
-best-effort rather than exact JDK-compatible state. It classifies known
+compare `hitEnd()` or `requireEnd()` because those APIs
+are unsupported by SafeRE. It classifies known
 intentional divergences according to
 [Intentional Divergences from java.util.regex](../INTENTIONAL_DIVERGENCES.md).
 Inputs exercise empty text, literals, line endings, word boundaries, and

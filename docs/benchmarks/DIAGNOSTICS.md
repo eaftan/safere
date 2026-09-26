@@ -1,6 +1,6 @@
-# Issue 474 Phase 7 Performance Verification
+# Diagnostics performance report
 
-Phase 7 passed on 2026-07-12. All JMH invocations ran serially through
+These measurements were recorded on 2026-07-12 for the diagnostics implementation. All JMH invocations ran serially through
 `./run-java-benchmarks.sh`. Routine evidence used the standard configuration; close or surprising
 results used `--long` confirmation.
 
@@ -74,22 +74,6 @@ and 159.768 ± 1.935 ns/op for `LongAdder`. This counterintuitive ordering persi
 is attributed to listener-specific JIT escape-analysis and dispatch shape; it does not affect the
 disabled-path merge gate.
 
-### Future enabled-mode optimization
-
-Enabled diagnostics currently add approximately 150–200 ns of fixed work per public operation.
-This is a possible follow-up issue or PR discussion item, not part of the Phase 7 merge gate.
-
-A reasonable estimate is that allocation-conscious implementation work could reduce the fixed cost
-to roughly 60–100 ns without changing the public semantics. Candidate work includes reusing
-per-thread accumulator storage, avoiding fresh primitive bookkeeping arrays, lazily materializing
-empty or unused collections, specializing events with one strategy and no decisions, and reducing
-intermediate record allocation.
-
-A more aggressive callback or API redesign might reach roughly 20–50 ns, but could require an
-ephemeral event view, primitive callback fields, sampling, or restrictions on listeners retaining
-events. Those tradeoffs would weaken some combination of immutability, listener simplicity, and
-retainability, so the allocation-conscious approach should be profiled and attempted first.
-
 ## Static analysis cost
 
 | Workload | ns/op |
@@ -109,12 +93,14 @@ path, and recorded repeated public operations. It found no allocations of diagno
 bookkeeping classes. Enabled operation-count tests separately verify exactly one callback per public
 operation regardless of internal match count.
 
-Artifacts are outside the repository under `/tmp/issue474-*`, including the raw standard and long
-JMH logs, CPU profile, JFR recording, and printed allocation events.
+The original report referenced raw logs, profiles, and JFR recordings under
+`/tmp/issue474-*`; those artifacts were not checked in. These tables preserve
+the historical measurements, but are not independently reproducible from
+repository artifacts alone.
 
-## Gate decision
+## Assessment at the recorded revisions
 
-Phase 7 passes:
+The original performance gate passed:
 
 - disabled diagnostics have no diagnostic allocations;
 - the final standard matrix has no statistically convincing material throughput regression;

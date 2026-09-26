@@ -1,8 +1,10 @@
 # SafeRE — Agent Guidelines
 
-SafeRE is a BSD 3-Clause-licensed Java port of RE2 with a linear-time matching
-contract and a `java.util.regex`-compatible API within that constraint. It is
-not a clean-room port.
+SafeRE is a BSD 3-Clause-licensed regular expression library for Java with a
+linear-time matching contract and `java.util.regex`-compatible behavior within
+that constraint. It began as a Java port of RE2, incorporates RE2/J code, and
+has since evolved independently, focusing on Java compatibility, JVM performance,
+and direct UTF-8 matching. Preserve the attribution for its RE2 and RE2/J ancestry.
 
 ## Orientation
 
@@ -16,12 +18,13 @@ not a clean-room port.
 
 Read references when the task needs them:
 
-- [DESIGN.md](DESIGN.md): parser → AST simplification → compiler → execution
+- [Architecture](docs/ARCHITECTURE.md): parser → AST simplification → compiler → execution
   architecture, engine selection, and implementation rationale. Check current
   code before relying on engine thresholds or fast-path ordering.
-- [DEVELOPMENT.md](DEVELOPMENT.md): build setup, optional modules, versioned
+- [Semantic invariants](docs/INVARIANTS.md): capture, engine, parser, and matcher state contracts.
+- [Developer guide](docs/DEVELOPMENT.md): build setup, optional modules, versioned
   implementations, and external-project validation.
-- [TESTING.md](TESTING.md): test organization and verification commands;
+- [Testing](docs/TESTING.md): test organization and verification commands;
   [safere-fuzz/README.md](safere-fuzz/README.md) for fuzzing.
 - [INTENTIONAL_DIVERGENCES.md](INTENTIONAL_DIVERGENCES.md): accepted JDK
   compatibility boundaries.
@@ -48,7 +51,9 @@ conflicting instructions instead of appending another exception.
   context inside position/retry loops. Find a linear formulation or document
   the compatibility boundary.
 - **Supported dialect:** reject backreferences, lookahead/lookbehind, possessive
-  quantifiers, and `\C` at parse time with clear errors.
+  quantifiers over consuming operands, and `\C` at parse time with clear errors.
+  Statically zero-width possessive operands are accepted; see
+  [compatibility boundaries](INTENTIONAL_DIVERGENCES.md#unsupported-backtracking-features).
 - **Stack safety:** use explicit stacks/worklists or existing iterative Walker
   helpers for AST/program walks, parsing, compilation, matching, Unicode/class
   processing, and public API paths. Recursion is acceptable only in test helpers
@@ -86,7 +91,7 @@ For an approved intentional divergence with no implementation change, pin the
 existing behavior and document it; a failing SafeRE test is not required.
 
 When validating SafeRE in external projects, follow the
-[external-validation workflow](DEVELOPMENT.md#external-project-validation): fix
+[external-validation workflow](docs/DEVELOPMENT.md#external-project-validation): fix
 found bugs and recheck the external failure before proceeding.
 
 ## Build and Validation
@@ -111,7 +116,7 @@ mvn install -DskipTests -q
   than running Java suites unless requested.
 - For changed tests, run the relevant tests. For changed fuzz coverage, run the
   affected targets in regression mode. For public API compatibility changes,
-  select affected generated crosschecks when practical; see `TESTING.md`.
+  select affected generated crosschecks when practical; see [Testing](docs/TESTING.md).
 - Run Maven builds/tests sequentially within one checkout: compilation can
   replace class files in use by another run. Use separate worktrees/build
   outputs when concurrent independent builds are needed.

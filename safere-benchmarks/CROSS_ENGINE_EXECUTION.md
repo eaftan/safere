@@ -25,8 +25,9 @@ The Java comparison matrix is declared in one engine registry:
 | `re2-ffm-string-conversion` | `re2_ffm` | Java `String`; UTF-8 conversion at the FFM API boundary is timed |
 
 Materialization, UTF-8 validation, Java decoding, `Utf8Input` construction,
-pattern compilation, replacement-template encoding, operation binding, and expected-result
-validation happen in JMH setup, outside the timed operation.
+replacement-template encoding, operation binding, and expected-result
+validation happen in JMH setup. Patterns are compiled in setup for matching
+workloads; compilation workloads explicitly include compilation in measurement.
 
 Each variant declares native capabilities and one input representation. The
 planner joins those declarations with each workload's engine-neutral

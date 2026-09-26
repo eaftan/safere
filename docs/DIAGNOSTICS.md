@@ -144,6 +144,9 @@ completed supported public operation:
 - string and functional `replaceFirst()`
 - string and functional `replaceAll()`
 
+The list above describes String `Matcher` operations. UTF-8 `matches()`,
+`lookingAt()`, `find()`, and `Pattern.find(Utf8Input)` also emit operation events.
+
 Internal searches performed by replacement methods do not emit nested `FIND` events. A replacement
 emits one event whose `matchCount()` is the total number of replaced matches. An operation that
 throws does not emit an event. If the listener throws, its exception propagates after the matcher
@@ -161,7 +164,7 @@ state and regex result have been finalized.
 | `forwardDfaSearchCount()` | Number of attempted forward DFA searches, including budget-exhausted attempts. |
 | `reverseDfaSearchCount()` | Number of attempted reverse DFA searches, including budget-exhausted attempts. |
 | `captureMode()` | Whether captures were absent, resolved eagerly, or left deferred. |
-| `inputLength()` | Input length using Java `String.length()` semantics (UTF-16 code units). |
+| `inputLength()` | UTF-16 code units for String operations; UTF-8 bytes for `Utf8Matcher` and `Pattern.find(Utf8Input)`. |
 | `matchCount()` | Zero or one for single-result operations; aggregate count for replacements. |
 
 Events contain neither regex text nor input text. They are immutable and safe for a listener to
@@ -258,18 +261,18 @@ aggregating by enums such as operation, outcome, strategy, role, disposition, an
 
 ## Performance guidance
 
-Runtime diagnostics are disabled by default. With `SafeReMatchDiagnostics.NONE`, the disabled path
-does not allocate diagnostic events or bookkeeping objects and has no statistically convincing
-material throughput regression in the production benchmark matrix.
+Runtime diagnostics are disabled by default. With `SafeReMatchDiagnostics.NONE`,
+the disabled path does not allocate diagnostic events or bookkeeping objects.
 
-Enabled diagnostics construct bounded immutable state once per public operation. The measured fixed
-cost is approximately 150–200 ns per operation. This is significant for tiny literal operations and
-becomes a small fraction of longer DFA or NFA work. Enable runtime diagnostics for targeted
-observation, controlled profiling windows, or workloads where that fixed cost is acceptable.
+Enabled diagnostics construct bounded immutable state once per public operation.
+This adds fixed work that can dominate tiny literal operations. Enable runtime
+diagnostics for targeted observation, controlled profiling windows, or workloads
+where the measured overhead is acceptable.
 
-Static analysis has a different cost model. The first explicit `analysis()` request performs and
-caches the analysis. Cached retrieval is effectively a field access, and matching does not perform
-complete analysis merely because the static API exists.
+The first explicit `analysis()` request performs and caches the static analysis.
+Cached retrieval reuses that result; matching does not perform complete analysis
+merely because the static API exists.
 
-Detailed benchmark methodology and results are in
-[`design/ISSUE_474_PHASE_7_PERFORMANCE.md`](design/ISSUE_474_PHASE_7_PERFORMANCE.md).
+The [historical diagnostics benchmark](benchmarks/DIAGNOSTICS.md) records measured
+overhead for its revisions. Measure your own workload when deciding whether to
+enable a listener in production.

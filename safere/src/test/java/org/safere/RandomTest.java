@@ -218,7 +218,7 @@ class RandomTest {
         // Run the same pattern and text through the UTF-8 domain. The String and UTF-8 paths
         // are mirrored implementations -- StringStartAccelerator/Utf8StartAccelerator,
         // StringInputScanner/Utf8InputScanner, and both RejectPrefilter domains -- and the
-        // contract in UTF8.md is that only the input representation and match coordinates
+        // contract in docs/UTF8.md is that only the input representation and match coordinates
         // change. The String side is the oracle here rather than the JDK, because the JDK has
         // no byte-domain API; the loop above has already pinned the String side to the JDK.
         totalTests++;

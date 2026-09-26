@@ -6,7 +6,7 @@ measurement boundary requires different JMH or process machinery.
 
 | Declared mode or constraint | Generic runner | Boundary |
 | --- | --- | --- |
-| `averageTime` | `CrossEngineBenchmark`, `CrossEngineScalingBenchmark` | Normal forked JMH execution |
+| `averageTime` or `compileOnly` | `CrossEngineBenchmark`, `CrossEngineScalingBenchmark` | Normal forked JMH execution |
 | `noFork` | `CrossEngineNoForkBenchmark` | In-process JMH execution (`-f 0`) |
 | `singleShotColdStart` | `CrossEngineColdStartBenchmark`; native C++, Go, and Rust runners | One invocation in each fresh process |
 | SafeRE-specific `averageTime` operation | `SpecializedBenchmark` | One operation adapter selected from the plan |
