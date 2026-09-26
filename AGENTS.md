@@ -22,6 +22,8 @@ Read references when the task needs them:
   architecture, engine selection, and implementation rationale. Check current
   code before relying on engine thresholds or fast-path ordering.
 - [Semantic invariants](docs/INVARIANTS.md): capture, engine, parser, and matcher state contracts.
+- [Design decisions](docs/DESIGN_DECISIONS.md): settled decisions and rejected
+  alternatives; check before proposing a change of direction.
 - [Developer guide](docs/DEVELOPMENT.md): build setup, optional modules, versioned
   implementations, and external-project validation.
 - [Testing](docs/TESTING.md): test organization and verification commands;

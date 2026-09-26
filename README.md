@@ -9,7 +9,7 @@
 - **Correct:** Built for production use, targeting `java.util.regex` compatibility
   within that guarantee. Extensive [validation](docs/TESTING.md) includes JDK
   differential testing, exhaustive sweeps, fuzzing, and regression coverage.
-- **Fast:** Substantially faster than the JDK regex engine and competitive with
+- **Fast:** Substantially faster than the JDK regex engine on most workloads and competitive with
   leading native engines in both our own benchmarks and [Rebar](https://github.com/BurntSushi/rebar)'s independently
   developed benchmark suite. See the
   [performance results](#performance) for workload comparisons and tradeoffs.
@@ -23,9 +23,11 @@ Features include:
 - [Diagnostics](docs/DIAGNOSTICS.md) for inspecting patterns and observing execution.
 
 SafeRE supports a subset of Java regex syntax. Backreferences, lookaround,
-atomic groups, and possessive quantifiers over consuming operands are rejected.
-`CANON_EQ`, `Matcher.hitEnd()`, and `Matcher.requireEnd()` are unsupported.
-See [syntax and compatibility](docs/SYNTAX.md) before migrating an application.
+atomic groups, possessive quantifiers over consuming operands, `\G`, and `\C`
+are rejected, as are counted repetitions above 1000. `CANON_EQ`,
+`Matcher.hitEnd()`, and `Matcher.requireEnd()` are unsupported. See
+[syntax and compatibility](docs/SYNTAX.md) for the complete list before
+migrating an application.
 
 ## Installation
 

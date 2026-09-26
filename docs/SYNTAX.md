@@ -22,7 +22,7 @@ SafeRE supports most of the syntax from `java.util.regex`:
 | Named captures | `(?<name>...)` |
 | Anchors and boundaries | `^`, `$`, `\A`, `\Z`, `\z`, `\b`, `\B`, `\b{g}` |
 | Line breaks and graphemes | `\R`, `\X` |
-| Flags | `(?i)`, `(?m)`, `(?s)`, `(?U)` |
+| Flags | `(?i)`, `(?m)`, `(?s)`, `(?x)`, `(?u)`, `(?d)`, `(?U)` |
 
 ## Unsupported features
 

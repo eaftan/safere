@@ -76,8 +76,9 @@ For Unicode grapheme behavior, use Unicode UAX #29 and the project design:
    - smallest readable reproducer if available;
    - one high-risk Unicode/region example if it reveals the real boundary condition;
    - one example showing captures or statefulness if relevant.
-4. Separate already-known intentional classes from unknown classes. Use existing project tests and
-   design docs to avoid reopening decisions already made.
+4. Separate already-known intentional classes from unknown classes. Use existing project tests,
+   `INTENTIONAL_DIVERGENCES.md`, and `docs/DESIGN_DECISIONS.md` to avoid reopening decisions
+   already made.
 5. When reviewing completed sweep outputs, include representative `KNOWN_INTENTIONAL` samples.
    Verify that the actual trace mismatch matches the documented reason for that class; do not
    assume the stored classification is correct. A too-broad known classifier can hide an unrelated
