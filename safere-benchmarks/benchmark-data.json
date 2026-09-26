@@ -3302,6 +3302,99 @@
         "sha256": "7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36"
       },
       "shared": true
+    },
+    {
+      "id": "scrubber.parenSource.noMatch.{size}",
+      "axes": {
+        "size": [
+          32,
+          128
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "The James Webb Space Telescope observes in the infrared, which lets it see through dust clouds that block visible light. Its primary mirror is 6.5 meters across and is made of 18 hexagonal segments coated in gold. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.parenSource.match.32",
+      "recipe": {
+        "kind": "literal",
+        "text": "The James (Source: 42) Webb dog!"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.parenSource.match.128",
+      "recipe": {
+        "kind": "literal",
+        "text": "The James Webb Space Telescope observes (Source: 42) in the infrared, which lets it see through dust clouds that block the light"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.bracketSource.noMatch.{size}",
+      "axes": {
+        "size": [
+          32,
+          128
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "The James Webb Space Telescope observes in the infrared, which lets it see through dust clouds that block visible light. Its primary mirror is 6.5 meters across and is made of 18 hexagonal segments coated in gold. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.bracketSource.match.32",
+      "recipe": {
+        "kind": "literal",
+        "text": "The James [Source: 42] Webb dog!"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.bracketSource.match.128",
+      "recipe": {
+        "kind": "literal",
+        "text": "The James Webb Space Telescope observes [Source: 42] in the infrared, which lets it see through dust clouds that block the light"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.bracketTag.noMatch.{size}",
+      "axes": {
+        "size": [
+          32,
+          128
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "The James Webb Space Telescope observes in the infrared, which lets it see through dust clouds that block visible light. Its primary mirror is 6.5 meters across and is made of 18 hexagonal segments coated in gold. ",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.bracketTag.match.32",
+      "recipe": {
+        "kind": "literal",
+        "text": "The James [editor note] Webb do!"
+      },
+      "shared": true
+    },
+    {
+      "id": "scrubber.bracketTag.match.128",
+      "recipe": {
+        "kind": "literal",
+        "text": "The James Webb Space Telescope observes [editor note] in the infrared, which lets it see through dust clouds that block lights. "
+      },
+      "shared": true
     }
   ],
   "workloads": [
@@ -13482,6 +13575,99 @@
       "expected": {
         "type": "integer",
         "value": 53
+      }
+    },
+    {
+      "id": "ScrubberBenchmark.parenSource.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        " ?\\([Ss]ource:\\s*\\d+(?:\\s*,\\s*(?:[Ss]ource:\\s*)?\\d+)*\\s*\\)"
+      ],
+      "inputs": [
+        "scrubber.parenSource.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          32,
+          128
+        ]
+      }
+    },
+    {
+      "id": "ScrubberBenchmark.bracketSource.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        " ?\\[[Ss]ource:\\s*\\d+(?:\\s*,\\s*(?:[Ss]ource:\\s*)?\\d+)*\\s*\\]"
+      ],
+      "inputs": [
+        "scrubber.bracketSource.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          32,
+          128
+        ]
+      }
+    },
+    {
+      "id": "ScrubberBenchmark.bracketTag.{matchLabel}.{size}",
+      "operation": "replaceAll",
+      "patterns": [
+        "\\s?(?i)\\[(?:editor note|editor notes|editor_note|editornote|reviewer comment|reviewer comments|draft annotation|margin note|translator note|internal reference|see also|citation needed|redacted section)\\]"
+      ],
+      "inputs": [
+        "scrubber.bracketTag.{matchLabel}.{size}"
+      ],
+      "resultConsumption": "string",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "arguments": {
+        "replacement": ""
+      },
+      "axes": {
+        "matchLabel": [
+          "match",
+          "noMatch"
+        ],
+        "size": [
+          32,
+          128
+        ]
       }
     }
   ]
