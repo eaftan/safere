@@ -23,9 +23,11 @@ Features include:
 - [Diagnostics](docs/DIAGNOSTICS.md) for inspecting patterns and observing execution.
 
 SafeRE supports a subset of Java regex syntax. Backreferences, lookaround,
-atomic groups, and possessive quantifiers over consuming operands are rejected.
-`CANON_EQ`, `Matcher.hitEnd()`, and `Matcher.requireEnd()` are unsupported.
-See [syntax and compatibility](docs/SYNTAX.md) before migrating an application.
+atomic groups, `\G`, `\C`, and possessive quantifiers over consuming operands
+are rejected. Counted repetitions are limited to 1000, and nested repetitions
+have an expansion limit. `CANON_EQ`, `Matcher.hitEnd()`, and `Matcher.requireEnd()`
+are unsupported. See [syntax and compatibility](docs/SYNTAX.md) before
+migrating an application.
 
 ## Installation
 

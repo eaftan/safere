@@ -21,6 +21,8 @@ Simplification reduces the AST and lowers counted repetitions. Rewrites must
 preserve observable captures, not only the set of matching strings. Compiler
 analysis and guarded control-flow lowering handle retained capture values;
 public capture access must not repair them by reinterpreting the original AST.
+Enumerating candidate repeat partitions after a match is chosen could make
+capture access superlinear in the input length.
 
 The compiler uses Thompson construction to connect instruction fragments.
 `Prog` holds the resulting program and analysis metadata. Instructions express

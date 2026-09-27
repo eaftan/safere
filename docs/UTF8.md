@@ -116,6 +116,10 @@ an arbitrary byte-regex mode, and SafeRE does not support RE2's `\C` operator.
 
 The UTF-8 API deliberately uses a separate matcher type instead of adding byte
 mode to the `java.util.regex`-compatible `Matcher` API.
+The separate type keeps index units and replacement types explicit; a byte
+mode on `Matcher` would make them depend on the input used to construct it.
+Capture bounds also let callers slice nonzero-offset views without copying,
+which an allocating `groupBytes()` method would not.
 
 | API | Purpose |
 |---|---|
