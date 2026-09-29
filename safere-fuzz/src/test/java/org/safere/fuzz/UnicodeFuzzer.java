@@ -7,7 +7,10 @@ package org.safere.fuzz;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
+import java.util.ArrayList;
 import java.util.List;
+import org.safere.Matcher;
+import org.safere.Pattern;
 
 public final class UnicodeFuzzer {
 
@@ -62,6 +65,7 @@ public final class UnicodeFuzzer {
   }
 
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
+    assertEmojiZwjSegmentation(data);
     for (String regex : GRAPHEME_CLUSTER_REGEXES) {
       FuzzSupport.CompiledPattern graphemePattern = FuzzSupport.compileOrSkip(regex, 0);
       for (String input : GRAPHEME_CLUSTER_INPUTS) {
@@ -98,5 +102,28 @@ public final class UnicodeFuzzer {
     matcher.matches();
     matcher.reset();
     matcher.lookingAt();
+  }
+
+  private static void assertEmojiZwjSegmentation(FuzzedDataProvider data) {
+    // UAX #29 GB11 is the oracle here: the JDK retains the pictograph across
+    // SpacingMark and extra ZWJ characters. See issue #936.
+    String pictograph = data.pickValue(List.of("\uD83D\uDC4D", "\uD83D\uDC69", "\u00A9"));
+    String extend =
+        data.pickValue(List.of("\u0301", "\uFE0F", "\uD83C\uDFFD")).repeat(data.consumeInt(0, 16));
+    String interruption = data.pickValue(List.of("", "\u0903", "\u200D", "\u200D\u0301"));
+    String first = pictograph + extend + interruption + extend + "\u200D";
+    String last = pictograph + extend;
+    String input = first + last;
+    List<String> expected = interruption.isEmpty() ? List.of(input) : List.of(first, last);
+    for (String regex : List.of("\\X", "\\X\\b{g}", "(\\X)")) {
+      Matcher matcher = Pattern.compile(regex).matcher(input);
+      List<String> actual = new ArrayList<>();
+      while (matcher.find()) {
+        actual.add(matcher.group());
+      }
+      if (!actual.equals(expected)) {
+        throw new AssertionError("GB11 segmentation mismatch for " + regex + " on " + input);
+      }
+    }
   }
 }

@@ -369,11 +369,39 @@ grapheme classifier still treats these signs as `SpacingMark`, despite its
 Unicode 17 support. SafeRE follows the [Unicode 17 grapheme property file](https://www.unicode.org/Public/17.0.0/ucd/auxiliary/GraphemeBreakProperty.txt)
 and the [Unicode committee's correction](https://www.unicode.org/L2/L2021/21126-utc168-properties-recs.pdf).
 
-This specification-based difference is independent of GB11 (tracked in #936).
+This specification-based difference is independent of the GB11 difference described below.
 The upstream JDK report is tracked in [#940](https://github.com/eaftan/safere/issues/940).
 `GraphemeBreakConformanceTest` pins both Ahom signs and excludes only those two
 code points from its exhaustive JDK comparison. The segmentation code and its
 linear-time bound are unchanged.
+
+## Emoji ZWJ Sequences (GB11)
+
+Issue reference: [#936](https://github.com/eaftan/safere/issues/936).
+
+SafeRE follows [UAX #29 rule GB11](https://www.unicode.org/reports/tr29/#GB11):
+`Extended_Pictographic Extend* ZWJ × Extended_Pictographic`. Only code points
+with grapheme-break property `Extend` preserve the pictograph prefix before
+the ZWJ. `SpacingMark` and another ZWJ interrupt that prefix, even though
+GB9/GB9a keep those characters in the preceding cluster.
+
+For example, `U+1F44D U+0903 U+200D U+1F44D` and
+`U+1F44D U+200D U+200D U+1F44D` each form two SafeRE clusters, at UTF-16
+bounds `[0, 4)` and `[4, 6)`. OpenJDK 26.0.1 instead produces one cluster
+at `[0, 6)`. The control `U+1F44D U+0301 U+200D U+1F44D` remains one cluster
+in both implementations because U+0301 is `Extend`.
+
+The [JDK 26 Pattern specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
+defines `\X` and `\b{g}` in terms of Unicode extended grapheme clusters.
+SafeRE intentionally follows that specification rather than the observed JDK
+behavior, consistently with the unassigned-code-point policy above. This is
+not a limitation imposed by linear-time matching: the cached GB11 prefix is
+computed in one linear pass, with constant-time queries afterward.
+
+`EmojiZwjGraphemeTest` covers interruptions, valid Extend prefixes, renewed
+pictograph chains, regions, boundaries, repeated matches, and UTF-8 input.
+`UnicodeFuzzer` generates these shapes using rule-based expectations instead
+of treating the JDK implementation as the oracle.
 
 ## Grapheme Cluster Composition
 

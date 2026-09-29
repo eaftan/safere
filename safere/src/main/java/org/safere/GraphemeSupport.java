@@ -220,7 +220,9 @@ final class GraphemeSupport {
         if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
           visiblePictographicStart = pos;
           visiblePrependStart = immediatePrependStartBefore(text, pos);
-        } else if (!isGraphemeExtend(cp)) {
+        } else if (!containsCodePoint(GCB_EXTEND, cp)) {
+          // GB11 requires Extended_Pictographic Extend* before the ZWJ. GB9/GB9a
+          // keep ZWJ and SpacingMark in the cluster, but they interrupt this prefix.
           visiblePictographicStart = -1;
           visiblePrependStart = -1;
         }
