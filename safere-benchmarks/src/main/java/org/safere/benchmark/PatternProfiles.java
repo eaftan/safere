@@ -37,11 +37,7 @@ final class PatternProfiles {
   }
 
   PatternProfiles withFallback(String profileId, String fallbackProfileId) {
-    Map<String, Selection> fallback = profiles.get(fallbackProfileId);
-    if (fallback == null) {
-      throw new IllegalArgumentException(
-          "Unknown fallback benchmark pattern profile: " + fallbackProfileId);
-    }
+    Map<String, Selection> fallback = profiles.getOrDefault(fallbackProfileId, Map.of());
     Map<String, Selection> overrides = profiles.get(profileId);
     Map<String, Selection> combined = new LinkedHashMap<>(fallback);
     if (overrides != null) {
