@@ -36,6 +36,22 @@ final class PatternProfiles {
     this.profiles = Collections.unmodifiableMap(new LinkedHashMap<>(profiles));
   }
 
+  PatternProfiles withFallback(String profileId, String fallbackProfileId) {
+    Map<String, Selection> fallback = profiles.get(fallbackProfileId);
+    if (fallback == null) {
+      throw new IllegalArgumentException(
+          "Unknown fallback benchmark pattern profile: " + fallbackProfileId);
+    }
+    Map<String, Selection> overrides = profiles.get(profileId);
+    Map<String, Selection> combined = new LinkedHashMap<>(fallback);
+    if (overrides != null) {
+      combined.putAll(overrides);
+    }
+    Map<String, Map<String, Selection>> result = new LinkedHashMap<>(profiles);
+    result.put(profileId, Collections.unmodifiableMap(combined));
+    return new PatternProfiles(result);
+  }
+
   static JsonObject normalizeInline(JsonObject source) {
     if (source.has("patternProfiles") || source.has("replacementProfiles")) {
       throw new IllegalArgumentException(

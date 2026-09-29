@@ -41,7 +41,10 @@ echo "=== Materializing shared benchmark inputs ==="
 
 echo "=== Building native C++ regex benchmarks ==="
 mkdir -p "$BUILD_DIR"
-cmake -S "$CPP_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -Wno-dev 2>&1 | tail -3
+# Reuse already fetched revisions without checking the network for updates.
+# Missing dependencies are still downloaded on a fresh build.
+cmake -S "$CPP_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release \
+  -DFETCHCONTENT_UPDATES_DISCONNECTED=ON -Wno-dev 2>&1 | tail -3
 cmake --build "$BUILD_DIR" -j8 2>&1 | tail -3
 
 if [ "$ENGINE" = "all" ] || [ "$ENGINE" = "re2" ]; then

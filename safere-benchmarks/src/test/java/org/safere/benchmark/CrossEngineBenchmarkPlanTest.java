@@ -558,6 +558,49 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
+  void declaredRunnerArgumentsUseTheSelectedTimingOrAllocationTrials() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+    String benchmark = "org.safere.benchmark.CrossEngineBenchmark.run";
+    String jar = "/tmp/benchmark jar.jar";
+    BenchmarkCollectionPlan.Runner timing =
+        plan.runners().stream()
+            .filter(runner -> runner.benchmark().equals(benchmark))
+            .findFirst()
+            .orElseThrow();
+    BenchmarkCollectionPlan.Runner allocation =
+        plan.allocationRunners().stream()
+            .filter(runner -> runner.benchmark().equals(benchmark))
+            .findFirst()
+            .orElseThrow();
+
+    assertThat(plan.declaredLauncherArguments(benchmark, jar, false, false))
+        .containsExactly(
+            "-jar",
+            "\"/tmp/benchmark jar.jar\"",
+            "-p",
+            "\"crossEngineTrial=" + String.join(",", timing.trialIds()) + "\"");
+    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, false))
+        .containsExactly(
+            "-jar",
+            "\"/tmp/benchmark jar.jar\"",
+            "-p",
+            "\"crossEngineTrial=" + String.join(",", allocation.trialIds()) + "\"");
+    String firstWorkload = allocation.trialIds().getFirst().split("@", 2)[0];
+    List<String> smokeTrials =
+        allocation.trialIds().stream()
+            .filter(trialId -> trialId.startsWith(firstWorkload + "@"))
+            .toList();
+    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, true))
+        .containsExactly(
+            "-jar",
+            "\"/tmp/benchmark jar.jar\"",
+            "-p",
+            "\"crossEngineTrial=" + String.join(",", smokeTrials) + "\"");
+    assertThatThrownBy(() -> plan.declaredLauncherArguments("missing", jar, false, false))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void allocationCollectionPreservesMemoryScalingWithoutAddingTimingTrials() {
     BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
 

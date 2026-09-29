@@ -48,10 +48,35 @@ final class BenchmarkCollectionPlan {
 
   List<String> launcherArguments(
       String benchmarkRegex, String benchmarkJar, Set<String> overriddenParameters) {
+    return launcherArguments(runnersMatching(benchmarkRegex), benchmarkJar, overriddenParameters);
+  }
+
+  List<String> declaredLauncherArguments(
+      String benchmark, String benchmarkJar, boolean allocation, boolean smoke) {
+    List<Runner> selected =
+        (allocation ? allocationRunners() : runners())
+            .stream()
+                .filter(runner -> runner.benchmark().equals(benchmark))
+                .map(
+                    runner ->
+                        new Runner(
+                            runner.profile(),
+                            runner.benchmark(),
+                            runner.parameter(),
+                            smoke ? smokeTrialIds(runner) : runner.trialIds()))
+                .toList();
+    if (selected.size() != 1) {
+      throw new IllegalArgumentException("Unknown declared benchmark runner: " + benchmark);
+    }
+    return launcherArguments(selected, benchmarkJar, Set.of());
+  }
+
+  private static List<String> launcherArguments(
+      List<Runner> runners, String benchmarkJar, Set<String> overriddenParameters) {
     List<String> arguments = new ArrayList<>();
     arguments.add("-jar");
     arguments.add(argumentFileToken(benchmarkJar));
-    runnersMatching(benchmarkRegex).stream()
+    runners.stream()
         .filter(runner -> !overriddenParameters.contains(runner.parameter()))
         .forEach(
             runner -> {
@@ -216,9 +241,9 @@ final class BenchmarkCollectionPlan {
   public static void main(String[] args) {
     if (args.length == 0) {
       throw new IllegalArgumentException(
-          "Usage: BenchmarkCollectionPlan "
-              + "<runners|allocation-runners|runner-arguments|trials|report-plan> "
-              + "[query options]");
+          "Usage: BenchmarkCollectionPlan"
+              + " <runners|allocation-runners|runner-arguments|declared-runner-arguments|trials|report-plan>"
+              + " [query options]");
     }
     BenchmarkCollectionPlan plan = load();
     switch (args[0]) {
@@ -248,6 +273,18 @@ final class BenchmarkCollectionPlan {
         Set<String> overriddenParameters =
             new LinkedHashSet<>(Arrays.asList(Arrays.copyOfRange(args, 3, args.length)));
         plan.launcherArguments(args[1], args[2], overriddenParameters).forEach(System.out::println);
+      }
+      case "declared-runner-arguments" -> {
+        boolean smoke = args.length == 5 && args[4].equals("--smoke");
+        if ((args.length != 4 && !smoke)
+            || (!args[1].equals("runners") && !args[1].equals("allocation-runners"))) {
+          throw new IllegalArgumentException(
+              "Usage: BenchmarkCollectionPlan declared-runner-arguments "
+                  + "<runners|allocation-runners> <benchmark> <benchmark-jar> [--smoke]");
+        }
+        plan.declaredLauncherArguments(
+                args[2], args[3], args[1].equals("allocation-runners"), smoke)
+            .forEach(System.out::println);
       }
       case "trials" -> {
         Query query = Query.parse(Arrays.copyOfRange(args, 1, args.length));

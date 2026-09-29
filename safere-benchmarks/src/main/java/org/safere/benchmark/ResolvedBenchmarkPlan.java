@@ -71,7 +71,8 @@ final class ResolvedBenchmarkPlan {
 
     DeclarativeBenchmarkPlan plan = DeclarativeBenchmarkPlan.parse(planData);
     PatternProfiles patternProfiles =
-        PatternProfiles.parse(normalizedBenchmarkData.get("patternProfiles"));
+        PatternProfiles.parse(normalizedBenchmarkData.get("patternProfiles"))
+            .withFallback("re2-cpp", "re2");
     PatternProfiles replacementProfiles =
         PatternProfiles.parse(normalizedBenchmarkData.get("replacementProfiles"));
 
@@ -144,7 +145,7 @@ final class ResolvedBenchmarkPlan {
             "re2_cpp",
             "re2_cpp",
             "cpp",
-            "re2",
+            "re2-cpp",
             "re2-cpp",
             true,
             true,

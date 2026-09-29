@@ -148,7 +148,8 @@ with a `replacement` field instead of `pattern`:
 
 The execution-plan materializer selects one profile for each engine and syntax kind. SafeRE and JDK use
 the Java values directly. RE2/J and RE2-FFM select the `re2` pattern profile;
-native C++ RE2 selects `re2` patterns and `re2-cpp` replacements; Go selects
+native C++ RE2 selects `re2-cpp` patterns, which inherit `re2` alternates and
+allow C++-specific overrides, plus `re2-cpp` replacements; Go selects
 `re2` patterns and `go-regexp` replacements where adjacent text makes a Java
 capture reference ambiguous; and Rust `regex` selects `rust-regex` for both
 kinds. PCRE2 JIT selects `pcre2` for both kinds; this remains separate from

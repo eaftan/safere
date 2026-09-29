@@ -13012,7 +13012,19 @@
       "id": "UnicodeCaseFoldingBenchmark.linearChainCapture",
       "operation": "matchesGroupLengthSum",
       "patterns": [
-        "^(?iu)([a-z]+)://([^:/]+):([0-9]+)$"
+        {
+          "java": "^(?iu)([a-z]+)://([^:/]+):([0-9]+)$",
+          "alternates": {
+            "re2-cpp": {
+              "pattern": "^(?i)([a-z]+)://([^:/]+):([0-9]+)$",
+              "reason": "C++ RE2 uses Unicode case folding with (?i) and rejects Java's combined (?iu) flags"
+            },
+            "pcre2": {
+              "pattern": "^(?i)([a-z]+)://([^:/]+):([0-9]+)$",
+              "reason": "PCRE2 in UTF mode uses Unicode case folding with (?i) and rejects Java's combined (?iu) flags"
+            }
+          }
+        }
       ],
       "inputs": [
         "onePassScaling.withCaptures.4096"
@@ -13150,7 +13162,15 @@
       "id": "RealWorldRegexBenchmark.runBenchmark.markdownCitationScrub.{matchLabel}.{size}",
       "operation": "replaceAll",
       "patterns": [
-        "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]"
+        {
+          "java": "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]",
+          "alternates": {
+            "re2-cpp": {
+              "pattern": "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]",
+              "reason": "C++ RE2 rejects the Java Unicode escape for U+3001; literal delimiters preserve the same accepted characters"
+            }
+          }
+        }
       ],
       "inputs": [
         "realWorldRegex.markdownCitationScrub.{matchLabel}.{size}"
@@ -13196,7 +13216,15 @@
       "id": "RealWorldRegexBenchmark.runBenchmark.llmCitationScrub.{matchLabel}.{size}",
       "operation": "replaceAll",
       "patterns": [
-        "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]"
+        {
+          "java": "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]",
+          "alternates": {
+            "re2-cpp": {
+              "pattern": "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]",
+              "reason": "C++ RE2 rejects the Java Unicode escape for U+3001; literal delimiters preserve the same accepted characters"
+            }
+          }
+        }
       ],
       "inputs": [
         "realWorldRegex.llmCitationScrub.{matchLabel}.{size}"

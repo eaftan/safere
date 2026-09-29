@@ -184,6 +184,8 @@ echo "=== Materializing shared benchmark inputs ==="
 
 # JVM args for FFM native access, native library path, and the resolved corpus.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-jmh-args.XXXXXX")"
+trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
 
 if [ "$DECLARED" = true ]; then
   COLLECTION_QUERY=(runners)
@@ -230,12 +232,17 @@ if [ "$DECLARED" = true ]; then
       continue
     fi
     echo "=== Running declared $benchmark ($profile; $runner_opts) ==="
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.BenchmarkCollectionPlan \
+      declared-runner-arguments runners "$benchmark" "$BENCHMARK_JAR" \
+      "${COLLECTION_QUERY[@]:1}" \
+      > "$GENERATED_JMH_ARGUMENT_FILE"
     RUNNER_COMMAND=(java \
       $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
+      "@$GENERATED_JMH_ARGUMENT_FILE" \
       -jvmArgs "$JVM_ARGS" \
-      $runner_opts \
-      -p "$parameter=$trial_ids")
+      $runner_opts)
     if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
       RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
     fi
@@ -259,9 +266,6 @@ fi
 # engine registry. Supply only the planned parameters for runners selected by
 # each JMH filter. Store generated parameters in a Java argument file because a
 # complete trial list can exceed the operating system's per-argument limit.
-GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-jmh-args.XXXXXX")"
-trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
-
 write_generated_jmh_arguments() {
   local bench="$1"
   local overridden_parameters=()

@@ -39,6 +39,24 @@ class PatternProfilesTest {
   }
 
   @Test
+  void profileFallbackUsesSpecificOverridesAndInheritedAlternates() {
+    PatternProfiles profiles =
+        PatternProfiles.parse(
+                JsonParser.parseString(
+                    """
+                    {
+                      "re2": [{"java": "shared", "alternate": "shared RE2", "reason": "shared"}],
+                      "re2-cpp": [{"java": "specific", "alternate": "specific C++", "reason": "specific"}]
+                    }
+                    """))
+            .withFallback("re2-cpp", "re2");
+
+    assertThat(profiles.select("re2-cpp", "shared")).isEqualTo("shared RE2");
+    assertThat(profiles.select("re2-cpp", "specific")).isEqualTo("specific C++");
+    assertThat(profiles.select("re2-cpp", "unchanged")).isEqualTo("unchanged");
+  }
+
+  @Test
   void rejectsMalformedAndDuplicateAlternates() {
     assertThatThrownBy(
             () ->

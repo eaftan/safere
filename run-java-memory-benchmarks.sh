@@ -9,12 +9,11 @@
 #   ./run-java-memory-benchmarks.sh --quick '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
 #   ./run-java-memory-benchmarks.sh --declared
-#   ./run-java-memory-benchmarks.sh                         # run all benchmarks
+#   ./run-java-memory-benchmarks.sh                         # run declared allocation benchmarks
 #
-# This runs the same benchmarks as run-java-benchmarks.sh but adds JMH's
-# GC profiler (-prof gc), which reports gc.alloc.rate.norm (bytes allocated
-# per operation). This metric is deterministic — it counts bytes, not time —
-# and is not affected by other processes on the machine.
+# This uses the same generic runners as run-java-benchmarks.sh, selecting the
+# declared allocation workloads by default. JMH's GC profiler (-prof gc)
+# reports gc.alloc.rate.norm (bytes allocated per operation).
 #
 # See run-java-benchmarks.sh for details on modes and settings.
 #
@@ -95,6 +94,16 @@ echo "=== Materializing shared benchmark inputs ==="
 
 # JVM args for FFM native access, native library path, and the resolved corpus.
 JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
+GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-memory-jmh-args.XXXXXX")"
+trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
+
+# Without an explicit selection, measure the declared allocation workload set.
+# JMH cannot run every discovered method because generic runners have empty @Param defaults.
+if [ ${#BENCHMARKS[@]} -eq 0 ] && [ ${#JMH_EXTRA_ARGS[@]} -eq 0 ] \
+  && [ ${#CROSS_ENGINE_PREFIXES[@]} -eq 0 ] \
+  && [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -eq 0 ]; then
+  DECLARED=true
+fi
 
 if [ "$DECLARED" = true ]; then
   COLLECTION_QUERY=(allocation-runners)
@@ -117,13 +126,18 @@ if [ "$DECLARED" = true ]; then
     fi
     matched_runner=true
     echo "=== Running declared allocation trials for $benchmark ==="
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.BenchmarkCollectionPlan \
+      declared-runner-arguments allocation-runners "$benchmark" "$BENCHMARK_JAR" \
+      "${COLLECTION_QUERY[@]:1}" \
+      > "$GENERATED_JMH_ARGUMENT_FILE"
     RUNNER_COMMAND=(java \
       $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
+      "@$GENERATED_JMH_ARGUMENT_FILE" \
       -jvmArgs "$JVM_ARGS" \
       -prof gc \
-      $JMH_OPTS \
-      -p "$parameter=$trial_ids")
+      $JMH_OPTS)
     if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
       RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
     fi
