@@ -27,11 +27,11 @@ class Utf8VectorPairTripleTest {
   @Test
   void disjointTripleDispatchHonorsVectorCrossover() {
     int[] ranges = {'X', 'X', 'Z', 'Z', '_', '_'};
-    if (VectorScanProviders.providerForTripleLength(64) != null) {
+    if (VectorScanProviders.providerFor(ScanKind.TRIPLE, 64) != null) {
       assertThat(Utf8InputScanner.useSpecializedAsciiTriple(ranges, 64)).isTrue();
       assertThat(Utf8InputScanner.useSpecializedAsciiTriple(ranges, 10_240)).isTrue();
     }
-    if (VectorScanProviders.providerForLength(10_241) != null) {
+    if (VectorScanProviders.providerFor(ScanKind.CLASS, 10_241) != null) {
       assertThat(Utf8InputScanner.useSpecializedAsciiTriple(ranges, 10_241)).isFalse();
     }
   }
@@ -43,12 +43,32 @@ class Utf8VectorPairTripleTest {
 
   @Test
   void pairAndTripleScansHaveIndependentVectorCutoffs() {
-    if (VectorScanProviders.providerForPairLength(64) != null) {
-      assertThat(VectorScanProviders.providerForLength(64)).isNull();
-      assertThat(VectorScanProviders.providerForTripleLength(64)).isNotNull();
-      assertThat(VectorScanProviders.providerForTripleLength(10_240)).isNotNull();
-      assertThat(VectorScanProviders.providerForTripleLength(10_241)).isNull();
-      assertThat(VectorScanProviders.providerForLength(1024)).isNotNull();
+    if (VectorScanProviders.providerFor(ScanKind.PAIR, 64) != null) {
+      assertThat(VectorScanProviders.providerFor(ScanKind.CLASS, 64)).isNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.TRIPLE, 64)).isNotNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.TRIPLE, 10_240)).isNotNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.TRIPLE, 10_241)).isNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.CLASS, 1024)).isNotNull();
+    }
+  }
+
+  @Test
+  void everyScanKindHasACoherentWindowRange() {
+    VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.PAIR, 64);
+    if (provider == null) {
+      return; // No Vector provider is installed, so no thresholds are observable.
+    }
+    for (ScanKind kind : ScanKind.values()) {
+      int minimum = provider.minimumWindowLength(kind);
+      int maximum = provider.maximumWindowLength(kind);
+      assertThat(minimum).isGreaterThan(0);
+      assertThat(maximum).isGreaterThanOrEqualTo(minimum);
+      assertThat(VectorScanProviders.providerFor(kind, minimum)).isNotNull();
+      assertThat(VectorScanProviders.providerFor(kind, minimum - 1)).isNull();
+      if (maximum != Integer.MAX_VALUE) {
+        assertThat(VectorScanProviders.providerFor(kind, maximum)).isNotNull();
+        assertThat(VectorScanProviders.providerFor(kind, maximum + 1)).isNull();
+      }
     }
   }
 
@@ -79,7 +99,7 @@ class Utf8VectorPairTripleTest {
 
       // Absent check
       int swarAbsent = ByteSwarScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
-      int vectorAbsent = ByteVectorScan.indexOfAsciiPair(bytes, 0, length, b0, b1, start);
+      int vectorAbsent = ByteVectorScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
       assertThat(vectorAbsent).as("absent trial %d len %d", trial, length).isEqualTo(swarAbsent);
 
       // Present check
@@ -88,7 +108,7 @@ class Utf8VectorPairTripleTest {
         bytes[pos] = rnd.nextBoolean() ? b0 : b1;
 
         int swarHit = ByteSwarScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
-        int vectorHit = ByteVectorScan.indexOfAsciiPair(bytes, 0, length, b0, b1, start);
+        int vectorHit = ByteVectorScan.indexOfBytePair(bytes, 0, length, b0, b1, start);
         assertThat(vectorHit).as("hit trial %d len %d", trial, length).isEqualTo(swarHit);
       }
     }
@@ -113,7 +133,7 @@ class Utf8VectorPairTripleTest {
 
       // Absent check
       int swarAbsent = ByteSwarScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
-      int vectorAbsent = ByteVectorScan.indexOfAsciiTriple(bytes, 0, length, b0, b1, b2, start);
+      int vectorAbsent = ByteVectorScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
       assertThat(vectorAbsent).as("absent trial %d len %d", trial, length).isEqualTo(swarAbsent);
 
       // Present check
@@ -123,7 +143,7 @@ class Utf8VectorPairTripleTest {
         bytes[pos] = choice == 0 ? b0 : choice == 1 ? b1 : b2;
 
         int swarHit = ByteSwarScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
-        int vectorHit = ByteVectorScan.indexOfAsciiTriple(bytes, 0, length, b0, b1, b2, start);
+        int vectorHit = ByteVectorScan.indexOfByteTriple(bytes, 0, length, b0, b1, b2, start);
         assertThat(vectorHit).as("hit trial %d len %d", trial, length).isEqualTo(swarHit);
       }
     }
@@ -157,9 +177,9 @@ class Utf8VectorPairTripleTest {
 
     Pattern pPairAlt = Pattern.compile("Y|Z");
     Class<?> expectedPairAltClass =
-        VectorScanProviders.multiLiteralProviderAvailable()
+        VectorScanProviders.vectorProviderAvailable()
             ? Utf8StartAccelerator.MultiLiteral.class
-            : (VectorScanProviders.teddyProviderAvailable()
+            : (VectorScanProviders.vectorProviderAvailable()
                 ? Utf8StartAccelerator.Teddy.class
                 : Utf8StartAccelerator.CharClass.class);
     assertThat(pPairAlt.utf8StartAccelerator()).isInstanceOf(expectedPairAltClass);
@@ -174,9 +194,9 @@ class Utf8VectorPairTripleTest {
 
     Pattern pTripleAlt = Pattern.compile("X|Y|Z");
     Class<?> expectedTripleAltClass =
-        VectorScanProviders.multiLiteralProviderAvailable()
+        VectorScanProviders.vectorProviderAvailable()
             ? Utf8StartAccelerator.MultiLiteral.class
-            : (VectorScanProviders.teddyProviderAvailable()
+            : (VectorScanProviders.vectorProviderAvailable()
                 ? Utf8StartAccelerator.Teddy.class
                 : Utf8StartAccelerator.CharClass.class);
     assertThat(pTripleAlt.utf8StartAccelerator()).isInstanceOf(expectedTripleAltClass);

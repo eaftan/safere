@@ -120,6 +120,7 @@ public final class Pattern implements Serializable {
   private final transient byte[] literalMatchUtf8;
   private final transient int[] literalMatchFailure;
   private final transient int[] literalMatchShifts;
+  private final transient int literalMatchRareByteOffset;
   private final transient byte[] prefixUtf8;
   private final transient String anchoredPrefix;
   private final transient byte[] anchoredPrefixUtf8;
@@ -273,6 +274,10 @@ public final class Pattern implements Serializable {
         literalMatch == null ? null : literalMatch.getBytes(StandardCharsets.UTF_8);
     this.literalMatchFailure = literalMatchUtf8 == null ? null : literalFailure(literalMatchUtf8);
     this.literalMatchShifts = literalMatchUtf8 == null ? null : literalShifts(literalMatchUtf8);
+    this.literalMatchRareByteOffset =
+        literalMatchUtf8 == null || this.matchDescriptor.literalFoldCase()
+            ? -1
+            : RarityOracle.rarestUtf8LiteralByteOffset(literalMatchUtf8);
     this.startsWithGraphemeClusterBoundary = startsWithGraphemeClusterBoundary;
     this.hasInternalGraphemeClusterBoundary = hasInternalGraphemeClusterBoundary;
     this.charClassPrefix = this.multiAnchor.charClassPrefix();
@@ -412,8 +417,7 @@ public final class Pattern implements Serializable {
       throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
     }
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
-    MultiAnchorDescriptor multiAnchor =
-        MultiAnchorCompiler.compile(metadataAst, effectiveFlags, re);
+    MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
     MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, re, flags, compiled);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
@@ -535,16 +539,26 @@ public final class Pattern implements Serializable {
     return matched;
   }
 
+  private boolean findLiteralMatch(Utf8InputScanner scanner) {
+    if (prog.anchorStart()) {
+      return scanner.startsWith(literalMatchUtf8, 0);
+    }
+    return scanner.indexOf(
+            literalMatchUtf8,
+            literalMatchFailure,
+            literalMatchShifts,
+            0,
+            literalMatchRareByteOffset)
+        >= 0;
+  }
+
   boolean findWithoutDiagnostics(Utf8InputScanner scanner) {
     int length = scanner.length();
     if (matchDescriptor.minMatchLength() > 0 && length < matchDescriptor.minMatchLength()) {
       return false;
     }
     if (literalMatchUtf8 != null && !literalFoldCase()) {
-      if (prog.anchorStart()) {
-        return scanner.startsWith(literalMatchUtf8, 0);
-      }
-      return scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0) >= 0;
+      return findLiteralMatch(scanner);
     }
     if (enginePathOptions.keywordAlternationFastPath()
         && matchDescriptor.keywordAlternation() != null) {
@@ -604,10 +618,7 @@ public final class Pattern implements Serializable {
   private boolean findWithDiagnostics(Utf8InputScanner scanner, DiagnosticAccumulator diagnostics) {
     int length = scanner.length();
     if (literalMatchUtf8 != null && !literalFoldCase()) {
-      boolean matched =
-          prog.anchorStart()
-              ? scanner.startsWith(literalMatchUtf8, 0)
-              : scanner.indexOf(literalMatchUtf8, literalMatchFailure, literalMatchShifts, 0) >= 0;
+      boolean matched = findLiteralMatch(scanner);
       diagnostics.boundary(MatchStrategy.LITERAL);
       return matched;
     }
@@ -939,6 +950,7 @@ public final class Pattern implements Serializable {
           literalMatchUtf8,
           literalMatchFailure,
           literalMatchShifts,
+          literalMatchRareByteOffset,
           prog.anchorStart(),
           matchDescriptor.literalFoldCase()
               ? createLiteralFallbackRunner(regionActive)

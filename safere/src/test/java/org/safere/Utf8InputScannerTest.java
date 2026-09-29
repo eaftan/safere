@@ -445,6 +445,67 @@ class Utf8InputScannerTest {
   }
 
   @Test
+  void rareInteriorByteSearchRespectsViewsAndStartOffsets() {
+    byte[] needle = "Шерлок Холмс".getBytes(UTF_8);
+    int[] failure = literalFailure(needle);
+    int[] shifts = literalShifts(needle);
+    byte[] content = "xШерлок Холмс y Шерлок Холмс z".getBytes(UTF_8);
+    byte[] storage = new byte[content.length + 4];
+    System.arraycopy(content, 0, storage, 2, content.length);
+    Utf8InputScanner scanner = new Utf8InputScanner(storage, 2, content.length);
+    int second = "xШерлок Холмс y ".getBytes(UTF_8).length;
+
+    assertThat(scanner.indexOf(needle, failure, shifts, 0, 1)).isEqualTo(1);
+    assertThat(scanner.indexOf(needle, failure, shifts, 2, 1)).isEqualTo(second);
+    assertThat(scanner.indexOf(needle, failure, shifts, second + 1, 1)).isEqualTo(-1);
+  }
+
+  @Test
+  void rareInteriorByteSearchFallsBackOnDenseFalseCandidates() {
+    byte[] needle = "abacus".getBytes(UTF_8);
+    byte[] haystack = "x".repeat(10_000).concat("abacus").getBytes(UTF_8);
+    Arrays.fill(haystack, 0, haystack.length - needle.length, (byte) 'c');
+    Utf8InputScanner scanner = new Utf8InputScanner(haystack);
+
+    assertThat(scanner.indexOf(needle, literalFailure(needle), literalShifts(needle), 0, 3))
+        .isEqualTo(haystack.length - needle.length);
+  }
+
+  @Test
+  void rareInteriorByteSearchAgreesWithLinearSearchAcrossWindows() {
+    Random random = new Random(0x9170B17EL);
+    String[] alphabet = {"Ш", "ш", "е", "л", "о", "к", " ", "Х", "м", "с", "x"};
+    byte[] needle = "Шерлок Холмс".getBytes(UTF_8);
+    int[] failure = literalFailure(needle);
+    int[] shifts = literalShifts(needle);
+    int anchorOffset = RarityOracle.rarestUtf8LiteralByteOffset(needle);
+    assertThat(anchorOffset).isEqualTo(1);
+
+    for (int trial = 0; trial < 2_000; trial++) {
+      StringBuilder text = new StringBuilder();
+      int chunks = 1 + random.nextInt(600);
+      for (int chunk = 0; chunk < chunks; chunk++) {
+        text.append(alphabet[random.nextInt(alphabet.length)]);
+      }
+      if (random.nextBoolean()) {
+        text.insert(random.nextInt(text.length() + 1), "Шерлок Холмс");
+      }
+      byte[] haystack = text.toString().getBytes(UTF_8);
+      int viewOffset = random.nextInt(8);
+      byte[] storage = new byte[viewOffset + haystack.length + 8];
+      System.arraycopy(haystack, 0, storage, viewOffset, haystack.length);
+      Utf8InputScanner scanner = new Utf8InputScanner(storage, viewOffset, haystack.length);
+      int start = random.nextInt(haystack.length + 1);
+
+      int expected =
+          Utf8InputScanner.indexOfLinear(haystack, 0, haystack.length, needle, failure, start);
+      assertThat(scanner.indexOf(needle, failure, shifts, start, anchorOffset))
+          .as("trial %s, start %s", trial, start)
+          .isEqualTo(expected);
+    }
+  }
+
+  @Test
   void emptySingleByteAndFourByteWindowsStayBounded() {
     Utf8InputScanner empty = new Utf8InputScanner(new byte[] {'x'}, 1, 0);
     assertThat(empty.decodeForward(0)).isEqualTo(InputScanner.decoded(-1, 0));

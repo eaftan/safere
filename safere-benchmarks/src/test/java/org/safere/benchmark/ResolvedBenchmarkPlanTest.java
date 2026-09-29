@@ -321,7 +321,7 @@ class ResolvedBenchmarkPlanTest {
     return JsonParser.parseString(
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "inputs": [{
                 "id": "input",
                 "recipe": {"kind": "literal", "text": "text"},

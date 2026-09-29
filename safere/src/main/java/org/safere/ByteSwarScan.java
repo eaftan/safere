@@ -8,6 +8,9 @@ package org.safere;
 import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.util.Objects.requireNonNull;
+import static org.safere.ByteScanBounds.lastLoadStart;
+import static org.safere.ByteScanBounds.lastMatchStart;
+import static org.safere.ByteScanBounds.lastWideScanStart;
 import static org.safere.Swar.BYTE_HIGH_BITS;
 import static org.safere.Swar.BYTE_ONES;
 
@@ -52,7 +55,7 @@ abstract class ByteSwarScan {
 
   static int indexOfByte(byte[] bytes, int offset, int length, byte target, int start) {
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     long repeatedTarget = (target & 0xFFL) * BYTE_ONES;
     while (position <= wordEnd) {
       long difference = (long) LONG_VIEW.get(bytes, offset + position) ^ repeatedTarget;
@@ -70,34 +73,6 @@ abstract class ByteSwarScan {
         return position;
       }
       position++;
-    }
-    return -1;
-  }
-
-  static int lastIndexOfByte(
-      byte[] bytes, int offset, int length, byte target, int fromIndex, int toIndex) {
-    int pos = Math.min(fromIndex, length - 1);
-    int minLimit = Math.max(0, toIndex);
-    if (pos < minLimit || minLimit >= length) {
-      return -1;
-    }
-    long repeatedTarget = (target & 0xFFL) * BYTE_ONES;
-    while (pos >= minLimit + Long.BYTES - 1) {
-      int wordStart = pos - Long.BYTES + 1;
-      long difference = (long) LONG_VIEW.get(bytes, offset + wordStart) ^ repeatedTarget;
-      if (((difference - BYTE_ONES) & ~difference & BYTE_HIGH_BITS) != 0) {
-        for (int index = Long.BYTES - 1; index >= 0; index--) {
-          if (bytes[offset + wordStart + index] == target) {
-            return wordStart + index;
-          }
-        }
-      }
-      pos -= Long.BYTES;
-    }
-    for (; pos >= minLimit; pos--) {
-      if (bytes[offset + pos] == target) {
-        return pos;
-      }
     }
     return -1;
   }
@@ -126,7 +101,7 @@ abstract class ByteSwarScan {
       int start,
       int targetCount) {
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     long repeatedFirst = (first & 0xFFL) * BYTE_ONES;
     long repeatedSecond = (second & 0xFFL) * BYTE_ONES;
     long repeatedThird = (third & 0xFFL) * BYTE_ONES;
@@ -221,7 +196,7 @@ abstract class ByteSwarScan {
       return Math.min(Math.max(0, start), length);
     }
     int pos = Math.max(0, start);
-    if (pos <= length - prefixLen
+    if (pos <= lastMatchStart(length, prefixLen)
         && Ascii.regionMatchesIgnoreCase(bytes, offset + pos, prefix, prefixLen)) {
       return pos;
     }
@@ -229,7 +204,8 @@ abstract class ByteSwarScan {
     long workLimit = WorkLimit.forRemaining(length - pos);
 
     int maxAnchorOffset = Math.max(offset1, offset2);
-    int wordEnd = length - maxAnchorOffset - Long.BYTES;
+    // Both anchor word loads and the immediate full-prefix check must fit in the slice.
+    int wordEnd = lastWideScanStart(length, prefixLen, maxAnchorOffset, Long.BYTES);
     long repeatedLow1 = (low1 & 0xFFL) * BYTE_ONES;
     long repeatedHigh1 = (high1 & 0xFFL) * BYTE_ONES;
     long repeatedLow2 = (low2 & 0xFFL) * BYTE_ONES;
@@ -279,7 +255,7 @@ abstract class ByteSwarScan {
       if (candidates != 0) {
         for (int index = 0; index < Long.BYTES; index++) {
           int candidatePos = pos + index;
-          if (candidatePos <= length - prefixLen) {
+          if (candidatePos <= lastMatchStart(length, prefixLen)) {
             byte v1 = bytes[offset + candidatePos + offset1];
             byte v2 = bytes[offset + candidatePos + offset2];
             if ((v1 == low1 || v1 == high1) && (v2 == low2 || v2 == high2)) {
@@ -297,7 +273,7 @@ abstract class ByteSwarScan {
       pos += Long.BYTES;
     }
 
-    int limitScalar = length - prefixLen;
+    int limitScalar = lastMatchStart(length, prefixLen);
     for (; pos <= limitScalar; pos++) {
       byte v1 = bytes[offset + pos + offset1];
       byte v2 = bytes[offset + pos + offset2];
@@ -328,14 +304,15 @@ abstract class ByteSwarScan {
       return Math.min(Math.max(0, start), length);
     }
     int pos = Math.max(0, start);
-    if (pos <= length - prefixLen
+    if (pos <= lastMatchStart(length, prefixLen)
         && Ascii.regionMatchesIgnoreCase(bytes, offset + pos, prefix, prefixLen)) {
       return pos;
     }
     long verificationWork = 0;
     long workLimit = WorkLimit.forRemaining(length - pos);
 
-    int wordEnd = length - prefixLen - Long.BYTES + 1;
+    // Preserve a full match for every lane by bounding a load at the final prefix byte.
+    int wordEnd = lastLoadStart(length, prefixLen - 1, Long.BYTES);
     long repeatedLow = (low & 0xFFL) * BYTE_ONES;
     long repeatedHigh = (high & 0xFFL) * BYTE_ONES;
 
@@ -379,7 +356,7 @@ abstract class ByteSwarScan {
       pos += Long.BYTES;
     }
 
-    int limitScalar = length - prefixLen;
+    int limitScalar = lastMatchStart(length, prefixLen);
     for (; pos <= limitScalar; pos++) {
       byte value = bytes[offset + pos + anchorOffset];
       if (value == low || value == high) {
@@ -398,7 +375,7 @@ abstract class ByteSwarScan {
   static int indexOfBytePair(
       byte[] bytes, int offset, int length, byte first, byte second, int start) {
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     long repeatedFirst = (first & 0xFFL) * BYTE_ONES;
     long repeatedSecond = (second & 0xFFL) * BYTE_ONES;
     while (position <= wordEnd) {
@@ -431,7 +408,7 @@ abstract class ByteSwarScan {
   static int indexOfByteTriple(
       byte[] bytes, int offset, int length, byte first, byte second, byte third, int start) {
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     long repeatedFirst = (first & 0xFFL) * BYTE_ONES;
     long repeatedSecond = (second & 0xFFL) * BYTE_ONES;
     long repeatedThird = (third & 0xFFL) * BYTE_ONES;
@@ -478,7 +455,7 @@ abstract class ByteSwarScan {
     long repeatedMask = (commonMask & 0xFFL) * BYTE_ONES;
     long repeatedPrefix = (low & commonMask) * BYTE_ONES;
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     while (position <= wordEnd) {
       long word = (long) LONG_VIEW.get(bytes, offset + position);
       long difference = (word & repeatedMask) ^ repeatedPrefix;
@@ -530,7 +507,7 @@ abstract class ByteSwarScan {
     int last = literal.length - 1;
     long repeatedFirst = (literal[0] & 0xFFL) * BYTE_ONES;
     long repeatedLast = (literal[last] & 0xFFL) * BYTE_ONES;
-    int wordEnd = length - last - Long.BYTES;
+    int wordEnd = lastLoadStart(length, last, Long.BYTES);
     long work = 0;
     long workLimit = WorkLimit.forRemaining(length - start);
     int position = start;
@@ -574,7 +551,7 @@ abstract class ByteSwarScan {
    */
   private static int scalarTail(
       byte[] bytes, int offset, int length, byte[] literal, int position) {
-    while (position <= length - literal.length) {
+    while (position <= lastMatchStart(length, literal.length)) {
       if (matchesAt(bytes, offset, literal, position)) {
         return position;
       }
@@ -583,7 +560,7 @@ abstract class ByteSwarScan {
     return -1;
   }
 
-  private static boolean matchesAt(byte[] bytes, int offset, byte[] literal, int position) {
+  static boolean matchesAt(byte[] bytes, int offset, byte[] literal, int position) {
     for (int index = 0; index < literal.length; index++) {
       if (bytes[offset + position + index] != literal[index]) {
         return false;
@@ -615,7 +592,7 @@ abstract class ByteSwarScan {
     long low1 = ranges[2] * BYTE_ONES;
     long high1 = ranges[3] * BYTE_ONES;
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     while (position <= wordEnd) {
       long word = (long) LONG_VIEW.get(bytes, offset + position);
       long values = word & ~BYTE_HIGH_BITS;
@@ -639,7 +616,7 @@ abstract class ByteSwarScan {
     long low2 = ranges[4] * BYTE_ONES;
     long high2 = ranges[5] * BYTE_ONES;
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     while (position <= wordEnd) {
       long word = (long) LONG_VIEW.get(bytes, offset + position);
       long values = word & ~BYTE_HIGH_BITS;
@@ -666,7 +643,7 @@ abstract class ByteSwarScan {
     long low3 = ranges[6] * BYTE_ONES;
     long high3 = ranges[7] * BYTE_ONES;
     int position = start;
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
     while (position <= wordEnd) {
       long word = (long) LONG_VIEW.get(bytes, offset + position);
       long values = word & ~BYTE_HIGH_BITS;
@@ -690,7 +667,7 @@ abstract class ByteSwarScan {
     int numRanges = ranges.length / 2;
 
     int pos = Math.max(0, start);
-    int wordEnd = length - Long.BYTES;
+    int wordEnd = lastLoadStart(length, 0, Long.BYTES);
 
     long low0 = (ranges[0] & 0xFFL) * BYTE_ONES;
     long high0 = (ranges[1] & 0xFFL) * BYTE_ONES;

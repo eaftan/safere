@@ -97,14 +97,22 @@ sealed interface RejectPrefilter
   }
 
   @SuppressWarnings("ArrayRecordComponent")
-  record Literal(String literal, byte[] utf8, int[] failure, int[] shifts)
+  record Literal(
+      String literal, byte[] utf8, int[] failure, int[] shifts, int anchorOffset, char anchor)
       implements RejectPrefilter {
 
     static Literal create(String literal) {
       byte[] utf8 = literal.getBytes(StandardCharsets.UTF_8);
       int[] failure = Pattern.literalFailure(utf8);
       int[] shifts = Pattern.literalShifts(utf8);
-      return new Literal(literal, utf8, failure, shifts);
+      int anchorOffset = StringLiteralSearch.anchorOffset(literal);
+      return new Literal(
+          literal,
+          utf8,
+          failure,
+          shifts,
+          anchorOffset,
+          StringLiteralSearch.anchorAt(literal, anchorOffset));
     }
 
     @Override
@@ -117,12 +125,7 @@ sealed interface RejectPrefilter
         return utf8Scanner.indexOf(utf8, failure, shifts, searchFrom) < 0;
       }
       if (text != null) {
-        int idx = text.indexOf(literal, searchFrom);
-        if (WorkCounterConfig.ENABLED) {
-          int scanned = idx >= 0 ? idx - searchFrom + literal.length() : text.length() - searchFrom;
-          WorkCounter.record(Math.max(0, scanned));
-        }
-        return idx < 0;
+        return StringLiteralSearch.indexOf(text, literal, anchorOffset, anchor, searchFrom) < 0;
       }
       return false;
     }
@@ -142,10 +145,33 @@ sealed interface RejectPrefilter
   }
 
   @SuppressWarnings("ArrayRecordComponent")
-  record CharClass(int[] ranges, long bitmap0, long bitmap1) implements RejectPrefilter {
+  record CharClass(int[] ranges, long bitmap0, long bitmap1, int singleAscii)
+      implements RejectPrefilter {
 
     static CharClass create(CharClassScanInfo scanInfo) {
-      return new CharClass(scanInfo.ranges(), scanInfo.bitmap0(), scanInfo.bitmap1());
+      return new CharClass(
+          scanInfo.ranges(), scanInfo.bitmap0(), scanInfo.bitmap1(), singleAscii(scanInfo));
+    }
+
+    /**
+     * Returns the sole member of a one-character ASCII class, or {@code -1} for every other class.
+     *
+     * <p>A one-character reject class is a character search, not a class scan. {@link
+     * InputScanner#indexOfAscii} reaches {@link String#indexOf(int, int)}, which is intrinsified,
+     * whereas {@link InputScanner#indexOfCodePointClass} walks {@code codePointAt} and {@code
+     * charCount} per character. {@link CharClassScanInfo.AsciiSmallSet} already records its
+     * enumerated members; this reads that back so the distinction survives construction.
+     *
+     * <p>Only one character qualifies. {@code indexOfAsciiPair} has no intrinsic behind it on the
+     * {@code String} path, so the two- and three-character members of {@code AsciiSmallSet} would
+     * trade one scalar loop for another.
+     */
+    private static int singleAscii(CharClassScanInfo scanInfo) {
+      return scanInfo instanceof CharClassScanInfo.AsciiSmallSet smallSet
+              && smallSet.chars() != null
+              && smallSet.chars().length == 1
+          ? smallSet.chars()[0]
+          : -1;
     }
 
     @Override
@@ -158,15 +184,18 @@ sealed interface RejectPrefilter
         return canReject(utf8Scanner, searchFrom, options);
       }
       if (scanner != null) {
-        return scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, scanner.length())
-            < 0;
+        return indexOf(scanner, searchFrom, scanner.length()) < 0;
       }
       if (text != null) {
-        return new StringInputScanner(text)
-                .indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, text.length())
-            < 0;
+        return indexOf(new StringInputScanner(text), searchFrom, text.length()) < 0;
       }
       return false;
+    }
+
+    private int indexOf(InputScanner scanner, int searchFrom, int limit) {
+      return singleAscii >= 0
+          ? scanner.indexOfAscii(singleAscii, searchFrom, limit)
+          : scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, limit);
     }
 
     @Override

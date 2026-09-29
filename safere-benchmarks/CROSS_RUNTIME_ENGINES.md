@@ -2,8 +2,8 @@
 
 The cross-runtime matrix contains native C++ RE2, PCRE2 JIT, Go `regexp`, Rust
 `regex`, and .NET non-backtracking. All runners read materialized inputs,
-Java-canonical patterns and replacement templates, and stable workload
-identities derived from `benchmark-data.json`. Every runner consumes its rows
+engine-selected patterns and replacement templates, and stable workload
+identities derived from Java-canonical declarations in `benchmark-data.json`. Every runner consumes its rows
 from the same versioned materialized execution plan.
 
 ## Workload coverage
@@ -171,6 +171,8 @@ go test ./...
 
 cd ../rust
 cargo test --locked --all-features
+
+cd ../..
 ```
 
 To smoke-test the actual timed workload path for one engine, supply a narrow

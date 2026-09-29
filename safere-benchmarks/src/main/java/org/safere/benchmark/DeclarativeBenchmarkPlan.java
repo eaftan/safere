@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
  */
 final class DeclarativeBenchmarkPlan {
 
-  static final int SCHEMA_VERSION = 1;
+  static final int SCHEMA_VERSION = 2;
   private static final Pattern PLACEHOLDER = Pattern.compile("(?<!\\$)\\{([A-Za-z][A-Za-z0-9_]*)}");
 
   private final Map<String, InputDeclaration> inputs;
@@ -1319,6 +1319,7 @@ final class DeclarativeBenchmarkPlan {
 
   enum RecipeKind implements JsonNamed {
     LITERAL("literal", field("text", RecipeValueType.STRING)),
+    FILE("file", field("path", RecipeValueType.STRING), field("sha256", RecipeValueType.STRING)),
     REPEAT(
         "repeat", field("value", RecipeValueType.STRING), field("count", RecipeValueType.INTEGER)),
     REPEAT_TO_LENGTH(
@@ -1430,6 +1431,12 @@ final class DeclarativeBenchmarkPlan {
     void validate(Map<String, RecipeValue> arguments) {
       switch (this) {
         case LITERAL -> {}
+        case FILE -> {
+          requireNonEmpty(arguments, "path");
+          if (!string(arguments, "sha256").matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("file recipe requires a lowercase SHA-256 digest");
+          }
+        }
         case REPEAT -> requireNonNegative(arguments, "count");
         case REPEAT_TO_LENGTH -> {
           requireNonNegative(arguments, "length");
@@ -1623,8 +1630,7 @@ final class DeclarativeBenchmarkPlan {
     CACHED_ANALYSIS("cachedAnalysis", false, false, Feature.DIAGNOSTICS),
     COMPILE_AND_ANALYZE("compileAndAnalyze", false, false, Feature.DIAGNOSTICS),
     DFA_CACHE_GROWTH("dfaCacheGrowth", false, true, Feature.DFA_CACHE),
-    DIAGNOSTICS_FIND("diagnosticsFind", false, true, Feature.FIND, Feature.DIAGNOSTICS),
-    ALTERNATION_FIND_NEXT("alternationFindNext", false, true, Feature.DIAGNOSTICS);
+    DIAGNOSTICS_FIND("diagnosticsFind", false, true, Feature.FIND, Feature.DIAGNOSTICS);
 
     private final String jsonName;
     private final boolean lifecycleRequired;
@@ -1751,7 +1757,7 @@ final class DeclarativeBenchmarkPlan {
         case COMPILE, PATTERN_SET_COMPILE -> consumption == ResultConsumption.COMPILED_OBJECT;
         case MATCHER_CONSTRUCTION, ANALYZE_PATTERN, CACHED_ANALYSIS, COMPILE_AND_ANALYZE ->
             consumption == ResultConsumption.BLACKHOLE_OBJECT;
-        case DFA_CACHE_GROWTH, ALTERNATION_FIND_NEXT -> consumption == ResultConsumption.INTEGER;
+        case DFA_CACHE_GROWTH -> consumption == ResultConsumption.INTEGER;
       };
     }
 
@@ -1784,7 +1790,6 @@ final class DeclarativeBenchmarkPlan {
                 "action", RecipeValueType.STRING,
                 "listener", RecipeValueType.STRING,
                 "replacement", RecipeValueType.STRING);
-        case ALTERNATION_FIND_NEXT -> Map.of("inputLength", RecipeValueType.INTEGER);
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES ->
             Map.of(
                 "anchor", RecipeValueType.STRING,
@@ -1808,7 +1813,6 @@ final class DeclarativeBenchmarkPlan {
             Set.of("replacement");
         case PATTERN_SET_COMPILE, PATTERN_SET_FIND, PATTERN_SET_MATCHES -> Set.of("anchor");
         case FIND_ROTATING_UTF16, COMPILE_AND_FIND_ROTATING_UTF16 -> Set.of("seed", "count");
-        case ALTERNATION_FIND_NEXT -> Set.of("inputLength");
         default -> Set.of();
       };
     }

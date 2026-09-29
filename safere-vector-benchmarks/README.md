@@ -4,7 +4,8 @@ This benchmark-only module compares SafeRE's current UTF-8 SWAR scanners with op
 `jdk.incubator.vector` prototypes. It is intentionally outside the normal Maven reactor so SafeRE's
 production and standard benchmark builds retain their existing JDK requirements.
 
-Run the smoke or standard configuration with any supported JDK (21 through 26):
+Build and run the smoke or standard configuration with the production JDK 26
+toolchain:
 
 ```bash
 ./run-vector-benchmarks.sh --smoke
@@ -12,8 +13,9 @@ Run the smoke or standard configuration with any supported JDK (21 through 26):
 ```
 
 The shared Java benchmark module targets JDK 22 because it includes the FFM engine. To measure the
-Vector provider on JDK 21, first build and materialize the benchmark artifacts with the production
-JDK 26 toolchain, then select JDK 21 and reuse those Java 21-compatible artifacts with
+Vector provider on another supported JDK (21 through 26), first build this module's
+benchmark JAR and materialize its inputs with the commands above on JDK 26. Then
+select the target JDK and reuse the Java 21-compatible Vector benchmark JAR with
 `./run-vector-benchmarks.sh --no-build`.
 
 Use `--long` for confirmation runs and `--trials` to select comma-separated trial IDs from
@@ -23,7 +25,7 @@ Use `--methods` with a pipe-separated list to select benchmark implementations, 
 `--methods 'swar|vectorBounds|vectorCursor'`.
 Use `--end-to-end` to run complete `Pattern.find(Utf8Input)` and repeated `Utf8Matcher.find()`
 comparisons in separate SWAR and Vector JVMs. Use `--provider swar` or `--provider vector` to run
-only one side. The latter exercises the production multi-release JAR selection path and immutable
+only one side. The latter exercises the production provider selection path and immutable
 startup selection. End-to-end runs exclude singleton regexes because they are compiled to the
 literal scanner and therefore do not exercise the character-class provider.
 
@@ -32,7 +34,7 @@ experimental and may change incompatibly or be removed in any SafeRE release.
 
 The `swarProvider` and `vectorProvider` methods call their scanners through stable, monomorphic
 benchmark-only provider interfaces. They measure the dispatch shape an optional provider would add
-independently of the production multi-release selection mechanism.
+independently of the production provider selection mechanism.
 
 The `vectorCursor` benchmark drains all matching lanes from each vector mask before advancing. It
 models a scan-all cursor that retains rather than discards the remaining matches in a loaded vector.

@@ -1,0 +1,31 @@
+rust/regex: running: cd "benchmarks/../engines/rust/regex" && "cargo" "build" "--release"
+rust/regex: build complete for version 1.12.4
+re2: running: cd "benchmarks/../engines/re2" && "cargo" "build" "--release"
+re2: build complete for version 2025-11-05
+pcre2: running: cd "benchmarks/../engines/pcre2" && "cargo" "build" "--release"
+pcre2: build complete for version 10.47 2025-10-21
+pcre2/jit: running: cd "benchmarks/../engines/pcre2" && "cargo" "build" "--release"
+pcre2/jit: build complete for version 10.47 2025-10-21
+hyperscan: running: cd "benchmarks/../engines/hyperscan" && "cargo" "build" "--release"
+hyperscan: build complete for version 5.4.2 2024-04-19
+java/hotspot: running: cd "benchmarks/../engines/java" && "javac" "Main.java"
+java/hotspot: build complete for version 26.0.2+10-55
+safere/string: running: cd "benchmarks/../engines/safere" && "sh" "build.sh"
+version regex "^SafeRE (?P<version>[0-9]+\\.[0-9]+\\.[0-9]+ \\([^\\n]+\\))" did not match output
+rust/regex: running: cd "benchmarks/../engines/rust/regex" && "cargo" "build" "--release"
+rust/regex: build complete for version 1.12.4
+re2: running: cd "benchmarks/../engines/re2" && "cargo" "build" "--release"
+re2: build complete for version 2025-11-05
+pcre2: running: cd "benchmarks/../engines/pcre2" && "cargo" "build" "--release"
+pcre2: build complete for version 10.47 2025-10-21
+pcre2/jit: running: cd "benchmarks/../engines/pcre2" && "cargo" "build" "--release"
+pcre2/jit: build complete for version 10.47 2025-10-21
+hyperscan: running: cd "benchmarks/../engines/hyperscan" && "cargo" "build" "--release"
+hyperscan: build complete for version 5.4.2 2024-04-19
+java/hotspot: running: cd "benchmarks/../engines/java" && "javac" "Main.java"
+java/hotspot: build complete for version 26.0.2+10-55
+safere/string: running: cd "benchmarks/../engines/safere" && "sh" "build.sh"
+safere/string: build complete for version 0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector)
+safere/utf8: running: cd "benchmarks/../engines/safere" && "sh" "build.sh"
+safere/utf8: build complete for version 0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector)
+javascript/v8: nothing to do

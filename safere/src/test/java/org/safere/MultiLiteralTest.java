@@ -22,10 +22,10 @@ class MultiLiteralTest {
     assertThat(pattern.startPlan())
         .isInstanceOf(MultiAnchorDescriptor.StartPlan.MultiLiteral.class);
 
-    if (VectorScanProviders.multiLiteralProviderAvailable()) {
-      assertThat(VectorScanProviders.providerForLength(64)).isNull();
-      assertThat(VectorScanProviders.providerForMultiLiteralLength(64)).isNotNull();
-      assertThat(VectorScanProviders.providerForLength(1024)).isNotNull();
+    if (VectorScanProviders.vectorProviderAvailable()) {
+      assertThat(VectorScanProviders.providerFor(ScanKind.CLASS, 64)).isNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, 64)).isNotNull();
+      assertThat(VectorScanProviders.providerFor(ScanKind.CLASS, 1024)).isNotNull();
     }
   }
 

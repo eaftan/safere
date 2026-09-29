@@ -5,6 +5,9 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -332,6 +335,11 @@ final class FuzzSupport {
     boolean hasMatch() {
       boolean safeRe = safeReMatcher.hasMatch();
       boolean jdk = runJdkOracle("hasMatch", safeRe, () -> jdkMatcher.hasMatch());
+      // #931 also occurs after an explicit terminal find(), outside replacement loops.
+      if (!safeRe && jdk && hasJdkExhaustedEmptyMatchState()) {
+        assertSafeReExhaustedState();
+        return false;
+      }
       assertSame("hasMatch", safeRe, jdk);
       return safeRe;
     }
@@ -659,6 +667,9 @@ final class FuzzSupport {
         if (!waiveOutput) {
           assertSame(operation, replacement, safeRe.value(), jdk.value());
         }
+        if (operation.equals("replaceAll") || operation.equals("replaceAll(function)")) {
+          assertExhaustedReplacementState();
+        }
         return true;
       }
       if (safeRe.throwable() != null
@@ -668,6 +679,53 @@ final class FuzzSupport {
         return false;
       }
       throw divergence(operation, replacement, safeRe.describe(), jdk.describe());
+    }
+
+    private void assertSafeReExhaustedState() {
+      assertThat(safeReMatcher.hasMatch()).as("exhausted state for %s", regex).isFalse();
+      assertThatThrownBy(safeReMatcher::group).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(safeReMatcher::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(safeReMatcher::end).isInstanceOf(IllegalStateException.class);
+      groupCount();
+      for (int group = 0; group <= safeReMatcher.groupCount(); group++) {
+        int index = group;
+        assertThatThrownBy(() -> safeReMatcher.group(index))
+            .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> safeReMatcher.start(index))
+            .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> safeReMatcher.end(index))
+            .isInstanceOf(IllegalStateException.class);
+      }
+    }
+
+    private boolean hasJdkExhaustedEmptyMatchState() {
+      if (!jdkMatcher.hasMatch()
+          || jdkMatcher.start() != jdkMatcher.regionEnd()
+          || jdkMatcher.end() != jdkMatcher.regionEnd()
+          || jdkMatcher.group() != null) {
+        return false;
+      }
+      for (int group = 0; group <= jdkMatcher.groupCount(); group++) {
+        if (jdkMatcher.start(group) != -1
+            || jdkMatcher.end(group) != -1
+            || jdkMatcher.group(group) != null) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private void assertExhaustedReplacementState() {
+      assertSafeReExhaustedState();
+      // #931: exclude only the JDK's half-cleared terminal-empty-match state, after a
+      // successful replaceAll. SafeRE must still satisfy every exhausted-state assertion.
+      // Do not waive replacement output, replaceFirst state, or other JDK state shapes.
+      if (!hasJdkExhaustedEmptyMatchState()) {
+        assertThat(jdkMatcher.hasMatch()).isFalse();
+        assertThatThrownBy(jdkMatcher::group).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(jdkMatcher::start).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(jdkMatcher::end).isInstanceOf(IllegalStateException.class);
+      }
     }
 
     private boolean hasWaivedCapture() {
@@ -911,6 +969,8 @@ final class FuzzSupport {
     return hasLookaround(regex)
         || hasBackreference(regex)
         || hasPossessiveQuantifier(regex)
+        || hasAtomicGroup(regex)
+        || hasPreviousMatchAnchor(regex, safeReException)
         || isOverCompilerBudget(safeReException)
         || isIntentionalCharacterClassIntersectionForTesting(safeReException);
   }
@@ -952,6 +1012,17 @@ final class FuzzSupport {
 
   private static boolean isPossessiveQuantifierPrefix(char c) {
     return c == '?' || c == '*' || c == '+' || c == '}';
+  }
+
+  private static boolean hasAtomicGroup(String regex) {
+    return regex.contains("(?>");
+  }
+
+  private static boolean hasPreviousMatchAnchor(
+      String regex, PatternSyntaxException safeReException) {
+    return regex.contains("\\G")
+        || Objects.equals(
+            safeReException.getDescription(), "\\G (end of previous match) is not supported");
   }
 
   static int consumeIndex(FuzzedDataProvider data, String input) {

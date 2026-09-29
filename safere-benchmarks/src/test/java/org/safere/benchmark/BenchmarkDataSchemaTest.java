@@ -38,7 +38,7 @@ class BenchmarkDataSchemaTest {
         JsonParser.parseString(
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "inputs": [],
                   "workloads": [],
                   "regex": {}
@@ -57,7 +57,7 @@ class BenchmarkDataSchemaTest {
         JsonParser.parseString(
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "configuration": {"legacyWorkloads": {}},
                   "inputs": [],
                   "workloads": []

@@ -1660,6 +1660,107 @@ class MatcherTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"x*", "y*", "a*", "x?", "(x)*", "(x*)", "", "(?<part>x*)", "$"})
+    @DisabledForCrosscheck(
+        "JDK retains inconsistent match state after terminal empty replacement; see #931")
+    void replaceAllTerminalEmptyMatchInvalidatesState(String regex) {
+      for (String input : new String[] {"", "x", "yxxy", "yyyy"}) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+        assertThat(matcher.replaceAll("-")).isEqualTo(jdk.replaceAll("-"));
+        assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
+        assertExhaustedMatchState(matcher);
+        if (matcher.namedGroups().containsKey("part")) {
+          assertThatThrownBy(() -> matcher.group("part")).isInstanceOf(IllegalStateException.class);
+          assertThatThrownBy(() -> matcher.start("part")).isInstanceOf(IllegalStateException.class);
+          assertThatThrownBy(() -> matcher.end("part")).isInstanceOf(IllegalStateException.class);
+        }
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x+", "(x+)", "x", "[xy]"})
+    void replaceAllNonNullableMatchInvalidatesStateLikeJdk(String regex) {
+      for (String input : new String[] {"", "x", "yxxy", "yyyy"}) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+        assertThat(matcher.replaceAll("-")).isEqualTo(jdk.replaceAll("-"));
+        assertExhaustedMatchState(matcher);
+        assertExhaustedMatchState(jdk);
+        assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x*", "y*", "a*", "x?", "(x)*", "(x*)", "", "x+", "$"})
+    void replaceFirstPreservesMatchStateLikeJdk(String regex) {
+      for (String input : new String[] {"", "x", "yxxy", "yyyy"}) {
+        Matcher matcher = Pattern.compile(regex).matcher(input);
+        java.util.regex.Matcher jdk = java.util.regex.Pattern.compile(regex).matcher(input);
+        assertThat(matcher.replaceFirst("-")).isEqualTo(jdk.replaceFirst("-"));
+        assertThat(matcher.hasMatch()).isEqualTo(jdk.hasMatch());
+        assertThat(matcher.groupCount()).isEqualTo(jdk.groupCount());
+        if (jdk.hasMatch()) {
+          assertThat(matcher.group()).isEqualTo(jdk.group());
+          assertThat(matcher.start()).isEqualTo(jdk.start());
+          assertThat(matcher.end()).isEqualTo(jdk.end());
+          for (int group = 0; group <= jdk.groupCount(); group++) {
+            assertThat(matcher.group(group)).isEqualTo(jdk.group(group));
+            assertThat(matcher.start(group)).isEqualTo(jdk.start(group));
+            assertThat(matcher.end(group)).isEqualTo(jdk.end(group));
+          }
+        } else {
+          assertExhaustedMatchState(matcher);
+          assertExhaustedMatchState(jdk);
+        }
+      }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x*", "(x*)", "", "$", "\\b"})
+    @DisabledForCrosscheck("JDK retains inconsistent state after a terminal empty find; see #931")
+    void terminalEmptyFindInvalidatesSnapshotsAndReplacement(String regex) {
+      for (String input : new String[] {"ab", "yxxy"}) {
+        for (boolean replaceAll : new boolean[] {false, true}) {
+          Matcher matcher = Pattern.compile(regex).matcher(input);
+          if (replaceAll) {
+            matcher.replaceAll("-");
+          } else {
+            while (matcher.find()) {
+              // Exhaust the matcher through the same terminal find as replaceAll().
+            }
+          }
+          assertExhaustedMatchState(matcher);
+          MatchResult snapshot = matcher.toMatchResult();
+          assertThat(snapshot.groupCount()).isEqualTo(matcher.groupCount());
+          assertExhaustedMatchState(snapshot);
+
+          StringBuilder builder = new StringBuilder("A");
+          assertThatThrownBy(() -> matcher.appendReplacement(builder, "[$0]"))
+              .isInstanceOf(IllegalStateException.class);
+          assertThat(builder).hasToString("A");
+          StringBuffer buffer = new StringBuffer("A");
+          assertThatThrownBy(() -> matcher.appendReplacement(buffer, "[$0]"))
+              .isInstanceOf(IllegalStateException.class);
+          assertThat(buffer).hasToString("A");
+        }
+      }
+    }
+
+    private static void assertExhaustedMatchState(MatchResult matcher) {
+      assertThat(matcher.hasMatch()).isFalse();
+      assertThatThrownBy(matcher::group).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(matcher::start).isInstanceOf(IllegalStateException.class);
+      assertThatThrownBy(matcher::end).isInstanceOf(IllegalStateException.class);
+      for (int group = 0; group <= matcher.groupCount(); group++) {
+        int index = group;
+        assertThatThrownBy(() -> matcher.group(index)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> matcher.start(index)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> matcher.end(index)).isInstanceOf(IllegalStateException.class);
+      }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", "b", "bbb"})
     @DisplayName("nullable DFA replaceAll() consumes its terminal empty match")
     void nullableDfaReplaceAllConsumesTerminalEmptyMatch(String input) {

@@ -20,54 +20,6 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
-  void sparseDriverSearchDoesNotPrescanDownstreamAnchors() {
-    for (String regex : new String[] {"start:[^;]*ZZZ", "start:[^;]*?ZZZ", "start:[0-9]ZZZ"}) {
-      MultiAnchorDescriptor descriptor = Pattern.compile(regex).multiAnchor();
-      assertThat(descriptor.isExecutableChain()).isTrue();
-      for (int size : new int[] {1_000, 10_000}) {
-        String suffix = regex.contains("[0-9]") ? "start:1ZZZ" : "start:payloadZZZ";
-        String text = "x".repeat(size) + suffix;
-        long work =
-            WorkCounter.countForTesting(
-                () -> {
-                  MultiAnchorExecutor.Result result = MultiAnchorExecutor.find(descriptor, text, 0);
-                  assertThat(result.isMatched()).isTrue();
-                  assertThat(result.start()).isEqualTo(size);
-                  assertThat(result.end()).isEqualTo(text.length());
-                });
-        assertThat(work)
-            .as("one search across the unrelated prefix for %s", regex)
-            .isLessThanOrEqualTo(text.length() + 128L);
-      }
-    }
-  }
-
-  @Test
-  void stringMultiAnchorExecutionWorkIsCountedAndLinear() {
-    MultiAnchorDescriptor descriptor = Pattern.compile("AAA[0-9]BB").multiAnchor();
-
-    long smallerWork =
-        WorkCounter.countForTesting(
-            () ->
-                assertThat(
-                        MultiAnchorExecutor.find(descriptor, "AAA0BC".repeat(2_000), 0)
-                            .isDefiniteMismatch())
-                    .isTrue());
-    long largerWork =
-        WorkCounter.countForTesting(
-            () ->
-                assertThat(
-                        MultiAnchorExecutor.find(descriptor, "AAA0BC".repeat(10_000), 0)
-                            .isDefiniteMismatch())
-                    .isTrue());
-
-    assertThat(smallerWork).as("String multi-anchor execution work must be observed").isPositive();
-    assertThat(largerWork)
-        .as("String multi-anchor execution should scale linearly")
-        .isLessThan(smallerWork * 6);
-  }
-
-  @Test
   void guardedGapRetriesReuseDelimiterScanWork() {
     Pattern pattern = Pattern.compile("AAAA[^;]*RAREBBB");
 
@@ -157,46 +109,6 @@ class SearchScalingRegressionTest {
     assertThat(largerWork)
         .as("%s guarded-gap retries should scale linearly", inputKind)
         .isLessThan(smallerWork * 6);
-  }
-
-  @Test
-  void stringMultiAnchorFixedGapValidationWorkIsCounted() {
-    CharClassScanInfo scanInfo =
-        CharClassScanInfo.fromAsciiBitmap(new AsciiBitmap.Builder().addRange('A', 'Z').build());
-    MultiAnchorDescriptor.Gap fixedGap =
-        new MultiAnchorDescriptor.Gap(
-            MultiAnchorDescriptor.GapKind.BOUNDED_CLASS_REPEAT,
-            1_000,
-            1_000,
-            null,
-            null,
-            null,
-            scanInfo,
-            true);
-    String text = "A".repeat(1_000);
-
-    long work =
-        WorkCounter.countForTesting(
-            () ->
-                assertThat(fixedGap.matchExecutorFixedForward(text, 0, text.length()))
-                    .isEqualTo(1_000));
-
-    assertThat(work)
-        .as("every code point examined while validating a String fixed gap must be observed")
-        .isGreaterThanOrEqualTo(1_000);
-  }
-
-  @Test
-  void reverseLiteralSearchExaminesOnlyTheRequestedWindow() {
-    MultiAnchorDescriptor.Anchor anchor = MultiAnchorDescriptor.Anchor.Single.create("AAA");
-    String text = "x".repeat(10_000);
-
-    long work =
-        WorkCounter.countForTesting(
-            () -> assertThat(anchor.lastIndexOf(text, 9_900, 9_999)).isEqualTo(-1));
-
-    assertThat(work).as("bounded reverse search work must be observed").isPositive();
-    assertThat(work).as("reverse search must stay within its requested window").isLessThan(200);
   }
 
   @Test
@@ -318,6 +230,35 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void observedCaptureDemandDoesNotMakeFindWalkTheInputWithTheCaptureEngine() {
+    String regex = "(error:\\[)[A-Z](\\] code:500)";
+    String input =
+        "2026-08-27 12:00:00 error:[x] code:500 msg:ok\n".repeat(9)
+            + "2026-08-27 12:00:00 error:[C] code:500 msg:crash\n";
+
+    Pattern withoutDemand = Pattern.compile(regex);
+    long deferredWork =
+        WorkCounter.countForTesting(() -> assertThat(withoutDemand.matcher(input).find()).isTrue());
+
+    Pattern withDemand = Pattern.compile(regex);
+    Matcher priming = withDemand.matcher(input);
+    assertThat(priming.find()).isTrue();
+    assertThat(priming.group(1)).isEqualTo("error:[");
+    assertThat(withDemand.innerCapturesObserved()).isTrue();
+
+    long eagerWork =
+        WorkCounter.countForTesting(() -> assertThat(withDemand.matcher(input).find()).isTrue());
+
+    assertThat(deferredWork).isPositive();
+    assertThat(eagerWork)
+        .as(
+            "Preferring the capture engine must not cost more than a bounded speculation on the"
+                + " accelerated start, deferredWork=%d eagerWork=%d",
+            deferredWork, eagerWork)
+        .isLessThan(deferredWork * 2);
+  }
+
+  @Test
   void literalReplaceWithGroupZeroReferenceUsesFastPathWithLinearWork() {
     Pattern pattern = Pattern.compile("(abc)");
     String input = "abc ".repeat(1_000);
@@ -389,6 +330,25 @@ class SearchScalingRegressionTest {
     assertThat(largerWork)
         .as("String sparse false-candidate work should scale linearly")
         .isLessThanOrEqualTo(smallerWork * 6);
+  }
+
+  @Test
+  void sparseLongLiteralFalseCandidatesAreLinearAcrossString() {
+    long smallerWork = sparseLongLiteralFalseCandidateWork(64);
+    long largerWork = sparseLongLiteralFalseCandidateWork(256);
+
+    assertThat(largerWork)
+        .as("Sparse long-literal false-candidate work should scale linearly")
+        .isLessThanOrEqualTo(smallerWork * 6);
+  }
+
+  private static long sparseLongLiteralFalseCandidateWork(int blocks) {
+    String block = "q" + "a".repeat(63);
+    StringBuilder literal = new StringBuilder(block.repeat(blocks / 2));
+    literal.setCharAt(literal.length() - 2, 'e');
+    Pattern pattern = Pattern.compile("[xy]" + literal);
+    String input = block.repeat(blocks);
+    return WorkCounter.countForTesting(() -> assertThat(pattern.matcher(input).find()).isFalse());
   }
 
   @Test
@@ -751,6 +711,24 @@ class SearchScalingRegressionTest {
   }
 
   @Test
+  void utf8RareByteLiteralPrefixFindWorkIsLinearAcrossFalseCandidates() {
+    Pattern pattern = Pattern.compile("aaaaQaaaa[0-9]+");
+    byte[] smaller = "aaaaQaaaaX".repeat(500).getBytes(UTF_8);
+    byte[] larger = "aaaaQaaaaX".repeat(2_000).getBytes(UTF_8);
+
+    long smallerWork =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(smaller)).find()).isFalse());
+    long largerWork =
+        WorkCounter.countForTesting(
+            () -> assertThat(pattern.matcher(Utf8Input.trusted(larger)).find()).isFalse());
+
+    assertThat(largerWork)
+        .as("UTF-8 literal-prefix search must scale with repeated false candidates")
+        .isLessThanOrEqualTo(smallerWork * 5);
+  }
+
+  @Test
   void preselectedUtf8DfaCandidateSkipsRedundantStartScan() {
     Pattern pattern = Pattern.compile("\\d{3}/\\d{3}/\\d{4}");
     byte[] bytes = ("123/456/7890" + "x".repeat(100)).getBytes(UTF_8);
@@ -1061,11 +1039,11 @@ class SearchScalingRegressionTest {
         assertThat(ByteVectorScan.indexOfAsciiClass(matchAtEnd, 0, len, ranges, 0))
             .as("vector end match for length %d", len)
             .isEqualTo(len - 1);
-        assertThat(ByteVectorScan.indexOfAsciiPair(absent, 0, len, (byte) 'y', (byte) 'z', 0))
+        assertThat(ByteVectorScan.indexOfBytePair(absent, 0, len, (byte) 'y', (byte) 'z', 0))
             .as("vector pair absent result for length %d", len)
             .isEqualTo(-1);
         assertThat(
-                ByteVectorScan.indexOfAsciiTriple(
+                ByteVectorScan.indexOfByteTriple(
                     absent, 0, len, (byte) 'x', (byte) 'y', (byte) 'z', 0))
             .as("vector triple absent result for length %d", len)
             .isEqualTo(-1);
@@ -1186,6 +1164,36 @@ class SearchScalingRegressionTest {
             "ClassHashChain must perform sublinear work on non-ASCII case-insensitive patterns"
                 + " for String input")
         .isLessThanOrEqualTo(text.length() / 15 + 10);
+  }
+
+  @Test
+  void unicodeCaseInsensitiveUtf8LiteralFilterIsLinearOnDenseFalseCandidates() {
+    Pattern pattern = Pattern.compile("(?iu)Шерлок Холмс");
+    for (String falseCandidate : new String[] {"шЕРЛОК ХолмX ", "ШЕРЛОК ХОЛМX "}) {
+      Utf8Input shortInput = Utf8Input.validated(falseCandidate.repeat(500).getBytes(UTF_8));
+      Utf8Input longInput = Utf8Input.validated(falseCandidate.repeat(2_500).getBytes(UTF_8));
+
+      long shortWork =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.matcher(shortInput).find()).isFalse());
+      long longWork =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.matcher(longInput).find()).isFalse());
+
+      assertThat(longWork)
+          .as("Unicode-folded UTF-8 filtering should scale linearly for %s", falseCandidate)
+          .isLessThan(shortWork * 6);
+    }
+  }
+
+  @Test
+  void unicodeCaseInsensitiveUtf8LiteralFilterIsLinearAcrossSuccessfulFinds() {
+    Pattern pattern = Pattern.compile("(?iu)Шx[0-9]");
+    for (String match : new String[] {"Шx1 ", "шx1 "}) {
+      assertRepeatedFindWorkIsLinear(
+          size -> pattern.matcher(Utf8Input.validated(match.repeat(size).getBytes(UTF_8)))::find,
+          "Unicode-folded UTF-8 " + match);
+    }
   }
 
   @Test

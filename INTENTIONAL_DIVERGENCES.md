@@ -38,6 +38,70 @@ SafeRE preserves a coherent overall match instead of reproducing that
 implementation behavior. The JDK inconsistency is tracked upstream as
 [JDK-8390449](https://bugs.openjdk.org/browse/JDK-8390449).
 
+## Match State after a Terminal Empty `find()`
+
+Issue reference: #931.
+
+When the last successful match is empty and ends at the region end, the next
+`find()` fails. SafeRE then reports `hasMatch() == false`, and its `group()`,
+`group(0)`, `start()`, `start(0)`, `end()`, and `end(0)` accessors throw
+`IllegalStateException`. The JDK instead retains inconsistent match state.
+An ordinary `while (matcher.find())` loop reaches this state, as does
+`replaceAll(String)` when it consumes a terminal empty match. The replacement
+text itself agrees with the JDK.
+
+For example, `Pattern.compile("x*").matcher("yxxy").replaceAll("-")`
+returns `"-y--y-"` in both implementations. Issue #931 reports the following
+state immediately afterward on JDK 26.0.2.1:
+
+| Accessor | SafeRE | JDK |
+| --- | --- | --- |
+| `hasMatch()` | `false` | `true` |
+| `start()` / `end()` | `IllegalStateException` | `4` / `4` |
+| `start(0)` / `end(0)` | `IllegalStateException` | `-1` / `-1` |
+| `group()` / `group(0)` | `IllegalStateException` | `null` / `null` |
+
+The JDK's terminal `find()` returns `false` after advancing past a zero-width
+match at the region end, but clears the group boundaries without invalidating
+the overall match. The trigger is a terminal empty match, not whether the
+pattern matches an empty input: `\b` on `"ab"` also reaches this path. Patterns
+such as `x*`, `x?`, `(x*)`, and the empty pattern are common examples. Patterns
+that only produce nonempty matches, such as `x+`, invalidate the match normally.
+`replaceFirst()` does not perform the terminal failed search and therefore does
+not exhibit this discrepancy.
+
+The inconsistent state also affects snapshots and append replacement. On
+OpenJDK 26.0.2, after exhausting `Pattern.compile("x*").matcher("yxxy")` with
+an ordinary `find()` loop:
+
+- `toMatchResult()` throws `StringIndexOutOfBoundsException` on the JDK.
+  SafeRE returns a snapshot with no valid match, whose match accessors throw
+  `IllegalStateException`.
+- With a builder or buffer initially containing `"A"`,
+  `appendReplacement(output, "[$0]")` succeeds on the JDK and produces
+  `"Ayxxy[]"`. SafeRE throws `IllegalStateException` and leaves `"A"` unchanged.
+
+The append example uses an ordinary find loop, which has not advanced the append
+position. It does not describe the output after `replaceAll()`.
+
+The [JDK 26 matcher specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html#start(int))
+requires `start()` and `start(0)` to be equivalent, as it does `end()` and
+`end(0)`. It also requires these accessors and `group()` to throw after a
+failed match operation. Although `replaceAll()` does not spell out every
+detail of its residual state, the contradictory group-zero bounds violate
+those accessor contracts. SafeRE intentionally retains its coherent exhausted
+state rather than reproducing this JDK behavior. This is similar to the
+`usePattern()` inconsistency above, but no upstream fix for this terminal
+`find()` path is claimed here.
+
+`MatcherTest` pins the exhausted state, snapshot and append-replacement behavior,
+and the non-diverging consuming-pattern and `replaceFirst()` cases. Replacement
+fuzzing checks SafeRE's exhausted state
+after successful `replaceAll()` calls and excludes only the JDK state shape
+above from equivalence checks; replacement output remains compared. Find-sequence
+fuzzing applies the same exclusion to `hasMatch()` after terminal failed searches,
+including searches within a restricted region.
+
 ## Initial `find()` after a Failed Full Match
 
 Issue reference: #818.
@@ -101,8 +165,8 @@ semantics.
 
 ## hitEnd and requireEnd
 
-SafeRE does not attempt exact JDK-compatible results for `Matcher.hitEnd()` or
-`Matcher.requireEnd()`. These methods expose observations about the JDK
+SafeRE does not expose `Matcher.hitEnd()` or `Matcher.requireEnd()`. These methods
+expose observations about the JDK
 backtracking engine's ordered search, including whether some attempted path
 reached input end and whether the accepted result depended on end-sensitive
 paths. SafeRE engines explore sets of states in lockstep, not one ordered
@@ -235,28 +299,81 @@ crosscheck tests with `@DisabledForCrosscheck`.
 
 Issue reference: #452.
 
-The current case-folding character-class sweep records unclassified divergence
-labels only. Issue #452 is the project record for the intentional range-closure
-family found by that sweep and by targeted probes.
+Issue #866 refines this rule. SafeRE builds one equivalence relation from Unicode
+**default simple case-fold** links and Java's single-code-point upper, lower,
+and title casing links. Each link is bidirectional, and transitive connections
+belong to the same family. For example, Java casing joins U+0130 and U+0131
+to the Unicode simple-fold family containing `I` and `i`. The rule is fixed
+when the Unicode closure index is initialized, outside matching.
 
-SafeRE treats Unicode case-insensitive character classes as sets closed under
-Unicode case folding and casing equivalence. Under
-`CASE_INSENSITIVE | UNICODE_CASE`, a singleton class and an equivalent singleton
-range denote the same pre-folding set, so they should have the same membership
-after folding. For example, `[K]` and `[K-K]` should both match U+212A KELVIN
-SIGN, and ranges containing `I` should include U+0130 LATIN CAPITAL LETTER I
-WITH DOT ABOVE.
+Under `CASE_INSENSITIVE | UNICODE_CASE`, literals, singleton classes, and
+ranges match every member of each included family. A negated class complements
+the expanded set. This preserves the set interpretation from #452: `[K]` and
+`[K-K]` both match U+212A KELVIN SIGN; `[I]` and `[I-I]` both match U+0130;
+`I`, `i`, U+0130, and U+0131 match one another reciprocally. The
+`UNICODE_CHARACTER_CLASS` flag implies `UNICODE_CASE` as documented by the JDK.
 
-Observed JDK behavior is syntax-sensitive for some ranges: selected singleton
-classes and lowercase ranges include compatibility code points, while equivalent
-singleton ranges or uppercase ranges miss them, and negated ranges can include
-the same code point as a consequence. SafeRE's behavior is correct because
-character classes should be interpreted as sets. Two spellings that denote the
-same set before Unicode case closure should not diverge after closure.
+The observed JDK 26.0.2 behavior differs for some range spellings and some
+isolated literal pairs. SafeRE keeps the stated set rule, rather than varying
+case expansion with range syntax. The [case-equivalence audit](audits/unicode-case-equivalence/README.md)
+records the complete observed differences over case-mapping participants,
+including the baseline and the rule after #866.
 
-The case-folding character-class sweep and targeted tests cover this family.
-Known examples include Kelvin sign, Turkish dotted I, ohm sign, and angstrom
-sign range cases.
+## Grapheme Clusters after Unassigned Code Points
+
+Issue reference: [#925](https://github.com/eaftan/safere/issues/925).
+
+SafeRE uses Unicode grapheme-break properties when matching `\X`, including
+for unassigned code points. The
+[JDK 26 `Pattern` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
+defines `\X` as a Unicode extended grapheme cluster. Under
+[UAX #29's grapheme boundary rules](https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundary_Rules),
+an unassigned code point with `Grapheme_Cluster_Break=Other` stays in the same
+cluster as a following `Extend` character under rule GB9. Being unassigned does
+not by itself make a code point a grapheme-breaking control. Unassigned
+default-ignorable code points have property `Control`, so GB4/GB5 require breaks
+around them; that behavior is not an intentional divergence.
+
+For example:
+
+```java
+String input = "\ud9f5\udc3f\u07ef"; // U+8D43F followed by U+07EF
+var matcher = Pattern.compile("\\X").matcher(input);
+```
+
+U+8D43F is unassigned with grapheme-break property `Other`, and U+07EF
+(NKO COMBINING SHORT LOW TONE) has property `Extend`. Repeated `find()` calls
+therefore produce one SafeRE match at UTF-16 bounds `[0, 3)`. The OpenJDK
+behavior reported in #925 produces two matches, `[0, 2)` and `[2, 3)`.
+
+The reported OpenJDK implementation classifies unassigned code points other
+than its special case U+0378 as grapheme controls. This causes the control-break
+rule GB4 to take precedence over GB9. SafeRE intentionally preserves Unicode
+segmentation rather than copying that classification error. This is a
+specification-based divergence, not a limitation imposed by linear-time
+matching.
+
+`UnassignedGraphemeTest` covers BMP and supplementary unassigned code points
+followed by combining marks or ZWJ, repeated matches, and splitting. It also
+checks that actual grapheme controls, including an unassigned default-ignorable
+code point, still force a break. The intentional differences are disabled only
+in generated JDK crosscheck tests.
+
+## Ahom Vowel Signs and Grapheme Boundaries
+
+SafeRE pins its grapheme properties to Unicode 17.0. Unicode changed
+`Grapheme_Cluster_Break` for U+11720 and U+11721 (AHOM VOWEL SIGN A and AA)
+from `SpacingMark` to `Other` in Unicode 14. For example, `a` followed by
+either sign forms two `\X` clusters, while OpenJDK 26 forms one. The JDK's
+grapheme classifier still treats these signs as `SpacingMark`, despite its
+Unicode 17 support. SafeRE follows the [Unicode 17 grapheme property file](https://www.unicode.org/Public/17.0.0/ucd/auxiliary/GraphemeBreakProperty.txt)
+and the [Unicode committee's correction](https://www.unicode.org/L2/L2021/21126-utc168-properties-recs.pdf).
+
+This specification-based difference is independent of GB11 (tracked in #936).
+The upstream JDK report is tracked in [#940](https://github.com/eaftan/safere/issues/940).
+`GraphemeBreakConformanceTest` pins both Ahom signs and excludes only those two
+code points from its exhaustive JDK comparison. The segmentation code and its
+linear-time bound are unchanged.
 
 ## Grapheme Cluster Composition
 
@@ -384,6 +501,11 @@ between the pair's halves while rejecting `\B[\s\S]` there. SafeRE rejects
 both at that interior position: transparent bounds supply assertion context,
 but ordinary consuming atoms do not start inside a complete code point.
 
+The same sweep classifies `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION`
+as intentional: observed JDK traces expose a `\B` match at the interior UTF-16
+position of a transparent split surrogate pair. SafeRE keeps word-boundary
+matching consistent with its scalar boundary model.
+
 ## Opaque Region CRLF Pair Context
 
 Sweep names:
@@ -419,4 +541,5 @@ pre-region text when opaque bounds are active.
 | `TRANSPARENT_BOUNDARY_JDK_DETAIL` | Intentional | Transparent Grapheme Boundary Details |
 | `REGION_LOCAL_SCALAR_CONSUMPTION_AT_SPLIT_SURROGATE_END` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
 | `BOUNDARY_ANY_CLASS_SPLIT_SURROGATE_SCALAR_COMPOSITION` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
+| `NON_WORD_BOUNDARY_SPLIT_SURROGATE_INTERIOR_POSITION` | Intentional | Region-Local Scalar Consumption at Split Surrogate Region Ends |
 | `OPAQUE_REGION_CRLF_PAIR_CONTEXT` | Intentional | Opaque Region CRLF Pair Context |

@@ -39,8 +39,9 @@ add or preserve tests, docs, or fuzz coverage when useful.
      - `Matcher`: https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Matcher.html
    - Determine whether the specification supports SafeRE's behavior, the JDK's behavior, both, or
      neither. Quote or cite the specific Javadoc rule when it controls the behavior.
-   - If the JDK behavior contradicts the specification, stop before writing tests or code and
-     explain that to the user. If the user confirms proceeding, the intended SafeRE outcome is to
+   - If the JDK behavior contradicts the specification, explain that to the user and obtain
+     confirmation before adopting an intentional divergence, unless existing approval already
+     covers the same decision. With that authorization, the intended SafeRE outcome is to
      follow the JDK specification, subject to the linear-time guarantee, and document the divergence
      from observed JDK behavior as intentional.
    - If the specification is ambiguous or silent, treat the observed JDK behavior as the
@@ -83,7 +84,7 @@ add or preserve tests, docs, or fuzz coverage when useful.
    - Prefer fewer moving parts. Removing a special case is better than adding one when it
      clarifies the relevant invariant.
    - Preserve linear-time constraints: keep rejecting backreferences, lookaround, possessive
-     quantifiers, and other unsupported features that would violate SafeRE's guarantees or
+     quantifiers over consuming operands, and other unsupported features that would violate SafeRE's guarantees or
      supported dialect at parse time with clear errors.
    - Preserve stack safety; use iterative parsing/tree-walking patterns for deeply nested syntax.
 
@@ -113,7 +114,8 @@ add or preserve tests, docs, or fuzz coverage when useful.
      `safere-fuzz/src/test/java/org/safere/fuzz/ParserStackSafetyFuzzer.java`
    - Captures, quantified captures, group boundaries:
      `safere-fuzz/src/test/java/org/safere/fuzz/MatchFuzzer.java` or a focused capture fuzzer.
-   - Stateful matcher APIs, repeated `find()`, regions/bounds, `hitEnd()`/`requireEnd()`:
+   - Stateful matcher APIs, repeated `find()`, regions/bounds (SafeRE does not expose
+     `hitEnd()` or `requireEnd()`):
      `safere-fuzz/src/test/java/org/safere/fuzz/FindSequenceFuzzer.java` or
      `safere-fuzz/src/test/java/org/safere/fuzz/RegionBoundsFuzzer.java`.
    - Replacement templates and replacement state:
@@ -128,10 +130,16 @@ add or preserve tests, docs, or fuzz coverage when useful.
    - If tests changed, run the focused JUnit tests again.
    - If fuzz coverage changed, run the relevant fuzz target in regression mode, for example:
      `mvn -pl safere-fuzz -am -Dtest=EscapeSyntaxFuzzer -Dsurefire.failIfNoSpecifiedTests=false test`
-   - If SafeRE behavior changed, run `mvn -pl safere test -q` before finishing a
-     behavior-changing divergence fix.
-   - If the change affects public API compatibility, run:
-     `mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests`
+   - Follow [AGENTS.md's validation policy](../../../AGENTS.md#build-and-validation).
+     Full library and generated crosscheck suites are not automatic local prerequisites.
+     Broaden checks for changes spanning engines/shared invariants, failures, unresolved risks,
+     or an explicit request; use CI for standard broad coverage.
+   - For public API compatibility changes, run affected generated crosschecks when practical.
+     For example, select the relevant test class with `-Dtest=MatcherTest` and
+     `-Dsurefire.failIfNoSpecifiedTests=false` on
+     `mvn verify -pl safere,safere-crosscheck -am -Pcrosscheck-public-api-tests`.
+     Mark intentionally divergent assertions with `@DisabledForCrosscheck("reason")`.
+   - If only documentation changed, check its accuracy and links rather than running Java suites.
 
 ## Regression Test Expectations
 
@@ -155,8 +163,8 @@ add or preserve tests, docs, or fuzz coverage when useful.
 
 - No pattern-string checks, input-shape checks, or fuzzer-seed checks unless they directly encode a
   documented regex/API rule.
-- No new `@SuppressWarnings` annotations without explicit project-owner approval.
-- No backreferences, lookahead/lookbehind, possessive quantifiers, or unsupported features that
+- Follow the `@SuppressWarnings` approval rule and its narrow exception in `AGENTS.md`.
+- No backreferences, lookahead/lookbehind, consuming possessive quantifiers, or unsupported features that
   would violate SafeRE's guarantees or supported dialect may be accepted as a side effect of a
   divergence fix.
 - No recursive parser/tree traversal that can overflow on deeply nested regexes.

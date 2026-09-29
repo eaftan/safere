@@ -23,7 +23,9 @@ inputs to the fuzzer's input resource directory. Maven/Surefire writes XML summa
 
 1. Identify the fuzzer class from the user's command or question, for example
    `CharacterClassExpressionFuzzer`.
-2. Inspect the latest matching Surefire files:
+2. Resolve the class's package before locating reports and corpus files. Most targets use
+   `org.safere.fuzz`, but targets such as `DeferredRegionCaptureFuzzer` use `org.safere`.
+   Substitute the actual package in the example paths below. Inspect the latest matching files:
    - `safere-fuzz/target/surefire-reports/TEST-org.safere.fuzz.<Fuzzer>.xml`
    - `safere-fuzz/target/surefire-reports/org.safere.fuzz.<Fuzzer>.txt`
 3. Inspect helper-script console logs if present. These are often the best source for complete

@@ -37,7 +37,7 @@ When spec interpretation matters, check the official JDK Javadocs:
 For Unicode grapheme behavior, use Unicode UAX #29 and the project design:
 
 - UAX #29: `https://www.unicode.org/reports/tr29/`
-- `design/GRAPHEME_REGION_MATCHING.md`
+- `docs/GRAPHEME_REGIONS.md`
 
 ## Artifact Triage
 
@@ -49,9 +49,10 @@ For Unicode grapheme behavior, use Unicode UAX #29 and the project design:
    - sample `head`, `tail`, and evenly spaced byte offsets;
    - use bounded streaming scripts, `jq`, `rg -m`, or `python3` generators;
    - never load the full file or build an exact unbounded hash map over all buckets.
-3. State whether the run is complete:
-   - complete if final summary files were written or the run reported completion;
-   - incomplete if the process was stopped before summary output.
+3. State whether the run is complete based on its exit status, completion log, and declared
+   scope. Compact archives checkpoint `progress.json` during execution, and the expander can
+   summarize interrupted archives; neither a checkpoint nor an expanded summary proves completion.
+   Report an interrupted run as incomplete and label uncertain completion as unknown.
 4. Do not claim exact counts from samples. Report exact counts only from completed summary files or
    bounded explicit passes whose scope you state.
 
@@ -136,7 +137,7 @@ Lead with a concise inventory:
 ```
 Artifacts reviewed:
 - <path>: <size/status>
-- Run status: complete/incomplete
+- Run status: complete/incomplete/unknown
 - Counting method: exact summary / bounded sample / targeted stream scan
 ```
 

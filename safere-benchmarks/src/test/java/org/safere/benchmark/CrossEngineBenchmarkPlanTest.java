@@ -531,6 +531,33 @@ class CrossEngineBenchmarkPlanTest {
   }
 
   @Test
+  void collectionPlanSelectsOnlyRunnersMatchedByJmhFilter() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+
+    assertThat(
+            plan.runnersMatching("^org\\.safere\\.benchmark\\.CrossEngineScalingBenchmark\\.run$"))
+        .extracting(BenchmarkCollectionPlan.Runner::parameter)
+        .containsExactly("crossEngineScalingTrial");
+    assertThat(plan.runnersMatching("CrossEngine(?:Scaling|NoFork)Benchmark"))
+        .extracting(BenchmarkCollectionPlan.Runner::parameter)
+        .containsExactly("crossEngineScalingTrial", "crossEngineNoForkTrial");
+    assertThat(plan.runnersMatching("UnparameterizedBenchmark")).isEmpty();
+    assertThat(
+            plan.launcherArguments(
+                "CrossEngineScalingBenchmark", "/tmp/benchmark jar.jar", Set.of()))
+        .startsWith("-jar", "\"/tmp/benchmark jar.jar\"", "-p")
+        .element(3)
+        .asString()
+        .startsWith("\"crossEngineScalingTrial=");
+    assertThat(
+            plan.launcherArguments(
+                "CrossEngineScalingBenchmark",
+                "/tmp/benchmark.jar",
+                Set.of("crossEngineScalingTrial")))
+        .containsExactly("-jar", "\"/tmp/benchmark.jar\"");
+  }
+
+  @Test
   void allocationCollectionPreservesMemoryScalingWithoutAddingTimingTrials() {
     BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
 

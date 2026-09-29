@@ -105,7 +105,7 @@ final class TeddyModel implements Serializable {
 
   /** Compiles a Teddy model only when the optional vector provider is active. */
   static TeddyModel compileForSelectedProvider(String[] literals) {
-    return VectorScanProviders.teddyProviderAvailable() ? compile(literals, 64) : null;
+    return VectorScanProviders.vectorProviderAvailable() ? compile(literals, 64) : null;
   }
 
   /**

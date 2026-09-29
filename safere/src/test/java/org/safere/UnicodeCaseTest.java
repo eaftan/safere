@@ -190,8 +190,7 @@ class UnicodeCaseTest {
 
   @Test
   void turkishDotlessI() {
-    // Turkish dotless ı (U+0131) and İ (U+0130) — these are special in Turkish locale
-    // but SafeRE uses simple case folding which maps İ→i and I→ı through Unicode tables.
+    // Java single-code-point casing joins dotted and dotless I to the I/i simple-fold family.
     Pattern p = Pattern.compile("i", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("I").matches()).isTrue();
   }

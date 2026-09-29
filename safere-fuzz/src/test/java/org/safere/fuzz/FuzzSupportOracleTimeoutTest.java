@@ -58,4 +58,13 @@ final class FuzzSupportOracleTimeoutTest {
             new java.util.regex.PatternSyntaxException(
                 "invalid character class intersection", "[a-z&&[def]]", 4)));
   }
+
+  @Test
+  @DisplayName("unsupported previous-match anchor and atomic group are excluded")
+  void unsupportedFeaturesAreExcluded() {
+    assertNull(FuzzSupport.compileCompatibleOrSkip("\\G", 0));
+    assertNull(FuzzSupport.compileCompatibleOrSkip("\\G\\w+", 0));
+    assertNull(FuzzSupport.compileCompatibleOrSkip("a+\\GGGG", 7));
+    assertNull(FuzzSupport.compileCompatibleOrSkip("(?>a+)", 0));
+  }
 }

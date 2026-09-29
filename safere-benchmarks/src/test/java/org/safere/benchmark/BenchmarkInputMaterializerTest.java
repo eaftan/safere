@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +35,8 @@ class BenchmarkInputMaterializerTest {
   @TempDir Path tempDirectory;
 
   @Test
-  void declaredBenchmarkCorpusMaterializesDeterministically() throws IOException {
+  void declaredBenchmarkCorpusMaterializesDeterministically()
+      throws IOException, NoSuchAlgorithmException {
     JsonObject benchmarkData =
         JsonParser.parseString(Files.readString(Path.of("benchmark-data.json"))).getAsJsonObject();
 
@@ -52,6 +56,44 @@ class BenchmarkInputMaterializerTest {
         .hasSize(1050)
         .endsWith("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     assertThat(text(first, "fanout.unicode.1024")).hasSize(1024);
+    byte[] rustSource = first.get("rebar.boundedRepeatContext.rustSource");
+    assertThat(rustSource).hasSize(7_384_531);
+    assertThat(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(rustSource)))
+        .isEqualTo("7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36");
+  }
+
+  @Test
+  void fileRecipePreservesExactUtf8Bytes() throws IOException, NoSuchAlgorithmException {
+    byte[] source = "fn main() {value}\nπ\n".getBytes(StandardCharsets.UTF_8);
+    Files.createDirectories(tempDirectory.resolve("data"));
+    Files.write(tempDirectory.resolve("data/source.txt"), source);
+    String checksum = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(source));
+
+    Map<String, byte[]> materialized =
+        BenchmarkInputMaterializer.materialize(
+            fileInput("data/source.txt", checksum), tempDirectory);
+
+    assertThat(materialized.get("source.code")).containsExactly(source);
+  }
+
+  @Test
+  void fileRecipeRejectsChecksumMismatchAndPathTraversal() throws IOException {
+    Files.createDirectories(tempDirectory.resolve("data"));
+    Files.writeString(tempDirectory.resolve("data/source.txt"), "fixture");
+
+    assertThatThrownBy(
+            () ->
+                BenchmarkInputMaterializer.materialize(
+                    fileInput("data/source.txt", "0".repeat(64)), tempDirectory))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("File recipe SHA-256 mismatch: data/source.txt");
+
+    assertThatThrownBy(
+            () ->
+                BenchmarkInputMaterializer.materialize(
+                    fileInput("data/../source.txt", "0".repeat(64)), tempDirectory))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("File recipe path must stay within data: data/../source.txt");
   }
 
   @Test
@@ -60,7 +102,7 @@ class BenchmarkInputMaterializerTest {
         JsonParser.parseString(
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "inputs": [{
                     "id": "derived",
                     "recipe": {"kind": "appendInput", "input": "missing", "suffix": "!"},
@@ -81,7 +123,7 @@ class BenchmarkInputMaterializerTest {
         JsonParser.parseString(
                 """
                 {
-                  "schemaVersion": 1,
+                  "schemaVersion": 2,
                   "inputs": [
                     {
                       "id": "first",
@@ -107,7 +149,7 @@ class BenchmarkInputMaterializerTest {
   void deeplyChainedAppendRecipesMaterializeWithoutUsingTheCallStack() {
     int dependencyCount = 5_000;
     JsonObject benchmarkData = new JsonObject();
-    benchmarkData.addProperty("schemaVersion", 1);
+    benchmarkData.addProperty("schemaVersion", 2);
     JsonArray inputs = new JsonArray();
     for (int index = dependencyCount; index >= 1; index--) {
       JsonObject declaration = new JsonObject();
@@ -335,6 +377,26 @@ class BenchmarkInputMaterializerTest {
   @Test
   void emptyRepeatUnitCanProduceEmptyOutput() {
     assertThat(BenchmarkInputMaterializer.repeatToSize("", 0)).isEmpty();
+  }
+
+  private static JsonObject fileInput(String path, String sha256) {
+    JsonObject data =
+        JsonParser.parseString(
+                """
+                {
+                  "schemaVersion": 2,
+                  "inputs": [{
+                    "id": "source.code",
+                    "recipe": {"kind": "file"}
+                  }]
+                }
+                """)
+            .getAsJsonObject();
+    JsonObject recipe =
+        data.getAsJsonArray("inputs").get(0).getAsJsonObject().getAsJsonObject("recipe");
+    recipe.addProperty("path", path);
+    recipe.addProperty("sha256", sha256);
+    return data;
   }
 
   private static String text(Map<String, byte[]> inputs, String id) {

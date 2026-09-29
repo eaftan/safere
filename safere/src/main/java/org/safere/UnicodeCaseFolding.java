@@ -122,43 +122,87 @@ final class UnicodeCaseFolding {
     }
 
     private static long[] buildTargetToSourcePairs() {
-      LongArrayBuilder pairs = new LongArrayBuilder();
-      for (int source = 0; source <= Utils.MAX_RUNE; source++) {
-        addPair(pairs, source, Character.toUpperCase(source));
-        addPair(pairs, source, Character.toLowerCase(source));
-        addPair(pairs, source, Character.toTitleCase(source));
-        addPair(pairs, source, Character.toLowerCase(Character.toUpperCase(source)));
-        addPair(pairs, source, Character.toUpperCase(Character.toLowerCase(source)));
-
-        int folded = cycleFoldRune(source);
-        while (folded != source) {
-          addPair(pairs, source, folded);
-          folded = cycleFoldRune(folded);
+      // Gather only nontrivial single-code-point casing and simple-fold links. Most Unicode
+      // code points have no links and need no entry in the component arrays.
+      LongArrayBuilder links = new LongArrayBuilder();
+      for (int cp = 0; cp <= Utils.MAX_RUNE; cp++) {
+        addLink(links, cp, Character.toUpperCase(cp));
+        addLink(links, cp, Character.toLowerCase(cp));
+        addLink(links, cp, Character.toTitleCase(cp));
+        addLink(links, cp, cycleFoldRune(cp));
+      }
+      long[] edges = links.toArray();
+      int[] codePoints = new int[edges.length * 2];
+      for (int i = 0; i < edges.length; i++) {
+        codePoints[2 * i] = target(edges[i]);
+        codePoints[2 * i + 1] = source(edges[i]);
+      }
+      Arrays.sort(codePoints);
+      int count = 0;
+      for (int cp : codePoints) {
+        if (count == 0 || codePoints[count - 1] != cp) {
+          codePoints[count++] = cp;
         }
       }
 
+      // Sorted code points give each participant a compact index; the least index in a
+      // component also represents its least code point.
+      int[] parent = new int[count];
+      int[] next = new int[count];
+      Arrays.fill(next, -1);
+      for (int i = 0; i < count; i++) {
+        parent[i] = i;
+      }
+      for (long edge : edges) {
+        int first = Arrays.binarySearch(codePoints, 0, count, target(edge));
+        int second = Arrays.binarySearch(codePoints, 0, count, source(edge));
+        union(parent, first, second);
+      }
+      // Each component is a linked list starting at its least code point.
+      for (int i = 0; i < count; i++) {
+        int root = find(parent, i);
+        if (root != i) {
+          next[i] = next[root];
+          next[root] = i;
+        }
+      }
+      LongArrayBuilder pairs = new LongArrayBuilder();
+      for (int targetIndex = 0; targetIndex < count; targetIndex++) {
+        int root = find(parent, targetIndex);
+        if (next[root] == -1) {
+          continue;
+        }
+        for (int sourceIndex = root; sourceIndex != -1; sourceIndex = next[sourceIndex]) {
+          if (sourceIndex != targetIndex) {
+            pairs.add(pack(codePoints[targetIndex], codePoints[sourceIndex]));
+          }
+        }
+      }
+      // Every member indexes every other member exactly once. One range lookup therefore
+      // gives the complete symmetric/transitive closure, with no iterative parser expansion.
       long[] sorted = pairs.toArray();
       Arrays.sort(sorted);
-      return deduplicate(sorted);
+      return sorted;
     }
 
-    private static void addPair(LongArrayBuilder pairs, int source, int target) {
-      if (source != target) {
-        pairs.add(pack(target, source));
+    private static void addLink(LongArrayBuilder links, int first, int second) {
+      if (first != second) {
+        links.add(pack(first, second));
       }
     }
 
-    private static long[] deduplicate(long[] sorted) {
-      if (sorted.length == 0) {
-        return sorted;
+    private static int find(int[] parent, int cp) {
+      while (parent[cp] != cp) {
+        parent[cp] = parent[parent[cp]];
+        cp = parent[cp];
       }
-      int size = 1;
-      for (int i = 1; i < sorted.length; i++) {
-        if (sorted[i] != sorted[size - 1]) {
-          sorted[size++] = sorted[i];
-        }
-      }
-      return Arrays.copyOf(sorted, size);
+      return cp;
+    }
+
+    private static void union(int[] parent, int a, int b) {
+      int first = find(parent, a);
+      int second = find(parent, b);
+      parent[Math.max(first, second)] = Math.min(first, second);
     }
 
     private static long pack(int target, int source) {

@@ -6,6 +6,8 @@
 package org.safere;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.safere.Pattern.FixedOffsetLiteral;
 
 /**
@@ -34,7 +36,9 @@ sealed interface Utf8StartAccelerator {
       case MultiAnchorDescriptor.StartPlan.None unusedNone -> null;
       case MultiAnchorDescriptor.StartPlan.Literal lit ->
           lit.foldCase()
-              ? CaseInsensitiveLiteral.create(lit.prefix())
+              ? (Ascii.isAscii(lit.prefix())
+                  ? CaseInsensitiveLiteral.create(lit.prefix())
+                  : UnicodeCaseInsensitiveLiteral.create(lit.prefix()))
               : Literal.create(lit.prefix());
       case MultiAnchorDescriptor.StartPlan.CharClass cc ->
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : new CharClass(cc.scanInfo());
@@ -44,17 +48,17 @@ sealed interface Utf8StartAccelerator {
         if (hasWordBoundary) {
           yield null;
         }
-        if (VectorScanProviders.multiLiteralProviderAvailable()) {
+        if (VectorScanProviders.vectorProviderAvailable()) {
           MultiLiteralInfo info = MultiLiteralInfo.create(ml.literals());
           if (info != null) {
             TeddyModel teddy =
-                VectorScanProviders.teddyProviderAvailable()
+                VectorScanProviders.vectorProviderAvailable()
                     ? TeddyModel.compileForSelectedProvider(ml.literals())
                     : null;
             yield new MultiLiteral(info, teddy);
           }
         }
-        if (VectorScanProviders.teddyProviderAvailable()) {
+        if (VectorScanProviders.vectorProviderAvailable()) {
           TeddyModel model = TeddyModel.compileForSelectedProvider(ml.literals());
           if (model != null) {
             yield new Teddy(model);
@@ -67,8 +71,17 @@ sealed interface Utf8StartAccelerator {
       }
       case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {
         Utf8StartAccelerator inner = create(le.innerPlan(), hasWordBoundary);
+        // This wrapper does not retain the folded filter's per-search scan cursor.
+        if (inner instanceof UnicodeCaseInsensitiveLiteral) {
+          yield null;
+        }
         yield inner != null
-            ? new LeadingExpansion(le.leadingClass(), le.minRepetition(), le.maxRepetition(), inner)
+            ? new LeadingExpansion(
+                le.leadingClass(),
+                le.minRepetition(),
+                le.maxRepetition(),
+                le.hasLeadingAssertions(),
+                inner)
             : null;
       }
       case MultiAnchorDescriptor.StartPlan.LineAnchor unusedLa -> null;
@@ -89,6 +102,7 @@ sealed interface Utf8StartAccelerator {
     return switch (accelerator) {
       case Literal lit -> lit.findCandidate(scanner, pos);
       case CaseInsensitiveLiteral cil -> cil.findCandidate(scanner, pos);
+      case UnicodeCaseInsensitiveLiteral unicode -> unicode.findCandidate(scanner, pos);
       case FixedOffset fo -> fo.findCandidate(scanner, pos);
       case CharClass cc -> cc.findCandidate(scanner, pos);
       case Teddy t -> t.findCandidate(scanner, pos);
@@ -97,18 +111,35 @@ sealed interface Utf8StartAccelerator {
     };
   }
 
+  /** A search-local cursor for accelerators that scan multiple folded byte variants. */
+  interface SearchCursor {
+    int findCandidate(Utf8InputScanner scanner, int fromIndex);
+  }
+
+  static SearchCursor searchCursor(Utf8StartAccelerator accelerator) {
+    return accelerator instanceof UnicodeCaseInsensitiveLiteral unicode
+        ? unicode.new SearchCursorImpl()
+        : null;
+  }
+
   /** Returns the tuning and diagnostic policy for this accelerator. */
   default AcceleratorPolicy policy() {
     return AcceleratorPolicy.DEFAULT;
   }
 
+  // The arrays are immutable search metadata owned by this internal accelerator.
   @SuppressWarnings("ArrayRecordComponent")
-  record Literal(byte[] prefixUtf8, int[] prefixUtf8Failure, int[] prefixUtf8Shifts)
+  record Literal(
+      byte[] prefixUtf8, int[] prefixUtf8Failure, int[] prefixUtf8Shifts, int rareByteOffset)
       implements Utf8StartAccelerator {
 
     static Literal create(String prefix) {
       byte[] utf8 = prefix.getBytes(StandardCharsets.UTF_8);
-      return new Literal(utf8, Pattern.literalFailure(utf8), Pattern.literalShifts(utf8));
+      return new Literal(
+          utf8,
+          Pattern.literalFailure(utf8),
+          Pattern.literalShifts(utf8),
+          RarityOracle.rarestUtf8LiteralByteOffset(utf8));
     }
 
     @Override
@@ -118,7 +149,8 @@ sealed interface Utf8StartAccelerator {
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
       if (prefixUtf8 != null) {
-        return scanner.indexOf(prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts, fromIndex);
+        return scanner.indexOf(
+            prefixUtf8, prefixUtf8Failure, prefixUtf8Shifts, fromIndex, rareByteOffset);
       }
       return fromIndex;
     }
@@ -188,6 +220,200 @@ sealed interface Utf8StartAccelerator {
     }
   }
 
+  /** A bounded byte filter for Unicode-folded literal prefixes on UTF-8 input. */
+  final class UnicodeCaseInsensitiveLiteral implements Utf8StartAccelerator {
+    private static final int MAX_FOLD_VARIANTS = 4;
+    private static final int ANCHOR_SCAN_WINDOW = 256;
+
+    private final List<int[]> prefixFoldVariants;
+    private final int anchorByteOffset;
+    private final List<EncodedFold> anchorVariants;
+
+    private UnicodeCaseInsensitiveLiteral(
+        List<int[]> prefixFoldVariants, int anchorByteOffset, List<EncodedFold> anchorVariants) {
+      this.prefixFoldVariants = prefixFoldVariants;
+      this.anchorByteOffset = anchorByteOffset;
+      this.anchorVariants = anchorVariants;
+    }
+
+    static Utf8StartAccelerator create(String prefix) {
+      int[] codePoints = prefix.codePoints().toArray();
+      int stablePrefixBytes = 0;
+      int bestRarity = -1;
+      int bestOffset = 0;
+      List<EncodedFold> bestVariants = null;
+      List<int[]> prefixFoldVariants = new ArrayList<>(codePoints.length);
+      boolean stablePrefixWidth = true;
+      for (int codePoint : codePoints) {
+        if (codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE) {
+          return null;
+        }
+        int[] foldVariants = foldVariants(codePoint);
+        if (foldVariants == null) {
+          return null;
+        }
+        prefixFoldVariants.add(foldVariants);
+        if (!stablePrefixWidth) {
+          continue;
+        }
+        List<EncodedFold> variants = encodedFoldVariants(foldVariants);
+        int rarity = 255;
+        int width = variants.getFirst().bytes.length;
+        boolean stableWidth = true;
+        for (EncodedFold variant : variants) {
+          int variantRarity = 0;
+          for (byte value : variant.bytes) {
+            variantRarity = Math.max(variantRarity, RarityOracle.exactByteRarity(value & 0xFF));
+          }
+          rarity = Math.min(rarity, variantRarity);
+          stableWidth &= variant.bytes.length == width;
+        }
+        if (rarity > bestRarity) {
+          bestRarity = rarity;
+          bestOffset = stablePrefixBytes;
+          bestVariants = variants;
+        }
+        // A later anchor has no fixed byte offset if an earlier fold changes UTF-8 width.
+        if (!stableWidth) {
+          stablePrefixWidth = false;
+        } else {
+          stablePrefixBytes += width;
+        }
+      }
+      return bestVariants == null
+          ? null
+          : new UnicodeCaseInsensitiveLiteral(prefixFoldVariants, bestOffset, bestVariants);
+    }
+
+    private static int[] foldVariants(int codePoint) {
+      CharClassBuilder builder = new CharClassBuilder();
+      UnicodeCaseFolding.addUnicodeFoldedRange(builder, codePoint, codePoint);
+      org.safere.CharClass closure = builder.build();
+      if (closure.numRunes() > MAX_FOLD_VARIANTS) {
+        return null;
+      }
+      int[] variants = new int[closure.numRunes()];
+      int count = 0;
+      for (int i = 0; i < closure.numRanges(); i++) {
+        for (int cp = closure.lo(i); cp <= closure.hi(i); cp++) {
+          variants[count++] = cp;
+        }
+      }
+      return variants;
+    }
+
+    private static List<EncodedFold> encodedFoldVariants(int[] foldVariants) {
+      List<EncodedFold> variants = new ArrayList<>();
+      for (int folded : foldVariants) {
+        byte[] bytes = new String(Character.toChars(folded)).getBytes(StandardCharsets.UTF_8);
+        variants.add(new EncodedFold(bytes, Pattern.literalFailure(bytes)));
+      }
+      return variants;
+    }
+
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.LITERAL;
+    }
+
+    int findCandidate(Utf8InputScanner scanner, int fromIndex) {
+      return new SearchCursorImpl().findCandidate(scanner, fromIndex);
+    }
+
+    /** Keeps candidate verification work bounded across one forward search. */
+    final class SearchCursorImpl implements SearchCursor {
+      private boolean exhausted;
+      private long verificationWork;
+      private long workLimit = -1;
+
+      @Override
+      public int findCandidate(Utf8InputScanner scanner, int fromIndex) {
+        int start = Math.max(0, fromIndex);
+        if (exhausted) {
+          return start;
+        }
+        if (anchorByteOffset > scanner.length() - start) {
+          return -1;
+        }
+        if (workLimit < 0) {
+          workLimit = WorkLimit.forRemaining(scanner.length() - start);
+        }
+        int searchFrom = start + anchorByteOffset;
+        while (searchFrom < scanner.length()) {
+          int windowEnd =
+              searchFrom + Math.min(ANCHOR_SCAN_WINDOW, scanner.length() - searchFrom) - 1;
+          int nextHit = Integer.MAX_VALUE;
+          for (EncodedFold variant : anchorVariants) {
+            int hit =
+                scanner.indexOfWithin(
+                    variant.bytes, variant.failure, searchFrom, Math.min(windowEnd, nextHit - 1));
+            if (hit >= 0) {
+              nextHit = hit;
+              if (hit == searchFrom) {
+                break;
+              }
+            }
+          }
+          if (nextHit == Integer.MAX_VALUE) {
+            searchFrom = windowEnd + 1;
+            continue;
+          }
+          int candidate = nextHit - anchorByteOffset;
+          if (candidate >= start
+              && scanner.isCodePointBoundary(candidate)
+              && matchesPrefix(scanner, candidate)) {
+            return candidate;
+          }
+          verificationWork += prefixFoldVariants.size();
+          if (WorkLimit.isExhausted(verificationWork, workLimit)) {
+            // A search can call this cursor again at every subsequent byte. Keep the fallback
+            // sticky so candidate verification cannot restart from scratch.
+            exhausted = true;
+            return start;
+          }
+          searchFrom = nextHit + 1;
+        }
+        return -1;
+      }
+    }
+
+    private boolean matchesPrefix(Utf8InputScanner scanner, int candidate) {
+      int position = candidate;
+      for (int[] foldVariants : prefixFoldVariants) {
+        if (position >= scanner.length()) {
+          return false;
+        }
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        long decoded = scanner.decodeForward(position);
+        int actual = InputScanner.codePoint(decoded);
+        boolean equivalent = false;
+        for (int variant : foldVariants) {
+          if (actual == variant) {
+            equivalent = true;
+            break;
+          }
+        }
+        if (!equivalent) {
+          return false;
+        }
+        position = InputScanner.position(decoded);
+      }
+      return true;
+    }
+
+    private static final class EncodedFold {
+      private final byte[] bytes;
+      private final int[] failure;
+
+      private EncodedFold(byte[] bytes, int[] failure) {
+        this.bytes = bytes;
+        this.failure = failure;
+      }
+    }
+  }
+
   record FixedOffset(FixedOffsetLiteral fixedOffset, CharClassScanInfo charClassPrefix)
       implements Utf8StartAccelerator {
 
@@ -229,16 +455,26 @@ sealed interface Utf8StartAccelerator {
             }
             literalFrom = literalStart + 1;
             continue;
-          } else if (discreteOffsets == null
-              && fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
+          } else if (discreteOffsets != null) {
+            int resolved =
+                resolveMultiOffsetStart(
+                    scanner,
+                    fixedOffsetLiteral,
+                    discreteOffsets,
+                    charClassPrefix,
+                    literalStart,
+                    searchFrom);
+            if (resolved >= 0) {
+              return resolved;
+            }
+            literalFrom = literalStart + 1;
+            continue;
+          } else if (fixedOffsetLiteral.minOffset() == fixedOffsetLiteral.maxOffset()) {
             int candidateStart =
-                scanner.retreatByCodePoints(literalStart, fixedOffsetLiteral.maxOffset());
-            if (candidateStart >= searchFrom) {
-              int first =
-                  candidateStart < scanner.length() ? scanner.codePointAt(candidateStart) : -1;
-              if (first >= 0 && charClassPrefix.contains(first)) {
-                return candidateStart;
-              }
+                retreatedStartInClass(
+                    scanner, fixedOffsetLiteral, charClassPrefix, literalStart, searchFrom);
+            if (candidateStart >= 0) {
+              return candidateStart;
             }
             literalFrom = literalStart + 1;
             continue;
@@ -246,6 +482,61 @@ sealed interface Utf8StartAccelerator {
         }
         return Math.max(
             searchFrom, scanner.retreatByCodePoints(literalStart, fixedOffsetLiteral.maxOffset()));
+      }
+      return -1;
+    }
+
+    /**
+     * Resolves a literal occurrence at {@code literalStart} to a match start when the literal can
+     * sit at more than one offset, or returns -1 when the leading class admits none of them and the
+     * occurrence can be skipped.
+     *
+     * <p>The offsets are ascending, so the largest yields the earliest start; they are walked from
+     * the back to find the leftmost start this occurrence admits. The result is then clamped to the
+     * earliest start a <em>later</em> occurrence could imply, because the caller treats it as a
+     * floor and will not look before it, and the next occurrence is at {@code literalStart + 1} at
+     * the earliest. Without the clamp a wide offset span loses the leftmost match: on {@code
+     * (aq|b[a-z]{9})z} the {@code z} at index 5 admits only the start at 3, while the {@code z} at
+     * index 10 starts the match at 0.
+     *
+     * <p>Discrete offsets are only recorded for all-ASCII prefixes, so they are byte counts here.
+     */
+    private static int resolveMultiOffsetStart(
+        InputScanner scanner,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        int[] discreteOffsets,
+        CharClassScanInfo charClassPrefix,
+        int literalStart,
+        int searchFrom) {
+      for (int i = discreteOffsets.length - 1; i >= 0; i--) {
+        int start = literalStart - discreteOffsets[i];
+        if (start >= searchFrom
+            && start < scanner.length()
+            && charClassPrefix.contains(scanner.codePointAt(start))) {
+          return Math.max(
+              searchFrom, Math.min(start, literalStart + 1 - fixedOffsetLiteral.maxOffset()));
+        }
+      }
+      return -1;
+    }
+
+    /**
+     * Returns the start reached by retreating from {@code literalStart} over a fixed number of code
+     * points when the leading class admits it, or -1 when the occurrence can be skipped.
+     */
+    private static int retreatedStartInClass(
+        InputScanner scanner,
+        FixedOffsetLiteral fixedOffsetLiteral,
+        CharClassScanInfo charClassPrefix,
+        int literalStart,
+        int searchFrom) {
+      int candidateStart =
+          scanner.retreatByCodePoints(literalStart, fixedOffsetLiteral.maxOffset());
+      if (candidateStart >= searchFrom) {
+        int first = candidateStart < scanner.length() ? scanner.codePointAt(candidateStart) : -1;
+        if (first >= 0 && charClassPrefix.contains(first)) {
+          return candidateStart;
+        }
       }
       return -1;
     }
@@ -298,16 +589,20 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
-      VectorScanProvider provider = VectorScanProviders.providerForTeddyLength(scanner.length());
+      int window = scanner.length() - fromIndex;
+      VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.TEDDY, window);
       if (provider == null) {
+        ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.DECLINED);
         return fromIndex;
       }
       int idx =
           provider.indexOfTeddy(
               scanner.bytes(), scanner.offset(), scanner.length(), model, fromIndex);
       if (idx != VectorScanProvider.UNSUPPORTED) {
+        ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.VECTOR);
         return idx;
       }
+      ScanAudit.record(ScanKind.TEDDY, ScanDirection.FORWARD, window, ScanPath.SCALAR);
       int len = scanner.length();
       int minLen = model.minLength();
       byte[] bytes = scanner.bytes();
@@ -328,19 +623,53 @@ sealed interface Utf8StartAccelerator {
       CharClassScanInfo leadingClass,
       int minRepetition,
       int maxRepetition,
+      boolean hasLeadingAssertions,
       Utf8StartAccelerator inner)
       implements Utf8StartAccelerator {
 
     @Override
     public AcceleratorPolicy policy() {
-      return new AcceleratorPolicy(16, 4, false, inner.policy().strategy());
+      return AcceleratorPolicy.LEADING_EXPANSION.withStrategy(inner.policy().strategy());
+    }
+
+    boolean canVerifyAtInner() {
+      return minRepetition == 0 && !hasLeadingAssertions;
+    }
+
+    int findInnerCandidate(Utf8InputScanner scanner, int searchPos) {
+      return Utf8StartAccelerator.findNextCandidate(inner, scanner, searchPos);
+    }
+
+    int expandBackward(Utf8InputScanner scanner, int innerMatch, int fromIndex) {
+      int start = innerMatch;
+      int count = 0;
+      while (start > fromIndex) {
+        int cp = scanner.singleUnitCodePointBefore(start);
+        int prevPos;
+        if (cp >= 0) {
+          prevPos = start - 1;
+        } else {
+          long decoded = scanner.decodeBackward(start);
+          cp = InputScanner.codePoint(decoded);
+          prevPos = InputScanner.position(decoded);
+        }
+        if (!leadingClass.contains(cp)) {
+          break;
+        }
+        if (count + 1 > maxRepetition) {
+          break;
+        }
+        count++;
+        start = prevPos;
+      }
+      return start;
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
       int searchPos = Math.max(0, fromIndex);
       int textLen = scanner.length();
       while (searchPos < textLen) {
-        int innerMatch = Utf8StartAccelerator.findNextCandidate(inner, scanner, searchPos);
+        int innerMatch = findInnerCandidate(scanner, searchPos);
         if (innerMatch < 0) {
           return -1;
         }
@@ -382,8 +711,8 @@ sealed interface Utf8StartAccelerator {
     }
 
     int findCandidate(Utf8InputScanner scanner, int fromIndex) {
-      VectorScanProvider provider =
-          VectorScanProviders.providerForMultiLiteralLength(scanner.length());
+      int window = scanner.length() - fromIndex;
+      VectorScanProvider provider = VectorScanProviders.providerFor(ScanKind.MULTI_LITERAL, window);
       if (provider != null) {
         int idx =
             provider.indexOfMultiLiteral(
@@ -398,10 +727,13 @@ sealed interface Utf8StartAccelerator {
                 teddyModel,
                 fromIndex);
         if (idx != VectorScanProvider.UNSUPPORTED) {
+          ScanAudit.record(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.VECTOR);
           return idx;
         }
+        ScanAudit.record(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.DECLINED);
         return fromIndex;
       }
+      ScanAudit.record(ScanKind.MULTI_LITERAL, ScanDirection.FORWARD, window, ScanPath.SCALAR);
       return findScalar(scanner, fromIndex);
     }
 

@@ -252,6 +252,92 @@ class DiagnosticsTest {
   }
 
   @Test
+  void startAnchoredReplacementRejectsOnTheAnchoredPrefix() {
+    Pattern.setDiagnostics(diagnostics);
+
+    // Start-anchored scrubbers with a literal anchored prefix of "(" and "[" respectively.
+    for (String regex :
+        List.of(
+            "^\\([Ss]ource:\\s*\\d+(?:\\s*,\\s*(?:[Ss]ource:\\s*)?\\d+)*\\s*\\)\\s*",
+            "^\\[[Ss]ource:\\s*\\d+(?:\\s*,\\s*(?:[Ss]ource:\\s*)?\\d+)*\\s*\\]\\s*")) {
+      for (MatchOperation operation :
+          List.of(MatchOperation.REPLACE_FIRST, MatchOperation.REPLACE_ALL)) {
+        Pattern pattern = Pattern.compile(regex);
+        String input = "No citation marker begins this paragraph.";
+        Matcher matcher = pattern.matcher(input);
+
+        String result =
+            operation == MatchOperation.REPLACE_FIRST
+                ? matcher.replaceFirst("replacement")
+                : matcher.replaceAll("replacement");
+
+        assertThat(result).isEqualTo(input);
+        assertThat(operationsFor(pattern))
+            .singleElement()
+            .satisfies(
+                event -> {
+                  assertThat(event.operation()).isEqualTo(operation);
+                  assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.LITERAL);
+                  assertThat(event.auxiliaryStrategies())
+                      .containsExactly(
+                          new StrategyParticipation(
+                              MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER));
+                });
+      }
+    }
+  }
+
+  @Test
+  void startAnchoredReplacementRejectsOnTheAnchoredCharacterClass() {
+    Pattern.setDiagnostics(diagnostics);
+
+    for (MatchOperation operation :
+        List.of(MatchOperation.REPLACE_FIRST, MatchOperation.REPLACE_ALL)) {
+      Pattern pattern = Pattern.compile("^[0-9]+ items");
+      String input = "no leading digit here";
+      Matcher matcher = pattern.matcher(input);
+
+      String result =
+          operation == MatchOperation.REPLACE_FIRST
+              ? matcher.replaceFirst("replacement")
+              : matcher.replaceAll("replacement");
+
+      assertThat(result).isEqualTo(input);
+      assertThat(operationsFor(pattern))
+          .singleElement()
+          .satisfies(
+              event -> {
+                assertThat(event.operation()).isEqualTo(operation);
+                assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.CHARACTER_CLASS);
+                assertThat(event.auxiliaryStrategies())
+                    .containsExactly(
+                        new StrategyParticipation(
+                            MatchStrategy.CHARACTER_CLASS, StrategyRole.REJECT_PREFILTER));
+              });
+    }
+  }
+
+  @Test
+  void multilineStartAnchorDoesNotTakeTheStartAnchoredRejectPath() {
+    Pattern.setDiagnostics(diagnostics);
+
+    // (?m)^ lowers to a begin-line assertion, not prog().anchorStart(), so the new reject arm must
+    // not fire: a match can legitimately begin at a later line.
+    Pattern pattern = Pattern.compile("(?m)^\\(Source: \\d+\\)\\s*");
+    Matcher matcher = pattern.matcher("first line\n(Source: 7) second line");
+
+    assertThat(matcher.replaceAll("")).isEqualTo("first line\nsecond line");
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event ->
+                assertThat(event.auxiliaryStrategies())
+                    .doesNotContain(
+                        new StrategyParticipation(
+                            MatchStrategy.LITERAL, StrategyRole.REJECT_PREFILTER)));
+  }
+
+  @Test
   void ordinaryReplacementLoopSuppressesNestedFindEvents() {
     Pattern.setDiagnostics(diagnostics);
     EnginePathOptions exactOnly =
@@ -298,6 +384,28 @@ class DiagnosticsTest {
                   .contains(
                       new StrategyParticipation(
                           MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION));
+            });
+  }
+
+  @Test
+  void abandonedCaptureSpeculationPreservesEarlierReplacementBoundary() {
+    Pattern pattern = Pattern.compile("(error:\\[)[A-Z](\\] code:500)");
+    Matcher priming = pattern.matcher("error:[C] code:500");
+    assertThat(priming.find()).isTrue();
+    assertThat(priming.group(1)).isEqualTo("error:[");
+
+    Pattern.setDiagnostics(diagnostics);
+    assertThat(
+            pattern.matcher("error:[C] code:500 xxx error:[x] code:500").replaceAll(result -> "ok"))
+        .isEqualTo("ok xxx error:[x] code:500");
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.operation()).isEqualTo(MatchOperation.REPLACE_ALL);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.BIT_STATE);
+              assertThat(event.matchCount()).isEqualTo(1);
             });
   }
 
@@ -781,24 +889,6 @@ class DiagnosticsTest {
         .satisfies(
             event -> {
               assertThat(event.forwardDfaSearchCount()).isZero();
-            });
-  }
-
-  @Test
-  void executableMultiAnchorMismatchRecordsParticipation() {
-    Pattern.setDiagnostics(diagnostics);
-    Pattern pattern = Pattern.compile("AAA[0-9]BB");
-
-    assertThat(pattern.matcher("AAA-BB").find()).isFalse();
-    assertThat(operationsFor(pattern))
-        .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.MULTI_ANCHOR);
-              assertThat(event.auxiliaryStrategies())
-                  .contains(
-                      new StrategyParticipation(
-                          MatchStrategy.MULTI_ANCHOR, StrategyRole.CANDIDATE_VERIFICATION));
             });
   }
 

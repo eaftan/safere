@@ -5,11 +5,29 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 public final class ReplacementFuzzer {
+
+  @Test
+  void terminalEmptyReplacementState() {
+    // Exercise MatcherPair's state exclusion; MatcherTest pins the public API behavior.
+    for (String regex : List.of("x*", "x?", "(x)*", "(?<part>x*)", "", "$", "\\b", "x+")) {
+      for (String input : List.of("", "x", "yxxy", "yyyy")) {
+        FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, 0);
+        assertThat(pattern.matcher(input).replaceAll("-")).isTrue();
+        assertThat(pattern.matcher(input).replaceAll(result -> "-")).isTrue();
+        FuzzSupport.MatcherPair first = pattern.matcher(input);
+        assertThat(first.replaceFirst("-")).isTrue();
+        first.hasReplacementMatchState();
+      }
+    }
+  }
 
   @FuzzTest(maxDuration = "30s")
   void replacement(FuzzedDataProvider data) {
@@ -34,11 +52,17 @@ public final class ReplacementFuzzer {
               + data.pickValue(List.of("x", "y"))
               + data.consumeString(32);
       replacement = data.consumeString(32);
+    } else if (data.consumeBoolean()) {
+      String atom = data.pickValue(List.of("x", "[xy]", "(x)", "(?<part>x)", "(?:x|y)"));
+      regex = atom + data.pickValue(List.of("*", "?", "{0,3}", "*?", "+"));
+      flags = 0;
+      input = data.consumeString(64);
+      replacement = data.pickValue(List.of("-", "", "[$0]"));
     } else {
       regex = data.consumeString(256);
       flags = FuzzSupport.consumeFlags(data);
       input = data.consumeString(2048);
-      replacement = data.consumeRemainingAsString();
+      replacement = data.consumeString(1024);
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
     if (pattern == null) {

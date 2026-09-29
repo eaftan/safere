@@ -5,11 +5,14 @@
 
 package org.safere.fuzz;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
 import java.util.Locale;
 import org.safere.Pattern;
+import org.safere.Utf8Input;
 
 public final class MatchFuzzer {
   private static final int CI = Pattern.CASE_INSENSITIVE;
@@ -37,7 +40,12 @@ public final class MatchFuzzer {
       List.of(
           new RegressionCase("[A-Z]", CI_U, List.of("\u0130", "\u212A")),
           new RegressionCase("[I-I]", CI_U, List.of("\u0130")),
-          new RegressionCase("[K-K]", CI_U, List.of("\u212A")));
+          new RegressionCase("[K-K]", CI_U, List.of("\u212A")),
+          new RegressionCase("[İ-İ]", CI_U, List.of("I", "i", "ı")),
+          new RegressionCase("[ı-ı]", CI_U, List.of("I", "i", "İ")),
+          new RegressionCase("İ", CI_U, List.of("I", "i", "ı")),
+          new RegressionCase("ı", CI_U, List.of("I", "i", "İ")),
+          new RegressionCase("\uFB05", CI_U, List.of("\uFB06")));
 
   @FuzzTest(maxDuration = "30s")
   void match(FuzzedDataProvider data) {
@@ -51,6 +59,8 @@ public final class MatchFuzzer {
     for (RegressionCase regression : CASE_FOLDING_MODEL_REGRESSIONS) {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
+    assertAcceleratedRestartArrayGrowthMatchesJdk(data);
+    assertCaseFamilyClosureSafeRe(data);
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
     assertUnicodeLineStartAnchorsMatchJdk();
@@ -59,6 +69,7 @@ public final class MatchFuzzer {
     assertZeroWidthPossessiveCaptureRetentionJdk();
     assertDfaSandwichLeftmostStartCasesMatchJdk();
     assertMixedAsciiAndExactUnicodeCaseFoldingMatchesJdk(data);
+    assertUnicodeCaseFoldedUtf8LiteralMatchesJdk(data);
     assertScopedCaseFoldingMatchesJdk(data);
     assertMultiAnchorGapBoundsMatchJdk(data);
     assertLeadingClassAssertionsMatchJdk(data);
@@ -77,21 +88,54 @@ public final class MatchFuzzer {
     } else {
       regex = data.consumeString(256);
       flags = FuzzSupport.consumeFlags(data);
-      input = data.consumeRemainingAsString();
+      input = data.consumeString(2048);
     }
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip(regex, flags);
-    if (pattern == null) {
-      return;
+    if (pattern != null) {
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      matcher.matches();
+      matcher.reset();
+      matcher.lookingAt();
+      matcher.reset();
+      matcher.find();
+      matcher.reset();
+      matcher.find(FuzzSupport.consumeIndex(data, input));
     }
+    // Append new consumers so existing corpus inputs retain their original interpretation.
+    assertNullableFindInsideSurrogatePairMatchesJdk(data);
+  }
 
-    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
-    matcher.matches();
-    matcher.reset();
-    matcher.lookingAt();
-    matcher.reset();
-    matcher.find();
-    matcher.reset();
-    matcher.find(FuzzSupport.consumeIndex(data, input));
+  private static void assertAcceleratedRestartArrayGrowthMatchesJdk(FuzzedDataProvider data) {
+    // Vary both dimensions of the flat DFA arrays and restart after a context change (#882).
+    int prefixLength = data.consumeInt(4, 32);
+    int alphabetSize = data.consumeInt(32, 160);
+    StringBuilder tail = new StringBuilder();
+    for (int i = 0; i < alphabetSize; i++) {
+      tail.appendCodePoint(0x400 + i);
+    }
+    String prefix = "\0".repeat(prefixLength);
+    String regex = "xbw|" + prefix + tail + "$";
+    String separator = data.pickValue(List.of("\n", "\r", "\r\n", "!", "a", "😀"));
+    String suffix = data.pickValue(List.of("", "xbw", "XBW", prefix + tail));
+    String input = "!" + prefix + "!" + separator + "\0" + "!".repeat(40) + suffix;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, CI_U);
+    if (pattern != null) {
+      for (int pass = 0; pass < 2; pass++) {
+        pattern.matcher(input).find();
+      }
+    }
+  }
+
+  private static void assertNullableFindInsideSurrogatePairMatchesJdk(FuzzedDataProvider data) {
+    String regex = data.pickValue(List.of(".|", "a|", ".?", "(?:.|)A?"));
+    int codePoint = data.pickValue(List.of(0x1F600, 0x2F802, 0x8D43F));
+    String prefix = data.consumeBoolean() ? "x" : "";
+    String suffix = data.pickValue(List.of("", "A", "AB"));
+    String input = prefix + new String(Character.toChars(codePoint)) + suffix;
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      pattern.matcher(input).find(prefix.length() + 1);
+    }
   }
 
   private static String distinctLiteralRun(int count) {
@@ -259,6 +303,25 @@ public final class MatchFuzzer {
     }
   }
 
+  private static void assertUnicodeCaseFoldedUtf8LiteralMatchesJdk(FuzzedDataProvider data) {
+    String family = data.pickValue(List.of("Iiİı", "KkK", "Ssſ", "Σσς", "Шш"));
+    int[] members = family.codePoints().toArray();
+    int source = members[data.consumeInt(0, members.length - 1)];
+    int target = members[data.consumeInt(0, members.length - 1)];
+    String prefix = data.pickValue(List.of("é", "Ж", "α", "A"));
+    String suffix = data.pickValue(List.of("", "x", "終"));
+    String regex = prefix + new String(Character.toChars(source)) + suffix;
+    String input = "!" + prefix + new String(Character.toChars(target)) + suffix + "!";
+
+    boolean expected = java.util.regex.Pattern.compile(regex, CI_U).matcher(input).find();
+    boolean actual =
+        Pattern.compile(regex, CI_U).matcher(Utf8Input.validated(input.getBytes(UTF_8))).find();
+    if (actual != expected) {
+      throw new AssertionError(
+          "Unicode-folded UTF-8 find divergence for /" + regex + "/ on " + input);
+    }
+  }
+
   private static void assertScopedCaseFoldingMatchesJdk(FuzzedDataProvider data) {
     String exact = distinctAsciiLiteral(data.consumeInt(3, 12));
     String folded = distinctAsciiLiteral(data.consumeInt(3, 12));
@@ -290,7 +353,7 @@ public final class MatchFuzzer {
     String driver = distinctAsciiLiteral(data.consumeInt(8, 16));
     String regex;
     String input;
-    switch (data.consumeInt(0, 9)) {
+    switch (data.consumeInt(0, 11)) {
       case 0 -> {
         regex = "111[0-9]+" + driver;
         input = "1".repeat(repeatedDigits) + "2" + driver;
@@ -331,6 +394,29 @@ public final class MatchFuzzer {
         regex = "TARGET[^;]*\\uDE00" + driver;
         input = "TARGET" + (data.consumeBoolean() ? "😀" : "?") + driver;
       }
+      case 9 -> {
+        // A gap in leading position. Every other shape here opens with a literal the
+        // accelerator can lead with, so the match start is proposed rather than recovered.
+        int minimum = data.consumeInt(0, 4);
+        int maximum = data.consumeInt(minimum + 1, 6);
+        String lazy = data.consumeBoolean() ? "?" : "";
+        regex = "(?s).{" + minimum + "," + maximum + "}" + lazy + "TARGET[^;]*" + driver;
+        input =
+            data.pickValue(List.of("x", "é", "😀")).repeat(data.consumeInt(0, 7))
+                + "TARGET"
+                + driver;
+      }
+      case 10 -> {
+        // Inline scoped UNIX_LINES changes which characters a gap may span: CR, NEL and
+        // LINE SEPARATOR are line terminators by default but not under (?d).
+        int maximum = data.consumeInt(1, 4);
+        regex =
+            data.pickValue(List.of("", "(?d)", "(?d)(?s)")) + "TARGET.{1," + maximum + "}" + driver;
+        input =
+            "TARGET"
+                + data.pickValue(List.of("\r", "\n", "\r\n", "\u0085", "\u2028", "x"))
+                + driver;
+      }
       default -> {
         regex = "TARGET[^;]*?" + driver;
         input = "TARGETx;".repeat(data.consumeInt(1, 32)) + driver;
@@ -339,7 +425,8 @@ public final class MatchFuzzer {
 
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
     if (pattern != null) {
-      pattern.matcher(input).find();
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      while (matcher.find()) {}
     }
   }
 
@@ -355,6 +442,28 @@ public final class MatchFuzzer {
         FuzzSupport.compileCompatibleOrSkip(regression.regex(), regression.flags());
     if (pattern != null) {
       pattern.matcher(data.pickValue(regression.inputs())).lookingAt();
+    }
+  }
+
+  private static void assertCaseFamilyClosureSafeRe(FuzzedDataProvider data) {
+    String family = data.pickValue(List.of("Iiİı", "KkK", "Σσς", "ÅåÅ", "ΩωΩ", "ßẞ", "Θθϑϴ", "ﬅﬆ"));
+    int[] members = family.codePoints().toArray();
+    int source = members[data.consumeInt(0, members.length - 1)];
+    int target = members[data.consumeInt(0, members.length - 1)];
+    String literal = "\\x{" + Integer.toHexString(source) + "}";
+    String regex =
+        switch (data.consumeInt(0, 4)) {
+          case 0 -> literal;
+          case 1 -> "[" + literal + "]";
+          case 2 -> "[" + literal + "-" + literal + "]";
+          case 3 -> "[^" + literal + "]";
+          default -> "[^" + literal + "-" + literal + "]";
+        };
+    boolean actual =
+        Pattern.compile(regex, CI_U).matcher(new String(Character.toChars(target))).matches();
+    if (actual == regex.startsWith("[^")) {
+      throw new AssertionError(
+          "SafeRE case family closure: " + regex + " U+" + Integer.toHexString(target));
     }
   }
 

@@ -1,5 +1,9 @@
 # Java Benchmark Configuration Evaluation
 
+This is a historical measurement report for the revision recorded below. For
+current collection settings and commands, use the [performance guide](PERFORMANCE_GUIDE.md)
+and [benchmark runner guide](README.md).
+
 ## Goal
 
 The goal of this experiment was to find the fastest Java benchmark

@@ -9,6 +9,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,13 +40,16 @@ public final class BenchmarkInputMaterializer {
 
   private final JsonObject data;
   private final String benchmarkDataSha256;
+  private final Path benchmarkDirectory;
   private final Map<String, DeclarativeBenchmarkPlan.InputDeclaration> declarations;
   private final Map<String, byte[]> inputs = new LinkedHashMap<>();
 
-  private BenchmarkInputMaterializer(JsonObject data, String benchmarkDataSha256) {
+  private BenchmarkInputMaterializer(
+      JsonObject data, String benchmarkDataSha256, Path benchmarkDirectory) {
     BenchmarkDataSchema.validate(data);
     this.data = PatternProfiles.normalizeInline(data);
     this.benchmarkDataSha256 = benchmarkDataSha256;
+    this.benchmarkDirectory = benchmarkDirectory.toAbsolutePath().normalize();
     if (!this.data.has("schemaVersion")
         || this.data.get("schemaVersion").getAsInt() != DeclarativeBenchmarkPlan.SCHEMA_VERSION) {
       throw new IllegalArgumentException(
@@ -86,16 +91,20 @@ public final class BenchmarkInputMaterializer {
         GSON.fromJson(new String(benchmarkDataBytes, StandardCharsets.UTF_8), JsonObject.class);
 
     BenchmarkInputMaterializer materializer =
-        new BenchmarkInputMaterializer(data, sha256(benchmarkDataBytes));
+        new BenchmarkInputMaterializer(data, sha256(benchmarkDataBytes), benchmarkDirectory);
     BenchmarkDataSchema.requireWorkloads(data);
     materializer.generate();
     materializer.write(outputDirectory);
   }
 
   static Map<String, byte[]> materialize(JsonObject data) {
+    return materialize(data, Path.of("."));
+  }
+
+  static Map<String, byte[]> materialize(JsonObject data, Path benchmarkDirectory) {
     BenchmarkInputMaterializer materializer =
         new BenchmarkInputMaterializer(
-            data, sha256(GSON.toJson(data).getBytes(StandardCharsets.UTF_8)));
+            data, sha256(GSON.toJson(data).getBytes(StandardCharsets.UTF_8)), benchmarkDirectory);
     materializer.generate();
     Map<String, byte[]> result = new LinkedHashMap<>();
     materializer.inputs.forEach((id, bytes) -> result.put(id, bytes.clone()));
@@ -128,7 +137,7 @@ public final class BenchmarkInputMaterializer {
             "Input recipe references unknown materialized input: " + frame.inputId());
       }
       if (frame.dependenciesResolved()) {
-        byte[] bytes = evaluate(declaration.recipe()).getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = evaluateBytes(declaration.recipe());
         if (inputs.put(frame.inputId(), bytes) != null) {
           throw new IllegalArgumentException(
               "Duplicate materialized input key: " + frame.inputId());
@@ -170,6 +179,7 @@ public final class BenchmarkInputMaterializer {
     Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments = recipe.arguments();
     return switch (recipe.kind()) {
       case LITERAL -> string(arguments, "text");
+      case FILE -> throw new IllegalStateException("File recipes are evaluated as bytes");
       case REPEAT -> string(arguments, "value").repeat(integer(arguments, "count"));
       case REPEAT_TO_LENGTH ->
           repeatToSize(string(arguments, "unit"), integer(arguments, "length"));
@@ -245,6 +255,52 @@ public final class BenchmarkInputMaterializer {
           string(arguments, "literal").concat("?").repeat(integer(arguments, "count"))
               + string(arguments, "literal").repeat(integer(arguments, "count"));
     };
+  }
+
+  private byte[] evaluateBytes(DeclarativeBenchmarkPlan.InputRecipe recipe) {
+    if (recipe.kind() == DeclarativeBenchmarkPlan.RecipeKind.FILE) {
+      return readFile(recipe.arguments());
+    }
+    return evaluate(recipe).getBytes(StandardCharsets.UTF_8);
+  }
+
+  private byte[] readFile(Map<String, DeclarativeBenchmarkPlan.RecipeValue> arguments) {
+    String declaredPath = string(arguments, "path");
+    Path relativePath = Path.of(declaredPath);
+    if (relativePath.isAbsolute()
+        || !relativePath.startsWith("data")
+        || relativePath.getNameCount() < 2
+        || !relativePath.equals(relativePath.normalize())) {
+      throw new IllegalArgumentException("File recipe path must stay within data: " + declaredPath);
+    }
+
+    byte[] bytes;
+    try {
+      Path root = benchmarkDirectory.toRealPath();
+      Path dataDirectory = root.resolve("data").toRealPath();
+      Path source = root.resolve(relativePath).toRealPath();
+      if (!dataDirectory.startsWith(root)
+          || !source.startsWith(dataDirectory)
+          || !Files.isRegularFile(source)) {
+        throw new IllegalArgumentException(
+            "File recipe path must stay within data: " + declaredPath);
+      }
+      bytes = Files.readAllBytes(source);
+    } catch (IOException exception) {
+      throw new IllegalArgumentException("Cannot read file recipe: " + declaredPath, exception);
+    }
+
+    String expectedSha256 = string(arguments, "sha256");
+    if (!sha256(bytes).equals(expectedSha256)) {
+      throw new IllegalArgumentException("File recipe SHA-256 mismatch: " + declaredPath);
+    }
+    try {
+      StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes));
+    } catch (CharacterCodingException exception) {
+      throw new IllegalArgumentException(
+          "File recipe is not valid UTF-8: " + declaredPath, exception);
+    }
+    return bytes;
   }
 
   private record MaterializationFrame(String inputId, boolean dependenciesResolved) {}

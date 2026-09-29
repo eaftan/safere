@@ -5,12 +5,22 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 class RarityOracleTest {
+
+  @Test
+  void utf8LiteralAnchorAvoidsCommonLeadBytes() {
+    byte[] russian = "Шерлок Холмс".getBytes(UTF_8);
+
+    assertThat(RarityOracle.rarestUtf8LiteralByteOffset(russian)).isEqualTo(1);
+    assertThat(RarityOracle.rarestUtf8LiteralByteOffset("Sherlock Holmes".getBytes(UTF_8)))
+        .isEqualTo(-1);
+  }
 
   @Test
   void spaceIsMostCommonAndRareLettersHaveHighRank() {
@@ -99,20 +109,11 @@ class RarityOracleTest {
   }
 
   @Test
-  void foldedMultiAnchorSelectionIsInvariantToPatternCapitalization() {
-    MultiAnchorDescriptor.Anchor.Single upper =
-        MultiAnchorDescriptor.Anchor.Single.create("Xq", true);
-    MultiAnchorDescriptor.Anchor.Single lower =
-        MultiAnchorDescriptor.Anchor.Single.create("xq", true);
-
-    assertThat(upper.anchorOffset()).isEqualTo(lower.anchorOffset()).isEqualTo(1);
-    assertThat(upper.selectivityScore()).isEqualTo(lower.selectivityScore());
-
-    MultiAnchorDescriptor.Anchor upperAlternation =
-        MultiAnchorDescriptor.Anchor.create(new String[] {"Xq", "Za"}, true);
-    MultiAnchorDescriptor.Anchor lowerAlternation =
-        MultiAnchorDescriptor.Anchor.create(new String[] {"xq", "za"}, true);
-    assertThat(upperAlternation.selectivityScore()).isEqualTo(lowerAlternation.selectivityScore());
+  void foldedSelectivityIsInvariantToPatternCapitalization() {
+    assertThat(RarityOracle.literalSelectivityScore("Xq", true))
+        .isEqualTo(RarityOracle.literalSelectivityScore("xq", true));
+    assertThat(RarityOracle.literalSelectivityScore("Za", true))
+        .isEqualTo(RarityOracle.literalSelectivityScore("za", true));
   }
 
   @Test

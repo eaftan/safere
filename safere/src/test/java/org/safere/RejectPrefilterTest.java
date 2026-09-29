@@ -18,7 +18,6 @@ class RejectPrefilterTest {
     assertThat(RejectPrefilter.create((MultiAnchorDescriptor) null)).isNull();
     assertThat(RejectPrefilter.create((MultiAnchorDescriptor.RejectPlan) null)).isNull();
     assertThat(RejectPrefilter.create(MultiAnchorDescriptor.RejectPlan.None.INSTANCE)).isNull();
-    assertThat(MultiAnchorDescriptor.NONE.hasRejectionFilter()).isFalse();
   }
 
   @Test
@@ -363,5 +362,58 @@ class RejectPrefilterTest {
     Pattern p = Pattern.compile("abc[0-9]+");
     assertThat(p.prefix()).isEqualTo("abc");
     assertThat(p.rejectPlan()).isInstanceOf(MultiAnchorDescriptor.RejectPlan.None.class);
+  }
+
+  @Test
+  void oneCharacterAsciiClassScansAsACharacterSearch() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(new CharClassBuilder().addRune('#').build());
+    assertThat(scanInfo).isInstanceOf(CharClassScanInfo.AsciiSmallSet.class);
+
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    assertThat(prefilter).isInstanceOf(RejectPrefilter.CharClass.class);
+    assertThat(((RejectPrefilter.CharClass) prefilter).singleAscii()).isEqualTo('#');
+
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+    String hit = "x = 1  # noqa";
+    String miss = "x = 1  no comment";
+
+    // String, via the text argument.
+    assertThat(prefilter.canReject(null, hit, 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, miss, 0, options)).isTrue();
+    // searchFrom is respected: the only '#' is behind it.
+    assertThat(prefilter.canReject(null, hit, hit.indexOf('#') + 1, options)).isTrue();
+
+    // String, via the scanner argument.
+    assertThat(prefilter.canReject(new StringInputScanner(hit), null, 0, options)).isFalse();
+    assertThat(prefilter.canReject(new StringInputScanner(miss), null, 0, options)).isTrue();
+
+    // UTF-8.
+    assertThat(prefilter.canReject(utf8Scanner(hit), 0, options)).isFalse();
+    assertThat(prefilter.canReject(utf8Scanner(miss), 0, options)).isTrue();
+
+    // A '#' beyond the BMP-adjacent boundary is still found, and a non-ASCII
+    // haystack does not confuse the character search.
+    String wide = "\u00e9\u4e2d\ud83d\ude00#";
+    assertThat(prefilter.canReject(null, wide, 0, options)).isFalse();
+    assertThat(prefilter.canReject(utf8Scanner(wide), 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, "\u00e9\u4e2d\ud83d\ude00", 0, options)).isTrue();
+  }
+
+  @Test
+  void multiCharacterAsciiClassKeepsTheClassScan() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(new CharClassBuilder().addRune('#').addRune('%').build());
+    assertThat(scanInfo).isInstanceOf(CharClassScanInfo.AsciiSmallSet.class);
+
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    assertThat(((RejectPrefilter.CharClass) prefilter).singleAscii()).isEqualTo(-1);
+
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+    assertThat(prefilter.canReject(null, "a # b", 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, "a % b", 0, options)).isFalse();
+    assertThat(prefilter.canReject(null, "a + b", 0, options)).isTrue();
   }
 }

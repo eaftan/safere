@@ -49,6 +49,8 @@ org.safere.benchmark.*
 benchmark-results/*
 !benchmark-results/published/
 !benchmark-results/published/**
+!benchmark-results/rebar-2026-09-19/
+!benchmark-results/rebar-2026-09-19/**
 
 # Local Jazzer fuzzing corpus
 safere-fuzz/.cifuzz-corpus/
