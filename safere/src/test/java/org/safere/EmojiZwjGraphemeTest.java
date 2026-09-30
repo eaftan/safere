@@ -10,11 +10,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Rule-based GB11 coverage beyond Unicode's GraphemeBreakTest.txt; see issue #936. */
-@DisabledForCrosscheck("SafeRE follows UAX #29 GB11; the JDK retains pictographs across non-Extend")
+@DisabledForCrosscheck(
+    "SafeRE follows UAX #29 GB11; the JDK mishandles interrupted and Prepend-prefixed chains")
 class EmojiZwjGraphemeTest {
   @ParameterizedTest
   @ValueSource(strings = {"", "\u0301", "\u0301\u0301", "\uD83C\uDFFD"})
@@ -31,6 +33,41 @@ class EmojiZwjGraphemeTest {
           interrupt.isEmpty()
               ? List.of(first + last + "\u200D" + pictograph)
               : List.of(first, last + "\u200D" + pictograph));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", "\u0301", "\uFE0F", "\uD83C\uDFFD"})
+  void prependBeforePictographDoesNotDisableZwjChain(String extend) {
+    String pictograph = "\uD83D\uDC69";
+    for (String prepend : List.of("\u0600", "\u0600\u0600", "\uD804\uDCBD")) {
+      String chain = pictograph + extend + "\u200D" + pictograph;
+      assertClusters(prepend + chain, List.of(prepend + chain));
+      assertClusters(
+          prepend + chain + "\u200D" + pictograph,
+          List.of(prepend + chain + "\u200D" + pictograph));
+      // Prepend inside the GB11 prefix interrupts it; GB9b attaches the following ZWJ.
+      assertClusters(
+          pictograph + prepend + "\u200D" + pictograph,
+          List.of(pictograph, prepend + "\u200D", pictograph));
+    }
+  }
+
+  @Test
+  void regionClipsPictographContextButNotPrependBeforeVisiblePictograph() {
+    String input = "\u0600\uD83D\uDC69\u0301\u200D\uD83D\uDC69";
+    for (int start : List.of(0, 1, 3, 4)) {
+      Matcher matcher = Pattern.compile("\\X").matcher(input).region(start, input.length());
+      List<String> actual = new ArrayList<>();
+      while (matcher.find()) {
+        actual.add(matcher.group());
+      }
+      assertThat(actual)
+          .as("region start=%s", start)
+          .isEqualTo(
+              start <= 1
+                  ? List.of(input.substring(start))
+                  : List.of(input.substring(start, 5), input.substring(5)));
     }
   }
 

@@ -47,7 +47,6 @@ final class GraphemeSupport {
     private int[] regionalIndicatorStartsBefore;
     private int[] regionalIndicatorRunStartBefore;
     private int[] extendedPictographicStartBefore;
-    private int[] extendedPictographicPrependBefore;
     private int[] indicConjunctSequenceStartBefore;
     private int[] indicConjunctLinkerStartBefore;
 
@@ -98,8 +97,7 @@ final class GraphemeSupport {
       if (pictographicStart < start) {
         return false;
       }
-      int prependStart = extendedPictographicPrependBefore[pos];
-      return prependStart < start;
+      return true;
     }
 
     boolean hasIndicConjunctLinkerBefore(int pos, int regionStart) {
@@ -203,12 +201,9 @@ final class GraphemeSupport {
         return;
       }
       extendedPictographicStartBefore = new int[text.length() + 1];
-      extendedPictographicPrependBefore = new int[text.length() + 1];
       Arrays.fill(extendedPictographicStartBefore, -1);
-      Arrays.fill(extendedPictographicPrependBefore, -1);
 
       int visiblePictographicStart = -1;
-      int visiblePrependStart = -1;
       int pos = 0;
       while (pos < text.length()) {
         if (WorkCounterConfig.ENABLED) {
@@ -219,16 +214,13 @@ final class GraphemeSupport {
         int next = InputScanner.position(decoded);
         if (containsCodePoint(EXTENDED_PICTOGRAPHIC, cp)) {
           visiblePictographicStart = pos;
-          visiblePrependStart = immediatePrependStartBefore(text, pos);
         } else if (!containsCodePoint(GCB_EXTEND, cp)) {
           // GB11 requires Extended_Pictographic Extend* before the ZWJ. GB9/GB9a
           // keep ZWJ and SpacingMark in the cluster, but they interrupt this prefix.
           visiblePictographicStart = -1;
-          visiblePrependStart = -1;
         }
         for (int i = pos + 1; i <= next; i++) {
           extendedPictographicStartBefore[i] = visiblePictographicStart;
-          extendedPictographicPrependBefore[i] = visiblePrependStart;
         }
         pos = next;
       }
@@ -781,17 +773,6 @@ final class GraphemeSupport {
       String text, int pos, int regionStart) {
     return pos == regionStart + 1
         && isRegionStartSplitSurrogateBoundary(text, regionStart, regionStart);
-  }
-
-  private static int immediatePrependStartBefore(InputScanner text, int pos) {
-    if (pos <= 0) {
-      return -1;
-    }
-    long decoded = text.decodeBackward(pos);
-    if (!isGraphemePrepend(InputScanner.codePoint(decoded))) {
-      return -1;
-    }
-    return InputScanner.position(decoded);
   }
 
   private static boolean hasHighSurrogateBeforeLowSurrogateInRegion(

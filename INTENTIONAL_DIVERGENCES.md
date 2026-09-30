@@ -382,14 +382,18 @@ Issue reference: [#936](https://github.com/eaftan/safere/issues/936).
 SafeRE follows [UAX #29 rule GB11](https://www.unicode.org/reports/tr29/#GB11):
 `Extended_Pictographic Extend* ZWJ × Extended_Pictographic`. Only code points
 with grapheme-break property `Extend` preserve the pictograph prefix before
-the ZWJ. `SpacingMark` and another ZWJ interrupt that prefix, even though
+the ZWJ. A Prepend before the pictograph does not disable GB11: GB9b joins
+it to the pictograph, and GB11 does not require a cluster-start pictograph.
+`SpacingMark` and another ZWJ interrupt that prefix, even though
 GB9/GB9a keep those characters in the preceding cluster.
 
 For example, `U+1F44D U+0903 U+200D U+1F44D` and
 `U+1F44D U+200D U+200D U+1F44D` each form two SafeRE clusters, at UTF-16
 bounds `[0, 4)` and `[4, 6)`. OpenJDK 26.0.1 instead produces one cluster
 at `[0, 6)`. The control `U+1F44D U+0301 U+200D U+1F44D` remains one cluster
-in both implementations because U+0301 is `Extend`.
+in both implementations because U+0301 is `Extend`. Conversely,
+`U+0600 U+1F469 U+200D U+1F469` forms one SafeRE cluster at `[0, 6)`,
+while OpenJDK 26.0.1 produces two, at `[0, 4)` and `[4, 6)`.
 
 The [JDK 26 Pattern specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
 defines `\X` and `\b{g}` in terms of Unicode extended grapheme clusters.
@@ -400,8 +404,11 @@ computed in one linear pass, with constant-time queries afterward.
 
 `EmojiZwjGraphemeTest` covers interruptions, valid Extend prefixes, renewed
 pictograph chains, regions, boundaries, repeated matches, and UTF-8 input.
-`UnicodeFuzzer` generates these shapes using rule-based expectations instead
-of treating the JDK implementation as the oracle.
+`EmojiZwjGraphemeFuzzer` generates arbitrary sequences over a small grapheme-property
+alphabet and checks an independent rule-based reference instead of treating
+the JDK implementation as the oracle. This is scoped coverage, not a full
+UAX #29 audit; the broader assessment is tracked in
+[#954](https://github.com/eaftan/safere/issues/954).
 
 ## Grapheme Cluster Composition
 

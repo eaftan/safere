@@ -21,6 +21,8 @@ signals a failed invariant or a semantic divergence.
 - `RegionBoundsFuzzer` fuzzes regions and anchoring/transparent bounds.
 - `DeferredRegionCaptureFuzzer` forces deferred NFA captures across region bounds and matcher reuse.
 - `UnicodeFuzzer` biases input strings toward Unicode boundary cases.
+- `EmojiZwjGraphemeFuzzer` checks a small grapheme-property alphabet against an independent
+  UAX #29 reference, including GB11 interruptions and Prepend prefixes.
 - `Utf8InputFuzzer` checks direct UTF-8 matching, byte bounds, and input validation.
 
 ## Regression Mode
