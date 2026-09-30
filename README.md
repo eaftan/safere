@@ -40,20 +40,20 @@ Maven:
 <dependency>
   <groupId>org.safere</groupId>
   <artifactId>safere</artifactId>
-  <version>0.11.0</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
 Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("org.safere:safere:0.11.0")
+implementation("org.safere:safere:1.0.0")
 ```
 
 Gradle (Groovy DSL):
 
 ```groovy
-implementation 'org.safere:safere:0.11.0'
+implementation 'org.safere:safere:1.0.0'
 ```
 
 See the [installation guide](docs/INSTALLATION.md) for development snapshots
