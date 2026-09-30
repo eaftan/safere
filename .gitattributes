@@ -7,3 +7,6 @@ benchmark-results/published/**/jmh-output.txt -diff
 benchmark-results/published/**/*.json -diff
 benchmark-results/published/**/*.jsonl -diff
 benchmark-results/published/**/*-tables.md -diff
+benchmark-results/published/**/*.csv -diff
+benchmark-results/published/**/*.log -diff
+benchmark-results/published/**/*.tar.gz -diff

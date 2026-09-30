@@ -1,0 +1,18 @@
+Rebar run is prepared but not started.
+
+Checkout: /home/eaftan/rebar, branch `personal`, HEAD
+`9ee90dfb569cbcfb81b8a23a4b99b12bfff0e1d7`. The only local edit made for
+this run is `engines/safere/pom.xml`, updated from SafeRE 0.11.0 to
+0.12.0-SNAPSHOT as requested. That snapshot JAR is present in the local Maven
+repository.
+
+Requested engine identifiers: `java/hotspot`, `re2j`, `re2`, `rust/regex`,
+`safere/string`, `safere/utf8`, `safere/utf8-vector`, and `pcre2/jit`.
+
+The checkout has a prebuilt `target/debug/rebar`, but it identifies revision
+`7e0788a62bed235d77382a5d5caa659ab68845e3`, before the personal-branch change
+`a2b93e9` that adds RE2/J JMH integration and runner lifecycle handling. It is
+not suitable for this requested run. Building the current CLI with
+`cargo build --release --locked --offline` stops because locked dependency
+`process-wrap` 9.1.0 is not in the local Cargo cache. No benchmark runner was
+built and no Rebar measurements were taken.

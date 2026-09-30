@@ -1,0 +1,394 @@
+=== Standard mode ===
+=== Building safere + benchmark JAR ===
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX17
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX17 - Success
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX20
+-- Performing Test ABSL_INTERNAL_AT_LEAST_CXX20 - Failed
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+CMake Warning in CMakeLists.txt:
+  CMAKE_SKIP_INSTALL_RULES was enabled even though installation rules have
+  been specified
+
+
+-- Configuring done (6.1s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build
+[  1%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_log_severity.dir/log_severity.cc.o
+[  1%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_utf8_for_code_point.dir/internal/utf8_for_code_point.cc.o
+[  1%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_spinlock_wait.dir/internal/spinlock_wait.cc.o
+[  1%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_if.cc.o
+[  1%] Building CXX object _deps/abseil-cpp-build/absl/profiling/CMakeFiles/absl_exponential_biased.dir/internal/exponential_biased.cc.o
+[  2%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_strerror.dir/internal/strerror.cc.o
+[  3%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_format.cc.o
+[  4%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_leak_check.dir/leak_check.cc.o
+[  4%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_nullguard.dir/internal/nullguard.cc.o
+[  4%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_platform.dir/internal/randen_round_keys.cc.o
+[  4%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_commandlineflag_internal.dir/internal/commandlineflag.cc.o
+[  4%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_fixed.cc.o
+[  5%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_civil_time.dir/internal/cctz/src/civil_time_detail.cc.o
+[  5%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_impl.cc.o
+[  5%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_info.cc.o
+[  5%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_libc.cc.o
+[  6%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_lookup.cc.o
+[  6%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/time_zone_posix.cc.o
+[  7%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time_zone.dir/internal/cctz/src/zone_info_source.cc.o
+[  7%] Linking CXX static library libabsl_random_internal_platform.a
+[  8%] Linking CXX static library libabsl_leak_check.a
+[  9%] Linking CXX static library libabsl_flags_commandlineflag_internal.a
+[  9%] Linking CXX static library libabsl_utf8_for_code_point.a
+[  9%] Built target absl_leak_check
+[  9%] Built target absl_random_internal_platform
+[  9%] Built target absl_flags_commandlineflag_internal
+[ 10%] Linking CXX static library libabsl_log_internal_nullguard.a
+[  9%] Built target absl_utf8_for_code_point
+[ 10%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_randen_hwaes_impl.dir/internal/randen_hwaes.cc.o
+[ 10%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_randen_slow.dir/internal/randen_slow.cc.o
+[ 10%] Built target absl_log_internal_nullguard
+[ 11%] Linking CXX static library libabsl_spinlock_wait.a
+[ 11%] Built target absl_spinlock_wait
+[ 11%] Linking CXX static library libabsl_exponential_biased.a
+[ 11%] Linking CXX static library libabsl_strerror.a
+[ 11%] Built target absl_exponential_biased
+[ 11%] Built target absl_strerror
+[ 12%] Building CXX object _deps/abseil-cpp-build/absl/profiling/CMakeFiles/absl_periodic_sampler.dir/internal/periodic_sampler.cc.o
+[ 12%] Linking CXX static library libabsl_log_severity.a
+[ 12%] Built target absl_log_severity
+[ 13%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_raw_logging_internal.dir/internal/raw_logging.cc.o
+[ 13%] Linking CXX static library libabsl_periodic_sampler.a
+[ 13%] Built target absl_periodic_sampler
+[ 14%] Linking CXX static library libabsl_random_internal_randen_hwaes_impl.a
+[ 14%] Built target absl_random_internal_randen_hwaes_impl
+[ 15%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_randen_hwaes.dir/internal/randen_detect.cc.o
+[ 15%] Linking CXX static library libabsl_civil_time.a
+[ 15%] Built target absl_civil_time
+[ 15%] Linking CXX static library libabsl_random_internal_randen_slow.a
+[ 15%] Built target absl_random_internal_randen_slow
+[ 15%] Linking CXX static library libabsl_raw_logging_internal.a
+[ 15%] Built target absl_raw_logging_internal
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_throw_delegate.dir/internal/throw_delegate.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_base.dir/internal/cycleclock.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_scoped_set_env.dir/internal/scoped_set_env.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cordz_functions.dir/internal/cordz_functions.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_base.dir/internal/spinlock.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_base.dir/internal/sysinfo.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_base.dir/internal/thread_identity.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_seed_gen_exception.dir/seed_gen_exception.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_debugging_internal.dir/internal/elf_mem_image.cc.o
+[ 17%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_debugging_internal.dir/internal/vdso_support.cc.o
+[ 18%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_debugging_internal.dir/internal/address_is_readable.cc.o
+[ 18%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_base.dir/internal/unscaledcycleclock.cc.o
+[ 18%] Linking CXX static library libabsl_random_internal_randen_hwaes.a
+[ 18%] Built target absl_random_internal_randen_hwaes
+[ 19%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_randen.dir/internal/randen.cc.o
+[ 20%] Linking CXX static library libabsl_random_seed_gen_exception.a
+[ 21%] Linking CXX static library libabsl_scoped_set_env.a
+[ 21%] Built target absl_random_seed_gen_exception
+[ 21%] Built target absl_scoped_set_env
+[ 22%] Linking CXX static library libabsl_debugging_internal.a
+[ 22%] Built target absl_debugging_internal
+[ 22%] Linking CXX static library libabsl_throw_delegate.a
+[ 22%] Linking CXX static library libabsl_random_internal_randen.a
+[ 22%] Built target absl_throw_delegate
+[ 23%] Linking CXX static library libabsl_cordz_functions.a
+[ 23%] Built target absl_random_internal_randen
+[ 23%] Built target absl_cordz_functions
+[ 24%] Linking CXX static library libabsl_base.a
+[ 24%] Built target absl_base
+[ 24%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings_internal.dir/internal/escaping.cc.o
+[ 24%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_tracing_internal.dir/internal/tracing.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings_internal.dir/internal/ostringstream.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings_internal.dir/internal/utf8.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/numeric/CMakeFiles/absl_int128.dir/int128.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_malloc_internal.dir/internal/low_level_alloc.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_decode_rust_punycode.dir/internal/decode_rust_punycode.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc_cpu_detect.dir/internal/cpu_detect.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/hash/CMakeFiles/absl_city.dir/internal/city.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_string_view.dir/string_view.cc.o
+[ 25%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_conditions.dir/internal/conditions.cc.o
+[ 26%] Linking CXX static library libabsl_tracing_internal.a
+[ 26%] Built target absl_tracing_internal
+[ 26%] Linking CXX static library libabsl_log_internal_conditions.a
+[ 26%] Built target absl_log_internal_conditions
+[ 27%] Linking CXX static library libabsl_string_view.a
+[ 27%] Built target absl_string_view
+[ 27%] Linking CXX static library libabsl_crc_cpu_detect.a
+[ 27%] Built target absl_crc_cpu_detect
+[ 28%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc_internal.dir/internal/crc.cc.o
+[ 28%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc_internal.dir/internal/crc_x86_arm_combined.cc.o
+[ 29%] Linking CXX static library libabsl_decode_rust_punycode.a
+[ 29%] Linking CXX static library libabsl_city.a
+[ 29%] Built target absl_decode_rust_punycode
+[ 30%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_demangle_rust.dir/internal/demangle_rust.cc.o
+[ 30%] Built target absl_city
+[ 31%] Linking CXX static library libabsl_strings_internal.a
+[ 31%] Built target absl_strings_internal
+[ 31%] Linking CXX static library libabsl_time_zone.a
+[ 31%] Built target absl_time_zone
+[ 31%] Linking CXX static library libabsl_malloc_internal.a
+[ 31%] Built target absl_malloc_internal
+[ 32%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_graphcycles_internal.dir/internal/graphcycles.cc.o
+[ 33%] Building CXX object _deps/abseil-cpp-build/absl/base/CMakeFiles/absl_poison.dir/internal/poison.cc.o
+[ 33%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_stacktrace.dir/stacktrace.cc.o
+[ 33%] Linking CXX static library libabsl_poison.a
+[ 33%] Built target absl_poison
+[ 33%] Linking CXX static library libabsl_int128.a
+[ 33%] Built target absl_int128
+[ 34%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/charconv.cc.o
+[ 34%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/internal/charconv_bigint.cc.o
+[ 34%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/ascii.cc.o
+[ 34%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/escaping.cc.o
+[ 35%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/internal/charconv_parse.cc.o
+[ 35%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/internal/damerau_levenshtein_distance.cc.o
+[ 35%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/internal/memutil.cc.o
+[ 35%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/match.cc.o
+[ 36%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/internal/stringify_sink.cc.o
+[ 37%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/str_cat.cc.o
+[ 37%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/numbers.cc.o
+[ 37%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/str_replace.cc.o
+[ 37%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/str_split.cc.o
+[ 38%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_strings.dir/substitute.cc.o
+[ 38%] Linking CXX static library libabsl_demangle_rust.a
+[ 38%] Built target absl_demangle_rust
+[ 38%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_demangle_internal.dir/internal/demangle.cc.o
+[ 38%] Linking CXX static library libabsl_crc_internal.a
+[ 38%] Built target absl_crc_internal
+[ 38%] Linking CXX static library libabsl_stacktrace.a
+[ 38%] Built target absl_stacktrace
+[ 38%] Linking CXX static library libabsl_graphcycles_internal.a
+[ 38%] Built target absl_graphcycles_internal
+[ 38%] Linking CXX static library libabsl_strings.a
+[ 38%] Built target absl_strings
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time.dir/clock.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time.dir/civil_time.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/hash/CMakeFiles/absl_hash.dir/internal/hash.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_str_format_internal.dir/internal/str_format/arg.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time.dir/time.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_commandlineflag.dir/commandlineflag.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_str_format_internal.dir/internal/str_format/bind.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_proto.dir/internal/proto.cc.o
+[ 39%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time.dir/duration.cc.o
+[ 40%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_seed_material.dir/internal/seed_material.cc.o
+[ 40%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_str_format_internal.dir/internal/str_format/float_conversion.cc.o
+[ 42%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_str_format_internal.dir/internal/str_format/extension.cc.o
+[ 42%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_distributions.dir/discrete_distribution.cc.o
+[ 43%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_fnmatch.dir/internal/fnmatch.cc.o
+[ 43%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_distributions.dir/gaussian_distribution.cc.o
+[ 43%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_str_format_internal.dir/internal/str_format/output.cc.o
+[ 43%] Building CXX object _deps/abseil-cpp-build/absl/time/CMakeFiles/absl_time.dir/format.cc.o
+[ 44%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_str_format_internal.dir/internal/str_format/parser.cc.o
+[ 44%] Linking CXX static library libabsl_demangle_internal.a
+[ 44%] Built target absl_demangle_internal
+[ 44%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_symbolize.dir/symbolize.cc.o
+[ 44%] Linking CXX static library libabsl_log_internal_fnmatch.a
+[ 44%] Built target absl_log_internal_fnmatch
+[ 45%] Linking CXX static library libabsl_flags_commandlineflag.a
+[ 45%] Built target absl_flags_commandlineflag
+[ 45%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_private_handle_accessor.dir/internal/private_handle_accessor.cc.o
+[ 46%] Linking CXX static library libabsl_random_distributions.a
+[ 46%] Linking CXX static library libabsl_log_internal_proto.a
+[ 46%] Linking CXX static library libabsl_random_internal_seed_material.a
+[ 46%] Built target absl_random_distributions
+[ 46%] Built target absl_log_internal_proto
+[ 46%] Built target absl_random_internal_seed_material
+[ 47%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_structured_proto.dir/internal/structured_proto.cc.o
+[ 47%] Linking CXX static library libabsl_flags_private_handle_accessor.a
+[ 47%] Built target absl_flags_private_handle_accessor
+[ 47%] Linking CXX static library libabsl_symbolize.a
+[ 47%] Built target absl_symbolize
+[ 47%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_examine_stack.dir/internal/examine_stack.cc.o
+[ 47%] Linking CXX static library libabsl_time.a
+[ 47%] Built target absl_time
+[ 48%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_kernel_timeout_internal.dir/internal/kernel_timeout.cc.o
+[ 48%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_globals.dir/internal/globals.cc.o
+[ 48%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_entry.dir/log_entry.cc.o
+[ 49%] Linking CXX static library libabsl_hash.a
+[ 49%] Built target absl_hash
+[ 49%] Linking CXX static library libabsl_log_internal_structured_proto.a
+[ 49%] Built target absl_log_internal_structured_proto
+[ 50%] Linking CXX static library libabsl_examine_stack.a
+[ 50%] Linking CXX static library libabsl_str_format_internal.a
+[ 50%] Built target absl_examine_stack
+[ 51%] Building CXX object _deps/abseil-cpp-build/absl/debugging/CMakeFiles/absl_failure_signal_handler.dir/failure_signal_handler.cc.o
+[ 51%] Built target absl_str_format_internal
+[ 51%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc32c.dir/crc32c.cc.o
+[ 51%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_distribution_test_util.dir/internal/chi_square.cc.o
+[ 51%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc32c.dir/internal/crc_memcpy_x86_arm_combined.cc.o
+[ 51%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_marshalling.dir/marshalling.cc.o
+[ 53%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_distribution_test_util.dir/internal/distribution_test_util.cc.o
+[ 53%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc32c.dir/internal/crc_memcpy_fallback.cc.o
+[ 53%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc32c.dir/internal/crc_non_temporal_memcpy.cc.o
+[ 54%] Linking CXX static library libabsl_log_internal_globals.a
+[ 54%] Built target absl_log_internal_globals
+[ 54%] Linking CXX static library libabsl_kernel_timeout_internal.a
+[ 54%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_format.dir/internal/log_format.cc.o
+[ 54%] Built target absl_kernel_timeout_internal
+[ 56%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/create_thread_identity.cc.o
+[ 56%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/barrier.cc.o
+[ 56%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/blocking_counter.cc.o
+[ 56%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/futex_waiter.cc.o
+[ 56%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/per_thread_sem.cc.o
+[ 57%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/pthread_waiter.cc.o
+[ 57%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/sem_waiter.cc.o
+[ 57%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/stdcpp_waiter.cc.o
+[ 58%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/waiter_base.cc.o
+[ 58%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/internal/win32_waiter.cc.o
+[ 58%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/mutex.cc.o
+[ 59%] Building CXX object _deps/abseil-cpp-build/absl/synchronization/CMakeFiles/absl_synchronization.dir/notification.cc.o
+[ 59%] Linking CXX static library libabsl_failure_signal_handler.a
+[ 59%] Built target absl_failure_signal_handler
+[ 60%] Linking CXX static library libabsl_log_entry.a
+[ 60%] Built target absl_log_entry
+[ 60%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_sink.dir/log_sink.cc.o
+[ 60%] Linking CXX static library libabsl_random_internal_distribution_test_util.a
+[ 60%] Built target absl_random_internal_distribution_test_util
+[ 61%] Linking CXX static library libabsl_log_internal_format.a
+[ 61%] Built target absl_log_internal_format
+[ 62%] Linking CXX static library libabsl_log_sink.a
+[ 62%] Built target absl_log_sink
+[ 63%] Linking CXX static library libabsl_crc32c.a
+[ 63%] Built target absl_crc32c
+[ 63%] Building CXX object _deps/abseil-cpp-build/absl/crc/CMakeFiles/absl_crc_cord_state.dir/internal/crc_cord_state.cc.o
+[ 63%] Linking CXX static library libabsl_synchronization.a
+[ 64%] Linking CXX static library libabsl_flags_marshalling.a
+[ 64%] Built target absl_flags_marshalling
+[ 64%] Built target absl_synchronization
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_program_name.dir/internal/program_name.cc.o
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/container/CMakeFiles/absl_hashtablez_sampler.dir/internal/hashtablez_sampler.cc.o
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/container/CMakeFiles/absl_hashtablez_sampler.dir/internal/hashtablez_sampler_force_weak_definition.cc.o
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_vlog_config_internal.dir/internal/vlog_config.cc.o
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_internal_entropy_pool.dir/internal/entropy_pool.cc.o
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cordz_handle.dir/internal/cordz_handle.cc.o
+[ 67%] Linking CXX static library libabsl_flags_program_name.a
+[ 67%] Built target absl_flags_program_name
+[ 67%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_config.dir/usage_config.cc.o
+[ 67%] Linking CXX static library libabsl_cordz_handle.a
+[ 67%] Built target absl_cordz_handle
+[ 68%] Linking CXX static library libabsl_random_internal_entropy_pool.a
+[ 68%] Built target absl_random_internal_entropy_pool
+[ 69%] Linking CXX static library libabsl_hashtablez_sampler.a
+[ 69%] Building CXX object _deps/abseil-cpp-build/absl/random/CMakeFiles/absl_random_seed_sequences.dir/seed_sequences.cc.o
+[ 69%] Built target absl_hashtablez_sampler
+[ 70%] Linking CXX static library libabsl_crc_cord_state.a
+[ 70%] Built target absl_crc_cord_state
+[ 71%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord_internal.dir/internal/cord_rep_crc.cc.o
+[ 71%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord_internal.dir/internal/cord_rep_btree_navigator.cc.o
+[ 71%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord_internal.dir/internal/cord_rep_btree.cc.o
+[ 71%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord_internal.dir/internal/cord_internal.cc.o
+[ 73%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord_internal.dir/internal/cord_rep_consume.cc.o
+[ 73%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord_internal.dir/internal/cord_rep_btree_reader.cc.o
+[ 73%] Linking CXX static library libabsl_vlog_config_internal.a
+[ 73%] Built target absl_vlog_config_internal
+[ 74%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_globals.dir/globals.cc.o
+[ 74%] Linking CXX static library libabsl_flags_config.a
+[ 74%] Built target absl_flags_config
+[ 75%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_internal.dir/internal/flag.cc.o
+[ 76%] Linking CXX static library libabsl_random_seed_sequences.a
+[ 76%] Built target absl_random_seed_sequences
+[ 76%] Linking CXX static library libabsl_log_globals.a
+[ 76%] Built target absl_log_globals
+[ 76%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_log_sink_set.dir/internal/log_sink_set.cc.o
+[ 76%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_initialize.dir/initialize.cc.o
+[ 76%] Linking CXX static library libabsl_flags_internal.a
+[ 76%] Built target absl_flags_internal
+[ 77%] Linking CXX static library libabsl_log_initialize.a
+[ 77%] Built target absl_log_initialize
+[ 77%] Linking CXX static library libabsl_log_internal_log_sink_set.a
+[ 77%] Built target absl_log_internal_log_sink_set
+[ 78%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_message.dir/internal/log_message.cc.o
+[ 78%] Linking CXX static library libabsl_cord_internal.a
+[ 78%] Built target absl_cord_internal
+[ 79%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cordz_info.dir/internal/cordz_info.cc.o
+[ 79%] Linking CXX static library libabsl_log_internal_message.a
+[ 79%] Built target absl_log_internal_message
+[ 79%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_die_if_null.dir/die_if_null.cc.o
+[ 79%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_internal_check_op.dir/internal/check_op.cc.o
+[ 79%] Linking CXX static library libabsl_cordz_info.a
+[ 79%] Built target absl_cordz_info
+[ 81%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cordz_sample_token.dir/internal/cordz_sample_token.cc.o
+[ 81%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord.dir/cord.cc.o
+[ 81%] Building CXX object _deps/abseil-cpp-build/absl/strings/CMakeFiles/absl_cord.dir/cord_analysis.cc.o
+[ 82%] Linking CXX static library libabsl_die_if_null.a
+[ 82%] Built target absl_die_if_null
+[ 83%] Linking CXX static library libabsl_log_internal_check_op.a
+[ 83%] Built target absl_log_internal_check_op
+[ 83%] Linking CXX static library libabsl_cordz_sample_token.a
+[ 83%] Built target absl_cordz_sample_token
+[ 83%] Linking CXX static library libabsl_cord.a
+[ 83%] Built target absl_cord
+[ 83%] Building CXX object _deps/abseil-cpp-build/absl/container/CMakeFiles/absl_raw_hash_set.dir/internal/raw_hash_set.cc.o
+[ 84%] Building CXX object _deps/abseil-cpp-build/absl/status/CMakeFiles/absl_status.dir/internal/status_internal.cc.o
+[ 84%] Building CXX object _deps/abseil-cpp-build/absl/status/CMakeFiles/absl_status.dir/status_payload_printer.cc.o
+[ 84%] Building CXX object _deps/abseil-cpp-build/absl/status/CMakeFiles/absl_status.dir/status.cc.o
+[ 85%] Linking CXX static library libabsl_status.a
+[ 85%] Built target absl_status
+[ 85%] Building CXX object _deps/abseil-cpp-build/absl/status/CMakeFiles/absl_statusor.dir/statusor.cc.o
+[ 85%] Linking CXX static library libabsl_raw_hash_set.a
+[ 85%] Built target absl_raw_hash_set
+[ 85%] Building CXX object _deps/abseil-cpp-build/absl/profiling/CMakeFiles/absl_profile_builder.dir/internal/profile_builder.cc.o
+[ 85%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_reflection.dir/reflection.cc.o
+[ 86%] Linking CXX static library libabsl_statusor.a
+[ 86%] Built target absl_statusor
+[ 87%] Linking CXX static library libabsl_flags_reflection.a
+[ 87%] Built target absl_flags_reflection
+[ 88%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_usage_internal.dir/internal/usage.cc.o
+[ 89%] Building CXX object _deps/abseil-cpp-build/absl/log/CMakeFiles/absl_log_flags.dir/flags.cc.o
+[ 89%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/bitmap256.cc.o
+[ 89%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/bitstate.cc.o
+[ 89%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/compile.cc.o
+[ 90%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/dfa.cc.o
+[ 90%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/filtered_re2.cc.o
+[ 90%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/mimics_pcre.cc.o
+[ 91%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/nfa.cc.o
+[ 91%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/onepass.cc.o
+[ 92%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/parse.cc.o
+[ 92%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/perl_groups.cc.o
+[ 92%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/prefilter.cc.o
+[ 93%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/prefilter_tree.cc.o
+[ 93%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/prog.cc.o
+[ 93%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/re2.cc.o
+[ 93%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/set.cc.o
+[ 93%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/tostring.cc.o
+[ 94%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/simplify.cc.o
+[ 94%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/unicode_casefold.cc.o
+[ 95%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/regexp.cc.o
+[ 96%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/re2/unicode_groups.cc.o
+[ 96%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/util/rune.cc.o
+[ 96%] Building CXX object _deps/re2-build/CMakeFiles/re2.dir/util/strutil.cc.o
+[ 97%] Linking CXX static library libabsl_profile_builder.a
+[ 97%] Built target absl_profile_builder
+[ 97%] Building CXX object _deps/abseil-cpp-build/absl/profiling/CMakeFiles/absl_hashtable_profiler.dir/hashtable.cc.o
+[ 97%] Linking CXX static library libabsl_log_flags.a
+[ 97%] Built target absl_log_flags
+[ 97%] Linking CXX static library libabsl_flags_usage_internal.a
+[ 97%] Built target absl_flags_usage_internal
+[ 97%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_usage.dir/usage.cc.o
+[ 97%] Linking CXX static library libabsl_flags_usage.a
+[ 97%] Built target absl_flags_usage
+[ 97%] Building CXX object _deps/abseil-cpp-build/absl/flags/CMakeFiles/absl_flags_parse.dir/parse.cc.o
+[ 97%] Linking CXX static library libabsl_hashtable_profiler.a
+[ 97%] Built target absl_hashtable_profiler
+[ 98%] Linking CXX static library libre2.a
+[ 98%] Built target re2
+[ 98%] Building CXX object CMakeFiles/re2_shim.dir/re2_shim.cpp.o
+[ 99%] Linking CXX shared library libre2_shim.so
+[ 99%] Built target re2_shim
+[100%] Linking CXX static library libabsl_flags_parse.a
+[100%] Built target absl_flags_parse
+=== Materializing shared benchmark inputs ===
+Materialized 541 benchmark inputs in /home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+=== Running declared org.safere.benchmark.CrossEngineBenchmark.run (standard; -f 2 -wi 2 -w 500ms -i 5 -r 500ms) ===
+./run-java-benchmarks.sh: line 243: /home/eaftan/jdks/jdk-26.0.2/bin/java: Argument list too long

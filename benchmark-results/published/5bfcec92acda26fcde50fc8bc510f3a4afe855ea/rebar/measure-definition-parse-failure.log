@@ -1,0 +1,6 @@
+error loading benchmarks/definitions/hyperscan.toml: error decoding TOML for 'hyperscan': TOML parse error at line 110, column 1
+    |
+110 | engines = [
+    | ^^^^^^^
+duplicate key
+

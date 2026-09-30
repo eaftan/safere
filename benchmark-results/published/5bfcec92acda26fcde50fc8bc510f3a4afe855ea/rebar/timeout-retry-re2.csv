@@ -1,0 +1,2 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+reported/i13-subset-regex/big-unicode,count,0.1.0 (rev 9ee90dfb56),re2,2025-11-05,,16013977,1,15.70s,7.78s,0.00ns,7.78s,0.00ns,7.78s,7.78s

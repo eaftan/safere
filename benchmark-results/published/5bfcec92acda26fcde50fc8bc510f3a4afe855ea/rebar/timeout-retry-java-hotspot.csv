@@ -1,0 +1,2 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+imported/leipzig/bounded-strings-ending-z,count-spans,0.1.0 (rev 9ee90dfb56),java/hotspot,26.0.2+10-55,,16013977,1,10.43s,5.06s,0.00ns,5.06s,0.00ns,5.06s,5.06s

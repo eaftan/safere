@@ -1,0 +1,111 @@
+=== Publication mode (for BENCHMARKS.md) ===
+=== Building safere + benchmark JAR ===
+CMake Warning in CMakeLists.txt:
+  CMAKE_SKIP_INSTALL_RULES was enabled even though installation rules have
+  been specified
+
+
+-- Configuring done (1.0s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build
+[  2%] Built target absl_log_severity
+[  2%] Built target absl_spinlock_wait
+[  2%] Built target absl_utf8_for_code_point
+[  3%] Built target absl_leak_check
+[  4%] Built target absl_civil_time
+[  5%] Built target absl_strerror
+[  6%] Built target absl_flags_commandlineflag_internal
+[  6%] Built target absl_exponential_biased
+[  6%] Built target absl_random_internal_platform
+[  7%] Built target absl_log_internal_nullguard
+[ 11%] Built target absl_time_zone
+[ 12%] Built target absl_periodic_sampler
+[ 13%] Built target absl_raw_logging_internal
+[ 13%] Built target absl_random_internal_randen_slow
+[ 14%] Built target absl_random_internal_randen_hwaes_impl
+[ 15%] Built target absl_throw_delegate
+[ 16%] Built target absl_scoped_set_env
+[ 19%] Built target absl_random_seed_gen_exception
+[ 19%] Built target absl_cordz_functions
+[ 19%] Built target absl_random_internal_randen_hwaes
+[ 21%] Built target absl_base
+[ 23%] Built target absl_debugging_internal
+[ 26%] Built target absl_tracing_internal
+[ 26%] Built target absl_decode_rust_punycode
+[ 26%] Built target absl_random_internal_randen
+[ 26%] Built target absl_malloc_internal
+[ 27%] Built target absl_int128
+[ 28%] Built target absl_strings_internal
+[ 29%] Built target absl_string_view
+[ 29%] Built target absl_crc_cpu_detect
+[ 29%] Built target absl_log_internal_conditions
+[ 29%] Built target absl_city
+[ 30%] Built target absl_demangle_rust
+[ 31%] Built target absl_poison
+[ 32%] Built target absl_stacktrace
+[ 32%] Built target absl_graphcycles_internal
+[ 33%] Built target absl_crc_internal
+[ 33%] Built target absl_demangle_internal
+[ 38%] Built target absl_strings
+[ 39%] Built target absl_flags_commandlineflag
+[ 40%] Built target absl_hash
+[ 40%] Built target absl_symbolize
+[ 41%] Built target absl_random_internal_seed_material
+[ 42%] Built target absl_log_internal_fnmatch
+[ 42%] Built target absl_log_internal_proto
+[ 43%] Built target absl_random_distributions
+[ 45%] Built target absl_time
+[ 47%] Built target absl_str_format_internal
+[ 48%] Built target absl_examine_stack
+[ 48%] Built target absl_flags_private_handle_accessor
+[ 49%] Built target absl_log_internal_structured_proto
+[ 50%] Built target absl_kernel_timeout_internal
+[ 51%] Built target absl_log_internal_globals
+[ 52%] Built target absl_log_entry
+[ 53%] Built target absl_flags_marshalling
+[ 54%] Built target absl_random_internal_distribution_test_util
+[ 55%] Built target absl_failure_signal_handler
+[ 57%] Built target absl_crc32c
+[ 58%] Built target absl_log_sink
+[ 59%] Built target absl_log_internal_format
+[ 60%] Built target absl_crc_cord_state
+[ 65%] Built target absl_synchronization
+[ 67%] Built target absl_random_internal_entropy_pool
+[ 67%] Built target absl_cordz_handle
+[ 70%] Built target absl_vlog_config_internal
+[ 67%] Built target absl_flags_program_name
+[ 70%] Built target absl_hashtablez_sampler
+[ 73%] Built target absl_cord_internal
+[ 75%] Built target absl_log_globals
+[ 75%] Built target absl_random_seed_sequences
+[ 75%] Built target absl_flags_config
+[ 76%] Built target absl_cordz_info
+[ 77%] Built target absl_flags_internal
+[ 77%] Built target absl_log_internal_log_sink_set
+[ 78%] Built target absl_log_initialize
+[ 79%] Built target absl_cordz_sample_token
+[ 80%] Built target absl_cord
+[ 81%] Built target absl_log_internal_message
+[ 81%] Built target absl_raw_hash_set
+[ 83%] Built target absl_status
+[ 84%] Built target absl_log_internal_check_op
+[ 85%] Built target absl_die_if_null
+[ 87%] Built target absl_profile_builder
+[ 87%] Built target absl_flags_reflection
+[ 88%] Built target absl_statusor
+[ 89%] Built target absl_flags_usage_internal
+[ 89%] Built target absl_log_flags
+[ 89%] Built target absl_hashtable_profiler
+[ 89%] Built target absl_flags_usage
+[ 98%] Built target re2
+[ 99%] Built target absl_flags_parse
+[100%] Built target re2_shim
+=== Materializing shared benchmark inputs ===
+Materialized 541 benchmark inputs in /home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+=== Running all benchmarks with GC profiling ===
+ERROR: org.openjdk.jmh.runner.RunnerException: Benchmark "org.safere.benchmark.CrossEngineNoForkBenchmark.run" defines the parameter "crossEngineNoForkTrial", but no default values.
+Define the default values within the annotation, or provide the parameter values at runtime.
+	at org.openjdk.jmh.runner.Runner.explodeAllParams(Runner.java:510)
+	at org.openjdk.jmh.runner.Runner.internalRun(Runner.java:298)
+	at org.openjdk.jmh.runner.Runner.run(Runner.java:208)
+	at org.openjdk.jmh.Main.main(Main.java:71)

@@ -1,0 +1,399 @@
+diff --git a/run-cpp-benchmarks.sh b/run-cpp-benchmarks.sh
+index 371c0223..640ceff8 100755
+--- a/run-cpp-benchmarks.sh
++++ b/run-cpp-benchmarks.sh
+@@ -41,7 +41,10 @@ echo "=== Materializing shared benchmark inputs ==="
+ 
+ echo "=== Building native C++ regex benchmarks ==="
+ mkdir -p "$BUILD_DIR"
+-cmake -S "$CPP_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -Wno-dev 2>&1 | tail -3
++# Reuse already fetched revisions without checking the network for updates.
++# Missing dependencies are still downloaded on a fresh build.
++cmake -S "$CPP_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release \
++  -DFETCHCONTENT_UPDATES_DISCONNECTED=ON -Wno-dev 2>&1 | tail -3
+ cmake --build "$BUILD_DIR" -j8 2>&1 | tail -3
+ 
+ if [ "$ENGINE" = "all" ] || [ "$ENGINE" = "re2" ]; then
+diff --git a/run-java-benchmarks.sh b/run-java-benchmarks.sh
+index 3478751f..5441b0d9 100755
+--- a/run-java-benchmarks.sh
++++ b/run-java-benchmarks.sh
+@@ -184,6 +184,8 @@ echo "=== Materializing shared benchmark inputs ==="
+ 
+ # JVM args for FFM native access, native library path, and the resolved corpus.
+ JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
++GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-jmh-args.XXXXXX")"
++trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
+ 
+ if [ "$DECLARED" = true ]; then
+   COLLECTION_QUERY=(runners)
+@@ -230,12 +232,17 @@ if [ "$DECLARED" = true ]; then
+       continue
+     fi
+     echo "=== Running declared $benchmark ($profile; $runner_opts) ==="
++    java $JVM_ARGS \
++      -cp "$BENCHMARK_JAR" \
++      org.safere.benchmark.BenchmarkCollectionPlan \
++      declared-runner-arguments runners "$benchmark" "$BENCHMARK_JAR" \
++      "${COLLECTION_QUERY[@]:1}" \
++      > "$GENERATED_JMH_ARGUMENT_FILE"
+     RUNNER_COMMAND=(java \
+       $JVM_ARGS \
+-      -jar "$BENCHMARK_JAR" \
++      "@$GENERATED_JMH_ARGUMENT_FILE" \
+       -jvmArgs "$JVM_ARGS" \
+-      $runner_opts \
+-      -p "$parameter=$trial_ids")
++      $runner_opts)
+     if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+       RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+     fi
+@@ -259,9 +266,6 @@ fi
+ # engine registry. Supply only the planned parameters for runners selected by
+ # each JMH filter. Store generated parameters in a Java argument file because a
+ # complete trial list can exceed the operating system's per-argument limit.
+-GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-jmh-args.XXXXXX")"
+-trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
+-
+ write_generated_jmh_arguments() {
+   local bench="$1"
+   local overridden_parameters=()
+diff --git a/run-java-memory-benchmarks.sh b/run-java-memory-benchmarks.sh
+index 49c80a28..c0d06ab1 100755
+--- a/run-java-memory-benchmarks.sh
++++ b/run-java-memory-benchmarks.sh
+@@ -9,12 +9,11 @@
+ #   ./run-java-memory-benchmarks.sh --quick '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+ #   ./run-java-memory-benchmarks.sh --smoke '^org\.safere\.benchmark\.CrossEngineBenchmark\.'
+ #   ./run-java-memory-benchmarks.sh --declared
+-#   ./run-java-memory-benchmarks.sh                         # run all benchmarks
++#   ./run-java-memory-benchmarks.sh                         # run declared allocation benchmarks
+ #
+-# This runs the same benchmarks as run-java-benchmarks.sh but adds JMH's
+-# GC profiler (-prof gc), which reports gc.alloc.rate.norm (bytes allocated
+-# per operation). This metric is deterministic — it counts bytes, not time —
+-# and is not affected by other processes on the machine.
++# This uses the same generic runners as run-java-benchmarks.sh, selecting the
++# declared allocation workloads by default. JMH's GC profiler (-prof gc)
++# reports gc.alloc.rate.norm (bytes allocated per operation).
+ #
+ # See run-java-benchmarks.sh for details on modes and settings.
+ #
+@@ -95,6 +94,16 @@ echo "=== Materializing shared benchmark inputs ==="
+ 
+ # JVM args for FFM native access, native library path, and the resolved corpus.
+ JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DIR -Dsafere.benchmark.corpus=$BENCHMARK_CORPUS"
++GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-memory-jmh-args.XXXXXX")"
++trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
++
++# Without an explicit selection, measure the declared allocation workload set.
++# JMH cannot run every discovered method because generic runners have empty @Param defaults.
++if [ ${#BENCHMARKS[@]} -eq 0 ] && [ ${#JMH_EXTRA_ARGS[@]} -eq 0 ] \
++  && [ ${#CROSS_ENGINE_PREFIXES[@]} -eq 0 ] \
++  && [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -eq 0 ]; then
++  DECLARED=true
++fi
+ 
+ if [ "$DECLARED" = true ]; then
+   COLLECTION_QUERY=(allocation-runners)
+@@ -117,13 +126,18 @@ if [ "$DECLARED" = true ]; then
+     fi
+     matched_runner=true
+     echo "=== Running declared allocation trials for $benchmark ==="
++    java $JVM_ARGS \
++      -cp "$BENCHMARK_JAR" \
++      org.safere.benchmark.BenchmarkCollectionPlan \
++      declared-runner-arguments allocation-runners "$benchmark" "$BENCHMARK_JAR" \
++      "${COLLECTION_QUERY[@]:1}" \
++      > "$GENERATED_JMH_ARGUMENT_FILE"
+     RUNNER_COMMAND=(java \
+       $JVM_ARGS \
+-      -jar "$BENCHMARK_JAR" \
++      "@$GENERATED_JMH_ARGUMENT_FILE" \
+       -jvmArgs "$JVM_ARGS" \
+       -prof gc \
+-      $JMH_OPTS \
+-      -p "$parameter=$trial_ids")
++      $JMH_OPTS)
+     if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
+       RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+     fi
+diff --git a/safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md b/safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md
+index 8d54c77f..36d48525 100644
+--- a/safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md
++++ b/safere-benchmarks/DECLARATIVE_BENCHMARK_PLAN.md
+@@ -148,7 +148,8 @@ with a `replacement` field instead of `pattern`:
+ 
+ The execution-plan materializer selects one profile for each engine and syntax kind. SafeRE and JDK use
+ the Java values directly. RE2/J and RE2-FFM select the `re2` pattern profile;
+-native C++ RE2 selects `re2` patterns and `re2-cpp` replacements; Go selects
++native C++ RE2 selects `re2-cpp` patterns, which inherit `re2` alternates and
++allow C++-specific overrides, plus `re2-cpp` replacements; Go selects
+ `re2` patterns and `go-regexp` replacements where adjacent text makes a Java
+ capture reference ambiguous; and Rust `regex` selects `rust-regex` for both
+ kinds. PCRE2 JIT selects `pcre2` for both kinds; this remains separate from
+diff --git a/safere-benchmarks/benchmark-data.json b/safere-benchmarks/benchmark-data.json
+index 8b875184..7d71c79b 100644
+--- a/safere-benchmarks/benchmark-data.json
++++ b/safere-benchmarks/benchmark-data.json
+@@ -13012,7 +13012,19 @@
+       "id": "UnicodeCaseFoldingBenchmark.linearChainCapture",
+       "operation": "matchesGroupLengthSum",
+       "patterns": [
+-        "^(?iu)([a-z]+)://([^:/]+):([0-9]+)$"
++        {
++          "java": "^(?iu)([a-z]+)://([^:/]+):([0-9]+)$",
++          "alternates": {
++            "re2-cpp": {
++              "pattern": "^(?i)([a-z]+)://([^:/]+):([0-9]+)$",
++              "reason": "C++ RE2 uses Unicode case folding with (?i) and rejects Java's combined (?iu) flags"
++            },
++            "pcre2": {
++              "pattern": "^(?i)([a-z]+)://([^:/]+):([0-9]+)$",
++              "reason": "PCRE2 in UTF mode uses Unicode case folding with (?i) and rejects Java's combined (?iu) flags"
++            }
++          }
++        }
+       ],
+       "inputs": [
+         "onePassScaling.withCaptures.4096"
+@@ -13150,7 +13162,15 @@
+       "id": "RealWorldRegexBenchmark.runBenchmark.markdownCitationScrub.{matchLabel}.{size}",
+       "operation": "replaceAll",
+       "patterns": [
+-        "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]"
++        {
++          "java": "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]",
++          "alternates": {
++            "re2-cpp": {
++              "pattern": "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]",
++              "reason": "C++ RE2 rejects the Java Unicode escape for U+3001; literal delimiters preserve the same accepted characters"
++            }
++          }
++        }
+       ],
+       "inputs": [
+         "realWorldRegex.markdownCitationScrub.{matchLabel}.{size}"
+@@ -13196,7 +13216,15 @@
+       "id": "RealWorldRegexBenchmark.runBenchmark.llmCitationScrub.{matchLabel}.{size}",
+       "operation": "replaceAll",
+       "patterns": [
+-        "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]"
++        {
++          "java": "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]",
++          "alternates": {
++            "re2-cpp": {
++              "pattern": "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]",
++              "reason": "C++ RE2 rejects the Java Unicode escape for U+3001; literal delimiters preserve the same accepted characters"
++            }
++          }
++        }
+       ],
+       "inputs": [
+         "realWorldRegex.llmCitationScrub.{matchLabel}.{size}"
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
+index 6bca42c7..60ecabe4 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/BenchmarkCollectionPlan.java
+@@ -48,10 +48,35 @@ final class BenchmarkCollectionPlan {
+ 
+   List<String> launcherArguments(
+       String benchmarkRegex, String benchmarkJar, Set<String> overriddenParameters) {
++    return launcherArguments(runnersMatching(benchmarkRegex), benchmarkJar, overriddenParameters);
++  }
++
++  List<String> declaredLauncherArguments(
++      String benchmark, String benchmarkJar, boolean allocation, boolean smoke) {
++    List<Runner> selected =
++        (allocation ? allocationRunners() : runners())
++            .stream()
++                .filter(runner -> runner.benchmark().equals(benchmark))
++                .map(
++                    runner ->
++                        new Runner(
++                            runner.profile(),
++                            runner.benchmark(),
++                            runner.parameter(),
++                            smoke ? smokeTrialIds(runner) : runner.trialIds()))
++                .toList();
++    if (selected.size() != 1) {
++      throw new IllegalArgumentException("Unknown declared benchmark runner: " + benchmark);
++    }
++    return launcherArguments(selected, benchmarkJar, Set.of());
++  }
++
++  private static List<String> launcherArguments(
++      List<Runner> runners, String benchmarkJar, Set<String> overriddenParameters) {
+     List<String> arguments = new ArrayList<>();
+     arguments.add("-jar");
+     arguments.add(argumentFileToken(benchmarkJar));
+-    runnersMatching(benchmarkRegex).stream()
++    runners.stream()
+         .filter(runner -> !overriddenParameters.contains(runner.parameter()))
+         .forEach(
+             runner -> {
+@@ -216,9 +241,9 @@ final class BenchmarkCollectionPlan {
+   public static void main(String[] args) {
+     if (args.length == 0) {
+       throw new IllegalArgumentException(
+-          "Usage: BenchmarkCollectionPlan "
+-              + "<runners|allocation-runners|runner-arguments|trials|report-plan> "
+-              + "[query options]");
++          "Usage: BenchmarkCollectionPlan"
++              + " <runners|allocation-runners|runner-arguments|declared-runner-arguments|trials|report-plan>"
++              + " [query options]");
+     }
+     BenchmarkCollectionPlan plan = load();
+     switch (args[0]) {
+@@ -249,6 +274,18 @@ final class BenchmarkCollectionPlan {
+             new LinkedHashSet<>(Arrays.asList(Arrays.copyOfRange(args, 3, args.length)));
+         plan.launcherArguments(args[1], args[2], overriddenParameters).forEach(System.out::println);
+       }
++      case "declared-runner-arguments" -> {
++        boolean smoke = args.length == 5 && args[4].equals("--smoke");
++        if ((args.length != 4 && !smoke)
++            || (!args[1].equals("runners") && !args[1].equals("allocation-runners"))) {
++          throw new IllegalArgumentException(
++              "Usage: BenchmarkCollectionPlan declared-runner-arguments "
++                  + "<runners|allocation-runners> <benchmark> <benchmark-jar> [--smoke]");
++        }
++        plan.declaredLauncherArguments(
++                args[2], args[3], args[1].equals("allocation-runners"), smoke)
++            .forEach(System.out::println);
++      }
+       case "trials" -> {
+         Query query = Query.parse(Arrays.copyOfRange(args, 1, args.length));
+         List<CollectionTrial> selected = plan.trials(query);
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/PatternProfiles.java b/safere-benchmarks/src/main/java/org/safere/benchmark/PatternProfiles.java
+index 5aa01cb7..56f56843 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/PatternProfiles.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/PatternProfiles.java
+@@ -36,6 +36,22 @@ final class PatternProfiles {
+     this.profiles = Collections.unmodifiableMap(new LinkedHashMap<>(profiles));
+   }
+ 
++  PatternProfiles withFallback(String profileId, String fallbackProfileId) {
++    Map<String, Selection> fallback = profiles.get(fallbackProfileId);
++    if (fallback == null) {
++      throw new IllegalArgumentException(
++          "Unknown fallback benchmark pattern profile: " + fallbackProfileId);
++    }
++    Map<String, Selection> overrides = profiles.get(profileId);
++    Map<String, Selection> combined = new LinkedHashMap<>(fallback);
++    if (overrides != null) {
++      combined.putAll(overrides);
++    }
++    Map<String, Map<String, Selection>> result = new LinkedHashMap<>(profiles);
++    result.put(profileId, Collections.unmodifiableMap(combined));
++    return new PatternProfiles(result);
++  }
++
+   static JsonObject normalizeInline(JsonObject source) {
+     if (source.has("patternProfiles") || source.has("replacementProfiles")) {
+       throw new IllegalArgumentException(
+diff --git a/safere-benchmarks/src/main/java/org/safere/benchmark/ResolvedBenchmarkPlan.java b/safere-benchmarks/src/main/java/org/safere/benchmark/ResolvedBenchmarkPlan.java
+index b73705a1..f6e9b836 100644
+--- a/safere-benchmarks/src/main/java/org/safere/benchmark/ResolvedBenchmarkPlan.java
++++ b/safere-benchmarks/src/main/java/org/safere/benchmark/ResolvedBenchmarkPlan.java
+@@ -71,7 +71,8 @@ final class ResolvedBenchmarkPlan {
+ 
+     DeclarativeBenchmarkPlan plan = DeclarativeBenchmarkPlan.parse(planData);
+     PatternProfiles patternProfiles =
+-        PatternProfiles.parse(normalizedBenchmarkData.get("patternProfiles"));
++        PatternProfiles.parse(normalizedBenchmarkData.get("patternProfiles"))
++            .withFallback("re2-cpp", "re2");
+     PatternProfiles replacementProfiles =
+         PatternProfiles.parse(normalizedBenchmarkData.get("replacementProfiles"));
+ 
+@@ -144,7 +145,7 @@ final class ResolvedBenchmarkPlan {
+             "re2_cpp",
+             "re2_cpp",
+             "cpp",
+-            "re2",
++            "re2-cpp",
+             "re2-cpp",
+             true,
+             true,
+diff --git a/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java b/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java
+index 4ca1e0b0..b458a029 100644
+--- a/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java
++++ b/safere-benchmarks/src/test/java/org/safere/benchmark/CrossEngineBenchmarkPlanTest.java
+@@ -557,6 +557,49 @@ class CrossEngineBenchmarkPlanTest {
+         .containsExactly("-jar", "\"/tmp/benchmark.jar\"");
+   }
+ 
++  @Test
++  void declaredRunnerArgumentsUseTheSelectedTimingOrAllocationTrials() {
++    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
++    String benchmark = "org.safere.benchmark.CrossEngineBenchmark.run";
++    String jar = "/tmp/benchmark jar.jar";
++    BenchmarkCollectionPlan.Runner timing =
++        plan.runners().stream()
++            .filter(runner -> runner.benchmark().equals(benchmark))
++            .findFirst()
++            .orElseThrow();
++    BenchmarkCollectionPlan.Runner allocation =
++        plan.allocationRunners().stream()
++            .filter(runner -> runner.benchmark().equals(benchmark))
++            .findFirst()
++            .orElseThrow();
++
++    assertThat(plan.declaredLauncherArguments(benchmark, jar, false, false))
++        .containsExactly(
++            "-jar",
++            "\"/tmp/benchmark jar.jar\"",
++            "-p",
++            "\"crossEngineTrial=" + String.join(",", timing.trialIds()) + "\"");
++    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, false))
++        .containsExactly(
++            "-jar",
++            "\"/tmp/benchmark jar.jar\"",
++            "-p",
++            "\"crossEngineTrial=" + String.join(",", allocation.trialIds()) + "\"");
++    String firstWorkload = allocation.trialIds().getFirst().split("@", 2)[0];
++    List<String> smokeTrials =
++        allocation.trialIds().stream()
++            .filter(trialId -> trialId.startsWith(firstWorkload + "@"))
++            .toList();
++    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, true))
++        .containsExactly(
++            "-jar",
++            "\"/tmp/benchmark jar.jar\"",
++            "-p",
++            "\"crossEngineTrial=" + String.join(",", smokeTrials) + "\"");
++    assertThatThrownBy(() -> plan.declaredLauncherArguments("missing", jar, false, false))
++        .isInstanceOf(IllegalArgumentException.class);
++  }
++
+   @Test
+   void allocationCollectionPreservesMemoryScalingWithoutAddingTimingTrials() {
+     BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+diff --git a/safere-benchmarks/src/test/java/org/safere/benchmark/PatternProfilesTest.java b/safere-benchmarks/src/test/java/org/safere/benchmark/PatternProfilesTest.java
+index 1d602182..7dd7ad09 100644
+--- a/safere-benchmarks/src/test/java/org/safere/benchmark/PatternProfilesTest.java
++++ b/safere-benchmarks/src/test/java/org/safere/benchmark/PatternProfilesTest.java
+@@ -38,6 +38,24 @@ class PatternProfilesTest {
+     assertThat(profiles.select("go-regexp", "\\Qfoo.bar\\E")).isEqualTo("\\Qfoo.bar\\E");
+   }
+ 
++  @Test
++  void profileFallbackUsesSpecificOverridesAndInheritedAlternates() {
++    PatternProfiles profiles =
++        PatternProfiles.parse(
++                JsonParser.parseString(
++                    """
++                    {
++                      "re2": [{"java": "shared", "alternate": "shared RE2", "reason": "shared"}],
++                      "re2-cpp": [{"java": "specific", "alternate": "specific C++", "reason": "specific"}]
++                    }
++                    """))
++            .withFallback("re2-cpp", "re2");
++
++    assertThat(profiles.select("re2-cpp", "shared")).isEqualTo("shared RE2");
++    assertThat(profiles.select("re2-cpp", "specific")).isEqualTo("specific C++");
++    assertThat(profiles.select("re2-cpp", "unchanged")).isEqualTo("unchanged");
++  }
++
+   @Test
+   void rejectsMalformedAndDuplicateAlternates() {
+     assertThatThrownBy(

@@ -1,0 +1,12 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+curated/04-ruff-noqa/real,grep-captures,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,32514634,2,11.43s,2.03s,2.10ms,2.03s,2.10ms,2.03s,2.03s
+curated/09-aws-keys/full,grep-captures,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,32514634,2,11.04s,1.98s,31.46ms,1.98s,31.46ms,1.95s,2.01s
+dictionary/search/english-10,count-spans,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),timeout: exceeded 60s,,0,0.00ns,0.00ns,0.00ns,0.00ns,0.00ns,0.00ns,0.00ns
+imported/leipzig/tom-sawyer-huckle-fin-prefix-long,count,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,16013977,2,10.93s,1.98s,29.36ms,1.98s,29.36ms,1.95s,2.01s
+imported/lh3lh3-reb/uri,grep,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,39887114,2,11.73s,2.08s,6.29ms,2.08s,6.29ms,2.07s,2.08s
+imported/lh3lh3-reb/email,grep,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,39887114,2,10.13s,1.82s,23.07ms,1.82s,23.07ms,1.80s,1.84s
+imported/lh3lh3-reb/date,grep,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,39887114,3,10.33s,1.32s,2.10ms,1.32s,1.71ms,1.31s,1.32s
+imported/lh3lh3-reb/uri-or-email,grep,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,39887114,1,16.05s,3.74s,0.00ns,3.74s,0.00ns,3.74s,3.74s
+reported/i13-subset-regex/big-ascii,count,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,16013977,3,11.08s,1.44s,2.10ms,1.44s,2.62ms,1.44s,1.44s
+reported/i13-subset-regex/big-unicode,count,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,16013977,3,11.03s,1.45s,12.58ms,1.45s,11.14ms,1.43s,1.46s
+wild/url/search,count-spans,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,7384531,1,14.94s,3.54s,0.00ns,3.54s,0.00ns,3.54s,3.54s

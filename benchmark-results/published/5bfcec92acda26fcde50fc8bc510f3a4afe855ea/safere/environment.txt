@@ -1,0 +1,39 @@
+SafeRE commit: 5bfcec92acda26fcde50fc8bc510f3a4afe855ea
+SafeRE commit time: 2026-09-25T17:51:20-07:00
+Command: custom selected-engine standard collection; Java --declared; C++ RE2 and PCRE2 JIT; Rust; external OpenJDK suite skipped (checkout unavailable); Go and .NET omitted (outside selected scope).
+
+Java:
+openjdk version "26.0.2" 2026-07-21
+OpenJDK Runtime Environment (build 26.0.2+10-55)
+OpenJDK 64-Bit Server VM (build 26.0.2+10-55, mixed mode, sharing)
+
+Maven:
+Apache Maven 3.9.14 (996c630dbc656c76214ce58821dcc58be960875b)
+Maven home: /home/eaftan/mvns/apache-maven-3.9.14
+Java version: 26.0.2, vendor: Oracle Corporation, runtime: /home/eaftan/jdks/jdk-26.0.2
+Default locale: en, platform encoding: UTF-8
+OS name: "linux", version: "6.6.87.2-microsoft-standard-wsl2", arch: "amd64", family: "unix"
+
+Rust:
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+cargo 1.97.1 (c980f4866 2026-06-30)
+
+C++:
+c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+
+CMake:
+cmake version 4.3.0
+
+OS:
+Linux Scorpio 6.6.87.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+
+CPU:
+Model name:                           11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz
+Thread(s) per core:                   2
+Core(s) per socket:                   8
+Socket(s):                            1
+
+Memory:
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       964Mi        12Gi       4.7Mi       1.9Gi        14Gi
+Swap:          4.0Gi       2.8Mi       4.0Gi

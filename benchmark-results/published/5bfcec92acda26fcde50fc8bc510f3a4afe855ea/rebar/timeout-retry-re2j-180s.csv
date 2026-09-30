@@ -1,0 +1,2 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+dictionary/search/english-10,count-spans,0.1.0 (rev 9ee90dfb56),re2j,1.8 (OpenJDK 64-Bit Server VM 26.0.2+10-55),,61436,1,61.02s,12.77s,0.00ns,12.77s,0.00ns,12.77s,12.77s

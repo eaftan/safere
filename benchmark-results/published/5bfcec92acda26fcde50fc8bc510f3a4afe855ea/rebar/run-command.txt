@@ -1,0 +1,1 @@
+./target/release/rebar measure -e '^(java/hotspot|re2j|re2|rust/regex|safere/(string|utf8|utf8-vector)|pcre2/jit)$'

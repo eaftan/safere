@@ -1,0 +1,7 @@
+Rebar checkout: /home/eaftan/rebar
+Rebar branch: personal
+Rebar commit: 9ee90dfb569cbcfb81b8a23a4b99b12bfff0e1d7
+Rebar CLI: 0.1.0 (rev 9ee90dfb56)
+SafeRE dependency requested: 0.12.0-SNAPSHOT
+Engines: java/hotspot, re2j, re2, rust/regex, safere/string, safere/utf8, safere/utf8-vector, pcre2/jit
+Command mode: full default Rebar workload set, filtered to requested engines.

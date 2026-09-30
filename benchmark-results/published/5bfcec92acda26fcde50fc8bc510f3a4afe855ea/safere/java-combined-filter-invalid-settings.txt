@@ -1,0 +1,686 @@
+=== Standard mode ===
+=== Building safere + benchmark JAR ===
+CMake Warning in CMakeLists.txt:
+  CMAKE_SKIP_INSTALL_RULES was enabled even though installation rules have
+  been specified
+
+
+-- Configuring done (1.0s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build
+[  1%] Built target absl_spinlock_wait
+[  3%] Built target absl_utf8_for_code_point
+[  3%] Built target absl_log_severity
+[  3%] Built target absl_strerror
+[  3%] Built target absl_exponential_biased
+[  4%] Built target absl_civil_time
+[  5%] Built target absl_leak_check
+[  6%] Built target absl_flags_commandlineflag_internal
+[  6%] Built target absl_random_internal_platform
+[  7%] Built target absl_log_internal_nullguard
+[ 11%] Built target absl_time_zone
+[ 12%] Built target absl_periodic_sampler
+[ 13%] Built target absl_raw_logging_internal
+[ 14%] Built target absl_random_internal_randen_slow
+[ 14%] Built target absl_random_internal_randen_hwaes_impl
+[ 15%] Built target absl_throw_delegate
+[ 16%] Built target absl_scoped_set_env
+[ 17%] Built target absl_cordz_functions
+[ 19%] Built target absl_debugging_internal
+[ 20%] Built target absl_random_seed_gen_exception
+[ 21%] Built target absl_random_internal_randen_hwaes
+[ 23%] Built target absl_base
+[ 24%] Built target absl_tracing_internal
+[ 24%] Built target absl_malloc_internal
+[ 26%] Built target absl_random_internal_randen
+[ 26%] Built target absl_decode_rust_punycode
+[ 27%] Built target absl_string_view
+[ 27%] Built target absl_log_internal_conditions
+[ 27%] Built target absl_int128
+[ 27%] Built target absl_crc_cpu_detect
+[ 28%] Built target absl_city
+[ 29%] Built target absl_strings_internal
+[ 30%] Built target absl_poison
+[ 31%] Built target absl_stacktrace
+[ 31%] Built target absl_demangle_rust
+[ 32%] Built target absl_graphcycles_internal
+[ 33%] Built target absl_crc_internal
+[ 33%] Built target absl_demangle_internal
+[ 38%] Built target absl_strings
+[ 39%] Built target absl_log_internal_fnmatch
+[ 40%] Built target absl_symbolize
+[ 40%] Built target absl_log_internal_proto
+[ 40%] Built target absl_flags_commandlineflag
+[ 41%] Built target absl_hash
+[ 42%] Built target absl_random_internal_seed_material
+[ 43%] Built target absl_random_distributions
+[ 45%] Built target absl_time
+[ 47%] Built target absl_str_format_internal
+[ 47%] Built target absl_flags_private_handle_accessor
+[ 48%] Built target absl_log_internal_structured_proto
+[ 49%] Built target absl_examine_stack
+[ 50%] Built target absl_log_internal_globals
+[ 51%] Built target absl_kernel_timeout_internal
+[ 53%] Built target absl_log_entry
+[ 53%] Built target absl_flags_marshalling
+[ 54%] Built target absl_random_internal_distribution_test_util
+[ 55%] Built target absl_failure_signal_handler
+[ 57%] Built target absl_crc32c
+[ 58%] Built target absl_log_internal_format
+[ 59%] Built target absl_log_sink
+[ 60%] Built target absl_crc_cord_state
+[ 65%] Built target absl_synchronization
+[ 66%] Built target absl_flags_program_name
+[ 66%] Built target absl_cordz_handle
+[ 67%] Built target absl_random_internal_entropy_pool
+[ 68%] Built target absl_vlog_config_internal
+[ 72%] Built target absl_hashtablez_sampler
+[ 73%] Built target absl_cord_internal
+[ 73%] Built target absl_flags_config
+[ 74%] Built target absl_log_globals
+[ 75%] Built target absl_random_seed_sequences
+[ 76%] Built target absl_cordz_info
+[ 77%] Built target absl_flags_internal
+[ 77%] Built target absl_log_internal_log_sink_set
+[ 78%] Built target absl_log_initialize
+[ 79%] Built target absl_cordz_sample_token
+[ 80%] Built target absl_log_internal_message
+[ 81%] Built target absl_cord
+[ 82%] Built target absl_die_if_null
+[ 83%] Built target absl_log_internal_check_op
+[ 83%] Built target absl_raw_hash_set
+[ 85%] Built target absl_status
+[ 87%] Built target absl_profile_builder
+[ 87%] Built target absl_flags_reflection
+[ 88%] Built target absl_statusor
+[ 88%] Built target absl_log_flags
+[ 88%] Built target absl_hashtable_profiler
+[ 89%] Built target absl_flags_usage_internal
+[ 89%] Built target absl_flags_usage
+[ 98%] Built target re2
+[ 99%] Built target absl_flags_parse
+[100%] Built target re2_shim
+=== Materializing shared benchmark inputs ===
+Materialized 541 benchmark inputs in /home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+=== Running CrossEngineBenchmark\.run|CrossEngineScalingBenchmark\.run|CrossEngineNoForkBenchmark\.run|CrossEngineColdStartBenchmark\.run|SpecializedBenchmark\.run (-f 0 -wi 2 -w 500ms -i 5 -r 500ms) ===
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.literalMatch@safere-string)
+
+# Run progress: 0.00% complete, ETA 03:01:18
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 35.200 ns/op
+# Warmup Iteration   2: 27.203 ns/op
+Iteration   1: 58.600 ns/op
+Iteration   2: 17.412 ns/op
+Iteration   3: 17.406 ns/op
+Iteration   4: 17.242 ns/op
+Iteration   5: 17.334 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  25.599 ±(99.9%) 71.038 ns/op [Average]
+  (min, avg, max) = (17.242, 25.599, 58.600), stdev = 18.448
+  CI (99.9%): [≈ 0, 96.637] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.literalMatch@safere-utf8)
+
+# Run progress: 0.03% complete, ETA 03:19:41
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 25.822 ns/op
+# Warmup Iteration   2: 22.945 ns/op
+Iteration   1: 22.721 ns/op
+Iteration   2: 22.794 ns/op
+Iteration   3: 22.613 ns/op
+Iteration   4: 22.624 ns/op
+Iteration   5: 22.955 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  22.741 ±(99.9%) 0.542 ns/op [Average]
+  (min, avg, max) = (22.613, 22.741, 22.955), stdev = 0.141
+  CI (99.9%): [22.199, 23.283] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.literalMatch@jdk-string)
+
+# Run progress: 0.06% complete, ETA 03:12:05
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 20.156 ns/op
+# Warmup Iteration   2: 19.807 ns/op
+Iteration   1: 19.690 ns/op
+Iteration   2: 20.690 ns/op
+Iteration   3: 19.598 ns/op
+Iteration   4: 19.639 ns/op
+Iteration   5: 19.743 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  19.872 ±(99.9%) 1.773 ns/op [Average]
+  (min, avg, max) = (19.598, 19.872, 20.690), stdev = 0.461
+  CI (99.9%): [18.099, 21.646] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.literalMatch@re2j-string)
+
+# Run progress: 0.10% complete, ETA 03:09:02
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 134.041 ns/op
+# Warmup Iteration   2: 131.395 ns/op
+Iteration   1: 130.495 ns/op
+Iteration   2: 130.583 ns/op
+Iteration   3: 131.376 ns/op
+Iteration   4: 131.509 ns/op
+Iteration   5: 130.113 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  130.815 ±(99.9%) 2.313 ns/op [Average]
+  (min, avg, max) = (130.113, 130.815, 131.509), stdev = 0.601
+  CI (99.9%): [128.502, 133.129] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.literalMatch@re2-ffm-string-conversion)
+
+# Run progress: 0.13% complete, ETA 03:07:35
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 66.966 ns/op
+# Warmup Iteration   2: 64.532 ns/op
+Iteration   1: 63.755 ns/op
+Iteration   2: 64.839 ns/op
+Iteration   3: 64.953 ns/op
+Iteration   4: 66.396 ns/op
+Iteration   5: 65.513 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  65.091 ±(99.9%) 3.728 ns/op [Average]
+  (min, avg, max) = (63.755, 65.091, 66.396), stdev = 0.968
+  CI (99.9%): [61.364, 68.819] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.charClassMatch@safere-string)
+
+# Run progress: 0.16% complete, ETA 03:07:38
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 27.659 ns/op
+# Warmup Iteration   2: 27.384 ns/op
+Iteration   1: 27.347 ns/op
+Iteration   2: 27.734 ns/op
+Iteration   3: 27.279 ns/op
+Iteration   4: 27.192 ns/op
+Iteration   5: 27.337 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  27.378 ±(99.9%) 0.803 ns/op [Average]
+  (min, avg, max) = (27.192, 27.378, 27.734), stdev = 0.208
+  CI (99.9%): [26.575, 28.181] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.charClassMatch@safere-utf8)
+
+# Run progress: 0.19% complete, ETA 03:07:25
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 107.289 ns/op
+# Warmup Iteration   2: 103.665 ns/op
+Iteration   1: 104.166 ns/op
+Iteration   2: 103.512 ns/op
+Iteration   3: 103.771 ns/op
+Iteration   4: 104.025 ns/op
+Iteration   5: 102.322 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  103.559 ±(99.9%) 2.831 ns/op [Average]
+  (min, avg, max) = (102.322, 103.559, 104.166), stdev = 0.735
+  CI (99.9%): [100.728, 106.390] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.charClassMatch@jdk-string)
+
+# Run progress: 0.23% complete, ETA 03:06:44
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 172.441 ns/op
+# Warmup Iteration   2: 171.679 ns/op
+Iteration   1: 172.313 ns/op
+Iteration   2: 171.312 ns/op
+Iteration   3: 173.109 ns/op
+Iteration   4: 170.404 ns/op
+Iteration   5: 174.307 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  172.289 ±(99.9%) 5.857 ns/op [Average]
+  (min, avg, max) = (170.404, 172.289, 174.307), stdev = 1.521
+  CI (99.9%): [166.432, 178.147] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.charClassMatch@re2j-string)
+
+# Run progress: 0.26% complete, ETA 03:06:11
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 1308.067 ns/op
+# Warmup Iteration   2: 1270.137 ns/op
+Iteration   1: 1260.993 ns/op
+Iteration   2: 1275.528 ns/op
+Iteration   3: 1271.590 ns/op
+Iteration   4: 1263.398 ns/op
+Iteration   5: 1275.443 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  1269.390 ±(99.9%) 26.228 ns/op [Average]
+  (min, avg, max) = (1260.993, 1269.390, 1275.528), stdev = 6.811
+  CI (99.9%): [1243.163, 1295.618] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.charClassMatch@re2-ffm-string-conversion)
+
+# Run progress: 0.29% complete, ETA 03:05:43
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 127.897 ns/op
+# Warmup Iteration   2: 124.193 ns/op
+Iteration   1: 122.834 ns/op
+Iteration   2: 123.774 ns/op
+Iteration   3: 124.130 ns/op
+Iteration   4: 123.623 ns/op
+Iteration   5: 124.223 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  123.717 ±(99.9%) 2.126 ns/op [Average]
+  (min, avg, max) = (122.834, 123.717, 124.223), stdev = 0.552
+  CI (99.9%): [121.591, 125.842] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.alternationFind@safere-string)
+
+# Run progress: 0.32% complete, ETA 03:05:20
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 319.262 ns/op
+# Warmup Iteration   2: 298.027 ns/op
+Iteration   1: 298.545 ns/op
+Iteration   2: 304.864 ns/op
+Iteration   3: 298.672 ns/op
+Iteration   4: 301.479 ns/op
+Iteration   5: 295.082 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  299.728 ±(99.9%) 14.089 ns/op [Average]
+  (min, avg, max) = (295.082, 299.728, 304.864), stdev = 3.659
+  CI (99.9%): [285.639, 313.818] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.alternationFind@safere-utf8)
+
+# Run progress: 0.35% complete, ETA 03:05:02
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 306.124 ns/op
+# Warmup Iteration   2: 285.904 ns/op
+Iteration   1: 276.974 ns/op
+Iteration   2: 278.296 ns/op
+Iteration   3: 281.624 ns/op
+Iteration   4: 278.336 ns/op
+Iteration   5: 277.596 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  278.565 ±(99.9%) 6.929 ns/op [Average]
+  (min, avg, max) = (276.974, 278.565, 281.624), stdev = 1.800
+  CI (99.9%): [271.636, 285.494] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.alternationFind@jdk-string)
+
+# Run progress: 0.39% complete, ETA 03:04:46
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 970.647 ns/op
+# Warmup Iteration   2: 973.552 ns/op
+Iteration   1: 974.925 ns/op
+Iteration   2: 982.265 ns/op
+Iteration   3: 970.195 ns/op
+Iteration   4: 975.132 ns/op
+Iteration   5: 975.265 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  975.557 ±(99.9%) 16.608 ns/op [Average]
+  (min, avg, max) = (970.195, 975.557, 982.265), stdev = 4.313
+  CI (99.9%): [958.948, 992.165] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.alternationFind@re2j-string)
+
+# Run progress: 0.42% complete, ETA 03:04:32
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 4979.181 ns/op
+# Warmup Iteration   2: 4810.239 ns/op
+Iteration   1: 4786.658 ns/op
+Iteration   2: 4800.303 ns/op
+Iteration   3: 4818.344 ns/op
+Iteration   4: 4859.204 ns/op
+Iteration   5: 4838.049 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  4820.512 ±(99.9%) 111.664 ns/op [Average]
+  (min, avg, max) = (4786.658, 4820.512, 4859.204), stdev = 28.999
+  CI (99.9%): [4708.847, 4932.176] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.alternationFind@re2-ffm-string-conversion)
+
+# Run progress: 0.45% complete, ETA 03:04:19
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 630.838 ns/op
+# Warmup Iteration   2: 587.568 ns/op
+Iteration   1: 582.602 ns/op
+Iteration   2: 583.979 ns/op
+Iteration   3: 585.440 ns/op
+Iteration   4: 585.490 ns/op
+Iteration   5: 596.482 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  586.798 ±(99.9%) 21.344 ns/op [Average]
+  (min, avg, max) = (582.602, 586.798, 596.482), stdev = 5.543
+  CI (99.9%): [565.454, 608.143] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.findInText@safere-string)
+
+# Run progress: 0.48% complete, ETA 03:04:07
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 3489.985 ns/op
+# Warmup Iteration   2: 3051.472 ns/op
+Iteration   1: 3023.368 ns/op
+Iteration   2: 3034.779 ns/op
+Iteration   3: 3033.623 ns/op
+Iteration   4: 3028.991 ns/op
+Iteration   5: 3050.717 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  3034.296 ±(99.9%) 39.358 ns/op [Average]
+  (min, avg, max) = (3023.368, 3034.296, 3050.717), stdev = 10.221
+  CI (99.9%): [2994.938, 3073.654] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.findInText@safere-utf8)
+
+# Run progress: 0.51% complete, ETA 03:03:57
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 4046.399 ns/op
+# Warmup Iteration   2: 3667.161 ns/op
+Iteration   1: 3650.606 ns/op
+Iteration   2: 3645.107 ns/op
+Iteration   3: 3656.655 ns/op
+Iteration   4: 3659.176 ns/op
+Iteration   5: 3671.856 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  3656.680 ±(99.9%) 38.859 ns/op [Average]
+  (min, avg, max) = (3645.107, 3656.680, 3671.856), stdev = 10.091
+  CI (99.9%): [3617.821, 3695.539] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.findInText@jdk-string)
+
+# Run progress: 0.55% complete, ETA 03:03:47
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 4646.031 ns/op
+# Warmup Iteration   2: 4503.629 ns/op
+Iteration   1: 4500.856 ns/op
+Iteration   2: 4525.249 ns/op
+Iteration   3: 4585.159 ns/op
+Iteration   4: 4503.029 ns/op
+Iteration   5: 4528.867 ns/op
+
+Result "org.safere.benchmark.CrossEngineBenchmark.run":
+  4528.632 ±(99.9%) 131.061 ns/op [Average]
+  (min, avg, max) = (4500.856, 4528.632, 4585.159), stdev = 34.036
+  CI (99.9%): [4397.571, 4659.693] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 26.0.2, OpenJDK 64-Bit Server VM, 26.0.2+10-55
+# VM invoker: /home/eaftan/jdks/jdk-26.0.2/bin/java
+# VM options: --enable-native-access=ALL-UNNAMED -Dre2shim.library.path=/home/eaftan/safere-benchmarks-for-1.0/safere-ffm-re2/build -Dsafere.benchmark.corpus=/home/eaftan/safere-benchmarks-for-1.0/safere-benchmarks/target/benchmark-corpus
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 2 iterations, 500 ms each
+# Measurement: 5 iterations, 500 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: org.safere.benchmark.CrossEngineBenchmark.run
+# Parameters: (crossEngineTrial = RegexBenchmark.findInText@re2j-string)
+
+# Run progress: 0.58% complete, ETA 03:03:38
+# Fork: N/A, test runs in the host VM
+# *** WARNING: Non-forked runs may silently omit JVM options, mess up profilers, disable compiler hints, etc. ***
+# *** WARNING: Use non-forked runs only for debugging purposes, not for actual performance runs. ***
+# Warmup Iteration   1: 20361.893 ns/op
+# Warmup Iteration   2: 

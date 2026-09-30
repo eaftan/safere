@@ -1,0 +1,10 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+dictionary/search/english-10,count-spans,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,61436,24135,18.31s,118.78us,2.56us,124.00us,18.62us,114.56us,948.22us
+reported/i13-subset-regex/original-ascii,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,9.48s,1.66s,20.97ms,1.66s,20.97ms,1.64s,1.68s
+reported/i13-subset-regex/original-unicode,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,9.38s,1.63s,6.29ms,1.63s,6.29ms,1.63s,1.64s
+reported/i13-subset-regex/big-ascii,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,11.63s,2.11s,2.10ms,2.11s,2.10ms,2.10s,2.11s
+reported/i13-subset-regex/big-unicode,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,11.63s,2.17s,8.39ms,2.17s,8.39ms,2.16s,2.18s
+reported/i13-subset-regex/huge-ascii,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,13.49s,2.48s,35.65ms,2.48s,35.65ms,2.44s,2.51s
+reported/i13-subset-regex/huge-unicode,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,13.39s,2.47s,0.00ns,2.47s,0.00ns,2.47s,2.47s
+reported/i13-subset-regex/huge-ascii-nosuffixlit,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,13.19s,2.46s,6.29ms,2.46s,6.29ms,2.45s,2.47s
+reported/i13-subset-regex/huge-unicode-nosuffixlit,count,0.1.0 (rev 9ee90dfb56),safere/utf8-vector,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=vector),,16013977,2,13.59s,2.49s,31.46ms,2.49s,31.46ms,2.46s,2.52s

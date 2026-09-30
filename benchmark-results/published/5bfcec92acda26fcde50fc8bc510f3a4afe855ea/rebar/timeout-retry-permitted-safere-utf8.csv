@@ -1,0 +1,8 @@
+name,model,rebar_version,engine,engine_version,err,haystack_len,iters,total,median,mad,mean,stddev,min,max
+dictionary/search/english-10,count-spans,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,61436,24598,19.11s,115.97us,1.15us,121.66us,17.78us,113.66us,930.82us
+reported/i13-subset-regex/big-ascii,count,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,16013977,2,11.68s,2.13s,25.17ms,2.13s,25.17ms,2.10s,2.15s
+reported/i13-subset-regex/big-unicode,count,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,16013977,2,11.73s,2.15s,57.67ms,2.15s,57.67ms,2.10s,2.21s
+reported/i13-subset-regex/huge-ascii,count,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,16013977,2,13.74s,2.56s,69.21ms,2.56s,69.21ms,2.49s,2.63s
+reported/i13-subset-regex/huge-unicode,count,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,16013977,2,13.84s,2.55s,98.57ms,2.55s,98.57ms,2.45s,2.65s
+reported/i13-subset-regex/huge-ascii-nosuffixlit,count,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,16013977,2,13.79s,2.55s,65.01ms,2.55s,65.01ms,2.48s,2.61s
+reported/i13-subset-regex/huge-unicode-nosuffixlit,count,0.1.0 (rev 9ee90dfb56),safere/utf8,0.12.0-SNAPSHOT (OpenJDK 64-Bit Server VM 26.0.2+10-55; scanner=swar),,16013977,2,13.69s,2.58s,67.11ms,2.58s,67.11ms,2.51s,2.65s

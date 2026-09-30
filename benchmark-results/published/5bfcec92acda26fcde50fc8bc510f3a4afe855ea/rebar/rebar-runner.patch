@@ -1,0 +1,82 @@
+diff --git a/benchmarks/definitions/hyperscan.toml b/benchmarks/definitions/hyperscan.toml
+index c7e77c9..b5174ef 100644
+--- a/benchmarks/definitions/hyperscan.toml
++++ b/benchmarks/definitions/hyperscan.toml
+@@ -99,15 +99,12 @@ unicode = true
+ count = [
+   # RE2/J reports UTF-16 code units instead of UTF-8 bytes.
+   { engine = 're2j', count = 12 },
+-  { engine = '.*', count = 23 },
+-]
+-engines = [
+-  're2j',
+   # SafeRE's String API reports UTF-16 code units.
+   { engine = 'safere/string', count = 12 },
+   { engine = '.*', count = 23 },
+ ]
+ engines = [
++  're2j',
+   'safere/string',
+   'safere/utf8',
+   'safere/utf8-vector',
+@@ -144,15 +141,12 @@ haystack = { path = "opensubtitles/ru-huge.txt" }
+ count = [
+   # RE2/J reports UTF-16 code units instead of UTF-8 bytes.
+   { engine = 're2j', count = 12 },
+-  { engine = '.*', count = 23 },
+-]
+-engines = [
+-  're2j',
+   # SafeRE's String API reports UTF-16 code units.
+   { engine = 'safere/string', count = 12 },
+   { engine = '.*', count = 23 },
+ ]
+ engines = [
++  're2j',
+   'safere/string',
+   'safere/utf8',
+   'safere/utf8-vector',
+diff --git a/benchmarks/engines.toml b/benchmarks/engines.toml
+index d7e9f98..e617a59 100644
+--- a/benchmarks/engines.toml
++++ b/benchmarks/engines.toml
+@@ -412,7 +412,7 @@
+   [engine.version]
+     bin = "java"
+     args = ["-cp", "target/classes:target/dependency/*", "org.rebar.safere.Main", "string", "version"]
+-    regex = '^SafeRE (?P<version>[0-9]+\.[0-9]+\.[0-9]+ \([^\n]+\))'
++    regex = '^SafeRE (?P<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)? \([^\n]+\))'
+   [engine.run]
+     bin = "java"
+     args = ["-cp", "target/classes:target/dependency/*", "org.rebar.safere.Main", "string"]
+@@ -430,7 +430,7 @@
+   [engine.version]
+     bin = "java"
+     args = ["-cp", "target/classes:target/dependency/*", "org.rebar.safere.Main", "utf8", "version"]
+-    regex = '^SafeRE (?P<version>[0-9]+\.[0-9]+\.[0-9]+ \([^\n]+\))'
++    regex = '^SafeRE (?P<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)? \([^\n]+\))'
+   [engine.run]
+     bin = "java"
+     args = ["-cp", "target/classes:target/dependency/*", "org.rebar.safere.Main", "utf8"]
+@@ -448,7 +448,7 @@
+   [engine.version]
+     bin = "java"
+     args = ["--add-modules=jdk.incubator.vector", "-Dorg.safere.experimental.vectorScanProvider=vector", "-cp", "target/classes:target/dependency/*", "org.rebar.safere.Main", "utf8", "version"]
+-    regex = '^SafeRE (?P<version>[0-9]+\.[0-9]+\.[0-9]+ \([^\n]+\))'
++    regex = '^SafeRE (?P<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)? \([^\n]+\))'
+   [engine.run]
+     bin = "java"
+     args = ["--add-modules=jdk.incubator.vector", "-Dorg.safere.experimental.vectorScanProvider=vector", "-cp", "target/classes:target/dependency/*", "org.rebar.safere.Main", "utf8"]
+diff --git a/engines/safere/pom.xml b/engines/safere/pom.xml
+index 4931dff..6a4aed3 100644
+--- a/engines/safere/pom.xml
++++ b/engines/safere/pom.xml
+@@ -22,7 +22,7 @@
+       <groupId>org.safere</groupId>
+       <artifactId>safere</artifactId>
+       <!-- TODO(eaftan): update to 1.0.0 -->
+-      <version>0.11.0</version>
++      <version>0.12.0-SNAPSHOT</version>
+     </dependency>
+     <dependency>
+       <groupId>org.openjdk.jmh</groupId>

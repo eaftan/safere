@@ -1,450 +1,267 @@
-# SafeRE Benchmark Report
+# SafeRE 1.0 benchmark report
 
-This report compares SafeRE with `java.util.regex` (JDK), RE2/J 1.8, C++ RE2
-through Java's Foreign Function & Memory API (RE2-FFM), native C++ RE2,
-PCRE2 JIT, Go [`regexp`](https://pkg.go.dev/regexp), Rust
-[`regex`](https://docs.rs/regex), and .NET 10's non-backtracking engine. Lower
-times are better.
+This report presents the performance measurements for SafeRE 1.0.0. It compares SafeRE with the JDK, RE2/J,
+RE2-FFM, native RE2, PCRE2 JIT, and Rust regex using two benchmark suites.
 
-## Executive summary
+We have used **SafeRE's own suite to guide optimization**. Going forward,
+we will use **Rebar as a holdout set**: we will run it for reporting, rather
+than tune SafeRE against its workloads. This gives us an independent check
+on whether improvements generalize beyond the benchmarks we develop against.
+Rebar is not a pristine holdout for this release: a few earlier optimization
+PRs used Rebar workloads. The policy applies going forward.
 
-The primary result is the 150-measurement real-world matrix, the report's
-broadest matching category. By geometric mean, SafeRE is 2.22× faster than the
-JDK, 12.5× faster than RE2/J, and 3.06× faster than RE2-FFM on this matrix. The
-SafeRE/JDK result remains 1.88× faster after removing the two 100K no-match
-cases where JDK backtracking takes roughly 42–44 seconds per operation.
+## Results at a glance
 
-The smaller Core and Application categories are supporting checks, not the
-headline. SafeRE is 22% slower than the JDK on the eight core workloads and 7%
-slower on the eight application workloads. Against JVM-accessible linear-time
-engines, it is 10.0× and 8.36× faster than RE2/J, and 1.92× and 1.83× faster
-than RE2-FFM, on Core and Application respectively. These focused results show
-that the broad real-world lead over the JDK is workload-dependent rather than
-universal.
-
-The cross-runtime results show a more varied tradeoff. Across all 150
-real-world measurements, SafeRE is 13% slower than native C++ RE2, 6.56×
-faster than Go `regexp`, and takes 2.03× as long as Rust `regex`. On the
-subsets supported by those adapters, SafeRE takes 2.47× as long as PCRE2 JIT
-across 48 measurements and is 8% slower than .NET non-backtracking across 114.
-These are ecosystem context, not controlled same-runtime comparisons.
-
-SafeRE's pre-existing UTF-8 API has mixed results relative to its Java-string
-API. String matching is 1.22× faster on five small core searches, while UTF-8
-is 1.16× faster on the 48 real-world measurements supported by both paths. The
-experimental JDK 26 Vector provider was not enabled in this collection, so the
-UTF-8 results use SafeRE's default provider.
-
-The principal costs are compilation and retained memory. SafeRE compilation
-takes 71.2× as long as JDK compilation, 11.7× as long as RE2/J, and 2.58× as
-long as RE2-FFM across four patterns. SafeRE also retains substantially more
-data per compiled pattern. In return, adversarial behavior stays bounded: for
-`a?{20}a{20}`, SafeRE takes 0.089 µs while the JDK takes 17,079 µs; for a 1 MiB
-end-anchored failed search, SafeRE rejects in 0.049 µs while the JDK takes
-47,256 µs.
-
-## Environment and reproducibility
-
-- Benchmarked commit: `516a1ff76141bc83c3910426332c7824acdf007c`
-- Commit date/time: 2026-08-02T02:46:40Z
-- SafeRE version: 0.11.0-SNAPSHOT
-- CPU: Intel Core i7-11700K, 8 cores / 16 threads, 3.6 GHz base
-- Memory available to WSL2: 16 GiB; Windows 11 host
-- OS: Ubuntu 24.04 on WSL2, Linux 6.6.87.2-microsoft-standard-WSL2
-- Java: OpenJDK 26.0.2+10-55, targeting Java 21
-- JMH: 1.37
-- C++ compiler: g++ 13.3.0, Release build (`-O3 -DNDEBUG`)
-- C++ RE2: 2025-11-05
-- PCRE2: 10.47 with JIT enabled
-- Go: 1.26.1 linux/amd64
-- Rust: rustc 1.97.1, `regex` 1.13.1
-- .NET SDK: 10.0.110
-
-The collection command was:
-
-```bash
-./collect-benchmark-results.sh --cross-language --skip-openjdk-regex
-```
-
-The separately licensed OpenJDK-derived suite was intentionally skipped and is
-not included in this report.
-
-The complete raw and normalized results used for this report are checked in at
-[`benchmark-results/published/516a1ff76141bc83c3910426332c7824acdf007c/`](benchmark-results/published/516a1ff76141bc83c3910426332c7824acdf007c/).
-That directory includes the original harness output, the resolved declarative
-plan, normalized JSON Lines, generated comparison tables, provenance, and file
-checksums so the calculations can be reproduced or independently inspected.
-
-Java used the standard project configuration: 2 forks, 2 warmup iterations of
-500 ms, and 5 measurement iterations of 500 ms. Declared no-fork workloads use
-`-f 0`. The allocation pass used its dedicated publication configuration and
-JMH's GC profiler. No `--long` confirmation run was performed, so every timing
-in this report comes from the standard collection.
-
-C++, Go, Rust, and .NET average-time workloads used 2 warmup and 10 measurement
-iterations of 2 seconds in one process. .NET cold-start workloads used five
-fresh processes. Before execution, the collection materialized
-`benchmark-data.json` into one resolved manifest and exact UTF-8 input files;
-every harness read those artifacts. Java results report JMH's 99.9% confidence
-intervals. The native harnesses report 99.9% Student's t confidence intervals.
-
-Java engines operate on Java strings, except SafeRE UTF-8, which consumes
-pre-existing UTF-8 bytes. RE2-FFM includes UTF-16-to-UTF-8 conversion and the
-native-call boundary. Native C++, Go, and Rust consume UTF-8; .NET operates on
-UTF-16 strings. Cross-runtime ratios therefore describe complete application
-paths in their respective runtimes, not isolated engine throughput under one
-runtime.
-
-Several very small Java measurements have wide intervals in this standard run,
-including SafeRE literal and character-class matching. SafeRE's medium compile
-case is also noisy. Aggregate ratios use the measured point estimates, but
-close conclusions in those areas should be confirmed with `--long` before
-guiding an optimization decision.
-
-## Benchmark categories
-
-The Real-world matrix is the primary headline category because it has the
-broadest pattern and input coverage. Core and Application are smaller,
-deliberately focused supporting checks that help explain where the headline
-does and does not generalize.
-
-| Category | Composition | Question answered |
-|---|---|---|
-| Real-world | 25 data-driven patterns, each measured on matching and non-matching inputs at 1K, 10K, and 100K: six rows per pattern and 150 rows in total | How does performance vary across broader pattern shapes, input sizes, match positions, and successful versus failed searches? |
-| Core | Eight focused operations: literal full match, character-class full match, alternation search, prose search, email search, capture extraction, Pig Latin replacement, and HTTP request parsing | How do the engines compare on a compact cross-section of common regex API operations? |
-| Application | Eight realistic tasks: UUID validation, structured log parsing, API route matching, stack-trace extraction, case-insensitive keyword search, URL extraction, CSV field scanning, and secret redaction | How do the engines perform when matching, captures, repeated search, and replacement are combined into application-shaped work? |
-
-Core and Application each give one equal-weight measurement to every listed
-workload. The Real-world aggregate gives equal weight to every one of its 150
-rows, so each pattern contributes six equal-weight measurements. Engine
-adapters exclude workloads they cannot express with equivalent semantics; the
-same-runtime JVM summary has complete coverage, while cross-runtime summaries
-state their actual row counts.
-
-Compilation, memory, scaling, pathological behavior, UTF-8-specific operations,
-and SafeRE-only functionality answer separate questions and are reported in
-their own sections rather than folded into these three matching categories.
-
-## Aggregate comparisons
-
-Ratios are SafeRE string time / competitor time. Values below 1 mean SafeRE is
-faster. Each workload or parameter row has equal weight, and aggregates use
-the geometric mean of speed ratios.
-
-The same-runtime summary uses identical membership for all four JVM engines.
-The headline matching category appears first; Compilation is included for
-contrast but is not part of the matching headline.
-
-| Category | Rows | vs JDK | vs RE2/J | vs RE2-FFM |
-|---|---:|---:|---:|---:|
-| Real-world matrix | 150 | 0.451 (2.22× faster) | 0.0798 (12.5× faster) | 0.326 (3.06× faster) |
-| Core workloads | 8 | 1.219 (22% slower) | 0.0998 (10.0× faster) | 0.521 (1.92× faster) |
-| Application workloads | 8 | 1.069 (7% slower) | 0.120 (8.36× faster) | 0.546 (1.83× faster) |
-| Compilation | 4 | 71.22 (takes 71.2× as long) | 11.67 (takes 11.7× as long) | 2.581 (takes 2.58× as long) |
-
-Core contains literal match, character-class match, alternation find,
-find-in-text, email find, capture groups, Pig Latin replacement, and full HTTP
-parsing. Application contains all eight `ApplicationBenchmark` cases.
-Real-world contains 25 patterns, matching and non-matching inputs, and 1K, 10K,
-and 100K sizes: six equally weighted rows per pattern. Compilation contains the
-four `CompileBenchmark` patterns.
-
-Cross-runtime coverage differs because adapters exclude unsupported syntax or
-operations. Each cell below states the comparison directly, followed by the
-raw SafeRE/competitor ratio and row count. Comparisons across columns should
-not be treated as if they had identical membership.
-
-| Engine | Real-world comparison | Core comparison | Application comparison |
-|---|---|---|---|
-| Native C++ RE2 | SafeRE 13% slower (`1.126`, 150 rows) | SafeRE 1.32× faster (`0.758`, 8 rows) | SafeRE 4% slower (`1.039`, 8 rows) |
-| PCRE2 JIT | SafeRE takes 2.47× as long (`2.471`, 48 rows) | SafeRE 4% slower (`1.041`, 7 rows) | SafeRE takes 2.40× as long (`2.396`, 7 rows) |
-| Go `regexp` | SafeRE 6.56× faster (`0.152`, 150 rows) | SafeRE 3.42× faster (`0.293`, 8 rows) | SafeRE 2.34× faster (`0.428`, 8 rows) |
-| Rust `regex` | SafeRE takes 2.03× as long (`2.028`, 150 rows) | SafeRE 40% slower (`1.402`, 8 rows) | SafeRE 51% slower (`1.514`, 8 rows) |
-| .NET non-backtracking | SafeRE 8% slower (`1.077`, 114 rows) | SafeRE 2.40× faster (`0.418`, 7 rows) | SafeRE 3.47× faster (`0.288`, 6 rows) |
-
-On the headline matrix, SafeRE is 13% slower than native RE2, takes 2.03× as
-long as Rust, and is 6.56× faster than Go. The smaller categories add useful
-texture: SafeRE is 1.32× faster than native RE2 on Core and approximately even
-on Application; Rust leads SafeRE by 1.40× and 1.51× on those categories; and
-SafeRE leads Go by 3.42× and 2.34×. .NET's omitted rows include unsupported
-patterns and operations, so its strong Core and Application ratios and its
-approximately even Real-world ratio describe different subsets.
-
-## Real-world headline analysis
-
-The real-world suite has 25 patterns. Every fully supported pattern contributes
-six equal-weight measurements: match and no-match at 1K, 10K, and 100K. The
-overall JVM aggregate uses all 150 rows. Native RE2, Go, and Rust also support
-all 150; SafeRE UTF-8 and PCRE2 support 48; .NET supports 114.
-
-The JDK aggregate is materially influenced by backtracking no-match cases. At
-100K, `wildcardSearch` takes 42.4 seconds and `fruitSearchQuery` takes 43.6
-seconds in the JDK, versus 55.4 µs and 132.7 µs in SafeRE. Removing those two
-rows changes the SafeRE/JDK geomean from 0.451 (2.22× faster) to 0.532 (1.88×
-faster). The matrix also contains cases where the JDK finds an early match very
-quickly: `fruitSearchQuery.match.100000` takes 528 ns in the JDK and 17.6 ms in
-SafeRE. Thus the headline reflects broad multiplicative performance across the
-entire matrix, not a claim that SafeRE wins every workload.
-
-## Supporting Core and Application results
-
-The controlled JVM timings are:
-
-| Core workload (ns/op) | SafeRE | JDK | RE2/J | RE2-FFM |
-|---|---:|---:|---:|---:|
-| Literal match | 23.7 | 15.9 | 134 | 64.4 |
-| Character class | 40.9 | 25.9 | 1,289 | 131 |
-| Alternation find | 212 | 563 | 4,421 | 683 |
-| Find in prose | 2,435 | 3,111 | 21,058 | 4,483 |
-| Email find | 236 | 404 | 2,044 | 273 |
-| Capture groups | 148 | 111 | 593 | 374 |
-| Pig Latin `replaceAll` | 2,138 | 1,009 | 8,260 | 2,494 |
-| Full HTTP parse | 401 | 94.1 | 9,485 | 422 |
-
-| Application workload (ns/op) | SafeRE | JDK | RE2/J | RE2-FFM |
-|---|---:|---:|---:|---:|
-| UUID validation | 469 | 959 | 2,638 | 675 |
-| Log parsing | 1,823 | 1,083 | 15,925 | 3,136 |
-| API route | 528 | 526 | 6,447 | 1,173 |
-| Stack trace | 2,897 | 1,765 | 28,955 | 4,804 |
-| Case-insensitive keywords | 402 | 1,164 | 6,121 | 1,196 |
-| URL extraction | 643 | 1,009 | 7,160 | 1,480 |
-| CSV field scan | 2,641 | 767 | 10,592 | 6,691 |
-| Secret redaction | 1,219 | 735 | 7,113 | 979 |
-
-SafeRE leads the JDK on alternation, prose search, email search, UUIDs,
-case-insensitive keywords, and URL extraction. The JDK leads on tiny matching,
-captures, replacement, full HTTP parsing, log and stack-trace parsing, CSV
-scanning, and redaction. RE2/J is slower on every row in these two tables.
-RE2-FFM is close on email search, Pig Latin replacement, HTTP parsing, and
-redaction, but its conversion and native-call costs remain visible on short
+Across the full SafeRE suite and the curated Rebar subset, SafeRE String is
+**1.54× faster than the JDK in the SafeRE suite and 6.37× faster in Rebar**.
+It also leads RE2/J in both suites.
+**SafeRE is modestly faster than native C++ RE2 on these measured workloads**:
+it is 1.66× faster overall in its own suite and 1.22× faster on curated Rebar
 workloads.
+PCRE2 JIT and Rust are faster than SafeRE String on their overall comparisons.
 
-The same workloads provide cross-runtime context:
+Each value below is the geometric mean of **SafeRE String time / engine
+time**. Below 1 means SafeRE String is faster; above 1 means it takes longer.
+The number in parentheses is the number of measurements shared by both engines.
 
-| Core workload (ns/op) | C++ RE2 | PCRE2 JIT | Go | Rust | .NET |
-|---|---:|---:|---:|---:|---:|
-| Literal match | 74.2 | 70.8 | 68.0 | 39.2 | 46.7 |
-| Character class | 112 | 81.9 | 487 | 76.8 | 127 |
-| Alternation find | 412 | 228 | 1,854 | 99.0 | 344 |
-| Find in prose | 2,499 | 1,354 | 13,440 | 654 | — |
-| Email find | 112 | 102 | 599 | 96.4 | 136 |
-| Capture groups | 185 | 177 | 216 | 119 | 825 |
-| Pig Latin `replaceAll` | 1,969 | — | 2,815 | 1,700 | 5,690 |
-| Full HTTP parse | 397 | 164 | 926 | 263 | 2,132 |
-
-| Application workload (ns/op) | C++ RE2 | PCRE2 JIT | Go | Rust | .NET |
-|---|---:|---:|---:|---:|---:|
-| UUID validation | 369 | 206 | 990 | 171 | 494 |
-| Log parsing | 2,143 | 411 | 2,463 | 1,629 | 6,777 |
-| API route | 447 | 312 | 1,060 | 419 | 3,541 |
-| Stack trace | 4,360 | 585 | 4,703 | 2,176 | 8,709 |
-| Case-insensitive keywords | 627 | 447 | 4,767 | 451 | — |
-| URL extraction | 703 | 326 | 1,646 | 502 | 3,579 |
-| CSV field scan | 1,610 | 875 | 3,769 | 855 | 10,419 |
-| Secret redaction | 735 | — | 2,690 | 800 | — |
-
-Rust is the fastest cross-runtime engine on seven of the eight core rows.
-PCRE2 JIT is the fastest on five of its seven application rows. Native RE2
-remains especially competitive on matching that scans substantial input, while
-its fixed harness overhead is visible on the smallest operations. These engines
-make different choices about compilation, captures, syntax, and runtime
-representation, so individual rows are more informative than a universal
-ranking.
-
-## SafeRE string and UTF-8 paths
-
-The `safere_utf8` variant consumes bytes that were encoded before the timed
-operation; it does not include string-to-UTF-8 conversion. Its five shared core
-searches are:
-
-| Workload (ns/op) | SafeRE string | SafeRE UTF-8 |
+| Engine compared with SafeRE String | SafeRE suite: overall ratio (paired rows) | Rebar curated: overall ratio (paired rows) |
 |---|---:|---:|
-| Literal match | 23.7 | 51.4 |
-| Character class | 40.9 | 109 |
-| Alternation find | 212 | 227 |
-| Find in prose | 2,435 | 2,956 |
-| Email find | 236 | 83.0 |
+| JDK | **0.647 (695)** | **0.157 (34)** |
+| RE2/J | **0.043 (589)** | **0.072 (31)** |
+| RE2-FFM | **0.184 (539)** | — |
+| Native C++ RE2 | 0.603 (580) | 0.822 (31) |
+| PCRE2 JIT | 1.216 (403) | 1.426 (33) |
+| Rust regex | 1.355 (589) | 3.027 (34) |
+| SafeRE UTF-8 | 0.799 (530) | 0.864 (34) |
+| SafeRE UTF-8 Vector | — | 0.985 (34) |
 
-The geomean string/UTF-8 ratio is 0.823, so string matching is 1.22× faster on
-this small set. Across the 48 real-world rows supported by both paths, the
-ratio is 1.156, so UTF-8 is 1.16× faster. The per-pattern table in the next
-section shows that the aggregate hides large variation: UTF-8 is much faster
-for `cjkSearch` and `emojiSearch`, while string matching is much faster for
-`customProtocolLink` and `wildcardSearch`.
+Every shared measurement has equal weight. The SafeRE-suite total includes
+compilation; the Rebar total excludes it. The breakdowns below explain what
+each suite measures. Engines support different subsets: the SafeRE suite has
+759 String measurements and curated Rebar has 34, but each comparison uses
+only those both engines completed. These are separate suite results;
+we do not combine them into one score.
 
-The 1 MiB hard failed-search result also differs sharply: SafeRE string rejects
-in 0.049 µs through required-content analysis, while SafeRE UTF-8 takes 126 µs.
-That is a fast-path coverage difference, not an encoding cost, because both
-inputs were materialized before timing.
+Compilation has a large effect on the SafeRE-suite JDK average. Excluding
+116 compilation measurements and one compile-and-find measurement, SafeRE
+is **5.62× faster across the remaining 578 shared workloads**. The full
+overview retains these costs; it measures more than matching throughput.
 
-## Real-world pattern detail
+Coverage can affect the result. For example, SafeRE/PCRE2 JIT is 0.820 on
+SafeRE's 319 measurements supported by every tested engine, compared with
+1.216 on their broader shared subset. On curated Rebar's 30 measurements
+supported by every engine, SafeRE/native RE2 is 0.966 instead of 0.822.
+Overall results should therefore be read alongside the workload breakdown.
 
-The following table makes every pattern's contribution inspectable. Each cell
-is the geometric mean of SafeRE string time / competitor time over that
-pattern's six rows. A dash means the adapter excludes that pattern.
+SafeRE deliberately trades more compilation work for better matching
+throughput. It analyzes patterns and prepares matching shortcuts that can
+pay off when a compiled pattern is reused. Compilation time and compiled
+pattern memory are meaningful costs of that design.
 
-| Pattern | UTF-8 | JDK | RE2/J | RE2-FFM | C++ RE2 | PCRE2 | Go | Rust | .NET |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `blockedTags1` | — | 1.201 | 0.090 | 0.739 | 0.885 | — | 0.164 | 1.596 | 0.746 |
-| `blockedTags2` | — | 1.455 | 0.102 | 0.868 | 1.048 | — | 0.186 | 1.739 | 0.830 |
-| `boundedNameMatch` | — | 0.625 | 0.100 | 0.785 | 1.006 | — | 0.136 | 1.721 | 0.652 |
-| `caseInsensitiveKeyword` | — | 1.546 | 0.051 | 0.339 | 0.432 | — | 0.063 | 1.795 | — |
-| `charReplace` | — | 0.922 | 0.216 | 0.190 | 0.783 | — | 0.274 | 2.237 | 1.504 |
-| `cjkSearch` | 5.181 | 5.776 | 0.092 | 0.033 | 0.917 | 1.804 | 0.182 | 1.177 | 0.954 |
-| `customProtocolLink` | 0.097 | 0.169 | 0.143 | 0.655 | 4.246 | 5.766 | 0.307 | 5.236 | 3.164 |
-| `emojiSearch` | 4.203 | 1.487 | 0.052 | 0.028 | 0.511 | 1.308 | 0.084 | 2.894 | 4.642 |
-| `fruitMarkupTag` | — | 2.436 | 0.054 | 0.859 | 1.147 | — | 0.230 | 1.442 | 0.464 |
-| `fruitSearchQuery` | — | 0.181 | 0.083 | 1.431 | 1.776 | — | 0.211 | 2.120 | — |
-| `greedyOnePass` | 1.097 | 2.514 | 0.200 | 0.066 | 0.960 | 1.745 | 0.386 | 1.464 | 0.950 |
-| `jsonBlock` | — | 0.292 | 0.182 | 0.369 | 1.547 | — | 0.261 | 1.904 | 1.690 |
-| `layoutBlock` | — | 1.312 | 0.191 | 1.223 | 2.247 | — | 0.282 | 2.719 | 1.522 |
-| `malformedEntity` | — | 0.540 | 0.050 | 0.714 | 0.842 | — | 0.105 | 1.285 | 0.661 |
-| `mapFieldPath` | 4.486 | 0.175 | 0.031 | 0.273 | 12.270 | 8.242 | 0.252 | 14.548 | — |
-| `markupEntity` | 1.323 | 0.408 | 0.306 | 0.057 | 0.436 | 1.452 | 0.233 | 2.065 | 1.492 |
-| `markupImageLink` | — | 0.648 | 0.057 | 0.735 | 0.915 | — | 0.108 | 1.305 | 0.584 |
-| `metadataBlock` | — | 0.080 | 0.050 | 0.772 | 0.969 | — | 0.127 | 1.249 | 0.676 |
-| `overlappingUrl` | — | 0.325 | 0.072 | 0.892 | 1.152 | — | 0.099 | 4.040 | — |
-| `sparseUrl` | — | 0.219 | 0.066 | 0.796 | 1.123 | — | 0.073 | 7.985 | — |
-| `templateTagMatch` | — | 0.332 | 0.167 | 0.325 | 1.266 | — | 0.243 | 1.657 | 1.166 |
-| `turnTitleWhitespaceCjk` | — | 0.197 | 0.159 | 0.337 | 0.768 | — | 0.196 | 1.116 | 0.736 |
-| `unprefixedWordBoundary` | 1.688 | 0.540 | 0.160 | 0.155 | 1.236 | 2.107 | 0.192 | 1.546 | 1.187 |
-| `versionList` | — | 0.230 | 0.059 | 1.059 | 1.371 | — | 0.117 | 1.604 | 1.073 |
-| `wildcardSearch` | 0.137 | 0.002 | 0.001 | 0.012 | 0.537 | 2.323 | 0.012 | 0.641 | — |
+[Raw results, source definitions, and calculation script](benchmark-results/published/5bfcec92acda26fcde50fc8bc510f3a4afe855ea/)
+are included with this report.
 
-The table shows why one overall ratio is insufficient. Rust is substantially
-faster on most patterns but slower on `wildcardSearch`; native RE2 is usually
-close but has large early-match advantages on `mapFieldPath`; and SafeRE's
-required-content rejection creates very large leads over JDK, RE2/J, and Go on
-`wildcardSearch`. The real-world geomeans summarize these multiplicative
-tradeoffs without erasing their direction.
+## SafeRE suite: deep dive
 
-## Compilation, replacement, and captures
+The suite covers searches, replacements, captures, compilation, and focused
+scaling tests. Its 759 String measurements include 307 real-world cases,
+98 search-scaling cases, 76 Unicode-compilation cases, 36 first-use Unicode
+compilation cases, and 242 other focused cases.
 
-| Compile workload (µs/op) | SafeRE | JDK | RE2/J | RE2-FFM | C++ RE2 | PCRE2 | Go | Rust | .NET |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Simple | 6.64 | 0.108 | 0.388 | 3.02 | 1.58 | 3.38 | 1.02 | 1.78 | 36.0 |
-| Medium | 50.8 | 0.428 | 2.12 | 11.0 | 6.95 | 7.76 | 7.01 | 149 | 52.6 |
-| Complex | 15.5 | 0.277 | 1.89 | 7.57 | 4.82 | 5.59 | 2.72 | 13.6 | 60.6 |
-| Alternation | 26.9 | 0.428 | 4.88 | 12.6 | 7.89 | 7.97 | 6.68 | 58.3 | 3,246 |
+### Matching and replacement
 
-SafeRE performs eager parsing, simplification, compilation, and execution-path
-analysis. That front-loads work compared with the JDK and RE2/J. Other engines
-also expose pattern-dependent construction costs: Rust's medium pattern takes
-149 µs, and .NET non-backtracking's alternation takes 3.25 ms. SafeRE's medium
-result has a wide confidence interval in this run and should be confirmed
-before attributing a precise regression.
+SafeRE's largest advantage over the JDK is in real-world searches, especially
+when there is no match. Across 142 search measurements, SafeRE is **12.7×
+faster than the JDK**, **22.9× faster than RE2/J**, and **8.96× faster than
+RE2-FFM**.
 
-First-process Unicode initialization is a separate cost. For the identifier
-pattern, SafeRE's first compile takes 78 ms with default flags and 169 ms with
-case-insensitive Unicode flags, versus about 1.3 ms for the JDK and 27 ms for
-.NET in both cases.
+Two patterns have unusually expensive JDK failed searches. At 100K input
+size, `structuredJsonPath` and `wildcardSearch` take 17.9 and 40.1 seconds
+per operation with the JDK, versus 12.1 and 52.8 microseconds with SafeRE.
+Removing both entire patterns leaves 130 measurements and a **10.2× lead
+over the JDK**.
 
-| Replacement workload (ns/op) | SafeRE | JDK | RE2/J | RE2-FFM |
-|---|---:|---:|---:|---:|
-| Digit `replaceAll` | 158 | 304 | 3,111 | 1,027 |
-| Literal `replaceFirst`, no match | 95.2 | 281 | 220 | 486 |
-| Literal `replaceFirst` | 98.6 | 55.7 | 159 | 222 |
-| Pig Latin `replaceAll` | 2,138 | 1,009 | 8,260 | 2,494 |
-| Empty-match `replaceAll` | 99.2 | 83.8 | 431 | 650 |
+The table separates API operations. All cells use the same time ratio and
+measurement count convention as the overview.
 
-| Capture groups (ns/op) | SafeRE | JDK | RE2/J | RE2-FFM |
-|---|---:|---:|---:|---:|
-| 0 | 55.7 | 50.0 | 421 | 87.0 |
-| 1 | 78.1 | 73.6 | 931 | 343 |
-| 3 | 157 | 108 | 1,061 | 398 |
-| 10 | 366 | 248 | 1,490 | 772 |
+| Category | Membership | vs JDK | vs RE2/J | vs RE2-FFM |
+|---|---|---:|---:|---:|
+| Real-world search | 24 `find` patterns, match/no-match inputs at 1K, 10K, and 100K; 142 rows | 0.079 (142) | 0.044 (142) | 0.112 (142) |
+| Real-world replacement | 23 `replaceAll` patterns and the same input grid; 138 SafeRE rows | 0.214 (126) | 0.046 (126) | 0.406 (126) |
+| Real-world capture search | Three `findGroup` patterns; 18 rows | 0.036 (18) | 0.026 (18) | 0.344 (18) |
+| Real-world full match | One `matches` pattern; 6 rows | 3.159 (6) | 0.220 (6) | 0.087 (6) |
+| Real-world split | One `splitLengthSum` pattern; 3 rows | 0.249 (3) | 0.075 (3) | 0.188 (3) |
+| Core matching/search | Six `RegexBenchmark` rows | 0.841 (6) | 0.091 (6) | 0.430 (6) |
+| Application tasks | Eight `ApplicationBenchmark` rows | 1.124 (8) | 0.122 (8) | 0.568 (8) |
+| Compilation | Four `CompileBenchmark` patterns | 109.579 (4) | 21.499 (4) | 3.711 (4) |
 
-SafeRE remains faster than RE2/J and RE2-FFM as capture count grows, but the
-JDK is faster at every measured capture count in this collection.
+Most real-world patterns use matching and non-matching inputs at 1K, 10K,
+and 100K. One search pattern omits the 1K size. Successful searches show a
+smaller advantage than failed searches:
 
-## Scaling and adversarial behavior
-
-These rows are selected for distinct scaling questions rather than combined
-into one general-purpose aggregate.
-
-| Stress workload (µs/op) | SafeRE | UTF-8 | JDK | RE2/J | RE2-FFM |
-|---|---:|---:|---:|---:|---:|
-| `a?{20}a{20}` on `a{20}` | 0.089 | 0.075 | 17,079 | 7.23 | 0.109 |
-| 1 MiB hard failed search | 0.049 | 126 | 47,256 | 40,302 | 376 |
-| Nested quantifier, 100 KiB | 147 | 136 | 1,563 | 39,039 | 169 |
-
-| Stress workload (µs/op) | C++ RE2 | PCRE2 | Go | Rust | .NET |
-|---|---:|---:|---:|---:|---:|
-| `a?{20}a{20}` on `a{20}` | 0.102 | 1,884 | 2.97 | 0.058 | 0.073 |
-| 1 MiB hard failed search | 0.076 | 409 | 25,371 | 0.032 | 2,518 |
-| Nested quantifier, 100 KiB | 106 | 2,580 | 21,831 | 128 | 4.35 |
-
-The pathological comparison demonstrates the JDK's exponential backtracking;
-larger configured JDK cases are intentionally excluded. RE2/J and Go remain
-linear but perform substantially more active-state work. PCRE2 JIT is a
-backtracking engine and does not provide the same worst-case guarantee.
-
-The hard search uses `[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$` on a 1 MiB input that
-cannot match. SafeRE string, native RE2, and Rust reject from required-content
-or reverse-search analysis without scanning the whole input. RE2/J, Go, .NET,
-and the JDK do input-proportional or worse work. The nested-quantifier row shows
-a different ordering: .NET non-backtracking leads, while SafeRE, native RE2,
-Rust, and RE2-FFM cluster within a modest range.
-
-## Memory
-
-Retained compiled-pattern size is larger for SafeRE because it stores the
-compiled program and execution analyses:
-
-| Pattern | SafeRE | JDK | RE2/J |
+| `find` outcome | 1K | 10K | 100K |
 |---|---:|---:|---:|
-| Simple | 8,420 B | 756 B | 652 B |
-| Medium | 17,132 B | 940 B | 1,692 B |
-| Complex | 7,476 B | 1,204 B | 844 B |
-| Alternation | 21,620 B | 964 B | 3,500 B |
+| Match: SafeRE/JDK | 0.491 (23) | 0.356 (24) | 0.344 (24) |
+| No match: SafeRE/JDK | 0.031 (23) | 0.014 (24) | 0.010 (24) |
 
-Measured SafeRE DFA cache growth was 160 B for the simple pattern, 208 B for
-medium, 91,384 B for complex, and 2,320 B for alternation. Cache growth is
-workload-dependent and is separate from the retained compiled-pattern table.
+SafeRE does not win every workload. It takes 10.6× the JDK time on
+`cjkSearch`, 1.87× on `poisonousSpacePrefix`, and 1.52× on `emojiSearch`,
+averaged across each pattern's inputs. The application category takes 12%
+longer than the JDK overall.
 
-For the easy search allocation scaling workload, SafeRE remained near 160 B/op
-from 1 KiB through 1 MiB. JDK stayed near 56 B/op, and RE2/J near 48 B/op.
-These figures describe that search path; result materialization, capture state,
-replacement, and other APIs have different allocation profiles. Native retained
-memory measurements use runtime-specific accounting and are not combined with
-the JVM retained-object measurements.
+Some patterns cannot be compared across all engines. RE2/J and RE2-FFM
+reject the Java Unicode escapes in two citation-replacement patterns and
+`(?iu)` in one case-folding pattern. Larger citation and `recitation`
+inputs are excluded for the JDK because its matcher throws
+`StackOverflowError`. Failed and excluded measurements do not enter the
+averages; the published results retain their details.
 
-## SafeRE-specific functionality
+### Native engines and UTF-8
 
-`PatternSet` matches multiple patterns simultaneously and has no direct
-comparator in the other APIs. At 4, 16, and 64 patterns, anchored successful
-matches took 9.31, 11.6, and 30.4 µs; unanchored successful matches took 8.19,
-50.2, and 215 µs. Most of these standard-run intervals are wide, so the
-directional scaling is more reliable than the precise point estimates.
+On real-world searches, SafeRE is faster than native RE2, close to Rust,
+and slower than PCRE2 JIT overall. The result depends on whether the search
+succeeds: SafeRE takes about 2× the Rust time on matching inputs, but less
+than half on non-matching inputs.
 
-The diagnostic-hook benchmarks are intentionally excluded from engine
-aggregates. Enabling diagnostics changes tiny-operation costs substantially,
-while adding little relative overhead to longer NFA and replacement paths; the
-suite measures that instrumentation tradeoff separately from normal matching.
+| Category | Native RE2 | PCRE2 JIT | Rust regex | SafeRE UTF-8 |
+|---|---:|---:|---:|---:|
+| Real-world `find` | 0.465 (142) | 1.247 (142) | 0.985 (142) | 0.716 (142) |
+| Real-world `replaceAll` | 0.558 (138) | — | 0.921 (138) | 0.552 (138) |
+| Real-world `findGroup` | 0.433 (18) | 1.329 (18) | 0.564 (18) | — |
+| Real-world `splitLengthSum` | 0.262 (3) | 0.687 (3) | 0.696 (3) | — |
+| Core matching/search | 0.567 (6) | 0.806 (6) | 1.216 (6) | 0.904 (5) |
+| Application tasks | 0.996 (8) | 2.411 (7) | 1.444 (8) | 0.670 (3) |
+| Compilation | 5.440 (4) | 4.254 (4) | 1.155 (4) | — |
 
-## Interpretation
+These comparisons include each runtime's API costs. SafeRE String, JDK,
+and RE2/J use Java strings. SafeRE UTF-8 and the native engines use
+pre-existing UTF-8 input. RE2-FFM includes converting a Java string to UTF-8
+and calling the native engine. The SafeRE suite uses the default UTF-8
+scanner; Rebar also measures the experimental Vector scanner.
 
-The report's headline conclusion comes from its broadest controlled category:
-across the 150-row real-world matrix, SafeRE is 2.22× faster than the JDK, 12.5×
-faster than RE2/J, and 3.06× faster than RE2-FFM by geometric mean. The JDK
-comparison remains a 1.88× SafeRE lead after removing its two largest
-backtracking cases. The smaller Core and Application results qualify that
-headline: SafeRE is modestly slower than the JDK there, and individual patterns
-range from major SafeRE wins to major JDK wins. Workload shape matters more than
-one aggregate ranking.
+### Compilation, memory, and difficult inputs
 
-The native results map the cost of SafeRE's Java implementation against engines
-with different runtime and automata choices. Rust `regex` is the strongest
-cross-runtime performer over the broad real-world matrix, while PCRE2 JIT leads
-many supported application rows. Native RE2 stays close to SafeRE overall. Go
-and RE2/J preserve linear-time behavior with NFA-oriented execution but pay more
-per-character state-management cost on many scans. .NET non-backtracking is
-excellent on the nested-quantifier stress case but supports a smaller subset of
-the canonical Java workloads.
+Across four ordinary compile workloads, SafeRE takes **110× the JDK
+compilation time**. Its measured compile times range from about 11 to
+46 microseconds. This is an intentional tradeoff: SafeRE does more pattern
+analysis and prepares accelerators to improve repeated matching. Applications
+that compile once and match many times can benefit; applications that compile
+a new pattern for every match pay the compilation cost repeatedly. Reusing
+compiled patterns is especially valuable with SafeRE. For a fixed regex used
+repeatedly, store its `Pattern` in a `static final` field. This follows the
+Pattern-reuse advice in *Effective Java*, third edition,
+[Item 6: Avoid creating unnecessary objects](https://www.oreilly.com/library/view/effective-java-3rd/9780134686097/ch2.xhtml).
 
-SafeRE's trade is explicit: slower compilation, higher retained memory, and
-some slower short or backtracking-friendly matches in exchange for bounded
-worst-case behavior, strong required-content rejection, and competitive
-steady-state matching. This report should be read as a map of those tradeoffs,
-not as a claim that one regex engine is universally fastest.
+Compiled patterns also retain more memory. For a simple pattern, the measured
+sizes were 7,380 bytes for SafeRE, 756 for JDK, and 652 for RE2/J. For an
+alternation pattern, they were 22,116, 964, and 3,500 bytes respectively.
+These figures measure retained pattern data, rather than whole-process memory.
+
+The difficult-input tests illustrate why bounded matching behavior matters.
+For `a?{20}a{20}` on `a{20}`, SafeRE takes 0.093 microseconds per operation,
+compared with about 16 milliseconds for the JDK. Native RE2 and Rust are
+also fast on this case, at 0.108 and 0.058 microseconds respectively.
+
+## Rebar curated subset: deep dive
+
+Rebar's curated workloads are selected for broad comparisons between engines.
+Its [contributor guide](https://github.com/BurntSushi/rebar/blob/master/CONTRIBUTING.md#adding-a-new-benchmark)
+explains that these workloads form its public comparison set and face a
+higher inclusion threshold than the rest of the collection. We use this
+subset throughout the report. The full collection is retained as raw evidence.
+
+We use the publicly available
+[`personal` branch of eaftan/rebar](https://github.com/eaftan/rebar/tree/personal),
+which adds RE2/J and SafeRE runners to upstream Rebar. The JDK runner is
+already available upstream. SafeRE supports 34 curated workloads covering match counts, match spans, capture counts, line searches,
+and line searches with captures.
+
+Across the shared curated workloads, SafeRE String is **6.37× faster than
+the JDK**, **14.0× faster than RE2/J**, and **1.22× faster than native RE2**.
+It takes **43% longer than PCRE2 JIT** and **3.03× as long as Rust**.
+
+<details>
+<summary>Results by operation for the curated subset</summary>
+
+| Rebar model (SafeRE rows) | JDK | RE2/J | Native RE2 | PCRE2 JIT | Rust regex | SafeRE UTF-8 | UTF-8 Vector |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `count` (18) | 0.197 (18) | 0.069 (18) | 0.707 (18) | 2.770 (17) | 4.076 (18) | 0.828 (18) | 1.067 (18) |
+| `count-spans` (9) | 0.053 (9) | 0.045 (6) | 1.221 (6) | 0.250 (9) | 2.038 (9) | 0.902 (9) | 0.897 (9) |
+| `count-captures` (1) | 2.523 (1) | 0.074 (1) | 0.460 (1) | 5.007 (1) | 3.747 (1) | 0.975 (1) | 0.999 (1) |
+| `grep` (1) | 0.153 (1) | 0.853 (1) | 1.380 (1) | 1.483 (1) | 2.752 (1) | 1.412 (1) | 1.366 (1) |
+| `grep-captures` (5) | 0.282 (5) | 0.085 (5) | 0.891 (5) | 2.645 (5) | 2.064 (5) | 0.826 (5) | 0.815 (5) |
+
+</details>
+
+### Where the result varies
+
+On 18 match-counting workloads, SafeRE is **5.08× faster than the JDK**.
+One dictionary search has an especially large advantage; excluding it still
+leaves a **3.25× lead** across the other 17 workloads.
+
+The native RE2 comparison is also sensitive to that dictionary workload.
+Removing it changes SafeRE/RE2 from 0.822 across 31 shared workloads to
+0.966 across the remaining 30: close to parity.
+
+SafeRE loses to the JDK on some curated workloads. It takes 2.72× as long
+on `curated/11-unstructured-to-json/extract`, 2.52× on
+`curated/05-lexer-veryl/single`, and 1.34× on
+`curated/08-words/all-russian`.
+
+### UTF-8 and coverage
+
+Across all 34 workloads, String takes **13.6% less time than default UTF-8**.
+Vector UTF-8 takes **12.3% less time than default UTF-8**, bringing it close
+to String. These are direct comparisons; the overview table compares each
+UTF-8 variant against String.
+
+Vector helps some searches substantially: `curated/02-literal-alternate/sherlock-en`
+takes 168 microseconds versus 2.56 milliseconds without Vector. It also
+loses on some workloads, so enabling it is not a universal speedup.
+
+The JDK, Rust, and both SafeRE UTF-8 variants share all 34 workloads with
+SafeRE String. RE2 and RE2/J share 31; PCRE2 JIT shares 33. Each comparison
+uses its actual shared subset, rather than treating missing results as losses.
+
+Compilation is excluded from this Rebar comparison. Rebar's
+[Java runner documentation](https://github.com/eaftan/rebar/blob/9ee90dfb569cbcfb81b8a23a4b99b12bfff0e1d7/engines/java/README.md)
+reports implausibly fast repeated compilation and suspects JVM optimization.
+The curated workloads therefore omit both Java and SafeRE compilation.
+Compilation costs are measured separately in the SafeRE suite.
+
+## Reproducing the measurements
+
+The exact SafeRE source measured was
+[`5bfcec92acda26fcde50fc8bc510f3a4afe855ea`](https://github.com/eaftan/safere/commit/5bfcec92acda26fcde50fc8bc510f3a4afe855ea),
+committed **2026-09-26T00:51:20Z**.
+
+Rebar was measured at
+[`9ee90dfb569cbcfb81b8a23a4b99b12bfff0e1d7`](https://github.com/eaftan/rebar/commit/9ee90dfb569cbcfb81b8a23a4b99b12bfff0e1d7)
+on its `personal` branch. The
+[artifact README](benchmark-results/published/5bfcec92acda26fcde50fc8bc510f3a4afe855ea/README.md)
+provides the benchmark harness patches, exact workload definitions, commands,
+and checksums needed to reproduce both collections. These patches affect
+benchmark setup, not SafeRE's matching implementation.
+
+| Environment | Version |
+|---|---|
+| CPU | Intel Core i7-11700K, 8 cores / 16 threads |
+| OS and memory | Linux 6.6.87.2 on WSL2, 15 GiB visible memory |
+| Java and JMH | OpenJDK 26.0.2+10-55; JMH 1.37 |
+| RE2/J / RE2 / PCRE2 | 1.8 / 2025-11-05 / 10.47 with JIT |
+| Rust regex | 1.13.1 in the SafeRE suite; 1.12.4 in Rebar |
+| Build tools | g++ 13.3, CMake 4.3, rustc 1.97.1 |
+
+The SafeRE suite uses standard-mode JMH averages: two forks, two 500 ms
+warmup iterations, and five 500 ms measurement iterations per fork. Native
+harnesses use two 2-second warmup rounds and ten 2-second measurement rounds.
+Rebar reports medians, with up to 1.5 seconds of warmup and 3 seconds of
+sampling. Specialized first-use and memory measurements have their own
+settings, recorded in the artifacts.
+
+The overview gives equal weight to each included shared timing measurement.
+SafeRE-suite compilation is included; Rebar compilation is excluded as
+explained above. Memory measurements are separate. Java and
+native confidence intervals are 99.9%; Rebar CSVs include dispersion measures.
+Close results in this standard-mode collection should be treated as approximate;
+we have not run longer confirmation measurements.
