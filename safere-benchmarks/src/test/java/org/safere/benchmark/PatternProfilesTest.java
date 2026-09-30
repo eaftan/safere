@@ -45,7 +45,10 @@ class PatternProfilesTest {
                 JsonParser.parseString(
                     """
                     {
-                      "re2": [{"java": "shared", "alternate": "shared RE2", "reason": "shared"}],
+                      "re2": [
+                        {"java": "shared", "alternate": "shared RE2", "reason": "shared"},
+                        {"java": "specific", "alternate": "generic RE2", "reason": "generic"}
+                      ],
                       "re2-cpp": [{"java": "specific", "alternate": "specific C++", "reason": "specific"}]
                     }
                     """))

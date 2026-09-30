@@ -65,8 +65,11 @@ final class BenchmarkCollectionPlan {
                             runner.parameter(),
                             smoke ? smokeTrialIds(runner) : runner.trialIds()))
                 .toList();
-    if (selected.size() != 1) {
+    if (selected.isEmpty()) {
       throw new IllegalArgumentException("Unknown declared benchmark runner: " + benchmark);
+    }
+    if (selected.size() > 1) {
+      throw new IllegalArgumentException("Ambiguous declared benchmark runner: " + benchmark);
     }
     return launcherArguments(selected, benchmarkJar, Set.of());
   }
@@ -307,7 +310,7 @@ final class BenchmarkCollectionPlan {
     }
   }
 
-  private static String argumentFileToken(String argument) {
+  static String argumentFileToken(String argument) {
     return "\"" + argument.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
   }
 

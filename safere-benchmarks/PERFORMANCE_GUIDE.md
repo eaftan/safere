@@ -51,6 +51,15 @@ plan to select generic runners and trials:
 ./run-java-benchmarks.sh --smoke --declared
 ```
 
+The memory runner selects the declared allocation set when no workload selection
+is supplied, including when extra JMH output options follow `--`. Explicit filters
+and prefix selections also use Java argument files for generated trial lists.
+
+Native C++ runs reuse fetched dependencies without checking remote servers. After
+changing a dependency tag to a revision that has not been fetched, run once with
+`SAFERE_CPP_UPDATES_DISCONNECTED=OFF ./run-cpp-benchmarks.sh` to update the existing
+build directory. Subsequent runs can use the default disconnected setting.
+
 **Extract summary tables from JMH output** using grep:
 
 ```bash

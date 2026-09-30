@@ -97,9 +97,17 @@ JVM_ARGS="--enable-native-access=ALL-UNNAMED -Dre2shim.library.path=$RE2_SHIM_DI
 GENERATED_JMH_ARGUMENT_FILE="$(mktemp "${TMPDIR:-/tmp}/safere-memory-jmh-args.XXXXXX")"
 trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
 
+# Output/profiler options do not change workload selection; explicit parameters do.
+has_parameter_override=false
+for argument in "${JMH_EXTRA_ARGS[@]}"; do
+  if [ "$argument" = "-p" ]; then
+    has_parameter_override=true
+  fi
+done
+
 # Without an explicit selection, measure the declared allocation workload set.
 # JMH cannot run every discovered method because generic runners have empty @Param defaults.
-if [ ${#BENCHMARKS[@]} -eq 0 ] && [ ${#JMH_EXTRA_ARGS[@]} -eq 0 ] \
+if [ ${#BENCHMARKS[@]} -eq 0 ] && [ "$has_parameter_override" = false ] \
   && [ ${#CROSS_ENGINE_PREFIXES[@]} -eq 0 ] \
   && [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -eq 0 ]; then
   DECLARED=true
@@ -156,69 +164,67 @@ if [ "$DECLARED" = true ]; then
   exit 0
 fi
 
-if [ ${#CROSS_ENGINE_PREFIXES[@]} -gt 0 ]; then
-  CROSS_ENGINE_TRIALS="$(
+# Generate only the selected runners' parameters. Prefix selections and explicit
+# JMH parameter overrides replace the corresponding defaults.
+write_generated_jmh_arguments() {
+  local bench="$1"
+  local overridden_parameters=()
+  local override_timing=false
+  local override_scaling=false
+  local index=0
+  while [ "$index" -lt "${#JMH_EXTRA_ARGS[@]}" ]; do
+    if [ "${JMH_EXTRA_ARGS[$index]}" = "-p" ] \
+      && [ "$((index + 1))" -lt "${#JMH_EXTRA_ARGS[@]}" ]; then
+      local parameter="${JMH_EXTRA_ARGS[$((index + 1))]%%=*}"
+      overridden_parameters+=("$parameter")
+      case "$parameter" in
+        crossEngineTrial) override_timing=true ;;
+        crossEngineScalingTrial) override_scaling=true ;;
+      esac
+      index=$((index + 2))
+    else
+      index=$((index + 1))
+    fi
+  done
+  if [ ${#CROSS_ENGINE_PREFIXES[@]} -gt 0 ]; then
+    overridden_parameters+=(crossEngineTrial)
+  fi
+  if [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -gt 0 ]; then
+    overridden_parameters+=(crossEngineScalingTrial)
+  fi
+  java $JVM_ARGS \
+    -cp "$BENCHMARK_JAR" \
+    org.safere.benchmark.BenchmarkCollectionPlan \
+    runner-arguments "$bench" "$BENCHMARK_JAR" "${overridden_parameters[@]}" \
+    > "$GENERATED_JMH_ARGUMENT_FILE"
+  if [ ${#CROSS_ENGINE_PREFIXES[@]} -gt 0 ] && [ "$override_timing" = false ]; then
     java $JVM_ARGS \
       -cp "$BENCHMARK_JAR" \
       org.safere.benchmark.CrossEngineBenchmarkPlan \
-      nanoseconds \
-      "${CROSS_ENGINE_PREFIXES[@]}"
-  )"
-else
-  CROSS_ENGINE_TRIALS="$(
+      --argument-file nanoseconds "${CROSS_ENGINE_PREFIXES[@]}" \
+      >> "$GENERATED_JMH_ARGUMENT_FILE"
+  fi
+  if [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -gt 0 ] && [ "$override_scaling" = false ]; then
     java $JVM_ARGS \
       -cp "$BENCHMARK_JAR" \
       org.safere.benchmark.CrossEngineBenchmarkPlan \
-      nanoseconds
-  )"
-fi
-if [ ${#CROSS_ENGINE_SCALING_PREFIXES[@]} -gt 0 ]; then
-  CROSS_ENGINE_SCALING_TRIALS="$(
-    java $JVM_ARGS \
-      -cp "$BENCHMARK_JAR" \
-      org.safere.benchmark.CrossEngineBenchmarkPlan \
-      microseconds \
-      "${CROSS_ENGINE_SCALING_PREFIXES[@]}"
-  )"
-else
-  CROSS_ENGINE_SCALING_TRIALS="$(
-    java $JVM_ARGS \
-      -cp "$BENCHMARK_JAR" \
-      org.safere.benchmark.CrossEngineBenchmarkPlan \
-      microseconds
-  )"
-fi
-CROSS_ENGINE_PARAM_ARGS=()
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineTrial=$CROSS_ENGINE_TRIALS")
-fi
-if [[ ! " ${JMH_EXTRA_ARGS[*]-} " =~ [[:space:]]crossEngineScalingTrial= ]]; then
-  CROSS_ENGINE_PARAM_ARGS+=(-p "crossEngineScalingTrial=$CROSS_ENGINE_SCALING_TRIALS")
-fi
-RUN_ARGS=("${CROSS_ENGINE_PARAM_ARGS[@]}")
-if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
-  RUN_ARGS+=("${JMH_EXTRA_ARGS[@]}")
-fi
+      --argument-file microseconds "${CROSS_ENGINE_SCALING_PREFIXES[@]}" \
+      >> "$GENERATED_JMH_ARGUMENT_FILE"
+  fi
+}
 
 if [ ${#BENCHMARKS[@]} -eq 0 ]; then
-  echo "=== Running all benchmarks with GC profiling ==="
+  BENCHMARKS=('CrossEngine(?:Scaling)?Benchmark\.run')
+fi
+for bench in "${BENCHMARKS[@]}"; do
+  echo "=== Running $bench with GC profiling ==="
+  write_generated_jmh_arguments "$bench"
   java \
     $JVM_ARGS \
-    -jar "$BENCHMARK_JAR" \
+    "@$GENERATED_JMH_ARGUMENT_FILE" \
     -jvmArgs "$JVM_ARGS" \
     -prof gc \
     $JMH_OPTS \
-    "${RUN_ARGS[@]}"
-else
-  for bench in "${BENCHMARKS[@]}"; do
-    echo "=== Running $bench with GC profiling ==="
-    java \
-      $JVM_ARGS \
-      -jar "$BENCHMARK_JAR" \
-      -jvmArgs "$JVM_ARGS" \
-      -prof gc \
-      $JMH_OPTS \
-      "${RUN_ARGS[@]}" \
-      "$bench"
-  done
-fi
+    "${JMH_EXTRA_ARGS[@]}" \
+    "$bench"
+done

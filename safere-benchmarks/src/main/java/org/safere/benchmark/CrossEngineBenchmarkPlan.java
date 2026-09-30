@@ -154,14 +154,16 @@ final class CrossEngineBenchmarkPlan {
   }
 
   public static void main(String[] args) {
-    if (args.length < 1) {
+    boolean argumentFile = args.length > 0 && args[0].equals("--argument-file");
+    String[] queryArgs = argumentFile ? Arrays.copyOfRange(args, 1, args.length) : args;
+    if (queryArgs.length < 1) {
       throw new IllegalArgumentException(
-          "Usage: CrossEngineBenchmarkPlan "
+          "Usage: CrossEngineBenchmarkPlan [--argument-file] "
               + "<nanoseconds|microseconds|no-fork-microseconds|cold-start> "
               + "[workload-prefix ...]");
     }
     Query query =
-        switch (args[0]) {
+        switch (queryArgs[0]) {
           case "nanoseconds" -> new Query(CrossEngineWorkload.TimingGroup.NANOSECONDS, null, false);
           case "microseconds" ->
               new Query(CrossEngineWorkload.TimingGroup.MICROSECONDS, null, false);
@@ -176,7 +178,8 @@ final class CrossEngineBenchmarkPlan {
                   DeclarativeBenchmarkPlan.MeasurementMode.SINGLE_SHOT_COLD_START,
                   false);
           default ->
-              throw new IllegalArgumentException("Unknown cross-engine timing group: " + args[0]);
+              throw new IllegalArgumentException(
+                  "Unknown cross-engine timing group: " + queryArgs[0]);
         };
     CrossEngineBenchmarkPlan plan = load();
     String trialIds =
@@ -194,15 +197,28 @@ final class CrossEngineBenchmarkPlan {
                         == query.noFork())
             .filter(
                 trial ->
-                    args.length == 1
-                        || Arrays.stream(args, 1, args.length)
+                    queryArgs.length == 1
+                        || Arrays.stream(queryArgs, 1, queryArgs.length)
                             .anyMatch(prefix -> trial.workload().id().startsWith(prefix)))
             .map(Trial::id)
             .collect(Collectors.joining(","));
     if (trialIds.isEmpty()) {
-      throw new IllegalStateException("No cross-engine trials for " + args[0]);
+      throw new IllegalStateException("No cross-engine trials for " + queryArgs[0]);
     }
-    System.out.println(trialIds);
+    if (argumentFile) {
+      String parameter =
+          switch (queryArgs[0]) {
+            case "nanoseconds" -> "crossEngineTrial";
+            case "microseconds" -> "crossEngineScalingTrial";
+            case "no-fork-microseconds" -> "crossEngineNoForkTrial";
+            case "cold-start" -> "crossEngineColdStartTrial";
+            default -> throw new IllegalArgumentException(queryArgs[0]);
+          };
+      System.out.println("-p");
+      System.out.println(BenchmarkCollectionPlan.argumentFileToken(parameter + "=" + trialIds));
+    } else {
+      System.out.println(trialIds);
+    }
   }
 
   private record Query(

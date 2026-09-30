@@ -6,8 +6,11 @@
 package org.safere.benchmark;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,6 +23,10 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.openjdk.jmh.infra.Blackhole;
 
 class CrossEngineBenchmarkPlanTest {
@@ -39,6 +46,22 @@ class CrossEngineBenchmarkPlanTest {
     BenchmarkInputMaterializer.main(
         new String[] {benchmarkDirectory.toString(), temporaryDirectory.toString()});
     System.setProperty("safere.benchmark.corpus", temporaryDirectory.toString());
+  }
+
+  @Test
+  void everyRunnableRe2jPatternCompiles() {
+    List<MaterializedExecutionPlan.Entry> entries =
+        MaterializedExecutionPlan.load().entries().stream()
+            .filter(entry -> entry.engineId().equals("re2j-string") && entry.runnable())
+            .toList();
+    assertThat(entries).isNotEmpty();
+    for (MaterializedExecutionPlan.Entry entry : entries) {
+      for (String pattern : entry.workload().patterns()) {
+        assertThatCode(() -> com.google.re2j.Pattern.compile(pattern))
+            .as("%s pattern %s", entry.id(), pattern)
+            .doesNotThrowAnyException();
+      }
+    }
   }
 
   @Test
@@ -557,6 +580,36 @@ class CrossEngineBenchmarkPlanTest {
         .containsExactly("-jar", "\"/tmp/benchmark.jar\"");
   }
 
+  @ParameterizedTest
+  @CsvSource({
+    "nanoseconds, RegexBenchmark.literalMatch, crossEngineTrial",
+    "microseconds, SearchScalingBenchmark.searchEasyFail.1024, crossEngineScalingTrial"
+  })
+  @ResourceLock(Resources.SYSTEM_OUT)
+  void prefixSelectionsCanBeWrittenDirectlyToArgumentFiles(
+      String timingGroup, String prefix, String parameter) {
+    CrossEngineWorkload.TimingGroup group =
+        timingGroup.equals("nanoseconds")
+            ? CrossEngineWorkload.TimingGroup.NANOSECONDS
+            : CrossEngineWorkload.TimingGroup.MICROSECONDS;
+    List<String> expected =
+        CrossEngineBenchmarkPlan.load().trials(group).stream()
+            .filter(trial -> trial.workload().id().startsWith(prefix))
+            .map(CrossEngineBenchmarkPlan.Trial::id)
+            .toList();
+    assertThat(expected).isNotEmpty();
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    PrintStream original = System.out;
+    try (PrintStream capture = new PrintStream(output, true, StandardCharsets.UTF_8)) {
+      System.setOut(capture);
+      CrossEngineBenchmarkPlan.main(new String[] {"--argument-file", timingGroup, prefix});
+    } finally {
+      System.setOut(original);
+    }
+    assertThat(output.toString(StandardCharsets.UTF_8).lines().toList())
+        .containsExactly("-p", "\"" + parameter + "=" + String.join(",", expected) + "\"");
+  }
+
   @Test
   void declaredRunnerArgumentsUseTheSelectedTimingOrAllocationTrials() {
     BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
@@ -597,7 +650,8 @@ class CrossEngineBenchmarkPlanTest {
             "-p",
             "\"crossEngineTrial=" + String.join(",", smokeTrials) + "\"");
     assertThatThrownBy(() -> plan.declaredLauncherArguments("missing", jar, false, false))
-        .isInstanceOf(IllegalArgumentException.class);
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Unknown declared benchmark runner: missing");
   }
 
   @Test

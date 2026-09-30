@@ -41,3 +41,22 @@ func TestCaptureBoundsAdvanceAcrossMultibyteEmptyMatches(t *testing.T) {
 		t.Fatalf("bounds %v, want %v", bounds, want)
 	}
 }
+
+func TestEveryRunnablePatternCompiles(t *testing.T) {
+	plan := loadManifest("../target/benchmark-corpus/manifest.json")
+	checked := 0
+	for _, entry := range plan.ExecutionPlan.Entries {
+		if entry.EngineID != engineID || entry.Status != "runnable" {
+			continue
+		}
+		for _, pattern := range entry.Patterns {
+			checked++
+			if _, err := regexp.Compile(pattern); err != nil {
+				t.Errorf("%s pattern %q: %v", entry.WorkloadID, pattern, err)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no runnable Go patterns in the materialized plan")
+	}
+}

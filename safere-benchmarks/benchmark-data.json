@@ -13015,9 +13015,9 @@
         {
           "java": "^(?iu)([a-z]+)://([^:/]+):([0-9]+)$",
           "alternates": {
-            "re2-cpp": {
+            "re2": {
               "pattern": "^(?i)([a-z]+)://([^:/]+):([0-9]+)$",
-              "reason": "C++ RE2 uses Unicode case folding with (?i) and rejects Java's combined (?iu) flags"
+              "reason": "RE2 uses Unicode case folding with (?i) and rejects Java's combined (?iu) flags"
             },
             "pcre2": {
               "pattern": "^(?i)([a-z]+)://([^:/]+):([0-9]+)$",
@@ -13165,9 +13165,9 @@
         {
           "java": "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]",
           "alternates": {
-            "re2-cpp": {
-              "pattern": "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]",
-              "reason": "C++ RE2 rejects the Java Unicode escape for U+3001; literal delimiters preserve the same accepted characters"
+            "re2": {
+              "pattern": "\\s*[\\[\\x{FF3B}]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\x{3001}]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\x{FF3D}]",
+              "reason": "RE2 rejects Java Unicode escapes for U+FF3B, U+3001, and U+FF3D; code point escapes preserve the same accepted characters"
             }
           }
         }
@@ -13219,9 +13219,9 @@
         {
           "java": "\\s*[\\[\\uff3b]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\u3001]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\uff3d]",
           "alternates": {
-            "re2-cpp": {
-              "pattern": "\\s*[\\[［]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,、]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]］]",
-              "reason": "C++ RE2 rejects the Java Unicode escape for U+3001; literal delimiters preserve the same accepted characters"
+            "re2": {
+              "pattern": "\\s*[\\[\\x{FF3B}]\\s*(?:(?:[0-9]+\\.?){3,4}(?:\\s*[,\\x{3001}]\\s*(?:[0-9]+\\.?){3,4})*)\\s*[\\]\\x{FF3D}]",
+              "reason": "RE2 rejects Java Unicode escapes for U+FF3B, U+3001, and U+FF3D; code point escapes preserve the same accepted characters"
             }
           }
         }

@@ -454,6 +454,9 @@ jobs:
       - name: Materialize shared benchmark inputs
         run: ./materialize-benchmark-inputs.sh
 
+      - name: Test Go benchmark patterns and operations
+        run: cd safere-benchmarks/go && go test ./...
+
       - name: Compile Go benchmarks
         run: cd safere-benchmarks/go && go build -o regexp_benchmark .
 
