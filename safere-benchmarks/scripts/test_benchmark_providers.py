@@ -32,6 +32,14 @@ if "org.safere.benchmark.CrossEngineBenchmarkPlan" in args and "cold-start" in a
     sys.exit(1)
 if "org.safere.benchmark.BenchmarkCollectionPlan" in args and "runner-arguments" in args:
     print('-jar\\n"benchmark.jar"')
+elif "org.safere.benchmark.BenchmarkCollectionPlan" in args and "declared-runner-arguments" in args:
+    index = args.index("declared-runner-arguments")
+    vector = any("scanProvider=vector" in arg for arg in args)
+    variant = "safere-utf8-vector" if vector else "safere-utf8"
+    print('-jar')
+    print(json.dumps(args[index + 3]))
+    print('-p')
+    print(json.dumps("trial=Example.find@" + variant))
 elif "org.safere.benchmark.BenchmarkCollectionPlan" in args:
     allocation = "allocation-execution-runners" in args
     profiles = ["standard"] if allocation else ["standard", "noFork", "coldStart"]
@@ -64,7 +72,8 @@ class BenchmarkProviderRunnerTest(unittest.TestCase):
                        JAVA_CALLS=str(calls_file))
             if fail_vector:
                 env["FAIL_VECTOR"] = "1"
-            result = subprocess.run(["bash", str(root / wrapper)] +
+            result = subprocess.run([os.environ.get("SAFERE_BENCHMARK_TEST_BASH", "/bin/bash"),
+                                     str(root / wrapper)] +
                                     (arguments or ["--smoke", "--declared"]),
                                     env=env, capture_output=True, text=True, check=False)
             calls = ([json.loads(line) for line in calls_file.read_text().splitlines()]
@@ -109,13 +118,42 @@ class BenchmarkProviderRunnerTest(unittest.TestCase):
         for wrapper in ["run-java-benchmarks.sh", "run-java-memory-benchmarks.sh"]:
             for variant in ["safere-utf8", "safere-utf8-vector"]:
                 for override in [["-p", "crossEngineTrial=Example.find@" + variant],
-                                 ["-p=crossEngineTrial=Example.find@" + variant]]:
+                                 ["-p=crossEngineTrial=Example.find@" + variant],
+                                 ["-pcrossEngineTrial=Example.find@" + variant]]:
                     with self.subTest(wrapper=wrapper, override=override):
                         result, measurements = self.run_wrapper(wrapper, arguments=[
                             "--smoke", "--declared", "ExampleBenchmark.standard", "--"] + override)
                         self.assertEqual(result.returncode, 2)
                         self.assertIn("--declared cannot be combined with JMH -p", result.stderr)
                         self.assertEqual(measurements, [])
+
+    def test_attached_focused_parameters_preserve_provider_selection(self):
+        for wrapper in ["run-java-benchmarks.sh", "run-java-memory-benchmarks.sh"]:
+            with self.subTest(wrapper=wrapper):
+                result, measurements = self.run_wrapper(wrapper, arguments=[
+                    "--smoke", "--provider", "vector", "--",
+                    "-pcrossEngineTrial=Example.find@safere-utf8-vector"])
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(len(measurements), 1)
+                args = measurements[0]["args"]
+                self.assertIn("-p", args)
+                self.assertIn("crossEngineTrial=Example.find@safere-utf8-vector", args)
+
+    def test_declared_runs_accept_profiler_options(self):
+        for wrapper in ["run-java-benchmarks.sh", "run-java-memory-benchmarks.sh"]:
+            for profiler in ["-prof=gc", "-profgc:churn=true"]:
+                with self.subTest(wrapper=wrapper, profiler=profiler):
+                    result, measurements = self.run_wrapper(wrapper, arguments=[
+                        "--smoke", "--declared", "--", profiler])
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue(measurements)
+                    self.assertTrue(all(profiler in call["args"] for call in measurements))
+
+    def test_memory_default_selection_accepts_empty_extra_arguments(self):
+        result, measurements = self.run_wrapper("run-java-memory-benchmarks.sh",
+                                                 arguments=["--smoke"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(measurements), 2)
 
     def test_unavailable_vector_provider_stops_before_vector_measurement(self):
         for wrapper in ["run-java-benchmarks.sh", "run-java-memory-benchmarks.sh"]:

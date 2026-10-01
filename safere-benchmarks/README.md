@@ -96,6 +96,8 @@ For a focused Vector run, select the provider explicitly:
 ```
 
 Both timing and allocation declared collections include both providers by default.
+This adds a second pass over the UTF-8-supported workloads, increasing collection
+time and output size.
 `--provider default` or `--provider vector` selects one provider. Declared runs reject
 JMH `-p` overrides; use a focused run without `--declared` to select explicit trials.
 Default runs leave the experimental provider property unset and follow the library

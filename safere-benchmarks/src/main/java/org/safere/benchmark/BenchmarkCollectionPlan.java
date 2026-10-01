@@ -85,7 +85,7 @@ final class BenchmarkCollectionPlan {
   }
 
   List<String> declaredLauncherArguments(
-      String benchmark, String benchmarkJar, boolean allocation, boolean smoke) {
+      String benchmark, String benchmarkJar, boolean allocation, boolean smoke, String provider) {
     List<Runner> selected =
         (allocation ? allocationRunners() : runners())
             .stream()
@@ -96,7 +96,12 @@ final class BenchmarkCollectionPlan {
                             runner.profile(),
                             runner.benchmark(),
                             runner.parameter(),
-                            smoke ? smokeTrialIds(runner) : runner.trialIds()))
+                            (smoke ? smokeTrialIds(runner) : runner.trialIds())
+                                .stream()
+                                    .filter(
+                                        id -> provider == null || matchesScanProvider(id, provider))
+                                    .toList()))
+                .filter(runner -> !runner.trialIds().isEmpty())
                 .toList();
     if (selected.isEmpty()) {
       throw new IllegalArgumentException("Unknown declared benchmark runner: " + benchmark);
@@ -292,7 +297,9 @@ final class BenchmarkCollectionPlan {
     }
     BenchmarkCollectionPlan plan = load();
     String provider = System.getProperty("safere.benchmark.scanProvider");
-    if (provider != null && !args[0].equals("report-plan")) {
+    if (provider != null
+        && !args[0].equals("report-plan")
+        && !args[0].equals("declared-runner-arguments")) {
       plan = plan.forScanProvider(provider);
     }
     switch (args[0]) {
@@ -354,7 +361,7 @@ final class BenchmarkCollectionPlan {
                   + "<runners|allocation-runners> <benchmark> <benchmark-jar> [--smoke]");
         }
         plan.declaredLauncherArguments(
-                args[2], args[3], args[1].equals("allocation-runners"), smoke)
+                args[2], args[3], args[1].equals("allocation-runners"), smoke, provider)
             .forEach(System.out::println);
       }
       case "trials" -> {

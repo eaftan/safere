@@ -85,10 +85,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Normalize attached JMH parameter forms so selection and rejection use one syntax.
+# Keep profiler options intact; -prof=gc is not a parameter override.
+NORMALIZED_JMH_ARGS=()
+for argument in ${JMH_EXTRA_ARGS[@]+"${JMH_EXTRA_ARGS[@]}"}; do
+  case "$argument" in
+    -prof*) NORMALIZED_JMH_ARGS+=("$argument") ;;
+    -p=*|-p?*=*)
+      parameter_override="${argument#-p}"
+      NORMALIZED_JMH_ARGS+=(-p "${parameter_override#=}")
+      ;;
+    *) NORMALIZED_JMH_ARGS+=("$argument") ;;
+  esac
+done
+JMH_EXTRA_ARGS=(${NORMALIZED_JMH_ARGS[@]+"${NORMALIZED_JMH_ARGS[@]}"})
+
 # Declared trials are already partitioned by provider. JMH combines repeated
 # parameter values, so an override could put a default trial in a Vector JVM.
 if [ "$DECLARED" = true ]; then
-  for argument in "${JMH_EXTRA_ARGS[@]}"; do
+  for argument in ${JMH_EXTRA_ARGS[@]+"${JMH_EXTRA_ARGS[@]}"}; do
     case "$argument" in
       -p|-p=*)
         echo "ERROR: --declared cannot be combined with JMH -p overrides; use a focused run without --declared" >&2
@@ -132,7 +147,7 @@ trap 'rm -f -- "$GENERATED_JMH_ARGUMENT_FILE"' EXIT
 
 # Output/profiler options do not change workload selection; explicit parameters do.
 has_parameter_override=false
-for argument in "${JMH_EXTRA_ARGS[@]}"; do
+for argument in ${JMH_EXTRA_ARGS[@]+"${JMH_EXTRA_ARGS[@]}"}; do
   if [ "$argument" = "-p" ]; then
     has_parameter_override=true
   fi
@@ -171,10 +186,14 @@ if [ "$DECLARED" = true ]; then
     matched_runner=true
     select_scan_provider "$provider"
     echo "=== Running declared allocation trials for $benchmark ==="
-    # The plan already selected the exact workload/provider group, including smoke rows.
-    escaped_jar="${BENCHMARK_JAR//\\/\\\\}"
-    escaped_jar="${escaped_jar//\"/\\\"}"
-    printf '%s\n' '-jar' "\"$escaped_jar\"" '-p' "\"$parameter=$trial_ids\"" \
+    DECLARED_ARGUMENT_QUERY=(declared-runner-arguments allocation-runners "$benchmark" "$BENCHMARK_JAR")
+    if [ "$MODE" = "smoke" ]; then
+      DECLARED_ARGUMENT_QUERY+=(--smoke)
+    fi
+    java $JVM_ARGS \
+      -cp "$BENCHMARK_JAR" \
+      org.safere.benchmark.BenchmarkCollectionPlan \
+      "${DECLARED_ARGUMENT_QUERY[@]}" \
       > "$GENERATED_JMH_ARGUMENT_FILE"
     RUNNER_COMMAND=(java \
       $JVM_ARGS \
@@ -183,7 +202,7 @@ if [ "$DECLARED" = true ]; then
       -prof gc \
       $JMH_OPTS)
     if [ ${#JMH_EXTRA_ARGS[@]} -gt 0 ]; then
-      RUNNER_COMMAND+=("${JMH_EXTRA_ARGS[@]}")
+      RUNNER_COMMAND+=(${JMH_EXTRA_ARGS[@]+"${JMH_EXTRA_ARGS[@]}"})
     fi
     RUNNER_COMMAND+=("^${benchmark//./\\.}$")
     "${RUNNER_COMMAND[@]}"
@@ -261,6 +280,6 @@ for bench in "${BENCHMARKS[@]}"; do
     -jvmArgs "$JVM_ARGS" \
     -prof gc \
     $JMH_OPTS \
-    "${JMH_EXTRA_ARGS[@]}" \
+    ${JMH_EXTRA_ARGS[@]+"${JMH_EXTRA_ARGS[@]}"} \
     "$bench"
 done

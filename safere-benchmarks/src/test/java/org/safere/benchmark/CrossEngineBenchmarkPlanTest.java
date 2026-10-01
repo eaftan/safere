@@ -732,13 +732,13 @@ class CrossEngineBenchmarkPlanTest {
             .findFirst()
             .orElseThrow();
 
-    assertThat(plan.declaredLauncherArguments(benchmark, jar, false, false))
+    assertThat(plan.declaredLauncherArguments(benchmark, jar, false, false, null))
         .containsExactly(
             "-jar",
             "\"/tmp/benchmark jar.jar\"",
             "-p",
             "\"crossEngineTrial=" + String.join(",", timing.trialIds()) + "\"");
-    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, false))
+    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, false, null))
         .containsExactly(
             "-jar",
             "\"/tmp/benchmark jar.jar\"",
@@ -749,15 +749,93 @@ class CrossEngineBenchmarkPlanTest {
         allocation.trialIds().stream()
             .filter(trialId -> trialId.startsWith(firstWorkload + "@"))
             .toList();
-    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, true))
+    assertThat(plan.declaredLauncherArguments(benchmark, jar, true, true, null))
         .containsExactly(
             "-jar",
             "\"/tmp/benchmark jar.jar\"",
             "-p",
             "\"crossEngineTrial=" + String.join(",", smokeTrials) + "\"");
-    assertThatThrownBy(() -> plan.declaredLauncherArguments("missing", jar, false, false))
+    assertThatThrownBy(() -> plan.declaredLauncherArguments("missing", jar, false, false, null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("Unknown declared benchmark runner: missing");
+  }
+
+  @Test
+  void declaredArgumentFilesPreserveProviderGroupsAndSmokeSelection() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+    String jar = "/tmp/benchmark \"quoted\" \\ jar.jar";
+    for (boolean allocation : List.of(false, true)) {
+      for (boolean smoke : List.of(false, true)) {
+        for (BenchmarkCollectionPlan.Runner runner : plan.executionRunners(allocation, smoke)) {
+          String provider =
+              RegexEngineVariant.fromId(
+                      runner
+                          .trialIds()
+                          .getFirst()
+                          .substring(runner.trialIds().getFirst().lastIndexOf('@') + 1))
+                  .scanProvider();
+          assertThat(
+                  plan.declaredLauncherArguments(
+                      runner.benchmark(), jar, allocation, smoke, provider))
+              .containsExactly(
+                  "-jar",
+                  BenchmarkCollectionPlan.argumentFileToken(jar),
+                  "-p",
+                  BenchmarkCollectionPlan.argumentFileToken(
+                      runner.parameter() + "=" + String.join(",", runner.trialIds())));
+        }
+      }
+    }
+  }
+
+  @Test
+  @ResourceLock(Resources.SYSTEM_OUT)
+  @ResourceLock(Resources.SYSTEM_PROPERTIES)
+  void declaredArgumentFileCommandFiltersProvidersAfterSmokeSelection() {
+    BenchmarkCollectionPlan plan = BenchmarkCollectionPlan.load();
+    String property = "safere.benchmark.scanProvider";
+    String previous = System.getProperty(property);
+    PrintStream original = System.out;
+    try {
+      for (BenchmarkCollectionPlan.Runner runner : plan.executionRunners(false, true)) {
+        String provider =
+            RegexEngineVariant.fromId(
+                    runner
+                        .trialIds()
+                        .getFirst()
+                        .substring(runner.trialIds().getFirst().lastIndexOf('@') + 1))
+                .scanProvider();
+        System.setProperty(property, provider);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (PrintStream capture = new PrintStream(output, true, StandardCharsets.UTF_8)) {
+          System.setOut(capture);
+          BenchmarkCollectionPlan.main(
+              new String[] {
+                "declared-runner-arguments",
+                "runners",
+                runner.benchmark(),
+                "/tmp/benchmark jar.jar",
+                "--smoke"
+              });
+        } finally {
+          System.setOut(original);
+        }
+        assertThat(output.toString(StandardCharsets.UTF_8).lines().toList())
+            .containsExactly(
+                "-jar",
+                "\"/tmp/benchmark jar.jar\"",
+                "-p",
+                BenchmarkCollectionPlan.argumentFileToken(
+                    runner.parameter() + "=" + String.join(",", runner.trialIds())));
+      }
+    } finally {
+      System.setOut(original);
+      if (previous == null) {
+        System.clearProperty(property);
+      } else {
+        System.setProperty(property, previous);
+      }
+    }
   }
 
   @Test
