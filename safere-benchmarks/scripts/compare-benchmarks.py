@@ -67,6 +67,7 @@ _JMH_ENGINE_PARAMS = {
 _CROSS_ENGINE_VARIANTS = {
     "safere-string": "safere",
     "safere-utf8": "safere_utf8",
+    "safere-utf8-vector": "safere_utf8_vector",
     "jdk-string": "jdk",
     "re2j-string": "re2j",
     "re2-ffm-string-conversion": "re2_ffm",

@@ -47,6 +47,29 @@ class CrossEngineResultParsingTest(unittest.TestCase):
             ],
         )
 
+    def test_keeps_default_and_vector_utf8_results_separate(self):
+        results = self.parse(
+            "Benchmark (crossEngineTrial) Mode Cnt Score Error Units\n"
+            "CrossEngineBenchmark.run RegexBenchmark.emailFind@safere-utf8 "
+            "avgt 5 12.3 ± 0.4 ns/op\n"
+            "CrossEngineBenchmark.run RegexBenchmark.emailFind@safere-utf8-vector "
+            "avgt 5 8.3 ± 0.2 ns/op\n"
+        )
+        self.assertEqual([r.engine for r in results], ["safere_utf8", "safere_utf8_vector"])
+        tables = COMPARE.generate_tables(results, ["safere_utf8", "safere_utf8_vector"])
+        self.assertIn("safere_utf8 (ns/op)", tables)
+        self.assertIn("safere_utf8_vector (ns/op)", tables)
+        normalized = [json.loads(line) for line in COMPARE.generate_jsonl(results).splitlines()]
+        self.assertEqual([row["engine"] for row in normalized],
+                         ["safere_utf8", "safere_utf8_vector"])
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as plan_file:
+            json.dump({"trials": [{"workloadId": "RegexBenchmark.emailFind",
+                       "executionVariant": "safere-utf8-vector",
+                       "requestedScanProvider": "vector"}], "exclusions": []}, plan_file)
+            plan_file.flush()
+            statuses = COMPARE.load_declared_plan(plan_file.name)
+        self.assertIn(("RegexBenchmark.emailFind", "safere_utf8_vector"), statuses)
+
     def test_normalizes_parameterized_scaling_workload_id(self):
         results = self.parse(
             "Benchmark (crossEngineScalingTrial) Mode Cnt Score Error Units\n"

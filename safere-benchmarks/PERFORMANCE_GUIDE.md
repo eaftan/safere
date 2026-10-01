@@ -76,7 +76,8 @@ build directory. Subsequent runs can use the default disconnected setting.
 - **Declared `noFork` workloads always use `-f 0`.** The generic collection
   runner derives this setting from the measurement profile.
 - **Default benchmark collection includes both Java suites.**
-  `./collect-benchmark-results.sh` collects SafeRE, JDK, RE2/J, and RE2-FFM
+  `./collect-benchmark-results.sh` collects SafeRE String, UTF-8, UTF-8 Vector,
+  JDK, RE2/J, and RE2-FFM
   results from SafeRE's suite, then SafeRE/JDK results from the external
   OpenJDK-derived suite. Use `./collect-benchmark-results.sh --cross-language`
   only when broader C++ RE2, PCRE2 JIT, Go `regexp`, Rust `regex`, and .NET

@@ -22,16 +22,49 @@ final class BenchmarkCollectionPlan {
 
   private final CrossEngineBenchmarkPlan crossEngine;
   private final SpecializedBenchmarkPlan specialized;
+  private final String scanProvider;
 
   private BenchmarkCollectionPlan(
-      CrossEngineBenchmarkPlan crossEngine, SpecializedBenchmarkPlan specialized) {
+      CrossEngineBenchmarkPlan crossEngine,
+      SpecializedBenchmarkPlan specialized,
+      String scanProvider) {
     this.crossEngine = crossEngine;
     this.specialized = specialized;
+    this.scanProvider = scanProvider;
   }
 
   static BenchmarkCollectionPlan load() {
     return new BenchmarkCollectionPlan(
-        CrossEngineBenchmarkPlan.load(), SpecializedBenchmarkPlan.load());
+        CrossEngineBenchmarkPlan.load(), SpecializedBenchmarkPlan.load(), null);
+  }
+
+  BenchmarkCollectionPlan forScanProvider(String provider) {
+    if (!provider.equals("default") && !provider.equals("vector")) {
+      throw new IllegalArgumentException("Unknown benchmark scan provider: " + provider);
+    }
+    return new BenchmarkCollectionPlan(crossEngine, specialized, provider);
+  }
+
+  static boolean matchesScanProvider(String trialId, String provider) {
+    String variant = trialId.substring(trialId.lastIndexOf('@') + 1);
+    return RegexEngineVariant.fromId(variant).scanProvider().equals(provider);
+  }
+
+  List<Runner> executionRunners(boolean allocation, boolean smoke) {
+    List<Runner> result = new ArrayList<>();
+    // Pick the smoke workload before splitting, so both providers measure the same row.
+    for (Runner runner : allocation ? allocationRunners() : runners()) {
+      List<String> ids = smoke ? smokeTrialIds(runner) : runner.trialIds();
+      for (String provider : List.of("default", "vector")) {
+        List<String> selected =
+            ids.stream().filter(id -> matchesScanProvider(id, provider)).toList();
+        if (!selected.isEmpty()) {
+          result.add(
+              new Runner(runner.profile(), runner.benchmark(), runner.parameter(), selected));
+        }
+      }
+    }
+    return List.copyOf(result);
   }
 
   List<Runner> runners() {
@@ -92,6 +125,13 @@ final class BenchmarkCollectionPlan {
   }
 
   private List<Runner> allRunners() {
+    List<Runner> runners = unfilteredRunners();
+    return scanProvider == null
+        ? runners
+        : filterRunners(runners, id -> matchesScanProvider(id, scanProvider), false);
+  }
+
+  private List<Runner> unfilteredRunners() {
     return List.of(
         runner(
             "standard",
@@ -200,7 +240,8 @@ final class BenchmarkCollectionPlan {
                 trial.id(),
                 trial.workload().id(),
                 trial.variant().id(),
-                trial.workload().measurement()));
+                trial.workload().measurement(),
+                trial.variant().scanProvider()));
       }
     }
     for (SpecializedBenchmarkPlan.Trial trial : specialized.averageTimeTrials()) {
@@ -209,7 +250,8 @@ final class BenchmarkCollectionPlan {
               trial.id(),
               trial.workload().id(),
               trial.variant().id(),
-              trial.workload().measurement()));
+              trial.workload().measurement(),
+              trial.variant().scanProvider()));
     }
     return trials.stream().filter(query::matches).toList();
   }
@@ -249,7 +291,33 @@ final class BenchmarkCollectionPlan {
               + " [query options]");
     }
     BenchmarkCollectionPlan plan = load();
+    String provider = System.getProperty("safere.benchmark.scanProvider");
+    if (provider != null && !args[0].equals("report-plan")) {
+      plan = plan.forScanProvider(provider);
+    }
     switch (args[0]) {
+      case "execution-runners", "allocation-execution-runners" -> {
+        boolean smoke = args.length == 2 && args[1].equals("--smoke");
+        if (args.length > 2 || (args.length == 2 && !smoke)) {
+          throw new IllegalArgumentException("Usage: " + args[0] + " [--smoke]");
+        }
+        for (Runner runner : plan.executionRunners(args[0].startsWith("allocation-"), smoke)) {
+          String scanProvider =
+              RegexEngineVariant.fromId(
+                      runner
+                          .trialIds()
+                          .getFirst()
+                          .substring(runner.trialIds().getFirst().lastIndexOf('@') + 1))
+                  .scanProvider();
+          System.out.printf(
+              "%s\t%s\t%s\t%s\t%s%n",
+              runner.profile(),
+              runner.benchmark(),
+              runner.parameter(),
+              String.join(",", runner.trialIds()),
+              scanProvider);
+        }
+      }
       case "runners", "allocation-runners" -> {
         boolean smoke = args.length == 2 && args[1].equals("--smoke");
         if (args.length > 2 || (args.length == 2 && !smoke)) {
@@ -328,7 +396,8 @@ final class BenchmarkCollectionPlan {
       String id,
       String workloadId,
       String executionVariant,
-      DeclarativeBenchmarkPlan.Measurement measurement) {}
+      DeclarativeBenchmarkPlan.Measurement measurement,
+      String requestedScanProvider) {}
 
   record ReportExclusion(String workloadId, String executionVariant, String kind, String reason) {
     static ReportExclusion from(MaterializedExecutionPlan.Entry exclusion) {

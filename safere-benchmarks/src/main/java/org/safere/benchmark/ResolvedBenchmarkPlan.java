@@ -135,6 +135,7 @@ final class ResolvedBenchmarkPlan {
               EnumSet.allOf(DeclarativeBenchmarkPlan.MeasurementMode.class),
               variant == RegexEngineVariant.SAFERE_STRING
                       || variant == RegexEngineVariant.SAFERE_UTF8
+                      || variant == RegexEngineVariant.SAFERE_UTF8_VECTOR
                       || variant == RegexEngineVariant.JDK_STRING
                   ? allFlagSets()
                   : Set.of("0")));

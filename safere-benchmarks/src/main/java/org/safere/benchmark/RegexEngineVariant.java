@@ -185,6 +185,17 @@ enum RegexEngineVariant {
       };
     }
   },
+  SAFERE_UTF8_VECTOR(
+      "safere-utf8-vector",
+      "safere_utf8_vector",
+      "java",
+      InputRepresentation.PREEXISTING_UTF8,
+      SAFERE_UTF8.capabilities()) {
+    @Override
+    CompiledRegex compile(String regex) {
+      return SAFERE_UTF8.compile(regex);
+    }
+  },
   JDK_STRING("jdk-string", "jdk", "java", InputRepresentation.JAVA_STRING, allCapabilities()) {
     @Override
     CompiledRegex compile(String regex) {
@@ -452,6 +463,25 @@ enum RegexEngineVariant {
     return reportEngine;
   }
 
+  String scanProvider() {
+    return this == SAFERE_UTF8_VECTOR ? "vector" : "default";
+  }
+
+  void validateScanProvider() {
+    if (this != SAFERE_UTF8 && this != SAFERE_UTF8_VECTOR) {
+      return;
+    }
+    String property = "org.safere.experimental.vectorScanProvider";
+    String requested = System.getProperty(property, "").trim();
+    boolean matches = this == SAFERE_UTF8_VECTOR ? requested.equals("vector") : requested.isEmpty();
+    if (!matches) {
+      throw new IllegalStateException(
+          this == SAFERE_UTF8_VECTOR
+              ? id + " requires -D" + property + "=vector"
+              : id + " requires default provider selection; leave -D" + property + " unset");
+    }
+  }
+
   String patternProfile() {
     return patternProfile;
   }
@@ -508,7 +538,7 @@ enum RegexEngineVariant {
         features.add(DeclarativeBenchmarkPlan.Feature.PATTERN_SET);
         features.add(DeclarativeBenchmarkPlan.Feature.RETAINED_HEAP);
       }
-      case SAFERE_UTF8 -> {
+      case SAFERE_UTF8, SAFERE_UTF8_VECTOR -> {
         features.add(DeclarativeBenchmarkPlan.Feature.LINEAR_TIME);
         features.add(DeclarativeBenchmarkPlan.Feature.MATCHER_STATE);
         features.add(DeclarativeBenchmarkPlan.Feature.REGIONS);
@@ -565,7 +595,8 @@ enum RegexEngineVariant {
   Object compileForBenchmark(String regex, String flagSet) {
     int flags = flagSet == null ? 0 : BenchmarkFlags.parse(flagSet);
     return switch (this) {
-      case SAFERE_STRING, SAFERE_UTF8 -> org.safere.Pattern.compile(regex, flags);
+      case SAFERE_STRING, SAFERE_UTF8, SAFERE_UTF8_VECTOR ->
+          org.safere.Pattern.compile(regex, flags);
       case JDK_STRING -> java.util.regex.Pattern.compile(regex, flags);
       case RE2J_STRING -> {
         if (flags != 0) {

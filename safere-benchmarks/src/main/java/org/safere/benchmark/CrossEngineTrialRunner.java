@@ -51,6 +51,7 @@ final class CrossEngineTrialRunner implements AutoCloseable {
       CrossEngineBenchmarkPlan.Trial trial,
       CrossEngineWorkload.TimingGroup expectedTimingGroup,
       boolean validateBeforeMeasurement) {
+    trial.variant().validateScanProvider();
     String trialId = trial.id();
     CrossEngineWorkload workload = trial.workload();
     if (workload.timingGroup() != expectedTimingGroup) {

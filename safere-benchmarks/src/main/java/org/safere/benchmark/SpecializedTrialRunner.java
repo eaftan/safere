@@ -33,9 +33,11 @@ final class SpecializedTrialRunner implements AutoCloseable {
   static SpecializedTrialRunner prepare(String trialId) {
     SpecializedBenchmarkPlan.Trial trial = SpecializedBenchmarkPlan.load().resolve(trialId);
     if (trial.variant() != RegexEngineVariant.SAFERE_STRING
-        && trial.variant() != RegexEngineVariant.SAFERE_UTF8) {
+        && trial.variant() != RegexEngineVariant.SAFERE_UTF8
+        && trial.variant() != RegexEngineVariant.SAFERE_UTF8_VECTOR) {
       throw new IllegalArgumentException("Specialized SafeRE trial has wrong variant: " + trialId);
     }
+    trial.variant().validateScanProvider();
     DeclarativeBenchmarkPlan.ExpandedWorkload workload = trial.workload();
     return switch (workload.operation()) {
       case PATTERN_SET_MATCHES -> new SpecializedTrialRunner(patternSet(workload), false);

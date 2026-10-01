@@ -186,6 +186,11 @@ final class CrossEngineBenchmarkPlan {
         plan.trials(query.timingGroup()).stream()
             .filter(
                 trial ->
+                    System.getProperty("safere.benchmark.scanProvider") == null
+                        || BenchmarkCollectionPlan.matchesScanProvider(
+                            trial.id(), System.getProperty("safere.benchmark.scanProvider")))
+            .filter(
+                trial ->
                     query.mode() == null || trial.workload().measurement().mode() == query.mode())
             .filter(
                 trial ->

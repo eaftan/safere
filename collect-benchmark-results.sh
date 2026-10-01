@@ -221,7 +221,7 @@ if [ "$OPENJDK_REGEX" = true ]; then
     ./run-openjdk-regex-benchmarks.sh "${OPENJDK_REGEX_ARGS[@]}"
 fi
 
-COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm"
+COMPARE_ENGINES="safere,safere_utf8,safere_utf8_vector,jdk,re2j,re2_ffm"
 COMPARE_ARGS=(
   --jmh "$OUTPUT_DIR/jmh-output.txt"
 )
@@ -279,7 +279,7 @@ if [ "$CROSS_LANGUAGE" = true ]; then
     --json "$OUTPUT_DIR/cpp-results.jsonl" "$OUTPUT_DIR/go-results.jsonl" \
       "$OUTPUT_DIR/rust-results.jsonl" "$OUTPUT_DIR/dotnet-results.jsonl"
   )
-  COMPARE_ENGINES="safere,safere_utf8,jdk,re2j,re2_ffm,re2_cpp,pcre2_jit,go,rust,dotnet_nonbacktracking"
+  COMPARE_ENGINES="safere,safere_utf8,safere_utf8_vector,jdk,re2j,re2_ffm,re2_cpp,pcre2_jit,go,rust,dotnet_nonbacktracking"
 fi
 
 log "Generating markdown tables"
@@ -308,7 +308,7 @@ if [ "$MODE" = "smoke" ]; then
     # the complete Java matrix and the native subset independently.
     python3 safere-benchmarks/scripts/compare-benchmarks.py \
       --jmh "$OUTPUT_DIR/jmh-output.txt" \
-      --engines safere,safere_utf8,jdk,re2j,re2_ffm \
+      --engines safere,safere_utf8,safere_utf8_vector,jdk,re2j,re2_ffm \
       --declared-plan "$OUTPUT_DIR/declared-report-plan.json" \
       > "$OUTPUT_DIR/smoke-java-tables.md"
     SMOKE_TABLES=(

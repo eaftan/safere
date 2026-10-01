@@ -81,7 +81,29 @@ To verify the collection pipeline without doing a full run:
 ```
 
 The script runs benchmark batches sequentially, captures raw output, and
-generates markdown tables.
+generates markdown tables. The declared Java matrix includes default String,
+default UTF-8, and UTF-8 Vector SafeRE variants. Default UTF-8 and Vector use
+identical workloads and sampling settings, with separate JVM launches to isolate
+provider selection. The report plan records `requestedScanProvider` for each trial;
+Vector measurements retain the `safere-utf8-vector` execution identity and
+`safere_utf8_vector` report column.
+
+For a focused Vector run, select the provider explicitly:
+
+```bash
+./run-java-benchmarks.sh --provider vector CrossEngineBenchmark.run -- \
+  -p crossEngineTrial=RegexBenchmark.emailFind@safere-utf8-vector
+```
+
+Both timing and allocation declared collections include both providers by default.
+`--provider default` or `--provider vector` selects one provider. Declared runs reject
+JMH `-p` overrides; use a focused run without `--declared` to select explicit trials.
+Default runs leave the experimental provider property unset and follow the library
+default, regardless of its implementation. Vector runs pass
+`--add-modules=jdk.incubator.vector` and
+`-Dorg.safere.experimental.vectorScanProvider=vector` to launcher and measurement
+JVMs and check provider availability before running. String matching continues to
+use its default implementation.
 
 The collection script installs the SafeRE version from the current checkout,
 builds the external suite against that exact version, and runs both engines.
