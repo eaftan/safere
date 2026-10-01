@@ -246,6 +246,29 @@ final class BitState {
     return new BitState(prog, text, startPos, endPos, ncap, longest, endMatch);
   }
 
+  /** Uses explicit consumption and assertion bounds without copying the input region. */
+  static BitState getOrCreate(
+      BitState cached,
+      Prog prog,
+      EngineContext context,
+      int ncap,
+      boolean longest,
+      boolean fullMatch) {
+    BitState result =
+        getOrCreate(
+            cached,
+            prog,
+            context.text(),
+            context.searchStart(),
+            context.endPos(),
+            ncap,
+            longest,
+            fullMatch);
+    result.regionContext = context;
+    result.requireFullEnd = fullMatch;
+    return result;
+  }
+
   /**
    * Runs the bit-state search from the given start position.
    *
@@ -269,7 +292,7 @@ final class BitState {
     bestMatch = null;
     matchResult =
         resultBuffer != null && resultBuffer.length >= ncap ? resultBuffer : new int[ncap];
-    int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
+    int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, endPos + 1);
     pruneAcrossStarts = !anchored;
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
       if (trySearch(prog.start(), searchStart)) {
@@ -281,8 +304,8 @@ final class BitState {
       if (pruneAcrossStarts) {
         foldVisitedIntoDead();
       }
-      if (searchStart < textLen) {
-        searchStart = InputScanner.position(text.decodeForward(searchStart)) - 1;
+      if (searchStart < endPos) {
+        searchStart = InputScanner.position(text.decodeForward(searchStart, endPos)) - 1;
       }
     }
     return null;
@@ -294,19 +317,19 @@ final class BitState {
 
   private final Prog prog;
   private InputScanner text;
-  private int textLen;
   private int endPos;
   private boolean longest;
   private boolean endMatch;
   private int ncap;
   private GraphemeSupport.Context graphemeContext;
+  private EngineContext regionContext;
+  private boolean requireFullEnd;
 
   /**
    * Per-start visited bitmap: bit {@code ((pos - basePos) * progSize + instId)} tracks which (ALT,
    * position) pairs the current start position's search has reached. Position-major layout keeps
    * one start's marks contiguous, so folding them into {@link #dead} costs no more than the search
-   * that produced them. Sized for the full text so the instance can be reused across searches with
-   * different start/end bounds.
+   * that produced them. Sized for the search range; reuse requires enough slots for the new bounds.
    */
   private final long[] visited;
 
@@ -388,7 +411,6 @@ final class BitState {
       boolean endMatch) {
     this.prog = prog;
     this.text = text;
-    this.textLen = text.length();
     this.basePos = startPos;
     this.endPos = endPos;
     this.longest = longest;
@@ -602,7 +624,22 @@ final class BitState {
         }
 
         case InstOp.OP_EMPTY_WIDTH -> {
-          int curFlags = Nfa.emptyFlags(text, pos, prog.hasGraphemeSemantics(), graphemeContext);
+          int curFlags =
+              regionContext == null
+                  ? Nfa.emptyFlags(text, pos, prog.hasGraphemeSemantics(), graphemeContext)
+                  : Nfa.emptyFlags(
+                      text,
+                      pos,
+                      false,
+                      regionContext.graphemeContext(),
+                      cap[0],
+                      regionContext.boundaryRegionStart(),
+                      pos > cap[0],
+                      regionContext.emptyAnchorStartPos(),
+                      regionContext.emptyAnchorEndPos(),
+                      regionContext.boundaryEndPos(),
+                      prog.hasWordBoundary(),
+                      prog.hasTextAnchor());
           if ((ip.arg & ~curFlags) == 0) {
             if (shouldVisit(ip.out, pos)) {
               push(ip.out, pos);
@@ -655,7 +692,7 @@ final class BitState {
             int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
             int nextPos = pos + 1;
             if (cp < 0) {
-              long decoded = text.decodeForward(pos);
+              long decoded = text.decodeForward(pos, endPos);
               cp = InputScanner.codePoint(decoded);
               nextPos = InputScanner.position(decoded);
             }
@@ -672,7 +709,7 @@ final class BitState {
             int cp = WorkCounterConfig.ENABLED ? -1 : text.asciiAt(pos);
             int nextPos = pos + 1;
             if (cp < 0) {
-              long decoded = text.decodeForward(pos);
+              long decoded = text.decodeForward(pos, endPos);
               cp = InputScanner.codePoint(decoded);
               nextPos = InputScanner.position(decoded);
             }
@@ -685,12 +722,16 @@ final class BitState {
         }
 
         case InstOp.OP_MATCH -> {
-          if (endMatch && pos != endPos) {
-            // $ (dollarAnchorEnd) allows ending before a trailing line terminator at the actual
-            // text end. Use text.length() (not endPos) because dollarAnchorEnd is a property of
-            // the text boundary, not the search range.
+          if (requireFullEnd && pos != endPos) {
+            break;
+          }
+          int anchorEnd = regionContext == null ? endPos : regionContext.anchorEndPos();
+          if (endMatch && pos != anchorEnd) {
+            // Dollar may match before the final terminator of the effective anchor context.
+            int dollarEnd = regionContext == null ? text.length() : anchorEnd;
             if (!prog.dollarAnchorEnd()
-                || !Nfa.isAtTrailingLineTerminator(text, pos, prog.dollarAnchorUnixLines())) {
+                || !Nfa.isAtTrailingLineTerminator(
+                    text, pos, prog.dollarAnchorUnixLines(), dollarEnd)) {
               break; // must match at the end boundary
             }
           }
@@ -728,7 +769,7 @@ final class BitState {
 
   /**
    * Returns whether this BitState can be reused for the given parameters. Reuse is possible when
-   * the program is the same and the pre-allocated arrays are large enough for the full text.
+   * the program is the same and the pre-allocated arrays are large enough for the search range.
    */
   boolean canReuse(Prog prog, InputScanner text, int startPos, int endPos, int ncap) {
     if (this.prog != prog) {
@@ -746,6 +787,7 @@ final class BitState {
   void releaseInput() {
     text = null;
     graphemeContext = null;
+    regionContext = null;
   }
 
   /**
@@ -754,8 +796,9 @@ final class BitState {
    */
   private void reset(
       InputScanner text, int startPos, int endPos, int ncap, boolean longest, boolean endMatch) {
+    this.regionContext = null;
+    this.requireFullEnd = false;
     this.text = text;
-    this.textLen = text.length();
     this.basePos = startPos;
     this.endPos = endPos;
     this.longest = longest;

@@ -22,6 +22,35 @@ class MatcherLinearTimeTest {
   private static final Duration SCENARIO_TIMEOUT = Duration.ofSeconds(30);
 
   @Test
+  void splitEndRegionFailuresStayLinearAcrossEngineFallback() {
+    for (String regex : new String[] {"(a*)b", "(a+?)*b"}) {
+      Pattern pattern = Pattern.compile(regex);
+      for (boolean transparent : new boolean[] {false, true}) {
+        // Exercise both the bitmap-sized range and the larger NFA fallback range.
+        for (int size : new int[] {1_000, 100_000}) {
+          Consumer<String> scenario =
+              input -> {
+                Matcher matcher =
+                    pattern
+                        .matcher(input)
+                        .region(0, input.length() - 1)
+                        .useTransparentBounds(transparent);
+                assertThat(matcher.find()).isFalse();
+              };
+          String small = "a".repeat(size) + "\uD83D\uDC4D";
+          String large = "a".repeat(2 * size) + "\uD83D\uDC4D";
+          long smallWork = countedWork(() -> scenario.accept(small));
+          long largeWork = countedWork(() -> scenario.accept(large));
+          assertThat(smallWork).isPositive();
+          assertThat(largeWork)
+              .as("%s size=%s transparent=%s", regex, size, transparent)
+              .isLessThanOrEqualTo(3 * smallWork);
+        }
+      }
+    }
+  }
+
+  @Test
   @DisplayName("group access stays linear for ambiguous repeated captures")
   void groupAccessWithAmbiguousRepeatedCapturesStaysLinear() {
     Pattern pattern = Pattern.compile("((a|aa))*");
