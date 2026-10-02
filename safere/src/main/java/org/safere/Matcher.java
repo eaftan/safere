@@ -2986,23 +2986,28 @@ public final class Matcher implements MatchResult {
       diagnosticBoundary(strategy);
       return text;
     }
-    LazyTemplate template = new LazyTemplate(replacement, groupCount());
-    String literalResult = literalReplaceFastPath(template, limit);
-    if (literalResult != null) {
-      return literalResult;
+    if (parentPattern.literalMatch() != null) {
+      String literalResult = literalReplaceFastPath(replacement, limit);
+      if (literalResult != null) {
+        return literalResult;
+      }
     }
 
-    String fastResult = charClassReplaceFastPath(template, limit);
-    if (fastResult != null) {
-      return fastResult;
+    if (parentPattern.matchDescriptor().charClassMatch() != null) {
+      String fastResult = charClassReplaceFastPath(replacement, limit);
+      if (fastResult != null) {
+        return fastResult;
+      }
     }
 
-    String anchoredOnePassResult = replaceAnchoredOnePass(template, limit > 1);
-    if (anchoredOnePassResult != null) {
-      return anchoredOnePassResult;
+    if (isFullyAnchoredOnePassPattern()) {
+      String anchoredOnePassResult = replaceAnchoredOnePass(replacement, limit > 1);
+      if (anchoredOnePassResult != null) {
+        return anchoredOnePassResult;
+      }
     }
 
-    String result = replaceDfaOptimized(template, limit);
+    String result = replaceDfaOptimized(replacement, limit);
     if (result != null) {
       return result;
     }
@@ -3014,6 +3019,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
+    LazyTemplate template = new LazyTemplate(replacement, groupCount());
     if (template.needsCaptures()) {
       parentPattern.recordInnerCaptureAccess();
     }
@@ -3046,19 +3052,27 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
-  private String replaceAnchoredOnePass(LazyTemplate template, boolean replaceAll) {
-    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
-    boolean isFullAnchored =
-        parentPattern.prog().anchorStart()
-            && (parentPattern.prog().anchorEnd() || parentPattern.prog().dollarAnchorEnd());
+  /**
+   * Returns whether the pattern itself admits {@link #replaceAnchoredOnePass}: OnePass-eligible and
+   * anchored at both ends. These are compile-time properties, so {@code replaceImpl} checks them
+   * before calling in and {@code replaceAnchoredOnePass} only checks the per-call conditions.
+   */
+  private boolean isFullyAnchoredOnePassPattern() {
+    Prog prog = parentPattern.prog();
+    return parentPattern.canOnePassFind()
+        && prog.anchorStart()
+        && (prog.anchorEnd() || prog.dollarAnchorEnd());
+  }
 
+  /** Callers must first check {@link #isFullyAnchoredOnePassPattern()}. */
+  private String replaceAnchoredOnePass(String replacement, boolean replaceAll) {
+    boolean regionActive = (regionStart != 0 || regionEnd != text.length());
+    if (!enginePathOptions().onePass() || regionActive || searchFrom != 0) {
+      return null;
+    }
+    LazyTemplate template = new LazyTemplate(replacement, groupCount());
     boolean requiresCaptures = template.needsCaptures();
-    if (!enginePathOptions().onePass()
-        || !parentPattern.canOnePassFind()
-        || !isFullAnchored
-        || text.length() > onePassTextLimit(requiresCaptures)
-        || regionActive
-        || searchFrom != 0) {
+    if (text.length() > onePassTextLimit(requiresCaptures)) {
       return null;
     }
 
@@ -3106,7 +3120,7 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
-  private String replaceDfaOptimized(LazyTemplate template, int limit) {
+  private String replaceDfaOptimized(String replacement, int limit) {
     boolean regionActive = (regionStart != 0 || regionEnd != text.length());
     if (!canUseForwardDfa()
         || !parentPattern.dfaGroupZeroReliable()
@@ -3117,23 +3131,51 @@ public final class Matcher implements MatchResult {
         || regionActive) {
       return null;
     }
-    diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
 
     boolean isStartAnchored = parentPattern.prog().anchorStart();
+    int startPos = searchFrom;
+    if (enginePathOptions().startAcceleration() && !isStartAnchored) {
+      StringStartAccelerator accelerator = parentPattern.stringStartAccelerator();
+      if (accelerator != null) {
+        AcceleratorPolicy policy = accelerator.policy();
+        MatchStrategy strategy = policy.strategy();
+        if (strategy != null) {
+          diagnosticParticipation(strategy, StrategyRole.START_ACCELERATION);
+        }
+        int idx =
+            StringStartAccelerator.findNextCandidate(
+                accelerator, text, searchFrom, parentPattern.prog().lineStartUnixLines());
+        if (idx < 0) {
+          if (strategy != null) {
+            diagnosticBoundary(strategy);
+          }
+          return text;
+        }
+        startPos = idx;
+      }
+    }
+
+    diagnosticParticipation(MatchStrategy.DFA, StrategyRole.CANDIDATE_VERIFICATION);
+
     String prefix = parentPattern.prefix();
     boolean foldCase = parentPattern.prefixFoldCase();
     boolean hasStartAcceleration =
         enginePathOptions().startAcceleration() && prefix != null && !isStartAnchored;
-    int startPos = searchFrom;
     if (hasStartAcceleration) {
+      // The prefix accelerates every later iteration of findNextDfaMatch, so record it even when
+      // the start accelerator above already chose the first candidate.
       diagnosticParticipation(MatchStrategy.LITERAL, StrategyRole.START_ACCELERATION);
-      int firstIdx =
-          foldCase ? indexOfIgnoreCase(text, prefix, searchFrom) : text.indexOf(prefix, searchFrom);
-      if (firstIdx < 0) {
-        diagnosticBoundary(MatchStrategy.LITERAL);
-        return text;
+      if (startPos == searchFrom) {
+        int firstIdx =
+            foldCase
+                ? indexOfIgnoreCase(text, prefix, searchFrom)
+                : text.indexOf(prefix, searchFrom);
+        if (firstIdx < 0) {
+          diagnosticBoundary(MatchStrategy.LITERAL);
+          return text;
+        }
+        startPos = firstIdx;
       }
-      startPos = firstIdx;
     }
 
     Dfa fwdDfa = dfa(false);
@@ -3161,6 +3203,7 @@ public final class Matcher implements MatchResult {
     }
     applyDeferredMatchResult(matchOffsets[0], matchOffsets[1], numCaptures, true, false);
 
+    LazyTemplate template = new LazyTemplate(replacement, groupCount());
     ReplacementSegment[] compiledTemplate = template.get();
 
     boolean needsCaptures = template.needsCaptures();
@@ -3281,10 +3324,6 @@ public final class Matcher implements MatchResult {
     int textLen = scanner.length();
     int pos = cursor.pos;
 
-    if (matchOffsets == null) {
-      matchOffsets = new int[2];
-    }
-
     while (pos <= textLen) {
       if (parentPattern.prog().anchorStart() && pos > 0) {
         break;
@@ -3305,6 +3344,9 @@ public final class Matcher implements MatchResult {
 
       int earlyEnd = fwdResult.pos();
       if (earlyEnd <= pos) {
+        if (matchOffsets == null) {
+          matchOffsets = new int[2];
+        }
         matchOffsets[0] = pos;
         matchOffsets[1] = pos;
         return 1;
@@ -3369,6 +3411,9 @@ public final class Matcher implements MatchResult {
         matchEnd = earlyEnd;
       }
 
+      if (matchOffsets == null) {
+        matchOffsets = new int[2];
+      }
       matchOffsets[0] = matchStart;
       matchOffsets[1] = matchEnd;
       return 1;
@@ -3486,7 +3531,7 @@ public final class Matcher implements MatchResult {
     return sb.toString();
   }
 
-  private String literalReplaceFastPath(LazyTemplate template, int limit) {
+  private String literalReplaceFastPath(String replacement, int limit) {
     if (!enginePathOptions().literalFastPaths()) {
       return null;
     }
@@ -3496,10 +3541,13 @@ public final class Matcher implements MatchResult {
       return null;
     }
 
-    String replacement = template.replacement;
     boolean simpleReplacement = isSimpleReplacement(replacement);
-    if (!simpleReplacement && template.needsCaptures()) {
-      return null; // Cannot handle replacements that reference inner captures yet
+    LazyTemplate template = null;
+    if (!simpleReplacement) {
+      template = new LazyTemplate(replacement, groupCount());
+      if (template.needsCaptures()) {
+        return null; // Cannot handle replacements that reference inner captures yet
+      }
     }
 
     DiagnosticOperation activeDiagnostics = diagnosticOperation;
@@ -3615,6 +3663,9 @@ public final class Matcher implements MatchResult {
         if (!simpleReplacement) {
           applyDeferredMatchResult(
               firstMatchStart, firstMatchEnd, parentPattern.prog().numCaptures(), true, false);
+          if (template == null) {
+            template = new LazyTemplate(replacement, groupCount());
+          }
           compiledTemplate = template.get();
         }
       }
@@ -3680,7 +3731,7 @@ public final class Matcher implements MatchResult {
     return matchStart;
   }
 
-  private String charClassReplaceFastPath(LazyTemplate template, int limit) {
+  private String charClassReplaceFastPath(String replacement, int limit) {
     Pattern.CharClassMatchInfo ccMatch = parentPattern.matchDescriptor().charClassMatch();
     if (!enginePathOptions().charClassReplacementFastPath()
         || ccMatch == null
@@ -3694,7 +3745,8 @@ public final class Matcher implements MatchResult {
       accumulator.participate(MatchStrategy.CHARACTER_CLASS, StrategyRole.CANDIDATE_VERIFICATION);
     }
     if (ccMatch.allowEmpty()) {
-      return nullableCharClassReplaceFastPath(template, limit, ccMatch);
+      return nullableCharClassReplaceFastPath(
+          new LazyTemplate(replacement, groupCount()), limit, ccMatch);
     }
     String repText = null;
 
@@ -3740,6 +3792,7 @@ public final class Matcher implements MatchResult {
         firstMatchStart = matchStart;
         firstMatchEnd = matchEnd;
         ReplacementSegment[] compiledTemplate;
+        LazyTemplate template = new LazyTemplate(replacement, groupCount());
         try {
           compiledTemplate = template.get();
         } catch (IllegalArgumentException e) {
