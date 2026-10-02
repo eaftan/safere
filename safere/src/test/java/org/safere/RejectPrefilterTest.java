@@ -416,4 +416,62 @@ class RejectPrefilterTest {
     assertThat(prefilter.canReject(null, "a % b", 0, options)).isFalse();
     assertThat(prefilter.canReject(null, "a + b", 0, options)).isTrue();
   }
+
+  @Test
+  void nonAsciiCharClassRejectsUtf8OnlyFromStart() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(
+            new CharClassBuilder().addRune(']').addRune('\uFF3D').build());
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+
+    assertThat(prefilter.canReject(utf8Scanner("no brackets here"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(utf8Scanner("has \uFF3D here"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(utf8Scanner("has ] here"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(utf8Scanner("\u00e9\u4E00 ascii then ] late"), 0, options))
+        .isFalse();
+    assertThat(prefilter.canReject(utf8Scanner("\u00e9\u4E00\uFF3B no closing"), 0, options))
+        .isTrue();
+    // Non-ASCII UTF-8 class scans have no memo and use scalar decoding, so they only run once from
+    // index 0.
+    assertThat(prefilter.canReject(utf8Scanner("] tail without brackets"), 2, options)).isFalse();
+  }
+
+  @Test
+  void twoMemberSmallSetRejectsAcrossProbeWindowEdge() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(
+            new CharClassBuilder().addRune(']').addRune('\uFF3D').build());
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+
+    for (char member : new char[] {']', '\uFF3D'}) {
+      for (int searchFrom : new int[] {0, 3}) {
+        for (int offset = 14; offset <= 18; offset++) {
+          String text = "x".repeat(searchFrom + offset) + member + "x".repeat(20);
+          assertThat(prefilter.canReject(new StringInputScanner(text), text, searchFrom, options))
+              .as("member %s at %d from %d", member, searchFrom + offset, searchFrom)
+              .isFalse();
+          assertThat(
+                  prefilter.canReject(
+                      new StringInputScanner(text), text, searchFrom + offset + 1, options))
+              .as("member %s at %d from %d", member, searchFrom + offset, searchFrom + offset + 1)
+              .isTrue();
+        }
+      }
+    }
+
+    // One scanner across increasing positions, as a find() loop does: the probe and the memo must
+    // agree about the only member, at index 40.
+    String text = "x".repeat(40) + "]" + "x".repeat(40);
+    StringInputScanner shared = new StringInputScanner(text);
+    for (int searchFrom = 1; searchFrom <= 40; searchFrom++) {
+      assertThat(prefilter.canReject(shared, text, searchFrom, options))
+          .as("from %d", searchFrom)
+          .isFalse();
+    }
+    assertThat(prefilter.canReject(shared, text, 41, options)).isTrue();
+  }
 }

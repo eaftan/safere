@@ -597,6 +597,40 @@ class MultiAnchorCompilerTest {
         .isInstanceOf(RejectPlan.RequiredCharClass.class);
   }
 
+  @Test
+  void requiredCharClassSelectionUsesAsciiMembersAndFallsBackToRuneCount() {
+    // Mixed [\[\uFF3B] and [\]\uFF3D] are scored by their ASCII members, beating `.` and `\d`.
+    Pattern citation = Pattern.compile(" ?[\\[\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uFF3D]");
+    assertThat(citation.rejectPlan()).isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass citationReject =
+        (RejectPlan.RequiredCharClass) citation.rejectPlan();
+    assertThat(citationReject.scanInfo().ranges()).containsExactly(']', ']', 0xFF3D, 0xFF3D);
+
+    // Purely non-ASCII classes fall back to rune count rather than claiming to be rarer than ASCII.
+    Pattern nonAsciiPairVsSingleAscii = Pattern.compile("[\uFF3B\uFF3D]+(?:a|aa)+");
+    assertThat(nonAsciiPairVsSingleAscii.rejectPlan())
+        .isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass singleAsciiReject =
+        (RejectPlan.RequiredCharClass) nonAsciiPairVsSingleAscii.rejectPlan();
+    assertThat(singleAsciiReject.scanInfo().ranges()).containsExactly('a', 'a');
+
+    // A 1-rune non-ASCII class still beats a 10-rune ASCII digit class by rune count.
+    Pattern singleNonAsciiVsDigits = Pattern.compile(".*[\uFF3B]+\\d+");
+    assertThat(singleNonAsciiVsDigits.rejectPlan())
+        .isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass singleNonAsciiReject =
+        (RejectPlan.RequiredCharClass) singleNonAsciiVsDigits.rejectPlan();
+    assertThat(singleNonAsciiReject.scanInfo().ranges()).containsExactly(0xFF3B, 0xFF3B);
+
+    // A mixed class with a large non-ASCII range is not scored by its ASCII member, so it does not
+    // claim to be rarer than a digit on text in the language it covers.
+    Pattern digitsThenCjk = Pattern.compile("\\d+[\\-\u4E00-\u9FFF]+");
+    assertThat(digitsThenCjk.rejectPlan()).isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass digitsReject =
+        (RejectPlan.RequiredCharClass) digitsThenCjk.rejectPlan();
+    assertThat(digitsReject.scanInfo().ranges()).containsExactly('0', '9');
+  }
+
   /**
    * Returns the {@link CharClassScanInfo} a leading {@code [ranges]} character class compiles to.
    */

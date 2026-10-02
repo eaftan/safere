@@ -20,6 +20,12 @@ capture bookkeeping, caches, Unicode context, and fallback work must each have
 a stated bound. A cache key must include every context bit affecting its result;
 cache collisions or exhausted budgets must never change semantics.
 
+An accelerator or prefilter that searches a small character set with one
+`String.indexOf` per member must memoize each member's result on
+`StringInputScanner` (`memoizedIndexOf`) and reuse it across finds and rejected
+candidates. Otherwise an absent or late member is rescanned to the end of the
+input at every match or candidate of another member, making search quadratic.
+
 ## Captures survive compilation
 
 Two patterns recognizing the same language can have different captures.

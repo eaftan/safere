@@ -81,14 +81,87 @@ class SearchScalingRegressionTest {
         "UTF-8");
   }
 
+  /**
+   * Searching a two-character class as one {@code String.indexOf} per member must not rescan the
+   * rest of the input for a member that never occurs, on each {@code find()} or DFA restart.
+   */
+  @Test
+  void smallSetFindAllWorkIsLinearWhenOneMemberIsAbsent() {
+    Pattern ascii = Pattern.compile("[ab][0-9]");
+    assertFindAllWorkIsLinear(size -> ascii.matcher("b1 ".repeat(size))::find, "ASCII pair");
+
+    Pattern citation = Pattern.compile(" ?[\\[\\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\\uFF3D]");
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher("x \uFF3B1.2.3\uFF3D ".repeat(size))::find, "full-width citation");
+  }
+
+  @Test
+  void smallSetReplaceAllWorkIsLinearWhenOneMemberIsAbsent() {
+    Pattern citation = Pattern.compile(" ?[\\[\\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\\uFF3D]");
+    long smallerWork =
+        WorkCounter.countForTesting(
+            () -> citation.matcher("x \uFF3B1.2.3\uFF3D ".repeat(200)).replaceAll(""));
+    long largerWork =
+        WorkCounter.countForTesting(
+            () -> citation.matcher("x \uFF3B1.2.3\uFF3D ".repeat(1_000)).replaceAll(""));
+
+    assertThat(smallerWork).isPositive();
+    assertThat(largerWork)
+        .as("replaceAll over a two-character leading class should scale linearly")
+        .isLessThan(smallerWork * 6);
+  }
+
+  /**
+   * Like the tests above, but with candidates spaced farther apart than the start accelerator's
+   * short probe ({@code StringStartAccelerator.CharClass.CANDIDATE_PROBE_CHARS}), so the probe
+   * never finds the next candidate and every search falls through to the per-member searches.
+   * Without the memo on {@code StringInputScanner}, each of those rescans the rest of the input for
+   * a member that is absent or occurs only at the end.
+   */
+  @Test
+  void smallSetWorkIsLinearWhenCandidatesAreBeyondTheProbe() {
+    String gap = "x".repeat(64);
+
+    Pattern ascii = Pattern.compile("[ab][0-9]");
+    assertFindAllWorkIsLinear(
+        size -> ascii.matcher(("b1" + gap).repeat(size))::find, "ASCII pair, member absent");
+    assertFindAllWorkIsLinear(
+        size -> ascii.matcher(("b1" + gap).repeat(size) + "a")::find, "ASCII pair, member late");
+
+    Pattern citation = Pattern.compile(" ?[\\[\\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\\uFF3D]");
+    String fullWidth = "\uFF3B1.2.3\uFF3D" + gap;
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher(fullWidth.repeat(size))::find, "full-width citation, '[' absent");
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher(fullWidth.repeat(size) + "[")::find,
+        "full-width citation, '[' late");
+    // Full-width brackets with no digits: every candidate is rejected after the bracket.
+    assertFindAllWorkIsLinear(
+        size -> citation.matcher(("\uFF3Bx\uFF3D" + gap).repeat(size))::find,
+        "full-width brackets, no match");
+
+    for (String suffix : new String[] {"", "["}) {
+      long smallerWork =
+          WorkCounter.countForTesting(
+              () -> citation.matcher(fullWidth.repeat(200) + suffix).replaceAll(""));
+      long largerWork =
+          WorkCounter.countForTesting(
+              () -> citation.matcher(fullWidth.repeat(1_000) + suffix).replaceAll(""));
+      assertThat(smallerWork).isPositive();
+      assertThat(largerWork)
+          .as("replaceAll with spaced candidates and suffix '%s' should scale linearly", suffix)
+          .isLessThan(smallerWork * 6);
+    }
+  }
+
   private static void assertFindAllWorkIsLinear(
       IntFunction<FindIterator> matcher, String inputKind) {
     long smallerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(200)));
     long largerWork = WorkCounter.countForTesting(() -> consumeMatches(matcher.apply(1_000)));
 
-    assertThat(smallerWork).as("%s reluctant-gap work must be observed", inputKind).isPositive();
+    assertThat(smallerWork).as("%s find-all work must be observed", inputKind).isPositive();
     assertThat(largerWork)
-        .as("%s reluctant-gap iteration should scale linearly", inputKind)
+        .as("%s find-all iteration should scale linearly", inputKind)
         .isLessThan(smallerWork * 6);
   }
 

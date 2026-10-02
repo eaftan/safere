@@ -43,11 +43,19 @@ sealed interface CharClassScanInfo {
     return true;
   }
 
+  /**
+   * Common interface for small character classes whose members can be searched for one {@code char}
+   * at a time: up to three ASCII characters, or up to two BMP characters otherwise.
+   */
+  sealed interface SmallSet permits AsciiSmallSet, UnicodeSmallSet {
+    char[] chars();
+  }
+
   /** Matches 1, 2, or 3 exact ASCII characters via single-instruction SIMD equality. */
   // Arrays are immutable, privately owned scanner metadata; array identity is never observed.
   @SuppressWarnings("ArrayRecordComponent")
   record AsciiSmallSet(char[] chars, int[] ranges, long bitmap0, long bitmap1)
-      implements CharClassScanInfo {
+      implements CharClassScanInfo, SmallSet {
     @Override
     public boolean contains(int cp) {
       if (cp < 64) {
@@ -62,6 +70,32 @@ sealed interface CharClassScanInfo {
     @Override
     public boolean isAscii() {
       return true;
+    }
+  }
+
+  /**
+   * Matches 1 or 2 non-surrogate BMP characters, at least one of them non-ASCII. The String paths
+   * search a small set one {@code String.indexOf} pass per member and do so for at most two
+   * members, so a larger set would only be misclassified.
+   */
+  // Arrays are immutable, privately owned scanner metadata; array identity is never observed.
+  @SuppressWarnings("ArrayRecordComponent")
+  record UnicodeSmallSet(char[] chars, int[] ranges, long bitmap0, long bitmap1)
+      implements CharClassScanInfo, SmallSet {
+    @Override
+    public boolean contains(int cp) {
+      if (cp < 64) {
+        return cp >= 0 && (bitmap0 & (1L << cp)) != 0;
+      }
+      if (cp < 128) {
+        return (bitmap1 & (1L << (cp - 64))) != 0;
+      }
+      return Matcher.binarySearchRanges(ranges, cp);
+    }
+
+    @Override
+    public boolean isAscii() {
+      return false;
     }
   }
 
@@ -208,7 +242,33 @@ sealed interface CharClassScanInfo {
       return new AsciiBitmapClass(ranges, b0, b1);
     }
 
+    int count = cc.numRunes();
+    if (count > 0 && count <= 2 && cc.hi(numRanges - 1) <= 0xFFFF && !overlapsSurrogates(cc)) {
+      char[] chars = new char[count];
+      int idx = 0;
+      for (int i = 0; i < numRanges; i++) {
+        for (int cp = cc.lo(i); cp <= cc.hi(i); cp++) {
+          chars[idx++] = (char) cp;
+        }
+      }
+      return new UnicodeSmallSet(chars, ranges, b0, b1);
+    }
+
     return new UnicodeGeneral(ranges, b0, b1);
+  }
+
+  /**
+   * Whether any member of {@code cc} is a surrogate code point. A lone surrogate in a class matches
+   * only an unpaired surrogate code unit, but a {@code char} search for it would also stop inside
+   * every valid pair, so such classes are not treated as small sets.
+   */
+  private static boolean overlapsSurrogates(CharClass cc) {
+    for (int i = 0; i < cc.numRanges(); i++) {
+      if (cc.lo(i) <= Character.MAX_SURROGATE && cc.hi(i) >= Character.MIN_SURROGATE) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static int[] buildRangesFromBitmaps(long b0, long b1) {

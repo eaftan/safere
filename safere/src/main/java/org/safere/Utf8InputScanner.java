@@ -444,6 +444,24 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
             || VectorScanProviders.providerForPolicy(ScanKind.CLASS, remaining) == null);
   }
 
+  /**
+   * Returns the position of the first code point in {@code [start, limit)} that lies in {@code
+   * nonAsciiRanges}, or {@code -1}. Every range must be at or above {@code 0x80}; ASCII bytes are
+   * skipped without decoding, eight at a time.
+   */
+  int indexOfNonAsciiClass(int[] nonAsciiRanges, int start, int limit) {
+    int position = Math.max(0, start);
+    int scanLen = Math.min(length, limit);
+    if (position >= scanLen) {
+      return -1;
+    }
+    int result = indexOfNonAsciiCodePointClass(nonAsciiRanges, position, scanLen);
+    if (WorkCounterConfig.ENABLED) {
+      WorkCounter.record((result >= 0 ? result + 1 : scanLen) - position);
+    }
+    return result;
+  }
+
   private int indexOfNonAsciiCodePointClass(int[] ranges, int start, int scanLen) {
     int position = start;
     int wordEnd = scanLen - Long.BYTES;
