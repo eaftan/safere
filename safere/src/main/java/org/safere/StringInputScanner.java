@@ -6,6 +6,10 @@
 package org.safere;
 
 final class StringInputScanner implements InputScanner {
+  private static final int SMALL_SET_SCALAR_PROLOGUE = 16;
+  private static final int SMALL_SET_INITIAL_SEARCH_WINDOW = 64;
+  private static final int SMALL_SET_SEARCH_WINDOW = 4096;
+
   private final String text;
 
   StringInputScanner(String text) {
@@ -141,6 +145,10 @@ final class StringInputScanner implements InputScanner {
   @Override
   public int indexOfCharClass(CharClassScanInfo scanInfo, int start) {
     int position = Math.max(0, start);
+    if (!WorkCounterConfig.ENABLED
+        && scanInfo instanceof CharClassScanInfo.AsciiSmallSet smallSet) {
+      return indexOfAsciiSmallSet(smallSet, position);
+    }
     int[] ranges = scanInfo.ranges();
     long bitmap0 = scanInfo.bitmap0();
     long bitmap1 = scanInfo.bitmap1();
@@ -153,6 +161,52 @@ final class StringInputScanner implements InputScanner {
         return position;
       }
       position++;
+    }
+    return -1;
+  }
+
+  private int indexOfAsciiSmallSet(CharClassScanInfo.AsciiSmallSet scanInfo, int position) {
+    int length = text.length();
+    if (position >= length) {
+      return -1;
+    }
+    int scalarEnd = position + Math.min(SMALL_SET_SCALAR_PROLOGUE, length - position);
+    for (; position < scalarEnd; position++) {
+      if (scanInfo.contains(text.charAt(position))) {
+        return position;
+      }
+    }
+    char[] chars = scanInfo.chars();
+    if (chars.length == 1) {
+      return text.indexOf(chars[0], position);
+    }
+
+    // Public String searches use the JVM's accelerated Latin-1 or UTF-16 kernels without copying
+    // the input. Keep each search bounded: an absent member must not rescan the entire remaining
+    // suffix on every find(). Grow from a short first window so nearby matches do not repeatedly
+    // scan a full-sized window for an absent member. Failed windows are disjoint; only the final
+    // window can overlap a later find. For m consuming matches, at most three searches per window
+    // cost O(n + W*m), which is O(n) because W is fixed and m <= n.
+    int windowLength = SMALL_SET_INITIAL_SEARCH_WINDOW;
+    while (position < length) {
+      int windowEnd = position + Math.min(windowLength, length - position);
+      int searchEnd = windowEnd;
+      int best = -1;
+      for (char target : chars) {
+        int candidate = text.indexOf(target, position, searchEnd);
+        if (candidate >= 0) {
+          best = candidate;
+          searchEnd = candidate;
+          if (candidate == position) {
+            return candidate;
+          }
+        }
+      }
+      if (best >= 0) {
+        return best;
+      }
+      position = windowEnd;
+      windowLength = Math.min(SMALL_SET_SEARCH_WINDOW, windowLength * 2);
     }
     return -1;
   }

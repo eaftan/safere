@@ -3302,9 +3302,343 @@
         "sha256": "7d43cc8dfd053b083b809bd7ce7d4a074f2fd24a6b7ec38908b3966f3324fa36"
       },
       "shared": true
+    },
+    {
+      "id": "smallAsciiClass.dense.{size}",
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "Z",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "smallAsciiClass.mixedFail.{size}",
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "smallAsciiClass.early.{size}",
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "Z",
+        "unit": "a",
+        "suffix": "",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "smallAsciiClass.mixedLate.{size}",
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "surroundToLength",
+        "prefix": "",
+        "unit": "\u00e9\u4e2d\ud83d\ude00",
+        "suffix": "Z",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "smallAsciiClass.sparse.{size}",
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "aaaaaaaaaaaaaaaaZ",
+        "length": "{size}"
+      },
+      "shared": true
     }
   ],
   "workloads": [
+    {
+      "id": "SmallAsciiClassBenchmark.pair.sparse.{size}",
+      "operation": "findAllCount",
+      "patterns": [
+        "[YZ]"
+      ],
+      "inputs": [
+        "smallAsciiClass.sparse.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.triple.sparse.{size}",
+      "operation": "findAllCount",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "smallAsciiClass.sparse.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.pair.dense.{size}",
+      "operation": "findAllCount",
+      "patterns": [
+        "[YZ]"
+      ],
+      "inputs": [
+        "smallAsciiClass.dense.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.pair.mixedFail.{size}",
+      "operation": "find",
+      "patterns": [
+        "[YZ]"
+      ],
+      "inputs": [
+        "smallAsciiClass.mixedFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.pair.early.{size}",
+      "operation": "find",
+      "patterns": [
+        "[YZ]"
+      ],
+      "inputs": [
+        "smallAsciiClass.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.pair.mixedLate.{size}",
+      "operation": "find",
+      "patterns": [
+        "[YZ]"
+      ],
+      "inputs": [
+        "smallAsciiClass.mixedLate.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.triple.dense.{size}",
+      "operation": "findAllCount",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "smallAsciiClass.dense.{size}"
+      ],
+      "resultConsumption": "integer",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.triple.mixedFail.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "smallAsciiClass.mixedFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.triple.early.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "smallAsciiClass.early.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
+    {
+      "id": "SmallAsciiClassBenchmark.triple.mixedLate.{size}",
+      "operation": "find",
+      "patterns": [
+        "[XZ_]"
+      ],
+      "inputs": [
+        "smallAsciiClass.mixedLate.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1024,
+          102400,
+          1048576
+        ]
+      }
+    },
     {
       "id": "RegexBenchmark.literalMatch",
       "operation": "matches",

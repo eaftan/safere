@@ -149,6 +149,7 @@ class Utf8InputScannerTest {
   void asciiCodePointClassSearchCoversMultiRangeProviderAndDeclinePaths() {
     List<int[]> classes =
         List.of(
+            new int[] {'X', 'X', 'Z', 'Z', '_', '_'},
             new int[] {'0', '9', 'A', 'Z'},
             new int[] {'0', '9', 'A', 'Z', 'a', 'z'},
             new int[] {'!', '!', '#', '#', '0', '9', 'A', 'Z'},

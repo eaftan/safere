@@ -149,6 +149,33 @@ class ScanDispatchAuditTest {
   }
 
   @Test
+  void singletonTripleUsesEqualityScanWhenClassVectorIsUnavailable() {
+    int window = 1024;
+    VectorScanProvider classProvider =
+        VectorScanProviders.providerForPolicy(ScanKind.CLASS, window);
+    if (classProvider != null) {
+      // Under Vector tests, use a window below the class kernel's admission threshold.
+      window = classProvider.minimumWindowLength(ScanKind.CLASS) - 1;
+    }
+    int scanWindow = window;
+    Utf8InputScanner scanner = new Utf8InputScanner(LONG_INPUT);
+    long bitmap = (1L << ('X' - 64)) | (1L << ('Z' - 64)) | (1L << ('_' - 64));
+    List<ScanEvent> events =
+        captureScan(
+            () ->
+                scanner.indexOfCodePointClass(
+                    new int[] {'X', 'X', 'Z', 'Z', '_', '_'}, 0, bitmap, 0, scanWindow));
+    ScanPath path =
+        VectorScanProviders.providerForPolicy(ScanKind.TRIPLE, window) == null
+            ? ScanPath.SWAR
+            : ScanPath.VECTOR;
+    assertThat(events)
+        .containsExactly(
+            consulted(ScanKind.TRIPLE, window),
+            new ScanEvent(ScanKind.TRIPLE, ScanDirection.FORWARD, window, path));
+  }
+
+  @Test
   void tripleClassRecordsOnlyItsActualTripleScan() {
     VectorScanProvider provider = installedProvider();
     if (provider == null) {
