@@ -21,7 +21,8 @@ final class DiagnosticAccumulator {
     MatchStrategy.ONE_PASS,
     MatchStrategy.DFA,
     MatchStrategy.BIT_STATE,
-    MatchStrategy.NFA
+    MatchStrategy.NFA,
+    MatchStrategy.LITERAL_ALTERNATION
   };
   private static final StrategyRole[] ROLES = {
     StrategyRole.START_ACCELERATION,
@@ -179,6 +180,7 @@ final class DiagnosticAccumulator {
       case DFA -> 6;
       case BIT_STATE -> 7;
       case NFA -> 8;
+      case LITERAL_ALTERNATION -> 9;
     };
   }
 

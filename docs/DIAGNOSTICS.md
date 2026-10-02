@@ -208,7 +208,8 @@ Typical examples include:
 `MatchStrategy` deliberately exposes stable strategy-level concepts rather than every internal
 engine implementation detail. Reverse DFA work is not a separate public strategy, but the forward
 and reverse DFA search counts expose how many searches an operation attempted. Cache layout and
-transition-level work remain internal.
+transition-level work remain internal. The literal-alternation runner reports
+`LITERAL_ALTERNATION`; the single-literal runner reports `LITERAL`.
 
 ### Golden strategy tests
 

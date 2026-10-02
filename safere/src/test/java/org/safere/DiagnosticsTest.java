@@ -82,6 +82,21 @@ class DiagnosticsTest {
   }
 
   @Test
+  void literalAlternationSearchesReportADistinctStrategy() {
+    Pattern.setDiagnostics(diagnostics);
+    for (String regex : List.of("apple|banana|cherry", "foo|barfoo")) {
+      Pattern pattern = Pattern.compile(regex);
+      for (String input : List.of("barfoo apple", "xxxxx")) {
+        assertThat(pattern.matcher(input).find()).isEqualTo(input.equals("barfoo apple"));
+        OperationDiagnostics event = operationsFor(pattern).getLast();
+        assertThat(event.boundaryStrategy()).as(regex).isEqualTo(MatchStrategy.LITERAL_ALTERNATION);
+        assertThat(event.forwardDfaSearchCount()).isZero();
+        assertThat(event.reverseDfaSearchCount()).isZero();
+      }
+    }
+  }
+
+  @Test
   void compilationAndOperationsShareDescriptor() {
     Pattern.setDiagnostics(diagnostics);
 

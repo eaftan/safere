@@ -15,5 +15,7 @@ public enum MatchStrategy {
   ONE_PASS,
   DFA,
   BIT_STATE,
-  NFA
+  NFA,
+  /** Exact search over ordered literal alternatives. */
+  LITERAL_ALTERNATION
 }

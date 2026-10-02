@@ -289,6 +289,8 @@ public final class Pattern implements Serializable {
         StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
+    // The literal-alternation runner skips canReject on its initial String find().
+    // The filter's type still selects its window policy; fallback operations retain the filter.
     this.literalAlternation =
         numGroups() == 0
                 && this.matchDescriptor.literalMatch() == null

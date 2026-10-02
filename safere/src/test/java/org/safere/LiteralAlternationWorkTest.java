@@ -57,9 +57,13 @@ class LiteralAlternationWorkTest {
   @Test
   void alternativesWithoutAWholeInputFilterDoNotScanBeyondALateMatch() {
     for (String regex :
-        new String[] {"apple|banana|cherry|durian|elderberry|fig", "fooa|foob|fooc"}) {
+        new String[] {"apple|banana|cherry|durian|elderberry|fig", "foo|barfoo", "a|ab"}) {
       Pattern pattern = Pattern.compile(regex);
-      String literal = regex.endsWith("fig") ? "fig" : "fooc";
+      assertThat(pattern.preparedMatchRunner(false))
+          .as(regex)
+          .isInstanceOf(Matcher.LiteralAlternationPreparedRunner.class);
+      assertThat(pattern.rejectPrefilter()).as(regex).isNull();
+      String literal = regex.substring(regex.lastIndexOf('|') + 1);
       String prefix = "x".repeat(8_192) + literal;
       long shorter = work(pattern, prefix + "x".repeat(8_192));
       long longer = work(pattern, prefix + "x".repeat(65_536));

@@ -38,7 +38,10 @@ final class LiteralAlternation {
       }
       // indexOf can repeatedly compare long near-matching prefixes. Even a whole-tail rejection
       // filter may stop after its first successful alternative, whereas exact bounds require us
-      // to inspect later alternatives too. Keep the existing engine for longer needles.
+      // to inspect later alternatives too. MAX_LITERAL_LENGTH * MAX_ALTERNATIVES bounds the
+      // comparison work per input position, keeping indexOf's O(n * m) worst case linear in n.
+      // WorkCounter charges distance, not character comparisons, so it relies on these caps.
+      // Keep the existing engine for longer needles.
       if (literals[i].length() > MAX_LITERAL_LENGTH) {
         return null;
       }

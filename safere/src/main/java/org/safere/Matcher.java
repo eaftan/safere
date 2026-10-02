@@ -4864,7 +4864,7 @@ public final class Matcher implements MatchResult {
       if (result == LiteralAlternation.FALLBACK) {
         return fallback.find(matcher, regionActive);
       }
-      matcher.diagnosticBoundary(MatchStrategy.LITERAL);
+      matcher.diagnosticBoundary(MatchStrategy.LITERAL_ALTERNATION);
       return result == LiteralAlternation.NO_MATCH
           ? matcher.applyFailedMatchResult()
           : matcher.applyGroupZeroMatchResult((int) (result >>> 32), (int) result);
