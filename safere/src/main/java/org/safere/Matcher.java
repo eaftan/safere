@@ -2568,9 +2568,10 @@ public final class Matcher implements MatchResult {
       int nsubmatch,
       boolean preserveOuterEmptyContext,
       int[] reuseGroups) {
-    // Try BitState if the full text is small enough for the visited bitmap. BitState is an
-    // optimization; if capture-priority backtracking exceeds its work budget, fall back to the
-    // Pike NFA below.
+    // Use BitState on a bounded search range. Nullable-loop patterns on long inputs can try one
+    // fixed window before the NFA: their progress checks prevent authoritative DFA bounds even
+    // when the selected match is short. If any preferred path reaches the window edge, or the work
+    // budget is exceeded, restart once with the NFA and the original bounds.
     int maxBitStateLen = BitState.maxTextSize(prog);
     boolean canUseBitState =
         enginePathOptions().bitState()
@@ -2578,7 +2579,17 @@ public final class Matcher implements MatchResult {
             && !(prog.hasGraphemeSemantics() && !anchored)
             && !prog.hasGraphemeSemantics();
     int searchRange = endPos - startPos;
-    if (canUseBitState && maxBitStateLen >= 0 && searchRange <= maxBitStateLen) {
+    boolean speculate =
+        canUseBitState
+            && maxBitStateLen >= BitState.SPECULATIVE_WINDOW_SIZE
+            && searchRange > maxBitStateLen
+            && prog.numLoopRegs() > 0
+            && !longest
+            && !endMatch
+            && !prog.anchorEnd()
+            && !preserveOuterEmptyContext
+            && endPos == text.length();
+    if (canUseBitState && maxBitStateLen >= 0 && (searchRange <= maxBitStateLen || speculate)) {
       boolean anchoredEffective = anchored || prog.anchorStart();
       boolean endMatchEffective = endMatch || prog.anchorEnd();
       int ncap = 2 * Math.max(nsubmatch, 1);
@@ -2587,9 +2598,11 @@ public final class Matcher implements MatchResult {
         cachedBitState = parentPattern.borrowBitState();
         bitStateBorrowed = true;
       }
+      // One fixed-size attempt per search. Never retry with successively larger windows.
+      int bitStateEnd = speculate ? startPos + BitState.SPECULATIVE_WINDOW_SIZE : endPos;
       BitState bs =
           BitState.getOrCreate(
-              cachedBitState, prog, text, startPos, endPos, ncap, longest, endMatchEffective);
+              cachedBitState, prog, text, startPos, bitStateEnd, ncap, longest, endMatchEffective);
       int[] destBuf =
           reuseGroups != null && reuseGroups.length >= ncap ? reuseGroups : bitStateResult;
       if (destBuf == null || destBuf.length < ncap) {
@@ -2598,11 +2611,14 @@ public final class Matcher implements MatchResult {
       if (destBuf != reuseGroups) {
         bitStateResult = destBuf;
       }
-      int[] result = bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
+      int[] result =
+          speculate
+              ? bs.doSearchWindow(startPos, searchLimit, anchoredEffective, destBuf)
+              : bs.doSearch(startPos, searchLimit, anchoredEffective, destBuf);
       cachedBitState = bs;
       // Return to Pattern's cache for reuse by future Matchers.
       parentPattern.returnBitState(bs);
-      if (!bs.budgetExceeded()) {
+      if (!bs.budgetExceeded() && (!speculate || result != null)) {
         diagnosticExact(MatchStrategy.BIT_STATE);
         // BitState is a complete engine — if it searched and found no match, NFA won't either.
         if (result == null) {}
@@ -2611,7 +2627,9 @@ public final class Matcher implements MatchResult {
       diagnosticDecision(
           MatchStrategy.BIT_STATE,
           StrategyDisposition.FALLBACK,
-          StrategyReason.WORK_BUDGET_EXCEEDED);
+          bs.budgetExceeded()
+              ? StrategyReason.WORK_BUDGET_EXCEEDED
+              : StrategyReason.INPUT_TOO_LARGE);
     } else if (canUseBitState && maxBitStateLen >= 0 && searchRange > maxBitStateLen) {
       diagnosticDecision(
           MatchStrategy.BIT_STATE, StrategyDisposition.BYPASSED, StrategyReason.INPUT_TOO_LARGE);

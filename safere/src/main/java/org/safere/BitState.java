@@ -27,6 +27,9 @@ import java.util.Arrays;
  */
 final class BitState {
 
+  /** Maximum speculative consumption window, independent of total input length. */
+  static final int SPECULATIVE_WINDOW_SIZE = 256;
+
   /** Maximum bitmap size in bits. Limits the product of prog size × text length. */
   private static final int MAX_BITMAP_BITS = 256 * 1024;
 
@@ -263,6 +266,25 @@ final class BitState {
    * {@code resultBuffer} when it is large enough.
    */
   int[] doSearch(int startPos, int searchLimit, boolean anchored, int[] resultBuffer) {
+    return doSearch(startPos, searchLimit, anchored, resultBuffer, false);
+  }
+
+  /**
+   * Speculates within the allocated window while assertions still see the full input. A match is
+   * authoritative only if no higher-priority path needs to consume beyond the window. An unresolved
+   * path aborts the whole attempt before a lower-priority match can be returned.
+   */
+  int[] doSearchWindow(int startPos, int searchLimit, boolean anchored, int[] resultBuffer) {
+    if (longest || endMatch || prog.hasGraphemeSemantics()) {
+      throw new IllegalStateException("Search windows require unconstrained first-match semantics");
+    }
+    return doSearch(startPos, searchLimit, anchored, resultBuffer, true);
+  }
+
+  private int[] doSearch(
+      int startPos, int searchLimit, boolean anchored, int[] resultBuffer, boolean speculative) {
+    this.speculative = speculative;
+    windowExceeded = false;
     budgetExceeded = false;
     stepCount = 0;
     stepBudget = Math.max(4096L, (long) MAX_WORK_PER_SLOT * prog.size() * textSlots);
@@ -272,10 +294,14 @@ final class BitState {
     int limit = anchored ? startPos + 1 : Math.min(searchLimit + 1, textLen + 1);
     pruneAcrossStarts = !anchored;
     for (int searchStart = startPos; searchStart < limit; searchStart++) {
+      if (speculative && searchStart > endPos) {
+        windowExceeded = true;
+        return null;
+      }
       if (trySearch(prog.start(), searchStart)) {
         return bestMatch;
       }
-      if (budgetExceeded) {
+      if (budgetExceeded || windowExceeded) {
         return null;
       }
       if (pruneAcrossStarts) {
@@ -370,6 +396,8 @@ final class BitState {
 
   private long stepCount;
   private boolean budgetExceeded;
+  private boolean speculative;
+  private boolean windowExceeded;
 
   /** Explicit job stack for backtracking. */
   private int[] jobInstId;
@@ -658,12 +686,19 @@ final class BitState {
               long decoded = text.decodeForward(pos);
               cp = InputScanner.codePoint(decoded);
               nextPos = InputScanner.position(decoded);
+              if (speculative && nextPos > endPos) {
+                windowExceeded = true;
+                return false;
+              }
             }
             if (ip.matchesChar(cp)) {
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }
             }
+          } else if (speculative && endPos < textLen) {
+            windowExceeded = true;
+            return false;
           }
         }
 
@@ -675,12 +710,19 @@ final class BitState {
               long decoded = text.decodeForward(pos);
               cp = InputScanner.codePoint(decoded);
               nextPos = InputScanner.position(decoded);
+              if (speculative && nextPos > endPos) {
+                windowExceeded = true;
+                return false;
+              }
             }
             if (ip.matchesCharClass(cp)) {
               if (shouldVisit(ip.out, nextPos)) {
                 push(ip.out, nextPos);
               }
             }
+          } else if (speculative && endPos < textLen) {
+            windowExceeded = true;
+            return false;
           }
         }
 
@@ -719,6 +761,11 @@ final class BitState {
   /** Returns whether the previous search stopped because BitState exceeded its work budget. */
   boolean budgetExceeded() {
     return budgetExceeded;
+  }
+
+  /** Returns whether the last speculative search encountered an unresolved path. */
+  boolean windowExceeded() {
+    return windowExceeded;
   }
 
   /** Returns the current work budget. Package-private for testing. */
