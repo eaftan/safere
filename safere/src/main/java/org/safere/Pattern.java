@@ -131,6 +131,7 @@ public final class Pattern implements Serializable {
   private final transient Utf8StartAccelerator utf8StartAccelerator;
   private final transient StringStartAccelerator stringStartAccelerator;
   private final transient EnginePathOptions enginePathOptions;
+  private final transient LiteralAlternation literalAlternation;
   private final transient Matcher.PreparedMatchRunner defaultPreparedMatchRunner;
   private final transient Matcher.PreparedMatchRunner regionPreparedMatchRunner;
   private final long patternId;
@@ -288,6 +289,16 @@ public final class Pattern implements Serializable {
         StringStartAccelerator.create(this.multiAnchor, prog.hasWordBoundary());
     this.enginePathOptions = enginePathOptions;
     this.rejectPrefilter = RejectPrefilter.create(this.multiAnchor);
+    this.literalAlternation =
+        numGroups() == 0
+                && this.matchDescriptor.literalMatch() == null
+                && this.multiAnchor.startPlan()
+                    instanceof MultiAnchorDescriptor.StartPlan.MultiLiteral
+                && (rejectPrefilter == null
+                    || rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
+            ? LiteralAlternation.compile(
+                ast, rejectPrefilter instanceof RejectPrefilter.DisjointLiterals)
+            : null;
     this.defaultPreparedMatchRunner = createPreparedRunner(false);
     this.regionPreparedMatchRunner = createPreparedRunner(true);
 
@@ -942,6 +953,14 @@ public final class Pattern implements Serializable {
   }
 
   private Matcher.PreparedMatchRunner createPreparedRunner(boolean regionActive) {
+    Matcher.PreparedMatchRunner fallback = createBasePreparedRunner(regionActive);
+    if (literalAlternation != null && enginePathOptions.literalFastPaths()) {
+      return new Matcher.LiteralAlternationPreparedRunner(literalAlternation, fallback);
+    }
+    return fallback;
+  }
+
+  private Matcher.PreparedMatchRunner createBasePreparedRunner(boolean regionActive) {
     String literal = matchDescriptor.literalMatch();
     if (enginePathOptions.literalFastPaths() && literal != null && numGroups() == 0) {
       return new Matcher.LiteralPreparedRunner(
@@ -1463,6 +1482,9 @@ public final class Pattern implements Serializable {
 
     if (literalMatch() != null) {
       features.add(PatternFeature.LITERAL);
+      capabilities.add(PatternCapability.LITERAL_MATCH);
+    }
+    if (literalAlternation != null) {
       capabilities.add(PatternCapability.LITERAL_MATCH);
     }
     if (prog.numCaptures() > 1) {

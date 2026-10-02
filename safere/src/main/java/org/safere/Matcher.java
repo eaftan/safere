@@ -4833,6 +4833,7 @@ public final class Matcher implements MatchResult {
 
   sealed interface PreparedMatchRunner
       permits LiteralPreparedRunner,
+          LiteralAlternationPreparedRunner,
           SingleCharClassPreparedRunner,
           KeywordAlternationPreparedRunner,
           ShiftDfaPreparedRunner,
@@ -4843,6 +4844,41 @@ public final class Matcher implements MatchResult {
     boolean matches(Matcher matcher);
 
     boolean lookingAt(Matcher matcher);
+  }
+
+  static final class LiteralAlternationPreparedRunner implements PreparedMatchRunner {
+    private final LiteralAlternation alternation;
+    private final PreparedMatchRunner fallback;
+
+    LiteralAlternationPreparedRunner(LiteralAlternation alternation, PreparedMatchRunner fallback) {
+      this.alternation = alternation;
+      this.fallback = fallback;
+    }
+
+    @Override
+    public boolean find(Matcher matcher, boolean regionActive) {
+      if (matcher.text == null) {
+        return fallback.find(matcher, regionActive);
+      }
+      long result = alternation.find(matcher.text, matcher.searchFrom);
+      if (result == LiteralAlternation.FALLBACK) {
+        return fallback.find(matcher, regionActive);
+      }
+      matcher.diagnosticBoundary(MatchStrategy.LITERAL);
+      return result == LiteralAlternation.NO_MATCH
+          ? matcher.applyFailedMatchResult()
+          : matcher.applyGroupZeroMatchResult((int) (result >>> 32), (int) result);
+    }
+
+    @Override
+    public boolean matches(Matcher matcher) {
+      return fallback.matches(matcher);
+    }
+
+    @Override
+    public boolean lookingAt(Matcher matcher) {
+      return fallback.lookingAt(matcher);
+    }
   }
 
   static final class LiteralPreparedRunner implements PreparedMatchRunner {
