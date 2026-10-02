@@ -170,7 +170,10 @@ Read the [performance guide](safere-benchmarks/PERFORMANCE_GUIDE.md) for collect
 scope, workload syntax, profiling commands, statistics, and artifact requirements.
 Use the [write-benchmark-report skill](.agents/skills/write-benchmark-report/SKILL.md)
 for collections and published reports. Performance PRs must include measured
-before/after results and their improvement or regression.
+before/after results and their improvement or regression in the PR description.
+Reserve checked-in `benchmark-results/` artifacts for corpus-wide benchmark
+reports. Keep focused PR measurements local; do not add standalone evidence
+reports or raw-data archives to a performance PR unless explicitly requested.
 
 ## Pull Requests
 

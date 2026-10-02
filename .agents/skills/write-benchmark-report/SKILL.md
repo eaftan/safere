@@ -5,9 +5,15 @@ description: "Collect, analyze, write, validate, and publish reproducible SafeRE
 
 # Write Benchmark Report
 
-Produce a self-contained, evidence-backed SafeRE benchmark report whose claims can be recalculated
-from checked-in raw data. Treat benchmark execution, interpretation, writing, and publication as one
-workflow.
+For corpus-wide reports, produce a self-contained, evidence-backed SafeRE benchmark report whose
+claims can be recalculated from checked-in raw data. Treat benchmark execution, interpretation,
+writing, and publication as one workflow.
+
+For focused optimization PRs, summarize before/after results, control workloads, measurement
+settings, and material tradeoffs in the PR description. Keep raw measurements and investigation
+artifacts local. Do not add standalone Markdown evidence reports or raw-data archives unless
+explicitly requested. Checked-in `benchmark-results/` and the publication requirements below are
+for holistic reports over a corpus, not individual PR comparisons.
 
 ## Establish Scope
 

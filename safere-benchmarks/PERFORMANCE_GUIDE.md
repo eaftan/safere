@@ -152,8 +152,15 @@ When reporting an aggregate comparison:
 (geomean(A/B) = 1/geomean(B/A)) and treats multiplicative improvements
 symmetrically. An arithmetic mean of ratios does not preserve that symmetry.
 
-`BENCHMARKS.md` must be self-contained for checked-in benchmark claims. For a
-published benchmark report, check in the reviewed collection under
+Focused optimization PRs should summarize before/after measurements, relevant
+control workloads, measurement settings, and material tradeoffs in the PR
+description. Keep their raw data and investigation artifacts local. Do not add
+standalone Markdown evidence reports or raw-data archives to individual PRs
+unless explicitly requested. Checked-in `benchmark-results/` is reserved for
+holistic benchmark reports over a corpus, rather than individual PR comparisons.
+
+`BENCHMARKS.md` must be self-contained for checked-in corpus-wide benchmark claims.
+For a published corpus-wide benchmark report, check in the reviewed collection under
 `benchmark-results/published/<full-SafeRE-commit>/`, including complete raw
 outputs, normalized results, the resolved plan, a publication README, and
 SHA-256 checksums. Keep ordinary timestamped runs ignored. The report must link
