@@ -39,7 +39,9 @@ final class DiagnosticAccumulator {
     StrategyReason.EXACT_NULLABLE_LOOP_SEMANTICS_REQUIRED,
     StrategyReason.DFA_BUDGET_EXCEEDED,
     StrategyReason.WORK_BUDGET_EXCEEDED,
-    StrategyReason.OPTIMIZED_PATH_DISABLED
+    StrategyReason.OPTIMIZED_PATH_DISABLED,
+    StrategyReason.SPECULATIVE_WINDOW_EXCEEDED,
+    StrategyReason.SPECULATIVE_BACKOFF
   };
   private static final int STRATEGY_COUNT = STRATEGIES.length;
   private static final int ROLE_COUNT = ROLES.length;
@@ -208,6 +210,8 @@ final class DiagnosticAccumulator {
       case DFA_BUDGET_EXCEEDED -> 5;
       case WORK_BUDGET_EXCEEDED -> 6;
       case OPTIMIZED_PATH_DISABLED -> 7;
+      case SPECULATIVE_WINDOW_EXCEEDED -> 8;
+      case SPECULATIVE_BACKOFF -> 9;
     };
   }
 }
