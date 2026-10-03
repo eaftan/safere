@@ -317,7 +317,7 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
           && ranges[0] >= 0
           && ranges[ranges.length - 1] < 0x80
           && window >= MULTI_RANGE_SWAR_MINIMUM_LENGTH
-          && (ranges.length != 4 || ranges[0] != ranges[1] || ranges[2] != ranges[3])
+          && !isAsciiPair(ranges)
           && !isAsciiTriple(ranges)) {
         // No Vector kernel for this window, but SWAR still beats decoding code points one at a
         // time. Declining the Vector tier is not a reason to fall all the way back to scalar.
@@ -425,6 +425,10 @@ final class Utf8InputScanner extends ByteSwarScan implements InputScanner {
     }
     ScanAudit.record(ScanKind.CLASS, ScanDirection.FORWARD, window, ScanPath.DECLINED);
     return -2;
+  }
+
+  private static boolean isAsciiPair(int[] ranges) {
+    return ranges.length == 4 && ranges[0] == ranges[1] && ranges[2] == ranges[3];
   }
 
   static boolean isAsciiTriple(int[] ranges) {

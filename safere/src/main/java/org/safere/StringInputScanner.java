@@ -145,8 +145,7 @@ final class StringInputScanner implements InputScanner {
   @Override
   public int indexOfCharClass(CharClassScanInfo scanInfo, int start) {
     int position = Math.max(0, start);
-    if (!WorkCounterConfig.ENABLED
-        && scanInfo instanceof CharClassScanInfo.AsciiSmallSet smallSet) {
+    if (scanInfo instanceof CharClassScanInfo.AsciiSmallSet smallSet) {
       return indexOfAsciiSmallSet(smallSet, position);
     }
     int[] ranges = scanInfo.ranges();
@@ -172,21 +171,31 @@ final class StringInputScanner implements InputScanner {
     }
     int scalarEnd = position + Math.min(SMALL_SET_SCALAR_PROLOGUE, length - position);
     for (; position < scalarEnd; position++) {
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record();
+      }
       if (scanInfo.contains(text.charAt(position))) {
         return position;
       }
     }
     char[] chars = scanInfo.chars();
     if (chars.length == 1) {
-      return text.indexOf(chars[0], position);
+      // A single member needs no bound: a hit advances past all scanned units; a miss ends search.
+      int candidate = text.indexOf(chars[0], position);
+      if (WorkCounterConfig.ENABLED) {
+        WorkCounter.record(candidate >= 0 ? candidate - position + 1 : length - position);
+      }
+      return candidate;
     }
 
     // Public String searches use the JVM's accelerated Latin-1 or UTF-16 kernels without copying
     // the input. Keep each search bounded: an absent member must not rescan the entire remaining
     // suffix on every find(). Grow from a short first window so nearby matches do not repeatedly
-    // scan a full-sized window for an absent member. Failed windows are disjoint; only the final
-    // window can overlap a later find. For m consuming matches, at most three searches per window
-    // cost O(n + W*m), which is O(n) because W is fixed and m <= n.
+    // scan a full-sized window for an absent member. Reset to 64 on each call and double after
+    // misses, up to the cap. Failed windows are disjoint; the final window is at most the distance
+    // already scanned in this call plus 64. Thus overrun past a match is bounded by distance
+    // advanced plus 64, giving at most k * (2n + 64m) work for k <= 3 members and m consuming
+    // matches across n input units. Since m <= n, repeated find() work stays linear.
     int windowLength = SMALL_SET_INITIAL_SEARCH_WINDOW;
     while (position < length) {
       int windowEnd = position + Math.min(windowLength, length - position);
@@ -194,6 +203,9 @@ final class StringInputScanner implements InputScanner {
       int best = -1;
       for (char target : chars) {
         int candidate = text.indexOf(target, position, searchEnd);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(candidate >= 0 ? candidate - position + 1 : searchEnd - position);
+        }
         if (candidate >= 0) {
           best = candidate;
           searchEnd = candidate;
