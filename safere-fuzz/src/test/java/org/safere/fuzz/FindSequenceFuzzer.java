@@ -121,6 +121,19 @@ public final class FindSequenceFuzzer {
   }
 
   @Test
+  void nullableLoopFindsInLargeInputsPreservePriorityAndCaptures() {
+    for (String atom : List.of("a", "α", "😀")) {
+      String literal = java.util.regex.Pattern.quote(atom);
+      for (int length : List.of(0, 4, 64, 200)) {
+        String segment = "S" + atom.repeat(length) + "E";
+        String input = segment + "x".repeat(32_000) + segment + "x".repeat(32_000);
+        assertFindSequence("S((?:" + literal + "?)*)E", input);
+        assertFindSequence("S((?:" + literal + "?)*?)E", input);
+      }
+    }
+  }
+
+  @Test
   void leadingExpansionDoesNotCrossSplitSurrogateFindStart() {
     FuzzSupport.CompiledPattern pattern = FuzzSupport.compileOrSkip("[\\x{1F600}]+b", 0);
 
@@ -174,7 +187,7 @@ public final class FindSequenceFuzzer {
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
     String warmInput = null;
-    switch (data.consumeInt(0, 14)) {
+    switch (data.consumeInt(0, 15)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -309,6 +322,19 @@ public final class FindSequenceFuzzer {
         flags = data.consumeBoolean() ? java.util.regex.Pattern.UNICODE_CHARACTER_CLASS : 0;
         input = atom.repeat(data.consumeInt(0, 600)) + (data.consumeBoolean() ? "x" : "");
         FuzzSupport.compileOrSkip(regex, flags).matcher(input).matches();
+      }
+      case 15 -> {
+        String atom = data.pickValue(List.of("a", "α", "😀"));
+        String literal = java.util.regex.Pattern.quote(atom);
+        String body = data.pickValue(List.of(literal + "?", "(" + literal + "?)", literal + "|"));
+        regex = "S((?:" + body + ")" + data.pickValue(List.of("*", "*?", "+")) + ")E";
+        flags = 0;
+        String segment = "S" + atom.repeat(data.consumeInt(0, 200)) + "E";
+        String gap = "x".repeat(data.consumeInt(32_000, 64_000));
+        input =
+            data.consumeBoolean()
+                ? segment + gap + segment + gap
+                : "S" + atom.repeat(data.consumeInt(0, 200)) + "Z" + gap + segment + gap;
       }
       default -> throw new AssertionError();
     }

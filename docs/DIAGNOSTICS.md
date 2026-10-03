@@ -205,6 +205,11 @@ Typical examples include:
 - a DFA exceeding its state budget and falling back to BitState or NFA;
 - BitState being bypassed for a large input before NFA matching.
 
+For speculative BitState searches, `SPECULATIVE_WINDOW_EXCEEDED` reports fallback when an attempt
+needed to search beyond its fixed window. `SPECULATIVE_BACKOFF` reports a skipped attempt after
+consecutive unsuccessful windows. Backoff lasts until the matcher is reset or its pattern or region
+changes.
+
 `MatchStrategy` deliberately exposes stable strategy-level concepts rather than every internal
 engine implementation detail. Reverse DFA work is not a separate public strategy, but the forward
 and reverse DFA search counts expose how many searches an operation attempted. Cache layout and
