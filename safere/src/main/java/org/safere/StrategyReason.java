@@ -15,6 +15,8 @@ public enum StrategyReason {
   DFA_BUDGET_EXCEEDED,
   WORK_BUDGET_EXCEEDED,
   OPTIMIZED_PATH_DISABLED,
+  /** A speculative BitState search needed to search beyond its fixed window. */
   SPECULATIVE_WINDOW_EXCEEDED,
+  /** A speculative BitState search was skipped after consecutive unsuccessful window attempts. */
   SPECULATIVE_BACKOFF
 }
