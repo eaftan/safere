@@ -84,38 +84,42 @@ final class ShiftDfa {
       return null;
     }
 
-    int[] initialInsts = expand(prog, new int[] {startInst});
-    if (initialInsts == null) {
+    Builder builder = new Builder(prog);
+    builder.stack[builder.stackTop++] = startInst;
+    if (!builder.expand()) {
       return null;
     }
     List<int[]> dfaStates = new ArrayList<>(MAX_STATES + 1);
-    dfaStates.add(initialInsts);
+    dfaStates.add(builder.copyFrontier());
+    int[] boundaries = asciiBoundaries(prog);
 
     int[][] transitions = new int[MAX_STATES][128];
 
     for (int s = 0; s < dfaStates.size(); s++) {
       int[] currentInsts = dfaStates.get(s);
 
-      for (int c = 0; c < 128; c++) {
-        int[] nextInsts = step(prog, currentInsts, c);
-        if (nextInsts == null) {
+      // Every consuming instruction has constant membership between adjacent boundaries.
+      // Expanding one representative therefore gives the transition for the entire interval.
+      for (int cls = 0; cls < boundaries.length - 1; cls++) {
+        int lo = boundaries[cls];
+        int hi = boundaries[cls + 1];
+        if (!builder.step(currentInsts, lo)) {
           return null; // Unsupported instruction encountered
         }
-        if (nextInsts.length == 0) {
-          transitions[s][c] = MAX_STATES; // DEAD_STATE index 10
+        int target;
+        if (builder.frontierSize == 0) {
+          target = MAX_STATES; // DEAD_STATE index 10
         } else {
-          int existingIndex = findState(dfaStates, nextInsts);
-          if (existingIndex >= 0) {
-            transitions[s][c] = existingIndex;
-          } else {
+          target = builder.findState(dfaStates);
+          if (target < 0) {
             if (dfaStates.size() >= MAX_STATES) {
               return null; // State budget exceeded (> 10 states)
             }
-            int newIndex = dfaStates.size();
-            dfaStates.add(nextInsts);
-            transitions[s][c] = newIndex;
+            target = dfaStates.size();
+            dfaStates.add(builder.copyFrontier());
           }
         }
+        Arrays.fill(transitions[s], lo, hi, target);
       }
     }
 
@@ -190,13 +194,35 @@ final class ShiftDfa {
     return new ShiftDfa(table, acceptMask, 0, numDfaStates, accelerators);
   }
 
-  private static int findState(List<int[]> states, int[] target) {
-    for (int i = 0; i < states.size(); i++) {
-      if (Arrays.equals(states.get(i), target)) {
-        return i;
+  private static int[] asciiBoundaries(Prog prog) {
+    boolean[] boundary = new boolean[129];
+    boundary[0] = true;
+    boundary[128] = true;
+    for (int id = 1; id < prog.size(); id++) {
+      Inst ip = prog.inst(id);
+      if (ip.opCode == InstOp.OP_CHAR_RANGE) {
+        addAsciiBoundaries(boundary, ip.lo, ip.hi);
+      } else if (ip.opCode == InstOp.OP_CHAR_CLASS && ip.ranges != null) {
+        for (int i = 0; i < ip.ranges.length && ip.ranges[i] < 128; i += 2) {
+          addAsciiBoundaries(boundary, ip.ranges[i], ip.ranges[i + 1]);
+        }
       }
     }
-    return -1;
+    int[] boundaries = new int[129];
+    int count = 0;
+    for (int c = 0; c <= 128; c++) {
+      if (boundary[c]) {
+        boundaries[count++] = c;
+      }
+    }
+    return Arrays.copyOf(boundaries, count);
+  }
+
+  private static void addAsciiBoundaries(boolean[] boundary, int lo, int hi) {
+    if (lo < 128 && hi >= 0) {
+      boundary[Math.max(0, lo)] = true;
+      boundary[Math.min(127, hi) + 1] = true;
+    }
   }
 
   private static boolean hasMatch(Prog prog, int[] insts) {
@@ -208,91 +234,97 @@ final class ShiftDfa {
     return false;
   }
 
-  private static int[] expand(Prog prog, int[] seeds) {
-    int[] stack = new int[prog.size() * 2 + 16];
-    int stackTop = 0;
-    for (int seed : seeds) {
-      stack[stackTop++] = seed;
+  /** Compilation-local scratch; only interned DFA frontiers receive an owned array. */
+  private static final class Builder {
+    private final Prog prog;
+    private final int[] stack;
+    private final int[] frontier;
+    private final int[] visited;
+    private int stackTop;
+    private int frontierSize;
+    private int generation;
+
+    Builder(Prog prog) {
+      this.prog = prog;
+      stack = new int[prog.size() * 2 + 16];
+      frontier = new int[prog.size()];
+      visited = new int[prog.size()];
     }
 
-    int[] frontier = new int[prog.size() + 1];
-    int frontierSize = 0;
-    boolean[] visited = new boolean[prog.size() + 1];
-
-    while (stackTop > 0) {
-      int id = stack[--stackTop];
-      if (id == 0 || id >= prog.size() || visited[id]) {
-        continue;
-      }
-      visited[id] = true;
-
-      Inst ip = prog.inst(id);
-      switch (ip.opCode) {
-        case InstOp.OP_FAIL -> {}
-        case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
-          stack[stackTop++] = ip.out1;
-          stack[stackTop++] = ip.out;
-        }
-        case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
-          stack[stackTop++] = ip.out;
-        }
-        case InstOp.OP_PROGRESS_CHECK -> {
-          stack[stackTop++] = ip.out1;
-          stack[stackTop++] = ip.out;
-        }
-        case InstOp.OP_CHAR_RANGE -> {
-          if (ip.hi >= 128) {
-            return null; // Non-ASCII character range not supported in ShiftDfa
-          }
-          frontier[frontierSize++] = id;
-        }
-        case InstOp.OP_CHAR_CLASS -> {
-          if (ip.ranges != null && ip.ranges.length > 0 && ip.ranges[ip.ranges.length - 1] >= 128) {
-            return null; // Non-ASCII character class not supported in ShiftDfa
-          }
-          frontier[frontierSize++] = id;
-        }
-        case InstOp.OP_MATCH -> {
-          frontier[frontierSize++] = id;
-        }
-        default -> {
-          return null; // Unsupported instruction (e.g. EMPTY_WIDTH, GRAPHEME_CLUSTER)
-        }
-      }
+    int[] copyFrontier() {
+      return Arrays.copyOf(frontier, frontierSize);
     }
 
-    int[] result = Arrays.copyOf(frontier, frontierSize);
-    Arrays.sort(result);
-    return result;
-  }
-
-  private static int[] step(Prog prog, int[] currentInsts, int c) {
-    int[] seeds = new int[currentInsts.length];
-    int seedCount = 0;
-
-    for (int id : currentInsts) {
-      Inst ip = prog.inst(id);
-      if (ip.opCode == InstOp.OP_CHAR_RANGE) {
-        if (ip.lo <= c && c <= ip.hi) {
-          seeds[seedCount++] = ip.out;
+    int findState(List<int[]> states) {
+      for (int i = 0; i < states.size(); i++) {
+        int[] state = states.get(i);
+        if (Arrays.equals(state, 0, state.length, frontier, 0, frontierSize)) {
+          return i;
         }
-      } else if (ip.opCode == InstOp.OP_CHAR_CLASS) {
-        if (c < 64) {
-          if ((ip.bitmap0 & (1L << c)) != 0) {
-            seeds[seedCount++] = ip.out;
+      }
+      return -1;
+    }
+
+    boolean expand() {
+      frontierSize = 0;
+      // There are at most 1 + MAX_STATES * 128 expansions, so the stamp cannot overflow.
+      generation++;
+      while (stackTop > 0) {
+        int id = stack[--stackTop];
+        if (id == 0 || id >= prog.size() || visited[id] == generation) {
+          continue;
+        }
+        visited[id] = generation;
+
+        Inst ip = prog.inst(id);
+        switch (ip.opCode) {
+          case InstOp.OP_FAIL -> {}
+          case InstOp.OP_ALT, InstOp.OP_ALT_MATCH, InstOp.OP_PROGRESS_CHECK -> {
+            stack[stackTop++] = ip.out1;
+            stack[stackTop++] = ip.out;
           }
-        } else if (c < 128) {
-          if ((ip.bitmap1 & (1L << (c - 64))) != 0) {
-            seeds[seedCount++] = ip.out;
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> stack[stackTop++] = ip.out;
+          case InstOp.OP_CHAR_RANGE -> {
+            if (ip.hi >= 128) {
+              return false; // Non-ASCII character range not supported in ShiftDfa
+            }
+            frontier[frontierSize++] = id;
+          }
+          case InstOp.OP_CHAR_CLASS -> {
+            if (ip.ranges != null
+                && ip.ranges.length > 0
+                && ip.ranges[ip.ranges.length - 1] >= 128) {
+              return false; // Non-ASCII character class not supported in ShiftDfa
+            }
+            frontier[frontierSize++] = id;
+          }
+          case InstOp.OP_MATCH -> frontier[frontierSize++] = id;
+          default -> {
+            return false; // Unsupported instruction (e.g. EMPTY_WIDTH, GRAPHEME_CLUSTER)
           }
         }
       }
+      Arrays.sort(frontier, 0, frontierSize);
+      return true;
     }
 
-    if (seedCount == 0) {
-      return new int[0];
+    boolean step(int[] currentInsts, int c) {
+      stackTop = 0;
+      for (int id : currentInsts) {
+        Inst ip = prog.inst(id);
+        if (ip.opCode == InstOp.OP_CHAR_RANGE) {
+          if (ip.lo <= c && c <= ip.hi) {
+            stack[stackTop++] = ip.out;
+          }
+        } else if (ip.opCode == InstOp.OP_CHAR_CLASS) {
+          long bitmap = c < 64 ? ip.bitmap0 : ip.bitmap1;
+          if ((bitmap & (1L << (c & 63))) != 0) {
+            stack[stackTop++] = ip.out;
+          }
+        }
+      }
+      return expand();
     }
-    return expand(prog, Arrays.copyOf(seeds, seedCount));
   }
 
   /** Matches full input string from {@code start} to {@code end}. */

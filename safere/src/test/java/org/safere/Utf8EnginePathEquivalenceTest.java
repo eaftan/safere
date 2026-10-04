@@ -78,6 +78,11 @@ class Utf8EnginePathEquivalenceTest {
             "😀élanélan",
             EnginePathOptions.builder().literalFastPaths(false).build()),
         Arguments.of(
+            "ASCII literal supersedes ShiftDfa unless literal paths are disabled",
+            "hello",
+            "😀hellohello",
+            EnginePathOptions.builder().literalFastPaths(false).build()),
+        Arguments.of(
             "literal prefix acceleration is safely guarded",
             "élan[0-9]+",
             "😀xxélan42 yyélan7",

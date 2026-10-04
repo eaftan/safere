@@ -320,7 +320,11 @@ public final class Pattern implements Serializable {
   }
 
   private static MatchDescriptor extractMatchDescriptor(
-      Regexp metadataAst, Regexp sourceAst, int flags, Prog prog) {
+      Regexp metadataAst,
+      Regexp sourceAst,
+      int flags,
+      Prog prog,
+      EnginePathOptions enginePathOptions) {
     LiteralResult literalMatchResult = extractLiteralMatch(metadataAst);
     String literalMatch = literalMatchResult.literal();
     boolean literalFoldCase = literalMatchResult.foldCase();
@@ -328,7 +332,15 @@ public final class Pattern implements Serializable {
     KeywordAlternation keywordAlternation = extractKeywordAlternation(metadataAst, flags);
     CharClassMatchInfo ccMatch = extractCharClassMatch(metadataAst);
     int minMatchLength = extractMinMatchLength(sourceAst);
-    ShiftDfa shiftDfa = ShiftDfa.compile(prog);
+    // A case-sensitive literal runner handles both String and UTF-8 without a ShiftDfa fallback.
+    // Folded literals can still use ShiftDfa through createLiteralFallbackRunner for UTF-8.
+    boolean literalSupersedesShiftDfa =
+        enginePathOptions.literalFastPaths()
+            && literalMatch != null
+            && !literalFoldCase
+            && prog.numCaptures() == 1;
+    ShiftDfa shiftDfa =
+        enginePathOptions.shiftDfa() && !literalSupersedesShiftDfa ? ShiftDfa.compile(prog) : null;
     if (literalMatch == null
         && singleCharClass == null
         && keywordAlternation == null
@@ -431,10 +443,11 @@ public final class Pattern implements Serializable {
     }
     AstAnalysis astAnalysis = AstAnalysis.analyze(re);
     MultiAnchorDescriptor multiAnchor = MultiAnchorCompiler.compile(metadataAst, effectiveFlags);
-    MatchDescriptor matchDescriptor = extractMatchDescriptor(metadataAst, re, flags, compiled);
+    MatchDescriptor matchDescriptor =
+        extractMatchDescriptor(metadataAst, re, flags, compiled, enginePathOptions);
     boolean startsWithGcb = startsWithGraphemeClusterBoundary(metadataAst);
     boolean hasInternalGcb = hasInternalExplicitGraphemeBoundary(re);
-    // OnePass analysis and DFA setup are deferred to first use (lazy initialization).
+    // The constructor eagerly prepares the applicable engine analysis and setup.
     return new Pattern(
         regex,
         effectiveFlags,
