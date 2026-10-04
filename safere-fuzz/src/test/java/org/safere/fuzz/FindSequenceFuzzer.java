@@ -17,6 +17,9 @@ public final class FindSequenceFuzzer {
   private static final List<String> LINE_TERMINATORS =
       List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029");
 
+  private static final List<String> INTERIOR_CLASS_PREFIXES =
+      List.of(" ", "e", "[a-z]{2}", "[ \\t\\r\\n]{3}", " [é😀]", " [aé]{2}", " .", " .{2}", " \\X");
+
   @Test
   void validTerminalEmptyMatchIsNotExcluded() {
     var safeRe = org.safere.Pattern.compile("").matcher("");
@@ -141,6 +144,20 @@ public final class FindSequenceFuzzer {
   }
 
   @Test
+  void interiorClassCandidatesPreserveFindSequences() {
+    for (String prefix : INTERIOR_CLASS_PREFIXES) {
+      for (String atom : List.of("[0-9]", "[A-F0-9]")) {
+        for (String quantifier : List.of("+", "{4,}", "{1,3}?")) {
+          assertFindSequence(
+              prefix + "(" + atom + quantifier + ")",
+              "é😀 words 1111x 1x aa1234Y ".repeat(100)
+                  + "   A1234 e1234 aa12345 😀1234 éé12345 x1234 aé12345");
+        }
+      }
+    }
+  }
+
+  @Test
   void scopedEndAnchorLineModes() {
     for (String anchor : List.of("$", "\\Z")) {
       for (String terminator : List.of("\n", "\r", "\r\n", "\u0085", "\u2028", "\u2029")) {
@@ -187,7 +204,7 @@ public final class FindSequenceFuzzer {
     boolean splitSurrogateFindStart = false;
     boolean warmLineEndCache = false;
     String warmInput = null;
-    switch (data.consumeInt(0, 15)) {
+    switch (data.consumeInt(0, 16)) {
       case 0 -> {
         regex = nestedCapturingGroups(data.consumeInt(0, 512)) + "*";
         flags = 0;
@@ -335,6 +352,17 @@ public final class FindSequenceFuzzer {
             data.consumeBoolean()
                 ? segment + gap + segment + gap
                 : "S" + atom.repeat(data.consumeInt(0, 200)) + "Z" + gap + segment + gap;
+      }
+      case 16 -> {
+        String prefix = data.pickValue(INTERIOR_CLASS_PREFIXES);
+        String atom = data.pickValue(List.of("[0-9]", "[A-F0-9]", "[A-F]"));
+        String quantifier = data.pickValue(List.of("+", "{4,}", "{1,3}?"));
+        regex = prefix + "(" + atom + quantifier + ")" + data.pickValue(List.of("", "Z", "$"));
+        flags = 0;
+        String unit = data.pickValue(List.of("1111x", " 1x", "aa1234Y", "é😀1111x"));
+        input =
+            unit.repeat(data.consumeInt(0, 1_000))
+                + "   A1234Z e1234Z aa12345Z 😀1234Z éé12345Z x1234Z aé12345Z";
       }
       default -> throw new AssertionError();
     }
