@@ -94,6 +94,8 @@ final class MultiAnchorCompiler {
 
     static final NodeAnalysis EMPTY =
         new NodeAnalysis(AsciiWidthRange.ZERO, StartFacets.EMPTY, RejectFacets.EMPTY, null);
+    static final NodeAnalysis UNKNOWN =
+        new NodeAnalysis(AsciiWidthRange.INVALID, StartFacets.EMPTY, RejectFacets.EMPTY, null);
   }
 
   private MultiAnchorCompiler() {}
@@ -436,14 +438,15 @@ final class MultiAnchorCompiler {
             case STAR -> visitStar();
             case PLUS -> visitPlus(childArgs);
             case REPEAT -> visitRepeat(node, childArgs);
-            default -> NodeAnalysis.EMPTY;
+            // Only the explicit zero-width cases above can prove an empty ASCII prefix.
+            default -> NodeAnalysis.UNKNOWN;
           };
       return node == fullAnalysisRoot ? withRootCharClassPrefix(node, analysis) : analysis;
     }
 
     @Override
     protected NodeAnalysis shortVisit(Regexp re, NodeAnalysis parentArg) {
-      return NodeAnalysis.EMPTY;
+      return NodeAnalysis.UNKNOWN;
     }
 
     private static NodeAnalysis visitLiteral(Regexp node) {
