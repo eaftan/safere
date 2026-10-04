@@ -59,7 +59,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re) {
-    return compile(re, false, true, false);
+    return compile(prepare(re), false, false);
   }
 
   /**
@@ -70,24 +70,54 @@ final class Compiler extends Walker<Compiler.Frag> {
    * @return the compiled program, or null if compilation fails
    */
   static Prog compile(Regexp re, boolean reversed) {
-    return compile(re, reversed, true, false);
+    return compile(prepare(re), reversed, false);
   }
 
   static Prog compileForDfa(Regexp re) {
-    return compile(re, false, true, true);
+    return compile(prepare(re), false, true);
   }
 
   static Prog compileForDfa(Regexp re, boolean reversed) {
-    return compile(re, reversed, true, true);
+    return compile(prepare(re), reversed, true);
   }
 
-  private static Prog compile(
-      Regexp re, boolean reversed, boolean includeCaptureDebugInfo, boolean forDfa) {
-    Compiler c = new Compiler();
-    c.reversed = reversed;
-    c.forDfa = forDfa;
-    int numCaptures = maxCapture(re) + 1;
+  /**
+   * Direction-independent preparation shared by capture-aware and DFA compilers.
+   *
+   * <p>The prepared tree is encapsulated and read-only during compilation. Instruction arrays,
+   * patch lists, and loop registers belong to each individual compilation. Pattern construction
+   * releases this preparation after eagerly building its eligible programs.
+   */
+  static final class Prepared {
+    private final Regexp root;
+    private final int numCaptures;
+    private final boolean anchorStart;
+    private final boolean anchorEnd;
+    private final boolean dollarEnd;
+    private final boolean dollarUnixLines;
+    private final boolean pikeCaptureSemantics;
 
+    private Prepared(
+        Regexp root,
+        int numCaptures,
+        boolean anchorStart,
+        boolean anchorEnd,
+        boolean dollarEnd,
+        boolean dollarUnixLines,
+        boolean pikeCaptureSemantics) {
+      this.root = root;
+      this.numCaptures = numCaptures;
+      this.anchorStart = anchorStart;
+      this.anchorEnd = anchorEnd;
+      this.dollarEnd = dollarEnd;
+      this.dollarUnixLines = dollarUnixLines;
+      this.pikeCaptureSemantics = pikeCaptureSemantics;
+    }
+  }
+
+  /** Lowers and simplifies a source AST once, without changing it. */
+  static Prepared prepare(Regexp re) {
+    int numCaptures = maxCapture(re) + 1;
     Regexp lowered = lowerCaptureRetention(re);
     if (lowered == null) {
       return null;
@@ -106,9 +136,34 @@ final class Compiler extends Walker<Compiler.Frag> {
     boolean isDollarEnd = isAnchorEnd && isDollarAnchorEnd(stripped);
     boolean dollarUnixLines = isDollarEnd && isUnixDollarAnchorEnd(stripped);
     stripped = stripAnchorEnd(stripped);
+    return new Prepared(
+        stripped,
+        numCaptures,
+        isAnchorStart,
+        isAnchorEnd,
+        isDollarEnd,
+        dollarUnixLines,
+        requiresPikeNfaCaptureSemantics(re));
+  }
+
+  static Prog compile(Prepared prepared, boolean reversed) {
+    return compile(prepared, reversed, false);
+  }
+
+  static Prog compileForDfa(Prepared prepared, boolean reversed) {
+    return compile(prepared, reversed, true);
+  }
+
+  private static Prog compile(Prepared prepared, boolean reversed, boolean forDfa) {
+    if (prepared == null) {
+      return null;
+    }
+    Compiler c = new Compiler();
+    c.reversed = reversed;
+    c.forDfa = forDfa;
 
     // Walk the AST to produce fragments.
-    Frag all = c.walkExponential(stripped, Frag.NO_MATCH, 2 * c.maxInst);
+    Frag all = c.walkExponential(prepared.root, Frag.NO_MATCH, 2 * c.maxInst);
     if (c.failed) {
       return null;
     }
@@ -122,13 +177,13 @@ final class Compiler extends Walker<Compiler.Frag> {
 
     c.prog.setReversed(reversed);
     if (reversed) {
-      c.prog.setAnchorStart(isAnchorEnd);
-      c.prog.setAnchorEnd(isAnchorStart);
+      c.prog.setAnchorStart(prepared.anchorEnd);
+      c.prog.setAnchorEnd(prepared.anchorStart);
     } else {
-      c.prog.setAnchorStart(isAnchorStart);
-      c.prog.setAnchorEnd(isAnchorEnd);
-      c.prog.setDollarAnchorEnd(isDollarEnd);
-      c.prog.setDollarAnchorUnixLines(dollarUnixLines);
+      c.prog.setAnchorStart(prepared.anchorStart);
+      c.prog.setAnchorEnd(prepared.anchorEnd);
+      c.prog.setDollarAnchorEnd(prepared.dollarEnd);
+      c.prog.setDollarAnchorUnixLines(prepared.dollarUnixLines);
     }
 
     c.prog.setStart(all.begin);
@@ -142,10 +197,10 @@ final class Compiler extends Walker<Compiler.Frag> {
     // Freeze the instruction list into a flat array for fast indexed access.
     c.prog.freeze();
 
-    c.prog.setNumCaptures(numCaptures);
+    c.prog.setNumCaptures(prepared.numCaptures);
     c.prog.setNumLoopRegs(c.nextLoopReg);
-    if (includeCaptureDebugInfo && !reversed) {
-      c.prog.setRequiresPikeNfaCaptureSemantics(requiresPikeNfaCaptureSemantics(re));
+    if (!reversed) {
+      c.prog.setRequiresPikeNfaCaptureSemantics(prepared.pikeCaptureSemantics);
     }
 
     return c.prog;
