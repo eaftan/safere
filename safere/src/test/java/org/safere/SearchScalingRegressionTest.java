@@ -20,6 +20,59 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void endAnchoredSearchSkipsUnrelatedPrefix() {
+    for (String regex : new String[] {"abc$", "(ab)c\\z", "[YZ]abc$", "a+b$", "(?i:abc)$"}) {
+      Pattern pattern = Pattern.compile(regex);
+      String tail = regex.startsWith("[YZ]") ? "Yabc" : regex.equals("a+b$") ? "aaab" : "abc";
+      for (String prefix : new String[] {"x", "é😀"}) {
+        String small = prefix.repeat(2_000) + tail;
+        String large = prefix.repeat(20_000) + tail;
+        Utf8Input smallUtf8 = Utf8Input.trusted(small.getBytes(UTF_8));
+        Utf8Input largeUtf8 = Utf8Input.trusted(large.getBytes(UTF_8));
+
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.matcher(small).find()).isTrue(),
+            () -> assertThat(pattern.matcher(large).find()).isTrue(),
+            regex + " String");
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.matcher(smallUtf8).find()).isTrue(),
+            () -> assertThat(pattern.matcher(largeUtf8).find()).isTrue(),
+            regex + " UTF-8 matcher");
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.find(smallUtf8)).isTrue(),
+            () -> assertThat(pattern.find(largeUtf8)).isTrue(),
+            regex + " UTF-8 existence");
+      }
+    }
+  }
+
+  private static void assertBoundedEndSearchWork(Runnable small, Runnable large, String label) {
+    long smallWork = WorkCounter.countForTesting(small);
+    long largeWork = WorkCounter.countForTesting(large);
+    assertThat(smallWork).as("%s work must be observed", label).isPositive();
+    assertThat(largeWork)
+        .as("%s should inspect only the matching suffix", label)
+        .isLessThanOrEqualTo(smallWork * 2);
+  }
+
+  @Test
+  void endAnchoredExistenceSearchStopsAtVerifiedSuffix() {
+    Pattern pattern = Pattern.compile("(?s:.*)abc$");
+    for (String prefix : new String[] {"x", "é😀"}) {
+      for (String terminator : new String[] {"", "\n", "\r\n"}) {
+        Utf8Input small =
+            Utf8Input.trusted((prefix.repeat(2_000) + "abc" + terminator).getBytes(UTF_8));
+        Utf8Input large =
+            Utf8Input.trusted((prefix.repeat(20_000) + "abc" + terminator).getBytes(UTF_8));
+        assertBoundedEndSearchWork(
+            () -> assertThat(pattern.find(small)).isTrue(),
+            () -> assertThat(pattern.find(large)).isTrue(),
+            "UTF-8 existence with greedy prefix");
+      }
+    }
+  }
+
+  @Test
   void guardedGapRetriesReuseDelimiterScanWork() {
     Pattern pattern = Pattern.compile("AAAA[^;]*RAREBBB");
 
