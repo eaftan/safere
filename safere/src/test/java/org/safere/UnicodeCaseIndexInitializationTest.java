@@ -12,6 +12,8 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @DisabledForCrosscheck("checks SafeRE's internal Unicode index initialization")
 class UnicodeCaseIndexInitializationTest {
@@ -19,20 +21,36 @@ class UnicodeCaseIndexInitializationTest {
   // Generated crosscheck tests copy this disabled test without its SafeRE-only probe class.
   private static final String PROBE_CLASS_NAME = "org.safere.UnicodeCaseIndexInitializationProbe";
 
-  @Test
-  void ordinaryCharacterClassesDoNotBuildUnicodeCaseIndex()
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "[h-j]+",
+        "[0-9]+",
+        "[Kk]",
+        "[A-Za-z]+",
+        "[AaBbCc]+",
+        "\\p{L}+",
+        "\\p{IsAlphabetic}+",
+        "\\p{script=Latin}+",
+        "\\p{L}[\\p{L}\\p{Nd}_]*"
+      })
+  void ordinaryCharacterClassesDoNotBuildUnicodeCaseIndex(String regex)
       throws IOException, InterruptedException, URISyntaxException {
-    for (String regex : new String[] {"[h-j]+", "[0-9]+", "[Kk]"}) {
-      assertThat(runFreshProcess(regex))
-          .as("index initialization for %s", regex)
-          .doesNotContain(INDEX_NAME);
-    }
+    assertThat(runFreshProcess(regex))
+        .as("index initialization for %s", regex)
+        .doesNotContain(INDEX_NAME);
   }
 
   @Test
   void unicodeCaseClassBuildsIndexWithinSmallHeap()
       throws IOException, InterruptedException, URISyntaxException {
     assertThat(runFreshProcess("(?iu)[K-K]")).contains(INDEX_NAME);
+  }
+
+  @Test
+  void fourMemberFoldClassStillBuildsIndexDuringCompilation()
+      throws IOException, InterruptedException, URISyntaxException {
+    assertThat(runFreshProcess("[Θθϑϴ]")).contains(INDEX_NAME);
   }
 
   private static String runFreshProcess(String regex)

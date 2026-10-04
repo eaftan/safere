@@ -113,6 +113,42 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void unicodeFoldClassCardinalityPreservesEveryEligiblePrefix() {
+    // Include every code point, including members reached only through inverse casing links.
+    // This pins the cardinality bound against both the JDK's casing data and SafeRE's fold table.
+    int largestClosure = 0;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      CharClassBuilder builder = new CharClassBuilder();
+      UnicodeCaseFolding.addUnicodeFoldedRange(builder, cp, cp);
+      CharClass closure = builder.build();
+      largestClosure = Math.max(largestClosure, closure.numRunes());
+
+      int representative = closure.lo(0);
+      if (Inst.simpleFold(representative) == representative) {
+        continue;
+      }
+      int width = Character.toString(representative).getBytes(UTF_8).length;
+      boolean sameWidth = true;
+      for (int range = 0; range < closure.numRanges(); range++) {
+        if (Character.toString(closure.lo(range)).getBytes(UTF_8).length != width
+            || Character.toString(closure.hi(range)).getBytes(UTF_8).length != width) {
+          sameWidth = false;
+          break;
+        }
+      }
+      if (sameWidth) {
+        Regexp ast = new Regexp(RegexpOp.CHAR_CLASS, 0);
+        ast.charClass = closure;
+        MultiAnchorCompiler.PrefixResult prefix =
+            MultiAnchorCompiler.extractUnicodeFoldedPrefix(ast);
+        assertThat(prefix.prefix()).as("fold prefix for %s", closure).isNotNull();
+        assertThat(prefix.foldCase()).as("fold prefix for %s", closure).isTrue();
+      }
+    }
+    assertThat(largestClosure).isEqualTo(4);
+  }
+
+  @Test
   void fixedOffsetLiteralExtracted() {
     Regexp ast = Parser.parse("[0-9]{4}-[0-9]{2}-target", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.StartPlan start = MultiAnchorCompiler.extractStartPlan(ast);
