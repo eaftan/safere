@@ -53,4 +53,15 @@ public class SafeReMatchDiagnostics {
    * @param event immutable operation summary
    */
   public void onOperationCompleted(OperationDiagnostics event) {}
+
+  /**
+   * Called when an explicitly instrumented intentional-divergence path is exercised.
+   *
+   * <p>This is evidence about execution, not proof that a JDK mismatch is intentional. Not all
+   * documented divergences have a distinct runtime branch; absence is not proof of agreement.
+   * Callbacks may repeat and run synchronously on the executing thread.
+   *
+   * @param divergence the path exercised
+   */
+  public void onIntentionalDivergence(IntentionalDivergence divergence) {}
 }
