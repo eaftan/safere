@@ -269,7 +269,32 @@ class Utf8DiagnosticsTest {
         Arguments.of("[一-龥]{3,}", "ordinary ASCII text", false),
         Arguments.of("\\Xz", "a\u0301z", true),
         Arguments.of(".*z$", "abc", false),
+        Arguments.of("終点😀$", "é😀".repeat(400) + "終点😀", true),
+        Arguments.of("終点😀$", "é😀".repeat(400) + "終点😀\r\n", true),
+        Arguments.of("終点😀$", "é😀".repeat(400) + "終点😀x", false),
+        Arguments.of("(?:a+?|[^x]*)$", "x".repeat(1_024) + "a\n", true),
         Arguments.of("(a?)*X", "aaaaX", true));
+  }
+
+  @Test
+  void endAnchoredBooleanFindReportsReverseNarrowingAndExactVerification() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("終点😀$");
+
+    assertThat(pattern.find(input("é😀".repeat(400) + "終点😀\r\n"))).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.NFA);
+              assertThat(event.reverseDfaSearchCount()).isEqualTo(2);
+              assertThat(event.forwardDfaSearchCount()).isZero();
+              assertThat(event.auxiliaryStrategies())
+                  .containsExactly(
+                      new StrategyParticipation(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER));
+            });
   }
 
   @Test

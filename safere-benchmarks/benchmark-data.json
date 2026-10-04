@@ -772,6 +772,19 @@
       "shared": true
     },
     {
+      "id": "searchScaling.unicodeEnd.{size}",
+      "axes": {
+        "size": [1024, 10240, 102400, 1048576]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "é😀",
+        "suffix": "終点😀",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
       "id": "searchScaling.prose.{size}",
       "axes": {
         "size": [
@@ -3605,6 +3618,36 @@
     }
   ],
   "workloads": [
+    {
+      "id": "SearchScalingBenchmark.endAnchoredUnicodeSuccess.{size}",
+      "axes": {
+        "size": [1024, 10240, 102400, 1048576]
+      },
+      "operation": "find",
+      "patterns": ["終点😀$"],
+      "inputs": ["searchScaling.unicodeEnd.{size}"],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": ["prematerializedInput"]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.endAnchoredGreedySuccess.{size}",
+      "axes": {
+        "size": [1024, 10240, 102400, 1048576]
+      },
+      "operation": "find",
+      "patterns": ["(?s:.*)ABCDEFGHIJKLMNOPQRSTUVWXYZ$"],
+      "inputs": ["searchScaling.success.{size}"],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": ["prematerializedInput"]
+      }
+    },
     {
       "id": "SmallAsciiClassBenchmark.pair.sparse.{size}",
       "operation": "findAllCount",

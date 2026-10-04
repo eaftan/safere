@@ -52,6 +52,27 @@ sealed interface RejectPrefilter
 
   MatchStrategy strategy();
 
+  /** Checks only terminal filters, whose work is bounded by the pattern rather than the input. */
+  default MatchStrategy endAnchoredRejectionStrategy(
+      InputScanner scanner, int searchFrom, EnginePathOptions options) {
+    String text = scanner instanceof StringInputScanner stringScanner ? stringScanner.text() : null;
+    if (this instanceof EndAnchoredSuffix || this instanceof EndAnchoredCharClass) {
+      return rejectionStrategy(scanner, text, searchFrom, options);
+    }
+    if (this instanceof Composite composite) {
+      // Composite construction flattens the filters, so this remains an iterative bounded walk.
+      for (RejectPrefilter filter : composite.filters()) {
+        if (filter instanceof EndAnchoredSuffix || filter instanceof EndAnchoredCharClass) {
+          MatchStrategy rejection = filter.rejectionStrategy(scanner, text, searchFrom, options);
+          if (rejection != null) {
+            return rejection;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   static RejectPrefilter create(MultiAnchorDescriptor descriptor) {
     if (descriptor == null) {
       return null;
