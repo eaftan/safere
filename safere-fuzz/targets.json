@@ -1,0 +1,221 @@
+[
+  {
+    "class": "org.safere.DeferredRegionCaptureFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "deferredRegionCaptures"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.CaptureSemanticsFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/CaptureSemanticsFuzzerInputs",
+    "methods": [
+      "quantifiedCaptures"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.CaseFamilyModelFuzzer",
+    "kind": "property",
+    "oss_fuzz": true,
+    "seeds": "src/test/resources/org/safere/fuzz/CaseFamilyModelFuzzerInputs",
+    "methods": [
+      "caseFamily"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.CharacterClassExpressionFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "characterClassExpressions"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.CompileFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/CompileFuzzerInputs",
+    "methods": [
+      "compile"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.DialectSyntaxFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "dialectSyntax"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.EscapeSyntaxFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "escapeSyntax"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.FindSequenceFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/FindSequenceFuzzerInputs",
+    "methods": [
+      "sequence"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.MatchFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/MatchFuzzerInputs",
+    "methods": [
+      "match"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.ParserCompatibilityFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "parserCompatibility"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.ParserStackSafetyFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "parserStackSafety"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.RegionBoundsFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/RegionBoundsFuzzerInputs",
+    "methods": [
+      "regionBounds"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.ReplacementFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/ReplacementFuzzerInputs",
+    "methods": [
+      "replacement"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.RepresentationPropertyFuzzer",
+    "kind": "property",
+    "oss_fuzz": true,
+    "seeds": "src/test/resources/org/safere/fuzz/RepresentationPropertyFuzzerInputs",
+    "methods": [
+      "representation"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.RobustnessFuzzer",
+    "kind": "robustness",
+    "oss_fuzz": true,
+    "seeds": "src/test/resources/org/safere/fuzz/RobustnessFuzzerInputs",
+    "methods": [
+      "robustness"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.SplitFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/SplitFuzzerInputs",
+    "methods": [
+      "unassignedControlSplits",
+      "repeatedClassSplits",
+      "split"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.StrictAsciiFuzzer",
+    "kind": "strict",
+    "oss_fuzz": true,
+    "seeds": "src/test/resources/org/safere/fuzz/StrictAsciiFuzzerInputs",
+    "methods": [
+      "strictAscii"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.UnicodeFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/UnicodeFuzzerInputs",
+    "methods": [
+      "unicode"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.Utf8InputFuzzer",
+    "kind": "broad",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "arbitraryWindow"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.StrictPriorityFuzzer",
+    "kind": "strict",
+    "oss_fuzz": true,
+    "seeds": null,
+    "methods": [
+      "priority"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.EmojiZwjGraphemeFuzzer",
+    "kind": "property",
+    "oss_fuzz": false,
+    "seeds": "src/test/resources/org/safere/fuzz/EmojiZwjGraphemeFuzzerInputs",
+    "methods": [
+      "emojiZwjGrapheme"
+    ]
+  },
+  {
+    "class": "org.safere.fuzz.StrictStateFuzzer",
+    "kind": "strict",
+    "oss_fuzz": true,
+    "seeds": null,
+    "methods": [
+      "state"
+    ]
+  },
+  {
+    "class": "org.safere.EngineEquivalenceFuzzer",
+    "kind": "property",
+    "oss_fuzz": true,
+    "seeds": null,
+    "methods": [
+      "engines"
+    ]
+  },
+  {
+    "class": "org.safere.WorkBoundFuzzer",
+    "kind": "robustness",
+    "oss_fuzz": false,
+    "seeds": null,
+    "methods": [
+      "work"
+    ],
+    "profile": "work-counters"
+  }
+]
