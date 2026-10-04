@@ -319,6 +319,11 @@ public final class Pattern implements Serializable {
     }
   }
 
+  private static boolean canUseLiteralPreparedRunner(
+      String literal, int numCaptures, EnginePathOptions enginePathOptions) {
+    return enginePathOptions.literalFastPaths() && literal != null && numCaptures == 1;
+  }
+
   private static MatchDescriptor extractMatchDescriptor(
       Regexp metadataAst,
       Regexp sourceAst,
@@ -335,10 +340,8 @@ public final class Pattern implements Serializable {
     // A case-sensitive literal runner handles both String and UTF-8 without a ShiftDfa fallback.
     // Folded literals can still use ShiftDfa through createLiteralFallbackRunner for UTF-8.
     boolean literalSupersedesShiftDfa =
-        enginePathOptions.literalFastPaths()
-            && literalMatch != null
-            && !literalFoldCase
-            && prog.numCaptures() == 1;
+        canUseLiteralPreparedRunner(literalMatch, prog.numCaptures(), enginePathOptions)
+            && !literalFoldCase;
     ShiftDfa shiftDfa =
         enginePathOptions.shiftDfa() && !literalSupersedesShiftDfa ? ShiftDfa.compile(prog) : null;
     if (literalMatch == null
@@ -977,7 +980,7 @@ public final class Pattern implements Serializable {
 
   private Matcher.PreparedMatchRunner createBasePreparedRunner(boolean regionActive) {
     String literal = matchDescriptor.literalMatch();
-    if (enginePathOptions.literalFastPaths() && literal != null && numGroups() == 0) {
+    if (canUseLiteralPreparedRunner(literal, prog.numCaptures(), enginePathOptions)) {
       return new Matcher.LiteralPreparedRunner(
           literal,
           matchDescriptor.literalFoldCase(),
