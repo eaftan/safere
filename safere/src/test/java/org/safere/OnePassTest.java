@@ -5,10 +5,13 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
@@ -407,6 +410,95 @@ class OnePassTest {
   @Nested
   @DisplayName("OnePass vs NFA consistency")
   class Consistency {
+    @Test
+    void characterClassTransitionsPreserveRangeEndpointsAndGaps() {
+      String[][] cases = {
+        {
+          "^([\\x{0}-\\x{2}\\x{7F}-\\x{81}\\x{D7FF}-\\x{D801}"
+              + "\\x{FFFE}-\\x{10001}\\x{10FFFD}-\\x{10FFFF}])"
+              + "([\\x{1}-\\x{80}\\x{D800}\\x{FFFF}-\\x{10000}\\x{10FFFF}])!$",
+          "\u0001",
+          "\u0001"
+        },
+        {"^(\\p{L})([\\p{Lu}\\p{Nd}_])!$", "a", "A"},
+        {"^([\\p{L}&&[^\\p{Lu}]])([\\p{Nd}\\p{Lu}_])!$", "a", "A"}
+      };
+      for (String[] testCase : cases) {
+        Prog prog = Compiler.compile(Parser.parse(testCase[0], FLAGS));
+        OnePass onePass = OnePass.build(prog);
+        assertThat(onePass).as("/%s/ should be one-pass", testCase[0]).isNotNull();
+
+        // Probe both sides of every endpoint, including boundaries introduced by other
+        // instructions that split a character-class range into finer equivalence classes.
+        Set<Integer> probes = new TreeSet<>();
+        probes.add(0);
+        probes.add(Character.MAX_CODE_POINT);
+        for (int id = 0; id < prog.size(); id++) {
+          Inst inst = prog.inst(id);
+          if (inst.op == InstOp.CHAR_CLASS) {
+            for (int endpoint : inst.ranges) {
+              addEndpointProbes(probes, endpoint);
+            }
+          } else if (inst.op == InstOp.CHAR_RANGE) {
+            addEndpointProbes(probes, inst.lo);
+            addEndpointProbes(probes, inst.hi);
+          }
+        }
+        for (int cp : probes) {
+          String codePoint = new String(Character.toChars(cp));
+          for (String text :
+              List.of(codePoint + testCase[2] + "!", testCase[1] + codePoint + "!")) {
+            for (InputScanner scanner :
+                List.of(new StringInputScanner(text), new Utf8InputScanner(text.getBytes(UTF_8)))) {
+              for (boolean endMatch : new boolean[] {false, true}) {
+                int[] expected =
+                    Nfa.search(
+                        prog,
+                        scanner,
+                        0,
+                        scanner.length(),
+                        scanner.length(),
+                        0,
+                        Nfa.Anchor.ANCHORED,
+                        endMatch ? Nfa.MatchKind.FULL_MATCH : Nfa.MatchKind.FIRST_MATCH,
+                        prog.numCaptures(),
+                        null);
+                assertThat(onePass.search(scanner, endMatch, prog.numCaptures()))
+                    .as(
+                        "/%s/ at U+%X (%s, endMatch=%s)",
+                        testCase[0], cp, scanner.getClass().getSimpleName(), endMatch)
+                    .isEqualTo(expected);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    private static void addEndpointProbes(Set<Integer> probes, int endpoint) {
+      for (int cp = Math.max(0, endpoint - 1);
+          cp <= Math.min(Character.MAX_CODE_POINT, endpoint + 1);
+          cp++) {
+        probes.add(cp);
+      }
+    }
+
+    @Test
+    void disjointCharacterClassAlternativesPreserveCaptures() {
+      String pattern = "([a-cx-z])|([d-fu-w])";
+      assertThat(build(pattern)).isNotNull();
+      for (char ch = 'a'; ch <= 'z'; ch++) {
+        assertConsistentWithNfa(pattern, String.valueOf(ch), true);
+      }
+    }
+
+    @Test
+    void overlappingCharacterClassesWithDifferentActionsAreNotOnePass() {
+      assertThat(build("([a-fx-z])|([d-mz])")).isNull();
+      assertThat(build("()[a-fx-z]|[d-mz]")).isNull();
+      assertThat(build("\\b[a-fx-z]|[d-mz]")).isNull();
+    }
+
     @Test
     void literals() {
       assertConsistentWithNfa("abc", "abc", false);
