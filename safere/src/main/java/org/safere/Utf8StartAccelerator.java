@@ -44,6 +44,8 @@ sealed interface Utf8StartAccelerator {
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : new CharClass(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
           new FixedOffset(fo.fol(), fo.leadingClass());
+      case MultiAnchorDescriptor.StartPlan.FixedOffsetClass fc ->
+          new FixedOffsetClass(fc.scanInfo(), fc.offset(), fc.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml -> {
         if (hasWordBoundary) {
           yield null;
@@ -104,6 +106,7 @@ sealed interface Utf8StartAccelerator {
       case CaseInsensitiveLiteral cil -> cil.findCandidate(scanner, pos);
       case UnicodeCaseInsensitiveLiteral unicode -> unicode.findCandidate(scanner, pos);
       case FixedOffset fo -> fo.findCandidate(scanner, pos);
+      case FixedOffsetClass fc -> fc.findCandidate(scanner, pos);
       case CharClass cc -> cc.findCandidate(scanner, pos);
       case Teddy t -> t.findCandidate(scanner, pos);
       case MultiLiteral ml -> ml.findCandidate(scanner, pos);
@@ -614,6 +617,49 @@ sealed interface Utf8StartAccelerator {
             return i;
           }
         }
+      }
+      return -1;
+    }
+  }
+
+  /**
+   * Scans a required interior class following an exact-width ASCII prefix.
+   *
+   * <p>ASCII offsets are also byte offsets. Hits advance monotonically, and the leading ASCII check
+   * excludes continuation-byte starts without decoding or replaying the prefix.
+   */
+  record FixedOffsetClass(CharClassScanInfo scanInfo, int offset, CharClassScanInfo leadingClass)
+      implements Utf8StartAccelerator {
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.CHAR_CLASS;
+    }
+
+    int findCandidate(Utf8InputScanner scanner, int fromIndex) {
+      int start = Math.max(0, fromIndex);
+      if (offset >= scanner.length() - start) {
+        return -1;
+      }
+      int position = start + offset;
+      while (position < scanner.length()) {
+        int hit =
+            scanner.indexOfCodePointClass(
+                scanInfo.ranges(),
+                scanInfo.bitmap0(),
+                scanInfo.bitmap1(),
+                position,
+                scanner.length());
+        if (hit < 0) {
+          return -1;
+        }
+        int candidate = hit - offset;
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        if (leadingClass.contains(scanner.asciiAt(candidate))) {
+          return candidate;
+        }
+        position = hit + 1;
       }
       return -1;
     }

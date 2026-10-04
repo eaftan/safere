@@ -42,6 +42,8 @@ sealed interface StringStartAccelerator {
           hasWordBoundary || !cc.scanInfo().isSelective() ? null : CharClass.create(cc.scanInfo());
       case MultiAnchorDescriptor.StartPlan.FixedOffset fo ->
           FixedOffset.create(fo.fol(), fo.leadingClass());
+      case MultiAnchorDescriptor.StartPlan.FixedOffsetClass fc ->
+          new FixedOffsetClass(CharClass.create(fc.scanInfo()), fc.offset(), fc.leadingClass());
       case MultiAnchorDescriptor.StartPlan.MultiLiteral ml ->
           hasWordBoundary || ml.fallbackClass() == null || !ml.fallbackClass().isSelective()
               ? null
@@ -78,6 +80,7 @@ sealed interface StringStartAccelerator {
       case CaseInsensitiveLiteral cil -> cil.findCandidate(text, fromIndex, unixLines);
       case UnicodeCaseInsensitiveLiteral ucil -> ucil.findCandidate(text, fromIndex, unixLines);
       case FixedOffset fo -> fo.findCandidate(text, fromIndex, unixLines);
+      case FixedOffsetClass fc -> fc.findCandidate(text, fromIndex, unixLines);
       case CharClass cc -> cc.findCandidate(text, fromIndex, unixLines);
       case LineAnchor la -> la.findCandidate(text, fromIndex, unixLines);
       case LeadingExpansion le -> le.findCandidate(text, fromIndex, unixLines);
@@ -353,6 +356,44 @@ sealed interface StringStartAccelerator {
         count--;
       }
       return Math.max(minIndex, pos);
+    }
+  }
+
+  /**
+   * Scans a required interior class and checks its implied leading ASCII character.
+   *
+   * <p>The prefix's ASCII width is the same in both input representations. Each hit advances the
+   * scan, and checking one leading character costs constant work; full verification stays in the
+   * engine. An ASCII leading character also excludes starts inside surrogate pairs.
+   */
+  record FixedOffsetClass(CharClass inner, int offset, CharClassScanInfo leadingClass)
+      implements StringStartAccelerator {
+    @Override
+    public AcceleratorPolicy policy() {
+      return AcceleratorPolicy.CHAR_CLASS;
+    }
+
+    int findCandidate(String text, int fromIndex, boolean unixLines) {
+      int start = Math.max(0, fromIndex);
+      if (offset >= text.length() - start) {
+        return -1;
+      }
+      int position = start + offset;
+      while (position < text.length()) {
+        int hit = inner.findCandidate(text, position, unixLines);
+        if (hit < 0) {
+          return -1;
+        }
+        int candidate = hit - offset;
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record();
+        }
+        if (leadingClass.contains(text.charAt(candidate))) {
+          return candidate;
+        }
+        position = hit + 1;
+      }
+      return -1;
     }
   }
 

@@ -453,8 +453,14 @@ class MultiAnchorCompilerTest {
 
     // Single-character class matching space is unselective / poisonous
     Pattern spaceClassPattern = Pattern.compile("[ ]\\d+");
-    assertThat(spaceClassPattern.charClassPrefix().isSelective()).isFalse();
-    assertThat(spaceClassPattern.stringStartAccelerator()).isNull();
+    assertThat(spaceClassPattern.startPlan())
+        .isInstanceOfSatisfying(
+            StartPlan.FixedOffsetClass.class,
+            plan -> {
+              assertThat(plan.leadingClass().isSelective()).isFalse();
+              assertThat(plan.offset()).isEqualTo(1);
+            });
+    assertThat(spaceClassPattern.stringStartAccelerator()).isNotNull();
 
     // Multi-character prefix containing space is not poisonous (e.g. "  " or "id: ")
     Pattern multiSpace = Pattern.compile("  [0-9]+");

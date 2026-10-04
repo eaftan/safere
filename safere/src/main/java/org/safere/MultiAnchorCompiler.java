@@ -63,6 +63,11 @@ final class MultiAnchorCompiler {
     boolean isExact() {
       return minWidth >= 0 && minWidth == maxWidth;
     }
+
+    boolean isExactAscii() {
+      // Non-discrete widths can count Unicode code points rather than ASCII input units.
+      return isExact() && discreteWidths != null;
+    }
   }
 
   @SuppressWarnings("ArrayRecordComponent")
@@ -92,14 +97,27 @@ final class MultiAnchorCompiler {
     static final RejectFacets EMPTY = new RejectFacets(null, 0, null, null, null, null);
   }
 
+  record ClassAnchor(CharClassScanInfo scanInfo, int offset) {}
+
   record NodeAnalysis(
       AsciiWidthRange width,
       StartFacets start,
       RejectFacets reject,
-      CharClass atomicRequiredClass) {
+      CharClass atomicRequiredClass,
+      ClassAnchor classAnchor) {
+
+    NodeAnalysis(
+        AsciiWidthRange width,
+        StartFacets start,
+        RejectFacets reject,
+        CharClass atomicRequiredClass) {
+      this(width, start, reject, atomicRequiredClass, null);
+    }
 
     static final NodeAnalysis EMPTY =
         new NodeAnalysis(AsciiWidthRange.ZERO, StartFacets.EMPTY, RejectFacets.EMPTY, null);
+    static final NodeAnalysis UNKNOWN =
+        new NodeAnalysis(AsciiWidthRange.INVALID, StartFacets.EMPTY, RejectFacets.EMPTY, null);
   }
 
   private MultiAnchorCompiler() {}
@@ -206,6 +224,17 @@ final class MultiAnchorCompiler {
 
     if (prefix != null && !prefixPoisonous) {
       return new MultiAnchorDescriptor.StartPlan.Literal(prefix, prefixFoldCase);
+    }
+
+    ClassAnchor classAnchor = analysis.classAnchor();
+    CharClassScanInfo leadingClass = start.charClassPrefix();
+    if (classAnchor != null
+        && classAnchor.offset() > 0
+        && leadingClass != null
+        && leadingClass.isAscii()
+        && !leadingClass.isSelective()) {
+      return new StartPlan.FixedOffsetClass(
+          classAnchor.scanInfo(), classAnchor.offset(), leadingClass);
     }
 
     String[] altLiterals = start.literalAlternation();
@@ -328,6 +357,7 @@ final class MultiAnchorCompiler {
     return switch (plan) {
       case StartPlan.Literal lit -> lit.prefix();
       case StartPlan.FixedOffset fo -> fo.fol().literal();
+      case StartPlan.FixedOffsetClass unusedFc -> null;
       case StartPlan.LeadingExpansion le -> drivingLiteral(le.innerPlan());
       case StartPlan.CharClass unusedCc -> null;
       case StartPlan.MultiLiteral unusedMl -> null;
@@ -348,6 +378,7 @@ final class MultiAnchorCompiler {
     return switch (plan) {
       case StartPlan.CharClass cc -> cc.scanInfo();
       case StartPlan.FixedOffset fo -> fo.leadingClass();
+      case StartPlan.FixedOffsetClass fc -> fc.scanInfo();
       case StartPlan.MultiLiteral ml -> ml.fallbackClass();
       case StartPlan.LeadingExpansion le -> drivingCharClass(le.innerPlan());
       case StartPlan.Literal unusedLit -> null;
@@ -363,6 +394,7 @@ final class MultiAnchorCompiler {
     }
     return switch (plan) {
       case StartPlan.FixedOffset unusedFo -> true;
+      case StartPlan.FixedOffsetClass unusedFc -> false;
       case StartPlan.LeadingExpansion le -> hasFixedOffset(le.innerPlan());
       case StartPlan.Literal unusedLit -> false;
       case StartPlan.CharClass unusedCc -> false;
@@ -388,6 +420,7 @@ final class MultiAnchorCompiler {
     return switch (plan) {
       case StartPlan.Literal unusedLit -> true;
       case StartPlan.FixedOffset unusedFo -> true;
+      case StartPlan.FixedOffsetClass unusedFc -> true;
       case StartPlan.LeadingExpansion unusedLe -> false;
       case StartPlan.CharClass unusedCc -> false;
       case StartPlan.MultiLiteral unusedMl -> false;
@@ -442,14 +475,89 @@ final class MultiAnchorCompiler {
             case STAR -> visitStar();
             case PLUS -> visitPlus(childArgs);
             case REPEAT -> visitRepeat(node, childArgs);
-            default -> NodeAnalysis.EMPTY;
+            // Only the explicit zero-width cases above can prove an empty ASCII prefix.
+            default -> NodeAnalysis.UNKNOWN;
           };
-      return node == fullAnalysisRoot ? withRootCharClassPrefix(node, analysis) : analysis;
+      if (node == fullAnalysisRoot) {
+        analysis = withRootCharClassPrefix(node, analysis);
+      }
+      return new NodeAnalysis(
+          analysis.width(),
+          analysis.start(),
+          analysis.reject(),
+          analysis.atomicRequiredClass(),
+          classAnchor(node, analysis, childArgs));
+    }
+
+    /**
+     * Carries one required class at an exact ASCII offset through the existing bottom-up walk.
+     * Variable widths stop offset propagation; optional operands never contribute an anchor.
+     */
+    private static ClassAnchor classAnchor(
+        Regexp node, NodeAnalysis analysis, List<NodeAnalysis> children) {
+      return switch (node.op) {
+        case LITERAL, LITERAL_STRING, CHAR_CLASS -> {
+          CharClassScanInfo scanInfo = analysis.start().charClassPrefix();
+          yield usefulClassAnchor(scanInfo) ? new ClassAnchor(scanInfo, 0) : null;
+        }
+        case CAPTURE, NON_CAPTURE, PLUS ->
+            children.isEmpty() ? null : children.getFirst().classAnchor();
+        case REPEAT ->
+            node.min > 0 && !children.isEmpty() ? children.getFirst().classAnchor() : null;
+        case CONCAT -> {
+          ClassAnchor best = null;
+          int offset = 0;
+          for (NodeAnalysis child : children) {
+            ClassAnchor candidate = child.classAnchor();
+            if (candidate != null) {
+              int combinedOffset = addWidth(offset, candidate.offset());
+              if (combinedOffset >= 0
+                  && (best == null
+                      || classSize(candidate.scanInfo()) < classSize(best.scanInfo()))) {
+                best = new ClassAnchor(candidate.scanInfo(), combinedOffset);
+              }
+            }
+            if (!child.width().isExactAscii()) {
+              break;
+            }
+            offset = addWidth(offset, child.width().minWidth);
+            if (offset < 0) {
+              break;
+            }
+          }
+          yield best;
+        }
+        default -> null;
+      };
+    }
+
+    private static int classSize(CharClassScanInfo scanInfo) {
+      return Long.bitCount(scanInfo.bitmap0()) + Long.bitCount(scanInfo.bitmap1());
+    }
+
+    private static boolean usefulClassAnchor(CharClassScanInfo scanInfo) {
+      if (scanInfo == null
+          || !scanInfo.isAscii()
+          || classSize(scanInfo) == 0
+          || classSize(scanInfo) > 16) {
+        return false;
+      }
+      // Keep the filter small and exclude classes containing the most common anchor characters.
+      // Unlike the leading-class policy, this also admits compact ranges such as ASCII digits.
+      int[] ranges = scanInfo.ranges();
+      for (int i = 0; i < ranges.length; i += 2) {
+        for (int ch = ranges[i]; ch <= ranges[i + 1]; ch++) {
+          if (RarityOracle.byteRarity(ch) <= RarityOracle.POISONOUS_ANCHOR_MAX_RARITY) {
+            return false;
+          }
+        }
+      }
+      return true;
     }
 
     @Override
     protected NodeAnalysis shortVisit(Regexp re, NodeAnalysis parentArg) {
-      return NodeAnalysis.EMPTY;
+      return NodeAnalysis.UNKNOWN;
     }
 
     private static NodeAnalysis visitLiteral(Regexp node) {
@@ -1220,6 +1328,9 @@ final class MultiAnchorCompiler {
     MultiAnchorDescriptor.StartPlan inner = extractStartPlan(tail, false);
     if (inner == null
         || inner instanceof MultiAnchorDescriptor.StartPlan.None
+        // Keep class offsets scoped to their exact ASCII prefix, without a backward-expansion
+        // wrapper that can revisit variable-width leading context.
+        || inner instanceof MultiAnchorDescriptor.StartPlan.FixedOffsetClass
         || inner instanceof MultiAnchorDescriptor.StartPlan.LeadingExpansion) {
       return null;
     }

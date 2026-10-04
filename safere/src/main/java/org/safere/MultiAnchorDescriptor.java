@@ -101,6 +101,15 @@ final class MultiAnchorDescriptor {
       }
     }
 
+    /** A required ASCII class following an exact-width ASCII prefix. */
+    record FixedOffsetClass(CharClassScanInfo scanInfo, int offset, CharClassScanInfo leadingClass)
+        implements StartPlan {
+      public FixedOffsetClass {
+        Objects.requireNonNull(scanInfo, "scanInfo");
+        Objects.requireNonNull(leadingClass, "leadingClass");
+      }
+    }
+
     @SuppressWarnings("ArrayRecordComponent")
     record MultiLiteral(String[] literals, CharClassScanInfo fallbackClass) implements StartPlan {
       public MultiLiteral {
