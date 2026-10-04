@@ -24,7 +24,9 @@ import org.safere.MultiAnchorDescriptor.StartPlan;
 final class MultiAnchorCompiler {
 
   // Full case closures in the supported JDK casing data and SafeRE fold table have at most four
-  // code points. MultiAnchorCompilerTest checks every closure and its eligible folded prefix.
+  // code points. A larger closure in future JDK casing data would only lose folded-prefix
+  // acceleration; matching stays correct. MultiAnchorCompilerTest checks every closure and its
+  // eligible folded prefix, catching growth beyond this bound.
   private static final int MAX_UNICODE_FOLD_CLASS_RUNES = 4;
 
   record PrefixResult(String prefix, boolean foldCase) {
