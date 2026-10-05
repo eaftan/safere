@@ -352,6 +352,33 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void appendReplacementWithoutInnerGroupsKeepsSubsequentFindDeferred() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("(é+)x");
+    Utf8Matcher matcher = matcher(pattern, "zzééx yyééx");
+    Utf8Sink noopSink = (bytes, offset, length) -> {};
+    Utf8Input replacement = input("[$0]");
+
+    while (matcher.find()) {
+      matcher.appendReplacement(noopSink, replacement);
+    }
+    matcher.appendTail(noopSink);
+
+    List<OperationDiagnostics> matches =
+        operationsFor(pattern).stream()
+            .filter(event -> event.outcome() == MatchOutcome.MATCH)
+            .toList();
+    assertThat(matches)
+        .hasSize(2)
+        .allSatisfy(
+            event -> {
+              assertThat(event.boundaryStrategy()).isEqualTo(MatchStrategy.DFA);
+              assertThat(event.captureStrategy()).isEqualTo(MatchStrategy.NONE);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.DEFERRED);
+            });
+  }
+
+  @Test
   void failedMatchReportsNoMatchWithoutCaptures() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("(é)+");

@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
@@ -758,24 +759,42 @@ public final class Matcher implements MatchResult {
     return true;
   }
 
+  static boolean isSimpleReplacement(ArrayUtf8Input replacement) {
+    Utf8InputScanner scanner = replacement.scanner();
+    byte[] bytes = scanner.bytes();
+    int end = scanner.offset() + scanner.length();
+    for (int i = scanner.offset(); i < end; i++) {
+      byte b = bytes[i];
+      if (b == '$' || b == '\\') {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // ---------------------------------------------------------------------------
   // Compiled replacement template
   // ---------------------------------------------------------------------------
 
   /**
-   * A pre-parsed segment of a replacement string. Segments are either literal text or group
-   * references (numbered or named). Pre-parsing avoids per-match scanning, {@code parseInt}, and
-   * {@code substring} allocation.
+   * A compiled replacement template containing pre-parsed segments and whether any segment
+   * references an inner capturing group ({@code group > 0}).
+   */
+  @SuppressWarnings("ArrayRecordComponent")
+  record ReplacementTemplate(ReplacementSegment[] segments, boolean needsCaptures) {}
+
+  /**
+   * A pre-parsed segment of a replacement string. Segments are either literal text or resolved
+   * group references. Pre-parsing avoids per-match scanning, {@code parseInt}, named-group map
+   * lookups, and {@code substring} allocation.
    */
   sealed interface ReplacementSegment {
     /** A literal text segment to be appended verbatim. */
-    record Literal(String text) implements ReplacementSegment {}
+    @SuppressWarnings("ArrayRecordComponent")
+    record Literal(String text, byte[] utf8) implements ReplacementSegment {}
 
-    /** A numbered group reference ({@code $0}, {@code $1}, etc.). */
-    record GroupRef(int groupNum) implements ReplacementSegment {}
-
-    /** A named group reference ({@code ${name}}). */
-    record NamedGroupRef(String name) implements ReplacementSegment {}
+    /** A resolved group reference ({@code $0}, {@code $1}, {@code ${name}}, etc.). */
+    record GroupRef(int group) implements ReplacementSegment {}
   }
 
   private record NumericGroupReference(int groupNum, int end) {}
@@ -787,17 +806,24 @@ public final class Matcher implements MatchResult {
    * @param replacement the replacement string (may contain {@code $1}, {@code ${name}}, {@code \\},
    *     {@code \$})
    * @param maxGroup the highest legal capturing-group number, excluding group 0
-   * @return an array of segments representing the compiled template
-   * @throws IllegalArgumentException if the replacement string is malformed
+   * @param namedGroups map from group names to 1-based group indices
+   * @return the compiled replacement template
+   * @throws IllegalArgumentException if the replacement string is malformed or references an
+   *     unknown named group
+   * @throws IndexOutOfBoundsException if the replacement string references a numbered group outside
+   *     {@code 0..maxGroup}
    */
-  static ReplacementSegment[] compileReplacementTemplate(String replacement, int maxGroup) {
+  static ReplacementTemplate compileReplacementTemplate(
+      String replacement, int maxGroup, Map<String, Integer> namedGroups) {
     // Fast path: no special characters → single literal segment.
     if (isSimpleReplacement(replacement)) {
-      return new ReplacementSegment[] {new ReplacementSegment.Literal(replacement)};
+      return new ReplacementTemplate(
+          new ReplacementSegment[] {new ReplacementSegment.Literal(replacement, null)}, false);
     }
 
     List<ReplacementSegment> segments = new ArrayList<>();
     StringBuilder literal = new StringBuilder();
+    boolean needsCaptures = false;
     int i = 0;
 
     while (i < replacement.length()) {
@@ -812,7 +838,7 @@ public final class Matcher implements MatchResult {
       } else if (c == '$') {
         // Flush accumulated literal text.
         if (!literal.isEmpty()) {
-          segments.add(new ReplacementSegment.Literal(literal.toString()));
+          segments.add(new ReplacementSegment.Literal(literal.toString(), null));
           literal.setLength(0);
         }
         i++;
@@ -829,12 +855,24 @@ public final class Matcher implements MatchResult {
           if (i >= replacement.length()) {
             throw new IllegalArgumentException("Missing closing '}' in replacement string");
           }
-          segments.add(new ReplacementSegment.NamedGroupRef(replacement.substring(nameStart, i)));
+          String name = replacement.substring(nameStart, i);
           i++; // skip '}'
+          Integer group = namedGroups.get(name);
+          if (group == null) {
+            throw new IllegalArgumentException("No group with name <" + name + ">");
+          }
+          segments.add(new ReplacementSegment.GroupRef(group));
+          needsCaptures |= group > 0;
         } else if (Character.isDigit(replacement.charAt(i))) {
           // Numeric group reference: $0, $1, $12, etc.
           NumericGroupReference groupRef = parseNumericGroupReference(replacement, i, maxGroup);
-          segments.add(new ReplacementSegment.GroupRef(groupRef.groupNum()));
+          int group = groupRef.groupNum();
+          if (group < 0 || group > maxGroup) {
+            throw new IndexOutOfBoundsException(
+                "No group " + group + " (groupCount=" + maxGroup + ")");
+          }
+          segments.add(new ReplacementSegment.GroupRef(group));
+          needsCaptures |= group > 0;
           i = groupRef.end();
         } else {
           throw new IllegalArgumentException("Invalid group reference in replacement string");
@@ -846,9 +884,99 @@ public final class Matcher implements MatchResult {
     }
     // Flush any trailing literal.
     if (!literal.isEmpty()) {
-      segments.add(new ReplacementSegment.Literal(literal.toString()));
+      segments.add(new ReplacementSegment.Literal(literal.toString(), null));
     }
-    return segments.toArray(new ReplacementSegment[0]);
+    return new ReplacementTemplate(segments.toArray(new ReplacementSegment[0]), needsCaptures);
+  }
+
+  /**
+   * Pre-parses a UTF-8 replacement input directly from its UTF-8 bytes without decoding the entire
+   * replacement to a {@link String} or re-encoding literal segments.
+   */
+  static ReplacementTemplate compileUtf8ReplacementTemplate(
+      ArrayUtf8Input replacement, int maxGroup, Map<String, Integer> namedGroups) {
+    Utf8InputScanner scanner = replacement.scanner();
+    byte[] bytes = scanner.bytes();
+    int offset = scanner.offset();
+    int end = offset + scanner.length();
+    if (isSimpleReplacement(replacement)) {
+      return new ReplacementTemplate(
+          new ReplacementSegment[] {
+            new ReplacementSegment.Literal(null, Arrays.copyOfRange(bytes, offset, end))
+          },
+          false);
+    }
+
+    List<ReplacementSegment> segments = new ArrayList<>();
+    byte[] literal = new byte[scanner.length()];
+    int literalLen = 0;
+    boolean needsCaptures = false;
+    int i = offset;
+
+    while (i < end) {
+      byte b = bytes[i];
+      if (b == '\\') {
+        i++;
+        if (i >= end) {
+          throw new IllegalArgumentException("Trailing backslash in replacement string");
+        }
+        literal[literalLen++] = bytes[i++];
+      } else if (b == '$') {
+        if (literalLen > 0) {
+          segments.add(new ReplacementSegment.Literal(null, Arrays.copyOf(literal, literalLen)));
+          literalLen = 0;
+        }
+        i++;
+        if (i >= end) {
+          throw new IllegalArgumentException("Trailing dollar sign in replacement string");
+        }
+        byte next = bytes[i];
+        if (next == '{') {
+          i++;
+          int nameStart = i;
+          while (i < end && bytes[i] != '}') {
+            i++;
+          }
+          if (i >= end) {
+            throw new IllegalArgumentException("Missing closing '}' in replacement string");
+          }
+          String name = new String(bytes, nameStart, i - nameStart, UTF_8);
+          i++; // skip '}'
+          Integer group = namedGroups.get(name);
+          if (group == null) {
+            throw new IllegalArgumentException("No group with name <" + name + ">");
+          }
+          segments.add(new ReplacementSegment.GroupRef(group));
+          needsCaptures |= group > 0;
+        } else if (next >= '0' && next <= '9') {
+          int group = next - '0';
+          i++;
+          while (i < end && bytes[i] >= '0' && bytes[i] <= '9') {
+            int nextGroup = group * 10 + (bytes[i] - '0');
+            if (nextGroup > maxGroup) {
+              break;
+            }
+            group = nextGroup;
+            i++;
+          }
+          if (group < 0 || group > maxGroup) {
+            throw new IndexOutOfBoundsException(
+                "No group " + group + " (groupCount=" + maxGroup + ")");
+          }
+          segments.add(new ReplacementSegment.GroupRef(group));
+          needsCaptures |= group > 0;
+        } else {
+          throw new IllegalArgumentException("Invalid group reference in replacement string");
+        }
+      } else {
+        literal[literalLen++] = b;
+        i++;
+      }
+    }
+    if (literalLen > 0) {
+      segments.add(new ReplacementSegment.Literal(null, Arrays.copyOf(literal, literalLen)));
+    }
+    return new ReplacementTemplate(segments.toArray(new ReplacementSegment[0]), needsCaptures);
   }
 
   private static NumericGroupReference parseNumericGroupReference(
@@ -866,17 +994,21 @@ public final class Matcher implements MatchResult {
     return new NumericGroupReference(groupNum, i);
   }
 
-  private static boolean templateNeedsCaptures(ReplacementSegment[] template) {
-    for (ReplacementSegment seg : template) {
-      if (seg instanceof ReplacementSegment.GroupRef gRef) {
-        if (gRef.groupNum() > 0) {
-          return true;
-        }
-      } else if (seg instanceof ReplacementSegment.NamedGroupRef) {
-        return true;
-      }
+  void resolveReplacementCaptures() {
+    if (!capturesResolved) {
+      recordInnerCaptureDemand();
+    } else {
+      eagerFallbackCaptures = true;
     }
-    return false;
+    resolveCaptures();
+  }
+
+  int groupStart(int group) {
+    return groups[2 * group];
+  }
+
+  int groupEnd(int group) {
+    return groups[2 * group + 1];
   }
 
   /**
@@ -885,28 +1017,18 @@ public final class Matcher implements MatchResult {
    *
    * <p>Captures must already be resolved before calling this method.
    */
-  private void applyReplacementTemplate(StringBuilder sb, ReplacementSegment[] template) {
-    if (templateNeedsCaptures(template)) {
-      if (!capturesResolved) {
-        recordInnerCaptureDemand();
-      }
-      resolveCaptures();
+  private void applyReplacementTemplate(StringBuilder sb, ReplacementTemplate template) {
+    if (template.needsCaptures()) {
+      resolveReplacementCaptures();
     }
-    for (ReplacementSegment seg : template) {
+    for (ReplacementSegment seg : template.segments()) {
       switch (seg) {
-        case ReplacementSegment.Literal(var t) -> sb.append(t);
+        case ReplacementSegment.Literal literal -> sb.append(literal.text());
         case ReplacementSegment.GroupRef(var g) -> {
-          checkGroup(g);
           int start = groups[2 * g];
           int end = groups[2 * g + 1];
           if (start >= 0 && end >= 0) {
             sb.append(text, start, end);
-          }
-        }
-        case ReplacementSegment.NamedGroupRef(var name) -> {
-          String g = group(name);
-          if (g != null) {
-            sb.append(g);
           }
         }
       }
@@ -3058,7 +3180,7 @@ public final class Matcher implements MatchResult {
     if (!find()) {
       return text;
     }
-    LazyTemplate template = new LazyTemplate(replacement, groupCount());
+    LazyTemplate template = new LazyTemplate(replacement, parentPattern);
     if (template.needsCaptures()) {
       parentPattern.recordInnerCaptureAccess();
     }
@@ -3069,8 +3191,8 @@ public final class Matcher implements MatchResult {
       appendTail(sb);
       return sb.toString();
     }
-    ReplacementSegment[] compiledTemplate = template.get();
-    boolean needsCaptures = template.needsCaptures();
+    ReplacementTemplate compiledTemplate = template.get();
+    boolean needsCaptures = compiledTemplate.needsCaptures();
     do {
       if (needsCaptures && !groupZeroResolved) {
         resolveCaptures();
@@ -3109,7 +3231,7 @@ public final class Matcher implements MatchResult {
     if (!enginePathOptions().onePass() || regionActive || searchFrom != 0) {
       return null;
     }
-    LazyTemplate template = new LazyTemplate(replacement, groupCount());
+    LazyTemplate template = new LazyTemplate(replacement, parentPattern);
     boolean requiresCaptures = template.needsCaptures();
     if (text.length() > onePassTextLimit(requiresCaptures)) {
       return null;
@@ -3242,12 +3364,16 @@ public final class Matcher implements MatchResult {
     }
     applyDeferredMatchResult(matchOffsets[0], matchOffsets[1], numCaptures, true, false);
 
-    LazyTemplate template = new LazyTemplate(replacement, groupCount());
-    ReplacementSegment[] compiledTemplate = template.get();
-
-    boolean needsCaptures = template.needsCaptures();
-    if (needsCaptures) {
-      parentPattern.recordInnerCaptureAccess();
+    boolean simpleReplacement = isSimpleReplacement(replacement);
+    ReplacementTemplate compiledTemplate = null;
+    boolean needsCaptures = false;
+    if (!simpleReplacement) {
+      LazyTemplate template = new LazyTemplate(replacement, parentPattern);
+      compiledTemplate = template.get();
+      needsCaptures = compiledTemplate.needsCaptures();
+      if (needsCaptures) {
+        parentPattern.recordInnerCaptureAccess();
+      }
     }
     boolean useOnePass =
         needsCaptures
@@ -3312,7 +3438,11 @@ public final class Matcher implements MatchResult {
 
       sb.append(text, builderAppendPos, matchStart);
       this.resultStatus = ResultStatus.MATCHED;
-      applyReplacementTemplate(sb, compiledTemplate);
+      if (simpleReplacement) {
+        sb.append(replacement);
+      } else {
+        applyReplacementTemplate(sb, compiledTemplate);
+      }
       builderAppendPos = matchEnd;
 
       cursor.pos = matchEnd;
@@ -3583,7 +3713,7 @@ public final class Matcher implements MatchResult {
     boolean simpleReplacement = isSimpleReplacement(replacement);
     LazyTemplate template = null;
     if (!simpleReplacement) {
-      template = new LazyTemplate(replacement, groupCount());
+      template = new LazyTemplate(replacement, parentPattern);
       if (template.needsCaptures()) {
         return null; // Cannot handle replacements that reference inner captures yet
       }
@@ -3610,7 +3740,7 @@ public final class Matcher implements MatchResult {
       StringBuilder sb = new StringBuilder(text.length());
       if (!simpleReplacement) {
         applyGroupZeroMatchResult(matchStart, matchEnd);
-        ReplacementSegment[] compiledTemplate = template.get();
+        ReplacementTemplate compiledTemplate = template.get();
         groups[0] = matchStart;
         groups[1] = matchEnd;
         applyReplacementTemplate(sb, compiledTemplate);
@@ -3688,7 +3818,7 @@ public final class Matcher implements MatchResult {
     int firstMatchStart = -1;
     int firstMatchEnd = -1;
 
-    ReplacementSegment[] compiledTemplate = null;
+    ReplacementTemplate compiledTemplate = null;
 
     do {
       if (sb == null) {
@@ -3703,7 +3833,7 @@ public final class Matcher implements MatchResult {
           applyDeferredMatchResult(
               firstMatchStart, firstMatchEnd, parentPattern.prog().numCaptures(), true, false);
           if (template == null) {
-            template = new LazyTemplate(replacement, groupCount());
+            template = new LazyTemplate(replacement, parentPattern);
           }
           compiledTemplate = template.get();
         }
@@ -3785,7 +3915,7 @@ public final class Matcher implements MatchResult {
     }
     if (ccMatch.allowEmpty()) {
       return nullableCharClassReplaceFastPath(
-          new LazyTemplate(replacement, groupCount()), limit, ccMatch);
+          new LazyTemplate(replacement, parentPattern), limit, ccMatch);
     }
     String repText = null;
 
@@ -3830,16 +3960,16 @@ public final class Matcher implements MatchResult {
       if (matchesFound == 0) {
         firstMatchStart = matchStart;
         firstMatchEnd = matchEnd;
-        ReplacementSegment[] compiledTemplate;
-        LazyTemplate template = new LazyTemplate(replacement, groupCount());
+        ReplacementSegment[] compiledSegments;
+        LazyTemplate template = new LazyTemplate(replacement, parentPattern);
         try {
-          compiledTemplate = template.get();
-        } catch (IllegalArgumentException e) {
+          compiledSegments = template.get().segments();
+        } catch (IllegalArgumentException | IndexOutOfBoundsException e) {
           applyFullMatchResult(new int[] {firstMatchStart, firstMatchEnd});
           throw e;
         }
-        if (compiledTemplate.length != 1
-            || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+        if (compiledSegments.length != 1
+            || !(compiledSegments[0] instanceof ReplacementSegment.Literal literalSeg)) {
           clearCurrentResult();
           return null;
         }
@@ -3898,9 +4028,9 @@ public final class Matcher implements MatchResult {
     }
 
     applyFullMatchResult(new int[] {0, firstMatchEnd});
-    ReplacementSegment[] compiledTemplate = template.get();
-    if (compiledTemplate.length != 1
-        || !(compiledTemplate[0] instanceof ReplacementSegment.Literal literalSeg)) {
+    ReplacementSegment[] compiledSegments = template.get().segments();
+    if (compiledSegments.length != 1
+        || !(compiledSegments[0] instanceof ReplacementSegment.Literal literalSeg)) {
       clearCurrentResult();
       return null;
     }
@@ -4342,7 +4472,7 @@ public final class Matcher implements MatchResult {
     return textScanner;
   }
 
-  private void checkMatch() {
+  void checkMatch() {
     if (resultStatus != ResultStatus.MATCHED) {
       throw new IllegalStateException("No match found");
     }
@@ -4544,16 +4674,19 @@ public final class Matcher implements MatchResult {
 
   private static final class LazyTemplate {
     private final String replacement;
-    private final int maxGroup;
-    private ReplacementSegment[] value;
+    private final Pattern pattern;
+    private ReplacementTemplate value;
     private Boolean needsCaptures;
 
-    LazyTemplate(String replacement, int maxGroup) {
+    LazyTemplate(String replacement, Pattern pattern) {
       this.replacement = replacement;
-      this.maxGroup = maxGroup;
+      this.pattern = pattern;
     }
 
     boolean needsCaptures() {
+      if (value != null) {
+        return value.needsCaptures();
+      }
       if (needsCaptures == null) {
         needsCaptures = computeNeedsCaptures();
       }
@@ -4564,6 +4697,7 @@ public final class Matcher implements MatchResult {
       if (replacement == null) {
         return false;
       }
+      int maxGroup = pattern.numGroups();
       int len = replacement.length();
       int i = 0;
       while (i < len) {
@@ -4594,9 +4728,9 @@ public final class Matcher implements MatchResult {
       return false;
     }
 
-    ReplacementSegment[] get() {
+    ReplacementTemplate get() {
       if (value == null) {
-        value = compileReplacementTemplate(replacement, maxGroup);
+        value = compileReplacementTemplate(replacement, pattern.numGroups(), pattern.namedGroups());
       }
       return value;
     }
