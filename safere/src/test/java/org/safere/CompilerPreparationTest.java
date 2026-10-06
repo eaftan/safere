@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -111,22 +112,51 @@ class CompilerPreparationTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"([0-9]{4})-[0-9]{2}", "foo|bar|baz|quux", "(a?)*b", "((a)+){2}b"})
-  void eligibleEngineProgramsAndSetupsAreReadyWhenCompileReturns(String regex)
+  void eagerEngineProgramsAndSetupsAreReadyWhenCompileReturns(String regex)
       throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile(regex);
-    // Inspect fields before calling accessors that could hide deferred preparation.
-    for (String name :
-        new String[] {
-          "onePassAnalysis",
-          "forwardDfaSetup",
-          "reverseProg",
-          "flatReverseDfaProg",
-          "reverseDfaSetup"
-        }) {
-      Field field = Pattern.class.getDeclaredField(name);
-      field.setAccessible(true);
-      assertThat(field.get(pattern)).as("%s for %s", name, regex).isNotNull();
+    for (String name : new String[] {"onePassAnalysis", "forwardDfaSetup"}) {
+      assertThat(field(pattern, name)).as("%s for %s", name, regex).isNotNull();
     }
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "'\\w+z', 'hello abcz', 6, 10",
+    "'[a-z]+ing\\b', 'the running dog', 4, 11",
+    "'\\d+\\.\\d+', 'pi is 3.14 ok', 6, 10",
+    "'((a)+){2}b', 'xxaab', 2, 5"
+  })
+  void reverseDfaProgramIsBuiltOnFirstUse(String regex, String text, int start, int end)
+      throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.canUseReverseDfa()).isTrue();
+    assertReverseDfaPrepared(pattern, regex, false);
+
+    Matcher miss = pattern.matcher("");
+    assertThat(miss.find()).isFalse();
+    assertThat(pattern.matcher(text).matches()).isFalse();
+    assertReverseDfaPrepared(pattern, regex, false);
+
+    Matcher matcher = pattern.matcher(text);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(start);
+    assertThat(matcher.end()).isEqualTo(end);
+    assertReverseDfaPrepared(pattern, regex, true);
+  }
+
+  private static void assertReverseDfaPrepared(Pattern pattern, String regex, boolean prepared)
+      throws ReflectiveOperationException {
+    for (String name : new String[] {"reverseProg", "flatReverseDfaProg", "reverseDfaSetup"}) {
+      assertThat(field(pattern, name) != null).as("%s for %s", name, regex).isEqualTo(prepared);
+    }
+  }
+
+  private static Object field(Pattern pattern, String name) throws ReflectiveOperationException {
+    // Inspect fields directly: accessors would build deferred artifacts.
+    Field field = Pattern.class.getDeclaredField(name);
+    field.setAccessible(true);
+    return field.get(pattern);
   }
 
   @Test
