@@ -145,8 +145,8 @@ final class StringInputScanner implements InputScanner {
   @Override
   public int indexOfCharClass(CharClassScanInfo scanInfo, int start) {
     int position = Math.max(0, start);
-    if (scanInfo instanceof CharClassScanInfo.AsciiSmallSet smallSet) {
-      return indexOfAsciiSmallSet(smallSet, position);
+    if (scanInfo instanceof CharClassScanInfo.SmallSet smallSet) {
+      return indexOfSmallSet(text, smallSet.chars(), position);
     }
     int[] ranges = scanInfo.ranges();
     long bitmap0 = scanInfo.bitmap0();
@@ -164,8 +164,17 @@ final class StringInputScanner implements InputScanner {
     return -1;
   }
 
-  private int indexOfAsciiSmallSet(CharClassScanInfo.AsciiSmallSet scanInfo, int position) {
+  /**
+   * Returns the first index at or after {@code start} of any of {@code chars}, or {@code -1}.
+   *
+   * <p>{@code chars} holds the one to three members of a {@link CharClassScanInfo.SmallSet}. None
+   * is a surrogate, so a code-unit search finds exactly the code points in the set. This is the
+   * small-set search for repeated {@code find()} calls on the {@code String} path: the scanner and
+   * the start accelerator both use it, so both keep the work bound below.
+   */
+  static int indexOfSmallSet(String text, char[] chars, int start) {
     int length = text.length();
+    int position = Math.max(0, start);
     if (position >= length) {
       return -1;
     }
@@ -174,11 +183,24 @@ final class StringInputScanner implements InputScanner {
       if (WorkCounterConfig.ENABLED) {
         WorkCounter.record();
       }
-      if (scanInfo.contains(text.charAt(position))) {
+      if (isMember(chars, text.charAt(position))) {
         return position;
       }
     }
-    char[] chars = scanInfo.chars();
+    return indexOfSmallSetAfterPrologue(text, chars, position);
+  }
+
+  /**
+   * The windowed part of {@link #indexOfSmallSet}, kept out of line. The prologue above is inlined
+   * into the DFA's start-acceleration call; inlining the whole search there as well doubled the
+   * cost of a full-width citation {@code replaceAll} on 64 KiB of non-matching text, though the
+   * windowed part never ran.
+   */
+  private static int indexOfSmallSetAfterPrologue(String text, char[] chars, int position) {
+    int length = text.length();
+    if (position >= length) {
+      return -1;
+    }
     if (chars.length == 1) {
       // A single member needs no bound: a hit advances past all scanned units; a miss ends search.
       int candidate = text.indexOf(chars[0], position);
@@ -221,6 +243,15 @@ final class StringInputScanner implements InputScanner {
       windowLength = Math.min(SMALL_SET_SEARCH_WINDOW, windowLength * 2);
     }
     return -1;
+  }
+
+  private static boolean isMember(char[] chars, char ch) {
+    for (char c : chars) {
+      if (c == ch) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override

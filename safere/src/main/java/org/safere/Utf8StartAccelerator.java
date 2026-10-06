@@ -71,8 +71,13 @@ sealed interface Utf8StartAccelerator {
       }
       case MultiAnchorDescriptor.StartPlan.LeadingExpansion le -> {
         Utf8StartAccelerator inner = create(le.innerPlan(), hasWordBoundary);
-        // This wrapper does not retain the folded filter's per-search scan cursor.
-        if (inner instanceof UnicodeCaseInsensitiveLiteral) {
+        // This wrapper does not retain the folded filter's per-search scan cursor, and an optional
+        // single-character leading class before a non-ASCII inner class is faster in the UTF-8
+        // byte DFA than running an un-memoized scalar UTF-8 code-point scan plus inner DFA check.
+        if (inner instanceof UnicodeCaseInsensitiveLiteral
+            || (le.maxRepetition() == 1
+                && inner instanceof CharClass cc
+                && !cc.scanInfo().isAscii())) {
           yield null;
         }
         yield inner != null

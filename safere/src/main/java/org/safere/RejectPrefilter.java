@@ -145,12 +145,35 @@ sealed interface RejectPrefilter
   }
 
   @SuppressWarnings("ArrayRecordComponent")
-  record CharClass(int[] ranges, long bitmap0, long bitmap1, int singleAscii)
+  record CharClass(
+      int[] ranges,
+      long bitmap0,
+      long bitmap1,
+      int singleAscii,
+      char[] smallChars,
+      byte[] nonAsciiUtf8)
       implements RejectPrefilter {
 
     static CharClass create(CharClassScanInfo scanInfo) {
+      char[] small = smallChars(scanInfo);
       return new CharClass(
-          scanInfo.ranges(), scanInfo.bitmap0(), scanInfo.bitmap1(), singleAscii(scanInfo));
+          scanInfo.ranges(),
+          scanInfo.bitmap0(),
+          scanInfo.bitmap1(),
+          singleAscii(scanInfo),
+          small,
+          nonAsciiUtf8OfMixedPair(small));
+    }
+
+    /**
+     * Returns the UTF-8 encoding of the non-ASCII member of a small set with one ASCII and one
+     * non-ASCII member, such as {@code [\]\uFF3D]}, or {@code null} for every other class. Members
+     * are sorted, so the ASCII one comes first. Small-set members are never surrogates.
+     */
+    private static byte[] nonAsciiUtf8OfMixedPair(char[] small) {
+      return small != null && small.length == 2 && small[0] < 0x80 && small[1] >= 0x80
+          ? String.valueOf(small[1]).getBytes(StandardCharsets.UTF_8)
+          : null;
     }
 
     /**
@@ -161,10 +184,6 @@ sealed interface RejectPrefilter
      * whereas {@link InputScanner#indexOfCodePointClass} walks {@code codePointAt} and {@code
      * charCount} per character. {@link CharClassScanInfo.AsciiSmallSet} already records its
      * enumerated members; this reads that back so the distinction survives construction.
-     *
-     * <p>Only one character qualifies. {@code indexOfAsciiPair} has no intrinsic behind it on the
-     * {@code String} path, so the two- and three-character members of {@code AsciiSmallSet} would
-     * trade one scalar loop for another.
      */
     private static int singleAscii(CharClassScanInfo scanInfo) {
       return scanInfo instanceof CharClassScanInfo.AsciiSmallSet smallSet
@@ -172,6 +191,19 @@ sealed interface RejectPrefilter
               && smallSet.chars().length == 1
           ? smallSet.chars()[0]
           : -1;
+    }
+
+    /**
+     * Returns the members of a two-member small class, or {@code null}. On the {@code String} path
+     * they are searched with {@link #rejectsSmall}. A single ASCII member is already one {@code
+     * String.indexOf} through {@link #singleAscii}, and routing it through the windowed search
+     * instead cost 9% on {@code bracketCitation.match}. A three-member set would cost three
+     * intrinsic passes over a gap, which has not been measured against the class scan.
+     */
+    private static char[] smallChars(CharClassScanInfo scanInfo) {
+      return scanInfo instanceof CharClassScanInfo.SmallSet smallSet && smallSet.chars().length == 2
+          ? smallSet.chars()
+          : null;
     }
 
     @Override
@@ -183,6 +215,12 @@ sealed interface RejectPrefilter
       if (scanner instanceof Utf8InputScanner utf8Scanner) {
         return canReject(utf8Scanner, searchFrom, options);
       }
+      if (smallChars != null) {
+        String haystack = scanner instanceof StringInputScanner s ? s.text() : text;
+        if (haystack != null) {
+          return rejectsSmall(haystack, searchFrom);
+        }
+      }
       if (scanner != null) {
         return indexOf(scanner, searchFrom, scanner.length()) < 0;
       }
@@ -192,16 +230,91 @@ sealed interface RejectPrefilter
       return false;
     }
 
+    /**
+     * Chars the first {@code find()} searches for every member before searching the rest of the
+     * input one member at a time, so a member near the start is found without first scanning the
+     * whole input for one that is absent.
+     */
+    private static final int FIRST_FIND_NEAR_WINDOW = 80;
+
+    /**
+     * Returns whether no member of {@link #smallChars} occurs in the input, checked only from the
+     * start of the input.
+     *
+     * <p>The check covers a short window for every member, then searches each member over the rest
+     * of the input. That costs at most one pass per member per search sequence, and on input with
+     * no member it rejects in as few intrinsic calls as possible. Later {@code find()} calls do not
+     * reject: the start accelerator and DFA already bound the work for the rest of the input, and
+     * re-searching an absent member from every {@code find()} position cost 2x on input with sparse
+     * matches, even through bounded windows.
+     */
+    private boolean rejectsSmall(String haystack, int searchFrom) {
+      if (searchFrom > 0) {
+        return false;
+      }
+      int length = haystack.length();
+      int nearEnd = Math.min(length, FIRST_FIND_NEAR_WINDOW);
+      for (char member : smallChars) {
+        int index = haystack.indexOf(member, 0, nearEnd);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(index >= 0 ? index + 1 : nearEnd);
+        }
+        if (index >= 0) {
+          return false;
+        }
+      }
+      for (char member : smallChars) {
+        int index = haystack.indexOf(member, nearEnd);
+        if (WorkCounterConfig.ENABLED) {
+          WorkCounter.record(index >= 0 ? index - nearEnd + 1 : length - nearEnd);
+        }
+        if (index >= 0) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     private int indexOf(InputScanner scanner, int searchFrom, int limit) {
       return singleAscii >= 0
           ? scanner.indexOfAscii(singleAscii, searchFrom, limit)
           : scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, limit);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A class with a non-ASCII member is only checked from the start of the input. The UTF-8
+     * scanner has no memo, so repeating the check from every {@code find()} position would rescan
+     * the rest of the input each time.
+     *
+     * <p>A mixed pair such as {@code [\]\uFF3D]} is first checked with one search for the ASCII
+     * member or any non-ASCII byte. On ASCII text that one pass decides the check, as it did when
+     * the class was searched as code points. Only from the first non-ASCII byte on is the class
+     * checked as two searches: the ASCII member with {@link Utf8InputScanner#indexOfAscii}, and the
+     * non-ASCII member as a byte sequence with {@link Utf8InputScanner#indexOfUtf8Sequence}. Both
+     * use the byte search kernel. Decoding code points instead, as {@link
+     * Utf8InputScanner#indexOfCodePointClass} does, costs several nanoseconds per character on text
+     * with no ASCII to skip, such as CJK.
+     */
     @Override
     public boolean canReject(Utf8InputScanner scanner, int searchFrom, EnginePathOptions options) {
-      if (!options.charClassMatchFastPaths()) {
+      if (!options.charClassMatchFastPaths()
+          || (searchFrom > 0 && ranges[ranges.length - 1] >= 0x80)) {
         return false;
+      }
+      if (nonAsciiUtf8 != null) {
+        int ascii = smallChars[0];
+        int length = scanner.length();
+        int first = scanner.indexOfAsciiOrNonAscii(ascii, searchFrom, length);
+        if (first < 0) {
+          return true;
+        }
+        if (scanner.asciiAt(first) == ascii) {
+          return false;
+        }
+        return scanner.indexOfAscii(ascii, first, length) < 0
+            && scanner.indexOfUtf8Sequence(nonAsciiUtf8, first, length) < 0;
       }
       return scanner.indexOfCodePointClass(ranges, bitmap0, bitmap1, searchFrom, scanner.length())
           < 0;
