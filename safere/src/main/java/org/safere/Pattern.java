@@ -179,9 +179,9 @@ public final class Pattern implements Serializable {
   private transient volatile Dfa.Setup forwardDfaSetup;
 
   /**
-   * Reverse-compiled program for backward DFA matching. Computed during construction when this
-   * pattern can use the reverse DFA, sharing the forward compiler's direction-independent
-   * preparation; otherwise compiled on first explicit request.
+   * Reverse-compiled program for backward DFA matching. Computed on first use: only unanchored
+   * {@code find()} operations whose forward DFA search finds a match, and end-anchored searches
+   * over long inputs, need it.
    */
   private transient volatile Prog reverseProg;
 
@@ -317,9 +317,6 @@ public final class Pattern implements Serializable {
     // loop-register instructions, and therefore already establishes support.
     Prog forwardProgram = flatDfaProg != null ? flatDfaProg : flatProg != null ? flatProg : prog;
     this.forwardDfaSupported = enginePathOptions.dfa() && supportsForwardDfa(forwardProgram);
-    if (canUseReverseDfa()) {
-      flatReverseDfaProg(prepared);
-    }
 
     SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
@@ -1405,8 +1402,7 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the reverse-compiled program for backward DFA matching. Eligible patterns prepare this
-   * program during construction; otherwise an explicit request compiles it on first access.
+   * Returns the reverse-compiled program for backward DFA matching, compiling it on first access.
    *
    * <p>Thread-safe via volatile: benign data race at worst compiles twice, but {@link Prog} is
    * effectively immutable once constructed.
