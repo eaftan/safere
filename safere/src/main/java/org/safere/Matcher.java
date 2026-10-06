@@ -1334,6 +1334,7 @@ public final class Matcher implements MatchResult {
       if (searchFrom >= regionEnd) {
         applyFailedMatchResult();
         findExhaustedAfterTerminalEmptyMatch = true;
+        Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
         searchFrom = regionEnd + 1;
         return false;
       }
@@ -3152,6 +3153,10 @@ public final class Matcher implements MatchResult {
       if (matchStart == matchEnd) {
         searchFrom = matchEnd < regionEnd ? matchEnd + 1 : regionEnd + 1;
         findExhaustedAfterTerminalEmptyMatch = matchEnd >= regionEnd;
+        if (findExhaustedAfterTerminalEmptyMatch) {
+          Pattern.diagnostics()
+              .onIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
+        }
       } else {
         searchFrom = matchEnd;
       }
@@ -3320,6 +3325,8 @@ public final class Matcher implements MatchResult {
       if (matchStart == matchEnd) {
         if (cursor.pos >= regionEnd) {
           findExhaustedAfterTerminalEmptyMatch = true;
+          Pattern.diagnostics()
+              .onIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
           break;
         }
         cursor.pos++;
@@ -3940,6 +3947,7 @@ public final class Matcher implements MatchResult {
     searchFrom = regionEnd + 1;
     applyFailedMatchResult();
     findExhaustedAfterTerminalEmptyMatch = true;
+    Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.EXHAUSTED_EMPTY_MATCH);
     return result.toString();
   }
 
@@ -4142,6 +4150,7 @@ public final class Matcher implements MatchResult {
     }
     modCount++;
     if (hasMatch) {
+      Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.USE_PATTERN_GROUP_ZERO);
       if (!groupZeroResolved) {
         resolveCaptures();
       }

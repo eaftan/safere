@@ -176,6 +176,11 @@ final class Parser {
           if (isCommentTerminator(commentChar)) {
             break;
           }
+          if (commentChar == '\\'
+              && index + 1 < pattern.length()
+              && (pattern.charAt(index + 1) == 'Q' || pattern.charAt(index + 1) == 'E')) {
+            Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.COMMENT_QUOTING);
+          }
           index += Character.charCount(commentChar);
         }
       } else if (isCommentsWhitespace(c)) {
@@ -1263,6 +1268,7 @@ final class Parser {
 
     IntentionalDivergenceSyntaxException(String description, String regex, int index) {
       super(description, regex, index);
+      Pattern.diagnostics().onIntentionalDivergence(IntentionalDivergence.CHARACTER_CLASS_SYNTAX);
     }
   }
 

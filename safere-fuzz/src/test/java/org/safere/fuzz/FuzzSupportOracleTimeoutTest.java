@@ -5,8 +5,9 @@
 
 package org.safere.fuzz;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.time.Duration;
@@ -44,27 +45,23 @@ final class FuzzSupportOracleTimeoutTest {
   }
 
   @Test
-  @DisplayName("only parser-marked intentional syntax errors are excluded")
-  void onlyParserMarkedIntentionalSyntaxErrorsAreExcluded() {
-    assertNull(FuzzSupport.compileCompatibleOrSkip("[a&&&b]", 0));
-    assertNull(FuzzSupport.compileCompatibleOrSkip("(?x:[a& & &b])", 0));
-    assertNull(FuzzSupport.compileCompatibleOrSkip("(?ix)[a& & &b]", 0));
-    assertNull(
-        FuzzSupport.compileCompatibleOrSkip(
-            "#\r(?-x)\n[a& & &b]", org.safere.Pattern.COMMENTS | org.safere.Pattern.UNIX_LINES));
-    assertNull(FuzzSupport.compileCompatibleOrSkip("(?x)[](?-x)][a& & &b]", 0));
-    assertFalse(
-        FuzzSupport.isIntentionalCharacterClassIntersectionForTesting(
-            new java.util.regex.PatternSyntaxException(
-                "invalid character class intersection", "[a-z&&[def]]", 4)));
+  @DisplayName("intentional syntax rejection remains an exploratory finding")
+  void intentionalSyntaxRejectionRemainsAnExploratoryFinding() {
+    for (String regex : new String[] {"[a&&&b]", "(?x:[a& & &b])", "(?ix)[a& & &b]"}) {
+      assertThatThrownBy(() -> org.safere.Pattern.compile(regex))
+          .isInstanceOf(java.util.regex.PatternSyntaxException.class);
+      assertThatThrownBy(() -> FuzzSupport.compileCompatibleOrSkip(regex, 0))
+          .isInstanceOf(AssertionError.class)
+          .hasMessageContaining("compile divergence");
+    }
   }
 
   @Test
   @DisplayName("unsupported previous-match anchor and atomic group are excluded")
   void unsupportedFeaturesAreExcluded() {
-    assertNull(FuzzSupport.compileCompatibleOrSkip("\\G", 0));
-    assertNull(FuzzSupport.compileCompatibleOrSkip("\\G\\w+", 0));
-    assertNull(FuzzSupport.compileCompatibleOrSkip("a+\\GGGG", 7));
-    assertNull(FuzzSupport.compileCompatibleOrSkip("(?>a+)", 0));
+    assertThat(FuzzSupport.compileCompatibleOrSkip("\\G", 0)).isNull();
+    assertThat(FuzzSupport.compileCompatibleOrSkip("\\G\\w+", 0)).isNull();
+    assertThat(FuzzSupport.compileCompatibleOrSkip("a+\\GGGG", 7)).isNull();
+    assertThat(FuzzSupport.compileCompatibleOrSkip("(?>a+)", 0)).isNull();
   }
 }

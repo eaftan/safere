@@ -60,7 +60,7 @@ public final class MatchFuzzer {
       assertFullMatchesSafeRe(regression.regex(), regression.flags(), regression.inputs());
     }
     assertAcceleratedRestartArrayGrowthMatchesJdk(data);
-    assertCaseFamilyClosureSafeRe(data);
+    CaseFamilyChecks.assertCaseFamilyClosureSafeRe(data);
     assertUnicodeBoundaryStartCacheMatchesJdk();
     assertTrailingLineTerminatorEndAnchorFindsMatchJdk();
     assertUnicodeLineStartAnchorsMatchJdk();
@@ -432,38 +432,11 @@ public final class MatchFuzzer {
 
   private static void assertAlternationAndQuantifierPriorityLookingAtMatchesJdk(
       FuzzedDataProvider data) {
-    RegressionCase regression =
-        data.pickValue(
-            List.of(
-                new RegressionCase("a+?b?", 0, List.of("aaab", "aab", "ab")),
-                new RegressionCase("(?:a|ab)c?", 0, List.of("abc", "ab", "ac")),
-                new RegressionCase("a??b?", 0, List.of("ab", "a", "b"))));
+    PriorityCases.Case regression = PriorityCases.choose(data);
     FuzzSupport.CompiledPattern pattern =
-        FuzzSupport.compileCompatibleOrSkip(regression.regex(), regression.flags());
+        FuzzSupport.compileCompatibleOrSkip(regression.regex(), 0);
     if (pattern != null) {
       pattern.matcher(data.pickValue(regression.inputs())).lookingAt();
-    }
-  }
-
-  private static void assertCaseFamilyClosureSafeRe(FuzzedDataProvider data) {
-    String family = data.pickValue(List.of("Iiİı", "KkK", "Σσς", "ÅåÅ", "ΩωΩ", "ßẞ", "Θθϑϴ", "ﬅﬆ"));
-    int[] members = family.codePoints().toArray();
-    int source = members[data.consumeInt(0, members.length - 1)];
-    int target = members[data.consumeInt(0, members.length - 1)];
-    String literal = "\\x{" + Integer.toHexString(source) + "}";
-    String regex =
-        switch (data.consumeInt(0, 4)) {
-          case 0 -> literal;
-          case 1 -> "[" + literal + "]";
-          case 2 -> "[" + literal + "-" + literal + "]";
-          case 3 -> "[^" + literal + "]";
-          default -> "[^" + literal + "-" + literal + "]";
-        };
-    boolean actual =
-        Pattern.compile(regex, CI_U).matcher(new String(Character.toChars(target))).matches();
-    if (actual == regex.startsWith("[^")) {
-      throw new AssertionError(
-          "SafeRE case family closure: " + regex + " U+" + Integer.toHexString(target));
     }
   }
 
