@@ -5317,11 +5317,8 @@ public final class Matcher implements MatchResult {
       }
       matcher.capturesResolved = true;
       Pattern pattern = matcher.parentPattern;
-      Prog prog = pattern.prog();
-      OnePass onePass = pattern.onePass();
-      if (onePass != null
-          && !prog.hasGraphemeSemantics()
-          && !pattern.astAnalysis().hasNullableAlt()) {
+      if (pattern.canOnePassPrimary()) {
+        OnePass onePass = pattern.onePass();
         matcher.diagnosticBoundary(MatchStrategy.ONE_PASS);
         if (pattern.numGroups() > 0) {
           matcher.diagnosticCapture(MatchStrategy.ONE_PASS);

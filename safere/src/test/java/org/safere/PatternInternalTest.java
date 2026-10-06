@@ -35,6 +35,25 @@ class PatternInternalTest {
   }
 
   @Test
+  void onePassIsBuiltOnFirstUseWhenOnlyMatchesCanUseIt() {
+    Pattern pattern = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    assertThat(pattern.onePassAnalyzed()).isFalse();
+
+    assertThat(pattern.matcher("on 2026-10-06").find()).isTrue();
+    assertThat(pattern.onePassAnalyzed()).isFalse();
+
+    assertThat(pattern.matcher("2026-10-06").matches()).isTrue();
+    assertThat(pattern.onePassAnalyzed()).isTrue();
+    assertThat(pattern.canOnePassPrimary()).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"^[a-z]+@[a-z]+\\.com", "([a-z]+)@([a-z]+)\\.com"})
+  void onePassIsBuiltEagerlyWhenFindCanUseIt(String regex) {
+    assertThat(Pattern.compile(regex).onePassAnalyzed()).isTrue();
+  }
+
+  @Test
   void numGroupsCounting() {
     Pattern p = Pattern.compile("(a)(b)(c)");
     assertThat(p.numGroups()).isEqualTo(3);
