@@ -20,6 +20,23 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void utf8FindEndAnchoredNoMatchWorkIsIndependentOfInputLength() {
+    for (String regex : new String[] {"(foo|fax)$", "(?i)(foo|fax)\\z"}) {
+      Pattern pattern = Pattern.compile(regex);
+      IntFunction<byte[]> text =
+          size -> ("fine food offer ".repeat(size / 16) + "end").getBytes(UTF_8);
+      long smaller =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.find(Utf8Input.trusted(text.apply(2_000)))).isFalse());
+      long larger =
+          WorkCounter.countForTesting(
+              () -> assertThat(pattern.find(Utf8Input.trusted(text.apply(64_000)))).isFalse());
+
+      assertThat(larger).as(regex).isLessThan(smaller * 2 + 64);
+    }
+  }
+
+  @Test
   void guardedGapRetriesReuseDelimiterScanWork() {
     Pattern pattern = Pattern.compile("AAAA[^;]*RAREBBB");
 

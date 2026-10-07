@@ -547,12 +547,28 @@ public final class Pattern implements Serializable {
    */
   public boolean find(Utf8Input input) {
     ArrayUtf8Input arrayInput = (ArrayUtf8Input) Objects.requireNonNull(input, "input");
+    if (!canFindUtf8Directly()) {
+      return new Utf8Matcher(this, arrayInput).find();
+    }
     Utf8InputScanner scanner = arrayInput.scanner();
     SafeReMatchDiagnostics listener = diagnostics();
     if (SafeReMatchDiagnostics.isEnabled(listener)) {
       return findWithDiagnostics(scanner);
     }
     return findWithoutDiagnostics(scanner);
+  }
+
+  /**
+   * Returns whether the matcher-free {@link #find(Utf8Input)} path can answer for this pattern.
+   *
+   * <p>That path is a short sequence of cheap checks followed by the forward first-match DFA, with
+   * the NFA only as the fallback when the DFA exceeds its budget. Patterns that DFA cannot answer
+   * (end anchors, grapheme semantics, loop registers) use the matcher instead, so they get its full
+   * strategy sequence, such as the reverse-first search for end-anchored patterns, rather than an
+   * NFA scan over the whole input.
+   */
+  private boolean canFindUtf8Directly() {
+    return !prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0;
   }
 
   boolean findWithDiagnostics(Utf8InputScanner scanner) {
@@ -622,13 +638,11 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
-    if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      Dfa.SearchResult result =
-          forwardFirstMatchDfa()
-              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-      if (result != null) {
-        return result.matched();
-      }
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      return result.matched();
     }
     return Nfa.search(
             prog,
@@ -700,19 +714,17 @@ public final class Pattern implements Serializable {
       }
       startPositionPreselected = true;
     }
-    if (!prog.anchorEnd() && !prog.hasGraphemeSemantics() && prog.numLoopRegs() == 0) {
-      diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
-      diagnostics.incrementForwardDfaSearchCount();
-      Dfa.SearchResult result =
-          forwardFirstMatchDfa()
-              .doSearch(scanner, searchStart, false, false, startPositionPreselected);
-      if (result != null) {
-        diagnostics.boundary(MatchStrategy.DFA);
-        return result.matched();
-      }
-      diagnostics.decision(
-          MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
+    diagnostics.participate(MatchStrategy.DFA, StrategyRole.REJECT_PREFILTER);
+    diagnostics.incrementForwardDfaSearchCount();
+    Dfa.SearchResult result =
+        forwardFirstMatchDfa()
+            .doSearch(scanner, searchStart, false, false, startPositionPreselected);
+    if (result != null) {
+      diagnostics.boundary(MatchStrategy.DFA);
+      return result.matched();
     }
+    diagnostics.decision(
+        MatchStrategy.DFA, StrategyDisposition.FALLBACK, StrategyReason.DFA_BUDGET_EXCEEDED);
     boolean matched =
         Nfa.search(
                 prog,
