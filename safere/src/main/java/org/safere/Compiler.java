@@ -90,6 +90,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    */
   static final class Prepared {
     private final Regexp root;
+    private final Regexp simplifiedSource;
     private final int numCaptures;
     private final boolean anchorStart;
     private final boolean anchorEnd;
@@ -99,6 +100,7 @@ final class Compiler extends Walker<Compiler.Frag> {
 
     private Prepared(
         Regexp root,
+        Regexp simplifiedSource,
         int numCaptures,
         boolean anchorStart,
         boolean anchorEnd,
@@ -106,6 +108,7 @@ final class Compiler extends Walker<Compiler.Frag> {
         boolean dollarUnixLines,
         boolean pikeCaptureSemantics) {
       this.root = root;
+      this.simplifiedSource = simplifiedSource;
       this.numCaptures = numCaptures;
       this.anchorStart = anchorStart;
       this.anchorEnd = anchorEnd;
@@ -113,12 +116,22 @@ final class Compiler extends Walker<Compiler.Frag> {
       this.dollarUnixLines = dollarUnixLines;
       this.pikeCaptureSemantics = pikeCaptureSemantics;
     }
+
+    /**
+     * Returns {@code Simplifier.simplify(source)}, before anchor stripping, if preparation didn't
+     * need to lower capture retention; otherwise null.
+     */
+    Regexp simplifiedSource() {
+      return simplifiedSource;
+    }
   }
 
   /** Lowers and simplifies a source AST once, without changing it. */
   static Prepared prepare(Regexp re) {
     int numCaptures = maxCapture(re) + 1;
-    Regexp lowered = lowerCaptureRetention(re);
+    // Lowering only rewrites quantifiers that contain captures; otherwise it copies the tree.
+    boolean lower = numCaptures > 1 && hasCaptureUnderQuantifier(re);
+    Regexp lowered = lower ? lowerCaptureRetention(re) : re;
     if (lowered == null) {
       return null;
     }
@@ -138,12 +151,40 @@ final class Compiler extends Walker<Compiler.Frag> {
     stripped = stripAnchorEnd(stripped);
     return new Prepared(
         stripped,
+        lower ? null : sre,
         numCaptures,
         isAnchorStart,
         isAnchorEnd,
         isDollarEnd,
         dollarUnixLines,
-        requiresPikeNfaCaptureSemantics(re));
+        lower && requiresPikeNfaCaptureSemantics(re));
+  }
+
+  /** Returns whether any capture group is nested inside a star, plus, or counted repeat. */
+  private static boolean hasCaptureUnderQuantifier(Regexp re) {
+    ArrayDeque<Regexp> stack = new ArrayDeque<>();
+    ArrayDeque<Boolean> underQuantifier = new ArrayDeque<>();
+    stack.push(re);
+    underQuantifier.push(false);
+    while (!stack.isEmpty()) {
+      Regexp node = stack.pop();
+      boolean under = underQuantifier.pop();
+      if (under && node.op == RegexpOp.CAPTURE) {
+        return true;
+      }
+      if (node.subs != null) {
+        boolean childUnder =
+            under
+                || node.op == RegexpOp.STAR
+                || node.op == RegexpOp.PLUS
+                || node.op == RegexpOp.REPEAT;
+        for (Regexp sub : node.subs) {
+          stack.push(sub);
+          underQuantifier.push(childUnder);
+        }
+      }
+    }
+    return false;
   }
 
   static Prog compile(Prepared prepared, boolean reversed) {
