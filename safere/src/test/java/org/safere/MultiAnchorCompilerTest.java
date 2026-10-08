@@ -9,6 +9,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -25,6 +26,47 @@ import org.safere.MultiAnchorDescriptor.StartPlan;
 @DisabledForCrosscheck("implementation test uses package-private SafeRE internals")
 @Isolated
 class MultiAnchorCompilerTest {
+
+  @Test
+  void cachedWidthsMatchTheStandaloneWalkerAcrossParsedAndSimplifiedTrees() {
+    for (String regex :
+        List.of(
+            "hello.*world",
+            "foo.*bar.*baz",
+            "(?s)foo.*bar.*baz",
+            "^foo.*bar$",
+            "\\bfoo.*bar",
+            "(?i)foo.*bar",
+            "[0-9]{4}-[0-9]{2}-target",
+            "([ab]{0,3})needle",
+            "(?:a|bbb)?needle",
+            "[é中]needle",
+            "😀needle",
+            "a{0,20}needle",
+            "a*needle",
+            "a+needle",
+            ".needle",
+            "(?s).needle",
+            "[^\\s\\S]needle",
+            "(?:)needle",
+            "\\Xneedle")) {
+      Regexp parsed = Parser.parse(regex, Pattern.toParseFlags(0));
+      for (Regexp tree : List.of(parsed, Simplifier.simplify(parsed))) {
+        var pending = new ArrayDeque<Regexp>();
+        pending.push(tree);
+        while (!pending.isEmpty()) {
+          Regexp node = pending.pop();
+          assertThat(MultiAnchorCompiler.analyze(node).width())
+              .as("%s: %s", regex, node.op)
+              .usingRecursiveComparison()
+              .isEqualTo(MultiAnchorCompiler.computeAsciiWidthRange(node));
+          if (node.subs != null) {
+            for (Regexp child : node.subs) pending.push(child);
+          }
+        }
+      }
+    }
+  }
 
   @Test
   void nullAstReturnsNull() {

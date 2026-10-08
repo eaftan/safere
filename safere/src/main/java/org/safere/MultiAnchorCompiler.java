@@ -404,6 +404,8 @@ final class MultiAnchorCompiler {
 
     private final int flags;
     private final Regexp fullAnalysisRoot;
+    // These results align with unwrapCaptures(root).subs; fixed-offset extraction indexes them
+    // only when that unwrapped root is a CONCAT.
     private List<NodeAnalysis> rootChildren = List.of();
 
     MultiAnchorWalker(Regexp root, int flags) {
@@ -1615,7 +1617,7 @@ final class MultiAnchorCompiler {
     return best;
   }
 
-  private static AsciiWidthRange computeAsciiWidthRange(Regexp re) {
+  static AsciiWidthRange computeAsciiWidthRange(Regexp re) {
     return new AsciiWidthRangeWalker().walk(re, AsciiWidthRange.INVALID);
   }
 
