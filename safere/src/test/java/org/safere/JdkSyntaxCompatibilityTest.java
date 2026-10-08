@@ -1071,6 +1071,31 @@ class JdkSyntaxCompatibilityTest {
       assertMatchesFull("\\v", " "); // should not match
     }
 
+    @ParameterizedTest(name = "/{0}/")
+    @ValueSource(
+        strings = {
+          "[\\v-z]",
+          "[^\\v-z]",
+          "[\\v-]",
+          "[\\v-[a]]",
+          "[\\v-\\v]",
+          "[\\v-\\x0c]",
+          "[\\t-\\v]",
+          "[\\Q\\E\\v-z]",
+          "[\\v\\Q\\E-z]",
+          "[\\v-\\Q\\Ez]",
+          "[\\v\\Q-\\Ez]",
+          "(?x)[\\v -z]",
+          "(?x)[\\v- z]",
+          "(?x)[\\t- \\v]"
+        })
+    @DisplayName("\\\\v next to a class range hyphen is U+000B")
+    void verticalTabInClassRange(String regex) {
+      // JDK Pattern reads \v as U+000B when the next character is '-' or when \v ends a range.
+      assertFullMatchesSameForAll(
+          regex, List.of("a", "z", "-", "\t", "\n", "\u000B", "\f", "\u0085", "\u2028"));
+    }
+
     @Test
     @DisplayName("\\\\V matches non-vertical whitespace")
     void nonVerticalWhitespace() {

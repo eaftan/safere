@@ -34,6 +34,7 @@ final class Parser {
   // real HAVE_MATCH matchIds (which are non-negative).
   private static final int LEFT_PAREN = -1;
   private static final int VERTICAL_BAR = -2;
+  private static final int VERTICAL_TAB = 0x0B;
 
   // Stack entry: wraps a Regexp with linked-list pointer and extra metadata for parens.
   private static final class StackEntry {
@@ -1280,6 +1281,14 @@ final class Parser {
       // PARSE_NOTHING: fall through
     }
 
+    // JDK Pattern reads \v as U+000B instead of vertical whitespace when the next character is '-'
+    // (after empty \Q\E quotes are removed), whether or not a range follows.
+    if (startsVerticalTabRangeStart()) {
+      pos += 2; // \v
+      addScalarClassItem(ccb, VERTICAL_TAB);
+      return true;
+    }
+
     // Look for Perl character class symbols.
     {
       int saved = pos;
@@ -1378,7 +1387,29 @@ final class Parser {
       System.arraycopy(literals, 1, trailing, 0, trailing.length);
       return new RangeEndpoint(literals[0], trailing);
     }
+    // JDK Pattern reads a \v range end as U+000B, as it does a \v range start.
+    if (startsVerticalTabEscapeAt(pos)) {
+      pos += 2; // \v
+      return new RangeEndpoint(VERTICAL_TAB, new int[0]);
+    }
     return new RangeEndpoint(parseCCCharacter(), new int[0]);
+  }
+
+  private boolean startsVerticalTabRangeStart() {
+    if (!startsVerticalTabEscapeAt(pos)) {
+      return false;
+    }
+    int next = pos + 2;
+    while (startsEmptyQuotedLiteralAt(next)) {
+      next += 4;
+    }
+    return next < pattern.length() && pattern.charAt(next) == '-';
+  }
+
+  private boolean startsVerticalTabEscapeAt(int index) {
+    return index + 1 < pattern.length()
+        && pattern.charAt(index) == '\\'
+        && pattern.charAt(index + 1) == 'v';
   }
 
   private void skipClassRangeEndpointTrivia() {
