@@ -5,7 +5,6 @@ import json
 import subprocess
 
 import pytest
-
 from repo_assist.github import GitHub, fingerprint
 
 
@@ -27,14 +26,18 @@ def collaborators(*entries):
 
 
 def test_trust_comes_from_write_collaborators_plus_explicit_user():
-  runner = FakeRunner([[
-      [{"login": "owner", "type": "User", "permissions": {"admin": True}}],
+  runner = FakeRunner(
+    [
       [
+        [{"login": "owner", "type": "User", "permissions": {"admin": True}}],
+        [
           {"login": "writer", "type": "User", "permissions": {"push": True}},
           {"login": "reader", "type": "User", "permissions": {"pull": True}},
           {"login": "robot", "type": "Bot", "permissions": {"push": True}},
-      ],
-  ]])
+        ],
+      ]
+    ]
+  )
   assert GitHub("o/r", runner).trusted_users() == frozenset({"owner", "writer", "wendigo"})
   assert "--paginate" in runner.commands[0]
 
@@ -51,10 +54,21 @@ def test_empty_collaborator_response_does_not_fall_back_to_explicit_users():
 
 
 def test_discovery_exposes_no_untrusted_body_or_title():
-  runner = FakeRunner([[{
-      "number": 1, "isDraft": False, "url": "u", "updatedAt": "t",
-      "author": {"login": "stranger"}, "title": "CANARY", "body": "SECRET",
-  }]])
+  runner = FakeRunner(
+    [
+      [
+        {
+          "number": 1,
+          "isDraft": False,
+          "url": "u",
+          "updatedAt": "t",
+          "author": {"login": "stranger"},
+          "title": "CANARY",
+          "body": "SECRET",
+        }
+      ]
+    ]
+  )
   result = GitHub("o/r", runner).discover(frozenset({"writer"}))
   rendered = json.dumps(result)
   assert "CANARY" not in rendered
@@ -63,9 +77,18 @@ def test_discovery_exposes_no_untrusted_body_or_title():
 
 
 def test_untrusted_root_item_body_is_never_requested():
-  metadata = {"data": {"repository": {"pullRequest": {
-      "id": "I", "number": 9, "updatedAt": "t", "author": {"login": "stranger"},
-  }}}}
+  metadata = {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "id": "I",
+          "number": 9,
+          "updatedAt": "t",
+          "author": {"login": "stranger"},
+        }
+      }
+    }
+  }
   runner = FakeRunner([metadata])
   with pytest.raises(PermissionError):
     GitHub("o/r", runner).trusted_pr(9, frozenset({"writer"}))
@@ -73,33 +96,97 @@ def test_untrusted_root_item_body_is_never_requested():
 
 
 def test_only_trusted_comment_bodies_are_requested_and_pages_are_combined():
-  core_metadata = {"data": {"repository": {"pullRequest": {
-      "id": "I", "number": 7, "updatedAt": "t", "author": {"login": "writer"},
-  }}}}
+  core_metadata = {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "id": "I",
+          "number": 7,
+          "updatedAt": "t",
+          "author": {"login": "writer"},
+        }
+      }
+    }
+  }
   comment_pages = [
-      {"data": {"repository": {"pullRequest": {"comments": {"nodes": [
-          {"id": "trusted-id", "updatedAt": "a", "author": {"login": "writer"}},
-      ]}}}}},
-      {"data": {"repository": {"pullRequest": {"comments": {"nodes": [
-          {"id": "untrusted-id", "updatedAt": "b", "author": {"login": "stranger"},
-           "body": "UNTRUSTED-CANARY"},
-      ]}}}}},
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "comments": {
+              "pageInfo": {"hasNextPage": True, "endCursor": "c"},
+              "nodes": [
+                {"id": "trusted-id", "updatedAt": "a", "author": {"login": "writer"}},
+              ],
+            }
+          }
+        }
+      }
+    },
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "comments": {
+              "pageInfo": {"hasNextPage": False, "endCursor": None},
+              "nodes": [
+                {
+                  "id": "untrusted-id",
+                  "updatedAt": "b",
+                  "author": {"login": "stranger"},
+                  "body": "UNTRUSTED-CANARY",
+                },
+              ],
+            }
+          }
+        }
+      }
+    },
   ]
   core_body = {
-      "title": "Safe title", "body": "Safe body", "user": {"login": "writer"},
-      "labels": [], "milestone": None, "assignees": [],
+    "title": "Safe title",
+    "body": "Safe body",
+    "user": {"login": "writer"},
+    "labels": [],
+    "milestone": None,
+    "assignees": [],
   }
-  trusted_body = {"data": {"node": {"body": "trusted words"}}}
+  trusted_body = {"data": {"node": {"body": "trusted words", "author": {"login": "writer"}}}}
   linked_pages = [
-      {"data": {"repository": {"pullRequest": {"timelineItems": {"nodes": []}}}}}
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "timelineItems": {"nodes": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}
+          }
+        }
+      }
+    }
   ]
   review_pages = [
-      {"data": {"repository": {"pullRequest": {"reviews": {"nodes": []}}}}}
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "reviews": {"nodes": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}
+          }
+        }
+      }
+    }
   ]
   review_thread_pages = [
-      {"data": {"repository": {"pullRequest": {"reviewThreads": {"nodes": []}}}}}
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "reviewThreads": {"nodes": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}
+          }
+        }
+      }
+    }
   ]
-  runner = FakeRunner([
+  runner = FakeRunner(
+    [
       core_metadata,
       core_body,
       comment_pages,
@@ -107,7 +194,8 @@ def test_only_trusted_comment_bodies_are_requested_and_pages_are_combined():
       linked_pages,
       review_pages,
       review_thread_pages,
-  ])
+    ]
+  )
   item = GitHub("o/r", runner).trusted_pr(7, frozenset({"writer"}))
   rendered = json.dumps(item)
   assert "trusted words" in rendered
@@ -124,3 +212,140 @@ def test_comment_edits_and_deletions_change_fingerprint():
   edited = {"title": "t", "comments": [{"id": "1", "updatedAt": "b"}]}
   deleted = {"title": "t", "comments": []}
   assert len({fingerprint(base), fingerprint(edited), fingerprint(deleted)}) == 3
+
+
+def test_closing_issue_relationship_is_metadata_only_and_paginated() -> None:
+  pages = [
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "closingIssuesReferences": {
+              "nodes": [
+                {
+                  "number": 6,
+                  "repository": {"nameWithOwner": "o/r"},
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "closingIssuesReferences": {
+              "nodes": [
+                {
+                  "number": 21,
+                  "repository": {"nameWithOwner": "o/r"},
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+  ]
+  runner = FakeRunner([pages])
+
+  assert GitHub("o/r", runner).pull_request_closing_issues(7) == frozenset({6, 21})
+  command = " ".join(runner.commands[0])
+  assert "--paginate" in runner.commands[0]
+  assert "title" not in command
+  assert "body" not in command
+
+
+def test_cross_repository_closing_issue_fails_closed() -> None:
+  pages = [
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "closingIssuesReferences": {
+              "nodes": [
+                {
+                  "number": 21,
+                  "repository": {"nameWithOwner": "other/repo"},
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+
+  with pytest.raises(RuntimeError, match="cross-repository closing issues: other/repo"):
+    GitHub("o/r", FakeRunner([pages])).pull_request_closing_issues(7)
+
+
+def test_review_comments_are_paginated_within_each_thread() -> None:
+  thread_pages = [
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "reviewThreads": {
+              "nodes": [{"id": "thread-1", "isResolved": False, "isOutdated": False}],
+              "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+          }
+        }
+      }
+    }
+  ]
+  first_page = [
+    {
+      "id": f"comment-{index}",
+      "updatedAt": "t",
+      "author": {"login": "writer"},
+      "path": "file.py",
+      "line": index + 1,
+      "originalLine": index + 1,
+    }
+    for index in range(100)
+  ]
+  comment_pages = [
+    {
+      "data": {
+        "node": {
+          "comments": {
+            "nodes": first_page,
+            "pageInfo": {"hasNextPage": True, "endCursor": "c"},
+          }
+        }
+      }
+    },
+    {
+      "data": {
+        "node": {
+          "comments": {
+            "pageInfo": {"hasNextPage": False, "endCursor": None},
+            "nodes": [
+              {
+                "id": "comment-100",
+                "updatedAt": "t",
+                "author": {"login": "writer"},
+                "path": "file.py",
+                "line": 101,
+                "originalLine": 101,
+              }
+            ],
+          }
+        }
+      }
+    },
+  ]
+  runner = FakeRunner([thread_pages, comment_pages])
+
+  comments = GitHub("o/r", runner)._review_comments(7)
+
+  assert len(comments) == 101
+  assert comments[-1]["id"] == "comment-100"
+  assert all(comment["_type"] == "PullRequestReviewComment" for comment in comments)
+  assert "body" not in " ".join(runner.commands[1])
+  assert "threadId=thread-1" in runner.commands[1]
+  assert "--paginate" in runner.commands[1]
