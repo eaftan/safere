@@ -147,8 +147,9 @@ public final class Pattern implements Serializable {
   private final transient RejectPrefilter rejectPrefilter;
 
   /**
-   * OnePass analysis results, eagerly computed for eligible patterns. Holds the OnePass automaton
-   * and derived flags ({@code canOnePassFind}, {@code canOnePassSubmatch}).
+   * OnePass analysis results, computed during construction when the pattern is eligible for OnePass
+   * preparation, otherwise on first request. Holds the OnePass automaton and derived flags ({@code
+   * canOnePassFind}, {@code canOnePassSubmatch}).
    */
   private transient volatile OnePassAnalysis onePassAnalysis;
 
@@ -160,14 +161,15 @@ public final class Pattern implements Serializable {
   private transient volatile boolean innerCapturesObserved;
 
   /**
-   * Eagerly computed DFA equivalence-class setup for the forward program, shared across all Matcher
-   * instances.
+   * DFA equivalence-class setup for the forward program, computed during construction and shared
+   * across all Matcher instances.
    */
   private transient volatile Dfa.Setup forwardDfaSetup;
 
   /**
-   * Reverse-compiled program for backward DFA matching. Eagerly computed when this pattern can use
-   * the reverse DFA, sharing the forward compiler's direction-independent preparation.
+   * Reverse-compiled program for backward DFA matching. Computed during construction when this
+   * pattern can use the reverse DFA, sharing the forward compiler's direction-independent
+   * preparation; otherwise compiled on first explicit request.
    */
   private transient volatile Prog reverseProg;
 
@@ -1358,6 +1360,8 @@ public final class Pattern implements Serializable {
 
   Prog flatReverseDfaProg() {
     Prog frp = flatReverseDfaProg;
+    // Reverse-DFA-eligible patterns already share preparation during construction. Explicit
+    // requests for other patterns prepare here; retaining that preparation is unnecessary.
     return frp != null ? frp : flatReverseDfaProg(Compiler.prepare(ast));
   }
 
