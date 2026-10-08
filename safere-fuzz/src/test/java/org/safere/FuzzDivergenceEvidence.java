@@ -15,17 +15,20 @@ public final class FuzzDivergenceEvidence {
   private static final SafeReMatchDiagnostics LISTENER =
       new SafeReMatchDiagnostics() {
         @Override
-        public void onIntentionalDivergence(IntentionalDivergence divergence) {
+        void onIntentionalDivergence(IntentionalDivergence divergence) {
           EVENTS.get().add(divergence);
         }
       };
 
   private FuzzDivergenceEvidence() {}
 
-  /** Starts an exploratory case, installing evidence collection when diagnostics are unclaimed. */
+  /** Starts a case; evidence collection is opt-in and leaves an existing listener unchanged. */
   public static void begin() {
     EVENTS.get().clear();
-    if (!SafeReMatchDiagnostics.isEnabled(Pattern.diagnostics())) Pattern.setDiagnostics(LISTENER);
+    if (Boolean.getBoolean("safere.fuzz.divergenceEvidence")
+        && !SafeReMatchDiagnostics.isEnabled(Pattern.diagnostics())) {
+      Pattern.setDiagnostics(LISTENER);
+    }
   }
 
   /** Returns execution evidence; an empty set means no instrumented signal was observed. */

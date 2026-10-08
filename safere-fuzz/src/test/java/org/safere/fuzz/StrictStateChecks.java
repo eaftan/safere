@@ -71,16 +71,23 @@ final class StrictStateChecks {
           .region(start, end)
           .useAnchoringBounds(anchoring)
           .useTransparentBounds(transparent);
+      boolean looking = actual.lookingAt(), expectedLooking = oracle(() -> jdk.lookingAt());
       compare(
           regex,
           input,
           region + ";lookingAt",
-          snapshot(actual.lookingAt(), actual),
-          snapshot(oracle(() -> jdk.lookingAt()), jdk));
+          snapshot(looking, actual),
+          snapshot(expectedLooking, jdk));
+      // Failed initial operations can leave pattern-dependent JDK search state (#818).
+      // Restrict the strict oracle domain by resetting both sides, rather than waiving a result.
+      if (!looking) {
+        actual.reset().region(start, end);
+        jdk.reset().region(start, end);
+      }
       compare(
           regex,
           input,
-          region + ";lookingAt;find",
+          region + (looking ? ";lookingAt;find" : ";lookingAt;reset;region;find"),
           snapshot(actual.find(), actual),
           snapshot(oracle(() -> jdk.find()), jdk));
       actual.reset();
@@ -115,11 +122,14 @@ final class StrictStateChecks {
         } else {
           compare(regex, input, "usePattern;groups", snapshot(true, actual), snapshot(true, jdk));
         }
+      } else {
+        actual.reset();
+        jdk.reset();
       }
       compare(
           regex,
           input,
-          "usePattern;find",
+          found ? "usePattern;find" : "failed find(start);reset;find",
           snapshot(actual.find(), actual),
           snapshot(oracle(() -> jdk.find()), jdk));
       StrictOracle.completed();

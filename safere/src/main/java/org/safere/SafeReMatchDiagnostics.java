@@ -63,5 +63,5 @@ public class SafeReMatchDiagnostics {
    *
    * @param divergence the path exercised
    */
-  public void onIntentionalDivergence(IntentionalDivergence divergence) {}
+  void onIntentionalDivergence(IntentionalDivergence divergence) {}
 }

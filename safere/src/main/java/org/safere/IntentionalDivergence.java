@@ -8,7 +8,7 @@ package org.safere;
 /**
  * Diagnostic evidence that an intentional semantic path was exercised, not a bug classification.
  */
-public enum IntentionalDivergence {
+enum IntentionalDivergence {
   /** Character-class syntax rejected under SafeRE's documented intersection rules. */
   CHARACTER_CLASS_SYNTAX,
   /** Comments discard quoting constructs as ordinary comment text. */

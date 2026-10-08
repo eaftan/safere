@@ -134,6 +134,14 @@ disabled only in generated JDK crosscheck tests because the difference is
 intentional. This policy concerns the initial search; it does not redefine
 continuation after an earlier successful match.
 
+The same initial-state boundary also appears after failed `find(int)` and
+`lookingAt()` operations for some pattern shapes. For example, on `"ab"`,
+`(?:){0,2}a` fails `find(1)` and then the JDK fails `find()`, whereas resetting
+restores the match at zero. `OracleDefectsTest` pins this JDK observation.
+The strict state fuzz domain resets both matchers after failed initial operations
+before comparing the next search; the independent SafeRE sequence still executes
+without that reset. This limits the oracle domain rather than exempting mismatches.
+
 ## Unsupported Backtracking Features
 
 Sweep names:

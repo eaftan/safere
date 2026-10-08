@@ -176,7 +176,7 @@
     "class": "org.safere.fuzz.StrictPriorityFuzzer",
     "kind": "strict",
     "oss_fuzz": true,
-    "seeds": null,
+    "seeds": "src/test/resources/org/safere/fuzz/StrictPriorityFuzzerInputs",
     "methods": [
       "priority"
     ]
@@ -194,7 +194,7 @@
     "class": "org.safere.fuzz.StrictStateFuzzer",
     "kind": "strict",
     "oss_fuzz": true,
-    "seeds": null,
+    "seeds": "src/test/resources/org/safere/fuzz/StrictStateFuzzerInputs",
     "methods": [
       "state"
     ]
@@ -203,7 +203,7 @@
     "class": "org.safere.EngineEquivalenceFuzzer",
     "kind": "property",
     "oss_fuzz": true,
-    "seeds": null,
+    "seeds": "src/test/resources/org/safere/EngineEquivalenceFuzzerInputs",
     "methods": [
       "engines"
     ]

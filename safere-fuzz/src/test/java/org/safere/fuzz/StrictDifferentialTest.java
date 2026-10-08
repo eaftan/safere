@@ -31,7 +31,10 @@ final class StrictDifferentialTest {
 
   @Test
   void enumerateSmallDomainWithoutLegacyExclusions() {
-    List<String> inputs = new ArrayList<>(List.of("", "a", "b", "c", ".", "!"));
+    List<String> inputs =
+        new ArrayList<>(
+            List.of(
+                "", "a", "b", "c", ".", "!", "é", "中", "😀", "\ud800", "\udc00", "\udb7d\udf02A"));
     for (String left : List.of("a", "b", "!")) {
       for (String right : List.of("a", "b", "!")) {
         inputs.add(left + right);

@@ -15,13 +15,47 @@ final class EngineEquivalenceFuzzerTest {
   @Test
   void diagnosticsProveExecutionOfDistinctEngines() {
     Set<MatchStrategy> seen = EnumSet.noneOf(MatchStrategy.class);
-    for (String regex : new String[] {"a+b", "^a+b$", "(a)?b", ".|"}) {
-      seen.addAll(EngineEquivalenceFuzzer.check(regex, "aaab", 0));
-      seen.addAll(EngineEquivalenceFuzzer.check(regex, "é😀aaab", 0));
+    var previous = Pattern.diagnostics();
+    Pattern.setDiagnostics(
+        new SafeReMatchDiagnostics() {
+          @Override
+          public void onOperationCompleted(OperationDiagnostics event) {
+            seen.add(event.boundaryStrategy());
+            seen.add(event.captureStrategy());
+          }
+        });
+    try {
+      for (String regex : new String[] {"a+b", "^a+b$", "(a)?b", ".|"}) {
+        EngineEquivalenceFuzzer.check(regex, "aaab", 0);
+        EngineEquivalenceFuzzer.check(regex, "é😀aaab", 0);
+      }
+    } finally {
+      Pattern.setDiagnostics(previous);
     }
     assertThat(seen)
         .contains(
             MatchStrategy.DFA, MatchStrategy.ONE_PASS, MatchStrategy.BIT_STATE, MatchStrategy.NFA);
+  }
+
+  @Test
+  void modelChecksPreserveAndExerciseTheCallersDiagnostics() {
+    var previous = Pattern.diagnostics();
+    int[] operations = {0};
+    var listener =
+        new SafeReMatchDiagnostics() {
+          @Override
+          public void onOperationCompleted(OperationDiagnostics event) {
+            operations[0]++;
+          }
+        };
+    Pattern.setDiagnostics(listener);
+    try {
+      EngineEquivalenceFuzzer.check("a+b", "aaab", 0);
+      assertThat(Pattern.diagnostics()).isSameAs(listener);
+      assertThat(operations[0]).isPositive();
+    } finally {
+      Pattern.setDiagnostics(previous);
+    }
   }
 
   @Test

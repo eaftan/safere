@@ -9,12 +9,11 @@ cd "$SRC/safere"
 bash safere-fuzz/oss-fuzz/build.sh
 ```
 
-This replaces the source-file glob in the proposed
-[OSS-Fuzz integration](https://github.com/google/oss-fuzz/pull/16164).
-[integration.patch](integration.patch) applies this delegation to the proposed
-build script at PR head `70760e290e80525b2eff588ae9049bb77a8d86cd`. Apply it in the
-OSS-Fuzz checkout after this upstream adapter is available to its clone. The
-patch is prepared locally; it has not been posted or pushed.
+The initial [OSS-Fuzz integration](https://github.com/google/oss-fuzz/pull/16164)
+has landed. The [adapter follow-up](https://github.com/google/oss-fuzz/pull/16238)
+uses this adapter when it is present and retains an explicit target allowlist for
+older SafeRE checkouts. Use the current upstream integration rather than applying
+a patch against the original proposal.
 
 Keep the container's JDK setup in OSS-Fuzz. The container also needs Python 3,
 Maven, rsync, and the Jazzer JVM tooling already used by the integration.

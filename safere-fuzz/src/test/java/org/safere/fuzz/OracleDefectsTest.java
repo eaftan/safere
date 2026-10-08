@@ -33,6 +33,31 @@ final class OracleDefectsTest {
   }
 
   @Test
+  void failedInitialOperationsRemainInTheStrictResetDomain() {
+    for (String regex :
+        new String[] {
+          "a", "(?:)a", "(?:)?a", "x*a", "(?:)*a", "(?:){0,2}a", "(?:(?:){0,2})(?:a)"
+        }) {
+      assertThat(StrictStateChecks.check(regex, "ab", 1, 2, true, false)).isTrue();
+    }
+    assertThat(
+            StrictStateChecks.check(
+                "(?:[a-c]|(?:(?:.)+)(?:(?:b|\\.)))", "\udc00a", 0, 2, true, false))
+        .isTrue();
+  }
+
+  @Test
+  void initialFailureCanaryShowsWhyStrictContinuationResets() {
+    var jdk = java.util.regex.Pattern.compile("(?:){0,2}a").matcher("ab");
+    assertThat(jdk.find(1)).isFalse();
+    assertThat(jdk.find())
+        .as("SafeRE #818 changed: review strict reset-domain restriction")
+        .isFalse();
+    assertThat(jdk.reset().find()).isTrue();
+    assertThat(jdk.start()).isZero();
+  }
+
+  @Test
   void stateSequencesCoverSurrogatesRegionsAndReplacement() {
     for (String regex : new String[] {".|", "a*", "(?:a|b)+", ".", "[^a]"}) {
       for (String input : new String[] {"", "a", "é中", "\udb7d\udf02A", "\ud800x\udc00"}) {

@@ -41,7 +41,9 @@ public final class WorkBoundFuzzer {
                 .build());
     String input = (unicode ? "é" : "a").repeat(length);
     long work = WorkCounter.countForTesting(() -> pattern.matcher(input).matches());
-    assertThat(work).as("instrumentation must execute").isPositive();
+    // countForTesting already rejects a build without instrumentation. Prefilters can
+    // legitimately return without visiting any NFA instructions.
+    assertThat(work).isNotNegative();
     // A forced NFA visits each instruction a bounded number of times per input position.
     // Budget scales with compiled program size, not just subject size; compilation is excluded.
     long bound = 64L * pattern.prog().size() * (input.length() + 1L);

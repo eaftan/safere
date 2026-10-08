@@ -12,7 +12,25 @@ import org.junit.jupiter.api.Test;
 
 final class FuzzDivergenceEvidenceTest {
   @Test
+  void defaultEvidenceCollectionLeavesDiagnosticsUnclaimed() {
+    var previous = Pattern.diagnostics();
+    String property = System.getProperty("safere.fuzz.divergenceEvidence");
+    System.clearProperty("safere.fuzz.divergenceEvidence");
+    Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
+    try {
+      FuzzDivergenceEvidence.begin();
+      assertThat(Pattern.diagnostics()).isSameAs(SafeReMatchDiagnostics.NONE);
+    } finally {
+      Pattern.setDiagnostics(previous);
+      if (property == null) System.clearProperty("safere.fuzz.divergenceEvidence");
+      else System.setProperty("safere.fuzz.divergenceEvidence", property);
+    }
+  }
+
+  @Test
   void signalsComeFromExecutingTheSemanticPathAndClearBetweenCases() {
+    String property = System.getProperty("safere.fuzz.divergenceEvidence");
+    System.setProperty("safere.fuzz.divergenceEvidence", "true");
     var previous = Pattern.diagnostics();
     Pattern.setDiagnostics(SafeReMatchDiagnostics.NONE);
     try {
@@ -44,6 +62,8 @@ final class FuzzDivergenceEvidenceTest {
       assertThat(FuzzDivergenceEvidence.observed()).contains("USE_PATTERN_GROUP_ZERO");
     } finally {
       Pattern.setDiagnostics(previous);
+      if (property == null) System.clearProperty("safere.fuzz.divergenceEvidence");
+      else System.setProperty("safere.fuzz.divergenceEvidence", property);
     }
   }
 }

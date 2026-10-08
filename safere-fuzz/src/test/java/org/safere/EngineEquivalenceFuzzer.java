@@ -11,9 +11,7 @@ import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 /** Engine equivalence over a small grammar, Unicode subjects and bounded find sequences. */
 public final class EngineEquivalenceFuzzer {
@@ -36,7 +34,7 @@ public final class EngineEquivalenceFuzzer {
     check(regex, input.toString(), data.consumeInt(0, input.length()));
   }
 
-  static Set<MatchStrategy> check(String regex, String input, int start) {
+  static void check(String regex, String input, int start) {
     List<EnginePathOptions> paths =
         List.of(
             EnginePathOptions.allEnabled(),
@@ -44,38 +42,23 @@ public final class EngineEquivalenceFuzzer {
             options(false, true, false),
             options(false, false, true),
             options(false, false, false));
-    Set<MatchStrategy> observed = EnumSet.noneOf(MatchStrategy.class);
-    SafeReMatchDiagnostics previous = Pattern.diagnostics();
-    Pattern.setDiagnostics(
-        new SafeReMatchDiagnostics() {
-          @Override
-          public void onOperationCompleted(OperationDiagnostics event) {
-            observed.add(event.boundaryStrategy());
-            observed.add(event.captureStrategy());
-          }
-        });
-    try {
-      List<String> expected = trace(Pattern.compile(regex, 0, paths.getLast()), input, start);
-      List<String> expectedUtf8 =
-          validScalars(input) ? utf8Trace(Pattern.compile(regex, 0, paths.getLast()), input) : null;
-      for (EnginePathOptions path : paths) {
-        Pattern pattern = Pattern.compile(regex, 0, path);
-        assertThat(trace(pattern, input, start))
-            .as("%s on %s at %s via %s", regex, escaped(input), start, path)
-            .isEqualTo(expected);
-        if (expectedUtf8 != null) {
-          List<String> utf8 = utf8Trace(pattern, input);
-          assertThat(utf8)
-              .as("UTF-8 %s on %s via %s", regex, escaped(input), path)
-              .isEqualTo(expectedUtf8);
-          // Empty-match continuation advances by UTF-16 unit versus UTF-8 code point.
-          // Fresh matches/lookingAt and the first find start at equivalent positions.
-          assertThat(utf8.subList(0, 3)).isEqualTo(trace(pattern, input, 0).subList(0, 3));
-        }
+    List<String> expected = trace(Pattern.compile(regex, 0, paths.getLast()), input, start);
+    List<String> expectedUtf8 =
+        validScalars(input) ? utf8Trace(Pattern.compile(regex, 0, paths.getLast()), input) : null;
+    for (EnginePathOptions path : paths) {
+      Pattern pattern = Pattern.compile(regex, 0, path);
+      assertThat(trace(pattern, input, start))
+          .as("%s on %s at %s via %s", regex, escaped(input), start, path)
+          .isEqualTo(expected);
+      if (expectedUtf8 != null) {
+        List<String> utf8 = utf8Trace(pattern, input);
+        assertThat(utf8)
+            .as("UTF-8 %s on %s via %s", regex, escaped(input), path)
+            .isEqualTo(expectedUtf8);
+        // Empty-match continuation advances by UTF-16 unit versus UTF-8 code point.
+        // Fresh matches/lookingAt and the first find start at equivalent positions.
+        assertThat(utf8.subList(0, 3)).isEqualTo(trace(pattern, input, 0).subList(0, 3));
       }
-      return observed;
-    } finally {
-      Pattern.setDiagnostics(previous);
     }
   }
 

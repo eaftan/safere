@@ -17,8 +17,8 @@ never makes a new input exempt from comparison.
 | --- | --- | --- | --- |
 | `StrictAsciiFuzzer` | Strict differential | Empty expressions, literals `a`, `b`, `ab`, dot, escaped dot, `[ab]`, `[^a]`, `[a-c]`; concatenation, alternation, noncapturing grouping, greedy/lazy optional/star/plus and bounded repeats. Compare compilation, `matches()`, `lookingAt()`, and the entire `find()` sequence, including whole-match text and bounds. | No flags, captures, assertions, regions, replacements, or end-state observations. Expression depth at most 3; independent subjects at most 24 pieces, including BMP, supplementary, lone-surrogate and line-terminator pieces. ASCII describes the pattern syntax, not the input alphabet. Generated witnesses and their `!` suffix variants also exercise successful and near-miss paths. |
 | `StrictPriorityFuzzer` | Strict differential | The existing finite `PriorityCases` pattern/subject pairs; compilation, matches, lookingAt and complete find traces. | No flags, captures, regions or assertions; complete finite enumeration and independent comparator validation. |
-| `StrictStateFuzzer` | Strict differential | Generated noncapturing grammar with Unicode/UTF-16 subjects; find(start), selected region/bounds sequences, reset, replacement/state and usePattern/state checks. | Region ends do not split a surrogate pair (documented scalar-quantifier divergence); starts may. Observed oracle defects have canaries; unaffected observations still compare. |
-| `EngineEquivalenceFuzzer` | Property | Small regex families over BMP, supplementary and lone-surrogate subjects; default and controlled DFA/OnePass/BitState/NFA traces, including interior UTF-16 starts; valid-scalar UTF-8 paths. | Diagnostics prove distinct engines ran. Shared parser/compiler bugs remain a blind spot; UTF-8 cannot represent lone surrogates. |
+| `StrictStateFuzzer` | Strict differential | Generated noncapturing grammar with Unicode/UTF-16 subjects; find(start), selected region/bounds sequences, reset, replacement/state and usePattern/state checks. | Region ends do not split a surrogate pair (documented scalar-quantifier divergence); starts may. Failed initial lookingAt/find(start) operations reset both matchers before strict continuation to avoid the JDK #818 state leak. Successful continuations remain compared. Observed oracle defects have canaries; unaffected observations still compare. |
+| `EngineEquivalenceFuzzer` | Property | Small regex families over BMP, supplementary and lone-surrogate subjects; default and controlled DFA/OnePass/BitState/NFA traces, including interior UTF-16 starts; valid-scalar UTF-8 paths. | An aggregate deterministic unit test uses diagnostics to prove distinct engines ran; individual fuzz inputs need not exercise every engine. Ordinary fuzz checks preserve the caller's diagnostics configuration. Shared parser/compiler bugs remain a blind spot; UTF-8 cannot represent lone surrogates. |
 | `WorkBoundFuzzer` (local/CI instrumented) | Robustness | Forced NFA full-match work bounded by compiled program size and input size. | Requires work-counters build; not enrolled in the ordinary hosted build. Not a whole-library complexity proof. |
 | `RepresentationPropertyFuzzer` | Property | Existing valid-Unicode literal, keyword, fixed-offset, grapheme, and multi-anchor families compare String and UTF-8 searches, including applicable captures and byte/UTF-16 offsets. | Only the named families extracted from `Utf8InputFuzzer`; not arbitrary representation equivalence. Shared implementation bugs can affect both results. |
 | `CaseFamilyModelFuzzer` | Model | Existing case-family members across literals, singleton classes/ranges, and negations under Unicode case-insensitive flags. | Explicit SafeRE families, including documented JDK differences; not a JDK vote or a proof for all Unicode. |
@@ -122,6 +122,10 @@ and omit only the defective JDK observation, count exclusions separately, and
 resume comparisons afterward. Text-access budget exhaustion remains an unavailable
 oracle, not agreement. A JDK update that fixes a canary requires exception review.
 
+Ordinary exploratory runs leave diagnostics disabled. A separate run with
+`-Dsafere.fuzz.divergenceEvidence=true` opts into evidence collection for the
+process when no listener is installed. Existing listeners remain owned by their
+caller. This companion run does not replace default-configuration regression replay.
 Diagnostics report instrumented intentional-path execution, currently class-syntax,
 comment quoting, exhausted-empty and usePattern group-zero paths. Finding JSON
 records a bounded set of signals. A signal does not prove the mismatch is caused
@@ -130,7 +134,10 @@ No event suppresses a comparison. Additional instrumentation requires an accurat
 implementation-side hook and model coverage; no regex scanner is introduced.
 
 The exploratory workflow runs weekly and on manual dispatch after it lands.
-Run it before releases as well and triage its archived findings. It does not file
+Run it before releases as well and manually triage its archived findings.
+Known capture, grapheme and class-intersection differences remain visible and
+can recur. Capture and grapheme divergences have no dedicated evidence hook;
+an empty signal set does not establish that a finding is a new compatibility bug. It does not file
 issues automatically. Hosted rollout and corpus migration remain deferred.
 
 Representation comparison checks fresh matches/lookingAt and the first find at
