@@ -151,7 +151,8 @@ subset of patterns.
 Possessive modifiers over statically zero-width operands are not intentional
 divergences. They can be normalized without adding consuming possessive
 semantics, so SafeRE accepts JDK-compatible forms such as `^*+`, `$?+`, and
-`()*+`.
+`()*+`. The same holds for a counted repetition with no operand of its own, as in
+`{1}+a` or `a*{1}+`, which the JDK applies to an empty expression.
 
 ## Canonical Equivalence
 

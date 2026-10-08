@@ -332,7 +332,15 @@ final class Parser {
           if ((flags & ParseFlags.PERL_X) != 0) {
             skipQuantifierModifierTrivia();
             if (pos < pattern.length() && pattern.charAt(pos) == '+') {
-              if (!canIgnorePossessiveModifierOnZeroWidthOperand()) {
+              // A counted repetition with no operand of its own, as at the start of a sequence
+              // or after another quantifier, repeats an empty expression in the JDK, so a
+              // possessive modifier on it cannot change the match.
+              boolean implicitEmptyOperand =
+                  lastTokenNonRepeatable
+                      || lastunary != null
+                      || stacktop == null
+                      || isMarker(stacktop);
+              if (!implicitEmptyOperand && !canIgnorePossessiveModifierOnZeroWidthOperand()) {
                 throw new PatternSyntaxException(
                     "possessive quantifiers are not supported", pattern, opStart);
               }
