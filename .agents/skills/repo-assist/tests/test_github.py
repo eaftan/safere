@@ -221,12 +221,13 @@ def test_closing_issue_relationship_is_metadata_only_and_paginated() -> None:
         "repository": {
           "pullRequest": {
             "closingIssuesReferences": {
+              "pageInfo": {"hasNextPage": True, "endCursor": "cursor"},
               "nodes": [
                 {
                   "number": 6,
                   "repository": {"nameWithOwner": "o/r"},
                 }
-              ]
+              ],
             }
           }
         }
@@ -237,12 +238,13 @@ def test_closing_issue_relationship_is_metadata_only_and_paginated() -> None:
         "repository": {
           "pullRequest": {
             "closingIssuesReferences": {
+              "pageInfo": {"hasNextPage": False, "endCursor": None},
               "nodes": [
                 {
                   "number": 21,
                   "repository": {"nameWithOwner": "o/r"},
                 }
-              ]
+              ],
             }
           }
         }
@@ -265,12 +267,13 @@ def test_cross_repository_closing_issue_fails_closed() -> None:
         "repository": {
           "pullRequest": {
             "closingIssuesReferences": {
+              "pageInfo": {"hasNextPage": False, "endCursor": None},
               "nodes": [
                 {
                   "number": 21,
                   "repository": {"nameWithOwner": "other/repo"},
                 }
-              ]
+              ],
             }
           }
         }
@@ -279,6 +282,30 @@ def test_cross_repository_closing_issue_fails_closed() -> None:
   ]
 
   with pytest.raises(RuntimeError, match="cross-repository closing issues: other/repo"):
+    GitHub("o/r", FakeRunner([pages])).pull_request_closing_issues(7)
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_incomplete_closing_issue_pagination_fails_closed(empty: bool) -> None:
+  pages = (
+    []
+    if empty
+    else [
+      {
+        "data": {
+          "repository": {
+            "pullRequest": {
+              "closingIssuesReferences": {
+                "nodes": [{"number": 6, "repository": {"nameWithOwner": "o/r"}}],
+                "pageInfo": {"hasNextPage": True, "endCursor": "next"},
+              }
+            }
+          }
+        }
+      }
+    ]
+  )
+  with pytest.raises(RuntimeError, match="pagination"):
     GitHub("o/r", FakeRunner([pages])).pull_request_closing_issues(7)
 
 
@@ -349,3 +376,49 @@ def test_review_comments_are_paginated_within_each_thread() -> None:
   assert "body" not in " ".join(runner.commands[1])
   assert "threadId=thread-1" in runner.commands[1]
   assert "--paginate" in runner.commands[1]
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_invalid_review_comment_pagination_fails_closed(empty: bool) -> None:
+  threads = [
+    {
+      "data": {
+        "repository": {
+          "pullRequest": {
+            "reviewThreads": {
+              "nodes": [{"id": "thread-1", "isResolved": False, "isOutdated": False}],
+              "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+          }
+        }
+      }
+    }
+  ]
+  comments = (
+    []
+    if empty
+    else [
+      {
+        "data": {
+          "node": {
+            "comments": {
+              "nodes": [],
+              "pageInfo": {"hasNextPage": True, "endCursor": None},
+            }
+          }
+        }
+      },
+      {
+        "data": {
+          "node": {
+            "comments": {
+              "nodes": [],
+              "pageInfo": {"hasNextPage": False, "endCursor": None},
+            }
+          }
+        }
+      },
+    ]
+  )
+  with pytest.raises(RuntimeError, match="pagination"):
+    GitHub("o/r", FakeRunner([threads, comments]))._review_comments(7)

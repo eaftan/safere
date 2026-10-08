@@ -213,11 +213,7 @@ class GitHub:
         f"n={number}",
       ]
     )
-    nodes = [
-      node
-      for page in pages
-      for node in page["data"]["repository"]["pullRequest"]["closingIssuesReferences"]["nodes"]
-    ]
+    nodes = self._connection_nodes(pages, "pullRequest", "closingIssuesReferences")
     foreign = {
       node["repository"]["nameWithOwner"]
       for node in nodes
@@ -524,11 +520,15 @@ class GitHub:
           f"threadId={thread_id}",
         ]
       )
+      if not isinstance(comment_pages, list) or not comment_pages:
+        raise RuntimeError("review comment pagination returned no pages")
       for index, page in enumerate(comment_pages):
         connection = page["data"]["node"]["comments"]
         info = connection["pageInfo"]
         if info["hasNextPage"] != (index < len(comment_pages) - 1):
           raise RuntimeError("review comment pagination is incomplete")
+        if info["hasNextPage"] and not info["endCursor"]:
+          raise RuntimeError("review comment pagination has no continuation cursor")
         comments.extend(
           node
           | {
