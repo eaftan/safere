@@ -398,7 +398,9 @@ while OpenJDK 26.0.1 produces two, at `[0, 4)` and `[4, 6)`.
 The [JDK 26 Pattern specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html)
 defines `\X` and `\b{g}` in terms of Unicode extended grapheme clusters.
 SafeRE intentionally follows that specification rather than the observed JDK
-behavior, consistently with the unassigned-code-point policy above. This is
+behavior, consistently with the unassigned-code-point policy above.
+[JDK-8393247](https://bugs.openjdk.org/browse/JDK-8393247) fixes the JDK's GB11
+handling in JDK 28, so this difference applies to JDK 27 and earlier. This is
 not a limitation imposed by linear-time matching: the cached GB11 prefix is
 computed in one linear pass, with constant-time queries afterward.
 
@@ -406,7 +408,9 @@ computed in one linear pass, with constant-time queries afterward.
 pictograph chains, regions, boundaries, repeated matches, and UTF-8 input.
 `EmojiZwjGraphemeFuzzer` generates arbitrary sequences over a small grapheme-property
 alphabet and checks an independent rule-based reference instead of treating
-the JDK implementation as the oracle. This is scoped coverage, not a full
+the JDK implementation as the oracle. On JDK 28 and later,
+`EmojiZwjGraphemeJdkCompatibilityTest` also checks that SafeRE and the JDK agree
+on these cases. This is scoped coverage, not a full
 UAX #29 audit; the broader assessment is tracked in
 [#954](https://github.com/eaftan/safere/issues/954).
 

@@ -16,7 +16,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Rule-based GB11 coverage beyond Unicode's GraphemeBreakTest.txt; see issue #936. */
 @DisabledForCrosscheck(
-    "SafeRE follows UAX #29 GB11; the JDK mishandles interrupted and Prepend-prefixed chains")
+    "SafeRE follows UAX #29 GB11; JDK 27 and earlier mishandle interrupted and Prepend-prefixed"
+        + " chains")
 class EmojiZwjGraphemeTest {
   @ParameterizedTest
   @ValueSource(strings = {"", "\u0301", "\u0301\u0301", "\uD83C\uDFFD"})
