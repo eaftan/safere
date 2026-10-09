@@ -1312,11 +1312,19 @@ final class MultiAnchorCompiler {
     }
     // A folded class must contain the whole simple-fold cycle. Reject ordinary classes before
     // asking for the full Unicode closure, whose index is expensive to initialize.
+    int cycleLength = 1;
     while (folded != representative) {
       if (!charClass.contains(folded) || utf8Width(folded) != utf8Width) {
         return -1;
       }
+      cycleLength++;
       folded = Inst.simpleFold(folded);
+    }
+    // Callers match the representative with simple-fold literal search, so the class must be
+    // exactly the cycle. The Unicode closure of I and i also contains U+0130 and U+0131, which the
+    // simple-fold cycle does not visit.
+    if (charClass.numRunes() != cycleLength) {
+      return -1;
     }
     CharClass expected =
         literalCharClass(representative, ParseFlags.FOLD_CASE | ParseFlags.UNICODE_CASE);

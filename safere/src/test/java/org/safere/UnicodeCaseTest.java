@@ -5,6 +5,7 @@
 
 package org.safere;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
@@ -193,6 +194,32 @@ class UnicodeCaseTest {
     // Java single-code-point casing joins dotted and dotless I to the I/i simple-fold family.
     Pattern p = Pattern.compile("i", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     assertThat(p.matcher("I").matches()).isTrue();
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "AI, !A\u0131!",
+    "AI, !A\u0130!",
+    "AIB, !A\u0131B!",
+    "ABCDI, !ABCD\u0131!",
+    "\u0131A, !\u0131A!",
+    "\u0130A, !iA!",
+    "\u00e9I, !\u00e9\u0131!",
+    "\u00e9i, !\u00e9\u0130!",
+    "\u00e9ABCI, !\u00e9ABC\u0131!"
+  })
+  void unicodeCaseFindsDottedAndDotlessIInLiteralPrefix(String regex, String input) {
+    // Under UNICODE_CASE, I and i also match U+0130 and U+0131, which the simple-fold cycle used by
+    // case-insensitive literal search does not visit.
+    int flags = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+    assertThat(java.util.regex.Pattern.compile(regex, flags).matcher(input).find()).isTrue();
+
+    Pattern pattern = Pattern.compile(regex, flags);
+    Matcher matcher = pattern.matcher(input);
+    assertThat(matcher.find()).isTrue();
+    assertThat(matcher.start()).isEqualTo(1);
+    assertThat(matcher.end()).isEqualTo(input.length() - 1);
+    assertThat(pattern.matcher(Utf8Input.validated(input.getBytes(UTF_8))).find()).isTrue();
   }
 
   @ParameterizedTest
