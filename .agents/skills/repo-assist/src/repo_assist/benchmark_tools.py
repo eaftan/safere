@@ -5,6 +5,7 @@
 
 import argparse
 import importlib.util
+import json
 import math
 from pathlib import Path
 import re
@@ -14,8 +15,74 @@ import tempfile
 
 from repo_assist.maintenance import SHA, git, write_json
 
+MANIFEST_PREFIX = "=== Requested Trials: "
+TRIAL_PARAMETERS = ("crossEngineScalingTrial", "crossEngineTrial", "crossEngineNoForkTrial", "crossEngineColdStartTrial", "specializedTrial")
 COMPLETE = "=== Benchmark Comparison Results ==="
 GUARDED = ("pom.xml", ":(glob)**/pom.xml", ".mvn", "safere-benchmarks", "materialize-benchmark-inputs.sh", "run-java-benchmarks.sh")
+
+
+def load_parser(repository):
+  """Load the maintained parser without creating files in a measured checkout."""
+  parser_path = repository / "safere-benchmarks/scripts/compare-benchmarks.py"
+  spec = importlib.util.spec_from_file_location("repo_assist_jmh_parser", parser_path)
+  parser = importlib.util.module_from_spec(spec)
+  exec(compile(parser_path.read_text(encoding="utf-8"), str(parser_path), "exec"), parser.__dict__)
+  return parser
+
+
+def validate_trials(trials):
+  if not isinstance(trials, list) or not trials or any(
+    not isinstance(trial, str) or not trial or "," in trial
+    or any(character.isspace() for character in trial) for trial in trials
+  ):
+    raise ValueError("provide one exact requested trial ID per line, without commas or whitespace")
+  if len(trials) != len(set(trials)):
+    raise ValueError("duplicate requested trial IDs")
+  return trials
+
+
+def read_trials(path):
+  return validate_trials([line.strip() for line in path.read_text().splitlines() if line.strip()])
+
+
+def requested_keys(parser, trials):
+  keys = set()
+  for trial in validate_trials(trials):
+    benchmark, separator, variant = trial.rpartition("@")
+    engine = parser._CROSS_ENGINE_VARIANTS.get(variant)
+    if not separator or not benchmark or engine is None:
+      raise ValueError(f"unsupported requested trial: {trial}")
+    key = (engine, benchmark)
+    if key in keys:
+      raise ValueError(f"duplicate requested trial identity: {trial}")
+    keys.add(key)
+  return keys
+
+
+def verify_trials(parser, rows, trials):
+  expected = requested_keys(parser, trials)
+  if rows.keys() != expected:
+    missing = sorted(expected - rows.keys())
+    unexpected = sorted(rows.keys() - expected)
+    raise ValueError(f"JMH results do not match requested trials: missing={missing}, unexpected={unexpected}")
+
+
+def trial_manifest(text, args):
+  lines = [line for line in text.splitlines() if line.startswith(MANIFEST_PREFIX)]
+  explicit = read_trials(args.trials) if getattr(args, "trials", None) else None
+  if lines:
+    if len(lines) != 1 or not lines[0].endswith(" ==="):
+      raise ValueError("invalid requested trial manifest")
+    manifest = json.loads(lines[0][len(MANIFEST_PREFIX):-4])
+    if not isinstance(manifest, dict) or manifest.get("parameter") not in TRIAL_PARAMETERS:
+      raise ValueError("invalid requested trial manifest")
+    validate_trials(manifest.get("trials"))
+    if explicit is not None and set(explicit) != set(manifest["trials"]):
+      raise ValueError("explicit requested trials differ from log manifest")
+    return manifest
+  if explicit is None:
+    raise ValueError("comparison lacks a requested trial manifest; supply --trials for a legacy log")
+  return {"parameter": args.parameter, "trials": explicit}
 
 
 def compare(args):
@@ -41,16 +108,14 @@ def compare(args):
   diff = git(worktree, "diff", "--exit-code", args.baseline, args.experiment, "--", *GUARDED, allowed=(0, 1))
   if diff.returncode:
     raise ValueError("benchmark workload/harness/build/wrapper differs; construct a controlled baseline first")
-  trials = [line.strip() for line in args.trials.read_text().splitlines() if line.strip()]
-  if not trials or any("," in trial or any(character.isspace() for character in trial) for trial in trials):
-    raise ValueError("provide one exact trial ID per line, without commas or whitespace")
-  if len(trials) != len(set(trials)):
-    raise ValueError("duplicate trial IDs")
+  trials = read_trials(args.trials)
   log.parent.mkdir(parents=True, exist_ok=True)
   with log.open("x", encoding="utf-8") as output:
+    output.write(MANIFEST_PREFIX + json.dumps({"parameter": args.parameter, "trials": trials}) + " ===\n")
     try:
       for label, sha in (("Baseline", args.baseline), ("Current", args.experiment)):
-        output.write(f"=== Running {label}: {sha} ===\n")
+        marker = f"=== Running {label}: {sha} ===\n"
+        output.write(marker)
         output.flush()
         git(worktree, "checkout", "--quiet", "--detach", sha)
         subprocess.run([args.maven, "-pl", "safere-benchmarks", "-am", "clean", "-q"], cwd=worktree, stdout=output, stderr=subprocess.STDOUT, check=True)
@@ -61,6 +126,10 @@ def compare(args):
         subprocess.run(command, cwd=worktree, stdout=output, stderr=subprocess.STDOUT, check=True)
         if git(worktree, "status", "--porcelain").stdout:
           raise ValueError("measurement modified nonignored worktree files; preserve and inspect them")
+        output.flush()
+        parser = load_parser(worktree)
+        rows = parse_rows(parser, log.read_text(encoding="utf-8").split(marker, 1)[1])
+        verify_trials(parser, rows, trials)
     finally:
       # Never stash/reset/discard files. A failed restoration is surfaced rather than hidden.
       git(worktree, "checkout", "--quiet", branch)
@@ -98,11 +167,9 @@ def parse_rows(parser, text):
 
 def extract(args):
   # Reuse the repository's maintained declared-trial parser; do not invent benchmark identities.
-  parser_path = args.repository / "safere-benchmarks/scripts/compare-benchmarks.py"
-  spec = importlib.util.spec_from_file_location("repo_assist_jmh_parser", parser_path)
-  parser = importlib.util.module_from_spec(spec)
-  spec.loader.exec_module(parser)
+  parser = load_parser(args.repository)
   text = args.log.read_text(encoding="utf-8")
+  manifest = trial_manifest(text, args)
   baseline_markers = list(re.finditer(r"^=== Running Baseline: ([0-9a-f]+) ===$", text, re.M))
   current_markers = list(re.finditer(r"^=== Running Current: ([0-9a-f]+) ===$", text, re.M))
   completed = list(re.finditer(r"^" + re.escape(COMPLETE) + r"$", text, re.M))
@@ -113,6 +180,8 @@ def extract(args):
     raise ValueError("invalid comparison marker order/revisions")
   before = parse_rows(parser, text[baseline.end():current.start()])
   after = parse_rows(parser, text[current.end():done.start()])
+  verify_trials(parser, before, manifest["trials"])
+  verify_trials(parser, after, manifest["trials"])
   if before.keys() != after.keys():
     raise ValueError("baseline and experiment benchmark/engine sets differ")
   rows = []
@@ -121,7 +190,7 @@ def extract(args):
     if b["unit"] != e["unit"]:
       raise ValueError(f"unit mismatch for {benchmark}")
     rows.append({"engine": engine, "benchmark": benchmark, "baseline": b, "experiment": e, "ratio": e["score"] / b["score"], "reportedIntervalsOverlap": max(b["score"] - b["error"], e["score"] - e["error"]) <= min(b["score"] + b["error"], e["score"] + e["error"])})
-  result = {"baselineSha": baseline[1], "experimentSha": current[1], "mode": args.mode, "ratioMeaning": "experiment score / baseline score; lower elapsed time is better; other metrics require their own direction", "rows": rows}
+  result = {"baselineSha": baseline[1], "experimentSha": current[1], "mode": args.mode, "requestedTrials": manifest["trials"], "trialParameter": manifest["parameter"], "ratioMeaning": "experiment score / baseline score; lower elapsed time is better; other metrics require their own direction", "rows": rows}
   write_json(args.output, result)
   print("| Benchmark | Engine | Unit | Baseline | Experiment | Experiment/base score | Reported intervals overlap |")
   print("|---|---|---|---:|---:|---:|---|")
@@ -143,13 +212,15 @@ def main():
   run.add_argument("--log", type=Path, required=True)
   run.add_argument("--mode", choices=("standard", "long"), default="standard")
   run.add_argument("--filter", default="CrossEngineScalingBenchmark.run")
-  run.add_argument("--parameter", choices=("crossEngineScalingTrial", "crossEngineTrial", "crossEngineNoForkTrial", "crossEngineColdStartTrial", "specializedTrial"), default="crossEngineScalingTrial")
+  run.add_argument("--parameter", choices=TRIAL_PARAMETERS, default="crossEngineScalingTrial")
   run.add_argument("--maven", default="mvn")
   run.set_defaults(func=compare)
   read = commands.add_parser("extract", help="Extract a complete paired log without unit normalization")
   read.add_argument("--repository", type=Path, required=True)
   read.add_argument("--log", type=Path, required=True)
   read.add_argument("--output", type=Path, required=True)
+  read.add_argument("--trials", type=Path, help="Expected trial list for legacy logs, or an additional manifest check")
+  read.add_argument("--parameter", choices=TRIAL_PARAMETERS, default="crossEngineScalingTrial")
   read.add_argument("--mode", choices=("standard", "long"), required=True)
   read.set_defaults(func=extract)
   args = parser.parse_args()
@@ -158,6 +229,5 @@ def main():
   except (ValueError, OSError, subprocess.CalledProcessError) as error:
     parser.exit(2, f"{error}\n")
   if args.command != "extract":
-    import json
     print(json.dumps(result, indent=2))
   return 0

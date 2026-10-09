@@ -95,6 +95,7 @@ uv run --project "$REPO_ASSIST_SKILL_DIR" --locked python \
 ```
 
 Compares exact final prepared heads, preferring a recorded fix commit, for reviewed contributors.
+Rejects reviewed records whose head or discussion timestamp differs from the supplied discovery.
 Reports real pairwise textual conflicts, ancestry, and shared files, and lists entries lacking a
 reviewed tree. `git merge-tree --write-tree` writes Git objects but changes no branch or checkout.
 Use the results as evidence for the human ordering recommendation: file overlap is not a semantic
@@ -111,7 +112,8 @@ uv run --project "$REPO_ASSIST_SKILL_DIR" --locked python \
   --repository "$REPO" --check-worktrees --output-dir "$RUN_ARTIFACTS/author-copies"
 ```
 
-Checks queue/summary/detail agreement, terminal contributor state, author-review fences, obvious
+Checks queue/summary/detail agreement, terminal contributor state with head/discussion freshness
+against the supplied discovery, author-review fences, obvious
 internal bookkeeping and hard-wrapped prose. A detailed benchmark results table requires a table in the
 author-facing review as well; documentation-only advice needs no invented benchmark table. Optional worktree checks require a clean checkout at each
 reviewed final head and ancestry from its **recorded** trunk. Output is diagnostic: exit `1` means
@@ -149,7 +151,9 @@ construct a controlled baseline with unchanged PR benchmark declarations before 
 run serially through `mvn ... clean` and `./run-java-benchmarks.sh`, preserving script-owned
 measurement settings. The helper attempts to restore the original branch after success or failure without discarding
 files. If changed files prevent restoration, it reports that error and preserves them for inspection.
-A failed run keeps its partial log and has no completion marker; use a new log path on retry.
+The log records the requested trial identities. Each arm must produce exactly those results before
+the helper writes its completion marker. A failed run keeps its partial log and has no completion
+marker; use a new log path on retry.
 Run no other Maven or benchmark job concurrently, including formatter hooks invoked by commits.
 
 ## Extract paired evidence
@@ -163,8 +167,11 @@ uv run --project "$REPO_ASSIST_SKILL_DIR" --locked python \
 ```
 
 Reuses SafeRE's maintained JMH parser. Accepts only a completed single paired log with matching
-benchmark/engine sets and native units; rejects duplicate rows, mismatched units, invalid scores,
-and incomplete comparisons. JSON preserves native scores/errors/units, revision SHAs, mode,
+benchmark/engine sets and native units. Both arms must contain every requested trial from the log
+manifest; duplicate rows, mismatched units, invalid scores, and incomplete comparisons are rejected.
+For older logs without a manifest (including `compare-branch.sh` logs), supply the original exact
+selection using `--trials resolved-trials.txt --parameter crossEngineScalingTrial`. Matching result
+sets alone cannot establish completeness. JSON also records the requested identities and parameter. JSON preserves native scores/errors/units, revision SHAs, mode,
 experiment/baseline score ratios, and overlap of JMH's reported error intervals. The table includes
 units per row, so mixed nanosecond/microsecond evidence is not silently relabeled. Lower ratios mean
 lower elapsed time; throughput and allocation have their own metric interpretation. Interval

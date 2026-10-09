@@ -196,6 +196,15 @@ def checkpoint(args):
   return {"number": number, "status": record["status"], "report": str(report_path)}
 
 
+def freshness_problems(number, item, entry):
+  """Require the saved assessment to describe the current head and discussion."""
+  return [
+    f"PR #{number}: {field} is missing or differs from current discovery"
+    for field, key in (("lastHeadSha", "headRefOid"), ("lastSeenUpdatedAt", "updatedAt"))
+    if not entry.get(field) or entry[field] != item[key]
+  ]
+
+
 def audit(args):
   report = args.report.read_text(encoding="utf-8")
   state = read_json(args.root / "state.json")
@@ -213,6 +222,8 @@ def audit(args):
     entry = state.get("prs", {}).get(str(number), {})
     if entry.get("status") not in TERMINAL:
       problems.append(f"PR #{number} has no terminal state")
+    else:
+      problems.extend(freshness_problems(number, queue[number], entry))
     try:
       span = section_span(report, number)
     except ValueError as error:
@@ -242,7 +253,7 @@ def audit(args):
     worktrees = git(args.repository, "worktree", "list", "--porcelain").stdout.split("\n\n")
     for number in queue:
       entry = state.get("prs", {}).get(str(number), {})
-      if entry.get("status") != "reviewed":
+      if entry.get("status") != "reviewed" or freshness_problems(number, queue[number], entry):
         continue
       sha = entry.get("lastFixCommit") or entry.get("preparedHeadSha")
       if not sha or not SHA.fullmatch(sha):
@@ -276,6 +287,9 @@ def merge_order(args):
     entry = state.get("prs", {}).get(str(number), {})
     if entry.get("status") != "reviewed":
       continue
+    stale = freshness_problems(number, queue[number], entry)
+    if stale:
+      raise ValueError("; ".join(stale))
     sha = entry.get("lastFixCommit") or entry.get("preparedHeadSha")
     trunk = entry.get("lastTrunkSha")
     if not sha or not SHA.fullmatch(sha) or not trunk or not SHA.fullmatch(trunk):

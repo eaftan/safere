@@ -113,8 +113,8 @@ def test_merge_order_reports_real_conflict_without_changing_head(tmp_path):
   heads=[]
   for name in ('first', 'second'):
     run_git(repo, 'checkout', '-qb', name, base); file.write_text(name+'\n'); run_git(repo, 'commit', '-qam', name); heads.append(run_git(repo, 'rev-parse', 'HEAD'))
-  d=discovery(); d['trusted'].append({**d['trusted'][0], 'number': 8, 'headRefOid': heads[1]})
-  root=tmp_path/'storage'; put(root/'state.json', {'prs': {str(n): {'status': 'reviewed', 'preparedHeadSha': sha, 'lastTrunkSha': base} for n,sha in zip((7,8), heads)}})
+  d=discovery(head=heads[0]); d['trusted'].append({**d['trusted'][0], 'number': 8, 'headRefOid': heads[1]})
+  root=tmp_path/'storage'; put(root/'state.json', {'prs': {str(n): {'status': 'reviewed', 'lastHeadSha': sha, 'lastSeenUpdatedAt': d['trusted'][0]['updatedAt'], 'preparedHeadSha': sha, 'lastTrunkSha': base} for n,sha in zip((7,8), heads)}})
   path=put(tmp_path/'discovery.json', d); old=run_git(repo, 'rev-parse', 'HEAD')
   result=m.merge_order(Namespace(root=root, discovery=path, repository=repo))
   assert result['pairs'][0]['conflict'] and result['pairs'][0]['sharedFiles']==['source.txt']
@@ -154,3 +154,30 @@ def test_refresh_new_item_uses_trust_helper_and_does_not_change_assessment_state
   assert len(calls)==2 and all('repo_assist.cli' in call[2] for call in calls)
   assert (tmp_path/'state.json').read_bytes()==before
   assert m.read_json(tmp_path/'fresh/snapshot-7.json')['pr']['number']==7
+
+
+@pytest.mark.parametrize('status', ['reviewed', 'blocked', 'defer'])
+@pytest.mark.parametrize('field', ['lastHeadSha', 'lastSeenUpdatedAt'])
+@pytest.mark.parametrize('missing', [False, True])
+def test_audit_rejects_stale_or_missing_freshness_keys(assessment, status, field, missing):
+  args, report = assessment; m.checkpoint(args)
+  state = m.read_json(args.root / 'state.json')
+  entry = state['prs']['7']; entry['status'] = status
+  if missing: del entry[field]
+  else: entry[field] = B if field == 'lastHeadSha' else '2026-10-08T00:00:00Z'
+  put(args.root / 'state.json', state)
+  check = Namespace(root=args.root, report=report, discovery=args.discovery, output_dir=None, check_worktrees=False)
+  result = m.audit(check)
+  assert not result['mechanicalChecksPassed']
+  assert any(field in problem for problem in result['problems'])
+
+
+@pytest.mark.parametrize('field', ['lastHeadSha', 'lastSeenUpdatedAt'])
+def test_merge_order_rejects_a_head_or_discussion_updated_since_review(assessment, field):
+  args, _ = assessment; m.checkpoint(args)
+  fresh = m.read_json(args.discovery)
+  key = 'headRefOid' if field == 'lastHeadSha' else 'updatedAt'
+  fresh['trusted'][0][key] = B if field == 'lastHeadSha' else '2026-10-10T00:00:00Z'
+  put(args.discovery, fresh)
+  with pytest.raises(ValueError, match=field):
+    m.merge_order(Namespace(root=args.root, discovery=args.discovery, repository=args.root))
