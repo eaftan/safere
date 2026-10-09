@@ -658,6 +658,11 @@ git diff <post-update-pre-fix-head>..HEAD > <artifact-dir>/review-fixes.patch
     After any rewrite, read the fenced review alone again. If its conclusion changes, update the
     detailed assessment and summary row before completing the report.
 
+Use the [reusable review scripts](reusable-tools.md) for these repeated mechanics: checkpoint each
+completed PR with preserved `Done` state, refresh sanitized head/discussion data, gather merge-tree
+evidence, and extract author copies for the final semantic audit. The benchmark helper supports
+exact paired wrapper runs and native-unit evidence extraction when compare-branch.sh is unsuitable.
+
 ## Contributor Report Format
 
 After the repository activity overview, include a compact decision-oriented summary of every open trusted non-draft contributor

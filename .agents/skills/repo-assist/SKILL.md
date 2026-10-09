@@ -122,6 +122,13 @@ requires all three:
 The helper determines author trust and category membership in deterministic code. Keep the three
 categories' worktrees, assessments, and state separate as their references specify.
 
+## Reusable Scripts
+
+Use [references/reusable-tools.md](references/reusable-tools.md) for contributor checkpoints,
+trusted freshness refreshes, merge-conflict evidence, report audits, and paired wrapper benchmark
+collection/extraction. The scripts take explicit run inputs and preserve category separation;
+review judgment and the final semantic reading of author-facing copies remain required.
+
 ## Report Format
 
 Write one self-contained report at the run's `reportPath`. Include the repository activity overview
