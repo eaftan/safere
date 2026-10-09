@@ -253,14 +253,16 @@ def test_closing_issue_relationship_is_metadata_only_and_paginated() -> None:
   ]
   runner = FakeRunner([pages])
 
-  assert GitHub("o/r", runner).pull_request_closing_issues(7) == frozenset({6, 21})
+  assert GitHub("o/r", runner).pull_request_closing_issues(7) == frozenset(
+    {("o/r", 6), ("o/r", 21)}
+  )
   command = " ".join(runner.commands[0])
   assert "--paginate" in runner.commands[0]
   assert "title" not in command
   assert "body" not in command
 
 
-def test_cross_repository_closing_issue_fails_closed() -> None:
+def test_closing_issue_identity_includes_repository_without_fetching_issue_text() -> None:
   pages = [
     {
       "data": {
@@ -271,8 +273,12 @@ def test_cross_repository_closing_issue_fails_closed() -> None:
               "nodes": [
                 {
                   "number": 21,
+                  "repository": {"nameWithOwner": "o/r"},
+                },
+                {
+                  "number": 21,
                   "repository": {"nameWithOwner": "other/repo"},
-                }
+                },
               ],
             }
           }
@@ -281,8 +287,66 @@ def test_cross_repository_closing_issue_fails_closed() -> None:
     }
   ]
 
-  with pytest.raises(RuntimeError, match="cross-repository closing issues: other/repo"):
-    GitHub("o/r", FakeRunner([pages])).pull_request_closing_issues(7)
+  runner = FakeRunner([pages])
+  assert GitHub("o/r", runner).pull_request_closing_issues(7) == frozenset(
+    {("o/r", 21), ("other/repo", 21)}
+  )
+  assert len(runner.commands) == 1
+  assert "body" not in " ".join(runner.commands[0])
+  assert "title" not in " ".join(runner.commands[0])
+
+
+@pytest.mark.parametrize("author", ["writer", "stranger"])
+def test_external_pr_summary_uses_original_trust_set_and_checks_author_before_text(author):
+  metadata = {
+    "data": {
+      "repository": {
+        "pullRequest": {"id": "I", "number": 2, "updatedAt": "t", "author": {"login": author}}
+      }
+    }
+  }
+  runner = FakeRunner(
+    [metadata, {"title": "safe", "body": "safe", "user": {"login": "writer"}}]
+  )
+  github = GitHub("o/r", runner).for_repository("other/repo")
+  if author == "writer":
+    assert github.trusted_pr_summary(2, frozenset({"writer"}))["body"] == "safe"
+    assert runner.commands[1] == ["gh", "api", "repos/other/repo/issues/2"]
+  else:
+    with pytest.raises(PermissionError):
+      github.trusted_pr_summary(2, frozenset({"writer"}))
+    assert len(runner.commands) == 1
+  assert "owner=other" in runner.commands[0]
+  assert "repo=repo" in runner.commands[0]
+  assert "body" not in " ".join(runner.commands[0])
+  assert not any("collaborators" in " ".join(command) for command in runner.commands)
+
+
+def test_external_pr_author_changed_during_body_fetch_fails_closed():
+  runner = FakeRunner(
+    [
+      {
+        "data": {
+          "repository": {
+            "pullRequest": {
+              "id": "I", "number": 2, "updatedAt": "t", "author": {"login": "writer"}
+            }
+          }
+        }
+      },
+      {"title": "CANARY", "body": "CANARY", "user": {"login": "stranger"}},
+    ]
+  )
+  with pytest.raises(PermissionError, match="author changed"):
+    GitHub("o/r", runner).for_repository("other/repo").trusted_pr_summary(2, frozenset({"writer"}))
+
+
+@pytest.mark.parametrize("repository", [None, "", "other", "other/repo/extra", "../repo", "o/.."])
+def test_invalid_linked_repository_fails_closed_before_any_request(repository):
+  runner = FakeRunner([])
+  with pytest.raises(ValueError, match="repository"):
+    GitHub("o/r", runner).for_repository(repository)
+  assert runner.commands == []
 
 
 @pytest.mark.parametrize("empty", [False, True])

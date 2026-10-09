@@ -7,12 +7,29 @@ uv run --project "$REPO_ASSIST_SKILL_DIR" --locked repo-assist \
   issue-activity --token <lock-token>
 ```
 
+For an explicitly requested limited sweep, add `--recent-days <days>`. This includes only issues
+currently open and created within that many days of the run's start, plus issues in any state with
+a comment posted within the same window. Comment edits alone do not qualify an older issue.
+The helper checks comment metadata even when an issue's root timestamp is unchanged, but skips
+events, linked PR context, and text pulls for excluded issues. State checkpoints for excluded
+issues are preserved. The artifact records this optional scope; state it in the report and do not
+silently make it the default for future sweeps. Without this option, the full-backlog workflow below
+applies.
+
 Read only the sanitized artifact returned by the helper. It paginates body-free metadata for all
 issue states, comments, and closure/reopening events. Issue titles/bodies require a trusted issue
 author; comment bodies independently require a trusted comment author. A trusted comment on an
 untrusted issue can be assessed, but the untrusted issue title/body remains unavailable. Untrusted
 activity and linked PRs expose metadata only. Trust checks, pagination, content pulls, and activity
 comparisons belong to Python; the model judges meaning and coverage from this sanitized output.
+
+Cross-repository PR references are supported. The helper resolves each PR in its own repository,
+checks its author against the configured repository's trusted-author set, and fetches its summary
+only when that author is trusted. It does not add external collaborators to the trust set. Valid
+external references do not abort collection; untrusted ones expose metadata only. Author-check,
+metadata, or pagination failures still fail closed. External PRs provide issue context rather than
+entering the contributor review queue; do not check out or repair their branches. Use the sanitized
+external summaries instead of invoking discovery or snapshots in another repository to expand trust.
 
 The window begins at the last successful `lastIssueActivityCutoff`, falling back to
 `lastRunCompletedAt` for older state. With neither timestamp, establish a baseline and review the
@@ -32,10 +49,14 @@ requested outcome, changes since the last run, decisions in trusted discussion, 
 and maintainer action. Carry unchanged assessments forward in full. Issue triage alone does not
 authorize implementing code, closing issues, posting comments, or opening a PR.
 
-For each issue, list known PRs with URL, state, draft status, relationship (`fixes` or `references`),
-coverage (full, partial, related only, unknown), evidence, and remaining work. Include drafts and
+For each issue, list known PRs with repository-qualified identity, URL, state, draft status,
+relationship (`fixes` or `references`), coverage (full, partial, related only, unknown), evidence,
+and remaining work. Include drafts and
 owner-authored PRs for coverage even though they are excluded from contributor code reviews. Refresh
-previously known PR identities after merge/closure to retain implementation history. A closing link
+previously known PR identities after merge/closure to retain implementation history. PR caches,
+deduplication, checkpoints, and closing-issue relationships use `(repository, number)` identities;
+equal numbers in different repositories must not share evidence or imply issue coverage. Legacy
+checkpoints without a PR repository refer to the configured repository. A closing link
 or reference alone does not establish complete implementation. Use trusted PR context and code
 reviews to assess coverage; untrusted PR coverage remains unknown. Distinguish no known addressing
 PR from an uninspected linked PR. Merged/closed PRs are history rather than active implementation

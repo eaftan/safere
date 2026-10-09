@@ -3,6 +3,7 @@
 
 import json
 from argparse import Namespace
+from pathlib import Path
 
 import pytest
 from repo_assist.cli import begin, end, ensure_root, parser
@@ -32,6 +33,27 @@ def test_existing_pr_commands_remain_compatible():
     parser().parse_args(["discover", "issue"])
 
 
+def test_recent_issue_scope_is_opt_in_and_passed_to_the_collector(tmp_path, capsys, monkeypatch):
+  from repo_assist import cli
+
+  assert parser().parse_args(["issue-activity", "--token", "t"]).recent_days is None
+  begin(Namespace(root=tmp_path))
+  metadata = json.loads(capsys.readouterr().out)
+  args = parser().parse_args([
+    "--root", str(tmp_path), "issue-activity", "--token", metadata["token"], "--recent-days", "14",
+  ])
+  calls = []
+
+  def collect(*args, **kwargs):
+    calls.append(kwargs)
+    return {"issues": []}, {}
+
+  monkeypatch.setattr(cli, "collect_activity", collect)
+  assert cli.issue_activity(args) == 0
+  assert calls == [{"recent_days": 14}]
+  end(Namespace(root=tmp_path, token=metadata["token"], interrupted=True))
+
+
 def test_run_lifecycle_updates_state_and_releases_lock(tmp_path, capsys):
   assert begin(Namespace(root=tmp_path)) == 0
   metadata = json.loads(capsys.readouterr().out)
@@ -46,6 +68,42 @@ def test_run_lifecycle_updates_state_and_releases_lock(tmp_path, capsys):
   state = json.loads((tmp_path / "state.json").read_text())
   assert "lastRunCompletedAt" in state
   assert not (tmp_path / "locks" / "run.lockdir").exists()
+
+
+@pytest.mark.parametrize("has_prior_report", [False, True])
+def test_latest_pointer_advances_only_after_successful_completion(
+  tmp_path, capsys, has_prior_report
+):
+  latest = tmp_path / "LATEST.md"
+  prior = "Latest run report: previous-completed-report.md\n" if has_prior_report else None
+  if prior is not None:
+    latest.write_text(prior)
+
+  def assert_prior_pointer():
+    if prior is None:
+      assert not latest.exists()
+    else:
+      assert latest.read_text() == prior
+
+  begin(Namespace(root=tmp_path))
+  metadata = json.loads(capsys.readouterr().out)
+  assert_prior_pointer()
+  with pytest.raises(RuntimeError, match="issue activity collection"):
+    end(Namespace(root=tmp_path, token=metadata["token"]))
+  assert_prior_pointer()
+  end(Namespace(root=tmp_path, token=metadata["token"], interrupted=True))
+  assert_prior_pointer()
+
+  begin(Namespace(root=tmp_path))
+  metadata = json.loads(capsys.readouterr().out)
+  assert_prior_pointer()
+  (tmp_path / "locks" / "run.lockdir" / "issue-activity.json").write_text(
+    json.dumps({"cutoff": metadata["startedAt"], "checkpoint": {}})
+  )
+  end(Namespace(root=tmp_path, token=metadata["token"]))
+  report = metadata["reportPath"]
+  assert latest.read_text() == f"Latest run report: {report}\n"
+  assert "Status: completed" in Path(report).read_text()
 
 
 def test_activity_checkpoint_advances_only_on_successful_report(tmp_path, capsys):

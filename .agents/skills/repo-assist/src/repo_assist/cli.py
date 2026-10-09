@@ -76,7 +76,6 @@ def begin(args: argparse.Namespace) -> int:
     f"# Repo Assist {run_id}\n\nStarted: {iso(started)}\n\nStatus: running\n",
     encoding="utf-8",
   )
-  (args.root / "LATEST.md").write_text(f"Latest run report: {report}\n", encoding="utf-8")
   state_path = args.root / "state.json"
   state = json.loads(state_path.read_text(encoding="utf-8"))
   state["lastRunStartedAt"] = iso(started)
@@ -120,6 +119,7 @@ def end(args: argparse.Namespace) -> int:
   state["issueActivity"] = pending["checkpoint"]
   state["lastRunCompletedAt"] = iso(now())
   state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+  (args.root / "LATEST.md").write_text(f"Latest run report: {report}\n", encoding="utf-8")
   shutil.rmtree(lock)
   return 0
 
@@ -175,11 +175,14 @@ def issue_activity(args: argparse.Namespace) -> int:
   (lock / "issue-activity.json").unlink(missing_ok=True)
   state = json.loads((args.root / "state.json").read_text(encoding="utf-8"))
   since = state.get("lastIssueActivityCutoff") or state.get("lastRunCompletedAt")
+  recent_days = getattr(args, "recent_days", None)
+  scope = {"recent_days": recent_days} if recent_days is not None else {}
   output, checkpoint = collect_activity(
     GitHub(args.repository),
     since,
     metadata["startedAt"],
     state.get("issueActivity", {}),
+    **scope,
   )
   # Publish only after all trust checks and pagination complete successfully.
   artifact = args.root / "artifacts" / metadata["runId"] / "issue-activity.json"
@@ -278,6 +281,10 @@ def parser() -> argparse.ArgumentParser:
   snap.set_defaults(func=snapshot)
   activity = commands.add_parser("issue-activity")
   activity.add_argument("--token", required=True)
+  activity.add_argument(
+    "--recent-days", type=int,
+    help="include only newly created open issues or issues with comments posted within this window",
+  )
   activity.set_defaults(func=issue_activity)
   feedback = commands.add_parser("authored-feedback")
   feedback.add_argument("--token", required=True)

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -22,10 +23,25 @@ def subprocess_runner(command: list[str]) -> str:
   return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
+def repository_name(value: Any) -> str:
+  """Validate a repository identity before using it to route a GitHub request."""
+  if (
+    not isinstance(value, str)
+    or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", value)
+    or any(part in {".", ".."} for part in value.split("/"))
+  ):
+    raise ValueError("invalid linked repository metadata; expected owner/name")
+  return value
+
+
 @dataclass(frozen=True)
 class GitHub:
   repository: str
   runner: Runner = subprocess_runner
+
+  def for_repository(self, repository: str) -> GitHub:
+    """Route linked-item requests without discovering or expanding author trust."""
+    return GitHub(repository_name(repository), self.runner)
 
   def _json(self, command: list[str]) -> Any:
     result = json.loads(self.runner(command))
@@ -187,7 +203,8 @@ class GitHub:
       )
     return metadata
 
-  def pull_request_closing_issues(self, number: int) -> frozenset[int]:
+  def pull_request_closing_issues(self, number: int) -> frozenset[tuple[str, int]]:
+    """Return body-free closing-issue identities, including their repositories."""
     owner, repo = self.repository.split("/", 1)
     query = (
       "query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){"
@@ -214,17 +231,10 @@ class GitHub:
       ]
     )
     nodes = self._connection_nodes(pages, "pullRequest", "closingIssuesReferences")
-    foreign = {
-      node["repository"]["nameWithOwner"]
+    return frozenset(
+      (repository_name(node["repository"]["nameWithOwner"]), node["number"])
       for node in nodes
-      if node["repository"]["nameWithOwner"] != self.repository
-    }
-    if foreign:
-      repositories = ", ".join(sorted(foreign))
-      raise RuntimeError(
-        f"pull request has unsupported cross-repository closing issues: {repositories}"
-      )
-    return frozenset(node["number"] for node in nodes)
+    )
 
   def discover(self, trusted: frozenset[str], limit: int = 1000) -> dict[str, Any]:
     """Preserve the existing PR discovery interface."""

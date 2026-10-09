@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from repo_assist.github import GitHub, fingerprint
@@ -19,21 +19,27 @@ def timestamp(value: str) -> datetime:
 
 
 def collect_activity(
-  github: GitHub, since: str | None, cutoff: str, previous: dict[str, Any]
+  github: GitHub, since: str | None, cutoff: str, previous: dict[str, Any],
+  *, recent_days: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
   """Return a report input and pending checkpoint without modifying persistent state."""
   lower = timestamp(since) if since else None
   if lower is not None and lower > timestamp(cutoff):
     raise ValueError("activity cutoff precedes the last successful run")
+  if recent_days is not None and recent_days <= 0:
+    raise ValueError("recent issue window must be positive")
+  recent_lower = (
+    timestamp(cutoff) - timedelta(days=recent_days) if recent_days is not None else None
+  )
   trusted = github.trusted_users()
   issues = github.all_issue_metadata()
   # Include drafts and owner PRs for issue coverage even if excluded from code review.
   prs = github.discover_items("pr", trusted)
   open_prs = prs["trusted"] + prs["drafts"] + prs["untrusted"]
-  closing: dict[int, list[dict[str, Any]]] = {}
+  closing: dict[tuple[str, int], list[dict[str, Any]]] = {}
   for pr in open_prs:
-    for number in github.pull_request_closing_issues(pr["number"]):
-      closing.setdefault(number, []).append(pr)
+    for identity in github.pull_request_closing_issues(pr["number"]):
+      closing.setdefault(identity, []).append(pr)
   output: dict[str, Any] = {
     "since": since,
     "cutoff": cutoff,
@@ -41,12 +47,17 @@ def collect_activity(
     "trustedAuthors": sorted(trusted),
     "issues": [],
   }
-  checkpoint: dict[str, Any] = {}
-  pr_cache: dict[int, dict[str, Any]] = {}
+  if recent_lower is not None:
+    output["scope"] = {
+      "recentDays": recent_days,
+      "since": recent_lower.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+    }
+  # A limited run must not erase checkpoints for issues it deliberately excludes.
+  checkpoint: dict[str, Any] = dict(previous) if recent_lower is not None else {}
+  repositories = {github.repository: github}
+  pr_cache: dict[tuple[str, int], dict[str, Any]] = {}
   for meta in issues:
     number = meta["number"]
-    old = previous.get(str(number))
-    events = github.issue_state_events(number)
     comments = github._metadata_nodes("issue", number, "comments")
     comment_state = {
       node["id"]: {key: node[key] for key in ("createdAt", "updatedAt", "author")}
@@ -54,6 +65,13 @@ def collect_activity(
     }
     if len(comment_state) != len(comments):
       raise RuntimeError("duplicate comment metadata during pagination")
+    if recent_lower is not None and not (
+      (meta["state"] == "OPEN" and timestamp(meta["createdAt"]) >= recent_lower)
+      or any(timestamp(node["createdAt"]) >= recent_lower for node in comments)
+    ):
+      continue
+    old = previous.get(str(number))
+    events = github.issue_state_events(number)
     links = github._linked_items("issue", number)
     # Closing-only links can disappear from open-PR discovery after merging or closing.
     # Prior identities are discovery seeds; re-read current metadata and author trust below.
@@ -61,11 +79,11 @@ def collect_activity(
       {
         "__typename": "PullRequest",
         "number": pr["number"],
-        "repository": {"nameWithOwner": github.repository},
+        "repository": {"nameWithOwner": pr.get("repository", github.repository)},
       }
       for pr in (old or {}).get("pullRequests", [])
     )
-    for pr in closing.get(number, []):
+    for pr in closing.get((github.repository, number), []):
       links.append(
         {
           "__typename": "PullRequest",
@@ -80,20 +98,22 @@ def collect_activity(
       if link.get("__typename") != "PullRequest":
         continue
       repository = (link.get("repository") or {}).get("nameWithOwner")
-      if repository != github.repository:
-        raise RuntimeError("cross-repository issue coverage is unsupported")
+      if repository not in repositories:
+        repositories[repository] = github.for_repository(repository)
+      linked_github = repositories[repository]
       pr_number = link["number"]
-      if pr_number in seen:
+      identity = (repository, pr_number)
+      if identity in seen:
         continue
-      seen.add(pr_number)
-      if pr_number not in pr_cache:
-        pr_meta = github.item_metadata("pr", pr_number)
-        pr_closing = github.pull_request_closing_issues(pr_number)
-        pr_cache[pr_number] = {
+      seen.add(identity)
+      if identity not in pr_cache:
+        pr_meta = linked_github.item_metadata("pr", pr_number)
+        pr_closing = linked_github.pull_request_closing_issues(pr_number)
+        pr_cache[identity] = {
           "metadata": pr_meta,
           "closingIssues": sorted(pr_closing),
         }
-      pr = pr_cache[pr_number]
+      pr = pr_cache[identity]
       safe_pr = {
         key: pr["metadata"][key]
         for key in (
@@ -109,10 +129,13 @@ def collect_activity(
       contexts.append(
         {
           **safe_pr,
-          "relationship": "fixes" if number in pr["closingIssues"] else "references",
+          "repository": repository,
+          "relationship": (
+            "fixes" if (github.repository, number) in pr["closingIssues"] else "references"
+          ),
         }
       )
-    contexts.sort(key=lambda item: item["number"])
+    contexts.sort(key=lambda item: (item["repository"], item["number"]))
     current = {
       "metadata": meta,
       "comments": comment_state,
@@ -153,7 +176,7 @@ def collect_activity(
     )
     changed = old is not None and any(current[key] != old.get(key) for key in current)
     # Establish a baseline on the first run; include open backlog plus all recent activity.
-    selected = meta["state"] == "OPEN" or new or recent or changed
+    selected = recent_lower is not None or meta["state"] == "OPEN" or new or recent or changed
     if not selected:
       if old and "contentFingerprint" in old:
         current["contentFingerprint"] = old["contentFingerprint"]
@@ -180,11 +203,12 @@ def collect_activity(
       value = dict(context)
       value["trustedAuthor"] = value["author"] in trusted
       if value["trustedAuthor"]:
-        cache = pr_cache[value["number"]]
+        linked_github = repositories[value["repository"]]
+        cache = pr_cache[(value["repository"], value["number"])]
         if "summary" not in cache:
-          cache["summary"] = github.trusted_pr_summary(value["number"], trusted)
+          cache["summary"] = linked_github.trusted_pr_summary(value["number"], trusted)
         value["snapshot"] = cache["summary"]
-        if github.item_metadata("pr", value["number"]) != cache["metadata"]:
+        if linked_github.item_metadata("pr", value["number"]) != cache["metadata"]:
           raise RuntimeError("linked PR changed during activity collection; retry")
       item["pullRequests"].append(value)
     after = github.item_metadata("issue", number)

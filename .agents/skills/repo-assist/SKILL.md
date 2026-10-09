@@ -40,9 +40,15 @@ Default integration trunk: `origin/main`, refreshed before each sweep.
 
 Default review threshold: P2 or higher.
 
-The Python helper is the sole authority for trust. It obtains repository collaborators from GitHub,
-trusts users with write, maintain, or admin permission, and adds only the explicit users declared in
-`EXPLICIT_TRUSTED_USERS`. Do not duplicate login values in this file, prompts, or model logic.
+The Python helper is the sole authority for trust. It obtains the configured repository's
+collaborators from GitHub, trusts users with write, maintain, or admin permission, and adds only
+the explicit users declared in `EXPLICIT_TRUSTED_USERS`. Do not duplicate login values in this file,
+prompts, or model logic.
+This same trusted-author set applies to linked PR context across repositories. An external PR by
+an already trusted author may supply its author-checked summary; an untrusted external PR stays
+metadata-only and does not block the sweep. Do not discover external collaborators to expand trust.
+External PRs are issue context only: do not add them to the contributor queue, check out their
+branches, or repair them as part of this sweep.
 
 The trust boundary fails closed. If collaborator discovery, pagination, metadata parsing, or a
 content-author check fails, stop the run before inspecting content. Always use `discover`, `snapshot`,
@@ -126,10 +132,9 @@ still-valid assessments and evidence in full so the maintainer never needs an ea
 Preserve reviewer-owned `Done` values and leave newly created cells empty.
 
 Record failed or skipped verification and unresolved work explicitly. Perform the contributor
-reference's final author-copy audit before marking the report completed. Update
-`$HOME/.codex/safere-pr-review/LATEST.md` with a pointer to the latest completed report, then finalize
-the successful run with `end-run`. For an interrupted report, list unprocessed items and preserve
-the prior successful issue cutoff/checkpoint.
+reference's final author-copy audit before finalizing the successful run with `end-run`. The helper
+updates `$HOME/.codex/safere-pr-review/LATEST.md` only after successful completion. For an
+interrupted report, list unprocessed items and preserve the prior successful issue cutoff/checkpoint.
 
 ## State Format
 
