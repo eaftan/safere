@@ -14,6 +14,7 @@ Commands in these guides run from the repository root unless stated otherwise.
 | [UTF-8 matching](UTF8.md) | Input ownership, byte coordinates, replacement, and optional Vector scanning |
 | [Multi-pattern matching](PATTERN_SET.md) | Compiling and querying a set of patterns |
 | [Diagnostics](DIAGNOSTICS.md) | Static analysis, runtime events, and aggregation |
+| [Performance](PERFORMANCE.md) | Compiling and caching patterns, writing efficient patterns, and measuring |
 | [Benchmark report](../BENCHMARKS.md) | Measurements, methodology, and published artifacts |
 
 ## Contributing and maintaining

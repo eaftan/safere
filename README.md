@@ -79,6 +79,8 @@ if (matcher.find()) {
 Use `find()` to search, `matches()` to match the whole input, and `lookingAt()`
 to match from the beginning. Compiled patterns are reusable and thread-safe;
 matchers hold mutable state and must not be shared between threads.
+`Pattern.compile` does more work than in `java.util.regex`, so compile each
+pattern once and reuse it; see [performance](docs/PERFORMANCE.md).
 
 For supported uses of `java.util.regex`, migration starts with changing the
 `Pattern` and `Matcher` imports. The [migration guide](docs/MIGRATION.md)
@@ -93,6 +95,7 @@ in your application's tests.
 - [Direct UTF-8 matching](docs/UTF8.md)
 - [Multi-pattern matching](docs/PATTERN_SET.md)
 - [Pattern analysis and runtime diagnostics](docs/DIAGNOSTICS.md)
+- [Performance: compiling, caching, and writing efficient patterns](docs/PERFORMANCE.md)
 - [All guides](docs/README.md), including architecture and contributor workflows
 
 ## Performance

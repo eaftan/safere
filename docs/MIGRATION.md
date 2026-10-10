@@ -49,3 +49,10 @@ The crosscheck facade runs the JDK engine too, so use it for validation on
 controlled inputs. It does not provide SafeRE's linear-time guarantee for the
 combined operation. A reported difference may be an intentional divergence;
 include the trace when reporting an unexpected difference.
+
+## Performance
+
+SafeRE does more work than `java.util.regex` when compiling a pattern, so that
+matching is fast and linear in the input. Code that compiles a pattern for
+every match, including calls to the static `Pattern.matches`, should reuse
+compiled patterns instead. See [performance](PERFORMANCE.md).
