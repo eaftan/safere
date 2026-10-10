@@ -147,6 +147,14 @@
   },
   "inputs": [
     {
+      "id": "compile.timestamp.input",
+      "recipe": {
+        "kind": "literal",
+        "text": "prefix 2026-03-31T14:22:08 suffix"
+      },
+      "shared": true
+    },
+    {
       "id": "crossEngine.RegexBenchmark.literalMatch.input",
       "recipe": {
         "kind": "literal",
@@ -7627,6 +7635,104 @@
       "measurement": {
         "mode": "compileOnly",
         "timingUnit": "microseconds"
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindMedium",
+      "operation": "compileAndFind",
+      "patterns": [
+        {
+          "java": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})",
+              "reason": "Rust regex gives \\d Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})",
+              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputs": [
+        "compile.timestamp.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindAlternation",
+      "operation": "compileAndFind",
+      "patterns": [
+        "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy"
+      ],
+      "inputs": [
+        "crossEngine.RegexBenchmark.alternationFind.input"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.firstCompileMedium",
+      "operation": "compile",
+      "patterns": [
+        {
+          "java": "(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})",
+          "alternates": {
+            "rust-regex": {
+              "pattern": "([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})",
+              "reason": "Rust regex gives \\d Unicode semantics"
+            },
+            "dotnet": {
+              "pattern": "([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})",
+              "reason": ".NET gives \\d Unicode semantics while Java defaults to ASCII"
+            }
+          }
+        }
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; measure one compiler variant per fresh process.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "singleShotColdStart",
+        "timingUnit": "milliseconds",
+        "constraints": [
+          "freshProcessPerInvocation"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.firstCompileAlternation",
+      "operation": "compile",
+      "patterns": [
+        "foo|bar|baz|qux|quux|corge|grault|garply|waldo|fred|plugh|xyzzy"
+      ],
+      "inputRepresentations": [
+        "javaString"
+      ],
+      "inputRepresentationReason": "Compilation has no subject input; measure one compiler variant per fresh process.",
+      "resultConsumption": "compiledObject",
+      "measurement": {
+        "mode": "singleShotColdStart",
+        "timingUnit": "milliseconds",
+        "constraints": [
+          "freshProcessPerInvocation"
+        ]
       }
     },
     {

@@ -147,9 +147,8 @@ public final class Pattern implements Serializable {
   private final transient RejectPrefilter rejectPrefilter;
 
   /**
-   * Lazily computed OnePass analysis results. Holds the OnePass automaton (if eligible) and derived
-   * flags ({@code canOnePassFind}, {@code canOnePassSubmatch}). Computed on first access to avoid
-   * paying the OnePass BFS cost at compile time.
+   * OnePass analysis results, eagerly computed for eligible patterns. Holds the OnePass automaton
+   * and derived flags ({@code canOnePassFind}, {@code canOnePassSubmatch}).
    */
   private transient volatile OnePassAnalysis onePassAnalysis;
 
@@ -161,22 +160,21 @@ public final class Pattern implements Serializable {
   private transient volatile boolean innerCapturesObserved;
 
   /**
-   * Lazily computed DFA equivalence-class setup for the forward program. Shared across all Matcher
-   * instances. Computed on first access to avoid paying the boundary-scan cost at compile time.
+   * Eagerly computed DFA equivalence-class setup for the forward program, shared across all Matcher
+   * instances.
    */
   private transient volatile Dfa.Setup forwardDfaSetup;
 
   /**
-   * Reverse-compiled program for backward DFA matching. Lazily computed on first access to avoid
-   * paying the compilation cost for patterns that never need it (e.g., anchored patterns, patterns
-   * used only with {@code matches()} or {@code lookingAt()}).
+   * Reverse-compiled program for backward DFA matching. Eagerly computed when this pattern can use
+   * the reverse DFA, sharing the forward compiler's direction-independent preparation.
    */
   private transient volatile Prog reverseProg;
 
   private transient volatile Prog flatReverseProg;
   private transient volatile Prog flatReverseDfaProg;
 
-  /** Lazily computed DFA setup for the reverse program. Computed alongside {@link #reverseProg}. */
+  /** DFA setup built once alongside the final {@link #flatReverseDfaProg}. */
   private transient volatile Dfa.Setup reverseDfaSetup;
 
   /**
@@ -213,7 +211,7 @@ public final class Pattern implements Serializable {
   @SuppressWarnings("ThreadLocalUsage")
   private final transient ThreadLocal<Dfa> cachedReverseDfa = new ThreadLocal<>();
 
-  /** Holder for lazily computed OnePass analysis results. */
+  /** Holder for OnePass analysis results. */
   private record OnePassAnalysis(
       OnePass onePass, boolean canPrimary, boolean canFind, boolean canSubmatch) {
     static final OnePassAnalysis DISABLED = new OnePassAnalysis(null, false, false, false);
@@ -223,6 +221,7 @@ public final class Pattern implements Serializable {
       String pattern,
       int flags,
       Prog prog,
+      Compiler.Prepared prepared,
       Regexp ast,
       AstAnalysis astAnalysis,
       MatchDescriptor matchDescriptor,
@@ -239,7 +238,7 @@ public final class Pattern implements Serializable {
       this.flatProg.flatten();
       this.flatProg.freeze();
       if (prog.numLoopRegs() > 0) {
-        Prog dfaProg = Compiler.compileForDfa(ast);
+        Prog dfaProg = Compiler.compileForDfa(prepared, false);
         if (dfaProg != null) {
           this.flatDfaProg = new Prog(dfaProg);
           this.flatDfaProg.flatten();
@@ -310,7 +309,7 @@ public final class Pattern implements Serializable {
     }
     forwardDfaSetup();
     if (canUseReverseDfa()) {
-      flatReverseDfaProg();
+      flatReverseDfaProg(prepared);
     }
 
     SafeReMatchDiagnostics listener = diagnostics();
@@ -432,7 +431,8 @@ public final class Pattern implements Serializable {
     int effectiveFlags = effectiveFlags(flags);
     int parseFlags = toParseFlags(effectiveFlags);
     Regexp re = Parser.parse(regex, parseFlags);
-    Prog compiled = Compiler.compile(re);
+    Compiler.Prepared prepared = Compiler.prepare(re);
+    Prog compiled = Compiler.compile(prepared, false);
     if (compiled == null) {
       throw new PatternSyntaxException("compiled program too large", regex, -1);
     }
@@ -455,6 +455,7 @@ public final class Pattern implements Serializable {
         regex,
         effectiveFlags,
         compiled,
+        prepared,
         re,
         astAnalysis,
         matchDescriptor,
@@ -1326,9 +1327,8 @@ public final class Pattern implements Serializable {
   }
 
   /**
-   * Returns the reverse-compiled program for backward DFA matching. The reverse program is compiled
-   * lazily on first access, since many patterns never need it (anchored patterns, patterns used
-   * only with {@code matches()} or {@code lookingAt()}, single-find workloads).
+   * Returns the reverse-compiled program for backward DFA matching. Eligible patterns prepare this
+   * program during construction; otherwise an explicit request compiles it on first access.
    *
    * <p>Thread-safe via volatile: benign data race at worst compiles twice, but {@link Prog} is
    * effectively immutable once constructed.
@@ -1350,7 +1350,6 @@ public final class Pattern implements Serializable {
         frp = new Prog(rp);
         frp.flatten();
         frp.freeze();
-        reverseDfaSetup = Dfa.buildSetup(frp);
         flatReverseProg = frp;
       }
     }
@@ -1359,11 +1358,20 @@ public final class Pattern implements Serializable {
 
   Prog flatReverseDfaProg() {
     Prog frp = flatReverseDfaProg;
+    return frp != null ? frp : flatReverseDfaProg(Compiler.prepare(ast));
+  }
+
+  private Prog flatReverseDfaProg(Compiler.Prepared prepared) {
+    Prog frp = flatReverseDfaProg;
     if (frp == null) {
-      Prog rp = reverseProg();
+      Prog rp = reverseProg;
+      if (rp == null) {
+        rp = Compiler.compile(prepared, true);
+        reverseProg = rp;
+      }
       if (rp != null) {
         if (rp.numLoopRegs() > 0) {
-          Prog dfaRp = Compiler.compileForDfa(ast, true);
+          Prog dfaRp = Compiler.compileForDfa(prepared, true);
           if (dfaRp != null) {
             frp = new Prog(dfaRp);
             frp.flatten();
