@@ -438,7 +438,8 @@ public final class Pattern implements Serializable {
     // Language-shape accelerators should see through source-only grouping. Correctness guards
     // below still inspect the source AST because source quantifiers carry matching semantics that
     // simplification deliberately lowers away.
-    Regexp metadataAst = Simplifier.simplify(re);
+    Regexp metadataAst =
+        prepared.simplifiedSource() != null ? prepared.simplifiedSource() : Simplifier.simplify(re);
     if (metadataAst == null) {
       throw new PatternSyntaxException("pattern too large to simplify", regex, -1);
     }
