@@ -9,60 +9,76 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 import java.nio.file.Path;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class UnicodeTableGeneratorOptionsTest {
   @Test
-  void defaultsToCheckedInData() {
+  void defaultsToCheckedInLicense() {
     UnicodeTableGenerator.Options options = UnicodeTableGenerator.Options.parse();
-    Path data = Path.of("safere-unicode/data/17.0.0");
     assertThat(options.output())
         .isEqualTo(Path.of("safere/src/main/java/org/safere/UnicodeGeneratedTables.java"));
-    assertThat(options.sources()).isEqualTo(GraphemeTableGenerator.Sources.inDirectory(data));
-    assertThat(options.unicodeLicense()).isEqualTo(data.resolve("LICENSE.txt"));
-    assertThat(options.unicodeVersion()).isEqualTo("17.0.0");
+    assertThat(options.unicodeLicense())
+        .isEqualTo(Path.of("safere/src/main/resources/META-INF/LICENSE-Unicode.txt"));
   }
 
   @Test
-  void outputOnlyKeepsDefaultData() {
+  void outputOnlyKeepsDefaultLicense() {
     UnicodeTableGenerator.Options options = UnicodeTableGenerator.Options.parse("out/Tables.java");
     assertThat(options.output()).isEqualTo(Path.of("out/Tables.java"));
-    assertThat(options.sources())
-        .isEqualTo(
-            GraphemeTableGenerator.Sources.inDirectory(Path.of("safere-unicode/data/17.0.0")));
+    assertThat(options.unicodeLicense())
+        .isEqualTo(Path.of("safere/src/main/resources/META-INF/LICENSE-Unicode.txt"));
   }
 
   @Test
-  void dataDirectoryAndPerFileOverrides() {
+  void licenseAndOutputOverrides() {
     UnicodeTableGenerator.Options options =
-        UnicodeTableGenerator.Options.parse(
-            "--unicode-data=ucd",
-            "--grapheme-break-property=ucd/auxiliary/GraphemeBreakProperty.txt",
-            "--emoji-data=ucd/emoji/emoji-data.txt",
-            "--unicode-license=LICENSE",
-            "--unicode-version=18.0.0",
-            "out/Tables.java");
+        UnicodeTableGenerator.Options.parse("--unicode-license=LICENSE", "out/Tables.java");
     assertThat(options.output()).isEqualTo(Path.of("out/Tables.java"));
-    assertThat(options.sources())
-        .isEqualTo(
-            new GraphemeTableGenerator.Sources(
-                Path.of("ucd/auxiliary/GraphemeBreakProperty.txt"),
-                Path.of("ucd/DerivedCoreProperties.txt"),
-                Path.of("ucd/emoji/emoji-data.txt")));
     assertThat(options.unicodeLicense()).isEqualTo(Path.of("LICENSE"));
-    assertThat(options.unicodeVersion()).isEqualTo("18.0.0");
   }
 
   @Test
   void rejectsUnknownOptionsMissingValuesAndExtraOutputs() {
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> UnicodeTableGenerator.Options.parse("--unicode-dat=ucd"))
+        .isThrownBy(() -> UnicodeTableGenerator.Options.parse("--unicode-data=ucd"))
         .withMessageContaining("Usage:");
     assertThatIllegalArgumentException()
-        .isThrownBy(() -> UnicodeTableGenerator.Options.parse("--unicode-version="))
+        .isThrownBy(() -> UnicodeTableGenerator.Options.parse("--unicode-license="))
         .withMessageContaining("Usage:");
     assertThatIllegalArgumentException()
         .isThrownBy(() -> UnicodeTableGenerator.Options.parse("a.java", "b.java"))
         .withMessageContaining("Usage:");
+  }
+
+  @Test
+  void buildsGraphemeTablesFromIcu4j() {
+    Map<String, int[][]> tables = UnicodeTableGenerator.buildGraphemeTables();
+    assertThat(tables)
+        .containsOnlyKeys(
+            "Control",
+            "Extend",
+            "Prepend",
+            "SpacingMark",
+            "L",
+            "V",
+            "T",
+            "LV",
+            "LVT",
+            "InCB_Linker",
+            "InCB_Consonant",
+            "InCB_Extend");
+    tables.forEach(
+        (name, ranges) -> {
+          assertThat(ranges).as(name).isNotEmpty();
+          for (int i = 0; i < ranges.length; i++) {
+            assertThat(ranges[i]).hasSize(2);
+            assertThat(ranges[i][0]).isBetween(0, ranges[i][1]);
+            assertThat(ranges[i][1]).isLessThanOrEqualTo(Character.MAX_CODE_POINT);
+            if (i > 0) {
+              assertThat(ranges[i][0]).isGreaterThan(ranges[i - 1][1] + 1);
+            }
+          }
+        });
   }
 }

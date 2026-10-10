@@ -5,6 +5,13 @@
 
 package org.safere.tools.unicode;
 
+import com.ibm.icu.lang.CharacterProperties;
+import com.ibm.icu.lang.UCharacter;
+import com.ibm.icu.lang.UCharacter.GraphemeClusterBreak;
+import com.ibm.icu.lang.UCharacter.IndicConjunctBreak;
+import com.ibm.icu.lang.UProperty;
+import com.ibm.icu.text.UnicodeSet;
+import com.ibm.icu.util.VersionInfo;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -19,28 +26,21 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.IntPredicate;
 
-/** Generates checked-in Unicode tables from public JDK APIs and pinned Unicode grapheme data. */
+/** Generates checked-in Unicode tables from public JDK APIs and ICU4J Unicode data. */
 public final class UnicodeTableGenerator {
   private static final int MAX_CODE_POINT = Character.MAX_CODE_POINT;
   private static final String DEFAULT_OUTPUT =
       "safere/src/main/java/org/safere/UnicodeGeneratedTables.java";
-  private static final Path DEFAULT_UNICODE_DATA =
-      Path.of("safere-unicode/data/" + GraphemeTableGenerator.DEFAULT_UNICODE_VERSION);
+  private static final Path DEFAULT_UNICODE_LICENSE =
+      Path.of("safere/src/main/resources/META-INF/LICENSE-Unicode.txt");
   private static final String USAGE =
       """
       Usage: UnicodeTableGenerator [options] [output-file]
 
       Options:
-        --unicode-data=DIR                 flat directory containing all of the files below
-                                           (default: %s)
-        --grapheme-break-property=FILE     GraphemeBreakProperty.txt
-        --derived-core-properties=FILE     DerivedCoreProperties.txt
-        --emoji-data=FILE                  emoji-data.txt
-        --unicode-license=FILE             Unicode license text (LICENSE.txt)
-        --unicode-version=VERSION          Unicode version the files must declare
-                                           (default: %s)
+        --unicode-license=FILE             Unicode license text (default: %s)
       """
-          .formatted(DEFAULT_UNICODE_DATA, GraphemeTableGenerator.DEFAULT_UNICODE_VERSION);
+          .formatted(DEFAULT_UNICODE_LICENSE);
 
   private static final String[] CATEGORY_ABBREVS = {
     "Cn", "Lu", "Ll", "Lt", "Lm", "Lo", "Mn", "Me", "Mc", "Nd", "Nl", "No", "Zs", "Zl", "Zp", "Cc",
@@ -72,20 +72,11 @@ public final class UnicodeTableGenerator {
     }
   }
 
-  /** Command-line options; every Unicode input defaults to the checked-in copy. */
-  record Options(
-      Path output,
-      GraphemeTableGenerator.Sources sources,
-      Path unicodeLicense,
-      String unicodeVersion) {
+  /** Command-line options for table generation. */
+  record Options(Path output, Path unicodeLicense) {
     static Options parse(String... args) {
       Path output = null;
-      Path data = DEFAULT_UNICODE_DATA;
-      Path graphemeBreakProperty = null;
-      Path derivedCoreProperties = null;
-      Path emojiData = null;
       Path unicodeLicense = null;
-      String unicodeVersion = GraphemeTableGenerator.DEFAULT_UNICODE_VERSION;
       for (String arg : args) {
         if (!arg.startsWith("--")) {
           if (output != null) {
@@ -99,36 +90,19 @@ public final class UnicodeTableGenerator {
           throw new IllegalArgumentException(USAGE);
         }
         String value = arg.substring(equals + 1);
-        switch (arg.substring(0, equals)) {
-          case "--unicode-data" -> data = Path.of(value);
-          case "--grapheme-break-property" -> graphemeBreakProperty = Path.of(value);
-          case "--derived-core-properties" -> derivedCoreProperties = Path.of(value);
-          case "--emoji-data" -> emojiData = Path.of(value);
-          case "--unicode-license" -> unicodeLicense = Path.of(value);
-          case "--unicode-version" -> unicodeVersion = value;
-          default -> throw new IllegalArgumentException(USAGE);
-        }
+        unicodeLicense =
+            switch (arg.substring(0, equals)) {
+              case "--unicode-license" -> Path.of(value);
+              default -> throw new IllegalArgumentException(USAGE);
+            };
       }
-      GraphemeTableGenerator.Sources defaults = GraphemeTableGenerator.Sources.inDirectory(data);
       return new Options(
           output != null ? output : Path.of(DEFAULT_OUTPUT),
-          new GraphemeTableGenerator.Sources(
-              graphemeBreakProperty != null
-                  ? graphemeBreakProperty
-                  : defaults.graphemeBreakProperty(),
-              derivedCoreProperties != null
-                  ? derivedCoreProperties
-                  : defaults.derivedCoreProperties(),
-              emojiData != null ? emojiData : defaults.emojiData()),
-          unicodeLicense != null ? unicodeLicense : data.resolve("LICENSE.txt"),
-          unicodeVersion);
+          unicodeLicense != null ? unicodeLicense : DEFAULT_UNICODE_LICENSE);
     }
   }
 
   private static GeneratedTables buildTables(Options options) throws IOException {
-    GraphemeTableGenerator.Result grapheme =
-        GraphemeTableGenerator.generate(options.sources(), options.unicodeVersion());
-    Map<String, int[][]> graphemeData = grapheme.tables();
     int[][][] categoryTables = buildCategoryTables();
     Map<String, int[][]> categories = new LinkedHashMap<>();
     for (int i = 0; i < CATEGORY_ABBREVS.length; i++) {
@@ -142,13 +116,19 @@ public final class UnicodeTableGenerator {
     }
 
     return new GeneratedTables(
-        grapheme.unicodeVersion(),
+        unicodeDataVersion(),
         Files.readAllLines(options.unicodeLicense(), StandardCharsets.UTF_8),
         categories,
         buildScriptTables(),
         buildBlockTables(),
-        buildBinaryPropertyTables(graphemeData),
-        buildGraphemeTables(graphemeData));
+        buildBinaryPropertyTables(),
+        buildGraphemeTables());
+  }
+
+  private static String unicodeDataVersion() {
+    VersionInfo version = UCharacter.getUnicodeVersion();
+    return String.format(
+        Locale.ROOT, "%d.%d.%d", version.getMajor(), version.getMinor(), version.getMilli());
   }
 
   private static int[][][] buildCategoryTables() {
@@ -207,7 +187,7 @@ public final class UnicodeTableGenerator {
     return tables;
   }
 
-  private static Map<String, int[][]> buildBinaryPropertyTables(Map<String, int[][]> graphemeData) {
+  private static Map<String, int[][]> buildBinaryPropertyTables() {
     Map<String, IntPredicate> predicates = new LinkedHashMap<>();
     predicates.put("Alphabetic", Character::isAlphabetic);
     predicates.put("Ideographic", Character::isIdeographic);
@@ -233,20 +213,62 @@ public final class UnicodeTableGenerator {
     for (Map.Entry<String, IntPredicate> entry : predicates.entrySet()) {
       tables.put(entry.getKey(), buildRanges(entry.getValue()));
     }
-    tables.put("Extended_Pictographic", graphemeData.get("EXTENDED_PICTOGRAPHIC"));
+    tables.put(
+        "Extended_Pictographic",
+        toRanges(CharacterProperties.getBinaryPropertySet(UProperty.EXTENDED_PICTOGRAPHIC)));
     return tables;
   }
 
-  private static Map<String, int[][]> buildGraphemeTables(Map<String, int[][]> data) {
+  static Map<String, int[][]> buildGraphemeTables() {
     Map<String, int[][]> tables = new LinkedHashMap<>();
-    for (String name :
-        List.of("Control", "Extend", "Prepend", "SpacingMark", "L", "V", "T", "LV", "LVT")) {
-      tables.put(name, data.get("GCB_" + name.toUpperCase(Locale.ROOT)));
-    }
-    for (String name : List.of("Linker", "Consonant", "Extend")) {
-      tables.put("InCB_" + name, data.get("INCB_" + name.toUpperCase(Locale.ROOT)));
-    }
+    UnicodeSet control =
+        new UnicodeSet()
+            .applyIntPropertyValue(UProperty.GRAPHEME_CLUSTER_BREAK, GraphemeClusterBreak.CONTROL)
+            .addAll(
+                new UnicodeSet()
+                    .applyIntPropertyValue(
+                        UProperty.GRAPHEME_CLUSTER_BREAK, GraphemeClusterBreak.CR))
+            .addAll(
+                new UnicodeSet()
+                    .applyIntPropertyValue(
+                        UProperty.GRAPHEME_CLUSTER_BREAK, GraphemeClusterBreak.LF));
+    tables.put("Control", toRanges(control));
+    tables.put("Extend", graphemeBreakRanges(GraphemeClusterBreak.EXTEND));
+    tables.put("Prepend", graphemeBreakRanges(GraphemeClusterBreak.PREPEND));
+    tables.put("SpacingMark", graphemeBreakRanges(GraphemeClusterBreak.SPACING_MARK));
+    tables.put("L", graphemeBreakRanges(GraphemeClusterBreak.L));
+    tables.put("V", graphemeBreakRanges(GraphemeClusterBreak.V));
+    tables.put("T", graphemeBreakRanges(GraphemeClusterBreak.T));
+    tables.put("LV", graphemeBreakRanges(GraphemeClusterBreak.LV));
+    tables.put("LVT", graphemeBreakRanges(GraphemeClusterBreak.LVT));
+    tables.put("InCB_Linker", indicConjunctBreakRanges(IndicConjunctBreak.LINKER));
+    tables.put("InCB_Consonant", indicConjunctBreakRanges(IndicConjunctBreak.CONSONANT));
+    tables.put("InCB_Extend", indicConjunctBreakRanges(IndicConjunctBreak.EXTEND));
     return tables;
+  }
+
+  private static int[][] graphemeBreakRanges(int value) {
+    return toRanges(
+        new UnicodeSet().applyIntPropertyValue(UProperty.GRAPHEME_CLUSTER_BREAK, value));
+  }
+
+  // ICU's IndicConjunctBreak constants are declared in property-value order, and ICU's
+  // PropNumbersTest checks that each ordinal equals the corresponding UProperty value.
+  @SuppressWarnings("EnumOrdinal")
+  private static int[][] indicConjunctBreakRanges(IndicConjunctBreak value) {
+    return toRanges(
+        new UnicodeSet().applyIntPropertyValue(UProperty.INDIC_CONJUNCT_BREAK, value.ordinal()));
+  }
+
+  private static int[][] toRanges(UnicodeSet set) {
+    if (set.isEmpty()) {
+      throw new IllegalStateException("Empty UnicodeSet for property");
+    }
+    List<int[]> ranges = new ArrayList<>();
+    for (UnicodeSet.EntryRange range : set.ranges()) {
+      ranges.add(new int[] {range.codepoint, range.codepointEnd});
+    }
+    return ranges.toArray(int[][]::new);
   }
 
   private static void writeJava(PrintWriter out, GeneratedTables tables) throws IOException {
