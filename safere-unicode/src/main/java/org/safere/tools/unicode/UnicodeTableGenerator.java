@@ -327,8 +327,12 @@ public final class UnicodeTableGenerator {
       if (prefix.equals("block")) {
         int[][] ranges = entry.getValue();
         entryStr =
-            "    Map.entry(\"%s\", new int[][] {{0x%x, 0x%x}})"
-                .formatted(key, ranges[0][0], ranges[0][1]);
+            String.format(
+                Locale.ROOT,
+                "    Map.entry(\"%s\", new int[][] {{0x%x, 0x%x}})",
+                key,
+                ranges[0][0],
+                ranges[0][1]);
       } else {
         entryStr = "    Map.entry(\"%s\", %s_%s())".formatted(key, prefix, safeIdentifier(key));
       }
@@ -351,7 +355,7 @@ public final class UnicodeTableGenerator {
       out.println("  private static int[][] %s_%s() {".formatted(prefix, safeIdentifier(name)));
       out.println("    return new int[][] {");
       for (int[] range : ranges) {
-        out.println("      {0x%x, 0x%x},".formatted(range[0], range[1]));
+        out.println(String.format(Locale.ROOT, "      {0x%x, 0x%x},", range[0], range[1]));
       }
       out.println("    };");
       out.println("  }");

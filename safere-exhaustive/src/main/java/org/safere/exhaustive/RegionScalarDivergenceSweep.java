@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.PatternSyntaxException;
 
 /** Offline differential sweep for ordinary scalar-consuming atoms under matcher regions. */
@@ -632,7 +633,7 @@ public final class RegionScalarDivergenceSweep {
         case '"' -> result.append("\\\"");
         default -> {
           if (Character.isISOControl(c) || Character.isSurrogate(c)) {
-            result.append(String.format("\\u%04X", (int) c));
+            result.append(String.format(Locale.ROOT, "\\u%04X", (int) c));
           } else {
             result.append(c);
           }

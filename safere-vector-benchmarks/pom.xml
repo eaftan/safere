@@ -65,6 +65,27 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+        <executions>
+          <!-- This module does not run Error Prone; drop the parent's per-execution plugin args. -->
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <compilerArgs combine.self="override">
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <configuration>
+              <compilerArgs combine.self="override">
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

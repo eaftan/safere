@@ -6,6 +6,7 @@
 package org.safere.exhaustive;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.PatternSyntaxException;
 
 /** Shared regex comparison helpers for exhaustive sweeps. */
@@ -284,7 +285,7 @@ final class RegexSweep {
         case '"' -> result.append("\\\"");
         default -> {
           if (Character.isISOControl(c) || Character.isSurrogate(c)) {
-            result.append(String.format("\\u%04X", (int) c));
+            result.append(String.format(Locale.ROOT, "\\u%04X", (int) c));
           } else {
             result.append(c);
           }

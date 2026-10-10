@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.PatternSyntaxException;
 
@@ -251,7 +252,7 @@ public final class ControlEscapeDivergenceSweep {
           if (Character.isISOControl(c)
               || Character.isSurrogate(c)
               || Character.getType(c) == Character.PRIVATE_USE) {
-            result.append(String.format("\\u%04X", (int) c));
+            result.append(String.format(Locale.ROOT, "\\u%04X", (int) c));
           } else {
             result.append(c);
           }
@@ -335,7 +336,7 @@ public final class ControlEscapeDivergenceSweep {
 
     String labels() {
       return "target="
-          + String.format("U+%04X", target)
+          + String.format(Locale.ROOT, "U+%04X", target)
           + ",context="
           + context.label()
           + ",flags="

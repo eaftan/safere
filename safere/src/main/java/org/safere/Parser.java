@@ -1491,8 +1491,11 @@ final class Parser {
         try {
           return Character.codePointOf(name);
         } catch (IllegalArgumentException e) {
-          throw new PatternSyntaxException(
-              "unknown Unicode character name: " + name, pattern, nameStart);
+          PatternSyntaxException error =
+              new PatternSyntaxException(
+                  "unknown Unicode character name: " + name, pattern, nameStart);
+          error.initCause(e);
+          throw error;
         }
       }
       // JDK treats all non-zero numeric escapes as back references, not octal literals.

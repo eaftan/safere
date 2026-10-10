@@ -58,6 +58,11 @@
     <jmh.version>1.37</jmh.version>
     <error-prone.version>2.50.0</error-prone.version>
     <error-prone.checks>-XepDisableWarningsInGeneratedCode -XepExcludedPaths:.*/generated-sources/.* -Xep:FieldCanBeFinal:ERROR -Xep:MethodCanBeStatic:ERROR -Xep:YodaCondition:ERROR -Xep:UnusedVariable:ERROR -Xep:UnusedMethod:ERROR -Xep:UnusedNestedClass:ERROR -Xep:UnusedTypeParameter:ERROR -Xep:UnnecessaryDefaultInEnumSwitch:ERROR -Xep:StringSplitter:OFF -Xep:ExposedPrivateType:OFF -Xep:ImmutableEnumChecker:OFF -Xep:JdkObsolete:OFF -Xep:ThreadPriorityCheck:OFF</error-prone.checks>
+    <!-- Checks for production code only (src/main), not tests. DefaultLocale keeps output such as
+         the generated Unicode tables independent of the JVM's default locale. -->
+    <error-prone.production-checks>-Xep:DefaultLocale:ERROR -Xep:NonFinalStaticField:ERROR -Xep:EqualsBrokenForNull:ERROR -Xep:ComparisonContractViolated:ERROR -Xep:UnnecessaryBoxedVariable:ERROR -Xep:UnnecessaryBoxedAssignment:ERROR -Xep:UnusedException:ERROR -Xep:SuppressWarningsWithoutExplanation:ERROR</error-prone.production-checks>
+    <!-- Extra production checks for the published library only; tools may print and exit. -->
+    <error-prone.library-checks></error-prone.library-checks>
     <error-prone.extra-checks></error-prone.extra-checks>
     <google-java-format.version>1.35.0</google-java-format.version>
     <pmd.version>7.28.0</pmd.version>
@@ -80,7 +85,6 @@
             <!-- Continue compilation past type-checking errors so Error Prone can analyze
                  code that has downstream errors in later phases. -->
             <arg>--should-stop=ifError=FLOW</arg>
-            <arg>-Xplugin:ErrorProne ${error-prone.checks} ${error-prone.extra-checks}</arg>
           </compilerArgs>
           <annotationProcessorPaths>
             <path>
@@ -90,6 +94,25 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+        <executions>
+          <!-- Production code also gets ${error-prone.production-checks}; tests do not. -->
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <compilerArgs combine.children="append">
+                <arg>-Xplugin:ErrorProne ${error-prone.checks} ${error-prone.production-checks} ${error-prone.library-checks} ${error-prone.extra-checks}</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <configuration>
+              <compilerArgs combine.children="append">
+                <arg>-Xplugin:ErrorProne ${error-prone.checks} ${error-prone.extra-checks}</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>

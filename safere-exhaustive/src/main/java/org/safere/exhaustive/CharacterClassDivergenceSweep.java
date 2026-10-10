@@ -1095,6 +1095,9 @@ public final class CharacterClassDivergenceSweep {
       progressReporter.reportIfNeeded(generated);
     }
 
+    // EOFException marks the normal end of the index file, and LocatedCasesComplete is a
+    // control-flow signal, so the EOFException carries nothing worth keeping as a cause.
+    @SuppressWarnings("UnusedException")
     private void advanceCompactCaseIndex() {
       try {
         nextCompactCaseIndex = compactIndices.readLong();

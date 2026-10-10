@@ -1839,4 +1839,12 @@ class ParserTest {
       assertThat(re.subs.get(1).op).isIn(RegexpOp.ANY_CHAR, RegexpOp.CHAR_CLASS);
     }
   }
+
+  @Test
+  void unknownNamedCharacterKeepsCause() {
+    assertThatThrownBy(() -> parse("\\N{NO SUCH CHARACTER}"))
+        .isInstanceOf(PatternSyntaxException.class)
+        .hasMessageContaining("unknown Unicode character name: NO SUCH CHARACTER")
+        .hasCauseInstanceOf(IllegalArgumentException.class);
+  }
 }
