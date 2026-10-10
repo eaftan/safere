@@ -8,7 +8,8 @@
   that exploit it.
 - **Correct:** Built for production use, targeting `java.util.regex` compatibility
   within that guarantee. Extensive [validation](docs/TESTING.md) includes JDK
-  differential testing, exhaustive sweeps, fuzzing, and regression coverage.
+  differential testing, exhaustive sweeps, continuous fuzzing through OSS-Fuzz,
+  and regression coverage.
 - **Fast:** Substantially faster than the JDK regex engine and competitive with
   leading native engines in both our own benchmarks and [Rebar](https://github.com/BurntSushi/rebar)'s independently
   developed benchmark suite. See the

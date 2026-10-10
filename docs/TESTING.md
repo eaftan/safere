@@ -160,6 +160,8 @@ flag rebuilds the local library instead of resolving a stale installed artifact.
 
 ## Fuzz Testing with Jazzer
 
+SafeRE is continuously fuzzed by [OSS-Fuzz](https://google.github.io/oss-fuzz/).
+
 The [safere-fuzz](../safere-fuzz) module contains Jazzer fuzz targets that
 use their own SafeRE/JDK differential oracles and check SafeRE-specific
 invariants. They do not depend on the crosscheck facade. By default, they run
