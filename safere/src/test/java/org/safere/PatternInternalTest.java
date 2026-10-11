@@ -11,6 +11,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -36,6 +37,38 @@ class PatternInternalTest {
     assertThat(p2.canOnePassPrimary()).isTrue();
     assertThat(p2.canOnePassFind()).isFalse();
     assertThat(p2.canOnePassSubmatch()).isTrue();
+  }
+
+  @ParameterizedTest
+  @CsvSource({"[a-z]+ing, x running y, running", "(a?)+b, xxaab, aab"})
+  void concurrentFirstUseSharesReverseDfaProgram(String regex, String input, String match)
+      throws Exception {
+    Pattern pattern = Pattern.compile(regex);
+
+    int workers = 32;
+    CyclicBarrier start = new CyclicBarrier(workers);
+    var futures = new ArrayList<Future<List<Object>>>();
+    try (var executor = Executors.newFixedThreadPool(workers)) {
+      for (int worker = 0; worker < workers; worker++) {
+        futures.add(
+            executor.submit(
+                () -> {
+                  start.await();
+                  Prog reverseDfaProg = pattern.flatReverseDfaProg();
+                  Matcher matcher = pattern.matcher(input);
+                  assertThat(matcher.find()).isTrue();
+                  assertThat(matcher.group()).isEqualTo(match);
+                  return List.of(pattern.reverseProg(), reverseDfaProg, pattern.reverseDfaSetup());
+                }));
+      }
+      List<Object> shared = futures.getFirst().get();
+      for (Future<List<Object>> future : futures) {
+        List<Object> artifacts = future.get();
+        for (int i = 0; i < shared.size(); i++) {
+          assertThat(artifacts.get(i)).isSameAs(shared.get(i));
+        }
+      }
+    }
   }
 
   @Test

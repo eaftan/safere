@@ -1404,14 +1404,19 @@ public final class Pattern implements Serializable {
   /**
    * Returns the reverse-compiled program for backward DFA matching, compiling it on first access.
    *
-   * <p>Thread-safe via volatile: benign data race at worst compiles twice, but {@link Prog} is
-   * effectively immutable once constructed.
+   * <p>Like the other lazily built artifacts, the volatile fast path serves initialized readers and
+   * the synchronized slow path builds the program once under concurrent first use.
    */
   Prog reverseProg() {
     Prog rp = reverseProg;
     if (rp == null) {
-      rp = Compiler.compile(ast, true);
-      reverseProg = rp;
+      synchronized (this) {
+        rp = reverseProg;
+        if (rp == null) {
+          rp = Compiler.compile(ast, true);
+          reverseProg = rp;
+        }
+      }
     }
     return rp;
   }
@@ -1419,10 +1424,15 @@ public final class Pattern implements Serializable {
   Prog flatReverseProg() {
     Prog frp = flatReverseProg;
     if (frp == null) {
-      Prog rp = reverseProg();
-      if (rp != null) {
-        frp = rp.flattenedCopy();
-        flatReverseProg = frp;
+      synchronized (this) {
+        frp = flatReverseProg;
+        if (frp == null) {
+          Prog rp = reverseProg();
+          if (rp != null) {
+            frp = rp.flattenedCopy();
+            flatReverseProg = frp;
+          }
+        }
       }
     }
     return frp;
@@ -1430,32 +1440,37 @@ public final class Pattern implements Serializable {
 
   Prog flatReverseDfaProg() {
     Prog frp = flatReverseDfaProg;
-    // Reverse-DFA-eligible patterns already share preparation during construction. Explicit
-    // requests for other patterns prepare here; retaining that preparation is unnecessary.
+    // Prepare again on first use rather than retaining the simplified tree after construction.
     return frp != null ? frp : flatReverseDfaProg(Compiler.prepare(ast));
   }
 
   private Prog flatReverseDfaProg(Compiler.Prepared prepared) {
     Prog frp = flatReverseDfaProg;
     if (frp == null) {
-      Prog rp = reverseProg;
-      if (rp == null) {
-        rp = Compiler.compile(prepared, true);
-        reverseProg = rp;
-      }
-      if (rp != null) {
-        if (rp.numLoopRegs() > 0) {
-          Prog dfaRp = Compiler.compileForDfa(prepared, true);
-          if (dfaRp != null) {
-            frp = dfaRp.flattenedCopy();
-          } else {
-            frp = flatReverseProg();
+      // Build once, so that reverseDfaSetup always describes the published flatReverseDfaProg.
+      synchronized (this) {
+        frp = flatReverseDfaProg;
+        if (frp == null) {
+          Prog rp = reverseProg;
+          if (rp == null) {
+            rp = Compiler.compile(prepared, true);
+            reverseProg = rp;
           }
-        } else {
-          frp = flatReverseProg();
+          if (rp != null) {
+            if (rp.numLoopRegs() > 0) {
+              Prog dfaRp = Compiler.compileForDfa(prepared, true);
+              if (dfaRp != null) {
+                frp = dfaRp.flattenedCopy();
+              } else {
+                frp = flatReverseProg();
+              }
+            } else {
+              frp = flatReverseProg();
+            }
+            reverseDfaSetup = Dfa.buildSetup(frp);
+            flatReverseDfaProg = frp;
+          }
         }
-        reverseDfaSetup = Dfa.buildSetup(frp);
-        flatReverseDfaProg = frp;
       }
     }
     return frp;
