@@ -762,4 +762,51 @@ class Utf8InputScannerTest {
         new byte[] {(byte) 0xF0, (byte) 0x80, (byte) 0x80, (byte) 0x80},
         new byte[] {(byte) 0xF4, (byte) 0x90, (byte) 0x80, (byte) 0x80});
   }
+
+  @Test
+  void indexOfUtf8SequenceFindsOnlyWholeEncodedCodePoints() {
+    byte[] sequence = "\uFF3D".getBytes(UTF_8);
+
+    assertThat(utf8SequenceIndex("\uFF3D", sequence, 0)).isEqualTo(0);
+    assertThat(utf8SequenceIndex("ab\uFF3D", sequence, 0)).isEqualTo(2);
+    assertThat(utf8SequenceIndex("\u4E00\uFF3Dx", sequence, 0)).isEqualTo(3);
+    assertThat(utf8SequenceIndex("\uFF3D\u4E00\uFF3D", sequence, 1)).isEqualTo(6);
+    assertThat(utf8SequenceIndex("no closing bracket \uFF3B", sequence, 0)).isEqualTo(-1);
+    assertThat(utf8SequenceIndex("", sequence, 0)).isEqualTo(-1);
+    // U+00BD (C2 BD) and U+FF7D (EF BD BD) end in the same byte as U+FF3D (EF BC BD).
+    assertThat(utf8SequenceIndex("\u00BD\uFF7D\u00BD", sequence, 0)).isEqualTo(-1);
+    assertThat(utf8SequenceIndex("\u00BD\uFF7D\uFF3D", sequence, 0)).isEqualTo(5);
+    // Long inputs reach the vector byte kernel, if one is available.
+    String longText = "\u4E00\u00BD".repeat(200);
+    assertThat(utf8SequenceIndex(longText, sequence, 0)).isEqualTo(-1);
+    assertThat(utf8SequenceIndex(longText + "\uFF3D", sequence, 0))
+        .isEqualTo(longText.getBytes(UTF_8).length);
+  }
+
+  @Test
+  void indexOfUtf8SequenceRespectsScannerBounds() {
+    byte[] sequence = "\uFF3D".getBytes(UTF_8);
+    byte[] bytes = "\uFF3Dab\uFF3Dcd\uFF3D".getBytes(UTF_8);
+
+    // A window that starts after the first sequence's lead byte does not see that sequence.
+    Utf8InputScanner straddlesStart = new Utf8InputScanner(bytes, 1, bytes.length - 1);
+    assertThat(straddlesStart.indexOfUtf8Sequence(sequence, 0, straddlesStart.length()))
+        .isEqualTo(4);
+
+    // A window that ends inside the last sequence does not see that sequence.
+    Utf8InputScanner straddlesEnd = new Utf8InputScanner(bytes, 3, bytes.length - 4);
+    assertThat(straddlesEnd.indexOfUtf8Sequence(sequence, 0, straddlesEnd.length())).isEqualTo(2);
+    assertThat(straddlesEnd.indexOfUtf8Sequence(sequence, 3, straddlesEnd.length())).isEqualTo(-1);
+
+    // The limit excludes a sequence that would end past it.
+    Utf8InputScanner whole = new Utf8InputScanner(bytes, 0, bytes.length);
+    assertThat(whole.indexOfUtf8Sequence(sequence, 1, 7)).isEqualTo(-1);
+    assertThat(whole.indexOfUtf8Sequence(sequence, 1, 8)).isEqualTo(5);
+  }
+
+  private static int utf8SequenceIndex(String text, byte[] sequence, int start) {
+    byte[] bytes = text.getBytes(UTF_8);
+    return new Utf8InputScanner(bytes, 0, bytes.length)
+        .indexOfUtf8Sequence(sequence, start, bytes.length);
+  }
 }

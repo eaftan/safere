@@ -68,8 +68,10 @@ class AnchoredDfaCachingTest {
   @Test
   void multilineEndingAnchorKeepsStringLineFeedTransitionsCached() {
     Pattern pattern = Pattern.compile("(?m)(?:x+$)y");
+    // The leading "y" cannot complete a match, but it keeps the required-class reject prefilter
+    // for [y] from deciding the call before the DFA runs.
     assertCachedTransitionWork(
-        size -> assertThat(pattern.matcher("xxx\n".repeat(size)).find()).isFalse());
+        size -> assertThat(pattern.matcher("y" + "xxx\n".repeat(size)).find()).isFalse());
   }
 
   @Test

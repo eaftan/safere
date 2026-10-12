@@ -8,6 +8,8 @@ package org.safere.fuzz;
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import com.code_intelligence.jazzer.junit.FuzzTest;
 import java.util.List;
+import java.util.Objects;
+import org.safere.Matcher;
 import org.safere.Pattern;
 
 public final class ParserCompatibilityFuzzer {
@@ -165,5 +167,38 @@ public final class ParserCompatibilityFuzzer {
               + data.pickValue(SUFFIXES);
     }
     FuzzSupport.assertFullMatchesJdk(regex, flags, INPUTS);
+    // Append consumers to preserve the interpretation of the existing corpus.
+    assertOperandFreePossessiveCountedRepeatMatchesJdk(data);
+  }
+
+  private static void assertOperandFreePossessiveCountedRepeatMatchesJdk(FuzzedDataProvider data) {
+    String prefix = data.pickValue(List.of("", "\\Q\\E", "(?i)", "a*", "a*?", "a{2}", "x|"));
+    String count = data.pickValue(List.of("{0}", "{1}", "{1,2}", "{1,}"));
+    boolean comments = data.consumeBoolean();
+    String modifier = comments && data.consumeBoolean() ? " #q\n +" : "+";
+    String suffix = data.pickValue(List.of("a", "", "[ab]"));
+    String expression = prefix + count + modifier + suffix;
+    String regex = data.consumeBoolean() ? "(" + expression + ")" : expression;
+    int flags = comments ? Pattern.COMMENTS : 0;
+    java.util.regex.Pattern jdk = java.util.regex.Pattern.compile(regex, flags);
+    // These generated forms all have an implicit empty operand. Assert directly so the broad
+    // unsupported-feature waiver cannot hide their acceptance or matching behavior (#873).
+    Pattern safeRe = Pattern.compile(regex, flags);
+    for (String input : List.of("", "a", "aa", "A", "ab", "x", "xa", "b")) {
+      java.util.regex.Matcher expected = jdk.matcher(input);
+      Matcher actual = safeRe.matcher(input);
+      boolean expectedMatch = expected.matches();
+      if (actual.matches() != expectedMatch) {
+        throw new AssertionError("Operand-free possessive count divergence for /" + regex + "/");
+      }
+      if (expectedMatch) {
+        for (int group = 0; group <= expected.groupCount(); group++) {
+          if (!Objects.equals(actual.group(group), expected.group(group))) {
+            throw new AssertionError(
+                "Operand-free possessive capture divergence for /" + regex + "/");
+          }
+        }
+      }
+    }
   }
 }

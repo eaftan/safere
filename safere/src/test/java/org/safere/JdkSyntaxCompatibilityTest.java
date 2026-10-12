@@ -266,6 +266,43 @@ class JdkSyntaxCompatibilityTest {
           .isEqualTo(jdkPattern.matcher(input).matches());
     }
 
+    static Stream<Arguments> possessiveCountedRepeatsWithoutOperand() {
+      return Stream.of(
+          Arguments.of("{1}+a", 0, "a"),
+          Arguments.of("{0}+a", 0, "a"),
+          Arguments.of("{1,2}+a", 0, "a"),
+          Arguments.of("\\Q\\E{1}+a", 0, "a"),
+          Arguments.of("(?i){1}+a", 0, "A"),
+          Arguments.of("({1}+a)", 0, "a"),
+          Arguments.of("(?:{2,3}+)a", 0, "a"),
+          Arguments.of("x|{1}+a", 0, "a"),
+          Arguments.of("a*{1}+", 0, "aa"),
+          Arguments.of("a*{1}+a", 0, "aa"),
+          Arguments.of("a*?{1}+a", 0, "aa"),
+          Arguments.of("a{2}{1}+", 0, "aa"),
+          Arguments.of("\\Q\\E\\Q\\E{1} #q\n +\\P{Lower}", Pattern.COMMENTS, "A"));
+    }
+
+    @ParameterizedTest(name = "/{0}/ flags={1} matches \"{2}\"")
+    @MethodSource("possessiveCountedRepeatsWithoutOperand")
+    @DisplayName("possessive counted repeats without an operand apply to the empty expression")
+    void possessiveCountedRepeatsWithoutOperandMatchLikeJdk(String regex, int flags, String input) {
+      java.util.regex.Pattern jdkPattern = java.util.regex.Pattern.compile(regex, flags);
+      Pattern safeRePattern = Pattern.compile(regex, flags);
+
+      assertThat(safeRePattern.matcher(input).matches())
+          .as("SafeRE matches() result for /%s/ flags=%d on \"%s\"", regex, flags, input)
+          .isEqualTo(jdkPattern.matcher(input).matches())
+          .isTrue();
+    }
+
+    @ParameterizedTest(name = "/{0}/")
+    @ValueSource(strings = {"a{1}+", "b\\Q\\E{1}+a", "(a){1,2}+"})
+    @DisplayName("possessive counted repeats over a consuming operand stay rejected")
+    void possessiveCountedRepeatsOverConsumingOperandAreRejected(String regex) {
+      assertRejectedBySafeRe(regex);
+    }
+
     static Stream<Arguments> acceptedSyntaxFamilies() {
       return Stream.of(
           Arguments.of(new SyntaxFamilyCase("literal characters", "abc", "abc", "ab")),

@@ -371,6 +371,11 @@ sealed interface StringStartAccelerator {
     }
 
     int findCandidate(String text, int fromIndex, boolean unixLines) {
+      // Three members cost three intrinsic passes over a gap, which has not been measured against
+      // the table scan below, so only one- and two-member sets take the per-member search.
+      if (scanInfo instanceof CharClassScanInfo.SmallSet smallSet && smallSet.chars().length <= 2) {
+        return StringInputScanner.indexOfSmallSet(text, smallSet.chars(), fromIndex);
+      }
       return indexOfCharClass(text, asciiTable, scanInfo.ranges(), scanInfo.isAscii(), fromIndex);
     }
 

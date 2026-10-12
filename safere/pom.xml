@@ -23,6 +23,7 @@
     <test.groups></test.groups>
     <test.excludedGroups>work-counter</test.excludedGroups>
     <error-prone.extra-checks>-Xep:UnnecessarilyFullyQualified:ERROR</error-prone.extra-checks>
+    <error-prone.library-checks>-Xep:SystemOut:ERROR -Xep:SystemExitOutsideMain:ERROR</error-prone.library-checks>
   </properties>
 
   <dependencyManagement>

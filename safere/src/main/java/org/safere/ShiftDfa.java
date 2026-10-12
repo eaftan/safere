@@ -93,17 +93,20 @@ final class ShiftDfa {
     dfaStates.add(builder.copyFrontier());
     int[] boundaries = asciiBoundaries(prog);
 
-    int[][] transitions = new int[MAX_STATES][128];
+    // Transitions are recorded per boundary interval; every character in an interval behaves the
+    // same, so the 128-entry rows are only expanded when the table is built.
+    int numClasses = boundaries.length - 1;
+    int[][] transitions = new int[MAX_STATES][];
 
     for (int s = 0; s < dfaStates.size(); s++) {
       int[] currentInsts = dfaStates.get(s);
+      int[] row = new int[numClasses];
+      transitions[s] = row;
 
       // Every consuming instruction has constant membership between adjacent boundaries.
       // Expanding one representative therefore gives the transition for the entire interval.
-      for (int cls = 0; cls < boundaries.length - 1; cls++) {
-        int lo = boundaries[cls];
-        int hi = boundaries[cls + 1];
-        if (!builder.step(currentInsts, lo)) {
+      for (int cls = 0; cls < numClasses; cls++) {
+        if (!builder.step(currentInsts, boundaries[cls])) {
           return null; // Unsupported instruction encountered
         }
         int target;
@@ -119,22 +122,22 @@ final class ShiftDfa {
             dfaStates.add(builder.copyFrontier());
           }
         }
-        Arrays.fill(transitions[s], lo, hi, target);
+        row[cls] = target;
       }
     }
 
     int numDfaStates = dfaStates.size();
     long[] table = new long[256];
 
-    for (int c = 0; c < 128; c++) {
+    for (int cls = 0; cls < numClasses; cls++) {
       long row = 0L;
       for (int s = 0; s < numDfaStates; s++) {
-        int targetState = transitions[s][c] * STATE_SHIFT_STEP;
+        int targetState = transitions[s][cls] * STATE_SHIFT_STEP;
         row |= ((long) targetState) << (s * STATE_SHIFT_STEP);
       }
       // Dead state slot (slot 10 at bit offset 60) self-loops to dead state (60)
       row |= ((long) DEAD_STATE) << DEAD_STATE;
-      table[c] = row;
+      Arrays.fill(table, boundaries[cls], boundaries[cls + 1], row);
     }
 
     // For non-ASCII bytes (128..255), all states transition to DEAD_STATE
@@ -142,9 +145,7 @@ final class ShiftDfa {
     for (int s = 0; s <= MAX_STATES; s++) {
       nonAsciiDeadRow |= ((long) DEAD_STATE) << (s * STATE_SHIFT_STEP);
     }
-    for (int c = 128; c < 256; c++) {
-      table[c] = nonAsciiDeadRow;
-    }
+    Arrays.fill(table, 128, 256, nonAsciiDeadRow);
 
     long acceptMask = 0L;
     for (int s = 0; s < numDfaStates; s++) {
@@ -160,14 +161,17 @@ final class ShiftDfa {
       int escapeCount = 0;
       int[] escapes = new int[4];
 
-      for (int c = 0; c < 128; c++) {
-        if (transitions[s][c] == s) {
-          selfLoopCount++;
+      for (int cls = 0; cls < numClasses; cls++) {
+        int lo = boundaries[cls];
+        int hi = boundaries[cls + 1];
+        if (transitions[s][cls] == s) {
+          selfLoopCount += hi - lo;
         } else {
-          if (escapeCount < 4) {
-            escapes[escapeCount] = c;
+          // Record the first four escape characters, in ascending order.
+          for (int c = lo; c < hi && escapeCount + (c - lo) < 4; c++) {
+            escapes[escapeCount + (c - lo)] = c;
           }
-          escapeCount++;
+          escapeCount += hi - lo;
         }
       }
 

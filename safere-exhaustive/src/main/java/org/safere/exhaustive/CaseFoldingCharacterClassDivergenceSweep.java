@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -225,7 +226,7 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
           if (Character.isISOControl(c)
               || Character.isSurrogate(c)
               || Character.getType(c) == Character.PRIVATE_USE) {
-            result.append(String.format("\\u%04X", (int) c));
+            result.append(String.format(Locale.ROOT, "\\u%04X", (int) c));
           } else {
             result.append(c);
           }
@@ -303,7 +304,7 @@ public final class CaseFoldingCharacterClassDivergenceSweep {
           + ",flags="
           + flagMode.label()
           + ",input="
-          + String.format("U+%04X", inputCodePoint)
+          + String.format(Locale.ROOT, "U+%04X", inputCodePoint)
           + ",inputClass="
           + inputClass(inputCodePoint);
     }

@@ -86,7 +86,7 @@ final class Compiler extends Walker<Compiler.Frag> {
    *
    * <p>The prepared tree is encapsulated and read-only during compilation. Instruction arrays,
    * patch lists, and loop registers belong to each individual compilation. Pattern construction
-   * releases this preparation after eagerly building its eligible programs.
+   * releases this preparation after building the programs needed at construction time.
    */
   static final class Prepared {
     private final Regexp root;

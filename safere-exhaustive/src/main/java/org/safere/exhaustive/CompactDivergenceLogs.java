@@ -20,6 +20,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.PriorityQueue;
 
 /** Durable fixed-size logs for divergences found by deterministic indexed sweeps. */
@@ -70,7 +71,8 @@ final class CompactDivergenceLogs implements AutoCloseable {
     for (int i = 0; i < threads; i++) {
       workers[i] =
           new WorkerLog(
-              indicesDir.resolve(String.format("worker-%02d.bin", i)), classifications.size());
+              indicesDir.resolve(String.format(Locale.ROOT, "worker-%02d.bin", i)),
+              classifications.size());
     }
     writeManifest();
     checkpoint(0);
@@ -229,7 +231,7 @@ final class CompactDivergenceLogs implements AutoCloseable {
     }
     Path indicesDir = inputDir.resolve("divergence-indices");
     for (int worker = 0; worker < manifest.threads(); worker++) {
-      Path path = indicesDir.resolve(String.format("worker-%02d.bin", worker));
+      Path path = indicesDir.resolve(String.format(Locale.ROOT, "worker-%02d.bin", worker));
       if (!Files.exists(path)) {
         continue;
       }
@@ -259,7 +261,7 @@ final class CompactDivergenceLogs implements AutoCloseable {
     try {
       Path indicesDir = inputDir.resolve("divergence-indices");
       for (int worker = 0; worker < manifest.threads(); worker++) {
-        Path path = indicesDir.resolve(String.format("worker-%02d.bin", worker));
+        Path path = indicesDir.resolve(String.format(Locale.ROOT, "worker-%02d.bin", worker));
         if (!Files.exists(path)) {
           continue;
         }

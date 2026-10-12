@@ -416,4 +416,80 @@ class RejectPrefilterTest {
     assertThat(prefilter.canReject(null, "a % b", 0, options)).isFalse();
     assertThat(prefilter.canReject(null, "a + b", 0, options)).isTrue();
   }
+
+  @Test
+  void nonAsciiCharClassRejectsUtf8OnlyFromStart() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(
+            new CharClassBuilder().addRune(']').addRune('\uFF3D').build());
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+
+    assertThat(prefilter.canReject(utf8Scanner("no brackets here"), 0, options)).isTrue();
+    assertThat(prefilter.canReject(utf8Scanner("has \uFF3D here"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(utf8Scanner("has ] here"), 0, options)).isFalse();
+    assertThat(prefilter.canReject(utf8Scanner("\u00e9\u4E00 ascii then ] late"), 0, options))
+        .isFalse();
+    assertThat(prefilter.canReject(utf8Scanner("\u00e9\u4E00\uFF3B no closing"), 0, options))
+        .isTrue();
+    // Each member on either side of the first non-ASCII byte, including inputs long enough to
+    // reach the word-at-a-time scans.
+    for (int prefix : new int[] {0, 7, 8, 9, 300}) {
+      String ascii = "x".repeat(prefix);
+      assertThat(prefilter.canReject(utf8Scanner(ascii), 0, options)).isTrue();
+      assertThat(prefilter.canReject(utf8Scanner(ascii + "]"), 0, options)).isFalse();
+      assertThat(prefilter.canReject(utf8Scanner(ascii + "\u4E00" + ascii), 0, options)).isTrue();
+      assertThat(prefilter.canReject(utf8Scanner(ascii + "]\u4E00"), 0, options)).isFalse();
+      assertThat(prefilter.canReject(utf8Scanner(ascii + "\u4E00" + ascii + "]"), 0, options))
+          .isFalse();
+      assertThat(prefilter.canReject(utf8Scanner(ascii + "\uFF3D" + ascii), 0, options)).isFalse();
+      assertThat(prefilter.canReject(utf8Scanner(ascii + "\u4E00" + ascii + "\uFF3D"), 0, options))
+          .isFalse();
+    }
+    // Non-ASCII UTF-8 class scans have no memo and use scalar decoding, so they only run once from
+    // index 0.
+    assertThat(prefilter.canReject(utf8Scanner("] tail without brackets"), 2, options)).isFalse();
+  }
+
+  @Test
+  void twoMemberSmallSetRejectsOnlyFromInputStart() {
+    CharClassScanInfo scanInfo =
+        CharClassScanInfo.fromCharClass(
+            new CharClassBuilder().addRune(']').addRune('\uFF3D').build());
+    RejectPrefilter prefilter =
+        RejectPrefilter.create(new MultiAnchorDescriptor.RejectPlan.RequiredCharClass(scanInfo));
+    EnginePathOptions options = EnginePathOptions.allEnabled();
+
+    // From the start of the input, each member is found on either side of the near-window edge
+    // and at the end of the input.
+    for (char member : new char[] {']', '\uFF3D'}) {
+      for (int index : new int[] {0, 14, 78, 79, 80, 81, 200}) {
+        String text = "x".repeat(index) + member + "x".repeat(20);
+        assertThat(prefilter.canReject(new StringInputScanner(text), text, 0, options))
+            .as("member %s at %d", member, index)
+            .isFalse();
+      }
+      String atEnd = "x".repeat(300) + member;
+      assertThat(prefilter.canReject(new StringInputScanner(atEnd), atEnd, 0, options))
+          .as("member %s at end", member)
+          .isFalse();
+    }
+    for (int length : new int[] {0, 1, 79, 80, 81, 300}) {
+      String text = "x".repeat(length);
+      assertThat(prefilter.canReject(new StringInputScanner(text), text, 0, options))
+          .as("no member, length %d", length)
+          .isTrue();
+    }
+
+    // Later find() positions are left to the start accelerator and DFA, even when no member
+    // remains.
+    String text = "x".repeat(40) + "]" + "x".repeat(40);
+    StringInputScanner shared = new StringInputScanner(text);
+    for (int searchFrom = 1; searchFrom <= text.length(); searchFrom++) {
+      assertThat(prefilter.canReject(shared, text, searchFrom, options))
+          .as("from %d", searchFrom)
+          .isFalse();
+    }
+  }
 }

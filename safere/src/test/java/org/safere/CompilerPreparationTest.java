@@ -15,7 +15,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Ownership and eager preparation invariants for shared compiler preparation. */
+/** Ownership and engine preparation invariants for shared compiler preparation. */
 @DisabledForCrosscheck("uses package-private compiler and engine preparation internals")
 class CompilerPreparationTest {
   private static final int FLAGS = ParseFlags.LIKE_PERL;
@@ -110,8 +110,8 @@ class CompilerPreparationTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"([0-9]{4})-[0-9]{2}", "foo|bar|baz|quux", "(a?)*b", "((a)+){2}b"})
-  void eligibleEngineProgramsAndSetupsAreReadyWhenCompileReturns(String regex)
+  @ValueSource(strings = {"([0-9]{4})-[0-9]{2}", "(foo|bar|baz|quux)", "(a?)*b", "((a)+){2}b"})
+  void findAndCaptureProgramsAndSetupsAreReadyWhenCompileReturns(String regex)
       throws ReflectiveOperationException {
     Pattern pattern = Pattern.compile(regex);
     // Inspect fields before calling accessors that could hide deferred preparation.
