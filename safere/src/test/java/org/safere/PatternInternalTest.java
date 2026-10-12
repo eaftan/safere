@@ -10,12 +10,16 @@ package org.safere;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -68,6 +72,46 @@ class PatternInternalTest {
           assertThat(artifacts.get(i)).isSameAs(shared.get(i));
         }
       }
+    }
+  }
+
+  @Test
+  @Timeout(10)
+  void reverseDfaPreparationWaitsForInitializationLock() throws Exception {
+    Pattern pattern = Pattern.compile("((a?)+){2}b");
+    Regexp ast = pattern.ast();
+    List<Regexp> children = ast.subs;
+    AtomicInteger sourceReads = new AtomicInteger();
+    // Observe source-tree traversal without retaining or exposing Compiler.Prepared.
+    ast.subs =
+        new AbstractList<>() {
+          @Override
+          public Regexp get(int index) {
+            sourceReads.incrementAndGet();
+            return children.get(index);
+          }
+
+          @Override
+          public int size() {
+            return children.size();
+          }
+        };
+
+    FutureTask<Prog> result = new FutureTask<>(pattern::flatReverseDfaProg);
+    Thread worker = new Thread(result);
+    try {
+      synchronized (pattern) {
+        worker.start();
+        while (worker.isAlive() && worker.getState() != Thread.State.BLOCKED) {
+          Thread.sleep(1);
+        }
+        assertThat(worker.getState()).isEqualTo(Thread.State.BLOCKED);
+        assertThat(sourceReads.get()).isZero();
+      }
+      assertThat(result.get()).isNotNull();
+      assertThat(sourceReads.get()).isPositive();
+    } finally {
+      worker.join();
     }
   }
 

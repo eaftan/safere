@@ -1440,17 +1440,13 @@ public final class Pattern implements Serializable {
 
   Prog flatReverseDfaProg() {
     Prog frp = flatReverseDfaProg;
-    // Prepare again on first use rather than retaining the simplified tree after construction.
-    return frp != null ? frp : flatReverseDfaProg(Compiler.prepare(ast));
-  }
-
-  private Prog flatReverseDfaProg(Compiler.Prepared prepared) {
-    Prog frp = flatReverseDfaProg;
     if (frp == null) {
       // Build once, so that reverseDfaSetup always describes the published flatReverseDfaProg.
       synchronized (this) {
         frp = flatReverseDfaProg;
         if (frp == null) {
+          // Prepare once under the lock rather than retaining the tree after construction.
+          Compiler.Prepared prepared = Compiler.prepare(ast);
           Prog rp = reverseProg;
           if (rp == null) {
             rp = Compiler.compile(prepared, true);
