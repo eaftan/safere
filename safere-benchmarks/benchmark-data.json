@@ -162,6 +162,48 @@
       }
     },
     {
+      "id": "compile.firstFind.wordZ.match",
+      "recipe": {
+        "kind": "literal",
+        "text": "hello abcz"
+      }
+    },
+    {
+      "id": "compile.firstFind.wordZ.noMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "hello world"
+      }
+    },
+    {
+      "id": "compile.firstFind.ing.match",
+      "recipe": {
+        "kind": "literal",
+        "text": "the running dog"
+      }
+    },
+    {
+      "id": "compile.firstFind.ing.noMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "the dog sat"
+      }
+    },
+    {
+      "id": "compile.firstFind.decimal.match",
+      "recipe": {
+        "kind": "literal",
+        "text": "pi is 3.14 ok"
+      }
+    },
+    {
+      "id": "compile.firstFind.decimal.noMatch",
+      "recipe": {
+        "kind": "literal",
+        "text": "pi is three"
+      }
+    },
+    {
       "id": "crossEngine.RegexBenchmark.literalMatch.input",
       "recipe": {
         "kind": "literal",
@@ -7863,6 +7905,114 @@
       ],
       "inputs": [
         "compile.firstFind.boundedRepeatGap"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindWordZMatch",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[a-z]+z"
+      ],
+      "inputs": [
+        "compile.firstFind.wordZ.match"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindWordZNoMatch",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[a-z]+z"
+      ],
+      "inputs": [
+        "compile.firstFind.wordZ.noMatch"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindIngMatch",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[a-z]+ing\\b"
+      ],
+      "inputs": [
+        "compile.firstFind.ing.match"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindIngNoMatch",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[a-z]+ing\\b"
+      ],
+      "inputs": [
+        "compile.firstFind.ing.noMatch"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindDecimalMatch",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[0-9]+\\.[0-9]+"
+      ],
+      "inputs": [
+        "compile.firstFind.decimal.match"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "microseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "CompileBenchmark.compileAndFindDecimalNoMatch",
+      "operation": "compileAndFind",
+      "patterns": [
+        "[0-9]+\\.[0-9]+"
+      ],
+      "inputs": [
+        "compile.firstFind.decimal.noMatch"
       ],
       "resultConsumption": "boolean",
       "measurement": {

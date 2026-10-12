@@ -145,6 +145,28 @@ class CompilerPreparationTest {
     assertReverseDfaPrepared(pattern, regex, true);
   }
 
+  /**
+   * The {@code CompileBenchmark.compileAndFind{WordZ,Ing,Decimal}{Match,NoMatch}} workloads in
+   * {@code benchmark-data.json} measure both sides of building the reverse DFA program on first
+   * use: the matching inputs need it to recover the match start, and the others never reach it.
+   */
+  @ParameterizedTest
+  @CsvSource({
+    "'[a-z]+z', 'hello abcz', true",
+    "'[a-z]+z', 'hello world', false",
+    "'[a-z]+ing\\b', 'the running dog', true",
+    "'[a-z]+ing\\b', 'the dog sat', false",
+    "'[0-9]+\\.[0-9]+', 'pi is 3.14 ok', true",
+    "'[0-9]+\\.[0-9]+', 'pi is three', false"
+  })
+  void compileAndFindBenchmarkInputsCoverBothReverseDfaOutcomes(
+      String regex, String text, boolean match) throws ReflectiveOperationException {
+    Pattern pattern = Pattern.compile(regex);
+    assertThat(pattern.canUseReverseDfa()).isTrue();
+    assertThat(pattern.matcher(text).find()).isEqualTo(match);
+    assertReverseDfaPrepared(pattern, regex, match);
+  }
+
   private static void assertReverseDfaPrepared(Pattern pattern, String regex, boolean prepared)
       throws ReflectiveOperationException {
     for (String name : new String[] {"reverseProg", "flatReverseDfaProg", "reverseDfaSetup"}) {
