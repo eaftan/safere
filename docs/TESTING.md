@@ -165,8 +165,10 @@ SafeRE is continuously fuzzed by [OSS-Fuzz](https://google.github.io/oss-fuzz/).
 The [safere-fuzz](../safere-fuzz) module contains broad and strict JDK differential
 targets, property/model checks, and robustness checks. The
 [fuzzing policy](../safere-fuzz/TARGETS.md#policy) defines their failure and enrollment
-rules. They do not depend on the crosscheck facade. By default, they run in
-regression mode over checked-in seed inputs:
+rules. Hosted OSS-Fuzz runs only targets enrolled in the
+[target manifest](../safere-fuzz/targets.json); exploratory targets are not
+automatically enrolled. They do not depend on the crosscheck facade. By default,
+they run in regression mode over checked-in seed inputs:
 
 ```bash
 mvn -pl safere-fuzz -am test
