@@ -165,13 +165,7 @@ The runner sets both libFuzzer’s `-artifact_prefix` (raw failing inputs) and
 Jazzer’s `reproducer_path` (Java reproducers) to the per-method archive directory.
 When running Maven manually, create that directory before using the options above.
 
-## Revised policy and instrumented checks
-
-The [current plan](../design/FUZZING_POLICY_IMPLEMENTATION_PLAN.md) incorporates
-Unicode subjects, reviewed API sequences, engine-path equivalence and observed
-JDK-defect exceptions with canaries. Strict grammar restrictions apply to syntax,
-not to an ASCII-only input alphabet. The heuristic capture waiver and whole-input
-grapheme suppression are removed from broad comparisons.
+## Instrumented checks
 
 Run instrumented NFA work bounds with the manifest-aware runner:
 
@@ -182,10 +176,12 @@ safere-fuzz/scripts/run-fuzz-test.sh --max-duration 30s WorkBoundFuzzer
 For regression replay:
 
 ```bash
-mvn -pl safere-fuzz -am -Pwork-counters -Dtest=WorkBoundFuzzer -Dsafere.fuzz.workCounters=true -Dsurefire.failIfNoSpecifiedTests=false test
+mvn -pl safere-fuzz -am -Pwork-counters \
+  -Dtest=WorkBoundFuzzer,WorkBoundFuzzerTest \
+  -Dsafere.fuzz.workCounters=true -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
-The exploratory workflow schedules weekly broad runs after merge. Dispatch it
+The exploratory workflow schedules weekly broad runs. Dispatch it
 before each release, or run `scripts/run-fuzz-test.sh --suite broad` locally.
 Review the archived findings manually; no automated issue filing is configured.
 Execution signals in finding JSON help identify exercised intentional paths but

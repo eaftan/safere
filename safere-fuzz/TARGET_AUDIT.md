@@ -110,5 +110,5 @@ Strict subjects now include arbitrary UTF-16 boundaries and multibyte characters
 `StrictStateFuzzer` adds reviewed API sequences. `EngineEquivalenceFuzzer` compares
 controlled paths and diagnoses actual participation. `WorkBoundFuzzer` requires
 the work-counters build profile and is not enrolled in a normal OSS-Fuzz build.
-See the revised [implementation plan](../design/FUZZING_POLICY_IMPLEMENTATION_PLAN.md)
+See [target domains and enrollment](TARGETS.md)
 for the precise observation and oracle-exception policy.

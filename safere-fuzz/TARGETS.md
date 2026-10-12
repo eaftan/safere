@@ -7,8 +7,18 @@ and duplicate names. The local runner defaults to the enrolled selection. The
 [assertion and exclusion audit](TARGET_AUDIT.md) records method coverage, shared
 oracle limitations and exhaustive-suite exclusions.
 
-Regression replay is a mode for every bucket. Broad differential discovery is
-explicitly selected and can report intentional JDK differences. Classification
+## Policy
+
+| Category | Oracle and failure policy | Continuous enrollment |
+| --- | --- | --- |
+| Broad differential | Explore a wide input space against `java.util.regex`. Intentional differences remain findings for review. | Separate exploratory workflow; no automatic issue filing. |
+| Strict differential | Require JDK agreement within explicitly generated, reviewed domains, without semantic waivers. | Explicit OSS-Fuzz enrollment after validation. |
+| Property/model | Check engine/representation relationships and explicit SafeRE expectations, including intentional JDK differences. | Explicit OSS-Fuzz enrollment after validation. |
+| Robustness | Check rejection, crashes, stack safety, bounds, progress and instrumented work limits without requiring JDK agreement. | Ordinary targets eligible; instrumented targets require a separate build. |
+
+Regression replay is a mode for every category. Broad differential discovery is
+explicitly selected and can report intentional JDK differences. Passing fuzz seeds
+and reviewed intentional reproductions are separate collections. Classification
 never makes a new input exempt from comparison.
 
 ## Target domains
@@ -40,6 +50,13 @@ with a scanner. Its composition functions are also exercised by deterministic
 small-domain enumeration. Captures are compared without waivers by the comparator
 when harness tests deliberately pass capturing patterns, but capturing patterns
 are not part of this enrolled generator's domain.
+
+`WorkBoundFuzzer` requires enabled instrumentation through `-Pwork-counters` and
+the `safere.fuzz.workCounters` system property. Its work bound scales with compiled
+program size and input size. The counter API rejects an uninstrumented build;
+prefilters may legitimately reject an input with zero measured NFA work. This
+checks forced NFA full matching, excluding compilation, and does not establish
+bounds for other engines or repeated-find workloads.
 
 ## Existing targets retained for exploration
 
@@ -115,12 +132,23 @@ remain future evidence for expanding enrollment.
 
 ## Oracle exceptions, diagnostics and cadence
 
+Strict targets do not waive SafeRE's intentional differences. An exception for a
+defective JDK observation requires all of the following:
+
+1. A predicate inspecting actual JDK state, rather than recognizing pattern syntax.
+2. A reference to the upstream defect and the relevant project regression.
+3. A canary that fails when the observed defect changes, requiring review/removal.
+4. Independent assertions of SafeRE's expected state, with unaffected observations
+   and later operations still compared. Outputs and entire inputs are never waived.
+
 `OracleDefectsTest` pins the actual JDK state defects. `JDK-8390449` identifies
 the usePattern problem; the terminal-empty variant retains its #931/#933
 reference and separate canary. Strict state comparisons assert SafeRE's model
 and omit only the defective JDK observation, count exclusions separately, and
 resume comparisons afterward. Text-access budget exhaustion remains an unavailable
 oracle, not agreement. A JDK update that fixes a canary requires exception review.
+The upstream ticket does not specifically establish the terminal-empty variant;
+resolve its upstream tracking before expanding that exception to further operations.
 
 Ordinary exploratory runs leave diagnostics disabled. A separate run with
 `-Dsafere.fuzz.divergenceEvidence=true` opts into evidence collection for the
@@ -133,12 +161,19 @@ by that rule, and absence does not imply that all intentional paths were exclude
 No event suppresses a comparison. Additional instrumentation requires an accurate
 implementation-side hook and model coverage; no regex scanner is introduced.
 
-The exploratory workflow runs weekly and on manual dispatch after it lands.
+Matcher signals are coalesced by kind within an operation and delivered after its
+state is finalized. Parser signals are delivered after parsing; if parsing fails,
+a notification failure is attached as a suppressed exception to the original
+syntax error. Public diagnostics callbacks retain their exception-propagation
+contract.
+
+The exploratory workflow runs weekly and on manual dispatch.
 Run it before releases as well and manually triage its archived findings.
 Known capture, grapheme and class-intersection differences remain visible and
 can recur. Capture and grapheme divergences have no dedicated evidence hook;
 an empty signal set does not establish that a finding is a new compatibility bug. It does not file
-issues automatically. Hosted rollout and corpus migration remain deferred.
+issues automatically. Review input-format changes and seed decoding before moving
+hosted corpora; new target identities do not automatically inherit old inputs.
 
 Representation comparison checks fresh matches/lookingAt and the first find at
 corresponding boundaries. Repeated finds are compared across engines within each

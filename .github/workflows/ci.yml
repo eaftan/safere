@@ -280,7 +280,7 @@ jobs:
       - name: Run instrumented fuzz work bounds
         run: >
           mvn -pl safere-fuzz -am -Pwork-counters test
-          -Dtest=WorkBoundFuzzer -Dsafere.fuzz.workCounters=true
+          -Dtest=WorkBoundFuzzer,WorkBoundFuzzerTest -Dsafere.fuzz.workCounters=true
           -Dsurefire.failIfNoSpecifiedTests=false
           --batch-mode --no-transfer-progress
 
