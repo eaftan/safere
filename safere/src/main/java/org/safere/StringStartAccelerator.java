@@ -362,9 +362,11 @@ sealed interface StringStartAccelerator {
   /**
    * Scans a required interior class and checks its implied leading ASCII character.
    *
-   * <p>The prefix's ASCII width is the same in both input representations. Each hit advances the
-   * scan, and checking one leading character costs constant work; full verification stays in the
-   * engine. An ASCII leading character also excludes starts inside surrogate pairs.
+   * <p>The prefix's ASCII width is the same in both input representations. After a bounded number
+   * of cheap leading-check failures, scans jump to the next leading-class hit before resuming the
+   * interior scan. Both scans advance monotonically, including when interior hits are dense and
+   * leading hits are absent. Full verification stays in the engine; ASCII leading hits exclude
+   * starts inside surrogate pairs.
    */
   record FixedOffsetClass(CharClass inner, int offset, CharClassScanInfo leadingClass)
       implements StringStartAccelerator {
@@ -379,6 +381,8 @@ sealed interface StringStartAccelerator {
         return -1;
       }
       int position = start + offset;
+      int cheapRejections = 0;
+      StringInputScanner leadingScanner = null;
       while (position < text.length()) {
         int hit = inner.findCandidate(text, position, unixLines);
         if (hit < 0) {
@@ -391,7 +395,19 @@ sealed interface StringStartAccelerator {
         if (leadingClass.contains(text.charAt(candidate))) {
           return candidate;
         }
-        position = hit + 1;
+        if (cheapRejections < AcceleratorPolicy.FIXED_OFFSET_CLASS_CHEAP_REJECTIONS) {
+          cheapRejections++;
+          position = hit + 1;
+          continue;
+        }
+        if (leadingScanner == null) {
+          leadingScanner = new StringInputScanner(text);
+        }
+        int nextLeading = leadingScanner.indexOfCharClass(leadingClass, candidate + 1);
+        if (nextLeading < 0 || offset >= text.length() - nextLeading) {
+          return -1;
+        }
+        position = nextLeading + offset;
       }
       return -1;
     }

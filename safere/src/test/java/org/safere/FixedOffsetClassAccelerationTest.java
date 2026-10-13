@@ -138,6 +138,18 @@ class FixedOffsetClassAccelerationTest {
   }
 
   @Test
+  void denseInteriorClassesPreserveMatchesAfterRareLeadingCharacters() {
+    for (String regex :
+        List.of(" ([0-9]{4,})", "[a-z]{2}([0-9]+)", "[ \\t]{3}([A-F0-9]+)", " {32}([0-9]+)")) {
+      String digits = "1234567890".repeat(2_000);
+      for (String tail : List.of("", " x", " aa1234Z", "   A1234Z", " ".repeat(32) + "12345")) {
+        assertFindSequence(regex, digits + tail, false);
+        assertFindSequence(regex, "é😀" + digits + tail, true);
+      }
+    }
+  }
+
+  @Test
   void replacementsUseTheSameCapturesAndMatchSequence() {
     String input = "é😀 noise ".repeat(200) + " 12 12345 6789";
     for (String regex : List.of(" ([0-9]{4,})", " ([0-9]{1,3}?)")) {

@@ -18,6 +18,33 @@ import org.junit.jupiter.params.provider.ValueSource;
 class FixedOffsetClassAccelerationWorkTest {
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
+  void denseInteriorHitsWithNoLeadingCharacterCostOneLeadingScan(boolean utf8) {
+    String input = "1234567890".repeat(10_000);
+    for (String regex : List.of(" [0-9]{4,}", "[a-z]{2}[0-9]+", "[ \\t\\r\\n]{3}[0-9]+")) {
+      Pattern pattern = Pattern.compile(regex);
+      var plan = (MultiAnchorDescriptor.StartPlan.FixedOffsetClass) pattern.startPlan();
+      InputScanner scanner =
+          utf8 ? new Utf8InputScanner(input.getBytes(UTF_8)) : new StringInputScanner(input);
+      long leadingWork =
+          WorkCounter.countForTesting(
+              () -> assertThat(scanner.indexOfCharClass(plan.leadingClass(), 0)).isEqualTo(-1));
+      long acceleratedWork =
+          WorkCounter.countForTesting(
+              () -> {
+                int candidate =
+                    utf8
+                        ? Utf8StartAccelerator.findNextCandidate(
+                            pattern.utf8StartAccelerator(), (Utf8InputScanner) scanner, 0)
+                        : StringStartAccelerator.findNextCandidate(
+                            pattern.stringStartAccelerator(), input, 0, false);
+                assertThat(candidate).isEqualTo(-1);
+              });
+      assertThat(acceleratedWork).as(regex).isLessThanOrEqualTo(leadingWork + 8);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
   void absentInteriorClassRejectsBeforeDfaSearch(boolean utf8) {
     Pattern pattern = Pattern.compile(" [0-9]{4,}");
     String input = "words with frequent spaces é😀 ".repeat(2_000);

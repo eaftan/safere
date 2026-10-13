@@ -3684,6 +3684,59 @@
         "delimiterAlphabet": "x"
       },
       "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseInteriorNoLeadingFail.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "repeatToLength",
+        "unit": "1234567890",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseInteriorRareLeadingFail.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "1234567890",
+        "suffix": " x",
+        "length": "{size}"
+      },
+      "shared": true
+    },
+    {
+      "id": "searchScaling.fixedOffsetClassDenseInteriorRareLeadingSuccess.{size}",
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      },
+      "recipe": {
+        "kind": "suffixToLength",
+        "prefixUnit": "1234567890",
+        "suffix": " 2026x",
+        "length": "{size}"
+      },
+      "shared": true
     }
   ],
   "workloads": [
@@ -14763,6 +14816,84 @@
         "timingUnit": "nanoseconds",
         "constraints": [
           "prematerializedInput"
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseInteriorNoLeadingFail.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseInteriorNoLeadingFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseInteriorRareLeadingFail.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseInteriorRareLeadingFail.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
+        ]
+      }
+    },
+    {
+      "id": "SearchScalingBenchmark.fixedOffsetClassDenseInteriorRareLeadingSuccess.{size}",
+      "operation": "find",
+      "patterns": [
+        " [0-9]{4,}"
+      ],
+      "inputs": [
+        "searchScaling.fixedOffsetClassDenseInteriorRareLeadingSuccess.{size}"
+      ],
+      "resultConsumption": "boolean",
+      "measurement": {
+        "mode": "averageTime",
+        "timingUnit": "nanoseconds",
+        "constraints": [
+          "prematerializedInput"
+        ]
+      },
+      "axes": {
+        "size": [
+          1000,
+          10000,
+          100000,
+          262144
         ]
       }
     }

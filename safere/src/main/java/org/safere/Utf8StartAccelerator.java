@@ -625,8 +625,10 @@ sealed interface Utf8StartAccelerator {
   /**
    * Scans a required interior class following an exact-width ASCII prefix.
    *
-   * <p>ASCII offsets are also byte offsets. Hits advance monotonically, and the leading ASCII check
-   * excludes continuation-byte starts without decoding or replaying the prefix.
+   * <p>ASCII offsets are also byte offsets. After a bounded number of cheap leading-check failures,
+   * scans jump to the next leading-class hit before resuming the interior scan. Both scans advance
+   * monotonically, including when interior hits are dense and leading hits are absent. ASCII
+   * leading hits exclude continuation-byte starts.
    */
   record FixedOffsetClass(CharClassScanInfo scanInfo, int offset, CharClassScanInfo leadingClass)
       implements Utf8StartAccelerator {
@@ -641,6 +643,7 @@ sealed interface Utf8StartAccelerator {
         return -1;
       }
       int position = start + offset;
+      int cheapRejections = 0;
       while (position < scanner.length()) {
         int hit =
             scanner.indexOfCodePointClass(
@@ -659,7 +662,21 @@ sealed interface Utf8StartAccelerator {
         if (leadingClass.contains(scanner.asciiAt(candidate))) {
           return candidate;
         }
-        position = hit + 1;
+        if (cheapRejections < AcceleratorPolicy.FIXED_OFFSET_CLASS_CHEAP_REJECTIONS) {
+          cheapRejections++;
+          position = hit + 1;
+          continue;
+        }
+        int[] leadingRanges = leadingClass.ranges();
+        // A singleton leading class can reuse the dedicated byte scanner.
+        int nextLeading =
+            leadingRanges.length == 2 && leadingRanges[0] == leadingRanges[1]
+                ? scanner.indexOfAscii(leadingRanges[0], candidate + 1, scanner.length())
+                : scanner.indexOfCharClass(leadingClass, candidate + 1);
+        if (nextLeading < 0 || offset >= scanner.length() - nextLeading) {
+          return -1;
+        }
+        position = nextLeading + offset;
       }
       return -1;
     }

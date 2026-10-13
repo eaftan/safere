@@ -148,10 +148,12 @@ public final class FindSequenceFuzzer {
     for (String prefix : INTERIOR_CLASS_PREFIXES) {
       for (String atom : List.of("[0-9]", "[A-F0-9]")) {
         for (String quantifier : List.of("+", "{4,}", "{1,3}?")) {
-          assertFindSequence(
-              prefix + "(" + atom + quantifier + ")",
-              "é😀 words 1111x 1x aa1234Y ".repeat(100)
-                  + "   A1234 e1234 aa12345 😀1234 éé12345 x1234 aé12345");
+          for (String noise :
+              List.of("é😀 words 1111x 1x aa1234Y ".repeat(100), "1234567890".repeat(1_000))) {
+            assertFindSequence(
+                prefix + "(" + atom + quantifier + ")",
+                noise + "   A1234 e1234 aa12345 😀1234 éé12345 x1234 aé12345");
+          }
         }
       }
     }
@@ -359,7 +361,7 @@ public final class FindSequenceFuzzer {
         String quantifier = data.pickValue(List.of("+", "{4,}", "{1,3}?"));
         regex = prefix + "(" + atom + quantifier + ")" + data.pickValue(List.of("", "Z", "$"));
         flags = 0;
-        String unit = data.pickValue(List.of("1111x", " 1x", "aa1234Y", "é😀1111x"));
+        String unit = data.pickValue(List.of("1111x", " 1x", "aa1234Y", "é😀1111x", "1234567890"));
         input =
             unit.repeat(data.consumeInt(0, 1_000))
                 + "   A1234Z e1234Z aa12345Z 😀1234Z éé12345Z x1234Z aé12345Z";

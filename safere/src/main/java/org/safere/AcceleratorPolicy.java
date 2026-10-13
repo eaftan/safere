@@ -49,6 +49,14 @@ record AcceleratorPolicy(
   private static final int DEFAULT_STRIKE_BUDGET = 16;
 
   /**
+   * Cheap interior-hit rejections before switching to alternating class scans.
+   *
+   * <p>A small bounded allowance avoids a second scanner on short runs of nearby candidates. Longer
+   * runs use the leading class to skip dense interior hits in bulk.
+   */
+  static final int FIXED_OFFSET_CLASS_CHEAP_REJECTIONS = 4;
+
+  /**
    * Candidate stride below which a candidate counts as a strike.
    *
    * <p>Break-even for a literal scan: anchoring on a single character saves roughly 0.1 ns/byte
