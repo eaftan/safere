@@ -147,7 +147,7 @@ final class UnicodeTables {
   }
 
   private static boolean isUnicodeWhiteSpace(int cp) {
-    return Character.isWhitespace(cp) || Character.isSpaceChar(cp);
+    return Character.isSpaceChar(cp) || (cp >= 0x09 && cp <= 0x0D) || cp == 0x85;
   }
 
   private static boolean isUnicodeGraph(int cp) {
@@ -828,26 +828,12 @@ final class UnicodeTables {
    * space separators (Zs), line/paragraph separators (Zl, Zp), and certain control characters.
    * Matches JDK's {@code \s} under UNICODE_CHARACTER_CLASS.
    *
-   * <p>White_Space is a derived Unicode property, not a general category, so it cannot be built
-   * purely from {@link Character#getType(int)}. The specific control characters included (HT, LF,
-   * VT, FF, CR, FS, GS, RS, US, NEL) are stable across Unicode versions. A canary test verifies
-   * consistency with the JDK.
+   * <p>The generated binary property table is shared with {@code \p{IsWhite_Space}}. Its control
+   * characters are HT, LF, VT, FF, CR, and NEL; FS, GS, RS, and US are excluded. A canary test
+   * verifies consistency with the JDK.
    */
   public static int[][] unicodeSpace() {
-    // Unicode White_Space property (from PropList.txt):
-    // 0009..000D, 0020, 0085, 00A0, 1680, 2000..200A, 2028, 2029, 202F, 205F, 3000
-    return new int[][] {
-      {0x09, 0x0D}, // \t \n \x0B \f \r
-      {0x20, 0x20}, // space
-      {0x85, 0x85}, // NEL (Next Line)
-      {0xA0, 0xA0}, // NBSP
-      {0x1680, 0x1680}, // Ogham space mark
-      {0x2000, 0x200A}, // en quad through hair space
-      {0x2028, 0x2029}, // line separator, paragraph separator
-      {0x202F, 0x202F}, // narrow no-break space
-      {0x205F, 0x205F}, // medium mathematical space
-      {0x3000, 0x3000}, // ideographic space
-    };
+    return UnicodeProperties.lookupBinaryProperty("White_Space");
   }
 
   /**

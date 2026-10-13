@@ -318,6 +318,28 @@ including flags, line endings, captures, character classes, and syntax errors.
 Its expectations run in SafeRE tests and are disabled only in generated JDK
 crosscheck tests with `@DisabledForCrosscheck`.
 
+## Unicode Hexadecimal Digits
+
+Issue reference: [#985](https://github.com/eaftan/safere/issues/985).
+
+SafeRE's `\p{IsHex_Digit}` follows Unicode's `Hex_Digit` binary property:
+ASCII and fullwidth `0`–`9`, `A`–`F`, and `a`–`f`. The
+[JDK 26 `Pattern` specification](https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/util/regex/Pattern.html#unicode)
+supports Unicode binary properties, and
+[Unicode's property data](https://www.unicode.org/Public/17.0.0/ucd/PropList.txt)
+defines these ranges. OpenJDK 26 also matches every other decimal digit with
+`\p{IsHex_Digit}`, including U+0660 ARABIC-INDIC DIGIT ZERO and supplementary
+mathematical digits. SafeRE intentionally preserves the specified Unicode
+property rather than copying that broader implementation. This decision was
+approved for #985 and is independent of the linear-time matching constraint.
+
+Negated forms and character-class expressions use the same Unicode set.
+Under `UNICODE_CHARACTER_CLASS`, `\p{XDigit}` still includes all decimal digits,
+as required by its separate specification `[\p{gc=Nd}\p{IsHex_Digit}]`.
+`UnicodePropertySyntaxTest` pins both definitions, and
+`UnicodeJdkConsistencyTest` checks every generated binary property over all
+code points on JDK 26 or newer, using Unicode ranges as the `Hex_Digit` oracle.
+
 ## Unicode Case-Insensitive Range Closure
 
 Issue reference: #452.

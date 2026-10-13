@@ -26,6 +26,8 @@ public final class DialectSyntaxFuzzer {
     "\\p{^Braille}",
     "\\p{InBraille}",
     "\\p{IsLatin}",
+    "\\p{IsWhite_Space}",
+    "\\P{IsWhite_Space}",
     "[:lower:]",
     "[:alpha:]",
     "[:digit:]",
@@ -42,10 +44,14 @@ public final class DialectSyntaxFuzzer {
   private static final List<String> INPUTS =
       List.of(
           "", "a", "b", "a\u0300", "\r\n", "Braille", "Latin", ":", "[", "]", "l", "o", "w", "e",
-          "r");
+          "r", "\u001B", "\u001C", "\u001D", "\u001E", "\u001F", "\u0084", "\u0085", "\u0086",
+          "\u00A0", "\u2028", "\u2029", "\u3000");
   private static final String[] REGRESSION_REGEXES = {
     "\\p{Braille}",
     "\\p{Latin}",
+    "\\p{IsWhite_Space}",
+    "\\P{IsWhite_Space}",
+    "[\\p{IsWhite_Space}&&[\\p{Cc}\\p{Z}]]",
     "[[:lower:]]",
     "[[:^space:]]",
     "a\\b{g}\\u0300",
@@ -57,6 +63,15 @@ public final class DialectSyntaxFuzzer {
     "a{2,1}"
   };
   private static final String[] SAFE_RE_EXTENSION_REGEXES = {"(?P<name>a)", "(?P<test_group>a)"};
+  private static final String[] HEX_DIGIT_CONTEXTS = {
+    "%s", "[%s]", "[^%s]", "[%s&&[\\p{Nd}]]", "(?:%s)+", "(?U)%s"
+  };
+  private static final String HEX_DIGIT_RANGES =
+      "0-9A-Fa-f\\uFF10-\\uFF19\\uFF21-\\uFF26\\uFF41-\\uFF46";
+  private static final int[] HEX_DIGIT_INPUTS = {
+    0x2F, 0x30, 0x39, 0x3A, 0x40, 0x41, 0x46, 0x47, 0x60, 0x61, 0x66, 0x67, 0xFF0F, 0xFF10, 0xFF19,
+    0xFF1A, 0xFF20, 0xFF21, 0xFF26, 0xFF27, 0xFF40, 0xFF41, 0xFF46, 0xFF47, 0x0660, 0x0966, 0x1D7CE
+  };
 
   @FuzzTest(maxDuration = "30s")
   void dialectSyntax(FuzzedDataProvider data) {
@@ -85,6 +100,28 @@ public final class DialectSyntaxFuzzer {
 
     String regex = prefix + data.pickValue(DIALECT_FRAGMENTS) + suffix;
     FuzzSupport.assertFullMatchesJdk(regex, FuzzSupport.consumeParserFlags(data), INPUTS);
+    assertUnicodeHexDigit(data);
+  }
+
+  private static void assertUnicodeHexDigit(FuzzedDataProvider data) {
+    // Issue #985: use explicit Unicode ranges instead of JDK's broader IsHex_Digit property.
+    boolean negated = data.consumeBoolean();
+    String context = data.pickValue(HEX_DIGIT_CONTEXTS);
+    String regex = context.formatted(negated ? "\\P{IsHex_Digit}" : "\\p{IsHex_Digit}");
+    String reference = context.formatted("[" + (negated ? "^" : "") + HEX_DIGIT_RANGES + "]");
+    FuzzSupport.CompiledPattern pattern =
+        new FuzzSupport.CompiledPattern(
+            regex, 0, Pattern.compile(regex), java.util.regex.Pattern.compile(reference));
+    for (int cp : HEX_DIGIT_INPUTS) {
+      pattern.matcher(Character.toString(cp)).matches();
+    }
+    int cp = data.consumeInt(0, Character.MAX_CODE_POINT);
+    pattern.matcher(Character.toString(cp)).matches();
+    String input = FuzzSupport.consumeUnicodeHeavyString(data, 128);
+    FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+    while (matcher.find()) {
+      // Compare the full match sequence, including quantified property runs.
+    }
   }
 
   private static void assertSafeRePythonNamedGroupExtension(String regex) {

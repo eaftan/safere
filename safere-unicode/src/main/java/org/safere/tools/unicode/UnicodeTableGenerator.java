@@ -197,7 +197,10 @@ public final class UnicodeTableGenerator {
     predicates.put("Titlecase", Character::isTitleCase);
     predicates.put("Punctuation", UnicodeTableGenerator::isPunctuation);
     predicates.put("Control", cp -> Character.getType(cp) == Character.CONTROL);
-    predicates.put("White_Space", cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp));
+    // Unicode White_Space consists of Zs/Zl/Zp, HT through CR, and NEL (PropList.txt).
+    // Character.isWhitespace instead includes U+001C..U+001F and excludes NEL.
+    predicates.put(
+        "White_Space", cp -> Character.isSpaceChar(cp) || (cp >= 0x09 && cp <= 0x0D) || cp == 0x85);
     predicates.put("Digit", Character::isDigit);
     predicates.put("Hex_Digit", UnicodeTableGenerator::isHexDigit);
     predicates.put("Join_Control", cp -> cp == 0x200C || cp == 0x200D);
@@ -424,6 +427,7 @@ public final class UnicodeTableGenerator {
   }
 
   private static boolean isHexDigit(int cp) {
+    // Preserve Unicode Hex_Digit, rather than JDK regex's inclusion of every decimal digit.
     return (cp >= '0' && cp <= '9')
         || (cp >= 'A' && cp <= 'F')
         || (cp >= 'a' && cp <= 'f')
