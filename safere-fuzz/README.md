@@ -12,11 +12,15 @@ SafeRE is continuously fuzzed by [OSS-Fuzz](https://google.github.io/oss-fuzz/).
 Open fuzzer findings are tracked in the
 [SafeRE OSS-Fuzz bug tracker](https://issues.oss-fuzz.com/issues?q=project:safere).
 
+[targets.json](targets.json) decides which targets OSS-Fuzz runs: only entries
+with `oss_fuzz` set to `true` receive hosted launchers. Broad differential targets
+run separately through the exploratory workflow or local runner.
+
 ## Targets
 
-The manifest is authoritative for enrollment, including strict pattern/state,
-engine/representation/model and robustness targets. `WorkBoundFuzzer` uses a
-separate instrumented build and is not enrolled in the ordinary hosted build.
+The manifest inventories strict pattern/state, engine/representation/model and
+robustness targets. `WorkBoundFuzzer` uses a separate instrumented build and is
+not enrolled in the ordinary hosted build.
 The existing targets below remain available for exploratory differential work:
 
 - `CompileFuzzer` fuzzes compile/reject behavior.
