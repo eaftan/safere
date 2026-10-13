@@ -644,7 +644,7 @@ final class Dfa {
           case InstOp.OP_ALT, InstOp.OP_ALT_MATCH -> {
             // AltMatch and ALT only transition to id + 1 (already pushed above)
           }
-          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE, InstOp.OP_LOOP_ENTER -> {
             stack[stackTop++] = ip.out;
           }
           case InstOp.OP_PROGRESS_CHECK -> {
@@ -675,7 +675,7 @@ final class Dfa {
             stack[stackTop++] = ip.out1;
             stack[stackTop++] = ip.out;
           }
-          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> {
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE, InstOp.OP_LOOP_ENTER -> {
             stack[stackTop++] = ip.out;
           }
           case InstOp.OP_PROGRESS_CHECK -> {

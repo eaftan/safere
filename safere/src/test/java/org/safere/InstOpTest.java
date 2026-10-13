@@ -15,7 +15,7 @@ class InstOpTest {
 
   @Test
   void allOpsAreDefined() {
-    assertThat(InstOp.values().length).isEqualTo(11);
+    assertThat(InstOp.values().length).isEqualTo(12);
   }
 
   @Test
@@ -32,5 +32,6 @@ class InstOpTest {
     assertThat(InstOp.CHAR_CLASS.ordinal()).isEqualTo(8);
     assertThat(InstOp.GRAPHEME_CLUSTER.ordinal()).isEqualTo(9);
     assertThat(InstOp.PROGRESS_CHECK.ordinal()).isEqualTo(10);
+    assertThat(InstOp.LOOP_ENTER.ordinal()).isEqualTo(InstOp.OP_LOOP_ENTER);
   }
 }

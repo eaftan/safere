@@ -893,14 +893,16 @@ final class Nfa {
       int instructionId = stack.id;
       boolean frameConsumedInput = stack.consumedInput;
       Inst ip = prog.inst(instructionId);
-      // PROGRESS_CHECK is excluded from the visited set: it manages its own re-entry
-      // via registers. Within one addToThreadq call, it is visited at most twice (once
-      // to save the position, once to detect zero-width and redirect to exit).
+      // Loop instructions are excluded from the visited set: progress registers terminate
+      // zero-width iterations, while fresh entries reset only their own loop's register.
       //
       // ALT and CAPTURE are also excluded because a nullable quantified body can revisit the
       // same alternation or capture instruction at the same input position with different capture
       // registers. The later zero-width iteration is JDK-visible and must not be discarded.
-      if (ip.op != InstOp.PROGRESS_CHECK && ip.op != InstOp.ALT && ip.op != InstOp.CAPTURE) {
+      if (ip.op != InstOp.PROGRESS_CHECK
+          && ip.op != InstOp.LOOP_ENTER
+          && ip.op != InstOp.ALT
+          && ip.op != InstOp.CAPTURE) {
         if (q.hasGraphemeSemantics) {
           long visitKey = visitKey(ip, instructionId, text, pos, pos);
           if (!q.visitedGrapheme.add(visitKey)) {
@@ -961,6 +963,14 @@ final class Nfa {
           if ((ip.arg & ~cachedFlags) == 0) {
             stack.pushInstruction(ip.out, frameConsumedInput);
           }
+        }
+
+        case LOOP_ENTER -> {
+          int regIdx = ncapture + ip.arg;
+          int saved = t0[regIdx];
+          t0[regIdx] = -1;
+          stack.pushRestore(regIdx, saved);
+          stack.pushInstruction(ip.out, frameConsumedInput);
         }
 
         case PROGRESS_CHECK -> {

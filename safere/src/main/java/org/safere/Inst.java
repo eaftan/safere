@@ -183,7 +183,7 @@ final class Inst {
    * <p>Behavior:
    *
    * <ul>
-   *   <li><b>First visit</b> (saved == -1): saves position, follows both successors like ALT
+   *   <li><b>First visit</b> (saved == -1): saves position and enters the body (plus semantics)
    *   <li><b>Progress</b> (pos != saved): saves position, follows both successors like ALT (greedy
    *       → prefer body; non-greedy → prefer exit)
    *   <li><b>Zero-width</b> (pos == saved): follows only exit (terminates the loop)
@@ -201,6 +201,14 @@ final class Inst {
     this.out = bodyOut;
     this.out1 = exitOut;
     this.foldCase = nonGreedy;
+  }
+
+  /** Initializes a fresh loop entry resetting {@code loopReg} before continuing to {@code out}. */
+  public void initLoopEnter(int loopReg, int out) {
+    this.op = InstOp.LOOP_ENTER;
+    this.opCode = InstOp.OP_LOOP_ENTER;
+    this.arg = loopReg;
+    this.out = out;
   }
 
   /**
@@ -336,6 +344,7 @@ final class Inst {
       case EMPTY_WIDTH -> String.format(Locale.ROOT, "empty 0x%X -> %d", arg, out);
       case MATCH -> String.format(Locale.ROOT, "match %d", arg);
       case NOP -> String.format(Locale.ROOT, "nop -> %d", out);
+      case LOOP_ENTER -> String.format(Locale.ROOT, "loop_enter reg=%d -> %d", arg, out);
       case FAIL -> "fail";
       case GRAPHEME_CLUSTER -> String.format(Locale.ROOT, "grapheme_cluster -> %d", out);
       case PROGRESS_CHECK ->

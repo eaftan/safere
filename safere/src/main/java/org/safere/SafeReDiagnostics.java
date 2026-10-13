@@ -293,7 +293,8 @@ public final class SafeReDiagnostics {
         json.append(',');
         appendNumberField(json, "arg", inst.arg);
       }
-      case NOP, CAPTURE, EMPTY_WIDTH, GRAPHEME_CLUSTER -> appendArgOutFields(json, inst);
+      case NOP, CAPTURE, LOOP_ENTER, EMPTY_WIDTH, GRAPHEME_CLUSTER ->
+          appendArgOutFields(json, inst);
       case ALT, ALT_MATCH -> appendOutOut1Fields(json, inst);
       case CHAR_RANGE -> appendCharRangeFields(json, inst);
       case CHAR_CLASS -> appendCharClassFields(json, inst);
@@ -302,7 +303,9 @@ public final class SafeReDiagnostics {
   }
 
   private static void appendArgOutFields(StringBuilder json, Inst inst) {
-    if (inst.op == InstOp.CAPTURE || inst.op == InstOp.EMPTY_WIDTH) {
+    if (inst.op == InstOp.CAPTURE
+        || inst.op == InstOp.LOOP_ENTER
+        || inst.op == InstOp.EMPTY_WIDTH) {
       json.append(',');
       appendNumberField(json, "arg", inst.arg);
     }

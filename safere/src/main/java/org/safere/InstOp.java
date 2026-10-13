@@ -57,17 +57,23 @@ enum InstOp {
   /**
    * Loop progress check for zero-width repetition breaking. Emitted at the entry point of each loop
    * iteration for {@code *}/{@code +} with nullable bodies. On first visit (saved == -1), saves the
-   * current position and continues. On subsequent visits, compares position to saved: if unchanged
-   * (zero-width body match), acts as {@link #FAIL}; if different, updates saved position and
-   * continues to {@code out}.
+   * current position and enters the body. On subsequent visits, compares position to saved: if
+   * unchanged (zero-width body match), follows only the exit; if different, updates saved position
+   * and chooses between body and exit according to greediness.
    *
    * <p>The register index is stored in {@link Inst#arg}. Each engine maintains per-thread loop
    * registers to track positions.
    */
-  PROGRESS_CHECK;
+  PROGRESS_CHECK,
+
+  /**
+   * Fresh entry to a nullable repetition. Resets the loop register in {@link Inst#arg} to {@code
+   * -1} and continues to {@code out}. The repetition's back edge bypasses this instruction.
+   */
+  LOOP_ENTER;
 
   // Int constants for hot-loop switches, avoiding Enum.ordinal() + synthetic switch-map overhead.
-  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., PROGRESS_CHECK=10).
+  // Values must match enum declaration order (ALT=0, ALT_MATCH=1, ..., LOOP_ENTER=11).
   static final int OP_ALT = 0;
   static final int OP_ALT_MATCH = 1;
   static final int OP_CHAR_RANGE = 2;
@@ -79,4 +85,5 @@ enum InstOp {
   static final int OP_CHAR_CLASS = 8;
   static final int OP_GRAPHEME_CLUSTER = 9;
   static final int OP_PROGRESS_CHECK = 10;
+  static final int OP_LOOP_ENTER = 11;
 }

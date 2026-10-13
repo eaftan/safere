@@ -287,7 +287,7 @@ final class ShiftDfa {
             stack[stackTop++] = ip.out1;
             stack[stackTop++] = ip.out;
           }
-          case InstOp.OP_NOP, InstOp.OP_CAPTURE -> stack[stackTop++] = ip.out;
+          case InstOp.OP_NOP, InstOp.OP_CAPTURE, InstOp.OP_LOOP_ENTER -> stack[stackTop++] = ip.out;
           case InstOp.OP_CHAR_RANGE -> {
             if (ip.hi >= 128) {
               return false; // Non-ASCII character range not supported in ShiftDfa

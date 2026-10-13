@@ -638,6 +638,15 @@ final class BitState {
           }
         }
 
+        case InstOp.OP_LOOP_ENTER -> {
+          int reg = ip.arg;
+          push(-(ncap + reg + 1), loopRegs[reg]);
+          loopRegs[reg] = -1;
+          if (shouldVisit(ip.out, pos)) {
+            push(ip.out, pos);
+          }
+        }
+
         case InstOp.OP_PROGRESS_CHECK -> {
           int reg = ip.arg;
           int saved = loopRegs[reg];

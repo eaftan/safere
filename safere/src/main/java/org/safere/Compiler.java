@@ -896,7 +896,9 @@ final class Compiler extends Walker<Compiler.Frag> {
     // When the body is nullable (can match zero characters), insert a PROGRESS_CHECK at the
     // loop entry to implement the JDK "zero-width match breaks repetition" rule.
     //
-    // Structure: pcId: PROGRESS_CHECK(body, exit) where body end loops back to pcId.
+    // Fresh entry resets the loop register; the body end loops back to PROGRESS_CHECK directly.
+    // An enclosing repetition can re-enter this loop at the same position where it last exited,
+    // which must not be mistaken for a zero-width iteration of this loop.
     // On progress, PROGRESS_CHECK acts like ALT(body, exit) with greediness preference.
     // On zero-width, PROGRESS_CHECK forces exit only (terminates the loop).
     if (a.nullable && !forDfa) {
@@ -904,13 +906,18 @@ final class Compiler extends Walker<Compiler.Frag> {
       if (pcId < 0) {
         return Frag.NO_MATCH;
       }
+      int entryId = allocInst();
+      if (entryId < 0) {
+        return Frag.NO_MATCH;
+      }
       int loopReg = nextLoopReg++;
+      prog.mutableInst(entryId).initLoopEnter(loopReg, pcId);
       prog.mutableInst(pcId).initProgressCheck(loopReg, a.begin, 0, nongreedy);
       long pl = PatchList.mk((pcId << 1) | 1); // patch out1 (exit)
 
       // Patch the body end to loop back to pcId.
       PatchList.patch(prog, a.end, pcId);
-      return new Frag(pcId, pl, true);
+      return new Frag(entryId, pl, true);
     }
 
     int id = allocInst();

@@ -231,7 +231,7 @@ final class OnePass {
             stack[stackTop++] = capMask;
             stack[stackTop++] = emptyFlags;
           }
-          case NOP -> {
+          case NOP, LOOP_ENTER -> {
             if (stackTop + 3 > stack.length) {
               stack = Arrays.copyOf(stack, stack.length * 2);
             }

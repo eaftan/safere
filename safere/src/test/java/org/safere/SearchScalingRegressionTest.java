@@ -20,6 +20,22 @@ import org.junit.jupiter.api.Test;
 class SearchScalingRegressionTest {
 
   @Test
+  void nestedNullableLoopEntryResetsKeepFindWorkLinear() {
+    for (EnginePathOptions options :
+        new EnginePathOptions[] {
+          EnginePathOptions.builder().onePass(false).bitState(false).build(),
+          EnginePathOptions.builder().dfa(false).onePass(false).build(),
+          EnginePathOptions.builder().dfa(false).onePass(false).bitState(false).build()
+        }) {
+      Pattern pattern = Pattern.compile("(?:(?:x|)+?)*", 0, options);
+      assertFindAllWorkIsLinear(size -> pattern.matcher("x".repeat(size))::find, "String loops");
+      assertFindAllWorkIsLinear(
+          size -> pattern.matcher(Utf8Input.trusted("x".repeat(size).getBytes(UTF_8)))::find,
+          "UTF-8 loops");
+    }
+  }
+
+  @Test
   void endAnchoredLeadingExpansionNoMatchWorkIsIndependentOfInputLength() {
     // A leading expansion (\\s*) gives these patterns a start accelerator. A failing search must
     // still be decided by the reverse-first search from the end of the input, not by a forward scan

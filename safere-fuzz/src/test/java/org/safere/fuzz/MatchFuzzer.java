@@ -106,6 +106,45 @@ public final class MatchFuzzer {
     // Append new consumers so existing corpus inputs retain their original interpretation.
     assertNullableFindInsideSurrogatePairMatchesJdk(data);
     assertUnicodeIPrefixFindsMatchJdk(data);
+    assertNestedNullableLoopEntriesMatchJdk(data);
+  }
+
+  private static void assertNestedNullableLoopEntriesMatchJdk(FuzzedDataProvider data) {
+    for (String regex : List.of("(?:(?:x|)+?)*", "(?:(?:x?)+?){1,}")) {
+      FuzzSupport.CompiledPattern regression = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+      if (regression != null) {
+        FuzzSupport.MatcherPair matcher = regression.matcher("xxx");
+        while (matcher.find()) {}
+        matcher.reset().replaceAll("-");
+      }
+    }
+    // Vary fresh entry into a nullable loop independently of its own back edge (#1005).
+    String atom = data.pickValue(List.of("x", "xx", "é", "😀"));
+    String body = data.consumeBoolean() ? "(?:" + atom + "|)" : "(?:" + atom + "?)";
+    String inner = data.pickValue(List.of("+?", "*?", "+", "*"));
+    String prefix = data.consumeBoolean() ? "a?" : "";
+    String suffix = data.consumeBoolean() ? "b?" : "";
+    String outer = data.pickValue(List.of("*", "+", "{1,}", "{2}", "*?", "+?"));
+    String continuation = data.pickValue(List.of("", "y", "$"));
+    String regex = "(?:" + prefix + body + inner + suffix + ")" + outer + continuation;
+    if (data.consumeBoolean()) {
+      regex = "(" + regex + ")";
+    }
+    String input = atom.repeat(data.consumeInt(0, 16));
+    if (!suffix.isEmpty() && data.consumeBoolean()) {
+      input += "b" + atom.repeat(data.consumeInt(0, 16));
+    }
+    if (continuation.equals("y")) {
+      input += "y";
+    }
+    FuzzSupport.CompiledPattern pattern = FuzzSupport.compileCompatibleOrSkip(regex, 0);
+    if (pattern != null) {
+      FuzzSupport.MatcherPair matcher = pattern.matcher(input);
+      while (matcher.find()) {}
+      matcher.reset().lookingAt();
+      matcher.reset().matches();
+      matcher.reset().replaceAll("-");
+    }
   }
 
   private static void assertAcceleratedRestartArrayGrowthMatchesJdk(FuzzedDataProvider data) {
