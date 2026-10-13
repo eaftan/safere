@@ -382,7 +382,6 @@ sealed interface StringStartAccelerator {
       }
       int position = start + offset;
       int cheapRejections = 0;
-      StringInputScanner leadingScanner = null;
       while (position < text.length()) {
         int hit = inner.findCandidate(text, position, unixLines);
         if (hit < 0) {
@@ -400,10 +399,7 @@ sealed interface StringStartAccelerator {
           position = hit + 1;
           continue;
         }
-        if (leadingScanner == null) {
-          leadingScanner = new StringInputScanner(text);
-        }
-        int nextLeading = leadingScanner.indexOfCharClass(leadingClass, candidate + 1);
+        int nextLeading = StringInputScanner.indexOfCharClass(text, leadingClass, candidate + 1);
         if (nextLeading < 0 || offset >= text.length() - nextLeading) {
           return -1;
         }

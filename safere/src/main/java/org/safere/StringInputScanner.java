@@ -144,6 +144,10 @@ final class StringInputScanner implements InputScanner {
 
   @Override
   public int indexOfCharClass(CharClassScanInfo scanInfo, int start) {
+    return indexOfCharClass(text, scanInfo, start);
+  }
+
+  static int indexOfCharClass(String text, CharClassScanInfo scanInfo, int start) {
     int position = Math.max(0, start);
     if (scanInfo instanceof CharClassScanInfo.SmallSet smallSet) {
       return indexOfSmallSet(text, smallSet.chars(), position);
