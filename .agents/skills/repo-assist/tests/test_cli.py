@@ -37,6 +37,8 @@ def test_recent_issue_scope_is_opt_in_and_passed_to_the_collector(tmp_path, caps
   from repo_assist import cli
 
   assert parser().parse_args(["issue-activity", "--token", "t"]).recent_days is None
+  assert parser().parse_args(["issue-activity", "--token", "t"]).reassess is None
+  assert parser().parse_args(["issue-activity", "--token", "t", "--reassess", "1", "2"]).reassess == [1, 2]
   begin(Namespace(root=tmp_path))
   metadata = json.loads(capsys.readouterr().out)
   args = parser().parse_args([
@@ -50,7 +52,7 @@ def test_recent_issue_scope_is_opt_in_and_passed_to_the_collector(tmp_path, caps
 
   monkeypatch.setattr(cli, "collect_activity", collect)
   assert cli.issue_activity(args) == 0
-  assert calls == [{"recent_days": 14}]
+  assert calls == [{"recent_days": 14, "assessments": {}, "reassess": frozenset()}]
   end(Namespace(root=tmp_path, token=metadata["token"], interrupted=True))
 
 
@@ -145,7 +147,7 @@ def test_failed_activity_collection_cannot_publish_or_advance_state(tmp_path, ca
   metadata = json.loads(capsys.readouterr().out)
   before = (tmp_path / "state.json").read_bytes()
 
-  def failure(*args):
+  def failure(*args, **kwargs):
     raise PermissionError("trust check failed")
 
   monkeypatch.setattr(cli, "collect_activity", failure)
@@ -165,12 +167,12 @@ def test_failed_recollection_invalidates_pending_success(tmp_path, capsys, monke
   metadata = json.loads(capsys.readouterr().out)
   before = (tmp_path / "state.json").read_bytes()
   args = Namespace(root=tmp_path, token=metadata["token"], repository="o/r")
-  monkeypatch.setattr(cli, "collect_activity", lambda *args: ({"issues": []}, {}))
+  monkeypatch.setattr(cli, "collect_activity", lambda *args, **kwargs: ({"issues": []}, {}))
   assert cli.issue_activity(args) == 0
   pending = tmp_path / "locks" / "run.lockdir" / "issue-activity.json"
   assert pending.exists()
 
-  def failure(*args):
+  def failure(*args, **kwargs):
     raise PermissionError("trust check failed")
 
   monkeypatch.setattr(cli, "collect_activity", failure)

@@ -20,9 +20,11 @@ def timestamp(value: str) -> datetime:
 
 def collect_activity(
   github: GitHub, since: str | None, cutoff: str, previous: dict[str, Any],
-  *, recent_days: int | None = None,
+  *, recent_days: int | None = None, assessments: dict[str, Any] | None = None,
+  reassess: frozenset[int] = frozenset(),
 ) -> tuple[dict[str, Any], dict[str, Any]]:
   """Return a report input and pending checkpoint without modifying persistent state."""
+  assessments = assessments or {}
   lower = timestamp(since) if since else None
   if lower is not None and lower > timestamp(cutoff):
     raise ValueError("activity cutoff precedes the last successful run")
@@ -31,6 +33,8 @@ def collect_activity(
   recent_lower = (
     timestamp(cutoff) - timedelta(days=recent_days) if recent_days is not None else None
   )
+  if any(number <= 0 for number in reassess):
+    raise ValueError("reassessment issue numbers must be positive")
   trusted = github.trusted_users()
   issues = github.all_issue_metadata()
   # Include drafts and owner PRs for issue coverage even if excluded from code review.
@@ -142,6 +146,10 @@ def collect_activity(
       "pullRequests": contexts,
       "stateEvents": events,
     }
+    evidence = fingerprint({
+      "repository": github.repository, **current, "trustedAuthors": sorted(trusted),
+    })
+    current["evidenceFingerprint"] = evidence
     checkpoint[str(number)] = current
     old_comments = (old or {}).get("comments", {})
     added = (
@@ -174,9 +182,17 @@ def collect_activity(
       or any(timestamp(node["updatedAt"]) >= lower for node in comments)
       or any(timestamp(event["createdAt"]) >= lower for event in events)
     )
-    changed = old is not None and any(current[key] != old.get(key) for key in current)
+    changed = old is not None and any(
+      current[key] != old.get(key)
+      for key in ("metadata", "comments", "pullRequests", "stateEvents")
+    )
+    if old and old.get("evidenceFingerprint") and old["evidenceFingerprint"] != evidence:
+      changed = True
     # Establish a baseline on the first run; include open backlog plus all recent activity.
-    selected = recent_lower is not None or meta["state"] == "OPEN" or new or recent or changed
+    selected = (
+      recent_lower is not None or meta["state"] == "OPEN" or new or recent or changed
+      or number in reassess
+    )
     if not selected:
       if old and "contentFingerprint" in old:
         current["contentFingerprint"] = old["contentFingerprint"]
@@ -194,12 +210,36 @@ def collect_activity(
       "commentChanges": {"added": added, "edited": edited, "deleted": deleted},
       "commentChangeBasis": "checkpoint" if old else "timestamps" if lower else "baseline",
       "pullRequests": [],
+      "evidenceFingerprint": evidence,
+      "assessmentAction": "review",
+      "contentStatus": "fresh",
     }
-    if item["trustedIssueAuthor"]:
+    assessment = assessments.get(str(number), {})
+    can_reuse = bool(
+      number not in reassess
+      and old and old.get("evidenceFingerprint") == evidence
+      and old.get("contentFingerprint")
+      and assessment.get("evidenceFingerprint") == evidence
+      and assessment.get("contentFingerprint") == old["contentFingerprint"]
+      and assessment.get("lastReport")
+    )
+    if can_reuse:
+      # No cached GitHub prose enters the artifact. The report helper uses this
+      # binding only after current metadata, coverage and trust have been checked.
+      item.update(
+        assessmentAction="reuse", contentStatus="unchanged",
+        assessmentSource=assessment["lastReport"],
+      )
+      item["pullRequests"] = [
+        context | {"trustedAuthor": context["author"] in trusted} for context in contexts
+      ]
+      current["contentFingerprint"] = old["contentFingerprint"]
+    if not can_reuse and item["trustedIssueAuthor"]:
       item["snapshot"] = github._trusted_core("issue", number, trusted)
     # Comments have their own author gate, independently of the issue author's gate.
-    item["comments"] = github._trusted_nodes(comments, trusted)
-    for context in contexts:
+    if not can_reuse:
+      item["comments"] = github._trusted_nodes(comments, trusted)
+    for context in ([] if can_reuse else contexts):
       value = dict(context)
       value["trustedAuthor"] = value["author"] in trusted
       if value["trustedAuthor"]:
@@ -208,9 +248,13 @@ def collect_activity(
         if "summary" not in cache:
           cache["summary"] = linked_github.trusted_pr_summary(value["number"], trusted)
         value["snapshot"] = cache["summary"]
-        if linked_github.item_metadata("pr", value["number"]) != cache["metadata"]:
-          raise RuntimeError("linked PR changed during activity collection; retry")
       item["pullRequests"].append(value)
+    # Recheck identities even on the no-text reuse path before exposing old analysis.
+    for context in contexts:
+      linked_github = repositories[context["repository"]]
+      cache = pr_cache[(context["repository"], context["number"])]
+      if linked_github.item_metadata("pr", context["number"]) != cache["metadata"]:
+        raise RuntimeError("linked PR changed during activity collection; retry")
     after = github.item_metadata("issue", number)
     if (
       after["author"] != meta["author"]["login"]
@@ -219,9 +263,11 @@ def collect_activity(
     ):
       raise RuntimeError(f"issue {number} changed during activity collection; retry")
     # Persist hashes, not issue prose, for later edit/deletion comparison.
-    current["contentFingerprint"] = fingerprint(
-      {key: item.get(key) for key in ("snapshot", "comments", "pullRequests")}
-    )
+    if not can_reuse:
+      current["contentFingerprint"] = fingerprint(
+        {key: item.get(key) for key in ("snapshot", "comments", "pullRequests")}
+      )
+    item["contentFingerprint"] = current["contentFingerprint"]
     item["changed"] = changed or bool(
       old and old.get("contentFingerprint") != current["contentFingerprint"]
     )

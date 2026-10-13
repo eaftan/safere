@@ -481,3 +481,99 @@ def test_recent_scope_includes_comments_at_the_window_boundary(posted_at, includ
 def test_recent_scope_rejects_nonpositive_windows(days):
   with pytest.raises(ValueError, match="positive"):
     run(Source(), recent_days=days)
+
+
+def saved_assessment(checkpoint):
+  return {"1": {
+    key: checkpoint["1"][key] for key in ("evidenceFingerprint", "contentFingerprint")
+  } | {"lastReport": "/reports/old.md"}}
+
+
+def test_unchanged_assessed_issue_skips_all_prose_fetches_across_windows():
+  source = Source()
+  source.draft = True
+  _, previous = run(source)
+  source.reads.clear()
+  source.summary_reads.clear()
+  source._trusted_nodes = lambda *args: pytest.fail("unchanged comments must not be fetched")
+  output, current = run(source, previous, since=AFTER, assessments=saved_assessment(previous))
+  item = output["issues"][0]
+  assert item["assessmentAction"] == "reuse"
+  assert item["contentStatus"] == "unchanged"
+  assert item["assessmentSource"] == "/reports/old.md"
+  assert "snapshot" not in item and "comments" not in item
+  assert "snapshot" not in item["pullRequests"][0]
+  assert not source.reads and not source.summary_reads
+  assert current["1"]["contentFingerprint"] == previous["1"]["contentFingerprint"]
+  assert not item["changed"]
+
+
+@pytest.mark.parametrize("change", ["comment_edit", "comment_delete", "comment_add", "merge", "head", "trust"])
+def test_changed_evidence_requires_fresh_assessment_even_with_unchanged_root(change):
+  source = Source()
+  source.draft = True
+  _, previous = run(source)
+  source.reads.clear()
+  if change == "comment_edit":
+    source.comments[0]["updatedAt"] = AFTER
+  elif change == "comment_delete":
+    source.comments.pop()
+  elif change == "comment_add":
+    source.comments.append(source.comments[0] | {"id": "new-comment"})
+  elif change in ("merge", "head"):
+    original = source.item_metadata
+    source.item_metadata = lambda kind, number: original(kind, number) | (
+      {"state": "MERGED"} if change == "merge" and kind == "pr"
+      else {"head_oid": "def"} if kind == "pr" else {}
+    )
+  else:
+    source.trusted_users = lambda: frozenset()
+  output, _ = run(source, previous, assessments=saved_assessment(previous))
+  item = output["issues"][0]
+  assert item["assessmentAction"] == "review"
+  assert item["changed"]
+  assert "assessmentSource" not in item
+  if change == "trust":
+    assert not source.reads
+    assert "snapshot" not in item
+    assert "safe comment" not in json.dumps(output)
+  else:
+    assert source.reads == [("issue", 1)]
+
+
+@pytest.mark.parametrize("missing", ["evidenceFingerprint", "contentFingerprint", "lastReport"])
+def test_missing_legacy_assessment_binding_baselines_once(missing):
+  source = Source()
+  _, previous = run(source)
+  assessment = saved_assessment(previous)
+  del assessment["1"][missing]
+  output, _ = run(source, previous, assessments=assessment)
+  assert output["issues"][0]["assessmentAction"] == "review"
+  assert "snapshot" in output["issues"][0]
+
+
+def test_force_reassessment_handles_policy_changes_and_closed_issues():
+  source = Source(state="CLOSED", updated=AFTER)
+  _, previous = run(source)
+  output, _ = collect_activity(source, "2026-10-03T00:00:01Z", "2026-10-04T00:00:00Z",
+                               previous, assessments=saved_assessment(previous),
+                               reassess=frozenset({1}))
+  assert output["issues"][0]["assessmentAction"] == "review"
+  assert "snapshot" in output["issues"][0]
+
+
+def test_reused_linked_pr_author_race_still_fails_closed():
+  source = Source()
+  external = external_context(source)
+  _, previous = run(source)
+  original = external.item_metadata
+  calls = 0
+
+  def metadata(kind, number):
+    nonlocal calls
+    calls += 1
+    return original(kind, number) | {"author": "writer" if calls == 1 else "stranger"}
+
+  external.item_metadata = metadata
+  with pytest.raises(RuntimeError, match="linked PR changed"):
+    run(source, previous, assessments=saved_assessment(previous))

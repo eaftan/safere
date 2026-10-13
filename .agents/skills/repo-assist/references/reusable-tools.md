@@ -1,6 +1,8 @@
 # Reusable Review Scripts
 
-Use these helpers for repeated mechanics in the contributor workflow. They accept explicit inputs
+Use these helpers for repeated mechanics in the contributor workflow. For incremental issue
+assessment checkpoints and full report carry-forward, use `scripts/issue-tools.py` as described in
+[issue-activity.md](issue-activity.md). They accept explicit inputs
 rather than embedding PR numbers, run IDs, workload lists, or repository/worktree paths. Run them
 from the SafeRE repository using the **loaded** skill directory:
 

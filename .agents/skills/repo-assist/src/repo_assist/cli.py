@@ -177,6 +177,8 @@ def issue_activity(args: argparse.Namespace) -> int:
   since = state.get("lastIssueActivityCutoff") or state.get("lastRunCompletedAt")
   recent_days = getattr(args, "recent_days", None)
   scope = {"recent_days": recent_days} if recent_days is not None else {}
+  scope["assessments"] = state.get("issues", {})
+  scope["reassess"] = frozenset(getattr(args, "reassess", None) or [])
   output, checkpoint = collect_activity(
     GitHub(args.repository),
     since,
@@ -193,6 +195,7 @@ def issue_activity(args: argparse.Namespace) -> int:
       {
         "cutoff": metadata["startedAt"],
         "checkpoint": checkpoint,
+        "artifactFingerprint": output.get("fingerprint"),
       },
       indent=2,
     )
@@ -284,6 +287,10 @@ def parser() -> argparse.ArgumentParser:
   activity.add_argument(
     "--recent-days", type=int,
     help="include only newly created open issues or issues with comments posted within this window",
+  )
+  activity.add_argument(
+    "--reassess", type=int, nargs="+",
+    help="fetch content despite matching evidence (policy/code changes or unavailable prior report)",
   )
   activity.set_defaults(func=issue_activity)
   feedback = commands.add_parser("authored-feedback")

@@ -106,7 +106,9 @@ requires all three:
 1. After acquiring the run lock, read
    [references/issue-activity.md](references/issue-activity.md) and collect issue activity across all
    states with `issue-activity`. Assess new issues and discussion/updates since the last successful
-   run, with PR coverage including drafts.
+   run, with PR coverage including drafts. Refresh metadata for every eligible issue, assess only
+   changed evidence or premises, and use the issue report helper to carry unchanged assessments
+   and reviewer `Done` values forward in full.
 2. Read [references/authored-pr-feedback.md](references/authored-pr-feedback.md), collect
    `authored-feedback`, and assess feedback on the authenticated user's PRs, including drafts.
    Before contributor reviews, commit agreed repairs locally in the existing original worktree
@@ -124,8 +126,9 @@ categories' worktrees, assessments, and state separate as their references speci
 
 ## Reusable Scripts
 
-Use [references/reusable-tools.md](references/reusable-tools.md) for contributor checkpoints,
-trusted freshness refreshes, merge-conflict evidence, report audits, and paired wrapper benchmark
+Use [references/issue-activity.md](references/issue-activity.md) for incremental issue checkpoints
+and report carry-forward. Use [references/reusable-tools.md](references/reusable-tools.md) for
+contributor checkpoints, trusted freshness refreshes, merge-conflict evidence, report audits, and paired wrapper benchmark
 collection/extraction. The scripts take explicit run inputs and preserve category separation;
 review judgment and the final semantic reading of author-facing copies remain required.
 
