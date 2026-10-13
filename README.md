@@ -8,7 +8,8 @@
   that exploit it.
 - **Correct:** Built for production use, targeting `java.util.regex` compatibility
   within that guarantee. Extensive [validation](docs/TESTING.md) includes JDK
-  differential testing, exhaustive sweeps, fuzzing, and regression coverage.
+  differential testing, exhaustive sweeps, continuous fuzzing through OSS-Fuzz,
+  and regression coverage.
 - **Fast:** Substantially faster than the JDK regex engine and competitive with
   leading native engines in both our own benchmarks and [Rebar](https://github.com/BurntSushi/rebar)'s independently
   developed benchmark suite. See the
@@ -79,6 +80,8 @@ if (matcher.find()) {
 Use `find()` to search, `matches()` to match the whole input, and `lookingAt()`
 to match from the beginning. Compiled patterns are reusable and thread-safe;
 matchers hold mutable state and must not be shared between threads.
+`Pattern.compile` does more work than in `java.util.regex`, so compile each
+pattern once and reuse it; see [Using SafeRE efficiently](docs/EFFICIENT_USE.md).
 
 For supported uses of `java.util.regex`, migration starts with changing the
 `Pattern` and `Matcher` imports. The [migration guide](docs/MIGRATION.md)
@@ -93,6 +96,7 @@ in your application's tests.
 - [Direct UTF-8 matching](docs/UTF8.md)
 - [Multi-pattern matching](docs/PATTERN_SET.md)
 - [Pattern analysis and runtime diagnostics](docs/DIAGNOSTICS.md)
+- [Using SafeRE efficiently: compiling, caching, and writing efficient patterns](docs/EFFICIENT_USE.md)
 - [All guides](docs/README.md), including architecture and contributor workflows
 
 ## Performance
@@ -123,6 +127,8 @@ The linked archive includes raw results, versions, and methodology.
 The [benchmark report](BENCHMARKS.md) compares SafeRE with the JDK, RE2/J,
 and other engines, with methodology and links to recorded evidence. See
 [running benchmarks](safere-benchmarks/README.md) to measure your workloads.
+For guidance on compiling, caching, and using patterns efficiently, see
+[Using SafeRE efficiently](docs/EFFICIENT_USE.md).
 
 ## Support and contributing
 

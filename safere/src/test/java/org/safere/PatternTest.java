@@ -1377,4 +1377,31 @@ class PatternTest {
       assertThat(p.find(Utf8Input.trusted(noMatchUtf8))).isFalse();
     }
   }
+
+  @Test
+  @DisplayName("find(Utf8Input) agrees with the JDK for patterns its forward DFA can't answer")
+  void utf8FindWithoutForwardDfaAgreesWithJdk() {
+    String prose = "fine food offer ".repeat(200);
+    for (String regex :
+        List.of(
+            // End anchors.
+            "(foo|fax)$",
+            "(?i)\\s*(foo|fax)$",
+            "\\s*(foo|fax)\\z",
+            "[a-z]+ (foo|fax)$",
+            "o$",
+            // Loop registers (a nullable repeated body).
+            "(x?)+(foo|fax)",
+            "(a?)+fax",
+            // Grapheme semantics.
+            "\\X(foo|fax)")) {
+      for (String text :
+          List.of("", "foo", prose, prose + "foo", prose + "FAX", prose + "fax\n", "foo" + prose)) {
+        boolean expected = java.util.regex.Pattern.compile(regex).matcher(text).find();
+        assertThat(Pattern.compile(regex).find(Utf8Input.trusted(text.getBytes(UTF_8))))
+            .as("%s on a %s-char input", regex, text.length())
+            .isEqualTo(expected);
+      }
+    }
+  }
 }

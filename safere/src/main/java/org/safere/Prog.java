@@ -55,8 +55,20 @@ final class Prog {
 
   /** Creates a copy of another program. */
   public Prog(Prog other) {
-    for (Inst inst : other.instructions) {
-      this.instructions.add(new Inst(inst));
+    this(other, /* copyInstructions= */ true);
+  }
+
+  /**
+   * Copies another program's fields. With {@code copyInstructions} false, the copy shares the other
+   * program's {@link Inst} objects, so it must not modify them.
+   */
+  private Prog(Prog other, boolean copyInstructions) {
+    if (copyInstructions) {
+      for (Inst inst : other.instructions) {
+        this.instructions.add(new Inst(inst));
+      }
+    } else {
+      this.instructions.addAll(other.instructions);
     }
     this.didFlatten = other.didFlatten;
     this.start = other.start;
@@ -527,6 +539,18 @@ final class Prog {
       nextEdge[edge] = head[to];
       head[to] = edge;
     }
+  }
+
+  /**
+   * Returns a flattened, frozen copy of this program, leaving this program unchanged. This avoids
+   * copying every instruction first: {@link #flatten()} reads the original instructions and emits
+   * new ones, so the copy can share them until it replaces its instruction list.
+   */
+  Prog flattenedCopy() {
+    Prog copy = new Prog(this, /* copyInstructions= */ false);
+    copy.flatten();
+    copy.freeze();
+    return copy;
   }
 
   public void flatten() {

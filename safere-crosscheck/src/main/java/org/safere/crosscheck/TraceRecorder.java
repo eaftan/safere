@@ -6,6 +6,7 @@ package org.safere.crosscheck;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -68,7 +69,7 @@ public final class TraceRecorder {
     sb.append("API call trace (").append(entries.size()).append(" calls):\n");
     for (int i = 0; i < entries.size(); i++) {
       TraceEntry e = entries.get(i);
-      sb.append(String.format("  [%d] %s(%s)", i + 1, e.method(), e.args()));
+      sb.append(String.format(Locale.ROOT, "  [%d] %s(%s)", i + 1, e.method(), e.args()));
       if (e.matched()) {
         sb.append(" → ").append(e.safereResult());
       } else {

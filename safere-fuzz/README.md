@@ -5,6 +5,12 @@ dual-engine oracles to compare SafeRE with `java.util.regex`, as well as
 SafeRE-specific checks for stack safety and UTF-8 behavior. An `AssertionError`
 signals a failed invariant or a semantic divergence.
 
+## Continuous Fuzzing with OSS-Fuzz
+
+SafeRE is continuously fuzzed by [OSS-Fuzz](https://google.github.io/oss-fuzz/).
+Open fuzzer findings are tracked in the
+[SafeRE OSS-Fuzz bug tracker](https://issues.oss-fuzz.com/issues?q=project:safere).
+
 ## Targets
 
 - `CompileFuzzer` fuzzes compile/reject behavior.

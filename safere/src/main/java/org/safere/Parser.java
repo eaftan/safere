@@ -332,7 +332,15 @@ final class Parser {
           if ((flags & ParseFlags.PERL_X) != 0) {
             skipQuantifierModifierTrivia();
             if (pos < pattern.length() && pattern.charAt(pos) == '+') {
-              if (!canIgnorePossessiveModifierOnZeroWidthOperand()) {
+              // A counted repetition with no operand of its own, as at the start of a sequence
+              // or after another quantifier, repeats an empty expression in the JDK, so a
+              // possessive modifier on it cannot change the match.
+              boolean implicitEmptyOperand =
+                  lastTokenNonRepeatable
+                      || lastunary != null
+                      || stacktop == null
+                      || isMarker(stacktop);
+              if (!implicitEmptyOperand && !canIgnorePossessiveModifierOnZeroWidthOperand()) {
                 throw new PatternSyntaxException(
                     "possessive quantifiers are not supported", pattern, opStart);
               }
@@ -1280,6 +1288,18 @@ final class Parser {
       // PARSE_NOTHING: fall through
     }
 
+    // JDK Pattern reads \v as U+000B instead of vertical whitespace when the next character is '-'
+    // (after empty \Q\E quotes are removed), an undocumented compatibility rule. SafeRE rejects
+    // that spelling instead of silently matching something different (see
+    // INTENTIONAL_DIVERGENCES.md).
+    if (startsVerticalTabRangeStart()) {
+      throw new IntentionalDivergenceSyntaxException(
+          "ambiguous \\v before '-' in a character class: use \\x0B for U+000B, or escape the"
+              + " hyphen as \\- to keep \\v as vertical whitespace",
+          pattern,
+          pos);
+    }
+
     // Look for Perl character class symbols.
     {
       int saved = pos;
@@ -1378,7 +1398,32 @@ final class Parser {
       System.arraycopy(literals, 1, trailing, 0, trailing.length);
       return new RangeEndpoint(literals[0], trailing);
     }
+    // JDK Pattern reads a \v range end as U+000B; SafeRE rejects it, as it does a \v range start.
+    if (startsVerticalTabEscapeAt(pos)) {
+      throw new IntentionalDivergenceSyntaxException(
+          "ambiguous \\v as a character class range end: use \\x0B for U+000B, or escape the"
+              + " hyphen as \\- to keep \\v as vertical whitespace",
+          pattern,
+          pos);
+    }
     return new RangeEndpoint(parseCCCharacter(), new int[0]);
+  }
+
+  private boolean startsVerticalTabRangeStart() {
+    if (!startsVerticalTabEscapeAt(pos)) {
+      return false;
+    }
+    int next = pos + 2;
+    while (startsEmptyQuotedLiteralAt(next)) {
+      next += 4;
+    }
+    return next < pattern.length() && pattern.charAt(next) == '-';
+  }
+
+  private boolean startsVerticalTabEscapeAt(int index) {
+    return index + 1 < pattern.length()
+        && pattern.charAt(index) == '\\'
+        && pattern.charAt(index + 1) == 'v';
   }
 
   private void skipClassRangeEndpointTrivia() {
@@ -1491,8 +1536,11 @@ final class Parser {
         try {
           return Character.codePointOf(name);
         } catch (IllegalArgumentException e) {
-          throw new PatternSyntaxException(
-              "unknown Unicode character name: " + name, pattern, nameStart);
+          PatternSyntaxException error =
+              new PatternSyntaxException(
+                  "unknown Unicode character name: " + name, pattern, nameStart);
+          error.initCause(e);
+          throw error;
         }
       }
       // JDK treats all non-zero numeric escapes as back references, not octal literals.

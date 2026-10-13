@@ -113,6 +113,42 @@ class MultiAnchorCompilerTest {
   }
 
   @Test
+  void unicodeFoldClassCardinalityPreservesEveryEligiblePrefix() {
+    // Include every code point, including members reached only through inverse casing links.
+    // This pins the cardinality bound against both the JDK's casing data and SafeRE's fold table.
+    int largestClosure = 0;
+    for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+      CharClassBuilder builder = new CharClassBuilder();
+      UnicodeCaseFolding.addUnicodeFoldedRange(builder, cp, cp);
+      CharClass closure = builder.build();
+      largestClosure = Math.max(largestClosure, closure.numRunes());
+
+      int representative = closure.lo(0);
+      if (Inst.simpleFold(representative) == representative) {
+        continue;
+      }
+      int width = Character.toString(representative).getBytes(UTF_8).length;
+      boolean sameWidth = true;
+      for (int range = 0; range < closure.numRanges(); range++) {
+        if (Character.toString(closure.lo(range)).getBytes(UTF_8).length != width
+            || Character.toString(closure.hi(range)).getBytes(UTF_8).length != width) {
+          sameWidth = false;
+          break;
+        }
+      }
+      if (sameWidth) {
+        Regexp ast = new Regexp(RegexpOp.CHAR_CLASS, 0);
+        ast.charClass = closure;
+        MultiAnchorCompiler.PrefixResult prefix =
+            MultiAnchorCompiler.extractUnicodeFoldedPrefix(ast);
+        assertThat(prefix.prefix()).as("fold prefix for %s", closure).isNotNull();
+        assertThat(prefix.foldCase()).as("fold prefix for %s", closure).isTrue();
+      }
+    }
+    assertThat(largestClosure).isEqualTo(4);
+  }
+
+  @Test
   void fixedOffsetLiteralExtracted() {
     Regexp ast = Parser.parse("[0-9]{4}-[0-9]{2}-target", Pattern.toParseFlags(0));
     MultiAnchorDescriptor.StartPlan start = MultiAnchorCompiler.extractStartPlan(ast);
@@ -595,6 +631,54 @@ class MultiAnchorCompilerTest {
     StartPlan.MultiLiteral wideFallback = new StartPlan.MultiLiteral(literals, charClassOf("a-z"));
     assertThat(MultiAnchorCompiler.extractRejectPlan(ast, 0, wideFallback, false))
         .isInstanceOf(RejectPlan.RequiredCharClass.class);
+  }
+
+  @Test
+  void requiredCharClassSelectionUsesAsciiMembersAndFallsBackToRuneCount() {
+    // Mixed [\[\uFF3B] and [\]\uFF3D] are scored by their ASCII members, beating `.` and `\d`.
+    Pattern citation = Pattern.compile(" ?[\\[\uFF3B](?:(?:\\d+\\.){2,}\\d+(?:, )?)+[\\]\uFF3D]");
+    assertThat(citation.rejectPlan()).isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass citationReject =
+        (RejectPlan.RequiredCharClass) citation.rejectPlan();
+    assertThat(citationReject.scanInfo().ranges()).containsExactly(']', ']', 0xFF3D, 0xFF3D);
+
+    // Purely non-ASCII classes fall back to rune count rather than claiming to be rarer than ASCII.
+    Pattern nonAsciiPairVsSingleAscii = Pattern.compile("[\uFF3B\uFF3D]+(?:a|aa)+");
+    assertThat(nonAsciiPairVsSingleAscii.rejectPlan())
+        .isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass singleAsciiReject =
+        (RejectPlan.RequiredCharClass) nonAsciiPairVsSingleAscii.rejectPlan();
+    assertThat(singleAsciiReject.scanInfo().ranges()).containsExactly('a', 'a');
+
+    // A 1-rune non-ASCII class still beats a 10-rune ASCII digit class by rune count.
+    Pattern singleNonAsciiVsDigits = Pattern.compile(".*[\uFF3B]+\\d+");
+    assertThat(singleNonAsciiVsDigits.rejectPlan())
+        .isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass singleNonAsciiReject =
+        (RejectPlan.RequiredCharClass) singleNonAsciiVsDigits.rejectPlan();
+    assertThat(singleNonAsciiReject.scanInfo().ranges()).containsExactly(0xFF3B, 0xFF3B);
+
+    // A mixed class with a large non-ASCII range is not scored by its ASCII member, so it does not
+    // claim to be rarer than a digit on text in the language it covers.
+    Pattern digitsThenCjk = Pattern.compile("\\d+[\\-\u4E00-\u9FFF]+");
+    assertThat(digitsThenCjk.rejectPlan()).isInstanceOf(RejectPlan.RequiredCharClass.class);
+    RejectPlan.RequiredCharClass digitsReject =
+        (RejectPlan.RequiredCharClass) digitsThenCjk.rejectPlan();
+    assertThat(digitsReject.scanInfo().ranges()).containsExactly('0', '9');
+  }
+
+  @Test
+  void optionalCharBeforeCommonClassKeepsRejectPrefilter() {
+    // No start accelerator scans for a class this common, so a leading expansion would only drop
+    // the reject that makes input without the class cheap.
+    for (String regex : List.of("-?\\d+", "[+-]?\\d+", "#?[0-9A-Fa-f]{6}")) {
+      Pattern pattern = Pattern.compile(regex);
+      assertThat(pattern.startPlan()).as(regex).isNotInstanceOf(StartPlan.LeadingExpansion.class);
+      assertThat(pattern.rejectPlan()).as(regex).isNotEqualTo(RejectPlan.None.INSTANCE);
+    }
+    // A selective inner class still gets the expansion.
+    assertThat(Pattern.compile(" ?[\\[\uFF3B]\\d+").startPlan())
+        .isInstanceOf(StartPlan.LeadingExpansion.class);
   }
 
   /**

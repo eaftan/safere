@@ -224,6 +224,60 @@ class Utf8DiagnosticsTest {
   }
 
   @Test
+  void endAnchoredBooleanFindWithCapturesReportsOneCaptureFreeEvent() {
+    // The existence-only end-anchored path verifies without computing captures.
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("(foo|fax)$");
+
+    assertThat(pattern.find(input("say fax"))).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.operation()).isEqualTo(MatchOperation.FIND);
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.matchCount()).isEqualTo(1);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+  }
+
+  @Test
+  void endAnchoredBooleanFindWithoutMatchReportsOneEvent() {
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("(foo|fax)$");
+
+    assertThat(pattern.find(input("say fix"))).isFalse();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.NO_MATCH);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+              assertThat(event.matchCount()).isZero();
+            });
+  }
+
+  @Test
+  void directBooleanFindWithCapturesReportsNoCaptureMode() {
+    // Without an end anchor, Pattern.find(Utf8Input) stays on its matcher-free path, which never
+    // computes captures.
+    Pattern.setDiagnostics(diagnostics);
+    Pattern pattern = Pattern.compile("(foo|fax)");
+
+    assertThat(pattern.find(input("say fax"))).isTrue();
+
+    assertThat(operationsFor(pattern))
+        .singleElement()
+        .satisfies(
+            event -> {
+              assertThat(event.outcome()).isEqualTo(MatchOutcome.MATCH);
+              assertThat(event.captureMode()).isEqualTo(CaptureMode.NONE);
+            });
+  }
+
+  @Test
   void patternBooleanFindReportsAcceleratedRejection() {
     Pattern.setDiagnostics(diagnostics);
     Pattern pattern = Pattern.compile("é[ab]+c");
