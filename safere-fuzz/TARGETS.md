@@ -103,6 +103,9 @@ rejection as a visible differential finding. Their rationale is documented under
 and [class intersection](../INTENTIONAL_DIVERGENCES.md#character-class-intersection-and-ampersand-literals).
 The [reviewed reproduction registry](src/test/resources/intentional-reproductions/README.md)
 pins exact SafeRE and JDK outcomes, including comment/quoting behavior.
+It also pins the rejected `\v` class-range spellings from `EscapeSyntaxFuzzer`;
+these remain generated exploratory findings but are not unconditional agreement
+probes run for every input. Compatible spellings remain fixed differential probes.
 `IntentionalReproductionTest` replays it independently and requires review when
 outcomes change. These are not passing fuzz seeds and never suppress other inputs.
 

@@ -73,6 +73,8 @@ public final class EscapeSyntaxFuzzer {
       List.of(
           "", "a", "A", "0", "7", "@", "\u001b", "&", "-", "©", "Ā", "é", "☃", "😀", "🙀", "\u0000",
           "\u0140", "\uD800", "\uD840", "\uf57f");
+  // Reviewed intentional differences belong in the reproduction registry, not fixed agreement
+  // probes. Prefix/escape/suffix generation still explores the ambiguous class-range spellings.
   private static final String[] REGRESSION_REGEXES = {
     "^\\©",
     "[\\©]",
@@ -105,11 +107,7 @@ public final class EscapeSyntaxFuzzer {
     "(?x)\\c\ta",
     "(?x)\\c#\na",
     "[^\\c\uD800]",
-    "[\\v-z]",
-    "[\\t-\\v]",
-    "[\\v\\Q\\E-z]",
     "(?x)[\\v -z]",
-    "(?x)[\\v- z]",
     "[\\v\\-z]",
     "[\\t\\-\\v]"
   };

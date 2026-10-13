@@ -3,3 +3,7 @@ same-start-capture
 intersection-syntax
 comment-quote-membership
 comment-quote-compile
+vertical-whitespace-range-start
+vertical-whitespace-range-end
+vertical-whitespace-range-empty-quote
+vertical-whitespace-range-comments
